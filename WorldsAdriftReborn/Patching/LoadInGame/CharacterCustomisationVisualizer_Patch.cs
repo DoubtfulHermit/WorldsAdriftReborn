@@ -12,6 +12,12 @@ namespace WorldsAdriftReborn.Patching.LoadInGame
     {
         private static bool appearancePublished;
 
+        /// <summary>Re-arms the one-shot publish; called when re-entering the world.</summary>
+        internal static void ResetAppearancePublished()
+        {
+            appearancePublished = false;
+        }
+
         /*
          * Appearance flow (see docs/multiplayer.md in the server repo):
          *

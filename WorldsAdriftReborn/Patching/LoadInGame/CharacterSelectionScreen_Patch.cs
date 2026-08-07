@@ -25,6 +25,11 @@ namespace WorldsAdriftReborn.Patching.LoadInGame
 
             list.Add(lsys.CurrentCreationData);
             CharacterDataLoader.Save(list);
+
+            // Re-arm the one-shot appearance publish so re-entering the world in
+            // the same process (character change, relog without restart) publishes
+            // the new appearance again.
+            CharacterCustomisationVisualizer_Patch.ResetAppearancePublished();
         }
     }
 }

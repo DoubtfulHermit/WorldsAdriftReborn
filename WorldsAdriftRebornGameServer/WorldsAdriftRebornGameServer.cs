@@ -53,10 +53,20 @@ namespace WorldsAdriftRebornGameServer
             // unimplemented TODO in Exports.cpp. Until that exists a departed
             // player leaves a stale avatar behind, which is cosmetic rather than
             // blocking.
+            long? ownEntity = Players.EntityOf(PeerIdentity.IdOf(ePeer));
+
             IReadOnlyList<MirrorIntent> despawns = Mirror.OnLeave(PeerIdentity.IdOf(ePeer));
             if (despawns.Count > 0)
             {
                 Console.WriteLine("[warning] " + despawns.Count + " avatar(s) cannot be despawned: entity removal is not implemented on the wire. Stale avatar(s) will remain.");
+            }
+
+            // Drop the departed player's stored appearance so the store does not
+            // grow across reconnects (entity ids are handed out monotonically, so
+            // a stale record is never re-read, only wasted memory).
+            if (ownEntity.HasValue)
+            {
+                Appearances.Forget(ownEntity.Value);
             }
 
             PeerManager.Instance.playerState.Remove(ePeer);
