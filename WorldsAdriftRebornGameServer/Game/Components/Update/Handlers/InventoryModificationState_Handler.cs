@@ -4,6 +4,7 @@ using Bossa.Travellers.Player;
 using Improbable.Worker.Internal;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Items;
+using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
 namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
@@ -48,6 +49,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
                 // NOTE: its absolutely crucial to send 1081 before 1088, this is because 1081 sets the item slotType to something meaningfull while 1088 expects some meaningful value if it should be equipped
                 SendOPHelper.SendComponentUpdateOp(player, entityId, new List<uint> { 1280, 1081, 1088 }, new List<object> { storedWearableUtilsState, storedInventoryState, storedPlayerPropertiesState });
+
+                // The equip above only reaches the OWNER. Other players' mirror of
+                // this entity also carries a CharacterCustomisationVisualizer that
+                // renders worn gear from InventoryState (1081) slotType, so fan the
+                // worn 1081 out to every OTHER peer too. Only 1081 is relayed: 1280
+                // is not seeded on remote rigs, and 1088 cosmetics is handled by the
+                // appearance path. (Known tradeoff: this exposes the full inventory
+                // list to other players, acceptable for local co-op.)
+                // Reuse the SAME storedInventoryState that was just modified with the
+                // worn slotType and sent to the owner. Re-dereferencing the ComponentMap
+                // would fetch the pre-equip data (the slotType change lives only on this
+                // copy, it is never written back), so the clothes would not show.
+                foreach (ENetPeerHandle otherPeer in PeerManager.Instance.playerState.Keys)
+                {
+                    if (otherPeer == player)
+                    {
+                        continue;
+                    }
+
+                    SendOPHelper.SendComponentUpdateOp(otherPeer, entityId, new List<uint> { 1081 }, new List<object> { storedInventoryState });
+                    Console.WriteLine("[info] relayed worn gear (1081) of entity " + entityId + " to another player.");
+                }
             }
             for (int j = 0; j < clientComponentUpdate.equipTool.Count; j++)
             {
