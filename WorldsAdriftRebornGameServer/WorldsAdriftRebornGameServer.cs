@@ -93,10 +93,16 @@ namespace WorldsAdriftRebornGameServer
                 return;
             }
 
-            // 190602 TransformState = position and rotation. Nothing else: see the
-            // remarks above on why the local player's set must not be reused.
+            // TransformState for position, plus the same second-stage set the game
+            // itself requests for player entities. 1081 InventoryState and 1088
+            // PlayerPropertiesState are the [Require]s of
+            // CharacterCustomisationVisualizer, which is what builds the visible
+            // body - without them the remote avatar exists but renders nothing.
+            // Deliberately absent: control/authority components (1072, 1073) and
+            // PilotState (1109). See docs/component-ids.md.
+            uint[] remoteSeed = { TransformStateComponentId, 1086, 1081, 1088, 1077, 1280, 1211, 1212, 6924, 6925 };
             List<Structs.Structs.InterestOverride> remoteComponents =
-                new List<Structs.Structs.InterestOverride> { new Structs.Structs.InterestOverride(TransformStateComponentId, 1) };
+                remoteSeed.Select(id => new Structs.Structs.InterestOverride(id, 1)).ToList();
 
             foreach (MirrorIntent intent in intents)
             {
