@@ -25,10 +25,15 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
         private Transform LocalRoot()
         {
-            LocalPlayer lp = LocalPlayer.Instance;
-            if (lp != null)
+            // The rig whose CameraProxy claimed the camera IS the local player's
+            // rig. LocalPlayer.Instance must NOT be used here: it is a scene
+            // object, not part of the Traveller prefab, so its root never equals
+            // a rig root - which once made this sweeper tame the LOCAL rig too
+            // (frozen falling pose, no movement, camera dropping from the sky).
+            Transform claimed = CameraProxy_Patch.OwnerRoot;
+            if (claimed != null)
             {
-                return lp.transform.root;
+                return claimed;
             }
             return firstSeenTravellerRoot;
         }

@@ -25,6 +25,14 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
     {
         private static CameraProxy owner;
 
+        /// <summary>
+        /// Root transform of the LOCAL player's rig - the one whose CameraProxy
+        /// claimed the camera. This is the reliable "which Traveller is mine"
+        /// anchor: LocalPlayer.Instance is NOT on the Traveller prefab, so its
+        /// root never matches a rig root and must not be used for this.
+        /// </summary>
+        public static Transform OwnerRoot => owner != null ? owner.transform.root : null;
+
         [HarmonyPrefix]
         public static bool Start_Prefix( CameraProxy __instance )
         {
