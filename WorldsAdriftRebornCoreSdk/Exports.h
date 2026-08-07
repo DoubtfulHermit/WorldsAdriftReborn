@@ -63,3 +63,4 @@ DLL_EXPORT void __cdecl WorkerProtocol_OpList_Destroy(OpList* op_list);
 DLL_EXPORT void __cdecl WorkerProtocol_Connection_GetFlag(Connection* connection, char* name, void* user_data, GetFlagCallback callback);
 DLL_EXPORT void __cdecl WorkerProtocol_LoadSnapshot(char* filename, SnapshotParameters* parameters, void* user_data, LoadSnapshotCallback callback);
 DLL_EXPORT void __cdecl WorkerProtocol_SaveSnapshot(char* filename, SnapshotParameters* parameters, Snapshot* snapshot, void* user_data, SaveSnapshotCallback callback);
+DLL_EXPORT void __cdecl WAR_SetGamePort(int port);

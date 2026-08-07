@@ -448,7 +448,18 @@ namespace WorldsAdriftRebornGameServer
             }
 
             Console.WriteLine("[info] successfully initialized ENet.");
-            ENetHostHandle server = EnetLayer.ENet_Create_Host(7777, MaxPlayers, 5, 0, 0);
+            // Port is configurable so the server can be hosted somewhere that
+            // already uses 7777 (e.g. a VPS running another game server).
+            // Override with WAREBORN_GAME_PORT; defaults to the stock 7777.
+            int gamePort = 7777;
+            string portEnv = Environment.GetEnvironmentVariable("WAREBORN_GAME_PORT");
+            if (!string.IsNullOrWhiteSpace(portEnv) && int.TryParse(portEnv, out int parsedPort))
+            {
+                gamePort = parsedPort;
+            }
+            Console.WriteLine("[info] game server listening on UDP " + gamePort + ".");
+
+            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, 5, 0, 0);
 
             if (server.IsInvalid)
             {
