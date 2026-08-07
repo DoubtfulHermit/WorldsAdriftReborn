@@ -64,6 +64,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             }
 
             EnsureLine();
+            CacheHookTube();
             reader.PointsUpdated += OnPointsUpdated;
             subscribed = true;
             // Draw whatever is already there.
@@ -117,6 +118,42 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             for (int i = 0; i < points.Count; i++)
             {
                 line.SetPosition(i, points[i].RemapGlobalToUnityVector());
+            }
+
+            // The game's own GrapplingHookTube mesh is driven only by local grapple
+            // logic (which never runs on a remote rig), so on the observer it
+            // renders as a static mis-stretched wedge - the "raycast" the rope our
+            // LineRenderer draws replaces. Keep it hidden while the rope is up.
+            HideHookTube();
+        }
+
+        private MeshRenderer[] hookTubes;
+
+        private void CacheHookTube()
+        {
+            System.Collections.Generic.List<MeshRenderer> found = new System.Collections.Generic.List<MeshRenderer>();
+            foreach (MeshRenderer mr in transform.root.GetComponentsInChildren<MeshRenderer>(true))
+            {
+                if (mr.gameObject.name.IndexOf("Tube", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    found.Add(mr);
+                }
+            }
+            hookTubes = found.ToArray();
+        }
+
+        private void HideHookTube()
+        {
+            if (hookTubes == null)
+            {
+                return;
+            }
+            foreach (MeshRenderer mr in hookTubes)
+            {
+                if (mr != null && mr.enabled)
+                {
+                    mr.enabled = false;
+                }
             }
         }
 
