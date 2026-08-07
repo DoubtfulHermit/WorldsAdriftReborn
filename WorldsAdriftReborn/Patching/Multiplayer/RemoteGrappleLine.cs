@@ -92,21 +92,39 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             line.useWorldSpace = true;
             line.enabled = false;
 
-            // Without a material Unity draws the line with the magenta "missing
-            // shader" fallback, and the default width of 1.0 makes it a giant
-            // neon wedge. Give it a thin width and a plain unlit material so it
-            // reads as a rope. Shader.Find works at runtime for always-included
-            // built-in shaders; fall back through a couple of common names.
-            Shader shader = Shader.Find("Sprites/Default")
-                            ?? Shader.Find("Particles/Alpha Blended")
-                            ?? Shader.Find("Diffuse");
-            if (shader != null)
+            ApplyLineStyle();
+        }
+
+        private bool diagLogged;
+
+        /// <summary>
+        /// Width + material for the rope. Called on create AND on every update:
+        /// a LineRenderer left at its default 1.0 width renders as a fat tapered
+        /// wedge in perspective (thick near the camera, narrowing with distance),
+        /// which is exactly the "raycast" artefact the observer reported.
+        /// </summary>
+        private void ApplyLineStyle()
+        {
+            if (line == null)
             {
-                line.material = new Material(shader);
+                return;
             }
-            Color ropeColor = new Color(0.15f, 0.13f, 0.1f, 1f); // dark rope
+
+            if (line.material == null || line.material.shader == null)
+            {
+                Shader shader = Shader.Find("Sprites/Default")
+                                ?? Shader.Find("Particles/Alpha Blended")
+                                ?? Shader.Find("Unlit/Color")
+                                ?? Shader.Find("Diffuse");
+                if (shader != null)
+                {
+                    line.material = new Material(shader);
+                }
+            }
+
+            Color ropeColor = new Color(0.12f, 0.10f, 0.08f, 1f); // dark rope
             line.SetColors(ropeColor, ropeColor);
-            line.SetWidth(0.04f, 0.04f);
+            line.SetWidth(0.015f, 0.015f);
         }
 
         private void OnPointsUpdated(List<Coordinates> points)
@@ -126,6 +144,32 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             for (int i = 0; i < points.Count; i++)
             {
                 line.SetPosition(i, points[i].RemapGlobalToUnityVector());
+            }
+
+            // Re-assert width/material every update: something (default state or a
+            // re-init) can leave the LineRenderer at its default 1.0 width, which
+            // renders as a fat tapered wedge in perspective.
+            ApplyLineStyle();
+
+            if (!diagLogged)
+            {
+                diagLogged = true;
+                Debug.Log("[WAReborn] LINE DIAG width=" + line.widthMultiplier
+                          + " startW=" + line.startWidth + " endW=" + line.endWidth
+                          + " mat=" + (line.material != null ? line.material.shader.name : "NULL")
+                          + " pts=" + points.Count);
+                foreach (Renderer rd in transform.root.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (!rd.enabled) continue;
+                    Vector3 sz = rd.bounds.size;
+                    // A stretched wedge mesh has one huge bounds axis; flag anything big.
+                    if (sz.magnitude > 3f)
+                    {
+                        Debug.Log("[WAReborn] LINE DIAG big renderer '" + rd.gameObject.name
+                                  + "' (" + rd.GetType().Name + ") bounds=" + sz
+                                  + " under '" + rd.transform.parent?.name + "'");
+                    }
+                }
             }
 
             // The game's own GrapplingHookTube mesh is driven only by local grapple
