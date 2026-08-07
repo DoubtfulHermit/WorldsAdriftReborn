@@ -37,24 +37,6 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         private bool loggedFirstApply;
         private int frameCounter;
 
-        private MonoBehaviour nativePositioner;
-        private bool yielded;
-
-        /// <summary>
-        /// The game's own remote-player positioner on this rig (PlayerVisualizer),
-        /// found by type name so the mod does not need a compile reference to it.
-        /// </summary>
-        private MonoBehaviour FindNativePositioner()
-        {
-            foreach (MonoBehaviour mb in transform.root.GetComponentsInChildren<MonoBehaviour>(true))
-            {
-                if (mb != null && mb.GetType().Name == "PlayerVisualizer")
-                {
-                    return mb;
-                }
-            }
-            return null;
-        }
 
         private void Update()
         {
@@ -82,25 +64,15 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 Debug.Log("[WAReborn] RemoteRigMover on '" + transform.root.name + "': reader acquired.");
             }
 
-            // Yield to the game's own remote-player positioner. Once 1073 is
-            // seeded, PlayerVisualizer (on this same rig) enables and positions
-            // the root every FixedUpdate WITH interpolation - strictly better than
-            // our teleport. Two positioners writing the root transform would
-            // jitter-fight, so RemoteRigMover stands down whenever an enabled
-            // PlayerVisualizer is present, and remains only as the fallback for
-            // when 1073 has not enabled it.
-            if (nativePositioner == null)
+            // A remote avatar must never be physics-simulated. Force the root
+            // rigidbody kinematic UNCONDITIONALLY and first - a dynamic body falls
+            // under gravity between our position writes (that was the bug: a prior
+            // version made it kinematic only after an early return, so a rig the
+            // native positioner did not cleanly own just dropped through the map).
+            if (rootBody != null && !rootBody.isKinematic)
             {
-                nativePositioner = FindNativePositioner();
-            }
-            if (nativePositioner != null && nativePositioner.enabled && nativePositioner.gameObject.activeInHierarchy)
-            {
-                if (!yielded)
-                {
-                    yielded = true;
-                    Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': yielding to native PlayerVisualizer.");
-                }
-                return;
+                rootBody.isKinematic = true;
+                Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': root rigidbody made kinematic.");
             }
 
             bool parented = reader.Parent.HasValue;
@@ -116,15 +88,6 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                               + reader.Parent.Value.parentId + ", hierarchy system in control. pos " + transform.root.position);
                 }
                 return;
-            }
-
-            // Live physics on the rig would jitter-fight these per-frame writes
-            // (nothing else makes the plain rig kinematic; the tamer deliberately
-            // skips plain rigs).
-            if (rootBody != null && !rootBody.isKinematic)
-            {
-                rootBody.isKinematic = true;
-                Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': root rigidbody made kinematic.");
             }
 
             Vector3 unityPos = reader.LocalPosition.RemapGlobalToUnityVector();
