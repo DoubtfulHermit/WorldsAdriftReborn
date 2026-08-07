@@ -125,6 +125,7 @@ namespace WorldsAdriftRebornGameServer
                 {
                     queue = new List<MirrorIntent>();
                     pendingMirrors[target] = queue;
+                    pendingMirrorTick[target] = loopTick;
 
                     if (SendOPHelper.SendAssetLoadRequestOP(target, "notNeeded?", "Traveller", "Default"))
                     {
@@ -139,6 +140,48 @@ namespace WorldsAdriftRebornGameServer
         /// <summary>Entity ops per target peer, waiting for that peer's asset-loaded ack.</summary>
         private static readonly Dictionary<ENetPeerHandle, List<MirrorIntent>> pendingMirrors = new Dictionary<ENetPeerHandle, List<MirrorIntent>>();
 
+        /// <summary>Loop tick at which each peer's mirror ops were parked, for the fallback flush.</summary>
+        private static readonly Dictionary<ENetPeerHandle, long> pendingMirrorTick = new Dictionary<ENetPeerHandle, long>();
+
+        /// <summary>Main-loop tick counter (one per ENet poll iteration, ~50ms).</summary>
+        private static long loopTick = 0;
+
+        /// <summary>Ticks to wait before force-flushing parked mirror ops (~2s at 50ms/iter).</summary>
+        private const long MirrorFlushTimeoutTicks = 40;
+
+        /// <summary>
+        /// Force-flushes any parked mirror ops older than the timeout, so an idle
+        /// already-in-world player still receives a newly joined player's rig even
+        /// though it never sends the asset-load ack the primary flush waits for.
+        /// </summary>
+        private static void FlushStaleMirrors()
+        {
+            if (pendingMirrors.Count == 0)
+            {
+                return;
+            }
+
+            List<ENetPeerHandle> due = null;
+            foreach (KeyValuePair<ENetPeerHandle, long> entry in pendingMirrorTick)
+            {
+                if (loopTick - entry.Value >= MirrorFlushTimeoutTicks)
+                {
+                    (due ??= new List<ENetPeerHandle>()).Add(entry.Key);
+                }
+            }
+
+            if (due == null)
+            {
+                return;
+            }
+
+            foreach (ENetPeerHandle target in due)
+            {
+                Console.WriteLine("[info] mirror: fallback flush for an idle peer (no asset ack seen).");
+                FlushPendingMirrors(target);
+            }
+        }
+
         /// <summary>
         /// Sends the parked mirror ops for a peer, called when that peer acks an
         /// asset load. Uses the peer's FIRST ack after queuing: the ack payload is
@@ -148,6 +191,7 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void FlushPendingMirrors(ENetPeerHandle target)
         {
+            pendingMirrorTick.Remove(target);
             if (!pendingMirrors.TryGetValue(target, out List<MirrorIntent> queue))
             {
                 return;
@@ -393,6 +437,15 @@ namespace WorldsAdriftRebornGameServer
 
             while (keepRunning)
             {
+                loopTick++;
+
+                // Fallback flush for parked mirror ops. The ack-driven flush only
+                // fires when the target sends an asset-load ack - which an ALREADY-
+                // IN-WORLD, idle player never does (it finished loading), so its
+                // mirror of a newly joined player never spawned. After a short
+                // delay (the asset request has had time to load) flush anyway.
+                FlushStaleMirrors();
+
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)
                 {
