@@ -2,6 +2,7 @@
 using Newtonsoft.Json.Linq;
 using WorldsAdriftServer.Helper.CharacterSelection;
 using WorldsAdriftServer.Objects.CharacterSelection;
+using WorldsAdriftServer.Persistence;
 
 namespace WorldsAdriftServer.Handlers.CharacterScreen
 {
@@ -15,16 +16,8 @@ namespace WorldsAdriftServer.Handlers.CharacterScreen
          */
         internal static void HandleCharacterListRequest(HttpSession session, HttpRequest request, string serverIdentifier )
         {
-            List<CharacterCreationData> list = new List<CharacterCreationData>();
-
-            list.Add(Character.GenerateRandomCharacter(serverIdentifier, "Billy Bones"));
-            list.Add(Character.GenerateRandomCharacter(serverIdentifier, "Long John Silver"));
-            list.Add(Character.GenerateNewCharacter(serverIdentifier, "Jim Hawkins"));
-
-            CharacterListResponse characterList = new CharacterListResponse(list);
-            characterList.unlockedSlots = list.Count; // let the player create a new character below the list of existing characters (last provided character above must be a GenerateNewCharacter())
-            characterList.hasMainCharacter = true;
-            characterList.havenFinished = true;
+            List<CharacterCreationData> list = CharacterRepository.Load(serverIdentifier);
+            CharacterListResponse characterList = RosterPolicy.ToResponse(list);
 
             JObject respO = (JObject)JToken.FromObject(characterList);
             if (respO != null)

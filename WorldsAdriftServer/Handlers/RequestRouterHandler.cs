@@ -44,7 +44,7 @@ namespace WorldsAdriftServer.Handlers
                 }
                 else if(request.Method == "POST" && request.Url.Contains("/character/") && request.Url.Contains("/steam/1234/"))
                 {
-                    CharacterSaveHandler.HandleCharacterSave(this, request);
+                    CharacterSaveHandler.HandleCharacterSave(this, request, "community_server");
                 }
             }
         }
