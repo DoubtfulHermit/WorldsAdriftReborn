@@ -84,6 +84,60 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                     Debug.Log("[WAReborn] DISABLED remote rig AudioListener under '" + root.name + "'");
                 }
             }
+
+            // Remote rigs must not SIMULATE, only display. The prefab's physics
+            // and movement scripts are plain MonoBehaviours (no [Require]), so a
+            // mirrored rig runs a full ragdoll+movement simulation that fights
+            // the relayed TransformState positions and burns CPU.
+            if (localRoot != null)
+            {
+                foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+                {
+                    Transform root = rootGo.transform;
+                    if (!root.name.StartsWith("Traveller@Player") || root == localRoot)
+                    {
+                        continue;
+                    }
+                    TameRemoteRig(root);
+                }
+            }
+        }
+
+        /// <summary>Names of movement/simulation scripts to disable on remote rigs.</summary>
+        private static readonly string[] SimulationBehaviours =
+        {
+            "PlayerMove", "PlayerInput", "PuppetMaster", "BehaviourPuppet", "PlayerKnockout",
+            "CharacterControls", "GrapplingHook", "PlayerGliding",
+        };
+
+        private void TameRemoteRig(Transform root)
+        {
+            foreach (Rigidbody body in root.GetComponentsInChildren<Rigidbody>(true))
+            {
+                if (!body.isKinematic)
+                {
+                    body.isKinematic = true;
+                    Debug.Log("[WAReborn] remote rig: made rigidbody kinematic on '" + body.gameObject.name + "'");
+                }
+            }
+
+            foreach (MonoBehaviour behaviour in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (behaviour == null || !behaviour.enabled)
+                {
+                    continue;
+                }
+                string typeName = behaviour.GetType().Name;
+                foreach (string sim in SimulationBehaviours)
+                {
+                    if (typeName == sim)
+                    {
+                        behaviour.enabled = false;
+                        Debug.Log("[WAReborn] remote rig: disabled " + typeName + " on '" + behaviour.gameObject.name + "'");
+                        break;
+                    }
+                }
+            }
         }
     }
 }
