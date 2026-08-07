@@ -93,22 +93,15 @@ namespace WorldsAdriftRebornGameServer
                 return;
             }
 
-            // TransformState for position, PlayerName, and the two [Require]s of
-            // CharacterCustomisationVisualizer (1081 InventoryState, 1088
-            // PlayerPropertiesState) - the component that builds the visible body.
+            // Two-phase mirror. The client only instantiates an entity whose
+            // prefab asset it has LOADED: the local player flow sends an
+            // AssetLoadRequestOp and waits for the ack before AddEntityOp. When
+            // this mirror sent AddEntityOp("Traveller","Default") directly, the
+            // plain Traveller asset had never been requested and no rig ever
+            // appeared in the scene (verified by the client-side rig inventory).
             //
-            // Nothing more. Seeding the full second-stage player set (1077, 1280,
-            // 1211, 1212, 6924, 6925) enabled visualizers against
-            // default-initialized data and they threw NullReferenceExceptions
-            // during their OnEnable subscriptions (InteractAgentStateReader
-            // .add_ItemSlotUpdated, PlayerEquipmentVisualizer), which can abort
-            // the entity's whole visualizer-enable chain.
-            // Control/authority components (1072, 1073) and PilotState (1109)
-            // remain deliberately absent. See docs/component-ids.md.
-            uint[] remoteSeed = { TransformStateComponentId, 1086, 1081, 1088 };
-            List<Structs.Structs.InterestOverride> remoteComponents =
-                remoteSeed.Select(id => new Structs.Structs.InterestOverride(id, 1)).ToList();
-
+            // So: request the asset now, park the entity ops per target peer, and
+            // flush them when that peer's next asset-loaded ack arrives.
             foreach (MirrorIntent intent in intents)
             {
                 ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)intent.TargetPeer));
@@ -118,20 +111,55 @@ namespace WorldsAdriftRebornGameServer
                     continue;
                 }
 
+                if (!pendingMirrors.TryGetValue(target, out List<MirrorIntent> queue))
+                {
+                    queue = new List<MirrorIntent>();
+                    pendingMirrors[target] = queue;
+
+                    if (SendOPHelper.SendAssetLoadRequestOP(target, "notNeeded?", "Traveller", "Default"))
+                    {
+                        Console.WriteLine("[info] mirror: requested plain Traveller asset load for a peer.");
+                    }
+                }
+
+                queue.Add(intent);
+            }
+        }
+
+        /// <summary>Entity ops per target peer, waiting for that peer's asset-loaded ack.</summary>
+        private static readonly Dictionary<ENetPeerHandle, List<MirrorIntent>> pendingMirrors = new Dictionary<ENetPeerHandle, List<MirrorIntent>>();
+
+        /// <summary>
+        /// Sends the parked mirror ops for a peer, called when that peer acks an
+        /// asset load. Uses the peer's FIRST ack after queuing: the ack payload is
+        /// not parsed anywhere in this server, so this can fire one asset early if
+        /// the peer was still mid-spawn - if rigs intermittently fail to appear
+        /// for the JOINING client, parse the ack payload and match the asset.
+        /// </summary>
+        private static void FlushPendingMirrors(ENetPeerHandle target)
+        {
+            if (!pendingMirrors.TryGetValue(target, out List<MirrorIntent> queue))
+            {
+                return;
+            }
+            pendingMirrors.Remove(target);
+
+            // Context "Default", NOT "Player": "Player" selects Traveller@Player,
+            // the full local rig whose duplication caused every camera/identity
+            // regression. "Default" selects the plain Traveller remote rig.
+            List<Structs.Structs.InterestOverride> remoteComponents =
+                RemoteSeed.Select(id => new Structs.Structs.InterestOverride(id, 1)).ToList();
+
+            foreach (MirrorIntent intent in queue)
+            {
                 bool ok = intent.Op switch
                 {
-                    // Context "Default", NOT "Player". The client's DispatchEventHandler maps
-                    // prefabContext to the prefab asset: "Player" selects Traveller@Player,
-                    // the FULL LOCAL RIG (LocalPlayerInit, camera proxies, ~90 local-only
-                    // components) - instantiating that for a remote player is what caused
-                    // every camera/identity/movement regression. "Default" selects the plain
-                    // Traveller prefab: the game's own remote-player rig.
                     MirrorOp.AddEntity => SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default"),
                     MirrorOp.AddComponents => SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents),
                     _ => true,
                 };
 
-                Console.WriteLine((ok ? "[success] " : "[error] failed: ") + "mirror " + intent);
+                Console.WriteLine((ok ? "[success] " : "[error] failed: ") + "mirror(flush) " + intent);
             }
         }
 
@@ -187,6 +215,18 @@ namespace WorldsAdriftRebornGameServer
         /// See docs/component-ids.md.
         /// </summary>
         private const uint TransformStateComponentId = 190602;
+
+        /// <summary>
+        /// Components seeded on a mirrored remote avatar: TransformState for
+        /// position, 1086 PlayerName, and the two [Require]s of
+        /// CharacterCustomisationVisualizer (1081 InventoryState, 1088
+        /// PlayerPropertiesState) which builds the visible body. Nothing more:
+        /// the full second-stage set enabled visualizers against
+        /// default-initialized data and their OnEnable subscriptions threw.
+        /// Control/authority components (1072, 1073) and PilotState (1109)
+        /// remain deliberately absent. See docs/component-ids.md.
+        /// </summary>
+        private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088 };
 
         /// <summary>Who owns which player entity.</summary>
         private static readonly PlayerRegistry Players = new PlayerRegistry();
@@ -333,6 +373,13 @@ namespace WorldsAdriftRebornGameServer
                                 PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
                             }
                         }
+                    }
+
+                    // A peer's asset-loaded ack releases any mirror ops parked for
+                    // it (the two-phase remote-player mirror; see MirrorNewPlayer).
+                    if (packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP)
+                    {
+                        FlushPendingMirrors(sender);
                     }
 
                     // work on packets that are not relevant for progress of sync state
