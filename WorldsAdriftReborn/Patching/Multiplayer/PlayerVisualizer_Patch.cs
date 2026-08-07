@@ -1,26 +1,39 @@
 using System.Reflection;
 using HarmonyLib;
+using Improbable.CoreLibrary.CoordinateRemapping;
+using Improbable.Corelib.Interpolation;
+using Improbable.Math;
 using UnityEngine;
 
 namespace WorldsAdriftReborn.Patching.Multiplayer
 {
     /*
-     * PlayerVisualizer.FixedUpdate is the game's native remote-player positioner:
-     * it writes the root transform from the 190602 interpolator every frame.
-     * Seeding 1073 enables it on the plain remote rig - where it fights
-     * RemoteRigMover for the same root transform. Two positioners produced a
-     * rig that fell through the map on the client where the native one did not
-     * cleanly take over.
+     * Make the game's own interpolating positioner drive remote players, for
+     * smooth movement instead of RemoteRigMover's per-frame teleport - but
+     * SAFELY. PlayerVisualizer.FixedUpdate has three branches (PlayerVisualizer.cs
+     * ~105-141): a Parent branch that writes localPosition with NO origin remap,
+     * a relativeObj/bias branch for ships, and the global else branch. The Parent
+     * branch is what dropped a remote rig ~90km away and made it fall through the
+     * map (a spawn-time LocalTransformTeleportBehaviour publishes a Parent, and
+     * this single-island world has no resolvable parent hierarchy).
      *
-     * RemoteRigMover is the proven positioner and stays authoritative, so this
-     * suppresses PlayerVisualizer.FixedUpdate on REMOTE rigs only (root name is
-     * plain "Traveller <id>", not the local "Traveller@Player <id>"). The local
-     * player's own PlayerVisualizer, if any, is untouched. Animation is
-     * unaffected: it comes from BoneAnimationReader, a different component.
+     * For REMOTE rigs this prefix runs ONLY the global branch - read the same
+     * _interpolator/_rotInterpolator PlayerVisualizer's own OnEnable already
+     * feeds from the relayed 190602 updates, and write the remapped global pose -
+     * then skips the original (return false), so the Parent/relative/playerBlink
+     * paths never run. For the LOCAL rig it returns true and the game's own
+     * FixedUpdate runs unchanged.
+     *
+     * RemoteRigMover still forces the root rigidbody kinematic: the native
+     * kinematic path is gated on an AuthorityChanged event that never fires for a
+     * never-authoritative remote, and PlayerVisualizer does not set it.
      */
     [HarmonyPatch]
     internal class PlayerVisualizer_Patch
     {
+        private static readonly FieldInfo PosInterpField = AccessTools.Field(AccessTools.TypeByName("PlayerVisualizer"), "_interpolator");
+        private static readonly FieldInfo RotInterpField = AccessTools.Field(AccessTools.TypeByName("PlayerVisualizer"), "_rotInterpolator");
+
         [HarmonyTargetMethod]
         public static MethodBase GetTargetMethod()
         {
@@ -30,10 +43,29 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         [HarmonyPrefix]
         public static bool FixedUpdate_Prefix( MonoBehaviour __instance )
         {
-            // Remote plain rig -> skip the native positioner (RemoteRigMover owns
-            // the root). Local full rig -> run it as normal.
-            bool isLocalRig = __instance.transform.root.name.StartsWith("Traveller@Player");
-            return isLocalRig;
+            // Local full rig -> run the game's own FixedUpdate unchanged.
+            if (__instance.transform.root.name.StartsWith("Traveller@Player"))
+            {
+                return true;
+            }
+
+            // Remote rig -> global branch only.
+            PositionInterpolator posInterp = PosInterpField?.GetValue(__instance) as PositionInterpolator;
+            RotationInterpolator rotInterp = RotInterpField?.GetValue(__instance) as RotationInterpolator;
+            if (posInterp == null || rotInterp == null)
+            {
+                // Reflection failed unexpectedly; fall back to the original rather
+                // than freeze the rig.
+                return true;
+            }
+
+            Vector3d interpolatedPos = posInterp.GetInterpolatedValue(Time.deltaTime);
+            Quaternion interpolatedRot = rotInterp.GetInterpolatedValue(Time.deltaTime);
+
+            __instance.transform.position = interpolatedPos.RemapGlobalToUnityVector();
+            __instance.transform.rotation = interpolatedRot;
+
+            return false;
         }
     }
 }

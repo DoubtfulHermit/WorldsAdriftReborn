@@ -65,10 +65,10 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             }
 
             // A remote avatar must never be physics-simulated. Force the root
-            // rigidbody kinematic UNCONDITIONALLY and first - a dynamic body falls
-            // under gravity between our position writes (that was the bug: a prior
-            // version made it kinematic only after an early return, so a rig the
-            // native positioner did not cleanly own just dropped through the map).
+            // rigidbody kinematic UNCONDITIONALLY and first, so nothing can fall
+            // under gravity no matter which positioner is (or is not) active. The
+            // native kinematic path is gated on an AuthorityChanged event that
+            // never fires for a never-authoritative remote, so the mod must do it.
             if (rootBody != null && !rootBody.isKinematic)
             {
                 rootBody.isKinematic = true;
@@ -77,19 +77,26 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
             frameCounter++;
 
-            // Always position from the global TransformState. We do NOT defer to
-            // the parenting/hierarchy branch: once 1073's movement writer is
-            // active the sender may publish a Parent, but this flat single-island
-            // world has no working parent hierarchy to reposition children, so
-            // yielding left the rig stuck at its garbage seed position and it fell
-            // through the map (one client raced into that path, the other did not
-            // - hence the asymmetric fall). Treating every remote as global-
-            // positioned is correct here: the island sits at the origin, so
-            // parent-relative and global coincide.
-            if (reader.Parent.HasValue && frameCounter % 300 == 1)
+            // Positioning is now owned by the game's own PlayerVisualizer (see
+            // PlayerVisualizer_Patch), which interpolates the same relayed 190602
+            // stream for smooth motion. Yielding to it is safe now that (a)
+            // kinematic is forced above regardless, and (b) the patch runs only
+            // PlayerVisualizer's global branch, never the Parent branch that
+            // dropped the rig off-island before. RemoteRigMover stays as the
+            // fallback positioner for the window before PlayerVisualizer enables
+            // (or if it never does), so the avatar is never left frozen far away.
+            if (nativePositioner == null)
             {
-                Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': parent published ("
-                          + reader.Parent.Value.parentId + ") but positioning globally anyway.");
+                nativePositioner = FindNativePositioner();
+            }
+            if (nativePositioner != null && nativePositioner.enabled && nativePositioner.gameObject.activeInHierarchy)
+            {
+                if (!yielded)
+                {
+                    yielded = true;
+                    Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': yielding positioning to PlayerVisualizer.");
+                }
+                return;
             }
 
             Vector3 unityPos = reader.LocalPosition.RemapGlobalToUnityVector();
@@ -101,9 +108,25 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             if (!loggedFirstApply || frameCounter % 300 == 1)
             {
                 loggedFirstApply = true;
-                Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': unparented, applying global pos "
-                          + unityPos + " (raw " + reader.LocalPosition.ToString() + ", t=" + reader.Timestamp + ")");
+                Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': fallback global pos "
+                          + unityPos + " (t=" + reader.Timestamp + ")");
             }
+        }
+
+        private MonoBehaviour nativePositioner;
+        private bool yielded;
+
+        /// <summary>The game's own remote positioner (PlayerVisualizer), by type name.</summary>
+        private MonoBehaviour FindNativePositioner()
+        {
+            foreach (MonoBehaviour mb in transform.root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb != null && mb.GetType().Name == "PlayerVisualizer")
+                {
+                    return mb;
+                }
+            }
+            return null;
         }
     }
 }
