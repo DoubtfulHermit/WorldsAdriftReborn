@@ -36,14 +36,15 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         {
             if (reader != null)
             {
-                // The GrapplingHookTube is created/enabled only when the grapple
-                // fires (after bind), and the game re-drives it, so hiding it once
-                // is not enough. While the rope is up, keep any *Tube* mesh under
-                // the rig hidden every frame - our LineRenderer is the rope.
-                if (line != null && line.enabled)
-                {
-                    HideHookTube();
-                }
+                // Hide the game's grapple tube EVERY frame, unconditionally - NOT
+                // only while our rope line is up. The tube doubles as an AIM
+                // visual shown while the player is merely aiming (before the rope
+                // attaches, so RopeControlPoints has no points and our line is
+                // disabled) - that is the "raycast to the crosshair" the observer
+                // saw. It is driven only by local logic, so it is always wrong on
+                // a remote rig; our LineRenderer is the only rope the observer
+                // needs.
+                HideHookTube();
                 return;
             }
 
