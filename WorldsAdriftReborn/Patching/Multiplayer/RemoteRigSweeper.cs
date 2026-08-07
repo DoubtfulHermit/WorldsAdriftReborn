@@ -69,8 +69,31 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             return firstSeenTravellerRoot;
         }
 
+        private readonly System.Collections.Generic.HashSet<int> neutralized = new System.Collections.Generic.HashSet<int>();
+
         private void Update()
         {
+            // EVERY FRAME (before the throttled sweep): the instant a remote rig
+            // appears, kill its physics. A freshly spawned plain "Traveller" rig
+            // has live colliders and a dynamic rigidbody and spawns near the
+            // origin overlapping the LOCAL player - PhysX resolves the overlap by
+            // launching the local player into the sky ("yeet on second join").
+            // The 2s-throttled sweep below neutralized it far too late. This does
+            // it on frame one, and skips already-handled rigs.
+            foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                Transform r = rootGo.transform;
+                if (!r.name.StartsWith("Traveller") || r.name.StartsWith("Traveller@Player"))
+                {
+                    continue; // not a remote rig (or it is the local player - never touch)
+                }
+                if (!neutralized.Add(r.GetInstanceID()))
+                {
+                    continue; // already neutralized
+                }
+                NeutralizeRemoteRigPhysics(r);
+            }
+
             if (Time.unscaledTime < nextSweep)
             {
                 return;
@@ -161,6 +184,33 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Immediately makes a remote rig physically inert: every rigidbody
+        /// kinematic, every collider and CharacterController disabled, and the
+        /// RemoteRigMover attached. A display-only remote avatar needs no physics
+        /// collision, and leaving any live means it can eject the local player.
+        /// </summary>
+        private void NeutralizeRemoteRigPhysics(Transform root)
+        {
+            foreach (Rigidbody rb in root.GetComponentsInChildren<Rigidbody>(true))
+            {
+                rb.isKinematic = true;
+            }
+            foreach (Collider col in root.GetComponentsInChildren<Collider>(true))
+            {
+                col.enabled = false;
+            }
+            foreach (CharacterController cc in root.GetComponentsInChildren<CharacterController>(true))
+            {
+                cc.enabled = false;
+            }
+            if (root.GetComponent<RemoteRigMover>() == null)
+            {
+                root.gameObject.AddComponent<RemoteRigMover>();
+            }
+            Debug.Log("[WAReborn] neutralized remote rig physics on '" + root.name + "' (kinematic + colliders off)");
         }
 
         private float nextRigDiag;
