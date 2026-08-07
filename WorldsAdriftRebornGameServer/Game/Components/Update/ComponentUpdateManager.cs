@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using Improbable.Entity.Component;
@@ -53,10 +53,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
         }
         private ComponentUpdateManager()
         {
-            foreach(Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
-            {
-                RegisterAllComponentUpdateHandlers(assembly);
-            }
+            // Only scan our own assembly: every handler is defined here, and calling
+            // GetTypes() on the game's assemblies (Generated.Code, Assembly-CSharp)
+            // aborts the process with a fatal CLR error (0x80131506) under .NET 6,
+            // which no try/catch can recover from.
+            RegisterAllComponentUpdateHandlers(Assembly.GetExecutingAssembly());
         }
         private static bool IsSubclassOfRawGeneric( Type generic, Type toCheck )
         {
