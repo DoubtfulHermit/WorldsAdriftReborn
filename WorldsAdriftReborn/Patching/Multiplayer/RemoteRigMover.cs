@@ -37,6 +37,25 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         private bool loggedFirstApply;
         private int frameCounter;
 
+        private MonoBehaviour nativePositioner;
+        private bool yielded;
+
+        /// <summary>
+        /// The game's own remote-player positioner on this rig (PlayerVisualizer),
+        /// found by type name so the mod does not need a compile reference to it.
+        /// </summary>
+        private MonoBehaviour FindNativePositioner()
+        {
+            foreach (MonoBehaviour mb in transform.root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb != null && mb.GetType().Name == "PlayerVisualizer")
+                {
+                    return mb;
+                }
+            }
+            return null;
+        }
+
         private void Update()
         {
             if (reader == null)
@@ -61,6 +80,27 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
                 rootBody = transform.root.GetComponent<Rigidbody>();
                 Debug.Log("[WAReborn] RemoteRigMover on '" + transform.root.name + "': reader acquired.");
+            }
+
+            // Yield to the game's own remote-player positioner. Once 1073 is
+            // seeded, PlayerVisualizer (on this same rig) enables and positions
+            // the root every FixedUpdate WITH interpolation - strictly better than
+            // our teleport. Two positioners writing the root transform would
+            // jitter-fight, so RemoteRigMover stands down whenever an enabled
+            // PlayerVisualizer is present, and remains only as the fallback for
+            // when 1073 has not enabled it.
+            if (nativePositioner == null)
+            {
+                nativePositioner = FindNativePositioner();
+            }
+            if (nativePositioner != null && nativePositioner.enabled && nativePositioner.gameObject.activeInHierarchy)
+            {
+                if (!yielded)
+                {
+                    yielded = true;
+                    Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': yielding to native PlayerVisualizer.");
+                }
+                return;
             }
 
             bool parented = reader.Parent.HasValue;

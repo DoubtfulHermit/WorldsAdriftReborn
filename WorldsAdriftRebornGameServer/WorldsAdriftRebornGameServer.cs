@@ -209,12 +209,14 @@ namespace WorldsAdriftRebornGameServer
 
         private static readonly EnetLayer.ENet_Poll_Callback callbackC = new EnetLayer.ENet_Poll_Callback(OnNewClientConnected);
         private static readonly EnetLayer.ENet_Poll_Callback callbackD = new EnetLayer.ENet_Poll_Callback(OnClientDisconnected);
-        // 190602 TransformState is in this list because a client only PUBLISHES
-        // components it has authority over: every ComponentUpdateOp ever observed
-        // from a client (1003, 1082, ...) was for a component granted here.
-        // Without authority over its own transform a client never sends position,
-        // and there is nothing for the movement relay to forward.
-        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId};
+        // A client only PUBLISHES components it has authority over. 190602
+        // TransformState is granted so the client sends its position; 1073
+        // ClientAuthoritativePlayerState is granted so ClientAuthoritativePlayerMovement's
+        // Writer enables and the client publishes its skeleton's bone bytes every
+        // tick (that writer is authority-gated - without the grant it never runs
+        // and remote avatars stay in T-pose). The grant only ever applies to the
+        // sender's OWN entity (isSendersOwnEntity gate below).
+        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId, ClientAuthoritativePlayerStateComponentId};
         private static List<long> playerEntityIDs = new List<long>();
 
         /// <summary>
@@ -231,16 +233,24 @@ namespace WorldsAdriftRebornGameServer
         private const uint TransformStateComponentId = 190602;
 
         /// <summary>
-        /// Components seeded on a mirrored remote avatar: TransformState for
-        /// position, 1086 PlayerName, and the two [Require]s of
-        /// CharacterCustomisationVisualizer (1081 InventoryState, 1088
-        /// PlayerPropertiesState) which builds the visible body. Nothing more:
-        /// the full second-stage set enabled visualizers against
-        /// default-initialized data and their OnEnable subscriptions threw.
-        /// Control/authority components (1072, 1073) and PilotState (1109)
-        /// remain deliberately absent. See docs/component-ids.md.
+        /// ClientAuthoritativePlayerState: carries the player's bone/animation
+        /// bytes (and relative-position fields). Seeded on remote rigs so
+        /// BoneAnimationReader binds and animates, and granted to the owner so its
+        /// movement writer publishes. See docs/component-ids.md.
         /// </summary>
-        private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088 };
+        private const uint ClientAuthoritativePlayerStateComponentId = 1073;
+
+        /// <summary>
+        /// Components seeded on a mirrored remote avatar: TransformState (position),
+        /// 1086 PlayerName, the two [Require]s of CharacterCustomisationVisualizer
+        /// (1081 InventoryState, 1088 PlayerPropertiesState) which builds the body,
+        /// and 1073 ClientAuthoritativePlayerState which drives BoneAnimationReader.
+        /// Kept minimal: the full second-stage set enabled visualizers against
+        /// default data and their OnEnable subscriptions threw. Seeding 1073 also
+        /// enables the game's native PlayerVisualizer positioner (which
+        /// RemoteRigMover now yields to). See docs/component-ids.md.
+        /// </summary>
+        private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088, ClientAuthoritativePlayerStateComponentId };
 
         /// <summary>Who owns which player entity. Internal: the component update
         /// handlers validate entity ownership against it.</summary>
