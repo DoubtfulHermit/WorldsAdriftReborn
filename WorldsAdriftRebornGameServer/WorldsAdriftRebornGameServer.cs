@@ -93,14 +93,19 @@ namespace WorldsAdriftRebornGameServer
                 return;
             }
 
-            // TransformState for position, plus the same second-stage set the game
-            // itself requests for player entities. 1081 InventoryState and 1088
-            // PlayerPropertiesState are the [Require]s of
-            // CharacterCustomisationVisualizer, which is what builds the visible
-            // body - without them the remote avatar exists but renders nothing.
-            // Deliberately absent: control/authority components (1072, 1073) and
-            // PilotState (1109). See docs/component-ids.md.
-            uint[] remoteSeed = { TransformStateComponentId, 1086, 1081, 1088, 1077, 1280, 1211, 1212, 6924, 6925 };
+            // TransformState for position, PlayerName, and the two [Require]s of
+            // CharacterCustomisationVisualizer (1081 InventoryState, 1088
+            // PlayerPropertiesState) - the component that builds the visible body.
+            //
+            // Nothing more. Seeding the full second-stage player set (1077, 1280,
+            // 1211, 1212, 6924, 6925) enabled visualizers against
+            // default-initialized data and they threw NullReferenceExceptions
+            // during their OnEnable subscriptions (InteractAgentStateReader
+            // .add_ItemSlotUpdated, PlayerEquipmentVisualizer), which can abort
+            // the entity's whole visualizer-enable chain.
+            // Control/authority components (1072, 1073) and PilotState (1109)
+            // remain deliberately absent. See docs/component-ids.md.
+            uint[] remoteSeed = { TransformStateComponentId, 1086, 1081, 1088 };
             List<Structs.Structs.InterestOverride> remoteComponents =
                 remoteSeed.Select(id => new Structs.Structs.InterestOverride(id, 1)).ToList();
 
