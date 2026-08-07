@@ -40,6 +40,16 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
         private void Update()
         {
+            // Absolute safety: never touch the LOCAL player. If this component
+            // ever lands on the local rig it would force it kinematic and drive
+            // it from a remote stream - the infinite-fall bug. Verified by
+            // local-only components, not by name.
+            if (RemoteRigSweeper.IsLocalRig(transform.root))
+            {
+                enabled = false;
+                return;
+            }
+
             if (reader == null)
             {
                 // The rig carries this behaviour TWICE (baked into the prefab and

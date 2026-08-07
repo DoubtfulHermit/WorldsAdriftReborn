@@ -545,7 +545,10 @@ namespace WorldsAdriftRebornGameServer
                 // mirror of a newly joined player never spawned. After a short
                 // delay (the asset request has had time to load) flush anyway.
                 FlushStaleMirrors();
-                ResendMirrors();
+                // ResendMirrors() DISABLED: resending AddComponents re-applied the
+                // DEFAULT seeded TransformState (0,100,0) - telemetry caught the
+                // local player teleporting to exactly that point and then falling.
+                // Re-seeding components on an already-spawned entity is unsafe.
 
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)

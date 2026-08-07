@@ -84,6 +84,33 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             NeutralizeNewRemoteRigs();
         }
 
+        /// <summary>
+        /// True if this rig is the LOCAL player. Checked by the presence of
+        /// local-only components rather than the root name: name matching proved
+        /// unreliable and let the sweeper neutralize the local player, which made
+        /// it kinematic and left the mover driving it - the "spawned in the sky,
+        /// falling forever" bug (confirmed by telemetry: kinematic=True, vel=0,
+        /// Y decreasing). The plain remote rig has none of these components.
+        /// </summary>
+        internal static bool IsLocalRig(Transform root)
+        {
+            if (root == null)
+            {
+                return false;
+            }
+            foreach (MonoBehaviour mb in root.GetComponentsInChildren<MonoBehaviour>(true))
+            {
+                if (mb == null) continue;
+                string n = mb.GetType().Name;
+                if (n == "LocalPlayerInit" || n == "ClientAuthoritativePlayerMovement"
+                    || n == "InputBehaviour" || n == "PlayerInputSetup" || n == "CameraProxy")
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void NeutralizeNewRemoteRigs()
         {
             foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
@@ -92,6 +119,10 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 if (!r.name.StartsWith("Traveller") || r.name.StartsWith("Traveller@Player"))
                 {
                     continue; // not a remote rig (or it is the local player - never touch)
+                }
+                if (IsLocalRig(r))
+                {
+                    continue; // definitive local-player check - never neutralize
                 }
                 if (!neutralized.Add(r.GetInstanceID()))
                 {

@@ -44,7 +44,11 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         public static bool FixedUpdate_Prefix( MonoBehaviour __instance )
         {
             // Local full rig -> run the game's own FixedUpdate unchanged.
-            if (__instance.transform.root.name.StartsWith("Traveller@Player"))
+            // Checked by local-only COMPONENTS, not the root name: name matching
+            // failed and let this prefix drive the LOCAL player from a remote
+            // interpolator, which is what sent it falling through the sky.
+            if (__instance.transform.root.name.StartsWith("Traveller@Player")
+                || RemoteRigSweeper.IsLocalRig(__instance.transform.root))
             {
                 return true;
             }
