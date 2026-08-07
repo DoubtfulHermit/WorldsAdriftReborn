@@ -143,7 +143,64 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 {
                     TameRemoteRig(root);
                 }
+
+                // Plain remote rig (e.g. "Traveller 3", never "Traveller@Player 3"):
+                // diagnose why it is not on screen, and fix the one known renderable
+                // blocker - RemotePlayerLayerHack moves the rig to a RemotePlayer
+                // layer, which the camera only draws if its culling mask includes it.
+                if (!root.name.StartsWith("Traveller@Player"))
+                {
+                    DiagnoseRemoteRig(root);
+                }
             }
+        }
+
+        private float nextRigDiag;
+
+        /// <summary>
+        /// Logs where the plain remote rig is and whether the camera can draw it,
+        /// and adds its layer to the camera culling mask if missing (the rig's
+        /// RemotePlayerLayerHack moves it to a RemotePlayer layer that nothing in
+        /// the modded flow adds to the camera).
+        /// </summary>
+        private void DiagnoseRemoteRig(Transform root)
+        {
+            if (Time.unscaledTime < nextRigDiag)
+            {
+                return;
+            }
+            nextRigDiag = Time.unscaledTime + 5f;
+
+            Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+            int enabledRenderers = 0;
+            int rendererLayer = root.gameObject.layer;
+            foreach (Renderer r in renderers)
+            {
+                if (r.enabled && r.gameObject.activeInHierarchy)
+                {
+                    enabledRenderers++;
+                    rendererLayer = r.gameObject.layer;
+                }
+            }
+
+            Camera cam = Camera.main;
+            string camInfo = "no main camera";
+            if (cam != null)
+            {
+                bool drawn = (cam.cullingMask & (1 << rendererLayer)) != 0;
+                camInfo = "cameraDraws=" + drawn;
+
+                if (!drawn)
+                {
+                    cam.cullingMask |= 1 << rendererLayer;
+                    camInfo += " -> ADDED layer " + rendererLayer + " (" + LayerMask.LayerToName(rendererLayer) + ") to culling mask";
+                }
+            }
+
+            Debug.Log("[WAReborn] remote rig '" + root.name + "' pos " + root.position
+                      + " layer " + rendererLayer + " (" + LayerMask.LayerToName(rendererLayer) + ")"
+                      + " renderers " + enabledRenderers + "/" + renderers.Length + " active " + root.gameObject.activeInHierarchy
+                      + " | " + camInfo);
         }
 
         /// <summary>Names of movement/simulation scripts to disable on remote rigs.</summary>
