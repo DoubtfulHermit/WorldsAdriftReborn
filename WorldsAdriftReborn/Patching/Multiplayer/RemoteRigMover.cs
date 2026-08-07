@@ -75,19 +75,21 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': root rigidbody made kinematic.");
             }
 
-            bool parented = reader.Parent.HasValue;
             frameCounter++;
 
-            if (parented)
+            // Always position from the global TransformState. We do NOT defer to
+            // the parenting/hierarchy branch: once 1073's movement writer is
+            // active the sender may publish a Parent, but this flat single-island
+            // world has no working parent hierarchy to reposition children, so
+            // yielding left the rig stuck at its garbage seed position and it fell
+            // through the map (one client raced into that path, the other did not
+            // - hence the asymmetric fall). Treating every remote as global-
+            // positioned is correct here: the island sits at the origin, so
+            // parent-relative and global coincide.
+            if (reader.Parent.HasValue && frameCounter % 300 == 1)
             {
-                // The hierarchy system owns positioning now. Log the transition
-                // and periodic state so the logs show which mode the rig is in.
-                if (frameCounter % 300 == 1)
-                {
-                    Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': PARENTED to entity "
-                              + reader.Parent.Value.parentId + ", hierarchy system in control. pos " + transform.root.position);
-                }
-                return;
+                Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': parent published ("
+                          + reader.Parent.Value.parentId + ") but positioning globally anyway.");
             }
 
             Vector3 unityPos = reader.LocalPosition.RemapGlobalToUnityVector();
