@@ -27,6 +27,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
     internal class CameraBinder_Patch
     {
         private static MonoBehaviour boundInstance;
+        private static readonly System.Collections.Generic.HashSet<int> seen = new System.Collections.Generic.HashSet<int>();
 
         [HarmonyTargetMethod]
         public static MethodBase GetTargetMethod()
@@ -34,14 +35,25 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             return AccessTools.Method(AccessTools.TypeByName("CameraBinder"), "Update");
         }
 
+        private static string Describe( MonoBehaviour binder )
+        {
+            UnityEngine.Transform root = binder.transform.root;
+            return binder.gameObject.name + " (id " + binder.GetInstanceID() + ", root " + root.name + ", rootPos " + root.position + ")";
+        }
+
         [HarmonyPrefix]
         public static bool Update_Prefix( MonoBehaviour __instance )
         {
+            if (seen.Add(__instance.GetInstanceID()))
+            {
+                Debug.Log("[WAReborn] CameraBinder instance appeared: " + Describe(__instance));
+            }
+
             // Unity's overloaded == treats a destroyed component as null.
             if (boundInstance == null)
             {
                 boundInstance = __instance;
-                Debug.Log("[WAReborn] CameraBinder claimed by " + __instance.gameObject.name);
+                Debug.Log("[WAReborn] CameraBinder CLAIMED by: " + Describe(__instance));
             }
 
             return ReferenceEquals(__instance, boundInstance);
