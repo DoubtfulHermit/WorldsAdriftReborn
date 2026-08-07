@@ -53,6 +53,10 @@ namespace WorldsAdriftReborn
 
             ModSettings.InitConfig();
             InitPatches();
+
+            // Disables cameras and audio listeners on mirrored remote player rigs;
+            // see RemoteRigSweeper for why Harmony patches cannot cover this.
+            gameObject.AddComponent<Patching.Multiplayer.RemoteRigSweeper>();
         }
 
         private static void InitPatches()
