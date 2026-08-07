@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Pure multiplayer policy. Deliberately has NO references: not to ENet, not to
+    the game's assemblies, not to the server project. That is what lets these
+    types be unit-tested natively on Linux without Wine or a running game.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>
