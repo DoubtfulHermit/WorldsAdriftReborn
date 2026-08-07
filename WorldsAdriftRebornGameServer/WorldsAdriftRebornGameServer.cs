@@ -235,14 +235,13 @@ namespace WorldsAdriftRebornGameServer
 
                 foreach (MirrorIntent intent in ops)
                 {
-                    switch (intent.Op)
+                    // AddEntity ONLY. Never resend AddComponents: it re-seeds the
+                    // default TransformState onto a live player and teleports them
+                    // into the sky. The client tolerates a duplicate AddEntity, and
+                    // the components from the original flush still apply.
+                    if (intent.Op == MirrorOp.AddEntity)
                     {
-                        case MirrorOp.AddEntity:
-                            SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default");
-                            break;
-                        case MirrorOp.AddComponents:
-                            SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents);
-                            break;
+                        SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default");
                     }
                 }
 
@@ -556,10 +555,13 @@ namespace WorldsAdriftRebornGameServer
                 // mirror of a newly joined player never spawned. After a short
                 // delay (the asset request has had time to load) flush anyway.
                 FlushStaleMirrors();
-                // ResendMirrors() DISABLED: resending AddComponents re-applied the
-                // DEFAULT seeded TransformState (0,100,0) - telemetry caught the
-                // local player teleporting to exactly that point and then falling.
-                // Re-seeding components on an already-spawned entity is unsafe.
+                // Resend ONLY AddEntity (never AddComponents). A peer that was
+                // still loading the prefab drops the AddEntity and never spawns the
+                // other player - the one-way visibility bug. Resending AddComponents
+                // was what caused the sky-teleport: it re-applied the DEFAULT seeded
+                // TransformState (0,100,0) to a live player. AddEntity alone carries
+                // no component data, so it cannot move anyone.
+                ResendMirrors();
 
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)

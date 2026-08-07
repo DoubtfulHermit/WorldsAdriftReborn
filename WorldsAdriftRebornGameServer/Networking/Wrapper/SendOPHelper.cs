@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using Improbable.Worker.Internal;
 using WorldsAdriftRebornGameServer.DLLCommunication;
@@ -154,7 +154,14 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                     if (ptr != null && len > 0)
                     {
-                        EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                        // High-rate streams (190602 transform, 1073 bone/animation)
+                        // go UNRELIABLE: they are superseded every tick, so a lost
+                        // packet is irrelevant, while reliable-ordered delivery
+                        // causes head-of-line stalls on any loss - very visible as
+                        // stutter over the internet. Everything else stays reliable.
+                        bool highRate = (componentId == 190602 || componentId == 1073);
+                        EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len,
+                            (int)(highRate ? ENetPacketFlag.UNRELIABLE : ENetPacketFlag.RELIABLE));
                         return true;
                     }
                 }
