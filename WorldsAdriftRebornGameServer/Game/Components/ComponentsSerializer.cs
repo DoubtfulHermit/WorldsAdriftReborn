@@ -99,14 +99,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if (componentId == 1088)
                     {
+                        // Use the entity owner's PUBLISHED appearance when we have
+                        // it (recorded by PlayerPropertiesState_Handler), so a
+                        // remote mirror seeded after the owner spawned carries the
+                        // real look. The hardcoded map is the legacy fallback for
+                        // entities whose owner never published.
+                        Map<string, string> customisation;
+                        var stored = WorldsAdriftRebornGameServer.Appearances.Get(entityId);
+                        if (stored != null)
+                        {
+                            customisation = new Map<string, string>();
+                            foreach (var pair in stored)
+                            {
+                                customisation.Add(pair.Key, pair.Value);
+                            }
+                            Console.WriteLine("[info] seeding 1088 for entity " + entityId + " with published appearance.");
+                        }
+                        else
+                        {
+                            customisation = new Map<string, string>
+                            {
+                                {"Head", "hair_dreads" },
+                                {"Body", "torso_ponchoVariantB" },
+                                {"Feet", "legs_wrap" },
+                                {"Face", "face_C" }
+                            };
+                        }
+
                         PlayerPropertiesState.Data ppData = new PlayerPropertiesState.Data(new PlayerPropertiesStateData(new Map<string, string> { },
-                                                                                                                new Map<string, string>
-                                                                                                                {
-                                                                                                                    {"Head", "hair_dreads" },
-                                                                                                                    {"Body", "torso_ponchoVariantB" },
-                                                                                                                    {"Feet", "legs_wrap" },
-                                                                                                                    {"Face", "face_C" }
-                                                                                                                },
+                                                                                                                customisation,
                                                                                                                 new Improbable.Collections.List<string> { },
                                                                                                                 false));
                         obj = ppData;

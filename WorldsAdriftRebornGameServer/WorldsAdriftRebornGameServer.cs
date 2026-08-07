@@ -232,8 +232,13 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088 };
 
-        /// <summary>Who owns which player entity.</summary>
-        private static readonly PlayerRegistry Players = new PlayerRegistry();
+        /// <summary>Who owns which player entity. Internal: the component update
+        /// handlers validate entity ownership against it.</summary>
+        internal static readonly PlayerRegistry Players = new PlayerRegistry();
+
+        /// <summary>Published appearance per player entity; read by the 1088
+        /// serializer branch, written by PlayerPropertiesState_Handler.</summary>
+        internal static readonly AppearanceStore Appearances = new AppearanceStore();
 
         /// <summary>Decides which ops go to which peers so players can see each other.</summary>
         private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
