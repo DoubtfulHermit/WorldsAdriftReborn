@@ -1,7 +1,15 @@
 # Worlds Adrift Reborn — Local Multiplayer Co-Presence
 
 **Date:** 2026-08-07
-**Status:** Approved, in implementation
+**Status:** ACHIEVED (same day). All gates met except Gate 4 (despawn), which is
+blocked on a wire message that does not exist — see docs/roadmap.md.
+**Outcome notes:** the design survived contact with reality except in one place:
+the client-side "risky unknown" (Gate 2) was bigger than anticipated — mirroring
+with prefab context "Player" duplicated the full local rig and required an
+architecture review to identify context "Default" (the game's own remote-player
+prefab) as the correct mechanism. Positioning additionally required a client-side
+mover because the plain rig only self-positions via parenting, which the modded
+flow never engages. The as-built design is documented in docs/multiplayer.md.
 **Base commit:** `cb81bcfe` (the commit the only published release was built from)
 
 ## Goal
