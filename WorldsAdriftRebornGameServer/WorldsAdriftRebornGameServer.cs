@@ -235,6 +235,24 @@ namespace WorldsAdriftRebornGameServer
         private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
 
         private static long nextEntityId = 0;
+        /// <summary>
+        /// The one island every client loads, under one shared entity id, so that
+        /// cross-client Parent references (see the island AddEntityOp below)
+        /// resolve on every client. Allocated from the id counter on first use.
+        /// </summary>
+        private static long? sharedIslandEntityId;
+        private static long SharedIslandEntityId
+        {
+            get
+            {
+                if (sharedIslandEntityId == null)
+                {
+                    sharedIslandEntityId = NextEntityId;
+                }
+                return sharedIslandEntityId.Value;
+            }
+        }
+
         public static long NextEntityId
         {
             get
@@ -304,7 +322,15 @@ namespace WorldsAdriftRebornGameServer
                 {
                     Console.WriteLine("[success] island asset loaded. requesting loading of island...");
 
-                    if (SendOPHelper.SendAddEntityOP((ENetPeerHandle)o, NextEntityId, "949069116@Island", "notNeeded?"))
+                    // Every client gets the SAME island entity id. A remote player's
+                    // rig positions itself by PARENTING: the client publishes
+                    // TransformState with Parent = its island's entity id, and the
+                    // receiving client's RelativeParentTransformChildHierarchyBehaviour
+                    // looks that entity up locally to attach the rig. With per-client
+                    // island ids (0 for one client, 2 for the next) the lookup found
+                    // nothing and every remote avatar stayed frozen at the default
+                    // seed position, ~90km off-island.
+                    if (SendOPHelper.SendAddEntityOP((ENetPeerHandle)o, SharedIslandEntityId, "949069116@Island", "notNeeded?"))
                     {
                         Console.WriteLine("[info] successfully serialized and queued AddEntityOp.");
                     }
