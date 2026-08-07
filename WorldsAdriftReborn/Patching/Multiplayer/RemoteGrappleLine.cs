@@ -36,15 +36,9 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         {
             if (reader != null)
             {
-                // Hide the game's grapple tube EVERY frame, unconditionally - NOT
-                // only while our rope line is up. The tube doubles as an AIM
-                // visual shown while the player is merely aiming (before the rope
-                // attaches, so RopeControlPoints has no points and our line is
-                // disabled) - that is the "raycast to the crosshair" the observer
-                // saw. It is driven only by local logic, so it is always wrong on
-                // a remote rig; our LineRenderer is the only rope the observer
-                // needs.
-                HideHookTube();
+                // The game's GrapplingHookTube is its OWN rope mesh. Now that our
+                // duplicate LineRenderer is gone, leave the tube alone so the game
+                // renders the rope natively on the observer.
                 return;
             }
 
@@ -139,12 +133,22 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 return;
             }
 
+            // DO NOT draw our own rope. Seeding 1098 gave the remote rig real rope
+            // data, so the GAME renders the rope on the observer by itself. Our
+            // LineRenderer was a second, duplicate rope drawn from the entity root
+            // rather than the hand - the two together formed the "wedge"/"raycast"
+            // artefact. Keep this component for the reader binding (and the tube
+            // handling) but leave the drawing to the game.
+            line.enabled = false;
+            return;
+#pragma warning disable 0162
             line.enabled = true;
             line.SetVertexCount(points.Count);
             for (int i = 0; i < points.Count; i++)
             {
                 line.SetPosition(i, points[i].RemapGlobalToUnityVector());
             }
+#pragma warning restore 0162
 
             // Re-assert width/material every update: something (default state or a
             // re-init) can leave the LineRenderer at its default 1.0 width, which
