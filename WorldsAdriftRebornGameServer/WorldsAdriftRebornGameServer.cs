@@ -178,6 +178,10 @@ namespace WorldsAdriftRebornGameServer
             byte[] payload = new byte[dataLength];
             Marshal.Copy(new IntPtr(data), payload, 0, dataLength);
 
+            // Diagnostic: decode a sample of transform payloads so the log shows
+            // what senders actually publish (Parent? global or relative position?).
+            TransformSampleLogger.MaybeLog(componentId, data, dataLength);
+
             foreach (MirrorIntent intent in Mirror.OnComponentUpdate(PeerIdentity.IdOf(sender), componentId, payload))
             {
                 ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)intent.TargetPeer));

@@ -151,6 +151,14 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 if (!root.name.StartsWith("Traveller@Player"))
                 {
                     DiagnoseRemoteRig(root);
+
+                    // The plain rig has no mover for unparented transforms; give
+                    // it one (see RemoteRigMover).
+                    if (root.GetComponent<RemoteRigMover>() == null)
+                    {
+                        root.gameObject.AddComponent<RemoteRigMover>();
+                        Debug.Log("[WAReborn] attached RemoteRigMover to '" + root.name + "'");
+                    }
                 }
             }
         }
