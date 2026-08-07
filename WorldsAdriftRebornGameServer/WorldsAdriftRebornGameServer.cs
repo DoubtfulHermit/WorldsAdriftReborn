@@ -68,13 +68,21 @@ namespace WorldsAdriftRebornGameServer
         /// Registers a freshly spawned player and spawns their avatar on every
         /// other client, and every other player's avatar on theirs.
         ///
-        /// The component set sent for a remote avatar is a first attempt: the
-        /// local player already needs 1109 (PilotState) and 1080 injected or the
-        /// client null-refs, so a remote one plausibly needs its own set. Expect
-        /// to tune this list by experiment.
+        /// A remote avatar is seeded with TransformState only, so it appears in
+        /// the right place. The client then asks for whatever else it wants, and
+        /// the existing SEND_COMPONENT_INTEREST path serves it; logs confirm both
+        /// clients do request components for each other's entities unprompted.
         ///
-        /// Authority is never granted here. Only a peer's own entity may be made
-        /// authoritative, or the client would try to drive another player.
+        /// It must NOT be sent the local player's component set. Doing that gave
+        /// each client two entities carrying player state and detached the
+        /// camera to a top-down view with neither avatar drawn. Components like
+        /// 1073 ClientAuthoritativePlayerState and 1072 CharacterControlsData
+        /// specifically mean "this is the character you control".
+        ///
+        /// Authority is never granted here either. Only a peer's own entity may
+        /// be made authoritative, or the client would try to drive another player.
+        ///
+        /// See docs/component-ids.md for what the numbers mean.
         /// </summary>
         private static void MirrorNewPlayer(ENetPeerHandle peer, long entityId)
         {
@@ -85,9 +93,10 @@ namespace WorldsAdriftRebornGameServer
                 return;
             }
 
+            // 190602 TransformState = position and rotation. Nothing else: see the
+            // remarks above on why the local player's set must not be reused.
             List<Structs.Structs.InterestOverride> remoteComponents =
-                new List<Structs.Structs.InterestOverride> { new Structs.Structs.InterestOverride(1109, 1), new Structs.Structs.InterestOverride(1080, 1) };
-            remoteComponents.AddRange(authoritativeComponents.Select(p => new Structs.Structs.InterestOverride(p, 1)));
+                new List<Structs.Structs.InterestOverride> { new Structs.Structs.InterestOverride(TransformStateComponentId, 1) };
 
             foreach (MirrorIntent intent in intents)
             {
@@ -149,6 +158,13 @@ namespace WorldsAdriftRebornGameServer
         /// single-player by construction.
         /// </summary>
         private const int MaxPlayers = 8;
+
+        /// <summary>
+        /// TransformState: a player's position and rotation. This is what has to
+        /// reach other clients for them to see anyone move.
+        /// See docs/component-ids.md.
+        /// </summary>
+        private const uint TransformStateComponentId = 190602;
 
         /// <summary>Who owns which player entity.</summary>
         private static readonly PlayerRegistry Players = new PlayerRegistry();
