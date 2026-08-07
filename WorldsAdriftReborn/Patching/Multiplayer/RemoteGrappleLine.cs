@@ -82,6 +82,22 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             line = go.AddComponent<LineRenderer>();
             line.useWorldSpace = true;
             line.enabled = false;
+
+            // Without a material Unity draws the line with the magenta "missing
+            // shader" fallback, and the default width of 1.0 makes it a giant
+            // neon wedge. Give it a thin width and a plain unlit material so it
+            // reads as a rope. Shader.Find works at runtime for always-included
+            // built-in shaders; fall back through a couple of common names.
+            Shader shader = Shader.Find("Sprites/Default")
+                            ?? Shader.Find("Particles/Alpha Blended")
+                            ?? Shader.Find("Diffuse");
+            if (shader != null)
+            {
+                line.material = new Material(shader);
+            }
+            Color ropeColor = new Color(0.15f, 0.13f, 0.1f, 1f); // dark rope
+            line.SetColors(ropeColor, ropeColor);
+            line.SetWidth(0.04f, 0.04f);
         }
 
         private void OnPointsUpdated(List<Coordinates> points)
