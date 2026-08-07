@@ -120,7 +120,13 @@ namespace WorldsAdriftRebornGameServer
 
                 bool ok = intent.Op switch
                 {
-                    MirrorOp.AddEntity => SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Player"),
+                    // Context "Default", NOT "Player". The client's DispatchEventHandler maps
+                    // prefabContext to the prefab asset: "Player" selects Traveller@Player,
+                    // the FULL LOCAL RIG (LocalPlayerInit, camera proxies, ~90 local-only
+                    // components) - instantiating that for a remote player is what caused
+                    // every camera/identity/movement regression. "Default" selects the plain
+                    // Traveller prefab: the game's own remote-player rig.
+                    MirrorOp.AddEntity => SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default"),
                     MirrorOp.AddComponents => SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents),
                     _ => true,
                 };

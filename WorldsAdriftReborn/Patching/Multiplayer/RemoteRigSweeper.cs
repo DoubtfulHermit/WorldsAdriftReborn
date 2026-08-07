@@ -22,6 +22,37 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         private const string TravellerRootPrefix = "Traveller@Player";
         private float nextSweep;
         private Transform firstSeenTravellerRoot;
+        private readonly System.Collections.Generic.HashSet<int> inventoried = new System.Collections.Generic.HashSet<int>();
+
+        /// <summary>
+        /// One-shot diagnostic: logs the top-level component list of every rig
+        /// whose root name contains "Traveller" (covers both the local
+        /// Traveller@Player rig and the plain Traveller remote rig), so the log
+        /// shows what a rig actually contains instead of us assuming.
+        /// </summary>
+        private void InventoryRig(Transform root)
+        {
+            if (!inventoried.Add(root.GetInstanceID()))
+            {
+                return;
+            }
+
+            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            sb.Append("[WAReborn] rig inventory '").Append(root.name).Append("' components: ");
+            foreach (Component comp in root.GetComponents<Component>())
+            {
+                if (comp != null)
+                {
+                    sb.Append(comp.GetType().Name).Append(", ");
+                }
+            }
+            sb.Append("| children: ");
+            for (int i = 0; i < root.childCount && i < 20; i++)
+            {
+                sb.Append(root.GetChild(i).name).Append(", ");
+            }
+            Debug.Log(sb.ToString());
+        }
 
         private Transform LocalRoot()
         {
@@ -94,15 +125,22 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             // and movement scripts are plain MonoBehaviours (no [Require]), so a
             // mirrored rig runs a full ragdoll+movement simulation that fights
             // the relayed TransformState positions and burns CPU.
-            if (localRoot != null)
+            foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
             {
-                foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+                Transform root = rootGo.transform;
+                if (!root.name.Contains("Traveller"))
                 {
-                    Transform root = rootGo.transform;
-                    if (!root.name.StartsWith("Traveller@Player") || root == localRoot)
-                    {
-                        continue;
-                    }
+                    continue;
+                }
+
+                InventoryRig(root);
+
+                // Taming only ever applies to a full local-player rig
+                // (Traveller@Player) that is not our own. The plain Traveller
+                // remote rig needs no taming - it is the game's own
+                // display-only remote-player prefab.
+                if (localRoot != null && root != localRoot && root.name.StartsWith("Traveller@Player"))
+                {
                     TameRemoteRig(root);
                 }
             }
