@@ -22,21 +22,26 @@ User-observed gaps after animation shipped, grouped by mechanism. Each phase use
 the proven loop: research subagent -> grant authority + seed component (relay is
 automatic) -> pre-deploy review -> two-client test.
 
-- [ ] **Phase 1 - movement smoothing & action delay** (IN PROGRESS). Jitter +
-      inter-client delay. Chosen approach: adopt the game's native interpolating
-      positioner (PlayerVisualizer) instead of RemoteRigMover's per-frame teleport,
-      now that the parenting trap is understood; plus move the high-rate
-      transform/bone stream off the RELIABLE ordered channel to unreliable and/or
-      raise publish rate.
-- [ ] **Phase 2 - equipped clothes/gear**. 1280 WearableUtilsState, 1009
-      EquippableItemState via PlayerEquipmentVisualizer (cosmetic appearance already
-      works; this is equipped gear). Careful minimal seed - this family NRE'd
-      enable-chains when over-seeded.
-- [ ] **Phase 3 - glider**. 1151 GliderState, 1152 GliderEquippedState, 1109
-      PilotState. Verify 1109 is safe on a remote rig (piloting/camera path).
-- [ ] **Phase 4 - grapple line & action VFX**. 1098 RopeControlPoints + rope
-      visualizer for the line; boost/air-puff is event-driven particle VFX needing
-      the trigger state relayed and possibly a mod nudge to fire emitters remotely.
+- [x] **Phase 1a - movement smoothing** DONE. Adopted PlayerVisualizer's
+      interpolator for remote rigs (global branch only, reflected interpolators);
+      RemoteRigMover reduced to a kinematic-enforcer that yields to it. Confirmed
+      smooth + no fall.
+- [ ] **Phase 1b - action delay** DEFERRED (optional). Move the high-rate 190602/1073
+      relay off the RELIABLE ordered channel to unreliable to cut head-of-line
+      latency; touches the C++ ENet_Send flag forwarding (unverified). Do only if
+      the residual ~100ms interpolation delay bothers.
+- [x] **Phase 2 - equipped clothes/gear** DONE. Worn gear renders from 1081
+      InventoryState slotType via the already-seeded CharacterCustomisationVisualizer;
+      the equip handler now fans the worn 1081 out to other peers. Server-only, no
+      new seed. (Late-joiner store-and-seed still a follow-up.)
+- [x] **Phase 3 - glider** DONE. Grant + seed 6910 UtilitySlotActivatedState +
+      serializer default branch; wings open/close relay to remotes. 1109 PilotState
+      deliberately NOT seeded (steals PilotVisualizer singleton, pokes LocalPlayer).
+- [ ] **Phase 4 - grapple line & action VFX** (HARD FRONTIER, researching mechanism).
+      Breaks the seed recipe: the Default rig has NO rope visualizer, so 1098 has no
+      consumer and a reader can't be injected at runtime; boost puff is local-input-
+      only and needs a relayed trigger carrier + mod emitter. Mechanism research in
+      progress (phase4b-findings).
 
 ## Next (ranked)
 
