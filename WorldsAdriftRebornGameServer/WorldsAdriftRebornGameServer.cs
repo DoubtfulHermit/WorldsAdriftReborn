@@ -182,6 +182,76 @@ namespace WorldsAdriftRebornGameServer
             }
         }
 
+        /// <summary>Mirror ops kept for resending, per peer.</summary>
+        private static readonly Dictionary<ENetPeerHandle, List<MirrorIntent>> mirrorResends = new Dictionary<ENetPeerHandle, List<MirrorIntent>>();
+        private static readonly Dictionary<ENetPeerHandle, long> mirrorResendTick = new Dictionary<ENetPeerHandle, long>();
+        private static readonly Dictionary<ENetPeerHandle, int> mirrorResendsLeft = new Dictionary<ENetPeerHandle, int>();
+
+        /// <summary>How many times to resend mirror ops, and the gap between them (~3s at 50ms/iter).</summary>
+        private const int MirrorResendAttempts = 3;
+        private const long MirrorResendIntervalTicks = 60;
+
+        /// <summary>
+        /// Resends mirror ops a few times after the initial flush. A client that
+        /// was still loading the "Traveller"/"Default" prefab silently drops the
+        /// AddEntity, so the newly joined player's rig never spawns for it - the
+        /// joining client in particular, which is busy with its own spawn. Rather
+        /// than parse asset acks, simply resend a few times; the client tolerates
+        /// duplicate adds, and once the asset is loaded the rig appears.
+        /// </summary>
+        private static void ResendMirrors()
+        {
+            if (mirrorResends.Count == 0)
+            {
+                return;
+            }
+
+            List<ENetPeerHandle> due = null;
+            foreach (KeyValuePair<ENetPeerHandle, long> entry in mirrorResendTick)
+            {
+                if (loopTick - entry.Value >= MirrorResendIntervalTicks)
+                {
+                    (due ??= new List<ENetPeerHandle>()).Add(entry.Key);
+                }
+            }
+            if (due == null)
+            {
+                return;
+            }
+
+            List<Structs.Structs.InterestOverride> remoteComponents =
+                RemoteSeed.Select(id => new Structs.Structs.InterestOverride(id, 1)).ToList();
+
+            foreach (ENetPeerHandle target in due)
+            {
+                int left = mirrorResendsLeft.TryGetValue(target, out int l) ? l : 0;
+                if (left <= 0 || !mirrorResends.TryGetValue(target, out List<MirrorIntent> ops))
+                {
+                    mirrorResends.Remove(target);
+                    mirrorResendTick.Remove(target);
+                    mirrorResendsLeft.Remove(target);
+                    continue;
+                }
+
+                foreach (MirrorIntent intent in ops)
+                {
+                    switch (intent.Op)
+                    {
+                        case MirrorOp.AddEntity:
+                            SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default");
+                            break;
+                        case MirrorOp.AddComponents:
+                            SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents);
+                            break;
+                    }
+                }
+
+                mirrorResendsLeft[target] = left - 1;
+                mirrorResendTick[target] = loopTick;
+                Console.WriteLine("[info] mirror: resent ops to a peer (" + (left - 1) + " attempts left).");
+            }
+        }
+
         /// <summary>
         /// Sends the parked mirror ops for a peer, called when that peer acks an
         /// asset load. Uses the peer's FIRST ack after queuing: the ack payload is
@@ -191,6 +261,18 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void FlushPendingMirrors(ENetPeerHandle target)
         {
+            // Keep a copy so the ops can be RESENT: a client that was still
+            // loading the prefab asset silently drops the AddEntity, and the rig
+            // never appears (observed: the joining client saw nothing while the
+            // already-in-world client saw it fine). Resends are safe - the client
+            // tolerates duplicate entity/component adds with a warning.
+            if (pendingMirrors.TryGetValue(target, out List<MirrorIntent> toRepeat) && toRepeat.Count > 0)
+            {
+                mirrorResends[target] = new List<MirrorIntent>(toRepeat);
+                mirrorResendTick[target] = loopTick;
+                mirrorResendsLeft[target] = MirrorResendAttempts;
+            }
+
             pendingMirrorTick.Remove(target);
             if (!pendingMirrors.TryGetValue(target, out List<MirrorIntent> queue))
             {
@@ -463,6 +545,7 @@ namespace WorldsAdriftRebornGameServer
                 // mirror of a newly joined player never spawned. After a short
                 // delay (the asset request has had time to load) flush anyway.
                 FlushStaleMirrors();
+                ResendMirrors();
 
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)
