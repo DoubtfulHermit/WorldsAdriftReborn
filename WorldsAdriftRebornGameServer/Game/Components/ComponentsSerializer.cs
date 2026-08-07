@@ -20,6 +20,7 @@ using Bossa.Travellers.Ship.Lock;
 using Bossa.Travellers.Social;
 using Bossa.Travellers.Weather;
 using Bossa.Travellers.World;
+using Bossa.Travellers.Utilityslot;
 using Improbable;
 using Improbable.Collections;
 using Improbable.Corelib.Metrics;
@@ -178,6 +179,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         AllianceAndCrewWorkerState.Data acData = new AllianceAndCrewWorkerState.Data(new AllianceAndCrewWorkerStateData("alliance_invalid_uid", "crew_invalid_uid"));
 
                         obj = acData;
+                    }
+                    else if(componentId == 6910)
+                    {
+                        // Default: no utility slot active (glider stowed). The owner's
+                        // UtilitySlotActivatedBehaviour publishes real values when it
+                        // deploys the glider; the relay carries them to remote rigs,
+                        // where UtilitySlotActivatedVisualizer opens/closes the wings.
+                        UtilitySlotActivatedState.Data usData = new UtilitySlotActivatedState.Data(new UtilitySlotActivatedStateData(
+                            false, false, false,
+                            new Option<float> { }, new Option<float> { }, new Option<float> { },
+                            new Option<float> { }, new Option<float> { }, new Option<float> { }));
+
+                        obj = usData;
                     }
                     else if(componentId == 1082)
                     {

@@ -260,7 +260,7 @@ namespace WorldsAdriftRebornGameServer
         // tick (that writer is authority-gated - without the grant it never runs
         // and remote avatars stay in T-pose). The grant only ever applies to the
         // sender's OWN entity (isSendersOwnEntity gate below).
-        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId, ClientAuthoritativePlayerStateComponentId};
+        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId, ClientAuthoritativePlayerStateComponentId, UtilitySlotActivatedStateComponentId};
         private static List<long> playerEntityIDs = new List<long>();
 
         /// <summary>
@@ -285,6 +285,16 @@ namespace WorldsAdriftRebornGameServer
         private const uint ClientAuthoritativePlayerStateComponentId = 1073;
 
         /// <summary>
+        /// UtilitySlotActivatedState: whether the head/body/feet utility slot is
+        /// active. The glider is a body utility; deploying it flips this, and
+        /// UtilitySlotActivatedVisualizer on the remote rig opens/closes the wings.
+        /// Granted so the owner publishes it, seeded so the remote reader binds.
+        /// 1109 PilotState is deliberately NOT used - it steals the PilotVisualizer
+        /// singleton and pokes LocalPlayer. See docs/component-ids.md.
+        /// </summary>
+        private const uint UtilitySlotActivatedStateComponentId = 6910;
+
+        /// <summary>
         /// Components seeded on a mirrored remote avatar: TransformState (position),
         /// 1086 PlayerName, the two [Require]s of CharacterCustomisationVisualizer
         /// (1081 InventoryState, 1088 PlayerPropertiesState) which builds the body,
@@ -294,7 +304,7 @@ namespace WorldsAdriftRebornGameServer
         /// enables the game's native PlayerVisualizer positioner (which
         /// RemoteRigMover now yields to). See docs/component-ids.md.
         /// </summary>
-        private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088, ClientAuthoritativePlayerStateComponentId };
+        private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088, ClientAuthoritativePlayerStateComponentId, UtilitySlotActivatedStateComponentId };
 
         /// <summary>Who owns which player entity. Internal: the component update
         /// handlers validate entity ownership against it.</summary>
