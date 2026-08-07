@@ -9,6 +9,7 @@ using WorldsAdriftRebornGameServer.Game.Components;
 using WorldsAdriftRebornGameServer.Game.Components.Update;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
+using WorldsAdriftRebornGameServer.Multiplayer;
 using static WorldsAdriftRebornGameServer.DLLCommunication.EnetLayer;
 
 namespace WorldsAdriftRebornGameServer
@@ -22,17 +23,119 @@ namespace WorldsAdriftRebornGameServer
             ENetPeerHandle ePeer = new ENetPeerHandle(peer, new ENetHostHandle());
             if (!ePeer.IsInvalid)
             {
-                Console.WriteLine("[info] got a connection.");
-                PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
+                // Track before anything else: every later lookup resolves through
+                // PeerIdentity so only one handle per peer is ever alive.
+                ePeer = PeerIdentity.Instance.Track(peer, ePeer);
+
+                if (!PeerManager.Instance.playerState.ContainsKey(ePeer))
+                {
+                    PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
+                }
+                Console.WriteLine("[info] got a connection. players now: " + PeerManager.Instance.playerState.Count);
             }
         }
         [PInvoke(typeof(EnetLayer.ENet_Poll_Callback))]
         private unsafe static void OnClientDisconnected(IntPtr peer )
         {
-            ENetPeerHandle ePeer = new ENetPeerHandle(peer, new ENetHostHandle());
-            if (!ePeer.IsInvalid)
+            ENetPeerHandle? ePeer = PeerIdentity.Instance.Forget(peer);
+            if (ePeer == null)
             {
-                Console.WriteLine("[info] a client disconnected.");
+                Console.WriteLine("[warning] a disconnect arrived for an untracked peer, ignoring.");
+                return;
+            }
+
+            // Unregister first: this is what actually matters, because it stops
+            // relaying updates to and from a peer that is gone.
+            //
+            // The despawn intents cannot be sent yet. There is no wire message for
+            // entity removal: ENetChannel has no such channel, no RemoveEntityOp
+            // proto exists, and the SDK's RegisterRemoveEntityCallback is still an
+            // unimplemented TODO in Exports.cpp. Until that exists a departed
+            // player leaves a stale avatar behind, which is cosmetic rather than
+            // blocking.
+            IReadOnlyList<MirrorIntent> despawns = Mirror.OnLeave(PeerIdentity.IdOf(ePeer));
+            if (despawns.Count > 0)
+            {
+                Console.WriteLine("[warning] " + despawns.Count + " avatar(s) cannot be despawned: entity removal is not implemented on the wire. Stale avatar(s) will remain.");
+            }
+
+            PeerManager.Instance.playerState.Remove(ePeer);
+            PeerManager.Instance.clientSetupState.Remove(ePeer);
+            Console.WriteLine("[info] a client disconnected. players now: " + PeerManager.Instance.playerState.Count);
+        }
+
+        /// <summary>
+        /// Registers a freshly spawned player and spawns their avatar on every
+        /// other client, and every other player's avatar on theirs.
+        ///
+        /// The component set sent for a remote avatar is a first attempt: the
+        /// local player already needs 1109 (PilotState) and 1080 injected or the
+        /// client null-refs, so a remote one plausibly needs its own set. Expect
+        /// to tune this list by experiment.
+        ///
+        /// Authority is never granted here. Only a peer's own entity may be made
+        /// authoritative, or the client would try to drive another player.
+        /// </summary>
+        private static void MirrorNewPlayer(ENetPeerHandle peer, long entityId)
+        {
+            IReadOnlyList<MirrorIntent> intents = Mirror.OnJoin(PeerIdentity.IdOf(peer), entityId);
+            if (intents.Count == 0)
+            {
+                Console.WriteLine("[info] first player in the world, nobody to mirror.");
+                return;
+            }
+
+            List<Structs.Structs.InterestOverride> remoteComponents =
+                new List<Structs.Structs.InterestOverride> { new Structs.Structs.InterestOverride(1109, 1), new Structs.Structs.InterestOverride(1080, 1) };
+            remoteComponents.AddRange(authoritativeComponents.Select(p => new Structs.Structs.InterestOverride(p, 1)));
+
+            foreach (MirrorIntent intent in intents)
+            {
+                ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)intent.TargetPeer));
+                if (target == null)
+                {
+                    Console.WriteLine("[warning] mirror target peer vanished, skipping.");
+                    continue;
+                }
+
+                bool ok = intent.Op switch
+                {
+                    MirrorOp.AddEntity => SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Player"),
+                    MirrorOp.AddComponents => SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents),
+                    _ => true,
+                };
+
+                Console.WriteLine((ok ? "[success] " : "[error] failed: ") + "mirror " + intent);
+            }
+        }
+
+        /// <summary>
+        /// Forwards one player's component update to every other connected player.
+        /// Copies the bytes out of native memory first, because the packet is
+        /// destroyed as soon as this poll iteration ends.
+        /// </summary>
+        private static unsafe void RelayToOtherPlayers(ENetPeerHandle sender, uint componentId, byte* data, int dataLength)
+        {
+            if (data == null || dataLength <= 0)
+            {
+                return;
+            }
+
+            byte[] payload = new byte[dataLength];
+            Marshal.Copy(new IntPtr(data), payload, 0, dataLength);
+
+            foreach (MirrorIntent intent in Mirror.OnComponentUpdate(PeerIdentity.IdOf(sender), componentId, payload))
+            {
+                ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)intent.TargetPeer));
+                if (target == null)
+                {
+                    continue;
+                }
+
+                if (SendOPHelper.SendRawComponentUpdateOp(target, intent.EntityId, intent.ComponentId, intent.Payload!))
+                {
+                    Console.WriteLine("[relay] component " + intent.ComponentId + " of entity " + intent.EntityId + " -> another player");
+                }
             }
         }
 
@@ -40,6 +143,18 @@ namespace WorldsAdriftRebornGameServer
         private static readonly EnetLayer.ENet_Poll_Callback callbackD = new EnetLayer.ENet_Poll_Callback(OnClientDisconnected);
         private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082};
         private static List<long> playerEntityIDs = new List<long>();
+
+        /// <summary>
+        /// How many clients the ENet host accepts. Was 1, which made the server
+        /// single-player by construction.
+        /// </summary>
+        private const int MaxPlayers = 8;
+
+        /// <summary>Who owns which player entity.</summary>
+        private static readonly PlayerRegistry Players = new PlayerRegistry();
+
+        /// <summary>Decides which ops go to which peers so players can see each other.</summary>
+        private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
 
         private static long nextEntityId = 0;
         public static long NextEntityId
@@ -64,7 +179,7 @@ namespace WorldsAdriftRebornGameServer
             }
 
             Console.WriteLine("[info] successfully initialized ENet.");
-            ENetHostHandle server = EnetLayer.ENet_Create_Host(7777, 1, 5, 0, 0);
+            ENetHostHandle server = EnetLayer.ENet_Create_Host(7777, MaxPlayers, 5, 0, 0);
 
             if (server.IsInvalid)
             {
@@ -76,6 +191,7 @@ namespace WorldsAdriftRebornGameServer
 
             Console.WriteLine("[info] successfully initialized networking, now waiting for connections and data.");
             PeerManager.Instance.SetENetHostHandle(server);
+
 
             // define initial world state for first chunk
             GameState.Instance.WorldState[0] = new List<SyncStep>()
@@ -121,12 +237,19 @@ namespace WorldsAdriftRebornGameServer
                 })),
                 new SyncStep(GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE, new Action<object>((object o) =>
                 {
+                    ENetPeerHandle peer = (ENetPeerHandle)o;
                     Console.WriteLine("[info] client ack'ed island spawning instruction (info by sdk, does not mean it truly spawned). requesting to spawn player...");
 
-                    playerEntityIDs.Add(NextEntityId);
-                    if(SendOPHelper.SendAddEntityOP((ENetPeerHandle)o, playerEntityIDs.Last<long>(), "Traveller", "Player"))
+                    // Capture this peer's own entity id. Reading playerEntityIDs.Last()
+                    // was only safe while a single client could ever connect; with
+                    // several spawning at once it can return someone else's entity.
+                    long playerEntityId = NextEntityId;
+                    playerEntityIDs.Add(playerEntityId);
+
+                    if(SendOPHelper.SendAddEntityOP(peer, playerEntityId, "Traveller", "Player"))
                     {
-                        Console.WriteLine("[info] successfully serialized and queued AddEntityOp.");
+                        Console.WriteLine("[info] successfully serialized and queued AddEntityOp for player entity " + playerEntityId + ".");
+                        MirrorNewPlayer(peer, playerEntityId);
                     }
                     else
                     {
@@ -140,34 +263,50 @@ namespace WorldsAdriftRebornGameServer
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)
                 {
-                    // work on packets that are relevant to progress in sync state
-                    foreach (KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>> keyValuePair in PeerManager.Instance.playerState)
+                    // Resolve who actually sent this packet. Before the peer field
+                    // existed the server could not tell, so it applied every packet
+                    // to every client, which is why it only worked with one.
+                    ENetPeerHandle? sender = PeerIdentity.Instance.Resolve(packet->Peer);
+
+                    if (sender == null || !PeerManager.Instance.playerState.ContainsKey(sender))
                     {
+                        // Normal during connect and teardown races: drop the packet
+                        // rather than letting one client's state abort the loop.
+                        Console.WriteLine("[warning] packet from an unknown peer, dropping.");
+                        EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
+                        continue;
+                    }
+
+                    {
+                        // work on packets that are relevant to progress in sync state
                         int currentChunkIndex = 0;
-                        int currentPlayerSyncIndex = PeerManager.Instance.playerState[keyValuePair.Key][currentChunkIndex].SyncStepPointer;
+                        int currentPlayerSyncIndex = PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer;
 
-                        if (currentPlayerSyncIndex == GameState.Instance.WorldState[currentChunkIndex].Count - 1)
+                        if (currentPlayerSyncIndex != GameState.Instance.WorldState[currentChunkIndex].Count - 1)
                         {
-                            // this player is synced
-                            continue;
-                        }
+                            GameState.NextStateRequirement nextStateRequirement = GameState.Instance.WorldState[currentChunkIndex][currentPlayerSyncIndex].NextStateRequirement;
 
-                        GameState.NextStateRequirement nextStateRequirement = GameState.Instance.WorldState[currentChunkIndex][currentPlayerSyncIndex].NextStateRequirement;
-
-                        if(packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP && nextStateRequirement == GameState.NextStateRequirement.ASSET_LOADED_RESPONSE)
-                        {
-                            // for now set it for every client, but we need to distinguish them by their userData field
-                            PeerManager.Instance.playerState[keyValuePair.Key][currentChunkIndex].SyncStepPointer++;
-                        }
-                        else if(packet->Channel == (int)EnetLayer.ENetChannel.ADD_ENTITY_OP && nextStateRequirement == GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE)
-                        {
-                            PeerManager.Instance.playerState[keyValuePair.Key][currentChunkIndex].SyncStepPointer++;
+                            if(packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP && nextStateRequirement == GameState.NextStateRequirement.ASSET_LOADED_RESPONSE)
+                            {
+                                PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
+                            }
+                            else if(packet->Channel == (int)EnetLayer.ENetChannel.ADD_ENTITY_OP && nextStateRequirement == GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE)
+                            {
+                                PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
+                            }
                         }
                     }
 
-                    // work on packets that are not relevant for progress of sync state but need processing for any player
-                    foreach (KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>> keyValuePair in PeerManager.Instance.playerState)
+                    // work on packets that are not relevant for progress of sync state
+                    //
+                    // do/while(false) so the existing 'continue' error paths still mean
+                    // "stop processing this packet". A bare block would send them to the
+                    // next while iteration and skip ENet_Destroy_Packet below, leaking it.
+                    do
                     {
+                        KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>> keyValuePair =
+                            new KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>>(sender, PeerManager.Instance.playerState[sender]);
+
                         if (packet->Channel == (int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST)
                         {
                             long entityId = 0;
@@ -247,6 +386,11 @@ namespace WorldsAdriftRebornGameServer
                                 for(int i = 0; i < updateCount; i++)
                                 {
                                     ComponentUpdateManager.Instance.HandleComponentUpdate(keyValuePair.Key, entityId, update[i].ComponentId, update[i].ComponentData, update[i].DataLength);
+
+                                    // Forward this player's update to everyone else so they
+                                    // can see it. Relayed verbatim: the server cannot
+                                    // deserialize most component ids anyway.
+                                    RelayToOtherPlayers(sender, update[i].ComponentId, update[i].ComponentData, update[i].DataLength);
                                 }
                             }
                             else
@@ -255,6 +399,7 @@ namespace WorldsAdriftRebornGameServer
                             }
                         }
                     }
+                    while (false);
 
                     EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
                 }

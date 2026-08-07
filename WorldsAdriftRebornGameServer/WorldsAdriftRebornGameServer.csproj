@@ -13,7 +13,13 @@
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0-preview.2.23128.3" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!--
+    The C++ SDK is only buildable by MSBuild on Windows. On Linux it is built
+    separately by WorldsAdriftRebornCoreSdk/build-mingw.sh and deployed by
+    deploy-coresdk.sh, so this reference is skipped rather than failing with
+    "The imported project /Microsoft.Cpp.Default.props was not found".
+  -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <ProjectReference Include="..\WorldsAdriftRebornCoreSdk\WorldsAdriftRebornCoreSdk.vcxproj">
       <ReferenceOutputAssembly>False</ReferenceOutputAssembly>
       <OutputItemType>Content</OutputItemType>
@@ -39,5 +45,8 @@
     <None Update="Game\Items\Config\itemData.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />
   </ItemGroup>
 </Project>

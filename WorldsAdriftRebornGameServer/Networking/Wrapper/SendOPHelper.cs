@@ -121,6 +121,48 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             return false;
         }
 
+        /// <summary>
+        /// Forwards an already-serialized component update to another client
+        /// without touching its contents.
+        ///
+        /// Distinct from <see cref="SendComponentUpdateOp"/>, which re-serializes
+        /// from live component objects. Relaying one player's movement to another
+        /// must not do that: the server has handlers for only a handful of the
+        /// component ids in play, so it cannot round-trip most of them, and
+        /// re-serializing would add failure modes for no benefit.
+        /// </summary>
+        public static unsafe bool SendRawComponentUpdateOp(ENetPeerHandle destination, long entityId, uint componentId, byte[] data)
+        {
+            if (data == null || data.Length == 0)
+            {
+                return false;
+            }
+
+            fixed (byte* raw = data)
+            {
+                Structs.Structs.ComponentUpdateOp cupdate;
+                cupdate.ComponentId = componentId;
+                cupdate.ComponentData = raw;
+                cupdate.DataLength = data.Length;
+
+                Structs.Structs.ComponentUpdateOp[] one = { cupdate };
+
+                fixed (Structs.Structs.ComponentUpdateOp* u = one)
+                {
+                    int len = 0;
+                    void* ptr = EnetLayer.PB_EXP_ComponentUpdateOp_Serialize(entityId, u, 1, &len);
+
+                    if (ptr != null && len > 0)
+                    {
+                        EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
         public static unsafe bool SendComponentUpdateOp(ENetPeerHandle destination, long entityId, List<uint> componentId, List<object> updates )
         {
             if(componentId.Count != updates.Count)

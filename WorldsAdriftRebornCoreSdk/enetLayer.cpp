@@ -159,6 +159,9 @@ ENetPacket_Wrapper* ENet_Poll(ENetHost* client, int waitTime, OnNewClientConnect
         packet->identifier = reinterpret_cast<char const*>(event.packet->userData);
         packet->channel = event.channelID;
         packet->packet = event.packet;
+        // Without this the server cannot tell who sent a packet, and has to
+        // apply every packet to every connected client.
+        packet->peer = event.peer;
 
         break;
 

@@ -28,6 +28,11 @@ struct ENetPacket_Wrapper {
     const char* identifier;
     int channel;
     ENetPacket* packet;
+    // Which client sent this packet. Appended rather than inserted so the
+    // offsets above stay valid: a mismatch with the C# mirror then shows up as a
+    // bad peer instead of silently corrupting data or channel.
+    // x64 layout: struct is 48 bytes, peer at offset 40.
+    ENetPeer* peer;
 };
 
 DLL_EXPORT int __cdecl ENet_EXP_Initialize();
