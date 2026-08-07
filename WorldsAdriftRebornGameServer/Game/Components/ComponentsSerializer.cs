@@ -180,6 +180,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = acData;
                     }
+                    else if(componentId == 1098)
+                    {
+                        // Empty rope: no control points, not attached. The owner's
+                        // RopeObserver publishes real points while grappling; the
+                        // relay carries them and the mod's RemoteGrappleLine draws.
+                        RopeControlPoints.Data rcpData = new RopeControlPoints.Data(new RopeControlPointsData(
+                            new Improbable.Collections.List<Coordinates> { },
+                            new Improbable.Collections.List<DynamicRopePoint> { },
+                            false,
+                            0f));
+
+                        obj = rcpData;
+                    }
                     else if(componentId == 6910)
                     {
                         // Default: no utility slot active (glider stowed). The owner's

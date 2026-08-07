@@ -210,6 +210,10 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             {
                 root.gameObject.AddComponent<RemoteRigMover>();
             }
+            if (root.GetComponent<RemoteGrappleLine>() == null)
+            {
+                root.gameObject.AddComponent<RemoteGrappleLine>();
+            }
             Debug.Log("[WAReborn] neutralized remote rig physics on '" + root.name + "' (kinematic + colliders off)");
         }
 
