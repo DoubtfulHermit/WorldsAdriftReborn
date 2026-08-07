@@ -36,6 +36,14 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         {
             if (reader != null)
             {
+                // The GrapplingHookTube is created/enabled only when the grapple
+                // fires (after bind), and the game re-drives it, so hiding it once
+                // is not enough. While the rope is up, keep any *Tube* mesh under
+                // the rig hidden every frame - our LineRenderer is the rope.
+                if (line != null && line.enabled)
+                {
+                    HideHookTube();
+                }
                 return;
             }
 
@@ -64,7 +72,6 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             }
 
             EnsureLine();
-            CacheHookTube();
             reader.PointsUpdated += OnPointsUpdated;
             subscribed = true;
             // Draw whatever is already there.
@@ -127,32 +134,23 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             HideHookTube();
         }
 
-        private MeshRenderer[] hookTubes;
-
-        private void CacheHookTube()
-        {
-            System.Collections.Generic.List<MeshRenderer> found = new System.Collections.Generic.List<MeshRenderer>();
-            foreach (MeshRenderer mr in transform.root.GetComponentsInChildren<MeshRenderer>(true))
-            {
-                if (mr.gameObject.name.IndexOf("Tube", System.StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    found.Add(mr);
-                }
-            }
-            hookTubes = found.ToArray();
-        }
+        private bool loggedHide;
 
         private void HideHookTube()
         {
-            if (hookTubes == null)
+            // Re-scan each call: the tube may not exist until the grapple fires,
+            // and the game can re-enable it. Cheap - grappling is brief/intermittent.
+            foreach (MeshRenderer mr in transform.root.GetComponentsInChildren<MeshRenderer>(true))
             {
-                return;
-            }
-            foreach (MeshRenderer mr in hookTubes)
-            {
-                if (mr != null && mr.enabled)
+                if (mr != null && mr.enabled
+                    && mr.gameObject.name.IndexOf("Tube", System.StringComparison.OrdinalIgnoreCase) >= 0)
                 {
                     mr.enabled = false;
+                    if (!loggedHide)
+                    {
+                        loggedHide = true;
+                        Debug.Log("[WAReborn] hid remote grapple tube '" + mr.gameObject.name + "'");
+                    }
                 }
             }
         }
