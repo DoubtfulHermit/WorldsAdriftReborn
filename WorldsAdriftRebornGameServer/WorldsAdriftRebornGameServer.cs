@@ -349,7 +349,15 @@ namespace WorldsAdriftRebornGameServer
                             {
                                 Console.WriteLine("[info] game requests components for entity id: " + entityId);
 
-                                if(playerEntityIDs.Contains(entityId) && !PeerManager.Instance.clientSetupState.Contains(keyValuePair.Key))
+                                // The first-time setup (component injection + AUTHORITY grant)
+                                // must only ever run against the sender's OWN player entity.
+                                // The old check - "is this any player entity" - would run the
+                                // full setup, authority included, against ANOTHER player's
+                                // entity if the client happened to request the mirrored remote
+                                // entity's components first. Request ordering has been lucky so
+                                // far; this removes the dice roll.
+                                bool isSendersOwnEntity = Players.EntityOf(PeerIdentity.IdOf(sender)) == entityId;
+                                if(isSendersOwnEntity && !PeerManager.Instance.clientSetupState.Contains(keyValuePair.Key))
                                 {
                                     // a player entity requests components for the first time, we need to setup a few things to make him work properly
                                     // some of this might not be needd anymore in the future once we sorted out a few things.
