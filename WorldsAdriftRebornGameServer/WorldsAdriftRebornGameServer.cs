@@ -150,7 +150,12 @@ namespace WorldsAdriftRebornGameServer
 
         private static readonly EnetLayer.ENet_Poll_Callback callbackC = new EnetLayer.ENet_Poll_Callback(OnNewClientConnected);
         private static readonly EnetLayer.ENet_Poll_Callback callbackD = new EnetLayer.ENet_Poll_Callback(OnClientDisconnected);
-        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082};
+        // 190602 TransformState is in this list because a client only PUBLISHES
+        // components it has authority over: every ComponentUpdateOp ever observed
+        // from a client (1003, 1082, ...) was for a component granted here.
+        // Without authority over its own transform a client never sends position,
+        // and there is nothing for the movement relay to forward.
+        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId};
         private static List<long> playerEntityIDs = new List<long>();
 
         /// <summary>

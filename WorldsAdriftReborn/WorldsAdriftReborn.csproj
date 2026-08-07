@@ -79,7 +79,8 @@
     <Compile Remove="GlobalValues.cs" />
   </ItemGroup>
   
-  <ItemGroup>
+  <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <ProjectReference Include="..\WorldsAdriftRebornCoreSdk\WorldsAdriftRebornCoreSdk.vcxproj">
       <ReferenceOutputAssembly>False</ReferenceOutputAssembly>
       <OutputItemType>Content</OutputItemType>
