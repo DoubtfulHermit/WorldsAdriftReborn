@@ -71,15 +71,21 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
         private readonly System.Collections.Generic.HashSet<int> neutralized = new System.Collections.Generic.HashSet<int>();
 
-        private void Update()
+        // CRITICAL: this MUST run in FixedUpdate, not Update. Unity runs FixedUpdate
+        // (and the neutralize below) BEFORE the physics simulation of each step,
+        // whereas Update runs AFTER it. A freshly spawned plain "Traveller" rig has
+        // live colliders + a dynamic rigidbody and spawns overlapping the LOCAL
+        // player near the origin; if the neutralize runs after physics (Update),
+        // the engine has already resolved the overlap by launching the local
+        // player skyward ("yeet"). Running it in FixedUpdate strips the colliders
+        // BEFORE the engine ever simulates the rig, so the collision cannot happen.
+        private void FixedUpdate()
         {
-            // EVERY FRAME (before the throttled sweep): the instant a remote rig
-            // appears, kill its physics. A freshly spawned plain "Traveller" rig
-            // has live colliders and a dynamic rigidbody and spawns near the
-            // origin overlapping the LOCAL player - PhysX resolves the overlap by
-            // launching the local player into the sky ("yeet on second join").
-            // The 2s-throttled sweep below neutralized it far too late. This does
-            // it on frame one, and skips already-handled rigs.
+            NeutralizeNewRemoteRigs();
+        }
+
+        private void NeutralizeNewRemoteRigs()
+        {
             foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
             {
                 Transform r = rootGo.transform;
@@ -93,6 +99,14 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 }
                 NeutralizeRemoteRigPhysics(r);
             }
+        }
+
+        private void Update()
+        {
+            // Belt-and-suspenders: also scan in Update so a rig that somehow
+            // appears between physics steps is neutralized the same frame. The
+            // FixedUpdate pass is the one that actually beats the collision.
+            NeutralizeNewRemoteRigs();
 
             if (Time.unscaledTime < nextSweep)
             {
