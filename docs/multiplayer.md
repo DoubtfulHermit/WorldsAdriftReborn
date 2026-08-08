@@ -87,7 +87,13 @@ relays every client `ComponentUpdateOp` verbatim to all other peers.
     `TransformChildHierarchyBehaviour` because runtime-added components never
     receive `[Require]` injection; it scans both duplicate behaviours for a
     non-null reader, and forces the root rigidbody kinematic so physics can't
-    fight the writes.
+    fight the writes. (Re-verified in the decompile by
+    `docs/research/findings-world.md`: `LocalTransformUpdaterBehaviour.GetLatestValue`
+    branches on `HasParent()` and *structurally never calls* `.Parent(...)`; the
+    only client-side Parent writer is `LocalTransformTeleportBehaviour`, driven
+    by a `TeleportRequestState` this server never sends. So `LocalPosition` is
+    global today — and stays global with several islands, because global
+    coordinates are island-agnostic.)
 
 11. **`LocalPlayer` is a scene object, not on the prefab.** Never use its
     root to identify "my rig" (that mistake froze both players). The reliable
@@ -96,6 +102,70 @@ relays every client `ComponentUpdateOp` verbatim to all other peers.
 12. **BepInEx ships with `WriteUnityLog = false`** — all mod `Debug.Log`
     output is invisible until flipped in `BepInEx.cfg`. Hours were lost to
     this; both installs have it enabled.
+
+### Cross-cutting (added 2026-08-08 from the research pass in `docs/research/`)
+
+Rules 1-12 were each paid for with a failed test round. These four come from the
+seven research reports. 15 and 16 were also paid for — 15 with a session-long log
+flood we caused ourselves, 16 with the character roster work. 13 and 14 are static
+analysis only; nothing was executed to produce them. Numbering continues rather
+than reflows because the findings cite rules 7 and 10 by number.
+
+13. **Fixed point is Q52.12 — divide by 4096, and only then is it metres.**
+    `Improbable.Corelibrary.Math/FixedPointVector3Util.cs:9-11,32-39`. The
+    server's default transform seed
+    `FixedPointVector3{0, 100, 0}` (`ComponentsSerializer.cs:59`) is therefore
+    **(0, 0.024, 0) m — the world origin**, not 100 m up. Anyone reading the
+    raw longs as metres will mis-site every entity by a factor of 4096 and will
+    "explain" bugs with a sky position that does not exist. The 190602 value for
+    a point at world (900, -120, 0) is `{3686400, -491520, 0}`.
+    Global→Unity is a pure translation (`unityPos = globalPos − OffsetOrigin`,
+    `AbstractDetermineOriginStrategy.cs:51-59`) — no axis swap, no scale.
+    (Note the historic name "sky-teleport bug" in the server comments and commit
+    messages: the *bug* was real — re-seeding the default transform onto a live
+    player — but the destination was the origin, under the island, not the sky.)
+    Evidence: `findings-world.md`.
+
+14. **`[WorkerType]` is defeatable. An unresolvable `[Require]` writer is not.**
+    A `[WorkerType(WorkerPlatform.UnityWorker)]` behaviour can be brought onto
+    the client — the compatibility test is one cache lookup
+    (`BehaviourWorkerCompatibilityCache.IsCompatibleBehaviour`) and only three
+    classes in the whole ship physics stack carry the attribute. But a
+    visualizer that `[Require]`s a **writer** for a component nobody is
+    authoritative over never enables at all, and there is no patch that fixes
+    that from the client — the server has to grant authority and seed the
+    component. This is the difference between "the tree harvest sim is
+    FSim-only, so we would have to reimplement it" (a `[WorkerType]` problem,
+    surmountable) and "the multitool beam cannot fire at all because 2105,
+    2106, 2002 and 1231 have no writer" (a `[Require]`-writer problem, a hard
+    prerequisite for every harvesting design). Check which of the two you have
+    before costing any feature.
+    Evidence: `findings-ships.md` (Q3), `findings-resources.md` (corrections 1-2).
+
+15. **A component the server fabricates can damage the client. Seed by entity,
+    never by component id alone.** `ComponentsSerializer.InitAndSerialize`
+    switches on `componentId` alone and answers whatever the client asked for,
+    so **any** entity requesting 1139 gets a hardcoded `WeatherCellState`, and
+    every entity gets the same default transform. Both together mean several
+    entities land in weather cell (0,0), whose Cantor pair id is `0`, and every
+    one after the first hits an error branch that forgets to mark the entity —
+    so it re-fires every FixedUpdate, forever. That was **10,280 error blocks
+    (68% of the log) in a single-client session and 212,214 (93%) with two**.
+    We caused it; the client is only the messenger. Rule 7 says seed *little*;
+    this says seed *per entity*. The seam is already clean — `InitAndSerialize`
+    receives `entityId` and 1088 already uses it.
+    Evidence: `findings-weather.md`, `findings-world.md` (Q4).
+
+16. **`Cosmetics == null` is what marks an empty character slot** —
+    `LobbySystem.cs:509`, uid non-empty AND `Cosmetics == null`. An empty `{}`
+    is not empty: it is classified as a real character and then NREs in
+    `CharacterCustomisationVisualizer.cs:422`. Two more roster rules of the
+    same kind: `hasMainCharacter` must be present because the client reads it
+    with `GetValue` and NREs on absence (`:515`); and the save endpoint's
+    response is parsed by the **same** reader as the character list
+    (`:429-435`), so replying `"{}"` traps the player on the creation screen.
+    All three are pinned by tests in `WorldsAdriftServer.Tests/RosterPolicyTests.cs`.
+    Evidence: `findings-persistence.md` (Q1); shipped in "Persist the character roster".
 
 ## Diagnostics built in (keep them)
 

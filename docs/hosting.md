@@ -63,10 +63,37 @@ journalctl -u wareborn-game -n 50 --no-pager -o cat
   dies instantly on redirected stdin. The units run
   `sleep infinity | script -qfc <wrapper> /dev/null` to give it a tty whose stdin
   never delivers input.
-- **Restarting the game server orphans connected clients.** They keep rendering
-  the world and look fine to the player, but the server has forgotten them - they
-  are invisible to everyone and never reconnect. Players must restart the client.
-  (A proper reconnect path is open work.)
+- **Restarting the game server orphans connected clients — today.** They keep
+  rendering the world and look fine to the player, but the server has forgotten
+  them: they are invisible to everyone and never reconnect. Players must restart
+  the client. **Plan a restart as a session-ending event until the fix below
+  ships.**
+
+  This is a limitation of our shim, not of the game. `docs/research/findings-robustness.md`
+  establishes that the game already ships a complete, working reconnect UX — a
+  RETRY/QUIT dialog that returns the player to character select and opens a
+  fresh ENet connection - and that four defects in our own layer stop it firing:
+  `Connection.cpp:44` passes `NULL` for both ENet callbacks so the DISCONNECT
+  event is consumed and discarded; `IsConnected()` returns `peer != NULL` and
+  `peer` is only cleared in the destructor, so it is true forever;
+  `WorkerProtocol_Dispatcher_RegisterDisconnectCallback` is an empty TODO
+  (`Exports.cpp:26-29`); and the mod patches out the game's 65 s watchdog.
+  ENet itself detects the dead server without any application traffic — an idle
+  peer is pinged reliably, so timeout detection is armed regardless.
+
+  The estimate is ~40 lines of C++, **no server change and no new wire message**.
+  Once it lands a restart becomes a **~30 s recoverable interruption** rather
+  than a session-ending one. That is a projection from static analysis: nothing
+  was executed, the riskiest step (`ENet_Deinitialize` → `ENet_Initialize` on a
+  second connect under Wine) is untested, and each reconnect will leave a stale
+  avatar behind until entity removal lands. Do not plan operations around it
+  until it is measured.
+
+  Two traps recorded there, for whoever does the work: do **not** un-patch the
+  65 s watchdog (`HeartbeatVisualiser` is `[Require]`-gated on components the
+  server never seeds and refreshes only on traffic never sent — the patch was
+  correct), and do **not** use the reason string `"Disconnect was called by the
+  user."`, which routes to a silent lobby return instead of the dialog.
 - **Log lines wrap and carry terminal escapes** (a side effect of `script`). When
   grepping, strip them: `tr -d '\r' | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'`.
 - Wine writes `CoreSdk_OutputLog.txt` into the process working directory.
