@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using Improbable.Worker.Internal;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Components;
@@ -287,6 +288,63 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Serializes ONE typed component update into the same payload bytes a
+        /// client would have put on the wire, using the game's own generated
+        /// serializer - the exact machinery <see cref="SendComponentUpdateOp"/>
+        /// uses, minus the send and minus the per-call console lines.
+        ///
+        /// It exists for the relay emitter, which serializes at emit cadence
+        /// (20 Hz x players x recipients) rather than once per rare event, so two
+        /// things matter here that the older method could ignore:
+        ///
+        /// * IT MUST NOT LOG. A console line per call is the ServerLog bug all
+        ///   over again.
+        /// * IT MUST NOT LEAK. The generated serializer hands back a buffer
+        ///   allocated with AllocHGlobal (ExpandableUnmanagedMemoryStream.
+        ///   TakeOwnershipOfBuffer - ownership is the caller's, the name says
+        ///   so). SendComponentUpdateOp never frees it, which is invisible at a
+        ///   tree-cut every 0.75 s and is ~50 KB/s of unmanaged leak at emit
+        ///   cadence. The bytes are copied to a managed array and the native
+        ///   buffer freed immediately.
+        ///
+        /// Returns null when the serializer produced nothing, which for a
+        /// well-formed update of a known component does not happen.
+        /// </summary>
+        public static unsafe byte[]? SerializeComponentUpdatePayload(uint componentId, object update)
+        {
+            ComponentProtocol.ClientSerialize serializer = ComponentsManager.Instance.GetSerializerForComponent(componentId);
+
+            ComponentProtocol.ClientObject* cobj = ClientObjects.ObjectAlloc();
+            cobj->Reference = ClientObjects.Instance.CreateReference(update);
+
+            byte* cbuffer = null;
+            uint len = 0;
+            byte[]? payload = null;
+            try
+            {
+                serializer(componentId, 1, cobj, &cbuffer, &len);
+
+                if (cbuffer != null && len > 0)
+                {
+                    payload = new byte[len];
+                    Marshal.Copy(new IntPtr(cbuffer), payload, 0, (int)len);
+                }
+            }
+            finally
+            {
+                if (cbuffer != null)
+                {
+                    ClientObjects.BufferFree(cbuffer);
+                }
+                // ObjectFree also destroys the reference (see the SDK's
+                // ObjectFree: DestroyReference then FreeHGlobal).
+                ClientObjects.ObjectFree(componentId, 1, cobj);
+            }
+
+            return payload;
         }
 
         public static unsafe bool SendComponentUpdateOp(ENetPeerHandle destination, long entityId, List<uint> componentId, List<object> updates )

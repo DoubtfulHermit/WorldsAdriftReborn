@@ -90,6 +90,12 @@ namespace WorldsAdriftRebornGameServer
             // is nobody left to send them to.
             Schedule.Forget(peerId);
 
+            // The relay emitter's slice: this peer's coalesced movement state,
+            // its ingest baselines, and every synthetic timeline it appears in
+            // as sender OR recipient. A leaked baseline would judge a
+            // reconnected player's fresh timestamps against a dead session.
+            Relay.Forget(peerId);
+
             // Drop the departed player's stored appearance so the store does not
             // grow across reconnects (entity ids are handed out monotonically, so
             // a stale record is never re-read, only wasted memory).
@@ -492,6 +498,19 @@ namespace WorldsAdriftRebornGameServer
                 return;
             }
 
+            // The two movement streams do not travel this path under relay v2:
+            // their typed handlers already fed RelayEmitter (latest-state ingest),
+            // and the emitter puts them on the wire at a fixed cadence with the
+            // pairing timestamp rewritten. Also BEFORE the copy - under v2 the
+            // per-packet byte[] for movement (the overwhelming majority of relay
+            // traffic) is never allocated at all. With WAREBORN_RELAY_V2=0 this
+            // gate is inert and the raw arrival-order path below is exactly what
+            // it always was.
+            if (Networking.RelayEmitter.CoalescesComponent(componentId))
+            {
+                return;
+            }
+
             byte[] payload = new byte[dataLength];
             Marshal.Copy(new IntPtr(data), payload, 0, dataLength);
 
@@ -510,8 +529,15 @@ namespace WorldsAdriftRebornGameServer
 
                 if (SendOPHelper.SendRawComponentUpdateOp(target, intent.EntityId, intent.ComponentId, intent.Payload!))
                 {
-                    ServerLog.Trace("[relay] component ", intent.ComponentId + " of entity " + intent.EntityId
-                        + ": " + Describe(senderId) + " -> " + Describe(intent.TargetPeer));
+                    // Guarded BEFORE building the line: ServerLog's own contract
+                    // forbids call-site concatenation, because the two Describe()
+                    // allocations and the concat ran per relayed packet whether
+                    // or not Verbose was set - on the hot path, for nothing.
+                    if (ServerLog.Verbose)
+                    {
+                        ServerLog.Trace("[relay] component " + intent.ComponentId + " of entity " + intent.EntityId
+                            + ": " + Describe(senderId) + " -> " + Describe(intent.TargetPeer));
+                    }
                 }
             }
         }
@@ -623,6 +649,19 @@ namespace WorldsAdriftRebornGameServer
 
         /// <summary>Decides which ops go to which peers so players can see each other.</summary>
         private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
+
+        /// <summary>
+        /// The movement relay, second generation: 190602/1073 are no longer
+        /// forwarded raw on arrival but ingested to latest-state (drops, jump
+        /// filter, staleness metric) and emitted at a fixed cadence on a
+        /// synthetic per-recipient timebase. WAREBORN_RELAY_V2=0 restores the
+        /// raw path. Internal because the two movement handlers feed it and
+        /// ComponentsSerializer's 1073 seed branch resets its timelines.
+        ///
+        /// Declared AFTER <see cref="ServerClock"/> and <see cref="Players"/>
+        /// for the same textual-order rule as <see cref="Falls"/>.
+        /// </summary>
+        internal static readonly Networking.RelayEmitter Relay = new Networking.RelayEmitter(ServerClock, Players);
 
         /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
@@ -1241,6 +1280,7 @@ namespace WorldsAdriftRebornGameServer
                 // comes apart" is this timer or it does not happen. Cheap when
                 // nobody is chopping: an empty dictionary.
                 TickTreeHarvest();
+                Relay.Tick(); // fixed-cadence movement emit + 5 s relay stats; cheap when idle (two Stopwatch compares). See Networking.RelayEmitter.
 
                 // Report each connected peer's 5 s wire-rate line (with ENet peer
                 // health appended when readable). Runs with the other timers so a
