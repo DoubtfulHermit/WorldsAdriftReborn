@@ -322,7 +322,7 @@ namespace WorldsAdriftRebornGameServer
 
                 if (SendOPHelper.SendRawComponentUpdateOp(target, intent.EntityId, intent.ComponentId, intent.Payload!))
                 {
-                    Console.WriteLine("[relay] component " + intent.ComponentId + " of entity " + intent.EntityId
+                    ServerLog.Trace("[relay] component ", intent.ComponentId + " of entity " + intent.EntityId
                         + ": " + Describe(senderId) + " -> " + Describe(intent.TargetPeer));
                 }
             }
@@ -700,7 +700,7 @@ namespace WorldsAdriftRebornGameServer
 
                             if (EnetLayer.PB_EXP_ComponentUpdateOp_Deserialize(packet->Data, (int)packet->DataLength, &entityId, &update, &updateCount) && updateCount > 0)
                             {
-                                Console.WriteLine("[info] game requests " + updateCount + " ComponentUpdate's for entity id " + entityId);
+                                ServerLog.Trace("[info] game requests ", updateCount, " ComponentUpdate's for entity id ", entityId);
 
                                 for(int i = 0; i < updateCount; i++)
                                 {

@@ -238,7 +238,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1131)
                     {
-                        WorldData.Data woData = new WorldData.Data(new WorldDataData(new EntityId(0), 0.15f, 144f, 1));
+                        // timeRate stays at 1f, NOT the client's own default of 144f.
+                        //
+                        // Each client is served this component at ITS OWN checkout moment and
+                        // runs the day/night cycle from there, so two clients that joined a
+                        // few minutes apart are a few minutes out of phase. At 1f that is a
+                        // few minutes of a 24-hour cycle - invisible. At 144f the same gap
+                        // becomes hours of game time, and the sun is visibly in a different
+                        // place on each screen. That was observed directly in a two-player
+                        // session: light coming through the rocks differed between clients.
+                        //
+                        // The real fix is a SHARED absolute epoch so both clients compute the
+                        // same time of day regardless of when they joined; until then a slow
+                        // cycle hides the divergence. Do not raise this without fixing that.
+                        WorldData.Data woData = new WorldData.Data(new WorldDataData(new EntityId(0), 0.15f, 1f, 1));
 
                         obj = woData;
                     }

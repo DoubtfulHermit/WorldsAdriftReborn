@@ -51,6 +51,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             WorldsAdriftRebornGameServer.Appearances.Record(entityId, map);
             Console.WriteLine("[info] recorded appearance for entity " + entityId + " (" + map.Count + " keys).");
 
+            // PROBE: does the client actually publish its character identity?
+            // The whole persistence design assumes the selected character's uid
+            // rides along in this 1088 update, but that has only ever been
+            // verified by reading the decompiled client, never observed running.
+            // The seed carries 4 cosmetic keys, so 5 keys means identity arrived.
+            string identity;
+            if (map.TryGetValue("bossaNetCharacterData", out identity) && identity != null)
+            {
+                string flat = identity.Replace("\r", "").Replace("\n", " ");
+                if (flat.Length > 240) { flat = flat.Substring(0, 240); }
+                Console.WriteLine("[probe] IDENTITY entity=" + entityId + " -> " + flat);
+            }
+            else
+            {
+                Console.WriteLine("[probe] IDENTITY entity=" + entityId + " -> MISSING (keys: "
+                    + string.Join(",", map.Keys.ToArray()) + ")");
+            }
+
             // Keep the server-side stored component in sync so later re-serves of
             // this entity's 1088 (interest requests) also carry the real data.
             clientComponentUpdate.ApplyTo(serverComponentData);

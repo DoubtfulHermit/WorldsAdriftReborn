@@ -120,7 +120,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
         public unsafe bool HandleComponentUpdate(ENetPeerHandle player, long entityId, uint componentId, byte* componentData, int componentDataLength)
         {
             bool success = false;
-            Console.WriteLine("[info] trying to handle a ComponentUpdateOp for " + componentId);
+            ServerLog.Trace("[info] trying to handle a ComponentUpdateOp for ", componentId);
 
             for (int i = 0; i < ComponentsManager.Instance.ClientComponentVtables.Length; i++)
             {
@@ -163,14 +163,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
 
                             if (!success)
                             {
-                                Console.WriteLine("[warning] could not find a handler for component update on " + componentId);
+                                ServerLog.Trace("[warning] could not find a handler for component update on ", componentId);
                             }
 
                             ClientObjects.Instance.DestroyReference(wrapper->Reference);
                         }
                         else
                         {
-                            Console.WriteLine("[error] failed to deserialize ComponentUpdateOp data for id " + componentId);
+                            ServerLog.Trace("[error] failed to deserialize ComponentUpdateOp data for id ", componentId);
                         }
 
                         ClientObjects.ObjectFree(componentId, 1, wrapper);
@@ -178,7 +178,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
                     }
                     else
                     {
-                        Console.WriteLine("[warning] could not match requested ComponentUpdate with local stored values.");
+                        ServerLog.Trace("[warning] could not match requested ComponentUpdate with local stored values.");
                     }
 
                     break;
@@ -187,7 +187,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
 
             if (!success)
             {
-                Console.WriteLine("[error] if no other error above, no matching component for id " + componentId + " defined in the game.");
+                ServerLog.Trace("[error] if no other error above, no matching component for id ", componentId, " defined in the game.");
             }
             return success;
         }
