@@ -196,7 +196,7 @@ Haven coordinates already proved it (`0 -> 2857`, collision unchanged).
 *Corollary:* parenting ship and tree to the island shrinks their `LocalPosition`
 into cell (0,0) — colliding with each other instead.
 
-**5.2 Stop seeding 1139 — correct, but not tonight.** Deletes the fiction and
+**5.2 Stop seeding 1139 — DONE, 2026-08-08 (server-side).** Deletes the fiction and
 generalises to `1269`. Needs the two-part change in §2, touching
 `InitAndSerialize`'s error contract and the all-or-nothing rule — the exact seam
 that gained two entity types today. *Unverified:* whether `SpatialTranslator`
@@ -230,6 +230,47 @@ system likely needs a manual `Harmony.Patch` on the closed generic rather than
 
 **Recommendation: 5.4 now, 5.2 next. Do not do 5.1; do not bother with 5.3
 alone.**
+
+### WHAT WAS ACTUALLY DONE, 2026-08-08 — 5.2, not 5.4
+
+5.4 was rejected *because it is client-side*: a friend is playing on tonight's
+build and must not be asked to reinstall. A server-only change reaches them on
+the next connect. So 5.2 was implemented instead, in the two parts §2 named:
+
+1. `WorldsAdriftRebornGameServer.Multiplayer/ComponentAbsencePolicy.cs` — the
+   KNOWN-ABSENT set plus `ComponentSeedOutcome`.
+   `ComponentsSerializer.InitAndSerialize` now returns that outcome instead of
+   `void`, and answers `KnownAbsent` **before** the vtable scan.
+2. `SendOPHelper.SendAddComponentOp` skips a known-absent id without failing the
+   batch and without an `[error]`; everything else obeys
+   `failOnComponentInitError` exactly as before.
+
+**1139 and 1269 are absent on EVERY entity, no carrier.** One carrier would also
+give zero collisions, and was rejected because (a) `GetWeatherAt` interpolates
+four cells, so one carrier puts a pressure/wind seam on the island the players
+stand on, while zero carriers gives the uniform documented default — wind
+(1,0,-2), pressure 0.5; (b) the carrier would *be* a weather cell to
+`WeatherCellGenesisS.RemoveExistingWeatherCellEntities()`, which deletes
+anything that `Contains<WeatherCellState>()`; (c) "which entity carries it" is
+state that has to survive that entity despawning.
+
+**1269 included.** It is in no `IdComponentToEntityMap` so it never collided,
+but every consumer in the shipped client is a Blight system whose filter also
+requires `BlightLocalComponent` — a local flag nothing gives a Traveller, an
+island, a hull or a tree — and two of them additionally require authority over
+1269, which this server grants to nobody. A weight-0 radial storm on a player
+was unreachable code either way.
+
+**Caveat 6.3 (client tolerance of a missing component) is now answered by
+construction rather than by inference:** the CoreSdk dispatches AddComponentOps
+one at a time (`Connection.cpp:69-77`, `Dispatcher.cpp:29`) with no completeness
+check against the interest list, and the mirror path has always sent partial
+batches (`failOnComponentInitError: false`) for remote players that work.
+
+**The trap that was avoided:** `[known-absent]` and `[ToDo] unhandled component
+id` are separate strings, separate outcomes and separately asserted
+(`ComponentAbsencePolicyTests`). An id nobody predicted is still loud and still
+drops the batch.
 
 ## 6. NOT VERIFIED
 

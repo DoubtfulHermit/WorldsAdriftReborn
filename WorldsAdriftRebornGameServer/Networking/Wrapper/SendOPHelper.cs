@@ -90,6 +90,15 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
         /// actually asks for is only knowable by reading it off the wire. That
         /// reading is what these two lines are for; see
         /// docs/research/loop/findings-harvestable-world.md step 0.
+        ///
+        /// THE ONE EXCEPTION TO ALL-OR-NOTHING: a component the server has
+        /// DECIDED this entity does not have. In real SpatialOS a ComponentInterest
+        /// is answered with the subset the entity actually has, so answering four
+        /// ids with three is the normal case, not a fault. Those ids are skipped
+        /// here without failing the batch and without an [error]; see
+        /// Multiplayer.ComponentAbsencePolicy for which ones and why. An id
+        /// nobody predicted is still fatal and still loud - that distinction is
+        /// the entire value of this diagnostic.
         /// </summary>
         public static unsafe bool SendAddComponentOp(ENetPeerHandle destination, long entityId, Structs.Structs.InterestOverride* interests, uint interestCount, bool failOnComponentInitError = false )
         {
@@ -98,21 +107,35 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             Console.WriteLine("[interest] entity " + entityId + " wants " + interestCount + " component(s): "
                 + DescribeInterests(interests, interestCount)
                 + (failOnComponentInitError
-                    ? " (ALL-OR-NOTHING: one unseeded id drops the whole batch)"
+                    ? " (ALL-OR-NOTHING: one UNSEEDED id drops the whole batch; ids the entity"
+                      + " is known not to have are omitted without failing)"
                     : " (best effort: unseeded ids are skipped)"));
+
+            int knownAbsent = 0;
 
             for (int i = 0; i < interestCount; i++)
             {
                 uint len = 0;
                 byte* buffer;
-                ComponentsSerializer.InitAndSerialize(destination, entityId, interests[i].ComponentId, &buffer, &len);
+                Multiplayer.ComponentSeedOutcome outcome = ComponentsSerializer.InitAndSerialize(
+                    destination, entityId, interests[i].ComponentId, &buffer, &len);
 
-                if (len <= 0)
+                // Deliberately absent: no bytes, no error, no batch failure. The
+                // serializer has already printed its own [known-absent] line, so
+                // this path stays silent and only the per-batch tally below
+                // reports it.
+                if (outcome == Multiplayer.ComponentSeedOutcome.KnownAbsent)
+                {
+                    knownAbsent++;
+                    continue;
+                }
+
+                if (!Multiplayer.ComponentAbsencePolicy.BelongsInBatch(outcome) || len <= 0)
                 {
                     Console.WriteLine("[error] failed to initialize component " + interests[i].ComponentId
                         + " of entity " + entityId + " (component " + (i + 1) + " of " + interestCount
-                        + "; " + serializedComponents.Count + " already serialized).");
-                    if (failOnComponentInitError)
+                        + "; " + serializedComponents.Count + " already serialized; outcome " + outcome + ").");
+                    if (Multiplayer.ComponentAbsencePolicy.DropsBatch(outcome, failOnComponentInitError))
                     {
                         // Not "one component missing" - EVERY component in this
                         // batch is being thrown away, including the ones that
@@ -134,6 +157,25 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 component.DataLength = (int)len;
 
                 serializedComponents.Add(component);
+            }
+
+            // One line per batch, not per component: "the client asked for four
+            // and got three, on purpose". Only printed when something was
+            // actually left out.
+            if (knownAbsent > 0)
+            {
+                Console.WriteLine(Multiplayer.ComponentAbsencePolicy.DescribeBatchOmissions(
+                    entityId, interestCount, serializedComponents.Count, knownAbsent));
+            }
+
+            // An interest answered entirely with "the entity does not have any of
+            // those" is a SUCCESS with nothing to send. Falling through would
+            // take `fixed` over an empty array - a null pointer - and report
+            // failure, which on the setup path costs the caller the rest of its
+            // sequence via `continue`.
+            if (serializedComponents.Count == 0 && knownAbsent == interestCount && interestCount > 0)
+            {
+                return true;
             }
 
             fixed (Structs.Structs.AddComponentOp* comps = serializedComponents.ToArray())

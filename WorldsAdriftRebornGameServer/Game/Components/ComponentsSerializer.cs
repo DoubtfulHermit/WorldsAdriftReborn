@@ -43,22 +43,36 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 {
     internal class ComponentsSerializer
     {
-        public unsafe static void InitAndSerialize(ENetPeerHandle player, long entityId, uint componentId, byte** buffer, uint* length)
+        public unsafe static Multiplayer.ComponentSeedOutcome InitAndSerialize(ENetPeerHandle player, long entityId, uint componentId, byte** buffer, uint* length)
         {
-            // TWO DIFFERENT FAILURES LOOK IDENTICAL TO THE CALLER, and both come
-            // back as length 0:
+            // THREE DIFFERENT THINGS LOOK IDENTICAL TO A CALLER THAT ONLY READS
+            // LENGTH, and all three come back as 0:
             //
             //   a) the id has no vtable in this client build at all, so the loop
             //      below never enters and nothing is written;
             //   b) the id has a vtable but no seed branch here, which logs
-            //      "[ToDo] unhandled component id".
+            //      "[ToDo] unhandled component id";
+            //   c) the entity DOES NOT HAVE the component and we know it.
             //
             // (a) means the component does not exist in the shipped client and no
-            // amount of writing branches will help; (b) means write a branch. Any
-            // caller with failOnComponentInitError set loses its ENTIRE batch
-            // either way, so telling them apart is the difference between an
-            // afternoon and a day. Hence the flag.
+            // amount of writing branches will help; (b) means write a branch; (c)
+            // means nothing is wrong at all. A caller with
+            // failOnComponentInitError set must lose its ENTIRE batch for (a) and
+            // (b) and must NOT lose it for (c), so the answer is an outcome, not
+            // a length. See Multiplayer.ComponentAbsencePolicy.
+            //
+            // (c) is checked FIRST and before the vtable scan on purpose: whether
+            // the shipped client happens to know the id is irrelevant to whether
+            // our entity has it, and answering "you asked, it isn't there" is the
+            // thing real SpatialOS does and this server never could.
+            if (Multiplayer.ComponentAbsencePolicy.IsKnownAbsent(componentId))
+            {
+                Console.WriteLine(Multiplayer.ComponentAbsencePolicy.DescribeKnownAbsent(entityId, componentId));
+                return Multiplayer.ComponentSeedOutcome.KnownAbsent;
+            }
+
             bool hasClientVtable = false;
+            Multiplayer.ComponentSeedOutcome outcome = Multiplayer.ComponentSeedOutcome.NoClientVtable;
 
             for(int i = 0; i < ComponentsManager.Instance.ClientComponentVtables.Length; i++)
             {
@@ -97,7 +111,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         Console.WriteLine("[info] re-serving live component " + componentId + " of entity "
                             + entityId + " instead of re-seeding it.");
-                        return;
+                        return *length > 0
+                            ? Multiplayer.ComponentSeedOutcome.Serialized
+                            : Multiplayer.ComponentSeedOutcome.SerializeFailed;
                     }
 
                     if(componentId == 8065)
@@ -554,18 +570,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = gsData;
                     }
-                    else if(componentId == 1269)
-                    {
-                        RadialStormState.Data rsData = new RadialStormState.Data(new RadialStormStateData(0f));
-
-                        obj = rsData;
-                    }
-                    else if(componentId == 1139)
-                    {
-                        WeatherCellState.Data wcData = new WeatherCellState.Data(new WeatherCellStateData(1f, new Vector3f(0f, 0f, 0f)));
-
-                        obj = wcData;
-                    }
+                    // 1269 RadialStormState and 1139 WeatherCellState USED TO BE
+                    // SEEDED HERE, with a weight of 0f and a pressure of 1f
+                    // respectively, on every entity that asked. They are now
+                    // declared known-absent in Multiplayer.ComponentAbsencePolicy
+                    // and never reach this chain at all - the branches are gone
+                    // rather than left dead, because a dead seed is an invitation
+                    // to "fix" the policy by deleting an entry and silently
+                    // restoring the error storm.
+                    //
+                    // 1139 was the whole of docs/research/diag/findings-weather-storm.md:
+                    // every entity we spawn floors into the same 500 m weather cell,
+                    // so all but one lost an id-map race EVERY FRAME, FOREVER -
+                    // ~197 stack-traced error lines a second on the client's main
+                    // thread with five entities, and ~49.5 more per entity ever
+                    // added. If either id has to come back, it needs a reason why
+                    // the entity genuinely HAS it, not a seed.
                     else if(componentId == 1254)
                     {
                         IslandLightningTimerState.Data ilData = new IslandLightningTimerState.Data(new IslandLightningTimerStateData(50 * 1000, // must be >= 30  and below must be > 0 to trigger lightning rumbles. multiply by 1000 to actually get the value you want ingame (50 in this case)
@@ -1126,7 +1146,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else
                     {
-                        Console.WriteLine("[ToDo] unhandled component id needs investigation: " + componentId);
+                        // LOUD ON PURPOSE. This is not the quiet path above: it
+                        // means the client asked for something nobody has ever
+                        // thought about, which is how every new entity type has
+                        // announced itself so far. It still costs an
+                        // all-or-nothing caller its whole batch.
+                        Console.WriteLine(Multiplayer.ComponentAbsencePolicy.DescribeUnhandled(entityId, componentId));
+                        outcome = Multiplayer.ComponentSeedOutcome.UnhandledId;
                     }
 
                     if (obj != null)
@@ -1137,6 +1163,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         ComponentProtocol.ClientSerialize serialize = Marshal.GetDelegateForFunctionPointer<ComponentProtocol.ClientSerialize>(ComponentsManager.Instance.ClientComponentVtables[i].Serialize);
                         serialize(componentId, 2, &wrapper, buffer, length);
+
+                        outcome = *length > 0
+                            ? Multiplayer.ComponentSeedOutcome.Serialized
+                            : Multiplayer.ComponentSeedOutcome.SerializeFailed;
 
                         // store refId for player and component as we need this to access the component later
                         // this needs to change in the future, we need to make use of the games structures.
@@ -1180,7 +1210,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                 Console.WriteLine("[error] component " + componentId + " has NO client vtable in this build"
                     + " (entity " + entityId + "). Not a missing seed - the component does not exist"
                     + " in the shipped client, so no branch here can fix it.");
+                return Multiplayer.ComponentSeedOutcome.NoClientVtable;
             }
+
+            return outcome;
         }
 
         /// <summary>

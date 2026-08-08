@@ -171,6 +171,21 @@ than reflows because the findings cite rules 7 and 10 by number.
     receives `entityId` and 1088 already uses it.
     Evidence: `findings-weather.md`, `findings-world.md` (Q4).
 
+    **FIXED 2026-08-08, and the general form is worth more than the fix.** The
+    third answer this server never had is *"the entity does not have that
+    component"* — which is what a real SpatialOS deployment replies to a
+    `ComponentInterest`. It now exists as
+    `Multiplayer.ComponentAbsencePolicy`: `InitAndSerialize` returns a
+    `ComponentSeedOutcome`, `KnownAbsent` is skipped by `SendAddComponentOp`
+    **without failing the all-or-nothing batch and without an `[error]`**, and
+    an *unhandled* id is still loud and still fatal to the batch. 1139 and 1269
+    are declared absent on **every** entity, so the id map has nothing to
+    collide. Do not add an id to that set because it is hard to seed — that is
+    what `[ToDo] unhandled component id` is for, and it is supposed to hurt.
+    (Note the co-location correction in `diag/findings-weather-storm.md`: the
+    cell was never "the (0,0) default", it is a 60 m island inside a 500 m cell,
+    so real coordinates changed the id from 0 to 2857 and nothing else.)
+
 16. **`Cosmetics == null` is what marks an empty character slot** —
     `LobbySystem.cs:509`, uid non-empty AND `Cosmetics == null`. An empty `{}`
     is not empty: it is classified as a real character and then NREs in
