@@ -132,6 +132,15 @@ than reflows because the findings cite rules 7 and 10 by number.
     player — but the destination was the origin, under the island, not the sky.)
     Evidence: `findings-world.md`.
 
+    **UPDATE — there is no single default seed any more.** `InitAndSerialize` is
+    entity-aware for 190602: `Multiplayer.SpawnPolicy` gives the island Haven's
+    world position and a player the spawn point (`SpawnPolicy.cs`, tested in
+    `SpawnPolicyTests`). That makes rule 7's "never resend AddComponents" *more*
+    important, not less: the accidental destination used to be the world origin,
+    which is where the island was, and is now 17 km away and 300 m below it —
+    an out-of-world drop with no `WorldEdgePushback` (it gates on world bounds
+    this server never sends) and no fall damage to end it.
+
 14. **`[WorkerType]` is defeatable. An unresolvable `[Require]` writer is not.**
     A `[WorkerType(WorkerPlatform.UnityWorker)]` behaviour can be brought onto
     the client — the compatibility test is one cache lookup

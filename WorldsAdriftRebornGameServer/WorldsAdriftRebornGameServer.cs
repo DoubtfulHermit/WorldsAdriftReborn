@@ -416,8 +416,132 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static long SharedIslandEntityId => EntityIds.SharedIslandEntityId;
 
+        /// <summary>
+        /// The island's entity id, or null if it has not been handed out yet.
+        ///
+        /// This is what makes component seeding entity-aware: ComponentsSerializer
+        /// asks SpawnPolicy "is this entity the island or a player?", and this is
+        /// the only fact it needs to answer.
+        ///
+        /// It deliberately does NOT read <see cref="SharedIslandEntityId"/>
+        /// unconditionally, because that getter ALLOCATES on first use. Asking
+        /// the question must never be what creates the island id, or the answer
+        /// would depend on which entity happened to be serialized first.
+        /// </summary>
+        internal static long? IslandEntityId => EntityIds.IslandAllocated ? EntityIds.SharedIslandEntityId : null;
+
         public static long NextEntityId => EntityIds.Next();
-        
+
+        /// <summary>
+        /// Wire plumbing for one <see cref="SpawnStep"/>. The policy decides WHAT
+        /// happens and in what order; this decides only which ENet op says it.
+        /// </summary>
+        private static Action<object> ActionFor(SpawnStep step)
+        {
+            switch (step)
+            {
+                case SpawnStep.RequestPlayerAsset:
+                    return (object o) =>
+                    {
+                        Console.WriteLine("[info] requesting the game to load the player asset...");
+
+                        if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", MirrorSendPolicy.PrefabName, MirrorSendPolicy.LocalPrefabContext))
+                        {
+                            Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
+                        }
+                        else
+                        {
+                            Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
+                        }
+                    };
+
+                case SpawnStep.RequestIslandAsset:
+                    return (object o) =>
+                    {
+                        Console.WriteLine("[info] requesting the game to load island " + SpawnPolicy.IslandAssetName + " from its asset bundles...");
+
+                        if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", SpawnPolicy.IslandAssetName, "notNeeded?"))
+                        {
+                            Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
+                        }
+                        else
+                        {
+                            Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
+                        }
+                    };
+
+                case SpawnStep.AddIslandEntity:
+                    return (object o) =>
+                    {
+                        Console.WriteLine("[success] island asset loaded. requesting loading of island...");
+
+                        // Every client gets the SAME island entity id. A remote player's
+                        // rig positions itself by PARENTING: the client publishes
+                        // TransformState with Parent = its island's entity id, and the
+                        // receiving client's RelativeParentTransformChildHierarchyBehaviour
+                        // looks that entity up locally to attach the rig. With per-client
+                        // island ids (0 for one client, 2 for the next) the lookup found
+                        // nothing and every remote avatar stayed frozen at the default
+                        // seed position, ~90km off-island.
+                        //
+                        // Reading SharedIslandEntityId here is also what ALLOCATES the id,
+                        // and it happens before any player entity exists - which is what
+                        // lets ComponentsSerializer tell the island apart from a player
+                        // when it fabricates 190602. See IslandEntityId above.
+                        if (SendOPHelper.SendAddEntityOP((ENetPeerHandle)o, SharedIslandEntityId, SpawnPolicy.IslandAssetName, "notNeeded?"))
+                        {
+                            Console.WriteLine("[info] successfully serialized and queued AddEntityOp for island entity " + SharedIslandEntityId + ".");
+                        }
+                        else
+                        {
+                            Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
+                        }
+                    };
+
+                case SpawnStep.AddPlayerEntity:
+                    return (object o) =>
+                    {
+                        ENetPeerHandle peer = (ENetPeerHandle)o;
+                        Console.WriteLine("[info] client ack'ed island spawning instruction (info by sdk, does not mean it truly spawned). requesting to spawn player...");
+
+                        // Capture this peer's own entity id in a local. Reading a shared
+                        // playerEntityIDs.Last() was only safe while a single client
+                        // could ever connect; with several spawning at once it could
+                        // return someone else's entity. That list is gone: nothing ever
+                        // read it again, and it grew for the life of the process.
+                        long playerEntityId = NextEntityId;
+
+                        if (SendOPHelper.SendAddEntityOP(peer, playerEntityId, MirrorSendPolicy.PrefabName, MirrorSendPolicy.LocalPrefabContext))
+                        {
+                            Console.WriteLine("[info] successfully serialized and queued AddEntityOp for player entity " + playerEntityId + ".");
+                            MirrorNewPlayer(peer, playerEntityId);
+                        }
+                        else
+                        {
+                            Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
+                        }
+                    };
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(step));
+            }
+        }
+
+        /// <summary>
+        /// Translates the policy's ack into the sync loop's own enum. Two names
+        /// for one idea, kept apart only because GameState.NextStateRequirement
+        /// lives in the ENet-bound assembly and the policy must not depend on it.
+        /// </summary>
+        private static GameState.NextStateRequirement RequirementFor(SpawnAck ack)
+        {
+            return ack switch
+            {
+                SpawnAck.AssetLoaded => GameState.NextStateRequirement.ASSET_LOADED_RESPONSE,
+                SpawnAck.EntityAdded => GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE,
+                _ => throw new ArgumentOutOfRangeException(nameof(ack)),
+            };
+        }
+
         static unsafe void Main( string[] args )
         {
             Console.CancelKeyPress += delegate ( object? sender, ConsoleCancelEventArgs e )
@@ -458,78 +582,23 @@ namespace WorldsAdriftRebornGameServer
 
 
             // define initial world state for first chunk
-            GameState.Instance.WorldState[0] = new List<SyncStep>()
-            {
-                new SyncStep(GameState.NextStateRequirement.ASSET_LOADED_RESPONSE, new Action<object>((object o) =>
-                {
-                    Console.WriteLine("[info] requesting the game to load the player asset...");
-
-                    if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", "Traveller", "Player"))
-                    {
-                        Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
-                    }
-                    else
-                    {
-                        Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
-                    }
-                })),
-                new SyncStep(GameState.NextStateRequirement.ASSET_LOADED_RESPONSE, new Action<object>((object o) =>
-                {
-                    Console.WriteLine("[info] requesting the game to load the island from its asset bundles...");
-
-                    if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", "949069116@Island", "notNeeded?"))
-                    {
-                        Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
-                    }
-                    else
-                    {
-                        Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
-                    }
-                })),
-                new SyncStep(GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE, new Action<object>((object o) =>
-                {
-                    Console.WriteLine("[success] island asset loaded. requesting loading of island...");
-
-                    // Every client gets the SAME island entity id. A remote player's
-                    // rig positions itself by PARENTING: the client publishes
-                    // TransformState with Parent = its island's entity id, and the
-                    // receiving client's RelativeParentTransformChildHierarchyBehaviour
-                    // looks that entity up locally to attach the rig. With per-client
-                    // island ids (0 for one client, 2 for the next) the lookup found
-                    // nothing and every remote avatar stayed frozen at the default
-                    // seed position, ~90km off-island.
-                    if (SendOPHelper.SendAddEntityOP((ENetPeerHandle)o, SharedIslandEntityId, "949069116@Island", "notNeeded?"))
-                    {
-                        Console.WriteLine("[info] successfully serialized and queued AddEntityOp.");
-                    }
-                    else
-                    {
-                        Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
-                    }
-                })),
-                new SyncStep(GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE, new Action<object>((object o) =>
-                {
-                    ENetPeerHandle peer = (ENetPeerHandle)o;
-                    Console.WriteLine("[info] client ack'ed island spawning instruction (info by sdk, does not mean it truly spawned). requesting to spawn player...");
-
-                    // Capture this peer's own entity id in a local. Reading a shared
-                    // playerEntityIDs.Last() was only safe while a single client
-                    // could ever connect; with several spawning at once it could
-                    // return someone else's entity. That list is gone: nothing ever
-                    // read it again, and it grew for the life of the process.
-                    long playerEntityId = NextEntityId;
-
-                    if(SendOPHelper.SendAddEntityOP(peer, playerEntityId, "Traveller", "Player"))
-                    {
-                        Console.WriteLine("[info] successfully serialized and queued AddEntityOp for player entity " + playerEntityId + ".");
-                        MirrorNewPlayer(peer, playerEntityId);
-                    }
-                    else
-                    {
-                        Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
-                    }
-                }))
-            };
+            //
+            // Built FROM SpawnSequence rather than typed out as four lambdas in
+            // whatever order felt natural. The order is load-bearing and silent
+            // when wrong: the island's AddEntity - and so its colliders - has to
+            // land before the player's transform is published, or the player is
+            // placed over geometry that does not exist yet and falls forever
+            // (this server writes no HealthState, so there is no fall damage to
+            // end it, and WorldEdgePushback never runs because we never send
+            // world bounds). Expressing the order as data means
+            // SpawnSequenceTests asserts it instead of a human re-deriving it.
+            //
+            // Each step is also gated on the client ACKing the previous one,
+            // which is the only throttle on bundle loading anywhere in the
+            // system - the client's asset loader is synchronous and unbudgeted.
+            GameState.Instance.WorldState[0] = SpawnSequence.Steps
+                .Select(step => new SyncStep(RequirementFor(SpawnSequence.AckFor(step)), ActionFor(step)))
+                .ToList();
 
             while (keepRunning)
             {
