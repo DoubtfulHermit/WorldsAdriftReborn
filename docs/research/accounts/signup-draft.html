@@ -1,0 +1,492 @@
+<!doctype html>
+<html lang='en'>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
+<meta name='color-scheme' content='dark light'>
+<meta name='robots' content='noindex, nofollow'>
+<title>Join the Skies &#8212; Worlds Adrift Reborn</title>
+<style>
+:root{
+  --bg:#0d1418; --bg2:#131e24; --card:#17242b; --line:#26383f;
+  --ink:#e8f0f2; --dim:#93a7ad; --faint:#6d8087;
+  --gold:#e0a24a; --gold-ink:#1a1206;
+  --ok:#5fc98a; --bad:#f0765c;
+  --r:14px;
+  --pad:clamp(16px,5vw,28px);
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --bg:#eef2f1; --bg2:#e2e9e8; --card:#ffffff; --line:#cfdad9;
+    --ink:#16232a; --dim:#4f646d; --faint:#71858d;
+    --gold:#9a6410; --gold-ink:#ffffff;
+    --ok:#1d7a45; --bad:#b33a20;
+  }
+}
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0; min-height:100vh; min-height:100dvh;
+  padding:max(16px,env(safe-area-inset-top)) var(--pad) max(24px,env(safe-area-inset-bottom));
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px;
+  background:
+    radial-gradient(1100px 620px at 50% -10%, var(--bg2) 0%, transparent 62%),
+    var(--bg);
+  color:var(--ink);
+  font:400 17px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+}
+.wrap{width:100%; max-width:27rem}
+header{text-align:center; margin-bottom:20px}
+h1{margin:0 0 6px; font-size:1.45rem; font-weight:650; letter-spacing:.2px}
+.sub{margin:0; color:var(--dim); font-size:.95rem}
+.card{
+  background:var(--card); border:1px solid var(--line); border-radius:var(--r);
+  padding:var(--pad);
+}
+label{display:block; font-size:.86rem; font-weight:600; color:var(--dim); margin:0 0 6px; letter-spacing:.3px; text-transform:uppercase}
+.field{margin-bottom:18px}
+.field:last-of-type{margin-bottom:22px}
+input{
+  width:100%; padding:14px 14px; min-height:52px;
+  font:inherit; font-size:17px;
+  color:var(--ink); background:var(--bg); border:1px solid var(--line);
+  border-radius:10px; outline:none;
+}
+input:focus{border-color:var(--gold); box-shadow:0 0 0 3px color-mix(in srgb, var(--gold) 26%, transparent)}
+input[aria-invalid='true']{border-color:var(--bad)}
+.pw{position:relative}
+.pw input{padding-right:5.2rem}
+.reveal{
+  position:absolute; right:6px; top:6px; bottom:6px; width:4.4rem;
+  background:transparent; border:0; border-radius:8px;
+  color:var(--dim); font:inherit; font-size:.85rem; font-weight:600; cursor:pointer;
+}
+.reveal:hover,.reveal:focus-visible{color:var(--ink); background:var(--bg2); outline:none}
+.hint{margin:7px 2px 0; font-size:.84rem; color:var(--faint); min-height:1.25em}
+.hint.ok{color:var(--ok)} .hint.bad{color:var(--bad)}
+button.go{
+  width:100%; min-height:54px; padding:15px;
+  font:inherit; font-size:1.03rem; font-weight:700; letter-spacing:.2px;
+  color:var(--gold-ink); background:var(--gold);
+  border:0; border-radius:11px; cursor:pointer;
+}
+button.go:disabled{opacity:.5; cursor:default}
+button.go:not(:disabled):active{transform:translateY(1px)}
+.status{margin:14px 0 0; text-align:center; font-size:.92rem; min-height:1.3em; color:var(--bad)}
+.swap{margin:16px 0 0; text-align:center; font-size:.92rem; color:var(--dim)}
+.swap button{background:none; border:0; padding:6px; font:inherit; color:var(--gold); text-decoration:underline; cursor:pointer}
+.note{
+  margin:16px auto 0; max-width:27rem; text-align:center;
+  font-size:.8rem; line-height:1.45; color:var(--faint);
+}
+[hidden]{display:none !important}
+
+/* --- success --- */
+.code{
+  margin:0 0 4px; padding:18px 10px; text-align:center;
+  font:700 clamp(28px,9vw,38px)/1.1 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  letter-spacing:.16em; color:var(--gold);
+  background:var(--bg); border:1px dashed var(--line); border-radius:12px;
+  cursor:pointer; user-select:all; -webkit-user-select:all;
+}
+.copied{margin:8px 0 0; text-align:center; font-size:.85rem; color:var(--ok); min-height:1.2em}
+ol.steps{margin:20px 0 0; padding:0 0 0 1.35em; color:var(--ink); font-size:.97rem}
+ol.steps li{margin-bottom:12px}
+ol.steps code, .mono{
+  font:600 .92em ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:2px 6px;
+  overflow-wrap:anywhere;
+}
+details{margin-top:20px; border-top:1px solid var(--line); padding-top:16px}
+summary{cursor:pointer; color:var(--dim); font-size:.9rem; list-style:none}
+summary::-webkit-details-marker{display:none}
+summary::before{content:'\25B8\00a0'}
+details[open] summary::before{content:'\25BE\00a0'}
+.paste{
+  margin-top:12px; padding:12px; border-radius:10px;
+  background:var(--bg); border:1px solid var(--line);
+  font:.86rem/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color:var(--ink); overflow-wrap:anywhere; user-select:all; -webkit-user-select:all;
+}
+.expiry{margin:14px 0 0; text-align:center; font-size:.85rem; color:var(--faint)}
+</style>
+</head>
+<body>
+
+<div class='wrap'>
+
+  <header>
+    <h1 id='title'>Worlds Adrift Reborn</h1>
+    <p class='sub' id='subtitle'>Make an account to fly with us.</p>
+  </header>
+
+  <!-- ============ FORM ============ -->
+  <div class='card' id='panel-form'>
+    <form id='form' novalidate>
+
+      <div class='field'>
+        <label for='name'>Pick a name</label>
+        <input id='name' name='username' type='text'
+               autocomplete='username' autocapitalize='off' autocorrect='off'
+               spellcheck='false' enterkeyhint='next'
+               inputmode='text' maxlength='20' placeholder='e.g. skyferret'>
+        <p class='hint' id='name-hint'>3 to 20 letters, numbers or underscores.</p>
+      </div>
+
+      <div class='field' id='field-invite' hidden>
+        <label for='invite'>Invite code</label>
+        <input id='invite' name='invite' type='text'
+               autocomplete='off' autocapitalize='characters' autocorrect='off'
+               spellcheck='false' enterkeyhint='next' maxlength='24'
+               placeholder='from the person who invited you'>
+        <p class='hint' id='invite-hint'></p>
+      </div>
+
+      <div class='field'>
+        <label for='pw' id='pw-label'>Choose a password</label>
+        <div class='pw'>
+          <input id='pw' name='password' type='password'
+                 autocomplete='new-password' autocapitalize='off' autocorrect='off'
+                 spellcheck='false' enterkeyhint='go' maxlength='128'
+                 placeholder='at least 8 characters'>
+          <button class='reveal' id='reveal' type='button' aria-label='Show password'>Show</button>
+        </div>
+        <p class='hint' id='pw-hint'>Anything you will remember. 8 characters or more.</p>
+      </div>
+
+      <button class='go' id='go' type='submit'>Create my account</button>
+      <p class='status' id='status' role='status' aria-live='polite'></p>
+    </form>
+
+    <p class='swap'>
+      <span id='swap-text'>Already have an account?</span>
+      <button id='swap' type='button'>Sign in instead</button>
+    </p>
+  </div>
+
+  <!-- ============ SUCCESS ============ -->
+  <div class='card' id='panel-done' hidden>
+    <p class='sub' style='text-align:center;margin:0 0 14px'>
+      Your account is ready, <strong id='done-name'></strong>.
+    </p>
+
+    <div class='code' id='code' role='button' tabindex='0'
+         aria-label='Your one-time code. Tap to copy.'>------</div>
+    <p class='copied' id='copied'>Tap the code to copy it.</p>
+
+    <ol class='steps'>
+      <li>On the computer with the game, run <code>LOGIN.bat</code> (it sits in the game folder, next to <code>DIAG.bat</code>).</li>
+      <li>Type this code when it asks, then press Enter.</li>
+      <li>Start Worlds Adrift. You are in. You will not need the code again.</li>
+    </ol>
+
+    <p class='expiry' id='expiry'></p>
+
+    <details>
+      <summary>I am already on the computer with the game</summary>
+      <p class='sub' style='font-size:.88rem;margin:12px 0 0'>
+        Then skip the code. Open
+        <span class='mono'>BepInEx\config\WorldsAdriftReborn.cfg</span>
+        in Notepad, find the line that starts with
+        <span class='mono'>REST_ServerUrl</span>, and replace the whole line with this one:
+      </p>
+      <div class='paste' id='paste'></div>
+      <p class='sub' style='font-size:.88rem;margin:12px 0 0'>Save the file, then start the game.</p>
+    </details>
+
+    <p class='swap'><button id='again' type='button'>Get a fresh code</button></p>
+  </div>
+
+  <p class='note'>
+    This page is served over plain HTTP, so treat this password as throwaway
+    &#8212; never reuse one you use anywhere else.
+  </p>
+
+  <noscript>
+    <p class='note'>This page needs JavaScript. Please open it in a normal browser.</p>
+  </noscript>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  var els = {
+    form:$('form'), name:$('name'), pw:$('pw'), invite:$('invite'),
+    fieldInvite:$('field-invite'), inviteHint:$('invite-hint'),
+    nameHint:$('name-hint'), pwHint:$('pw-hint'), pwLabel:$('pw-label'),
+    go:$('go'), status:$('status'), reveal:$('reveal'),
+    swap:$('swap'), swapText:$('swap-text'),
+    panelForm:$('panel-form'), panelDone:$('panel-done'),
+    code:$('code'), copied:$('copied'), paste:$('paste'),
+    doneName:$('done-name'), expiry:$('expiry'), again:$('again'),
+    title:$('title'), subtitle:$('subtitle')
+  };
+
+  var NAME_RE = /^[a-z0-9_]{3,20}$/;
+  var MIN_PW  = 8;
+
+  var mode = 'signup';           // or 'signin'
+  var cfg  = { serverName:'', inviteRequired:false, minPassword:MIN_PW, restBase:'' };
+  var busy = false;
+  var lastCheck = 0;
+  var expiryTimer = null;
+
+  /* ---------- tiny helpers ---------- */
+
+  function setHint(el, text, kind){
+    el.textContent = text || '';
+    el.className = 'hint' + (kind ? ' ' + kind : '');
+  }
+
+  function say(msg, good){
+    els.status.textContent = msg || '';
+    els.status.style.color = good ? 'var(--ok)' : 'var(--bad)';
+  }
+
+  function api(method, path, body){
+    var opts = { method:method, headers:{ 'Accept':'application/json' } };
+    if (body){
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(path, opts).then(function(r){
+      return r.text().then(function(t){
+        var data = null;
+        try { data = t ? JSON.parse(t) : {}; } catch(e){ data = null; }
+        if (data === null){
+          throw new Error('The server sent something unexpected. Try again in a moment.');
+        }
+        if (!r.ok){
+          throw new Error(data.message || ('Something went wrong (' + r.status + ').'));
+        }
+        return data;
+      });
+    }, function(){
+      throw new Error('Cannot reach the server. Check your connection and try again.');
+    });
+  }
+
+  /* ---------- config ---------- */
+
+  api('GET', '/api/config').then(function(c){
+    cfg.serverName     = c.serverName || '';
+    cfg.inviteRequired = !!c.inviteRequired;
+    cfg.minPassword    = c.minPassword || MIN_PW;
+    cfg.restBase       = c.restBase || '';
+    if (cfg.serverName) els.title.textContent = cfg.serverName;
+    if (cfg.inviteRequired){
+      els.fieldInvite.hidden = false;
+      setHint(els.inviteHint, 'Ask whoever sent you this link.');
+    }
+    els.pw.placeholder = 'at least ' + cfg.minPassword + ' characters';
+    setHint(els.pwHint, 'Anything you will remember. ' + cfg.minPassword + ' characters or more.');
+  }).catch(function(){
+    /* config is a nicety, not a requirement - carry on with defaults */
+  });
+
+  /* ---------- name field ---------- */
+
+  function normaliseName(){
+    var v = els.name.value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+    if (v !== els.name.value){
+      var at = els.name.selectionStart;
+      els.name.value = v;
+      try { els.name.setSelectionRange(at - 1 < 0 ? 0 : at - 1, at - 1 < 0 ? 0 : at - 1); } catch(e){}
+    }
+    return v;
+  }
+
+  var checkTimer = null;
+  els.name.addEventListener('input', function(){
+    var v = normaliseName();
+    els.name.removeAttribute('aria-invalid');
+    if (checkTimer) clearTimeout(checkTimer);
+    if (mode !== 'signup'){ setHint(els.nameHint, ''); return; }
+    if (v.length === 0){ setHint(els.nameHint, '3 to 20 letters, numbers or underscores.'); return; }
+    if (v.length < 3){ setHint(els.nameHint, 'A bit longer - 3 characters at least.'); return; }
+    setHint(els.nameHint, 'Checking...');
+    var mine = ++lastCheck;
+    checkTimer = setTimeout(function(){
+      api('GET', '/api/name-available?name=' + encodeURIComponent(v)).then(function(r){
+        if (mine !== lastCheck) return;
+        if (r.available) setHint(els.nameHint, v + ' is free.', 'ok');
+        else setHint(els.nameHint, v + ' is taken. Try another.', 'bad');
+      }).catch(function(){
+        if (mine !== lastCheck) return;
+        setHint(els.nameHint, '');
+      });
+    }, 350);
+  });
+
+  /* ---------- password reveal ---------- */
+
+  els.reveal.addEventListener('click', function(){
+    var showing = els.pw.type === 'text';
+    els.pw.type = showing ? 'password' : 'text';
+    els.reveal.textContent = showing ? 'Show' : 'Hide';
+    els.reveal.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+    els.pw.focus();
+  });
+
+  els.pw.addEventListener('input', function(){
+    els.pw.removeAttribute('aria-invalid');
+    if (mode !== 'signup'){ setHint(els.pwHint, ''); return; }
+    var n = els.pw.value.length;
+    if (n === 0) setHint(els.pwHint, 'Anything you will remember. ' + cfg.minPassword + ' characters or more.');
+    else if (n < cfg.minPassword) setHint(els.pwHint, (cfg.minPassword - n) + ' more to go.');
+    else setHint(els.pwHint, 'That will do.', 'ok');
+  });
+
+  /* ---------- mode swap ---------- */
+
+  function applyMode(){
+    var up = mode === 'signup';
+    els.go.textContent      = up ? 'Create my account' : 'Get my code';
+    els.pwLabel.textContent = up ? 'Choose a password' : 'Your password';
+    els.pw.setAttribute('autocomplete', up ? 'new-password' : 'current-password');
+    els.subtitle.textContent = up ? 'Make an account to fly with us.'
+                                  : 'Sign in to get a fresh code for the game.';
+    els.fieldInvite.hidden  = !(up && cfg.inviteRequired);
+    els.swapText.textContent = up ? 'Already have an account?' : 'Need an account?';
+    els.swap.textContent     = up ? 'Sign in instead' : 'Create one instead';
+    setHint(els.nameHint, up ? '3 to 20 letters, numbers or underscores.' : '');
+    setHint(els.pwHint, up ? 'Anything you will remember. ' + cfg.minPassword + ' characters or more.' : '');
+    say('');
+  }
+
+  els.swap.addEventListener('click', function(){
+    mode = mode === 'signup' ? 'signin' : 'signup';
+    applyMode();
+    els.name.focus();
+  });
+
+  /* ---------- submit ---------- */
+
+  function setBusy(on){
+    busy = on;
+    els.go.disabled = on;
+    els.go.textContent = on ? 'Working...'
+                            : (mode === 'signup' ? 'Create my account' : 'Get my code');
+  }
+
+  els.form.addEventListener('submit', function(ev){
+    ev.preventDefault();
+    if (busy) return;
+
+    var name = normaliseName();
+    var pw   = els.pw.value;
+    var inv  = els.invite.value.trim().toUpperCase();
+
+    if (!NAME_RE.test(name)){
+      els.name.setAttribute('aria-invalid','true'); els.name.focus();
+      say('That name needs 3 to 20 letters, numbers or underscores.');
+      return;
+    }
+    if (mode === 'signup' && pw.length < cfg.minPassword){
+      els.pw.setAttribute('aria-invalid','true'); els.pw.focus();
+      say('Password needs at least ' + cfg.minPassword + ' characters.');
+      return;
+    }
+    if (mode === 'signup' && cfg.inviteRequired && inv.length === 0){
+      els.invite.setAttribute('aria-invalid','true'); els.invite.focus();
+      say('An invite code is needed on this server.');
+      return;
+    }
+
+    say('');
+    setBusy(true);
+
+    var path = mode === 'signup' ? '/api/signup' : '/api/signin';
+    var body = { username:name, password:pw };
+    if (mode === 'signup' && cfg.inviteRequired) body.invite = inv;
+
+    api('POST', path, body).then(function(r){
+      showDone(name, r);
+    }).catch(function(e){
+      setBusy(false);
+      say(e.message);
+    });
+  });
+
+  /* ---------- success ---------- */
+
+  function showDone(name, r){
+    setBusy(false);
+    els.doneName.textContent = name;
+    els.code.textContent = r.pairingCode || '------';
+    els.paste.textContent = r.configLine || '';
+    els.panelForm.hidden = true;
+    els.panelDone.hidden = false;
+    els.copied.textContent = 'Tap the code to copy it.';
+    els.copied.style.color = 'var(--ok)';
+    startExpiry(r.expiresInSeconds || 0);
+    window.scrollTo(0,0);
+  }
+
+  function startExpiry(secs){
+    if (expiryTimer) clearInterval(expiryTimer);
+    if (!secs){ els.expiry.textContent = ''; return; }
+    var left = secs;
+    var tick = function(){
+      if (left <= 0){
+        clearInterval(expiryTimer);
+        els.expiry.textContent = 'This code has expired. Tap below for a fresh one.';
+        return;
+      }
+      var m = Math.floor(left / 60);
+      els.expiry.textContent = m > 0
+        ? ('This code works for the next ' + m + ' minute' + (m === 1 ? '' : 's') + '.')
+        : ('This code expires in ' + left + ' seconds.');
+      left -= 1;
+    };
+    tick();
+    expiryTimer = setInterval(tick, 1000);
+  }
+
+  function copyCode(){
+    var text = els.code.textContent.trim();
+    var done = function(){
+      els.copied.textContent = 'Copied.';
+      els.copied.style.color = 'var(--ok)';
+    };
+    var fail = function(){
+      els.copied.textContent = 'Could not copy - write it down instead.';
+      els.copied.style.color = 'var(--dim)';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, fail);
+    } else {
+      try {
+        var sel = window.getSelection(); var rg = document.createRange();
+        rg.selectNodeContents(els.code); sel.removeAllRanges(); sel.addRange(rg);
+        document.execCommand('copy') ? done() : fail();
+      } catch(e){ fail(); }
+    }
+  }
+
+  els.code.addEventListener('click', copyCode);
+  els.code.addEventListener('keydown', function(e){
+    if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); copyCode(); }
+  });
+
+  els.again.addEventListener('click', function(){
+    if (expiryTimer) clearInterval(expiryTimer);
+    mode = 'signin';
+    applyMode();
+    els.panelDone.hidden = true;
+    els.panelForm.hidden = false;
+    els.pw.value = '';
+    els.name.focus();
+  });
+
+  applyMode();
+  els.name.focus();
+})();
+</script>
+
+</body>
+</html>
