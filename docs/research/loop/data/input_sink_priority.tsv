@@ -1,0 +1,18 @@
+priority_value	priority_class	file	line	buttons_captured	note
+13	MusicalInstrument	acs/MusicalInstrumentInput.cs	27	-	
+11	PlacingObjectHolding	acs/PlayerScannerInput.cs	49	Cancel	
+11	PlacingObjectHolding	acs/TimedInteractionController.cs	30	<ALL>	
+10	Chat	acs/VOIPManager.cs	60	PushToTalk	
+9	UI	acs/Travellers.UI.Framework/UIWindowController.cs	58	-	
+8	UIBase	acs/Travellers.UI.Framework/UIWindowController.cs	62	-	
+7	Shipyard	acs/ShipHullAgentVisualizer.cs	41	<ALL>	
+6	ShipControls	acs/ShipControlsBehaviour.cs	138	-	
+5	PhotoCamera	acs/PhotoCameraController.cs	56	UseRightHand	
+5	PhotoCamera	acs/PhotoCameraVisualizer.cs	67	Cancel,UseLeftHand	
+4	ObjectPlacement	acs/Bossa.Travellers.Behaviours/ItemPlacingBehaviour.cs	102	RotatePart,UseLeftHand	(SetCapture, not ctor)
+3	PlayerItem	acs/FoodInput.cs	9	UseLeftHand	
+3	PlayerItem	acs/PistolInput.cs	9	UseLeftHand	
+3	PlayerItem	acs/PlayerMultitool.cs	147	UseLeftHand	
+3	PlayerItem	acs/PlayerScannerInput.cs	43	Cancel,RotatePart,UseLeftHand	
+2	InteractAgent	acs/Bossa.Prototype.Character.Observer/InteractAgentObserver.cs	151	Cancel,Interact,SelectItem1,SelectItem2,SelectItem3,SelectItem4,SelectItem5,SelectItem6,SelectItem7,SelectItem8,UseLeftHand	
+1	PlayerMovement	acs/KnockOutPuppet.cs	84	Ragdoll	
