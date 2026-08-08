@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Account, session and character storage, shared by the login server and (read
+    only) the game server.
+
+    A NEW library rather than a folder in ...Multiplayer: that project's csproj
+    states it deliberately has no references, and one of its files is source-linked
+    into the net35 BepInEx mod. Adding a NuGet package there would break that
+    contract and drag a database driver towards the mod build.
+
+    PostgreSQL over loopback rather than an embedded file database. The servers run
+    under Wine, and Npgsql is 100% managed C#: no native binary, no runtimes/ folder
+    to lose in a deploy, and therefore no DllNotFoundException on a server that
+    started up looking healthy. Two processes sharing one database is also just what
+    a server database does, rather than something we would have to keep re-proving.
+    Postgres already runs on the target box, so this is a database and a role, not
+    new infrastructure.
+
+    PIN THE VERSION. Do not run `dotnet add package Npgsql` and take what it offers:
+    the current default resolves to a line with no net6.0 target. 8.0.7 has a real
+    lib/net6.0 and, verified against the package contents, ships no native files at
+    all.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>AnyCPU;x64;x86</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql" Version="8.0.7" />
+  </ItemGroup>
+
+</Project>
