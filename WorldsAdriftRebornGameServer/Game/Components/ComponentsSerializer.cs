@@ -57,7 +57,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     else if(componentId == 190602)
                     {
                         TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { 0, 100, 0 }),
-                                                                new Quaternion32(1),
+                                                                new Quaternion32(1023), // identity sentinel is the low 10 bits ALL set; 1 decodes to NaN
                                                                 null,
                                                                 new Improbable.Math.Vector3d(0f, 0f, 0f),
                                                                 new Improbable.Math.Vector3f(0f, 0f, 0f),
@@ -159,7 +159,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1212)
                     {
-                        InteractAgentServerState.Data iasData = new InteractAgentServerState.Data(new InteractAgentServerStateData(new EntityId(0),
+                        InteractAgentServerState.Data iasData = new InteractAgentServerState.Data(new InteractAgentServerStateData(EntityId.InvalidEntityId,
                                                                                                                         0,
                                                                                                                         1,
                                                                                                                         new EntityId(0),
@@ -170,13 +170,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 6924)
                     {
-                        AllianceNameState.Data anData = new AllianceNameState.Data(new AllianceNameStateData("WA Alliance"));
+                        AllianceNameState.Data anData = new AllianceNameState.Data(new AllianceNameStateData(""));
 
                         obj = anData;
                     }
                     else if(componentId == 6925)
                     {
-                        AllianceAndCrewWorkerState.Data acData = new AllianceAndCrewWorkerState.Data(new AllianceAndCrewWorkerStateData("alliance_invalid_uid", "crew_invalid_uid"));
+                        AllianceAndCrewWorkerState.Data acData = new AllianceAndCrewWorkerState.Data(new AllianceAndCrewWorkerStateData("", ""));
 
                         obj = acData;
                     }
@@ -238,7 +238,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1131)
                     {
-                        WorldData.Data woData = new WorldData.Data(new WorldDataData(new EntityId(0), 0.15f, 1f, 1));
+                        WorldData.Data woData = new WorldData.Data(new WorldDataData(new EntityId(0), 0.15f, 144f, 1));
 
                         obj = woData;
                     }
@@ -313,7 +313,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1003)
                     {
-                        PlayerCraftingInteractionState.Data pcisData = new PlayerCraftingInteractionState.Data(new EntityId(1), true);
+                        PlayerCraftingInteractionState.Data pcisData = new PlayerCraftingInteractionState.Data(new EntityId(0), true);
                         
                         obj = pcisData;
                     }
@@ -354,7 +354,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 190300)
                     {
-                        ClientPhysicsLatency.Data cpData = new ClientPhysicsLatency.Data(new ClientPhysicsLatencyData(250, 100));
+                        ClientPhysicsLatency.Data cpData = new ClientPhysicsLatency.Data(new ClientPhysicsLatencyData(0, 1000));
 
                         obj = cpData;
                     }
@@ -372,10 +372,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1073)
                     {
-                        ClientAuthoritativePlayerState.Data capData = new ClientAuthoritativePlayerState.Data(new ClientAuthoritativePlayerStateData(new Improbable.Math.Vector3f(0f, 100f, 0f),
-                                                                                                                                            new Improbable.Corelib.Math.Quaternion(1, 1, 1, 1),
-                                                                                                                                            new EntityId(2),
-                                                                                                                                            1f,
+                        ClientAuthoritativePlayerState.Data capData = new ClientAuthoritativePlayerState.Data(new ClientAuthoritativePlayerStateData(new Improbable.Math.Vector3f(0f, 0f, 0f),
+                                                                                                                                            new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0), // w-first
+                                                                                                                                            EntityId.InvalidEntityId,
+                                                                                                                                            0f,
                                                                                                                                             100,
                                                                                                                                             new byte[] { },
                                                                                                                                             false,
@@ -447,19 +447,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                            0,
                                                                                                            0,
                                                                                                            new Improbable.Collections.List<EntityId> { new EntityId(0) },
-                                                                                                           new Option<EntityId>(new EntityId(0)),
-                                                                                                           new Option<string>(""),
+                                                                                                           new Option<EntityId>(),  // a PRESENT option means "island already has a TCB" and blocks placement
+                                                                                                           new Option<string>(),
                                                                                                            Bossa.Travellers.Biomes.BiomeType.Biome1,
                                                                                                            false,
-                                                                                                           new Option<Coordinates>(new Coordinates(0,0,0)),
-                                                                                                           new Option<double>(0),
-                                                                                                           new Option<double>(0)));
+                                                                                                           new Option<Coordinates>(),
+                                                                                                           new Option<double>(),
+                                                                                                           new Option<double>()));
                         obj = data;
                     }
                     else if(componentId == 190604)
                     {
                         GlobalTransformState.Data data = new GlobalTransformState.Data(new GlobalTransformStateData(new Coordinates(0, 0, 0),
-                                                                                                                        new Improbable.Corelib.Math.Quaternion(0, 0, 0, 0),
+                                                                                                                        new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0), // w-first; (0,0,0,0) throws on re-encode
                                                                                                                         new Vector3d(0, 0, 0),
                                                                                                                         0));
                         obj = data;

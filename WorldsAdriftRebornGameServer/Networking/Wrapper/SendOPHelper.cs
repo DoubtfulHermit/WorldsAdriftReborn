@@ -68,7 +68,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
         {
             fixed(Structs.Structs.InterestOverride* interestsArray = interests.ToArray())
             {
-                return SendAddComponentOp(destination, entityId, interestsArray, (uint)interests.Count);
+                return SendAddComponentOp(destination, entityId, interestsArray, (uint)interests.Count, failOnComponentInitError);
             }
         }
 
