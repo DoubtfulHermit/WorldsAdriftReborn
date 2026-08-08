@@ -1,0 +1,103 @@
+# World layout data — where it came from
+
+`findings-world.md` concluded that no world layout ships with the client (255 island
+bundles, every one authored at local origin) and recommended hand-authoring an
+`islands.json`. **That recommendation is now obsolete.** Bossa's real `MapFile`
+survives in a community repository.
+
+## wamap-islands.json — the real world layout
+
+Bossa's own file from `../../gsim/src/main/resources/islands.json`, the path named in
+the decompiled `WorldEditorCore.cs:148-149`. Preserved as `data/wamap.json` in the
+Cardinal Guild map's backend.
+
+- Source: <https://github.com/cardinal-guild/wasurveyor>
+- Commit: `3fc4352401193e0db721d1478af1ec2ed90db578` (2019-06-20 11:15)
+- Re-fetch:
+  `gh api repos/cardinal-guild/wasurveyor/contents/data/wamap.json?ref=3fc4352401193e0db721d1478af1ec2ed90db578 --jq .content | base64 -d`
+
+**Take this commit, not HEAD.** Later commits edited it for their importer:
+`206e721` (same day) removed the Haven islands, dropping 266 → 254; `b7b2a4f` and
+`c23058e` (2019-06-22) applied further import workarounds. Only `3fc4352` is pristine.
+
+Its top-level shape is field-for-field the decompiled `WorldEditorCore.MapFile`:
+`WorldInfo`, `Haven`, `Islands[]`, `Biomes[]`, `Walls[]` — matching
+`IslandStoreData{x,y,z,Island}`, `ZoneStoreData{x,z,Type,Civ,District}` and
+`WallStoreData{x1,z1,x2,z2,Type}`. It is the file, not a reconstruction.
+
+### Verified against this machine's install
+Independently re-checked, not taken on trust:
+
+```
+placements:        266
+unique assets:     255
+shipped bundles:   255   (~/Games/WorldsAdrift/Assets/unity/*@island_unityclient)
+in map, not shipped: NONE
+shipped, not in map: NONE
+```
+
+A perfect bijection. The `Island` field is `<steamWorkshopId>.json` and the bundle is
+`<steamWorkshopId>@island_unityclient` — a direct string join, no mapping table.
+**This settles the open question in findings-world.md: the 255 bundles are exactly
+this world.**
+
+Why 266 placements for 255 assets: `1431299145` is the **Haven starter island**,
+instanced **12 times** in a north-south row at x≈17000, z from −15775 to +16336 — all
+beyond `Haven.xOfVerticalSeparator = 15943.65`. It is the only asset used more than
+once. Loading Haven therefore *requires* the entity-aware `InitAndSerialize` from the
+findings' step 4, since one asset maps to twelve distinct positions.
+
+Our current seed island `949069116` is **"Shattered Mausoleum"** at
+**(14321.44, −527.0027, −4647.396)**.
+
+## TWO CORRECTIONS TO findings-world.md
+1. **World extent is ±18000, not ±12000.** `WorldEdgeLength = 36000`,
+   `GSIMConfig "36x36"`, walls terminate at exactly ±18000.0, real data spans
+   X −16868..17174, Z −16786..16794. The `WorldSize = 12000f` at
+   `WorldEditorCore.cs:74` is an editor default the shipped world outgrew.
+2. **The altitude band ±600 is right and the real world barely uses it:** Y spans only
+   **−527.0 .. +356.8** — the whole world is a thin 884 m slab. Real neighbours in the
+   Haven row are ~2900 m apart, so the findings' proposed 900 m test spacing is roughly
+   the right order but tighter than the real world.
+
+## Cross-validated independently
+`cardinal-guild/wamap/static/islands.json` (the live public map, 604 KB GeoJSON) holds
+the same 254 non-Haven workshop ids and reduces to the MapFile by an exact linear
+transform — max residual 0.005, i.e. float rounding:
+
+```
+mapLat = z/3.85 - 4750     mapLng = x/3.85 + 4750     altitude = y + 2000
+```
+
+Confirmed against `ImportIslandsCommand.php::convertLng/convertLat/convertHeight`, which
+treats `wamap.json` as the authoritative position source and scrapes Steam only for
+names and images. Altitude holds for 254/254. Two independent artefacts, exact
+agreement.
+
+## cardinal-guild-islands.json — per-island gameplay data
+254 islands with name, creator, tier, databank count, **per-island metal tables with
+quality values**, tree species, PvE/PvP variants and workshop URLs.
+Source: <https://github.com/cardinal-guild/wamap> (`static/islands.json`).
+Useful for populating resource spawners — `findings-resources.md` established that
+1010/1011 have no serializer handler today.
+
+Enum notes: `Civ` is `0 = Saborian, 1 = Kioki`. `Biomes.Type` is 1–4 (five each across
+four tiers, 20 total). `Walls.Type` ∈ {0,1,3,5}, 44 segments.
+
+## Deliberately NOT included
+`github.com/Jerodar/WAMap`'s `island_data.csv` (303 islands) is an **earlier
+closed-beta world revision** — Update 27, a different layout, extent ±16877. Historical
+interest only. **Do not mix it with the release layout.**
+
+## The map-UI question, settled permanently
+The client has **no world map UI**. `Bossa.Travellers.Visualisers.WorldMap` contains
+exactly one file, `ZoneInfoProvider.cs`, an `IDebugInfoProvider` returning a dev-console
+string. The only code referencing `islands.json` / `IslandStoreData` / `MapFile` is the
+four `WorldEditor*` files — the internal authoring tool, not runtime.
+(`MetalDepositAtlas*` and `AtlasLifter*` are ore and ship-part gameplay classes;
+`ImposterSystem/AtlasHandler` is texture atlasing.) Island positions were **always
+server-side only** — which no longer matters, because we have the server's file.
+
+## Licence / attribution
+Community-preserved data from public repositories, recorded here so the provenance
+travels with it. Not our work; credit belongs to the Cardinal Guild map project.
