@@ -36,17 +36,17 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         [HarmonyPrefix]
         public static bool Start_Prefix( CameraProxy __instance )
         {
-            // Unity's overloaded == treats a destroyed component as null.
-            if (owner == null)
+            // Unity's overloaded == treats a destroyed component as null. The
+            // keep-first rule itself lives in ClientRigPolicy so it is unit-tested.
+            if (WorldsAdriftRebornGameServer.Multiplayer.ClientRigPolicy.ShouldClaimSingleton(
+                    owner != null, ReferenceEquals(owner, __instance)))
             {
-                owner = __instance;
-                Debug.Log("[WAReborn] camera targets claimed by " + __instance.transform.root.name
-                          + " at " + __instance.transform.position);
-                return true;
-            }
-
-            if (ReferenceEquals(owner, __instance))
-            {
+                if (owner == null)
+                {
+                    owner = __instance;
+                    Debug.Log("[WAReborn] camera targets claimed by " + __instance.transform.root.name
+                              + " at " + __instance.transform.position);
+                }
                 return true;
             }
 

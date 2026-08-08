@@ -127,7 +127,7 @@ namespace WorldsAdriftRebornGameServer
                     pendingMirrors[target] = queue;
                     pendingMirrorTick[target] = loopTick;
 
-                    if (SendOPHelper.SendAssetLoadRequestOP(target, "notNeeded?", "Traveller", "Default"))
+                    if (SendOPHelper.SendAssetLoadRequestOP(target, "notNeeded?", MirrorSendPolicy.PrefabName, MirrorSendPolicy.RemotePrefabContext))
                     {
                         Console.WriteLine("[info] mirror: requested plain Traveller asset load for a peer.");
                     }
@@ -239,9 +239,10 @@ namespace WorldsAdriftRebornGameServer
                     // default TransformState onto a live player and teleports them
                     // into the sky. The client tolerates a duplicate AddEntity, and
                     // the components from the original flush still apply.
-                    if (intent.Op == MirrorOp.AddEntity)
+                    // The rule itself lives in MirrorSendPolicy so it is testable.
+                    if (MirrorSendPolicy.MayResend(intent.Op))
                     {
-                        SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default");
+                        SendOPHelper.SendAddEntityOP(target, intent.EntityId, MirrorSendPolicy.PrefabName, MirrorSendPolicy.RemotePrefabContext);
                     }
                 }
 
@@ -289,7 +290,7 @@ namespace WorldsAdriftRebornGameServer
             {
                 bool ok = intent.Op switch
                 {
-                    MirrorOp.AddEntity => SendOPHelper.SendAddEntityOP(target, intent.EntityId, "Traveller", "Default"),
+                    MirrorOp.AddEntity => SendOPHelper.SendAddEntityOP(target, intent.EntityId, MirrorSendPolicy.PrefabName, MirrorSendPolicy.RemotePrefabContext),
                     MirrorOp.AddComponents => SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents),
                     _ => true,
                 };
@@ -341,7 +342,8 @@ namespace WorldsAdriftRebornGameServer
         // tick (that writer is authority-gated - without the grant it never runs
         // and remote avatars stay in T-pose). The grant only ever applies to the
         // sender's OWN entity (isSendersOwnEntity gate below).
-        private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId, ClientAuthoritativePlayerStateComponentId, UtilitySlotActivatedStateComponentId, RopeControlPointsComponentId};
+        // The set itself lives in MirrorSendPolicy so it is testable.
+        private static readonly List<uint> authoritativeComponents = new List<uint>(MirrorSendPolicy.AuthoritativeComponents);
         private static List<long> playerEntityIDs = new List<long>();
 
         /// <summary>
@@ -355,7 +357,7 @@ namespace WorldsAdriftRebornGameServer
         /// reach other clients for them to see anyone move.
         /// See docs/component-ids.md.
         /// </summary>
-        private const uint TransformStateComponentId = 190602;
+        private const uint TransformStateComponentId = MirrorSendPolicy.TransformStateComponentId;
 
         /// <summary>
         /// ClientAuthoritativePlayerState: carries the player's bone/animation
@@ -363,7 +365,7 @@ namespace WorldsAdriftRebornGameServer
         /// BoneAnimationReader binds and animates, and granted to the owner so its
         /// movement writer publishes. See docs/component-ids.md.
         /// </summary>
-        private const uint ClientAuthoritativePlayerStateComponentId = 1073;
+        private const uint ClientAuthoritativePlayerStateComponentId = MirrorSendPolicy.ClientAuthoritativePlayerStateComponentId;
 
         /// <summary>
         /// UtilitySlotActivatedState: whether the head/body/feet utility slot is
@@ -373,7 +375,7 @@ namespace WorldsAdriftRebornGameServer
         /// 1109 PilotState is deliberately NOT used - it steals the PilotVisualizer
         /// singleton and pokes LocalPlayer. See docs/component-ids.md.
         /// </summary>
-        private const uint UtilitySlotActivatedStateComponentId = 6910;
+        private const uint UtilitySlotActivatedStateComponentId = MirrorSendPolicy.UtilitySlotActivatedStateComponentId;
 
         /// <summary>
         /// RopeControlPoints: the grapple rope's control points. Granted so the
@@ -381,7 +383,7 @@ namespace WorldsAdriftRebornGameServer
         /// carries the data; a mod component (RemoteGrappleLine) reads it by
         /// component id and draws the line. See docs/component-ids.md.
         /// </summary>
-        private const uint RopeControlPointsComponentId = 1098;
+        private const uint RopeControlPointsComponentId = MirrorSendPolicy.RopeControlPointsComponentId;
 
         /// <summary>
         /// Components seeded on a mirrored remote avatar: TransformState (position),
@@ -393,7 +395,8 @@ namespace WorldsAdriftRebornGameServer
         /// enables the game's native PlayerVisualizer positioner (which
         /// RemoteRigMover now yields to). See docs/component-ids.md.
         /// </summary>
-        private static readonly uint[] RemoteSeed = { TransformStateComponentId, 1086, 1081, 1088, ClientAuthoritativePlayerStateComponentId, UtilitySlotActivatedStateComponentId, RopeControlPointsComponentId };
+        // The set itself lives in MirrorSendPolicy so it is testable.
+        private static readonly IReadOnlyList<uint> RemoteSeed = MirrorSendPolicy.RemoteSeedComponents;
 
         /// <summary>Who owns which player entity. Internal: the component update
         /// handlers validate entity ownership against it.</summary>
@@ -406,32 +409,20 @@ namespace WorldsAdriftRebornGameServer
         /// <summary>Decides which ops go to which peers so players can see each other.</summary>
         private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
 
-        private static long nextEntityId = 0;
+        /// <summary>
+        /// Entity id source. Pure policy so the "one shared island id, ids never
+        /// reused" rule is unit-testable; see EntityIdAllocator.
+        /// </summary>
+        private static readonly EntityIdAllocator EntityIds = new EntityIdAllocator();
+
         /// <summary>
         /// The one island every client loads, under one shared entity id, so that
         /// cross-client Parent references (see the island AddEntityOp below)
         /// resolve on every client. Allocated from the id counter on first use.
         /// </summary>
-        private static long? sharedIslandEntityId;
-        private static long SharedIslandEntityId
-        {
-            get
-            {
-                if (sharedIslandEntityId == null)
-                {
-                    sharedIslandEntityId = NextEntityId;
-                }
-                return sharedIslandEntityId.Value;
-            }
-        }
+        private static long SharedIslandEntityId => EntityIds.SharedIslandEntityId;
 
-        public static long NextEntityId
-        {
-            get
-            {
-                return nextEntityId++;
-            }
-        }
+        public static long NextEntityId => EntityIds.Next();
         
         static unsafe void Main( string[] args )
         {
@@ -634,7 +625,7 @@ namespace WorldsAdriftRebornGameServer
                                 // entity if the client happened to request the mirrored remote
                                 // entity's components first. Request ordering has been lucky so
                                 // far; this removes the dice roll.
-                                bool isSendersOwnEntity = Players.EntityOf(PeerIdentity.IdOf(sender)) == entityId;
+                                bool isSendersOwnEntity = Players.Owns(PeerIdentity.IdOf(sender), entityId);
                                 if(isSendersOwnEntity && !PeerManager.Instance.clientSetupState.Contains(keyValuePair.Key))
                                 {
                                     // a player entity requests components for the first time, we need to setup a few things to make him work properly

@@ -47,6 +47,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// Whether this peer owns this entity. The gate for first-time setup,
+        /// AUTHORITY grants and any state a client publishes about "its" entity.
+        ///
+        /// The old check was "is this ANY player entity", which ran the full
+        /// setup - authority included - against SOMEONE ELSE'S avatar whenever a
+        /// client happened to request the mirrored remote entity's components
+        /// first. Request ordering had merely been lucky.
+        ///
+        /// An unregistered peer owns nothing, including entity 0.
+        /// </summary>
+        public bool Owns(ulong peerId, long entityId)
+        {
+            return _entityByPeer.TryGetValue(peerId, out long owned) && owned == entityId;
+        }
+
+        /// <summary>
         /// Every registered peer except the one given: the relay target set.
         /// Excludes the origin so a player never receives an echo of their own
         /// update. An unregistered peer still yields all known peers, which is

@@ -78,6 +78,18 @@
   <ItemGroup>
     <Compile Remove="GlobalValues.cs" />
   </ItemGroup>
+
+  <!--
+    Shared pure policy, compiled into BOTH this mod (net35) and the unit-tested
+    WorldsAdriftRebornGameServer.Multiplayer library (net6.0). A ProjectReference
+    is impossible across those frameworks, so the SOURCE is linked: the point is
+    that the tests exercise the same code the mod runs rather than a copy of it,
+    which would go stale silently. Keep the linked file net35 / C# 7.3 clean.
+  -->
+  <ItemGroup>
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\ClientRigPolicy.cs"
+             Link="Patching\Multiplayer\ClientRigPolicy.cs" />
+  </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->
   <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
