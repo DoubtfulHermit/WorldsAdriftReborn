@@ -14,7 +14,14 @@ entities from the GSim**, which is gone.
 
 **You are spawning a small pretty island with a ruined metal camp on it, not a tutorial.**
 
-## PASTE-READY VALUES
+## ⚠ THE COORDINATES BELOW ARE SUSPECT — READ findings-spawn.md FIRST
+They were derived from `island-surfaces/1431299145.json`, and that table has since been shown
+**wrong by ~25 m** on the one island we can check empirically: the extractor's `offs()` only
+accumulates `m_LocalPosition` and ignores rotation and scale. **The X and Z are sound; the
+ALTITUDE is not.** Re-derive after fixing the extractor, or validate empirically with
+telemetry before trusting the Y value.
+
+## PASTE-READY VALUES (X/Z sound, Y suspect)
 `ToFixedPoint` is `(long)(d * 4096)` — **truncation toward zero, not rounding**.
 ```
 ISLAND  1431299145@Island   instance #5   (17004.4300, -318.6693420, -1134.16748)
