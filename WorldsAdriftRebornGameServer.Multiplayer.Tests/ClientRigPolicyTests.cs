@@ -134,12 +134,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.False(ClientRigPolicy.TreatAsLocalForPlayerVisualizer("Traveller 3", PlainRemoteRig));
         }
 
-        [Fact(Skip = "KNOWN BUG, not fixed here: PlayerVisualizer_Patch still ORs in a root-NAME check. " +
-                     "Unreachable today (mirrored remotes spawn from context \"Default\" so their roots are " +
-                     "named \"Traveller N\"), but it violates rule 11 and will misfire the moment anything " +
-                     "spawns a remote from the Player context or renames a rig. Fix: delete the " +
-                     "FullRigRootPrefix clause in ClientRigPolicy.TreatAsLocalForPlayerVisualizer so it " +
-                     "delegates to IsLocalRig, then unskip.")]
+        [Fact]
         public void PlayerVisualizer_decides_local_vs_remote_by_components_only_and_never_by_name()
         {
             Assert.False(ClientRigPolicy.TreatAsLocalForPlayerVisualizer("Traveller@Player 2", PlainRemoteRig));

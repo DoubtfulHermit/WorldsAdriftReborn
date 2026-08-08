@@ -69,28 +69,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// Root-name prefix of the full local rig. Present ONLY so the one
-        /// remaining name-based check in the codebase has a single definition;
-        /// no new code should consult it. See
-        /// <see cref="TreatAsLocalForPlayerVisualizer"/>.
-        /// </summary>
-        public const string FullRigRootPrefix = "Traveller@Player";
-
-        /// <summary>
         /// Whether PlayerVisualizer_Patch lets the game's own FixedUpdate run
         /// (local rig) instead of forcing the remote global-position branch.
         ///
-        /// This still ORs in a name check, which is the rule-11 violation the
-        /// rest of the codebase eliminated: see ClientRigPolicyTests for the
-        /// skipped test that pins the intended behaviour. Behaviour is preserved
-        /// here as-is; changing it is a fix, not a test pass.
+        /// Components only, never the root name - rule 11. A name check used to
+        /// be OR'd in here. It was unreachable, because mirrored remotes spawn
+        /// from prefab context "Default" and so are named "Traveller N" rather
+        /// than "Traveller@Player", but the consequence of it ever firing is the
+        /// worst one we have seen: handing a REMOTE rig to the game's own
+        /// FixedUpdate takes the Parent branch, which is what put a rig ~90 km
+        /// away and through the map. The name check that cost us that round is
+        /// gone everywhere else; it is gone here now too.
         /// </summary>
         public static bool TreatAsLocalForPlayerVisualizer(string rootName, IEnumerable<string> componentTypeNames)
         {
-            if (rootName != null && rootName.StartsWith(FullRigRootPrefix))
-            {
-                return true;
-            }
             return IsLocalRig(componentTypeNames);
         }
 
