@@ -10,6 +10,19 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 {
     internal class SendOPHelper
     {
+        /// <summary>
+        /// Wire metrics, send side. Every op this server sends leaves through
+        /// this class, so this is the one place the outbound half of the 5 s
+        /// [rates] line can be counted. Component updates are keyed by component
+        /// id; everything else by its ENet channel (PeerRates.ChannelKey).
+        /// Counted only on successful serialization+queue, mirroring what each
+        /// method reports to its caller.
+        /// </summary>
+        private static void CountSend(ENetPeerHandle destination, uint key)
+        {
+            WorldsAdriftRebornGameServer.Rates.RecordSend(PeerIdentity.IdOf(destination), key);
+        }
+
         public static unsafe bool SendAddEntityOP(ENetPeerHandle destination, long entityId, string prefabName, string prefabContext)
         {
             Structs.Structs.AddEntityOp addEntityOp;
@@ -28,6 +41,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                     if (ptr != null && len != 0)
                     {
                         EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.ADD_ENTITY_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                        CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.ADD_ENTITY_OP));
                         return true;
                     }
                     return false;
@@ -56,6 +70,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                         if (ptr != null && len != 0)
                         {
                             EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                            CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP));
                             return true;
                         }
                         return false;
@@ -188,6 +203,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                     Console.WriteLine("[success] serialized all requested components, sending them to the game now...");
 
                     EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                    CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST));
 
                     return true;
                 }
@@ -264,6 +280,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                                         == Multiplayer.RelayReliability.Unreliable;
                         EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len,
                             (int)(highRate ? ENetPacketFlag.UNRELIABLE : ENetPacketFlag.RELIABLE));
+                        CountSend(destination, componentId);
                         return true;
                     }
                 }
@@ -320,6 +337,10 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                     Console.WriteLine("[success] serialized ComponentUpdateOp message for client.");
 
                     EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                    foreach (Structs.Structs.ComponentUpdateOp sent in cupdates)
+                    {
+                        CountSend(destination, sent.ComponentId);
+                    }
 
                     return true;
                 }
@@ -343,6 +364,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                 Console.WriteLine("[info] serialized all AuthorityChangeOp instructions for authoritative components.");
                 EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.AUTHORITY_CHANGE_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.AUTHORITY_CHANGE_OP));
 
                 return true;
             }

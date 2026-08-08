@@ -23,33 +23,46 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
                 return instance ?? (instance = new ComponentUpdateManager());
             }
         }
-        private static class HashCache<T>
-        {
-            public static bool Initialized;
-            public static ulong Id;
-        }
-
         protected delegate void RegisterDelegate(ENetPeerHandle player, long entityId, object clientComponentUpdate, object serverComponentData);
         private readonly Dictionary<ulong, RegisterDelegate> _handlers = new Dictionary<ulong, RegisterDelegate>();
 
-        //FNV-1 64 bit hash
+        /// <summary>
+        /// Everything the per-packet path needs for one component id, resolved
+        /// once and remembered. Before this cache existed, EVERY inbound
+        /// component update paid: a linear scan of ClientComponentVtables, a
+        /// GetDelegateForFunctionPointer, a GetMethods()+LINQ reflection lookup,
+        /// a full scan of all ~443 ComponentDatabase.MetaclassMap entries with an
+        /// interface cast each, and a MakeGenericMethod+Invoke - to recompute a
+        /// value that is a PURE function of the component id. At two players'
+        /// update rates that cost alone could exceed packet inter-arrival time,
+        /// which (with the old one-packet-per-iteration pump) is exactly the
+        /// unbounded-queue death spiral observed live. Now a packet costs one
+        /// dictionary lookup plus one delegate call.
+        /// </summary>
+        private readonly struct DispatchEntry
+        {
+            /// <summary>Cached vtable deserializer; null = the game defines no vtable for this id.</summary>
+            public readonly ComponentProtocol.ClientDeserialize? Deserialize;
+
+            /// <summary>Handler-table key (hash of the metaclass type name); 0 = no metaclass found.</summary>
+            public readonly ulong HandlerHash;
+
+            public DispatchEntry(ComponentProtocol.ClientDeserialize? deserialize, ulong handlerHash)
+            {
+                Deserialize = deserialize;
+                HandlerHash = handlerHash;
+            }
+        }
+
+        private readonly Dictionary<uint, DispatchEntry> _dispatchCache = new Dictionary<uint, DispatchEntry>();
+
+        // The hash that keys _handlers. The algorithm lives in the pure
+        // Multiplayer assembly (ComponentHash) with pinned test vectors, because
+        // registration (this method, hashing TBase) and dispatch (hashing the
+        // metaclass type) only ever meet if they hash identically.
         public ulong GetHash<T>()
         {
-            if (HashCache<T>.Initialized)
-            {
-                return HashCache<T>.Id;
-            }
-
-            ulong hash = 14695981039346656037UL; //offset
-            string typeName = typeof(T).FullName;
-            for (int i = 0; i < typeName.Length; i++)
-            {
-                hash ^= typeName[i];
-                hash *= 1099511628211UL; //prime
-            }
-            HashCache<T>.Initialized = true;
-            HashCache<T>.Id = hash;
-            return hash;
+            return Multiplayer.ComponentHash.OfTypeFullName(typeof(T).FullName!);
         }
         private ComponentUpdateManager()
         {
@@ -117,71 +130,102 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update
             };
         }
 
+        /// <summary>
+        /// The per-id lookup, memoized. The vtable array is fixed at startup and
+        /// the metaclass map is the game's own static database, so both scans are
+        /// pure functions of the component id: the FIRST packet of an id pays the
+        /// old linear-scan price, every later one is a dictionary hit. "No vtable"
+        /// is cached too - the ids the game sends but never defined were the ones
+        /// paying the full scan on EVERY packet.
+        /// </summary>
+        private DispatchEntry DispatchFor(uint componentId)
+        {
+            if (_dispatchCache.TryGetValue(componentId, out DispatchEntry cached))
+            {
+                return cached;
+            }
+
+            ComponentProtocol.ClientDeserialize? deserialize = null;
+            for (int i = 0; i < ComponentsManager.Instance.ClientComponentVtables.Length; i++)
+            {
+                if (ComponentsManager.Instance.ClientComponentVtables[i].ComponentId == componentId)
+                {
+                    // Caching the delegate also keeps it (and its function
+                    // pointer wrapper) alive for the process lifetime.
+                    deserialize = Marshal.GetDelegateForFunctionPointer<ComponentProtocol.ClientDeserialize>(ComponentsManager.Instance.ClientComponentVtables[i].Deserialize);
+                    break;
+                }
+            }
+
+            ulong hash = 0;
+            if (deserialize != null)
+            {
+                foreach (IComponentMetaclass componentMetaclass in ComponentDatabase.MetaclassMap.Values)
+                {
+                    if (componentMetaclass is IComponentFactory componentFactory && componentFactory.ComponentId == componentId)
+                    {
+                        // Same value the old reflective path produced: it called
+                        // GetHash<factory type>() via MakeGenericMethod, which is
+                        // FNV over the factory type's FullName.
+                        hash = Multiplayer.ComponentHash.OfTypeFullName(componentFactory.GetType().FullName!);
+                        break;
+                    }
+                }
+            }
+
+            DispatchEntry entry = new DispatchEntry(deserialize, hash);
+            _dispatchCache[componentId] = entry;
+            return entry;
+        }
+
         public unsafe bool HandleComponentUpdate(ENetPeerHandle player, long entityId, uint componentId, byte* componentData, int componentDataLength)
         {
             bool success = false;
             ServerLog.Trace("[info] trying to handle a ComponentUpdateOp for ", componentId);
 
-            for (int i = 0; i < ComponentsManager.Instance.ClientComponentVtables.Length; i++)
+            DispatchEntry dispatch = DispatchFor(componentId);
+
+            if (dispatch.Deserialize != null)
             {
-                if (ComponentsManager.Instance.ClientComponentVtables[i].ComponentId == componentId)
+                if (GameState.Instance.ComponentMap.ContainsKey(player) && GameState.Instance.ComponentMap[player].ContainsKey(entityId) && GameState.Instance.ComponentMap[player][entityId].ContainsKey(componentId))
                 {
-                    if (GameState.Instance.ComponentMap.ContainsKey(player) && GameState.Instance.ComponentMap[player].ContainsKey(entityId) && GameState.Instance.ComponentMap[player][entityId].ContainsKey(componentId))
+
+                    ComponentProtocol.ClientObject* wrapper = ClientObjects.ObjectAlloc();
+
+                    if (dispatch.Deserialize(componentId, 1, componentData, (uint)componentDataLength, &wrapper))
                     {
+                        // now we got a reference to the deserialized component, we can use it to update the component that we already have for the player.
+                        object storedComponent = ClientObjects.Instance.Dereference(GameState.Instance.ComponentMap[player][entityId][componentId]);
+                        object newComponent = ClientObjects.Instance.Dereference(wrapper->Reference);
 
-                        ComponentProtocol.ClientObject* wrapper = ClientObjects.ObjectAlloc();
-                        ComponentProtocol.ClientDeserialize deserialize = Marshal.GetDelegateForFunctionPointer<ComponentProtocol.ClientDeserialize>(ComponentsManager.Instance.ClientComponentVtables[i].Deserialize);
-
-                        if (deserialize(componentId, 1, componentData, (uint)componentDataLength, &wrapper))
+                        // The handler table is consulted per packet (not baked
+                        // into the cache entry) so a handler registered after a
+                        // component's first packet would still be found - the
+                        // same order-independence the old path had.
+                        if (_handlers.TryGetValue(dispatch.HandlerHash, out RegisterDelegate handler))
                         {
-                            // now we got a reference to the deserialized component, we can use it to update the component that we already have for the player.
-                            object storedComponent = ClientObjects.Instance.Dereference(GameState.Instance.ComponentMap[player][entityId][componentId]);
-                            object newComponent = ClientObjects.Instance.Dereference(wrapper->Reference);
-
-                            ulong hash = 0;
-                            MethodInfo genericGetHash = this.GetType().GetMethods()
-                            .Where(m => m.Name == nameof(GetHash))
-                            .Where(m => m.IsGenericMethod)
-                            .FirstOrDefault();
-
-                            foreach (IComponentMetaclass componentMetaclass in ComponentDatabase.MetaclassMap.Values)
-                            {
-                                IComponentFactory componentFactory = componentMetaclass as IComponentFactory;
-                                if(componentFactory != null && genericGetHash != null && componentFactory.ComponentId == componentId)
-                                {
-                                    MethodInfo getHash = genericGetHash.MakeGenericMethod(componentFactory.GetType());
-                                    hash = (ulong)getHash.Invoke(this, new object[] { });
-                                    break;
-                                }
-                            }
-
-                            if(_handlers.TryGetValue(hash, out RegisterDelegate handler))
-                            {
-                                handler(player, entityId, newComponent, storedComponent);
-                                success = true;
-                            }
-
-                            if (!success)
-                            {
-                                ServerLog.Trace("[warning] could not find a handler for component update on ", componentId);
-                            }
-
-                            ClientObjects.Instance.DestroyReference(wrapper->Reference);
-                        }
-                        else
-                        {
-                            ServerLog.Trace("[error] failed to deserialize ComponentUpdateOp data for id ", componentId);
+                            handler(player, entityId, newComponent, storedComponent);
+                            success = true;
                         }
 
-                        ClientObjects.ObjectFree(componentId, 1, wrapper);
+                        if (!success)
+                        {
+                            ServerLog.Trace("[warning] could not find a handler for component update on ", componentId);
+                        }
 
+                        ClientObjects.Instance.DestroyReference(wrapper->Reference);
                     }
                     else
                     {
-                        ServerLog.Trace("[warning] could not match requested ComponentUpdate with local stored values.");
+                        ServerLog.Trace("[error] failed to deserialize ComponentUpdateOp data for id ", componentId);
                     }
 
-                    break;
+                    ClientObjects.ObjectFree(componentId, 1, wrapper);
+
+                }
+                else
+                {
+                    ServerLog.Trace("[warning] could not match requested ComponentUpdate with local stored values.");
                 }
             }
 

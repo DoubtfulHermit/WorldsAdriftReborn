@@ -137,6 +137,10 @@ namespace WorldsAdriftRebornGameServer
             PeerManager.Instance.playerState.Remove(peer);
             PeerManager.Instance.clientSetupState.Remove(peer);
 
+            // The peer's wire-metrics window. Left behind it would keep emitting
+            // an all-zero [rates] line for a ghost every five seconds, forever.
+            Rates.Forget(peerId);
+
             // Last, because every lookup above resolves through it.
             PeerIdentity.Instance.Forget(peer.DangerousGetHandle());
 
@@ -240,6 +244,23 @@ namespace WorldsAdriftRebornGameServer
         private static readonly IClock ServerClock = new MonotonicClock();
 
         private static readonly MirrorSchedule Schedule = new MirrorSchedule(ServerClock);
+
+        /// <summary>
+        /// Per-peer wire counters behind the 5 s [rates] log line. Internal
+        /// because SendOPHelper records every outbound send into it - the send
+        /// side of "sends vs receives" only exists at that choke point.
+        /// Declared below <see cref="ServerClock"/> for the same textual-order
+        /// reason as everything else that holds it.
+        /// </summary>
+        internal static readonly PeerRates Rates = new PeerRates(ServerClock);
+
+        /// <summary>
+        /// How many ENet events one loop iteration may drain. See
+        /// PollDrainPolicy for why one-per-iteration was an unbounded-queue
+        /// death spiral. Overridable via WAREBORN_DRAIN_BUDGET.
+        /// </summary>
+        private static readonly int DrainBudget =
+            PollDrainPolicy.BudgetFrom(Environment.GetEnvironmentVariable("WAREBORN_DRAIN_BUDGET"));
 
         /// <summary>
         /// Every harvestable tree's CURRENT sectionMask, and the timer that decides
@@ -840,6 +861,268 @@ namespace WorldsAdriftRebornGameServer
             };
         }
 
+        /// <summary>
+        /// Emits each connected peer's [rates] line when its 5 s window is due:
+        /// receive and send counts (total plus top-5 per component id) from
+        /// <see cref="Rates"/>, and - when the native struct passes its layout
+        /// sanity check - ENet's own health counters for the peer: RTT, packets
+        /// lost, and reliable bytes in flight. Those three are the stages of the
+        /// suspected death chain (relay outruns ACKs -> window fills -> RTT blows
+        /// out -> ENet times the peer out); this line is the visibility into it
+        /// that the 73-second silent drop did not have.
+        /// </summary>
+        private static void ReportPeerRates()
+        {
+            foreach (PeerRateReport report in Rates.DueReports())
+            {
+                string health = EnetPeerProbe.TryRead(new IntPtr((long)report.PeerId), out EnetPeerHealth peerHealth)
+                    ? "; " + EnetPeerHealthPolicy.Describe(peerHealth)
+                    : "; enet health unreadable";
+
+                Console.WriteLine("[rates] " + report.Describe() + health);
+            }
+        }
+
+        /// <summary>
+        /// Handles ONE received packet exactly as the old inline poll body did -
+        /// this method is that body, moved verbatim so the drain loop around it
+        /// stays readable. Takes ownership of the packet: every path through here
+        /// ends in ENet_Destroy_Packet.
+        /// </summary>
+        private static unsafe void ProcessPacket(EnetLayer.ENetPacket_Wrapper* packet)
+        {
+            // Resolve who actually sent this packet. Before the peer field
+            // existed the server could not tell, so it applied every packet
+            // to every client, which is why it only worked with one.
+            ENetPeerHandle? sender = PeerIdentity.Instance.Resolve(packet->Peer);
+
+            if (sender == null || !PeerManager.Instance.playerState.ContainsKey(sender))
+            {
+                // Normal during connect and teardown races: drop the packet
+                // rather than letting one client's state abort the loop.
+                Console.WriteLine("[warning] packet on channel " + packet->Channel + " from unknown "
+                    + Describe(packet->Peer) + ", dropping.");
+                EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
+                return;
+            }
+
+            // Wire metrics, receive side. Component updates are counted per
+            // component id inside their branch below; everything else is one op
+            // packet, counted by channel.
+            ulong senderId = PeerIdentity.IdOf(sender);
+            if (packet->Channel != (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP)
+            {
+                Rates.RecordReceive(senderId, PeerRates.ChannelKey(packet->Channel));
+            }
+
+            {
+                // work on packets that are relevant to progress in sync state
+                int currentChunkIndex = 0;
+                int currentPlayerSyncIndex = PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer;
+
+                if (currentPlayerSyncIndex != GameState.Instance.WorldState[currentChunkIndex].Count - 1)
+                {
+                    GameState.NextStateRequirement nextStateRequirement = GameState.Instance.WorldState[currentChunkIndex][currentPlayerSyncIndex].NextStateRequirement;
+
+                    if(packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP && nextStateRequirement == GameState.NextStateRequirement.ASSET_LOADED_RESPONSE)
+                    {
+                        PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
+                    }
+                    else if(packet->Channel == (int)EnetLayer.ENetChannel.ADD_ENTITY_OP && nextStateRequirement == GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE)
+                    {
+                        PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
+                    }
+                }
+            }
+
+            // A peer's asset-loaded ack releases any mirror ops parked for
+            // it (the two-phase remote-player mirror; see MirrorNewPlayer).
+            if (packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP)
+            {
+                FlushPendingMirrors(PeerIdentity.IdOf(sender));
+            }
+
+            // work on packets that are not relevant for progress of sync state
+            //
+            // do/while(false) so the existing 'continue' error paths still mean
+            // "stop processing this packet": they land on ENet_Destroy_Packet
+            // below rather than skipping it and leaking the packet.
+            do
+            {
+                KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>> keyValuePair =
+                    new KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>>(sender, PeerManager.Instance.playerState[sender]);
+
+                if (packet->Channel == (int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST)
+                {
+                    long entityId = 0;
+                    uint interestCount = 0;
+                    Structs.Structs.InterestOverride* interests = (Structs.Structs.InterestOverride*)new IntPtr(0);
+
+                    if (EnetLayer.PB_EXP_SendComponentInterest_Deserialize(packet->Data, (int)packet->DataLength, &entityId, &interests, &interestCount))
+                    {
+                        Console.WriteLine("[info] game requests components for entity id: " + entityId);
+
+                        // The first-time setup (component injection + AUTHORITY grant)
+                        // must only ever run against the sender's OWN player entity.
+                        // The old check - "is this any player entity" - would run the
+                        // full setup, authority included, against ANOTHER player's
+                        // entity if the client happened to request the mirrored remote
+                        // entity's components first. Request ordering has been lucky so
+                        // far; this removes the dice roll.
+                        bool isSendersOwnEntity = Players.Owns(PeerIdentity.IdOf(sender), entityId);
+                        if(isSendersOwnEntity && !PeerManager.Instance.clientSetupState.Contains(keyValuePair.Key))
+                        {
+                            // a player entity requests components for the first time, we need to setup a few things to make him work properly
+                            // some of this might not be needd anymore in the future once we sorted out a few things.
+                            //
+                            // we can make use of the fact that the game requests components for players in two stages, where the second one will terminate the loading screen of the client.
+                            // the second stage needs a few components setup properly, for this we need to inject one component and call auth changed for a few others once.
+
+                            // Some components are needed in the first stage and need to be injected.
+                            //
+                            // PlayerExternalDataVisualizer null-guards its reader in IsAlive() but NOT in
+                            // IsDriving() (1109 PilotState) or IsEditingShip() (1207 ShipHullAgentState).
+                            // PlayerExternalData.CanMove() evaluates them left to right with &&, so injecting
+                            // only 1109 did not fix the crash - it moved it from IsDriving to IsEditingShip.
+                            // The client log shows exactly that: 1,264 throws from the first, then 1,366 from
+                            // the second, in strictly disjoint line ranges.
+                            //
+                            // This is not cosmetic. The NullReferenceException escapes
+                            // UserControlCharacter.Update() and GrapplingHookNew.Update(), so Unity aborts the
+                            // whole Update for that frame: no movement, no jump, no grapple for ~25 seconds
+                            // after the world appears. Under real SpatialOS the components arrived with the
+                            // entity and the window was zero frames; our packet-driven delivery widens it.
+                            List<Structs.Structs.InterestOverride> injectedEarly = new List<Structs.Structs.InterestOverride>
+                            {
+                                new Structs.Structs.InterestOverride(1109, 1),
+                                new Structs.Structs.InterestOverride(1207, 1)
+                            };
+
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true))
+                            {
+                                continue;
+                            }
+
+                            // then send what the game requested
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true))
+                            {
+                                continue;
+                            }
+
+                            // What the client did not ask for but needs, IN ORDER.
+                            //
+                            // 1080 SchematicsLearnerGSimState because the game does not
+                            // reliably request it and InventoryVisualiser needs its reader;
+                            // 1086 PlayerName because LocalPlayerInit [Require]s it and
+                            // nothing multitool-shaped works before LocalPlayer exists;
+                            // then everything the client is granted authority over.
+                            //
+                            // The order is load-bearing and lives in MirrorSendPolicy so a
+                            // test can hold it, rather than in the shape of this expression.
+                            List<Structs.Structs.InterestOverride> injected = MirrorSendPolicy.InjectedComponents
+                                .Select(p => new Structs.Structs.InterestOverride(p, 1))
+                                .ToList();
+
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true))
+                            {
+                                continue;
+                            }
+
+                            // now send auth change
+                            if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authoritativeComponents))
+                            {
+                                continue;
+                            }
+
+                            // now add player to clientSetupState
+                            PeerManager.Instance.clientSetupState.Add(keyValuePair.Key);
+
+                            // Teleport last, and on its own. 190607 is the third
+                            // [Require] of TeleportTransformVisualizer and the client does
+                            // not reliably ask for it, so it has to be injected - but it
+                            // is NOT worth the spawn path for. Every send above is
+                            // failOnComponentInitError:true and 'continue's out of the
+                            // whole setup on failure; folding teleport into one of them
+                            // would mean an unexpected serializer miss costs a player
+                            // their inventory, their authority grants and their loading
+                            // screen. Separate call, non-fatal, after the flag is set.
+                            Teleports.SeedOn(keyValuePair.Key, entityId);
+                        }
+                        else
+                        {
+                            // BEST EFFORT, DELIBERATELY - this is the only interest
+                            // send that is not first-time setup, and it is the one a
+                            // client makes when it asks about ANOTHER entity.
+                            //
+                            // With failOnComponentInitError:true one unrecognised id
+                            // threw away the WHOLE batch. Measured live: a client asks
+                            // about the other player's avatar with 21 ids, we have a
+                            // branch for sixteen, and 2108 ScannerToolState kills all
+                            // twenty-one - so the observer gets no name, no appearance,
+                            // no gear and no tool visuals for the other player. The id
+                            // that breaks it is chosen by the client's own prefab, which
+                            // we neither control nor can enumerate ahead of time.
+                            //
+                            // Best effort is the SDK's own semantics, not a degradation:
+                            // a visualizer activates only once ALL of its required
+                            // readers are injected (EntityVisualizers.UpdateActivation),
+                            // so delivering sixteen of twenty-one disables exactly the
+                            // visualizers whose data is missing and leaves every other
+                            // one working. Delivering zero disables all of them.
+                            // All-or-nothing is strictly worse at every count but 21.
+                            //
+                            // Diagnosability is untouched, which was the reason the flag
+                            // was set: the [interest] line prints the whole requested
+                            // list before anything is attempted, and every miss still
+                            // prints [error] failed to initialize component NNNN. We
+                            // just stop throwing away the sixteen that worked.
+                            //
+                            // The first-time-setup sends above KEEP the flag: a player
+                            // whose own batch is incomplete has no authority grants and
+                            // no loading screen, which is worth failing loudly for.
+                            SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, false);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("[error] failed to deserialize ComponentInterest message from game.");
+                    }
+                }
+                else if(packet->Channel == (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP)
+                {
+                    long entityId = 0;
+                    uint updateCount = 0;
+                    Structs.Structs.ComponentUpdateOp* update = (Structs.Structs.ComponentUpdateOp*)new IntPtr(0);
+
+                    if (EnetLayer.PB_EXP_ComponentUpdateOp_Deserialize(packet->Data, (int)packet->DataLength, &entityId, &update, &updateCount) && updateCount > 0)
+                    {
+                        ServerLog.Trace("[info] game requests ", updateCount, " ComponentUpdate's for entity id ", entityId);
+
+                        for(int i = 0; i < updateCount; i++)
+                        {
+                            // Wire metrics: one count per component update, keyed
+                            // by the id the client actually sent.
+                            Rates.RecordReceive(senderId, update[i].ComponentId);
+
+                            ComponentUpdateManager.Instance.HandleComponentUpdate(keyValuePair.Key, entityId, update[i].ComponentId, update[i].ComponentData, update[i].DataLength);
+
+                            // Forward this player's update to everyone else so they
+                            // can see it. Relayed verbatim: the server cannot
+                            // deserialize most component ids anyway.
+                            RelayToOtherPlayers(sender, update[i].ComponentId, update[i].ComponentData, update[i].DataLength);
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine("[error] failed to deserialize ComponentUpdate message from game, or empty message.");
+                    }
+                }
+            }
+            while (false);
+
+            EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
+        }
+
         static unsafe void Main( string[] args )
         {
             Console.CancelKeyPress += delegate ( object? sender, ConsoleCancelEventArgs e )
@@ -959,226 +1242,34 @@ namespace WorldsAdriftRebornGameServer
                 // nobody is chopping: an empty dictionary.
                 TickTreeHarvest();
 
-                EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
-                if(packet != null)
+                // Report each connected peer's 5 s wire-rate line (with ENet peer
+                // health appended when readable). Runs with the other timers so a
+                // peer that has gone silent still gets its line.
+                ReportPeerRates();
+
+                // BOUNDED DRAIN. The old loop polled exactly ONCE per iteration, and
+                // the shim returns at most one event per call - so the server's
+                // maximum intake was one packet per loop turn. The moment per-packet
+                // cost exceeded packet inter-arrival time the inbound queue grew
+                // without bound (observed live: rate pinned flat at the arrival rate
+                // while latency climbed, ending in a 73 s ENet timeout). Draining up
+                // to DrainBudget events per turn lets a backlog CLEAR; the budget
+                // keeps the timers above from starving under flood. Only the first
+                // poll may block (50 ms as before); the rest are zero-wait catch-up.
+                // See PollDrainPolicy.
+                for (int drained = 0; drained < DrainBudget; drained++)
                 {
-                    // Resolve who actually sent this packet. Before the peer field
-                    // existed the server could not tell, so it applied every packet
-                    // to every client, which is why it only worked with one.
-                    ENetPeerHandle? sender = PeerIdentity.Instance.Resolve(packet->Peer);
-
-                    if (sender == null || !PeerManager.Instance.playerState.ContainsKey(sender))
+                    EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, PollDrainPolicy.WaitMsFor(drained), Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
+                    if (packet == null)
                     {
-                        // Normal during connect and teardown races: drop the packet
-                        // rather than letting one client's state abort the loop.
-                        Console.WriteLine("[warning] packet on channel " + packet->Channel + " from unknown "
-                            + Describe(packet->Peer) + ", dropping.");
-                        EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
-                        continue;
+                        // Nothing queued - or a connect/disconnect event, which the
+                        // shim also reports as NULL after invoking its callback.
+                        // Either way stop draining; if events remain, the next
+                        // iteration's first poll returns them without blocking.
+                        break;
                     }
 
-                    {
-                        // work on packets that are relevant to progress in sync state
-                        int currentChunkIndex = 0;
-                        int currentPlayerSyncIndex = PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer;
-
-                        if (currentPlayerSyncIndex != GameState.Instance.WorldState[currentChunkIndex].Count - 1)
-                        {
-                            GameState.NextStateRequirement nextStateRequirement = GameState.Instance.WorldState[currentChunkIndex][currentPlayerSyncIndex].NextStateRequirement;
-
-                            if(packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP && nextStateRequirement == GameState.NextStateRequirement.ASSET_LOADED_RESPONSE)
-                            {
-                                PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
-                            }
-                            else if(packet->Channel == (int)EnetLayer.ENetChannel.ADD_ENTITY_OP && nextStateRequirement == GameState.NextStateRequirement.ADDED_ENTITY_RESPONSE)
-                            {
-                                PeerManager.Instance.playerState[sender][currentChunkIndex].SyncStepPointer++;
-                            }
-                        }
-                    }
-
-                    // A peer's asset-loaded ack releases any mirror ops parked for
-                    // it (the two-phase remote-player mirror; see MirrorNewPlayer).
-                    if (packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP)
-                    {
-                        FlushPendingMirrors(PeerIdentity.IdOf(sender));
-                    }
-
-                    // work on packets that are not relevant for progress of sync state
-                    //
-                    // do/while(false) so the existing 'continue' error paths still mean
-                    // "stop processing this packet". A bare block would send them to the
-                    // next while iteration and skip ENet_Destroy_Packet below, leaking it.
-                    do
-                    {
-                        KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>> keyValuePair =
-                            new KeyValuePair<ENetPeerHandle, Dictionary<int, PlayerSyncStatus>>(sender, PeerManager.Instance.playerState[sender]);
-
-                        if (packet->Channel == (int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST)
-                        {
-                            long entityId = 0;
-                            uint interestCount = 0;
-                            Structs.Structs.InterestOverride* interests = (Structs.Structs.InterestOverride*)new IntPtr(0);
-
-                            if (EnetLayer.PB_EXP_SendComponentInterest_Deserialize(packet->Data, (int)packet->DataLength, &entityId, &interests, &interestCount))
-                            {
-                                Console.WriteLine("[info] game requests components for entity id: " + entityId);
-
-                                // The first-time setup (component injection + AUTHORITY grant)
-                                // must only ever run against the sender's OWN player entity.
-                                // The old check - "is this any player entity" - would run the
-                                // full setup, authority included, against ANOTHER player's
-                                // entity if the client happened to request the mirrored remote
-                                // entity's components first. Request ordering has been lucky so
-                                // far; this removes the dice roll.
-                                bool isSendersOwnEntity = Players.Owns(PeerIdentity.IdOf(sender), entityId);
-                                if(isSendersOwnEntity && !PeerManager.Instance.clientSetupState.Contains(keyValuePair.Key))
-                                {
-                                    // a player entity requests components for the first time, we need to setup a few things to make him work properly
-                                    // some of this might not be needd anymore in the future once we sorted out a few things.
-                                    //
-                                    // we can make use of the fact that the game requests components for players in two stages, where the second one will terminate the loading screen of the client.
-                                    // the second stage needs a few components setup properly, for this we need to inject one component and call auth changed for a few others once.
-
-                                    // Some components are needed in the first stage and need to be injected.
-                                    //
-                                    // PlayerExternalDataVisualizer null-guards its reader in IsAlive() but NOT in
-                                    // IsDriving() (1109 PilotState) or IsEditingShip() (1207 ShipHullAgentState).
-                                    // PlayerExternalData.CanMove() evaluates them left to right with &&, so injecting
-                                    // only 1109 did not fix the crash - it moved it from IsDriving to IsEditingShip.
-                                    // The client log shows exactly that: 1,264 throws from the first, then 1,366 from
-                                    // the second, in strictly disjoint line ranges.
-                                    //
-                                    // This is not cosmetic. The NullReferenceException escapes
-                                    // UserControlCharacter.Update() and GrapplingHookNew.Update(), so Unity aborts the
-                                    // whole Update for that frame: no movement, no jump, no grapple for ~25 seconds
-                                    // after the world appears. Under real SpatialOS the components arrived with the
-                                    // entity and the window was zero frames; our packet-driven delivery widens it.
-                                    List<Structs.Structs.InterestOverride> injectedEarly = new List<Structs.Structs.InterestOverride>
-                                    {
-                                        new Structs.Structs.InterestOverride(1109, 1),
-                                        new Structs.Structs.InterestOverride(1207, 1)
-                                    };
-
-                                    if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true))
-                                    {
-                                        continue;
-                                    }
-
-                                    // then send what the game requested
-                                    if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true))
-                                    {
-                                        continue;
-                                    }
-
-                                    // What the client did not ask for but needs, IN ORDER.
-                                    //
-                                    // 1080 SchematicsLearnerGSimState because the game does not
-                                    // reliably request it and InventoryVisualiser needs its reader;
-                                    // 1086 PlayerName because LocalPlayerInit [Require]s it and
-                                    // nothing multitool-shaped works before LocalPlayer exists;
-                                    // then everything the client is granted authority over.
-                                    //
-                                    // The order is load-bearing and lives in MirrorSendPolicy so a
-                                    // test can hold it, rather than in the shape of this expression.
-                                    List<Structs.Structs.InterestOverride> injected = MirrorSendPolicy.InjectedComponents
-                                        .Select(p => new Structs.Structs.InterestOverride(p, 1))
-                                        .ToList();
-
-                                    if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true))
-                                    {
-                                        continue;
-                                    }
-
-                                    // now send auth change
-                                    if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authoritativeComponents))
-                                    {
-                                        continue;
-                                    }
-
-                                    // now add player to clientSetupState
-                                    PeerManager.Instance.clientSetupState.Add(keyValuePair.Key);
-
-                                    // Teleport last, and on its own. 190607 is the third
-                                    // [Require] of TeleportTransformVisualizer and the client does
-                                    // not reliably ask for it, so it has to be injected - but it
-                                    // is NOT worth the spawn path for. Every send above is
-                                    // failOnComponentInitError:true and 'continue's out of the
-                                    // whole setup on failure; folding teleport into one of them
-                                    // would mean an unexpected serializer miss costs a player
-                                    // their inventory, their authority grants and their loading
-                                    // screen. Separate call, non-fatal, after the flag is set.
-                                    Teleports.SeedOn(keyValuePair.Key, entityId);
-                                }
-                                else
-                                {
-                                    // BEST EFFORT, DELIBERATELY - this is the only interest
-                                    // send that is not first-time setup, and it is the one a
-                                    // client makes when it asks about ANOTHER entity.
-                                    //
-                                    // With failOnComponentInitError:true one unrecognised id
-                                    // threw away the WHOLE batch. Measured live: a client asks
-                                    // about the other player's avatar with 21 ids, we have a
-                                    // branch for sixteen, and 2108 ScannerToolState kills all
-                                    // twenty-one - so the observer gets no name, no appearance,
-                                    // no gear and no tool visuals for the other player. The id
-                                    // that breaks it is chosen by the client's own prefab, which
-                                    // we neither control nor can enumerate ahead of time.
-                                    //
-                                    // Best effort is the SDK's own semantics, not a degradation:
-                                    // a visualizer activates only once ALL of its required
-                                    // readers are injected (EntityVisualizers.UpdateActivation),
-                                    // so delivering sixteen of twenty-one disables exactly the
-                                    // visualizers whose data is missing and leaves every other
-                                    // one working. Delivering zero disables all of them.
-                                    // All-or-nothing is strictly worse at every count but 21.
-                                    //
-                                    // Diagnosability is untouched, which was the reason the flag
-                                    // was set: the [interest] line prints the whole requested
-                                    // list before anything is attempted, and every miss still
-                                    // prints [error] failed to initialize component NNNN. We
-                                    // just stop throwing away the sixteen that worked.
-                                    //
-                                    // The first-time-setup sends above KEEP the flag: a player
-                                    // whose own batch is incomplete has no authority grants and
-                                    // no loading screen, which is worth failing loudly for.
-                                    SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, false);
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("[error] failed to deserialize ComponentInterest message from game.");
-                            }
-                        }
-                        else if(packet->Channel == (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP)
-                        {
-                            long entityId = 0;
-                            uint updateCount = 0;
-                            Structs.Structs.ComponentUpdateOp* update = (Structs.Structs.ComponentUpdateOp*)new IntPtr(0);
-
-                            if (EnetLayer.PB_EXP_ComponentUpdateOp_Deserialize(packet->Data, (int)packet->DataLength, &entityId, &update, &updateCount) && updateCount > 0)
-                            {
-                                ServerLog.Trace("[info] game requests ", updateCount, " ComponentUpdate's for entity id ", entityId);
-
-                                for(int i = 0; i < updateCount; i++)
-                                {
-                                    ComponentUpdateManager.Instance.HandleComponentUpdate(keyValuePair.Key, entityId, update[i].ComponentId, update[i].ComponentData, update[i].DataLength);
-
-                                    // Forward this player's update to everyone else so they
-                                    // can see it. Relayed verbatim: the server cannot
-                                    // deserialize most component ids anyway.
-                                    RelayToOtherPlayers(sender, update[i].ComponentId, update[i].ComponentData, update[i].DataLength);
-                                }
-                            }
-                            else
-                            {
-                                Console.WriteLine("[error] failed to deserialize ComponentUpdate message from game, or empty message.");
-                            }
-                        }
-                    }
-                    while (false);
-
-                    EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
+                    ProcessPacket(packet);
                 }
 
                 // dont wait for GetOplist and then for the Dispatch call as we are the ones who would dispatch the work anyways.
