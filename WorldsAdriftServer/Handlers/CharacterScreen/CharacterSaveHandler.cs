@@ -1,5 +1,6 @@
 using NetCoreServer;
 using Newtonsoft.Json.Linq;
+using WorldsAdriftReborn.Storage.Records;
 using WorldsAdriftServer.Objects.CharacterSelection;
 using WorldsAdriftServer.Persistence;
 
@@ -22,6 +23,12 @@ namespace WorldsAdriftServer.Handlers.CharacterScreen
 
             try
             {
+                AccountRecord? account = CharacterRequest.Authorize(session, request, "character save");
+                if (account == null)
+                {
+                    return;
+                }
+
                 JObject reqO = JObject.Parse(request.Body);
                 CharacterCreationData? characterData = reqO?.ToObject<CharacterCreationData>();
 
@@ -34,7 +41,7 @@ namespace WorldsAdriftServer.Handlers.CharacterScreen
                     return;
                 }
 
-                List<CharacterCreationData> roster = CharacterRepository.Save(characterData, serverIdentifier);
+                List<CharacterCreationData> roster = AccountRosters.Save(account, characterData, serverIdentifier);
 
                 JObject respO = (JObject)JToken.FromObject(RosterPolicy.ToResponse(roster));
 

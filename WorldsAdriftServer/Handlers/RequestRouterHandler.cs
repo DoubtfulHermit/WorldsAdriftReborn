@@ -24,7 +24,15 @@ namespace WorldsAdriftServer.Handlers
             {
                 if(request.Method == "POST" && request.Url == "/authenticate")
                 {
-                    SteamAuthenticationHandler.HandleAuthRequest(this, request, "Jim Hawkins");
+                    SteamAuthenticationHandler.HandleAuthRequest(this, request);
+                }
+                else if (request.Method == "GET" && (request.Url == "/signup" || request.Url == "/signup/"))
+                {
+                    RegistrationHandler.HandleSignupPage(this);
+                }
+                else if (request.Method == "POST" && request.Url == "/register")
+                {
+                    RegistrationHandler.HandleRegister(this, request);
                 }
                 else if (request.Method == "GET" && request.Url.Contains("/characterList/") && request.Url.Contains("/steam/1234"))
                 {

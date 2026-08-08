@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using WorldsAdriftServer.Persistence;
 using WorldsAdriftServer.Server;
 
 namespace WorldsAdriftServer
@@ -15,7 +16,24 @@ namespace WorldsAdriftServer
             {
                 restPort = parsedRestPort;
             }
+            // Before the socket, so a bad connection string is a loud failure on
+            // startup rather than a player staring at a login form that never
+            // answers.
+            try
+            {
+                Accounts.Initialize();
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[fatal] could not open the account database. Set "
+                    + WorldsAdriftReborn.Storage.Db.ConnectionStringVariable
+                    + " to a reachable Postgres. Nobody can log in until this works.");
+                Console.WriteLine(e);
+                return;
+            }
+
             Console.WriteLine("[info] login/REST server listening on TCP " + restPort + ".");
+            Console.WriteLine("[info] sign-up page at http://<this host>:" + restPort + "/signup");
 
             RequestRouterServer restServer = new RequestRouterServer(IPAddress.Any, restPort);
 
