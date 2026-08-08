@@ -102,9 +102,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         // ------------------------------------------------------------------
 
         [Fact]
-        public void The_player_spawn_is_the_provisional_point_by_the_ruined_camp()
+        public void The_player_spawn_is_the_measured_point_by_the_ruined_camp()
         {
-            Assert.Equal(new FixedPointPosition(70469345, -1289049, -4625069), SpawnPolicy.PlayerSpawnPosition);
+            // Island-local (208.00, 6.70, 4.00) on Haven instance #5: a measured
+            // LOD0 surface vertex plus a 2 m stand-off.
+            Assert.Equal(new FixedPointPosition(70502113, -1277826, -4629165), SpawnPolicy.PlayerSpawnPosition);
+        }
+
+        [Fact]
+        public void The_player_spawn_is_not_the_pre_TRS_point_that_was_underground()
+        {
+            // The old coordinate came from surface tables whose extractor summed
+            // m_LocalPosition and ignored a uniform (4,4,4) scale one level above
+            // the mesh. It put the player 0.15 m BELOW the ground, and the
+            // documented fallback 6 m below it. Pinned so a revert is loud.
+            Assert.NotEqual(new FixedPointPosition(70469345, -1289049, -4625069), SpawnPolicy.PlayerSpawnPosition);
         }
 
         [Fact]

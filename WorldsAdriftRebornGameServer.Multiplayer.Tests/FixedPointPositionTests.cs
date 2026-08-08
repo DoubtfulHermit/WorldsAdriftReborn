@@ -51,12 +51,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_provisional_player_spawn_encodes_to_the_committed_player_seed()
+        public void The_player_spawn_encodes_to_the_committed_player_seed()
         {
-            // island-local (200.00, 3.96, 5.00) on Haven instance #5.
+            // island-local (208.00, 6.70, 4.00) on Haven instance #5, which is
+            // island world (17004.4300, -318.6693420, -1134.16748) plus that.
             Assert.Equal(
                 SpawnPolicy.PlayerSpawnPosition,
-                FixedPointPosition.FromMetres(17204.4300, -314.7093420, -1129.16748));
+                FixedPointPosition.FromMetres(17212.4300, -311.9693420, -1130.16748));
+        }
+
+        [Fact]
+        public void The_player_spawn_is_the_island_origin_plus_the_island_local_offset()
+        {
+            // Independent of the literals above: build the world coordinate from
+            // the island position and the island-local offset the extractor
+            // reported, and it must land on the same seed. Catches a number
+            // pasted into the wrong axis, which is the realistic mistake here.
+            Assert.Equal(
+                SpawnPolicy.PlayerSpawnPosition,
+                FixedPointPosition.FromMetres(
+                    17004.4300 + 208.00,
+                    -318.6693420 + 6.70,
+                    -1134.16748 + 4.00));
         }
 
         [Fact]

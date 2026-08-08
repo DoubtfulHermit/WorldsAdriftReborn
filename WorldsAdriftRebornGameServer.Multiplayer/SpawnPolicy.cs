@@ -93,29 +93,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             new FixedPointPosition(69650145, -1305269, -4645549);
 
         /// <summary>
-        /// PROVISIONAL - the altitude is expected to change, the X and Z are not.
+        /// Island-local (208.00, 6.70, 4.00) on Haven instance #5, i.e. world
+        /// (17212.4300, -311.9693420, -1130.16748) m. That is a measured LOD0
+        /// surface vertex at 4.70 m plus a 2.00 m stand-off, 5.5 m from the
+        /// centroid of the ruined metal camp - the only constructed area on the
+        /// island.
         ///
-        /// Island-local (200.00, 3.96, 5.00) on Haven instance #5, i.e. world
-        /// (17204.4300, -314.7093420, -1129.16748) m: about 8 m from the centroid
-        /// of the ruined metal camp, the only constructed area on the island.
+        /// Quality of the point: normal ny = 0.994 (dead flat), 13.52 m of prop
+        /// clearance in 3D, nearest thing overhead a metal platform 19.5 m up.
+        /// Confirmed to be the TOP surface three ways, the strongest being that
+        /// the lowest surface vertex in the same column is 37 m below it.
         ///
-        /// WHY PROVISIONAL: the Y came from our extracted island-surface tables,
-        /// and those tables are known wrong. On the one island we can check
-        /// empirically they are off by ~25 m, because the extractor's offs()
-        /// accumulates only m_LocalPosition up the transform hierarchy and
-        /// ignores rotation and scale. A corrected coordinate is being derived
-        /// separately.
+        /// This replaces a coordinate derived from the pre-TRS surface tables,
+        /// which were wrong by a mean of 47.7 m in 3D - not, as we first
+        /// believed, only in altitude. The old point was 0.15 m UNDERGROUND and
+        /// the documented fallback was 6 m underground; its Y looked plausible
+        /// purely by coincidence. See docs/research/findings-spawn.md.
         ///
-        /// SWAPPING IT IN IS A ONE-LINE CHANGE: replace the three numbers here
-        /// (or call FixedPointPosition.FromMetres with the corrected metres) and
-        /// nothing else in the server needs to know.
+        /// Changing it is a one-line change: replace these three numbers, or
+        /// call FixedPointPosition.FromMetres with the corrected metres.
         ///
         /// If the altitude is too low the player interpenetrates the ground; if
         /// it is too high they free-fall - and fall damage does not exist on this
         /// server, so a bad spawn is an endless fall rather than a death.
         /// </summary>
         public static readonly FixedPointPosition PlayerSpawnPosition =
-            new FixedPointPosition(70469345, -1289049, -4625069);
+            new FixedPointPosition(70502113, -1277826, -4629165);
 
         /// <summary>
         /// The value seeded into 8055 NewPlayerState. FALSE, deliberately, and
