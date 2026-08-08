@@ -110,6 +110,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(20, only.EntityId);
         }
 
+        [Fact]
+        public void All_returns_every_peer_entity_pair_including_none_when_empty()
+        {
+            // The target set for a server-initiated broadcast - a teleport of
+            // everyone, and later any world event. Empty must be empty, not a
+            // throw: the trigger can fire before anyone has connected.
+            PlayerRegistry registry = new();
+            Assert.Empty(registry.All());
+
+            registry.Register(PeerA, 10);
+            registry.Register(PeerB, 20);
+
+            IReadOnlyList<(ulong PeerId, long EntityId)> all = registry.All();
+
+            Assert.Equal(2, all.Count);
+            Assert.Contains((PeerA, 10L), all);
+            Assert.Contains((PeerB, 20L), all);
+        }
+
         // ------------------------------------------------------------------
         // Ownership gate (docs/multiplayer.md rule 6): first-time setup and the
         // AUTHORITY grant may only ever run against the sender's OWN entity.

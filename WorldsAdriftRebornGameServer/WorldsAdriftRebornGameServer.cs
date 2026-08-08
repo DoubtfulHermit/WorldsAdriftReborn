@@ -96,6 +96,7 @@ namespace WorldsAdriftRebornGameServer
             if (ownEntity.HasValue)
             {
                 Appearances.Forget(ownEntity.Value);
+                Teleports.Forget(ownEntity.Value);
             }
 
             PeerManager.Instance.playerState.Remove(peer);
@@ -400,6 +401,18 @@ namespace WorldsAdriftRebornGameServer
         /// serializer branch, written by PlayerPropertiesState_Handler.</summary>
         internal static readonly AppearanceStore Appearances = new AppearanceStore();
 
+        /// <summary>
+        /// Moves players around the world by 190607 TeleportRequestState, and
+        /// watches 1073 for the ack. Internal because
+        /// ClientAuthoritativePlayerState_Handler reports acks to it.
+        ///
+        /// This is the authentic Act 1 exit: the game's own tutorial ended by
+        /// teleporting the player out of the Revival Chamber, and it is the only
+        /// way off Haven that exists before ships do. See TeleportService for how
+        /// a human fires one.
+        /// </summary>
+        internal static readonly TeleportService Teleports = new TeleportService();
+
         /// <summary>Decides which ops go to which peers so players can see each other.</summary>
         private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
 
@@ -651,6 +664,14 @@ namespace WorldsAdriftRebornGameServer
             Console.WriteLine("[info] successfully initialized networking, now waiting for connections and data.");
             PeerManager.Instance.SetENetHostHandle(server);
 
+            // Say it once, at startup, because a feature nobody can find is not a
+            // feature. Destinations come from TeleportPolicy so this list cannot
+            // go stale.
+            Console.WriteLine("[info] teleport: write a destination to " + Teleports.TriggerFile
+                + " to move players. Destinations: " + string.Join(", ", TeleportPolicy.Names)
+                + ". Add an entity id to move just one, e.g. `echo '"
+                + TeleportPolicy.SafeDestination.Name + " 3' > " + Teleports.TriggerFile + "`.");
+
 
             // define initial world state for first chunk
             //
@@ -696,6 +717,12 @@ namespace WorldsAdriftRebornGameServer
                 // TransformState (0,100,0) to a live player. AddEntity alone carries
                 // no component data, so it cannot move anyone.
                 ResendMirrors();
+                // The only way a human can currently ask for anything: a file.
+                // There is no command channel (SendCommandRequest is a TODO stub
+                // in the SDK), so a client cannot request a teleport at all. Self-
+                // throttled to twice a second, because this loop turns once per
+                // ENet EVENT rather than once per poll timeout.
+                Teleports.PollTrigger();
 
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)
@@ -827,6 +854,17 @@ namespace WorldsAdriftRebornGameServer
 
                                     // now add player to clientSetupState
                                     PeerManager.Instance.clientSetupState.Add(keyValuePair.Key);
+
+                                    // Teleport last, and on its own. 190607 is the third
+                                    // [Require] of TeleportTransformVisualizer and the client does
+                                    // not reliably ask for it, so it has to be injected - but it
+                                    // is NOT worth the spawn path for. Every send above is
+                                    // failOnComponentInitError:true and 'continue's out of the
+                                    // whole setup on failure; folding teleport into one of them
+                                    // would mean an unexpected serializer miss costs a player
+                                    // their inventory, their authority grants and their loading
+                                    // screen. Separate call, non-fatal, after the flag is set.
+                                    Teleports.SeedOn(keyValuePair.Key, entityId);
                                 }
                                 else
                                 {
