@@ -602,6 +602,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     // EntityId.IsValidEntityId(DrivingEntityId), so had the chain ever been
                     // reordered the player would have been permanently "driving" and unable to
                     // move. Removed rather than left as a trap.
+                    else if (componentId == Multiplayer.TeleportPolicy.TeleportRequestStateComponentId)
+                    {
+                        // 190607 TeleportRequestState. Everything about this seed -
+                        // request 0, parent absent - is in TeleportComponent.Seed,
+                        // on purpose: this chain is edited by several workstreams
+                        // at once and teleport should not widen it.
+                        obj = TeleportComponent.Seed();
+                    }
                     else
                     {
                         Console.WriteLine("[ToDo] unhandled component id needs investigation: " + componentId);

@@ -82,6 +82,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// Every player as a (peer, entity) pair.
+        ///
+        /// <see cref="Others"/> with no exclusion would say the same thing, but
+        /// only by passing a peer id that cannot exist - which reads as a bug at
+        /// every call site. A server-initiated broadcast (teleport everyone, and
+        /// later any world event) genuinely means "all", so it says so.
+        /// </summary>
+        public IReadOnlyList<(ulong PeerId, long EntityId)> All()
+        {
+            List<(ulong, long)> result = new();
+            foreach (KeyValuePair<ulong, long> entry in _entityByPeer)
+            {
+                result.Add((entry.Key, entry.Value));
+            }
+            return result;
+        }
+
+        /// <summary>
         /// Every other player as a (peer, entity) pair, for mirroring existing
         /// players to a newcomer.
         /// </summary>
