@@ -46,7 +46,28 @@ namespace WorldsAdriftRebornGameServer.Game
 
         private const string DefaultTriggerFile = "/tmp/wareborn-teleport";
 
+        /// <summary>
+        /// The label the operator trigger file's teleports carry in the log.
+        /// </summary>
+        private const string OperatorReason = "teleport";
+
+        /// <summary>
+        /// The label an automatic fall-floor rescue carries in the log, at BOTH
+        /// ends: on the send, and again on the 1073 ack that proves it landed.
+        /// Grep-able on purpose - "why did I end up back at spawn" and "did the
+        /// rescue work" are the two questions this feature will ever be asked.
+        /// </summary>
+        internal const string FallRescueReason = "fall-rescue";
+
         private readonly TeleportRequestCounter _requests = new TeleportRequestCounter();
+
+        /// <summary>
+        /// Why the outstanding teleport for an entity was sent, so the ack can be
+        /// logged in the same words as the send. Set on every send, read once on
+        /// the ack; entries are dropped with the entity in <see cref="Forget"/>.
+        /// </summary>
+        private readonly Dictionary<long, string> _reasonByEntity = new Dictionary<long, string>();
+
         private readonly Stopwatch _sinceLastPoll = Stopwatch.StartNew();
         private readonly string _triggerFile;
 
@@ -149,12 +170,22 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 // Not a refusal - going somewhere with no ground is the whole
                 // point of testing this - but it must be said out loud, because
-                // there is no fall damage and no world-edge pushback on this
-                // server, so the fall does not end and looks exactly like a
-                // broken teleport.
+                // there is still no fall damage and no world-edge pushback here,
+                // so the arrival is a fall rather than a landing.
+                //
+                // The fall no longer lasts forever: FallPolicy catches it. Which
+                // way that goes depends entirely on the destination's altitude,
+                // and both cases are surprising if unannounced, so say which one
+                // this is rather than making the operator work it out.
                 Console.WriteLine("[warning] teleport: '" + command.Destination.Name
-                    + "' has no entity spawned at it. Expect an endless fall; "
-                    + "`echo " + TeleportPolicy.SafeDestination.Name + " > " + _triggerFile + "` to come back.");
+                    + "' has no entity spawned at it, so expect a fall. "
+                    + (FallPolicy.IsBelowFloor(command.Destination.Position)
+                        ? "It is BELOW the fall floor (" + FallPolicy.FloorMetres.ToString("0.#")
+                          + " m), so the rescue fires on arrival and sends the player straight back to "
+                          + TeleportPolicy.SafeDestination.Name + "."
+                        : "The fall floor at " + FallPolicy.FloorMetres.ToString("0.#")
+                          + " m will return the player to " + TeleportPolicy.SafeDestination.Name
+                          + " a few seconds after arrival."));
             }
 
             int sent = 0;
@@ -182,10 +213,50 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
+        /// Puts a player who has fallen through the bottom of the world back on
+        /// solid ground, by the same 190607 path the operator trigger file uses.
+        ///
+        /// The DECISION to do this is not taken here and is not taken in the
+        /// packet loop either - it is <see cref="FallWatch.Observe"/>, which is
+        /// pure and tested. This method is only the wire.
+        ///
+        /// Nothing else about the rescue is special: the same request counter,
+        /// the same parentless 190607 update, the same 1073 ack. That is the
+        /// whole reason a fall floor was a small change - the machinery to put a
+        /// player somewhere already existed and had already been proven against
+        /// a real client.
+        /// </summary>
+        public bool RescueFromFall(long entityId, FixedPointPosition where, int attempt)
+        {
+            TeleportDestination home = TeleportPolicy.SafeDestination;
+
+            Console.WriteLine("[warning] " + FallRescueReason + ": entity " + entityId + " is at y "
+                + where.MetresY.ToString("0.#") + " m, below the fall floor at "
+                + FallPolicy.FloorMetres.ToString("0.#") + " m. It fell off the world; "
+                + "sending it to " + home.Name + " (attempt " + attempt + " of "
+                + FallWatch.MaxAttemptsPerFall + ").");
+
+            foreach ((ulong peerId, long candidate) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                if (candidate == entityId)
+                {
+                    return Send(peerId, entityId, home, FallRescueReason);
+                }
+            }
+
+            // The peer went away between publishing that transform and this call.
+            // Nothing to do, and nothing wrong: the watch record is dropped by
+            // ForgetPeer along with everything else the peer owned.
+            Console.WriteLine("[info] " + FallRescueReason + ": entity " + entityId
+                + " is no longer a connected player, nothing to rescue.");
+            return false;
+        }
+
+        /// <summary>
         /// Sends one player one teleport: a 190607 update carrying the
         /// destination and a fresh request number.
         /// </summary>
-        private bool Send(ulong peerId, long entityId, TeleportDestination destination)
+        private bool Send(ulong peerId, long entityId, TeleportDestination destination, string reason = OperatorReason)
         {
             ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
             if (peer == null)
@@ -205,6 +276,7 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             int request = _requests.Next(entityId);
+            _reasonByEntity[entityId] = reason;
 
             bool ok = SendOPHelper.SendComponentUpdateOp(
                 peer,
@@ -214,12 +286,12 @@ namespace WorldsAdriftRebornGameServer.Game
 
             if (!ok)
             {
-                Console.WriteLine("[error] teleport: failed to send request " + request
+                Console.WriteLine("[error] " + reason + ": failed to send request " + request
                     + " for entity " + entityId + ".");
                 return false;
             }
 
-            Console.WriteLine("[info] teleport: entity " + entityId + " -> " + destination.Name
+            Console.WriteLine("[info] " + reason + ": entity " + entityId + " -> " + destination.Name
                 + " " + destination.Position + ", request " + request + ", awaiting 1073 ack.");
             return true;
         }
@@ -245,10 +317,19 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
+            // Report the landing in the same words as the send, so a fall rescue
+            // reads as one event with two halves rather than as an unexplained
+            // teleport somebody has to correlate by request number.
+            if (!_reasonByEntity.TryGetValue(entityId, out string? reason))
+            {
+                reason = OperatorReason;
+            }
+
             if (outstandingBefore.HasValue && lastExecutedRequest >= outstandingBefore.Value)
             {
-                Console.WriteLine("[success] teleport: entity " + entityId
-                    + " executed request " + lastExecutedRequest + ". It landed.");
+                Console.WriteLine("[success] " + reason + ": entity " + entityId
+                    + " executed request " + lastExecutedRequest + ". It landed"
+                    + (reason == FallRescueReason ? " - it is back on solid ground." : "."));
             }
             else
             {
@@ -256,7 +337,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 // writer) or one that does not yet cover the outstanding
                 // request. Worth a line: this is what a half-applied teleport
                 // looks like from here.
-                Console.WriteLine("[info] teleport: entity " + entityId + " reports lastExecutedRequest "
+                Console.WriteLine("[info] " + reason + ": entity " + entityId + " reports lastExecutedRequest "
                     + lastExecutedRequest + ", outstanding "
                     + (outstandingBefore.HasValue ? outstandingBefore.Value.ToString() : "none") + ".");
             }
@@ -266,6 +347,7 @@ namespace WorldsAdriftRebornGameServer.Game
         public void Forget(long entityId)
         {
             _requests.Forget(entityId);
+            _reasonByEntity.Remove(entityId);
         }
     }
 }

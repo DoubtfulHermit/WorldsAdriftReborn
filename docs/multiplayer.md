@@ -182,6 +182,25 @@ than reflows because the findings cite rules 7 and 10 by number.
     All three are pinned by tests in `WorldsAdriftServer.Tests/RosterPolicyTests.cs`.
     Evidence: `findings-persistence.md` (Q1); shipped in "Persist the character roster".
 
+17. **The world has no bottom, and the client will not give it one.** There is
+    no fall damage here, and `WorldEdgePushback` is not the safety net it looks
+    like: even once world bounds are sent it enforces X and Z in **both**
+    directions but only the **positive** Y bound (push at +800 m, hard clamp at
+    +1000 m). `WorldBoundsDataState.minHeight` exists in the schema and its only
+    consumer is the lightning VFX spawner. So walking off Haven used to end a
+    session permanently — no death, no stop, no feedback, and no way back except
+    the operator trigger file. The floor has to be the server's.
+    It now is: `Multiplayer.FallPolicy` puts it at **world y = −504.669 m**,
+    100 m below Haven's deepest collider vertex (island origin −318.669 plus the
+    local AABB minimum −86.0 from `island-surfaces/1431299145.json`), and
+    `FallWatch` fires exactly one 190607 rescue per fall, retried twice, with a
+    100 m hysteresis band above the floor so it can never argue with a client
+    that is standing on something. **Two consequences worth knowing:** a
+    destination *below* the floor (`mausoleum`, at −707 m) bounces the player
+    home on arrival, and the floor is derived from the one island this server
+    spawns — a second, lower island means revisiting the number.
+    Pinned by `FallPolicyTests`.
+
 ## Diagnostics built in (keep them)
 
 - `RemoteRigSweeper`: one-shot rig component inventory; 5s remote-rig

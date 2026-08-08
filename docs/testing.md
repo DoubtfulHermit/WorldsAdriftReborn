@@ -123,6 +123,19 @@ covered:
   `AddComponents` re-applies the default seeded `TransformState` to a live
   player and launches them into the sky. Covered by `MirrorSendPolicy.MayResend`
   tests, including a sweep over every `MirrorOp`.
+- **The fall floor** (rule 17). `FallPolicyTests` pins where the floor is
+  against the two measured numbers it is derived from (Haven's world y and the
+  local AABB minimum of `island-surfaces/1431299145.json`), asserts that nothing
+  anyone can stand on and no safe destination is below it, and that the fall to
+  it takes single-digit seconds. `FallWatch` is tested for the behaviour that
+  cannot be observed by falling off an island once: one rescue per fall across
+  50 packets, a retry when a rescue produces no ack, a give-up said exactly once,
+  re-arming the moment the player is level with the island, per-entity
+  independence, and that a parented transform — whose position is local, not
+  world — is never judged, including across the later updates that do not
+  mention `parent` at all. What is **not** covered is whether the client applies
+  the 190607 that results; that is the teleport path, and its only evidence is
+  the 1073 ack.
 - **Relay reliability.** `190602` and `1073` unreliable (superseded every tick;
   reliable ordering head-of-line stalls on loss), *everything else* reliable
   (a dropped one-shot such as appearance never comes back). Covered by a sweep
