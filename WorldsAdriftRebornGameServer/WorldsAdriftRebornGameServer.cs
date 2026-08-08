@@ -96,6 +96,13 @@ namespace WorldsAdriftRebornGameServer
             if (ownEntity.HasValue)
             {
                 Appearances.Forget(ownEntity.Value);
+
+                // A latch left behind would keep chopping a tree every 0.75 s on
+                // behalf of somebody who has logged out, forever.
+                if (Harvest.Forget(ownEntity.Value))
+                {
+                    Console.WriteLine("[info] dropped the tree-cutting latch of entity " + ownEntity.Value + ".");
+                }
             }
 
             PeerManager.Instance.playerState.Remove(peer);
@@ -192,7 +199,122 @@ namespace WorldsAdriftRebornGameServer
         /// the instant an event is already queued, so the loop turns once per
         /// EVENT. See MirrorSchedule's own remarks for what that cost.
         /// </summary>
-        private static readonly MirrorSchedule Schedule = new MirrorSchedule(new MonotonicClock());
+        /// <summary>
+        /// One monotonic clock for everything in this process that measures a
+        /// deadline. Monotonic so NTP stepping the host's wall clock cannot make a
+        /// timer fire twice or never.
+        ///
+        /// DECLARED FIRST, and it has to be: static field initializers run in
+        /// TEXTUAL order, so a clock declared below its consumers would be null
+        /// when they are constructed.
+        /// </summary>
+        private static readonly IClock ServerClock = new MonotonicClock();
+
+        private static readonly MirrorSchedule Schedule = new MirrorSchedule(ServerClock);
+
+        /// <summary>
+        /// Every harvestable tree's CURRENT sectionMask, and the timer that decides
+        /// when a held beam takes the next chunk out of one.
+        ///
+        /// Internal because ComponentsSerializer's 1036 branch reads the live mask
+        /// off it: a client that checks the tree out after somebody else has
+        /// chopped half of it must be told what is actually standing, not what the
+        /// prefab was authored with.
+        /// </summary>
+        internal static readonly TreeHarvest Harvest = new TreeHarvest(ServerClock);
+
+        /// <summary>
+        /// Applies every cut whose timer has elapsed and tells the clients.
+        ///
+        /// TWO RULES, both of which cost a debugging round elsewhere in this file
+        /// if broken:
+        ///
+        /// 1. The update is pushed to each peer DIRECTLY, never through
+        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
+        ///    player's update about THEMSELVES and substitutes the sender's own
+        ///    entity id for the address; routed through it, a tree's mask change
+        ///    would arrive addressed to whoever happened to be chopping, and the
+        ///    tree would never change on anyone's screen.
+        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
+        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
+        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
+        ///    audio loop on the true edge. Sending the whole component every 0.75 s
+        ///    would also re-assert sectionCount and massPerSection at the client
+        ///    for no reason. One field changed, one field sent.
+        ///
+        /// Peers that have not been served the tree's 1036 are skipped: an update
+        /// for a component a client does not hold is at best ignored, and the
+        /// ComponentMap lookup that establishes it is the same one the update path
+        /// uses, so this cannot disagree with reality.
+        /// </summary>
+        private static void TickTreeHarvest()
+        {
+            foreach (TreeSectionMaskChange change in Harvest.Due())
+            {
+                Console.WriteLine("[info] " + change + ".");
+
+                foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+                {
+                    if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                        || !byEntity.TryGetValue(change.TreeEntityId, out Dictionary<uint, ulong>? byComponent)
+                        || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
+                    {
+                        continue;
+                    }
+
+                    Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
+                        new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(change.SectionMask);
+
+                    // Keep this peer's stored component in step with what it has
+                    // just been told, so a later re-serve of 1036 from the stored
+                    // object cannot resurrect a felled section.
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
+                    {
+                        maskOnly.ApplyTo(stored);
+                    }
+
+                    SendOPHelper.SendComponentUpdateOp(peer, change.TreeEntityId,
+                        new List<uint> { TreeFSimStateComponentId },
+                        new List<object> { maskOnly });
+                }
+
+                // ------------------------------------------------------------------
+                // INVENTORY GRANT SEAM - deliberately empty.
+                //
+                // This is where "+N Birch Wood" belongs, and it is NOT implemented
+                // here on purpose: 1081 InventoryState, its ownership and its
+                // persistence are one job with one owner, and a second
+                // implementation writing 1081 from this loop would race the first.
+                //
+                // Everything the grant needs is already in `change` and needs no
+                // further work on this side:
+                //   change.CutterEntityId - the PLAYER entity that owns the beam,
+                //                           i.e. who the wood belongs to. The peer
+                //                           is Players.PeerOf-able from it.
+                //   change.WoodType       - "birch", Bossa's authored species for
+                //                           this prefab, recovered not invented.
+                //   change.SectionsFelled - how many sections came away in this
+                //                           cut; the natural quantity.
+                //
+                // What the owner of 1081 has to supply, none of which exists yet:
+                //   - an item-id allocator (there is none anywhere in this server;
+                //     duplicate itemIds silently corrupt inventory lookups),
+                //   - a free-rectangle placement search over the existing grid,
+                //     because ScalaSlottedInventoryItem carries an absolute
+                //     xPosition/yPosition and nothing rejects an overlap,
+                //   - stacking onto an existing "birch" row rather than adding a
+                //     new one, since a 12-section tree is up to eleven grants,
+                //   - a FULL-REPLACEMENT 1081 push (there is no add-delta in the
+                //     schema) to the cutter, followed by 8060's
+                //     TriggerReceiveSalvageFeedback for the toast.
+                //
+                // One hazard worth carrying across: the 8060 toast dereferences
+                // InventoryItemManager.LookupItem UNGUARDED, so an itemTypeId that
+                // is not in our own itemData.json is a client-side NRE, not a
+                // missing label. "birch" must exist there before it is ever sent.
+                // ------------------------------------------------------------------
+            }
+        }
 
         /// <summary>
         /// Force-flushes any parked mirror ops older than the timeout, so an idle
@@ -304,6 +426,22 @@ namespace WorldsAdriftRebornGameServer
                 return;
             }
 
+            // Not everything a client publishes about itself is worth putting on
+            // everyone else's wire. The aim components (1231 SalvagerAimerState,
+            // 1037 TreeCutterState) are filtered here rather than at the mirror,
+            // because the reason is a property of THIS method: it re-addresses
+            // every relayed update to the SENDER's own entity id. That is right
+            // for a position and wrong for a payload whose meaning is a reference
+            // to a third entity - the tree - read by behaviours that only exist on
+            // a local rig. See MirrorSendPolicy.IsRelayedToOtherPlayers.
+            //
+            // BEFORE the copy: these arrive at raycast rate, so relaying them
+            // would allocate a byte[] per packet per peer to be discarded.
+            if (!MirrorSendPolicy.IsRelayedToOtherPlayers(componentId))
+            {
+                return;
+            }
+
             byte[] payload = new byte[dataLength];
             Marshal.Copy(new IntPtr(data), payload, 0, dataLength);
 
@@ -380,6 +518,15 @@ namespace WorldsAdriftRebornGameServer
         private const uint RopeControlPointsComponentId = MirrorSendPolicy.RopeControlPointsComponentId;
 
         /// <summary>
+        /// TreeFSimState: a tree's sectionMask, i.e. which of its twelve sections
+        /// still exist. The ONLY thing a client needs to render a tree coming
+        /// apart - TreeVisualizer activates and deactivates section GameObjects by
+        /// bit - and therefore the only thing chopping puts on the wire.
+        /// See docs/component-ids.md.
+        /// </summary>
+        private const uint TreeFSimStateComponentId = 1036;
+
+        /// <summary>
         /// Components seeded on a mirrored remote avatar: TransformState (position),
         /// 1086 PlayerName, the two [Require]s of CharacterCustomisationVisualizer
         /// (1081 InventoryState, 1088 PlayerPropertiesState) which builds the body,
@@ -424,7 +571,7 @@ namespace WorldsAdriftRebornGameServer
         /// exactly two possible answers and now has one per registration.
         /// </summary>
         internal static readonly WorldEntityRegistry WorldEntities =
-            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland);
+            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree);
 
         /// <summary>
         /// Whether to also spawn the second Haven (see
@@ -438,6 +585,19 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnProofIsland =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_PROOF_ISLAND") == "1";
+
+        /// <summary>
+        /// Whether to spawn the choppable tree (see Multiplayer.WorldEntities.HavenTree).
+        /// ON unless WAREBORN_SPAWN_TREE=0.
+        ///
+        /// Opt-OUT rather than opt-in, unlike the proof island, because the tree is
+        /// the feature rather than a diagnostic - but with a kill switch, because
+        /// no game was launched for this change either. Leaving it on is safe even
+        /// if the tree misbehaves: it is AfterPlayer, so nothing about it can delay
+        /// or break a player's own spawn.
+        /// </summary>
+        private static bool SpawnTree =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_TREE") != "0";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.
@@ -554,6 +714,20 @@ namespace WorldsAdriftRebornGameServer
 
                 Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
                     + entity.Key + "' (" + entityId + ").");
+
+                // A tree becomes harvestable the moment it has an entity id, which
+                // is here and only here. Keyed on the ASSET so a second registration
+                // of the same prefab is planted too, and idempotent so the second
+                // player walking this same step does not stand the tree back up:
+                // every client walks the identical plan, but there is one tree.
+                if (entity.AssetName == Multiplayer.Trees.AssetName
+                    && Harvest.Plant(entityId, Multiplayer.Trees.Topology(), Multiplayer.Trees.WoodType))
+                {
+                    Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
+                        + ": " + Multiplayer.Trees.SectionCount + " sections, mask "
+                        + Convert.ToString(Multiplayer.Trees.FullSectionMask, 2)
+                        + ", " + Multiplayer.Trees.WoodType + ".");
+                }
 
                 if (entity.SeedComponents.Count == 0)
                 {
@@ -696,6 +870,12 @@ namespace WorldsAdriftRebornGameServer
                 // TransformState (0,100,0) to a live player. AddEntity alone carries
                 // no component data, so it cannot move anyone.
                 ResendMirrors();
+                // The cadence chopping does not get from the wire. The 1037 cut
+                // signal is a LATCH - one packet when the beam arrives on a
+                // section, one when it leaves - so "hold the beam and the tree
+                // comes apart" is this timer or it does not happen. Cheap when
+                // nobody is chopping: an empty dictionary.
+                TickTreeHarvest();
 
                 EnetLayer.ENetPacket_Wrapper* packet = EnetLayer.ENet_Poll(server, 50, Marshal.GetFunctionPointerForDelegate(callbackC), Marshal.GetFunctionPointerForDelegate(callbackD));
                 if(packet != null)
@@ -809,10 +989,19 @@ namespace WorldsAdriftRebornGameServer
                                         continue;
                                     }
 
-                                    // for some reason the game does not always request component 1080 (SchematicsLearnerGSimState), but its reader is required in InventoryVisualiser
-                                    List<Structs.Structs.InterestOverride> injected = new List<Structs.Structs.InterestOverride> { new Structs.Structs.InterestOverride(1080, 1) };
-                                    // also inject other required components for the inventory
-                                    injected.AddRange(authoritativeComponents.Select(p => new Structs.Structs.InterestOverride(p, 1)));
+                                    // What the client did not ask for but needs, IN ORDER.
+                                    //
+                                    // 1080 SchematicsLearnerGSimState because the game does not
+                                    // reliably request it and InventoryVisualiser needs its reader;
+                                    // 1086 PlayerName because LocalPlayerInit [Require]s it and
+                                    // nothing multitool-shaped works before LocalPlayer exists;
+                                    // then everything the client is granted authority over.
+                                    //
+                                    // The order is load-bearing and lives in MirrorSendPolicy so a
+                                    // test can hold it, rather than in the shape of this expression.
+                                    List<Structs.Structs.InterestOverride> injected = MirrorSendPolicy.InjectedComponents
+                                        .Select(p => new Structs.Structs.InterestOverride(p, 1))
+                                        .ToList();
 
                                     if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true))
                                     {

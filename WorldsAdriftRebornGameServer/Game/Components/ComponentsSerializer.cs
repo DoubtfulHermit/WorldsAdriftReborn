@@ -628,6 +628,326 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = susData;
                     }
+                    // ------------------------------------------------------------------
+                    // THE TREE. Ten ids on the tree entity, three on the player.
+                    //
+                    // ALL-OR-NOTHING, and that is the whole reason these exist as a
+                    // block. The client asks for a tree's components over
+                    // SEND_COMPONENT_INTEREST and the server answers with
+                    // failOnComponentInitError: true, so ONE id without a branch here
+                    // throws away the entire batch. The entity has already been
+                    // created by then, so the symptom is a fully-rendered, completely
+                    // inert tree - right model, right place, no behaviour - and the
+                    // only trace is one "[error] failed to initialize component NNNN"
+                    // line in THIS server's log. Nothing appears in the client's.
+                    //
+                    // The ten were not guessed. The shipped prefab
+                    // (entityprefabs/tree_unityclient, 148 nodes, 40 MonoBehaviours)
+                    // was read out of resources.assets and its 13 visualizers'
+                    // [Require] READER ids resolved, base classes included, which is
+                    // exactly what VisualizerMetadataLookup does at runtime -
+                    // GetComponentsInChildren<MonoBehaviour>(includeInactive: true)
+                    // over the whole hierarchy. 13 is independently confirmed by the
+                    // m_Enabled = 0 markers PrefabCompiler.DisableVisualizers leaves
+                    // behind on precisely the visualizers.
+                    //
+                    // An eleventh id, 190604 GlobalTransformState, can arrive later:
+                    // FixedUpdateLerpGlobalTransformBehaviour is [DontAutoEnable], and
+                    // it wakes up if TransformChildHierarchyBehaviour falls back to
+                    // HierarchyMode.Global. It already had a branch above. Note that
+                    // when that happens the client re-sends its WHOLE interest set
+                    // (SpatialCommunicator clears the dict and resends), so it arrives
+                    // as an 11-id message, not as an increment.
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1035)
+                    {
+                        // scale MUST be (1,1,1). TreeScaleVisualiser.OnEnable is one
+                        // statement - transform.localScale = treeState.Scale.ToUnityVector()
+                        // - with no guard, and Vector3d's default is (0,0,0). A tree
+                        // seeded with the default is INVISIBLE, keeps working
+                        // colliders, and logs nothing anywhere. It is indistinguishable
+                        // from a failed asset load until someone walks into it.
+                        //
+                        // prefabName is TreeState's own copy of the asset name; it is
+                        // read off the registration for the same reason 1041's is, so
+                        // a second tree species cannot inherit this one's name.
+                        // respawnTime is 0 and means nothing - `respawn_time` has zero
+                        // references in the whole client, units included.
+                        string treePrefabName =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.AssetName
+                            ?? Multiplayer.Trees.AssetName;
+
+                        Bossa.Travellers.Materials.TreeState.Data treeData =
+                            new Bossa.Travellers.Materials.TreeState.Data(
+                                new Bossa.Travellers.Materials.TreeStateData(
+                                    new Improbable.Math.Vector3d(Multiplayer.Trees.Scale, Multiplayer.Trees.Scale, Multiplayer.Trees.Scale),
+                                    treePrefabName,
+                                    Multiplayer.Trees.RespawnTime));
+                        obj = treeData;
+                    }
+                    else if (componentId == 1036)
+                    {
+                        // THE COMPONENT THAT IS THE PROTOCOL. sectionMask is what the
+                        // client turns into which sections exist: TreeVisualizer's
+                        // OnEnable feeds it to InitializeTree, which activates and
+                        // deactivates each section GameObject by bit.
+                        //
+                        // The mask comes from the LIVE harvest state, never from
+                        // Trees.FullSectionMask. A second player checking the tree out
+                        // after the first has chopped half of it must be told what is
+                        // actually standing, or the two clients disagree about the
+                        // world and every later SetSectionMask arrives as a diff
+                        // against the wrong baseline. The fallback is the full mask,
+                        // which is only reached for an entity that is not a registered
+                        // tree - i.e. never, in practice.
+                        //
+                        // dynamic is FALSE and that is a trap, not a preference:
+                        // TreeBase.Dynamic's SETTER starts TreeAmbienceSfx's
+                        // falling-audio loop on the true edge, on a tree that is not
+                        // falling because nothing here has physics authority over it.
+                        //
+                        // woodType is Bossa's, recovered from the _unityworker prefabs.
+                        // The client never reads it - TreeFSimState.woodType is written
+                        // only by the UnityWorker-only visualizer - so it rides along
+                        // purely so the eventual inventory grant has a species.
+                        int liveMask = WorldsAdriftRebornGameServer.Harvest.MaskOf(entityId)
+                            ?? Multiplayer.Trees.FullSectionMask;
+                        string liveWood = WorldsAdriftRebornGameServer.Harvest.WoodTypeOf(entityId)
+                            ?? Multiplayer.Trees.WoodType;
+
+                        Improbable.Collections.List<int> sectionHealth = new Improbable.Collections.List<int>();
+                        for (int s = 0; s < Multiplayer.Trees.SectionCount; s++)
+                        {
+                            sectionHealth.Add(Multiplayer.Trees.SectionHealth);
+                        }
+
+                        Bossa.Travellers.Materials.TreeFSimState.Data treeFsimData =
+                            new Bossa.Travellers.Materials.TreeFSimState.Data(
+                                new Bossa.Travellers.Materials.TreeFSimStateData(
+                                    sectionHealth,
+                                    Multiplayer.Trees.Dynamic,
+                                    Multiplayer.Trees.SectionCount,
+                                    liveMask,
+                                    Multiplayer.Trees.ResourcePerSection,
+                                    liveWood,
+                                    new Option<float>(Multiplayer.Trees.MassPerSection)));
+
+                        Console.WriteLine("[info] seeding 1036 for entity " + entityId
+                            + " with sectionMask " + Convert.ToString(liveMask, 2)
+                            + " (" + liveWood + ").");
+
+                        obj = treeFsimData;
+                    }
+                    else if (componentId == 1016)
+                    {
+                        // health == maxHealth, both non-zero, and both halves matter.
+                        // SalvageableItemVisualiser.OnEnable calls VisualiseItemDeath()
+                        // when health is 0 and paints every renderer black. And
+                        // IsSalvageable() is !IsDamaged() || IsRepairable(), where
+                        // IsDamaged() is health < maxHealth - so a tree seeded damaged
+                        // is only aimable if it also happens to be repairable. Equal
+                        // and healthy is the unambiguous seed.
+                        //
+                        // Vulnerable, not Invulnerable: nothing on this path reads it,
+                        // but the enum's 0 value is not a member at all (it starts at
+                        // 1), so leaving it defaulted would put an out-of-range value
+                        // on the wire.
+                        Bossa.Travellers.Items.ItemHealthState.Data itemHealthData =
+                            new Bossa.Travellers.Items.ItemHealthState.Data(
+                                new Bossa.Travellers.Items.ItemHealthStateData(
+                                    Multiplayer.Trees.ItemHealth,
+                                    Multiplayer.Trees.ItemHealth,
+                                    Bossa.Travellers.Items.VulnerabilityState.Vulnerable,
+                                    false));
+                        obj = itemHealthData;
+                    }
+                    else if (componentId == 1099)
+                    {
+                        // A structurally-valid stub, and it can afford to be. Every
+                        // field here - salvageRatio, salvageDamagePerPeriod, period,
+                        // repairToSalvageRatio, casingQuality - greps to gencode/ and
+                        // NOWHERE else: they are GSim inputs riding on a component the
+                        // client happens to receive. The only client code that touches
+                        // Salvageable at all uses OriginalMaterials to pick an impact
+                        // SOUND (PlayerMultitool.ImpactSalvage) and a material tint.
+                        //
+                        // What does matter: isSalvageable true and isRepairable false.
+                        // isRepairable false keeps SalvageableItemVisualiser.IsDamaged()
+                        // false regardless of health, which keeps IsSalvageable() true,
+                        // which is what makes the beam accept the tree as a target.
+                        // originalMaterials is empty, not null - the list is
+                        // dereferenced by the SFX lookup.
+                        Bossa.Travellers.Salvaging.SalvageAndRepairState.Data salvageData =
+                            new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
+                                new Bossa.Travellers.Salvaging.SalvageAndRepairStateData(
+                                    Multiplayer.Trees.WoodType,
+                                    0f,     // salvageDamagePerPeriod - no client reader
+                                    0f,     // repairAmountPerPeriod  - no client reader
+                                    0f,     // repairToSalvageRatio   - no client reader
+                                    1f,     // period                 - no client reader
+                                    false,  // isRepairable: keeps IsDamaged() false
+                                    true,   // isSalvageable
+                                    "",     // isSalvageableStatus
+                                    new Improbable.Collections.List<SlottedMaterial> { },
+                                    false,  // destroyOnSalvageComplete
+                                    0f,     // salvageRatio           - no client reader
+                                    new Option<float> { }));
+                        obj = salvageData;
+                    }
+                    else if (componentId == 1183)
+                    {
+                        // Empty. ReconsumablesClient is on the tree because `Tree`
+                        // carries eight TreeSeedEmitter children; its OnEnable only
+                        // subscribes to two EVENTS (Consumed, ReadyToBeConsumed) and
+                        // its handlers do a TryGetValue against a cache we never fill.
+                        // An empty map is therefore not a placeholder - it is the
+                        // correct value for a tree nobody is eating.
+                        Bossa.Travellers.Creatures.Food.ReconsumablesState.Data reconsumablesData =
+                            new Bossa.Travellers.Creatures.Food.ReconsumablesState.Data(
+                                new Bossa.Travellers.Creatures.Food.ReconsumablesStateData(
+                                    new Map<long, Bossa.Travellers.Creatures.Food.ReconsumableRecord> { }));
+                        obj = reconsumablesData;
+                    }
+                    else if (componentId == 1232)
+                    {
+                        // At-rest collision report. relativeVelocitySqr = 0 is the
+                        // load-bearing zero: RollAndDragFxController.OnDataUpdated
+                        // gates its whole active path on `> 0f`, so a zero here takes
+                        // the quiet branch and starts no rolling audio and no drag VFX
+                        // on a tree that is standing still. The two material names are
+                        // empty strings rather than null because PairsEqual compares
+                        // them.
+                        Bossa.Travellers.Physical.RigidbodyCollisionReporterState.Data collisionData =
+                            new Bossa.Travellers.Physical.RigidbodyCollisionReporterState.Data(
+                                new Bossa.Travellers.Physical.RigidbodyCollisionReporterStateData(
+                                    new Bossa.Travellers.Physical.RollAndDragData(
+                                        "", "", 0f, 0f,
+                                        new Vector3f(0f, 0f, 0f),
+                                        0f,      // relativeVelocitySqr: silence
+                                        false)));
+                        obj = collisionData;
+                    }
+                    else if (componentId == 4333)
+                    {
+                        // Not deteriorating, not sinking, not weathered. sunkRatio = 0
+                        // is the one the eye would catch: DeteriorateVisualizerClient
+                        // reads it at OnEnable (OnRatioUpdated(stateReader.SunkRatio))
+                        // and IsSinking() is `SunkRatio > 0f`, so a stray non-zero
+                        // would show a tree part-way into the ground. Every Option is
+                        // absent, which is what "this has never begun" means.
+                        Bossa.Travellers.Items.DeteriorateState.Data deteriorateData =
+                            new Bossa.Travellers.Items.DeteriorateState.Data(
+                                new Bossa.Travellers.Items.DeteriorateStateData(
+                                    new Option<long> { },  // timeBecameAtRest
+                                    false,                 // isDeteriorating
+                                    new Option<long> { },  // timeBeganDeterioration
+                                    new Option<long> { },  // timeBeganSinking
+                                    0d,                    // deteriorationRatio
+                                    0f,                    // sunkRatio
+                                    new Option<int> { },   // secondsToMaxDeteriorate
+                                    false,                 // isParentSinking
+                                    false,                 // sinkBeforeCleanup
+                                    new Option<int> { })); // secondsToStartDeteriorate
+                        obj = deteriorateData;
+                    }
+                    else if (componentId == 4400)
+                    {
+                        // timeOfDeath ABSENT. TrackedEntityLoadClientVisualizer's only
+                        // behaviour is: on a timeOfDeath that HasValue, add a
+                        // DissolvableEntity and dissolve the object. A present value
+                        // would dissolve the tree away. (The prefab carries two copies
+                        // of this visualizer; both read the same id, so it is one seed.)
+                        Bossa.Travellers.Blight.TrackedEntityLoadState.Data trackedLoadData =
+                            new Bossa.Travellers.Blight.TrackedEntityLoadState.Data(
+                                new Bossa.Travellers.Blight.TrackedEntityLoadStateData(
+                                    new Option<long> { }));
+                        obj = trackedLoadData;
+                    }
+                    else if (componentId == 1231)
+                    {
+                        // ON THE PLAYER, not the tree. Where the salvage beam is
+                        // pointing, published by SalvagerAimerObserver.
+                        //
+                        // maxBoltDistance MUST BE NON-ZERO, and this is the most
+                        // expensive default on the whole path. IsValidHit is
+                        // `AreWithinDistance(hit.point, playerPos, MaxBoltDistance)
+                        // && IsSalvageable(...)`. At 0 nothing is ever in range, so
+                        // HitInfo stays null forever, so TreeCuttingBehaviour publishes
+                        // {InvalidEntityId, -1, false} once - and its FinishAndSend
+                        // then suppresses every subsequent send because nothing changes
+                        // again. The server gets exactly ONE 1037 packet and never
+                        // another, which looks precisely like "the grant did not work".
+                        //
+                        // The other three fields are the client's to overwrite on its
+                        // first Update; they are seeded to "aiming at nothing".
+                        Bossa.Travellers.Items.SalvagerAimerState.Data aimerData =
+                            new Bossa.Travellers.Items.SalvagerAimerState.Data(
+                                new Bossa.Travellers.Items.SalvagerAimerStateData(
+                                    EntityId.InvalidEntityId,
+                                    new Coordinates(0, 0, 0),
+                                    new Vector3f(0f, 0f, 0f),
+                                    Multiplayer.MirrorSendPolicy.SalvagerMaxBoltDistance));
+                        obj = aimerData;
+                    }
+                    else if (componentId == 1037)
+                    {
+                        // ON THE PLAYER. The cut signal, seeded as "cutting nothing" -
+                        // exactly the value TreeCuttingBehaviour itself publishes when
+                        // the beam is on nothing, so the client's first real latch is a
+                        // genuine change and is not suppressed by FinishAndSend.
+                        //
+                        // Seeding it is not optional even though the client is the
+                        // writer: ComponentUpdateManager.HandleComponentUpdate looks the
+                        // inbound update up in ComponentMap[peer][entity][component] and
+                        // silently drops anything it has no stored component for. No
+                        // seed, no handler call.
+                        Bossa.Travellers.Materials.TreeCutterState.Data treeCutterData =
+                            new Bossa.Travellers.Materials.TreeCutterState.Data(
+                                new Bossa.Travellers.Materials.TreeCutterStateData(
+                                    EntityId.InvalidEntityId,
+                                    -1,
+                                    false));
+                        obj = treeCutterData;
+                    }
+                    else if (componentId == 2105)
+                    {
+                        // ON THE PLAYER, and one of three that must arrive together:
+                        // 2105/2106/2002 are the [Require] WRITERS of
+                        // PlayerMultitoolVisualizer, and a visualizer enables only when
+                        // EVERY writer is injected. Two of three is worth what zero is.
+                        //
+                        // Mode Default, not Salvage: the client picks the mode from its
+                        // own hotbar and publishes it; pre-empting that would fight the
+                        // player's selection. salvagerBlastDamage has exactly one
+                        // occurrence in the entire decompile - its own declaration - so
+                        // its value is arbitrary.
+                        Bossa.Travellers.Items.MultiToolPlayerState.Data multitoolPlayerData =
+                            new Bossa.Travellers.Items.MultiToolPlayerState.Data(
+                                new Bossa.Travellers.Items.MultiToolPlayerStateData(
+                                    false,
+                                    Bossa.Travellers.Items.MultitoolMode.Default,
+                                    0));
+                        obj = multitoolPlayerData;
+                    }
+                    else if (componentId == 2106)
+                    {
+                        // ON THE PLAYER. Salvager off, not jammed, not engaged - the
+                        // client flips all three itself the moment the trigger is held.
+                        Bossa.Travellers.Salvaging.MultitoolSalvagerState.Data salvagerData =
+                            new Bossa.Travellers.Salvaging.MultitoolSalvagerState.Data(
+                                new Bossa.Travellers.Salvaging.MultitoolSalvagerStateData(false, false, false));
+                        obj = salvagerData;
+                    }
+                    else if (componentId == 2002)
+                    {
+                        // ON THE PLAYER. Repairer off. Seeded only because
+                        // PlayerMultitoolVisualizer [Require]s its writer; nothing on
+                        // the chopping path touches it.
+                        Bossa.Travellers.Salvaging.MultitoolRepairerState.Data repairerData =
+                            new Bossa.Travellers.Salvaging.MultitoolRepairerState.Data(
+                                new Bossa.Travellers.Salvaging.MultitoolRepairerStateData(false, false));
+                        obj = repairerData;
+                    }
                     // NOTE: a second `componentId == 1109` branch used to sit here, seeding
                     // PilotState with EntityId(10) instead of EntityId(0). It was unreachable -
                     // the branch at the top of this same else-if chain always won - which was

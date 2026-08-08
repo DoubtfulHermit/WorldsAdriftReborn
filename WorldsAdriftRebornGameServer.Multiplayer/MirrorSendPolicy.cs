@@ -113,6 +113,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         };
 
         /// <summary>
+        /// SalvagerAimerState: where the salvage beam is pointing, and how far it
+        /// reaches. Client-authoritative; <c>SalvagerAimerObserver</c> is its
+        /// writer and the source of the <c>HitInfo</c> that everything else on the
+        /// harvest path reads. See <see cref="SalvagerMaxBoltDistance"/>.
+        /// </summary>
+        public const uint SalvagerAimerStateComponentId = 1231;
+
+        /// <summary>
+        /// TreeCutterState: which tree section the beam is resting on. The cut
+        /// signal, and a LATCH rather than a pulse - see
+        /// <see cref="TreeCutSignal"/>.
+        /// </summary>
+        public const uint TreeCutterStateComponentId = 1037;
+
+        /// <summary>
+        /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
+        /// (2105), MultitoolSalvagerState (2106), MultitoolRepairerState (2002).
+        ///
+        /// ALL THREE OR NONE. They are <c>[Require]</c> WRITERS on one visualizer,
+        /// and the injection system enables a visualizer only when EVERY one of its
+        /// writers is injected (<c>EntityVisualizers.AllFieldWritersInjected</c>).
+        /// Two out of three is worth exactly as much as zero: the beam never
+        /// charges, and there is no error.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> MultitoolComponents = new uint[] { 2105, 2106, 2002 };
+
+        /// <summary>
         /// Components a client is granted AUTHORITY over on its OWN entity. A
         /// client only PUBLISHES components it holds authority over, so without
         /// TransformState here nobody ever sends a position and there is nothing
@@ -121,6 +148,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         ///
         /// Granting any of this against another player's entity would hand that
         /// client the other player's avatar - see <see cref="PlayerRegistry.Owns"/>.
+        ///
+        /// THE LAST FIVE ARE THE HARVEST PATH, and they are last on purpose - see
+        /// <see cref="InjectedComponents"/> for the ordering argument. 1231 and
+        /// 1037 are what let the server HEAR a chop; 2105/2106/2002 are what let
+        /// the beam exist at all.
+        ///
+        /// 1211 InteractAgentState is deliberately NOT here. Granting it equips the
+        /// gauntlet, whose input sink is priority class PlayerItem (3) against
+        /// InteractAgent's (2), so it takes the LEFT MOUSE BUTTON away from the
+        /// component that would otherwise report it. Chopping does not need 1211 -
+        /// it is not an interaction verb, the tree has no
+        /// <c>InteractiveObjectVisualizer</c> and no "press E" prompt - so adding
+        /// it here would buy nothing and cost the left mouse button. See
+        /// docs/research/loop/findings-harvest-transaction.md section 2.
         /// </summary>
         public static readonly IReadOnlyList<uint> AuthoritativeComponents = new uint[]
         {
@@ -129,7 +170,94 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             ClientAuthoritativePlayerStateComponentId,
             UtilitySlotActivatedStateComponentId,
             RopeControlPointsComponentId,
+            SalvagerAimerStateComponentId,
+            TreeCutterStateComponentId,
+            2105, 2106, 2002,
         };
+
+        /// <summary>
+        /// SchematicsLearnerGSimState. Injected but NOT granted: the client does
+        /// not reliably ask for it, and <c>InventoryVisualiser</c> needs its reader.
+        /// </summary>
+        public const uint SchematicsLearnerGSimStateComponentId = 1080;
+
+        /// <summary>
+        /// The components the server pushes at a client's OWN entity during
+        /// first-time setup, unprompted and IN THIS ORDER, on top of whatever the
+        /// client asked for.
+        ///
+        /// It is a list rather than a set because the order is load-bearing and
+        /// silent when wrong.
+        ///
+        /// WHY 1086 IS IN IT AND WHY IT IS EARLY. <c>LocalPlayerInit</c> carries
+        /// <c>[Require] PlayerNameReader</c>, so it does not enable until 1086
+        /// resolves - and until it enables there is no <c>LocalPlayer.Instance</c>.
+        /// <c>SalvagerAimerObserver.Update</c> opens by early-returning unless
+        /// <c>LocalPlayer.Exists</c> and <c>LocalPlayer.Instance.playerMove.Equipment.Multitool</c>
+        /// is non-null. So the multitool writers granted at the end of this list
+        /// are worth nothing while 1086 is outstanding: the beam has no player to
+        /// belong to. Putting 1086 ahead of them makes the dependency a property of
+        /// the batch instead of a property of the client's request ordering, which
+        /// we do not control.
+        ///
+        /// Re-sending 1086 to a client that already asked for it is safe in a way
+        /// that re-sending most components is not: it is a static string record, so
+        /// unlike 190602 - whose re-send is a teleport - a duplicate cannot move or
+        /// change anything. And this list only ever goes out during first-time
+        /// setup, inside the loading screen, before any of it has been acted on.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> InjectedComponents =
+            new uint[] { SchematicsLearnerGSimStateComponentId, PlayerNameComponentId }
+                .Concat(AuthoritativeComponents)
+                .ToArray();
+
+        /// <summary>
+        /// <c>SalvagerAimerState.maxBoltDistance</c>, and it MUST be non-zero.
+        ///
+        /// <c>SalvagerAimerObserver.IsValidHit</c> is
+        /// <c>AreWithinDistance(hit.point, playerPosition, _state.MaxBoltDistance) &amp;&amp; IsSalvageable(...)</c>.
+        /// At the default 0 nothing is ever within distance, so <c>HitInfo</c> stays
+        /// null forever, so <c>TreeCuttingBehaviour</c> publishes
+        /// <c>{InvalidEntityId, -1, false}</c> - and its writer's
+        /// <c>FinishAndSend</c> then suppresses every subsequent send, because
+        /// nothing ever changes again. The server receives exactly ONE 1037 packet
+        /// and never another. That failure looks precisely like "the grant did not
+        /// work", which is the wrong place to spend a day.
+        ///
+        /// 10 m matches <c>PlayerMultitool._maxAimDistance = 10f</c>, the range of
+        /// the raycast that actually deploys the salvager, so a target the aimer
+        /// accepts is a target the beam can reach. The aimer's own raycast is 40 m
+        /// wide; this is the shorter of the two and therefore the binding one.
+        /// </summary>
+        public const float SalvagerMaxBoltDistance = 10f;
+
+        /// <summary>
+        /// Whether an inbound component update is worth forwarding to the OTHER
+        /// players' mirrors of the sender.
+        ///
+        /// 1231 and 1037 are filtered out, for a reason stronger than bandwidth.
+        /// <c>RelayToOtherPlayers</c> re-addresses every relayed update to the
+        /// SENDER's own entity id, which is right for a position and wrong for
+        /// these two: their payloads are aiming state whose meaning is a reference
+        /// to a THIRD entity (the tree), interpreted by behaviours that exist only
+        /// on the local rig. A remote Traveller@Default has neither component
+        /// seeded and no <c>SalvagerAimerObserver</c> to read them, so the best
+        /// case is that every peer decodes and discards a packet at raycast rate,
+        /// reliably-ordered, on the same channel that carries movement.
+        ///
+        /// The three multitool components are deliberately NOT filtered. They are
+        /// the beam's own state - on/off, engaged, mode - and are the raw material
+        /// for other players eventually SEEING someone chopping. Nothing consumes
+        /// them on a remote rig today either, but unlike the aim state they are
+        /// low-rate (they change when a mode or a trigger changes, not when the
+        /// crosshair moves) and they carry no cross-entity reference to be
+        /// misread.
+        /// </summary>
+        public static bool IsRelayedToOtherPlayers(uint componentId)
+        {
+            return componentId != SalvagerAimerStateComponentId
+                && componentId != TreeCutterStateComponentId;
+        }
 
         /// <summary>
         /// Whether a parked mirror op may be sent again on a later attempt.

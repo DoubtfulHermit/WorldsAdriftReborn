@@ -166,6 +166,183 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         // ------------------------------------------------------------------
+        // The harvest path (docs/research/loop/findings-harvestable-world.md)
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Clients_are_granted_the_two_components_that_let_the_server_hear_a_chop()
+        {
+            // 1231 SalvagerAimerState is where the beam is pointing; 1037
+            // TreeCutterState is which tree section it landed on. Both are
+            // client-authoritative, so without the grant their writers never
+            // resolve and nothing is ever published.
+            Assert.Contains(1231u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.Contains(1037u, MirrorSendPolicy.AuthoritativeComponents);
+        }
+
+        [Fact]
+        public void All_three_multitool_writers_are_granted_because_two_of_three_is_worth_zero()
+        {
+            // 2105/2106/2002 are the [Require] WRITERS of PlayerMultitoolVisualizer,
+            // and the injection system enables a visualizer only when EVERY writer
+            // is injected (EntityVisualizers.AllFieldWritersInjected). Miss one and
+            // the beam never charges, with no error anywhere.
+            foreach (uint id in MirrorSendPolicy.MultitoolComponents)
+            {
+                Assert.Contains(id, MirrorSendPolicy.AuthoritativeComponents);
+            }
+            Assert.Equal(new uint[] { 2105, 2106, 2002 }, MirrorSendPolicy.MultitoolComponents);
+        }
+
+        [Fact]
+        public void InteractAgentState_is_never_granted_because_it_swallows_the_left_mouse_button()
+        {
+            // Granting 1211 equips the gauntlet, whose input sink is priority class
+            // PlayerItem (3) against InteractAgent's (2) - so it takes UseLeftHand
+            // away from the component that would otherwise report it. Chopping does
+            // not need it: harvesting is not an interaction verb, the tree carries
+            // no InteractiveObjectVisualizer and there is no "press E" prompt.
+            // docs/research/loop/findings-harvest-transaction.md section 2.
+            Assert.DoesNotContain(1211u, MirrorSendPolicy.AuthoritativeComponents);
+        }
+
+        [Fact]
+        public void The_max_bolt_distance_is_non_zero_or_the_beam_never_reports_a_hit()
+        {
+            // SalvagerAimerObserver.IsValidHit gates on
+            // AreWithinDistance(hit.point, playerPos, MaxBoltDistance). At the
+            // default 0 nothing is ever in range, HitInfo stays null forever, and
+            // TreeCuttingBehaviour's FinishAndSend then suppresses every send after
+            // the first because nothing changes again. One 1037 packet, ever - which
+            // looks exactly like the grant not working.
+            Assert.True(MirrorSendPolicy.SalvagerMaxBoltDistance > 0f);
+
+            // Not longer than the salvager's own 10 m deploy raycast
+            // (PlayerMultitool._maxAimDistance), or the aimer would accept targets
+            // the beam cannot reach.
+            Assert.True(MirrorSendPolicy.SalvagerMaxBoltDistance <= 10f);
+        }
+
+        // ------------------------------------------------------------------
+        // The injected batch, and its ORDER
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void PlayerName_is_injected_before_the_multitool_writers()
+        {
+            // LocalPlayerInit carries [Require] PlayerNameReader, so it does not
+            // enable until 1086 resolves - and until it enables there is no
+            // LocalPlayer.Instance. SalvagerAimerObserver.Update opens by
+            // early-returning unless LocalPlayer.Exists and
+            // LocalPlayer.Instance.playerMove.Equipment.Multitool is non-null, so
+            // the multitool writers are worth nothing while 1086 is outstanding.
+            //
+            // Asserting the ORDER rather than mere membership is the point: the
+            // batch is what we control, the client's own request ordering is not.
+            List<uint> injected = MirrorSendPolicy.InjectedComponents.ToList();
+
+            int name = injected.IndexOf(MirrorSendPolicy.PlayerNameComponentId);
+            Assert.True(name >= 0, "1086 must be in the injected batch at all");
+
+            foreach (uint multitool in MirrorSendPolicy.MultitoolComponents)
+            {
+                int at = injected.IndexOf(multitool);
+                Assert.True(at > name,
+                    "1086 must land no later than " + multitool + " in the same batch");
+            }
+        }
+
+        [Fact]
+        public void The_injected_batch_carries_SchematicsLearnerGSimState_which_the_client_forgets_to_ask_for()
+        {
+            // 1080. InventoryVisualiser needs its reader and the game does not
+            // reliably request it.
+            Assert.Equal(1080u, MirrorSendPolicy.InjectedComponents[0]);
+        }
+
+        [Fact]
+        public void The_injected_batch_is_the_authority_set_plus_exactly_two_extras()
+        {
+            // The injected batch and the authority grant are two different jobs
+            // sharing one array; this pins how they differ so a future edit to one
+            // has to be a deliberate edit to the other. 1080 and 1086 are injected
+            // but NOT granted - the client must not become the writer of its own
+            // name or of the schematics state.
+            Assert.Equal(MirrorSendPolicy.AuthoritativeComponents.Count + 2,
+                         MirrorSendPolicy.InjectedComponents.Count);
+
+            foreach (uint id in MirrorSendPolicy.AuthoritativeComponents)
+            {
+                Assert.Contains(id, MirrorSendPolicy.InjectedComponents);
+            }
+
+            Assert.DoesNotContain(1080u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.DoesNotContain(MirrorSendPolicy.PlayerNameComponentId, MirrorSendPolicy.AuthoritativeComponents);
+        }
+
+        [Fact]
+        public void The_injected_batch_has_no_duplicate_component_ids()
+        {
+            // A duplicate would be seeded twice in one all-or-nothing batch, which
+            // for 190602 would be a teleport.
+            Assert.Equal(MirrorSendPolicy.InjectedComponents.Count,
+                         MirrorSendPolicy.InjectedComponents.Distinct().Count());
+        }
+
+        // ------------------------------------------------------------------
+        // The relay filter
+        // ------------------------------------------------------------------
+
+        [Theory]
+        [InlineData(1231u)] // SalvagerAimerState: where my beam points
+        [InlineData(1037u)] // TreeCutterState: which tree section it landed on
+        public void Aim_state_is_never_relayed_to_other_players(uint componentId)
+        {
+            // Not a bandwidth argument. RelayToOtherPlayers re-addresses every
+            // relayed update to the SENDER's own entity id, which is right for a
+            // position and wrong for a payload whose meaning is a reference to a
+            // THIRD entity - the tree - read by behaviours that exist only on a
+            // local rig. A remote Traveller@Default has neither component seeded.
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(componentId));
+        }
+
+        [Theory]
+        [InlineData(190602u)] // position: the whole reason the relay exists
+        [InlineData(1073u)]   // bone/animation
+        [InlineData(1088u)]   // appearance
+        [InlineData(2105u)]   // multitool mode/visibility
+        [InlineData(2106u)]   // salvager on/engaged
+        [InlineData(2002u)]   // repairer on/engaged
+        [InlineData(1081u)]
+        public void Everything_else_including_the_beams_own_state_is_still_relayed(uint componentId)
+        {
+            // The three multitool components are deliberately NOT filtered: they
+            // are the raw material for other players eventually SEEING someone
+            // chopping, they are low-rate (they change on a mode or trigger change,
+            // not when the crosshair moves), and they carry no cross-entity
+            // reference to be misread.
+            Assert.True(MirrorSendPolicy.IsRelayedToOtherPlayers(componentId));
+        }
+
+        [Fact]
+        public void Exactly_two_component_ids_are_filtered_out_of_the_relay()
+        {
+            // Sweep rather than trust a hand-picked list: widening the filter has
+            // to come here first, because a silently unrelayed component is
+            // invisible until two players are in the world.
+            List<uint> filtered = new List<uint>();
+            for (uint id = 0; id < 200000; id++)
+            {
+                if (!MirrorSendPolicy.IsRelayedToOtherPlayers(id))
+                {
+                    filtered.Add(id);
+                }
+            }
+
+            Assert.Equal(new uint[] { 1037, 1231 }, filtered);
+        }
+
+        // ------------------------------------------------------------------
         // Relay reliability
         // ------------------------------------------------------------------
 
