@@ -283,6 +283,104 @@ original split the mask *and* spawned a new dynamic entity via
 `TreeFsimVisualizer.SpawnNewTree`, needing dynamic entity creation and physics
 authority we lack. Expect "it doesn't fall over" as the first complaint.
 
+## ⭐ UPDATE — STEP 0 RESOLVED STATICALLY, AND THE TOPOLOGY RECOVERED
+
+*Written while implementing the above. The tree is now built; these are the two
+things the plan flagged as unknown and are no longer.*
+
+### The interest list is EXACTLY the predicted ten
+
+Step 0 said to read the list off the wire. It was instead derived from the
+shipped prefab plus the injection mechanism, which is stronger than it sounds
+because the mechanism is fully determined:
+
+- `VisualizerMetadataLookup.BuildMetadata` does
+  `GetComponentsInChildren<MonoBehaviour>(includeInactive: true)` over the WHOLE
+  hierarchy (`acs/Improbable.Unity.Visualizer/VisualizerMetadataLookup.cs:228-256`),
+  called once from the `EntityVisualizers` ctor
+  (`acs/Improbable.Unity.Internal/EntityVisualizers.cs:56`). **Anything
+  AddComponent'd after checkout is never seen.**
+- `[Require]` collection recurses into base types
+  (`acs/Improbable.Util.Injection/InjectionCache.cs:21-37`), so `Salvageable`'s
+  `[Require]` counts for `SalvageableItemVisualiser`.
+- Only READER ids become interest, and only from visualizers whose `[Require]`
+  WRITERS are all injected (`EntityVisualizers.cs:439-457`).
+- The id comes off `[ComponentId(N)]` on the reader interface, not a name lookup.
+- Second source, `EntityObjectStorage` self-registration, is **root-only**
+  (`acs/Improbable.Core.Entity/EntityObjectStorage.cs:23-30`) and the Tree prefab
+  has no `SpatialOsComponentBase`, so it contributes nothing.
+
+`Tree_unityclient` (path_id 48151) read out of `resources.assets`: **148 nodes,
+40 MonoBehaviours**, of which **13 are visualizers**. That 13 is confirmed
+independently — `PrefabCompiler.DisableVisualizers` (`acs/Improbable.Unity.Assets/PrefabCompiler.cs:79-95`)
+writes `m_Enabled = 0` onto exactly the visualizers, and exactly 13 MonoBehaviours
+on this prefab ship disabled. Their reader closure is:
+
+```
+1016, 1035, 1036, 1099, 1183, 1232, 4333, 4400, 190601, 190602
+```
+
+**Zero unjustified, zero missing.** The static table above was right.
+
+**One conditional eleventh: `190604 GlobalTransformState`.**
+`FixedUpdateLerpGlobalTransformBehaviour` is `[DontAutoEnable]`, so it is not in
+the first send; it wakes if `TransformChildHierarchyBehaviour` falls back to
+`HierarchyMode.Global` (`TrySetNewParent`, `:294-311`), triggered by a
+`TransformState.parent` UPDATE event — which does not fire on the initial add. If
+it ever does fire, `SpatialCommunicator` clears the dict and resends the WHOLE
+set, so it arrives as an 11-id message rather than an increment. **190604 already
+had a seed branch**, which is the only reason this is not a landmine.
+
+Still not verified: that a running client actually sends this. `SendOPHelper`
+prints `[interest] entity N wants ...` on every batch, so one launch confirms it
+in one line. **No game was launched for this work.**
+
+### `Tree`'s authored topology, recovered
+
+Parsed out of the serialized prefab (no MonoBehaviour typetrees in
+`resources.assets`, so the layout is hand-walked).
+Reproducer: **`data/tree_topology.py`**.
+
+```json
+[{"root":0,"sections":[1,2,3,4,6,8,9,10]},
+ {"root":4,"sections":[5]},
+ {"root":6,"sections":[7]},
+ {"root":9,"sections":[11]}]
+```
+
+A nine-section trunk `0→1→2→3→4→6→8→9→10` with three single-section limbs — 5
+off 4, 7 off 6, 11 off 9. `sectionMask` 4095. **Section 0 is the stump**, and the
+three ways of saying so are one fact: it is the only section that never appears
+as a branch CHILD, the only one with no `cutPoint` Transform, and the only one
+with `harvestable = false`. `TreeSection.Harvest` forwards a hit on it to
+`FindSectionAbove(0)`, so the tree cannot be felled at the base.
+
+Confidence this is recovery, not a lucky decode: the parse ends exactly on the
+object boundary (0 trailing bytes); the three fixed `[ExposedMethod]` strings
+decode as `"Auto Fill Sections"` / `"Deparent All"` / `"Debug Initialize Tree"`
+at the predicted offsets; every section PPtr resolves to a `TreeSection` whose
+`id` equals its index; the same parser over **all 130 TreeBases in the game**
+scores 130/130 on all of those; and `Tree_unityworker`, a separately serialized
+object, reports the identical topology.
+
+Unrelated authoring slip found by the same sweep, recorded so it is not later
+mistaken for a parser bug: **`TreePalmStubby` has 13 sections but `sectionMask`
+16383 = 2^14−1**, one bit too wide. Only prefab of the 130 where mask ≠ 2^n−1.
+
+### One behaviour of the design that the plan did not call out
+
+**The server never walks down the tree by itself.** The latch keeps naming the
+section it named, so the tick after a cut asks to cut something already felled —
+which resolves to the degenerate case (`WalkTree` returns a bit the mask no
+longer has, the correction clause zeroes `falling`, and `FindSectionAbove` is
+null). The shipped client **throws** there; a server must not, because a held
+mouse button reaches it every time. Chopping continues only because the client
+publishes a NEW latch when the deactivated section stops being raycast-hit.
+
+Consequence for testing: holding the beam perfectly still on one section yields
+one cut, not a felled tree. Aiming LOW is the fast route — cutting section 1
+takes everything above the stump in a single tick.
+
 ## CORRECTIONS TO EXISTING DOCUMENTS
 
 **`gathering/findings-node-spawning.md` is WRONG on the prefab name.** It claims
@@ -317,11 +415,13 @@ never a bundle-scenery shortcut to weigh against the entity route.
   The `idName -> entity prefab` mapping plus the 0/255 sweep make it the only
   consistent reading, but **the importer is not in this decompile** and the call
   site of `GetData()` was never found.
-- That all ten `[Require]` ids will be requested. `ExtractVisualizers` walks the
-  whole hierarchy and child scripts were read only for `[Require]` attributes.
-  **This is exactly what step 0 exists to check.**
-- That the eight stub seeds are constructible — schema field layouts were read,
-  generated `.Data` constructor arities were not compiled against.
+- ~~That all ten `[Require]` ids will be requested.~~ **RESOLVED** — see the
+  UPDATE section: derived from the shipped prefab and the injection mechanism,
+  and it is exactly the ten. Still never observed on the wire.
+- ~~That the eight stub seeds are constructible — schema field layouts were read,
+  generated `.Data` constructor arities were not compiled against.~~
+  **RESOLVED** — all thirteen new branches (the eight, plus 1231/1037 and
+  2105/2106/2002 on the player) now compile against the real `Generated.Code.dll`.
 
 **Assumed on someone else's authority:** the Haven spawn coordinate and corrected
 LOD0 surface, taken wholesale from `findings-haven.md` / `findings-spawn.md`.
