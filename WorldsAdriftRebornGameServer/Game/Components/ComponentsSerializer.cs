@@ -162,8 +162,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         InteractAgentServerState.Data iasData = new InteractAgentServerState.Data(new InteractAgentServerStateData(EntityId.InvalidEntityId,
                                                                                                                         0,
                                                                                                                         1,
-                                                                                                                        new EntityId(0),
-                                                                                                                        new EntityId(0),
+                                                                                                                        EntityId.InvalidEntityId,  // forcedInteract
+                                                                                                                        // exclusivelyUsingEntityId. EntityId(0) is invalid to IsValid()
+                                                                                                                        // (which tests Id > 0) but is NOT equal to InvalidEntityId (-1),
+                                                                                                                        // and ReleaseInteractiveObject guards on the latter - so a 0 seed
+                                                                                                                        // makes the client emit ReleaseInteraction(0) every time an
+                                                                                                                        // inventory or crafting window loses focus.
+                                                                                                                        EntityId.InvalidEntityId,
                                                                                                                         Bossa.Travellers.Items.MultitoolMode.Default,
                                                                                                                         new Option<ScalaSlottedInventoryItem> { }));
                         obj = iasData;
