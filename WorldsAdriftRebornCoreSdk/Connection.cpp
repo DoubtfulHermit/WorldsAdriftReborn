@@ -63,7 +63,7 @@ OpList* Connection::GetOpList() {
                     Logger::Debug("FAILED TO DESERIALIZE DATA!");
                 }
                 else {
-                    ENet_Send(this->peer, CH_AddEntityOp, "a", 1, ENET_PACKET_FLAG_RELIABLE); // just used as ack
+                    ENet_Send(this->peer, CH_AddEntityOp, "a", 1, WAR_PACKET_RELIABLE); // just used as ack
                 }
             }
             else if (packet->channel == CH_SendComponentInterest) {
@@ -142,7 +142,7 @@ OpList* Connection::GetOpList() {
 void Connection::SendAssetLoaded(AssetLoaded* asset_loaded) {
     Logger::Debug("ASSET LOADED: " + std::string(asset_loaded->Name) + " " + asset_loaded->Context);
     // send ack
-    ENet_Send(this->peer, CH_AssetLoadRequestOp, asset_loaded, sizeof(asset_loaded), ENET_PACKET_FLAG_RELIABLE);
+    ENet_Send(this->peer, CH_AssetLoadRequestOp, asset_loaded, sizeof(asset_loaded), WAR_PACKET_RELIABLE);
 }
 
 bool Connection::DeserializeComponent(unsigned int component_id, ClientObjectType objType, char* buffer, unsigned int length, ClientObject** obj) {
@@ -159,7 +159,7 @@ void Connection::SendComponentInterest(long entity_id, InterestOverride* interes
     void* ptr = PB_SendComponentInterest_Serialize(entity_id, interest_override, interest_override_count, &len);
 
     if (ptr != NULL && len > 0 && this->peer != NULL) {
-        ENet_Send(this->peer, CH_SendComponentInterest, ptr, len, ENET_PACKET_FLAG_RELIABLE);
+        ENet_Send(this->peer, CH_SendComponentInterest, ptr, len, WAR_PACKET_RELIABLE);
     }
 }
 
@@ -190,7 +190,7 @@ void Connection::SendComponentUpdate(long entityId, ComponentObject* component_u
     }
 
     if (this->peer != nullptr) {
-        ENet_Send(this->peer, CH_ComponentUpdateOp, ptr, pb_len, ENET_PACKET_FLAG_RELIABLE);
+        ENet_Send(this->peer, CH_ComponentUpdateOp, ptr, pb_len, WAR_PACKET_RELIABLE);
     }
 
     delete update;

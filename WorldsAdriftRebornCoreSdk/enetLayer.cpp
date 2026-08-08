@@ -189,16 +189,27 @@ void ENet_Send(ENetPeer* peer, int channel, const void* data, long len, int flag
         return;
     }
 
+    // `flag` is a WarPacketFlag (see enetLayer.h), NOT an ENET_PACKET_FLAG_*.
     enet_uint32 pf = ENET_PACKET_FLAG_RELIABLE;
-    if (flag == 1) {
+    if (flag == WAR_PACKET_UNRELIABLE) {
         pf = ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT;
     }
-    else if (flag == 2) {
+    else if (flag == WAR_PACKET_UNRELIABLE_UNSEQUENCED) {
         pf = ENET_PACKET_FLAG_UNSEQUENCED | ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT;
     }
 
     ENetPacket* packet = enet_packet_create(data, len, pf);
-    enet_peer_send(peer, channel, packet);
+
+    // enet_peer_send returns -1 for a disconnected peer or an out-of-range
+    // channel, and does NOT take ownership on failure. Ignoring it leaked one
+    // packet per relay attempt to a ghost peer for its whole timeout window,
+    // and would silently swallow every packet on a channel a peer never
+    // negotiated - the exact failure mode a new channel would hit on an
+    // un-updated client.
+    if (enet_peer_send(peer, channel, packet) < 0) {
+        Logger::Debug("[error] enet_peer_send failed (channel out of range, or peer not connected); packet dropped.");
+        enet_packet_destroy(packet);
+    }
 }
 
 void ENet_Flush(ENetHost* client) {

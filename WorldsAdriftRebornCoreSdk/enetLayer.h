@@ -61,6 +61,22 @@ void ENet_Disconnect(ENetPeer* peer, ENetHost* client);
 void ENet_Deinitialize(ENetHost* client);
 ENetPacket_Wrapper* ENet_Poll(ENetHost* client, int waitTime, OnNewClientConnected* callbackC, OnClientDisconnected* callbackD);
 void ENet_Destroy_Packet(ENetPacket_Wrapper* packet);
+/*
+ * Packet flags for ENet_Send. These are OUR OWN wire values, mirroring the C#
+ * EnetLayer.ENetPacketFlag enum - they are deliberately NOT ENet's
+ * ENET_PACKET_FLAG_* constants.
+ *
+ * The two numbering schemes collide: ENET_PACKET_FLAG_RELIABLE is (1 << 0) == 1,
+ * which is WAR_PACKET_UNRELIABLE here. Passing the ENet constant to ENet_Send
+ * therefore asks for the exact opposite of what it looks like it asks for, which
+ * is what every caller in Connection.cpp used to do.
+ */
+enum WarPacketFlag {
+    WAR_PACKET_RELIABLE = 0,
+    WAR_PACKET_UNRELIABLE = 1,
+    WAR_PACKET_UNRELIABLE_UNSEQUENCED = 2
+};
+
 void ENet_Send(ENetPeer* peer, int channel, const void* data, long len, int flag);
 void ENet_Flush(ENetHost* client);
 
