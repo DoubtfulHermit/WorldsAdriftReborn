@@ -102,6 +102,106 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>The ship hull's registration key. See <see cref="ShipFrame"/>.</summary>
+        public const string ShipFrameKey = "ship-haven";
+
+        /// <summary>
+        /// The prefab name of the procedural ship hull root.
+        ///
+        /// BARE, and not one of the `ShipFrame01`/`ShipFrame02` variants. Two
+        /// reasons: `ShipFrame` is the one whose geometry comes from 1209 rather
+        /// than being baked, and `ShipFrame01_unityclient` has no root Rigidbody,
+        /// which `PathFollower.Awake` fetches unconditionally - so the baked
+        /// variants are the ones that can never be made to move.
+        ///
+        /// It resolves even though no island manifest mentions it: ship prefabs
+        /// are baked into `resources.assets`, which is always resident, and the
+        /// client's dispatch ignores prefab CONTEXT for every name that does not
+        /// start with Traveller, ModalErrorPopup or Spectator
+        /// (DispatchEventHandler.cs:342-344).
+        /// </summary>
+        public const string ShipFrameAssetName = "ShipFrame";
+
+        /// <summary>
+        /// The components seeded on the hull, and the entire reason a ship can be
+        /// spawned rather than built. FOUR, measured off the shipped client
+        /// prefab's `[Require]` map (`docs/research/loop/data/req_shipframe.tsv`):
+        ///
+        ///   190602 TransformState        - position, and half of what
+        ///                                  SSPDeadReckoningVisualizer requires
+        ///   1209   CustomShipHullState   - the hull blob; drives
+        ///                                  CustomShipFrameVisualizer -> mesh + colliders
+        ///   1099   SalvageAndRepairState - the OTHER half of what
+        ///                                  CustomShipFrameVisualizer requires
+        ///   1130   SSPPredictedMotionState - the other half of
+        ///                                  SSPDeadReckoningVisualizer -> PathFollower
+        ///
+        /// Everything else on the prefab stays disabled. That is not a
+        /// simplification, it is the SHIPPED DEFAULT: every `*Visualizer` on
+        /// `ShipFrame_unityclient` ships at `m_Enabled = 0` and is switched on by
+        /// the injector only once all of its `[Require]` readers can be
+        /// satisfied. Seeding a fifth component would switch on a fifth
+        /// behaviour, which is a way to lose, not a way to gain.
+        ///
+        /// ORDER: 190602 first. The batch is applied in the order given and the
+        /// position is the thing every other behaviour reads back.
+        ///
+        /// ALL-OR-NOTHING. This list goes out with failOnComponentInitError TRUE,
+        /// so one id with no branch in ComponentsSerializer drops all four and
+        /// leaves a fully-rendered inert hull. All four have branches; the
+        /// `[interest]` line in SendOPHelper is what proves it stayed that way.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipFrameSeedComponents =
+            new uint[] { 190602, 1209, 1099, 1130 };
+
+        /// <summary>
+        /// A single static ship hull on Haven, 12 m north of where the player
+        /// wakes up.
+        ///
+        /// WHAT IT IS FOR. It is step 2 of `docs/research/loop/findings-first-ship.md`
+        /// - the first thing this server has ever put in the world that is not
+        /// terrain or a person, and the first test of the claim that a ship is
+        /// `AddEntity("ShipFrame")` plus four components rather than a shipyard, a
+        /// blueprint flow and weeks of crafting. It does not move; the path
+        /// publisher that would make it a ferry is deliberately not here, because
+        /// it is blocked on a carry test that needs a running client.
+        ///
+        /// WHERE IT IS. Island-local (208.00, 5.30, 16.00) on Haven instance #5,
+        /// i.e. the island's own fixed point plus (208*4096, (long)(5.30*4096),
+        /// 16*4096) = (69650145 + 851968, -1305269 + 21708, -4645549 + 65536).
+        /// In metres that is world (17212.4300, -313.3694, -1118.1675).
+        ///
+        /// It shares the player's X exactly and sits 12.00 m further north, so it
+        /// is a straight walk from the spawn point with nothing between. The
+        /// point is entry (208.00, 4.80, 16.00) of the TRS-corrected LOD0 surface
+        /// table `docs/research/world-data/island-surfaces/1431299145.json`, whose
+        /// normal is (0.02, 1.00, -0.02) - the flattest ground within 30 m of the
+        /// spawn - and whose four sampled neighbours at 8 m span only 0.71 m of
+        /// height (4.80, 4.98, 4.99, 5.16, 5.51), which is what a 12 m x 4 m
+        /// footprint needs.
+        ///
+        /// The 0.50 m above that surface vertex is a STAND-OFF, and a smaller one
+        /// than the player's 2.00 m for a different reason: the hull's deck plane
+        /// is at the entity's own local y = 0 and nothing on a one-cell plan
+        /// hangs below it, so this is the height of the step up onto the ship. A
+        /// metre would clear the terrain more comfortably and might be too tall
+        /// to walk up; sinking it to zero would z-fight with the ground.
+        ///
+        /// AfterPlayer: the player must not be standing on it when they spawn -
+        /// they spawn 12 m away, on the island - so making the loading screen
+        /// wait on it would be pure cost.
+        /// </summary>
+        public static WorldEntity ShipFrame()
+        {
+            return new WorldEntity(
+                ShipFrameKey,
+                ShipFrameAssetName,
+                DefaultAssetContext,
+                new FixedPointPosition(70502113, -1283561, -4580013),
+                ShipFrameSeedComponents,
+                SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>
         /// The registry the server runs with.
         /// </summary>
@@ -120,6 +220,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 registry.Register(ProofIsland());
             }
+
+            registry.Register(ShipFrame());
 
             return registry;
         }
