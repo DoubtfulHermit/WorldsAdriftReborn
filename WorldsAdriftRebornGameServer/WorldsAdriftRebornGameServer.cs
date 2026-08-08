@@ -643,9 +643,25 @@ namespace WorldsAdriftRebornGameServer
                                     // we can make use of the fact that the game requests components for players in two stages, where the second one will terminate the loading screen of the client.
                                     // the second stage needs a few components setup properly, for this we need to inject one component and call auth changed for a few others once.
 
-                                    // some components are needed in the first stage and need to be injected.
-                                    // we also need PilotState since schematics for glider where added, as the game nullrefs in PlayerExternalDataVisualizer.IsDriving() now (1109)
-                                    List<Structs.Structs.InterestOverride> injectedEarly = new List<Structs.Structs.InterestOverride> { new Structs.Structs.InterestOverride(1109, 1) };
+                                    // Some components are needed in the first stage and need to be injected.
+                                    //
+                                    // PlayerExternalDataVisualizer null-guards its reader in IsAlive() but NOT in
+                                    // IsDriving() (1109 PilotState) or IsEditingShip() (1207 ShipHullAgentState).
+                                    // PlayerExternalData.CanMove() evaluates them left to right with &&, so injecting
+                                    // only 1109 did not fix the crash - it moved it from IsDriving to IsEditingShip.
+                                    // The client log shows exactly that: 1,264 throws from the first, then 1,366 from
+                                    // the second, in strictly disjoint line ranges.
+                                    //
+                                    // This is not cosmetic. The NullReferenceException escapes
+                                    // UserControlCharacter.Update() and GrapplingHookNew.Update(), so Unity aborts the
+                                    // whole Update for that frame: no movement, no jump, no grapple for ~25 seconds
+                                    // after the world appears. Under real SpatialOS the components arrived with the
+                                    // entity and the window was zero frames; our packet-driven delivery widens it.
+                                    List<Structs.Structs.InterestOverride> injectedEarly = new List<Structs.Structs.InterestOverride>
+                                    {
+                                        new Structs.Structs.InterestOverride(1109, 1),
+                                        new Structs.Structs.InterestOverride(1207, 1)
+                                    };
 
                                     if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true))
                                     {

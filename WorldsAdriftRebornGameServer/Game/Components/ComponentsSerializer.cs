@@ -515,12 +515,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = susData;
                     }
-                    else if(componentId == 1109)
-                    {
-                        PilotState.Data pd = new PilotState.Data(new PilotStateData(new EntityId(10), new EntityId(10), ControlVehicleType.None));
-
-                        obj = pd;
-                    }
+                    // NOTE: a second `componentId == 1109` branch used to sit here, seeding
+                    // PilotState with EntityId(10) instead of EntityId(0). It was unreachable -
+                    // the branch at the top of this same else-if chain always won - which was
+                    // lucky, because EntityId(10) is a VALID entity id. IsDriving() is
+                    // EntityId.IsValidEntityId(DrivingEntityId), so had the chain ever been
+                    // reordered the player would have been permanently "driving" and unable to
+                    // move. Removed rather than left as a trap.
                     else
                     {
                         Console.WriteLine("[ToDo] unhandled component id needs investigation: " + componentId);
