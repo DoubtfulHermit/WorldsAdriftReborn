@@ -96,8 +96,27 @@ namespace WorldsAdriftRebornGameServer
             if (ownEntity.HasValue)
             {
                 Appearances.Forget(ownEntity.Value);
+
+                // Save, then drop, the departed player's inventory. The save is
+                // the last chance a session gets: every mutation already wrote
+                // through the push seam, but a server-side grant that happened
+                // between the last push and the disconnect would otherwise be
+                // lost. It is a no-op for a player whose character uid never
+                // arrived - those inventories are session-scoped by design and
+                // deliberately unsaveable. Do this BEFORE dropping any other
+                // per-player state, so a save can never race a teardown.
+                Game.Inventory.InventoryService.Forget(ownEntity.Value);
+
                 Teleports.Forget(ownEntity.Value);
             }
+
+            // Drop this peer's slice of the component map. ForgetPeer's own
+            // docblock claims to clean every piece of per-peer state and this
+            // one was never in it, so a departed peer's stored component
+            // references stayed live for the lifetime of the process - and the
+            // inventory push seam iterates exactly this map to decide who to
+            // send to, so a stale entry is a send to a peer that is gone.
+            GameState.Instance.ComponentMap.Remove(peer);
 
             PeerManager.Instance.playerState.Remove(peer);
             PeerManager.Instance.clientSetupState.Remove(peer);
@@ -663,6 +682,11 @@ namespace WorldsAdriftRebornGameServer
 
             Console.WriteLine("[info] successfully initialized networking, now waiting for connections and data.");
             PeerManager.Instance.SetENetHostHandle(server);
+
+            // Said once, at start-up, because "my stuff does not save" is
+            // otherwise discovered several sessions later and blamed on the
+            // wrong thing.
+            Game.Inventory.InventoryService.ReportPersistenceState();
 
             // Say it once, at startup, because a feature nobody can find is not a
             // feature. Destinations come from TeleportPolicy so this list cannot

@@ -58,11 +58,23 @@ namespace WorldsAdriftReborn.Storage.Tests
         }
 
         [Fact]
-        public void The_shipped_schema_is_at_version_one()
+        public void The_shipped_schema_is_at_version_two()
         {
             // If this fails, a script was added: check it was APPENDED and that
             // no existing one was edited, then update the number.
-            Assert.Equal(1, SchemaMigrator.TargetVersion(SchemaScripts.All));
+            // v1 accounts/sessions/characters, v2 character_inventories.
+            Assert.Equal(2, SchemaMigrator.TargetVersion(SchemaScripts.All));
+        }
+
+        [Fact]
+        public void A_database_at_version_one_is_brought_forward_by_exactly_one_script()
+        {
+            // The upgrade an operator who already has a live database will
+            // actually run. It must not re-run v1 against tables that exist.
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
+
+            Assert.Single(pending);
+            Assert.Contains("character_inventories", pending[0]);
         }
     }
 }

@@ -66,6 +66,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     ulong refId = 0;
                     object obj = null;
 
+                    // A component whose server-side state is LIVE must be
+                    // re-served as it is now, not rebuilt from defaults.
+                    //
+                    // Everything below this point fabricates a fresh component
+                    // and the bookkeeping at the bottom of the method then
+                    // OVERWRITES any reference already stored for
+                    // (peer, entity, component) - and the "already set up"
+                    // branch in the interest handler re-serves whatever a client
+                    // asks for, forever. For a stateless seed that is merely
+                    // wasteful. For the inventory it was destructive: a second
+                    // interest request threw the player's items away.
+                    //
+                    // Serving the existing reference also keeps the reference
+                    // ITSELF stable, so every handle already held by the push
+                    // seam stays valid.
+                    if (IsLiveState(componentId)
+                        && GameState.Instance.ComponentMap.TryGetValue(player, out var liveByEntity)
+                        && liveByEntity.TryGetValue(entityId, out var liveByComponent)
+                        && liveByComponent.TryGetValue(componentId, out ulong liveRefId))
+                    {
+                        ComponentProtocol.ClientObject liveWrapper = new ComponentProtocol.ClientObject();
+                        liveWrapper.Reference = liveRefId;
+
+                        ComponentProtocol.ClientSerialize liveSerialize = Marshal.GetDelegateForFunctionPointer<ComponentProtocol.ClientSerialize>(ComponentsManager.Instance.ClientComponentVtables[i].Serialize);
+                        liveSerialize(componentId, 2, &liveWrapper, buffer, length);
+
+                        Console.WriteLine("[info] re-serving live component " + componentId + " of entity "
+                            + entityId + " instead of re-seeding it.");
+                        return;
+                    }
+
                     if(componentId == 8065)
                     {
                         Blueprint.Data bData = new Blueprint.Data(new BlueprintData("Player"));
@@ -142,15 +173,36 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1081)
                     {
+                        // Seeded FROM THE STORE, not from a fixed seven-item
+                        // list, using the same shape 1088 already uses with
+                        // Appearances.Get above.
+                        //
+                        // The old branch built ItemHelper.GetDefaultItems()
+                        // fresh on every serve, and the refId bookkeeping at the
+                        // bottom of this method happily overwrites a stored
+                        // reference - so a SECOND interest request for 1081 in
+                        // one session silently reset the player's inventory to
+                        // the seven defaults. Reading the store makes a re-seed
+                        // idempotent instead of destructive; the sticky check at
+                        // the top of this method then keeps even the reference
+                        // itself stable.
+                        //
+                        // The grid is still 10x18 with a belt on row 3 because
+                        // the client reads those four fields exactly once, at
+                        // InventoryVisualiser.OnEnable - so they are a property
+                        // of checkout, not something a later update can change.
+                        Multiplayer.Inventory.InventoryModel inventory =
+                            Inventory.InventoryService.ForEntity(entityId);
+
                         InventoryState.Data iData = new InventoryState.Data(new InventoryStateData(100,
                                                                                         "{}",
-                                                                                        ItemHelper.GetDefaultItems(),
-                                                                                        ItemHelper.GetStashItems(true, true),
-                                                                                        10,
-                                                                                        18,
+                                                                                        Inventory.InventoryWire.ToWireList(inventory),
+                                                                                        Inventory.InventoryWire.ToStashList(inventory),
+                                                                                        inventory.Width,
+                                                                                        inventory.Height,
                                                                                         new Improbable.Collections.List<string> { },
-                                                                                        true,
-                                                                                        3));
+                                                                                        inventory.HasBelt,
+                                                                                        inventory.BeltRow));
                         obj = iData;
                     }
                     else if(componentId == 1086)
@@ -700,6 +752,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     + " (entity " + entityId + "). Not a missing seed - the component does not exist"
                     + " in the shipped client, so no branch here can fix it.");
             }
+        }
+
+        /// <summary>
+        /// Components the server MUTATES after seeding, and must therefore never
+        /// re-seed from defaults.
+        ///
+        /// Deliberately short. Most seeds here are stateless - re-fabricating
+        /// them produces the same bytes - and adding one of those to this set
+        /// would only pin a reference for no benefit. A component belongs here
+        /// once something writes to its stored Data at runtime.
+        ///
+        /// 1081 InventoryState and 1280 WearableUtilsState are the inventory
+        /// pair, both written by InventoryPush. 1088 is NOT here: its seed
+        /// already consults Appearances.Get, so re-seeding it is idempotent by
+        /// construction.
+        /// </summary>
+        private static bool IsLiveState(uint componentId)
+        {
+            return componentId == 1081 || componentId == 1280;
         }
     }
 }
