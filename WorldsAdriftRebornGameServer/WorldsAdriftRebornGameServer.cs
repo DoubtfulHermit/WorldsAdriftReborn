@@ -117,6 +117,13 @@ namespace WorldsAdriftRebornGameServer
                 Game.Inventory.InventoryService.Forget(ownEntity.Value);
 
                 Teleports.Forget(ownEntity.Value);
+
+                // The fall watch keyed by the same entity. Left behind, the record
+                // would still be counting rescue attempts for somebody who has
+                // logged out - harmless in itself, but ForgetPeer's contract is
+                // that it drops EVERY piece of per-peer state, and the last time
+                // that contract was broken it cost a debugging round.
+                Falls.Forget(ownEntity.Value);
             }
 
             // Drop this peer's slice of the component map. ForgetPeer's own
@@ -581,6 +588,18 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         internal static readonly TeleportService Teleports = new TeleportService();
 
+        /// <summary>
+        /// The fall floor. Watches every 190602 a player publishes about itself
+        /// and teleports anyone who has fallen out from under the world back to
+        /// the spawn point. Internal because TransformState_Handler feeds it.
+        ///
+        /// Declared AFTER <see cref="Teleports"/> deliberately: static field
+        /// initialisers run in textual order, so a field constructed above the
+        /// service it is handed would be handed null. Same rule as
+        /// <see cref="ServerClock"/>, and this is its second customer.
+        /// </summary>
+        internal static readonly FallRescueService Falls = new FallRescueService(ServerClock, Teleports);
+
         /// <summary>Decides which ops go to which peers so players can see each other.</summary>
         private static readonly RemotePlayerMirror Mirror = new RemotePlayerMirror(Players);
 
@@ -871,6 +890,16 @@ namespace WorldsAdriftRebornGameServer
                 + " to move players. Destinations: " + string.Join(", ", TeleportPolicy.Names)
                 + ". Add an entity id to move just one, e.g. `echo '"
                 + TeleportPolicy.SafeDestination.Name + " 3' > " + Teleports.TriggerFile + "`.");
+
+            // Also said once, so that "why did I suddenly reappear at spawn?" has
+            // an answer in the same log as the event, and so that a wrong floor is
+            // visible on a server that never has anybody fall.
+            Console.WriteLine("[info] fall floor: anybody below y = "
+                + FallPolicy.FloorMetres.ToString("0.#") + " m ("
+                + FallPolicy.SafetyMarginMetres + " m under the deepest point of "
+                + SpawnPolicy.IslandAssetName + ") is teleported to "
+                + TeleportPolicy.SafeDestination.Name + ". Grep '"
+                + "fall-rescue" + "' to see it happen.");
 
 
             // define initial world state for first chunk
