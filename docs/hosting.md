@@ -100,20 +100,78 @@ journalctl -u wareborn-game -n 50 --no-pager -o cat
 
 ## Deploying an update
 
-Server code (no client change needed):
+Deploy with `dotnet publish -r win-x64 --self-contained false` into a clean
+directory, then `rsync` that whole directory. Do **not** use `dotnet build` plus a
+filename glob - see below.
+
+Game server (no client change needed):
 
 ```bash
 cd ~/Games/WAReborn-src
-dotnet build WorldsAdriftRebornGameServer/WorldsAdriftRebornGameServer.csproj \
-    -c Release -p:WorldsAdriftGameDir="$HOME/Games/WorldsAdrift"
-scp WorldsAdriftRebornGameServer/bin/Release/net6.0/WorldsAdriftRebornGameServer*.dll \
+rm -rf /tmp/wa-pub-game
+dotnet publish WorldsAdriftRebornGameServer/WorldsAdriftRebornGameServer.csproj \
+    -c Release -r win-x64 --self-contained false \
+    -p:WorldsAdriftGameDir="$HOME/Games/WorldsAdrift" \
+    -o /tmp/wa-pub-game
+rsync -a /tmp/wa-pub-game/ \
     root@62.171.161.19:/opt/wareborn/WorldsAdriftRebornGameServer/
 ssh root@62.171.161.19 systemctl restart wareborn-game
 ```
 
+Login server:
+
+```bash
+rm -rf /tmp/wa-pub-login
+dotnet publish WorldsAdriftServer/WorldsAdriftServer.csproj \
+    -c Release -r win-x64 --self-contained false \
+    -o /tmp/wa-pub-login
+rsync -a /tmp/wa-pub-login/ \
+    root@62.171.161.19:/opt/wareborn/WorldsAdriftServer/
+ssh root@62.171.161.19 systemctl restart wareborn-login
+```
+
+⚠ **Never add `--delete` to these rsyncs.** Both deploy directories hold files
+`publish` does not produce: the login server keeps live state in `data/`
+(`roster.json`, `characters/`, and the SQLite db when it lands), and the game
+server keeps 55 separately-built native SDK libraries (`CoreSdkDll.dll`,
+`libabsl_*.dll`, `zlib1.dll`) placed there by `build-mingw.sh` /
+`deploy-coresdk.sh`. `--delete` destroys both.
+
+Do **not** use `--self-contained true` or `PublishSingleFile`. The prefix already
+provides the runtime at `C:\dotnet6`, and the wrappers launch via
+`dotnet.exe <dll>`, which cannot unpack a single-file bundle.
+
 **Deploy the build you just made.** A whole debugging round was lost to uploading
 a stale binary that still hardcoded 7777, because the fresh build was never copied
-into the deploy folder first.
+into the deploy folder first. Publishing into a freshly emptied directory also
+stops a deleted file from lingering on the server forever.
+
+### Why publish, and not build + a flat glob
+
+`dotnet build` places native NuGet assets under `runtimes/<rid>/native/`, never
+flat, so a filename glob silently leaves them behind. With
+`Microsoft.Data.Sqlite` referenced that produces the worst failure shape there
+is: a process that starts, answers `/deploymentStatus`, and throws the moment
+anyone first touches the database.
+
+```
+System.DllNotFoundException: Unable to load DLL 'e_sqlite3'
+    or one of its dependencies: Module not found. (0x8007007E)
+```
+
+Measured on the VPS under the live prefix (wine 9.0, `C:\dotnet6` = .NET 6.0.36):
+
+| layout on disk | result |
+|---|---|
+| `e_sqlite3.dll` flat beside the managed DLLs (`publish -r win-x64`) | **works** |
+| `runtimes/win-x64/native/e_sqlite3.dll` (`publish`, no RID) | **works** - Wine's host reads `deps.json` and probes the RID path correctly |
+| managed DLLs present, native absent (`build` + flat glob) | `DllNotFoundException 0x8007007E` |
+
+So Wine is not the constraint - both real layouts work, and the RID-less publish
+is a valid fallback if the whole directory is copied. `-r win-x64` is preferred
+because it emits 12 files and 3 MB instead of 26 MB of `runtimes/` for 21
+platforms, and everything it emits is flat, so no deploy step depends on
+remembering a subdirectory. On a VPS at 84% disk that difference is worth having.
 
 If `CoreSdkDll.dll` changed, it must go to **both** the server and every client -
 it is the same binary on both sides.
