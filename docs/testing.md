@@ -36,6 +36,37 @@ dotnet build WorldsAdriftReborn -c Release -p:PluginOutputDirectory=/tmp/modout/
 Neither multiplayer project is in `WorldsAdriftReborn.sln`; name them
 explicitly as above.
 
+## The storage suite
+
+```sh
+dotnet test WorldsAdriftReborn.Storage.Tests
+```
+
+Split in two by what it needs:
+
+- The **policy and migrator tests** are pure — usernames, PBKDF2, session
+  tokens, expiry arithmetic, which schema scripts a version still needs. They
+  need no database, no network and no setup, and they always run.
+- The **repository, constraint and schema tests** need a real PostgreSQL
+  server, because what they assert is that the schema *refuses* bad rows. A
+  fake that accepted rows the real server rejects would be worse than no test.
+  They **skip with a printed reason** when `WAREBORN_DB` is unset, so a green
+  run on a machine with no database is honest rather than misleading.
+
+To run the whole suite, point `WAREBORN_DB` at any PostgreSQL server you do not
+mind being written to:
+
+```sh
+WAREBORN_DB='Host=127.0.0.1;Port=5432;Database=wareborn;Username=wareborn' \
+  dotnet test WorldsAdriftReborn.Storage.Tests
+```
+
+Each test creates its own throwaway **schema** (`wareborn_test_<guid>`),
+migrates it, and drops it on the way out — never a database, so the role needs
+no `CREATEDB`, and nothing already in that database is touched.
+
+Verified against PostgreSQL 18 (local) and 16 (the deployment target).
+
 ## How it is arranged
 
 Rules are tested through **pure policy types**, and production calls those same
