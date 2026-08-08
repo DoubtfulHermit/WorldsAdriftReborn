@@ -1,0 +1,49 @@
+# [Require] map for prefab root: ShipFrame_unityclient
+
+class	enabled	require_type	component	componentId
+MeshGenerator	1	-		
+Ship	1	-		
+ShipVisualizer	0	ShipOwnersDeprecatedStateReader	ShipOwnersDeprecatedState	8062
+ShipVisualizer	0	ShipPartCountStateReader	ShipPartCountState	8071
+ShipVisualizer	0	ShipRegisteredCharactersState.Reader	ShipRegisteredCharactersState	4349
+FixedUpdateTransformNature	1	-		
+CraftedItemMaterialVisualizer	0	SalvageAndRepairStateReader	SalvageAndRepairState	1099
+NonPooling	1	-		
+ShipAmbientSfxVisualizer	1	-		
+ParentingMassAdderVisualizer	0	ParentingMassAdderStateReader	ParentingMassAdderState	1257
+ShipLiftVisualizer	0	ShipLiftStateReader	ShipLiftState	1258
+ShipReclaimVisualizer	0	ReclaimableStateReader	ReclaimableState	1259
+ShipReclaimVisualizer	0	TransformHierarchyStateReader	TransformHierarchyState	190601
+ShipControlsVisualizer	0	ShipControlState.Reader	ShipControlState	1113
+SalvageableItemVisualiser	0	ItemHealthStateReader	ItemHealthState	1016
+FuelVisualizer	0	FuelTankStateReader	FuelTankState	1106
+OriginalMassVisualizer	0	OriginalMassStateReader	OriginalMassState	1121
+ShipControlInputVisualizer	0	ShipControlInputReader	ShipControlInput	1111
+LightningGeneratorVisualizer	0	LightningGeneratorStateReader	LightningGeneratorState	1222
+LightningStrikableVisualizer	0	LightningStrikableStateReader	LightningStrikableState	1225
+RigidbodyCollisionVisualizer	0	RigidbodyCollisionReporterStateReader	RigidbodyCollisionReporterState	1232
+DeteriorateVisualizerClient	0	DeteriorateStateReader	DeteriorateState	4333
+ParentMaterialPropertyController	1	-		
+ComponentMaterialProperties	1	-		
+ComponentMaterialColors	1	-		
+UidVisualizer	0	UidStateReader	UidState	1294
+ShipImposter	1	-		
+ImposterController	1	-		
+ShipAtlasPulseVisualizer	0	ShipAtlasPulseStateReader	ShipAtlasPulseState	1306
+PersonalRespawnerPulseEffect	1	-		
+CraftableSpawningVisualizer	0	CraftableSpawningStateReader	CraftableSpawningState	1013
+TrackedEntityLoadClientVisualizer	0	TrackedEntityLoadStateReader	TrackedEntityLoadState	4400
+ShipCrashingSfxVisualiser	0	RigidbodyCollisionReporterState.Reader	RigidbodyCollisionReporterState	1232
+DockableVisualizer	0	DockableStateReader	DockableState	1114
+CustomShipFrameVisualizer	0	CustomShipHullStateReader	CustomShipHullState	1209
+CustomShipFrameVisualizer	0	SalvageAndRepairStateReader	SalvageAndRepairState	1099
+ShipLoadedVerifier	0	-		
+LocationAnchorEntity	1	-		
+ShipRegisteredReviversVisualizer	0	ShipRegisteredCharactersState.Reader	ShipRegisteredCharactersState	4349
+SSPDeadReckoningVisualizer	0	SSPPredictedMotionStateReader	SSPPredictedMotionState	1130
+SSPDeadReckoningVisualizer	0	TransformStateReader	TransformState	190602
+TransformOffsetsRegistry	1	-		
+TransformParentHierarchyBehaviour	0	TransformHierarchyStateReader	TransformHierarchyState	190601
+RelativeParentTransformChildHierarchyBehaviour	0	-		
+TransformManageRigidbodyBehaviour	0	TransformStateReader	TransformState	190602
+TrackedEntityLoadClientVisualizer	0	TrackedEntityLoadStateReader	TrackedEntityLoadState	4400

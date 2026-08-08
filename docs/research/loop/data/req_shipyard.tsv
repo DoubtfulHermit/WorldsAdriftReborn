@@ -1,0 +1,28 @@
+# [Require] map for prefab root: Shipyard_unityclient
+
+class	enabled	require_type	component	componentId
+ShipBlueprintCraftingBehaviour	0	ShipBlueprintCraftingState.Reader	ShipBlueprintCraftingState	1271
+ShipBlueprintCraftingBehaviour	0	CraftingStationClientState.Reader	CraftingStationClientState	1005
+ShipBlueprintCraftingBehaviour	0	InteractiveState.Reader	InteractiveState	1210
+ShipyardVisualizer	0	ShipyardStateReader	ShipyardState	1205
+CraftingStationBehaviour	0	CraftingStationClientState.Reader	CraftingStationClientState	1005
+CraftingStationBehaviour	0	CraftingStationGSimState.Reader	CraftingStationGSimState	1004
+SalvageableItemVisualiser	0	ItemHealthStateReader	ItemHealthState	1016
+ShipHullEditorVisualizer	0	ShipHullEditorStateReader	ShipHullEditorState	1206
+ShipHullEditorVisualizer	0	ShipyardStateReader	ShipyardState	1205
+FixedUpdateTransformNature	1	-		
+Shipyard	1	-		
+ComponentMaterialColors	1	-		
+ComponentMaterialProperties	1	-		
+CraftedItemMaterialVisualizer	0	SalvageAndRepairStateReader	SalvageAndRepairState	1099
+NormalizedItemHealthVisualizer	0	ItemHealthNormalizedStateReader	ItemHealthNormalizedState	1450
+ComponentDamage	1	-		
+ScannableGUID	1	-		
+PlaceableItem	1	-		
+BuildingPlacementSpecialRule	0	TransformState.Reader	TransformState	190602
+TransformOffsetsRegistry	1	-		
+TransformParentHierarchyBehaviour	0	TransformHierarchyStateReader	TransformHierarchyState	190601
+RelativeParentTransformChildHierarchyBehaviour	0	-		
+StaticGlobalTransformBehaviour	0	GlobalTransformStateReader	GlobalTransformState	190604
+StaticLocalTransformBehaviour	0	TransformStateReader	TransformState	190602
+TrackedEntityLoadClientVisualizer	0	TrackedEntityLoadStateReader	TrackedEntityLoadState	4400
