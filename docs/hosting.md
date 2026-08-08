@@ -66,15 +66,25 @@ docker exec -e PGPASSWORD=<pw> wareborn-postgres \
     psql -U wareborn -d wareborn -c 'SELECT account_id, username FROM accounts;'
 ```
 
-Players sign up at `http://62.171.161.19:8085/signup` and then type the same
+Players sign up at **https://wareborn.ratlabs.cc/signup** and then type the same
 username and password into the login form on the game's own landing screen.
 There is no Steam account involved at any point.
 
-⚠ **Passwords cross the wire in cleartext**, both to `/register` and to
-`/authenticate` — the game client sends its form contents unencrypted and cannot
-be changed. Anything that puts TLS in front of 8085 is worth doing before this is
-handed to strangers; until then, tell players to use a password they use nowhere
-else.
+That hostname is served by the **Avatar stack's Caddy** (`/root/Avatar/Caddyfile`,
+container `caddy`, host networking), which terminates TLS with a Let's Encrypt
+certificate and proxies to `127.0.0.1:8085`. The A record already existed. The
+block exposes **only** `/signup` and `/register`, redirects `/` to `/signup`, and
+404s everything else — the game's own API is deliberately not on this host.
+A backup of the previous config sits at `Caddyfile.bak.wareborn`; reload with
+`docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`
+after validating with `caddy validate` first.
+
+⚠ **The game's own login is still cleartext.** Sign-up is now behind TLS, but
+`/authenticate` is not: the client is configured for `http://62.171.161.19:8085`
+and posts the password unencrypted. Repointing it means changing
+`REST_ServerUrl` in every player's `WorldsAdriftReborn.cfg` **and** confirming
+BestHTTP validates the chain under Wine — neither is tested. Until then, tell
+players to use a password they use nowhere else.
 
 `WAREBORN_LEGACY_ROSTER_OWNER=<username>` hands the pre-accounts shared roster
 (`data/characters/roster.json`) to one named account the first time that account's
