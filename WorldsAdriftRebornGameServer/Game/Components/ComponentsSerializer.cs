@@ -539,11 +539,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1073)
                     {
+                        // The timestamp seed is the SYNTHETIC TIMELINE's origin
+                        // (0.2 s), not 100. The receiving client's interpolator
+                        // pairs every arriving 190602 position with the latest
+                        // 1073 timestamp and anchors on the FIRST value it sees;
+                        // 100 against live stamps of ~0.0x-scale was a
+                        // guaranteed pathological snap the first time any player
+                        // saw another. RelayEmitter's per-recipient timelines
+                        // continue from exactly this value (first live emit is
+                        // one emit-interval past it), and the hook below is what
+                        // keeps stream and seed agreeing about the epoch across
+                        // a re-serve. See Multiplayer.RelayTimestampPolicy.
                         ClientAuthoritativePlayerState.Data capData = new ClientAuthoritativePlayerState.Data(new ClientAuthoritativePlayerStateData(new Improbable.Math.Vector3f(0f, 0f, 0f),
                                                                                                                                             new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0), // w-first
                                                                                                                                             EntityId.InvalidEntityId,
                                                                                                                                             0f,
-                                                                                                                                            100,
+                                                                                                                                            Multiplayer.RelayTimestampPolicy.SeedTimestampSeconds,
                                                                                                                                             new byte[] { },
                                                                                                                                             false,
                                                                                                                                             2,
@@ -551,6 +562,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                                                             false,
                                                                                                                                             100));
                         obj= capData;
+
+                        WorldsAdriftRebornGameServer.Relay.OnSeed1073Served(PeerIdentity.IdOf(player), entityId);
                     }
                     else if(componentId == 9005)
                     {

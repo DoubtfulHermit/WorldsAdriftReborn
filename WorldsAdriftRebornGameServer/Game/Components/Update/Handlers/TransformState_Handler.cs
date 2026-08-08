@@ -34,9 +34,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
      * stored copy at the spawn value is the safer of the two wrong answers, and
      * changing it is a different piece of work.
      *
-     * WHAT IT DOES NOT DO: relay. RelayToOtherPlayers still forwards these bytes
-     * verbatim to the other clients, untouched by this. Reading a component and
-     * mirroring it are separate jobs and this is only the reading one.
+     * WHAT IT DOES NOT DO: send. It FEEDS the relay (RelayEmitter's ingest,
+     * first thing after the ownership gate) but never talks to ENet itself;
+     * under relay v2 the emitter puts coalesced 190602 on the wire at a fixed
+     * cadence, and with WAREBORN_RELAY_V2=0 RelayToOtherPlayers forwards the
+     * raw bytes exactly as before. Reading a component and mirroring it are
+     * separate jobs and this is only the reading one.
      */
     [RegisterComponentUpdateHandler]
     internal class TransformState_Handler : IComponentUpdateHandler<TransformState, TransformState.Update, TransformState.Data>
@@ -58,15 +61,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         public override void HandleUpdate( ENetPeerHandle player, long entityId,
             TransformState.Update clientComponentUpdate, TransformState.Data serverComponentData )
         {
-            if (!clientComponentUpdate.localPosition.HasValue)
+            // Ownership gate FIRST (docs/multiplayer.md rule 6): a client may only
+            // speak for its OWN entity. Without it a peer could publish a transform
+            // for somebody else and have THAT player teleported home - or feed
+            // movement into another player's relay stream. It moved above the
+            // localPosition check when the relay ingest below arrived, because a
+            // position-less update (a parent change, a reset event) is exactly
+            // what the ingest must still see.
+            if (!WorldsAdriftRebornGameServer.Players.Owns(PeerIdentity.IdOf(player), entityId))
             {
                 return;
             }
 
-            // Ownership gate (docs/multiplayer.md rule 6): a client may only speak
-            // for its OWN entity. Without it a peer could publish a transform for
-            // somebody else and have THAT player teleported home.
-            if (!WorldsAdriftRebornGameServer.Players.Owns(PeerIdentity.IdOf(player), entityId))
+            // The relay's ingest: judged (duplicate/jump drops), accepted state
+            // merged for the cadence emitter, edge fields (parent, onReset)
+            // preserved unconditionally. Same deserialization the fall floor
+            // below reads - never a second pass. RelayToOtherPlayers no longer
+            // touches 190602 under relay v2.
+            WorldsAdriftRebornGameServer.Relay.ObserveTransform(PeerIdentity.IdOf(player), clientComponentUpdate);
+
+            if (!clientComponentUpdate.localPosition.HasValue)
             {
                 return;
             }
