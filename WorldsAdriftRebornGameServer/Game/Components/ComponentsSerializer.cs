@@ -12,10 +12,13 @@ using Bossa.Travellers.Inventory;
 using Bossa.Travellers.Items;
 using Bossa.Travellers.Loot;
 using Bossa.Travellers.Misc;
+using Bossa.Travellers.Motion.Prediction;
 using Bossa.Travellers.Player;
 using Bossa.Travellers.Refdata;
 using Bossa.Travellers.Rope;
+using Bossa.Travellers.Salvaging;
 using Bossa.Travellers.Scanning;
+using Bossa.Travellers.Ship;
 using Bossa.Travellers.Ship.Lock;
 using Bossa.Travellers.Social;
 using Bossa.Travellers.Weather;
@@ -679,6 +682,130 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         SchematicsUnlearnerState.Data susData = new SchematicsUnlearnerState.Data();
 
                         obj = susData;
+                    }
+                    // ---- the three seeds a procedural ship hull needs, on top of
+                    // 190602 above. See Multiplayer.WorldEntities.ShipFrame.
+                    else if (componentId == 1209)
+                    {
+                        // A WHOLE SHIP'S GEOMETRY. 1209 is one field, byte[]
+                        // hullData, and CustomShipFrameVisualizer rebuilds the mesh
+                        // AND its colliders from it at runtime - so this branch is
+                        // the difference between a ship and nothing at all.
+                        //
+                        // The bytes are a named constant with a generator and
+                        // committed output behind them, not a literal here, because
+                        // ShipPlan.Load THROWS on malformed input rather than
+                        // failing quietly, and the throw lands in the client's log
+                        // where we cannot see it. See Multiplayer.ShipHull.
+                        //
+                        // Fresh array per call, also deliberate - see the same file.
+                        CustomShipHullState.Data hullData =
+                            new CustomShipHullState.Data(Multiplayer.ShipHull.MinimumHullData());
+
+                        Console.WriteLine("[info] seeding 1209 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") with the " + Multiplayer.ShipHull.MinimumHullDataLength
+                            + "-byte minimum hull.");
+
+                        obj = hullData;
+                    }
+                    else if (componentId == 1099)
+                    {
+                        // Seeded ONLY because CustomShipFrameVisualizer requires it
+                        // alongside 1209 and will not enable without it. Nothing
+                        // here is a salvage design; it is the most inert value the
+                        // type allows.
+                        //
+                        // originalMaterials is EMPTY on purpose, and that is the one
+                        // field worth arguing about. It is passed straight to
+                        // ComponentMaterialColors.SetMaterialColors, which resolves
+                        // every entry by name through MaterialManager - and an
+                        // unresolvable name comes back NULL and is then dereferenced,
+                        // which is a NullReferenceException in the client. An EMPTY
+                        // list takes the guarded path instead: "No wooden or metal
+                        // materials found", one logged error, mesh already built,
+                        // hull untinted. Untinted is a colour; an invented material
+                        // id is a crash.
+                        //
+                        // isRepairable/isSalvageable false so the multitool offers
+                        // nothing on a hull the server owns and no client can be the
+                        // first to find out what our unimplemented salvage flow does.
+                        SalvageAndRepairState.Data srData = new SalvageAndRepairState.Data(
+                            new SalvageAndRepairStateData(
+                                "",                                                       // itemTypeId
+                                0f,                                                       // salvageDamagePerPeriod
+                                0f,                                                       // repairAmountPerPeriod
+                                1f,                                                       // repairToSalvageRatio
+                                1f,                                                       // period - never elapses, nothing reads it
+                                false,                                                    // isRepairable
+                                false,                                                    // isSalvageable
+                                "",                                                       // isSalvageableStatus
+                                new Improbable.Collections.List<SlottedMaterial> { },      // originalMaterials
+                                false,                                                    // destroyOnSalvageComplete
+                                0f,                                                       // salvageRatio
+                                new Option<float> { }));                                  // casingQuality
+
+                        obj = srData;
+                    }
+                    else if (componentId == 1130)
+                    {
+                        // ONE control point, at the ship's own position, standing
+                        // still. This is NOT a path publisher and must not become
+                        // one by accident: a second point arriving less than
+                        // SendInterval * 0.95 = 0.228 s after this one is dropped by
+                        // ControlPoint.ValidateControlPoints.
+                        //
+                        // WHY A HULL NEEDS ONE AT ALL, when 190602 already says
+                        // where it is: the ShipFrame prefab carries NO
+                        // Static/Exact/Lerp LocalTransformBehaviour on its root -
+                        // its TransformNature is the Custom mode, and
+                        // SSPDeadReckoningVisualizer is that custom implementation.
+                        // The thing that actually calls MovePosition on the hull's
+                        // kinematic rigidbody is PathFollower, and PathFollower only
+                        // has a position to move to once a control point has arrived.
+                        // So this seed and the 190602 seed must agree, and they do
+                        // by construction: both read the same registration.
+                        //
+                        // The client subscribes in OnEnable with `+=`, and the
+                        // generated event's add-accessor invokes the handler
+                        // immediately with the current value - so a SEEDED point is
+                        // delivered exactly like a live one, no update needed.
+                        //
+                        // Coordinates here are GLOBAL METRES, not fixed point and
+                        // not Unity-space: ControlPoint.Remap() subtracts the
+                        // client's origin offset itself.
+                        //
+                        // Velocity ZERO is what makes this safe as a seed. Every
+                        // extrapolation PathFollower performs from a zero-velocity
+                        // point lands on the same position, so the hull cannot drift
+                        // no matter how far the client's clock is from our timestamp.
+                        //
+                        // Rotation 1023 is the identity SENTINEL - the low 10 bits
+                        // all set. It is not "a rotation that happens to be near
+                        // identity"; 1 decodes to NaN, and a NaN rotation is
+                        // rejected outright by ControlPoint.ValidateControlPoint.
+                        Multiplayer.FixedPointPosition at =
+                            WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(entityId);
+
+                        ShipControlPoint atRest = new ShipControlPoint(
+                            Multiplayer.ShipHull.NowMillisecondsSinceEpoch(),
+                            new Coordinates(at.MetresX, at.MetresY, at.MetresZ),
+                            new Quaternion32(1023),
+                            new Improbable.Math.Vector3f(0f, 0f, 0f),
+                            Multiplayer.ShipHull.FsimIdHash);
+
+                        // extrapolate FALSE. The flag has no consumer anywhere in
+                        // the shipped client - PathFollower extrapolates on its own
+                        // when it runs out of points - so false is the answer that
+                        // claims the least.
+                        SSPPredictedMotionState.Data pmData = new SSPPredictedMotionState.Data(
+                            new SSPPredictedMotionStateData(false, new Option<ShipControlPoint>(atRest)));
+
+                        Console.WriteLine("[info] seeding 1130 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") with one control point at rest at " + at + ".");
+
+                        obj = pmData;
                     }
                     // NOTE: a second `componentId == 1109` branch used to sit here, seeding
                     // PilotState with EntityId(10) instead of EntityId(0). It was unreachable -

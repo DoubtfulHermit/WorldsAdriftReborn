@@ -114,7 +114,10 @@ _meshGenerator.GenerateShipMesh(plan, 2f, _salvageAndRepairState.OriginalMateria
 ```
 
 `CustomShipHullState` (**1209**) is one field, `byte[] hullData`. Colliders are
-real and generated with the mesh (`MeshGenerator.cs:400-401`, `convex = true`).
+real and generated with the mesh (`MeshGenerator.cs:400-401`, `convex = true`) —
+but see "WHAT BUILDING STEP 2 CORRECTED" §3: on a hull with no parts bolted on,
+the solid geometry is the **beam frame**; the deck plane those lines build is
+turned into a trigger by `MakeVirtualDeck`.
 
 ### Flyable vs pilotable — two things, two entities
 **Flyable** (the hull moves and everyone sees it) is **1130 `SSPPredictedMotionState`
@@ -331,6 +334,68 @@ unblocks every other workstream — multi-island testing, respawn, get-me-unstuc
 debug commands — and should exist regardless. But Worlds Adrift with a teleporter
 and no ships is a museum.
 
+## WHAT BUILDING STEP 2 CORRECTED IN THIS DOCUMENT
+
+Step 2 (spawn a static ship) is implemented — `WorldEntities.ShipFrame()`, plus
+1209/1099/1130 branches in `ComponentsSerializer`. Reading the client closely
+enough to write those branches settled four things this document had wrong or
+open. Still **VERIFIED (source)** only; no game was launched.
+
+### 1. `190602` alone does NOT place a `ShipFrame`. The control point does.
+The prefab root carries **no** `StaticLocalTransformBehaviour`,
+`ExactLocalTransformBehaviour` or `Lerp*` — see `data/req_shipframe.tsv`, which
+has only `TransformManageRigidbodyBehaviour` (and that one manages kinematics and
+parenting, it never writes a position). Its `TransformNature` is the **Custom**
+mode and `SSPDeadReckoningVisualizer` *is* that custom implementation. The only
+thing that moves the hull is `PathFollower.Move`, which does
+`_rigidbody.MovePosition(controlPoint.Remap().Position)` — and it has nothing to
+move to until a control point arrives.
+
+So the 1130 seed is not a formality that keeps a `[Require]` happy: **it is what
+puts the ship where it is.** Seed both, and make them agree by construction —
+they read the same registration, in metres and in fixed point respectively.
+`ShipControlPoint.position` is `Coordinates` in **global metres**;
+`ControlPoint.Remap()` subtracts the client's origin offset itself.
+
+Corollary for step 4: a zero-**velocity** control point is a safe seed at any
+timestamp, because every extrapolation `PathFollower` performs from it — forwards
+or backwards — lands on the same position.
+
+### 2. NOT-VERIFIED #4 is settled: the seeded value IS delivered, and `PathFollower` IS enabled.
+The generated reader's event add-accessors invoke the handler immediately with
+the current value (`CustomShipHullState.cs:183-190`, `value(Data.hullData)`; same
+shape on `AuthorityChanged`, `value(HasAuthority)`). `SSPDeadReckoningVisualizer.OnEnable`
+subscribes with `+=`, so:
+
+- `HandleAuthorityChanged(false)` runs at enable → `PathFollower.enabled = true`.
+  **It does fire on our stack.**
+- A component seeded in the AddComponent batch reaches `OnHullDataUpdated` and
+  `AddControlPoint` exactly like a live update. **No follow-up ComponentUpdate is
+  needed** for either 1209 or 1130.
+
+### 3. "Walk-on" for a bare hull means the BEAM FRAME, not a deck.
+`MeshGenerator.MakeVirtualDeck` calls `MakeDeck` and then sets
+`deck.GetComponent<Collider>().isTrigger = true` — the deck plane is a **trigger**,
+used for part placement and aboard-detection. The `convex = true` cited above is
+inside `MakeDeck`, i.e. inside the thing that is then made a trigger. The hull
+*side* mesh goes through `MakeMesh`, which assigns `MeshFilter.mesh` and never
+touches a collider. The only explicitly solid geometry is
+`MakeBeam`: `gameObject.GetComponent<Collider>().enabled = true`.
+
+So a `ShipFrame` with no parts is a **solid skeleton**: you can stand on the
+beams, and there is no floor between them until `Deck01` part entities are bolted
+on. Expect that when checking the step-2 gate, and do not read "the ship is not
+solid" into it.
+
+### 4. `SalvageAndRepairState.originalMaterials` must be EMPTY, not invented.
+`MeshGenerator` passes it to `ComponentMaterialColors.SetMaterialColors`, which
+resolves every entry by name via `MaterialManager.MaterialDefinitionFromName` and
+then **dereferences the result** (`newMaterials[i].materialType`). An
+unresolvable material id is a `NullReferenceException` in the client. An empty
+list takes the guarded path instead — `"No wooden or metal materials found"`, one
+logged error, mesh already built, hull untinted. **Untinted is a colour; a made-up
+material id is a crash.**
+
 ## CORRECTIONS TO EXISTING DOCUMENTS
 
 1. **`../findings-ships.md`'s headline** — "ship motion is gated by AUTHORITY, not
@@ -362,8 +427,10 @@ and no ships is a museum.
    `"NtpTimeKeeper failed to sync"` (an `ErrorOnce`) has **zero** occurrences in a
    real session log, and the machine reaches `pool.ntp.org` fine. Not proof of
    success, but the catastrophic mode has no evidence behind it.*
-4. **Whether `HandleAuthorityChanged(false)` fires at all on our stack** —
-   `PathFollower.enabled = true` is set only there.
+4. ~~**Whether `HandleAuthorityChanged(false)` fires at all on our stack**~~ —
+   **SETTLED, it does.** The generated reader's `AuthorityChanged` add-accessor
+   calls `value(HasAuthority)` on subscription. See "WHAT BUILDING STEP 2
+   CORRECTED" above.
 5. **Which server worker consumed `InteractWithObject{verb=Man}` and wrote 1109.**
    Absent from every decompiled tree; we must invent it.
 6. **Who wrote 1113, 1115, 1116, 1257, 1258.** Same. Only relevant for Option B.
