@@ -30,7 +30,11 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         private static bool ShouldKeepCurrent( LocalPlayer candidate, string hook )
         {
             LocalPlayer current = LocalPlayer.Instance;
-            if (current != null && !ReferenceEquals(current, candidate))
+            // Keep-first rule lives in ClientRigPolicy so it is unit-tested.
+            // "current != null" uses Unity's overloaded ==, so a DESTROYED owner
+            // counts as gone and a respawn can re-claim.
+            if (!WorldsAdriftRebornGameServer.Multiplayer.ClientRigPolicy.ShouldClaimSingleton(
+                    current != null, ReferenceEquals(current, candidate)))
             {
                 Debug.Log("[WAReborn] suppressed LocalPlayer takeover (" + hook + ") by " + candidate.gameObject.name
                           + " at " + candidate.transform.position + " - keeping " + current.gameObject.name);
@@ -76,7 +80,8 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         public static bool Awake_Prefix( MonoBehaviour __instance )
         {
             Object current = (Object)instanceProp.GetValue(null, null);
-            if (current != null && !ReferenceEquals(current, __instance))
+            if (!WorldsAdriftRebornGameServer.Multiplayer.ClientRigPolicy.ShouldClaimSingleton(
+                    current != null, ReferenceEquals(current, __instance)))
             {
                 Debug.Log("[WAReborn] suppressed CameraSelectionVisualizer takeover by " + __instance.gameObject.name);
                 return false;

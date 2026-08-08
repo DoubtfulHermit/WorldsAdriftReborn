@@ -4,6 +4,7 @@ using Improbable.CoreLibrary.CoordinateRemapping;
 using Improbable.Corelib.Interpolation;
 using Improbable.Math;
 using UnityEngine;
+using WorldsAdriftRebornGameServer.Multiplayer;
 
 namespace WorldsAdriftReborn.Patching.Multiplayer
 {
@@ -47,8 +48,15 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             // Checked by local-only COMPONENTS, not the root name: name matching
             // failed and let this prefix drive the LOCAL player from a remote
             // interpolator, which is what sent it falling through the sky.
-            if (__instance.transform.root.name.StartsWith("Traveller@Player")
-                || RemoteRigSweeper.IsLocalRig(__instance.transform.root))
+            // NOTE: this still ORs in a ROOT-NAME check, which is the rule-11
+            // violation the rest of the mod eliminated. It is unreachable today
+            // (mirrored remotes spawn from context "Default", so their roots are
+            // named "Traveller N", never "Traveller@Player"), but it is a
+            // landmine. ClientRigPolicyTests carries a skipped test that pins the
+            // intended behaviour - dropping the name clause is the fix.
+            if (ClientRigPolicy.TreatAsLocalForPlayerVisualizer(
+                    __instance.transform.root.name,
+                    RemoteRigSweeper.ComponentTypeNames(__instance.transform.root)))
             {
                 return true;
             }

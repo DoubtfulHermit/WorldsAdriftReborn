@@ -159,7 +159,10 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                         // packet is irrelevant, while reliable-ordered delivery
                         // causes head-of-line stalls on any loss - very visible as
                         // stutter over the internet. Everything else stays reliable.
-                        bool highRate = (componentId == 190602 || componentId == 1073);
+                        // The classification itself lives in MirrorSendPolicy so it
+                        // is testable without a packet.
+                        bool highRate = Multiplayer.MirrorSendPolicy.RelayReliabilityFor(componentId)
+                                        == Multiplayer.RelayReliability.Unreliable;
                         EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len,
                             (int)(highRate ? ENetPacketFlag.UNRELIABLE : ENetPacketFlag.RELIABLE));
                         return true;

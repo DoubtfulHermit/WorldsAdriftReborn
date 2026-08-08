@@ -35,10 +35,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            long? ownEntity = WorldsAdriftRebornGameServer.Players.EntityOf(PeerIdentity.IdOf(player));
-            if (ownEntity != entityId)
+            if (!WorldsAdriftRebornGameServer.Players.Owns(PeerIdentity.IdOf(player), entityId))
             {
-                Console.WriteLine("[warning] 1088 update for entity " + entityId + " from a peer that owns " + ownEntity + ", ignoring.");
+                Console.WriteLine("[warning] 1088 update for entity " + entityId + " from a peer that owns "
+                    + WorldsAdriftRebornGameServer.Players.EntityOf(PeerIdentity.IdOf(player)) + ", ignoring.");
                 return;
             }
 

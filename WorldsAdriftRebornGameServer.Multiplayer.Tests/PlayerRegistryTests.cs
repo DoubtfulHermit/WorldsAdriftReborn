@@ -110,6 +110,67 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(20, only.EntityId);
         }
 
+        // ------------------------------------------------------------------
+        // Ownership gate (docs/multiplayer.md rule 6): first-time setup and the
+        // AUTHORITY grant may only ever run against the sender's OWN entity.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Owns_is_true_for_a_peers_own_entity()
+        {
+            PlayerRegistry registry = new();
+            registry.Register(PeerA, 42);
+
+            Assert.True(registry.Owns(PeerA, 42));
+        }
+
+        [Fact]
+        public void A_peer_never_owns_another_players_entity()
+        {
+            // The old check was "is this ANY player entity", which handed
+            // authority over someone else's avatar to whichever client asked
+            // for its components first.
+            PlayerRegistry registry = new();
+            registry.Register(PeerA, 42);
+            registry.Register(PeerB, 43);
+
+            Assert.False(registry.Owns(PeerA, 43));
+            Assert.False(registry.Owns(PeerB, 42));
+        }
+
+        [Fact]
+        public void An_unregistered_peer_owns_nothing_including_entity_zero()
+        {
+            // Entity 0 is a real id here (the counter starts at 0), so a check
+            // that treats "unknown" as 0 would grant the world's first entity to
+            // any peer that asks before registering.
+            PlayerRegistry registry = new();
+
+            Assert.False(registry.Owns(PeerA, 0));
+            Assert.False(registry.Owns(PeerA, 42));
+        }
+
+        [Fact]
+        public void A_departed_peer_owns_nothing()
+        {
+            PlayerRegistry registry = new();
+            registry.Register(PeerA, 42);
+            registry.Unregister(PeerA);
+
+            Assert.False(registry.Owns(PeerA, 42));
+        }
+
+        [Fact]
+        public void Owns_follows_a_re_registration_rather_than_the_old_entity()
+        {
+            PlayerRegistry registry = new();
+            registry.Register(PeerA, 42);
+            registry.Register(PeerA, 99);
+
+            Assert.False(registry.Owns(PeerA, 42));
+            Assert.True(registry.Owns(PeerA, 99));
+        }
+
         [Fact]
         public void Entity_id_can_be_reused_after_the_owning_peer_disconnects()
         {

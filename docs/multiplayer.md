@@ -56,10 +56,16 @@ relays every client `ComponentUpdateOp` verbatim to all other peers.
    authority over someone else's avatar to whichever client asks first.
 
 7. **Remote seed = {190602 TransformState, 1086 PlayerName, 1081
-   InventoryState, 1088 PlayerPropertiesState} and nothing more.** 1081+1088
-   are the `[Require]`s of `CharacterCustomisationVisualizer`, which builds
-   the visible body. Larger seeds enable visualizers against default data and
-   their OnEnable subscriptions throw, killing the enable chain.
+   InventoryState, 1088 PlayerPropertiesState, 1073
+   ClientAuthoritativePlayerState, 6910 UtilitySlotActivatedState, 1098
+   RopeControlPoints} and nothing more.** 1081+1088 are the `[Require]`s of
+   `CharacterCustomisationVisualizer`, which builds the visible body; 1073
+   drives BoneAnimationReader (without it remotes stay in T-pose); 6910 opens
+   the glider wings and 1098 carries the grapple rope. Larger seeds enable
+   visualizers against default data and their OnEnable subscriptions throw,
+   killing the enable chain. Never 1072 CharacterControlsData or 1109
+   PilotState: those mean "this is the character you control". The set lives in
+   `MirrorSendPolicy.RemoteSeedComponents` and is asserted on in the tests.
 
 8. **Never read `ComponentDatabase.MetaclassMap` before the game populates
    it.** Its private ctor runs once and scans currently-loaded assemblies; an
@@ -187,4 +193,7 @@ than reflows because the findings cite rules 7 and 10 by number.
   `deploy-coresdk.sh` (the same DLL is loaded by client AND server; originals
   backed up as `*.orig-2023`).
 - Unit tests: `dotnet test WorldsAdriftRebornGameServer.Multiplayer.Tests`
-  (26 tests, pure policy, no Wine needed; mutation-checked non-vacuous).
+  (pure policy, no Wine needed; mutation-checked non-vacuous).
+  **`docs/testing.md` says which of the rules above are covered, which are
+  not, and what still needs two clients and a human.** Read it before trusting
+  a green run.

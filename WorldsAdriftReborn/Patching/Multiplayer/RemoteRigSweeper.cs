@@ -94,21 +94,25 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         /// </summary>
         internal static bool IsLocalRig(Transform root)
         {
+            return WorldsAdriftRebornGameServer.Multiplayer.ClientRigPolicy.IsLocalRig(ComponentTypeNames(root));
+        }
+
+        /// <summary>
+        /// The type names of every MonoBehaviour under a rig. This is the only
+        /// Unity-dependent half of the local/remote decision; the decision itself
+        /// is pure policy (ClientRigPolicy) and is unit-tested.
+        /// </summary>
+        internal static System.Collections.Generic.IEnumerable<string> ComponentTypeNames(Transform root)
+        {
             if (root == null)
             {
-                return false;
+                yield break;
             }
             foreach (MonoBehaviour mb in root.GetComponentsInChildren<MonoBehaviour>(true))
             {
                 if (mb == null) continue;
-                string n = mb.GetType().Name;
-                if (n == "LocalPlayerInit" || n == "ClientAuthoritativePlayerMovement"
-                    || n == "InputBehaviour" || n == "PlayerInputSetup" || n == "CameraProxy")
-                {
-                    return true;
-                }
+                yield return mb.GetType().Name;
             }
-            return false;
         }
 
         private void NeutralizeNewRemoteRigs()
