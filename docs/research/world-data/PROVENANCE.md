@@ -101,3 +101,27 @@ server-side only** — which no longer matters, because we have the server's fil
 ## Licence / attribution
 Community-preserved data from public repositories, recorded here so the provenance
 travels with it. Not our work; credit belongs to the Cardinal Guild map project.
+
+## island-surfaces/ — regenerated 2026-08-08 (TRS fix)
+
+All 255 files were re-extracted after a bug fix in `tools/sweep_one.py`. The old
+walk summed `m_LocalPosition` up the transform hierarchy and dropped the LOD0
+grid cell's `m_LocalScale = (4,4,4)`, so every terrain vertex sat at a quarter of
+its true offset inside its own 64 m cell. Typical error: **mean |ΔY| ~25 m**, and
+the "surface" was disconnected 17 m patches with 47 m holes between them.
+
+Any `island-surfaces/*.json` whose `meta` lacks `"transform": "TRS-composed"` is
+from the broken extractor. **Do not use it.**
+
+- Fix: `tools/unity_transform.py` (conventions + self-check) and
+  `tools/island_surface.py` (hierarchy walk).
+- Validated: `tools/validate_949069116.py` — the one empirically known altitude
+  in this research (player at rest, `y = −31.2`) goes from **−23.87 m** error to
+  **+0.13 m**.
+- Regenerate: `systemd-run --user --scope -p MemoryMax=4G uv run --with UnityPy
+  python tools/sweep_all.py ~/Games/WorldsAdrift/Assets/unity island-surfaces`
+  — **41 s for all 255, sequentially. Never fan this out in parallel.**
+
+`nodes-949069116.json` is derived from the surface table and was regenerated too;
+its `fixedPoint190602` also had a rounding-vs-truncation bug (`ToFixedPoint` is
+`(long)(d*4096)`, truncating toward zero).

@@ -14,33 +14,53 @@ entities from the GSim**, which is gone.
 
 **You are spawning a small pretty island with a ruined metal camp on it, not a tutorial.**
 
-## ⚠ THE COORDINATES BELOW ARE SUSPECT — READ findings-spawn.md FIRST
-They were derived from `island-surfaces/1431299145.json`, and that table has since been shown
-**wrong by ~25 m** on the one island we can check empirically: the extractor's `offs()` only
-accumulates `m_LocalPosition` and ignores rotation and scale. **The X and Z are sound; the
-ALTITUDE is not.** Re-derive after fixing the extractor, or validate empirically with
-telemetry before trusting the Y value.
+## ✅ THE COORDINATES BELOW ARE RE-DERIVED FROM THE FIXED EXTRACTOR (2026-08-08)
+The earlier values came from a broken `island-surfaces/1431299145.json`: the extractor summed
+`m_LocalPosition` and dropped the LOD0 cell's `m_LocalScale = (4,4,4)`. On Haven that displaced
+every terrain vertex by **mean |ΔY| 24.84 m, median 24.00 m, max 51 m**. The extractor now
+composes full TRS, and the fix is validated against the one empirically known altitude in this
+research to **+0.13 m** — see `findings-spawn.md`. All 255 tables have been re-extracted.
 
-## PASTE-READY VALUES (X/Z sound, Y suspect)
+**The previously published Y values were wrong, though less spectacularly than feared at that
+particular spot.** Re-measured against the corrected surface:
+- old PLAYER `(200.00, 3.96, 5.00)` — true ground at that XZ is **y = 4.11**, so the published
+  point sat **0.15 m *below* the ground**: zero stand-off, capsule interpenetrating.
+- old FALLBACK `(192.00, 2.30, 16.00)` — true ground at that XZ is **y = 8.36**, so it was
+  **6.06 m underground**.
+
+Also corrected: this document previously said "the island underside is at y ≈ −47". Under the
+camp the underside is at **y ≈ −34**; the island's global minimum is **y = −86.0**.
+
+## PASTE-READY VALUES — MEASURED
 `ToFixedPoint` is `(long)(d * 4096)` — **truncation toward zero, not rounding**.
 ```
 ISLAND  1431299145@Island   instance #5   (17004.4300, -318.6693420, -1134.16748)
-        190602  { 69650145, -1305269, -4645549 }
+        190602  { 69650145, -1305269, -4645549 }        <- unchanged, and it round-trips
 
-PLAYER  island-local (200.00, 3.96, 5.00) = world (17204.4300, -314.7093420, -1129.16748)
-        190602  { 70469345, -1289049, -4625069 }
+PLAYER  island-local (208.00, 6.70, 4.00) = world (17212.4300, -311.9693420, -1130.16748)
+        190602  { 70502113, -1277826, -4629165 }
 
-FALLBACK  island-local (192.00, 2.30, 16.00)  ny=0.999 dead flat, 9.37 m clearance
-        190602  { 70436577, -1295848, -4580013 }
+FALLBACK  island-local (212.00, 4.72, -4.00) = world (17216.4300, -313.9493420, -1138.16748)
+        190602  { 70518497, -1285936, -4661933 }
 ```
-The chosen point is a **measured** LOD0 vertex from our committed `island-surfaces/`
-(421 candidates), normal `ny = 0.914`, **nearest prop 9.53 m** — the clearest flat candidate
-near the camp. The only things within 6 m horizontally are metal platforms **+22 m overhead**.
-Verified to be the *top* surface (neighbours within 14 m read y 0.30–1.96; the island
-underside is at y ≈ −47). The 2 m stand-off gives a short drop instead of possible capsule
-interpenetration.
+Reproduce with `world-data/tools/haven_spawn.py`. Max encoding loss 0.244 mm.
+
+The chosen point is a **measured** LOD0 vertex at island-local `(208.00, 4.70, 4.00)` plus a
+**2.00 m stand-off**, from the corrected table (2,139 candidates, up from 421 — the old table was
+mostly holes). Normal `ny = 0.994` — dead flat. **Nearest prop 13.52 m in 3D**; the best in the
+camp. It sits **5.5 m horizontally from the camp centroid**, inside the ruin.
+The nearest thing within 6 m horizontally is `Ruins (Miscellaneous)/Metal/Platform 04` at
+**+19.5 m overhead** — the old note about overhead platforms still holds.
+**Confirmed to be the top surface**, three ways: nothing in the LOD0 surface is above it within
+its own 1.5 m column; upward-facing neighbours within 14 m span a gentle `y 2.55 .. 6.21`; and
+the lowest surface vertex in the same column is **y = −32.34**, i.e. a 37 m slab beneath.
+The 2 m stand-off gives a short drop instead of capsule interpenetration.
 Instance #5 chosen as nearest world-centre in z (|z| = 1134 vs runner-up 1826). **Any of the
 twelve is functionally identical — spawn only one.**
+
+⚠ **Still inferred, not measured in-game.** These are collider-mesh vertices, not a live
+`Physics.Raycast` hit, and no Haven altitude has ever been confirmed by a real session. The 2 m
+stand-off is what covers that. See `findings-spawn.md` → "WHAT IS STILL INFERRED".
 
 ## ⭐ THE "FREE WIN" HYPOTHESIS IS DEAD
 I had hoped the client derives Haven-ness from position (`x > xOfVerticalSeparator`), so that
@@ -115,8 +135,9 @@ the 1,285 placements is generic scenery from the shared library every island dra
 pipes and girders at island-local `x 164..223, y −0.5..25.6, z −31..27`, centroid
 `(205.3, 15.2, −0.8)`, independently corroborated by the `groups` TextAsset. The only
 constructed area on the island, and with high confidence where the ancient respawner stood.
-**Our recommended spawn puts the player ~8 m from that centroid** — opening their eyes inside
-Haven's ruined structure, the closest thing to the authored experience that survives.
+**Our recommended spawn puts the player 5.5 m horizontally from that centroid** — opening their
+eyes inside Haven's ruined structure, under a metal platform 19.5 m overhead, the closest thing
+to the authored experience that survives.
 
 The furniture that made Haven work (`HavenAncientRespawner`, `HavenRuinedShipRespawner`,
 `TeleportHelper`, `Barrier_Wall`, `RevivalChamber`) exists as prefabs in `resources.assets` but

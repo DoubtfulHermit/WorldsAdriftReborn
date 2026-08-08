@@ -37,21 +37,63 @@ same range — and also jumped to (0,0,0).
 Related: **`WorldEdgePushback` never runs** (`Ready => WorldBoundsDataVisualizer.CheckedOut`,
 and we never send world bounds). **There is no world-edge safety net in either direction.**
 
-## ⭐⭐ THE EXTRACTED SURFACE TABLES ARE WRONG — DO NOT USE THEM FOR ALTITUDE YET
-`docs/research/world-data/island-surfaces/949069116.json` says the highest candidate at the
-island's centre column is **y = −55.8**. The player empirically rests at **y = −31.2** —
-a **24.6 m error** — and the same file has candidates at **y = +262** only ~11 m away in XZ.
+## ⭐⭐ THE SURFACE TABLES WERE WRONG — FIXED AND VALIDATED AGAINST THE SESSION LOG (2026-08-08)
+**Status: MEASURED. All 255 tables re-extracted. The altitude column is now trustworthy.**
 
-**Root cause, in our own extractor:** `world-data/tools/sweep_one.py`'s `offs()` accumulates
-**only `m_LocalPosition`** up the transform hierarchy and **ignores `m_LocalRotation` and
-`m_LocalScale`**, so any rotated or scaled LOD0 cell lands at the wrong local coordinate.
+The old table said the highest candidate at 949069116's centre column was **y = −55.8**, while
+the player empirically rests at **y = −31.2**, and it had candidates at **y = +262** only ~11 m
+away in XZ.
 
-**Consequences:**
-- **The Haven spawn coordinates in `findings-haven.md` are derived from this table and are
-  therefore SUSPECT.** They must be re-derived after the fix, or validated empirically.
-- Fixing `offs()` to compose full TRS matrices is a **prerequisite** to trusting the table for
-  any island.
-- For a first move, prefer an **empirically measured** altitude plus 2–5 m clearance.
+**Root cause — and the earlier diagnosis was only half right.** `sweep_one.py`'s `offs()` summed
+**only `m_LocalPosition`**. The missing term turned out to be **scale, not rotation**: every LOD0
+grid-cell GameObject carries **`m_LocalScale = (4, 4, 4)`**, one level *above* the MeshFilter, so
+every terrain vertex was placed at a quarter of its true offset inside its own 64 m cell.
+Audited across **all 255 bundles / 36,091 LOD0 cells**: chain depth is always 4, **rotation is
+identity everywhere, without exception**, and the *only* non-identity component anywhere is that
+uniform `(4,4,4)`. The extractor now composes full TRS anyway — rotation is implemented,
+self-tested and unexercised, which is the honest description of it.
+
+**Why the old `verify_extract.py` check 1 said "0/497 rotated, 0/497 non-unit-scale" and was
+still lying:** it only inspected the MeshFilter's own GameObject. The scale is on its parent.
+Check 1 now walks the whole chain to the root.
+
+### The validation — it ran, and it passed
+`world-data/tools/validate_949069116.py` re-extracts the island **both ways** in one process and
+compares against the only empirically known altitude in this research (the session log above,
+line 5374, "landed, at rest", y = −31.2):
+
+| centre column | OLD sum-of-localPosition | NEW full TRS |
+|---|---|---|
+| radius 4 m | −55.07 → **error −23.87 m** | −31.07 → **error +0.13 m** |
+| radius 8 m | −54.82 → error −23.62 m | −30.42 → error +0.78 m |
+| radius 16 m | +262.26 → error +293.5 m | −27.91 → error +3.29 m |
+
+The **+262 anomaly is fully explained**: it is a real vertex of a cell 5 rows up, dropped into
+the centre column by the missing ×4. Two independent cross-checks agree:
+- **Grid closure.** Cell pitch is 64.00 m; cell meshes are authored spanning ~17 m. Old walk:
+  **45 of 144** 4 m X-slices occupied, in **10 disconnected runs** — the "surface" was islands of
+  16 m terrain with 47 m holes between them. New walk: **141/141 slices, one contiguous run.**
+  Only a ×4 makes 17 m tile a 64 m grid, and only if scale is applied *before* the cell
+  translation — which is exactly `Matrix4x4.TRS` = `T * R * S`.
+- **Quaternion convention.** `unity_transform.quat_to_mat3` is checked at import against a
+  verbatim transcription of `UnityEngine.Quaternion.operator*(Quaternion, Vector3)` over 200
+  random quaternions. Two independent derivations agreeing to 1e-9 rules out the transpose.
+  No handedness conversion exists or should: we read Unity's own quaternion and emit Unity-space
+  coordinates, so a mirror step would itself be the bug.
+
+**Magnitude of what was wrong:** on Haven the per-vertex |ΔY| between old and new is
+**mean 24.84 m, median 24.00 m, p90 45 m, max 51 m** (mean 3D displacement 47.7 m). The "~25 m"
+figure was not specific to 949069116; it is the typical error of the old walk everywhere.
+
+**Consequences, now discharged:** `findings-haven.md` has been re-derived from the corrected
+table. The one caveat that survives is below.
+
+### ⚠ WHAT IS STILL INFERRED
+Ground truth exists for **exactly one island and one column** — 949069116 at (0, ·, 0). The fix
+is validated *there* to +0.13 m and validated *structurally* (grid closure) on all 255. What has
+**never** been checked in-game is any altitude on any other island, Haven included. The residual
+risk is no longer a systematic 25 m; it is now the ordinary risk of picking a vertex rather than
+a collider hit, which the 2 m stand-off covers.
 
 ## THE THREE-BRANCH DECISION — and 1073 no longer vetoes us
 `ClientAuthoritativePlayerMovement.SetPlayersInitialPosition:355-374`:
@@ -141,5 +183,6 @@ Which `IDetermineOriginStrategy` is in the scene (one-line diagnostic settles it
 before moving the island**). Whether the client requests 1092/1093/190607 in its interest set
 (decides whether respawn needs serializer branches only, or branches **plus** injection).
 The shipped `nextCheckTime` (`[SerializeField]`, code default 10 s) — it sets the length of the
-raw-coordinate window. **True surface altitude for any island but 949069116**, per the
-extractor bug above.
+raw-coordinate window. **Empirical in-game surface altitude for any island but 949069116** — the
+extractor bug is fixed and the tables are now geometrically self-consistent, but only that one
+column has ever been confirmed by a real session.
