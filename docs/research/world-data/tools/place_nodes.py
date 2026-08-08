@@ -1,0 +1,98 @@
+"""Server-side node placement, offline: island-local surface -> global coords -> Q52.12."""
+import json, math, random, sys, os
+SP=os.path.dirname(os.path.abspath(__file__))
+ISL="949069116"
+random.seed(20260808)
+
+surf=json.load(open(f"{SP}/surface/{ISL}.json"))
+props=json.load(open(f"{SP}/props-{ISL}.json"))
+wm=json.load(open(os.path.expanduser("~/Games/WAReborn-src/docs/research/world-data/wamap-islands.json")))
+place=[i for i in wm["Islands"] if i["Island"]==ISL+".json"][0]
+OX,OY,OZ=place["x"],place["y"],place["z"]
+print(f"island {ISL} world origin = ({OX}, {OY}, {OZ})")
+
+pts=surf["points"]              # (x,y,z,nx,ny,nz) island-local, n.y>0.4, 8m-thinned
+print(f"surface candidates: {len(pts)}")
+
+# reject anything within CLEAR m of a static prop  (offline stand-in for
+# Physics.CheckSphere(worldPoint, 2f, layerMaskForCheck) in IslandSurfaceData.FindPlace)
+CLEAR=2.0
+prop=[(o["pos"]["x"],o["pos"]["y"],o["pos"]["z"]) for o in props["big"]+props["small"] if "pos" in o]
+print(f"static props to clear: {len(prop)}")
+GRID=8.0
+buckets={}
+for p in prop:
+    buckets.setdefault((int(p[0]//GRID),int(p[1]//GRID),int(p[2]//GRID)),[]).append(p)
+def clear_of_props(x,y,z):
+    bx,by,bz=int(x//GRID),int(y//GRID),int(z//GRID)
+    for dx in(-1,0,1):
+        for dy in(-1,0,1):
+            for dz in(-1,0,1):
+                for q in buckets.get((bx+dx,by+dy,bz+dz),()):
+                    if (q[0]-x)**2+(q[1]-y)**2+(q[2]-z)**2 < CLEAR*CLEAR: return False
+    return True
+
+ok=[p for p in pts if clear_of_props(p[0],p[1],p[2])]
+print(f"after 2 m prop clearance: {len(ok)}  (rejected {len(pts)-len(ok)})")
+
+# Poisson-disk: no two deposits within SEP metres
+SEP=45.0
+random.shuffle(ok)
+chosen=[]
+sb={}
+def far(x,y,z):
+    bx,by,bz=int(x//SEP),int(y//SEP),int(z//SEP)
+    for dx in(-1,0,1):
+        for dy in(-1,0,1):
+            for dz in(-1,0,1):
+                for q in sb.get((bx+dx,by+dy,bz+dz),()):
+                    if (q[0]-x)**2+(q[1]-y)**2+(q[2]-z)**2 < SEP*SEP: return False
+    return True
+for p in ok:
+    if far(p[0],p[1],p[2]):
+        chosen.append(p)
+        sb.setdefault((int(p[0]//SEP),int(p[1]//SEP),int(p[2]//SEP)),[]).append(p)
+print(f"Poisson-disk @{SEP} m -> {len(chosen)} well-separated sites")
+
+# density model: the client reports islandMeshCount to the server (IslandProxyVisualizer.cs:86)
+# -> the server scaled count by island size. cells=497 for this island.
+CELLS=surf["meta"]["cells"]
+DENSITY=0.05          # deposits per 64 m LOD0 cell
+MINDEP=8
+N=max(MINDEP,int(round(DENSITY*CELLS)))
+print(f"islandMeshCount={CELLS}, density={DENSITY} -> N={N} metal deposits")
+nodes=chosen[:N]
+
+metals=[m for f in json.load(open(os.path.expanduser("~/Games/WAReborn-src/docs/research/world-data/cardinal-guild-islands.json")))["features"]
+        if f["properties"]["workshopId"]==ISL for m in f["properties"]["pvpMetals"]]
+print(f"per-island metal table: {len(metals)} types")
+
+out=[]
+for i,p in enumerate(nodes):
+    m=metals[i%len(metals)]
+    gx,gy,gz=p[0]+OX,p[1]+OY,p[2]+OZ
+    # surface normal -> rotation, same as IslandProxyVisualizer.cs:216
+    nx,ny,nz=p[3],p[4],p[5]
+    ax=(-nz,0.0,nx); al=math.hypot(ax[0],ax[2])
+    ang=math.acos(max(-1,min(1,ny)))
+    if al<1e-6: q=(0.0,0.0,0.0,1.0)
+    else:
+        s=math.sin(ang/2)
+        q=(ax[0]/al*s,0.0,ax[2]/al*s,math.cos(ang/2))
+    out.append({
+      "idx":i,
+      "metalTypeId":m["name"].lower(), "quality":m["quality"],
+      "islandLocal":[p[0],p[1],p[2]],
+      "normal":[nx,ny,nz],
+      "globalCoords":[round(gx,3),round(gy,3),round(gz,3)],          # FabricTransform.position / Coordinates
+      "fixedPoint190602":[int(round(gx*4096)),int(round(gy*4096)),int(round(gz*4096))],
+      "rotation":[round(c,5) for c in q],
+    })
+json.dump({"island":ISL,"worldOrigin":[OX,OY,OZ],"count":len(out),"nodes":out},
+          open(f"{SP}/nodes-{ISL}.json","w"),indent=1)
+print()
+print("=== first 3 authored nodes ===")
+for n in out[:3]: print(" ",json.dumps(n))
+ys=[n["globalCoords"][1] for n in out]
+print(f"\nnode altitude span (global Y): {min(ys):.1f} .. {max(ys):.1f}  (island origin Y={OY})")
+print(f"wrote {SP}/nodes-{ISL}.json")
