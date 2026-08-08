@@ -1,0 +1,510 @@
+{
+ "HavenAncientRespawner_unityclient": [
+  {
+   "pathid": 14439,
+   "components": [
+    {
+     "type": "Transform",
+     "localPosition": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "children": [
+      166276,
+      161652,
+      161052
+     ]
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 201
+     },
+     "script": "FixedUpdateTransformNature",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 136,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4456
+     },
+     "script": "HavenIslandManager",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 56,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4917
+     },
+     "script": "Bossa.Travellers.Visualisers.AncientRespawners.AncientRespawnerVisualiser",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 52,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 993
+     },
+     "script": "HavenTeleporterVisualizer",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2551
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Offsets.TransformOffsetsRegistry",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4433
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformParentHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2464
+     },
+     "script": "RelativeParentTransformChildHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 510
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Global.StaticGlobalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4018
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Local.StaticLocalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 3296
+     },
+     "script": "ScannableGUID",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 68,
+     "fields": "<no serialized fields>"
+    }
+   ]
+  }
+ ],
+ "HavenAncientRespawner_unityworker": [
+  {
+   "pathid": 14440,
+   "components": [
+    {
+     "type": "Transform",
+     "localPosition": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "children": [
+      161653
+     ]
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 201
+     },
+     "script": "FixedUpdateTransformNature",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 136,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2061
+     },
+     "script": "FindPlayersInAreaBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4917
+     },
+     "script": "Bossa.Travellers.Visualisers.AncientRespawners.AncientRespawnerVisualiser",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 52,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2551
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Offsets.TransformOffsetsRegistry",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4433
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformParentHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2464
+     },
+     "script": "RelativeParentTransformChildHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 510
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Global.StaticGlobalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4018
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Local.StaticLocalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4230
+     },
+     "script": "ParentEntityBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    }
+   ]
+  }
+ ],
+ "TeleportHelper_unityclient": [
+  {
+   "pathid": 27147,
+   "components": [
+    {
+     "type": "Transform",
+     "localPosition": {
+      "x": 0.0,
+      "y": 0.0,
+      "z": 0.0
+     },
+     "children": []
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 1185
+     },
+     "script": "Improbable.CoreLibrary.Transforms.TransformNature",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 136,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2551
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Offsets.TransformOffsetsRegistry",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4433
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformParentHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 322
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformChildHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 510
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Global.StaticGlobalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4018
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Local.StaticLocalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    }
+   ]
+  }
+ ],
+ "HavenRuinedShipRespawner_unityclient": [
+  {
+   "pathid": 71100,
+   "components": [
+    {
+     "type": "Transform",
+     "localPosition": {
+      "x": -0.750732421875,
+      "y": 22.302248001098633,
+      "z": 23.326370239257812
+     },
+     "children": [
+      148361,
+      152719,
+      138445,
+      141142
+     ]
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 1185
+     },
+     "script": "Improbable.CoreLibrary.Transforms.TransformNature",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 136,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 2551
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Offsets.TransformOffsetsRegistry",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4433
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformParentHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 322
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformChildHierarchyBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 510
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Global.StaticGlobalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 0,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 4018
+     },
+     "script": "Improbable.CoreLibrary.Transforms.Local.StaticLocalTransformBehaviour",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 3296
+     },
+     "script": "ScannableGUID",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 68,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 1091
+     },
+     "script": "BlockItemPlacement",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 32,
+     "fields": {}
+    }
+   ]
+  }
+ ],
+ "Barrier_Wall": [
+  {
+   "pathid": 77702,
+   "components": [
+    {
+     "type": "Transform",
+     "localPosition": {
+      "x": 0.3199999928474426,
+      "y": 13.09000015258789,
+      "z": -18.950000762939453
+     },
+     "children": []
+    },
+    {
+     "type": "MeshFilter"
+    },
+    {
+     "type": "MeshRenderer"
+    },
+    {
+     "type": "MonoBehaviour",
+     "enabled": 1,
+     "scriptRef": {
+      "fileID": 1,
+      "pathID": 192
+     },
+     "script": "BarrierWall",
+     "asm": "Assembly-CSharp.dll",
+     "rawLen": 152,
+     "fields": "<no serialized fields>"
+    },
+    {
+     "type": "BoxCollider"
+    }
+   ]
+  }
+ ]
+}
