@@ -64,6 +64,13 @@ namespace WorldsAdriftReborn
             // way to test whether ENet survives deinit/init inside one process,
             // which the whole reconnect design depends on. Diagnostic only.
             gameObject.AddComponent<Patching.Multiplayer.ReconnectProbe>();
+
+            // Reports which IDetermineOriginStrategy is live and what OffsetOrigin
+            // is. The choice is scene-serialized so the decompile cannot answer it,
+            // and every candidate behaves identically while the island sits at the
+            // world origin - so this must be read BEFORE the island moves to 17 km.
+            // Read-only; F10 forces a report, but it also reports by itself.
+            gameObject.AddComponent<Patching.Multiplayer.OriginStrategyProbe>();
         }
 
         private static void InitPatches()
