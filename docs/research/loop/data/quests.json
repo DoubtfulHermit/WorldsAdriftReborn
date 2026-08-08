@@ -1,0 +1,3101 @@
+{
+ "collection": [
+  {
+   "pathid": 250711,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250718,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250733,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250746,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250770,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250777,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250748,
+   "class": "QuestData"
+  },
+  {
+   "pathid": 250762,
+   "class": "QuestData"
+  }
+ ],
+ "quests": [
+  {
+   "asset": "100-ExitAncientSpawner",
+   "pathid": 250711,
+   "questId": 100,
+   "requiredCompletedQuests": [],
+   "repeatable": false,
+   "title": "Escape the crash site",
+   "description": "",
+   "completionDescription": "",
+   "completionIcon": [
+    0,
+    0
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      13215
+     ],
+     "description": "Use your grapple to escape from your ship.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Fire your Grappling Hook",
+        "optional": false,
+        "condition": {
+         "pathid": 250841,
+         "class": "UseGrappleConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "UseGrapple {\"_unparsed_bytes\":\"\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250714,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13144
+     ],
+     "description": "Look for an exit.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Use your Grappling Hook to exit the chamber above",
+        "optional": false,
+        "condition": {
+         "pathid": 250838,
+         "class": "TriggerEnterConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "TriggerEnter {\"triggerId\":1000}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250714,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250715,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250716,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250712,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250717,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13413
+     ],
+     "description": "Use your <color=#f4a641ff>Grappling Hook</color> to descend safely to the ground",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Descend to the ground below",
+        "optional": false,
+        "condition": {
+         "pathid": 250839,
+         "class": "TriggerEnterConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "TriggerEnter {\"triggerId\":1001}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250714,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250716,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    }
+   ],
+   "questsToStartOnCompletion": [
+    {
+     "pathid": 250718,
+     "class": "QuestData"
+    }
+   ],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": [
+    101
+   ]
+  },
+  {
+   "asset": "101-Scanner",
+   "pathid": 250718,
+   "questId": 101,
+   "requiredCompletedQuests": [],
+   "repeatable": true,
+   "title": "Craft and Equip a Scanner Tool",
+   "description": "",
+   "completionDescription": "Scanner Tool Crafted!",
+   "completionIcon": [
+    0,
+    13856
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      13020
+     ],
+     "description": "You need to build a <color=#f4a641ff>Scanner Tool</color> to start gaining <color=#f4a641ff>Knowledge</color> from the world around you.\n\nFirst test that your <color=#f4a641ff>Salvage Tool</color> still functions.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Test your Salvage Tool",
+        "optional": false,
+        "condition": {
+         "pathid": 250842,
+         "class": "UseSalvageToolConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "UseSalvageTool {\"_unparsed_bytes\":\"\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250726,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250725,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 2,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Have Metal for Scanner",
+          "optional": false,
+          "condition": {
+           "pathid": 250792,
+           "class": "HaveItemByCategoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"Metal\",\"requiredQuantities\":[100,100]}],\"checkIfContainsItems\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 6,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Have Scanner in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250814,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"scannerTool\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToQuest",
+       "jumpToQuest": {
+        "pathid": 250733,
+        "class": "QuestData"
+       },
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250837,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": 104
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13358
+     ],
+     "description": "<color=#f4a641ff>Salvage</color> metal from <color=#f4a641ff>Raw Metal Deposits</color>. Break away the outer layer to find the <color=#f4a641ff>Ore</color> inside.\n\nTIP: Don't forget to use your <color=#f4a641ff>Grappling Hook</color> to reach deposits on the underside of the island.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Collect 200 metal",
+        "optional": false,
+        "condition": {
+         "pathid": 250792,
+         "class": "HaveItemByCategoryConditionData"
+        },
+        "highlight": [
+         "MetalDeposit"
+        ],
+        "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"Metal\",\"requiredQuantities\":[100,100]}],\"checkIfContainsItems\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250726,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250725,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250720,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250721,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250722,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250719,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250723,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 6,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Have Scanner in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250814,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"scannerTool\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToQuest",
+       "jumpToQuest": {
+        "pathid": 250733,
+        "class": "QuestData"
+       },
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250837,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": 104
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      14128
+     ],
+     "description": "Great work, now that you have enough raw metal you can <color=#f4a641ff>Craft</color> a <color=#f4a641ff>Scanner Tool</color> from your inventory.\n\nOpen your inventory to get started.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open Inventory",
+        "optional": false,
+        "condition": {
+         "pathid": 250803,
+         "class": "InventoryOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250724,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 6,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250814,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"scannerTool\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToQuest",
+       "jumpToQuest": {
+        "pathid": 250733,
+        "class": "QuestData"
+       },
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250837,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": 104
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13640
+     ],
+     "description": "Next select your <color=#f4a641ff>Scanner Tool</color> schematic.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Select Scanner Tool schematic",
+        "optional": false,
+        "condition": {
+         "pathid": 250829,
+         "class": "SchematicSelectedConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "SchematicSelected {\"schematicId\":\"scannerTool\",\"checkIfSchematicIsSelected\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250732,
+       "class": "QuestInstructionOverlayData"
+      },
+      {
+       "pathid": 250724,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      14115
+     ],
+     "description": "Drag the metal in your inventory into the schematic's <color=#f4a641ff>Component Slots</color>.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Fill Component Slots",
+        "optional": false,
+        "condition": {
+         "pathid": 250831,
+         "class": "SchematicSlotMaterialsFullConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "SchematicSlotMaterialsFull {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250729,
+       "class": "QuestInstructionOverlayData"
+      },
+      {
+       "pathid": 250724,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 6,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250814,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"scannerTool\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToQuest",
+       "jumpToQuest": {
+        "pathid": 250733,
+        "class": "QuestData"
+       },
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250837,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": 104
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13472
+     ],
+     "description": "With the <color=#f4a641ff>Component Slots</color> full, all that is left to do is <color=#f4a641ff>Craft</color>.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Craft Scanner Tool",
+        "optional": false,
+        "condition": {
+         "pathid": 250814,
+         "class": "ItemPresenceInInventoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"scannerTool\",\"checkIfItemIsPresent\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250728,
+       "class": "QuestInstructionOverlayData"
+      },
+      {
+       "pathid": 250724,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToQuest",
+       "jumpToQuest": {
+        "pathid": 250733,
+        "class": "QuestData"
+       },
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250837,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": 104
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13765
+     ],
+     "description": "To equip your <color=#f4a641ff>Scanner Tool</color> you'll first need to open the character tab in your inventory.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open Character Menu",
+        "optional": false,
+        "condition": {
+         "pathid": 250832,
+         "class": "CharacterTabOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "CharacterTabOpen {\"_unparsed_bytes\":\"0500000001000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250731,
+       "class": "QuestInstructionOverlayData"
+      },
+      {
+       "pathid": 250724,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToQuest",
+       "jumpToQuest": {
+        "pathid": 250733,
+        "class": "QuestData"
+       },
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Scanner Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250837,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": 104
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      14065
+     ],
+     "description": "Finally, you'll need to <color=#f4a641ff>Equip</color> your <color=#f4a641ff>Scanner Tool</color> by dragging it into its slot on the character tab.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Equip Scanner Tool",
+        "optional": false,
+        "condition": {
+         "pathid": 250837,
+         "class": "ToolUnlockedConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Scan\",\"checkIfToolIsUnlocked\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250730,
+       "class": "QuestInstructionOverlayData"
+      },
+      {
+       "pathid": 250724,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    }
+   ],
+   "questsToStartOnCompletion": [
+    {
+     "pathid": 250733,
+     "class": "QuestData"
+    }
+   ],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": [
+    104
+   ]
+  },
+  {
+   "asset": "102-UnlockRevivalChamber",
+   "pathid": 250733,
+   "questId": 104,
+   "requiredCompletedQuests": [],
+   "repeatable": false,
+   "title": "Unlock the Reviver network",
+   "description": "",
+   "completionDescription": "You are now connected to Foundation's Revivers!",
+   "completionIcon": [
+    0,
+    13253
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      13284
+     ],
+     "description": "Now that you have a <color=#f4a641ff>Scanner Tool</color> you'll need to use it to scan <color=#f4a641ff>Databanks</color> to gather <color=#f4a641ff>50 Knowledge</color>. Scan the terrain to know how many databanks can be found in this island.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Scan Databanks to gain 50 Knowledge",
+        "optional": false,
+        "condition": {
+         "pathid": 250799,
+         "class": "HaveKnowledgeConditionData"
+        },
+        "highlight": [
+         "Databank"
+        ],
+        "conditionResolved": "HaveKnowledge {\"knowledgeQuantity\":50,\"checkIfHasKnowledge\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250737,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250738,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250739,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250735,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250734,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250742,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250741,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Already Learned Revival Chamber Interface",
+          "optional": false,
+          "condition": {
+           "pathid": 250790,
+           "class": "HasLearnedKnowledgeNodeConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "HasLearnedKnowledgeNode {\"knowledgeNodeToLearn\":\"RevivalChamberInterface\",\"checkIfNodeIsLearned\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      14128
+     ],
+     "description": "Open your inventory",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open your inventory",
+        "optional": false,
+        "condition": {
+         "pathid": 250803,
+         "class": "InventoryOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250740,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Already Learned Revival Chamber Interface",
+          "optional": false,
+          "condition": {
+           "pathid": 250790,
+           "class": "HasLearnedKnowledgeNodeConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "HasLearnedKnowledgeNode {\"knowledgeNodeToLearn\":\"RevivalChamberInterface\",\"checkIfNodeIsLearned\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13874
+     ],
+     "description": "",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open Knowledge Tree",
+        "optional": false,
+        "condition": {
+         "pathid": 250834,
+         "class": "CharacterTabOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "CharacterTabOpen {\"_unparsed_bytes\":\"0400000001000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250745,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Lost Knowledge",
+          "optional": false,
+          "condition": {
+           "pathid": 250797,
+           "class": "HaveKnowledgeConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "HaveKnowledge {\"knowledgeQuantity\":50,\"checkIfHasKnowledge\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 1,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Inventory Closed",
+          "optional": false,
+          "condition": {
+           "pathid": 250802,
+           "class": "InventoryOpenConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"00000000\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Already Learned Revival Chamber Interface",
+          "optional": false,
+          "condition": {
+           "pathid": 250790,
+           "class": "HasLearnedKnowledgeNodeConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "HasLearnedKnowledgeNode {\"knowledgeNodeToLearn\":\"RevivalChamberInterface\",\"checkIfNodeIsLearned\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13876
+     ],
+     "description": "Unlock the Revival Chamber Interface in your Knowledge Tree to be able to use the respawner network that will connect you to the rest of Foundation!",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Learn 'Revival Chamber Interface'",
+        "optional": false,
+        "condition": {
+         "pathid": 250790,
+         "class": "HasLearnedKnowledgeNodeConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "HasLearnedKnowledgeNode {\"knowledgeNodeToLearn\":\"RevivalChamberInterface\",\"checkIfNodeIsLearned\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250744,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": []
+    }
+   ],
+   "questsToStartOnCompletion": [
+    {
+     "pathid": 250746,
+     "class": "QuestData"
+    }
+   ],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": [
+    105
+   ]
+  },
+  {
+   "asset": "103-LeaveHaven",
+   "pathid": 250746,
+   "questId": 105,
+   "requiredCompletedQuests": [],
+   "repeatable": false,
+   "title": "Access the Revival chamber located at the center of the island",
+   "description": "",
+   "completionDescription": "",
+   "completionIcon": [
+    0,
+    13253
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      12989
+     ],
+     "description": "You can now enter the <color=#f4a641ff>Revival Chamber</color>, head to the middle of the island either solo or with friends that you want to remain close to.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Enter the Revival Chamber at the middle of the island",
+        "optional": false,
+        "condition": {
+         "pathid": 250840,
+         "class": "TriggerEnterConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "TriggerEnter {\"triggerId\":1002}"
+       }
+      ]
+     },
+     "instructions": [],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 1,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "",
+          "optional": false,
+          "condition": {
+           "pathid": 250836,
+           "class": "ToolUnlockedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Repair\",\"checkIfToolIsUnlocked\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13941
+     ],
+     "description": "Interact with the platform inside the Revival Chamber to <color=#f4a641ff>activate</color> the Revival Chamber Interface, and teleport - <color=#f4a641ff>together with other players on the platform</color> - to The Wilderness.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Teleport to Foundation",
+        "optional": false,
+        "condition": {
+         "pathid": 250836,
+         "class": "ToolUnlockedConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ToolUnlocked {\"toolToCheck\":\"Repair\",\"checkIfToolIsUnlocked\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250747,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    }
+   ],
+   "questsToStartOnCompletion": [],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": []
+  },
+  {
+   "asset": "201-UnlockShipbuilding",
+   "pathid": 250770,
+   "questId": 110,
+   "requiredCompletedQuests": [
+    {
+     "pathid": 250746,
+     "class": "QuestData"
+    }
+   ],
+   "repeatable": false,
+   "title": "Gather Knowledge and learn Shipbuilding",
+   "description": "",
+   "completionDescription": "",
+   "completionIcon": [
+    0,
+    0
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      14198
+     ],
+     "description": "Welcome to Foundation! Your next step should be to unlock <color=#f4a641ff>Shipbuilding</color>. Find and <color=#f4a641ff>scan</color> more Databanks to gain <color=#f4a641ff>25 more Knowledge</color>.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Scan databanks to gain 25 more Knowledge",
+        "optional": false,
+        "condition": {
+         "pathid": 250798,
+         "class": "HaveKnowledgeConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "HaveKnowledge {\"knowledgeQuantity\":225,\"checkIfHasKnowledge\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250773,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250772,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      14128
+     ],
+     "description": "You've gathered enough ancient Knowledge to learn <color=#f4a641ff>Shipbuilding</color>. \nOpen your inventory.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open your inventory",
+        "optional": false,
+        "condition": {
+         "pathid": 250803,
+         "class": "InventoryOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250771,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13874
+     ],
+     "description": "From your inventory, select the <color=#f4a641ff>Knowledge Tab</color>",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open the Knowledge Tab",
+        "optional": false,
+        "condition": {
+         "pathid": 250834,
+         "class": "CharacterTabOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "CharacterTabOpen {\"_unparsed_bytes\":\"0400000001000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250776,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13523
+     ],
+     "description": "Learn <color=#f4a641ff>Shipbuilding</color> from your Knowledge Tree to unlock what you need to start building ships.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Learn Shipbuilding from the Knowledge Tab",
+        "optional": false,
+        "condition": {
+         "pathid": 250791,
+         "class": "HasLearnedKnowledgeNodeConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "HasLearnedKnowledgeNode {\"knowledgeNodeToLearn\":\"Shipbuilding\",\"checkIfNodeIsLearned\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250775,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 2,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Knowledge Tab Closed",
+          "optional": false,
+          "condition": {
+           "pathid": 250833,
+           "class": "CharacterTabOpenConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "CharacterTabOpen {\"_unparsed_bytes\":\"0400000000000000\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    }
+   ],
+   "questsToStartOnCompletion": [
+    {
+     "pathid": 250777,
+     "class": "QuestData"
+    }
+   ],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [
+    105
+   ],
+   "startsOnCompletionIds": [
+    111
+   ]
+  },
+  {
+   "asset": "202-BuildFirstShip",
+   "pathid": 250777,
+   "questId": 111,
+   "requiredCompletedQuests": [],
+   "repeatable": false,
+   "title": "Build your first ship solo or with a crew.",
+   "description": "",
+   "completionDescription": "Well done, time to set sail!",
+   "completionIcon": [
+    0,
+    13253
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      14279
+     ],
+     "description": "All ships start with a frame, which are built at <color=#f4a641ff>Shipyards</color>. Gather the materials to craft a <color=#f4a641ff>Shipyard</color>, or register with one that already exists.\n\nTIP: if you want to use another Traveller's Shipyard, you'll need to ask for their Shipyard Code.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Gather 160 Metal",
+        "optional": false,
+        "condition": {
+         "pathid": 250795,
+         "class": "HaveItemByCategoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"Metal\",\"requiredQuantities\":[100,30,30]}],\"checkIfContainsItems\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250725,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250726,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Interact With Shipyard",
+          "optional": false,
+          "condition": {
+           "pathid": 250801,
+           "class": "InteractWithCraftingObjectConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"Shipyard\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13717
+     ],
+     "description": "Craft a <color=#f4a641ff>Shipyard</color> from your <color=#f4a641ff>inventory</color>, and equip it to your <color=#f4a641ff>hotbar</color>.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Craft a Shipyard",
+        "optional": false,
+        "condition": {
+         "pathid": 250815,
+         "class": "ItemPresenceInInventoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"shipyard\",\"checkIfItemIsPresent\":true}"
+       },
+       {
+        "description": "Equip Shipyard",
+        "optional": false,
+        "condition": {
+         "pathid": 250807,
+         "class": "ItemOnHotbarConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"shipyard\",\"checkIfItemIsPresentOnHotbar\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250781,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Interact With Shipyard",
+          "optional": false,
+          "condition": {
+           "pathid": 250801,
+           "class": "InteractWithCraftingObjectConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"Shipyard\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13884
+     ],
+     "description": "Select the <color=#f4a641ff>Shipyard</color> in your <color=#f4a641ff>hotbar</color>, then find enough free space on an island to <color=#f4a641ff>place</color> it.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Place your Shipyard",
+        "optional": false,
+        "condition": {
+         "pathid": 250824,
+         "class": "PlaceItemInWorldConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "PlaceItemInWorld {\"itemIdToPlace\":\"shipyard\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250782,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Interact With Shipyard",
+          "optional": false,
+          "condition": {
+           "pathid": 250801,
+           "class": "InteractWithCraftingObjectConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"Shipyard\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13770
+     ],
+     "description": "Now that you have access to a <color=#f4a641ff>Shipyard</color>, you can use it to build a <color=#f4a641ff>ship frame</color> - the foundation on which all ships are built. Gather the resources you need, and build a frame.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Build a Ship frame",
+        "optional": false,
+        "condition": {
+         "pathid": 250826,
+         "class": "RegisteredShipyardHasDockedShipConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "RegisteredShipyardHasDockedShip {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250780,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13358
+     ],
+     "description": "Next you'll need an <color=#f4a641ff>Assembly Station</color>. Gather the materials required to build one.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Gather 100 Metal",
+        "optional": false,
+        "condition": {
+         "pathid": 250793,
+         "class": "HaveItemByCategoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"Metal\",\"requiredQuantities\":[50,20,30]}],\"checkIfContainsItems\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250783,
+       "class": "QuestInstructionIconData"
+      },
+      {
+       "pathid": 250784,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 7,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Interact with Assembly Station",
+          "optional": false,
+          "condition": {
+           "pathid": 250800,
+           "class": "InteractWithCraftingObjectConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"CraftingStation\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13466
+     ],
+     "description": "Open your inventory and craft an <color=#f4a641ff>Assembly Station</color>, to begin building the parts that make up your ship.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Craft an Assembly Station",
+        "optional": false,
+        "condition": {
+         "pathid": 250812,
+         "class": "ItemPresenceInInventoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"craftingStation\",\"checkIfItemIsPresent\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250781,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 7,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Interact with Assembly Station",
+          "optional": false,
+          "condition": {
+           "pathid": 250800,
+           "class": "InteractWithCraftingObjectConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"CraftingStation\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13435
+     ],
+     "description": "You've crafted your <color=#f4a641ff>Assembly Station</color>, now you need to equip it to your hotbar, and place it.\n\nTIP: Place your <color=#f4a641ff>Assembly Station</color> within the bubble around your <color=#f4a641ff>Shipyard</color> so that you can pick up what you make with it.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Equip your Assembly Station",
+        "optional": false,
+        "condition": {
+         "pathid": 250805,
+         "class": "ItemOnHotbarConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"craftingStation\",\"checkIfItemIsPresentOnHotbar\":true}"
+       },
+       {
+        "description": "Place Assembly Station",
+        "optional": false,
+        "condition": {
+         "pathid": 250823,
+         "class": "PlaceItemInWorldConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "PlaceItemInWorld {\"itemIdToPlace\":\"craftingStation\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250782,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Interact with Crafting Station",
+          "optional": false,
+          "condition": {
+           "pathid": 250800,
+           "class": "InteractWithCraftingObjectConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"CraftingStation\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      14320
+     ],
+     "description": "Like the <color=#f4a641ff>Shipyard</color> before it, now that you've placed your <color=#f4a641ff>Assembly Station</color> you must interact with it to start building.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Interact with an Assembly Station",
+        "optional": false,
+        "condition": {
+         "pathid": 250800,
+         "class": "InteractWithCraftingObjectConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InteractWithCraftingObject {\"categoryToInteractWith\":\"CraftingStation\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250778,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 11,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Is Registered to Personal Reviver",
+          "optional": false,
+          "condition": {
+           "pathid": 250825,
+           "class": "RegisteredAndPresentPersonalReviverConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "RegisteredAndPresentPersonalReviver {\"_unparsed_bytes\":\"01000000\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      12991
+     ],
+     "description": "Now that you have access to an <color=#f4a641ff>Assembly Station</color> you can start building ship parts! Start off by crafting a <color=#f4a641ff>Personal Reviver</color>.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Build a Personal Reviver",
+        "optional": false,
+        "condition": {
+         "pathid": 250789,
+         "class": "CraftShipPartConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "CraftShipPart {\"itemIdToCraft\":\"Respawner01\"}"
+       }
+      ]
+     },
+     "instructions": [],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 11,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Is Registered to Personal Reviver",
+          "optional": false,
+          "condition": {
+           "pathid": 250825,
+           "class": "RegisteredAndPresentPersonalReviverConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "RegisteredAndPresentPersonalReviver {\"_unparsed_bytes\":\"01000000\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13949
+     ],
+     "description": "Use your <color=#f4a641ff>Shipbuilding Tool</color> to pick up your new <color=#f4a641ff>Reviver</color>, and place it on top of your ship.\n\nTIP: All players registered to a shipyard can <color=#f4a641ff>Grapple</color> to its surrounding <color=#f4a641ff>Shipyard Bubble</color> to help them move around their ship while they're building it.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Place Personal Reviver on ship",
+        "optional": false,
+        "condition": {
+         "pathid": 250819,
+         "class": "ShipPartAttachedToDockedShipConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ShipPartAttachedToDockedShip {\"shipPartType\":\"Respawner\",\"requiredAmount\":1,\"checkIfAttached\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250785,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250786,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 11,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Is Registered to Personal Reviver",
+          "optional": false,
+          "condition": {
+           "pathid": 250825,
+           "class": "RegisteredAndPresentPersonalReviverConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "RegisteredAndPresentPersonalReviver {\"_unparsed_bytes\":\"01000000\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13636
+     ],
+     "description": "Now that it's placed on a ship, <color=#f4a641ff>interact</color> with your <color=#f4a641ff>reviver</color> to register it to your character. This will let you <color=#f4a641ff>respawn</color> on the ship if you die, and it also makes you an <color=#f4a641ff>owner</color> of this ship.\n\nTIP: The <color=#f4a641ff>Personal Reviver</color> is the only ship part you have to register to.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Register to your Personal Reviver",
+        "optional": false,
+        "condition": {
+         "pathid": 250825,
+         "class": "RegisteredAndPresentPersonalReviverConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "RegisteredAndPresentPersonalReviver {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250779,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13669
+     ],
+     "description": "Feel free to get creative, but all a ship needs to fly is a <color=#f4a641ff>Sky Core</color> to give your vessel some lift, a <color=#f4a641ff>Helm</color> to steer, and a <color=#f4a641ff>Sail</color> to get moving.\n\nTIP: Weight and balance matter when building a ship. Try starting simple.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Place Core on Ship",
+        "optional": false,
+        "condition": {
+         "pathid": 250820,
+         "class": "ShipPartAttachedToOwnedShipConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ShipPartAttachedToOwnedShip {\"shipPartType\":\"Core\",\"requiredAmount\":1,\"checkIfAttached\":true}"
+       },
+       {
+        "description": "Place Helm on Ship",
+        "optional": false,
+        "condition": {
+         "pathid": 250821,
+         "class": "ShipPartAttachedToOwnedShipConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ShipPartAttachedToOwnedShip {\"shipPartType\":\"Helm\",\"requiredAmount\":1,\"checkIfAttached\":true}"
+       },
+       {
+        "description": "Place Sail on Ship",
+        "optional": false,
+        "condition": {
+         "pathid": 250822,
+         "class": "ShipPartAttachedToOwnedShipConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ShipPartAttachedToOwnedShip {\"shipPartType\":\"Sail\",\"requiredAmount\":1,\"checkIfAttached\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250778,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250786,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": []
+    }
+   ],
+   "questsToStartOnCompletion": [],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": []
+  },
+  {
+   "asset": "104-Torch",
+   "pathid": 250748,
+   "questId": 120,
+   "requiredCompletedQuests": [],
+   "repeatable": true,
+   "title": "Craft a Torch to light up the dark",
+   "description": "",
+   "completionDescription": "You made a Torch!",
+   "completionIcon": [
+    0,
+    14289
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      14126
+     ],
+     "description": "A Torch will help you light up dark caves. To craft one you will need <color=#f4a641ff>Cloth</color> and <color=#f4a641ff>Wood</color>, both of which can be salvaged from <color=#f4a641ff>trees</color>.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Salvage 15 Plant Fibers",
+        "optional": false,
+        "condition": {
+         "pathid": 250794,
+         "class": "HaveItemByCategoryConditionData"
+        },
+        "highlight": [
+         "Tree"
+        ],
+        "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"plantFiber\",\"requiredQuantities\":[15]}],\"checkIfContainsItems\":true}"
+       },
+       {
+        "description": "Salvage 20 Wood",
+        "optional": false,
+        "condition": {
+         "pathid": 250796,
+         "class": "HaveItemByCategoryConditionData"
+        },
+        "highlight": [
+         "Tree"
+        ],
+        "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"Wood\",\"requiredQuantities\":[20]}],\"checkIfContainsItems\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250751,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250750,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 5,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250811,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"clothMakeshift\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13765
+     ],
+     "description": "You have gathered enough materials to craft a Torch, but first you'll need some cloth. Open your inventory.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Open your inventory",
+        "optional": false,
+        "condition": {
+         "pathid": 250803,
+         "class": "InventoryOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"01000000\"}"
+       },
+       {
+        "description": "Select Crafting Tab",
+        "optional": false,
+        "condition": {
+         "pathid": 250835,
+         "class": "CharacterTabOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "CharacterTabOpen {\"_unparsed_bytes\":\"0000000001000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250749,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250759,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 5,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250811,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"clothMakeshift\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13282
+     ],
+     "description": "To craft <color=#f4a641ff>Makeshift Cloth</color> from the <color=#f4a641ff>Plant Fibers</color> that you gathered, first select its schematic.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Select Makeshift Cloth Schematic",
+        "optional": false,
+        "condition": {
+         "pathid": 250828,
+         "class": "SchematicSelectedConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "SchematicSelected {\"schematicId\":\"clothMakeshift\",\"checkIfSchematicIsSelected\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250760,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 5,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250811,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"clothMakeshift\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13895
+     ],
+     "description": "Drag your <color=#f4a641ff>Plant Fibers</color> into the <color=#f4a641ff>Makeshift Cloth Schematic's</color> Component Slot. ",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Fill Plant Fiber Component Slot",
+        "optional": false,
+        "condition": {
+         "pathid": 250831,
+         "class": "SchematicSlotMaterialsFullConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "SchematicSlotMaterialsFull {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250756,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 2,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth Schematic not Selected",
+          "optional": false,
+          "condition": {
+           "pathid": 250827,
+           "class": "SchematicSelectedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "SchematicSelected {\"schematicId\":\"clothMakeshift\",\"checkIfSchematicIsSelected\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13472
+     ],
+     "description": "When all of a schematic's Component Slots are filled with materials, an item can be crafted. <color=#f4a641ff>Craft</color> some cloth.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Craft Makeshift Cloth",
+        "optional": false,
+        "condition": {
+         "pathid": 250811,
+         "class": "ItemPresenceInInventoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"clothMakeshift\",\"checkIfItemIsPresent\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250754,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 2,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth Schematic not Selected",
+          "optional": false,
+          "condition": {
+           "pathid": 250827,
+           "class": "SchematicSelectedConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "SchematicSelected {\"schematicId\":\"clothMakeshift\",\"checkIfSchematicIsSelected\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      14219
+     ],
+     "description": "Now that you have cloth and wood you can craft a <color=#f4a641ff>Torch</color>; select its schematic.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Select the Torch schematic",
+        "optional": false,
+        "condition": {
+         "pathid": 250830,
+         "class": "SchematicSelectedConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "SchematicSelected {\"schematicId\":\"torch\",\"checkIfSchematicIsSelected\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250761,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "All",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth Lost",
+          "optional": false,
+          "condition": {
+           "pathid": 250809,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"clothMakeshift\",\"checkIfItemIsPresent\":false}"
+         },
+         {
+          "description": "JUMPER - Have enough Plant Fibers for Cloth",
+          "optional": false,
+          "condition": {
+           "pathid": 250794,
+           "class": "HaveItemByCategoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "HaveItemByCategory {\"requirements\":[{\"itemCategory\":\"plantFiber\",\"requiredQuantities\":[15]}],\"checkIfContainsItems\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "All",
+        "wrappers": [
+         {
+          "description": "JUMPER - Cloth Lost",
+          "optional": false,
+          "condition": {
+           "pathid": 250809,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"clothMakeshift\",\"checkIfItemIsPresent\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      12941
+     ],
+     "description": "Drag your <color=#f4a641ff>Makeshift Cloth</color> and <color=#f4a641ff>Wood</color> into their component slots on the <color=#f4a641ff>Torch Schematic</color>",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Fill Torch Component Slots",
+        "optional": false,
+        "condition": {
+         "pathid": 250831,
+         "class": "SchematicSlotMaterialsFullConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "SchematicSlotMaterialsFull {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250757,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13472
+     ],
+     "description": "Craft yourself a <color=#f4a641ff>Torch</color>.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Craft a Torch",
+        "optional": false,
+        "condition": {
+         "pathid": 250816,
+         "class": "ItemPresenceInInventoryConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250755,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 9,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250808,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 8,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Torch in Inventory",
+          "optional": false,
+          "condition": {
+           "pathid": 250816,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"torch\",\"checkIfItemIsPresent\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13762
+     ],
+     "description": "Equip your <color=#f4a641ff>Torch</color> to your <color=#f4a641ff>Hotbar</color>",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Equip your Torch",
+        "optional": false,
+        "condition": {
+         "pathid": 250808,
+         "class": "ItemOnHotbarConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"torch\",\"checkIfItemIsPresentOnHotbar\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250758,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      13701
+     ],
+     "description": "With your <color=#f4a641ff>Torch</color> now equipped to your <color=#f4a641ff>Hotbar</color>, you can wield it by pressing its hotkey.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Wield your Torch",
+        "optional": false,
+        "condition": {
+         "pathid": 250817,
+         "class": "ItemSelectedOnHotbarConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemSelectedOnHotbar {\"itemId\":\"torch\",\"check\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250753,
+       "class": "QuestInstructionDynamicHotkeyData"
+      }
+     ],
+     "jumpers": []
+    }
+   ],
+   "questsToStartOnCompletion": [],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": []
+  },
+  {
+   "asset": "105-EatBerries",
+   "pathid": 250762,
+   "questId": 130,
+   "requiredCompletedQuests": [],
+   "repeatable": false,
+   "title": "Heal by eating food.",
+   "description": "",
+   "completionDescription": "",
+   "completionIcon": [
+    0,
+    0
+   ],
+   "steps": [
+    {
+     "descriptionImage": [
+      0,
+      14126
+     ],
+     "description": "You're injured, to heal you'll need some food. <color=#f4a641ff>Daccat Berries</color> are the most basic form of food, and can be salvaged from <color=#f4a641ff>tree trunks and branches</color>.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Salvage Berries",
+        "optional": false,
+        "condition": {
+         "pathid": 250813,
+         "class": "ItemPresenceInInventoryConditionData"
+        },
+        "highlight": [
+         "Tree"
+        ],
+        "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"daccatBerries\",\"checkIfItemIsPresent\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250768,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250766,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": []
+    },
+    {
+     "descriptionImage": [
+      0,
+      14128
+     ],
+     "description": "You've got some Berries, open your inventory.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Open your inventory",
+        "optional": false,
+        "condition": {
+         "pathid": 250803,
+         "class": "InventoryOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"01000000\"}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250765,
+       "class": "QuestInstructionHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Berries are gone",
+          "optional": false,
+          "condition": {
+           "pathid": 250810,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"daccatBerries\",\"checkIfItemIsPresent\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 4,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Berries Equipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250806,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"daccatBerries\",\"checkIfItemIsPresentOnHotbar\":true}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13689
+     ],
+     "description": "Equip your berries to your <color=#f4a641ff>Hotbar</color> to be able to eat them.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Equip Berries",
+        "optional": false,
+        "condition": {
+         "pathid": 250806,
+         "class": "ItemOnHotbarConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"daccatBerries\",\"checkIfItemIsPresentOnHotbar\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250769,
+       "class": "QuestInstructionOverlayData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "JUMPER - Berries are gone",
+          "optional": false,
+          "condition": {
+           "pathid": 250810,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"daccatBerries\",\"checkIfItemIsPresent\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      13461
+     ],
+     "description": "Close your inventory and <color=#f4a641ff>wield</color> your berries.",
+     "conditionGroup": {
+      "needToMeet": "All",
+      "wrappers": [
+       {
+        "description": "Close your inventory",
+        "optional": false,
+        "condition": {
+         "pathid": 250802,
+         "class": "InventoryOpenConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"00000000\"}"
+       },
+       {
+        "description": "Wield your equipped Berries",
+        "optional": false,
+        "condition": {
+         "pathid": 250818,
+         "class": "ItemSelectedOnHotbarConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ItemSelectedOnHotbar {\"itemId\":\"daccatBerries\",\"check\":true}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250763,
+       "class": "QuestInstructionHotkeyData"
+      },
+      {
+       "pathid": 250767,
+       "class": "QuestInstructionDynamicHotkeyData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "Berries are gone",
+          "optional": false,
+          "condition": {
+           "pathid": 250810,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"daccatBerries\",\"checkIfItemIsPresent\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 2,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "Berries unequipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250804,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"daccatBerries\",\"checkIfItemIsPresentOnHotbar\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    },
+    {
+     "descriptionImage": [
+      0,
+      14017
+     ],
+     "description": "Use your equipped berries to eat them.",
+     "conditionGroup": {
+      "needToMeet": "AtLeastOne",
+      "wrappers": [
+       {
+        "description": "Eat Berries",
+        "optional": false,
+        "condition": {
+         "pathid": 250788,
+         "class": "ConsumeItemConditionData"
+        },
+        "highlight": [],
+        "conditionResolved": "ConsumeItem {\"raw_i32\":13}"
+       }
+      ]
+     },
+     "instructions": [
+      {
+       "pathid": 250764,
+       "class": "QuestInstructionIconData"
+      }
+     ],
+     "jumpers": [
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 0,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "Berries are gone",
+          "optional": false,
+          "condition": {
+           "pathid": 250810,
+           "class": "ItemPresenceInInventoryConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemPresenceInInventory {\"itemIdToLookFor\":\"daccatBerries\",\"checkIfItemIsPresent\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 2,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "Berries unequipped",
+          "optional": false,
+          "condition": {
+           "pathid": 250804,
+           "class": "ItemOnHotbarConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "ItemOnHotbar {\"itemIdToKeep\":\"daccatBerries\",\"checkIfItemIsPresentOnHotbar\":false}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      },
+      {
+       "jumpType": "JumpToStep",
+       "jumpToQuest": null,
+       "jumpToStepIndex": 3,
+       "conditionGroup": {
+        "needToMeet": "AtLeastOne",
+        "wrappers": [
+         {
+          "description": "Berries unselected",
+          "optional": false,
+          "condition": {
+           "pathid": 250803,
+           "class": "InventoryOpenConditionData"
+          },
+          "highlight": [],
+          "conditionResolved": "InventoryOpen {\"_unparsed_bytes\":\"01000000\"}"
+         }
+        ]
+       },
+       "jumpToQuestId": null
+      }
+     ]
+    }
+   ],
+   "questsToStartOnCompletion": [],
+   "_trailing": 0,
+   "requiredCompletedQuestIds": [],
+   "startsOnCompletionIds": []
+  }
+ ]
+}
