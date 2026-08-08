@@ -1,0 +1,4487 @@
+{
+ "bundles_swept": 255,
+ "generated_by": "docs/research/loop/data/tree_prop_census.py",
+ "islands_with_tree_props": [],
+ "per_island": {
+  "1044497584": {
+   "categories": {
+    "Effects": 38,
+    "Foliage": 1056,
+    "Gameplay": 4,
+    "Ruins (Miscellaneous)": 8,
+    "Ruins (Saborian)": 37
+   },
+   "placements": 1143,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1097757161": {
+   "categories": {
+    "Effects": 128,
+    "Foliage": 127,
+    "Gameplay": 4,
+    "Ruins (Miscellaneous)": 55,
+    "Ruins (Saborian)": 1510
+   },
+   "placements": 1824,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1098449580": {
+   "categories": {
+    "Effects": 220,
+    "Foliage": 57,
+    "Gameplay": 4,
+    "Ruins (Miscellaneous)": 1,
+    "Ruins (Saborian)": 1535
+   },
+   "placements": 1817,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1100284914": {
+   "categories": {
+    "Foliage": 141,
+    "Rocks": 1046,
+    "Ruins (Miscellaneous)": 22,
+    "Ruins (Saborian)": 176,
+    "grass": 243
+   },
+   "placements": 1628,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1103627406": {
+   "categories": {
+    "Effects": 196,
+    "Foliage": 348,
+    "Gameplay": 1,
+    "Ruins (Miscellaneous)": 385,
+    "Ruins (Saborian)": 154,
+    "grass": 1189
+   },
+   "placements": 2273,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1109199754": {
+   "categories": {
+    "Effects": 155,
+    "Foliage": 345,
+    "Rocks": 23,
+    "Ruins (Miscellaneous)": 38,
+    "Ruins (Saborian)": 288,
+    "grass": 2239
+   },
+   "placements": 3088,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1110580409": {
+   "categories": {
+    "Foliage": 61,
+    "Gameplay": 4,
+    "Ruins (Miscellaneous)": 5,
+    "Ruins (Saborian)": 300
+   },
+   "placements": 370,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1110925124": {
+   "categories": {
+    "Foliage": 130,
+    "Gameplay": 3,
+    "Rocks": 292,
+    "Ruins (Miscellaneous)": 19,
+    "Ruins (Saborian)": 94
+   },
+   "placements": 538,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1117328252": {
+   "categories": {
+    "Foliage": 2405,
+    "Gameplay": 1,
+    "Ruins (Miscellaneous)": 1494,
+    "Ruins (Saborian)": 1916,
+    "grass": 50
+   },
+   "placements": 5866,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1117571741": {
+   "categories": {
+    "Foliage": 339,
+    "Gameplay": 2
+   },
+   "placements": 341,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1120603208": {
+   "categories": {
+    "Foliage": 151,
+    "Gameplay": 4,
+    "Rocks": 285,
+    "Ruins (Miscellaneous)": 412,
+    "Ruins (Saborian)": 3860,
+    "grass": 254
+   },
+   "placements": 4966,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1120633577": {
+   "categories": {
+    "Effects": 25,
+    "Foliage": 290,
+    "Gameplay": 1,
+    "Rocks": 6,
+    "Ruins (Miscellaneous)": 904,
+    "Ruins (Saborian)": 662,
+    "grass": 248
+   },
+   "placements": 2136,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1122739848": {
+   "categories": {
+    "Foliage": 16,
+    "Gameplay": 3,
+    "Rocks": 86,
+    "Ruins (Miscellaneous)": 91,
+    "Ruins (Saborian)": 246
+   },
+   "placements": 442,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1129560972": {
+   "categories": {
+    "Effects": 2,
+    "Foliage": 70,
+    "Gameplay": 2,
+    "Ruins (Miscellaneous)": 763,
+    "Ruins (Saborian)": 471
+   },
+   "placements": 1308,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1129983108": {
+   "categories": {
+    "Effects": 15,
+    "Foliage": 84,
+    "Ruins (Miscellaneous)": 15,
+    "Ruins (Saborian)": 51,
+    "grass": 1276
+   },
+   "placements": 1441,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1131320691": {
+   "categories": {
+    "Foliage": 273,
+    "Gameplay": 494,
+    "Rocks": 187,
+    "Ruins (Miscellaneous)": 145,
+    "Ruins (Saborian)": 828,
+    "grass": 412
+   },
+   "placements": 2339,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1132993552": {
+   "categories": {
+    "Foliage": 385,
+    "Gameplay": 110,
+    "Rocks": 609,
+    "Ruins (Miscellaneous)": 166,
+    "Ruins (Saborian)": 1576,
+    "grass": 152
+   },
+   "placements": 2998,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1135248716": {
+   "categories": {
+    "Effects": 23,
+    "Foliage": 479,
+    "Gameplay": 454,
+    "Rocks": 173,
+    "Ruins (Miscellaneous)": 629,
+    "Ruins (Saborian)": 1285,
+    "grass": 120
+   },
+   "placements": 3163,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1136882447": {
+   "categories": {
+    "Gameplay": 4,
+    "Ruins (Miscellaneous)": 3,
+    "Ruins (Saborian)": 13
+   },
+   "placements": 20,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1143725558": {
+   "categories": {
+    "Effects": 4,
+    "Foliage": 255,
+    "Gameplay": 128,
+    "Rocks": 132,
+    "Ruins (Miscellaneous)": 265,
+    "Ruins (Saborian)": 1258,
+    "grass": 256
+   },
+   "placements": 2298,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1153017980": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 18,
+    "Gameplay": 37,
+    "Rocks": 14,
+    "Ruins (Miscellaneous)": 742,
+    "Ruins (Saborian)": 2602,
+    "grass": 11
+   },
+   "placements": 3433,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1160281414": {
+   "categories": {
+    "Effects": 271,
+    "Foliage": 684,
+    "Gameplay": 68,
+    "Rocks": 13,
+    "Ruins (Miscellaneous)": 320,
+    "Ruins (Saborian)": 120,
+    "grass": 34
+   },
+   "placements": 1510,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1168854492": {
+   "categories": {
+    "Effects": 6,
+    "Foliage": 77,
+    "Gameplay": 4,
+    "Rocks": 83,
+    "Ruins (Miscellaneous)": 45,
+    "Ruins (Saborian)": 1458
+   },
+   "placements": 1673,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1175522292": {
+   "categories": {
+    "Effects": 20,
+    "Foliage": 68,
+    "Gameplay": 12,
+    "Rocks": 40,
+    "Ruins (Miscellaneous)": 23,
+    "Ruins (Saborian)": 17,
+    "grass": 38
+   },
+   "placements": 218,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1178309762": {
+   "categories": {
+    "Effects": 44,
+    "Foliage": 20,
+    "Gameplay": 39,
+    "Rocks": 2,
+    "Ruins (Miscellaneous)": 24,
+    "Ruins (Saborian)": 56,
+    "grass": 280
+   },
+   "placements": 465,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1180886260": {
+   "categories": {
+    "Foliage": 977,
+    "Rocks": 211,
+    "Ruins (Miscellaneous)": 67,
+    "Ruins (Saborian)": 1818,
+    "grass": 571
+   },
+   "placements": 3644,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1182096632": {
+   "categories": {
+    "Effects": 102,
+    "Foliage": 125,
+    "Gameplay": 105,
+    "Rocks": 94,
+    "Ruins (Miscellaneous)": 430,
+    "Ruins (Saborian)": 5183
+   },
+   "placements": 6039,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1192026832": {
+   "categories": {
+    "Foliage": 975,
+    "Gameplay": 1,
+    "Rocks": 77,
+    "Ruins (Miscellaneous)": 258,
+    "Ruins (Saborian)": 186,
+    "grass": 1241
+   },
+   "placements": 2738,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1193151774": {
+   "categories": {
+    "Effects": 27,
+    "Foliage": 48,
+    "Gameplay": 17,
+    "Rocks": 15,
+    "Ruins (Miscellaneous)": 23,
+    "Ruins (Saborian)": 38
+   },
+   "placements": 168,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1201011796": {
+   "categories": {
+    "Foliage": 123,
+    "Gameplay": 49,
+    "Rocks": 112,
+    "Ruins (Kioki)": 418,
+    "Ruins (Miscellaneous)": 29,
+    "grass": 16
+   },
+   "placements": 747,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1202569906": {
+   "categories": {
+    "Effects": 26,
+    "Foliage": 219,
+    "Gameplay": 5,
+    "Rocks": 13,
+    "Ruins (Kioki)": 1039,
+    "Ruins (Miscellaneous)": 144,
+    "grass": 64
+   },
+   "placements": 1510,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1202867682": {
+   "categories": {
+    "Effects": 84,
+    "Foliage": 501,
+    "Gameplay": 583,
+    "Rocks": 410,
+    "Ruins (Miscellaneous)": 91,
+    "Ruins (Saborian)": 1638,
+    "grass": 56
+   },
+   "placements": 3363,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1202975317": {
+   "categories": {
+    "Effects": 82,
+    "Foliage": 479,
+    "Gameplay": 58,
+    "Ruins (Kioki)": 724,
+    "Ruins (Miscellaneous)": 10
+   },
+   "placements": 1353,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1203699077": {
+   "categories": {
+    "Effects": 84,
+    "Foliage": 204,
+    "Gameplay": 16,
+    "Rocks": 61,
+    "Ruins (Kioki)": 243,
+    "Ruins (Miscellaneous)": 20
+   },
+   "placements": 628,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1205012244": {
+   "categories": {
+    "Effects": 100,
+    "Foliage": 217,
+    "Gameplay": 125,
+    "Rocks": 40,
+    "Ruins (Kioki)": 163,
+    "Ruins (Miscellaneous)": 6
+   },
+   "placements": 651,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1205464166": {
+   "categories": {
+    "Effects": 11,
+    "Foliage": 229,
+    "Gameplay": 183,
+    "Rocks": 108,
+    "Ruins (Kioki)": 616,
+    "Ruins (Miscellaneous)": 72
+   },
+   "placements": 1219,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1205849808": {
+   "categories": {
+    "Effects": 13,
+    "Foliage": 164,
+    "Gameplay": 2,
+    "Rocks": 17,
+    "Ruins (Miscellaneous)": 46,
+    "Ruins (Saborian)": 751,
+    "grass": 44
+   },
+   "placements": 1037,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206009307": {
+   "categories": {
+    "Effects": 16,
+    "Foliage": 522,
+    "Gameplay": 3,
+    "Rocks": 109,
+    "Ruins (Kioki)": 103,
+    "Ruins (Miscellaneous)": 5,
+    "grass": 305
+   },
+   "placements": 1063,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206203560": {
+   "categories": {
+    "Effects": 4,
+    "Foliage": 137,
+    "Gameplay": 86,
+    "Rocks": 8,
+    "Ruins (Kioki)": 526,
+    "Ruins (Miscellaneous)": 80
+   },
+   "placements": 841,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206226299": {
+   "categories": {
+    "Effects": 26,
+    "Foliage": 455,
+    "Gameplay": 23,
+    "Rocks": 84,
+    "Ruins (Kioki)": 371,
+    "Ruins (Miscellaneous)": 114,
+    "grass": 50
+   },
+   "placements": 1123,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206286558": {
+   "categories": {
+    "Foliage": 35,
+    "Gameplay": 601,
+    "Ruins (Miscellaneous)": 48,
+    "Ruins (Saborian)": 38
+   },
+   "placements": 722,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206643690": {
+   "categories": {
+    "Foliage": 138,
+    "Gameplay": 1,
+    "Ruins (Kioki)": 2696,
+    "Ruins (Miscellaneous)": 230,
+    "grass": 102
+   },
+   "placements": 3167,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206849007": {
+   "categories": {
+    "Foliage": 173,
+    "Gameplay": 13,
+    "Rocks": 121,
+    "Ruins (Kioki)": 898,
+    "Ruins (Miscellaneous)": 23,
+    "grass": 1
+   },
+   "placements": 1229,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206946500": {
+   "categories": {
+    "Foliage": 430,
+    "Ruins (Miscellaneous)": 22,
+    "Ruins (Saborian)": 463
+   },
+   "placements": 915,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1206983459": {
+   "categories": {
+    "Effects": 10,
+    "Foliage": 382,
+    "Gameplay": 3,
+    "Rocks": 131,
+    "Ruins (Kioki)": 1459,
+    "Ruins (Miscellaneous)": 162,
+    "grass": 55
+   },
+   "placements": 2202,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1207277291": {
+   "categories": {
+    "Effects": 1,
+    "Foliage": 41,
+    "Gameplay": 4,
+    "Rocks": 14,
+    "Ruins (Kioki)": 1707,
+    "Ruins (Miscellaneous)": 372,
+    "grass": 54
+   },
+   "placements": 2193,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1207729337": {
+   "categories": {
+    "Effects": 59,
+    "Foliage": 78,
+    "Gameplay": 681,
+    "Rocks": 11,
+    "Ruins (Kioki)": 978,
+    "Ruins (Miscellaneous)": 58
+   },
+   "placements": 1865,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1207740325": {
+   "categories": {
+    "Effects": 8,
+    "Foliage": 937,
+    "Gameplay": 4,
+    "Rocks": 210,
+    "Ruins (Kioki)": 2539,
+    "Ruins (Miscellaneous)": 40,
+    "grass": 59
+   },
+   "placements": 3797,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1208229546": {
+   "categories": {
+    "Effects": 44,
+    "Foliage": 219,
+    "Gameplay": 3,
+    "Rocks": 46,
+    "Ruins (Kioki)": 988,
+    "Ruins (Miscellaneous)": 33,
+    "grass": 1556
+   },
+   "placements": 2889,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1208331487": {
+   "categories": {
+    "Effects": 122,
+    "Foliage": 254,
+    "Gameplay": 344,
+    "Rocks": 3,
+    "Ruins (Kioki)": 315,
+    "Ruins (Miscellaneous)": 209,
+    "grass": 217
+   },
+   "placements": 1464,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1208452423": {
+   "categories": {
+    "Effects": 38,
+    "Foliage": 52,
+    "Gameplay": 523,
+    "Rocks": 26,
+    "Ruins (Kioki)": 992,
+    "Ruins (Miscellaneous)": 66
+   },
+   "placements": 1697,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1208496044": {
+   "categories": {
+    "Effects": 47,
+    "Foliage": 210,
+    "Gameplay": 6,
+    "Rocks": 110,
+    "Ruins (Kioki)": 2532,
+    "Ruins (Miscellaneous)": 29,
+    "grass": 182
+   },
+   "placements": 3116,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1208775038": {
+   "categories": {
+    "Foliage": 154,
+    "Gameplay": 33,
+    "Rocks": 127,
+    "Ruins (Kioki)": 643,
+    "Ruins (Miscellaneous)": 19,
+    "grass": 153
+   },
+   "placements": 1129,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1209017512": {
+   "categories": {
+    "Effects": 22,
+    "Foliage": 105,
+    "Gameplay": 8,
+    "Rocks": 1651,
+    "Ruins (Kioki)": 3227,
+    "Ruins (Miscellaneous)": 440
+   },
+   "placements": 5453,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1210049826": {
+   "categories": {
+    "Effects": 67,
+    "Foliage": 92,
+    "Gameplay": 229,
+    "Rocks": 59,
+    "Ruins (Kioki)": 591,
+    "Ruins (Miscellaneous)": 147
+   },
+   "placements": 1185,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1210725949": {
+   "categories": {
+    "Effects": 45,
+    "Foliage": 35,
+    "Rocks": 18,
+    "Ruins (Kioki)": 65,
+    "Ruins (Miscellaneous)": 14
+   },
+   "placements": 177,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1213391698": {
+   "categories": {
+    "Gameplay": 8,
+    "Ruins (Kioki)": 695,
+    "Ruins (Miscellaneous)": 116
+   },
+   "placements": 819,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1214552948": {
+   "categories": {
+    "Gameplay": 11,
+    "Rocks": 17,
+    "Ruins (Kioki)": 857,
+    "Ruins (Miscellaneous)": 484
+   },
+   "placements": 1369,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1219594942": {
+   "categories": {
+    "Effects": 73,
+    "Foliage": 240,
+    "Gameplay": 33,
+    "Rocks": 19,
+    "Ruins (Miscellaneous)": 316,
+    "Ruins (Saborian)": 189,
+    "grass": 101
+   },
+   "placements": 971,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1226730297": {
+   "categories": {
+    "Effects": 49,
+    "Foliage": 237,
+    "Gameplay": 4,
+    "Rocks": 32,
+    "Ruins (Kioki)": 2056,
+    "Ruins (Miscellaneous)": 279
+   },
+   "placements": 2657,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1228322642": {
+   "categories": {
+    "Effects": 11,
+    "Foliage": 89,
+    "Gameplay": 11,
+    "Rocks": 12,
+    "Ruins (Kioki)": 289,
+    "Ruins (Miscellaneous)": 90,
+    "grass": 278
+   },
+   "placements": 780,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1230084434": {
+   "categories": {
+    "Effects": 20,
+    "Foliage": 406,
+    "Gameplay": 811,
+    "Rocks": 368,
+    "Ruins (Kioki)": 574,
+    "grass": 109
+   },
+   "placements": 2288,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1230118624": {
+   "categories": {
+    "Effects": 19,
+    "Foliage": 373,
+    "Gameplay": 52,
+    "Ruins (Kioki)": 2326,
+    "Ruins (Miscellaneous)": 73,
+    "grass": 486
+   },
+   "placements": 3329,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1234296661": {
+   "categories": {
+    "Effects": 2,
+    "Foliage": 1653,
+    "Gameplay": 168,
+    "Rocks": 50,
+    "Ruins (Kioki)": 253,
+    "Ruins (Miscellaneous)": 187
+   },
+   "placements": 2313,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1235184664": {
+   "categories": {
+    "Effects": 66,
+    "Foliage": 277,
+    "Gameplay": 1,
+    "Rocks": 40,
+    "Ruins (Miscellaneous)": 68,
+    "Ruins (Saborian)": 1036
+   },
+   "placements": 1488,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1236060052": {
+   "categories": {
+    "Effects": 1,
+    "Foliage": 65,
+    "Rocks": 134,
+    "Ruins (Miscellaneous)": 645,
+    "Ruins (Saborian)": 187
+   },
+   "placements": 1032,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1243483156": {
+   "categories": {
+    "Effects": 30,
+    "Foliage": 145,
+    "Gameplay": 1755,
+    "Rocks": 89,
+    "Ruins (Miscellaneous)": 79,
+    "Ruins (Saborian)": 676,
+    "grass": 321
+   },
+   "placements": 3095,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1245768441": {
+   "categories": {
+    "Effects": 46,
+    "Foliage": 281,
+    "Gameplay": 273,
+    "Ruins (Miscellaneous)": 68,
+    "Ruins (Saborian)": 1009
+   },
+   "placements": 1677,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1250205987": {
+   "categories": {
+    "Foliage": 191,
+    "Gameplay": 3,
+    "Rocks": 26,
+    "Ruins (Miscellaneous)": 380,
+    "Ruins (Saborian)": 350
+   },
+   "placements": 950,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1262508887": {
+   "categories": {
+    "Effects": 26,
+    "Foliage": 965,
+    "Gameplay": 19,
+    "Rocks": 517,
+    "Ruins (Kioki)": 428,
+    "Ruins (Miscellaneous)": 731,
+    "grass": 3
+   },
+   "placements": 2689,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1267275791": {
+   "categories": {
+    "Gameplay": 2,
+    "Ruins (Kioki)": 27,
+    "Ruins (Miscellaneous)": 24
+   },
+   "placements": 53,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1271038776": {
+   "categories": {
+    "Effects": 12,
+    "Foliage": 304,
+    "Gameplay": 4,
+    "Rocks": 188,
+    "Ruins (Kioki)": 3408,
+    "Ruins (Miscellaneous)": 393
+   },
+   "placements": 4309,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1274926027": {
+   "categories": {
+    "Foliage": 88,
+    "Gameplay": 9,
+    "Rocks": 27,
+    "Ruins (Kioki)": 307,
+    "Ruins (Miscellaneous)": 126,
+    "grass": 444
+   },
+   "placements": 1001,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1277362931": {
+   "categories": {
+    "Effects": 12,
+    "Foliage": 1763,
+    "Gameplay": 2,
+    "Rocks": 33,
+    "Ruins (Kioki)": 794
+   },
+   "placements": 2604,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1280448847": {
+   "categories": {
+    "Effects": 4,
+    "Foliage": 370,
+    "Ruins (Kioki)": 3070,
+    "Ruins (Miscellaneous)": 620,
+    "grass": 99
+   },
+   "placements": 4163,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1286153719": {
+   "categories": {
+    "Effects": 58,
+    "Foliage": 502,
+    "Gameplay": 371,
+    "Ruins (Kioki)": 402,
+    "Ruins (Miscellaneous)": 109,
+    "grass": 112
+   },
+   "placements": 1554,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1292255598": {
+   "categories": {
+    "Effects": 28,
+    "Foliage": 47,
+    "Rocks": 13,
+    "Ruins (Miscellaneous)": 348,
+    "Ruins (Saborian)": 113,
+    "grass": 473
+   },
+   "placements": 1022,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1297863892": {
+   "categories": {
+    "Foliage": 54,
+    "Gameplay": 153,
+    "Ruins (Kioki)": 536,
+    "Ruins (Miscellaneous)": 13
+   },
+   "placements": 756,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1299717169": {
+   "categories": {
+    "Effects": 21,
+    "Foliage": 183,
+    "Gameplay": 12,
+    "Rocks": 90,
+    "Ruins (Miscellaneous)": 400,
+    "Ruins (Saborian)": 1381
+   },
+   "placements": 2087,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1300247050": {
+   "categories": {
+    "Foliage": 268,
+    "Gameplay": 103,
+    "Rocks": 32,
+    "Ruins (Kioki)": 1917,
+    "Ruins (Miscellaneous)": 69,
+    "grass": 172
+   },
+   "placements": 2561,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1301253254": {
+   "categories": {
+    "Effects": 190,
+    "Foliage": 124,
+    "Gameplay": 30,
+    "Rocks": 199,
+    "Ruins (Kioki)": 397,
+    "Ruins (Miscellaneous)": 141,
+    "grass": 42
+   },
+   "placements": 1123,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1306383104": {
+   "categories": {
+    "Effects": 38,
+    "Foliage": 720,
+    "Gameplay": 21,
+    "Ruins (Kioki)": 77,
+    "Ruins (Miscellaneous)": 27
+   },
+   "placements": 883,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1310869802": {
+   "categories": {
+    "Foliage": 173,
+    "Gameplay": 6,
+    "Rocks": 63,
+    "Ruins (Kioki)": 9,
+    "Ruins (Miscellaneous)": 2
+   },
+   "placements": 253,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1311404289": {
+   "categories": {
+    "Effects": 27,
+    "Gameplay": 10,
+    "Rocks": 3,
+    "Ruins (Miscellaneous)": 350,
+    "Ruins (Saborian)": 10
+   },
+   "placements": 400,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1312481122": {
+   "categories": {
+    "Effects": 13,
+    "Foliage": 767,
+    "Gameplay": 39,
+    "Rocks": 14,
+    "Ruins (Miscellaneous)": 508,
+    "Ruins (Saborian)": 791
+   },
+   "placements": 2132,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1312675314": {
+   "categories": {
+    "Effects": 108,
+    "Foliage": 1549,
+    "Gameplay": 3,
+    "Rocks": 73,
+    "Ruins (Kioki)": 1243,
+    "Ruins (Miscellaneous)": 63
+   },
+   "placements": 3039,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1313916575": {
+   "categories": {
+    "Effects": 888,
+    "Foliage": 32,
+    "Gameplay": 12,
+    "Ruins (Miscellaneous)": 12,
+    "Ruins (Saborian)": 39,
+    "grass": 400
+   },
+   "placements": 1383,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1318725715": {
+   "categories": {
+    "Effects": 87,
+    "Foliage": 1488,
+    "Gameplay": 3,
+    "Rocks": 178,
+    "Ruins (Kioki)": 1128,
+    "Ruins (Miscellaneous)": 75,
+    "grass": 14
+   },
+   "placements": 2973,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1319380815": {
+   "categories": {
+    "Effects": 25,
+    "Rocks": 88,
+    "Ruins (Miscellaneous)": 2
+   },
+   "placements": 115,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1323471320": {
+   "categories": {
+    "Effects": 150,
+    "Foliage": 145,
+    "Gameplay": 4,
+    "Rocks": 421,
+    "Ruins (Miscellaneous)": 139,
+    "Ruins (Saborian)": 310,
+    "grass": 203
+   },
+   "placements": 1372,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1328698378": {
+   "categories": {
+    "Effects": 6,
+    "Foliage": 104,
+    "Gameplay": 74,
+    "Rocks": 44,
+    "Ruins (Kioki)": 133,
+    "Ruins (Miscellaneous)": 26,
+    "grass": 9
+   },
+   "placements": 396,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1329448196": {
+   "categories": {
+    "Effects": 26,
+    "Foliage": 290,
+    "Rocks": 229,
+    "Ruins (Miscellaneous)": 120,
+    "Ruins (Saborian)": 48,
+    "grass": 125
+   },
+   "placements": 838,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1329647842": {
+   "categories": {
+    "Effects": 68,
+    "Foliage": 235,
+    "Rocks": 108,
+    "Ruins (Kioki)": 223,
+    "grass": 163
+   },
+   "placements": 797,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1330492927": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 181,
+    "Gameplay": 501,
+    "Rocks": 249,
+    "Ruins (Miscellaneous)": 354,
+    "Ruins (Saborian)": 595,
+    "grass": 230
+   },
+   "placements": 2119,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1330495138": {
+   "categories": {
+    "Effects": 22,
+    "Foliage": 870,
+    "Gameplay": 265,
+    "Rocks": 288,
+    "Ruins (Miscellaneous)": 121,
+    "Ruins (Saborian)": 114,
+    "grass": 523
+   },
+   "placements": 2203,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1331034493": {
+   "categories": {
+    "Effects": 14,
+    "Foliage": 1353,
+    "Gameplay": 4,
+    "Ruins (Kioki)": 316,
+    "Ruins (Miscellaneous)": 104
+   },
+   "placements": 1791,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1332951341": {
+   "categories": {
+    "Effects": 18,
+    "Foliage": 105,
+    "Gameplay": 196,
+    "Rocks": 34,
+    "Ruins (Kioki)": 606,
+    "Ruins (Miscellaneous)": 51
+   },
+   "placements": 1010,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1335560571": {
+   "categories": {
+    "Effects": 187,
+    "Gameplay": 8,
+    "Ruins (Kioki)": 3492,
+    "Ruins (Miscellaneous)": 137,
+    "grass": 3
+   },
+   "placements": 3827,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1337921318": {
+   "categories": {
+    "Effects": 27,
+    "Foliage": 509,
+    "Gameplay": 6,
+    "Rocks": 4,
+    "Ruins (Kioki)": 1483,
+    "Ruins (Miscellaneous)": 122
+   },
+   "placements": 2151,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1337938243": {
+   "categories": {
+    "Effects": 78,
+    "Foliage": 710,
+    "Gameplay": 142,
+    "Rocks": 134,
+    "Ruins (Kioki)": 235,
+    "Ruins (Miscellaneous)": 15,
+    "grass": 248
+   },
+   "placements": 1562,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1339751678": {
+   "categories": {
+    "Effects": 46,
+    "Foliage": 94,
+    "Gameplay": 5,
+    "Rocks": 60,
+    "Ruins (Miscellaneous)": 4,
+    "Ruins (Saborian)": 32,
+    "grass": 39
+   },
+   "placements": 280,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1347276750": {
+   "categories": {
+    "Effects": 294,
+    "Foliage": 659,
+    "Gameplay": 39,
+    "Rocks": 527,
+    "Ruins (Kioki)": 503,
+    "Ruins (Miscellaneous)": 78,
+    "grass": 310
+   },
+   "placements": 2410,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1348421779": {
+   "categories": {
+    "Foliage": 722,
+    "Gameplay": 5,
+    "Rocks": 30,
+    "Ruins (Miscellaneous)": 20,
+    "Ruins (Saborian)": 78
+   },
+   "placements": 855,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1350897753": {
+   "categories": {
+    "Effects": 57,
+    "Foliage": 163,
+    "Gameplay": 1,
+    "Rocks": 111,
+    "Ruins (Miscellaneous)": 217,
+    "Ruins (Saborian)": 111,
+    "grass": 593
+   },
+   "placements": 1253,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1353666106": {
+   "categories": {
+    "Effects": 23,
+    "Foliage": 1036,
+    "Gameplay": 582,
+    "Rocks": 132,
+    "Ruins (Kioki)": 447,
+    "Ruins (Miscellaneous)": 20,
+    "grass": 56
+   },
+   "placements": 2296,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1358985537": {
+   "categories": {
+    "Foliage": 51,
+    "Gameplay": 4,
+    "Rocks": 90,
+    "Ruins (Kioki)": 89,
+    "Ruins (Miscellaneous)": 22,
+    "grass": 50
+   },
+   "placements": 306,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1359590369": {
+   "categories": {
+    "Effects": 7,
+    "Foliage": 5,
+    "Gameplay": 1,
+    "Rocks": 9,
+    "Ruins (Miscellaneous)": 896,
+    "Ruins (Saborian)": 2700
+   },
+   "placements": 3618,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1360340885": {
+   "categories": {
+    "Effects": 20,
+    "Foliage": 81,
+    "Gameplay": 7,
+    "Rocks": 59,
+    "Ruins (Kioki)": 21,
+    "Ruins (Miscellaneous)": 22,
+    "grass": 111
+   },
+   "placements": 321,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1362466266": {
+   "categories": {
+    "Ruins (Miscellaneous)": 1257
+   },
+   "placements": 1257,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1362772557": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 884,
+    "Gameplay": 1,
+    "Rocks": 59,
+    "Ruins (Kioki)": 954,
+    "Ruins (Miscellaneous)": 284
+   },
+   "placements": 2191,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1365943861": {
+   "categories": {
+    "Effects": 590,
+    "Foliage": 227,
+    "Gameplay": 147,
+    "Rocks": 73,
+    "Ruins (Kioki)": 453,
+    "Ruins (Miscellaneous)": 293,
+    "grass": 10
+   },
+   "placements": 1793,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1366573266": {
+   "categories": {
+    "Effects": 60,
+    "Foliage": 463,
+    "Gameplay": 268,
+    "Ruins (Kioki)": 115,
+    "Ruins (Miscellaneous)": 96
+   },
+   "placements": 1002,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1368399927": {
+   "categories": {
+    "Effects": 14,
+    "Foliage": 142,
+    "Rocks": 244,
+    "Ruins (Kioki)": 903,
+    "Ruins (Miscellaneous)": 94,
+    "grass": 127
+   },
+   "placements": 1524,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1371980901": {
+   "categories": {
+    "Effects": 1,
+    "Foliage": 66,
+    "Gameplay": 507,
+    "Rocks": 4,
+    "Ruins (Miscellaneous)": 76,
+    "Ruins (Saborian)": 80
+   },
+   "placements": 734,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1378258481": {
+   "categories": {
+    "Effects": 41,
+    "Foliage": 86,
+    "Gameplay": 5,
+    "Rocks": 14,
+    "Ruins (Kioki)": 1342,
+    "Ruins (Miscellaneous)": 389,
+    "grass": 113
+   },
+   "placements": 1990,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1380383759": {
+   "categories": {
+    "Effects": 17,
+    "Foliage": 99,
+    "Gameplay": 1,
+    "Ruins (Miscellaneous)": 348,
+    "Ruins (Saborian)": 1093,
+    "grass": 1
+   },
+   "placements": 1559,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1380492343": {
+   "categories": {
+    "Effects": 36,
+    "Foliage": 619,
+    "Gameplay": 17,
+    "Rocks": 50,
+    "Ruins (Kioki)": 2201,
+    "Ruins (Miscellaneous)": 123,
+    "grass": 235
+   },
+   "placements": 3281,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1384602977": {
+   "categories": {
+    "Effects": 227,
+    "Foliage": 53,
+    "Gameplay": 49,
+    "Ruins (Miscellaneous)": 522,
+    "Ruins (Saborian)": 66
+   },
+   "placements": 917,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1391984114": {
+   "categories": {
+    "Foliage": 83,
+    "Gameplay": 3,
+    "Rocks": 23,
+    "Ruins (Kioki)": 304,
+    "Ruins (Miscellaneous)": 175
+   },
+   "placements": 588,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1400965115": {
+   "categories": {
+    "Foliage": 134,
+    "Gameplay": 43,
+    "Ruins (Kioki)": 3161,
+    "Ruins (Miscellaneous)": 1229
+   },
+   "placements": 4567,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1402719160": {
+   "categories": {
+    "Effects": 51,
+    "Foliage": 170,
+    "Gameplay": 440,
+    "Ruins (Kioki)": 132,
+    "Ruins (Miscellaneous)": 124,
+    "grass": 13
+   },
+   "placements": 930,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1406193822": {
+   "categories": {
+    "Foliage": 185,
+    "Gameplay": 2,
+    "Ruins (Kioki)": 2763,
+    "Ruins (Miscellaneous)": 9
+   },
+   "placements": 2959,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1407323341": {
+   "categories": {
+    "Foliage": 202,
+    "Gameplay": 5,
+    "Rocks": 82,
+    "Ruins (Kioki)": 1129,
+    "Ruins (Miscellaneous)": 645,
+    "grass": 40
+   },
+   "placements": 2103,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1409387904": {
+   "categories": {
+    "Effects": 167,
+    "Foliage": 782,
+    "Gameplay": 1,
+    "Rocks": 36,
+    "Ruins (Kioki)": 189,
+    "Ruins (Miscellaneous)": 50,
+    "grass": 1819
+   },
+   "placements": 3044,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1410700358": {
+   "categories": {
+    "Effects": 200,
+    "Foliage": 275,
+    "Gameplay": 46,
+    "Rocks": 325,
+    "Ruins (Saborian)": 116,
+    "grass": 54
+   },
+   "placements": 1016,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1416040701": {
+   "categories": {
+    "Effects": 21,
+    "Foliage": 72,
+    "Gameplay": 176,
+    "Rocks": 289,
+    "Ruins (Miscellaneous)": 375,
+    "Ruins (Saborian)": 1803,
+    "grass": 60
+   },
+   "placements": 2796,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1417734659": {
+   "categories": {
+    "Effects": 16,
+    "Foliage": 425,
+    "Gameplay": 52,
+    "Rocks": 95,
+    "Ruins (Miscellaneous)": 320,
+    "Ruins (Saborian)": 909
+   },
+   "placements": 1817,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1422022376": {
+   "categories": {
+    "Effects": 33,
+    "Foliage": 63,
+    "Gameplay": 254,
+    "Rocks": 9,
+    "Ruins (Kioki)": 186,
+    "Ruins (Miscellaneous)": 8,
+    "grass": 31
+   },
+   "placements": 584,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1423300381": {
+   "categories": {
+    "Foliage": 182,
+    "Rocks": 97,
+    "Ruins (Kioki)": 2280,
+    "Ruins (Miscellaneous)": 7
+   },
+   "placements": 2566,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1425211242": {
+   "categories": {
+    "Effects": 29,
+    "Foliage": 572,
+    "Gameplay": 4,
+    "Rocks": 98,
+    "Ruins (Saborian)": 3,
+    "grass": 1435
+   },
+   "placements": 2141,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1425717084": {
+   "categories": {
+    "Foliage": 254,
+    "Rocks": 364,
+    "Ruins (Miscellaneous)": 332,
+    "Ruins (Saborian)": 124
+   },
+   "placements": 1074,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1431299145": {
+   "categories": {
+    "Effects": 84,
+    "Foliage": 342,
+    "Rocks": 436,
+    "Ruins (Miscellaneous)": 229,
+    "Ruins (Saborian)": 24,
+    "grass": 170
+   },
+   "placements": 1285,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1434124226": {
+   "categories": {
+    "Effects": 20,
+    "Foliage": 239,
+    "Gameplay": 190,
+    "Ruins (Kioki)": 112,
+    "Ruins (Miscellaneous)": 278
+   },
+   "placements": 839,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1435075587": {
+   "categories": {
+    "Effects": 17,
+    "Foliage": 395,
+    "Gameplay": 12,
+    "Rocks": 3,
+    "Ruins (Kioki)": 1626,
+    "Ruins (Miscellaneous)": 647,
+    "grass": 33
+   },
+   "placements": 2733,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1437244799": {
+   "categories": {
+    "Effects": 8,
+    "Foliage": 77,
+    "Gameplay": 1,
+    "Rocks": 30,
+    "Ruins (Miscellaneous)": 113,
+    "Ruins (Saborian)": 2279,
+    "grass": 151
+   },
+   "placements": 2659,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1447654748": {
+   "categories": {
+    "Effects": 18,
+    "Foliage": 459,
+    "Gameplay": 100,
+    "Ruins (Kioki)": 3492,
+    "Ruins (Miscellaneous)": 340
+   },
+   "placements": 4409,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1448248002": {
+   "categories": {
+    "Effects": 7,
+    "Foliage": 310,
+    "Gameplay": 28,
+    "Rocks": 71,
+    "Ruins (Kioki)": 350,
+    "Ruins (Miscellaneous)": 35,
+    "grass": 117
+   },
+   "placements": 918,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1449151963": {
+   "categories": {
+    "Effects": 24,
+    "Foliage": 40,
+    "Gameplay": 69,
+    "Ruins (Miscellaneous)": 172,
+    "Ruins (Saborian)": 252,
+    "grass": 182
+   },
+   "placements": 739,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1449614944": {
+   "categories": {
+    "Foliage": 683,
+    "Rocks": 206,
+    "Ruins (Kioki)": 1064,
+    "Ruins (Miscellaneous)": 151
+   },
+   "placements": 2104,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1458548732": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 805,
+    "Gameplay": 3,
+    "Rocks": 186,
+    "Ruins (Miscellaneous)": 118,
+    "Ruins (Saborian)": 712
+   },
+   "placements": 1833,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1462174728": {
+   "categories": {
+    "Foliage": 560,
+    "Gameplay": 208,
+    "Ruins (Kioki)": 482
+   },
+   "placements": 1250,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1466800241": {
+   "categories": {
+    "Effects": 760,
+    "Gameplay": 37,
+    "Ruins (Kioki)": 132,
+    "Ruins (Miscellaneous)": 1
+   },
+   "placements": 930,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1478621455": {
+   "categories": {
+    "Effects": 17,
+    "Foliage": 84,
+    "Gameplay": 1,
+    "Rocks": 63,
+    "Ruins (Kioki)": 475,
+    "Ruins (Miscellaneous)": 307,
+    "grass": 47
+   },
+   "placements": 994,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1480149094": {
+   "categories": {
+    "Effects": 134,
+    "Foliage": 82,
+    "Gameplay": 129,
+    "Rocks": 263,
+    "Ruins (Kioki)": 1157,
+    "Ruins (Miscellaneous)": 210
+   },
+   "placements": 1975,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1481554121": {
+   "categories": {
+    "Foliage": 872,
+    "Gameplay": 710,
+    "Rocks": 2,
+    "Ruins (Kioki)": 1686,
+    "Ruins (Miscellaneous)": 216
+   },
+   "placements": 3486,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1483206813": {
+   "categories": {
+    "Effects": 46,
+    "Foliage": 845,
+    "Rocks": 90,
+    "Ruins (Kioki)": 290,
+    "Ruins (Miscellaneous)": 94,
+    "grass": 5
+   },
+   "placements": 1370,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1493178948": {
+   "categories": {
+    "Gameplay": 19,
+    "Rocks": 867,
+    "Ruins (Kioki)": 2201,
+    "Ruins (Miscellaneous)": 786,
+    "grass": 206
+   },
+   "placements": 4079,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1494483756": {
+   "categories": {
+    "Effects": 2,
+    "Foliage": 229,
+    "Gameplay": 2,
+    "Rocks": 6,
+    "Ruins (Kioki)": 1110,
+    "Ruins (Miscellaneous)": 65
+   },
+   "placements": 1414,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1511984526": {
+   "categories": {
+    "Effects": 68,
+    "Foliage": 584,
+    "Gameplay": 1,
+    "Rocks": 170,
+    "Ruins (Miscellaneous)": 3312,
+    "Ruins (Saborian)": 1607,
+    "grass": 3
+   },
+   "placements": 5745,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1520901154": {
+   "categories": {
+    "Foliage": 84,
+    "Gameplay": 238,
+    "Rocks": 398,
+    "Ruins (Kioki)": 897,
+    "Ruins (Miscellaneous)": 97,
+    "grass": 38
+   },
+   "placements": 1752,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1532141541": {
+   "categories": {
+    "Effects": 18,
+    "Foliage": 214,
+    "Gameplay": 27,
+    "Ruins (Miscellaneous)": 110,
+    "Ruins (Saborian)": 27
+   },
+   "placements": 396,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1536689179": {
+   "categories": {
+    "Effects": 71,
+    "Foliage": 457,
+    "Gameplay": 46,
+    "Rocks": 18,
+    "Ruins (Miscellaneous)": 220,
+    "Ruins (Saborian)": 370
+   },
+   "placements": 1182,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1543242091": {
+   "categories": {
+    "Foliage": 514,
+    "Gameplay": 4,
+    "Rocks": 15,
+    "Ruins (Kioki)": 1205,
+    "Ruins (Miscellaneous)": 69
+   },
+   "placements": 1807,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1544244747": {
+   "categories": {
+    "Foliage": 387,
+    "Gameplay": 7,
+    "Rocks": 169,
+    "Ruins (Kioki)": 1365,
+    "Ruins (Miscellaneous)": 115
+   },
+   "placements": 2043,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1545967168": {
+   "categories": {
+    "Foliage": 301,
+    "Gameplay": 3,
+    "Ruins (Miscellaneous)": 5,
+    "Ruins (Saborian)": 43
+   },
+   "placements": 352,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1547614073": {
+   "categories": {
+    "Effects": 14,
+    "Foliage": 151,
+    "Gameplay": 54,
+    "Rocks": 110,
+    "Ruins (Kioki)": 581,
+    "Ruins (Miscellaneous)": 208,
+    "grass": 79
+   },
+   "placements": 1197,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1551180239": {
+   "categories": {
+    "Effects": 81,
+    "Foliage": 418,
+    "Gameplay": 1,
+    "Rocks": 6,
+    "Ruins (Kioki)": 818,
+    "Ruins (Miscellaneous)": 157
+   },
+   "placements": 1481,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1552385745": {
+   "categories": {
+    "Effects": 88,
+    "Foliage": 210,
+    "Gameplay": 4,
+    "Rocks": 249,
+    "Ruins (Miscellaneous)": 90,
+    "Ruins (Saborian)": 583
+   },
+   "placements": 1224,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1553975919": {
+   "categories": {
+    "Foliage": 223,
+    "Gameplay": 103,
+    "Rocks": 4,
+    "Ruins (Kioki)": 1013,
+    "Ruins (Miscellaneous)": 371,
+    "grass": 11
+   },
+   "placements": 1725,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1555164497": {
+   "categories": {
+    "Effects": 216,
+    "Foliage": 86,
+    "Rocks": 65,
+    "Ruins (Kioki)": 996,
+    "Ruins (Miscellaneous)": 149
+   },
+   "placements": 1512,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1568251480": {
+   "categories": {
+    "Foliage": 1425,
+    "Rocks": 48,
+    "Ruins (Kioki)": 1364,
+    "Ruins (Miscellaneous)": 63
+   },
+   "placements": 2900,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1581621014": {
+   "categories": {
+    "Effects": 32,
+    "Foliage": 412,
+    "Rocks": 301,
+    "Ruins (Miscellaneous)": 62,
+    "Ruins (Saborian)": 2,
+    "grass": 13
+   },
+   "placements": 822,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1588830199": {
+   "categories": {
+    "Effects": 14,
+    "Foliage": 253,
+    "Gameplay": 2,
+    "Ruins (Kioki)": 409,
+    "Ruins (Miscellaneous)": 68,
+    "grass": 118
+   },
+   "placements": 864,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1589624536": {
+   "categories": {
+    "Effects": 28,
+    "Foliage": 653,
+    "Gameplay": 2,
+    "Ruins (Miscellaneous)": 6,
+    "Ruins (Saborian)": 238,
+    "grass": 411
+   },
+   "placements": 1338,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1614600945": {
+   "categories": {
+    "Effects": 34,
+    "Foliage": 1386,
+    "Gameplay": 50,
+    "Rocks": 391,
+    "Ruins (Miscellaneous)": 46,
+    "Ruins (Saborian)": 1500,
+    "grass": 34
+   },
+   "placements": 3441,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1629179916": {
+   "categories": {
+    "Effects": 6,
+    "Foliage": 170,
+    "Rocks": 11,
+    "Ruins (Miscellaneous)": 374,
+    "Ruins (Saborian)": 245,
+    "grass": 49
+   },
+   "placements": 855,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1629338272": {
+   "categories": {
+    "Effects": 187,
+    "Foliage": 163,
+    "Gameplay": 16,
+    "Rocks": 132,
+    "Ruins (Miscellaneous)": 12,
+    "Ruins (Saborian)": 16,
+    "grass": 96
+   },
+   "placements": 622,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1629550563": {
+   "categories": {
+    "Effects": 7,
+    "Foliage": 71,
+    "Gameplay": 45,
+    "Rocks": 3,
+    "Ruins (Miscellaneous)": 81,
+    "Ruins (Saborian)": 1999,
+    "grass": 17
+   },
+   "placements": 2223,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1631844463": {
+   "categories": {
+    "Effects": 6,
+    "Gameplay": 367,
+    "Rocks": 113,
+    "Ruins (Kioki)": 540,
+    "Ruins (Miscellaneous)": 129
+   },
+   "placements": 1155,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1646037464": {
+   "categories": {
+    "Effects": 2,
+    "Foliage": 255,
+    "Gameplay": 4,
+    "Rocks": 12,
+    "Ruins (Kioki)": 1187,
+    "Ruins (Miscellaneous)": 54
+   },
+   "placements": 1514,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1651615914": {
+   "categories": {
+    "Foliage": 173,
+    "Gameplay": 4,
+    "Rocks": 30,
+    "Ruins (Kioki)": 406,
+    "Ruins (Miscellaneous)": 62,
+    "grass": 56
+   },
+   "placements": 731,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1660015586": {
+   "categories": {
+    "Effects": 53,
+    "Foliage": 3,
+    "Rocks": 50,
+    "Ruins (Miscellaneous)": 8,
+    "Ruins (Saborian)": 123
+   },
+   "placements": 237,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1663270602": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 147,
+    "Rocks": 25,
+    "Ruins (Kioki)": 1482,
+    "Ruins (Miscellaneous)": 14
+   },
+   "placements": 1677,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1673355094": {
+   "categories": {
+    "Foliage": 199,
+    "Gameplay": 24,
+    "Rocks": 5,
+    "Ruins (Miscellaneous)": 822,
+    "Ruins (Saborian)": 1814
+   },
+   "placements": 2864,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1675054039": {
+   "categories": {
+    "Foliage": 648,
+    "Gameplay": 2,
+    "Ruins (Miscellaneous)": 113,
+    "Ruins (Saborian)": 966,
+    "grass": 174
+   },
+   "placements": 1903,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1705584565": {
+   "categories": {
+    "Effects": 11,
+    "Foliage": 692,
+    "Rocks": 171,
+    "Ruins (Kioki)": 1,
+    "grass": 1541
+   },
+   "placements": 2416,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1721149568": {
+   "categories": {
+    "Effects": 17,
+    "Foliage": 668,
+    "Gameplay": 1,
+    "Rocks": 66,
+    "Ruins (Kioki)": 382,
+    "grass": 192
+   },
+   "placements": 1326,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1728138075": {
+   "categories": {
+    "Effects": 165,
+    "Foliage": 178,
+    "Gameplay": 332,
+    "Rocks": 30,
+    "Ruins (Kioki)": 48,
+    "Ruins (Miscellaneous)": 3,
+    "grass": 221
+   },
+   "placements": 977,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1728234771": {
+   "categories": {
+    "Effects": 14,
+    "Foliage": 991,
+    "Gameplay": 1,
+    "Rocks": 147,
+    "grass": 425
+   },
+   "placements": 1578,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1729056132": {
+   "categories": {
+    "Effects": 74,
+    "Foliage": 148,
+    "Gameplay": 1077,
+    "Rocks": 205,
+    "Ruins (Miscellaneous)": 121,
+    "Ruins (Saborian)": 1029
+   },
+   "placements": 2654,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1729074466": {
+   "categories": {
+    "Effects": 84,
+    "Foliage": 759,
+    "Gameplay": 53,
+    "Rocks": 482,
+    "Ruins (Miscellaneous)": 372,
+    "Ruins (Saborian)": 832,
+    "grass": 13
+   },
+   "placements": 2595,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1729111935": {
+   "categories": {
+    "Effects": 132,
+    "Foliage": 1008,
+    "Gameplay": 4,
+    "Rocks": 503,
+    "Ruins (Kioki)": 91,
+    "Ruins (Miscellaneous)": 257,
+    "grass": 486
+   },
+   "placements": 2481,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1729632456": {
+   "categories": {
+    "Effects": 77,
+    "Foliage": 32,
+    "Gameplay": 1215,
+    "Rocks": 140,
+    "Ruins (Kioki)": 59,
+    "Ruins (Miscellaneous)": 134
+   },
+   "placements": 1657,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1732533830": {
+   "categories": {
+    "Foliage": 22,
+    "Gameplay": 39,
+    "Rocks": 39,
+    "Ruins (Miscellaneous)": 50,
+    "Ruins (Saborian)": 415,
+    "grass": 255
+   },
+   "placements": 820,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1733933093": {
+   "categories": {
+    "Effects": 18,
+    "Foliage": 134,
+    "Ruins (Kioki)": 1178,
+    "Ruins (Miscellaneous)": 336,
+    "grass": 18
+   },
+   "placements": 1684,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1736840913": {
+   "categories": {
+    "Effects": 17,
+    "Foliage": 510,
+    "Gameplay": 5,
+    "Rocks": 23,
+    "Ruins (Kioki)": 453,
+    "Ruins (Miscellaneous)": 37,
+    "grass": 47
+   },
+   "placements": 1092,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1737225438": {
+   "categories": {
+    "Effects": 7,
+    "Foliage": 218,
+    "Gameplay": 1,
+    "Rocks": 82,
+    "Ruins (Kioki)": 251,
+    "Ruins (Miscellaneous)": 40
+   },
+   "placements": 599,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "1740220808": {
+   "categories": {
+    "Effects": 20,
+    "Foliage": 69,
+    "Gameplay": 64,
+    "Rocks": 331,
+    "Ruins (Miscellaneous)": 40,
+    "Ruins (Saborian)": 2951,
+    "grass": 3
+   },
+   "placements": 3478,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "650186469": {
+   "categories": {
+    "Foliage": 44,
+    "Gameplay": 2,
+    "Rocks": 75,
+    "Ruins (Miscellaneous)": 538,
+    "Ruins (Saborian)": 538,
+    "grass": 7
+   },
+   "placements": 1204,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "680025017": {
+   "categories": {
+    "Effects": 38,
+    "Foliage": 131,
+    "Gameplay": 2,
+    "Rocks": 765,
+    "Ruins (Miscellaneous)": 47,
+    "Ruins (Saborian)": 188,
+    "grass": 356
+   },
+   "placements": 1527,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "682552495": {
+   "categories": {
+    "Foliage": 73,
+    "Rocks": 194,
+    "Ruins (Miscellaneous)": 68,
+    "Ruins (Saborian)": 110,
+    "grass": 73
+   },
+   "placements": 518,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "742077672": {
+   "categories": {
+    "Effects": 467,
+    "Foliage": 876,
+    "Gameplay": 4,
+    "Rocks": 498,
+    "Ruins (Miscellaneous)": 1286,
+    "Ruins (Saborian)": 19,
+    "grass": 1253
+   },
+   "placements": 4403,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "746775124": {
+   "categories": {
+    "Effects": 179,
+    "Foliage": 1174,
+    "Rocks": 499,
+    "grass": 428
+   },
+   "placements": 2280,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "766278426": {
+   "categories": {
+    "Effects": 43,
+    "Foliage": 466,
+    "Gameplay": 4,
+    "Rocks": 105,
+    "Ruins (Miscellaneous)": 168,
+    "Ruins (Saborian)": 1232,
+    "grass": 387
+   },
+   "placements": 2405,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "780038601": {
+   "categories": {
+    "Foliage": 526,
+    "Gameplay": 1,
+    "Rocks": 250,
+    "Ruins (Miscellaneous)": 3,
+    "Ruins (Saborian)": 19,
+    "grass": 480
+   },
+   "placements": 1279,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "782917965": {
+   "categories": {
+    "Effects": 27,
+    "Foliage": 33,
+    "Rocks": 564,
+    "Ruins (Miscellaneous)": 71,
+    "Ruins (Saborian)": 345,
+    "grass": 43
+   },
+   "placements": 1083,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "797781440": {
+   "categories": {
+    "Effects": 18,
+    "Foliage": 996,
+    "Gameplay": 4,
+    "Rocks": 785,
+    "Ruins (Miscellaneous)": 304,
+    "Ruins (Saborian)": 1912,
+    "grass": 250
+   },
+   "placements": 4269,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "800023806": {
+   "categories": {
+    "Effects": 63,
+    "Foliage": 1550,
+    "Gameplay": 4,
+    "Rocks": 809,
+    "Ruins (Miscellaneous)": 49,
+    "Ruins (Saborian)": 242,
+    "grass": 421
+   },
+   "placements": 3138,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "803203608": {
+   "categories": {
+    "Effects": 78,
+    "Foliage": 356,
+    "Gameplay": 3,
+    "Rocks": 33,
+    "Ruins (Miscellaneous)": 266,
+    "Ruins (Saborian)": 449
+   },
+   "placements": 1185,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "803380078": {
+   "categories": {
+    "Effects": 21,
+    "Foliage": 305,
+    "Rocks": 97,
+    "Ruins (Miscellaneous)": 140,
+    "Ruins (Saborian)": 1570,
+    "grass": 113
+   },
+   "placements": 2246,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "818084370": {
+   "categories": {
+    "Foliage": 149,
+    "Gameplay": 2,
+    "Rocks": 65,
+    "Ruins (Miscellaneous)": 126,
+    "Ruins (Saborian)": 1335,
+    "grass": 87
+   },
+   "placements": 1764,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "838653959": {
+   "categories": {
+    "Effects": 30,
+    "Foliage": 644,
+    "Gameplay": 2,
+    "Rocks": 93,
+    "Ruins (Miscellaneous)": 178,
+    "Ruins (Saborian)": 328,
+    "grass": 193
+   },
+   "placements": 1468,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "842709087": {
+   "categories": {
+    "Effects": 36,
+    "Foliage": 42,
+    "Gameplay": 4,
+    "Rocks": 130,
+    "Ruins (Miscellaneous)": 155,
+    "Ruins (Saborian)": 3823,
+    "grass": 195
+   },
+   "placements": 4385,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "846584820": {
+   "categories": {
+    "Effects": 24,
+    "Foliage": 724,
+    "Gameplay": 3,
+    "Rocks": 419,
+    "Ruins (Miscellaneous)": 257,
+    "Ruins (Saborian)": 811,
+    "grass": 155
+   },
+   "placements": 2393,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "848697696": {
+   "categories": {
+    "Foliage": 57,
+    "Gameplay": 1,
+    "Rocks": 65,
+    "Ruins (Miscellaneous)": 78,
+    "Ruins (Saborian)": 625,
+    "grass": 92
+   },
+   "placements": 918,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "852728189": {
+   "categories": {
+    "Foliage": 64,
+    "Rocks": 111,
+    "Ruins (Miscellaneous)": 195,
+    "Ruins (Saborian)": 3214,
+    "grass": 88
+   },
+   "placements": 3672,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "853759261": {
+   "categories": {
+    "Effects": 16,
+    "Foliage": 651,
+    "Gameplay": 4,
+    "Rocks": 757,
+    "Ruins (Miscellaneous)": 210,
+    "Ruins (Saborian)": 422,
+    "grass": 185
+   },
+   "placements": 2245,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "853955174": {
+   "categories": {
+    "Effects": 8,
+    "Foliage": 937,
+    "Gameplay": 2,
+    "Rocks": 128,
+    "Ruins (Miscellaneous)": 57,
+    "Ruins (Saborian)": 1255,
+    "grass": 615
+   },
+   "placements": 3002,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "864909499": {
+   "categories": {
+    "Effects": 43,
+    "Foliage": 136,
+    "Gameplay": 3,
+    "Rocks": 627,
+    "Ruins (Miscellaneous)": 129,
+    "Ruins (Saborian)": 171,
+    "grass": 33
+   },
+   "placements": 1142,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "874539258": {
+   "categories": {
+    "Foliage": 632,
+    "Gameplay": 4,
+    "Rocks": 21,
+    "Ruins (Miscellaneous)": 244,
+    "Ruins (Saborian)": 2249,
+    "grass": 23
+   },
+   "placements": 3173,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "887053661": {
+   "categories": {
+    "Effects": 17,
+    "Foliage": 409,
+    "Ruins (Miscellaneous)": 238,
+    "Ruins (Saborian)": 217,
+    "grass": 208
+   },
+   "placements": 1089,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "890262920": {
+   "categories": {
+    "Foliage": 424,
+    "Rocks": 416,
+    "Ruins (Miscellaneous)": 256,
+    "Ruins (Saborian)": 708,
+    "grass": 795
+   },
+   "placements": 2599,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "891063775": {
+   "categories": {
+    "Effects": 51,
+    "Foliage": 1086,
+    "Gameplay": 4,
+    "Rocks": 864,
+    "Ruins (Miscellaneous)": 307,
+    "Ruins (Saborian)": 763,
+    "grass": 703
+   },
+   "placements": 3778,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "891104988": {
+   "categories": {
+    "Foliage": 327,
+    "Gameplay": 1,
+    "Rocks": 318,
+    "Ruins (Miscellaneous)": 77,
+    "Ruins (Saborian)": 831,
+    "grass": 1015
+   },
+   "placements": 2569,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "893135989": {
+   "categories": {
+    "Effects": 57,
+    "Foliage": 569,
+    "Rocks": 12,
+    "Ruins (Miscellaneous)": 476,
+    "Ruins (Saborian)": 1149,
+    "grass": 170
+   },
+   "placements": 2433,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "893475484": {
+   "categories": {
+    "Foliage": 2,
+    "Ruins (Miscellaneous)": 371,
+    "Ruins (Saborian)": 2956,
+    "grass": 124
+   },
+   "placements": 3453,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "899107479": {
+   "categories": {
+    "Foliage": 371,
+    "Rocks": 93,
+    "Ruins (Miscellaneous)": 250,
+    "Ruins (Saborian)": 295
+   },
+   "placements": 1009,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "906285655": {
+   "categories": {
+    "Effects": 36,
+    "Foliage": 69,
+    "Gameplay": 4,
+    "Rocks": 7,
+    "Ruins (Miscellaneous)": 42,
+    "Ruins (Saborian)": 536,
+    "grass": 141
+   },
+   "placements": 835,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "907526482": {
+   "categories": {
+    "Effects": 174,
+    "Foliage": 685,
+    "Gameplay": 4,
+    "Rocks": 56,
+    "Ruins (Miscellaneous)": 285,
+    "Ruins (Saborian)": 12,
+    "grass": 7
+   },
+   "placements": 1223,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "911192480": {
+   "categories": {
+    "Foliage": 73,
+    "Gameplay": 2,
+    "Rocks": 364,
+    "Ruins (Miscellaneous)": 95,
+    "Ruins (Saborian)": 1414,
+    "grass": 12
+   },
+   "placements": 1960,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "911980831": {
+   "categories": {
+    "Effects": 51,
+    "Foliage": 468,
+    "Gameplay": 3,
+    "Rocks": 169,
+    "Ruins (Miscellaneous)": 710,
+    "Ruins (Saborian)": 1171
+   },
+   "placements": 2572,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "916706451": {
+   "categories": {
+    "Effects": 71,
+    "Foliage": 174,
+    "Gameplay": 1,
+    "Rocks": 4,
+    "Ruins (Miscellaneous)": 425,
+    "Ruins (Saborian)": 1878,
+    "grass": 1027
+   },
+   "placements": 3580,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "918247050": {
+   "categories": {
+    "Effects": 4,
+    "Foliage": 172,
+    "Gameplay": 4,
+    "Rocks": 194,
+    "Ruins (Miscellaneous)": 732,
+    "Ruins (Saborian)": 2092
+   },
+   "placements": 3198,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "924807150": {
+   "categories": {
+    "Effects": 27,
+    "Foliage": 328,
+    "Gameplay": 4,
+    "Rocks": 35,
+    "Ruins (Miscellaneous)": 279,
+    "Ruins (Saborian)": 2734,
+    "grass": 217
+   },
+   "placements": 3624,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "926744964": {
+   "categories": {
+    "Effects": 60,
+    "Foliage": 313,
+    "Gameplay": 4,
+    "Rocks": 54,
+    "Ruins (Miscellaneous)": 271,
+    "Ruins (Saborian)": 503,
+    "grass": 43
+   },
+   "placements": 1248,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "932292343": {
+   "categories": {
+    "Effects": 61,
+    "Foliage": 980,
+    "Gameplay": 3,
+    "Rocks": 1302,
+    "Ruins (Miscellaneous)": 160,
+    "Ruins (Saborian)": 15
+   },
+   "placements": 2521,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "932301409": {
+   "categories": {
+    "Effects": 42,
+    "Foliage": 502,
+    "Gameplay": 3,
+    "Ruins (Miscellaneous)": 507,
+    "Ruins (Saborian)": 3076,
+    "grass": 31
+   },
+   "placements": 4161,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "934371977": {
+   "categories": {
+    "Foliage": 938,
+    "Gameplay": 1,
+    "Rocks": 1,
+    "Ruins (Miscellaneous)": 85,
+    "Ruins (Saborian)": 50
+   },
+   "placements": 1075,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "938282702": {
+   "categories": {
+    "Foliage": 144,
+    "Gameplay": 2,
+    "Rocks": 199,
+    "Ruins (Saborian)": 15,
+    "grass": 45
+   },
+   "placements": 405,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "938365089": {
+   "categories": {
+    "Effects": 201,
+    "Foliage": 2039,
+    "Rocks": 251,
+    "Ruins (Miscellaneous)": 89,
+    "Ruins (Saborian)": 3,
+    "grass": 383
+   },
+   "placements": 2966,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "938371075": {
+   "categories": {
+    "Effects": 236,
+    "Foliage": 1379,
+    "Gameplay": 1,
+    "Rocks": 178,
+    "Ruins (Miscellaneous)": 39,
+    "Ruins (Saborian)": 18
+   },
+   "placements": 1851,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "938487143": {
+   "categories": {
+    "Effects": 43,
+    "Foliage": 70,
+    "Rocks": 42,
+    "Ruins (Saborian)": 132
+   },
+   "placements": 287,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "938678845": {
+   "categories": {
+    "Effects": 191,
+    "Foliage": 796,
+    "Rocks": 47,
+    "Ruins (Miscellaneous)": 10,
+    "Ruins (Saborian)": 22,
+    "grass": 50
+   },
+   "placements": 1116,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "939560840": {
+   "categories": {
+    "Effects": 267,
+    "Foliage": 161,
+    "Gameplay": 4,
+    "Rocks": 45,
+    "Ruins (Miscellaneous)": 208,
+    "Ruins (Saborian)": 1667,
+    "grass": 37
+   },
+   "placements": 2389,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "939691209": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 38,
+    "Rocks": 234,
+    "Ruins (Miscellaneous)": 30,
+    "Ruins (Saborian)": 114
+   },
+   "placements": 425,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "940303808": {
+   "categories": {
+    "Effects": 64,
+    "Foliage": 51,
+    "Gameplay": 4,
+    "Rocks": 25,
+    "Ruins (Miscellaneous)": 167,
+    "Ruins (Saborian)": 254,
+    "grass": 39
+   },
+   "placements": 604,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "940364499": {
+   "categories": {
+    "Foliage": 20,
+    "Gameplay": 4,
+    "Rocks": 64,
+    "Ruins (Miscellaneous)": 6,
+    "Ruins (Saborian)": 25,
+    "grass": 113
+   },
+   "placements": 232,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "941209558": {
+   "categories": {
+    "Effects": 217,
+    "Foliage": 155,
+    "Gameplay": 4,
+    "Rocks": 45,
+    "Ruins (Miscellaneous)": 59,
+    "Ruins (Saborian)": 427
+   },
+   "placements": 907,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "941277612": {
+   "categories": {
+    "Effects": 4,
+    "Foliage": 365,
+    "Rocks": 18,
+    "Ruins (Miscellaneous)": 158,
+    "Ruins (Saborian)": 145,
+    "grass": 235
+   },
+   "placements": 925,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "941505099": {
+   "categories": {
+    "Effects": 40,
+    "Foliage": 111,
+    "Gameplay": 4,
+    "Rocks": 146,
+    "Ruins (Miscellaneous)": 41,
+    "Ruins (Saborian)": 72
+   },
+   "placements": 414,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "942473835": {
+   "categories": {
+    "Effects": 1,
+    "Foliage": 459,
+    "Gameplay": 2,
+    "Rocks": 100,
+    "Ruins (Miscellaneous)": 399,
+    "Ruins (Saborian)": 98,
+    "grass": 90
+   },
+   "placements": 1149,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "944436171": {
+   "categories": {
+    "Effects": 7,
+    "Foliage": 149,
+    "Gameplay": 2,
+    "Ruins (Miscellaneous)": 129,
+    "Ruins (Saborian)": 313,
+    "grass": 4
+   },
+   "placements": 604,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "946315636": {
+   "categories": {
+    "Effects": 21,
+    "Foliage": 184,
+    "Gameplay": 3,
+    "Ruins (Saborian)": 851,
+    "grass": 145
+   },
+   "placements": 1204,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "946532982": {
+   "categories": {
+    "Effects": 53,
+    "Foliage": 287,
+    "Gameplay": 4,
+    "Rocks": 135,
+    "Ruins (Miscellaneous)": 58,
+    "Ruins (Saborian)": 5821
+   },
+   "placements": 6358,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "947422891": {
+   "categories": {
+    "Effects": 44,
+    "Ruins (Miscellaneous)": 10,
+    "Ruins (Saborian)": 119
+   },
+   "placements": 173,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "948267589": {
+   "categories": {
+    "Effects": 26,
+    "Foliage": 247,
+    "Gameplay": 3,
+    "Rocks": 60,
+    "Ruins (Miscellaneous)": 18,
+    "Ruins (Saborian)": 619,
+    "grass": 2
+   },
+   "placements": 975,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "949069116": {
+   "categories": {
+    "Effects": 41,
+    "Foliage": 291,
+    "Gameplay": 4,
+    "Rocks": 198,
+    "Ruins (Miscellaneous)": 8,
+    "Ruins (Saborian)": 391,
+    "grass": 23
+   },
+   "placements": 956,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "950242829": {
+   "categories": {
+    "Effects": 41,
+    "Foliage": 199,
+    "Gameplay": 4,
+    "Rocks": 17,
+    "Ruins (Miscellaneous)": 251,
+    "Ruins (Saborian)": 77,
+    "grass": 63
+   },
+   "placements": 652,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "953922232": {
+   "categories": {
+    "Effects": 9,
+    "Foliage": 680,
+    "Gameplay": 4,
+    "Rocks": 248,
+    "Ruins (Miscellaneous)": 104,
+    "Ruins (Saborian)": 1296
+   },
+   "placements": 2341,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "953937597": {
+   "categories": {
+    "Effects": 205,
+    "Foliage": 114,
+    "Rocks": 77,
+    "Ruins (Miscellaneous)": 2,
+    "Ruins (Saborian)": 14,
+    "grass": 1518
+   },
+   "placements": 1930,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "954012548": {
+   "categories": {
+    "Effects": 62,
+    "Foliage": 1003,
+    "Gameplay": 1,
+    "Rocks": 273,
+    "Ruins (Miscellaneous)": 360,
+    "Ruins (Saborian)": 201
+   },
+   "placements": 1900,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "961296664": {
+   "categories": {
+    "Effects": 8,
+    "Foliage": 644,
+    "Gameplay": 4,
+    "Rocks": 5,
+    "Ruins (Miscellaneous)": 320,
+    "Ruins (Saborian)": 153
+   },
+   "placements": 1134,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "964741877": {
+   "categories": {
+    "Effects": 46,
+    "Foliage": 234,
+    "Gameplay": 1,
+    "Rocks": 31,
+    "Ruins (Miscellaneous)": 42,
+    "Ruins (Saborian)": 74,
+    "grass": 70
+   },
+   "placements": 498,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "966489234": {
+   "categories": {
+    "Effects": 109,
+    "Foliage": 1107,
+    "Rocks": 359,
+    "Ruins (Miscellaneous)": 45,
+    "Ruins (Saborian)": 42,
+    "grass": 20
+   },
+   "placements": 1682,
+   "tree_props": {},
+   "unresolved": 0
+  },
+  "966498161": {
+   "categories": {
+    "Effects": 8,
+    "Foliage": 724,
+    "Gameplay": 4,
+    "Rocks": 229,
+    "Ruins (Miscellaneous)": 129,
+    "Ruins (Saborian)": 1303,
+    "grass": 207
+   },
+   "placements": 2604,
+   "tree_props": {},
+   "unresolved": 0
+  }
+ },
+ "total_placements": 465571,
+ "tree_prop_placements": 0,
+ "unresolved_guids": 0,
+ "world_asset_totals": {
+  "IslandProps/Effects/Dust": 4727,
+  "IslandProps/Effects/DustFall Intense": 17,
+  "IslandProps/Effects/DustFall Regular": 7,
+  "IslandProps/Effects/DustFall Single": 51,
+  "IslandProps/Effects/Falling Leaves Blue": 1362,
+  "IslandProps/Effects/Falling Leaves Green": 1200,
+  "IslandProps/Effects/Falling Leaves Orange": 222,
+  "IslandProps/Effects/Falling Leaves Pink": 481,
+  "IslandProps/Effects/Falling Leaves Purple": 155,
+  "IslandProps/Effects/Falling Leaves Red": 379,
+  "IslandProps/Effects/Fire Bugs Blue": 11,
+  "IslandProps/Effects/Fire Bugs Green": 17,
+  "IslandProps/Effects/Fire Bugs Yellow": 20,
+  "IslandProps/Effects/Flies": 5,
+  "IslandProps/Effects/GlowButterflies": 4288,
+  "IslandProps/Effects/Pollen": 8,
+  "IslandProps/Effects/Rockfall Regular": 8,
+  "IslandProps/Effects/Rockfall Single": 45,
+  "IslandProps/Effects/Water Drips Single": 20,
+  "IslandProps/Foliage/Bushes/Big Bush 01": 6021,
+  "IslandProps/Foliage/Bushes/Big Bush 02": 3182,
+  "IslandProps/Foliage/Bushes/Big Bush 03": 943,
+  "IslandProps/Foliage/Bushes/Big Bush 04": 1001,
+  "IslandProps/Foliage/Bushes/Big Bush 05": 1231,
+  "IslandProps/Foliage/Bushes/Big Bush 06": 16,
+  "IslandProps/Foliage/Bushes/Blue Bush": 1453,
+  "IslandProps/Foliage/Bushes/Fern": 1474,
+  "IslandProps/Foliage/Bushes/Medium Bush 01": 1196,
+  "IslandProps/Foliage/Bushes/Medium Bush 02": 655,
+  "IslandProps/Foliage/Bushes/Medium Bush 03": 1283,
+  "IslandProps/Foliage/Bushes/Medium Bush 04": 1123,
+  "IslandProps/Foliage/Bushes/Purple Bush 01": 1217,
+  "IslandProps/Foliage/Bushes/Purple Bush 02": 863,
+  "IslandProps/Foliage/Bushes/Rabbit Bush": 1695,
+  "IslandProps/Foliage/Cave/Crown Caps": 639,
+  "IslandProps/Foliage/Cave/Fracture Root": 534,
+  "IslandProps/Foliage/Cave/Hope Sprout": 2007,
+  "IslandProps/Foliage/Cave/Lure Hooks": 612,
+  "IslandProps/Foliage/Cave/Radiant Fungi": 1543,
+  "IslandProps/Foliage/Cave/Reaching Seeder": 267,
+  "IslandProps/Foliage/Cave/Sapphire Dwarf": 2230,
+  "IslandProps/Foliage/Cave/Small Mushroom": 13338,
+  "IslandProps/Foliage/Cave/Staggered Sapling": 124,
+  "IslandProps/Foliage/Cave/Thorn Wart": 2406,
+  "IslandProps/Foliage/Desert/Aloe Vera": 541,
+  "IslandProps/Foliage/Desert/Cactus 1": 495,
+  "IslandProps/Foliage/Desert/Cactus 2": 411,
+  "IslandProps/Foliage/Desert/Cactus 3": 447,
+  "IslandProps/Foliage/Desert/Cactus Flower": 557,
+  "IslandProps/Foliage/Desert/Desert Flower Plant Red": 1462,
+  "IslandProps/Foliage/Desert/Desert Flower Plant Yellow": 1936,
+  "IslandProps/Foliage/Desert/Desert Plant Brown": 4823,
+  "IslandProps/Foliage/Desert/Desert Plant Green": 1886,
+  "IslandProps/Foliage/Desert/Dry Flowers Orange": 1017,
+  "IslandProps/Foliage/Desert/Dry Flowers Purple": 1157,
+  "IslandProps/Foliage/Desert/Dry Flowers Yellow": 1205,
+  "IslandProps/Foliage/Desert/Leaf Plant": 2717,
+  "IslandProps/Foliage/Desert/tall cactus": 194,
+  "IslandProps/Foliage/Desert/tall cactus1": 179,
+  "IslandProps/Foliage/Desert/tall cactus2": 169,
+  "IslandProps/Foliage/Desert/tall cactus3": 290,
+  "IslandProps/Foliage/Flowers/Flower Clump 01 Blue": 1045,
+  "IslandProps/Foliage/Flowers/Flower Clump 01 Purple": 529,
+  "IslandProps/Foliage/Flowers/Flower Clump 01 Red": 1024,
+  "IslandProps/Foliage/Flowers/Flower Clump 01 Yellow": 1037,
+  "IslandProps/Foliage/Flowers/Flower Clump 02 Pink": 2130,
+  "IslandProps/Foliage/Flowers/Flower Clump 02 Red": 724,
+  "IslandProps/Foliage/Flowers/Flower Clump 02 Yellow": 860,
+  "IslandProps/Foliage/Flowers/Flower Clump 03 Blue": 1815,
+  "IslandProps/Foliage/Flowers/Flower Clump 03 Purple": 2337,
+  "IslandProps/Foliage/Flowers/Flower Clump 03 Red": 1189,
+  "IslandProps/Foliage/Flowers/Flower Clump 03 Yellow": 1989,
+  "IslandProps/Foliage/Flowers/Flower Small Blue": 949,
+  "IslandProps/Foliage/Flowers/Flower Small Orange": 1486,
+  "IslandProps/Foliage/Flowers/Flower Small White": 1202,
+  "IslandProps/Foliage/Roots/Root 01": 190,
+  "IslandProps/Foliage/Roots/Root 02": 78,
+  "IslandProps/Foliage/Roots/Root 03": 57,
+  "IslandProps/Foliage/Roots/Root 04": 58,
+  "IslandProps/Foliage/Vines/Hanging Vine 01": 222,
+  "IslandProps/Foliage/Vines/Hanging Vine 02": 205,
+  "IslandProps/Foliage/Vines/Hanging Vine 03": 166,
+  "IslandProps/Foliage/Vines/Hanging Vine 04": 412,
+  "IslandProps/Foliage/Vines/Hanging Vine 05": 360,
+  "IslandProps/Foliage/Vines/Vine 01": 951,
+  "IslandProps/Foliage/Vines/Vine 02": 678,
+  "IslandProps/Foliage/Vines/Vine 03": 948,
+  "IslandProps/Foliage/Vines/Vine 04": 951,
+  "IslandProps/Foliage/Vines/Vine 06": 810,
+  "IslandProps/Foliage/Vines/Vine 07": 1065,
+  "IslandProps/Foliage/Wall Leaves/Hanging Leaves": 415,
+  "IslandProps/Foliage/Wall Leaves/Wall Leaves": 1244,
+  "IslandProps/Foliage/Wall Leaves/Wall Leaves Small": 774,
+  "IslandProps/Gameplay/Dangerous Objects/Barbed Wire": 523,
+  "IslandProps/Gameplay/Dangerous Objects/Barbed Wire Large": 400,
+  "IslandProps/Gameplay/Dangerous Objects/Spikes": 1060,
+  "IslandProps/Gameplay/Dangerous Objects/Spikes Large": 1662,
+  "IslandProps/Gameplay/Dangerous Objects/Thorns": 586,
+  "IslandProps/Gameplay/Dangerous Objects/Thorns Large": 491,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Electric Turret": 19,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Explosive Turret": 42,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Heavy Turret": 45,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Kioki Explosive Turret": 35,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Kioki Heavy Turret": 131,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Light Turret": 113,
+  "IslandProps/Gameplay/Inactive Turrets/Inactive Snare Turret": 77,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural 45 Inside": 40,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural 45 Outside": 4,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural 90 Inside": 34,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural 90 Outside": 16,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 01": 47,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 02": 24,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 03": 28,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 04": 10,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 05": 9,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 06": 33,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 07": 28,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 08": 33,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 09": 29,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 10": 24,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Block 11": 31,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Straight": 16,
+  "IslandProps/Gameplay/Island Rewards/Murals/Mural Straight Square": 37,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Cube A": 10,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Cube B": 38,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Pillar 01": 116,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Pillar 02": 301,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Stairs Straight": 127,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 01 A": 2,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 01 B": 54,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 01 C": 187,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 02 A": 50,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 02 B": 18,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 02 C": 75,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 03 A": 49,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 03 B": 55,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 03 C": 63,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 04 A": 42,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 04 B": 9,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 05 A": 22,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Kioki Unclimbable Wall 05 B": 58,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Saborian Unclimbable Floor Straight Long": 60,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Saborian Unclimbable Wall Straight Tall Square": 49,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Cube A": 17,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Cube B": 27,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor 45 Outside": 46,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor 45 Pie": 148,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor 90": 45,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor 90 Pie": 68,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor Straight Long": 870,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor Straight Medium": 103,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Floor Straight Square": 564,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Outside Walkway 45": 8,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Outside Walkway 90": 102,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Pillar 01": 223,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Pillar 02": 175,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Stairs 45": 8,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Stairs 90": 76,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Stairs Straight": 31,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 01 A": 29,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 01 B": 1228,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 01 C": 12,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 02 A": 60,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 02 B": 147,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 02 C": 434,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 03 A": 17,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 03 B": 26,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 03 C": 571,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 04 A": 181,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 04 B": 1922,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 05 A": 387,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall 05 B": 287,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall Curve 45 Short": 482,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall Curve 45 Tall": 259,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall Curve 90 Short": 291,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall Curve 90 Tall": 381,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall Straight Short Square": 364,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable Wall Straight Tall Square": 1660,
+  "IslandProps/Gameplay/Unclimbable Surfaces/Unclimbable floor 45 inside 90 outside": 76,
+  "IslandProps/Rocks/Angled/Angled Rock 01": 432,
+  "IslandProps/Rocks/Angled/Angled Rock 02": 309,
+  "IslandProps/Rocks/Angled/Angled Rock 03": 270,
+  "IslandProps/Rocks/Angled/Angled Rock 04": 344,
+  "IslandProps/Rocks/Angled/Angled Rock 05": 289,
+  "IslandProps/Rocks/Angled/Angled Rock 06": 299,
+  "IslandProps/Rocks/Angled/Angled Rock 07": 252,
+  "IslandProps/Rocks/Angled/Angled Rock 08": 229,
+  "IslandProps/Rocks/Angled/Angled Rock 09": 287,
+  "IslandProps/Rocks/Angled/Angled Rock 10": 276,
+  "IslandProps/Rocks/Cave/Stalactites 1": 160,
+  "IslandProps/Rocks/Cave/Stalactites 2": 122,
+  "IslandProps/Rocks/Cave/Stalactites 3": 200,
+  "IslandProps/Rocks/Cave/Stalagmites": 213,
+  "IslandProps/Rocks/Cave/Tall Thin 1": 173,
+  "IslandProps/Rocks/Cave/Tall Thin 2": 22,
+  "IslandProps/Rocks/Cave/Tall Thin 3": 14,
+  "IslandProps/Rocks/Cave/Tall Thin 4": 19,
+  "IslandProps/Rocks/Cave/Tall Thin 5": 37,
+  "IslandProps/Rocks/Cave/Tall Thin 6": 211,
+  "IslandProps/Rocks/Cave/Tall Thin 7": 38,
+  "IslandProps/Rocks/Cliff/Rock Cliff Big 01": 532,
+  "IslandProps/Rocks/Cliff/Rock Cliff Big 02": 373,
+  "IslandProps/Rocks/Cliff/Rock Cliff Small 01": 406,
+  "IslandProps/Rocks/Cliff/Rock Cliff Small 02": 483,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 1": 11,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 2": 7,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 3": 20,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 4": 46,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 5": 6,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 6": 47,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 7": 25,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 8": 13,
+  "IslandProps/Rocks/Desert/Desert Layered Rock 9": 36,
+  "IslandProps/Rocks/Desert/Desert Rock 1": 41,
+  "IslandProps/Rocks/Desert/Desert Rock 2": 34,
+  "IslandProps/Rocks/Desert/Desert Rock 3": 44,
+  "IslandProps/Rocks/Desert/Desert Rock 4": 45,
+  "IslandProps/Rocks/Desert/Desert Rock 5": 34,
+  "IslandProps/Rocks/Desert/Desert Rock 6": 126,
+  "IslandProps/Rocks/Desert/Desert Small Rock 1": 170,
+  "IslandProps/Rocks/Desert/Desert Small Rock 2": 338,
+  "IslandProps/Rocks/Desert/Desert Small Rock 3": 158,
+  "IslandProps/Rocks/Desert/Desert Small Rock 4": 291,
+  "IslandProps/Rocks/Desert/Desert Small Rock 5": 423,
+  "IslandProps/Rocks/Desert/Ground Rock 1": 199,
+  "IslandProps/Rocks/Desert/Ground Rock 2": 192,
+  "IslandProps/Rocks/Desert/Ground Rock 3": 174,
+  "IslandProps/Rocks/Desert/Ground Rock 4": 203,
+  "IslandProps/Rocks/Desert/Ground Rock 5": 166,
+  "IslandProps/Rocks/Desert/flat round": 47,
+  "IslandProps/Rocks/Desert/wide": 93,
+  "IslandProps/Rocks/Large/Round Rock Grey 1": 685,
+  "IslandProps/Rocks/Large/Round Rock Grey 2": 493,
+  "IslandProps/Rocks/Large/Round Rock Grey 3": 580,
+  "IslandProps/Rocks/Large/Round Rock Grey 4": 422,
+  "IslandProps/Rocks/Large/Round Rock Grey 5": 320,
+  "IslandProps/Rocks/Large/Round Rock Grey 6": 545,
+  "IslandProps/Rocks/Large/Round Rock Grey 7": 201,
+  "IslandProps/Rocks/Large/Round Rock White 1": 224,
+  "IslandProps/Rocks/Large/Round Rock White 2": 151,
+  "IslandProps/Rocks/Large/Round Rock White 3": 204,
+  "IslandProps/Rocks/Large/Round Rock White 4": 100,
+  "IslandProps/Rocks/Large/Round Rock White 5": 134,
+  "IslandProps/Rocks/Large/Round Rock White 6": 173,
+  "IslandProps/Rocks/Large/Round Rock White 7": 251,
+  "IslandProps/Rocks/Large/rock 1": 233,
+  "IslandProps/Rocks/Large/rock 2": 486,
+  "IslandProps/Rocks/Large/rock 3": 246,
+  "IslandProps/Rocks/Large/rock 4": 752,
+  "IslandProps/Rocks/Large/rock 5": 337,
+  "IslandProps/Rocks/Large/rock_large": 23,
+  "IslandProps/Rocks/Small/Ancient_Stones1": 744,
+  "IslandProps/Rocks/Small/Ancient_Stones2": 468,
+  "IslandProps/Rocks/Small/Ancient_Stones3": 274,
+  "IslandProps/Rocks/Small/Ancient_Stones4": 603,
+  "IslandProps/Rocks/Small/Ancient_Stones5": 1653,
+  "IslandProps/Rocks/Small/Ancient_Stones6": 1093,
+  "IslandProps/Rocks/Small/Rock1": 276,
+  "IslandProps/Rocks/Small/Rock2": 502,
+  "IslandProps/Rocks/Small/Rock3A": 1648,
+  "IslandProps/Rocks/Small/Rock3B": 850,
+  "IslandProps/Rocks/Small/Rock4": 256,
+  "IslandProps/Rocks/Small/SMall White 4": 294,
+  "IslandProps/Rocks/Small/Small Brown 1": 1348,
+  "IslandProps/Rocks/Small/Small Brown 2": 1200,
+  "IslandProps/Rocks/Small/Small Brown 3": 551,
+  "IslandProps/Rocks/Small/Small Brown 4": 694,
+  "IslandProps/Rocks/Small/Small Brown 5": 469,
+  "IslandProps/Rocks/Small/Small White 1": 1182,
+  "IslandProps/Rocks/Small/Small White 2": 265,
+  "IslandProps/Rocks/Small/Small White 3": 161,
+  "IslandProps/Rocks/Small/Small White 5": 282,
+  "IslandProps/Rocks/Small/rock medium 1": 1278,
+  "IslandProps/Rocks/Small/rock medium 2": 944,
+  "IslandProps/Rocks/Small/rock medium 3": 841,
+  "IslandProps/Rocks/Small/rock medium 4": 930,
+  "IslandProps/Ruins (Kioki)/Arches/Arch Middle 01": 1,
+  "IslandProps/Ruins (Kioki)/Arches/Arch Middle 02": 2,
+  "IslandProps/Ruins (Kioki)/Arches/Arch Middle Broken One Side": 3,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Cube Big": 863,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Cube Flat": 695,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Cube Small": 476,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Cylinder": 1121,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Pillar Tall": 4763,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Pillar Thick": 1558,
+  "IslandProps/Ruins (Kioki)/Blocks/Block Pillar Thin": 2062,
+  "IslandProps/Ruins (Kioki)/Decorative/Fireplace": 6,
+  "IslandProps/Ruins (Kioki)/Doors/Door Arch": 220,
+  "IslandProps/Ruins (Kioki)/Doors/Door Beak": 103,
+  "IslandProps/Ruins (Kioki)/Doors/Door Flowers": 249,
+  "IslandProps/Ruins (Kioki)/Doors/Door Owl Single": 129,
+  "IslandProps/Ruins (Kioki)/Doors/Door Owl Triple": 40,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 01": 139,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 02": 132,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 03": 135,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 04": 151,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Outside 01": 44,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Outside 02": 11,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Outside 03": 52,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Outside 04": 13,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Pie 01": 294,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Pie 02": 110,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Pie 03": 102,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Pie 04": 95,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Pie Broken Left": 66,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 45 Pie Broken Right": 45,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90": 788,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90 Pie 01": 505,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90 Pie 02": 284,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90 Pie 03": 359,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90 Pie 04": 469,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90 Pie Broken Left": 51,
+  "IslandProps/Ruins (Kioki)/Floors/Floor 90 Pie Broken Right": 130,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl": 2038,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Broken 01": 38,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Broken 02": 142,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Broken 03": 93,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Broken 04": 40,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Paint": 216,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Paint Broken 01": 21,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Paint Broken 02": 10,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Paint Broken 03": 11,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Owl Paint Broken 04": 15,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Stone Bird": 109,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun": 413,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Broken 01": 19,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Broken 02": 24,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Broken 03": 28,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Broken 04": 15,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Paint": 126,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Paint Broken 01": 22,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Paint Broken 02": 19,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Paint Broken 03": 12,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Circle Sun Paint Broken 04": 3,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Corner": 2503,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Straight Long 01": 306,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Straight Long 02": 408,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Straight Medium 01": 580,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Straight Medium 02": 415,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Straight Square 01": 670,
+  "IslandProps/Ruins (Kioki)/Floors/Floor Straight Square 02": 467,
+  "IslandProps/Ruins (Kioki)/Floors/Ouside Walkway 45 01": 80,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 01 A": 201,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 01 B": 290,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 01 C": 210,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 02": 359,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 02 A": 197,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 02 B": 94,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 45 02 C": 123,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 01": 215,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 01 A": 24,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 01 B": 50,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 01 C": 27,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 02": 312,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 02 A": 331,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 02 B": 155,
+  "IslandProps/Ruins (Kioki)/Floors/Outside Walkway 90 02 C": 484,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Light/Kioki Orange Light 01": 300,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Light/Kioki Orange Light 02": 283,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Light/Kioki Yellow Light 01": 421,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Light/Kioki Yellow Light 02": 144,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Orange Light Broken 01": 238,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Orange Light Broken 02": 103,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Orange Light Broken 03": 279,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Orange Light Broken 04": 81,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Yellow Light Broken 01": 50,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Yellow Light Broken 02": 226,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Yellow Light Broken 03": 80,
+  "IslandProps/Ruins (Kioki)/Lights/Kioki Yellow Light Broken 04": 81,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Layered 01": 59,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Layered 02": 104,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Layered 03": 83,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Layered 04": 59,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Layered Broken Left": 9,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Layered Broken Right": 8,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Plain 01": 1718,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Plain 02": 50,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Plain 03": 33,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Plain 04": 197,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Plain Broken Left": 18,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Plain Broken Right": 6,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Pointy 01": 345,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Pointy 02": 120,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Pointy 03": 209,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Pointy 04": 72,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Pointy Broken Left": 15,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 45/Roof 45 Pointy Broken Right": 10,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Layered 01": 126,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Layered 02": 215,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Layered 03": 99,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Layered 04": 80,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Layered Broken Left": 33,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Layered Broken Right": 16,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Plain 01": 42,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Plain 02": 84,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Plain 03": 115,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Plain 04": 303,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Plain Broken Left": 11,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Plain Broken Right": 9,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Pointy 01": 211,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Pointy 02": 111,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Pointy 03": 81,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Pointy 04": 98,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Pointy Broken Left": 5,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof 90/Roof 90 Pointy Broken Right": 8,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Arch Short A": 671,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Arch Short B": 107,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Beak Short A": 172,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Beak Short B": 38,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Block Short A": 39,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Block Short B": 334,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Curved Short A": 1212,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Curved Short B": 1250,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Gate Short A": 61,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Gate Short B": 266,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Owl Head Short": 61,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Owl Short": 201,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Owl Short Broken 01": 15,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Owl Short Broken 02": 120,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Triangle Short A": 1534,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Short/Pillar Triangle Short B": 287,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Arch Tall A": 629,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Arch Tall B": 100,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Beak Tall A": 141,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Beak Tall B": 235,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Block Tall A": 233,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Block Tall B": 37,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Curved Tall A": 1141,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Curved Tall B": 1688,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Gate Tall A": 722,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Gate Tall B": 420,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Pillar Tall/Pillar Owl Head Tall": 87,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Open 01": 18,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Open 02": 22,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Open Big 01": 111,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Open Big 02": 35,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Plain 01": 685,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Plain 02": 492,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Plain Big 01": 166,
+  "IslandProps/Ruins (Kioki)/Roofs/Roof Top/Roof Top Plain Big 02": 77,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Plaster Broken 01": 193,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Plaster Broken 02": 242,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Plaster Broken 03": 230,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Plaster Chips": 1237,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 01": 231,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 02": 163,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 03": 211,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 04": 186,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 05": 175,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 06": 135,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 07": 103,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 08": 131,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 09": 111,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 10": 81,
+  "IslandProps/Ruins (Kioki)/Rubble With Plaster/Rubble Pile with Plaster 11": 102,
+  "IslandProps/Ruins (Kioki)/Rubble/Brick 01": 1195,
+  "IslandProps/Ruins (Kioki)/Rubble/Brick 02": 544,
+  "IslandProps/Ruins (Kioki)/Rubble/Brick 03": 1356,
+  "IslandProps/Ruins (Kioki)/Rubble/Pebbles 01": 151,
+  "IslandProps/Ruins (Kioki)/Rubble/Pebbles 02": 260,
+  "IslandProps/Ruins (Kioki)/Rubble/Pile": 242,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 01": 166,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 02": 198,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 03": 186,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 04": 166,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 05": 71,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 06": 201,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 07": 120,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 08": 130,
+  "IslandProps/Ruins (Kioki)/Rubble/Rubble Pile 09": 257,
+  "IslandProps/Ruins (Kioki)/Rubble/Stick": 11512,
+  "IslandProps/Ruins (Kioki)/Rubble/Stones Large 01": 340,
+  "IslandProps/Ruins (Kioki)/Rubble/Stones Large 02": 267,
+  "IslandProps/Ruins (Kioki)/Rubble/Stones Medium": 197,
+  "IslandProps/Ruins (Kioki)/Rubble/Stones Small": 1148,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 01": 44,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 02": 32,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 03": 56,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 04": 22,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 05": 32,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 06": 23,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 07": 30,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 45 Short Bent 08": 26,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 90 Short Bent 01": 305,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 90 Short Bent 02": 61,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 90 Short Bent 03": 340,
+  "IslandProps/Ruins (Kioki)/Short Walls/Bent/Wall Curve 90 Short Bent 04": 143,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 45 Short Broken Left": 40,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 45 Short Broken Middle": 49,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 45 Short Broken Right": 41,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 45 Short Broken Top": 34,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 90 Short Broken Left": 167,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 90 Short Broken Middle": 42,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 90 Short Broken Right": 180,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Curve 90 Short Broken Top": 57,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Straight Short Broken Left": 66,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Straight Short Broken Middle": 46,
+  "IslandProps/Ruins (Kioki)/Short Walls/Broken/Wall Straight Short Broken Right": 49,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 01": 86,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 02": 168,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 03": 10,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 04": 12,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 05": 51,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 06": 4,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 07": 2,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 08": 6,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 09": 10,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 10": 28,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 11": 317,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short 12": 28,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 01": 344,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 02": 60,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 03": 81,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 04": 48,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 05": 58,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 06": 52,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 07": 91,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 08": 44,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 09": 53,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 10": 57,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Chip 11": 59,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Extension 01": 55,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Extension 02": 203,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 45 Short Extension 03": 258,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 01": 312,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 02": 244,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 03": 137,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 04": 61,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 05": 33,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 06": 23,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 07": 17,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 08": 17,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 09": 10,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short 10": 21,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 01": 296,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 02": 130,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 03": 265,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 04": 269,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 05": 117,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 06": 124,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 07": 220,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 08": 116,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 09": 200,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 10": 1301,
+  "IslandProps/Ruins (Kioki)/Short Walls/Curved/Wall Curve 90 Short Chip 11": 233,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 01": 66,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 02": 75,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 03": 202,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 04": 9,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 05": 7,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 06": 49,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 07": 13,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 08": 5,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short 09": 5,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 01": 204,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 02": 195,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 03": 185,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 04": 117,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 05": 72,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 06": 81,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 07": 154,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 08": 86,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Chip 09": 119,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square 01": 155,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square 02": 315,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square 03": 57,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square 04": 10,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square 05": 46,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 01": 1041,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 02": 594,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 03": 359,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 04": 118,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 05": 233,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 06": 355,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 07": 260,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 08": 72,
+  "IslandProps/Ruins (Kioki)/Short Walls/Straight/Wall Straight Short Square Chip 09": 253,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45": 59,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Broken Bottom": 6,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Broken Top": 2,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Short 01": 39,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Short 02": 10,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Short 03": 10,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Tall 01": 22,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Tall 02": 5,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 45 Tall 03": 11,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90": 96,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Broken Bottom": 12,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Broken Top": 11,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Short 01": 28,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Short 02": 24,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Short 03": 10,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Tall 01": 24,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Tall 02": 3,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs 90 Tall 03": 5,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Short 01": 3,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Short 02": 87,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Short 03": 5,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Short 04": 23,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Short 05": 137,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Tall 01": 14,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Tall 02": 101,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Tall Broken Left": 1,
+  "IslandProps/Ruins (Kioki)/Stairs/Stairs Straight Tall Broken Right": 1,
+  "IslandProps/Ruins (Kioki)/Statues/Owl Idol": 5,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian": 181,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian 02": 1,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian 02 Broken Body": 1,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Arm": 49,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Body": 22,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Half Body": 34,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Head": 67,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Legs": 26,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Wing 01": 40,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Wing 02": 4,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Wing 03": 3,
+  "IslandProps/Ruins (Kioki)/Statues/Statue of the Guardian Broken Wing 04": 7,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 45 Tall Broken Left": 17,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 45 Tall Broken Middle": 18,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 45 Tall Broken Right": 21,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 45 Tall Broken Top": 12,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 90 Tall Broken Left": 27,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 90 Tall Broken Middle": 29,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 90 Tall Broken Right": 26,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Curve 90 Tall Broken Top": 15,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Broken Left": 7,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Broken Middle": 11,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Broken Right": 16,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Broken Top": 6,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Narrow Broken Left": 29,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Narrow Broken Middle": 14,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Narrow Broken Right": 35,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Narrow Broken Top": 18,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Square Broken Left": 17,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Square Broken Middle": 4,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Square Broken Right": 19,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Broken/Wall Straight Tall Square Broken Top": 18,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall 01": 91,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall 02": 144,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall 03": 17,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall 04": 30,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 01": 262,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 02": 96,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 03": 48,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 04": 89,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 05": 68,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 06": 61,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 07": 50,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 08": 87,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 09": 59,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 10": 63,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 45 Tall Chip 11": 88,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall 01": 46,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall 02": 14,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall 03": 46,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall 04": 11,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall 05": 25,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall 06": 202,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 01": 1089,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 02": 425,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 03": 370,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 04": 162,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 05": 257,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 06": 678,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 07": 246,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 08": 171,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 09": 219,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 10": 465,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Curved/Wall Curve 90 Tall Chip 11": 224,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 01": 490,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 02": 37,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 03": 16,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 04": 17,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 05": 22,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 06": 19,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 07": 11,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 08": 44,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Chip 09": 37,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Extension": 131,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow": 71,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 01": 267,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 02": 84,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 03": 95,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 04": 61,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 05": 117,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 06": 50,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 07": 299,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 08": 21,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Narrow Chip 09": 66,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square 01": 97,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square 02": 39,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square 03": 9,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square 04": 14,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 01": 283,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 02": 42,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 03": 60,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 04": 29,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 05": 46,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 06": 109,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 07": 104,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 08": 69,
+  "IslandProps/Ruins (Kioki)/Tall Walls/Straight/Wall Straight Tall Square Chip 09": 41,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Fold 01": 147,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Fold 02": 13,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Hook 01": 54,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Hook 02": 106,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Tall 01": 208,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Tall 02": 115,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Triangle 01": 4,
+  "IslandProps/Ruins (Kioki)/Wall Extensions/Wall Extension Triangle 02": 31,
+  "IslandProps/Ruins (Kioki)/Windows/Window Short": 462,
+  "IslandProps/Ruins (Kioki)/Windows/Window Tall": 1099,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Girder 01": 497,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Girder 02": 439,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Girder 03": 567,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Girder 04": 391,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 1": 189,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 2": 99,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 3": 244,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 4": 357,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 5": 146,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 6": 191,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Grid 7": 149,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Hedgehog 01": 48,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Hedgehog 02": 53,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Hedgehog 03": 53,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Junk 01": 891,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Junk 02": 689,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Junk 03": 789,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Junk 04": 313,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Junk 05": 137,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Junk 06": 425,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Ladder 01": 109,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Ladder 02": 119,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Ladder 03": 60,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Ladder 04": 632,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Pipe (Broken)": 552,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Pipe (Corner)": 1160,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Pipe (Long)": 1779,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Pipe (Short)": 1373,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Pipe (T-Junction)": 165,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Platform 01": 389,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Platform 02": 393,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Platform 03": 234,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Platform 04": 646,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Platform 05": 281,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Platform 06": 274,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Railing 01": 138,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Railing 02": 511,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Railing 03": 207,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Railing 04": 379,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Railing 05": 207,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Railing 06": 148,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Long) 01": 94,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Long) 02": 99,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Long) 03": 393,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Long) 04": 214,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Long) Bare": 1498,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Short) 01": 70,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Short) 02": 19,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Short) 03": 59,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Short) 04": 17,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (Short) Bare": 714,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (T-Junction) 01": 103,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (T-Junction) 02": 90,
+  "IslandProps/Ruins (Miscellaneous)/Metal/Walkway (T-Junction) Bare": 125,
+  "IslandProps/Ruins (Miscellaneous)/Metal/door": 5305,
+  "IslandProps/Ruins (Miscellaneous)/Metal/metal_ruin_beak": 229,
+  "IslandProps/Ruins (Miscellaneous)/Metal/metal_ruin_circle": 215,
+  "IslandProps/Ruins (Miscellaneous)/Metal/metal_ruin_screw2": 197,
+  "IslandProps/Ruins (Miscellaneous)/Metal/metal_ruin_springy": 164,
+  "IslandProps/Ruins (Miscellaneous)/Metal/metal_ruin_vents": 208,
+  "IslandProps/Ruins (Miscellaneous)/Metal/metal_ruin_wings": 120,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_Column1": 289,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_debris1": 1286,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_debris2": 2688,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_debris3": 2511,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_floor1": 725,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_floor2": 900,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_floor3": 446,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_floor4": 1156,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_ring1": 620,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_wall1": 193,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_wall2": 133,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_wall3": 103,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R1_wall4": 146,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_1": 87,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_2": 85,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_3": 158,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_4": 309,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_5": 423,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_6": 79,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_7": 286,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_8": 142,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_9A": 1563,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_9B": 50,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_9C": 391,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_9D": 77,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_9E": 37,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R2_9F": 46,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R3_2": 26,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R3_4": 612,
+  "IslandProps/Ruins (Miscellaneous)/Simple/R3_5": 4225,
+  "IslandProps/Ruins (Miscellaneous)/Stone/ruin house": 74,
+  "IslandProps/Ruins (Miscellaneous)/Stone/ruin kaktus": 87,
+  "IslandProps/Ruins (Miscellaneous)/Stone/ruin vase": 106,
+  "IslandProps/Ruins (Miscellaneous)/Stone/ruin_hut": 228,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Metal Brace 01": 115,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Metal Brace 02": 10,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Metal Stick 01": 112,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Metal Stick 02": 550,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Arrow Temperate": 2,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Large 01 Desert": 4,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Large 01 Temperate": 9,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Large 02 Temperate": 3,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 01 Desert": 24,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 01 Temperate": 2,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 02 Desert": 4,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 02 Temperate": 2,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 03 Desert": 7,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 03 Temperate": 20,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 04 Desert": 8,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 04 Temperate": 3,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 05 Desert": 4,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Long 05 Temperate": 1,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Medium 01 Temperate": 1,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Medium 02 Desert": 6,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Medium 02 Temperate": 42,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Medium 03 Temperate": 15,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Medium 04 Temperate": 2,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Small 02 Desert": 3,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Small 02 Temperate": 25,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panel Small 03 Temperate": 15,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Panle Small 01 Temperate": 72,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Pillar Long Temperate": 178,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Pillar Medium 01 Temperate": 491,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Pillar Medium 02 Desert": 4,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Pillar Medium 02 Temperate": 9,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Pillar Short Temperate": 1122,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Plank Long Temperate": 12,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Plank Medium Temperate": 68,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Plank Short Temperate": 391,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Plank Small Long Temperate": 58,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Plank Small Medium Temperate": 77,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Plank Small Short Temperate": 567,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Stick Medium Temperate": 3,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Stick Short Temperate": 2,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Structure 02 Temperate": 1,
+  "IslandProps/Ruins (Miscellaneous)/Wooden/Wooden Structure 03 Temperate": 2,
+  "IslandProps/Ruins (Saborian)/Blocks/Corridor 1": 1,
+  "IslandProps/Ruins (Saborian)/Blocks/Corridor 2": 67,
+  "IslandProps/Ruins (Saborian)/Blocks/Corridor 3": 111,
+  "IslandProps/Ruins (Saborian)/Blocks/Corridor 4": 29,
+  "IslandProps/Ruins (Saborian)/Blocks/Corridor 5": 63,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 01": 388,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 02": 165,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 03": 958,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 04": 284,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 05": 771,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 06": 271,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 07": 154,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 08": 215,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 09": 80,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 10": 103,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 11": 130,
+  "IslandProps/Ruins (Saborian)/Blocks/Cube 12": 63,
+  "IslandProps/Ruins (Saborian)/Blocks/Dragon Tooth 01": 32,
+  "IslandProps/Ruins (Saborian)/Blocks/Dragon Tooth 02": 150,
+  "IslandProps/Ruins (Saborian)/Blocks/Dragon Tooth 03": 50,
+  "IslandProps/Ruins (Saborian)/Blocks/Dragon Tooth 04": 82,
+  "IslandProps/Ruins (Saborian)/Blocks/Dragon Tooth 05": 21,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 01": 9,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 02": 23,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 03": 19,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 04": 42,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 05": 6,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 06": 15,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 07": 8,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 08": 24,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 09": 14,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 10": 5,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 11": 9,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 12": 6,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 13": 10,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 14": 32,
+  "IslandProps/Ruins (Saborian)/Blocks/Entrance 15": 56,
+  "IslandProps/Ruins (Saborian)/Blocks/ruin_block": 202,
+  "IslandProps/Ruins (Saborian)/Blocks/ruin_piece": 220,
+  "IslandProps/Ruins (Saborian)/Blocks/ruin_top": 384,
+  "IslandProps/Ruins (Saborian)/Blocks/steps1": 312,
+  "IslandProps/Ruins (Saborian)/Blocks/steps1 1": 97,
+  "IslandProps/Ruins (Saborian)/Blocks/steps2": 130,
+  "IslandProps/Ruins (Saborian)/Blocks/steps3": 213,
+  "IslandProps/Ruins (Saborian)/Blocks/steps4": 215,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Floor 01": 89,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Floor 02": 1162,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Floor 03": 79,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Floor 04": 328,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall 01": 1054,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall 02": 1134,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall 03": 26,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall 04": 105,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall Door 01": 124,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall Door 02": 11,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall Doorframe 01": 30,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall Doorframe 02": 132,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall Window 01": 339,
+  "IslandProps/Ruins (Saborian)/Brick/Brick Wall Window 02": 140,
+  "IslandProps/Ruins (Saborian)/Brick/Brick_Steps": 197,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 01": 165,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 02": 50,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 03": 66,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 04": 139,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 05": 80,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 06": 206,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall 07": 61,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Door 01": 9,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Door 02": 3,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Door 03": 8,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Window 01": 9,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Window 02": 13,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Window 03": 9,
+  "IslandProps/Ruins (Saborian)/Brick/Broken Brick Wall Window 04": 9,
+  "IslandProps/Ruins (Saborian)/Brick/Culture_A_Ruin_Aquaduct": 444,
+  "IslandProps/Ruins (Saborian)/Brick/Culture_A_Ruin_Aquaduct_Arch": 980,
+  "IslandProps/Ruins (Saborian)/Brick/Culture_A_Ruin_Eggcup": 121,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile 01": 156,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile 02": 155,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile 03": 129,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile 04": 213,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile 05": 285,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile 06": 295,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile Wall 01": 51,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile Wall 02": 40,
+  "IslandProps/Ruins (Saborian)/Brick/Large Brick Pile Wall 03": 19,
+  "IslandProps/Ruins (Saborian)/Brick/Large Individual Brick 01": 3345,
+  "IslandProps/Ruins (Saborian)/Brick/Large Individual Brick 02": 3034,
+  "IslandProps/Ruins (Saborian)/Brick/Large Individual Brick 03": 1366,
+  "IslandProps/Ruins (Saborian)/Brick/Large Individual Brick 04": 1795,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile 01": 61,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile 02": 58,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile 03": 59,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile 04": 229,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile 05": 216,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile 06": 218,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile Wall 01": 48,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile Wall 02": 28,
+  "IslandProps/Ruins (Saborian)/Brick/Small Brick Pile Wall 03": 53,
+  "IslandProps/Ruins (Saborian)/Brick/Small Individual Brick 01": 4183,
+  "IslandProps/Ruins (Saborian)/Brick/Small Individual Brick 02": 1618,
+  "IslandProps/Ruins (Saborian)/Brick/Small Individual Brick 03": 1317,
+  "IslandProps/Ruins (Saborian)/Brick/Small Individual Brick 04": 5811,
+  "IslandProps/Ruins (Saborian)/Brick/brick_wall_ruined": 119,
+  "IslandProps/Ruins (Saborian)/Brick/brick_wall_short": 905,
+  "IslandProps/Ruins (Saborian)/Brick/singlebrick": 7599,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 01": 17,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 02": 19,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 03": 8,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 04": 8,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 05": 8,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 06": 14,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 07": 11,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 08": 13,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 09": 11,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 10": 16,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 11": 9,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 12": 13,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 13": 13,
+  "IslandProps/Ruins (Saborian)/Buildings/Large Building 14": 11,
+  "IslandProps/Ruins (Saborian)/Buildings/Small Building 1": 16,
+  "IslandProps/Ruins (Saborian)/Buildings/Small Building 2": 35,
+  "IslandProps/Ruins (Saborian)/Buildings/Small Building 3": 30,
+  "IslandProps/Ruins (Saborian)/Doors/Door Ears": 310,
+  "IslandProps/Ruins (Saborian)/Doors/Door Point": 93,
+  "IslandProps/Ruins (Saborian)/Doors/Door Triangle": 76,
+  "IslandProps/Ruins (Saborian)/Doors/Door Wings": 74,
+  "IslandProps/Ruins (Saborian)/Doors/doorway_arch": 2983,
+  "IslandProps/Ruins (Saborian)/Doors/doorway_eagle": 192,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Blue Light Broken 01": 77,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Blue Light Broken 02": 62,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Blue Light Broken 03": 85,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Blue Light Broken 04": 206,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Green Light Broken 01": 13,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Green Light Broken 02": 33,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Green Light Broken 03": 12,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Green Light Broken 04": 24,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Light/Saborian Blue Light 01": 737,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Light/Saborian Blue Light 02": 267,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Light/Saborian Green Light 01": 197,
+  "IslandProps/Ruins (Saborian)/Lights/Saborian Light/Saborian Green Light 02": 42,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Icon_Eagle": 957,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Icon_Tri": 230,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece A 01": 119,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece A 02": 80,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece A 03": 28,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece A 04": 54,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece B 01": 77,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece B 02": 51,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece B 03": 111,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Corner Piece B 04": 219,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Angel": 171,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Broken Angel": 9,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Broken Diamond 01": 27,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Broken Diamond 02": 79,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Broken Square 01": 68,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Broken Square 02": 61,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Diamond": 506,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Gate": 252,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Leaf": 208,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Decorative Square": 1108,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece A 01": 473,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece A 02": 212,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece A 03": 309,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece A 04": 185,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece B 01": 902,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece B 02": 1654,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece B 03": 2276,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal Wall Piece B 04": 872,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Metal decorative Leaf Cricle": 533,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/Saborian Head Metal": 35,
+  "IslandProps/Ruins (Saborian)/Metal Decorative/girder_support": 3820,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue 01": 36,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue 02": 14,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue 03": 18,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue 04": 75,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue 05": 15,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue 06": 16,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue Head 01": 141,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue Head 02": 23,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue Head 03": 53,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue Head 04": 15,
+  "IslandProps/Ruins (Saborian)/Ornamental/Father Statue Head 05": 16,
+  "IslandProps/Ruins (Saborian)/Ornamental/Memorial Stone": 59,
+  "IslandProps/Ruins (Saborian)/Ornamental/Memorial Stone Broken": 26,
+  "IslandProps/Ruins (Saborian)/Ornamental/Memorial Stone Shattered": 12,
+  "IslandProps/Ruins (Saborian)/Ornamental/Plinth": 126,
+  "IslandProps/Ruins (Saborian)/Ornamental/Rising God Statue 1": 133,
+  "IslandProps/Ruins (Saborian)/Ornamental/Rising God Statue 2": 52,
+  "IslandProps/Ruins (Saborian)/Ornamental/Saborian Sky Column": 280,
+  "IslandProps/Ruins (Saborian)/Ornamental/Saborian Step Pyramid": 56,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Base 01": 28,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Base 02": 39,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Base 03": 16,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Base 04": 44,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Complete 01": 55,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Complete 02": 64,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Complete 03": 38,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Complete 04": 49,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Complete 05": 33,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Complete 06": 20,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Lid 01": 42,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Lid 02": 21,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Lid 03": 33,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Lid 04": 26,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Lid 05": 28,
+  "IslandProps/Ruins (Saborian)/Ornamental/Sarcophagus Lid 06": 31,
+  "IslandProps/Ruins (Saborian)/Ornamental/Telemon Statue 01": 30,
+  "IslandProps/Ruins (Saborian)/Ornamental/Telemon Statue 02": 35,
+  "IslandProps/Ruins (Saborian)/Ornamental/Telemon Statue 03": 31,
+  "IslandProps/Ruins (Saborian)/Ornamental/Telemon Statue Arm": 50,
+  "IslandProps/Ruins (Saborian)/Ornamental/Telemon Statue Head": 98,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel 1": 166,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel1": 40,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel3": 377,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel4": 35,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel5": 155,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel_nowings 1": 47,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel_nowings1": 20,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel_nowings2": 22,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel_nowings3": 27,
+  "IslandProps/Ruins (Saborian)/Ornamental/angel_nowings4": 46,
+  "IslandProps/Ruins (Saborian)/Ornamental/fountain_bits1": 25,
+  "IslandProps/Ruins (Saborian)/Ornamental/fountain_bits2": 8,
+  "IslandProps/Ruins (Saborian)/Ornamental/fountain_bits3": 39,
+  "IslandProps/Ruins (Saborian)/Ornamental/fountain_bits4": 25,
+  "IslandProps/Ruins (Saborian)/Ornamental/fountain_bits5": 81,
+  "IslandProps/Ruins (Saborian)/Ornamental/fountain_bits6": 2,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave1": 1249,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave16": 1043,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave2": 45,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave3": 197,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave4": 30,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave5": 213,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave6": 154,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave7": 198,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave8": 536,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave9": 1640,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_01": 1176,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_02": 75,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_03": 9,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_04": 14,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_05": 513,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_06": 154,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_07": 1221,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_08": 133,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_top_01": 9,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_top_02": 339,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_top_03": 7,
+  "IslandProps/Ruins (Saborian)/Ornamental/grave_broken_top_04": 198,
+  "IslandProps/Ruins (Saborian)/Ornamental/ruin column": 230,
+  "IslandProps/Ruins (Saborian)/Ornamental/ruin cube": 554,
+  "IslandProps/Ruins (Saborian)/Ornamental/ruin flakes": 223,
+  "IslandProps/Ruins (Saborian)/Ornamental/ruin pillars": 14,
+  "IslandProps/Ruins (Saborian)/Ornamental/ruin steps": 25,
+  "IslandProps/Ruins (Saborian)/Ornamental/ruin_head": 93,
+  "IslandProps/Ruins (Saborian)/Ornamental/saborian fauntain": 48,
+  "IslandProps/Ruins (Saborian)/Ornamental/saborian small fountain": 94,
+  "IslandProps/Ruins (Saborian)/Ornamental/shrine1": 14,
+  "IslandProps/Ruins (Saborian)/Ornamental/shrine2": 186,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 01": 65,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 02": 31,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 03": 485,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 04": 310,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 05": 50,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 06": 18,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 07": 15,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 08": 6,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 09": 293,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 10": 9,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 11": 8,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 12": 54,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 13": 25,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 14": 44,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 15": 6,
+  "IslandProps/Ruins (Saborian)/Stairs/Staircase 16": 275,
+  "IslandProps/Ruins (Saborian)/Wall/Floor 1": 2559,
+  "IslandProps/Ruins (Saborian)/Wall/Floor 2": 1164,
+  "IslandProps/Ruins (Saborian)/Wall/Floor 3": 3821,
+  "IslandProps/Ruins (Saborian)/Wall/Pillar 1": 661,
+  "IslandProps/Ruins (Saborian)/Wall/Pillar 2": 5138,
+  "IslandProps/Ruins (Saborian)/Wall/Short Wall 1": 2064,
+  "IslandProps/Ruins (Saborian)/Wall/Short Wall 2": 1318,
+  "IslandProps/Ruins (Saborian)/Wall/Short Wall 3": 1977,
+  "IslandProps/Ruins (Saborian)/Wall/Short Wall 4": 2183,
+  "IslandProps/Ruins (Saborian)/Wall/Thin Wall": 5601,
+  "IslandProps/Ruins (Saborian)/Wall/Wall 1": 1988,
+  "IslandProps/Ruins (Saborian)/Wall/Wall 2": 737,
+  "IslandProps/Ruins (Saborian)/Wall/Wall 3": 1753,
+  "IslandProps/Ruins (Saborian)/Wall/Wall 4": 786,
+  "IslandProps/Ruins (Saborian)/Wall/Wall 5": 177,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Door 1": 57,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Door 2": 7,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Door 3": 15,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Doorframe 01": 3,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Doorframe 02": 9,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Doorframe 03": 210,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Doorframe 04": 13,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Doorframe 05": 18,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Window 01": 33,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Window 02": 15,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Window 03": 73,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Window 04": 26,
+  "IslandProps/Ruins (Saborian)/Wall/Wall Window 05": 78,
+  "IslandProps/Ruins (Saborian)/Windows/Window Ears": 574,
+  "IslandProps/Ruins (Saborian)/Windows/Window Point": 282,
+  "IslandProps/Ruins (Saborian)/Windows/Window Triangle": 116,
+  "IslandProps/Ruins (Saborian)/Windows/Window Wings": 76,
+  "IslandProps/Ruins (Saborian)/Windows/window": 802,
+  "IslandProps/grass/Desert/Desert Grass 1": 4833,
+  "IslandProps/grass/Desert/Desert Grass 2": 2682,
+  "IslandProps/grass/Desert/Desert Grass 3": 5846,
+  "IslandProps/grass/Temperate/Grass Blades Small": 435,
+  "IslandProps/grass/Temperate/Grass Clump 01": 5235,
+  "IslandProps/grass/Temperate/Grass Clump 02": 1238,
+  "IslandProps/grass/Temperate/Grass Patch 01": 1000,
+  "IslandProps/grass/Temperate/Grass Patch 02": 841,
+  "IslandProps/grass/Temperate/Grass Patch 03": 2196,
+  "IslandProps/grass/Temperate/Grass Patch 04": 1606,
+  "IslandProps/grass/Temperate/Weeds Big 01": 514,
+  "IslandProps/grass/Temperate/Weeds Big 02": 600,
+  "IslandProps/grass/Temperate/Weeds Big 03": 786,
+  "IslandProps/grass/Temperate/Weeds Big 04": 691,
+  "IslandProps/grass/Temperate/Weeds Big 05": 231,
+  "IslandProps/grass/Temperate/Weeds Big 06": 425,
+  "IslandProps/grass/Temperate/Weeds Big 07": 125,
+  "IslandProps/grass/Temperate/Weeds Small 01": 1683,
+  "IslandProps/grass/Temperate/Weeds Small 02": 1719,
+  "IslandProps/grass/Temperate/Weeds Small 03": 950,
+  "IslandProps/grass/Temperate/Weeds Small 04": 719,
+  "IslandProps/grass/Temperate/Weeds Small 05": 1811,
+  "IslandProps/grass/Temperate/Weeds Small 06": 546,
+  "IslandProps/grass/Temperate/Weeds Small 07": 1093,
+  "IslandProps/grass/Temperate/Weeds Small 08": 880,
+  "IslandProps/grass/Temperate/grass Blades": 723
+ },
+ "world_category_totals": {
+  "Effects": 13023,
+  "Foliage": 94439,
+  "Gameplay": 18337,
+  "Rocks": 34345,
+  "Ruins (Kioki)": 97189,
+  "Ruins (Miscellaneous)": 50689,
+  "Ruins (Saborian)": 118141,
+  "grass": 39408
+ },
+ "world_tree_prop_totals": {}
+}
