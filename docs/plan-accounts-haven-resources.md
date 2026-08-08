@@ -44,7 +44,7 @@ the whole deployment**, so two clients can pick the same character and publish t
 
 | # | Work |
 |---|---|
-| 1.1 | Make each client send a **distinct account id** (research in flight — the options run from a mod config value to patching the URL construction; `ModSettings.steamUserId` is currently dead config) |
+| 1.1 | **NOTHING — it already works.** Steam is live and each client already sends its real 64-bit SteamID in `steamCredential.userKey`; the login server deserializes it and **throws it away**. Server-only fix, ~1 day, no client change. See `findings-accounts.md` |
 | 1.2 | **Per-account rosters** on the login server, following the shipped `RosterPolicy`/`CharacterRepository` pattern exactly — pure policy, thin repository, unit tests |
 | 1.3 | **Reject a second peer claiming a live `characterUid`** on the game server, and define what the client sees when rejected |
 | 1.4 | **Migration** — the existing roster.json, existing characters, and the friend's already-installed client must not break |
@@ -54,7 +54,7 @@ Accounts here mean *"the server can tell two players apart and keep their stuff 
 **not** *"a player cannot impersonate another"*. A modified client can claim anything. We
 build the former and deliberately not the latter — no security theatre.
 
-**~3–5 days**, depending on whether 1.1 needs a client change.
+**~3–4 days, login-server only** — steps 1–5 are testable with `curl` alone: no game server, no client, no Wine. Add a mod config override (~5 lines) because **two clients on one machine share one Steam account**, so local two-client testing needs it.
 
 ---
 
