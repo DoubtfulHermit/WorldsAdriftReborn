@@ -1,0 +1,240 @@
+scrapItemTypeId	scrapName	tierKey	tier	yieldItemTypeId	amount	quality
+scrapItem-Godhandcagebar	Godhand Cage Bar	2	2	tin	140	8
+scrapItem-ancientbandiniansword	Ancient Bandinian Sword	4	4	steel	250	8
+scrapItem-ancientbandiniansword	Ancient Bandinian Sword	4.1	4	titanium	50	8
+scrapItem-antiquelamp	Antique Lamp	4	4	nickel	160	8
+scrapItem-atlashod	Atlas Hod	2	2	iron	60	6
+scrapItem-atlashod	Atlas Hod	2.1	2	birch	70	6
+scrapItem-atlashod	Atlas Hod	4	4	iron	60	9
+scrapItem-atlashod	Atlas Hod	4.1	4	birch	70	9
+scrapItem-badgeofoldage	Badge of the Elderly	3	3	titanium	80	6
+scrapItem-bandinanmininghandpick	Bandinan Mining Handpick	1	1	iron	100	7
+scrapItem-bandinanmininghandpick	Bandinan Mining Handpick	1.1	1	oak	150	7
+scrapItem-bandinianbeeswaxtablet	Bandinian Beeswax Tablet	2	2	chestnut	150	6
+scrapItem-bandinianbeeswaxtablet	Bandinian Beeswax Tablet	3	3	chestnut	150	6
+scrapItem-bandiniancurrency	Bandinian Currency	1	1	copper	60	4
+scrapItem-bandinianpopel	Bandinian Popel	4	4	silver	100	7
+scrapItem-barbersspoonstick	Barbers Spoonstick	2	2	steel	30	8
+scrapItem-barbersspoonstick	Barbers Spoonstick	2.1	2	oak	30	8
+scrapItem-bathhousevalve	Bathhouse Valve	2	2	iron	150	7
+scrapItem-bathhousevalve	Bathhouse Valve	4	4	iron	150	7
+scrapItem-beartrap	Shattered Bear Trap	4	4	iron	150	8
+scrapItem-beartrap	Shattered Bear Trap	4.1	4	nickel	100	8
+scrapItem-beetlebloodextractiontool	Beetleblood Extraction Tool	3	3	nickel	115	6
+scrapItem-beetlebloodlinen	Beetle Blood Linen	2	2	ash	80	8
+scrapItem-bentpipe	Bent Pipe	1	1	lead	110	4
+scrapItem-bentpipe	Bent Pipe	2	2	lead	110	8
+scrapItem-boatsiren	Boat Siren	4	4	copper	90	10
+scrapItem-bonehandlemagnifyingglass	BoneHandle Magnifying Glass	4	4	titanium	105	10
+scrapItem-boviarycoercionprod	Boviary Coercion Prod	2	2	nickel	95	7
+scrapItem-boviarycoercionprod	Boviary Coercion Prod	3	3	nickel	95	5
+scrapItem-boviarycoercionprod	Boviary Coercion Prod	4	4	nickel	95	8
+scrapItem-boviaryharvester	Boviary Harvester	4	4	copper	100	10
+scrapItem-boviarypressurejet	Boviary Pressure Jet	1	1	lead	140	4
+scrapItem-boviarypressurejet	Boviary Pressure Jet	2	2	lead	140	7
+scrapItem-boviarypressurejet	Boviary Pressure Jet	3	3	lead	140	5
+scrapItem-boviarypressurejet	Boviary Pressure Jet	4	4	lead	140	8
+scrapItem-brittlerake	Brittle Old Rake	2	2	birch	110	7
+scrapItem-brokenbroom	Broken Broom	1	1	elm	100	7
+scrapItem-brokenbroom	Broken Broom	2	2	elm	100	7
+scrapItem-brokencymbal	Broken Cymbal	2	2	silver	75	7
+scrapItem-brokencymbal	Broken Cymbal	3	3	silver	75	6
+scrapItem-brokencymbal	Broken Cymbal	4	4	silver	75	10
+scrapItem-brokendrum	Broken Drum	2	2	hemlock	125	6
+scrapItem-brokendrum	Broken Drum	3	3	hemlock	125	9
+scrapItem-brokendrum	Broken Drum	4	4	hemlock	125	7
+scrapItem-bustoftelemon	Bust Of Telemon	4	4	bronze	175	6
+scrapItem-candlestick	Candlestick	1	1	ash	115	8
+scrapItem-catoNinetails	Snapped Cat o' Nine-tails	1	1	iron	100	7
+scrapItem-catoNinetails	Snapped Cat o' Nine-tails	1.1	1	elm	50	7
+scrapItem-ceramicpot	Ceramic pot	4	4	silver	95	8
+scrapItem-childsball	Childs Ball	1	1	palm	75	7
+scrapItem-childsball	Childs Ball	2	2	palm	75	8
+scrapItem-childskitchenset	Childs Kitchen Set	1	1	oak	110	4
+scrapItem-childskitchenset	Childs Kitchen Set	2	2	oak	110	8
+scrapItem-clamp	Godhand Clamp	3	3	titanium	95	5
+scrapItem-clamp	Godhand Clamp	4	4	titanium	95	10
+scrapItem-cloistrapipework	Cloistra Pipework	1	1	lead	100	6
+scrapItem-cloistrapipework	Cloistra Pipework	2	2	lead	100	7
+scrapItem-cloistrapipework	Cloistra Pipework	3	3	lead	100	7
+scrapItem-cookingpot	Cooking Pot	1	1	bronze	125	6
+scrapItem-coversleeve	Cover Sleeve	1	1	birch	140	7
+scrapItem-coversleeve	Cover Sleeve	2	2	birch	140	4
+scrapItem-coversleeve	Cover Sleeve	3	3	birch	140	5
+scrapItem-crackedbinoculars	Cracked Binoculars	4	4	bronze	75	6
+scrapItem-crackedbinoculars	Cracked Binoculars	4.1	4	steel	50	6
+scrapItem-crackedhydraulicpins	Cracked Hydraulic Pins	1	1	nickel	55	7
+scrapItem-crackedhydraulicpins	Cracked Hydraulic Pins	2	2	nickel	55	8
+scrapItem-crackedhydraulicpins	Cracked Hydraulic Pins	3	3	nickel	55	9
+scrapItem-crackedminingdrill	Mangled Mining Drill	3	3	bronze	125	5
+scrapItem-crackedminingdrill	Mangled Mining Drill	3.1	3	fuel	40	0
+scrapItem-crackedminingdrill	Mangled Mining Drill	4	4	bronze	125	8
+scrapItem-crackedminingdrill	Mangled Mining Drill	4.1	4	fuel	40	0
+scrapItem-crackedsolderingrod	Cracked Soldering Rod	3	3	bronze	135	6
+scrapItem-crackedsolderingrod	Cracked Soldering Rod	4	4	bronze	135	10
+scrapItem-crumpledicebreaker	Crumpled Icebreaker	2	2	titanium	300	4
+scrapItem-crumpledicebreaker	Crumpled Icebreaker	2.1	2	steel	150	4
+scrapItem-damagedtelescope	Damaged Telescope	1	1	cedar	150	6
+scrapItem-deconstructedtelescope	Deconstructed Telescope	4	4	gold	75	9
+scrapItem-defectiveowlcamera	Defective Owl Camera	1	1	titanium	155	4
+scrapItem-diningtrencher	Dining Trencher	1	1	tin	90	4
+scrapItem-diningtrencher	Dining Trencher	2	2	tin	90	7
+scrapItem-dismantledorgan	Dismantled Organ	4	4	oak	150	7
+scrapItem-doorhandle	Door Handle	2	2	iron	80	8
+scrapItem-doorhandle	Door Handle	3	3	iron	80	6
+scrapItem-dustylallaraglove	Dusty Lallara Glove	4	4	cedar	135	9
+scrapItem-enginecrank	Engine Crank	1	1	iron	80	8
+scrapItem-enginehousing	Engine Housing	3	3	steel	90	5
+scrapItem-enginehousing	Engine Housing	3.1	3	fuel	30	0
+scrapItem-enginehousing	Engine Housing	4	4	steel	90	8
+scrapItem-enginehousing	Engine Housing	4.1	4	fuel	30	0
+scrapItem-farmerscartWheel	Farmers Cartwheel	1	1	birch	120	4
+scrapItem-farmerscartWheel	Farmers Cartwheel	2	2	birch	120	7
+scrapItem-farmparts	Farm Parts	1	1	iron	80	4
+scrapItem-farmparts	Farm Parts	2	2	iron	80	6
+scrapItem-ferrycrank	Ferry Hand Crank	4	4	tin	100	8
+scrapItem-ferrycrank	Ferry Hand Crank	4.1	4	titanium	50	8
+scrapItem-finecloistrumstrigil	Fine Cloistrum Strigil	4	4	copper	130	5
+scrapItem-footstool	Dinky Footstool	2	2	elm	130	7
+scrapItem-footstool	Dinky Footstool	4	4	elm	130	9
+scrapItem-fountainshards	Fountain Shards	4	4	aluminium	70	10
+scrapItem-funicularparts	Funicular Parts	4	4	nickel	100	5
+scrapItem-funicularparts	Funicular Parts	4.1	4	steel	60	5
+scrapItem-generator	Defunct Generator	3	3	nickel	100	5
+scrapItem-generator	Defunct Generator	3.1	3	fuel	50	0
+scrapItem-generator	Defunct Generator	4	4	nickel	100	9
+scrapItem-generator	Defunct Generator	4.1	4	fuel	50	0
+scrapItem-godhandcannon	Godhand Cannon Fragments	4	4	lead	195	6
+scrapItem-grandFfrillshipporthole	Grand Frillship Porthole	1	1	iron	155	10
+scrapItem-grandfrillshipantenna	Grand Frillship Antenna	4	4	aluminium	60	10
+scrapItem-grandmooringrope	Grand Mooring Rope	4	4	palm	160	8
+scrapItem-handchisel	Hand Chisel	3	3	steel	75	5
+scrapItem-handchisel	Hand Chisel	4	4	steel	75	9
+scrapItem-herderssaddlebag	Herder's Saddlebag	4	4	chestnut	110	9
+scrapItem-imperialanimalbell	Imperial Animal Bell	4	4	gold	75	10
+scrapItem-imperialturret	Imperial Turret	4	4	tin	120	8
+scrapItem-industrialloomparts	Industrial Loom Parts	1	1	tin	70	5
+scrapItem-industrialloomparts	Industrial Loom Parts	2	2	tin	70	7
+scrapItem-ishgiruanhorntrumpet	Ishgiruan Horn Trumpet	4	4	gold	70	5
+scrapItem-jarofmold	Jar of Mold	3	3	aluminium	50	5
+scrapItem-jarofmold	Jar of Mold	4	4	aluminium	50	8
+scrapItem-knackeredshiphatch	Knackered Ship Hatch	2	2	lead	125	8
+scrapItem-knackeredshiphatch	Knackered Ship Hatch	4	4	lead	125	5
+scrapItem-knottedfrillshiphorn	Knotted Frillship Horn	2	2	gold	50	7
+scrapItem-knottedfrillshiphorn	Knotted Frillship Horn	4	4	gold	50	8
+scrapItem-lallaragoalhoop	Lallara Goal Hoop	4	4	nickel	100	10
+scrapItem-loomshuttle	Loom Shuttle	4	4	iron	200	10
+scrapItem-luckydonkey	Lucky Donkey Hoof	4	4	cedar	110	9
+scrapItem-marimbiannosepipe	Marimbian Nosepipe	4	4	aluminium	50	9
+scrapItem-marimbiannosepipe	Marimbian Nosepipe	4.1	4	hemlock	350	9
+scrapItem-mellifluannarghile	Mellifluan Narghile	3	3	titanium	90	9
+scrapItem-mellifluannarghile	Mellifluan Narghile	4	4	titanium	90	9
+scrapItem-meltedcanonBall	Melted CanonBall	2	2	iron	125	5
+scrapItem-meltedcanonBall	Melted CanonBall	3	3	iron	125	5
+scrapItem-meltedcanonBall	Melted CanonBall	4	4	iron	125	6
+scrapItem-metalpot	Metal Pot	2	2	tin	75	8
+scrapItem-miningliftparts	Mining Lift Parts	1	1	iron	120	7
+scrapItem-miningliftparts	Mining Lift Parts	2	2	iron	120	7
+scrapItem-molinbrandprocessor	Molin Brand Processor	4	4	lead	150	9
+scrapItem-momorosanfruitplatter	Momorosan Fruit Platter	4	4	silver	110	8
+scrapItem-mountedcannon	Mounted Cannon	4	4	iron	350	9
+scrapItem-mountedcannon	Mounted Cannon	4.1	4	copper	50	9
+scrapItem-mouseeffigy	Mouse Effigy	4	4	lead	75	7
+scrapItem-oldpipe	Old Pipe	1	1	hemlock	120	5
+scrapItem-oldwrench	Old Wrench	1	1	steel	45	7
+scrapItem-oldwrench	Old Wrench	2	2	steel	45	7
+scrapItem-oldwrench	Old Wrench	3	3	steel	45	6
+scrapItem-oldwrench	Old Wrench	4	4	steel	45	8
+scrapItem-ornateemptybox	Ornate Empty Box	3	3	nickel	125	6
+scrapItem-ornateemptybox	Ornate Empty Box	4	4	nickel	125	7
+scrapItem-ornatemagnifyingglass	Ornate Magnifying Glass	4	4	silver	100	6
+scrapItem-ornithologicalbinocularvalise	Ornithological Binocular Valise	4	4	cedar	155	9
+scrapItem-plantpot	Plant Pot	1	1	iron	100	7
+scrapItem-plantpot	Plant Pot	2	2	iron	100	8
+scrapItem-plinth	Decorative Plinth	3	3	tin	125	6
+scrapItem-plinth	Decorative Plinth	4	4	tin	125	7
+scrapItem-publicaddresssystem	Public Address System	3	3	steel	100	6
+scrapItem-racingstilts	Pair of Racing Stilts	4	4	elm	145	8
+scrapItem-ruinedhelmet	Ruined Helmet	2	2	tin	100	5
+scrapItem-ruinedhelmet	Ruined Helmet	4	4	tin	100	9
+scrapItem-rustedmicroscope	Rusted Microscope	4	4	steel	130	8
+scrapItem-saborianbadgeofstate	Saborian Badge of State	2	2	tungsten	90	5
+scrapItem-saborianblowtorch	Saborian Blowtorch	4	4	tin	100	8
+scrapItem-saborianblowtorch	Saborian Blowtorch	4.1	4	fuel	30	0
+scrapItem-saboriandemarcatebadge	Saborian Demarcate Badge	3	3	tungsten	90	7
+scrapItem-saboriandiningtongs	Saborian Dining Tongs	4	4	silver	80	9
+scrapItem-saborianflyingwings	Saborian Flying Wings	4	4	silver	95	8
+scrapItem-saborianhowitzerbits	Saborian Howitzer Bits	1	1	lead	145	6
+scrapItem-saborianhowitzerbits	Saborian Howitzer Bits	2	2	lead	145	4
+scrapItem-saborianshoulderclasp	Saborian Shoulder Clasp	1	1	copper	80	4
+scrapItem-saborianweights	Saborian Weights	2	2	bronze	120	6
+scrapItem-saborianweights	Saborian Weights	4	4	bronze	120	9
+scrapItem-sewingmachine	Sewing Machine	4	4	lead	160	7
+scrapItem-shardofmooncraft	Shard of a Moon Craft	4	4	aluminium	85	8
+scrapItem-shatteredseismometer	Shattered Seismometer	3	3	iron	165	7
+scrapItem-shelving	Shelving	1	1	iron	40	6
+scrapItem-shelving	Shelving	1.1	1	elm	75	6
+scrapItem-shelving	Shelving	2	2	iron	40	6
+scrapItem-shelving	Shelving	2.1	2	elm	75	8
+scrapItem-shiphandrail	Ship Handrail	1	1	nickel	90	3
+scrapItem-shiphandrail	Ship Handrail	4	4	nickel	90	8
+scrapItem-signedphotoofkonstinivaduva	Signed Photograph of Konstini Vaduva	4	4	bronze	250	10
+scrapItem-skiwax	Ski Wax	2	2	copper	100	5
+scrapItem-skiwax	Ski Wax	2.1	2	silver	75	4
+scrapItem-skiwax	Ski Wax	4	4	copper	100	10
+scrapItem-skiwax	Ski Wax	4.1	4	silver	75	10
+scrapItem-skullofimhorta	Skull of Imhorta	4	4	gold	100	9
+scrapItem-skullofimhorta	Skull of Imhorta	4.1	4	silver	100	9
+scrapItem-skyshipmooringcapstan	Skyship Mooring Capstan	2	2	steel	80	4
+scrapItem-skyshipmooringcapstan	Skyship Mooring Capstan	3	3	steel	80	5
+scrapItem-skyshipmooringcapstan	Skyship Mooring Capstan	4	4	steel	80	8
+scrapItem-smallplate	Small Plate	1	1	tin	80	6
+scrapItem-smallplate	Small Plate	4	4	tin	80	8
+scrapItem-smalltable	Small Table	1	1	iron	100	7
+scrapItem-smalltable	Small Table	1.1	1	elm	50	7
+scrapItem-smashedcymbal	Smashed Cymbal	2	2	gold	60	8
+scrapItem-smashedcymbal	Smashed Cymbal	3	3	gold	60	6
+scrapItem-smashedcymbal	Smashed Cymbal	4	4	gold	60	10
+scrapItem-steamboatenginescrap	Steamboat Engine Scrap	4	4	iron	250	10
+scrapItem-steamboatenginescrap	Steamboat Engine Scrap	4.1	4	nickel	150	10
+scrapItem-steamboatenginescrap	Steamboat Engine Scrap	4.2	4	fuel	50	0
+scrapItem-steamboathogchain	Steamboat Hog Chain	1	1	copper	100	3
+scrapItem-steamboathogchain	Steamboat Hog Chain	2	2	copper	100	5
+scrapItem-steamboathogchain	Steamboat Hog Chain	4	4	copper	100	8
+scrapItem-steamboatwheelblades	Steamboat Wheel Blades	4	4	iron	200	9
+scrapItem-steamboatwheelblades	Steamboat Wheel Blades	4.1	4	bronze	300	9
+scrapItem-steamerstack	Steamer Stack	2	2	tin	300	6
+scrapItem-steamerstack	Steamer Stack	4	4	tin	300	8
+scrapItem-swordblade	Sword Blade	1	1	bronze	90	7
+scrapItem-swordblade	Sword Blade	2	2	bronze	90	6
+scrapItem-swordblade	Sword Blade	3	3	bronze	90	6
+scrapItem-swordhilt	Sword Hilt	1	1	chestnut	85	4
+scrapItem-swordhilt	Sword Hilt	2	2	chestnut	85	8
+scrapItem-swordhilt	Sword Hilt	3	3	chestnut	85	8
+scrapItem-tackyornament	Tacky Ornament	1	1	silver	65	3
+scrapItem-tackyornament	Tacky Ornament	2	2	silver	65	7
+scrapItem-tackyornament	Tacky Ornament	4	4	silver	65	9
+scrapItem-tapestry	Tapestry	4	4	chestnut	149	9
+scrapItem-ternanuantoggle	Ternanuan Thread Spool	4	4	titanium	70	8
+scrapItem-ternanuantoggle2	Ternanuan Toggle	1	1	titanium	60	7
+scrapItem-ternanuantoggle2	Ternanuan Toggle	4	4	titanium	60	8
+scrapItem-tincan	Tin Can	1	1	tin	60	4
+scrapItem-tincan	Tin Can	2	2	tin	60	8
+scrapItem-tincan	Tin Can	3	3	tin	60	8
+scrapItem-tonkingpuck	Tonking Puck	2	2	aluminium	45	6
+scrapItem-tonkingpuck	Tonking Puck	3	3	aluminium	45	5
+scrapItem-tonkingpuck	Tonking Puck	4	4	aluminium	45	10
+scrapItem-ululatinghornofbargojiu	Ululating Horn of Bargo Jiu	4	4	tungsten	90	8
+scrapItem-vinylplayer	Vinyl Player	4	4	nickel	100	10
+scrapItem-vinylplayer	Vinyl Player	4.1	4	copper	30	10
+scrapItem-warlockbijouxbureau	Warlock's Bijoux Bureau	1	1	oak	15	7
+scrapItem-warlocksilverwhistle	Warlock's Silver Whistle	4	4	silver	400	7
+scrapItem-washer	Iron Washer	1	1	iron	85	6
+scrapItem-washer	Iron Washer	2	2	iron	85	8
+scrapItem-watergujimarketawning	Waterguji Market Awning	1	1	cedar	300	4
+scrapItem-watergujimarketawning	Waterguji Market Awning	2	2	cedar	300	8
+scrapItem-wolftoken	Wolf Token	4	4	silver	250	10
+scrapItem-woodenbowl	Wooden Bowl	1	1	chestnut	85	4
+scrapItem-woodenbowl	Wooden Bowl	2	2	chestnut	85	8
+scrapItem-woollenquilt	Woollen Quilt	4	4	ash	140	9
+scrapItemselenistswoodenorrery	Selenists Wooden Orrery	4	4	palm	140	10

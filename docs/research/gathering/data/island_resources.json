@@ -1,0 +1,4319 @@
+[
+ {
+  "id": 455,
+  "name": "Shattered Mausoleum",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    8
+   ],
+   [
+    "bronze",
+    5,
+    5
+   ],
+   [
+    "copper",
+    4,
+    8
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "gold",
+    12,
+    7
+   ],
+   [
+    "iron",
+    1,
+    6
+   ],
+   [
+    "lead",
+    11,
+    6
+   ],
+   [
+    "nickel",
+    3,
+    7
+   ],
+   [
+    "orthite",
+    16,
+    6
+   ],
+   [
+    "steel",
+    2,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    6
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 454,
+  "name": "Davra Daire Dry",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 453,
+  "name": "Computronium Dry",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 452,
+  "name": "Sabor City",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 451,
+  "name": "TorAzul",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 450,
+  "name": "Arabesque",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 449,
+  "name": "Maglev Hub",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 448,
+  "name": "Ympyrae",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 447,
+  "name": "Linked",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 446,
+  "name": "Icy Cubes",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "iron",
+    1,
+    6
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 445,
+  "name": "Clover",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 444,
+  "name": "Comm Strip",
+  "tier": 1,
+  "pveMetals": [
+   [
+    "iron",
+    1,
+    1
+   ],
+   [
+    "lead",
+    11,
+    2
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 443,
+  "name": "Saborian Dark Academy",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "eternium",
+    15,
+    8
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    8
+   ],
+   [
+    "nickel",
+    3,
+    7
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    8
+   ],
+   [
+    "eternium",
+    15,
+    8
+   ],
+   [
+    "iron",
+    1,
+    7
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "silver",
+    10,
+    9
+   ],
+   [
+    "steel",
+    2,
+    10
+   ],
+   [
+    "tin",
+    9,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 442,
+  "name": "Point 13",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 441,
+  "name": "Kioki Burning Man",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    9
+   ],
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    7
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "tin",
+    9,
+    7
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    9
+   ],
+   [
+    "bronze",
+    5,
+    7
+   ],
+   [
+    "copper",
+    4,
+    9
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "eternium",
+    15,
+    10
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "iron",
+    1,
+    7
+   ],
+   [
+    "lead",
+    11,
+    10
+   ],
+   [
+    "nickel",
+    3,
+    9
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "tin",
+    9,
+    9
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ]
+  ],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 440,
+  "name": "The Orbiting Gardens",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 439,
+  "name": "Doctor Caldana's Marvelous Underground Manor and Creepy Carnival",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 438,
+  "name": "Pumpwerk Ruins",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 437,
+  "name": "Purgatory",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 436,
+  "name": "Tombstone",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 435,
+  "name": "Launch Site",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 434,
+  "name": "Foxs Pirate Cove",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    8
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "iron",
+    1,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "silver",
+    10,
+    7
+   ],
+   [
+    "steel",
+    2,
+    10
+   ],
+   [
+    "tin",
+    9,
+    10
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    9
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 433,
+  "name": "Verona",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 432,
+  "name": "Isle of Competition",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 431,
+  "name": "Haunted Mansion",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 430,
+  "name": "Mountain Dwellings",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 429,
+  "name": "The Ice Queens Towers",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 428,
+  "name": "Kioki Town",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 427,
+  "name": "Kioki The Great Blue Wall part 1",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 426,
+  "name": "Ishtar",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "iron",
+    1,
+    7
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    7
+   ],
+   [
+    "orthite",
+    16,
+    7
+   ],
+   [
+    "steel",
+    2,
+    5
+   ],
+   [
+    "tin",
+    9,
+    6
+   ],
+   [
+    "tungsten",
+    13,
+    6
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 425,
+  "name": "The Hidden Garden",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 424,
+  "name": "Arkadia",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 423,
+  "name": "Ethernal Ice",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    5
+   ],
+   [
+    "copper",
+    4,
+    6
+   ],
+   [
+    "iron",
+    1,
+    6
+   ],
+   [
+    "lead",
+    11,
+    6
+   ],
+   [
+    "nickel",
+    3,
+    5
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "silver",
+    10,
+    8
+   ],
+   [
+    "steel",
+    2,
+    6
+   ],
+   [
+    "titanium",
+    7,
+    5
+   ],
+   [
+    "tungsten",
+    13,
+    8
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 422,
+  "name": "Breeze Isles",
+  "tier": 1,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    2
+   ],
+   [
+    "copper",
+    4,
+    4
+   ],
+   [
+    "epilar",
+    14,
+    4
+   ],
+   [
+    "iron",
+    1,
+    3
+   ],
+   [
+    "tin",
+    9,
+    2
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 421,
+  "name": "The Geomancers Union",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 420,
+  "name": "Forgotten Sands",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "epilar",
+    14,
+    10
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    9
+   ],
+   [
+    "nickel",
+    3,
+    7
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "steel",
+    2,
+    7
+   ],
+   [
+    "tin",
+    9,
+    10
+   ]
+  ],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 419,
+  "name": "The Coreless Islands",
+  "tier": 2,
+  "pveMetals": [
+   [
+    "tungsten",
+    13,
+    5
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 418,
+  "name": "Hive Project 001 Stellaria",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 417,
+  "name": "City of None - the planetarium",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 416,
+  "name": "Abandoned Civilization",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 415,
+  "name": "Feel Good Inc. Floating Island by Gorillaz",
+  "tier": 2,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    6
+   ],
+   [
+    "epilar",
+    14,
+    4
+   ],
+   [
+    "iron",
+    1,
+    4
+   ],
+   [
+    "lead",
+    11,
+    6
+   ],
+   [
+    "nickel",
+    3,
+    5
+   ],
+   [
+    "silver",
+    10,
+    6
+   ],
+   [
+    "steel",
+    2,
+    6
+   ],
+   [
+    "tin",
+    9,
+    4
+   ],
+   [
+    "titanium",
+    7,
+    4
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 414,
+  "name": "The Protector",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 413,
+  "name": "Saborian cave ruin",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 412,
+  "name": "Saborian Sanctuary",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 411,
+  "name": "Aglaxi - the frozen island",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 410,
+  "name": "Old worship place",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 409,
+  "name": "Landria",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 408,
+  "name": "The Oculus    by Valen",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 407,
+  "name": "Highmountain",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 406,
+  "name": "Black Desert Rose",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 405,
+  "name": "Temporal Chaos",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 404,
+  "name": "Panopticon",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 403,
+  "name": "Crushed Memory",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "iron",
+    1,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "steel",
+    2,
+    7
+   ],
+   [
+    "tin",
+    9,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 402,
+  "name": "Goner Maze",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 401,
+  "name": "Monkees Mysland",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    6
+   ],
+   [
+    "gold",
+    12,
+    8
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    5
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "steel",
+    2,
+    5
+   ],
+   [
+    "titanium",
+    7,
+    5
+   ],
+   [
+    "tungsten",
+    13,
+    7
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 400,
+  "name": "Burial of a King",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 399,
+  "name": "Temple of the Silvanian Knights",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 398,
+  "name": "Survival Island",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 397,
+  "name": "Axion",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 396,
+  "name": "Mount Spero",
+  "tier": 1,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    3
+   ],
+   [
+    "iron",
+    1,
+    4
+   ],
+   [
+    "lead",
+    11,
+    3
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 395,
+  "name": "Dreamers Refuge",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 394,
+  "name": "Port and Temple",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 393,
+  "name": "Swingers Club",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 392,
+  "name": "Umbra",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ],
+   [
+    "eternium",
+    15,
+    10
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "nickel",
+    3,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 391,
+  "name": "Home",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 390,
+  "name": "Forgotten Forgery",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 389,
+  "name": "Starlight Temple",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 388,
+  "name": "Lorys Gift",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 387,
+  "name": "Tropic Treasure Hunt",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 386,
+  "name": "Birthplace of a Celestial",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "orthite",
+    16,
+    9
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 385,
+  "name": "Moki",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 384,
+  "name": "Islands in chains",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 383,
+  "name": "Leviathan Den",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 382,
+  "name": "Stralis Altar",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "epilar",
+    14,
+    5
+   ],
+   [
+    "gold",
+    12,
+    6
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "silver",
+    10,
+    7
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 381,
+  "name": "The Barrow",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 380,
+  "name": "Beautiful Wildlands",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 379,
+  "name": "Dawn mother arena",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 378,
+  "name": "Overrun Colony",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 377,
+  "name": "Anchorage Isle",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    4
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "steel",
+    2,
+    7
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 376,
+  "name": "Jadayu",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "epilar",
+    14,
+    6
+   ],
+   [
+    "silver",
+    10,
+    3
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 375,
+  "name": "Hectors Hideout",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 374,
+  "name": "Impact Crater",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "epilar",
+    14,
+    6
+   ],
+   [
+    "eternium",
+    15,
+    6
+   ],
+   [
+    "nickel",
+    3,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "silver",
+    10,
+    6
+   ],
+   [
+    "steel",
+    2,
+    7
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 373,
+  "name": "without a bottom or water",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 372,
+  "name": "Isle of Lynerea",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 371,
+  "name": "Temple of the Sun",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 370,
+  "name": "Hanging Garden Jungle",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 369,
+  "name": "Triphalion City",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 368,
+  "name": "The Old Military Academy",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 367,
+  "name": "Tomb of the Owl King",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 366,
+  "name": "Volvic",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "copper",
+    4,
+    8
+   ],
+   [
+    "gold",
+    12,
+    5
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 365,
+  "name": "Introspect",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 364,
+  "name": "Summer Palace of the Owl King",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 363,
+  "name": "Pandora",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 362,
+  "name": "Dyson Relics",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    8
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    9
+   ],
+   [
+    "silver",
+    10,
+    9
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 361,
+  "name": "Wasted ruins",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "eternium",
+    15,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    7
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 360,
+  "name": "Crumbled Market",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 359,
+  "name": "Colossus",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 358,
+  "name": "Ritual Of Gravity",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 357,
+  "name": "Falcon Rest",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 356,
+  "name": "Summernight Island",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 355,
+  "name": "Feast for the Undying",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 354,
+  "name": "Barked Horror",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 353,
+  "name": "Safe Yard",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 352,
+  "name": "Triumvirate Isles",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 351,
+  "name": "Sancus Cove",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 350,
+  "name": "The Spiders Web",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 349,
+  "name": "Riverside Relic \"One\"",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 348,
+  "name": "Kioki Shipyard",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 347,
+  "name": "Romerius Manor",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 346,
+  "name": "Sethodines House",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 345,
+  "name": "Roxborough Isle",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 344,
+  "name": "It got away",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 343,
+  "name": "Port de Mangroz",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "steel",
+    2,
+    3
+   ],
+   [
+    "tin",
+    9,
+    3
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 342,
+  "name": "Drifty Shores",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 341,
+  "name": "Twin Canyon",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 340,
+  "name": "Broken Shell",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 339,
+  "name": "The Forge",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 338,
+  "name": "Battle Arena",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 337,
+  "name": "The Rift",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    9
+   ],
+   [
+    "eternium",
+    15,
+    10
+   ],
+   [
+    "gold",
+    12,
+    9
+   ],
+   [
+    "iron",
+    1,
+    10
+   ],
+   [
+    "lead",
+    11,
+    10
+   ],
+   [
+    "nickel",
+    3,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    9
+   ],
+   [
+    "silver",
+    10,
+    8
+   ],
+   [
+    "steel",
+    2,
+    9
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    7
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 336,
+  "name": "The Frozen City",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 335,
+  "name": "Alisters Workshop",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 334,
+  "name": "Starfall",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    10
+   ],
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    10
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    9
+   ],
+   [
+    "nickel",
+    3,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "silver",
+    10,
+    9
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    7
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    8
+   ],
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "epilar",
+    14,
+    10
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    9
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    9
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 333,
+  "name": "Lost Temple of the Bird People",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 332,
+  "name": "Terraced Farm",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 331,
+  "name": "Laurelin",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "lead",
+    11,
+    8
+   ],
+   [
+    "tin",
+    9,
+    7
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 330,
+  "name": "kioki mining fortress",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "steel",
+    2,
+    5
+   ],
+   [
+    "tungsten",
+    13,
+    6
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 329,
+  "name": "Abandoned Pumping Station",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 328,
+  "name": "Kioki outpost",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 327,
+  "name": "Prisoned Demon",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 326,
+  "name": "ruens",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 325,
+  "name": "The Elder Tree",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 324,
+  "name": "Mother Tree",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 323,
+  "name": "Kioki Mountain Village",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 322,
+  "name": "Kioki Lighthouse",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 321,
+  "name": "The Unknown Prophets",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 320,
+  "name": "Gifts are Always Hidden",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 319,
+  "name": "Roots Of Life",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 318,
+  "name": "Saborian Rust",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "tin",
+    9,
+    9
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 317,
+  "name": "Three Goddesses",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    9
+   ],
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "eternium",
+    15,
+    7
+   ],
+   [
+    "gold",
+    12,
+    8
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    10
+   ],
+   [
+    "nickel",
+    3,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "silver",
+    10,
+    10
+   ],
+   [
+    "steel",
+    2,
+    10
+   ],
+   [
+    "titanium",
+    7,
+    9
+   ],
+   [
+    "tungsten",
+    13,
+    10
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 316,
+  "name": "Azure nightmares",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 315,
+  "name": "Echoes of Miria",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 314,
+  "name": "Elevated",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 313,
+  "name": "Kioki Island",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    3
+   ],
+   [
+    "epilar",
+    14,
+    6
+   ],
+   [
+    "steel",
+    2,
+    6
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 312,
+  "name": "New Vegas Wormhole",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ],
+   [
+    "lead",
+    11,
+    9
+   ],
+   [
+    "tin",
+    9,
+    9
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 311,
+  "name": "The Solrian Reactor",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "copper",
+    4,
+    5
+   ],
+   [
+    "titanium",
+    7,
+    5
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 310,
+  "name": "Lost Kioki Treasure Ship I",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 309,
+  "name": "Kioki Labyrinth",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 308,
+  "name": "Abandoned Factory",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 307,
+  "name": "Tower of Commerce",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    8
+   ],
+   [
+    "bronze",
+    5,
+    10
+   ],
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    9
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "silver",
+    10,
+    8
+   ],
+   [
+    "steel",
+    2,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    9
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 306,
+  "name": "The Sun",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 305,
+  "name": "Kioki Trading Hub -Paradise-",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 304,
+  "name": "Kioki Manor House",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "gold",
+    12,
+    9
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "lead",
+    11,
+    10
+   ],
+   [
+    "silver",
+    10,
+    9
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 303,
+  "name": "Kiokis The Great Blue Wall part 2",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "bronze",
+    5,
+    5
+   ],
+   [
+    "iron",
+    1,
+    7
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "tin",
+    9,
+    6
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 302,
+  "name": "Homeland",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 301,
+  "name": "The Trades Challenge",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    4
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 300,
+  "name": "Kioki Refuge",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "lead",
+    11,
+    8
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 299,
+  "name": "The Mad One",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 298,
+  "name": "Lost Sanctuary",
+  "tier": 2,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    4
+   ],
+   [
+    "epilar",
+    14,
+    2
+   ],
+   [
+    "iron",
+    1,
+    5
+   ],
+   [
+    "lead",
+    11,
+    6
+   ],
+   [
+    "tin",
+    9,
+    5
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 297,
+  "name": "Kioki High Security Depository",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "bronze",
+    5,
+    9
+   ],
+   [
+    "epilar",
+    14,
+    8
+   ],
+   [
+    "iron",
+    1,
+    10
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    9
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 296,
+  "name": "Kioki Chalice",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 295,
+  "name": "Ol Owl Tree",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 294,
+  "name": "The Palast",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 293,
+  "name": "Ragnorok",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 292,
+  "name": "Halloween Competition Entry: Mortis Mons",
+  "tier": 2,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    4
+   ],
+   [
+    "steel",
+    2,
+    6
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 291,
+  "name": "The Artificial Island",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 290,
+  "name": "Handy Mechanic",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 289,
+  "name": "Hidden Cove",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 288,
+  "name": "Ancient Data Center",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 287,
+  "name": "Durango",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    9
+   ],
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "eternium",
+    15,
+    7
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    9
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "tin",
+    9,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 286,
+  "name": "Tera Nova",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 285,
+  "name": "Tribute to the Engineer",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 284,
+  "name": "Tomb of Amunet",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 283,
+  "name": "Desert Solitude",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 282,
+  "name": "Gardens of Eve",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 281,
+  "name": "Boardwalk Beach",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "oak"
+  ]
+ },
+ {
+  "id": 273,
+  "name": "Alphasyno Island of Exploration (Pancakes)",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm"
+  ]
+ },
+ {
+  "id": 271,
+  "name": "Highlands Hills (Bridges)",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm",
+   "birch"
+  ]
+ },
+ {
+  "id": 251,
+  "name": "Dreadnought Battle",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 244,
+  "name": "End of the Line",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "oak"
+  ]
+ },
+ {
+  "id": 242,
+  "name": "Thunderdome",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 237,
+  "name": "Chimera",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 234,
+  "name": "Abandoned Lighthouse",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 226,
+  "name": "Little Isle - Tutorial (Home)",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "birch"
+  ]
+ },
+ {
+  "id": 222,
+  "name": "Saboryptian Pyramid (Giza)",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    8
+   ],
+   [
+    "gold",
+    12,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "steel",
+    2,
+    10
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ],
+   [
+    "tungsten",
+    13,
+    10
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ],
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    9
+   ],
+   [
+    "gold",
+    12,
+    7
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "nickel",
+    3,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ],
+   [
+    "silver",
+    10,
+    10
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "tin",
+    9,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    10
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 219,
+  "name": "Neros (Buttplug)",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 218,
+  "name": "Crypt of Osiris",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 216,
+  "name": "Vaults of Uruk",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 215,
+  "name": "Trial of Arsoon",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "eternium",
+    15,
+    10
+   ],
+   [
+    "iron",
+    1,
+    10
+   ],
+   [
+    "nickel",
+    3,
+    9
+   ],
+   [
+    "silver",
+    10,
+    10
+   ],
+   [
+    "steel",
+    2,
+    9
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ],
+   [
+    "tungsten",
+    13,
+    8
+   ]
+  ],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 213,
+  "name": "Anubis",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 210,
+  "name": "Desert University",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 208,
+  "name": "Sands of Time (Cherry Top)",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 207,
+  "name": "Kioki Canyon",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "nickel",
+    3,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "lead",
+    11,
+    8
+   ]
+  ],
+  "trees": [
+   "hemlock",
+   "palm"
+  ]
+ },
+ {
+  "id": 205,
+  "name": "The Last Leviathan (Malevolence)",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    8
+   ],
+   [
+    "copper",
+    4,
+    8
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "steel",
+    2,
+    9
+   ],
+   [
+    "tin",
+    9,
+    9
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    9
+   ],
+   [
+    "copper",
+    4,
+    9
+   ],
+   [
+    "epilar",
+    14,
+    10
+   ],
+   [
+    "gold",
+    12,
+    8
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    9
+   ],
+   [
+    "silver",
+    10,
+    8
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "tin",
+    9,
+    9
+   ],
+   [
+    "titanium",
+    7,
+    7
+   ],
+   [
+    "tungsten",
+    13,
+    7
+   ]
+  ],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 204,
+  "name": "Trials of Jumanah (Trials)",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    6
+   ],
+   [
+    "epilar",
+    14,
+    5
+   ],
+   [
+    "orthite",
+    16,
+    7
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    6
+   ]
+  ],
+  "trees": [
+   "chestnut",
+   "birch"
+  ]
+ },
+ {
+  "id": 200,
+  "name": "The Carcass",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ],
+   [
+    "epilar",
+    14,
+    10
+   ],
+   [
+    "eternium",
+    15,
+    9
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "lead",
+    11,
+    8
+   ],
+   [
+    "silver",
+    10,
+    9
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    7
+   ]
+  ],
+  "trees": []
+ },
+ {
+  "id": 196,
+  "name": "Surah",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 193,
+  "name": "Festival of Flight",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "oak",
+   "palm"
+  ]
+ },
+ {
+  "id": 191,
+  "name": "Path Of The Lights",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "bronze",
+    5,
+    3
+   ],
+   [
+    "lead",
+    11,
+    5
+   ],
+   [
+    "steel",
+    2,
+    3
+   ]
+  ],
+  "trees": [
+   "chestnut",
+   "palm"
+  ]
+ },
+ {
+  "id": 189,
+  "name": "Belial (Death Star)",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 184,
+  "name": "Tesserant Labyrinth",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm",
+   "oak"
+  ]
+ },
+ {
+  "id": 175,
+  "name": "Monkees Greenful Hills (Valley Bowl)",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm",
+   "birch"
+  ]
+ },
+ {
+  "id": 164,
+  "name": "Misty Docks (Misty)",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "chestnut",
+   "elm",
+   "birch",
+   "ash",
+   "oak"
+  ]
+ },
+ {
+  "id": 151,
+  "name": "Azurine",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "ash"
+  ]
+ },
+ {
+  "id": 148,
+  "name": "Queens Garden",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "elm",
+   "birch",
+   "oak"
+  ]
+ },
+ {
+  "id": 146,
+  "name": "The Land that Man Forgot (Four Corners)",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "oak"
+  ]
+ },
+ {
+  "id": 143,
+  "name": "Azalea Valley (Swiss Cheese)",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": []
+ },
+ {
+  "id": 131,
+  "name": "Lighthouse Arabeth (Lighthouse)",
+  "tier": 2,
+  "pveMetals": [
+   [
+    "bronze",
+    5,
+    6
+   ],
+   [
+    "gold",
+    12,
+    6
+   ],
+   [
+    "iron",
+    1,
+    3
+   ],
+   [
+    "lead",
+    11,
+    4
+   ],
+   [
+    "steel",
+    2,
+    3
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "elm",
+   "oak"
+  ]
+ },
+ {
+  "id": 126,
+  "name": "Jurassic Adrift",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 125,
+  "name": "The Shear",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "oak"
+  ]
+ },
+ {
+  "id": 117,
+  "name": "City of Sabor",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "ash"
+  ]
+ },
+ {
+  "id": 116,
+  "name": "Temple Caeruleos",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "oak"
+  ]
+ },
+ {
+  "id": 113,
+  "name": "Amadeus",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar"
+  ]
+ },
+ {
+  "id": 111,
+  "name": "Camps Daurats",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "birch"
+  ]
+ },
+ {
+  "id": 109,
+  "name": "Suizo",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "ash",
+   "palm"
+  ]
+ },
+ {
+  "id": 104,
+  "name": "Splitpeak Pass",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm",
+   "birch",
+   "oak"
+  ]
+ },
+ {
+  "id": 99,
+  "name": "Crimson Paradise",
+  "tier": 1,
+  "pveMetals": [
+   [
+    "iron",
+    1,
+    3
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "palm"
+  ]
+ },
+ {
+  "id": 98,
+  "name": "Kiokitown Shanties",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "nickel",
+    3,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock",
+   "palm"
+  ]
+ },
+ {
+  "id": 97,
+  "name": "Dust",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 95,
+  "name": "Labyrinthian Temple",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    10
+   ],
+   [
+    "bronze",
+    5,
+    10
+   ],
+   [
+    "copper",
+    4,
+    10
+   ],
+   [
+    "iron",
+    1,
+    10
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    9
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "silver",
+    10,
+    10
+   ],
+   [
+    "tin",
+    9,
+    7
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ],
+   [
+    "tungsten",
+    13,
+    8
+   ]
+  ],
+  "trees": [
+   "hemlock",
+   "palm"
+  ]
+ },
+ {
+  "id": 94,
+  "name": "Kioki Ship Graveyard",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 90,
+  "name": "Mad Mansion",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 89,
+  "name": "Kioki Resort",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "copper",
+    4,
+    9
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "orthite",
+    16,
+    8
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 84,
+  "name": "An Unlit Candle (Lonely Launch Site)",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 82,
+  "name": "Concealed Bastion",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 81,
+  "name": "The Three",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "elm",
+   "ash"
+  ]
+ },
+ {
+  "id": 80,
+  "name": "Kioki Desert Temple",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 78,
+  "name": "Zerzura (Golden Hat City)",
+  "tier": 4,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    10
+   ],
+   [
+    "copper",
+    4,
+    8
+   ],
+   [
+    "epilar",
+    14,
+    7
+   ],
+   [
+    "eternium",
+    15,
+    9
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "lead",
+    11,
+    9
+   ],
+   [
+    "nickel",
+    3,
+    8
+   ],
+   [
+    "orthite",
+    16,
+    9
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "tin",
+    9,
+    9
+   ],
+   [
+    "titanium",
+    7,
+    10
+   ],
+   [
+    "tungsten",
+    13,
+    8
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "aluminium",
+    8,
+    7
+   ],
+   [
+    "bronze",
+    5,
+    9
+   ],
+   [
+    "copper",
+    4,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    10
+   ],
+   [
+    "gold",
+    12,
+    10
+   ],
+   [
+    "iron",
+    1,
+    9
+   ],
+   [
+    "lead",
+    11,
+    7
+   ],
+   [
+    "nickel",
+    3,
+    7
+   ],
+   [
+    "orthite",
+    16,
+    10
+   ],
+   [
+    "silver",
+    10,
+    7
+   ],
+   [
+    "steel",
+    2,
+    8
+   ],
+   [
+    "titanium",
+    7,
+    8
+   ],
+   [
+    "tungsten",
+    13,
+    7
+   ]
+  ],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 77,
+  "name": "Riverbed",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "ash"
+  ]
+ },
+ {
+  "id": 75,
+  "name": "Ishgiru National Bank",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "birch"
+  ]
+ },
+ {
+  "id": 74,
+  "name": "Tas-Barun",
+  "tier": 3,
+  "pveMetals": [
+   [
+    "aluminium",
+    8,
+    2
+   ],
+   [
+    "bronze",
+    5,
+    7
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "lead",
+    11,
+    8
+   ]
+  ],
+  "pvpMetals": [
+   [
+    "bronze",
+    5,
+    7
+   ],
+   [
+    "epilar",
+    14,
+    6
+   ],
+   [
+    "iron",
+    1,
+    8
+   ],
+   [
+    "lead",
+    11,
+    8
+   ],
+   [
+    "nickel",
+    3,
+    6
+   ],
+   [
+    "steel",
+    2,
+    4
+   ],
+   [
+    "tin",
+    9,
+    5
+   ]
+  ],
+  "trees": [
+   "cedar",
+   "birch"
+  ]
+ },
+ {
+  "id": 70,
+  "name": "Perilous Vault",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "birch"
+  ]
+ },
+ {
+  "id": 69,
+  "name": "Al Kharid",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "chestnut",
+   "birch"
+  ]
+ },
+ {
+  "id": 68,
+  "name": "Abandoned Inn",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "ash"
+  ]
+ },
+ {
+  "id": 67,
+  "name": "Aileronia",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "birch"
+  ]
+ },
+ {
+  "id": 65,
+  "name": "Old Alexandria",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "ash"
+  ]
+ },
+ {
+  "id": 63,
+  "name": "Renegades Facility",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 60,
+  "name": "War Tales 8 (War Tales)",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock",
+   "chestnut"
+  ]
+ },
+ {
+  "id": 57,
+  "name": "The Lost Metropolis",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 56,
+  "name": "Amber Judgment",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut",
+   "birch"
+  ]
+ },
+ {
+  "id": 47,
+  "name": "mental facility",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm"
+  ]
+ },
+ {
+  "id": 42,
+  "name": "Holy Ruins (Relics)",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "ash",
+   "palm"
+  ]
+ },
+ {
+  "id": 41,
+  "name": "Aground (Skilled Captain)",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "palm"
+  ]
+ },
+ {
+  "id": 39,
+  "name": "Cosmo (Cosmo)",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar"
+  ]
+ },
+ {
+  "id": 38,
+  "name": "Observatory (Planetarium)",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm",
+   "birch",
+   "oak",
+   "palm"
+  ]
+ },
+ {
+  "id": 34,
+  "name": "Dungeon Run Competition Island (Gauntlet)",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "elm",
+   "palm"
+  ]
+ },
+ {
+  "id": 28,
+  "name": "DrunkRaven Inn",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "chestnut"
+  ]
+ },
+ {
+  "id": 25,
+  "name": "Cherry",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "cedar",
+   "ash"
+  ]
+ },
+ {
+  "id": 24,
+  "name": "Betrayal of the Copper King (Mecha)",
+  "tier": 1,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "birch"
+  ]
+ },
+ {
+  "id": 19,
+  "name": "Abzu Trident (Abzu)",
+  "tier": 2,
+  "pveMetals": [
+   [
+    "iron",
+    1,
+    3
+   ],
+   [
+    "lead",
+    11,
+    3
+   ],
+   [
+    "tin",
+    9,
+    3
+   ]
+  ],
+  "pvpMetals": [],
+  "trees": [
+   "ash"
+  ]
+ },
+ {
+  "id": 18,
+  "name": "Kendro Transmitter (Kendro)",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock",
+   "palm"
+  ]
+ },
+ {
+  "id": 10,
+  "name": "Observatory",
+  "tier": 4,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "hemlock"
+  ]
+ },
+ {
+  "id": 5,
+  "name": "Campsite",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "oak"
+  ]
+ },
+ {
+  "id": 4,
+  "name": "Coral",
+  "tier": 3,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "ash"
+  ]
+ },
+ {
+  "id": 1,
+  "name": "Greenhouse",
+  "tier": 2,
+  "pveMetals": [],
+  "pvpMetals": [],
+  "trees": [
+   "oak",
+   "palm"
+  ]
+ }
+]

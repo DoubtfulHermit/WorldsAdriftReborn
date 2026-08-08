@@ -1,0 +1,2153 @@
+[
+ {
+  "scrapItemTypeId": "scrapItem-Godhandcagebar",
+  "scrapName": "Godhand Cage Bar",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 140,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ancientbandiniansword",
+  "scrapName": "Ancient Bandinian Sword",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 250,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ancientbandiniansword",
+  "scrapName": "Ancient Bandinian Sword",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 50,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-antiquelamp",
+  "scrapName": "Antique Lamp",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 160,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-atlashod",
+  "scrapName": "Atlas Hod",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 60,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-atlashod",
+  "scrapName": "Atlas Hod",
+  "tierKey": "2.1",
+  "tier": 2,
+  "yieldItemTypeId": "birch",
+  "amount": 70,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-atlashod",
+  "scrapName": "Atlas Hod",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 60,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-atlashod",
+  "scrapName": "Atlas Hod",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "birch",
+  "amount": 70,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-badgeofoldage",
+  "scrapName": "Badge of the Elderly",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "titanium",
+  "amount": 80,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bandinanmininghandpick",
+  "scrapName": "Bandinan Mining Handpick",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bandinanmininghandpick",
+  "scrapName": "Bandinan Mining Handpick",
+  "tierKey": "1.1",
+  "tier": 1,
+  "yieldItemTypeId": "oak",
+  "amount": 150,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bandinianbeeswaxtablet",
+  "scrapName": "Bandinian Beeswax Tablet",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "chestnut",
+  "amount": 150,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bandinianbeeswaxtablet",
+  "scrapName": "Bandinian Beeswax Tablet",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "chestnut",
+  "amount": 150,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bandiniancurrency",
+  "scrapName": "Bandinian Currency",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "copper",
+  "amount": 60,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bandinianpopel",
+  "scrapName": "Bandinian Popel",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-barbersspoonstick",
+  "scrapName": "Barbers Spoonstick",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "steel",
+  "amount": 30,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-barbersspoonstick",
+  "scrapName": "Barbers Spoonstick",
+  "tierKey": "2.1",
+  "tier": 2,
+  "yieldItemTypeId": "oak",
+  "amount": 30,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bathhousevalve",
+  "scrapName": "Bathhouse Valve",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 150,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bathhousevalve",
+  "scrapName": "Bathhouse Valve",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 150,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-beartrap",
+  "scrapName": "Shattered Bear Trap",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 150,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-beartrap",
+  "scrapName": "Shattered Bear Trap",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 100,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-beetlebloodextractiontool",
+  "scrapName": "Beetleblood Extraction Tool",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "nickel",
+  "amount": 115,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-beetlebloodlinen",
+  "scrapName": "Beetle Blood Linen",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "ash",
+  "amount": 80,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bentpipe",
+  "scrapName": "Bent Pipe",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "lead",
+  "amount": 110,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bentpipe",
+  "scrapName": "Bent Pipe",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "lead",
+  "amount": 110,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boatsiren",
+  "scrapName": "Boat Siren",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 90,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bonehandlemagnifyingglass",
+  "scrapName": "BoneHandle Magnifying Glass",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 105,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarycoercionprod",
+  "scrapName": "Boviary Coercion Prod",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "nickel",
+  "amount": 95,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarycoercionprod",
+  "scrapName": "Boviary Coercion Prod",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "nickel",
+  "amount": 95,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarycoercionprod",
+  "scrapName": "Boviary Coercion Prod",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 95,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviaryharvester",
+  "scrapName": "Boviary Harvester",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 100,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarypressurejet",
+  "scrapName": "Boviary Pressure Jet",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "lead",
+  "amount": 140,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarypressurejet",
+  "scrapName": "Boviary Pressure Jet",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "lead",
+  "amount": 140,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarypressurejet",
+  "scrapName": "Boviary Pressure Jet",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "lead",
+  "amount": 140,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-boviarypressurejet",
+  "scrapName": "Boviary Pressure Jet",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "lead",
+  "amount": 140,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brittlerake",
+  "scrapName": "Brittle Old Rake",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "birch",
+  "amount": 110,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokenbroom",
+  "scrapName": "Broken Broom",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "elm",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokenbroom",
+  "scrapName": "Broken Broom",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "elm",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokencymbal",
+  "scrapName": "Broken Cymbal",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "silver",
+  "amount": 75,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokencymbal",
+  "scrapName": "Broken Cymbal",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "silver",
+  "amount": 75,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokencymbal",
+  "scrapName": "Broken Cymbal",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 75,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokendrum",
+  "scrapName": "Broken Drum",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "hemlock",
+  "amount": 125,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokendrum",
+  "scrapName": "Broken Drum",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "hemlock",
+  "amount": 125,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-brokendrum",
+  "scrapName": "Broken Drum",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "hemlock",
+  "amount": 125,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-bustoftelemon",
+  "scrapName": "Bust Of Telemon",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 175,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-candlestick",
+  "scrapName": "Candlestick",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "ash",
+  "amount": 115,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-catoNinetails",
+  "scrapName": "Snapped Cat o' Nine-tails",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-catoNinetails",
+  "scrapName": "Snapped Cat o' Nine-tails",
+  "tierKey": "1.1",
+  "tier": 1,
+  "yieldItemTypeId": "elm",
+  "amount": 50,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ceramicpot",
+  "scrapName": "Ceramic pot",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 95,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-childsball",
+  "scrapName": "Childs Ball",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "palm",
+  "amount": 75,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-childsball",
+  "scrapName": "Childs Ball",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "palm",
+  "amount": 75,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-childskitchenset",
+  "scrapName": "Childs Kitchen Set",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "oak",
+  "amount": 110,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-childskitchenset",
+  "scrapName": "Childs Kitchen Set",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "oak",
+  "amount": 110,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-clamp",
+  "scrapName": "Godhand Clamp",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "titanium",
+  "amount": 95,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-clamp",
+  "scrapName": "Godhand Clamp",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 95,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-cloistrapipework",
+  "scrapName": "Cloistra Pipework",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "lead",
+  "amount": 100,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-cloistrapipework",
+  "scrapName": "Cloistra Pipework",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "lead",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-cloistrapipework",
+  "scrapName": "Cloistra Pipework",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "lead",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-cookingpot",
+  "scrapName": "Cooking Pot",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "bronze",
+  "amount": 125,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-coversleeve",
+  "scrapName": "Cover Sleeve",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "birch",
+  "amount": 140,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-coversleeve",
+  "scrapName": "Cover Sleeve",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "birch",
+  "amount": 140,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-coversleeve",
+  "scrapName": "Cover Sleeve",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "birch",
+  "amount": 140,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedbinoculars",
+  "scrapName": "Cracked Binoculars",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 75,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedbinoculars",
+  "scrapName": "Cracked Binoculars",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 50,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedhydraulicpins",
+  "scrapName": "Cracked Hydraulic Pins",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "nickel",
+  "amount": 55,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedhydraulicpins",
+  "scrapName": "Cracked Hydraulic Pins",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "nickel",
+  "amount": 55,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedhydraulicpins",
+  "scrapName": "Cracked Hydraulic Pins",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "nickel",
+  "amount": 55,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedminingdrill",
+  "scrapName": "Mangled Mining Drill",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "bronze",
+  "amount": 125,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedminingdrill",
+  "scrapName": "Mangled Mining Drill",
+  "tierKey": "3.1",
+  "tier": 3,
+  "yieldItemTypeId": "fuel",
+  "amount": 40,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedminingdrill",
+  "scrapName": "Mangled Mining Drill",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 125,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedminingdrill",
+  "scrapName": "Mangled Mining Drill",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "fuel",
+  "amount": 40,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedsolderingrod",
+  "scrapName": "Cracked Soldering Rod",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "bronze",
+  "amount": 135,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crackedsolderingrod",
+  "scrapName": "Cracked Soldering Rod",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 135,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crumpledicebreaker",
+  "scrapName": "Crumpled Icebreaker",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "titanium",
+  "amount": 300,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-crumpledicebreaker",
+  "scrapName": "Crumpled Icebreaker",
+  "tierKey": "2.1",
+  "tier": 2,
+  "yieldItemTypeId": "steel",
+  "amount": 150,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-damagedtelescope",
+  "scrapName": "Damaged Telescope",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "cedar",
+  "amount": 150,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-deconstructedtelescope",
+  "scrapName": "Deconstructed Telescope",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "gold",
+  "amount": 75,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-defectiveowlcamera",
+  "scrapName": "Defective Owl Camera",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "titanium",
+  "amount": 155,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-diningtrencher",
+  "scrapName": "Dining Trencher",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "tin",
+  "amount": 90,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-diningtrencher",
+  "scrapName": "Dining Trencher",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 90,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-dismantledorgan",
+  "scrapName": "Dismantled Organ",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "oak",
+  "amount": 150,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-doorhandle",
+  "scrapName": "Door Handle",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 80,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-doorhandle",
+  "scrapName": "Door Handle",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "iron",
+  "amount": 80,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-dustylallaraglove",
+  "scrapName": "Dusty Lallara Glove",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "cedar",
+  "amount": 135,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-enginecrank",
+  "scrapName": "Engine Crank",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 80,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-enginehousing",
+  "scrapName": "Engine Housing",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "steel",
+  "amount": 90,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-enginehousing",
+  "scrapName": "Engine Housing",
+  "tierKey": "3.1",
+  "tier": 3,
+  "yieldItemTypeId": "fuel",
+  "amount": 30,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-enginehousing",
+  "scrapName": "Engine Housing",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 90,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-enginehousing",
+  "scrapName": "Engine Housing",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "fuel",
+  "amount": 30,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-farmerscartWheel",
+  "scrapName": "Farmers Cartwheel",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "birch",
+  "amount": 120,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-farmerscartWheel",
+  "scrapName": "Farmers Cartwheel",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "birch",
+  "amount": 120,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-farmparts",
+  "scrapName": "Farm Parts",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 80,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-farmparts",
+  "scrapName": "Farm Parts",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 80,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ferrycrank",
+  "scrapName": "Ferry Hand Crank",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 100,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ferrycrank",
+  "scrapName": "Ferry Hand Crank",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 50,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-finecloistrumstrigil",
+  "scrapName": "Fine Cloistrum Strigil",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 130,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-footstool",
+  "scrapName": "Dinky Footstool",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "elm",
+  "amount": 130,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-footstool",
+  "scrapName": "Dinky Footstool",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "elm",
+  "amount": 130,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-fountainshards",
+  "scrapName": "Fountain Shards",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "aluminium",
+  "amount": 70,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-funicularparts",
+  "scrapName": "Funicular Parts",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 100,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-funicularparts",
+  "scrapName": "Funicular Parts",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 60,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-generator",
+  "scrapName": "Defunct Generator",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "nickel",
+  "amount": 100,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-generator",
+  "scrapName": "Defunct Generator",
+  "tierKey": "3.1",
+  "tier": 3,
+  "yieldItemTypeId": "fuel",
+  "amount": 50,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-generator",
+  "scrapName": "Defunct Generator",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 100,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-generator",
+  "scrapName": "Defunct Generator",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "fuel",
+  "amount": 50,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-godhandcannon",
+  "scrapName": "Godhand Cannon Fragments",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "lead",
+  "amount": 195,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-grandFfrillshipporthole",
+  "scrapName": "Grand Frillship Porthole",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 155,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-grandfrillshipantenna",
+  "scrapName": "Grand Frillship Antenna",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "aluminium",
+  "amount": 60,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-grandmooringrope",
+  "scrapName": "Grand Mooring Rope",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "palm",
+  "amount": 160,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-handchisel",
+  "scrapName": "Hand Chisel",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "steel",
+  "amount": 75,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-handchisel",
+  "scrapName": "Hand Chisel",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 75,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-herderssaddlebag",
+  "scrapName": "Herder's Saddlebag",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "chestnut",
+  "amount": 110,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-imperialanimalbell",
+  "scrapName": "Imperial Animal Bell",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "gold",
+  "amount": 75,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-imperialturret",
+  "scrapName": "Imperial Turret",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 120,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-industrialloomparts",
+  "scrapName": "Industrial Loom Parts",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "tin",
+  "amount": 70,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-industrialloomparts",
+  "scrapName": "Industrial Loom Parts",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 70,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ishgiruanhorntrumpet",
+  "scrapName": "Ishgiruan Horn Trumpet",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "gold",
+  "amount": 70,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-jarofmold",
+  "scrapName": "Jar of Mold",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "aluminium",
+  "amount": 50,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-jarofmold",
+  "scrapName": "Jar of Mold",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "aluminium",
+  "amount": 50,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-knackeredshiphatch",
+  "scrapName": "Knackered Ship Hatch",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "lead",
+  "amount": 125,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-knackeredshiphatch",
+  "scrapName": "Knackered Ship Hatch",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "lead",
+  "amount": 125,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-knottedfrillshiphorn",
+  "scrapName": "Knotted Frillship Horn",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "gold",
+  "amount": 50,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-knottedfrillshiphorn",
+  "scrapName": "Knotted Frillship Horn",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "gold",
+  "amount": 50,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-lallaragoalhoop",
+  "scrapName": "Lallara Goal Hoop",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 100,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-loomshuttle",
+  "scrapName": "Loom Shuttle",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 200,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-luckydonkey",
+  "scrapName": "Lucky Donkey Hoof",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "cedar",
+  "amount": 110,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-marimbiannosepipe",
+  "scrapName": "Marimbian Nosepipe",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "aluminium",
+  "amount": 50,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-marimbiannosepipe",
+  "scrapName": "Marimbian Nosepipe",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "hemlock",
+  "amount": 350,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-mellifluannarghile",
+  "scrapName": "Mellifluan Narghile",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "titanium",
+  "amount": 90,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-mellifluannarghile",
+  "scrapName": "Mellifluan Narghile",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 90,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-meltedcanonBall",
+  "scrapName": "Melted CanonBall",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 125,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-meltedcanonBall",
+  "scrapName": "Melted CanonBall",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "iron",
+  "amount": 125,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-meltedcanonBall",
+  "scrapName": "Melted CanonBall",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 125,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-metalpot",
+  "scrapName": "Metal Pot",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 75,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-miningliftparts",
+  "scrapName": "Mining Lift Parts",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 120,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-miningliftparts",
+  "scrapName": "Mining Lift Parts",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 120,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-molinbrandprocessor",
+  "scrapName": "Molin Brand Processor",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "lead",
+  "amount": 150,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-momorosanfruitplatter",
+  "scrapName": "Momorosan Fruit Platter",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 110,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-mountedcannon",
+  "scrapName": "Mounted Cannon",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 350,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-mountedcannon",
+  "scrapName": "Mounted Cannon",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 50,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-mouseeffigy",
+  "scrapName": "Mouse Effigy",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "lead",
+  "amount": 75,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-oldpipe",
+  "scrapName": "Old Pipe",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "hemlock",
+  "amount": 120,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-oldwrench",
+  "scrapName": "Old Wrench",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "steel",
+  "amount": 45,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-oldwrench",
+  "scrapName": "Old Wrench",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "steel",
+  "amount": 45,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-oldwrench",
+  "scrapName": "Old Wrench",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "steel",
+  "amount": 45,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-oldwrench",
+  "scrapName": "Old Wrench",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 45,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ornateemptybox",
+  "scrapName": "Ornate Empty Box",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "nickel",
+  "amount": 125,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ornateemptybox",
+  "scrapName": "Ornate Empty Box",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 125,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ornatemagnifyingglass",
+  "scrapName": "Ornate Magnifying Glass",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 100,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ornithologicalbinocularvalise",
+  "scrapName": "Ornithological Binocular Valise",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "cedar",
+  "amount": 155,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-plantpot",
+  "scrapName": "Plant Pot",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-plantpot",
+  "scrapName": "Plant Pot",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 100,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-plinth",
+  "scrapName": "Decorative Plinth",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "tin",
+  "amount": 125,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-plinth",
+  "scrapName": "Decorative Plinth",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 125,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-publicaddresssystem",
+  "scrapName": "Public Address System",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "steel",
+  "amount": 100,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-racingstilts",
+  "scrapName": "Pair of Racing Stilts",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "elm",
+  "amount": 145,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ruinedhelmet",
+  "scrapName": "Ruined Helmet",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 100,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ruinedhelmet",
+  "scrapName": "Ruined Helmet",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 100,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-rustedmicroscope",
+  "scrapName": "Rusted Microscope",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 130,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianbadgeofstate",
+  "scrapName": "Saborian Badge of State",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tungsten",
+  "amount": 90,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianblowtorch",
+  "scrapName": "Saborian Blowtorch",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 100,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianblowtorch",
+  "scrapName": "Saborian Blowtorch",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "fuel",
+  "amount": 30,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saboriandemarcatebadge",
+  "scrapName": "Saborian Demarcate Badge",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "tungsten",
+  "amount": 90,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saboriandiningtongs",
+  "scrapName": "Saborian Dining Tongs",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 80,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianflyingwings",
+  "scrapName": "Saborian Flying Wings",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 95,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianhowitzerbits",
+  "scrapName": "Saborian Howitzer Bits",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "lead",
+  "amount": 145,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianhowitzerbits",
+  "scrapName": "Saborian Howitzer Bits",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "lead",
+  "amount": 145,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianshoulderclasp",
+  "scrapName": "Saborian Shoulder Clasp",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "copper",
+  "amount": 80,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianweights",
+  "scrapName": "Saborian Weights",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "bronze",
+  "amount": 120,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-saborianweights",
+  "scrapName": "Saborian Weights",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 120,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-sewingmachine",
+  "scrapName": "Sewing Machine",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "lead",
+  "amount": 160,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shardofmooncraft",
+  "scrapName": "Shard of a Moon Craft",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "aluminium",
+  "amount": 85,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shatteredseismometer",
+  "scrapName": "Shattered Seismometer",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "iron",
+  "amount": 165,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shelving",
+  "scrapName": "Shelving",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 40,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shelving",
+  "scrapName": "Shelving",
+  "tierKey": "1.1",
+  "tier": 1,
+  "yieldItemTypeId": "elm",
+  "amount": 75,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shelving",
+  "scrapName": "Shelving",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 40,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shelving",
+  "scrapName": "Shelving",
+  "tierKey": "2.1",
+  "tier": 2,
+  "yieldItemTypeId": "elm",
+  "amount": 75,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shiphandrail",
+  "scrapName": "Ship Handrail",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "nickel",
+  "amount": 90,
+  "quality": 3
+ },
+ {
+  "scrapItemTypeId": "scrapItem-shiphandrail",
+  "scrapName": "Ship Handrail",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 90,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-signedphotoofkonstinivaduva",
+  "scrapName": "Signed Photograph of Konstini Vaduva",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 250,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skiwax",
+  "scrapName": "Ski Wax",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "copper",
+  "amount": 100,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skiwax",
+  "scrapName": "Ski Wax",
+  "tierKey": "2.1",
+  "tier": 2,
+  "yieldItemTypeId": "silver",
+  "amount": 75,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skiwax",
+  "scrapName": "Ski Wax",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 100,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skiwax",
+  "scrapName": "Ski Wax",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 75,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skullofimhorta",
+  "scrapName": "Skull of Imhorta",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "gold",
+  "amount": 100,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skullofimhorta",
+  "scrapName": "Skull of Imhorta",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 100,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skyshipmooringcapstan",
+  "scrapName": "Skyship Mooring Capstan",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "steel",
+  "amount": 80,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skyshipmooringcapstan",
+  "scrapName": "Skyship Mooring Capstan",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "steel",
+  "amount": 80,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-skyshipmooringcapstan",
+  "scrapName": "Skyship Mooring Capstan",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "steel",
+  "amount": 80,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smallplate",
+  "scrapName": "Small Plate",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "tin",
+  "amount": 80,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smallplate",
+  "scrapName": "Small Plate",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 80,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smalltable",
+  "scrapName": "Small Table",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 100,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smalltable",
+  "scrapName": "Small Table",
+  "tierKey": "1.1",
+  "tier": 1,
+  "yieldItemTypeId": "elm",
+  "amount": 50,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smashedcymbal",
+  "scrapName": "Smashed Cymbal",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "gold",
+  "amount": 60,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smashedcymbal",
+  "scrapName": "Smashed Cymbal",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "gold",
+  "amount": 60,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-smashedcymbal",
+  "scrapName": "Smashed Cymbal",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "gold",
+  "amount": 60,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboatenginescrap",
+  "scrapName": "Steamboat Engine Scrap",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 250,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboatenginescrap",
+  "scrapName": "Steamboat Engine Scrap",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 150,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboatenginescrap",
+  "scrapName": "Steamboat Engine Scrap",
+  "tierKey": "4.2",
+  "tier": 4,
+  "yieldItemTypeId": "fuel",
+  "amount": 50,
+  "quality": 0
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboathogchain",
+  "scrapName": "Steamboat Hog Chain",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "copper",
+  "amount": 100,
+  "quality": 3
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboathogchain",
+  "scrapName": "Steamboat Hog Chain",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "copper",
+  "amount": 100,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboathogchain",
+  "scrapName": "Steamboat Hog Chain",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 100,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboatwheelblades",
+  "scrapName": "Steamboat Wheel Blades",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "iron",
+  "amount": 200,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamboatwheelblades",
+  "scrapName": "Steamboat Wheel Blades",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "bronze",
+  "amount": 300,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamerstack",
+  "scrapName": "Steamer Stack",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 300,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-steamerstack",
+  "scrapName": "Steamer Stack",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tin",
+  "amount": 300,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-swordblade",
+  "scrapName": "Sword Blade",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "bronze",
+  "amount": 90,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-swordblade",
+  "scrapName": "Sword Blade",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "bronze",
+  "amount": 90,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-swordblade",
+  "scrapName": "Sword Blade",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "bronze",
+  "amount": 90,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-swordhilt",
+  "scrapName": "Sword Hilt",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "chestnut",
+  "amount": 85,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-swordhilt",
+  "scrapName": "Sword Hilt",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "chestnut",
+  "amount": 85,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-swordhilt",
+  "scrapName": "Sword Hilt",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "chestnut",
+  "amount": 85,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tackyornament",
+  "scrapName": "Tacky Ornament",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "silver",
+  "amount": 65,
+  "quality": 3
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tackyornament",
+  "scrapName": "Tacky Ornament",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "silver",
+  "amount": 65,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tackyornament",
+  "scrapName": "Tacky Ornament",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 65,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tapestry",
+  "scrapName": "Tapestry",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "chestnut",
+  "amount": 149,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ternanuantoggle",
+  "scrapName": "Ternanuan Thread Spool",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 70,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ternanuantoggle2",
+  "scrapName": "Ternanuan Toggle",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "titanium",
+  "amount": 60,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ternanuantoggle2",
+  "scrapName": "Ternanuan Toggle",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "titanium",
+  "amount": 60,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tincan",
+  "scrapName": "Tin Can",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "tin",
+  "amount": 60,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tincan",
+  "scrapName": "Tin Can",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "tin",
+  "amount": 60,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tincan",
+  "scrapName": "Tin Can",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "tin",
+  "amount": 60,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tonkingpuck",
+  "scrapName": "Tonking Puck",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "aluminium",
+  "amount": 45,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tonkingpuck",
+  "scrapName": "Tonking Puck",
+  "tierKey": "3",
+  "tier": 3,
+  "yieldItemTypeId": "aluminium",
+  "amount": 45,
+  "quality": 5
+ },
+ {
+  "scrapItemTypeId": "scrapItem-tonkingpuck",
+  "scrapName": "Tonking Puck",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "aluminium",
+  "amount": 45,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-ululatinghornofbargojiu",
+  "scrapName": "Ululating Horn of Bargo Jiu",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "tungsten",
+  "amount": 90,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-vinylplayer",
+  "scrapName": "Vinyl Player",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "nickel",
+  "amount": 100,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-vinylplayer",
+  "scrapName": "Vinyl Player",
+  "tierKey": "4.1",
+  "tier": 4,
+  "yieldItemTypeId": "copper",
+  "amount": 30,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-warlockbijouxbureau",
+  "scrapName": "Warlock's Bijoux Bureau",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "oak",
+  "amount": 15,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-warlocksilverwhistle",
+  "scrapName": "Warlock's Silver Whistle",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 400,
+  "quality": 7
+ },
+ {
+  "scrapItemTypeId": "scrapItem-washer",
+  "scrapName": "Iron Washer",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "iron",
+  "amount": 85,
+  "quality": 6
+ },
+ {
+  "scrapItemTypeId": "scrapItem-washer",
+  "scrapName": "Iron Washer",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "iron",
+  "amount": 85,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-watergujimarketawning",
+  "scrapName": "Waterguji Market Awning",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "cedar",
+  "amount": 300,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-watergujimarketawning",
+  "scrapName": "Waterguji Market Awning",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "cedar",
+  "amount": 300,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-wolftoken",
+  "scrapName": "Wolf Token",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "silver",
+  "amount": 250,
+  "quality": 10
+ },
+ {
+  "scrapItemTypeId": "scrapItem-woodenbowl",
+  "scrapName": "Wooden Bowl",
+  "tierKey": "1",
+  "tier": 1,
+  "yieldItemTypeId": "chestnut",
+  "amount": 85,
+  "quality": 4
+ },
+ {
+  "scrapItemTypeId": "scrapItem-woodenbowl",
+  "scrapName": "Wooden Bowl",
+  "tierKey": "2",
+  "tier": 2,
+  "yieldItemTypeId": "chestnut",
+  "amount": 85,
+  "quality": 8
+ },
+ {
+  "scrapItemTypeId": "scrapItem-woollenquilt",
+  "scrapName": "Woollen Quilt",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "ash",
+  "amount": 140,
+  "quality": 9
+ },
+ {
+  "scrapItemTypeId": "scrapItemselenistswoodenorrery",
+  "scrapName": "Selenists Wooden Orrery",
+  "tierKey": "4",
+  "tier": 4,
+  "yieldItemTypeId": "palm",
+  "amount": 140,
+  "quality": 10
+ }
+]
