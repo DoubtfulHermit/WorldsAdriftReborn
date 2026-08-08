@@ -40,10 +40,56 @@ namespace WorldsAdriftServer
             //server.AddStaticContent() here to add some filesystem path to serve
             restServer.Start();
 
-            Console.WriteLine("enter something to stop");
-            Console.ReadKey();
+            WaitForShutdown();
 
             restServer.Stop();
+        }
+
+        /// <summary>
+        /// Blocks until the operator stops the server.
+        ///
+        /// Console.ReadKey() throws on a redirected stdin, which is why the
+        /// systemd unit used to wrap this in script(1) to fake a terminal, with
+        /// a "sleep infinity" to keep that terminal from reaching EOF. That is
+        /// two workarounds for one missing branch: under a service manager there
+        /// is no keyboard, and the stop signal is SIGTERM.
+        ///
+        /// So it waits on the signal when there is no terminal, and keeps the
+        /// keypress when a person is running it by hand. Ctrl+C is handled in
+        /// both cases, and Cancel = true stops the runtime killing the process
+        /// before the socket is closed.
+        /// </summary>
+        private static void WaitForShutdown()
+        {
+            using ManualResetEventSlim stop = new ManualResetEventSlim(false);
+
+            Console.CancelKeyPress += (_, e) =>
+            {
+                e.Cancel = true;
+                stop.Set();
+            };
+
+            AppDomain.CurrentDomain.ProcessExit += (_, _) => stop.Set();
+
+            if (Console.IsInputRedirected)
+            {
+                Console.WriteLine("[info] running headless; stop with SIGTERM (systemctl stop) or Ctrl+C.");
+                stop.Wait();
+                return;
+            }
+
+            Console.WriteLine("press a key to stop");
+
+            while (!stop.IsSet)
+            {
+                if (Console.KeyAvailable)
+                {
+                    Console.ReadKey(true);
+                    return;
+                }
+
+                stop.Wait(TimeSpan.FromMilliseconds(200));
+            }
         }
     }
 }

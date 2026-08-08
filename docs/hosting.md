@@ -9,8 +9,10 @@ as two systemd units that start at boot.
 |---|---|---|
 | Game (ENet) | **UDP 7779** | 7777 is permanently held by `elementbrawl` (godot), 7778 by the Dragonwilds `frps` tunnel |
 | Login / REST | **TCP 8085** | 8080 is held by a docker-proxy |
+| Postgres (accounts) | **127.0.0.1:5434** | 5432 and 5433 are held by the Avatar stack. Loopback only - never opened in `ufw` |
 
-Both are opened in `ufw` (the INPUT policy is DROP, so rules are required).
+The first two are opened in `ufw` (the INPUT policy is DROP, so rules are
+required). The database deliberately is not: nothing outside the box needs it.
 
 Ports are configurable rather than hardcoded:
 
@@ -27,14 +29,57 @@ Ports are configurable rather than hardcoded:
 
 ```
 /opt/wareborn/
-├── WorldsAdriftServer/            login/REST server
+├── WorldsAdriftServer-linux/      login/REST server - NATIVE, self-contained
+├── WorldsAdriftServer/            the old Wine deploy, kept only for rollback
 ├── WorldsAdriftRebornGameServer/  ENet game server (+ CoreSdkDll + game DLLs)
 ├── wineprefix/                    Wine prefix, portable .NET 6 at C:\dotnet6
-├── run-login.sh                   wrapper (sets WINEPREFIX + port, execs wine)
-└── run-game.sh
+└── run-game.sh                    wrapper (sets WINEPREFIX + port, execs wine)
+
+/etc/wareborn/login.env            WAREBORN_DB - root-only, chmod 600
 ```
 
 Wine 9.0 from the Ubuntu repos; no X needed for console apps.
+
+**Only the game server runs under Wine.** It has to: it loads the game's own
+assemblies and `CoreSdkDll.dll`. The login server is plain cross-platform C# and
+runs natively — see the crypto gotcha below for why that is not merely tidier.
+
+## Accounts and the database
+
+Accounts, sessions and character rosters live in Postgres 16 in its own docker
+container, `wareborn-postgres`, published on loopback port 5434 with its data in
+the `wareborn-pgdata` volume. It is deliberately **not** the Avatar stack's
+`avatar-postgres-1`: sharing it would mean a restart of that stack takes WAReborn
+logins down with it.
+
+The connection string is the `WAREBORN_DB` environment variable, read from
+`/etc/wareborn/login.env` by the unit so the password is not in a
+world-readable file. There is no default with a password in it — the code's
+fallback is passwordless loopback, because a shipped default credential is
+everybody's credential.
+
+The schema applies itself at startup and is a no-op when already current.
+
+```bash
+# what is in there
+docker exec -e PGPASSWORD=<pw> wareborn-postgres \
+    psql -U wareborn -d wareborn -c 'SELECT account_id, username FROM accounts;'
+```
+
+Players sign up at `http://62.171.161.19:8085/signup` and then type the same
+username and password into the login form on the game's own landing screen.
+There is no Steam account involved at any point.
+
+⚠ **Passwords cross the wire in cleartext**, both to `/register` and to
+`/authenticate` — the game client sends its form contents unencrypted and cannot
+be changed. Anything that puts TLS in front of 8085 is worth doing before this is
+handed to strangers; until then, tell players to use a password they use nowhere
+else.
+
+`WAREBORN_LEGACY_ROSTER_OWNER=<username>` hands the pre-accounts shared roster
+(`data/characters/roster.json`) to one named account the first time that account's
+roster is loaded. Set it before that account's first login, or not at all on a
+fresh deployment.
 
 ## Operating it
 
@@ -59,10 +104,19 @@ journalctl -u wareborn-game -n 50 --no-pager -o cat
 
 ### Gotchas
 
-- **Both servers need a pty.** The login server ends in `Console.ReadKey()` and
-  dies instantly on redirected stdin. The units run
+- **Wine cannot do the crypto Postgres authentication needs.** Npgsql's
+  SCRAM-SHA-256 handshake derives a key with PBKDF2, .NET routes that through
+  Windows CNG, and Wine's `bcrypt.dll` answers with
+  `WindowsCryptographicException: Unknown error` before the first query runs. The
+  fix is not a weaker `md5` auth method — it is that the login server never
+  needed Wine. It runs natively now and the problem does not exist. Keep that in
+  mind before moving anything else that talks to the database into the prefix.
+- **The game server needs a pty**, because it ends in `Console.ReadKey()`, which
+  throws on a redirected stdin. Its unit runs
   `sleep infinity | script -qfc <wrapper> /dev/null` to give it a tty whose stdin
-  never delivers input.
+  never delivers input. The login server no longer needs this: it waits on
+  SIGTERM when `Console.IsInputRedirected`, and only reads a key when a person is
+  running it by hand.
 - **Restarting the game server orphans connected clients — today.** They keep
   rendering the world and look fine to the player, but the server has forgotten
   them: they are invisible to everyone and never reconnect. Players must restart
@@ -118,28 +172,34 @@ rsync -a /tmp/wa-pub-game/ \
 ssh root@62.171.161.19 systemctl restart wareborn-game
 ```
 
-Login server:
+Login server — **native linux-x64 and self-contained**, a different recipe from
+the game server's:
 
 ```bash
 rm -rf /tmp/wa-pub-login
 dotnet publish WorldsAdriftServer/WorldsAdriftServer.csproj \
-    -c Release -r win-x64 --self-contained false \
+    -c Release -r linux-x64 --self-contained true \
     -o /tmp/wa-pub-login
 rsync -a /tmp/wa-pub-login/ \
-    root@62.171.161.19:/opt/wareborn/WorldsAdriftServer/
+    root@62.171.161.19:/opt/wareborn/WorldsAdriftServer-linux/
 ssh root@62.171.161.19 systemctl restart wareborn-login
 ```
 
-⚠ **Never add `--delete` to these rsyncs.** Both deploy directories hold files
-`publish` does not produce: the login server keeps live state in `data/`
-(`roster.json`, `characters/`, and the SQLite db when it lands), and the game
-server keeps 55 separately-built native SDK libraries (`CoreSdkDll.dll`,
-`libabsl_*.dll`, `zlib1.dll`) placed there by `build-mingw.sh` /
-`deploy-coresdk.sh`. `--delete` destroys both.
+Self-contained here (~71 MB) buys independence from whatever .NET the VPS
+happens to have, which is currently none — the box has Wine's private .NET 6
+inside the prefix and nothing on the host.
 
-Do **not** use `--self-contained true` or `PublishSingleFile`. The prefix already
-provides the runtime at `C:\dotnet6`, and the wrappers launch via
-`dotnet.exe <dll>`, which cannot unpack a single-file bundle.
+⚠ **Never add `--delete` to these rsyncs.** Both deploy directories hold files
+`publish` does not produce: the login server's `data/` symlink points at the
+legacy roster the migration reads, and the game server keeps 55
+separately-built native SDK libraries (`CoreSdkDll.dll`, `libabsl_*.dll`,
+`zlib1.dll`) placed there by `build-mingw.sh` / `deploy-coresdk.sh`. `--delete`
+destroys both.
+
+For the **game server** do not use `--self-contained true` or
+`PublishSingleFile`. The prefix already provides the runtime at `C:\dotnet6`, and
+the wrapper launches via `dotnet.exe <dll>`, which cannot unpack a single-file
+bundle. That constraint is Wine's, so it does not apply to the login server.
 
 **Deploy the build you just made.** A whole debugging round was lost to uploading
 a stale binary that still hardcoded 7777, because the fresh build was never copied
