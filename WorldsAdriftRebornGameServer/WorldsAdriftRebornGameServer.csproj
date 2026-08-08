@@ -48,5 +48,12 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />
+    <!--
+      Inventory persistence. The game server had no database access at all
+      before this; it now owns exactly one table, character_inventories, keyed
+      by the character uid the login server issues. Npgsql is 100% managed, so
+      this adds no native binary to a build that runs under Wine.
+    -->
+    <ProjectReference Include="..\WorldsAdriftReborn.Storage\WorldsAdriftReborn.Storage.csproj" />
   </ItemGroup>
 </Project>

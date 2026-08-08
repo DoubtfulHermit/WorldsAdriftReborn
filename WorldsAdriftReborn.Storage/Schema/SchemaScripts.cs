@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -201,6 +201,60 @@ CREATE UNIQUE INDEX ux_characters_account_empty_slot
     WHERE is_empty_slot;
 
 CREATE INDEX ix_characters_account_id ON characters (account_id);
+";
+
+        /// <summary>
+        /// v2 - character inventories.
+        ///
+        /// v1's comment said inventory belongs to the game server and therefore
+        /// not here. That reasoning was about DEPLOYMENT - restarting the login
+        /// server is safe, restarting the game server orphans every connected
+        /// client - and it argued against coupling the two, not against storing
+        /// the data. Appending a table the login server never writes couples
+        /// nothing: the game server owns every row, and the only thing the login
+        /// server contributes is the cascade that removes a deleted character's
+        /// inventory along with the character.
+        ///
+        /// The alternative on the table was a JSON file next to the game server,
+        /// in the shape of WorldsAdriftServer's JsonFileStore. It was rejected
+        /// because the key is a character uid, the thing that says a character
+        /// uid is real is the characters table, and a file has no way to enforce
+        /// that - a typo'd or absent uid would create a file that looks like an
+        /// inventory and belongs to nobody.
+        /// </summary>
+        internal const string V2 = @"
+CREATE TABLE character_inventories (
+    -- One inventory per character, and the foreign key is the point rather than
+    -- decoration: the game server derives this uid from a JSON blob a client
+    -- published, so it is the one key in this database that arrives from
+    -- outside. A uid that names no character is refused here instead of
+    -- creating an inventory that belongs to nobody and that no login can ever
+    -- find again.
+    --
+    -- CASCADE because a deleted character's inventory is unreachable by
+    -- definition: nothing but the character uid can address it.
+    character_uid  UUID        NOT NULL PRIMARY KEY
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    -- The item list, written by the game server's InventorySnapshot and
+    -- understood by nothing else. TEXT rather than JSONB for the same reason as
+    -- characters.data_json: nothing queries it, and JSONB would reorder keys and
+    -- normalise numbers.
+    --
+    -- The CHECK is not paranoia. An empty payload restores as an inventory with
+    -- no grid, and the client reads width and height EXACTLY ONCE, at
+    -- InventoryVisualiser.OnEnable - so a zero-sized grid cannot be corrected by
+    -- any later update, only by another checkout.
+    data_json      TEXT        NOT NULL,
+
+    created_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT character_inventories_data_json_not_empty
+        CHECK (length(btrim(data_json)) > 0),
+    CONSTRAINT character_inventories_updated_after_created
+        CHECK (updated_at >= created_at)
+);
 ";
     }
 }

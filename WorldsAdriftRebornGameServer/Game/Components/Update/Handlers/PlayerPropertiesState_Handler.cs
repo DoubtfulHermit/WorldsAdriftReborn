@@ -57,7 +57,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // verified by reading the decompiled client, never observed running.
             // The seed carries 4 cosmetic keys, so 5 keys means identity arrived.
             string identity;
-            if (map.TryGetValue("bossaNetCharacterData", out identity) && identity != null)
+            if (map.TryGetValue(Multiplayer.Inventory.CharacterIdentity.CharacterDataKey, out identity) && identity != null)
             {
                 string flat = identity.Replace("\r", "").Replace("\n", " ");
                 if (flat.Length > 240) { flat = flat.Substring(0, 240); }
@@ -69,9 +69,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     + string.Join(",", map.Keys.ToArray()) + ")");
             }
 
+            // THIS IS WHERE THE INVENTORY GETS A DURABLE NAME, and the only
+            // place it can: no packet on the ENet wire carries an account, so
+            // the character uid inside the map above is the sole crossing point
+            // between the login server's identity and this process.
+            //
+            // It happens AFTER checkout, which is why every player begins on a
+            // volatile session key: 1081 was already seeded when the interest
+            // request arrived. BindIdentity rebinds onto the character key,
+            // loads whatever the database holds, and returns false - loudly -
+            // when the uid did not arrive, in which case the session keeps
+            // working and simply never saves.
+            //
+            // The push afterwards is not optional. Loading a stored inventory
+            // changes what the player owns, and a 1081 update is the only thing
+            // that makes the client re-read it.
+            bool durable = Game.Inventory.InventoryService.BindIdentity(entityId, map);
+
             // Keep the server-side stored component in sync so later re-serves of
             // this entity's 1088 (interest requests) also carry the real data.
+            //
+            // BEFORE the push below, not after: the push re-sends the stored 1088
+            // alongside 1081, and sending the pre-publish copy would hand the
+            // client back the default look it just replaced.
             clientComponentUpdate.ApplyTo(serverComponentData);
+
+            if (durable)
+            {
+                Game.Inventory.InventoryPush.Push(entityId, "character identity arrived");
+            }
         }
     }
 }
