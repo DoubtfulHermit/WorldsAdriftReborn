@@ -20,7 +20,7 @@ namespace WorldsAdriftRebornGameServer
         [PInvoke(typeof(EnetLayer.ENet_Poll_Callback))]
         private unsafe static void OnNewClientConnected(IntPtr peer )
         {
-            ENetPeerHandle ePeer = new ENetPeerHandle(peer, new ENetHostHandle());
+            ENetPeerHandle ePeer = new ENetPeerHandle(peer);
             if (!ePeer.IsInvalid)
             {
                 // Track before anything else: every later lookup resolves through
@@ -31,18 +31,43 @@ namespace WorldsAdriftRebornGameServer
                 {
                     PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
                 }
-                Console.WriteLine("[info] got a connection. players now: " + PeerManager.Instance.playerState.Count);
+                Console.WriteLine("[info] " + Describe(peer) + " connected. players now: " + PeerManager.Instance.playerState.Count);
             }
         }
         [PInvoke(typeof(EnetLayer.ENet_Poll_Callback))]
         private unsafe static void OnClientDisconnected(IntPtr peer )
         {
-            ENetPeerHandle? ePeer = PeerIdentity.Instance.Forget(peer);
+            ENetPeerHandle? ePeer = PeerIdentity.Instance.Resolve(peer);
             if (ePeer == null)
             {
-                Console.WriteLine("[warning] a disconnect arrived for an untracked peer, ignoring.");
+                Console.WriteLine("[warning] a disconnect arrived for untracked " + Describe(peer) + ", ignoring.");
                 return;
             }
+
+            long? ownEntity = ForgetPeer(ePeer);
+
+            Console.WriteLine("[info] " + Describe(peer) + " disconnected"
+                + (ownEntity.HasValue ? " (entity " + ownEntity.Value + ")" : " (never spawned)")
+                + ". players now: " + PeerManager.Instance.playerState.Count + ".");
+        }
+
+        /// <summary>
+        /// Drops EVERY piece of per-peer state, in one place.
+        ///
+        /// It exists because per-peer state was spread over ten collections and
+        /// the disconnect path cleaned five. The mirror's five bookkeeping
+        /// dictionaries were never touched, which leaked for the lifetime of the
+        /// process and - worse - could misattribute a stale batch to whoever ENet
+        /// later handed the recycled peer slot to. Those five are now two records
+        /// inside <see cref="MirrorSchedule"/>, whose <c>Forget</c> is unit-tested
+        /// to empty all of them; anything new keyed by peer belongs in here.
+        ///
+        /// Returns the entity the peer owned, or null if it never spawned one.
+        /// </summary>
+        private static long? ForgetPeer(ENetPeerHandle peer)
+        {
+            ulong peerId = PeerIdentity.IdOf(peer);
+            long? ownEntity = Players.EntityOf(peerId);
 
             // Unregister first: this is what actually matters, because it stops
             // relaying updates to and from a peer that is gone.
@@ -53,13 +78,17 @@ namespace WorldsAdriftRebornGameServer
             // unimplemented TODO in Exports.cpp. Until that exists a departed
             // player leaves a stale avatar behind, which is cosmetic rather than
             // blocking.
-            long? ownEntity = Players.EntityOf(PeerIdentity.IdOf(ePeer));
-
-            IReadOnlyList<MirrorIntent> despawns = Mirror.OnLeave(PeerIdentity.IdOf(ePeer));
+            IReadOnlyList<MirrorIntent> despawns = Mirror.OnLeave(peerId);
             if (despawns.Count > 0)
             {
-                Console.WriteLine("[warning] " + despawns.Count + " avatar(s) cannot be despawned: entity removal is not implemented on the wire. Stale avatar(s) will remain.");
+                Console.WriteLine("[warning] " + despawns.Count + " avatar(s) of entity "
+                    + (ownEntity.HasValue ? ownEntity.Value.ToString() : "?")
+                    + " cannot be despawned: entity removal is not implemented on the wire. Stale avatar(s) will remain.");
             }
+
+            // Parked and pending-resend mirror ops for a peer that is gone: there
+            // is nobody left to send them to.
+            Schedule.Forget(peerId);
 
             // Drop the departed player's stored appearance so the store does not
             // grow across reconnects (entity ids are handed out monotonically, so
@@ -69,9 +98,28 @@ namespace WorldsAdriftRebornGameServer
                 Appearances.Forget(ownEntity.Value);
             }
 
-            PeerManager.Instance.playerState.Remove(ePeer);
-            PeerManager.Instance.clientSetupState.Remove(ePeer);
-            Console.WriteLine("[info] a client disconnected. players now: " + PeerManager.Instance.playerState.Count);
+            PeerManager.Instance.playerState.Remove(peer);
+            PeerManager.Instance.clientSetupState.Remove(peer);
+
+            // Last, because every lookup above resolves through it.
+            PeerIdentity.Instance.Forget(peer.DangerousGetHandle());
+
+            return ownEntity;
+        }
+
+        /// <summary>
+        /// A peer's identity as it appears in the log. The raw ENetPeer* is the
+        /// only identity the server has, so logging it is what makes two
+        /// concurrent players' lines tellable apart.
+        /// </summary>
+        private static string Describe(IntPtr peer)
+        {
+            return "peer 0x" + ((ulong)peer.ToInt64()).ToString("x");
+        }
+
+        private static string Describe(ulong peerId)
+        {
+            return "peer 0x" + peerId.ToString("x");
         }
 
         /// <summary>
@@ -117,37 +165,34 @@ namespace WorldsAdriftRebornGameServer
                 ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)intent.TargetPeer));
                 if (target == null)
                 {
-                    Console.WriteLine("[warning] mirror target peer vanished, skipping.");
+                    Console.WriteLine("[warning] mirror target " + Describe(intent.TargetPeer) + " vanished, skipping.");
                     continue;
                 }
 
-                if (!pendingMirrors.TryGetValue(target, out List<MirrorIntent> queue))
+                // The schedule reports whether this is the first op parked for the
+                // peer, which is exactly when the asset it will wait on must be
+                // requested.
+                if (Schedule.Park(intent.TargetPeer, intent))
                 {
-                    queue = new List<MirrorIntent>();
-                    pendingMirrors[target] = queue;
-                    pendingMirrorTick[target] = loopTick;
-
                     if (SendOPHelper.SendAssetLoadRequestOP(target, "notNeeded?", "Traveller", "Default"))
                     {
-                        Console.WriteLine("[info] mirror: requested plain Traveller asset load for a peer.");
+                        Console.WriteLine("[info] mirror: requested plain Traveller asset load for " + Describe(intent.TargetPeer) + ".");
                     }
                 }
-
-                queue.Add(intent);
             }
         }
 
-        /// <summary>Entity ops per target peer, waiting for that peer's asset-loaded ack.</summary>
-        private static readonly Dictionary<ENetPeerHandle, List<MirrorIntent>> pendingMirrors = new Dictionary<ENetPeerHandle, List<MirrorIntent>>();
-
-        /// <summary>Loop tick at which each peer's mirror ops were parked, for the fallback flush.</summary>
-        private static readonly Dictionary<ENetPeerHandle, long> pendingMirrorTick = new Dictionary<ENetPeerHandle, long>();
-
-        /// <summary>Main-loop tick counter (one per ENet poll iteration, ~50ms).</summary>
-        private static long loopTick = 0;
-
-        /// <summary>Ticks to wait before force-flushing parked mirror ops (~2s at 50ms/iter).</summary>
-        private const long MirrorFlushTimeoutTicks = 40;
+        /// <summary>
+        /// Decides WHEN parked mirror ops are force-flushed and resent, and holds
+        /// every per-peer mirror record.
+        ///
+        /// It is driven by a real clock. This loop used to count its own
+        /// iterations and call 40 of them "~2s", which assumed each iteration
+        /// blocks for its 50 ms ENet_Poll timeout - but enet_host_service returns
+        /// the instant an event is already queued, so the loop turns once per
+        /// EVENT. See MirrorSchedule's own remarks for what that cost.
+        /// </summary>
+        private static readonly MirrorSchedule Schedule = new MirrorSchedule(new MonotonicClock());
 
         /// <summary>
         /// Force-flushes any parked mirror ops older than the timeout, so an idle
@@ -156,40 +201,12 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void FlushStaleMirrors()
         {
-            if (pendingMirrors.Count == 0)
+            foreach (ulong peerId in Schedule.DueForFlush())
             {
-                return;
-            }
-
-            List<ENetPeerHandle> due = null;
-            foreach (KeyValuePair<ENetPeerHandle, long> entry in pendingMirrorTick)
-            {
-                if (loopTick - entry.Value >= MirrorFlushTimeoutTicks)
-                {
-                    (due ??= new List<ENetPeerHandle>()).Add(entry.Key);
-                }
-            }
-
-            if (due == null)
-            {
-                return;
-            }
-
-            foreach (ENetPeerHandle target in due)
-            {
-                Console.WriteLine("[info] mirror: fallback flush for an idle peer (no asset ack seen).");
-                FlushPendingMirrors(target);
+                Console.WriteLine("[info] mirror: fallback flush for idle " + Describe(peerId) + " (no asset ack seen).");
+                FlushPendingMirrors(peerId);
             }
         }
-
-        /// <summary>Mirror ops kept for resending, per peer.</summary>
-        private static readonly Dictionary<ENetPeerHandle, List<MirrorIntent>> mirrorResends = new Dictionary<ENetPeerHandle, List<MirrorIntent>>();
-        private static readonly Dictionary<ENetPeerHandle, long> mirrorResendTick = new Dictionary<ENetPeerHandle, long>();
-        private static readonly Dictionary<ENetPeerHandle, int> mirrorResendsLeft = new Dictionary<ENetPeerHandle, int>();
-
-        /// <summary>How many times to resend mirror ops, and the gap between them (~3s at 50ms/iter).</summary>
-        private const int MirrorResendAttempts = 3;
-        private const long MirrorResendIntervalTicks = 60;
 
         /// <summary>
         /// Resends mirror ops a few times after the initial flush. A client that
@@ -201,39 +218,17 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void ResendMirrors()
         {
-            if (mirrorResends.Count == 0)
+            foreach (MirrorResend batch in Schedule.DueForResend())
             {
-                return;
-            }
-
-            List<ENetPeerHandle> due = null;
-            foreach (KeyValuePair<ENetPeerHandle, long> entry in mirrorResendTick)
-            {
-                if (loopTick - entry.Value >= MirrorResendIntervalTicks)
+                ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)batch.PeerId));
+                if (target == null)
                 {
-                    (due ??= new List<ENetPeerHandle>()).Add(entry.Key);
-                }
-            }
-            if (due == null)
-            {
-                return;
-            }
-
-            List<Structs.Structs.InterestOverride> remoteComponents =
-                RemoteSeed.Select(id => new Structs.Structs.InterestOverride(id, 1)).ToList();
-
-            foreach (ENetPeerHandle target in due)
-            {
-                int left = mirrorResendsLeft.TryGetValue(target, out int l) ? l : 0;
-                if (left <= 0 || !mirrorResends.TryGetValue(target, out List<MirrorIntent> ops))
-                {
-                    mirrorResends.Remove(target);
-                    mirrorResendTick.Remove(target);
-                    mirrorResendsLeft.Remove(target);
+                    Console.WriteLine("[warning] mirror: resend target " + Describe(batch.PeerId) + " vanished, dropping its ops.");
+                    Schedule.Forget(batch.PeerId);
                     continue;
                 }
 
-                foreach (MirrorIntent intent in ops)
+                foreach (MirrorIntent intent in batch.Ops)
                 {
                     // AddEntity ONLY. Never resend AddComponents: it re-seeds the
                     // default TransformState onto a live player and teleports them
@@ -245,9 +240,7 @@ namespace WorldsAdriftRebornGameServer
                     }
                 }
 
-                mirrorResendsLeft[target] = left - 1;
-                mirrorResendTick[target] = loopTick;
-                Console.WriteLine("[info] mirror: resent ops to a peer (" + (left - 1) + " attempts left).");
+                Console.WriteLine("[info] mirror: resent ops to " + Describe(batch.PeerId) + " (" + batch.AttemptsLeft + " attempts left).");
             }
         }
 
@@ -258,26 +251,26 @@ namespace WorldsAdriftRebornGameServer
         /// the peer was still mid-spawn - if rigs intermittently fail to appear
         /// for the JOINING client, parse the ack payload and match the asset.
         /// </summary>
-        private static void FlushPendingMirrors(ENetPeerHandle target)
+        private static void FlushPendingMirrors(ulong peerId)
         {
-            // Keep a copy so the ops can be RESENT: a client that was still
+            // Taking the batch also arms the resends: a client that was still
             // loading the prefab asset silently drops the AddEntity, and the rig
             // never appears (observed: the joining client saw nothing while the
             // already-in-world client saw it fine). Resends are safe - the client
             // tolerates duplicate entity/component adds with a warning.
-            if (pendingMirrors.TryGetValue(target, out List<MirrorIntent> toRepeat) && toRepeat.Count > 0)
-            {
-                mirrorResends[target] = new List<MirrorIntent>(toRepeat);
-                mirrorResendTick[target] = loopTick;
-                mirrorResendsLeft[target] = MirrorResendAttempts;
-            }
-
-            pendingMirrorTick.Remove(target);
-            if (!pendingMirrors.TryGetValue(target, out List<MirrorIntent> queue))
+            IReadOnlyList<MirrorIntent> queue = Schedule.TakeParked(peerId);
+            if (queue.Count == 0)
             {
                 return;
             }
-            pendingMirrors.Remove(target);
+
+            ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+            if (target == null)
+            {
+                Console.WriteLine("[warning] mirror: flush target " + Describe(peerId) + " vanished, dropping its ops.");
+                Schedule.Forget(peerId);
+                return;
+            }
 
             // Context "Default", NOT "Player": "Player" selects Traveller@Player,
             // the full local rig whose duplication caused every camera/identity
@@ -317,7 +310,8 @@ namespace WorldsAdriftRebornGameServer
             // what senders actually publish (Parent? global or relative position?).
             TransformSampleLogger.MaybeLog(componentId, data, dataLength);
 
-            foreach (MirrorIntent intent in Mirror.OnComponentUpdate(PeerIdentity.IdOf(sender), componentId, payload))
+            ulong senderId = PeerIdentity.IdOf(sender);
+            foreach (MirrorIntent intent in Mirror.OnComponentUpdate(senderId, componentId, payload))
             {
                 ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)intent.TargetPeer));
                 if (target == null)
@@ -327,7 +321,8 @@ namespace WorldsAdriftRebornGameServer
 
                 if (SendOPHelper.SendRawComponentUpdateOp(target, intent.EntityId, intent.ComponentId, intent.Payload!))
                 {
-                    Console.WriteLine("[relay] component " + intent.ComponentId + " of entity " + intent.EntityId + " -> another player");
+                    Console.WriteLine("[relay] component " + intent.ComponentId + " of entity " + intent.EntityId
+                        + ": " + Describe(senderId) + " -> " + Describe(intent.TargetPeer));
                 }
             }
         }
@@ -342,7 +337,6 @@ namespace WorldsAdriftRebornGameServer
         // and remote avatars stay in T-pose). The grant only ever applies to the
         // sender's OWN entity (isSendersOwnEntity gate below).
         private static readonly List<uint> authoritativeComponents = new List<uint>{ 8050, 8051, 6908, 1260, 1097, 1003, 1241, 1082, TransformStateComponentId, ClientAuthoritativePlayerStateComponentId, UtilitySlotActivatedStateComponentId, RopeControlPointsComponentId};
-        private static List<long> playerEntityIDs = new List<long>();
 
         /// <summary>
         /// How many clients the ENet host accepts. Was 1, which made the server
@@ -527,11 +521,12 @@ namespace WorldsAdriftRebornGameServer
                     ENetPeerHandle peer = (ENetPeerHandle)o;
                     Console.WriteLine("[info] client ack'ed island spawning instruction (info by sdk, does not mean it truly spawned). requesting to spawn player...");
 
-                    // Capture this peer's own entity id. Reading playerEntityIDs.Last()
-                    // was only safe while a single client could ever connect; with
-                    // several spawning at once it can return someone else's entity.
+                    // Capture this peer's own entity id in a local. Reading a shared
+                    // playerEntityIDs.Last() was only safe while a single client
+                    // could ever connect; with several spawning at once it could
+                    // return someone else's entity. That list is gone: nothing ever
+                    // read it again, and it grew for the life of the process.
                     long playerEntityId = NextEntityId;
-                    playerEntityIDs.Add(playerEntityId);
 
                     if(SendOPHelper.SendAddEntityOP(peer, playerEntityId, "Traveller", "Player"))
                     {
@@ -547,8 +542,6 @@ namespace WorldsAdriftRebornGameServer
 
             while (keepRunning)
             {
-                loopTick++;
-
                 // Fallback flush for parked mirror ops. The ack-driven flush only
                 // fires when the target sends an asset-load ack - which an ALREADY-
                 // IN-WORLD, idle player never does (it finished loading), so its
@@ -575,7 +568,8 @@ namespace WorldsAdriftRebornGameServer
                     {
                         // Normal during connect and teardown races: drop the packet
                         // rather than letting one client's state abort the loop.
-                        Console.WriteLine("[warning] packet from an unknown peer, dropping.");
+                        Console.WriteLine("[warning] packet on channel " + packet->Channel + " from unknown "
+                            + Describe(packet->Peer) + ", dropping.");
                         EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
                         continue;
                     }
@@ -604,7 +598,7 @@ namespace WorldsAdriftRebornGameServer
                     // it (the two-phase remote-player mirror; see MirrorNewPlayer).
                     if (packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP)
                     {
-                        FlushPendingMirrors(sender);
+                        FlushPendingMirrors(PeerIdentity.IdOf(sender));
                     }
 
                     // work on packets that are not relevant for progress of sync state
