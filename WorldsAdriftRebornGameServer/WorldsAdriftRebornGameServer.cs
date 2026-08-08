@@ -1112,11 +1112,37 @@ namespace WorldsAdriftRebornGameServer
                                 }
                                 else
                                 {
-                                    // player already setup or another entity requested components, so just process them
-                                    if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true))
-                                    {
-                                        continue;
-                                    }
+                                    // BEST EFFORT, DELIBERATELY - this is the only interest
+                                    // send that is not first-time setup, and it is the one a
+                                    // client makes when it asks about ANOTHER entity.
+                                    //
+                                    // With failOnComponentInitError:true one unrecognised id
+                                    // threw away the WHOLE batch. Measured live: a client asks
+                                    // about the other player's avatar with 21 ids, we have a
+                                    // branch for sixteen, and 2108 ScannerToolState kills all
+                                    // twenty-one - so the observer gets no name, no appearance,
+                                    // no gear and no tool visuals for the other player. The id
+                                    // that breaks it is chosen by the client's own prefab, which
+                                    // we neither control nor can enumerate ahead of time.
+                                    //
+                                    // Best effort is the SDK's own semantics, not a degradation:
+                                    // a visualizer activates only once ALL of its required
+                                    // readers are injected (EntityVisualizers.UpdateActivation),
+                                    // so delivering sixteen of twenty-one disables exactly the
+                                    // visualizers whose data is missing and leaves every other
+                                    // one working. Delivering zero disables all of them.
+                                    // All-or-nothing is strictly worse at every count but 21.
+                                    //
+                                    // Diagnosability is untouched, which was the reason the flag
+                                    // was set: the [interest] line prints the whole requested
+                                    // list before anything is attempted, and every miss still
+                                    // prints [error] failed to initialize component NNNN. We
+                                    // just stop throwing away the sixteen that worked.
+                                    //
+                                    // The first-time-setup sends above KEEP the flag: a player
+                                    // whose own batch is incomplete has no authority grants and
+                                    // no loading screen, which is worth failing loudly for.
+                                    SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, false);
                                 }
                             }
                             else
