@@ -42,10 +42,27 @@ namespace WorldsAdriftRebornGameServer.Game.Components
     {
         public unsafe static void InitAndSerialize(ENetPeerHandle player, long entityId, uint componentId, byte** buffer, uint* length)
         {
+            // TWO DIFFERENT FAILURES LOOK IDENTICAL TO THE CALLER, and both come
+            // back as length 0:
+            //
+            //   a) the id has no vtable in this client build at all, so the loop
+            //      below never enters and nothing is written;
+            //   b) the id has a vtable but no seed branch here, which logs
+            //      "[ToDo] unhandled component id".
+            //
+            // (a) means the component does not exist in the shipped client and no
+            // amount of writing branches will help; (b) means write a branch. Any
+            // caller with failOnComponentInitError set loses its ENTIRE batch
+            // either way, so telling them apart is the difference between an
+            // afternoon and a day. Hence the flag.
+            bool hasClientVtable = false;
+
             for(int i = 0; i < ComponentsManager.Instance.ClientComponentVtables.Length; i++)
             {
                 if (ComponentsManager.Instance.ClientComponentVtables[i].ComponentId == componentId)
                 {
+                    hasClientVtable = true;
+
                     ulong refId = 0;
                     object obj = null;
 
@@ -85,8 +102,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // and for the island IslandLocalTransformVisualizer does not
                         // teleport at all - it starts a 5-second smoothstep slide
                         // that drags the terrain out from under everyone on it.
-                        Multiplayer.FixedPointPosition seed = Multiplayer.SpawnPolicy.TransformSeedFor(
-                            entityId, WorldsAdriftRebornGameServer.IslandEntityId);
+                        //
+                        // WHERE the seed comes from is no longer a question this
+                        // method answers. It used to ask SpawnPolicy "is this the
+                        // island or a player?", which is a question with exactly
+                        // two answers and therefore a ceiling of two kinds of
+                        // thing in the world. It now asks the world-entity
+                        // registry for THIS entity's position; a tree, a ship hull
+                        // or a second island needs no branch here at all.
+                        Multiplayer.FixedPointPosition seed =
+                            WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(entityId);
 
                         TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { seed.X, seed.Y, seed.Z }),
                                                                 new Quaternion32(1023), // identity sentinel is the low 10 bits ALL set; 1 decodes to NaN
@@ -99,7 +124,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         TransformState.Data tData = new TransformState.Data(tInit);
 
                         Console.WriteLine("[info] seeding 190602 for entity " + entityId + " ("
-                            + Multiplayer.SpawnPolicy.KindOf(entityId, WorldsAdriftRebornGameServer.IslandEntityId)
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
                             + ") at " + seed + ".");
 
                         obj = tData;
@@ -503,13 +528,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         //
                         // The prefab name MUST match the asset the client was told to
                         // load and the name in the island's AddEntityOp. It was a bare
-                        // string literal at all three sites; it is one constant now.
+                        // string literal at all three sites, then one constant; it is
+                        // now read off THIS ENTITY's registration, so a world with two
+                        // islands cannot hand the second one the first one's name.
+                        // The fallback keeps the old behaviour if 1041 is ever asked
+                        // for on an entity this server did not register.
                         //
                         // The Coordinates(0,0,0) here is IslandState.teleportTarget,
                         // NOT a world position - the island is positioned by 190602
                         // above (IslandLocalTransformBase.cs:44). teleportTarget has
                         // zero client consumers, so its meaning is ours to define.
-                        IslandState.Data data = new IslandState.Data(new IslandStateData(Multiplayer.SpawnPolicy.IslandAssetName,
+                        string islandAssetName =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.AssetName
+                            ?? Multiplayer.SpawnPolicy.IslandAssetName;
+
+                        IslandState.Data data = new IslandState.Data(new IslandStateData(islandAssetName,
                                                                                             new Coordinates(0, 0, 0),
                                                                                             1f,
                                                                                             new Vector3f(0,0,0),
@@ -651,6 +684,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         }
                     }
                 }
+            }
+
+            if (!hasClientVtable)
+            {
+                Console.WriteLine("[error] component " + componentId + " has NO client vtable in this build"
+                    + " (entity " + entityId + "). Not a missing seed - the component does not exist"
+                    + " in the shipped client, so no branch here can fix it.");
             }
         }
     }

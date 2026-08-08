@@ -72,9 +72,34 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             }
         }
 
+        /// <summary>
+        /// Serializes a batch of components for one entity and sends it.
+        ///
+        /// THE DIAGNOSTIC THIS METHOD OWES ITS CALLERS. When
+        /// <paramref name="failOnComponentInitError"/> is true - which it is on
+        /// every non-mirror path - ONE component id with no branch in
+        /// ComponentsSerializer drops the ENTIRE batch. The entity is already
+        /// created by then, so what you get is a fully-rendered, completely inert
+        /// object: right model, right place, no behaviour, and nothing in the
+        /// client log at all.
+        ///
+        /// The whole requested list is therefore printed BEFORE any of it is
+        /// attempted, not just the id that failed. The ten-id [Require] closure
+        /// anyone derives statically is a lower bound: the client's
+        /// ExtractVisualizers walks the entire prefab hierarchy, so the list it
+        /// actually asks for is only knowable by reading it off the wire. That
+        /// reading is what these two lines are for; see
+        /// docs/research/loop/findings-harvestable-world.md step 0.
+        /// </summary>
         public static unsafe bool SendAddComponentOp(ENetPeerHandle destination, long entityId, Structs.Structs.InterestOverride* interests, uint interestCount, bool failOnComponentInitError = false )
         {
             List<Structs.Structs.AddComponentOp> serializedComponents = new List<Structs.Structs.AddComponentOp>();
+
+            Console.WriteLine("[interest] entity " + entityId + " wants " + interestCount + " component(s): "
+                + DescribeInterests(interests, interestCount)
+                + (failOnComponentInitError
+                    ? " (ALL-OR-NOTHING: one unseeded id drops the whole batch)"
+                    : " (best effort: unseeded ids are skipped)"));
 
             for (int i = 0; i < interestCount; i++)
             {
@@ -84,10 +109,18 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                 if (len <= 0)
                 {
-                    Console.WriteLine("[error] failed to initialize component " + interests[i].ComponentId);
+                    Console.WriteLine("[error] failed to initialize component " + interests[i].ComponentId
+                        + " of entity " + entityId + " (component " + (i + 1) + " of " + interestCount
+                        + "; " + serializedComponents.Count + " already serialized).");
                     if (failOnComponentInitError)
                     {
-                        Console.WriteLine("[info] aborting send of components.");
+                        // Not "one component missing" - EVERY component in this
+                        // batch is being thrown away, including the ones that
+                        // serialized fine, and the entity keeps whatever it had.
+                        Console.WriteLine("[error] DROPPING the whole AddComponent batch for entity " + entityId
+                            + " because component " + interests[i].ComponentId + " has no seed."
+                            + " The entity will render and do nothing. Requested: "
+                            + DescribeInterests(interests, interestCount));
                         return false;
                     }
                     continue;
@@ -119,6 +152,30 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// The requested component ids as a flat, greppable list. Ids only - the
+        /// InterestOverride's other field is the interest LEVEL, which is 1
+        /// everywhere in this server and has never been the thing that was wrong.
+        /// </summary>
+        private static unsafe string DescribeInterests(Structs.Structs.InterestOverride* interests, uint interestCount)
+        {
+            if (interests == null || interestCount == 0)
+            {
+                return "[]";
+            }
+
+            System.Text.StringBuilder ids = new System.Text.StringBuilder("[");
+            for (int i = 0; i < interestCount; i++)
+            {
+                if (i > 0)
+                {
+                    ids.Append(", ");
+                }
+                ids.Append(interests[i].ComponentId);
+            }
+            return ids.Append(']').ToString();
         }
 
         /// <summary>

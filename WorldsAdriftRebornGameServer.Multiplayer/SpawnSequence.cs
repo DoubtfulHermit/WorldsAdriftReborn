@@ -45,6 +45,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// performs it. The value of the split is that "island before player" is now
     /// asserted by a test instead of being whatever order someone happened to
     /// type the lambdas in.
+    ///
+    /// WHAT DRIVES THE SERVER IS NOW <see cref="SpawnPlan"/>, which does this for
+    /// an arbitrary set of registered world entities instead of exactly one
+    /// island. This type is deliberately kept: it is the narrow, hand-written
+    /// description of the case that has actually been in front of a running
+    /// client, and
+    /// <c>SpawnPlanTests.The_plan_for_an_island_only_world_is_the_old_four_step_sequence</c>
+    /// asserts the generated plan still reduces to it exactly. If the two ever
+    /// disagree, the generalisation changed behaviour and that test says so
+    /// before a player falls out of the world.
     /// </summary>
     public static class SpawnSequence
     {

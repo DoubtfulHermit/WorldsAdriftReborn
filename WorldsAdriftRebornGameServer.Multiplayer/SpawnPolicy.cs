@@ -17,6 +17,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// harmless; the OWNER's seed is the one that decides where they wake up.
         /// </summary>
         Player,
+
+        /// <summary>
+        /// Any other registered <see cref="WorldEntity"/> - a tree, a ship hull,
+        /// a second island. Gets ITS OWN position from its registration, not a
+        /// position this enum knows about.
+        ///
+        /// This member is why the enum stopped being the answer and became a
+        /// label. When there were two kinds, "which kind is it" and "where does it
+        /// go" were the same question. With an open set of world entities they are
+        /// not: the kind is only useful for a log line, and the position comes
+        /// from <see cref="WorldEntityRegistry"/>. Adding a fourth world entity
+        /// must never mean adding a fourth member here.
+        /// </summary>
+        World,
     }
 
     /// <summary>
@@ -147,11 +161,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const bool SeedIsNewPlayer = false;
 
         /// <summary>
-        /// Which kind of entity a seed is being fabricated for.
+        /// Which kind of entity a seed is being fabricated for, when the island is
+        /// the only world entity there is.
         ///
-        /// The island is identified by its entity id, which is allocated once and
-        /// shared by every client (cross-client references resolve by id). Anything
-        /// else this server creates is a player avatar.
+        /// The degenerate case of <see cref="WorldEntityRegistry.KindOf"/>, kept
+        /// because the island-versus-player question is still meaningful on its
+        /// own and is asserted directly. PRODUCTION GOES THROUGH THE REGISTRY -
+        /// which also owns the general form of both these methods, rather than
+        /// overloading them here, because a second nullable-second-argument
+        /// overload makes the call `KindOf(id, null)` ambiguous and that call is
+        /// the one asserting the island cannot be mistaken for entity 0.
         ///
         /// <paramref name="islandEntityId"/> is nullable because the id is
         /// allocated lazily, on the island's AddEntityOp. Before that moment
@@ -172,12 +191,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The 190602 localPosition seed for one entity. The whole point of this
-        /// module: before it existed the serializer switched on component id
-        /// alone, so the island and the player were handed the same transform.
-        /// With Haven that is fatal rather than untidy - it is one asset placed
-        /// at twelve world positions, so "the default" is not a position any
-        /// island is actually at.
+        /// The 190602 localPosition seed for one entity, when the island is the
+        /// only world entity there is. The degenerate case of
+        /// <see cref="WorldEntityRegistry.TransformSeedFor"/>; production goes
+        /// through the registry.
+        ///
+        /// The whole point of this module: before it existed the serializer
+        /// switched on component id alone, so the island and the player were
+        /// handed the same transform. With Haven that is fatal rather than untidy
+        /// - it is one asset placed at twelve world positions, so "the default" is
+        /// not a position any island is actually at.
         /// </summary>
         public static FixedPointPosition TransformSeedFor(long entityId, long? islandEntityId)
         {

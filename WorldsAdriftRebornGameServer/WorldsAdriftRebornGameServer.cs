@@ -410,121 +410,192 @@ namespace WorldsAdriftRebornGameServer
         private static readonly EntityIdAllocator EntityIds = new EntityIdAllocator();
 
         /// <summary>
-        /// The one island every client loads, under one shared entity id, so that
-        /// cross-client Parent references (see the island AddEntityOp below)
-        /// resolve on every client. Allocated from the id counter on first use.
+        /// EVERY non-player thing this server puts in the world, and the one
+        /// entity id each is known by on every client.
+        ///
+        /// This replaced two hardcoded facts: that the only such thing is the
+        /// island, and that its asset name is a constant. Adding a tree or a ship
+        /// hull is now a registration in Multiplayer.WorldEntities - no change to
+        /// the spawn state machine, the id allocator, or the component
+        /// serializer's dispatch.
+        ///
+        /// Internal because ComponentsSerializer asks it for each entity's own
+        /// 190602 position: the question "where does this entity go" used to have
+        /// exactly two possible answers and now has one per registration.
         /// </summary>
-        private static long SharedIslandEntityId => EntityIds.SharedIslandEntityId;
+        internal static readonly WorldEntityRegistry WorldEntities =
+            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland);
+
+        /// <summary>
+        /// Whether to also spawn the second Haven (see
+        /// Multiplayer.WorldEntities.ProofIsland). OFF unless
+        /// WAREBORN_SPAWN_PROOF_ISLAND=1.
+        ///
+        /// It exists to exercise the world-entity seam against a real client
+        /// without seeding a single new component, and it is opt-in because it has
+        /// never been in front of one: no game was launched for this change, and a
+        /// second island is a visible change to what players see.
+        /// </summary>
+        private static bool SpawnProofIsland =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_PROOF_ISLAND") == "1";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.
         ///
-        /// This is what makes component seeding entity-aware: ComponentsSerializer
-        /// asks SpawnPolicy "is this entity the island or a player?", and this is
-        /// the only fact it needs to answer.
-        ///
-        /// It deliberately does NOT read <see cref="SharedIslandEntityId"/>
-        /// unconditionally, because that getter ALLOCATES on first use. Asking
-        /// the question must never be what creates the island id, or the answer
-        /// would depend on which entity happened to be serialized first.
+        /// It deliberately does NOT allocate. Asking the question must never be
+        /// what creates the island id, or the answer would depend on which entity
+        /// happened to be serialized first.
         /// </summary>
-        internal static long? IslandEntityId => EntityIds.IslandAllocated ? EntityIds.SharedIslandEntityId : null;
+        internal static long? IslandEntityId =>
+            EntityIds.IslandAllocated ? EntityIds.SharedIslandEntityId : null;
 
         public static long NextEntityId => EntityIds.Next();
 
         /// <summary>
-        /// Wire plumbing for one <see cref="SpawnStep"/>. The policy decides WHAT
-        /// happens and in what order; this decides only which ENet op says it.
+        /// Wire plumbing for one <see cref="SpawnPlanStep"/>. The policy decides
+        /// WHAT happens, to what, and in what order; this decides only which ENet
+        /// op says it.
+        ///
+        /// There are exactly four shapes because there are two ops and two kinds
+        /// of subject - a registered world entity, or the joining peer's own
+        /// avatar. A fifth world entity adds no case here.
         /// </summary>
-        private static Action<object> ActionFor(SpawnStep step)
+        private static Action<object> ActionFor(SpawnPlanStep step)
         {
-            switch (step)
+            if (step.IsPlayer)
             {
-                case SpawnStep.RequestPlayerAsset:
-                    return (object o) =>
-                    {
-                        Console.WriteLine("[info] requesting the game to load the player asset...");
-
-                        if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", MirrorSendPolicy.PrefabName, MirrorSendPolicy.LocalPrefabContext))
-                        {
-                            Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
-                        }
-                        else
-                        {
-                            Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
-                        }
-                    };
-
-                case SpawnStep.RequestIslandAsset:
-                    return (object o) =>
-                    {
-                        Console.WriteLine("[info] requesting the game to load island " + SpawnPolicy.IslandAssetName + " from its asset bundles...");
-
-                        if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", SpawnPolicy.IslandAssetName, "notNeeded?"))
-                        {
-                            Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
-                        }
-                        else
-                        {
-                            Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
-                        }
-                    };
-
-                case SpawnStep.AddIslandEntity:
-                    return (object o) =>
-                    {
-                        Console.WriteLine("[success] island asset loaded. requesting loading of island...");
-
-                        // Every client gets the SAME island entity id. A remote player's
-                        // rig positions itself by PARENTING: the client publishes
-                        // TransformState with Parent = its island's entity id, and the
-                        // receiving client's RelativeParentTransformChildHierarchyBehaviour
-                        // looks that entity up locally to attach the rig. With per-client
-                        // island ids (0 for one client, 2 for the next) the lookup found
-                        // nothing and every remote avatar stayed frozen at the default
-                        // seed position, ~90km off-island.
-                        //
-                        // Reading SharedIslandEntityId here is also what ALLOCATES the id,
-                        // and it happens before any player entity exists - which is what
-                        // lets ComponentsSerializer tell the island apart from a player
-                        // when it fabricates 190602. See IslandEntityId above.
-                        if (SendOPHelper.SendAddEntityOP((ENetPeerHandle)o, SharedIslandEntityId, SpawnPolicy.IslandAssetName, "notNeeded?"))
-                        {
-                            Console.WriteLine("[info] successfully serialized and queued AddEntityOp for island entity " + SharedIslandEntityId + ".");
-                        }
-                        else
-                        {
-                            Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
-                        }
-                    };
-
-                case SpawnStep.AddPlayerEntity:
-                    return (object o) =>
-                    {
-                        ENetPeerHandle peer = (ENetPeerHandle)o;
-                        Console.WriteLine("[info] client ack'ed island spawning instruction (info by sdk, does not mean it truly spawned). requesting to spawn player...");
-
-                        // Capture this peer's own entity id in a local. Reading a shared
-                        // playerEntityIDs.Last() was only safe while a single client
-                        // could ever connect; with several spawning at once it could
-                        // return someone else's entity. That list is gone: nothing ever
-                        // read it again, and it grew for the life of the process.
-                        long playerEntityId = NextEntityId;
-
-                        if (SendOPHelper.SendAddEntityOP(peer, playerEntityId, MirrorSendPolicy.PrefabName, MirrorSendPolicy.LocalPrefabContext))
-                        {
-                            Console.WriteLine("[info] successfully serialized and queued AddEntityOp for player entity " + playerEntityId + ".");
-                            MirrorNewPlayer(peer, playerEntityId);
-                        }
-                        else
-                        {
-                            Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
-                        }
-                    };
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(step));
+                return step.Op == SpawnOp.RequestAsset ? RequestPlayerAsset() : AddPlayerEntity();
             }
+
+            return step.Op == SpawnOp.RequestAsset
+                ? RequestWorldEntityAsset(step.Entity!)
+                : AddWorldEntity(step.Entity!);
+        }
+
+        private static Action<object> RequestPlayerAsset()
+        {
+            return (object o) =>
+            {
+                Console.WriteLine("[info] requesting the game to load the player asset...");
+
+                if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", MirrorSendPolicy.PrefabName, MirrorSendPolicy.LocalPrefabContext))
+                {
+                    Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
+                }
+                else
+                {
+                    Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp.");
+                }
+            };
+        }
+
+        /// <summary>
+        /// Asks the client to load one world entity's bundle.
+        ///
+        /// It is a separate step from creating the entity, and it always precedes
+        /// it, because the client only instantiates an entity whose prefab asset
+        /// it has LOADED - an AddEntityOp for an unloaded prefab is dropped in
+        /// silence. That cost a full debugging round on the remote-player mirror,
+        /// where AddEntityOp("Traveller") without a preceding request produced no
+        /// rig and no error.
+        /// </summary>
+        private static Action<object> RequestWorldEntityAsset(WorldEntity entity)
+        {
+            return (object o) =>
+            {
+                Console.WriteLine("[info] requesting the game to load " + entity.AssetName + " for world entity '" + entity.Key + "'...");
+
+                if (SendOPHelper.SendAssetLoadRequestOP((ENetPeerHandle)o, "notNeeded?", entity.AssetName, entity.AssetContext))
+                {
+                    Console.WriteLine("[info] successfully serialized and queued AssetLoadRequestOp.");
+                }
+                else
+                {
+                    Console.WriteLine("[error] failed to serialize and queue AssetLoadRequestOp for '" + entity.Key + "'.");
+                }
+            };
+        }
+
+        /// <summary>
+        /// Creates one world entity on this client.
+        ///
+        /// Every client gets the SAME entity id for it - that is what
+        /// WorldEntityRegistry.EntityIdFor guarantees, and it is not a nicety. A
+        /// remote player's rig positions itself by PARENTING: the client publishes
+        /// TransformState with Parent = its island's entity id, and the receiving
+        /// client's RelativeParentTransformChildHierarchyBehaviour looks that id up
+        /// LOCALLY. With per-client ids (0 for one client, 2 for the next) the
+        /// lookup found nothing and every remote avatar stayed frozen at the seed
+        /// position, ~90 km off-island.
+        ///
+        /// Calling EntityIdFor here is also what ALLOCATES the id, on the first
+        /// client to reach this step, which is why nothing that merely asks a
+        /// question is allowed to call it.
+        ///
+        /// Seeded components, if the registration lists any, go out immediately
+        /// after - all-or-nothing, so an id with no branch in ComponentsSerializer
+        /// leaves a rendered but inert entity. SendOPHelper now prints the full
+        /// requested list next to the failure for exactly this reason.
+        /// </summary>
+        private static Action<object> AddWorldEntity(WorldEntity entity)
+        {
+            return (object o) =>
+            {
+                ENetPeerHandle peer = (ENetPeerHandle)o;
+                long entityId = WorldEntities.EntityIdFor(entity);
+
+                Console.WriteLine("[success] asset loaded for '" + entity.Key + "'. creating entity " + entityId + " at " + entity.Position + "...");
+
+                if (!SendOPHelper.SendAddEntityOP(peer, entityId, entity.AssetName, entity.AssetContext))
+                {
+                    Console.WriteLine("[error] failed to serialize and queue AddEntityOp for '" + entity.Key + "'.");
+                    return;
+                }
+
+                Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
+                    + entity.Key + "' (" + entityId + ").");
+
+                if (entity.SeedComponents.Count == 0)
+                {
+                    return;
+                }
+
+                List<Structs.Structs.InterestOverride> seeds = entity.SeedComponents
+                    .Select(id => new Structs.Structs.InterestOverride(id, 1))
+                    .ToList();
+
+                if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+                {
+                    Console.WriteLine("[error] '" + entity.Key + "' (" + entityId
+                        + ") was created but its seeded components were dropped. It will render and do nothing.");
+                }
+            };
+        }
+
+        private static Action<object> AddPlayerEntity()
+        {
+            return (object o) =>
+            {
+                ENetPeerHandle peer = (ENetPeerHandle)o;
+                Console.WriteLine("[info] client ack'ed the previous spawning instruction (info by sdk, does not mean it truly spawned). requesting to spawn player...");
+
+                // Capture this peer's own entity id in a local. Reading a shared
+                // playerEntityIDs.Last() was only safe while a single client
+                // could ever connect; with several spawning at once it could
+                // return someone else's entity. That list is gone: nothing ever
+                // read it again, and it grew for the life of the process.
+                long playerEntityId = NextEntityId;
+
+                if (SendOPHelper.SendAddEntityOP(peer, playerEntityId, MirrorSendPolicy.PrefabName, MirrorSendPolicy.LocalPrefabContext))
+                {
+                    Console.WriteLine("[info] successfully serialized and queued AddEntityOp for player entity " + playerEntityId + ".");
+                    MirrorNewPlayer(peer, playerEntityId);
+                }
+                else
+                {
+                    Console.WriteLine("[error] failed to serialize and queue AddEntityOp.");
+                }
+            };
         }
 
         /// <summary>
@@ -583,21 +654,31 @@ namespace WorldsAdriftRebornGameServer
 
             // define initial world state for first chunk
             //
-            // Built FROM SpawnSequence rather than typed out as four lambdas in
-            // whatever order felt natural. The order is load-bearing and silent
-            // when wrong: the island's AddEntity - and so its colliders - has to
+            // Built FROM SpawnPlan - i.e. derived from what is REGISTERED -
+            // rather than typed out as lambdas in whatever order felt natural.
+            // The order is load-bearing and silent when wrong: an entity the
+            // player stands on has to have its AddEntity, and so its colliders,
             // land before the player's transform is published, or the player is
             // placed over geometry that does not exist yet and falls forever
             // (this server writes no HealthState, so there is no fall damage to
             // end it, and WorldEdgePushback never runs because we never send
-            // world bounds). Expressing the order as data means
-            // SpawnSequenceTests asserts it instead of a human re-deriving it.
+            // world bounds). Expressing the order as data means SpawnPlanTests
+            // asserts it instead of a human re-deriving it.
             //
             // Each step is also gated on the client ACKing the previous one,
             // which is the only throttle on bundle loading anywhere in the
             // system - the client's asset loader is synchronous and unbudgeted.
-            GameState.Instance.WorldState[0] = SpawnSequence.Steps
-                .Select(step => new SyncStep(RequirementFor(SpawnSequence.AckFor(step)), ActionFor(step)))
+            //
+            // The plan is computed ONCE, not per peer, so every client walks an
+            // identical sequence and every world entity's id is allocated by
+            // whichever client reaches its step first and then reused verbatim.
+            IReadOnlyList<SpawnPlanStep> plan = SpawnPlan.For(WorldEntities);
+
+            Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
+                + string.Join(" -> ", plan.Select(s => s.ToString())));
+
+            GameState.Instance.WorldState[0] = plan
+                .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step)))
                 .ToList();
 
             while (keepRunning)
