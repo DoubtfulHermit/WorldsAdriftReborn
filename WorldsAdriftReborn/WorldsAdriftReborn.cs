@@ -58,6 +58,12 @@ namespace WorldsAdriftReborn
             // see RemoteRigSweeper for why Harmony patches cannot cover this.
             gameObject.AddComponent<Patching.Multiplayer.RemoteRigSweeper>();
             gameObject.AddComponent<Patching.Multiplayer.LocalPlayerTelemetry>();
+
+            // F9 disconnects in-process. The game's own ESC -> Logout is dead
+            // here (LogoutBehaviour.RequestLogout NREs), and this is the only
+            // way to test whether ENet survives deinit/init inside one process,
+            // which the whole reconnect design depends on. Diagnostic only.
+            gameObject.AddComponent<Patching.Multiplayer.ReconnectProbe>();
         }
 
         private static void InitPatches()
