@@ -56,7 +56,39 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 190602)
                     {
-                        TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { 0, 100, 0 }),
+                        // THE ONE FIELD THAT PLACES ANYTHING IN THIS WORLD.
+                        //
+                        // This branch used to hand every entity the same
+                        // localPosition, {0, 100, 0} = (0, 0.024, 0) m - the world
+                        // origin. It only ever looked correct because the island was
+                        // at the origin too. With Haven that is fatal rather than
+                        // untidy: Haven is ONE asset placed at TWELVE world
+                        // positions, so there is no default that is right for
+                        // anybody, and the island and the player must be told apart.
+                        //
+                        // Which entity this is comes from the entity id, which this
+                        // method has always received (1088 already used it). The
+                        // decision itself is in Multiplayer.SpawnPolicy so the
+                        // coordinates are unit-tested natively rather than by
+                        // staring at a game client.
+                        //
+                        // parent stays ABSENT (the null below). With a parent present
+                        // the client applies localPosition raw with no origin remap;
+                        // with it absent the live branch runs,
+                        // transform.position = localPosition / 4096 - OffsetOrigin,
+                        // which is what we have empirically proven works. Do not add
+                        // one here - see docs/research/findings-world.md Q4.
+                        //
+                        // And this is a SEED, consumed once at OnEnable. It must
+                        // never be re-sent to a live entity: for a player that is a
+                        // teleport (now a 17 km out-of-world drop, not a nuisance),
+                        // and for the island IslandLocalTransformVisualizer does not
+                        // teleport at all - it starts a 5-second smoothstep slide
+                        // that drags the terrain out from under everyone on it.
+                        Multiplayer.FixedPointPosition seed = Multiplayer.SpawnPolicy.TransformSeedFor(
+                            entityId, WorldsAdriftRebornGameServer.IslandEntityId);
+
+                        TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { seed.X, seed.Y, seed.Z }),
                                                                 new Quaternion32(1023), // identity sentinel is the low 10 bits ALL set; 1 decodes to NaN
                                                                 null,
                                                                 new Improbable.Math.Vector3d(0f, 0f, 0f),
@@ -65,6 +97,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                 false,
                                                                 0f);
                         TransformState.Data tData = new TransformState.Data(tInit);
+
+                        Console.WriteLine("[info] seeding 190602 for entity " + entityId + " ("
+                            + Multiplayer.SpawnPolicy.KindOf(entityId, WorldsAdriftRebornGameServer.IslandEntityId)
+                            + ") at " + seed + ".");
 
                         obj = tData;
                     }
@@ -348,7 +384,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 8055)
                     {
-                        NewPlayerState.Data npData = new NewPlayerState.Data(new NewPlayerStateData(true));
+                        // FALSE, and spawning on the real Haven does not change that.
+                        //
+                        // 8055 is the SOLE runtime source of truth for "this player
+                        // is in Haven" - the client does not derive it from position
+                        // (xOfVerticalSeparator is a World Editor gizmo, not a
+                        // runtime check). The only exit is 8056 LeaveHavenRequest,
+                        // which has zero references in the entire client, is consumed
+                        // server-side, and is unimplemented here. There is no handler
+                        // that could flip 8055 back and the client has no writer for
+                        // it, so `true` is a permanent prison: five UI features
+                        // disabled forever, plus EVERY biome banner in the game
+                        // suppressed, because DisplayBiomeNotification is called from
+                        // RespawnVisualizer.Update on a one-second poll.
+                        //
+                        // `false` is silent - NewPlayerVisualiser.OnNewPlayerChanged
+                        // acts only on the true-to-false edge.
+                        // See docs/research/findings-haven.md.
+                        NewPlayerState.Data npData = new NewPlayerState.Data(new NewPlayerStateData(Multiplayer.SpawnPolicy.SeedIsNewPlayer));
 
                         obj = npData;
                     }
@@ -447,7 +500,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     else if(componentId == 1041)
                     {
                         // todo: check how we could get correct values for this.
-                        IslandState.Data data = new IslandState.Data(new IslandStateData("949069116@Island",
+                        //
+                        // The prefab name MUST match the asset the client was told to
+                        // load and the name in the island's AddEntityOp. It was a bare
+                        // string literal at all three sites; it is one constant now.
+                        //
+                        // The Coordinates(0,0,0) here is IslandState.teleportTarget,
+                        // NOT a world position - the island is positioned by 190602
+                        // above (IslandLocalTransformBase.cs:44). teleportTarget has
+                        // zero client consumers, so its meaning is ours to define.
+                        IslandState.Data data = new IslandState.Data(new IslandStateData(Multiplayer.SpawnPolicy.IslandAssetName,
                                                                                             new Coordinates(0, 0, 0),
                                                                                             1f,
                                                                                             new Vector3f(0,0,0),
