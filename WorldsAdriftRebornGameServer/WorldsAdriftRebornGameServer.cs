@@ -785,7 +785,19 @@ namespace WorldsAdriftRebornGameServer
         /// exactly two possible answers and now has one per registration.
         /// </summary>
         internal static readonly WorldEntityRegistry WorldEntities =
-            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree);
+            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven);
+
+        /// <summary>
+        /// The ledger of every placed resource node and the ONLY place a node's
+        /// live harvest state lives (depletion, and the accumulated crust damage a
+        /// late joiner is replayed). A node analogue of <see cref="Harvest"/>.
+        ///
+        /// Internal because ComponentsSerializer's 1099 branch reads a node's metal
+        /// type off it, and because a node becomes an entry here the moment it is
+        /// given an entity id (see AddWorldEntity). Populated only for entities whose
+        /// asset is the nugget; every other id is, correctly, absent.
+        /// </summary>
+        internal static readonly NodeRegistry Nodes = new NodeRegistry();
 
         /// <summary>
         /// Whether to also spawn the second Haven (see
@@ -812,6 +824,25 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnTree =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_TREE") != "0";
+
+        /// <summary>
+        /// Whether to place the MetalNugget resource nodes (see
+        /// Multiplayer.MetalNodes). ON unless WAREBORN_SPAWN_METAL=0, same footing
+        /// as the tree: the nodes are AfterPlayer, so a misbehaving node cannot
+        /// delay or break a player's own spawn, and no game was launched for this.
+        /// </summary>
+        private static bool SpawnMetal =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_METAL") != "0";
+
+        /// <summary>
+        /// Whether to place ONLY the single proven node - the cautious first-live
+        /// mode the standing caveat calls for. WAREBORN_SPAWN_METAL=proven: the
+        /// extracted coordinate chain has never been validated against a running
+        /// client, so one measured node can be spawned before the whole table is
+        /// trusted.
+        /// </summary>
+        private static bool MetalOnlyProven =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_METAL") == "proven";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.
@@ -941,6 +972,24 @@ namespace WorldsAdriftRebornGameServer
                         + ": " + Multiplayer.Trees.SectionCount + " sections, mask "
                         + Convert.ToString(Multiplayer.Trees.FullSectionMask, 2)
                         + ", " + Multiplayer.Trees.WoodType + ".");
+                }
+
+                // A metal node becomes an entry in the harvest ledger the moment it
+                // has an entity id - the same seam as the tree above. Keyed on the
+                // registration key so its metal type and future depletion state ride
+                // with it, and idempotent (Register returns false on re-registration)
+                // so the second joiner walking this identical step does not stand a
+                // depleted node back up: every client walks the same plan, but there
+                // is one node.
+                if (entity.AssetName == Multiplayer.MetalNodes.AssetName)
+                {
+                    Multiplayer.MetalNode? metalNode = Multiplayer.MetalNodes.ByKey(entity.Key);
+                    if (metalNode != null && Nodes.Register(entityId, metalNode))
+                    {
+                        Console.WriteLine("[info] placed metal node '" + entity.Key + "' as entity "
+                            + entityId + ": " + metalNode.MetalType + " q" + metalNode.Quality
+                            + " at " + metalNode.Position + ".");
+                    }
                 }
 
                 if (entity.SeedComponents.Count == 0)

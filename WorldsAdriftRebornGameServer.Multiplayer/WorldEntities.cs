@@ -296,6 +296,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// A placed metal resource node as a <see cref="WorldEntity"/>: the
+        /// <c>MetalNugget</c> prefab at one measured Haven surface vertex.
+        ///
+        /// NO SEEDED COMPONENTS, exactly like the island and the tree. The client
+        /// checks the node out and asks for what it wants over
+        /// SEND_COMPONENT_INTEREST, which the server answers BEST-EFFORT (a node is
+        /// not the sender's own player entity, so it never takes the all-or-nothing
+        /// path) - so an id the nugget's prefab asks for that has no branch yet is
+        /// skipped, and the nugget still renders from its BAKED geometry. That is
+        /// Phase 0.3: one unhandled component id does not leave the node inert.
+        ///
+        /// AfterPlayer: nobody stands on a node, so it never delays the loading
+        /// screen.
+        /// </summary>
+        public static WorldEntity MetalNodeEntity(MetalNode node)
+        {
+            return new WorldEntity(
+                node.Key,
+                MetalNodes.AssetName,
+                DefaultAssetContext,
+                node.Position,
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
         /// The registry the server runs with.
         /// </summary>
         /// <param name="ids">The id source. Shared with player entity ids.</param>
@@ -311,7 +337,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// does misbehave: the tree is AfterPlayer, so nothing about it can delay
         /// or break the player's own spawn.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true)
+        /// <param name="includeMetal">
+        /// Whether to place the <see cref="MetalNodes.Haven"/> nugget nodes. ON by
+        /// default with WAREBORN_SPAWN_METAL=0 as the kill switch, same footing as
+        /// the tree: they are AfterPlayer, so a misbehaving node cannot delay or
+        /// break a player's own spawn.
+        /// </param>
+        /// <param name="metalOnlyProven">
+        /// When true, places ONLY the single proven node. The cautious first-live
+        /// mode the standing caveat calls for: the coordinate chain has never been
+        /// validated against a running client, so one node before the whole table.
+        /// The server passes WAREBORN_SPAWN_METAL=proven.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -326,6 +364,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (includeTree)
             {
                 registry.Register(HavenTree());
+            }
+
+            if (includeMetal)
+            {
+                foreach (MetalNode node in MetalNodes.Haven(metalOnlyProven))
+                {
+                    registry.Register(MetalNodeEntity(node));
+                }
             }
 
             return registry;
