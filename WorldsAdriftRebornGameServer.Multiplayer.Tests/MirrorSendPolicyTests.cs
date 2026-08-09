@@ -306,6 +306,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1231u)] // SalvagerAimerState: where my beam points
         [InlineData(1037u)] // TreeCutterState: which tree section it landed on
         [InlineData(1211u)] // InteractAgentState: what I'm looking at + my hotbar slot
+        [InlineData(6910u)] // UtilitySlotActivatedState: local per-frame "beam on" flag, no remote consumer
         public void Local_only_cross_entity_state_is_never_relayed_to_other_players(uint componentId)
         {
             // Not a bandwidth argument. RelayToOtherPlayers re-addresses every
@@ -336,11 +337,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_three_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_four_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
-            // invisible until two players are in the world.
+            // invisible until two players are in the world. 6910 joined the list
+            // on 2026-08-09 after its ~170/s relay bufferbloated the link.
             List<uint> filtered = new List<uint>();
             for (uint id = 0; id < 200000; id++)
             {
@@ -350,7 +352,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1037, 1211, 1231 }, filtered);
+            Assert.Equal(new uint[] { 1037, 1211, 1231, 6910 }, filtered);
         }
 
         // ------------------------------------------------------------------

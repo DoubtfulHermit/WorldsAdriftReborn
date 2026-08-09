@@ -287,11 +287,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// crosshair moves) and they carry no cross-entity reference to be
         /// misread.
         /// </summary>
+        /// 6910 UtilitySlotActivatedState is ALSO filtered, learned the hard way on
+        /// 2026-08-09: it is the acting player's LOCAL "my tool beam is on this
+        /// frame" flag, republished every active frame (~170/s while harvesting),
+        /// and NOTHING on a remote rig consumes it. Relaying it - even unreliably -
+        /// bufferbloated the link the instant two players harvested (RTT 24 ms ->
+        /// 5 s in lockstep with the 6910 rate, in-flight ~0), and dropped a peer.
+        /// The other player seeing a tree deplete rides TreeCutterState -> Harvest,
+        /// NOT this flag, so filtering it costs nothing visible and removes the
+        /// single largest chunk of relay traffic. (It stays Unreliable in
+        /// RelayReliabilityFor too, as defence-in-depth if relay is ever restored.)
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
                 && componentId != TreeCutterStateComponentId
-                && componentId != InteractAgentStateComponentId;
+                && componentId != InteractAgentStateComponentId
+                && componentId != UtilitySlotActivatedStateComponentId;
         }
 
         /// <summary>
