@@ -296,6 +296,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// Trees distributed across the whole island (island-local metres),
+        /// farthest-point sampled from the 1431299145 surface table (ny&gt;0.90),
+        /// so harvesting can be tested away from spawn too. Each spawns as its own
+        /// choppable Tree entity (unique key), planted by AssetName exactly like
+        /// <see cref="HavenTree"/>. AfterPlayer, so none can delay a player spawn.
+        /// </summary>
+        public static readonly IReadOnlyList<(double X, double Y, double Z)> DistributedTreeLocals =
+            new (double, double, double)[]
+        {
+            (-59.7, 12.00, 88.0), (116.0, 7.65, 24.0),  (168.0, 4.43, -40.0),
+            (142.1, 4.00, 68.0),  (224.0, 2.87, 32.0),  (168.0, 4.46, 32.0),
+            (216.0, 2.69, -8.0),  (144.0, 4.35, 24.0),  (168.0, 3.74, 56.0),
+            (208.0, 2.06, 48.0),  (152.0, 3.96, -20.0), (32.0, 11.11, -112.0),
+            (184.0, 2.80, 48.0),  (160.0, 4.72, 16.0),  (240.0, 3.58, 16.0),
+            (224.0, 8.83, 8.0),   (136.0, 3.86, -16.0), (168.0, 5.06, 0.0),
+            (176.0, 4.90, 16.0),  (128.0, 4.80, 16.0),
+        };
+
+        /// <summary>
+        /// The distributed trees as spawnable entities, keyed tree-0..N.
+        /// </summary>
+        public static IEnumerable<WorldEntity> DistributedTrees()
+        {
+            int i = 0;
+            foreach ((double x, double y, double z) in DistributedTreeLocals)
+            {
+                yield return new WorldEntity(
+                    "tree-" + i++,
+                    Trees.AssetName,
+                    DefaultAssetContext,
+                    MetalNodes.IslandLocalToWorldFixed(MetalNodes.IslandOrigin, x, y, z),
+                    seedComponents: null,
+                    order: SpawnOrder.AfterPlayer);
+            }
+        }
+
+        /// <summary>
         /// A placed metal resource node as a <see cref="WorldEntity"/>: the
         /// <c>MetalNugget</c> prefab at one measured Haven surface vertex.
         ///
@@ -364,6 +401,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (includeTree)
             {
                 registry.Register(HavenTree());
+                foreach (WorldEntity tree in DistributedTrees())
+                {
+                    registry.Register(tree);
+                }
             }
 
             if (includeMetal)

@@ -145,16 +145,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static readonly IReadOnlyList<Placement> HavenPlacements = new[]
         {
-            new Placement("aluminium", 8, 216.0,  4.57,   8.0), // PROVEN, 8.9 m from spawn
-            new Placement("iron",      6, 180.0,  2.48, -40.0),
-            new Placement("bronze",    5, 160.0,  3.89,  56.0),
-            new Placement("copper",    6, 184.0,  1.03,  64.0),
-            new Placement("tin",       4, 168.0,  5.32,  -8.0),
-            new Placement("cobalt",    7, 144.0,  4.46,   8.0),
-            new Placement("titanium",  7, 144.0,  4.35,  24.0),
-            new Placement("aurium",    8, 168.0,  4.47,  24.0),
-            new Placement("aluminium", 5, 168.0,  4.19,  40.0),
-            new Placement("iron",      6, 144.0,  3.74, -24.0),
+            new Placement("aluminium", 8, 216.0,  4.57,   8.0), // PROVEN, 8.9 m from spawn (index 0 = proven-mode node)
+            // Distributed across the reachable ground band (farthest-point sampled
+            // from the 1431299145 surface table: ny>0.90 flat spots, local y in
+            // [1,12] so a player can actually WALK to each - the camp platforms at
+            // y~40-57 are excluded, they cannot be reached). ~310x208 m of spread.
+            // Iron weighted heavily.
+            new Placement("iron", 6, 248.0, 1.88, 0.0),
+            new Placement("iron", 5, 16.0, 4.89, -120.0),
+            new Placement("iron", 6, 192.0, 1.22, 64.0),
+            new Placement("copper", 4, 192.0, 7.13, 8.0),
+            new Placement("bronze", 7, 152.0, 4.71, 0.0),
+            new Placement("tin", 5, -40.0, 11.61, 60.0),
+            new Placement("aluminium", 8, 136.0, 4.06, -40.0),
+            new Placement("cobalt", 7, 176.0, 6.39, -16.0),
+            new Placement("titanium", 6, 128.0, 6.12, 0.0),
+            new Placement("aurium", 5, 192.0, 5.68, 32.0),
+            new Placement("iron", 6, -32.0, 11.33, 80.0),
+            new Placement("iron", 4, 151.7, 4.00, 48.0),
+            new Placement("iron", 7, 184.0, 3.10, -32.0),
+            new Placement("copper", 5, 160.0, 1.10, 72.0),
+            new Placement("bronze", 8, 232.0, 2.74, -16.0),
+            new Placement("tin", 7, 208.0, 4.80, 16.0),
+            new Placement("aluminium", 6, -56.0, 11.70, 64.0),
+            new Placement("cobalt", 5, 152.0, 4.87, -40.0),
+            new Placement("titanium", 6, 192.0, 5.65, -8.0),
+            new Placement("aurium", 4, 208.0, 6.84, 32.0),
         };
 
         /// <summary>
