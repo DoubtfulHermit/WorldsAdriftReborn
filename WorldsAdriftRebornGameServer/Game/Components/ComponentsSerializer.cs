@@ -277,6 +277,39 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = wData;
                     }
+                    else if(componentId == 1210)
+                    {
+                        // ON A NODE (the MetalNugget), and the reason it offers an
+                        // "E to pick up" prompt. InteractiveObjectVisualizer.OnEnable
+                        // does Interactions.FirstOrDefault(i => i.verb == Verb); with
+                        // NO matching entry the radius and timeToUse fall to 0 and the
+                        // prompt never appears (findings-metal-deposits.md). So one
+                        // InteractionEntry naming PickUp with a non-zero radius must
+                        // be present. VERIFIED ctor shapes via ilspycmd on
+                        // Generated.Code.dll (InteractiveStateData / InteractionEntry /
+                        // enum InteractVerb).
+                        //
+                        // available TRUE, not in use by anyone; syncSchematics FALSE
+                        // (this is a rock, not a crafting station). The three unused
+                        // strings are empty, not null - they are copied by DeepCopy.
+                        InteractionEntry pickUp = new InteractionEntry(
+                            InteractVerb.PickUp,
+                            Multiplayer.MetalNodes.PickUpRadius,
+                            false,  // lockOnUse
+                            "",     // activatedByItem
+                            "",     // description
+                            "",     // lockedDescription
+                            false,  // exclusiveUse
+                            Multiplayer.MetalNodes.PickUpTimeToUse);
+
+                        InteractiveState.Data interactiveData = new InteractiveState.Data(
+                            new InteractiveStateData(
+                                true,
+                                EntityId.InvalidEntityId,
+                                new Improbable.Collections.List<InteractionEntry> { pickUp },
+                                false));
+                        obj = interactiveData;
+                    }
                     else if(componentId == 1211)
                     {
                         InteractAgentState.Data iaData = new InteractAgentState.Data(new InteractAgentStateData(true,
@@ -970,10 +1003,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                                 == Multiplayer.WorldEntities.ShipFrameKey;
 
+                        // A metal node names its OWN metal as the salvage item type,
+                        // not the tree's wood. Cosmetic for the nugget today (it always
+                        // renders as aluminium), but it is what the eventual salvage
+                        // grant reads, and a real metal name is at least as safe against
+                        // MaterialManager lookup as "birch" was.
+                        Multiplayer.MetalNode? metalNode =
+                            WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
+                        string salvageItemType = metalNode != null
+                            ? metalNode.MetalType
+                            : (isShipHull ? "" : Multiplayer.Trees.WoodType);
+
                         Bossa.Travellers.Salvaging.SalvageAndRepairState.Data salvageData =
                             new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
                                 new Bossa.Travellers.Salvaging.SalvageAndRepairStateData(
-                                    isShipHull ? "" : Multiplayer.Trees.WoodType,
+                                    salvageItemType,
                                     0f,             // salvageDamagePerPeriod - no client reader
                                     0f,             // repairAmountPerPeriod  - no client reader
                                     isShipHull ? 1f : 0f,   // repairToSalvageRatio - no client reader

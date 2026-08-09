@@ -410,7 +410,14 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             fixed (Structs.Structs.ComponentUpdateOp* u = cupdates.ToArray())
             {
                 int len = 0;
-                void* ptr = EnetLayer.PB_EXP_ComponentUpdateOp_Serialize(entityId, u, (uint)updates.Count, &len);
+                // COUNT the array we actually built, not the one we were asked to
+                // build. `u` is cupdates.ToArray(); any update whose serializer
+                // produced zero bytes was skipped, so cupdates can be SHORTER than
+                // updates. Passing updates.Count here read past the end of `u` the
+                // first time any one component failed to serialise (e.g. a node
+                // fan-out that batches two ids and one has no serializer). This is
+                // Phase 0.5 in docs/plan-accounts-haven-resources.md.
+                void* ptr = EnetLayer.PB_EXP_ComponentUpdateOp_Serialize(entityId, u, (uint)cupdates.Count, &len);
 
                 bool didSend = false;
                 if(ptr != null && len > 0)
