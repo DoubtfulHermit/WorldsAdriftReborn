@@ -2,6 +2,7 @@
 using NetCoreServer;
 using WorldsAdriftServer.Handlers.Admin;
 using WorldsAdriftServer.Handlers.Authentication;
+using WorldsAdriftServer.Handlers.Download;
 using WorldsAdriftServer.Handlers.Patch;
 using WorldsAdriftServer.Handlers.CharacterScreen;
 using WorldsAdriftServer.Handlers.ServerStatus;
@@ -40,6 +41,25 @@ namespace WorldsAdriftServer.Handlers
                 // security-gated (path-traversal policy); the /patch HTML index
                 // below is a separate, human-facing route.
                 if (PatchFilesHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
+                // The browser sign-in page and endpoint (/login, POST /login).
+                // Checked here, before the player-facing routes below, and
+                // self-contained: it owns the wa_player cookie the download gate
+                // reads and shares nothing with the game client's /authenticate.
+                if (LoginHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
+                // The login-gated download page (/download) and the WAPatch binary
+                // behind it (/download/WAPatch.exe). Gated on the wa_player cookie
+                // LoginHandler issues; an unauthenticated visitor is bounced to
+                // /login. The exe is served off the host downloads dir by this
+                // native process, for the same reason the patch files are.
+                if (DownloadHandler.TryHandle(this, request))
                 {
                     return;
                 }
