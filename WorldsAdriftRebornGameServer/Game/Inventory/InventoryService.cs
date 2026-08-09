@@ -105,15 +105,28 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         {
             InventoryModel model = ForEntity(entityId);
 
-            InventoryItem? granted = InventoryPolicy.TryGrant(
-                model,
-                NextItemId(entityId),
-                itemTypeId,
-                amount,
-                quality,
-                meta ?? new Dictionary<string, string>(),
-                rarity,
-                InventoryWire.Footprints);
+            // Stack onto an existing pile of the same material first. Without this
+            // a repeated harvest - a 12-section tree, a node hit again - adds a
+            // fresh grid row every time and fills the inventory with duplicate
+            // piles. Only stackable types (stacksize > 1) merge; everything else
+            // falls through to a new item exactly as before. No id is consumed on
+            // the merge path, which also closes a latent id leak in the old code
+            // (it allocated an id even when the grant then failed).
+            InventoryItem? granted = InventoryPolicy.TryStackInto(
+                model, itemTypeId, amount, quality, InventoryWire.StackMaxOf(itemTypeId));
+
+            if (granted == null)
+            {
+                granted = InventoryPolicy.TryGrant(
+                    model,
+                    NextItemId(entityId),
+                    itemTypeId,
+                    amount,
+                    quality,
+                    meta ?? new Dictionary<string, string>(),
+                    rarity,
+                    InventoryWire.Footprints);
+            }
 
             if (granted == null)
             {

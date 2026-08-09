@@ -395,5 +395,74 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
 
             return model.Add(item) ? item : null;
         }
+
+        /// <summary>
+        /// Adds <paramref name="amount"/> to an existing grid stack of the same
+        /// item type, or returns null when there is no stack to merge into. The
+        /// first step of a harvest grant: a 12-section tree, or a metal node hit
+        /// again, must not add a fresh grid row every time or the inventory fills
+        /// with duplicate piles of the same material within seconds.
+        ///
+        /// WHAT IT REFUSES TO DO, on purpose:
+        ///   - It merges into ONE row that can hold the whole amount
+        ///     (Amount + amount &lt;= stackMax). It never splits an amount across
+        ///     rows; a leftover is the caller's cue to place a new item, which is
+        ///     one honest grid slot rather than a half-filled second stack the
+        ///     player then has to tidy.
+        ///   - It never merges different <paramref name="quality"/>: quality is a
+        ///     per-item attribute the client shows, so folding a quality-9 nugget
+        ///     into a quality-0 pile would silently rewrite what the player owns.
+        ///   - It does nothing when <paramref name="stackMax"/> &lt;= 1: an item
+        ///     the database marks unstackable (or whose stacksize was never set,
+        ///     which reads as -1) gets a fresh row, exactly as before. Stacking a
+        ///     non-stackable type is also what corrupts the crafting slot, whose
+        ///     Mathf.Min(amount, stackMax) goes negative when stackMax is -1.
+        ///
+        /// Worn and stashed items are never merge targets - a worn garment is off
+        /// the grid, and the stash is a separate list of fixed tiles.
+        ///
+        /// Returns the updated stack (so the caller can report its id), or null
+        /// when nothing merged and a new item must be placed instead.
+        /// </summary>
+        public static InventoryItem? TryStackInto(
+            InventoryModel model,
+            string itemTypeId,
+            int amount,
+            int quality,
+            int stackMax)
+        {
+            if (amount <= 0 || stackMax <= 1 || string.IsNullOrEmpty(itemTypeId))
+            {
+                return null;
+            }
+
+            foreach (InventoryItem candidate in model.Items)
+            {
+                if (candidate.IsWorn || candidate.IsStashed)
+                {
+                    continue;
+                }
+
+                if (!string.Equals(candidate.ItemTypeId, itemTypeId, StringComparison.Ordinal)
+                    || candidate.Quality != quality)
+                {
+                    continue;
+                }
+
+                if (candidate.Amount + amount > stackMax)
+                {
+                    // This stack cannot swallow the whole amount. Keep looking for
+                    // one that can rather than topping this one off and spilling
+                    // the rest, which would need a split this method deliberately
+                    // does not do.
+                    continue;
+                }
+
+                InventoryItem merged = candidate with { Amount = candidate.Amount + amount };
+                return model.Replace(merged) ? merged : null;
+            }
+
+            return null;
+        }
     }
 }
