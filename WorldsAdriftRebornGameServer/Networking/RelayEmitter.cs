@@ -546,7 +546,11 @@ namespace WorldsAdriftRebornGameServer.Networking
                     + " drops(reg=" + window.TimestampRegressions
                     + ",dup=" + window.Duplicates
                     + ",jump=" + window.AbsurdJumps + ")"
-                    + " staleness=" + window.StalenessSeconds.ToString("+0.000;-0.000") + "s"
+                    // Sign built by hand: a two-section format ("+0.000;-0.000")
+                    // reformats a negative that ROUNDS to zero through the
+                    // positive section while keeping the minus - "-+0.000".
+                    + " staleness=" + (window.StalenessSeconds < 0 ? "-" : "+")
+                    + Math.Abs(window.StalenessSeconds).ToString("0.000") + "s"
                     + " emitted(190602=" + emittedTransform + ",1073=" + emittedPlayerState + ")"
                     + " badTsPairs=" + badPairs
                     + " mode=" + (V2Enabled ? "v2@" + _hz + "Hz" : "raw"));

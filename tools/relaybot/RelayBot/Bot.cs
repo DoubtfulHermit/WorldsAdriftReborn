@@ -84,7 +84,18 @@ namespace RelayBot
         private bool _gapOpen;
         private long _gapStartNs;
 
-        public Bot(int index, string name, string host, int port, Metrics metrics,
+        /// <summary>
+        /// Whether the server rewrites relayed 1073 timestamps onto its own
+        /// synthetic per-recipient timeline (relay v2). Changes what a relayed
+        /// 1073 stamp MEANS: not "the other bot's send clock" (matchable) but
+        /// "the server's emission sequence" (verifiable only for monotonicity).
+        /// </summary>
+        private readonly bool _rewritten1073;
+
+        /// <summary>Per sender bot: the last relayed 1073 stamp seen, for the monotonicity check.</summary>
+        private readonly Dictionary<int, float> _lastRemote1073Stamp = new();
+
+        public Bot(int index, string name, string host, int port, bool rewritten1073, Metrics metrics,
             ConcurrentDictionary<(int, uint, int), long> sendLog,
             ConcurrentDictionary<long, int> entityOwners,
             CancellationToken cancel)
@@ -93,6 +104,7 @@ namespace RelayBot
             Name = name;
             _host = host;
             _port = port;
+            _rewritten1073 = rewritten1073;
             _metrics = metrics;
             _sendLog = sendLog;
             _entityOwners = entityOwners;
@@ -167,6 +179,13 @@ namespace RelayBot
                 {
                     Enet.Disconnect(_peer, _clientHost);
                 }
+                // Self-explaining death: "stopped. published 2 updates." with
+                // the reason held silently in FailureReason is how the v2 gate
+                // failure cost a diagnosis round trip.
+                if (FailureReason != null)
+                {
+                    Log("FATAL: " + FailureReason);
+                }
                 Log($"stopped. published {_publishedCount} updates.");
             }
         }
@@ -177,23 +196,39 @@ namespace RelayBot
             byte[] payload = new byte[length];
             Marshal.Copy(packet->Data, payload, 0, length);
 
-            switch (packet->Channel)
+            try
             {
-                case Enet.ChAssetLoadRequestOp:
-                    OnAssetLoadRequest(payload, length);
-                    break;
-                case Enet.ChAddEntityOp:
-                    OnAddEntity(payload, length);
-                    break;
-                case Enet.ChSendComponentInterest: // server->client this channel carries AddComponentOp batches
-                    OnAddComponents(payload, length);
-                    break;
-                case Enet.ChAuthorityChangeOp:
-                    OnAuthorityChange(payload, length);
-                    break;
-                case Enet.ChComponentUpdateOp:
-                    OnComponentUpdate(payload, length);
-                    break;
+                switch (packet->Channel)
+                {
+                    case Enet.ChAssetLoadRequestOp:
+                        OnAssetLoadRequest(payload, length);
+                        break;
+                    case Enet.ChAddEntityOp:
+                        OnAddEntity(payload, length);
+                        break;
+                    case Enet.ChSendComponentInterest: // server->client this channel carries AddComponentOp batches
+                        OnAddComponents(payload, length);
+                        break;
+                    case Enet.ChAuthorityChangeOp:
+                        OnAuthorityChange(payload, length);
+                        break;
+                    case Enet.ChComponentUpdateOp:
+                        OnComponentUpdate(payload, length);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                // One bad packet must never silently end the soak: before this
+                // guard existed, a payload the handler code choked on unwound
+                // Run()'s loop, the bot printed nothing but "stopped.", and a
+                // 10-minute soak aborted at t=0 with no reason on screen
+                // (2026-08-09, relay v2 gate). The packet is dumped in full so
+                // the failure identifies ITSELF - the bytes are the evidence.
+                _metrics.RecordDecodeError();
+                Log($"PACKET HANDLING FAILED on channel {packet->Channel} ({length} bytes): {ex.Message}"
+                    + $"\n        payload: {Convert.ToHexString(payload)}"
+                    + $"\n        {ex}");
             }
         }
 
@@ -317,14 +352,51 @@ namespace RelayBot
                 }
                 _lastRelayedReceiveNs = nowNs;
 
-                float? timestamp = component.ComponentId == TransformStateId
-                    ? (GameComponents.Deserialize(TransformStateId, GameComponents.TypeUpdate,
-                        component.Data, component.Data.Length) as TransformState.Update)?.timestamp.Value
-                    : (GameComponents.Deserialize(ClientAuthoritativePlayerStateId, GameComponents.TypeUpdate,
-                        component.Data, component.Data.Length) as ClientAuthoritativePlayerState.Update)?.timestamp.Value;
+                // HasValue-gated like the real client's own apply path - never
+                // Option.Value blind. The 2026-08-09 v2 gate died exactly here:
+                // relay v2's heartbeat re-sends the last position WITHOUT a
+                // timestamp field (a legal update the presence-checked game
+                // code shrugs at), and .timestamp.Value on it killed the bot
+                // silently at t=0.
+                float? timestamp = null;
+                if (component.ComponentId == TransformStateId)
+                {
+                    if (GameComponents.Deserialize(TransformStateId, GameComponents.TypeUpdate,
+                            component.Data, component.Data.Length) is TransformState.Update u && u.timestamp.HasValue)
+                    {
+                        timestamp = u.timestamp.Value;
+                    }
+                }
+                else if (GameComponents.Deserialize(ClientAuthoritativePlayerStateId, GameComponents.TypeUpdate,
+                        component.Data, component.Data.Length) is ClientAuthoritativePlayerState.Update s && s.timestamp.HasValue)
+                {
+                    timestamp = s.timestamp.Value;
+                }
 
-                if (timestamp.HasValue
-                    && _sendLog.TryRemove((senderBot, component.ComponentId, BitConverter.SingleToInt32Bits(timestamp.Value)), out long sentNs))
+                if (!timestamp.HasValue)
+                {
+                    // v2 heartbeat: nothing was sent, so nothing can match.
+                    _metrics.RecordHeartbeat();
+                    continue;
+                }
+
+                if (_rewritten1073 && component.ComponentId == ClientAuthoritativePlayerStateId)
+                {
+                    // Server-issued synthetic stamp: unmatchable by design, but
+                    // it must be strictly increasing AS DELIVERED - the client
+                    // pairs every position with the latest of these and
+                    // collapses equals. This is the receiver-side twin of the
+                    // server's badTsPairs counter.
+                    if (_lastRemote1073Stamp.TryGetValue(senderBot, out float previous) && timestamp.Value <= previous)
+                    {
+                        _metrics.RecordTimelineViolation();
+                        Log($"1073 TIMELINE VIOLATION from bot {senderBot}: stamp {timestamp.Value} after {previous}.");
+                    }
+                    _lastRemote1073Stamp[senderBot] = timestamp.Value;
+                    continue;
+                }
+
+                if (_sendLog.TryRemove((senderBot, component.ComponentId, BitConverter.SingleToInt32Bits(timestamp.Value)), out long sentNs))
                 {
                     _metrics.RecordStaleness(Index, nowNs, (nowNs - sentNs) / 1e6);
                 }
@@ -411,10 +483,18 @@ namespace RelayBot
             // One update per packet, RELIABLE - exactly what the real client's
             // Connection::SendComponentUpdate does. The send instant is recorded
             // as late as possible, immediately before handing to the transport.
+            //
+            // Under relay v2 a published 1073's timestamp never comes back (the
+            // server rewrites it), so it enters neither the send log nor the
+            // delivery denominator: sends/matched/delivered% then all speak
+            // about the one stream that IS matchable, 190602.
             long nowNs = NowNs();
-            _sendLog[(Index, componentId, BitConverter.SingleToInt32Bits(timestamp))] = nowNs;
+            if (!(_rewritten1073 && componentId == ClientAuthoritativePlayerStateId))
+            {
+                _sendLog[(Index, componentId, BitConverter.SingleToInt32Bits(timestamp))] = nowNs;
+                _metrics.RecordSend(Index, nowNs);
+            }
             Enet.Send(_peer, Enet.ChComponentUpdateOp, outer, Enet.FlagReliable);
-            _metrics.RecordSend(Index, nowNs);
         }
 
         private void MaybeReportGap()

@@ -21,8 +21,12 @@ namespace RelayBot
         private readonly Dictionary<(int bot, long second), int> _sends = new();
         private readonly List<GapEvent> _gaps = new();
         private readonly List<DisconnectEvent> _disconnects = new();
+        private readonly List<(int Bot, string Reason)> _botDeaths = new();
         private long _unmatched;
         private long _matched;
+        private long _heartbeats;
+        private long _decodeErrors;
+        private long _timelineViolations;
 
         /// <summary>Set once, when both bots hold authority and publishing begins.</summary>
         public long MeasurementStartNs { get; private set; } = -1;
@@ -84,6 +88,47 @@ namespace RelayBot
             lock (_gate) { _unmatched++; }
         }
 
+        /// <summary>
+        /// A relayed movement update with NO timestamp field: relay v2's
+        /// heartbeat (the emitter re-sends the last position, timestampless by
+        /// design, when the source published nothing inside one emit tick).
+        /// Counted apart from unmatched: nothing was sent, so nothing could
+        /// match, and lumping them together would make delivery look lossy.
+        /// </summary>
+        public void RecordHeartbeat()
+        {
+            lock (_gate) { _heartbeats++; }
+        }
+
+        /// <summary>A received packet the bot's handling code threw on. Any nonzero is an alarm.</summary>
+        public void RecordDecodeError()
+        {
+            lock (_gate) { _decodeErrors++; }
+        }
+
+        /// <summary>
+        /// A relayed 1073 whose server-issued synthetic stamp failed to
+        /// increase. This is the receiver-side twin of the server's badTsPairs
+        /// counter: the client pairs positions with the latest 1073 stamp and
+        /// collapses equal stamps, so any nonzero here means the rewrite is
+        /// wrong AS DELIVERED, whatever the server thinks it emitted.
+        /// </summary>
+        public void RecordTimelineViolation()
+        {
+            lock (_gate) { _timelineViolations++; }
+        }
+
+        /// <summary>
+        /// A bot's thread ended with a failure while the soak was running. The
+        /// 2026-08-09 v2 gate aborted at t=0 with "disconnects: 0" and no
+        /// reason printed anywhere - the death that ended the run was invisible
+        /// to the summary. Never again: deaths are first-class events.
+        /// </summary>
+        public void RecordBotDeath(int bot, string reason)
+        {
+            lock (_gate) { _botDeaths.Add((bot, reason)); }
+        }
+
         public void RecordGap(int bot, long nowNs, double gapSeconds, string stream)
         {
             lock (_gate)
@@ -143,7 +188,8 @@ namespace RelayBot
 
         public sealed record Verdict(bool Flat, double DriftMs, double SlopeMsOverSoak,
             double OverallP50, double OverallP95, double OverallMax,
-            long Matched, long Unmatched, long TotalSends, int GapCount, int DisconnectCount, string Detail);
+            long Matched, long Unmatched, long TotalSends, int GapCount, int DisconnectCount,
+            long Heartbeats, long DecodeErrors, long TimelineViolations, int BotDeaths, string Detail);
 
         /// <summary>
         /// Flat = the staleness level at the end of the soak is what it was at
@@ -186,6 +232,7 @@ namespace RelayBot
                 {
                     return new Verdict(false, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN,
                         _matched, _unmatched, totalSends, _gaps.Count, _disconnects.Count,
+                        _heartbeats, _decodeErrors, _timelineViolations, _botDeaths.Count,
                         "NO SAMPLES - nothing was relayed; the soak did not measure anything.");
                 }
 
@@ -210,12 +257,14 @@ namespace RelayBot
 
                 return new Verdict(flat, drift, slopeOverSoak,
                     Percentile(all, 0.50), Percentile(all, 0.95), all[^1],
-                    _matched, _unmatched, totalSends, _gaps.Count, _disconnects.Count, detail);
+                    _matched, _unmatched, totalSends, _gaps.Count, _disconnects.Count,
+                    _heartbeats, _decodeErrors, _timelineViolations, _botDeaths.Count, detail);
             }
         }
 
         public IReadOnlyList<GapEvent> Gaps { get { lock (_gate) { return _gaps.ToArray(); } } }
         public IReadOnlyList<DisconnectEvent> Disconnects { get { lock (_gate) { return _disconnects.ToArray(); } } }
+        public IReadOnlyList<(int Bot, string Reason)> BotDeaths { get { lock (_gate) { return _botDeaths.ToArray(); } } }
 
         private static double MedianOfSecondsWindow(List<long> seconds, List<double> p50s, long from, long to)
         {
