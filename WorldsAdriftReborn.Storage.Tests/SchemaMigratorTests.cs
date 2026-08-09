@@ -58,23 +58,36 @@ namespace WorldsAdriftReborn.Storage.Tests
         }
 
         [Fact]
-        public void The_shipped_schema_is_at_version_two()
+        public void The_shipped_schema_is_at_version_three()
         {
             // If this fails, a script was added: check it was APPENDED and that
             // no existing one was edited, then update the number.
-            // v1 accounts/sessions/characters, v2 character_inventories.
-            Assert.Equal(2, SchemaMigrator.TargetVersion(SchemaScripts.All));
+            // v1 accounts/sessions/characters, v2 character_inventories,
+            // v3 server_config.
+            Assert.Equal(3, SchemaMigrator.TargetVersion(SchemaScripts.All));
         }
 
         [Fact]
-        public void A_database_at_version_one_is_brought_forward_by_exactly_one_script()
+        public void A_database_at_version_two_is_brought_forward_by_exactly_one_script()
         {
-            // The upgrade an operator who already has a live database will
-            // actually run. It must not re-run v1 against tables that exist.
-            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
+            // The upgrade an operator who already has a v2 database will actually
+            // run. It must not re-run v1 or v2 against tables that exist.
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(2, SchemaScripts.All);
 
             Assert.Single(pending);
+            Assert.Contains("server_config", pending[0]);
+        }
+
+        [Fact]
+        public void A_database_at_version_one_still_runs_v2_before_v3_in_order()
+        {
+            // An older database jumps two versions; the order is load-bearing
+            // (a script must never see a table a later script creates).
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
+
+            Assert.Equal(2, pending.Count);
             Assert.Contains("character_inventories", pending[0]);
+            Assert.Contains("server_config", pending[1]);
         }
     }
 }

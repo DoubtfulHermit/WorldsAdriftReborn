@@ -236,6 +236,80 @@ namespace WorldsAdriftReborn.Storage.Repositories
             return Convert.ToInt32(command.ExecuteScalar() ?? 0);
         }
 
+        /// <summary>
+        /// How many accounts were created at or after <paramref name="since"/>.
+        /// For the dashboard's "signups today vs total" line, where the caller
+        /// passes the start of the current day.
+        /// </summary>
+        public int CountCreatedSince(DateTimeOffset since)
+        {
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText = "SELECT COUNT(*) FROM accounts WHERE created_at >= @since;";
+            command.Parameters.AddWithValue("since", Timestamps.ToDb(since));
+
+            return Convert.ToInt32(command.ExecuteScalar() ?? 0);
+        }
+
+        /// <summary>
+        /// The most recently created accounts, newest first, as dashboard
+        /// summaries - username, signup time, and how many real characters each
+        /// owns. Selects into <see cref="AccountSummary"/> rather than
+        /// <see cref="AccountRecord"/> precisely so the password hash and steam
+        /// key never leave the database on this path.
+        ///
+        /// The character count is a correlated subquery counting non-empty slots,
+        /// so an account with only the trailing create-new slot reads as zero
+        /// characters rather than one.
+        /// </summary>
+        public IReadOnlyList<AccountSummary> Recent(int limit)
+        {
+            if (limit <= 0)
+            {
+                return Array.Empty<AccountSummary>();
+            }
+
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText =
+                "SELECT a.username, a.created_at, "
+                + "(SELECT COUNT(*) FROM characters c "
+                + " WHERE c.account_id = a.account_id AND c.is_empty_slot = FALSE) AS character_count "
+                + "FROM accounts a ORDER BY a.created_at DESC, a.account_id DESC LIMIT @limit;";
+            command.Parameters.AddWithValue("limit", limit);
+
+            List<AccountSummary> summaries = new List<AccountSummary>();
+
+            using NpgsqlDataReader reader = command.ExecuteReader();
+
+            while (reader.Read())
+            {
+                summaries.Add(new AccountSummary(
+                    reader.GetString(0),
+                    Timestamps.FromDb(reader.GetDateTime(1)),
+                    Convert.ToInt32(reader.GetInt64(2))));
+            }
+
+            return summaries;
+        }
+
+        /// <summary>
+        /// Total real (non-empty-slot) characters across every account. The
+        /// dashboard's world-population figure; distinct from account count
+        /// because one account can own several.
+        /// </summary>
+        public int CountCharacters()
+        {
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText = "SELECT COUNT(*) FROM characters WHERE is_empty_slot = FALSE;";
+
+            return Convert.ToInt32(command.ExecuteScalar() ?? 0);
+        }
+
         private AccountRecord? QueryOne(string where, string value)
         {
             using NpgsqlConnection connection = db.Open();

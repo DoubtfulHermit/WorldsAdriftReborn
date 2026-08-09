@@ -1,8 +1,10 @@
 ﻿using System.Net.Sockets;
 using NetCoreServer;
+using WorldsAdriftServer.Handlers.Admin;
 using WorldsAdriftServer.Handlers.Authentication;
 using WorldsAdriftServer.Handlers.CharacterScreen;
 using WorldsAdriftServer.Handlers.ServerStatus;
+using WorldsAdriftServer.Persistence;
 
 namespace WorldsAdriftServer.Handlers
 {
@@ -22,6 +24,14 @@ namespace WorldsAdriftServer.Handlers
         {
             if(request != null)
             {
+                // The operator dashboard takes any /admin* URL. Checked first and
+                // self-contained: it is auth-gated end to end and shares nothing
+                // with the player-facing routes below.
+                if (AdminHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 if(request.Method == "POST" && request.Url == "/authenticate")
                 {
                     SteamAuthenticationHandler.HandleAuthRequest(this, request);
@@ -44,7 +54,22 @@ namespace WorldsAdriftServer.Handlers
                 }
                 else if(request.Method == "GET" && request.Url == "/deploymentStatus")
                 {
-                    DeploymentStatusHandler.HandleDeploymentStatusRequest(this, request, "awesome community server", "community_server", 0);
+                    // The server name is now operator-configurable via the admin
+                    // panel (server_config table). Read it here so the in-game
+                    // browser reflects a change without a redeploy; fall back to
+                    // the historic default if the database cannot be reached, so
+                    // this hot path never fails where a literal never did.
+                    string serverName;
+                    try
+                    {
+                        serverName = Accounts.ServerConfig.GetServerName();
+                    }
+                    catch (Exception)
+                    {
+                        serverName = WorldsAdriftReborn.Storage.Policy.ServerConfigPolicy.DefaultServerName;
+                    }
+
+                    DeploymentStatusHandler.HandleDeploymentStatusRequest(this, request, serverName, "community_server", 0);
                 }
                 else if(request.Method == "GET" && request.Url == "/authorizeCharacter")
                 {

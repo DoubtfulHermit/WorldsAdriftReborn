@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -254,6 +254,37 @@ CREATE TABLE character_inventories (
         CHECK (length(btrim(data_json)) > 0),
     CONSTRAINT character_inventories_updated_after_created
         CHECK (updated_at >= created_at)
+);
+";
+
+        /// <summary>
+        /// v3 - operator server configuration.
+        ///
+        /// A key-value table, not a column on a one-row table, because settings
+        /// arrive one at a time and a KV shape lets the next one (a MOTD, a
+        /// player cap) be an INSERT rather than a migration. It is written only
+        /// by the login server's admin panel and read on every /deploymentStatus,
+        /// so it belongs to the login server outright - the game server never
+        /// touches it.
+        ///
+        /// The single row that matters today is 'server_name', the string the
+        /// in-game server browser shows. Its value used to be a hardcoded literal
+        /// at the call site; storing it here is what lets the operator change it
+        /// without a redeploy. The CHECKs mirror ServerConfigPolicy so a value
+        /// the panel would refuse cannot be written by any other path either.
+        /// </summary>
+        internal const string V3 = @"
+CREATE TABLE server_config (
+    key        TEXT        NOT NULL PRIMARY KEY,
+    value      TEXT        NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT server_config_key_not_blank
+        CHECK (length(btrim(key)) > 0),
+    -- An empty value renders a nameless browser row indistinguishable from a
+    -- server that is not reporting. Refused here as well as in the panel.
+    CONSTRAINT server_config_value_not_blank
+        CHECK (length(btrim(value)) > 0)
 );
 ";
     }

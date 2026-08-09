@@ -32,6 +32,13 @@ namespace WorldsAdriftRebornGameServer
                 {
                     PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
                 }
+
+                // Live-session bookkeeping for the operator dashboard. Keyed by
+                // the same peer id every later lookup uses, and stamped with wall
+                // clock (not the monotonic ServerClock) because the connect time
+                // is written to a file the login server reads against ITS clock.
+                Stats.OnConnect(PeerIdentity.IdOf(ePeer), DateTimeOffset.UtcNow);
+
                 Console.WriteLine("[info] " + Describe(peer) + " connected. players now: " + PeerManager.Instance.playerState.Count);
             }
         }
@@ -161,6 +168,11 @@ namespace WorldsAdriftRebornGameServer
             // The peer's wire-metrics window. Left behind it would keep emitting
             // an all-zero [rates] line for a ghost every five seconds, forever.
             Rates.Forget(peerId);
+
+            // Live-session bookkeeping: this peer is gone. Drops it from the
+            // online count and adds to the cumulative disconnect total the
+            // dashboard shows. (The peak is a high-water mark and does not fall.)
+            Stats.OnDisconnect(peerId);
 
             // Last, because every lookup above resolves through it.
             PeerIdentity.Instance.Forget(peer.DangerousGetHandle());
@@ -641,6 +653,72 @@ namespace WorldsAdriftRebornGameServer
         /// <summary>Who owns which player entity. Internal: the component update
         /// handlers validate entity ownership against it.</summary>
         internal static readonly PlayerRegistry Players = new PlayerRegistry();
+
+        /// <summary>
+        /// Live-session bookkeeping for the operator dashboard: connect/disconnect
+        /// tallies, current and peak online, and when each peer connected. Pure
+        /// and tested; the main loop feeds it two calls (connect, disconnect) and
+        /// <see cref="StatsWriter"/> snapshots it to a file. Wall-clock boot time,
+        /// because the snapshot crosses a process boundary to a reader with its
+        /// own clock. Internal so the connect/disconnect hooks above can reach it.
+        /// </summary>
+        internal static readonly ServerStats Stats = new ServerStats(DateTimeOffset.UtcNow);
+
+        /// <summary>
+        /// Serialises <see cref="Stats"/> plus each live player's entity id and
+        /// ENet health to /tmp/wareborn-stats.json every few seconds, atomically,
+        /// so the login server can render the dashboard without any new network
+        /// dependency. The builder below is invoked only when a write is actually
+        /// due.
+        /// </summary>
+        private static readonly StatsFileWriter StatsWriter = new StatsFileWriter(BuildStatsSnapshot);
+
+        /// <summary>
+        /// Assembles the current snapshot: the accumulated counters, the relay's
+        /// live mode/rate, and one row per player IN WORLD (from <see cref="Players"/>,
+        /// so it lists spawned entities; a peer still on its loading screen is in
+        /// the online COUNT but has no entity to show yet). Each player's wire
+        /// health is read from ENet at snapshot time; an unreadable layout becomes
+        /// a null health block, never fabricated zeros.
+        /// </summary>
+        private static StatsSnapshot BuildStatsSnapshot()
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            long nowMs = now.ToUnixTimeMilliseconds();
+
+            List<PlayerStat> players = new List<PlayerStat>();
+            foreach ((ulong peerId, long entityId) in Players.All())
+            {
+                DateTimeOffset? connectedAt = Stats.ConnectedAt(peerId);
+                long connectedAtMs = connectedAt?.ToUnixTimeMilliseconds() ?? nowMs;
+
+                EnetPeerHealth? health =
+                    EnetPeerProbe.TryRead(new IntPtr((long)peerId), out EnetPeerHealth read)
+                        ? read
+                        : (EnetPeerHealth?)null;
+
+                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health));
+            }
+
+            string build = Environment.GetEnvironmentVariable("WAREBORN_BUILD");
+            if (string.IsNullOrWhiteSpace(build))
+            {
+                build = "unknown";
+            }
+
+            return new StatsSnapshot(
+                bootTimeUnixMs: Stats.BootTime.ToUnixTimeMilliseconds(),
+                generatedAtUnixMs: nowMs,
+                uptimeSeconds: (long)Math.Max(0, (now - Stats.BootTime).TotalSeconds),
+                relayMode: Relay.ModeDescription,
+                relayHz: Relay.Hz,
+                build: build,
+                totalConnects: Stats.TotalConnects,
+                totalDisconnects: Stats.TotalDisconnects,
+                currentOnline: Stats.CurrentOnline,
+                peakOnline: Stats.PeakOnline,
+                players: players);
+        }
 
         /// <summary>Published appearance per player entity; read by the 1088
         /// serializer branch, written by PlayerPropertiesState_Handler.</summary>
@@ -1228,6 +1306,12 @@ namespace WorldsAdriftRebornGameServer
             // wrong thing.
             Game.Inventory.InventoryService.ReportPersistenceState();
 
+            // Said once so the operator knows where the dashboard's live data
+            // comes from and can point the login server at the same file if the
+            // default path is overridden.
+            Console.WriteLine("[info] stats: writing a live snapshot to " + StatsWriter.Path
+                + " every few seconds for the admin dashboard (WAREBORN_STATS_FILE overrides the path).");
+
             // Say it once, at startup, because a feature nobody can find is not a
             // feature. Destinations come from TeleportPolicy so this list cannot
             // go stale.
@@ -1309,6 +1393,11 @@ namespace WorldsAdriftRebornGameServer
                 // health appended when readable). Runs with the other timers so a
                 // peer that has gone silent still gets its line.
                 ReportPeerRates();
+
+                // Snapshot the live session to /tmp/wareborn-stats.json for the
+                // operator dashboard. Self-throttled to a few seconds and atomic;
+                // never throws into this loop. See StatsFileWriter.
+                StatsWriter.MaybeWrite();
 
                 // BOUNDED DRAIN. The old loop polled exactly ONCE per iteration, and
                 // the shim returns at most one event per call - so the server's

@@ -1,0 +1,430 @@
+using NetCoreServer;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using WorldsAdriftReborn.Storage.Policy;
+using WorldsAdriftReborn.Storage.Records;
+using WorldsAdriftServer.Admin;
+using WorldsAdriftServer.Persistence;
+using WorldsAdriftServer.Web;
+
+namespace WorldsAdriftServer.Handlers.Admin
+{
+    /// <summary>
+    /// The operator dashboard's HTTP surface. Every route lives under /admin and
+    /// is gated on a valid session cookie except the login page and the login
+    /// POST; an unauthenticated visitor to any of them is shown the login page or
+    /// refused, never the data. The routing itself is the same string-matched
+    /// style as <see cref="RequestRouterHandler"/> - this class is just the
+    /// branch of it that /admin* takes.
+    ///
+    /// Decisions belong to the policy classes (<see cref="AdminAuthPolicy"/>,
+    /// <see cref="AdminSessions"/>, <see cref="ServerConfigPolicy"/>); this glue
+    /// only reads the request, asks them, and writes the response.
+    /// </summary>
+    internal static class AdminHandler
+    {
+        /// <summary>How many recent signups the dashboard lists.</summary>
+        private const int RecentSignups = 10;
+
+        /// <summary>
+        /// Handles any request whose URL begins with /admin. Returns true if it
+        /// took the request, so the router knows not to fall through.
+        /// </summary>
+        internal static bool TryHandle(HttpSession session, HttpRequest request)
+        {
+            string url = request.Url;
+            string path = url;
+            int q = path.IndexOf('?');
+            if (q >= 0)
+            {
+                path = path.Substring(0, q);
+            }
+
+            if (path != "/admin" && !path.StartsWith("/admin/", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            // Panel off entirely: no credential installed. Every /admin route
+            // says so and nothing else - it must not fall open.
+            if (!AdminConfig.IsConfigured)
+            {
+                Html(session, 503, AdminPage.Disabled);
+                return true;
+            }
+
+            string method = request.Method;
+
+            if (path == "/admin/login" && method == "POST")
+            {
+                HandleLogin(session, request);
+                return true;
+            }
+
+            if (path == "/admin/logout" && method == "POST")
+            {
+                HandleLogout(session, request);
+                return true;
+            }
+
+            bool authed = IsAuthenticated(request);
+
+            if (path == "/admin" && method == "GET")
+            {
+                if (authed)
+                {
+                    Html(session, 200, AdminPage.Dashboard(BuildStatsJson()));
+                }
+                else
+                {
+                    Html(session, 200, AdminPage.Login(null));
+                }
+                return true;
+            }
+
+            if (path == "/admin/api/stats" && method == "GET")
+            {
+                if (!authed)
+                {
+                    Json(session, 401, "{\"error\":\"unauthenticated\"}");
+                    return true;
+                }
+
+                Json(session, 200, BuildStatsJson());
+                return true;
+            }
+
+            if (path == "/admin/server-name" && method == "POST")
+            {
+                if (!authed)
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
+
+                HandleServerName(session, request);
+                return true;
+            }
+
+            // Any other /admin path: unknown route. Authed sees a 404, everyone
+            // else is bounced to the login page so unauth probing learns nothing.
+            if (authed)
+            {
+                Html(session, 404, AdminPage.Login(null));
+            }
+            else
+            {
+                Html(session, 200, AdminPage.Login(null));
+            }
+            return true;
+        }
+
+        // ---- auth ----------------------------------------------------------
+
+        private static bool IsAuthenticated(HttpRequest request)
+        {
+            string? cookie = HeaderValue(request, "Cookie");
+            string? token = AdminAuthPolicy.TokenFromCookieHeader(cookie);
+            return AdminConfig.Sessions.IsValid(token, DateTimeOffset.UtcNow);
+        }
+
+        private static void HandleLogin(HttpSession session, HttpRequest request)
+        {
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("username", out string? user);
+            form.TryGetValue("password", out string? pass);
+
+            if (!AdminConfig.Verify(user, pass))
+            {
+                // Deliberately vague: which of the two was wrong is not the
+                // visitor's business.
+                HtmlWithCookie(session, 401, AdminPage.Login("That operator name and passphrase were not accepted."), null);
+                return;
+            }
+
+            string token = AdminConfig.Sessions.Issue(DateTimeOffset.UtcNow);
+            string cookie = AdminAuthPolicy.BuildSessionCookie(token, AdminConfig.Sessions.LifetimeSeconds);
+
+            // 303 so the browser re-GETs /admin (and drops the POST from history).
+            RedirectWithCookie(session, "/admin", cookie);
+        }
+
+        private static void HandleLogout(HttpSession session, HttpRequest request)
+        {
+            string? token = AdminAuthPolicy.TokenFromCookieHeader(HeaderValue(request, "Cookie"));
+            AdminConfig.Sessions.Revoke(token);
+            RedirectWithCookie(session, "/admin", AdminAuthPolicy.BuildClearCookie());
+        }
+
+        private static void HandleServerName(HttpSession session, HttpRequest request)
+        {
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("serverName", out string? name);
+
+            if (ServerConfigPolicy.IsValid(name))
+            {
+                try
+                {
+                    Accounts.ServerConfig.SetServerName(name, DateTimeOffset.UtcNow);
+                    Console.WriteLine("[info] admin set server name to '"
+                        + ServerConfigPolicy.Normalize(name) + "'.");
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("[error] admin failed to set server name: " + e.Message);
+                }
+            }
+
+            // Either way, back to the dashboard - it will show the stored value.
+            Redirect(session, "/admin");
+        }
+
+        // ---- stats payload -------------------------------------------------
+
+        /// <summary>
+        /// The single JSON payload the dashboard renders from, served both as the
+        /// first-paint bootstrap and by /admin/api/stats. Combines the live game
+        /// snapshot (from the game server's file) with the account figures (from
+        /// Postgres). Neither source is allowed to take the panel down: a missing
+        /// stats file and an unreachable database each degrade to a flagged,
+        /// rendered state.
+        /// </summary>
+        private static string BuildStatsJson()
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            JObject root = new JObject
+            {
+                ["serverName"] = ReadServerName(),
+                ["game"] = BuildGameJson(now),
+                ["accounts"] = BuildAccountsJson(now),
+            };
+
+            // EscapeHtml so the SAME payload is safe both as the /admin/api/stats
+            // body and inlined into the dashboard's <script> bootstrap: a server
+            // name containing </script> or a quote is emitted as < etc and
+            // cannot break out of the tag or the JSON.
+            using System.IO.StringWriter sw = new System.IO.StringWriter();
+            using (JsonTextWriter writer = new JsonTextWriter(sw))
+            {
+                writer.Formatting = Formatting.None;
+                writer.StringEscapeHandling = StringEscapeHandling.EscapeHtml;
+                root.WriteTo(writer);
+            }
+            return sw.ToString();
+        }
+
+        private static string ReadServerName()
+        {
+            try
+            {
+                return Accounts.ServerConfig.GetServerName();
+            }
+            catch (Exception)
+            {
+                return ServerConfigPolicy.DefaultServerName;
+            }
+        }
+
+        private static JObject BuildGameJson(DateTimeOffset now)
+        {
+            GameStatsResult result = GameStats.Read(now);
+
+            JObject game = new JObject
+            {
+                ["reporting"] = result.State == GameStatsState.Ok,
+                ["state"] = result.State.ToString().ToLowerInvariant(),
+            };
+
+            if (result.State != GameStatsState.Ok || result.Snapshot == null)
+            {
+                game["players"] = new JArray();
+                return game;
+            }
+
+            GameStatsSnapshot s = result.Snapshot;
+
+            game["ageSeconds"] = Math.Round(result.Age.TotalSeconds, 1);
+            game["stale"] = result.Stale;
+            game["uptimeSeconds"] = s.UptimeSeconds;
+            game["relayMode"] = s.RelayMode;
+            game["build"] = s.Build;
+            game["totalConnects"] = s.TotalConnects;
+            game["totalDisconnects"] = s.TotalDisconnects;
+            game["currentOnline"] = s.CurrentOnline;
+            game["peakOnline"] = s.PeakOnline;
+            game["wireHealthWarning"] = s.WireHealthWarning;
+
+            JArray players = new JArray();
+            foreach (GamePlayerStat p in s.Players)
+            {
+                long connectedForSeconds = (long)Math.Max(0, (now - p.ConnectedAt).TotalSeconds);
+                JObject pj = new JObject
+                {
+                    ["entityId"] = p.EntityId,
+                    ["peerId"] = p.PeerId,
+                    ["connectedForSeconds"] = connectedForSeconds,
+                    ["hasHealth"] = p.HasHealth,
+                };
+                if (p.HasHealth)
+                {
+                    pj["rttMs"] = p.RttMs;
+                    pj["packetsLost"] = p.PacketsLost;
+                    pj["packetsSent"] = p.PacketsSent;
+                    pj["inFlightBytes"] = p.InFlightBytes;
+                    pj["spiral"] = p.Spiral;
+                }
+                players.Add(pj);
+            }
+            game["players"] = players;
+
+            return game;
+        }
+
+        private static JObject BuildAccountsJson(DateTimeOffset now)
+        {
+            try
+            {
+                DateTimeOffset startOfDay = new DateTimeOffset(now.Year, now.Month, now.Day, 0, 0, 0, TimeSpan.Zero);
+
+                int total = Accounts.Repository.Count();
+                int today = Accounts.Repository.CountCreatedSince(startOfDay);
+                int characters = Accounts.Repository.CountCharacters();
+                IReadOnlyList<AccountSummary> recent = Accounts.Repository.Recent(RecentSignups);
+
+                JArray recentJson = new JArray();
+                foreach (AccountSummary a in recent)
+                {
+                    recentJson.Add(new JObject
+                    {
+                        ["username"] = a.Username,
+                        ["createdAtUnixMs"] = a.CreatedAt.ToUnixTimeMilliseconds(),
+                        ["characters"] = a.CharacterCount,
+                    });
+                }
+
+                return new JObject
+                {
+                    ["available"] = true,
+                    ["total"] = total,
+                    ["today"] = today,
+                    ["characters"] = characters,
+                    ["recent"] = recentJson,
+                };
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[warning] admin dashboard could not read the account database: " + e.Message);
+                return new JObject { ["available"] = false };
+            }
+        }
+
+        // ---- request/response plumbing -------------------------------------
+
+        /// <summary>
+        /// Parses an application/x-www-form-urlencoded body into a map. Tolerant:
+        /// a malformed pair is skipped rather than throwing, because a login form
+        /// is the last place to surface a 500.
+        /// </summary>
+        internal static Dictionary<string, string> ParseForm(string? body)
+        {
+            Dictionary<string, string> form = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(body))
+            {
+                return form;
+            }
+
+            foreach (string pair in body.Split('&'))
+            {
+                if (pair.Length == 0)
+                {
+                    continue;
+                }
+
+                int eq = pair.IndexOf('=');
+                string key = eq >= 0 ? pair.Substring(0, eq) : pair;
+                string value = eq >= 0 ? pair.Substring(eq + 1) : string.Empty;
+
+                try
+                {
+                    key = Uri.UnescapeDataString(key.Replace('+', ' '));
+                    value = Uri.UnescapeDataString(value.Replace('+', ' '));
+                }
+                catch (Exception)
+                {
+                    continue;
+                }
+
+                if (key.Length > 0)
+                {
+                    form[key] = value;
+                }
+            }
+
+            return form;
+        }
+
+        private static string? HeaderValue(HttpRequest request, string name)
+        {
+            for (int i = 0; i < request.Headers; i++)
+            {
+                (string header, string value) = request.Header(i);
+                if (string.Equals(header, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return value;
+                }
+            }
+            return null;
+        }
+
+        private static void Html(HttpSession session, int status, string body)
+        {
+            HtmlWithCookie(session, status, body, null);
+        }
+
+        private static void HtmlWithCookie(HttpSession session, int status, string body, string? setCookie)
+        {
+            HttpResponse resp = new HttpResponse();
+            resp.SetBegin(status);
+            resp.SetHeader("Content-Type", AdminPage.ContentType);
+            resp.SetHeader("Cache-Control", "no-store");
+            resp.SetHeader("X-Content-Type-Options", "nosniff");
+            resp.SetHeader("Referrer-Policy", "same-origin");
+            if (setCookie != null)
+            {
+                resp.SetHeader("Set-Cookie", setCookie);
+            }
+            resp.SetBody(body);
+            session.SendResponseAsync(resp);
+        }
+
+        private static void Json(HttpSession session, int status, string body)
+        {
+            HttpResponse resp = new HttpResponse();
+            resp.SetBegin(status);
+            resp.SetHeader("Content-Type", "application/json");
+            resp.SetHeader("Cache-Control", "no-store");
+            resp.SetBody(body);
+            session.SendResponseAsync(resp);
+        }
+
+        private static void Redirect(HttpSession session, string location)
+        {
+            RedirectWithCookie(session, location, null);
+        }
+
+        private static void RedirectWithCookie(HttpSession session, string location, string? setCookie)
+        {
+            HttpResponse resp = new HttpResponse();
+            resp.SetBegin(303);
+            resp.SetHeader("Location", location);
+            resp.SetHeader("Cache-Control", "no-store");
+            if (setCookie != null)
+            {
+                resp.SetHeader("Set-Cookie", setCookie);
+            }
+            resp.SetBody(string.Empty);
+            session.SendResponseAsync(resp);
+        }
+    }
+}

@@ -35,11 +35,13 @@ namespace WorldsAdriftServer.Persistence
         private static AccountRepository? accounts;
         private static SessionRepository? sessions;
         private static CharacterRepository? characters;
+        private static ServerConfigRepository? serverConfig;
 
         internal static Db Database => Ensure().db;
         internal static AccountRepository Repository => Ensure().accounts;
         internal static SessionRepository Sessions => Ensure().sessions;
         internal static CharacterRepository Characters => Ensure().characters;
+        internal static ServerConfigRepository ServerConfig => Ensure().serverConfig;
 
         /// <summary>
         /// Opens the database and applies the schema. Called once at startup so
@@ -56,7 +58,7 @@ namespace WorldsAdriftServer.Persistence
                 + Repository.Count() + " account(s) registered.");
         }
 
-        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters) Ensure()
+        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig) Ensure()
         {
             lock (gate)
             {
@@ -66,9 +68,10 @@ namespace WorldsAdriftServer.Persistence
                     accounts = new AccountRepository(db);
                     sessions = new SessionRepository(db);
                     characters = new CharacterRepository(db);
+                    serverConfig = new ServerConfigRepository(db);
                 }
 
-                return (db!, accounts!, sessions!, characters!);
+                return (db!, accounts!, sessions!, characters!, serverConfig!);
             }
         }
 

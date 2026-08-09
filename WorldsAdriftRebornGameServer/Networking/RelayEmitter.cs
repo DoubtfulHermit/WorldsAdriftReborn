@@ -126,6 +126,18 @@ namespace WorldsAdriftRebornGameServer.Networking
                 : "[info] movement relay v2 is OFF (WAREBORN_RELAY_V2=0): raw arrival-order relay, as before. Ingest statistics are still collected.");
         }
 
+        /// <summary>
+        /// The relay's effective emit rate in whole Hz, or 0 under the raw path
+        /// (there is no fixed cadence then). For the operator dashboard.
+        /// </summary>
+        public int Hz => V2Enabled ? (int)Math.Round(_hz) : 0;
+
+        /// <summary>
+        /// A one-word-ish description of the current relay arm, matching the 5 s
+        /// stats line: "v2@20Hz" or "raw". For the operator dashboard.
+        /// </summary>
+        public string ModeDescription => V2Enabled ? "v2@" + Hz + "Hz" : "raw";
+
         // ------------------------------------------------------------------
         // INGEST - called from the two typed handlers, AFTER their ownership
         // gates, with the update the game's own code already deserialized.
