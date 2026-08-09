@@ -370,40 +370,28 @@ namespace WorldsAdriftRebornGameServer
                 }
 
                 // ------------------------------------------------------------------
-                // INVENTORY GRANT SEAM - deliberately empty.
+                // INVENTORY GRANT SEAM (Phase 5.4). The empty comment that used to
+                // live here listed everything a grant needs - an id allocator, a
+                // placement search, stacking, a full-replacement 1081 push, the
+                // 8060 toast. All of that now exists behind ONE call: HarvestReward
+                // resolves the yield, grants it through the single InventoryPush
+                // seam (so nothing here races 1081's owner), and fires the native
+                // "Salvaged <material> xN" toast.
                 //
-                // This is where "+N Birch Wood" belongs, and it is NOT implemented
-                // here on purpose: 1081 InventoryState, its ownership and its
-                // persistence are one job with one owner, and a second
-                // implementation writing 1081 from this loop would race the first.
+                // Everything the award needs is already in `change`:
+                //   change.CutterEntityId - the PLAYER entity that owns the beam.
+                //   change.WoodType       - the source key ("birch"), pre-registered
+                //                           in HarvestReward from Trees.WoodType.
+                //   change.SectionsFelled - the unit count for this cut.
                 //
-                // Everything the grant needs is already in `change` and needs no
-                // further work on this side:
-                //   change.CutterEntityId - the PLAYER entity that owns the beam,
-                //                           i.e. who the wood belongs to. The peer
-                //                           is Players.PeerOf-able from it.
-                //   change.WoodType       - "birch", Bossa's authored species for
-                //                           this prefab, recovered not invented.
-                //   change.SectionsFelled - how many sections came away in this
-                //                           cut; the natural quantity.
-                //
-                // What the owner of 1081 has to supply, none of which exists yet:
-                //   - an item-id allocator (there is none anywhere in this server;
-                //     duplicate itemIds silently corrupt inventory lookups),
-                //   - a free-rectangle placement search over the existing grid,
-                //     because ScalaSlottedInventoryItem carries an absolute
-                //     xPosition/yPosition and nothing rejects an overlap,
-                //   - stacking onto an existing "birch" row rather than adding a
-                //     new one, since a 12-section tree is up to eleven grants,
-                //   - a FULL-REPLACEMENT 1081 push (there is no add-delta in the
-                //     schema) to the cutter, followed by 8060's
-                //     TriggerReceiveSalvageFeedback for the toast.
-                //
-                // One hazard worth carrying across: the 8060 toast dereferences
-                // InventoryItemManager.LookupItem UNGUARDED, so an itemTypeId that
-                // is not in our own itemData.json is a client-side NRE, not a
-                // missing label. "birch" must exist there before it is ever sent.
-                // ------------------------------------------------------------------
+                // A metal beam+node pair (the sibling agents) reaches the SAME
+                // HarvestReward.Award from its own hit handler - see the seam note
+                // on HarvestReward.
+                Game.Gathering.HarvestReward.Award(
+                    change.CutterEntityId,
+                    change.WoodType,
+                    change.SectionsFelled,
+                    "tree " + change.TreeEntityId + " section " + change.SectionId);
             }
         }
 

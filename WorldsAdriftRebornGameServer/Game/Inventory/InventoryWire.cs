@@ -40,6 +40,23 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         }
 
         /// <summary>
+        /// The stack ceiling for an item type, straight from the item database
+        /// (itemData.json -> ValidItem.stacksize, served to the client over 1097
+        /// as stackingMax). Unknown types and types with no stacksize set read as
+        /// the database's own -1 default, which callers treat as "not stackable".
+        ///
+        /// This is the server side of the same fact the client renders: the count
+        /// label is hidden when stackingMax &lt;= 1, so a material must carry a
+        /// real ceiling here for "x12" to ever appear.
+        /// </summary>
+        internal static int StackMaxOf(string itemTypeId)
+        {
+            return ItemHelper.AllItems.TryGetValue(itemTypeId, out ItemHelper.ValidItem? item)
+                ? item.stacksize
+                : -1;
+        }
+
+        /// <summary>
         /// The character slot an item type is worn in, or "None" when it is not
         /// wearable. Straight from the item database, which is also what the
         /// client reads.
