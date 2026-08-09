@@ -269,6 +269,14 @@ namespace WorldsAdriftRebornGameServer
             PollDrainPolicy.BudgetFrom(Environment.GetEnvironmentVariable("WAREBORN_DRAIN_BUDGET"));
 
         /// <summary>
+        /// Rate-limiter for the per-packet crash-isolation catch below. A modified
+        /// client that sends a packet which throws on every frame must not turn the
+        /// log into a fault-per-packet firehose; the first faults print in full and
+        /// the rest are sampled with a running total. See PacketFaultThrottle.
+        /// </summary>
+        private static readonly PacketFaultThrottle PacketFaults = new PacketFaultThrottle();
+
+        /// <summary>
         /// Every harvestable tree's CURRENT sectionMask, and the timer that decides
         /// when a held beam takes the next chunk out of one.
         ///
@@ -1309,7 +1317,39 @@ namespace WorldsAdriftRebornGameServer
                         break;
                     }
 
-                    ProcessPacket(packet);
+                    // CRASH ISOLATION. A bad PACKET must cost that packet, never the
+                    // process. One unhandled exception in any component handler - e.g.
+                    // a malformed inventory delta from a modified client - would
+                    // otherwise unwind out of Main and drop EVERY player. We catch it
+                    // here, per packet, and keep draining.
+                    //
+                    // Scope is deliberate: this wraps ONE ProcessPacket call, not the
+                    // while-loop and not the ENet_Poll above it. A genuinely fatal
+                    // condition - a dead ENet host - surfaces through ENet_Poll, not
+                    // through here, so it is NOT swallowed and can still stop the loop.
+                    //
+                    // ProcessPacket owns the packet and frees it (ENet_Destroy_Packet)
+                    // on every NORMAL path. A throw escapes BEFORE that free - it is
+                    // the last statement in the method and its early-return branch
+                    // frees-then-returns with nothing between - so on catch the packet
+                    // is still alive and unfreed. We free it here: not doing so would
+                    // make a throwing packet ALSO leak, on top of the fault. There is
+                    // no double-free because the two paths are mutually exclusive.
+                    try
+                    {
+                        ProcessPacket(packet);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (PacketFaults.ShouldLog(out long total))
+                        {
+                            Console.WriteLine("[error] packet processing threw (fault #" + total
+                                + ") on channel " + packet->Channel + " from " + Describe(packet->Peer)
+                                + ", packet dropped: " + ex);
+                        }
+
+                        EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
+                    }
                 }
 
                 // dont wait for GetOplist and then for the Dispatch call as we are the ones who would dispatch the work anyways.
