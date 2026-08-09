@@ -76,6 +76,55 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public const int ItemHealth = 100;
 
+        // ------------------------------------------------------------------
+        // Mining (Route A, salvage beam). A nugget has no health or crust of its
+        // own, so how many shots empty it and what that yields is server policy -
+        // see Multiplayer.MetalHarvest.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Units of metal a nugget frees when the salvage beam empties it. Fed to
+        /// <see cref="MetalHarvest.Place"/>; the "Salvaged &lt;metal&gt; xN" toast and
+        /// the inventory grant both report this N (via a per-metal
+        /// <c>YieldRule(amountPerUnit: 1)</c>). Invented - the nugget's authored
+        /// yield spawning system is gone (findings-metal-deposits, "SURFACE
+        /// NUGGETS") - and kept modest.
+        /// </summary>
+        public const int NuggetYieldUnits = 5;
+
+        /// <summary>
+        /// Salvage shots to empty one nugget. See <see cref="MetalHarvest.DefaultShotsToDeplete"/>.
+        /// </summary>
+        public const int NuggetShotsToDeplete = 3;
+
+        /// <summary>
+        /// How far, in metres, a depleted nugget is dropped straight down. The
+        /// nugget has NO depletion feedback of its own (it never renders as damaged
+        /// and stays salvageable client-side forever), and there is no RemoveEntityOp
+        /// in this build, so the visible "it's gone" is a 190602 teleport that sinks
+        /// it under the terrain (findings-metal-deposits, "SURFACE NUGGETS"). Far
+        /// enough to be well below any walkable ground; the salvager's 10 m aim
+        /// raycast then misses it, which is also what stops a held beam re-shooting
+        /// the husk.
+        /// </summary>
+        public const double DepletedSinkMetres = 1000.0;
+
+        /// <summary>
+        /// A depleted node's position: its live position sunk <see cref="DepletedSinkMetres"/>
+        /// straight down. A pure function of the intact position, so the live
+        /// depletion broadcast and a late joiner's 190602 seed compute the SAME
+        /// place without the server storing a second coordinate - a depleted node
+        /// stays in the registry (rule 1) and is therefore still seeded to joiners,
+        /// but sunk, so they see it gone exactly as everyone already present does.
+        /// </summary>
+        public static FixedPointPosition Sink(FixedPointPosition intact)
+        {
+            return new FixedPointPosition(
+                intact.X,
+                intact.Y - (long)(DepletedSinkMetres * FixedPointPosition.UnitsPerMetre),
+                intact.Z);
+        }
+
         /// <summary>
         /// Haven instance #5's world position - the island every player spawns on.
         /// Nodes are placed island-local against THIS origin so they move with the
