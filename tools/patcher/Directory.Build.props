@@ -1,0 +1,5 @@
+<Project>
+  <!-- Isolates tools/patcher from the repo-root Directory.Build.props game-folder
+       check: the patcher builds standalone and never needs a WA install. MSBuild
+       stops walking up at the nearest of these files. -->
+</Project>

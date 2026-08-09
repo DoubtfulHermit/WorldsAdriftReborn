@@ -44,6 +44,21 @@ namespace WorldsAdriftServer.Handlers
                 {
                     RegistrationHandler.HandleRegister(this, request);
                 }
+                else if (request.Method == "GET" && (request.Url == "/patch" || request.Url == "/patch/"))
+                {
+                    // The human-readable index of the latest client patch. The
+                    // manifest and the files themselves are static bytes served
+                    // by Caddy from the patch dir (/patch/manifest.json,
+                    // /patch/files/*); this page just fetches that manifest
+                    // client-side and lists it. Same self-contained, themed
+                    // style as the sign-up page.
+                    HttpResponse patchResp = new HttpResponse();
+                    patchResp.SetBegin(200);
+                    patchResp.SetHeader("Content-Type", Web.PatchPage.ContentType);
+                    patchResp.SetHeader("Cache-Control", "no-store");
+                    patchResp.SetBody(Web.PatchPage.Html);
+                    SendResponseAsync(patchResp);
+                }
                 else if (request.Method == "GET" && request.Url.Contains("/characterList/") && request.Url.Contains("/steam/1234"))
                 {
                     CharacterListHandler.HandleCharacterListRequest(this, request, "community_server");
