@@ -25,6 +25,17 @@ MINUTES="${1:-10}"
 PORT="${2:-7777}"
 HOST="${3:-127.0.0.1}"
 
+# Relay mode, forwarded to BOTH sides so they cannot disagree: the server gets
+# WAREBORN_RELAY_V2 verbatim, and under v2 (anything but 0, the server's own
+# default) the bots get --rewritten-1073, because relayed 1073 timestamps are
+# then server-issued synthetic stamps - verifiable for monotonicity, not
+# matchable to sends. A/B: WAREBORN_RELAY_V2=0 tools/relaybot/run-soak.sh ...
+# CAVEAT: when the script attaches to an ALREADY-RUNNING server it cannot know
+# that server's mode; it assumes this same variable describes it.
+RELAY_V2="${WAREBORN_RELAY_V2:-1}"
+BOT_FLAGS=""
+[ "$RELAY_V2" != "0" ] && BOT_FLAGS="--rewritten-1073"
+
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 RUN="$HERE/run"
@@ -103,6 +114,7 @@ else
     (
         cd "$STAGE" || exit 1
         WINEPREFIX="$HOME/Games/wa-prefix" WINEDEBUG=-all WAREBORN_GAME_PORT="$PORT" \
+            WAREBORN_RELAY_V2="$RELAY_V2" \
             wine 'C:\dotnet6\dotnet.exe' WorldsAdriftRebornGameServer.dll > "$SERVER_LOG" 2>&1
     ) &
     STARTED_SERVER=1
@@ -121,9 +133,9 @@ else
     echo "[run-soak] server is up."
 fi
 
-echo "[run-soak] running two bots for $MINUTES minute(s)..."
+echo "[run-soak] running two bots for $MINUTES minute(s) (relay mode: $([ "$RELAY_V2" != "0" ] && echo v2 || echo raw))..."
 dotnet "$HERE/RelayBot/bin/Release/net8.0/RelayBot.dll" \
-    --host "$HOST" --port "$PORT" --minutes "$MINUTES" --csv "$CSV"
+    --host "$HOST" --port "$PORT" --minutes "$MINUTES" --csv "$CSV" $BOT_FLAGS
 VERDICT=$?
 
 echo "[run-soak] CSV: $CSV"
