@@ -424,6 +424,112 @@ namespace WorldsAdriftRebornGameServer
         }
 
         /// <summary>
+        /// One salvage shot landed on <paramref name="nodeEntityId"/>, fired by
+        /// <paramref name="harvesterEntityId"/> (the shooter's own player entity,
+        /// which owns the 2106 the shot rode). This is the metal counterpart to the
+        /// award seam in <see cref="TickTreeHarvest"/>, and the reason it lives here
+        /// rather than in the handler is the same reason the tree's does: it is where
+        /// the pure depletion policy (<see cref="MetalHarvest"/>) meets the node
+        /// ledger (<see cref="Nodes"/>), the yield table and the wire.
+        ///
+        /// Most shots do nothing here: the beam rests on trees, hulls, players and
+        /// already-emptied husks, and <see cref="MetalHarvest.Hit"/> reports the
+        /// deplete transition on exactly ONE shot per node. Only that shot grants -
+        /// so there is no double-payout even though a held beam keeps publishing
+        /// ShotEvents until the node teleports out of the raycast's reach.
+        /// </summary>
+        internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId)
+        {
+            if (!MetalHarvest.IsNode(nodeEntityId))
+            {
+                return;
+            }
+
+            MetalHitOutcome outcome = MetalHarvest.Hit(nodeEntityId);
+            if (!outcome.Depleted)
+            {
+                return;
+            }
+
+            // Keep the ledger's destroyed flag in step - it STAYS in the registry
+            // (rule 1) so a late joiner is told the truth, sunk rather than intact -
+            // then grant, then make it visibly vanish.
+            Nodes.MarkDestroyed(nodeEntityId);
+
+            Multiplayer.MetalNode? node = Nodes.NodeOf(nodeEntityId);
+            string metalType = node?.MetalType ?? "metal";
+
+            Console.WriteLine("[info] metal node " + nodeEntityId + " depleted by entity "
+                + harvesterEntityId + ": " + outcome.Units + " x " + metalType + ".");
+
+            // ORDER as the tree's: award first (grant + the 8060 "Salvaged X xN"
+            // toast, which fires only if the grant landed), then the visual. A metal
+            // whose itemTypeId is not in itemData.json (cobalt, aurium today) grants
+            // nothing and toasts nothing - HarvestReward/InventoryService log it -
+            // but the node still depletes and sinks, so it is never an un-minable
+            // rock, just a silent one.
+            Game.Gathering.HarvestReward.Award(
+                harvesterEntityId,
+                metalType,
+                outcome.Units,
+                "metal node " + nodeEntityId);
+
+            BroadcastNodeDepletion(nodeEntityId);
+        }
+
+        /// <summary>
+        /// Tells every client that holds the node its depletion: the nugget has no
+        /// damage feedback of its own, so "it's gone" is a 190602 teleport that sinks
+        /// it under the terrain (findings-metal-deposits, "SURFACE NUGGETS").
+        ///
+        /// Mirrors <see cref="TickTreeHarvest"/>'s fan-out, and for the same two
+        /// reasons: the update is pushed to each peer DIRECTLY (never through
+        /// <see cref="RelayToOtherPlayers"/>, which would re-address it to the
+        /// shooter's own avatar and teleport the PLAYER underground), and it carries
+        /// ONE field (localPosition) so nothing else on the transform is re-asserted.
+        /// Peers that have not checked the node out are skipped - they will be seeded
+        /// the sunk position from the registry when they do (rule 1), which is why
+        /// <see cref="Multiplayer.MetalNodes.Sink"/> is a pure function both paths call.
+        /// </summary>
+        private static void BroadcastNodeDepletion(long nodeEntityId)
+        {
+            Multiplayer.MetalNode? node = Nodes.NodeOf(nodeEntityId);
+            if (node == null)
+            {
+                return;
+            }
+
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(node.Position);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                    || !byEntity.TryGetValue(nodeEntityId, out Dictionary<uint, ulong>? byComponent)
+                    || !byComponent.TryGetValue(TransformStateComponentId, out ulong refId))
+                {
+                    continue;
+                }
+
+                Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                    new Improbable.Corelibrary.Transforms.TransformState.Update()
+                        .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                            new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+
+                // Keep this peer's stored 190602 in step with what it has just been
+                // told, so a later re-serve from the stored object cannot resurrect
+                // the node at its intact spot.
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Improbable.Corelibrary.Transforms.TransformState.Data stored)
+                {
+                    sink.ApplyTo(stored);
+                }
+
+                SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
+                    new List<uint> { TransformStateComponentId },
+                    new List<object> { sink });
+            }
+        }
+
+        /// <summary>
         /// Force-flushes any parked mirror ops older than the timeout, so an idle
         /// already-in-world player still receives a newly joined player's rig even
         /// though it never sends the asset-load ack the primary flush waits for.
@@ -818,6 +924,21 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly NodeRegistry Nodes = new NodeRegistry();
 
         /// <summary>
+        /// The depletion POLICY for metal nodes: how many salvage shots empty each
+        /// node and what that is worth. The metal analogue of <see cref="Harvest"/>,
+        /// and the counterpart to <see cref="Nodes"/> - <see cref="Nodes"/> is the
+        /// persistent ledger a late joiner is replayed, this is the live "how do I
+        /// mine it" state. They meet in <see cref="OnSalvageShot"/>: a shot that
+        /// empties a node here is what marks it destroyed there.
+        ///
+        /// Internal because the 2106 handler drives it: MultitoolSalvagerState_Handler
+        /// distils each inbound ShotEvent to (shooter, node) and calls
+        /// <see cref="OnSalvageShot"/>.
+        /// </summary>
+        internal static readonly MetalHarvest MetalHarvest =
+            new MetalHarvest(Multiplayer.MetalNodes.NuggetShotsToDeplete);
+
+        /// <summary>
         /// Whether to also spawn the second Haven (see
         /// Multiplayer.WorldEntities.ProofIsland). OFF unless
         /// WAREBORN_SPAWN_PROOF_ISLAND=1.
@@ -1020,9 +1141,26 @@ namespace WorldsAdriftRebornGameServer
                     Multiplayer.MetalNode? metalNode = Multiplayer.MetalNodes.ByKey(entity.Key);
                     if (metalNode != null && Nodes.Register(entityId, metalNode))
                     {
+                        // Teach the yield table what this metal grants, exactly as
+                        // wood is pre-registered from Trees.WoodType. The metal type
+                        // string is the source key AND the itemTypeId (a real row in
+                        // itemData.json - iron, aluminium, copper... - so the client
+                        // can look it up); one item per unit, and MetalHarvest below
+                        // decides the unit count. Register is idempotent, so the many
+                        // "iron" nodes all resolving to the same rule is harmless.
+                        Game.Gathering.HarvestReward.Register(
+                            metalNode.MetalType,
+                            new Multiplayer.Gathering.YieldRule(metalNode.MetalType, amountPerUnit: 1));
+
+                        // And make it shootable: the same spawn seam as the ledger
+                        // above, idempotent for the same reason (one node, every
+                        // joiner walks this step).
+                        MetalHarvest.Place(entityId, Multiplayer.MetalNodes.NuggetYieldUnits);
+
                         Console.WriteLine("[info] placed metal node '" + entity.Key + "' as entity "
                             + entityId + ": " + metalNode.MetalType + " q" + metalNode.Quality
-                            + " at " + metalNode.Position + ".");
+                            + " at " + metalNode.Position + " (" + Multiplayer.MetalNodes.NuggetShotsToDeplete
+                            + " shots -> " + Multiplayer.MetalNodes.NuggetYieldUnits + " units).");
                     }
                 }
 

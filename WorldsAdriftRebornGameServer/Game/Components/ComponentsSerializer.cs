@@ -163,6 +163,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         Multiplayer.FixedPointPosition seed =
                             WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(entityId);
 
+                        // A depleted metal node stays in the registry (rule 1) and is
+                        // still seeded to a late joiner - but SUNK, so the joiner sees
+                        // it gone exactly as everyone already present does. Sink() is
+                        // the same pure function the live depletion broadcast uses
+                        // (WorldsAdriftRebornGameServer.BroadcastNodeDepletion), so the
+                        // two agree without the server storing a second coordinate.
+                        if (WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
                         TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { seed.X, seed.Y, seed.Z }),
                                                                 new Quaternion32(1023), // identity sentinel is the low 10 bits ALL set; 1 decodes to NaN
                                                                 null,
