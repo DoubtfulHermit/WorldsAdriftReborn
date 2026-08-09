@@ -90,6 +90,13 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_ComponentUpdateOp_Deserialize")]
         public static unsafe extern bool PB_EXP_ComponentUpdateOp_Deserialize( void* data, int len, long* entityId, ComponentUpdateOp** componentUpdateOp, uint* componentUpdateOp_count );
 
+        // Frees a buffer returned by any PB_*_Serialize export. Every serialize
+        // return value MUST be handed back here exactly once after ENet_Send has
+        // copied its bytes; not doing so leaked the buffer on every send. NULL is
+        // a safe no-op. See the ownership contract in enetLayer.h.
+        [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_Free")]
+        public static unsafe extern void PB_Free( void* handle );
+
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public unsafe delegate void ENet_Poll_Callback( IntPtr peer );
     }

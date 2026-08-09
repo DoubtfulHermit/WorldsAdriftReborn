@@ -39,13 +39,17 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                     void* ptr = EnetLayer.PB_AddEntityOp_Serialize(&addEntityOp, &len, entityId);
 
+                    bool sent = false;
                     if (ptr != null && len != 0)
                     {
                         EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.ADD_ENTITY_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
                         CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.ADD_ENTITY_OP));
-                        return true;
+                        sent = true;
                     }
-                    return false;
+                    // Release the serialize buffer (FIX 2 ownership contract). NULL-safe,
+                    // and frees even when nothing was sent; ENet_Send has already copied.
+                    EnetLayer.PB_Free(ptr);
+                    return sent;
                 }
             }
         }
@@ -68,13 +72,16 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                         void* ptr = EnetLayer.PB_AssetLoadRequestOp_Serialize(&assetLoadRequestOp, &len);
 
+                        bool sent = false;
                         if (ptr != null && len != 0)
                         {
                             EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
                             CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP));
-                            return true;
+                            sent = true;
                         }
-                        return false;
+                        // Release the serialize buffer (FIX 2 ownership contract); NULL-safe.
+                        EnetLayer.PB_Free(ptr);
+                        return sent;
                     }
                 }
             }
@@ -199,6 +206,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 int len = 0;
                 void* ptr = EnetLayer.PB_EXP_AddComponentOp_Serialize(entityId, comps, (uint)serializedComponents.Count, &len);
 
+                bool sent = false;
                 if (ptr != null && len > 0)
                 {
                     Console.WriteLine("[success] serialized all requested components, sending them to the game now...");
@@ -206,6 +214,12 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                     EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST, ptr, len, (int)ENetPacketFlag.RELIABLE);
                     CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.SEND_COMPONENT_INTEREST));
 
+                    sent = true;
+                }
+                // Release the serialize buffer (FIX 2 ownership contract); NULL-safe.
+                EnetLayer.PB_Free(ptr);
+                if (sent)
+                {
                     return true;
                 }
             }
@@ -268,6 +282,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                     int len = 0;
                     void* ptr = EnetLayer.PB_EXP_ComponentUpdateOp_Serialize(entityId, u, 1, &len);
 
+                    bool sent = false;
                     if (ptr != null && len > 0)
                     {
                         // High-rate streams (190602 transform, 1073 bone/animation)
@@ -282,6 +297,13 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                         EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len,
                             (int)(highRate ? ENetPacketFlag.UNRELIABLE : ENetPacketFlag.RELIABLE));
                         CountSend(destination, componentId);
+                        sent = true;
+                    }
+                    // Release the serialize buffer (FIX 2 ownership contract); NULL-safe.
+                    // This is the 20 Hz relay fan-out - the exact path the leak scaled on.
+                    EnetLayer.PB_Free(ptr);
+                    if (sent)
+                    {
                         return true;
                     }
                 }
@@ -390,6 +412,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 int len = 0;
                 void* ptr = EnetLayer.PB_EXP_ComponentUpdateOp_Serialize(entityId, u, (uint)updates.Count, &len);
 
+                bool didSend = false;
                 if(ptr != null && len > 0)
                 {
                     Console.WriteLine("[success] serialized ComponentUpdateOp message for client.");
@@ -400,6 +423,12 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                         CountSend(destination, sent.ComponentId);
                     }
 
+                    didSend = true;
+                }
+                // Release the serialize buffer (FIX 2 ownership contract); NULL-safe.
+                EnetLayer.PB_Free(ptr);
+                if (didSend)
+                {
                     return true;
                 }
             }
@@ -417,6 +446,8 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 if (ptr == null || len <= 0)
                 {
                     Console.WriteLine("[error] failed to serialize AuthorityChangeOp for component");
+                    // NULL-safe; releases a serialized-but-not-sent buffer (FIX 2).
+                    EnetLayer.PB_Free(ptr);
                     return false;
                 }
 
@@ -424,6 +455,8 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.AUTHORITY_CHANGE_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
                 CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.AUTHORITY_CHANGE_OP));
 
+                // Release the serialize buffer (FIX 2 ownership contract); ENet_Send copied.
+                EnetLayer.PB_Free(ptr);
                 return true;
             }
         }

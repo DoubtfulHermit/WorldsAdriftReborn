@@ -48,6 +48,9 @@ void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpda
 bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count) {
     return PB_ComponentUpdateOp_Deserialize(data, len, entityId, componentUpdateOp, componentUpdateOp_count);
 }
+void __cdecl PB_EXP_Free(void* handle) {
+    PB_Free(handle);
+}
 
 int ENet_Initialize() {
     return enet_initialize();
@@ -220,6 +223,25 @@ void ENet_Flush(ENetHost* client) {
     enet_host_flush(client);
 }
 
+// Frees a buffer handed out by any PB_*_Serialize. The argument MUST be the exact
+// pointer that was returned (a new[]-allocated block); NULL is a safe no-op. See
+// the ownership contract in enetLayer.h.
+void PB_Free(void* handle) {
+    delete[] static_cast<unsigned char*>(handle);
+}
+
+// Copies a just-serialized protobuf payload into a fresh caller-owned buffer and
+// hands back ownership (freed via PB_Free). Central so all six serialize exports
+// share ONE allocation/ownership path. Returning std::string::data() directly -
+// what these functions used to do - leaked the std::string on every send.
+static void* PB_TakeOwnership(const std::string& serialized, int* len) {
+    std::size_t n = serialized.size();
+    unsigned char* out = new unsigned char[n];
+    memcpy(out, serialized.data(), n);
+    *len = static_cast<int>(n);
+    return out;
+}
+
 void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     if (op == NULL || len == NULL) {
         if (len != NULL) {
@@ -243,10 +265,9 @@ void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
         pb_op->set_url(op->Url);
     }
     
-    std::string* serialized = new std::string();
+    std::string serialized;
 
-    if (!pb_op->SerializeToString(serialized)) {
-        delete serialized;
+    if (!pb_op->SerializeToString(&serialized)) {
         delete pb_op;
 
         *len = 0;
@@ -254,9 +275,10 @@ void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     }
 
     delete pb_op;
-    *len = serialized->size();
 
-    return (void*)serialized->data();
+    // Hand back a caller-owned copy (freed via PB_Free). Returning
+    // serialized.data() leaked the std::string on every send - see FIX 2.
+    return PB_TakeOwnership(serialized, len);
 }
 
 bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadRequestOp* op) {
@@ -322,10 +344,9 @@ void* PB_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId
         pb_op->set_prefabname(op->PrefabName);
     }
 
-    std::string* serialized = new std::string();
+    std::string serialized;
 
-    if (!pb_op->SerializeToString(serialized)) {
-        delete serialized;
+    if (!pb_op->SerializeToString(&serialized)) {
         delete pb_op;
 
         *len = 0;
@@ -333,9 +354,10 @@ void* PB_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId
     }
 
     delete pb_op;
-    *len = serialized->size();
 
-    return (void*)serialized->data();
+    // Hand back a caller-owned copy (freed via PB_Free). Returning
+    // serialized.data() leaked the std::string on every send - see FIX 2.
+    return PB_TakeOwnership(serialized, len);
 }
 
 bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op) {
@@ -390,10 +412,9 @@ void* PB_SendComponentInterest_Serialize(long entityId, InterestOverride* intere
         io->set_isinterested(interest_override[i].IsInterested);
     }
 
-    std::string* serialized = new std::string();
+    std::string serialized;
 
-    if (!pb_op->SerializeToString(serialized)) {
-        delete serialized;
+    if (!pb_op->SerializeToString(&serialized)) {
         delete pb_op;
 
         *len = 0;
@@ -401,9 +422,10 @@ void* PB_SendComponentInterest_Serialize(long entityId, InterestOverride* intere
     }
 
     delete pb_op;
-    *len = serialized->size();
 
-    return (void*)serialized->data();
+    // Hand back a caller-owned copy (freed via PB_Free). Returning
+    // serialized.data() leaked the std::string on every send - see FIX 2.
+    return PB_TakeOwnership(serialized, len);
 }
 
 bool PB_SendComponentInterest_Deserialize(const void* data, int len, long* entityId, InterestOverride** interest_override, unsigned int* interest_override_count) {
@@ -455,10 +477,9 @@ void* PB_AddComponentOp_Serialize(long entityId, PB_AddComponentOp* addComponent
         data->set_datalength(addComponentOp[i].DataLength);
     }
 
-    std::string* serialized = new std::string();
+    std::string serialized;
 
-    if (!pb_op->SerializeToString(serialized)) {
-        delete serialized;
+    if (!pb_op->SerializeToString(&serialized)) {
         delete pb_op;
 
         *len = 0;
@@ -466,9 +487,10 @@ void* PB_AddComponentOp_Serialize(long entityId, PB_AddComponentOp* addComponent
     }
 
     delete pb_op;
-    *len = serialized->size();
 
-    return (void*)serialized->data();
+    // Hand back a caller-owned copy (freed via PB_Free). Returning
+    // serialized.data() leaked the std::string on every send - see FIX 2.
+    return PB_TakeOwnership(serialized, len);
 }
 
 bool PB_AddComponentOp_Deserialze(const void* data, int len, long* entityId, PB_AddComponentOp** addComponentOp, unsigned int* addComponentOp_count) {
@@ -521,10 +543,9 @@ void* PB_AuthorityChangeOp_Serialize(long entityId, Stripped_AuthorityChangeOp* 
         op->set_hasauthority(authorityChangeOp[i].HasAuthority);
     }
 
-    std::string* serialized = new std::string();
+    std::string serialized;
 
-    if (!pb_op->SerializeToString(serialized)) {
-        delete serialized;
+    if (!pb_op->SerializeToString(&serialized)) {
         delete pb_op;
 
         *len = 0;
@@ -532,9 +553,10 @@ void* PB_AuthorityChangeOp_Serialize(long entityId, Stripped_AuthorityChangeOp* 
     }
 
     delete pb_op;
-    *len = serialized->size();
 
-    return (void*)serialized->data();
+    // Hand back a caller-owned copy (freed via PB_Free). Returning
+    // serialized.data() leaked the std::string on every send - see FIX 2.
+    return PB_TakeOwnership(serialized, len);
 }
 
 bool PB_AuthorityChangeOp_Deserialize(const void* data, int len, long* entityId, Stripped_AuthorityChangeOp** authorityChangeOp, unsigned int* authorityChangeOp_count) {
@@ -586,10 +608,9 @@ void* PB_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpdateOp* compon
         data->set_datalength(componentUpdateOp[i].DataLength);
     }
 
-    std::string* serialized = new std::string();
+    std::string serialized;
 
-    if (!pb_op->SerializeToString(serialized)) {
-        delete serialized;
+    if (!pb_op->SerializeToString(&serialized)) {
         delete pb_op;
 
         *len = 0;
@@ -597,9 +618,10 @@ void* PB_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpdateOp* compon
     }
 
     delete pb_op;
-    *len = serialized->size();
 
-    return (void*)serialized->data();
+    // Hand back a caller-owned copy (freed via PB_Free). Returning
+    // serialized.data() leaked the std::string on every send - see FIX 2.
+    return PB_TakeOwnership(serialized, len);
 }
 
 bool PB_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count) {

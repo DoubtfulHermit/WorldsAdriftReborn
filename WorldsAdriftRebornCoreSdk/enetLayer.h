@@ -53,6 +53,10 @@ DLL_EXPORT void* __cdecl PB_EXP_AuthorityChangeOp_Serialize(long entityId, Strip
 DLL_EXPORT void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpdateOp* componentUpdateOp, unsigned int componentUpdateOp_count, int* len);
 DLL_EXPORT bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count);
 
+// Frees a buffer previously returned by any PB_*_Serialize export. See the
+// ownership contract on PB_Free below. NULL is a safe no-op.
+DLL_EXPORT void __cdecl PB_EXP_Free(void* handle);
+
 int ENet_Initialize();
 // set port to 0 if you are a client
 ENetHost* ENet_Create_Host(int port, int maxConnections, int maxChannels, int inBandwidth, int outBandwidth);
@@ -92,3 +96,20 @@ void* PB_AuthorityChangeOp_Serialize(long entityId, Stripped_AuthorityChangeOp* 
 bool PB_AuthorityChangeOp_Deserialize(const void* data, int len, long* entityId, Stripped_AuthorityChangeOp** authorityChangeOp, unsigned int* authorityChangeOp_count);
 void* PB_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpdateOp* componentUpdateOp, unsigned int componentUpdateOp_count, int* len);
 bool PB_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count);
+
+/*
+ * OWNERSHIP CONTRACT for the six PB_*_Serialize functions above.
+ *
+ * Each returns a buffer allocated with new[] that is OWNED BY THE CALLER, with
+ * *len set to its size, or NULL on bad args / serialize failure (with *len 0,
+ * nothing to free). The caller MUST hand a non-NULL return value back to PB_Free
+ * exactly once, after it has consumed the bytes.
+ *
+ * The bytes are consumed synchronously: every caller passes the pointer to
+ * ENet_Send, whose enet_packet_create COPIES it (memcpy - ENET_PACKET_FLAG_
+ * NO_ALLOCATE is never set on these sends), so nothing in ENet keeps the pointer
+ * and the caller frees immediately after ENet_Send returns. Before this contract
+ * existed the functions returned std::string::data() and the owning std::string
+ * was never deleted on success - a leak on EVERY send, in client and server.
+ */
+void PB_Free(void* handle);
