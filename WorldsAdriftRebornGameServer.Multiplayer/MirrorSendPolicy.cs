@@ -128,6 +128,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const uint TreeCutterStateComponentId = 1037;
 
         /// <summary>
+        /// InteractAgentState: the client-authoritative "what am I looking at,
+        /// which hotbar slot is active, is the use key down" state.
+        ///
+        /// This is the component that turns HOTBAR TOOL-SWITCHING on. The sole
+        /// reader of the SelectItem1..8 inputs (keys 1-8) is
+        /// <c>InteractAgentObserver</c>, and that behaviour carries
+        /// <c>[Require] InteractAgentStateWriter</c>. The injection system enables
+        /// a behaviour only once EVERY <c>[Require]</c> writer is injected, and a
+        /// WRITER is injected only for a component the client holds AUTHORITY over.
+        /// So until 1211 is in <see cref="AuthoritativeComponents"/> the observer
+        /// never enables, its <c>InputSink</c> (which owns SelectItem1..8) is never
+        /// turned on, and pressing 1-8 does literally nothing - the reported
+        /// symptom. Decompiled evidence: Assembly-CSharp InteractAgentObserver
+        /// (the SelectItem1..8 loop writes <c>CurrentItemSlot</c>, which drives
+        /// <c>HotBarScreen.SelectHotBarSlot</c>).
+        /// </summary>
+        public const uint InteractAgentStateComponentId = 1211;
+
+        /// <summary>
         /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
         /// (2105), MultitoolSalvagerState (2106), MultitoolRepairerState (2002).
         ///
@@ -154,14 +173,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// 1037 are what let the server HEAR a chop; 2105/2106/2002 are what let
         /// the beam exist at all.
         ///
-        /// 1211 InteractAgentState is deliberately NOT here. Granting it equips the
-        /// gauntlet, whose input sink is priority class PlayerItem (3) against
-        /// InteractAgent's (2), so it takes the LEFT MOUSE BUTTON away from the
-        /// component that would otherwise report it. Chopping does not need 1211 -
-        /// it is not an interaction verb, the tree has no
-        /// <c>InteractiveObjectVisualizer</c> and no "press E" prompt - so adding
-        /// it here would buy nothing and cost the left mouse button. See
-        /// docs/research/loop/findings-harvest-transaction.md section 2.
+        /// 1211 InteractAgentState IS granted here, and that is the fix for dead
+        /// hotbar tool-switching (keys 1-8 doing nothing). See
+        /// <see cref="InteractAgentStateComponentId"/> for why the switch is
+        /// impossible without it: <c>InteractAgentObserver</c> is the only reader
+        /// of SelectItem1..8, it needs the 1211 WRITER to enable, and a writer
+        /// only exists for an authoritative component.
+        ///
+        /// KNOWN TRADEOFF, flagged loud because it reverses a prior decision. An
+        /// earlier harvest investigation deliberately KEPT 1211 out, on the grounds
+        /// that enabling the InteractAgent input path claims the LEFT MOUSE BUTTON
+        /// (UseLeftHand, read here to fire <c>TriggerUseItemKeyPressed</c>) and so
+        /// competes with the SalvagerAimer chop hack for the same button
+        /// (docs/research/loop/findings-harvest-transaction.md section 2). That
+        /// concern was about the CHOP feature, not tool-switching, and granting
+        /// 1211 turns on the game's NATIVE tool-use path rather than the salvager
+        /// workaround. Which of the two wins the left mouse button when both are
+        /// live has never been run - it is the one item in this change that a live
+        /// client must confirm. Tool-SWITCHING itself (the deliverable) does not
+        /// touch the left mouse button at all.
         /// </summary>
         public static readonly IReadOnlyList<uint> AuthoritativeComponents = new uint[]
         {
@@ -172,6 +202,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             RopeControlPointsComponentId,
             SalvagerAimerStateComponentId,
             TreeCutterStateComponentId,
+            InteractAgentStateComponentId,
             2105, 2106, 2002,
         };
 
@@ -235,15 +266,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Whether an inbound component update is worth forwarding to the OTHER
         /// players' mirrors of the sender.
         ///
-        /// 1231 and 1037 are filtered out, for a reason stronger than bandwidth.
-        /// <c>RelayToOtherPlayers</c> re-addresses every relayed update to the
-        /// SENDER's own entity id, which is right for a position and wrong for
-        /// these two: their payloads are aiming state whose meaning is a reference
-        /// to a THIRD entity (the tree), interpreted by behaviours that exist only
-        /// on the local rig. A remote Traveller@Default has neither component
-        /// seeded and no <c>SalvagerAimerObserver</c> to read them, so the best
-        /// case is that every peer decodes and discards a packet at raycast rate,
-        /// reliably-ordered, on the same channel that carries movement.
+        /// 1231, 1037 and 1211 are filtered out, for a reason stronger than
+        /// bandwidth. <c>RelayToOtherPlayers</c> re-addresses every relayed update
+        /// to the SENDER's own entity id, which is right for a position and wrong
+        /// for these: their payloads reference a THIRD entity, interpreted by
+        /// behaviours that exist only on the local rig. 1231/1037 aim at the tree;
+        /// 1211 InteractAgentState carries LookingAt / LookingAtInteractive entity
+        /// ids and the local hotbar slot, read only by <c>InteractAgentObserver</c>
+        /// - which the remote Traveller@Default neither seeds nor runs. Worse, like
+        /// the aim state it is published every frame (the observer's
+        /// <c>FinishAndSend</c> fires each Update as the look point moves), so
+        /// relaying it means every peer decodes and discards a packet at frame rate,
+        /// reliably-ordered, on the channel that carries movement.
         ///
         /// The three multitool components are deliberately NOT filtered. They are
         /// the beam's own state - on/off, engaged, mode - and are the raw material
@@ -256,7 +290,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
-                && componentId != TreeCutterStateComponentId;
+                && componentId != TreeCutterStateComponentId
+                && componentId != InteractAgentStateComponentId;
         }
 
         /// <summary>

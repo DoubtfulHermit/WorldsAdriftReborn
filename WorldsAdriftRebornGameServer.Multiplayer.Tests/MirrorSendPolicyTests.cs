@@ -195,15 +195,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void InteractAgentState_is_never_granted_because_it_swallows_the_left_mouse_button()
+        public void Clients_are_granted_authority_over_InteractAgentState_or_hotbar_keys_1_to_8_do_nothing()
         {
-            // Granting 1211 equips the gauntlet, whose input sink is priority class
-            // PlayerItem (3) against InteractAgent's (2) - so it takes UseLeftHand
-            // away from the component that would otherwise report it. Chopping does
-            // not need it: harvesting is not an interaction verb, the tree carries
-            // no InteractiveObjectVisualizer and there is no "press E" prompt.
-            // docs/research/loop/findings-harvest-transaction.md section 2.
-            Assert.DoesNotContain(1211u, MirrorSendPolicy.AuthoritativeComponents);
+            // 1211 is the fix for dead tool-switching. InteractAgentObserver is the
+            // ONLY reader of the SelectItem1..8 inputs (keys 1-8), and it carries
+            // [Require] InteractAgentStateWriter. The injection system enables a
+            // behaviour only once every [Require] writer is injected, and a writer
+            // exists only for an authoritative component. Without the grant the
+            // observer never enables, its InputSink never turns on, and pressing
+            // 1-8 does nothing - the reported symptom.
+            //
+            // This REVERSES an earlier harvest-driven decision to keep 1211 out
+            // (it also claims the left mouse button; see the AuthoritativeComponents
+            // doc-comment and findings-harvest-transaction.md section 2). That
+            // tradeoff touches the CHOP feature, not tool-switching, and needs a
+            // live client to settle. Tool-switching does not require it here.
+            Assert.Contains(1211u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.Contains(MirrorSendPolicy.InteractAgentStateComponentId,
+                            MirrorSendPolicy.AuthoritativeComponents);
         }
 
         [Fact]
@@ -296,13 +305,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Theory]
         [InlineData(1231u)] // SalvagerAimerState: where my beam points
         [InlineData(1037u)] // TreeCutterState: which tree section it landed on
-        public void Aim_state_is_never_relayed_to_other_players(uint componentId)
+        [InlineData(1211u)] // InteractAgentState: what I'm looking at + my hotbar slot
+        public void Local_only_cross_entity_state_is_never_relayed_to_other_players(uint componentId)
         {
             // Not a bandwidth argument. RelayToOtherPlayers re-addresses every
             // relayed update to the SENDER's own entity id, which is right for a
             // position and wrong for a payload whose meaning is a reference to a
-            // THIRD entity - the tree - read by behaviours that exist only on a
-            // local rig. A remote Traveller@Default has neither component seeded.
+            // THIRD entity - the tree, or the entity being looked at - read by
+            // behaviours that exist only on a local rig. A remote Traveller@Default
+            // seeds none of these components and runs none of their observers.
             Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(componentId));
         }
 
@@ -325,7 +336,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_two_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_three_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
@@ -339,7 +350,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1037, 1231 }, filtered);
+            Assert.Equal(new uint[] { 1037, 1211, 1231 }, filtered);
         }
 
         // ------------------------------------------------------------------
