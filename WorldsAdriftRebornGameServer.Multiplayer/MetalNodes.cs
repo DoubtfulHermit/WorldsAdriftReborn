@@ -210,8 +210,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </param>
         public static IReadOnlyList<MetalNode> Haven(bool onlyProven = false)
         {
+            return Haven(onlyProven ? 1 : HavenPlacements.Count);
+        }
+
+        /// <summary>
+        /// The FIRST <paramref name="count"/> nodes to place on Haven, as pure
+        /// <see cref="MetalNode"/> values. Placement index 0 is the proven node, so
+        /// any count &gt;= 1 keeps it; the count is clamped to [0, the full table]
+        /// so an over-large or negative <c>WAREBORN_ORE_COUNT</c> cannot throw.
+        /// This is the env-capped variant (see <see cref="SpawnCountPolicy"/>); the
+        /// boolean overload is the cautious "proven node only" first-live mode.
+        /// </summary>
+        public static IReadOnlyList<MetalNode> Haven(int count)
+        {
             List<MetalNode> nodes = new List<MetalNode>();
-            int count = onlyProven ? 1 : HavenPlacements.Count;
+            if (count > HavenPlacements.Count)
+            {
+                count = HavenPlacements.Count;
+            }
             for (int i = 0; i < count; i++)
             {
                 Placement p = HavenPlacements[i];
