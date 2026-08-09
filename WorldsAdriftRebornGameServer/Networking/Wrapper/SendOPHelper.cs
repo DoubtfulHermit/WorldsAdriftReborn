@@ -261,7 +261,18 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
         /// component ids in play, so it cannot round-trip most of them, and
         /// re-serializing would add failure modes for no benefit.
         /// </summary>
-        public static unsafe bool SendRawComponentUpdateOp(ENetPeerHandle destination, long entityId, uint componentId, byte[] data)
+        /// <param name="forceReliable">
+        /// Overrides <see cref="Multiplayer.MirrorSendPolicy.RelayReliabilityFor"/>
+        /// for this one send. null (the default) keeps the per-component policy -
+        /// the raw relay and the movement emitter both rely on it. The 6910
+        /// event relay passes <c>true</c>: it emits a glider/tool on-off
+        /// TRANSITION, not the per-frame stream the policy still classifies 6910
+        /// as, and a dropped transition never comes back (the glider stays stuck).
+        /// Keeping the policy at Unreliable preserves the defence-in-depth against
+        /// the raw path ever being re-enabled; the override is local to the one
+        /// caller that has already made 6910 low-rate.
+        /// </param>
+        public static unsafe bool SendRawComponentUpdateOp(ENetPeerHandle destination, long entityId, uint componentId, byte[] data, bool? forceReliable = null)
         {
             if (data == null || data.Length == 0)
             {
@@ -292,7 +303,9 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                         // stutter over the internet. Everything else stays reliable.
                         // The classification itself lives in MirrorSendPolicy so it
                         // is testable without a packet.
-                        bool highRate = Multiplayer.MirrorSendPolicy.RelayReliabilityFor(componentId)
+                        bool highRate = forceReliable.HasValue
+                            ? !forceReliable.Value
+                            : Multiplayer.MirrorSendPolicy.RelayReliabilityFor(componentId)
                                         == Multiplayer.RelayReliability.Unreliable;
                         EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len,
                             (int)(highRate ? ENetPacketFlag.UNRELIABLE : ENetPacketFlag.RELIABLE));
