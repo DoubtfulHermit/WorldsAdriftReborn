@@ -306,15 +306,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1231u)] // SalvagerAimerState: where my beam points
         [InlineData(1037u)] // TreeCutterState: which tree section it landed on
         [InlineData(1211u)] // InteractAgentState: what I'm looking at + my hotbar slot
-        [InlineData(6910u)] // UtilitySlotActivatedState: local per-frame "beam on" flag, no remote consumer
+        [InlineData(6910u)] // UtilitySlotActivatedState: kept off the RAW path (rate); relayed as events by its handler
         public void Local_only_cross_entity_state_is_never_relayed_to_other_players(uint componentId)
         {
-            // Not a bandwidth argument. RelayToOtherPlayers re-addresses every
-            // relayed update to the SENDER's own entity id, which is right for a
-            // position and wrong for a payload whose meaning is a reference to a
-            // THIRD entity - the tree, or the entity being looked at - read by
-            // behaviours that exist only on a local rig. A remote Traveller@Default
-            // seeds none of these components and runs none of their observers.
+            // For 1231/1037/1211 this is not a bandwidth argument:
+            // RelayToOtherPlayers re-addresses every relayed update to the SENDER's
+            // own entity id, which is right for a position and wrong for a payload
+            // whose meaning is a reference to a THIRD entity - the tree, or the
+            // entity being looked at - read by behaviours that exist only on a
+            // local rig.
+            //
+            // 6910 is here for a DIFFERENT reason and is the odd one out: it IS
+            // consumed on the remote rig (UtilitySlotActivatedVisualizer renders
+            // the glider + tool-in-hand from it, live-verified) and carries no
+            // cross-entity reference. It is kept off the RAW per-frame path only
+            // because that path relays every ~170/s health frame; it is relayed
+            // instead as low-rate bool transitions by UtilitySlotActivatedState_Handler.
             Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(componentId));
         }
 

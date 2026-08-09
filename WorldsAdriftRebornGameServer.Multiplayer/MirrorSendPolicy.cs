@@ -287,16 +287,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// crosshair moves) and they carry no cross-entity reference to be
         /// misread.
         /// </summary>
-        /// 6910 UtilitySlotActivatedState is ALSO filtered, learned the hard way on
-        /// 2026-08-09: it is the acting player's LOCAL "my tool beam is on this
-        /// frame" flag, republished every active frame (~170/s while harvesting),
-        /// and NOTHING on a remote rig consumes it. Relaying it - even unreliably -
-        /// bufferbloated the link the instant two players harvested (RTT 24 ms ->
-        /// 5 s in lockstep with the 6910 rate, in-flight ~0), and dropped a peer.
-        /// The other player seeing a tree deplete rides TreeCutterState -> Harvest,
-        /// NOT this flag, so filtering it costs nothing visible and removes the
-        /// single largest chunk of relay traffic. (It stays Unreliable in
-        /// RelayReliabilityFor too, as defence-in-depth if relay is ever restored.)
+        /// 6910 UtilitySlotActivatedState is filtered OUT OF THE RAW PATH here, but
+        /// - unlike the three above - it IS relayed, as a low-rate event, by
+        /// UtilitySlotActivatedState_Handler. The distinction is rate, not consumer.
+        ///
+        /// CORRECTION (2026-08, live-verified): an earlier note here claimed
+        /// "NOTHING on a remote rig consumes it". That was WRONG. The remote
+        /// Traveller@Default rig's UtilitySlotActivatedVisualizer DOES read 6910 and
+        /// renders from it: both the deployed glider (a body utility) and the
+        /// tool-in-hand were seen on remotes while 6910 was relayed, and vanished
+        /// the instant it was filtered. The ONLY problem was RATE. 6910 carries
+        /// three slot-active BOOLS plus six utility-HEALTH floats; the client's
+        /// writer sends all nine every frame but the generated ResolveDiff clears
+        /// unchanged fields, so the ~170/s spam that bufferbloated the link on
+        /// 2026-08-09 (RTT 24 ms -> 5 s, peer dropped) is HEALTH frames - the bools
+        /// flip only on a deploy/retract/equip. Blanket per-frame relay stays off
+        /// here; the handler forwards only the bool TRANSITIONS (health-only frames
+        /// dropped), which restores the glider+tool visual at a handful of packets.
+        /// (6910 stays Unreliable in RelayReliabilityFor as defence-in-depth for the
+        /// raw path; the handler forces its own event sends reliable.)
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
