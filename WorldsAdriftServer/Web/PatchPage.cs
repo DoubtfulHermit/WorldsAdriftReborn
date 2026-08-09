@@ -9,9 +9,10 @@ namespace WorldsAdriftServer.Web
     ///
     /// Self-contained and themed to match <see cref="SignupPage"/> (same airship
     /// palette, light/dark aware). The page is static; it fetches the live
-    /// manifest client-side from /patch/manifest.json, which Caddy serves from
-    /// the static patch dir on the VPS - so this never has to read the manifest
-    /// off disk and always reflects whatever was last rsynced.
+    /// manifest client-side from /patch/manifest.json, which this login server
+    /// serves off the host patch dir (see PatchFilesHandler) - so this page never
+    /// has to read the manifest off disk and always reflects whatever was last
+    /// published.
     /// </summary>
     internal static class PatchPage
     {

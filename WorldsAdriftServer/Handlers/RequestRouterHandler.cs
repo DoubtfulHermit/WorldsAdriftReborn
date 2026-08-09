@@ -2,6 +2,7 @@
 using NetCoreServer;
 using WorldsAdriftServer.Handlers.Admin;
 using WorldsAdriftServer.Handlers.Authentication;
+using WorldsAdriftServer.Handlers.Patch;
 using WorldsAdriftServer.Handlers.CharacterScreen;
 using WorldsAdriftServer.Handlers.ServerStatus;
 using WorldsAdriftServer.Persistence;
@@ -32,6 +33,17 @@ namespace WorldsAdriftServer.Handlers
                     return;
                 }
 
+                // The patch manifest and files are static bytes read off the host
+                // patch dir. They are served HERE, by this native process, because
+                // the Caddy in front of the public host is a container that cannot
+                // see host paths - a file_server would 404. Self-contained and
+                // security-gated (path-traversal policy); the /patch HTML index
+                // below is a separate, human-facing route.
+                if (PatchFilesHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 if(request.Method == "POST" && request.Url == "/authenticate")
                 {
                     SteamAuthenticationHandler.HandleAuthRequest(this, request);
@@ -47,8 +59,8 @@ namespace WorldsAdriftServer.Handlers
                 else if (request.Method == "GET" && (request.Url == "/patch" || request.Url == "/patch/"))
                 {
                     // The human-readable index of the latest client patch. The
-                    // manifest and the files themselves are static bytes served
-                    // by Caddy from the patch dir (/patch/manifest.json,
+                    // manifest and the files themselves are served by
+                    // PatchFilesHandler above (/patch/manifest.json,
                     // /patch/files/*); this page just fetches that manifest
                     // client-side and lists it. Same self-contained, themed
                     // style as the sign-up page.

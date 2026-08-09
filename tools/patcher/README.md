@@ -149,28 +149,29 @@ On-disk result:
 
 Add this **inside the existing `wareborn.ratlabs.cc { ... }` block** in
 `/root/Avatar/Caddyfile`, alongside the `/signup`, `/register`, `/admin*`
-routes. Replace `LOGIN_UPSTREAM` with the **same upstream the existing `/signup`
-route proxies to** (the login server).
+routes.
 
 ```caddy
 # --- client patcher -------------------------------------------------------
-# Static payload: request /patch/<x> maps to /opt/wareborn/patch/<x>
-# (so /patch/manifest.json -> /opt/wareborn/patch/manifest.json).
-@patch_static path /patch/manifest.json /patch/files/*
-handle @patch_static {
-    root * /opt/wareborn
-    file_server
-}
-
-# The human-readable index page is served by the login server, like /signup.
-handle /patch {
-    reverse_proxy LOGIN_UPSTREAM
+# The index page, the manifest, and every file are all served by the login
+# server (like /signup). ALL of /patch* proxies to it.
+handle /patch* {
+    reverse_proxy 127.0.0.1:8085
 }
 # --------------------------------------------------------------------------
 ```
 
-Then reload Caddy (`caddy reload --config /root/Avatar/Caddyfile`, or however the
-gateway reloads it).
+> **Why not `file_server` from `/opt/wareborn/patch`?** The Caddy that fronts
+> this host is a **Docker container** (host networking, but its own filesystem);
+> it cannot see host paths, so `docker exec caddy ls /opt/wareborn/patch` is
+> "No such file" and a `file_server`/`root` approach 404s. The login server is a
+> native host process that *can* read the patch dir, so it serves the bytes and
+> Caddy just proxies. Do **not** add `@patch_static`/`root`/`file_server` lines;
+> if an old config has them, delete them - the single `handle /patch*` above
+> replaces the whole thing.
+
+Then reload Caddy (`docker exec caddy caddy reload --config /etc/caddy/Caddyfile
+--adapter caddyfile`; validate first with `caddy validate`).
 
 ### 3c. Verify
 
@@ -181,7 +182,8 @@ curl -sSI https://wareborn.ratlabs.cc/patch/files/zlib1.dll | head -1  # 200
 # and open https://wareborn.ratlabs.cc/patch in a browser
 ```
 
-The login server also needs the `/patch` route, which is already wired in
-`WorldsAdriftServer` (`RequestRouterHandler` + `Web/PatchPage.cs`) - so a
-redeploy of the login server is what turns the index page on. The static files
-are independent of that and served entirely by Caddy.
+All three routes live in the login server: the index page
+(`RequestRouterHandler` + `Web/PatchPage.cs`) and the manifest + files
+(`Handlers/Patch/PatchFilesHandler.cs` + `Patch/PatchFilePathPolicy.cs`, reading
+`<WAREBORN_PATCH_DIR or /opt/wareborn/patch>`). So a **redeploy of the login
+server** is what turns all of `/patch*` on; Caddy only proxies.
