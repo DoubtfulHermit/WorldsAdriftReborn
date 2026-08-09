@@ -319,11 +319,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// stalls the whole channel on any loss, which reads as stutter over the
         /// internet. Everything else stays reliable, because a dropped one-shot
         /// (appearance, glider state, rope) never comes back.
+        ///
+        /// 6910 UtilitySlotActivatedState belongs with the high-rate streams, and
+        /// missing it here is what regressed two-player sync on 2026-08-09: once
+        /// the hotbar fix (1211) made tools usable, firing a tool republishes 6910
+        /// EVERY active frame (measured ~140/s), and it was relayed RELIABLY.
+        /// Two players chopping = a reliable-send backlog (16 KB in-flight, RTT
+        /// 1.7 s) and a peer drop - the exact congestion spiral we removed from
+        /// movement. It is a "slot active THIS frame" flag, superseded every tick,
+        /// so unreliable is not just safe but correct: a dropped frame of "the
+        /// beam is on" is invisible; a reliable backlog is fatal. The other
+        /// trigger-based multitool components (2105/2106/2002 - on/off/mode) stay
+        /// reliable: they are one-shots, and a dropped state change never returns.
         /// </summary>
         public static RelayReliability RelayReliabilityFor(uint componentId)
         {
             return componentId == TransformStateComponentId
                 || componentId == ClientAuthoritativePlayerStateComponentId
+                || componentId == UtilitySlotActivatedStateComponentId
                 ? RelayReliability.Unreliable
                 : RelayReliability.Reliable;
         }

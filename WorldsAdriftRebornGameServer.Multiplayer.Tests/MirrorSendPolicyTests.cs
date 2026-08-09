@@ -369,10 +369,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(RelayReliability.Unreliable, MirrorSendPolicy.RelayReliabilityFor(1073));
         }
 
+        [Fact]
+        public void UtilitySlotActivatedState_is_relayed_unreliably_because_it_republishes_every_active_frame()
+        {
+            // 6910 fires every frame a tool is active (~140/s measured). Relaying
+            // it RELIABLY spiralled two-player sync on 2026-08-09 (16 KB in-flight,
+            // RTT 1.7 s, peer drop) - the same congestion we removed from movement.
+            // It is a per-frame flag, so a dropped packet is invisible.
+            Assert.Equal(RelayReliability.Unreliable, MirrorSendPolicy.RelayReliabilityFor(6910));
+        }
+
         [Theory]
         [InlineData(1088u)] // PlayerPropertiesState: appearance, published ONCE at spawn
         [InlineData(1098u)] // RopeControlPoints: grapple line
-        [InlineData(6910u)] // UtilitySlotActivatedState: glider open/closed
         [InlineData(1086u)] // PlayerName
         [InlineData(1081u)] // InventoryState
         [InlineData(0u)]
@@ -382,15 +391,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Only_the_two_known_high_rate_streams_are_ever_unreliable()
+        public void Only_the_three_known_high_rate_streams_are_ever_unreliable()
         {
             // Sweep a wide id range rather than trusting a hand-picked list: a
             // future "this one is chatty too" edit has to come here first.
-            for (uint id = 0; id < 2000; id++)
+            // The three high-rate streams: 1073, 190602, 6910.
+            var unreliable = new HashSet<uint> { 1073u, 190602u, 6910u };
+            for (uint id = 0; id < 200000; id++)
             {
                 if (MirrorSendPolicy.RelayReliabilityFor(id) == RelayReliability.Unreliable)
                 {
-                    Assert.Equal(1073u, id);
+                    Assert.Contains(id, unreliable);
                 }
             }
         }
