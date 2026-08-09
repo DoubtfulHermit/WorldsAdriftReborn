@@ -165,6 +165,10 @@ namespace WorldsAdriftRebornGameServer
             PeerManager.Instance.playerState.Remove(peer);
             PeerManager.Instance.clientSetupState.Remove(peer);
 
+            // The peer's spawn-pacing metronome. Left behind, a reused handle would
+            // inherit a stale nextDue and mis-pace the next joiner on that slot.
+            SpawnPacers.Remove(peer);
+
             // The peer's wire-metrics window. Left behind it would keep emitting
             // an all-zero [rates] line for a ghost every five seconds, forever.
             Rates.Forget(peerId);
@@ -294,6 +298,30 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static readonly int DrainBudget =
             PollDrainPolicy.BudgetFrom(Environment.GetEnvironmentVariable("WAREBORN_DRAIN_BUDGET"));
+
+        /// <summary>
+        /// The floor on how OFTEN a new AfterPlayer world entity is allowed to
+        /// START loading on a joining client. The spawn handshake is already
+        /// ack-gated per step, but on a LAN the acks come back in a couple of
+        /// milliseconds, so ~44 world entities drain back-to-back the instant the
+        /// loading screen lifts and the client's SYNCHRONOUS asset loader turns
+        /// that into one long first-load hitch. Spacing each AfterPlayer entity's
+        /// RequestAsset by this interval fades the world in over a second or two
+        /// instead. Overridable via WAREBORN_SPAWN_PACE_MS; 0 disables pacing (the
+        /// old one-burst behaviour). See <see cref="SpawnPacePolicy"/>.
+        /// </summary>
+        private static readonly TimeSpan SpawnPaceInterval =
+            SpawnPacePolicy.IntervalFrom(Environment.GetEnvironmentVariable("WAREBORN_SPAWN_PACE_MS"));
+
+        /// <summary>
+        /// One pacing metronome per joining peer, so two clients joining at once
+        /// each stream at the full rate rather than sharing one budget. Created
+        /// lazily on a peer's first paced step and dropped in ForgetPeer on
+        /// disconnect. Only ever touched from the single-threaded main loop and
+        /// the ENet callbacks it drives, so it needs no lock. See
+        /// <see cref="SpawnPacePolicy"/> and <see cref="CadenceTimer"/>.
+        /// </summary>
+        private static readonly Dictionary<ENetPeerHandle, CadenceTimer> SpawnPacers = new();
 
         /// <summary>
         /// Rate-limiter for the per-packet crash-isolation catch below. A modified
@@ -773,7 +801,9 @@ namespace WorldsAdriftRebornGameServer
         /// exactly two possible answers and now has one per registration.
         /// </summary>
         internal static readonly WorldEntityRegistry WorldEntities =
-            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven);
+            Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven,
+                Environment.GetEnvironmentVariable("WAREBORN_TREE_COUNT"),
+                Environment.GetEnvironmentVariable("WAREBORN_ORE_COUNT"));
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -843,6 +873,22 @@ namespace WorldsAdriftRebornGameServer
             EntityIds.IslandAllocated ? EntityIds.SharedIslandEntityId : null;
 
         public static long NextEntityId => EntityIds.Next();
+
+        /// <summary>
+        /// The AfterPlayer pacing metronome for a peer, created on first use. One
+        /// per peer (see <see cref="SpawnPacers"/>); dropped in ForgetPeer when the
+        /// peer leaves. Only called when <see cref="SpawnPaceInterval"/> is
+        /// positive, so the CadenceTimer's "interval &gt; 0" contract always holds.
+        /// </summary>
+        private static CadenceTimer SpawnPacerFor(ENetPeerHandle peer)
+        {
+            if (!SpawnPacers.TryGetValue(peer, out CadenceTimer? pacer))
+            {
+                pacer = new CadenceTimer(SpawnPaceInterval);
+                SpawnPacers[peer] = pacer;
+            }
+            return pacer;
+        }
 
         /// <summary>
         /// Wire plumbing for one <see cref="SpawnPlanStep"/>. The policy decides
@@ -1397,6 +1443,32 @@ namespace WorldsAdriftRebornGameServer
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step)))
                 .ToList();
 
+            // Which plan steps are PACED: the RequestAsset that BEGINS each
+            // AfterPlayer world entity. Its AddEntity is not paced - it follows on
+            // the client's ack, unchanged. The player's own avatar (Entity == null)
+            // and every BeforePlayer entity (the ground) are never paced: they gate
+            // the loading screen and must go out immediately. Parallel to the
+            // WorldState list so the perform loop can index it by SyncStepPointer.
+            bool[] pacedStep = plan
+                .Select(s => s.Op == SpawnOp.RequestAsset
+                             && s.Entity != null
+                             && s.Entity.Order == SpawnOrder.AfterPlayer)
+                .ToArray();
+
+            int pacedCount = pacedStep.Count(p => p);
+            if (SpawnPacePolicy.IsEnabled(SpawnPaceInterval))
+            {
+                Console.WriteLine("[info] spawn pacing: " + pacedCount
+                    + " AfterPlayer entities released " + SpawnPaceInterval.TotalMilliseconds.ToString("0")
+                    + " ms apart (~" + SpawnPacePolicy.StreamDurationFor(pacedCount, SpawnPaceInterval).TotalSeconds.ToString("0.0")
+                    + " s to stream in); player + ground spawn immediately. WAREBORN_SPAWN_PACE_MS=0 disables.");
+            }
+            else
+            {
+                Console.WriteLine("[info] spawn pacing: OFF (WAREBORN_SPAWN_PACE_MS=0); "
+                    + pacedCount + " AfterPlayer entities drain as fast as the client acks.");
+            }
+
             while (keepRunning)
             {
                 // Fallback flush for parked mirror ops. The ack-driven flush only
@@ -1503,6 +1575,21 @@ namespace WorldsAdriftRebornGameServer
 
                     if (!pStatus.Performed)
                     {
+                        // Pace the step that BEGINS each AfterPlayer entity: if this
+                        // peer released one too recently, hold it for a later tick
+                        // (leave Performed false so it retries) instead of adding to
+                        // the first-load burst. The step is still ack-gated as
+                        // before - this only spaces the ready ones out in time.
+                        // Player + ground steps are never paced (pacedStep is false
+                        // for them) so they are never held back.
+                        if (SpawnPacePolicy.IsEnabled(SpawnPaceInterval)
+                            && pStatus.SyncStepPointer < pacedStep.Length
+                            && pacedStep[pStatus.SyncStepPointer]
+                            && !SpawnPacerFor(keyValuePair.Key).Due(ServerClock.Elapsed))
+                        {
+                            continue;
+                        }
+
                         step.Step(keyValuePair.Key);
                         pStatus.Performed = true;
                     }

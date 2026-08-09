@@ -384,9 +384,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// When true, places ONLY the single proven node. The cautious first-live
         /// mode the standing caveat calls for: the coordinate chain has never been
         /// validated against a running client, so one node before the whole table.
-        /// The server passes WAREBORN_SPAWN_METAL=proven.
+        /// The server passes WAREBORN_SPAWN_METAL=proven. Wins over
+        /// <paramref name="oreCountEnv"/>: proven-only is the safest count there is.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false)
+        /// <param name="treeCountEnv">
+        /// The raw WAREBORN_TREE_COUNT value, or null for the full set. Caps the
+        /// TOTAL number of trees (the near-spawn HavenTree plus distributed ones),
+        /// clamped to [1, all placed]; the HavenTree is first, so any count keeps
+        /// it. Parsed by <see cref="SpawnCountPolicy"/> so a bad value is the full
+        /// set rather than a crash.
+        /// </param>
+        /// <param name="oreCountEnv">
+        /// The raw WAREBORN_ORE_COUNT value, or null for the full set. Caps the
+        /// number of metal nodes, clamped to [1, all placed]; placement index 0 is
+        /// the proven node, so any count keeps it. Ignored when
+        /// <paramref name="metalOnlyProven"/> is set.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -400,8 +414,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             registry.Register(ShipFrame());
             if (includeTree)
             {
+                // Total trees = HavenTree (always, index 0 of the set) + the first
+                // (N-1) distributed trees. Clamped to [1, full] so the near-spawn
+                // tree can never be dropped and an over-large count cannot overrun.
+                int fullTrees = 1 + DistributedTreeLocals.Count;
+                int treeTotal = SpawnCountPolicy.CountFrom(treeCountEnv, fullTrees);
+
                 registry.Register(HavenTree());
-                foreach (WorldEntity tree in DistributedTrees())
+                foreach (WorldEntity tree in DistributedTrees().Take(treeTotal - 1))
                 {
                     registry.Register(tree);
                 }
@@ -409,7 +429,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             if (includeMetal)
             {
-                foreach (MetalNode node in MetalNodes.Haven(metalOnlyProven))
+                // Proven-only wins; otherwise the env cap, defaulting to the full
+                // table. Either way index 0 (the proven node) is included.
+                int oreCount = metalOnlyProven
+                    ? 1
+                    : SpawnCountPolicy.CountFrom(oreCountEnv, MetalNodes.HavenPlacements.Count);
+
+                foreach (MetalNode node in MetalNodes.Haven(oreCount))
                 {
                     registry.Register(MetalNodeEntity(node));
                 }
