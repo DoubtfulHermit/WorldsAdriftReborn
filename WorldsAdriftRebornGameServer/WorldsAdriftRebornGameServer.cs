@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Improbable.Worker;
+using Improbable.Worker.Internal;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game;
 using WorldsAdriftRebornGameServer.Game.Components;
@@ -138,6 +139,20 @@ namespace WorldsAdriftRebornGameServer
             // references stayed live for the lifetime of the process - and the
             // inventory push seam iterates exactly this map to decide who to
             // send to, so a stale entry is a send to a peer that is gone.
+            //
+            // Each stored refId is a live native ClientObjects reference; the map
+            // entry disappearing does NOT free it. The peer is gone, so every
+            // refId under it is dead and safe to destroy (see ComponentRefCleanup
+            // for the "never serialized again" contract). Destroy each BEFORE the
+            // Remove, or the only handle to them is lost and they leak natively for
+            // the life of the process.
+            if (GameState.Instance.ComponentMap.TryGetValue(peer, out var peerComponents))
+            {
+                foreach (ulong refId in ComponentRefCleanup.RefsForDepartedPeer(peerComponents))
+                {
+                    ClientObjects.Instance.DestroyReference(refId);
+                }
+            }
             GameState.Instance.ComponentMap.Remove(peer);
 
             PeerManager.Instance.playerState.Remove(peer);

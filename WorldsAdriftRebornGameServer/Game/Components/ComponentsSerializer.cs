@@ -1202,6 +1202,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 {
                                     // here we need to decide if we want to update the existing refId with the new one or drop the creation above.
                                     // this case should only happen if the same component is added multiple times to the same entityId and player
+                                    //
+                                    // The slot already holds a live native reference. Overwriting it
+                                    // with the freshly created refId above drops the only handle to the
+                                    // old one, so it leaks natively unless destroyed first. It is being
+                                    // replaced in the same breath - it will never be serialized again -
+                                    // so it is safe to destroy here (see ComponentRefCleanup's contract).
+                                    ulong deadRefId = GameState.Instance.ComponentMap[player][entityId][componentId];
+                                    ClientObjects.Instance.DestroyReference(deadRefId);
                                     GameState.Instance.ComponentMap[player][entityId][componentId] = refId;
                                 }
                                 else
