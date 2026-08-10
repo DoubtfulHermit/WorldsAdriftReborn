@@ -155,6 +155,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             new uint[] { 190602, 1209, 1099, 1130 };
 
         /// <summary>
+        /// The three SHIP-RECOGNITION components, appended to the hull's proactive
+        /// seed when <see cref="HullSeedComponents"/> is asked with recognition ON
+        /// (the runtime default; kill switch WAREBORN_SHIP_RECOGNISE=0):
+        ///
+        ///   8062 ShipOwnersDeprecatedState
+        ///   8071 ShipPartCountState
+        ///   4349 ShipRegisteredCharactersState
+        ///
+        /// They are the complete [Require] set of the client's own ShipVisualizer
+        /// (VERIFIED off ShipFrame_unityclient's [Require] map and the decompiled
+        /// ShipVisualizer fields). With them present the injector ENABLES
+        /// ShipVisualizer, so GetComponentInParent&lt;ShipVisualizer&gt; on the hull
+        /// succeeds and the client TAGS the surface as a ship. See
+        /// <see cref="Multiplayer.ShipRecognition"/> for the values and for the
+        /// carry-chain caveat (the physical carry is the hull's PathFollower, not
+        /// this visualizer).
+        ///
+        /// KEPT SEPARATE from <see cref="ShipFrameSeedComponents"/> because they
+        /// carry DIFFERENT risk. The base four are proven against a running client;
+        /// these three have never been, so they sit behind a kill switch defaulting
+        /// ON, exactly like the deck and the trees. And even with the switch OFF the
+        /// client still gets them: it REQUESTS all three over interest (that is how
+        /// we learned they were missing - "unhandled component id 8062/8071/4349"),
+        /// and ComponentsSerializer now answers best-effort. The switch only chooses
+        /// whether they ALSO ride the hull's proactive, all-or-nothing batch.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipRecognitionSeedComponents =
+            Multiplayer.ShipRecognition.SeedComponents;
+
+        /// <summary>
+        /// The hull's full proactive seed set: <see cref="ShipFrameSeedComponents"/>
+        /// alone, or with <see cref="ShipRecognitionSeedComponents"/> appended when
+        /// <paramref name="recogniseShip"/> is set. 190602 stays first (the position
+        /// every other behaviour reads back); the recognition ids go last so a
+        /// recognition serialize failure can never come before the geometry in the
+        /// all-or-nothing batch.
+        /// </summary>
+        public static IReadOnlyList<uint> HullSeedComponents(bool recogniseShip)
+        {
+            if (!recogniseShip)
+            {
+                return ShipFrameSeedComponents;
+            }
+
+            List<uint> all = new List<uint>(ShipFrameSeedComponents);
+            all.AddRange(ShipRecognitionSeedComponents);
+            return all;
+        }
+
+        /// <summary>
         /// A single static ship hull on Haven, 12 m north of where the player
         /// wakes up.
         ///
@@ -224,14 +274,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return ShipFrameDefaultPosition;
         }
 
-        public static WorldEntity ShipFrame()
+        /// <param name="recogniseShip">
+        /// Whether to append <see cref="ShipRecognitionSeedComponents"/> so the
+        /// client's ShipVisualizer enables and the hull is a recognised ship. ON by
+        /// default - it reflects the runtime default (WAREBORN_SHIP_RECOGNISE != 0) -
+        /// and the no-arg callers that only read <see cref="WorldEntity.Position"/>
+        /// (the parts' position derivation and the tests) are unaffected by it.
+        /// </param>
+        public static WorldEntity ShipFrame(bool recogniseShip = true)
         {
             return new WorldEntity(
                 ShipFrameKey,
                 ShipFrameAssetName,
                 DefaultAssetContext,
                 ShipFramePosition(),
-                ShipFrameSeedComponents,
+                HullSeedComponents(recogniseShip),
                 SpawnOrder.AfterPlayer);
         }
 
@@ -579,7 +636,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// are opt-in until a live client confirms it. Safe to enable regardless -
         /// best-effort interest leaves an unrenderable part inert, never the ship.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false)
+        /// <param name="recogniseShip">
+        /// Whether to append the ship-recognition components (8062/8071/4349) to the
+        /// hull's proactive seed so the client's ShipVisualizer enables. ON by
+        /// default with WAREBORN_SHIP_RECOGNISE=0 as the kill switch. Off falls back
+        /// to the proven base-four seed; the client still receives the three over
+        /// interest, so recognition degrades to best-effort rather than vanishing.
+        /// See <see cref="ShipRecognitionSeedComponents"/>.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -590,7 +655,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 registry.Register(ProofIsland());
             }
 
-            registry.Register(ShipFrame());
+            registry.Register(ShipFrame(recogniseShip));
             // The helm goes in right after the hull so the hull's shared entity id
             // is allocated first: the helm's 8066 seed names the hull by that id,
             // and ByEntityId/BoundEntityIdFor must be able to find it without

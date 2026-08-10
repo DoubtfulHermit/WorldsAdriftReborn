@@ -125,14 +125,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         // ------------------------------------------------------------------
 
         [Fact]
-        public void The_ship_seeds_exactly_the_four_components_the_prefab_requires()
+        public void The_ship_seeds_the_four_existence_components_then_the_three_recognition_ones()
         {
-            // FOUR, in this order, measured off ShipFrame_unityclient's [Require]
-            // map. The batch is all-or-nothing: a fifth id with no branch in
-            // ComponentsSerializer drops the other four and leaves a fully
-            // rendered hull that does nothing at all.
-            Assert.Equal(new uint[] { 190602, 1209, 1099, 1130 },
+            // The runtime default (recogniseShip on): the base FOUR measured off
+            // ShipFrame_unityclient's [Require] map, in order (190602 first, the
+            // position everything reads back), THEN the three that enable the
+            // client's own ShipVisualizer. The batch is all-or-nothing, which is why
+            // the recognition ids go LAST - a recognition serialize failure can never
+            // come before the geometry - and why WAREBORN_SHIP_RECOGNISE=0 exists to
+            // fall back to the proven four.
+            Assert.Equal(new uint[] { 190602, 1209, 1099, 1130, 8062, 8071, 4349 },
                 WorldEntities.ShipFrame().SeedComponents.ToArray());
+        }
+
+        [Fact]
+        public void With_recognition_off_the_ship_seeds_only_the_proven_four()
+        {
+            // The kill-switch fallback: exactly the four existence components, no
+            // recognition ids on the proactive batch. The client still receives
+            // 8062/8071/4349 over interest in this mode; the switch only controls
+            // whether they also ride the hull's all-or-nothing seed.
+            Assert.Equal(new uint[] { 190602, 1209, 1099, 1130 },
+                WorldEntities.ShipFrame(recogniseShip: false).SeedComponents.ToArray());
         }
 
         [Fact]

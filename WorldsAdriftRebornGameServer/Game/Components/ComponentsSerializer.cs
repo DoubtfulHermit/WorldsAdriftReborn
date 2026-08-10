@@ -996,6 +996,83 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 + " but no ship hull id is known yet (or it is not a ship part); skipping.");
                         }
                     }
+                    else if (componentId == 8062)
+                    {
+                        // ShipOwnersDeprecatedState - one of ShipVisualizer's three
+                        // [Require] readers. EMPTY owners list: this is an UNOWNED
+                        // server-spawned hull, so IsShipOwned() (deprecated path:
+                        // OwnersDeprecated.Count > 0) is false and IsShipOwner(uid)
+                        // is false for everyone. Empty, never null - the list is
+                        // DeepCopied and Count-read. VERIFIED ctor (ilspycmd on
+                        // Generated.Code.dll): ShipOwnersDeprecatedState.Data(
+                        //   Improbable.Collections.List<DeprecatedPlayerData>).
+                        //
+                        // Not entity-gated: only a hull carries ShipVisualizer, so
+                        // only a hull ever requests 8062 (the parts carry
+                        // ShipPartVisualizer instead). See Multiplayer.ShipRecognition.
+                        ShipOwnersDeprecatedState.Data ownersData =
+                            new ShipOwnersDeprecatedState.Data(
+                                new Improbable.Collections.List<DeprecatedPlayerData> { });
+
+                        Console.WriteLine("[info] seeding 8062 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") -> unowned ship (empty owners).");
+
+                        obj = ownersData;
+                    }
+                    else if (componentId == 8071)
+                    {
+                        // ShipPartCountState - the second of ShipVisualizer's three
+                        // [Require] readers, and the count the ship HUD reads. One
+                        // Helm bolted on, everything else zero; mass 0 (cosmetic - no
+                        // client consumer of it gates behaviour; lift/complexity are
+                        // 1258/1257). The Sail/Helm/Core/Respawner counts are the only
+                        // parts ShipPartCountData tracks - the deck and hull are not
+                        // part types. VERIFIED ctor: ShipPartCountState.Data(
+                        //   ShipPartCountData shipPartCountData, float mass), and
+                        // ShipPartCountData(uint sail, uint helm, uint core, uint
+                        // respawner). Values live in Multiplayer.ShipRecognition.
+                        ShipPartCountData partCounts = new ShipPartCountData(
+                            Multiplayer.ShipRecognition.AttachedSailCount,
+                            Multiplayer.ShipRecognition.AttachedHelmCount,
+                            Multiplayer.ShipRecognition.AttachedCoreCount,
+                            Multiplayer.ShipRecognition.AttachedRespawnerCount);
+
+                        ShipPartCountState.Data partCountData =
+                            new ShipPartCountState.Data(partCounts, Multiplayer.ShipRecognition.Mass);
+
+                        Console.WriteLine("[info] seeding 8071 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") -> " + Multiplayer.ShipRecognition.AttachedHelmCount + " helm(s).");
+
+                        obj = partCountData;
+                    }
+                    else if (componentId == 4349)
+                    {
+                        // ShipRegisteredCharactersState - the third [Require] reader,
+                        // and one that ALSO enables ShipRegisteredReviversVisualizer
+                        // (its only [Require] is 4349). That visualizer is a passive
+                        // query object with no OnEnable, so an empty crew is safe.
+                        //
+                        // EMPTY list, NOT null: ShipVisualizer.OnEnable subscribes to
+                        // ReviverInfosCacheUpdated, whose add-accessor fires
+                        // immediately with the current reviverInfosCache and reads
+                        // .Count - a null list would NRE the enable chain. No crew is
+                        // registered on a server-spawned ship; lastSyncTimestamp is
+                        // absent. VERIFIED ctor: ShipRegisteredCharactersState.Data(
+                        //   Improbable.Collections.List<ReviverInfo> reviverInfosCache,
+                        //   Option<long> lastSyncTimestamp).
+                        ShipRegisteredCharactersState.Data registeredData =
+                            new ShipRegisteredCharactersState.Data(
+                                new Improbable.Collections.List<ReviverInfo> { },
+                                new Option<long> { });
+
+                        Console.WriteLine("[info] seeding 4349 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") -> no registered crew (empty).");
+
+                        obj = registeredData;
+                    }
                     else if (componentId == 1518)
                     {
                         // THE WALKABLE FLOOR. 1518 ShipDeckState is one field, a

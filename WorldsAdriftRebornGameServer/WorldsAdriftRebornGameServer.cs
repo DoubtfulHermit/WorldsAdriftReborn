@@ -965,7 +965,7 @@ namespace WorldsAdriftRebornGameServer
             Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven,
                 Environment.GetEnvironmentVariable("WAREBORN_TREE_COUNT"),
                 Environment.GetEnvironmentVariable("WAREBORN_ORE_COUNT"),
-                SpawnDeck, SpawnExtraShipParts);
+                SpawnDeck, SpawnExtraShipParts, RecogniseShip);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1084,6 +1084,21 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnExtraShipParts =>
             Environment.GetEnvironmentVariable("WAREBORN_SHIP_PARTS") == "1";
+
+        /// <summary>
+        /// Whether to append the ship-recognition components (8062/8071/4349) to the
+        /// hull's proactive seed so the client's own ShipVisualizer ENABLES and the
+        /// hull is recognised as a ship (see Multiplayer.ShipRecognition and
+        /// Multiplayer.WorldEntities.ShipRecognitionSeedComponents). ON unless
+        /// WAREBORN_SHIP_RECOGNISE=0. Opt-OUT with a kill switch, on the same footing
+        /// as the deck: it has never been in front of a running client, and it widens
+        /// the hull's all-or-nothing seed batch from four ids to seven, so a switch to
+        /// fall back to the proven four without a rebuild is worth its one line. Safe
+        /// to leave on: even off, the client still receives all three over interest,
+        /// so recognition degrades to best-effort rather than disappearing.
+        /// </summary>
+        private static bool RecogniseShip =>
+            Environment.GetEnvironmentVariable("WAREBORN_SHIP_RECOGNISE") != "0";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.

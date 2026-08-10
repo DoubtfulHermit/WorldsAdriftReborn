@@ -73,6 +73,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             AssertNoneAbsent(MirrorSendPolicy.RemoteSeedComponents);
             AssertNoneAbsent(MirrorSendPolicy.MultitoolComponents);
             AssertNoneAbsent(WorldEntities.ShipFrameSeedComponents);
+            AssertNoneAbsent(WorldEntities.ShipRecognitionSeedComponents);
             Assert.False(ComponentAbsencePolicy.IsKnownAbsent(MirrorSendPolicy.TransformStateComponentId));
             Assert.False(ComponentAbsencePolicy.IsKnownAbsent(TeleportPolicy.TeleportRequestStateComponentId));
         }
