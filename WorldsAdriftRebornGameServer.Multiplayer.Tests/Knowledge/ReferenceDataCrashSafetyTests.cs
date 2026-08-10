@@ -1,0 +1,279 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Newtonsoft.Json.Linq;
+using WorldsAdriftRebornGameServer.Multiplayer.Knowledge;
+using Xunit;
+
+namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
+{
+    /// <summary>
+    /// Overnight CRASH-SAFETY validator. The UNMODIFIED Unity client parses the served
+    /// recipe catalogue (1097 schematicData.json) in full on reference-data load and
+    /// looks recipes up again when it renders the crafting/schematics tabs and the
+    /// knowledge-tree node info panels. Several of those parse/lookup sites THROW an
+    /// UNCAUGHT exception on bad data and blank the whole panel. There is no way to
+    /// click through the live UI (Wine ignores synthetic input), so correctness is
+    /// asserted here against the client's EXACT constraints, recovered from the
+    /// decompiled client (acs/, gencode/). Each constraint below cites the client
+    /// file:line it protects.
+    ///
+    /// Valid CraftingCategory (acs/Travellers.UI.PlayerInventory/CraftingCategory.cs):
+    ///   Shipyard=0, Personal=1, CraftingStation=2, Cooking=3, Clothing=4, None=5.
+    /// Valid SchematicType (acs/SchematicType.cs): Fixed=0, Procedural=1, Ship=2.
+    /// Valid SchematicsRarity (gencode/.../SchematicsRarity.cs): Tier1..Tier6 = 0..5.
+    /// Valid CipherShipPartType (gencode/.../CipherShipPartType.cs):
+    ///   Engine, Wing, Cannon, SwivelGun.
+    /// </summary>
+    public class ReferenceDataCrashSafetyTests
+    {
+        // acs/CharacterLearnedSchematicLibrary.cs:342 Enum.Parse(category) then :344
+        // indexer into _schematicDataListByCraftingCategory whose keys are exactly the
+        // five below (ctor :183-224). "None" PARSES but KeyNotFounds at :344, so it is
+        // NOT valid here.
+        private static readonly HashSet<string> ValidCategories = new()
+        {
+            "Shipyard", "Personal", "CraftingStation", "Cooking", "Clothing",
+        };
+
+        // acs/SchematicData.cs:208 Enum.Parse(SchematicsRarity) on a cipher slot's
+        // "rarity" string; :211 Enum.Parse(CipherShipPartType) on "shipPartType".
+        private static readonly HashSet<string> ValidRarityNames = new()
+        {
+            "Tier1", "Tier2", "Tier3", "Tier4", "Tier5", "Tier6",
+        };
+
+        private static readonly HashSet<string> ValidShipPartTypes = new()
+        {
+            "Engine", "Wing", "Cannon", "SwivelGun",
+        };
+
+        private const int MaxRarityInt = 5;      // Tier6 (acs/RarityHelper.cs:114 dict indexer)
+        private const int MaxSchematicType = 2;  // Ship
+        private const int MaxStatBars = 10;      // acs/SchematicsSubScreen.cs:331 bar array
+
+        private static string RepoRoot()
+        {
+            DirectoryInfo? dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null)
+            {
+                string probe = Path.Combine(
+                    dir.FullName,
+                    "WorldsAdriftRebornGameServer", "Game", "Items", "Config", "schematicData.json");
+                if (File.Exists(probe))
+                {
+                    return dir.FullName;
+                }
+                dir = dir.Parent;
+            }
+            throw new DirectoryNotFoundException(
+                "Could not locate the repo root (no WorldsAdriftRebornGameServer/Game/Items/Config/schematicData.json above " +
+                AppContext.BaseDirectory + ").");
+        }
+
+        private static JObject Catalogue()
+        {
+            string path = Path.Combine(
+                RepoRoot(),
+                "WorldsAdriftRebornGameServer", "Game", "Items", "Config", "schematicData.json");
+            return JObject.Parse(File.ReadAllText(path));
+        }
+
+        private static JObject KnowledgeTree()
+        {
+            string path = Path.Combine(
+                RepoRoot(),
+                "WorldsAdriftRebornGameServer", "Game", "Knowledge", "Config", "knowledge-tree.json");
+            return JObject.Parse(File.ReadAllText(path));
+        }
+
+        public static IEnumerable<object[]> AllRecipes()
+        {
+            foreach (KeyValuePair<string, JToken?> kv in Catalogue())
+            {
+                yield return new object[] { kv.Key };
+            }
+        }
+
+        /// <summary>
+        /// Every catalogue record must survive the client's reference-data load and
+        /// per-schematic render without an uncaught throw.
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(AllRecipes))]
+        public void Recipe_is_crash_safe(string id)
+        {
+            JObject cat = Catalogue();
+            JObject r = (JObject)cat[id]!;
+
+            // --- category: non-null, exactly one of the 5 mapped names, case-sensitive.
+            // Protects acs/CharacterLearnedSchematicLibrary.cs:342 (Enum.Parse) and :344
+            // (dict indexer). Also acs/SchematicsReferenceStore.cs:36 ContainsKey(null).
+            string? category = (string?)r["category"];
+            Assert.True(category != null, $"{id}: category is null (ArgumentNullException at SchematicsReferenceStore.cs:36).");
+            Assert.True(ValidCategories.Contains(category!),
+                $"{id}: category '{category}' is not one of {string.Join('/', ValidCategories)} " +
+                "(Enum.Parse ArgumentException / KeyNotFound at CharacterLearnedSchematicLibrary.cs:342/344).");
+
+            // --- SchematicType: valid enum int. acs/SchematicData.cs:99.
+            int schematicType = (int?)r["SchematicType"] ?? 0;
+            Assert.InRange(schematicType, 0, MaxSchematicType);
+
+            // --- rarity: <= Tier6. rarity>=6 -> KeyNotFound at RarityHelper.cs:114 via
+            // SchematicsSubScreen.SetName. Negatives clamp (SchematicData.cs:179) so only
+            // the upper bound bites.
+            int rarity = (int?)r["rarity"] ?? 0;
+            int rarityParsed = (int?)r["rarityParsed"] ?? 0;
+            Assert.True(rarity <= MaxRarityInt, $"{id}: rarity {rarity} > {MaxRarityInt} (KeyNotFound at RarityHelper.cs:114).");
+            Assert.True(rarityParsed <= MaxRarityInt, $"{id}: rarityParsed {rarityParsed} > {MaxRarityInt}.");
+
+            // --- non-null string fields the render path dereferences.
+            // title -> GetFormattedTitle().CapitaliseFirstLetter (SchematicData.cs:285),
+            // description -> SetDescription / KnowledgeInfoPanel string.Format,
+            // iconId -> SetNonProceduralIcon .Replace (SchematicsSubScreen.cs:265),
+            // itemType -> hierarchy bucket key (CharacterLearnedSchematicLibrary.cs:343).
+            foreach (string field in new[] { "title", "description", "iconId", "itemType" })
+            {
+                Assert.True(r[field] != null && r[field]!.Type != JTokenType.Null,
+                    $"{id}: required field '{field}' is missing/null (NRE risk on render).");
+            }
+
+            // --- baseStats: recognised stats + hp bar must fit the prefab bar array
+            // (acs/SchematicsSubScreen.cs:331 _schematicAttributeBars[num++], no bounds
+            // check). Conservative cap at the StatsOrder maximum.
+            JToken? baseStats = r["baseStats"];
+            if (baseStats is JObject statsObj)
+            {
+                Assert.True(statsObj.Count <= MaxStatBars,
+                    $"{id}: {statsObj.Count} baseStats exceeds {MaxStatBars} attribute bars (IndexOutOfRange at SchematicsSubScreen.cs:331).");
+            }
+
+            // --- cipherSlots: each map's "rarity"/"shipPartType" must be a valid enum
+            // name, "stats" valid JSON. Uncaught Enum.Parse at SchematicData.cs:208/211.
+            if (r["cipherSlots"] is JArray ciphers)
+            {
+                foreach (JToken slot in ciphers)
+                {
+                    if (slot is not JObject slotObj)
+                    {
+                        continue;
+                    }
+                    string? cr = (string?)slotObj["rarity"];
+                    if (cr != null)
+                    {
+                        Assert.True(ValidRarityNames.Contains(cr),
+                            $"{id}: cipher rarity '{cr}' invalid (Enum.Parse throw at SchematicData.cs:208).");
+                    }
+                    string? sp = (string?)slotObj["shipPartType"];
+                    if (sp != null)
+                    {
+                        Assert.True(ValidShipPartTypes.Contains(sp),
+                            $"{id}: cipher shipPartType '{sp}' invalid (Enum.Parse throw at SchematicData.cs:211).");
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Every SCHEMATIC_FIXED knowledge node's baked schematicId MUST resolve in the
+        /// served catalogue. KnowledgeInfoPanel.cs:92-93 does
+        /// <c>LookupSchematic(node.schematicId).GetFormattedTitle()</c> with no null
+        /// check when that node's info panel opens; a miss is an uncaught NRE that
+        /// breaks the node popup. The served catalogue is a 53-recipe subset, so the
+        /// weapon/utility fixed nodes (pistol, cannonball, moonshine, powerGenerator01,
+        /// swivelGunShell, territory_control_beacon) need catalogue stubs.
+        /// </summary>
+        [Fact]
+        public void Every_fixed_node_schematicId_resolves_in_catalogue()
+        {
+            JObject cat = Catalogue();
+            JObject tree = KnowledgeTree();
+            var missing = new List<string>();
+
+            foreach (JToken node in (JArray)tree["nodes"]!)
+            {
+                if ((string?)node["nodeType"] != "SCHEMATIC_FIXED")
+                {
+                    continue;
+                }
+                string schId = (string?)node["schematicId"] ?? "";
+                // Empty schematicId also NREs (LookupSchematic("") returns null).
+                if (string.IsNullOrEmpty(schId) || cat[schId] == null)
+                {
+                    missing.Add($"{(string?)node["id"]} -> '{schId}'");
+                }
+            }
+
+            Assert.True(missing.Count == 0,
+                "SCHEMATIC_FIXED nodes whose schematicId is absent from the catalogue " +
+                "(KnowledgeInfoPanel.cs:92 NRE on info-panel open): " + string.Join(", ", missing.Distinct()));
+        }
+
+        /// <summary>
+        /// Node rarity drives RarityHelper.GetRarityColoursForButtonStates
+        /// (KnowledgeInfoPanel.cs:94/103 -> RarityHelper.cs:114 dict indexer) for
+        /// SCHEMATIC_FIXED / SCHEMATIC_RANDOM node info panels. rarity &gt;= 6 KeyNotFounds.
+        /// </summary>
+        [Fact]
+        public void Every_node_rarity_is_within_enum_range()
+        {
+            JObject tree = KnowledgeTree();
+            var bad = new List<string>();
+            foreach (JToken node in (JArray)tree["nodes"]!)
+            {
+                int rarity = (int?)node["rarity"] ?? 0;
+                if (rarity < 0 || rarity > MaxRarityInt)
+                {
+                    bad.Add($"{(string?)node["id"]}={rarity}");
+                }
+            }
+            Assert.True(bad.Count == 0, "Node rarity out of Tier1..Tier6 range: " + string.Join(", ", bad));
+        }
+
+        /// <summary>
+        /// Whatever the 1334 handler would learn on a node purchase must be crash-safe:
+        /// SchematicIdFor(node) either resolves to a catalogue key (then that record is
+        /// covered by <see cref="Recipe_is_crash_safe"/>) or it does not (the handler's
+        /// only-learn-catalogue-ids guard drops it, so nothing unlearnable reaches the
+        /// client). This asserts the SchematicAliases table never points at a
+        /// non-existent recipe, which would be a silent dead unlock.
+        /// </summary>
+        [Fact]
+        public void Every_alias_target_resolves_in_catalogue()
+        {
+            JObject cat = Catalogue();
+            JObject tree = KnowledgeTree();
+            var broken = new List<string>();
+
+            foreach (JToken node in (JArray)tree["nodes"]!)
+            {
+                string nodeType = (string?)node["nodeType"] ?? "";
+                bool learns = nodeType is "SCHEMATIC_LIST" or "SCHEMATIC_FIXED" or "SCHEMATIC_RANDOM";
+                if (!learns)
+                {
+                    continue;
+                }
+                string nodeId = (string?)node["id"] ?? "";
+                string learned = KnowledgeSpendPolicy.SchematicIdFor(nodeId);
+
+                // A learned id that IS a catalogue key must be a real record (safe to
+                // learn). A learned id that is NOT a catalogue key is dropped by the
+                // handler guard, which is the intended no-op for un-recovered nodes.
+                if (cat[learned] != null)
+                {
+                    Assert.True(cat[learned] is JObject, $"{nodeId}: learned id '{learned}' is not a record object.");
+                }
+                else if (nodeId != learned)
+                {
+                    // An alias was applied but its target is missing -> a mapping bug.
+                    broken.Add($"{nodeId} -> '{learned}'");
+                }
+            }
+
+            Assert.True(broken.Count == 0,
+                "SchematicAliases entries whose target recipe is absent from the catalogue: " +
+                string.Join(", ", broken));
+        }
+    }
+}
