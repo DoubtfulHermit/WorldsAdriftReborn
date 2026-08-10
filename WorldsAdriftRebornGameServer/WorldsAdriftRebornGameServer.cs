@@ -1212,7 +1212,9 @@ namespace WorldsAdriftRebornGameServer
                 Environment.GetEnvironmentVariable("WAREBORN_ORE_COUNT"),
                 SpawnDeck, SpawnExtraShipParts, RecogniseShip,
                 SpawnDeposit,
-                Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_COUNT"),
+                SpawnDatabank,
+                Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"));
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1343,6 +1345,17 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnDeposit =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1";
+
+        /// <summary>
+        /// Whether to place the scannable DATABANK that feeds the KNOWLEDGE loop.
+        /// Opt-in via WAREBORN_SPAWN_DATABANK=1, matching the deposit: AfterPlayer, so
+        /// leaving it off or on cannot delay or break a player's own spawn, and its
+        /// geometry is imported from the DataBank_001 prefab (whether it draws when
+        /// spawned as its own entity rather than by the island spawner is the one
+        /// thing only a live client can confirm - see Multiplayer.Databanks).
+        /// </summary>
+        private static bool SpawnDatabank =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DATABANK") == "1";
 
         /// <summary>
         /// Whether to bolt the walkable Deck01 onto the hull (see
@@ -1590,6 +1603,21 @@ namespace WorldsAdriftRebornGameServer
                             + " variant '" + deposit.VariantId + "' at " + deposit.Position
                             + " (" + Multiplayer.MetalDeposits.ShotsToDeplete + " shots -> "
                             + Multiplayer.MetalDeposits.YieldUnits + " units).");
+                    }
+                }
+
+                // A scannable DATABANK becomes an entry in the DatabankLedger the moment
+                // it has an entity id - the same spawn seam as the deposit above. The
+                // 2107 scan handler consults the ledger to decide a ScanEntityEvent
+                // target is worth knowledge and how much. Idempotent, so a second joiner
+                // walking this same step cannot double-register it.
+                if (entity.AssetName == Multiplayer.Databanks.AssetName)
+                {
+                    if (Multiplayer.DatabankLedger.Register(entityId, Multiplayer.Databanks.GrantAmount))
+                    {
+                        Console.WriteLine("[info] placed scannable DATABANK '" + entity.Key + "' as entity "
+                            + entityId + " at " + entity.Position + " (scan grants "
+                            + Multiplayer.Databanks.GrantAmount + " knowledge).");
                     }
                 }
 

@@ -48,6 +48,9 @@
     <None Update="Game\Items\Config\schematicData.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Game\Knowledge\Config\knowledge-tree.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />

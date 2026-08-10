@@ -542,11 +542,75 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1332)
                     {
-                        KnowledgeServerState.Data ksData = new KnowledgeServerState.Data(new KnowledgeServerStateData(1,
-                                                                                                            new Map<string, int> { },
-                                                                                                            1,
+                        // Served from the player's live progression store, not a static
+                        // stub: a re-checkout re-serves the CURRENT knowledge and node
+                        // uses (mutated by the scan and spend handlers), and an
+                        // untouched player is seeded to the same (1, {}, 1, {}) the old
+                        // static seed used (PlayerProgression.Seed*). cipherSlotCounts
+                        // stays empty - cipher purchases are a later track.
+                        Game.Knowledge.PlayerProgression knowledgeProg =
+                            Game.Knowledge.ProgressionStore.For(entityId);
+                        Map<string, int> nodeUses = new Map<string, int> { };
+                        foreach (System.Collections.Generic.KeyValuePair<string, int> use in knowledgeProg.NodeUses)
+                        {
+                            nodeUses.Add(use.Key, use.Value);
+                        }
+                        KnowledgeServerState.Data ksData = new KnowledgeServerState.Data(new KnowledgeServerStateData(
+                                                                                                            knowledgeProg.Knowledge,
+                                                                                                            nodeUses,
+                                                                                                            knowledgeProg.LifetimeKnowledge,
                                                                                                             new Map<string, int> { }));
                         obj = ksData;
+                    }
+                    else if(componentId == 2107)
+                    {
+                        // ScannerToolPlayerState - the player's own scanner. Empty state
+                        // (it only carries the ScanEntityEvent); client-authoritative,
+                        // so it is injected + granted via MirrorSendPolicy and the client
+                        // publishes scans on its writer. Seeded empty here for the serve.
+                        ScannerToolPlayerState.Data stData = new ScannerToolPlayerState.Data();
+                        obj = stData;
+                    }
+                    else if(componentId == 1331)
+                    {
+                        // ScanningAgentServerState - the server-owned dedup ledger. Served
+                        // from the same progression store the scan handler writes, so a
+                        // re-checkout re-serves the CURRENT already-scanned set and a
+                        // rescan still pays nothing. Non-null list (an empty one is fine).
+                        Game.Knowledge.PlayerProgression scanProg =
+                            Game.Knowledge.ProgressionStore.For(entityId);
+                        Improbable.Collections.List<string> scanned = new Improbable.Collections.List<string>();
+                        foreach (string id in scanProg.AlreadyScanned)
+                        {
+                            scanned.Add(id);
+                        }
+                        ScanningAgentServerState.Data saData = new ScanningAgentServerState.Data(new ScanningAgentServerStateData(scanned));
+                        obj = saData;
+                    }
+                    else if(componentId == 1334)
+                    {
+                        // KnowledgeClientState - the player's own knowledge writer. Empty
+                        // state (only carries UseNode); client-authoritative via
+                        // MirrorSendPolicy. ScanningAgentVisualizer needs this writer to
+                        // enable, so without it no knowledge events fire at all.
+                        KnowledgeClientState.Data kcData = new KnowledgeClientState.Data();
+                        obj = kcData;
+                    }
+                    else if(componentId == 8073)
+                    {
+                        // ScannableRuinState - the marker DatabankIslandVisualiser reads to
+                        // draw a databank and make it scannable. relativeToIsland names the
+                        // island the bank sits on (the client resolves the bank's transform
+                        // against it); we point it at the registered island entity when we
+                        // know its id, else an empty option. Only databank entities request
+                        // 8073, so this branch is databank-only in practice.
+                        long? islandId = WorldsAdriftRebornGameServer.WorldEntities
+                            .BoundEntityIdFor(Multiplayer.WorldEntities.IslandKey);
+                        Option<EntityId> relativeToIsland = islandId.HasValue
+                            ? new Option<EntityId>(new EntityId(islandId.Value))
+                            : new Option<EntityId>();
+                        ScannableRuinState.Data srData = new ScannableRuinState.Data(new ScannableRuinStateData(relativeToIsland));
+                        obj = srData;
                     }
                     else if(componentId == 1079)
                     {
@@ -558,8 +622,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // that touched only defaults would be invisible. Seeded at
                         // AddComponent time because AllReferenceAndPlayerDataLoaded
                         // clears the buffer unconditionally.
+                        // learnedSchematics is served from the progression store (not
+                        // empty) so a knowledge purchase that appended a schematic
+                        // survives a re-checkout. defaultSchematics stays the whole
+                        // catalogue so every recipe still shows with no learning step.
+                        Game.Knowledge.PlayerProgression schematicProg =
+                            Game.Knowledge.ProgressionStore.For(entityId);
+                        Improbable.Collections.List<string> learned = new Improbable.Collections.List<string>();
+                        foreach (string learnedId in schematicProg.LearnedSchematics)
+                        {
+                            learned.Add(learnedId);
+                        }
                         SchematicsLearnerClientState.Data scData = new SchematicsLearnerClientState.Data(new SchematicsLearnerClientStateData(Items.SchematicHelper.DefaultSchematicIds(),
-                                                                                                                                    new Improbable.Collections.List<string> { },
+                                                                                                                                    learned,
                                                                                                                                     10,
                                                                                                                                     20,
                                                                                                                                     10,

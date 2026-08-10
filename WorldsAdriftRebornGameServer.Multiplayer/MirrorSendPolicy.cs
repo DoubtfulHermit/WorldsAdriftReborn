@@ -204,6 +204,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             TreeCutterStateComponentId,
             InteractAgentStateComponentId,
             2105, 2106, 2002,
+            // The KNOWLEDGE loop's two client writers, both new grants:
+            //   2107 ScannerToolPlayerState - PlayerScannerToolVisualizer's writer; the
+            //        client publishes ScanEntityEvent on it when it scans a databank.
+            //   1334 KnowledgeClientState    - ScanningAgentVisualizer's writer; the
+            //        client publishes UseNode on it when a tree node is clicked.
+            // Both are event-on-trigger, NOT per-frame (the scanner rate-limits itself
+            // and UseNode is a click), so they add no relay load - see the handlers.
+            2107, 1334,
         };
 
         /// <summary>
@@ -211,6 +219,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// not reliably ask for it, and <c>InventoryVisualiser</c> needs its reader.
         /// </summary>
         public const uint SchematicsLearnerGSimStateComponentId = 1080;
+
+        /// <summary>
+        /// ScanningAgentServerState. Injected but NOT granted, exactly like 1080: it
+        /// is the server-owned dedup ledger the scan handler writes, and the client
+        /// only READS it, so the client must have the component checked out but must
+        /// never hold authority over it.
+        /// </summary>
+        public const uint ScanningAgentServerStateComponentId = 1331;
 
         /// <summary>
         /// The components the server pushes at a client's OWN entity during
@@ -238,7 +254,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// setup, inside the loading screen, before any of it has been acted on.
         /// </summary>
         public static readonly IReadOnlyList<uint> InjectedComponents =
-            new uint[] { SchematicsLearnerGSimStateComponentId, PlayerNameComponentId }
+            new uint[] { SchematicsLearnerGSimStateComponentId, ScanningAgentServerStateComponentId, PlayerNameComponentId }
                 .Concat(AuthoritativeComponents)
                 .ToArray();
 

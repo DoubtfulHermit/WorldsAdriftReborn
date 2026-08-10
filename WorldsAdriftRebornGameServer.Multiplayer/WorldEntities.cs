@@ -607,6 +607,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>
+        /// A scannable DATABANK world entity at a placement index - the KNOWLEDGE
+        /// analogue of <see cref="DepositEntity"/>. Same shape: no seedComponents (its
+        /// 190602 TransformState and 8073 ScannableRuinState are served best-effort
+        /// over interest, so a missing reader cannot abort an AddComponent batch), and
+        /// AfterPlayer, because nobody stands on a databank and a misbehaving one must
+        /// never delay a player's spawn.
+        /// </summary>
+        public static WorldEntity DatabankEntity(int index)
+        {
+            return new WorldEntity(
+                Databanks.KeyFor(index),
+                Databanks.AssetName,
+                DefaultAssetContext,
+                Databanks.PositionAt(index),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>The global entity's registration key. See <see cref="GlobalEntity"/>.</summary>
         public const string GlobalEntityKey = "global";
 
@@ -736,7 +755,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Clamped to [1, all placed]; index 0 is the proven deposit, so any count keeps
         /// it. Defaults to a single deposit - the cautious first-live count.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -822,6 +841,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 foreach (MetalNode node in MetalDeposits.Haven(depositCount))
                 {
                     registry.Register(DepositEntity(node));
+                }
+            }
+
+            if (includeDatabank)
+            {
+                // The scannable databank(s) that feed the KNOWLEDGE loop. Opt-in and
+                // AfterPlayer, the same cautious philosophy as the deposit: default to
+                // ONE bank at the proven near-spawn vertex, a WAREBORN_DATABANK_COUNT
+                // clamps to [1, full]. Nothing else in a session needs it, so existing
+                // sessions are unchanged.
+                int databankCount = Databanks.CountFrom(databankCountEnv);
+                for (int i = 0; i < databankCount; i++)
+                {
+                    registry.Register(DatabankEntity(i));
                 }
             }
 

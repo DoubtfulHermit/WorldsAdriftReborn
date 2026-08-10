@@ -270,14 +270,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_injected_batch_is_the_authority_set_plus_exactly_two_extras()
+        public void The_injected_batch_is_the_authority_set_plus_exactly_three_extras()
         {
             // The injected batch and the authority grant are two different jobs
             // sharing one array; this pins how they differ so a future edit to one
-            // has to be a deliberate edit to the other. 1080 and 1086 are injected
-            // but NOT granted - the client must not become the writer of its own
-            // name or of the schematics state.
-            Assert.Equal(MirrorSendPolicy.AuthoritativeComponents.Count + 2,
+            // has to be a deliberate edit to the other. 1080, 1331 and 1086 are
+            // injected but NOT granted - the client must not become the writer of its
+            // own name, of the schematics state, or of the server's scan dedup ledger.
+            Assert.Equal(MirrorSendPolicy.AuthoritativeComponents.Count + 3,
                          MirrorSendPolicy.InjectedComponents.Count);
 
             foreach (uint id in MirrorSendPolicy.AuthoritativeComponents)
@@ -286,7 +286,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             }
 
             Assert.DoesNotContain(1080u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.DoesNotContain(MirrorSendPolicy.ScanningAgentServerStateComponentId, MirrorSendPolicy.AuthoritativeComponents);
             Assert.DoesNotContain(MirrorSendPolicy.PlayerNameComponentId, MirrorSendPolicy.AuthoritativeComponents);
+        }
+
+        [Fact]
+        public void The_two_knowledge_writers_are_client_authoritative()
+        {
+            // 2107 ScannerToolPlayerState and 1334 KnowledgeClientState are the two
+            // client writers of the knowledge loop; both must be granted (and so
+            // injected) or the scanner and the tree-node click never publish.
+            Assert.Contains(2107u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.Contains(1334u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.Contains(2107u, MirrorSendPolicy.InjectedComponents);
+            Assert.Contains(1334u, MirrorSendPolicy.InjectedComponents);
+        }
+
+        [Fact]
+        public void The_scan_dedup_ledger_is_injected_but_not_granted()
+        {
+            // 1331 ScanningAgentServerState is server-owned; the client reads it but
+            // must never hold authority over the "already scanned" ledger.
+            Assert.Contains(1331u, MirrorSendPolicy.InjectedComponents);
+            Assert.DoesNotContain(1331u, MirrorSendPolicy.AuthoritativeComponents);
         }
 
         [Fact]
