@@ -1461,6 +1461,61 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = crustData;
                     }
+                    // ------------------------------------------------------------------
+                    // THE GLOBAL BIOME TABLE. Served on the GLOBAL entity so the
+                    // deposit's MetalDepositVisualiser can resolve a biome and stop
+                    // blocking (findings: FindBiomeAsync polls GetBiomeAt forever
+                    // otherwise, and the rock never draws). GlobalBiomeDataVisualizer
+                    // [Require]s BOTH of these and enables only with both present.
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1253)
+                    {
+                        // 1253 GlobalBiomeVoronoiCentresState - the world biome table.
+                        // ONE Voronoi centre suffices: FindClosestZone returns a valid
+                        // index for ANY position whenever there is at least one centre,
+                        // and SqrDist compares X/Z only, so a single Biome1 centre
+                        // resolves every Haven position to Biome1 - the biome whose
+                        // PropLibrary holds metal_deposit_composite_light_01. Both lists
+                        // are non-null (DeepCopy reads .Count); respawnerCounts is empty
+                        // (GetRespawnerCountAt guards on its Count).
+                        Improbable.Collections.List<Bossa.Travellers.Globaldata.BiomeVoronoiCentre> biomeCentres =
+                            new Improbable.Collections.List<Bossa.Travellers.Globaldata.BiomeVoronoiCentre>
+                            {
+                                new Bossa.Travellers.Globaldata.BiomeVoronoiCentre(
+                                    0f, 0f,
+                                    Bossa.Travellers.Biomes.BiomeType.Biome1,
+                                    Bossa.Travellers.World.CivilizationType.Saborian),
+                            };
+
+                        Bossa.Travellers.Globaldata.GlobalBiomeVoronoiCentresState.Data biomeCentresData =
+                            new Bossa.Travellers.Globaldata.GlobalBiomeVoronoiCentresState.Data(
+                                new Bossa.Travellers.Globaldata.GlobalBiomeVoronoiCentresStateData(
+                                    biomeCentres,
+                                    new Improbable.Collections.List<int> { }));
+
+                        Console.WriteLine("[info] seeding 1253 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") -> 1 Voronoi centre (Biome1); unblocks deposit biome resolution.");
+
+                        obj = biomeCentresData;
+                    }
+                    else if (componentId == 8064)
+                    {
+                        // 8064 DevBiome - the SECOND [Require] of
+                        // GlobalBiomeDataVisualizer (no enable without both). Empty
+                        // PVE-override map: BiomePVEOverride does a TryGetValue and treats
+                        // a miss as "no override", so empty is the correct "nothing
+                        // forced" value. Non-null (DeepCopy reads .Count).
+                        Bossa.Travellers.Biomes.DevBiome.Data devBiomeData =
+                            new Bossa.Travellers.Biomes.DevBiome.Data(
+                                new Improbable.Collections.Map<Bossa.Travellers.Biomes.BiomeType, bool> { });
+
+                        Console.WriteLine("[info] seeding 8064 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") -> empty DevBiome overrides.");
+
+                        obj = devBiomeData;
+                    }
                     else if (componentId == 1183)
                     {
                         // Empty. ReconsumablesClient is on the tree because `Tree`

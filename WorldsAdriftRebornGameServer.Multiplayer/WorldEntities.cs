@@ -607,6 +607,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>The global entity's registration key. See <see cref="GlobalEntity"/>.</summary>
+        public const string GlobalEntityKey = "global";
+
+        /// <summary>
+        /// The prefab name of the SpatialOS GLOBAL entity - the one singleton the
+        /// client hangs its world-wide data visualisers on (GlobalEntityPreprocessor
+        /// adds GlobalWeatherDataVisualizer, WorldBoundsDataVisualizer,
+        /// GlobalBiomeDataVisualizer, GlobalKnowledgeGraphDataVisualizer and
+        /// GameDBVisualizer to it). BARE, client-resolvable (prefab-names.tsv line 78,
+        /// client + worker "yes"; shipped as GlobalEntity_unityclient).
+        /// </summary>
+        public const string GlobalEntityAssetName = "GlobalEntity";
+
+        /// <summary>
+        /// The SpatialOS GLOBAL entity, spawned ONLY as the metal deposit's biome
+        /// dependency (see <see cref="Default"/>, includeDeposit).
+        ///
+        /// WHY A DEPOSIT NEEDS IT. MetalDepositVisualiser.InitRoutine blocks on
+        /// FindBiomeAsync, which polls GlobalBiomeDataVisualizer.GetBiomeAt(pos) until
+        /// it returns a biome; GetBiomeAt reads the static zone table
+        /// GlobalBiomeDataVisualizer builds in OnEnable from its 1253
+        /// GlobalBiomeVoronoiCentresState. GlobalBiomeDataVisualizer only exists on
+        /// THIS entity, and only enables once its two [Require]s - 1253 and 8064
+        /// DevBiome - are checked out. With no global entity the deposit waits forever
+        /// and never draws its rock (the crust/core loop works, but on an invisible
+        /// entity). Trees and nuggets are not biome-keyed, so they never hit this.
+        ///
+        /// Only GlobalBiomeDataVisualizer wakes up: the server serves 1253 + 8064 and
+        /// nothing else the prefab's other global visualisers [Require] (weather,
+        /// world-bounds, knowledge-graph, GameDB), so those stay dormant on best-effort
+        /// interest - no weather, no bounds behaviour, just the biome table. Its own
+        /// transform position is irrelevant to the biome math (the Voronoi centres are
+        /// absolute coordinates in the component, compared in X/Z only), so it is parked
+        /// on the island origin.
+        ///
+        /// AfterPlayer, and registered BEFORE the deposits so its AddEntity is queued
+        /// first and the biome resolves as early as possible - though the deposit's
+        /// poll is patient, so even a late checkout resolves it.
+        /// </summary>
+        public static WorldEntity GlobalEntity()
+        {
+            return new WorldEntity(
+                GlobalEntityKey,
+                GlobalEntityAssetName,
+                DefaultAssetContext,
+                SpawnPolicy.IslandPosition,
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>
         /// The registry the server runs with.
         /// </summary>
@@ -754,6 +804,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             if (includeDeposit)
             {
+                // The GLOBAL entity FIRST: it carries the biome table the deposit's
+                // visualiser blocks on (GetBiomeAt), so without it the rock never draws.
+                // Registered before the deposits so its AddEntity - and its 1253/8064 -
+                // are in flight first. Only spawned alongside deposits: nothing else in
+                // a session needs it, so existing tree/nugget/ship sessions are unchanged.
+                registry.Register(GlobalEntity());
+
                 // Default to ONE (the proven deposit) - the coordinate and the
                 // runtime-imported variant have never been validated live, so a single
                 // anchored rock before the whole table. A WAREBORN_DEPOSIT_COUNT is
