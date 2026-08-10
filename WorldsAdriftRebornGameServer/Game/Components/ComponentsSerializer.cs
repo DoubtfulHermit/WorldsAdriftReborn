@@ -544,7 +544,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1079)
                     {
-                        SchematicsLearnerClientState.Data scData = new SchematicsLearnerClientState.Data(new SchematicsLearnerClientStateData(new Improbable.Collections.List<string> { },
+                        // defaultSchematics FIRST, then learnedSchematics. Seed
+                        // every catalogue recipe as a default so it shows in the
+                        // player's book with no learning step, and keep
+                        // learnedSchematics present-but-empty: LearnedSchematicsUpdated
+                        // is a callback on learnedSchematics only, so a later push
+                        // that touched only defaults would be invisible. Seeded at
+                        // AddComponent time because AllReferenceAndPlayerDataLoaded
+                        // clears the buffer unconditionally.
+                        SchematicsLearnerClientState.Data scData = new SchematicsLearnerClientState.Data(new SchematicsLearnerClientStateData(Items.SchematicHelper.DefaultSchematicIds(),
                                                                                                                                     new Improbable.Collections.List<string> { },
                                                                                                                                     10,
                                                                                                                                     20,
@@ -588,12 +596,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1005)
                     {
-                        CraftingStationClientState.Data csData = new CraftingStationClientState.Data(new CraftingStationClientStateData("schematicId",
-                                                                                                                                "owner",
+                        // clientSchematicId is "" (empty), NOT the literal
+                        // "schematicId": a non-empty id the catalogue cannot
+                        // resolve makes CraftingStationData.GetSchematicFromID
+                        // return null and NRE the crafting UI. itemReadyInSeconds
+                        // is -1 (aperture closed, no phantom countdown); no
+                        // materials are slotted at seed. The 1003 handler drives
+                        // real values from here on.
+                        CraftingStationClientState.Data csData = new CraftingStationClientState.Data(new CraftingStationClientStateData("",
+                                                                                                                                "",
                                                                                                                                 new Improbable.Collections.List<SlottedMaterial> { },
                                                                                                                                 new Improbable.Collections.List<Cipher> { },
-                                                                                                                                12,
-                                                                                                                                30f,
+                                                                                                                                -1,
+                                                                                                                                0f,
                                                                                                                                 new Option<PredictedStatDataExtra> { }));
                         obj = csData;
                     }

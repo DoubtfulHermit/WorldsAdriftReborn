@@ -57,6 +57,32 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         }
 
         /// <summary>
+        /// An item type's material category ("Metal", "Wood", "Fuel", ...), or
+        /// false for a type the database has never heard of. Shaped as a
+        /// <see cref="Multiplayer.Crafting.MaterialCategoryLookup"/> so the pure
+        /// CraftingPolicy can match a slotted material against a recipe
+        /// requirement without ever naming ItemHelper.
+        /// </summary>
+        internal static bool CategoryLookup(string itemTypeId, out string category)
+        {
+            if (!string.IsNullOrEmpty(itemTypeId)
+                && ItemHelper.AllItems.TryGetValue(itemTypeId, out ItemHelper.ValidItem? item))
+            {
+                category = item.category ?? "";
+                return true;
+            }
+
+            category = "";
+            return false;
+        }
+
+        /// <summary>An item type's material category, or the empty string when unknown.</summary>
+        internal static string CategoryOf(string itemTypeId)
+        {
+            return CategoryLookup(itemTypeId, out string category) ? category : "";
+        }
+
+        /// <summary>
         /// The character slot an item type is worn in, or "None" when it is not
         /// wearable. Straight from the item database, which is also what the
         /// client reads.

@@ -53,8 +53,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 newRefData.AddScrapItemDescriptionsSent(new SendScrapItemsDescriptions(scrapDesc, doComp ? Compress(JsonSerializer.Serialize(scrapDesc)) : null));
                 newRefData.AddSteamInvBundlesDescriptionsSent(
                     new SendSteamInventoryBundlesDescriptions(bundleDesc, doComp ? Compress(JsonSerializer.Serialize(bundleDesc)) : null));
-                var schematicData =
-                    "{\"glider\":{\"SchematicType\":0,\"uUID\":\"glider\",\"schematicId\":\"glider\",\"referenceData\":\"glider\",\"category\":\"Personal\",\"title\":\"cool glider\",\"iconId\":\"crafted items/3x4_glider\",\"description\":\"wolo\",\"timeToCraft\":10,\"amountToCraft\":1,\"itemType\":\"hmm\",\"craftingRequirements\":[],\"baseHp\":100.0,\"baseStats\":{},\"rarity\":1,\"cipherSlots\":[],\"unlearnable\":false,\"modules\":{},\"hullData\":\"hullData\",\"OrderedStats\":[],\"UniqueID\":\"glider\",\"CraftingCategoryEnum\":1,\"HumanReadableItemType\":\"Hmm\",\"rarityParsed\":1,\"HullDataBytes\":\"hullData\",\"IsProcedural\":false,\"IsShip\":false,\"cipherSlotParsed\":[]}}";
+                // The recipe catalogue now lives in a file (Game/Items/Config/
+                // schematicData.json), loaded like itemData.json. It is served
+                // verbatim so the client parses the full SchematicData field set,
+                // and the compressed path is preserved unchanged.
+                var schematicData = SchematicHelper.RawJson;
                 newRefData.SetSchematicsData(schematicData);
                 newRefData.AddSchematicDataSent(new SendSchematicData(schematicData, doComp ? Compress(schematicData) : null));
 
