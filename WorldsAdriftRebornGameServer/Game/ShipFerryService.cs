@@ -63,6 +63,18 @@ namespace WorldsAdriftRebornGameServer.Game
         private int _restEmitted;
         private bool _done;
         private bool _announced;
+        private TimeSpan? _readyAt;
+
+        /// <summary>
+        /// How long the ferry HOLDS the ship at rest after it first exists, before
+        /// flying - so a player has time to climb aboard and be carried. Set with
+        /// WAREBORN_SHIP_FERRY_START_DELAY (seconds); default 0 = fly immediately
+        /// (the original behaviour).
+        /// </summary>
+        private static readonly TimeSpan StartDelay = TimeSpan.FromSeconds(
+            double.TryParse(Environment.GetEnvironmentVariable("WAREBORN_SHIP_FERRY_START_DELAY"),
+                System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture,
+                out double d) && d > 0 ? d : 0.0);
 
         public ShipFerryService(IClock clock)
         {
@@ -105,6 +117,20 @@ namespace WorldsAdriftRebornGameServer.Game
 
             if (_plan == null)
             {
+                if (_readyAt == null)
+                {
+                    _readyAt = _clock.Elapsed + StartDelay;
+                    if (StartDelay > TimeSpan.Zero)
+                    {
+                        Console.WriteLine("[info] ship ferry: hull present; holding at rest for "
+                            + StartDelay.TotalSeconds.ToString("0") + " s (WAREBORN_SHIP_FERRY_START_DELAY) "
+                            + "so a player can board, then flying.");
+                    }
+                }
+                if (_clock.Elapsed < _readyAt.Value)
+                {
+                    return; // still giving the player time to climb aboard
+                }
                 _plan = BuildPlan(seed);
                 _index = 0;
                 Console.WriteLine("[info] ship ferry: STARTING flight of entity " + entityId + " from " + seed
