@@ -191,17 +191,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// they spawn 12 m away, on the island - so making the loading screen
         /// wait on it would be pure cost.
         /// </summary>
+        /// <summary>
+        /// The calibrated on-ground default hull position: island-local
+        /// (208.00, 7.70, 16.00). Y raised from -1283561 (deck buried ~1.4 m under
+        /// the surface) to -1273730 so the deck plane sits ~1 m ABOVE the player
+        /// spawn floor (feet at -1277826), clear of the real collision terrain.
+        /// </summary>
+        public static readonly FixedPointPosition ShipFrameDefaultPosition =
+            new FixedPointPosition(70502113, -1273730, -4580013);
+
+        /// <summary>
+        /// Where the hull spawns. Overridable at runtime with
+        /// <c>WAREBORN_SHIP_POS="x,y,z"</c> (WORLD metres) so the ship can be moved
+        /// anywhere for testing WITHOUT a rebuild or a test change - the deck, helm
+        /// and every other part derive their position from this, so they follow it.
+        /// A malformed value falls back to <see cref="ShipFrameDefaultPosition"/>.
+        /// </summary>
+        public static FixedPointPosition ShipFramePosition()
+        {
+            string? env = Environment.GetEnvironmentVariable("WAREBORN_SHIP_POS");
+            if (!string.IsNullOrWhiteSpace(env))
+            {
+                string[] p = env.Split(',');
+                if (p.Length == 3
+                    && double.TryParse(p[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double x)
+                    && double.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double y)
+                    && double.TryParse(p[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double z))
+                {
+                    return FixedPointPosition.FromMetres(x, y, z);
+                }
+            }
+            return ShipFrameDefaultPosition;
+        }
+
         public static WorldEntity ShipFrame()
         {
             return new WorldEntity(
                 ShipFrameKey,
                 ShipFrameAssetName,
                 DefaultAssetContext,
-                // Y raised from -1283561 (deck buried ~1.4 m under the surface) to
-                // -1273730 so the deck plane sits ~1 m ABOVE the player spawn floor
-                // (feet at -1277826), i.e. step-on-able rather than embedded. Deck /
-                // helm / parts derive from this position, so they lift together.
-                new FixedPointPosition(70502113, -1273730, -4580013),
+                ShipFramePosition(),
                 ShipFrameSeedComponents,
                 SpawnOrder.AfterPlayer);
         }
