@@ -70,15 +70,19 @@ namespace WorldsAdriftRebornGameServer.Game.Items
         }
 
         /// <summary>
-        /// The ids to seed into 1079 defaultSchematics so every recipe shows in
-        /// the player's book with no learning step. Derived from the file's keys,
-        /// never hard-coded, so it tracks whatever the catalogue contains.
+        /// The ids to seed into 1079 defaultSchematics for a fresh player: the
+        /// MINIMAL starter tier (<see cref="Multiplayer.Crafting.StarterSchematics"/>)
+        /// intersected with the loaded catalogue. Everything else is GATED behind the
+        /// knowledge tree and reaches the book only via learnedSchematics. Before this
+        /// gate the default set was the whole catalogue, so knowledge unlocked nothing
+        /// new. The starter decision is a pure, unit-tested policy; this method is just
+        /// the game-assembly adapter that wraps it in an Improbable list.
         /// </summary>
         public static Improbable.Collections.List<string> DefaultSchematicIds()
         {
             Improbable.Collections.List<string> ids = new Improbable.Collections.List<string>();
 
-            foreach (string id in All.Keys)
+            foreach (string id in Multiplayer.Crafting.StarterSchematics.Default(All.Keys))
             {
                 ids.Add(id);
             }

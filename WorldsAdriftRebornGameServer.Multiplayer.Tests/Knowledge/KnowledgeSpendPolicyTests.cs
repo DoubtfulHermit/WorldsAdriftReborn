@@ -39,14 +39,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         }
 
         [Fact]
-        public void Buying_the_cheap_root_deducts_the_cost_and_learns_its_schematic()
+        public void Buying_the_cheap_root_deducts_the_cost_and_learns_the_shipyard_recipe()
         {
+            // MILESTONE: the cheapest root (Shipbuilding, cost 20) aliases to the
+            // recovered "shipyard" catalogue recipe - the tree has no literal
+            // "Shipyard" node, so this root is how a player earns it.
             NodeSpend s = KnowledgeSpendPolicy.Evaluate(Tree(), knowledge: 51, Uses(), "Shipbuilding");
 
             Assert.Equal(NodeSpendResponse.Success, s.Response);
             Assert.Equal(31, s.NewKnowledge);      // 51 - 20
             Assert.Equal(1, s.NewNodeUseCount);
-            Assert.Equal("Shipbuilding", s.LearnedSchematicId);
+            Assert.Equal("shipyard", s.LearnedSchematicId);
         }
 
         [Fact]

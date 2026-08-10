@@ -614,18 +614,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1079)
                     {
-                        // defaultSchematics FIRST, then learnedSchematics. Seed
-                        // every catalogue recipe as a default so it shows in the
-                        // player's book with no learning step, and keep
-                        // learnedSchematics present-but-empty: LearnedSchematicsUpdated
-                        // is a callback on learnedSchematics only, so a later push
-                        // that touched only defaults would be invisible. Seeded at
-                        // AddComponent time because AllReferenceAndPlayerDataLoaded
-                        // clears the buffer unconditionally.
-                        // learnedSchematics is served from the progression store (not
-                        // empty) so a knowledge purchase that appended a schematic
-                        // survives a re-checkout. defaultSchematics stays the whole
-                        // catalogue so every recipe still shows with no learning step.
+                        // defaultSchematics FIRST, then learnedSchematics. Seed only
+                        // the MINIMAL starter tier as defaults (SchematicHelper.
+                        // DefaultSchematicIds - torch/guitar/clothMakeshift/
+                        // makeshiftStorage); the rest of the catalogue is GATED behind
+                        // the knowledge tree. learnedSchematics is served from the
+                        // progression store so a knowledge purchase that appended a
+                        // schematic survives a re-checkout - that is how a gated recipe
+                        // reaches the player's book. Seeded at AddComponent time because
+                        // AllReferenceAndPlayerDataLoaded clears the buffer
+                        // unconditionally; learnedSchematics is kept present (not null)
+                        // because LearnedSchematicsUpdated is a callback on
+                        // learnedSchematics only, so a later push that touched only
+                        // defaults would be invisible.
                         Game.Knowledge.PlayerProgression schematicProg =
                             Game.Knowledge.ProgressionStore.For(entityId);
                         Improbable.Collections.List<string> learned = new Improbable.Collections.List<string>();

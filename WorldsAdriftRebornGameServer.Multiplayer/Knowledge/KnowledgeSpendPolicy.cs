@@ -67,20 +67,69 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Knowledge
     public static class KnowledgeSpendPolicy
     {
         /// <summary>
-        /// Node ids whose baked name differs from the catalogue's schematic key, so
-        /// the learned id resolves against the current recipe catalogue. Only the
-        /// craftable-today proof node is aliased; everything else learns under its own
-        /// name (harmless until a catalogue recipe exists for it - a learned id that
-        /// does not resolve is silently dropped by the client, not an error).
+        /// Node ids whose baked display name differs from the catalogue's schematic
+        /// key, so the learned id resolves against the recovered recipe catalogue.
+        /// The tree's node names are display-ish ("Head Torch", "Storage Container",
+        /// "Atlas Core Enhancer") while the recovered recipe ids are camelCase-ish
+        /// ("headTorch", "storageContainer", "skyCoreAtlasEnhancer"); this table
+        /// bridges the two. A node with no entry learns under its own id - harmless
+        /// when no catalogue recipe matches (a learned id that does not resolve is
+        /// silently dropped by the client, not an error), which is the case for the
+        /// procedural weapon/slot/cipher nodes and the tree nodes with no recovered
+        /// recipe (Compass, Paint Can, Bread, ...). Every mapping below points at a
+        /// key that exists in Game/Items/Config/schematicData.json.
         /// </summary>
         private static readonly IReadOnlyDictionary<string, string> SchematicAliases =
             new Dictionary<string, string>
             {
-                // The Explorer branch's "Glider" node learns the existing "glider"
-                // catalogue recipe (torch/glider/guitar are the only craftable recipes
-                // today), so a determined tester can climb the Explorer chain to a
-                // node that is actually craftable.
+                // Shipbuilding is the cheapest tree root (cost 20, reachable from a
+                // single databank scan) and the tree has no literal "Shipyard" node,
+                // so this root grants the Shipyard recipe - the milestone proof path.
+                { "Shipbuilding", "shipyard" },
+
+                // Wings/Engines roots are SCHEMATIC_RANDOM procedural branches; only
+                // the wing has a recovered concrete recipe (the Bossa procedural wing
+                // seed), so the Wings root learns it. Engines has no recovered recipe.
+                { "WingsRootSchematic", "proceduralWingDefault" },
+
+                // Explorer branch.
+                { "Fuel Gauge", "fuelGauge" },
+                { "Hip Lamp", "hipLamp" },
+                { "Head Torch", "headTorch" },
                 { "Glider", "glider" },
+                { "Artificial Horizon", "artificialHorizon" },
+
+                // SkyshipBuilder branch (root "Stairs").
+                { "Stairs", "stairs" },
+                { "Medium Panel", "mediumPanel" },
+                { "Window Panel", "window" },
+                { "Large Panel", "largePanel" },
+                { "Ship Railing", "railing" },
+                { "Railing Corner", "railingCorner" },
+
+                // Tradesman branch (root "Trunk").
+                { "Trunk", "trunk" },
+                { "Mounted Box", "mountedBox" },
+                { "Storage Container", "storageContainer" },
+                { "Loom", "loom" },
+
+                // Cooking branch (root "Campfire").
+                { "Campfire", "campFire" },
+                { "Thuntomite Steak", "thuntomiteSteak" },
+                { "Manta Steak", "mantaSteak" },
+                { "Stove", "stove" },
+
+                // AtlasEngineer branch (root "Atlas Core Enhancer"). The wiki recovered
+                // these as "Sky Core X" recipe ids.
+                { "Atlas Core Enhancer", "skyCoreAtlasEnhancer" },
+                { "Atlas Core Generator", "skyCoreGenerator" },
+                { "Atlas Core Air Filter", "skyCoreAirFilter" },
+                { "Atlas Core Coolant System", "skyCoreCoolantSystem" },
+                { "Atlas Core Stabiliser", "skyCoreStabiliser" },
+                { "Atlas Core Computer", "skyCoreComputer" },
+                { "Atlas Core Circuitry Network", "skyCoreCircuitryNetwork" },
+                { "Atlas Core Efficiency Module", "skyCoreEfficiencyModule" },
+                { "Lifter", "atlasLifter" },
             };
 
         public static NodeSpend Evaluate(
