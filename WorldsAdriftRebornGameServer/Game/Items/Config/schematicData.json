@@ -14,7 +14,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "scrapItem-grandmooringrope",
+        "name": "iron",
         "iconId": "scrap items/4x2_saborian_Grand_mooring_rope",
         "component": "Plant Fibers",
         "description": "Plant fibers woven into a basic cloth.",
@@ -54,7 +54,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "cedar",
+        "name": "birch",
         "iconId": "woods/Wood_Cedar",
         "component": "Handle",
         "description": "",
@@ -228,7 +228,7 @@
       },
       {
         "id": 1,
-        "name": "scrapItem-beetlebloodlinen",
+        "name": "iron",
         "iconId": "scrap items/4x2_Beetle_Blood_Linen1",
         "component": "Wings",
         "description": "",
@@ -237,7 +237,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-herderssaddlebag",
+        "name": "iron",
         "iconId": "scrap items/3x2_Herders_Saddlebag",
         "component": "Pack",
         "description": "",
@@ -357,7 +357,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "cedar",
+        "name": "birch",
         "iconId": "woods/Wood_Cedar",
         "component": "Container",
         "description": "",
@@ -424,7 +424,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -562,7 +562,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "cedar",
+        "name": "birch",
         "iconId": "woods/Wood_Cedar",
         "component": "Wood",
         "description": "",
@@ -611,7 +611,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "scrapItem-cookingpot",
+        "name": "iron",
         "iconId": "scrap items/2x2_Cooking_Pot",
         "component": "Raw Thuntomite Meat",
         "description": "",
@@ -620,7 +620,7 @@
       },
       {
         "id": 1,
-        "name": "scrapItem-momorosanfruitplatter",
+        "name": "iron",
         "iconId": "scrap items/2x2_Momorosan_Fruit_Platter2",
         "component": "Daccat Berries",
         "description": "",
@@ -660,7 +660,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "scrapItem-cookingpot",
+        "name": "iron",
         "iconId": "scrap items/2x2_Cooking_Pot",
         "component": "Raw Manta Meat",
         "description": "",
@@ -700,7 +700,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "scrapItem-cookingpot",
+        "name": "iron",
         "iconId": "scrap items/2x2_Cooking_Pot",
         "component": "Raw Thuntomite Meat",
         "description": "",
@@ -878,7 +878,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "cedar",
+        "name": "birch",
         "iconId": "woods/Wood_Cedar",
         "component": "Mast",
         "description": "",
@@ -1550,7 +1550,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "cedar",
+        "name": "birch",
         "iconId": "woods/Wood_Cedar",
         "component": "Body",
         "description": "",
@@ -1568,7 +1568,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-grandmooringrope",
+        "name": "iron",
         "iconId": "scrap items/4x2_saborian_Grand_mooring_rope",
         "component": "Strings",
         "description": "",
@@ -2027,7 +2027,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2085,7 +2085,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2143,7 +2143,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2201,7 +2201,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2259,7 +2259,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2317,7 +2317,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2375,7 +2375,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2433,7 +2433,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
@@ -2491,7 +2491,7 @@
       },
       {
         "id": 2,
-        "name": "scrapItem-atlashod",
+        "name": "iron",
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
