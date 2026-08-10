@@ -1140,6 +1140,34 @@
     "metadata": {}
   },
   {
+    "itemTypeID": "cobalt",
+    "height": 2,
+    "width": 3,
+    "name": "Cobalt",
+    "description": "Hard and heat resistant, prized for tough alloys.",
+    "category": "Metal",
+    "stacksize": 99,
+    "iconName": "metals/Metal_Cobalt",
+    "equippable": false,
+    "rarity": 2,
+    "characterSlot": "None",
+    "metadata": {}
+  },
+  {
+    "itemTypeID": "aurium",
+    "height": 2,
+    "width": 3,
+    "name": "Aurium",
+    "description": "A rare lustrous metal favoured for fine instruments.",
+    "category": "Metal",
+    "stacksize": 99,
+    "iconName": "metals/Metal_Aurium",
+    "equippable": false,
+    "rarity": 3,
+    "characterSlot": "None",
+    "metadata": {}
+  },
+  {
     "itemTypeID": "nickel",
     "height": 2,
     "width": 3,
