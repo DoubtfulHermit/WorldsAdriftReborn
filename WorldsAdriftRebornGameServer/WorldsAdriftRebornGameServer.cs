@@ -117,6 +117,12 @@ namespace WorldsAdriftRebornGameServer
                     + "; cleared from aboard tracker.");
             }
 
+            // The carry-echo tracker's slice, keyed by the same peer id. Dropping it
+            // here means a reconnecting peer's first genuine board is not deduped away
+            // against the value the dead session last echoed. Same everything-contract
+            // as the aboard tracker above.
+            CarryEcho.Forget(peerId);
+
             // Drop the departed player's stored appearance so the store does not
             // grow across reconnects (entity ids are handed out monotonically, so
             // a stale record is never re-read, only wasted memory).
@@ -1016,6 +1022,29 @@ namespace WorldsAdriftRebornGameServer
         /// 1073 and ForgetPeer clears a departed peer from it.
         /// </summary>
         internal static readonly AboardTracker Aboard = new AboardTracker(ShipMembership);
+
+        /// <summary>
+        /// Whether the carry echo is armed. ON by default; set
+        /// <c>WAREBORN_CARRY_ECHO=0</c> to switch it off if it misbehaves.
+        ///
+        /// The echo sends a player its OWN 1073 <c>relativeTo</c> back on a
+        /// board/leave edge, which is the one thing that arms the client-side ship
+        /// carry (<c>ClientAuthoritativePlayerMovement</c> only sets its PathFollower
+        /// from a RECEIVED relativeTo, and this custom server otherwise never echoes
+        /// a worker its own authoritative update). See <see cref="CarryEcho"/>.
+        /// </summary>
+        internal static readonly bool CarryEchoEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_CARRY_ECHO") != "0";
+
+        /// <summary>
+        /// Per-peer carry-echo edge detector: decides when to echo a player's own
+        /// 1073 relativeTo back so the ship carry arms, and dedupes so a stationary
+        /// player is not echoed every frame (which would fight its own prediction).
+        ///
+        /// Internal because ClientAuthoritativePlayerState_Handler drives it every
+        /// 1073 and ForgetPeer clears a departed peer from it.
+        /// </summary>
+        internal static readonly CarryEchoTracker CarryEcho = new CarryEchoTracker();
 
         /// <summary>
         /// Whether to also spawn the second Haven (see

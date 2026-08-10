@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using Bossa.Travellers.Player;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
+using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
 namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 {
@@ -92,6 +94,46 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             if (aboard.Change != Multiplayer.AboardChange.None)
             {
                 Console.WriteLine("[info] player entity " + entityId + " " + aboard + ".");
+            }
+
+            // Carry echo. The client-side ship carry
+            // (ClientAuthoritativePlayerMovement.RepositionRelativeToGroundedObject)
+            // arms only when RelativePathFollower != null, which is set ONLY by
+            // HandleRelativeToUpdate - and that fires ONLY on a RECEIVED 1073
+            // relativeTo. The client's own Send() never fires it locally, and this
+            // custom server otherwise never echoes a worker its own authoritative
+            // update, so the owner never receives its own relativeTo and the carry
+            // never arms. Echo it back on the board/leave EDGE only.
+            //
+            // MINIMAL ON PURPOSE: only relativeTo, and only when it CHANGES. The
+            // player is authoritative over 1073's position/bone fields and
+            // republishes them every tick; echoing those would fight its own
+            // prediction and rubber-band it. relativeTo alone carries no position -
+            // the repositioner recomputes the relative offset locally from live
+            // transforms - so a bare relativeTo echo arms the carry without moving
+            // anyone. The exact reported id is echoed (never a ship root): the
+            // client's RelativeGameObject setter only arms when the echoed id
+            // resolves to the SAME ground object it already chose.
+            if (WorldsAdriftRebornGameServer.CarryEchoEnabled)
+            {
+                Multiplayer.CarryEchoDecision echo = WorldsAdriftRebornGameServer.CarryEcho.Observe(
+                    PeerIdentity.IdOf(player),
+                    clientComponentUpdate.relativeTo.HasValue,
+                    clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L);
+
+                if (echo.ShouldEcho)
+                {
+                    ClientAuthoritativePlayerState.Update carryEcho = new ClientAuthoritativePlayerState.Update();
+                    carryEcho.SetRelativeTo(clientComponentUpdate.relativeTo.Value);
+
+                    SendOPHelper.SendComponentUpdateOp(
+                        player, entityId,
+                        new List<uint> { 1073 },
+                        new List<object> { carryEcho });
+
+                    Console.WriteLine("[info] carry-echo: sent owner entity " + entityId
+                        + " its own relativeTo " + echo.RelativeTo + " back to arm the ship carry.");
+                }
             }
 
             if (!clientComponentUpdate.lastExecutedRequest.HasValue)
