@@ -243,10 +243,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// carrying the "Man" verb, sat on the deck.
         ///
         /// A ship is N+1 entities linked by 8066 ShipRootState (findings-first-ship,
-        /// "Many entities, not one"). This is the +1: its OWN entity, its OWN global
-        /// 190602, positioned on the hull's deck by <see cref="Multiplayer.Helm.OnDeckOf"/>
-        /// rather than parented to it (the part-to-hull link is 8066, and 8066 does
-        /// not move a transform). The 8066 seed pointing this part's shipRoot at the
+        /// "Many entities, not one"). This is the +1: its OWN entity, whose 190602 is
+        /// seeded hull-RELATIVE (parent = Parent(hullId, "~"), see
+        /// <see cref="Multiplayer.BoltedPartTransform"/>) with the offset from
+        /// <see cref="Multiplayer.Helm.OnDeckOf"/>, so it MOVES with the hull rather
+        /// than drifting. The 8066 seed pointing this part's shipRoot at the
         /// hull, and the 1210 InteractiveState carrying InteractVerb.Man, are served
         /// by ComponentsSerializer when the client requests them - the same
         /// best-effort, interest-driven path the MetalNugget's PickUp prompt uses,
@@ -296,11 +297,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// on while the hull moves. THE primary deliverable of the full-ship work.
         ///
         /// A ship is N+1 entities linked by 8066 (findings-first-ship). This is the
-        /// floor +1: its OWN entity, its OWN global 190602, CENTRED on the hull by
+        /// floor +1: its OWN entity, CENTRED on the hull by
         /// <see cref="Multiplayer.Deck.OnHull"/> (its vertices are origin-centred, so
-        /// the deck centre coincides with the hull centre). It is NOT parented to the
-        /// hull - the part-to-hull link is 8066 and the player-to-deck link is 1073,
-        /// and neither moves a transform.
+        /// the deck centre coincides with the hull centre) and seeded hull-RELATIVE -
+        /// its 190602 carries parent = Parent(hullId, "~") and the local offset from
+        /// the hull (see <see cref="Multiplayer.BoltedPartTransform"/>), so the client
+        /// composes it with the hull's live position every FixedUpdate and the solid
+        /// deck can no longer drift out from under a player standing on it.
         ///
         /// Seeds NOTHING unprompted, exactly like the helm, the tree and the nugget:
         /// the client checks the deck out and asks for what it wants over

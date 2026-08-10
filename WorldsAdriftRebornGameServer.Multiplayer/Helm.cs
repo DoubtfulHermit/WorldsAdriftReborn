@@ -73,11 +73,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // ------------------------------------------------------------------
         // Where the helm sits, relative to the hull's own registration.
         //
-        // The helm is a SEPARATE entity placed by its own 190602 in GLOBAL
-        // coordinates - the player-on-a-deck relationship is 1073, and the
-        // part-to-hull relationship is 8066, but NEITHER parents the helm's
-        // transform, so nothing positions it except its own seed. It is offset
-        // from the hull's registration so the two cannot drift apart.
+        // The helm is a SEPARATE entity, but like the deck its 190602 is seeded
+        // hull-RELATIVE (parent = Parent(hullId, "~"), see
+        // Multiplayer.BoltedPartTransform), so it moves with the hull rather than
+        // drifting. OnDeckOf below is the GLOBAL position the helm WOULD sit at; the
+        // serializer subtracts the hull's own seed to get the local offset the client
+        // receives.
         // ------------------------------------------------------------------
 
         /// <summary>

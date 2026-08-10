@@ -141,12 +141,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // ------------------------------------------------------------------
         // Where the deck sits, relative to the hull's own registration.
         //
-        // The deck is a SEPARATE entity placed by its own global 190602 - the
-        // part-to-hull link is 8066 and the player-to-deck link is 1073, but
-        // NEITHER parents the deck's transform (VERIFIED: ShipPartVisualizer does
-        // not reposition; it only reads Scale for localScale). So nothing positions
-        // the deck except its own seed, offset from the hull so the two cannot
-        // drift apart.
+        // The deck is a SEPARATE entity, but its 190602 is seeded hull-RELATIVE
+        // (parent = Parent(hullId, "~"), see Multiplayer.BoltedPartTransform and the
+        // 190602 branch in ComponentsSerializer), so the client tracks the moving
+        // hull and the deck cannot drift out from under a player. OnHull below is the
+        // GLOBAL position the deck WOULD sit at; the serializer subtracts the hull's
+        // own seed from it to get the local offset the client actually receives, so
+        // this arithmetic stays the single source of the deck's placement.
         // ------------------------------------------------------------------
 
         /// <summary>

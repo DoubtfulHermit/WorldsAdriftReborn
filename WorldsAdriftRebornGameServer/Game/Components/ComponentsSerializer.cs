@@ -139,12 +139,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // coordinates are unit-tested natively rather than by
                         // staring at a game client.
                         //
-                        // parent stays ABSENT (the null below). With a parent present
-                        // the client applies localPosition raw with no origin remap;
-                        // with it absent the live branch runs,
+                        // parent is ABSENT for everything EXCEPT a bolted ship part.
+                        // With it absent the client's live branch runs,
                         // transform.position = localPosition / 4096 - OffsetOrigin,
-                        // which is what we have empirically proven works. Do not add
-                        // one here - see docs/research/findings-world.md Q4.
+                        // which is what we have empirically proven works for islands,
+                        // players, trees, nodes and the hull itself. Do not add a
+                        // parent to any of those - see docs/research/findings-world.md Q4.
+                        //
+                        // A bolted PART (deck, helm, engine, sail) is the exception and
+                        // MUST carry a parent, or it stands still in world space while
+                        // the hull's PathFollower micro-adjusts the hull every frame and
+                        // the player falls THROUGH the drifting deck. See the
+                        // parent-present block just below and Multiplayer.BoltedPartTransform.
                         //
                         // And this is a SEED, consumed once at OnEnable. It must
                         // never be re-sent to a live entity: for a player that is a
@@ -174,9 +180,52 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
 
-                        TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { seed.X, seed.Y, seed.Z }),
+                        // A BOLTED SHIP PART is seeded hull-RELATIVE so it follows the
+                        // moving hull instead of drifting. The localPosition becomes the
+                        // part's offset FROM the hull and the parent names the hull with
+                        // the "~" key that the client resolves as "relative to a moving
+                        // parent" (FixedUpdateLerpLocalTransformBehaviour GetRelativeEntity
+                        // :444, compose :365, MoveTransform :251 - a "~" parent is NOT a
+                        // Unity re-parent, so no GameObject hierarchy changes). The hull's
+                        // id is looked up WITHOUT allocating, exactly as the 8066 branch
+                        // does; the hull is registered and spawned before its parts, so it
+                        // is known by the time a client checks a part out. If it somehow is
+                        // not yet known we fall back to the old world-absolute seed for
+                        // this one serve - the part will re-seed relative on a later
+                        // checkout - rather than parent it to a hull id that does not exist.
+                        Multiplayer.FixedPointPosition localSeed = seed;
+                        Improbable.Collections.Option<Parent> parent = default;
+
+                        string? partKey =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key;
+                        if (Multiplayer.WorldEntities.IsBoltedPartKey(partKey))
+                        {
+                            long? hullEntityId = WorldsAdriftRebornGameServer.WorldEntities
+                                .BoundEntityIdFor(Multiplayer.WorldEntities.ShipFrameKey);
+                            Multiplayer.FixedPointPosition? hullSeed = WorldsAdriftRebornGameServer.WorldEntities
+                                .ByKey(Multiplayer.WorldEntities.ShipFrameKey)?.Position;
+
+                            if (hullEntityId.HasValue && hullSeed.HasValue)
+                            {
+                                localSeed = Multiplayer.BoltedPartTransform.LocalOffset(seed, hullSeed.Value);
+                                parent = new Improbable.Collections.Option<Parent>(
+                                    new Parent(new EntityId(hullEntityId.Value), "~"));
+
+                                Console.WriteLine("[info] seeding 190602 for bolted part " + entityId + " ("
+                                    + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                                    + ") RELATIVE to hull " + hullEntityId.Value
+                                    + " at local offset " + localSeed + ".");
+                            }
+                            else
+                            {
+                                Console.WriteLine("[warn] 190602 for bolted part " + entityId
+                                    + " but the hull id is not known yet; seeding world-absolute this once.");
+                            }
+                        }
+
+                        TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { localSeed.X, localSeed.Y, localSeed.Z }),
                                                                 new Quaternion32(1023), // identity sentinel is the low 10 bits ALL set; 1 decodes to NaN
-                                                                null,
+                                                                parent,
                                                                 new Improbable.Math.Vector3d(0f, 0f, 0f),
                                                                 new Improbable.Math.Vector3f(0f, 0f, 0f),
                                                                 new Improbable.Math.Vector3f(0f, 0f, 0f),
@@ -184,9 +233,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                 0f);
                         TransformState.Data tData = new TransformState.Data(tInit);
 
-                        Console.WriteLine("[info] seeding 190602 for entity " + entityId + " ("
-                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") at " + seed + ".");
+                        if (!parent.HasValue)
+                        {
+                            Console.WriteLine("[info] seeding 190602 for entity " + entityId + " ("
+                                + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                                + ") at " + seed + ".");
+                        }
 
                         obj = tData;
                     }

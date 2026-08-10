@@ -86,10 +86,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Fact]
         public void The_deck_sits_centred_on_the_hull_derived_from_it_not_pasted()
         {
-            // The deck is a SEPARATE entity with its own global 190602 - not parented
-            // to the hull - so its position must track the hull's. Its vertices are
-            // origin-centred, so its X and Z are the hull's exactly and only Y
-            // carries the (currently zero) up offset.
+            // The deck is a SEPARATE entity whose 190602 is seeded hull-RELATIVE (see
+            // BoltedPartTransform); OnHull is the global position that offset is derived
+            // from, so its X and Z are the hull's exactly and only Y carries the
+            // (currently zero) up offset.
             FixedPointPosition hull = WorldEntities.ShipFrame().Position;
             FixedPointPosition deck = Deck.OnHull(hull);
 
