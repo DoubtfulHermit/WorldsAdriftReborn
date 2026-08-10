@@ -106,5 +106,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Null(BoltedPartTransform.LocalOffsetFor(WorldEntities.IslandKey, hull));
             Assert.Null(BoltedPartTransform.LocalOffsetFor(null, hull));
         }
+
+        [Fact]
+        public void Only_the_deck_gets_a_real_hierarchy_key_the_rest_follow_relatively()
+        {
+            // The carry fix rests on this one split: the DECK is a real Unity child of
+            // the hull (a non-"~" key), so a player on it raycasts the hull's rigidbody
+            // and rides the hull's PathFollower; helm/engine/sail only position-FOLLOW
+            // the hull via the "~" relative slot and keep their own rigidbody.
+            Assert.Equal(Deck.HierarchyKey, BoltedPartTransform.HierarchyKeyFor(WorldEntities.DeckKey));
+            Assert.Equal("~", BoltedPartTransform.HierarchyKeyFor(WorldEntities.HelmKey));
+            Assert.Equal("~", BoltedPartTransform.HierarchyKeyFor(WorldEntities.EngineKey));
+            Assert.Equal("~", BoltedPartTransform.HierarchyKeyFor(WorldEntities.SailKey));
+            Assert.Equal("~", BoltedPartTransform.HierarchyKeyFor(null));
+        }
+
+        [Fact]
+        public void The_deck_hierarchy_key_is_a_plain_word_not_the_relative_slot_and_not_an_offset_slot()
+        {
+            // Non-"~" so it triggers a real Unity re-parent (not the position-follow),
+            // and no leading "#" so it is never a registered TransformOffsetsRegistry
+            // slot - it always falls back to the hull ROOT transform.
+            Assert.NotEqual("~", Deck.HierarchyKey);
+            Assert.False(Deck.HierarchyKey.StartsWith("#"));
+            Assert.False(string.IsNullOrEmpty(Deck.HierarchyKey));
+        }
+
+        [Fact]
+        public void Only_the_deck_is_a_unity_child_so_only_it_is_skipped_by_the_wake()
+        {
+            // IsUnityChild is what ShipPartMotionService.PublishWake filters on: a real
+            // child must NOT be re-woken (re-sending its parent every heartbeat churns an
+            // unparent+reparent), while every "~" follower must be.
+            Assert.True(BoltedPartTransform.IsUnityChild(WorldEntities.DeckKey));
+            Assert.False(BoltedPartTransform.IsUnityChild(WorldEntities.HelmKey));
+            Assert.False(BoltedPartTransform.IsUnityChild(WorldEntities.EngineKey));
+            Assert.False(BoltedPartTransform.IsUnityChild(WorldEntities.SailKey));
+            Assert.False(BoltedPartTransform.IsUnityChild(null));
+        }
     }
 }

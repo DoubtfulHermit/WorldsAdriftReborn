@@ -208,11 +208,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             if (hullEntityId.HasValue && hullSeed.HasValue)
                             {
                                 localSeed = Multiplayer.BoltedPartTransform.LocalOffset(seed, hullSeed.Value);
-                                parent = ShipPartTransform.RelativeParent(hullEntityId.Value);
+                                // The DECK gets a REAL hierarchy key (a Unity child of the
+                                // hull, so a player on it raycasts the hull's rigidbody and
+                                // is carried); every other part gets the "~" follow. One
+                                // source of that decision: BoltedPartTransform.HierarchyKeyFor.
+                                string hierarchyKey = Multiplayer.BoltedPartTransform.HierarchyKeyFor(partKey);
+                                parent = ShipPartTransform.RelativeParent(hullEntityId.Value, hierarchyKey);
 
                                 Console.WriteLine("[info] seeding 190602 for bolted part " + entityId + " ("
                                     + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                                    + ") RELATIVE to hull " + hullEntityId.Value
+                                    + ") parent=" + hierarchyKey + " of hull " + hullEntityId.Value
                                     + " at local offset " + localSeed + ".");
                             }
                             else

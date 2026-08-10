@@ -36,13 +36,17 @@ namespace WorldsAdriftRebornGameServer.Game
         private static Quaternion32 IdentityRotation => new Quaternion32(1023);
 
         /// <summary>
-        /// The "~" relative parent naming the hull - the marker the client's
-        /// FixedUpdateLerpLocalTransformBehaviour resolves as "compose my local offset
-        /// with this moving parent's live position each frame".
+        /// The 190602 parent naming the hull, with the per-part hierarchy
+        /// <paramref name="key"/> from <see cref="BoltedPartTransform.HierarchyKeyFor"/>:
+        /// <c>"~"</c> (the relative slot) for a position-FOLLOW part the client composes
+        /// against the hull's live position each frame, or a real word (the deck) that
+        /// makes the client re-parent the part as a genuine Unity CHILD of the hull. The
+        /// key is the ONLY difference between "follow" and "become a child"; the entity
+        /// id it names is the hull in both cases.
         /// </summary>
-        public static Option<Parent> RelativeParent(long hullEntityId)
+        public static Option<Parent> RelativeParent(long hullEntityId, string key)
         {
-            return new Option<Parent>(new Parent(new EntityId(hullEntityId), "~"));
+            return new Option<Parent>(new Parent(new EntityId(hullEntityId), key));
         }
 
         /// <summary>The fixed-point local offset as the wire vector the client reads.</summary>
@@ -79,12 +83,12 @@ namespace WorldsAdriftRebornGameServer.Game
         /// asserts the relative parent it depends on. Sent, it fires the part's
         /// PropertyUpdated -> OnTransformChanged -> WakeUp.
         /// </summary>
-        public static TransformState.Update BuildWakeUpdate(FixedPointPosition localOffset, long hullEntityId, float timestamp)
+        public static TransformState.Update BuildWakeUpdate(FixedPointPosition localOffset, long hullEntityId, string key, float timestamp)
         {
             return new TransformState.Update()
                 .SetLocalPosition(LocalPosition(localOffset))
                 .SetLocalRotation(IdentityRotation)
-                .SetParent(RelativeParent(hullEntityId))
+                .SetParent(RelativeParent(hullEntityId, key))
                 .SetPivot(new Vector3d(0f, 0f, 0f))
                 .SetVelocity(new Vector3f(0f, 0f, 0f))
                 .SetAngularVelocity(new Vector3f(0f, 0f, 0f))

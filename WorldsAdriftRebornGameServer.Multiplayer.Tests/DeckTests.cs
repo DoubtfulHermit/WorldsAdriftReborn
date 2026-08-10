@@ -156,5 +156,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(ShipParts.EngineOnHull(hull).Z < hull.Z);   // aft
             Assert.Equal(hull.Z, ShipParts.SailOnHull(hull).Z);     // amidships
         }
+
+        [Fact]
+        public void The_deck_is_seeded_as_a_real_unity_child_of_the_hull()
+        {
+            // The carry deliverable: a non-"~" hierarchy key so the client re-parents the
+            // deck under the hull GameObject (rigidbody destroyed, ground raycast climbs
+            // to the hull's PathFollower) rather than merely position-following it.
+            Assert.Equal("deck", Deck.HierarchyKey);
+            Assert.NotEqual("~", Deck.HierarchyKey);
+        }
     }
 }

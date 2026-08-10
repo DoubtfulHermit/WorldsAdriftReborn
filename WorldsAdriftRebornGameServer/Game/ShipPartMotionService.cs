@@ -88,6 +88,17 @@ namespace WorldsAdriftRebornGameServer.Game
             int woken = 0;
             foreach (WorldEntity part in WorldsAdriftRebornGameServer.WorldEntities.BoltedParts())
             {
+                // A part seeded as a REAL Unity child of the hull (the deck) is dragged
+                // along by the hull's transform through the Unity hierarchy and needs no
+                // wake. Worse, re-sending its parent field here every heartbeat would
+                // re-fire the client's ParentUpdated and churn an unparent+reparent
+                // (rigidbody destroyed and re-added) twice a second. Only "~" followers
+                // are woken.
+                if (BoltedPartTransform.IsUnityChild(part.Key))
+                {
+                    continue;
+                }
+
                 long? partEntityId = WorldsAdriftRebornGameServer.WorldEntities.BoundEntityIdFor(part.Key);
                 if (!partEntityId.HasValue)
                 {
@@ -95,7 +106,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
 
                 FixedPointPosition localOffset = BoltedPartTransform.LocalOffset(part.Position, hullPos);
-                TransformState.Update wake = ShipPartTransform.BuildWakeUpdate(localOffset, hullEntityId, stamp);
+                TransformState.Update wake = ShipPartTransform.BuildWakeUpdate(
+                    localOffset, hullEntityId, BoltedPartTransform.HierarchyKeyFor(part.Key), stamp);
 
                 int sent = ShipPublisher.Broadcast(
                     partEntityId.Value, ShipPartMotionPolicy.TransformStateComponentId, wake);

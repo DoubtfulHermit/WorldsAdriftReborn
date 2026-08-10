@@ -53,6 +53,66 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The deck's registration key. One deck, one ship, for now.</summary>
         public const string Key = "deck-haven";
 
+        /// <summary>
+        /// The 190602 <c>TransformState.parent</c> HIERARCHY KEY that makes the deck a
+        /// REAL Unity child of the hull GameObject - the whole carry fix.
+        ///
+        /// WHY NOT <c>"~"</c>. Every other bolted part is seeded with the relative slot
+        /// <c>"~"</c>, which is a POSITION-follow, NOT a Unity re-parent: the client's
+        /// <c>RelativeParentTransformChildHierarchyBehaviour.TrySetNewParent</c> treats
+        /// <c>"~"</c> as "stay unparented, just track" (VERIFIED,
+        /// RelativeParentTransformChildHierarchyBehaviour.cs:35-45), and
+        /// <c>TransformManageRigidbodyBehaviour</c> coerces a <c>"~"</c> parent to "no
+        /// parent" so it KEEPS the part's own kinematic rigidbody (VERIFIED,
+        /// TransformManageRigidbodyBehaviour.cs:180-182). That is exactly why a player on
+        /// the current <c>"~"</c> deck reports <c>relativeTo = the deck</c> (its own
+        /// rigidbody is what the ground-raycast hits) yet is never carried: the deck has
+        /// no <c>PathFollower</c>, and the client only arms the carry off a
+        /// <c>PathFollower</c> on the SAME object it stands on
+        /// (<c>ClientAuthoritativePlayerMovement.RelativeGameObject</c> setter guards
+        /// <c>LocalRelativeGroundObject == value</c>, VERIFIED :84-104).
+        ///
+        /// WHAT A NON-<c>"~"</c> KEY DOES. A real key sends the deck down the game's own
+        /// bolted-part path:
+        ///   * <c>RelativeParentTransformChildHierarchyBehaviour.TrySetNewParent</c> ->
+        ///     <c>base.TrySetNewParent</c> -> <c>TransformChildHierarchyBehaviour</c>
+        ///     sets <c>CachedTransform.parent = hull offset</c> - a REAL Unity re-parent
+        ///     under the hull (VERIFIED, TransformChildHierarchyBehaviour.cs:195-201). The
+        ///     key is a PLAIN word (no leading <c>#</c>), so it is NOT a registered
+        ///     <c>TransformOffsetsRegistry</c> slot and <c>GetTransformOffset</c> falls
+        ///     back to the hull ROOT transform (VERIFIED,
+        ///     TransformParentHierarchyBehaviour.cs:59-66) - the deck parents directly
+        ///     under the hull, at this part's <c>localPosition</c> (its offset from the
+        ///     hull, a flat (0,0,0) since the deck is hull-centred).
+        ///   * <c>TransformManageRigidbodyBehaviour</c> sees a real parent transition and
+        ///     <c>Object.Destroy</c>s the deck's own rigidbody (VERIFIED,
+        ///     TransformManageRigidbodyBehaviour.cs:184-192, 222-241). With no rigidbody
+        ///     of its own, the deck collider's <c>attachedRigidbody</c> now climbs the
+        ///     Unity hierarchy to the HULL's kinematic rigidbody.
+        /// So a player standing on the deck raycasts the hull's rigidbody
+        /// (<c>PlayerMove.standingOnObject = raycastHit.rigidbody</c>, VERIFIED
+        /// PlayerMove.cs:603,2333), <c>GetGroundedObject</c> returns the HULL
+        /// (ClientAuthoritativePlayerMovement.cs:336-338), the server echoes
+        /// <c>relativeTo = hull</c>, and the hull's existing <c>PathFollower</c> - the one
+        /// that ALREADY carries a player standing on the bare beams - carries the player,
+        /// now on a WIDE stable floor. The deck rides the moving hull for free as its
+        /// Unity child.
+        ///
+        /// ASSUMPTIONS that only a live client can settle (all prefab-baked, invisible to
+        /// the decompiled C#): the Deck01 prefab's authored TransformNature has
+        /// <c>GameObjectCanBeParented = true</c> (so it carries the child-hierarchy
+        /// behaviour) and <c>ShouldRemoveRigidbodyOnParented = true</c> (so its rigidbody
+        /// is destroyed on parent); the ShipFrame prefab has
+        /// <c>GameObjectCanBeParent = true</c> and serves 190601 TransformHierarchyState
+        /// (so it carries the parent-hierarchy behaviour + offsets registry). If the deck
+        /// keeps its rigidbody when parented, the raycast stops at the deck and the
+        /// fallback is to give the deck its OWN PathFollower via a 1130.
+        ///
+        /// Value is a plain, ship-agnostic word. It never collides with a "#"-prefixed
+        /// offset slot, so it always resolves to the hull root.
+        /// </summary>
+        public const string HierarchyKey = "deck";
+
         // ------------------------------------------------------------------
         // The 1518 ShipDeckState vertices - the deck polygon.
         //

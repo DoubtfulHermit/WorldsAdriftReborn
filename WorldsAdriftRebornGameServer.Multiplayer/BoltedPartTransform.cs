@@ -71,5 +71,41 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (key == WorldEntities.SailKey)   return LocalOffset(ShipParts.SailOnHull(hull), hull);
             return null;
         }
+
+        /// <summary>
+        /// The 190602 <c>TransformState.parent</c> hierarchy KEY to seed for a bolted
+        /// part: <see cref="Deck.HierarchyKey"/> for the walkable DECK (a real,
+        /// non-<c>"~"</c> key that makes it a Unity CHILD of the hull so the ground
+        /// raycast climbs to the hull's <c>PathFollower</c> and the player is carried),
+        /// and the relative slot <c>"~"</c> for every other part (helm, engine, sail),
+        /// which only need to position-FOLLOW the hull and must keep their own rigidbody.
+        ///
+        /// This is the ONE place that decision lives, so the seed
+        /// (<c>ComponentsSerializer</c>) and the wake filter
+        /// (<see cref="ShipPartMotionService"/>) can never disagree about which parts are
+        /// real Unity children. A non-part key gets <c>"~"</c> too - harmless, since only
+        /// bolted parts are ever seeded with a parent at all.
+        /// </summary>
+        public const string RelativeSlotKey = "~";
+
+        public static string HierarchyKeyFor(string? partKey)
+        {
+            return partKey == WorldEntities.DeckKey ? Deck.HierarchyKey : RelativeSlotKey;
+        }
+
+        /// <summary>
+        /// True when a bolted part is seeded as a REAL Unity child of the hull (a
+        /// non-<c>"~"</c> key), i.e. the DECK. Such a part is dragged along by the hull's
+        /// transform through the Unity hierarchy and MUST be excluded from the
+        /// <see cref="ShipPartMotionService"/> wake heartbeat: re-sending its
+        /// <c>parent</c> field every heartbeat would re-fire the client's
+        /// <c>ParentUpdated</c> and churn an unparent+reparent (rigidbody destroyed and
+        /// re-added) twice a second. A <c>"~"</c> follower, by contrast, needs the wake
+        /// to stay awake and keep tracking.
+        /// </summary>
+        public static bool IsUnityChild(string? partKey)
+        {
+            return HierarchyKeyFor(partKey) != RelativeSlotKey;
+        }
     }
 }
