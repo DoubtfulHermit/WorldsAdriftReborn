@@ -116,6 +116,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// The entity id a registration is known by IF it has already been handed
+        /// out, or null. NEVER allocates - the question-asking counterpart to
+        /// <see cref="EntityIdFor"/>, for code that must NAME an already-spawned
+        /// entity by key (the helm's 8066 seed pointing at its hull) without being
+        /// what spawns it. Null means either the key is not registered or its
+        /// AddEntityOp has not run yet.
+        /// </summary>
+        public long? BoundEntityIdFor(string key)
+        {
+            return key != null && _byKey.ContainsKey(key) && _ids.TryGetSharedEntityId(key, out long id)
+                ? id
+                : (long?)null;
+        }
+
+        /// <summary>
         /// Which registration an entity id belongs to, or null if the id is not a
         /// world entity's - which is what a player avatar's id looks like from
         /// here, and also what ANY id looks like before its AddEntityOp.

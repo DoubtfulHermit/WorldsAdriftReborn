@@ -202,6 +202,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>The helm part's registration key. See <see cref="Helm"/>.</summary>
+        public const string HelmKey = Multiplayer.Helm.Key;
+
+        /// <summary>
+        /// The single interactable part bolted onto the static hull: a Helm01
+        /// carrying the "Man" verb, sat on the deck.
+        ///
+        /// A ship is N+1 entities linked by 8066 ShipRootState (findings-first-ship,
+        /// "Many entities, not one"). This is the +1: its OWN entity, its OWN global
+        /// 190602, positioned on the hull's deck by <see cref="Multiplayer.Helm.OnDeckOf"/>
+        /// rather than parented to it (the part-to-hull link is 8066, and 8066 does
+        /// not move a transform). The 8066 seed pointing this part's shipRoot at the
+        /// hull, and the 1210 InteractiveState carrying InteractVerb.Man, are served
+        /// by ComponentsSerializer when the client requests them - the same
+        /// best-effort, interest-driven path the MetalNugget's PickUp prompt uses,
+        /// so like the nugget this registration seeds NOTHING unprompted. The helm
+        /// renders from its baked prefab geometry and the Man prompt appears when a
+        /// player walks within <see cref="Multiplayer.Helm.ManRadius"/>.
+        ///
+        /// AfterPlayer, and registered AFTER the hull so the hull's entity id is
+        /// already allocated by the time the helm's 8066 needs to name it.
+        /// </summary>
+        public static WorldEntity Helm()
+        {
+            return new WorldEntity(
+                HelmKey,
+                Multiplayer.Helm.AssetName,
+                DefaultAssetContext,
+                Multiplayer.Helm.OnDeckOf(ShipFrame().Position),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>The tree's registration key. See <see cref="HavenTree"/>.</summary>
         public const string HavenTreeKey = "tree-haven";
 
@@ -412,6 +445,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             registry.Register(ShipFrame());
+            // The helm goes in right after the hull so the hull's shared entity id
+            // is allocated first: the helm's 8066 seed names the hull by that id,
+            // and ByEntityId/BoundEntityIdFor must be able to find it without
+            // allocating. Gated by the same WAREBORN_SPAWN_SHIP-adjacent tree/metal
+            // philosophy - AfterPlayer, so a misbehaving helm cannot delay a spawn -
+            // but always on: it is inert scenery until the client asks for its 1210,
+            // and the whole point is to have it there to walk up to.
+            registry.Register(Helm());
             if (includeTree)
             {
                 // Total trees = HavenTree (always, index 0 of the set) + the first

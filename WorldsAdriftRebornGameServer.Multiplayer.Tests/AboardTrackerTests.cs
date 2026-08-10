@@ -1,0 +1,163 @@
+using System.Linq;
+using WorldsAdriftRebornGameServer.Multiplayer;
+using Xunit;
+
+namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
+{
+    /// <summary>
+    /// Who is aboard which ship, accumulated from the 1073 DELTA stream. Every
+    /// rule here is one the flight publisher and abandonment timer will lean on,
+    /// and the delta accumulation is the whole reason a single update cannot answer
+    /// the question - see AboardSample.
+    /// </summary>
+    public class AboardTrackerTests
+    {
+        private const long Hull = 100;
+        private const long Island = 5;
+        private const ulong Player = 1;
+
+        private static ShipMembership OneShip()
+        {
+            ShipMembership m = new ShipMembership();
+            m.Register(Hull, Hull);
+            return m;
+        }
+
+        // relativeTo AND relativeBias both change - stepping onto/off a surface.
+        private static AboardSample StepOnto(long groundId, float bias, bool isShip) =>
+            new AboardSample(true, groundId, true, bias, true, isShip);
+
+        // Only relativeTo changes; bias stays what it accumulated to (the real
+        // shape of walking straight from a deck onto adjacent ground).
+        private static AboardSample RelativeToOnly(long groundId, bool isShip) =>
+            new AboardSample(true, groundId, false, 0f, true, isShip);
+
+        // Neither aboard-bearing field changes: a position/bone/timestamp tick,
+        // which is what most updates are while standing still.
+        private static AboardSample PositionOnly() =>
+            new AboardSample(false, 0, false, 0f, false, false);
+
+        [Fact]
+        public void Stepping_onto_the_deck_is_a_board()
+        {
+            AboardTracker t = new AboardTracker(OneShip());
+
+            AboardTransition tr = t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+
+            Assert.Equal(AboardChange.Boarded, tr.Change);
+            Assert.Equal(Hull, tr.ShipRootEntityId);
+            Assert.Equal(Hull, t.ShipOf(Player));
+            Assert.True(t.IsAboardAnything(Player));
+        }
+
+        [Fact]
+        public void Standing_still_on_the_deck_is_not_a_disembark()
+        {
+            // THE delta trap: after boarding, most updates carry only a position
+            // and no relativeTo/bias. Those must leave the player aboard.
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+
+            for (int i = 0; i < 10; i++)
+            {
+                Assert.Equal(AboardChange.None, t.Observe(Player, PositionOnly()).Change);
+            }
+            Assert.Equal(Hull, t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void Walking_off_onto_the_island_is_a_disembark_even_though_bias_did_not_change()
+        {
+            // Stepping from deck to island changes relativeTo (hull -> island) but
+            // NOT relativeBias (still attached, still 1). The tracker must have
+            // accumulated the bias to decide correctly against the new relativeTo.
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+
+            AboardTransition tr = t.Observe(Player, RelativeToOnly(Island, isShip: false));
+
+            Assert.Equal(AboardChange.Disembarked, tr.Change);
+            Assert.Equal(Hull, tr.PreviousShipRootEntityId);
+            Assert.Null(t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void Jumping_off_into_free_fall_is_a_disembark()
+        {
+            // Free: relativeTo -> InvalidEntityId, bias -> 0. Both change.
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+
+            AboardTransition tr = t.Observe(Player, StepOnto(-1, 0f, isShip: false));
+
+            Assert.Equal(AboardChange.Disembarked, tr.Change);
+            Assert.Equal(Hull, tr.PreviousShipRootEntityId);
+        }
+
+        [Fact]
+        public void Re_boarding_after_leaving_boards_again()
+        {
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+            t.Observe(Player, StepOnto(-1, 0f, isShip: false));
+
+            AboardTransition tr = t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+            Assert.Equal(AboardChange.Boarded, tr.Change);
+            Assert.Equal(Hull, tr.ShipRootEntityId);
+            Assert.Equal(Hull, t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void Stepping_straight_from_one_ship_to_another_is_a_ship_change()
+        {
+            ShipMembership m = new ShipMembership();
+            m.Register(100, 100);
+            m.Register(200, 200);
+            AboardTracker t = new AboardTracker(m);
+
+            t.Observe(Player, StepOnto(100, 1f, isShip: true));
+            AboardTransition tr = t.Observe(Player, RelativeToOnly(200, isShip: true));
+
+            Assert.Equal(AboardChange.ChangedShip, tr.Change);
+            Assert.Equal(200, tr.ShipRootEntityId);
+            Assert.Equal(100, tr.PreviousShipRootEntityId);
+            Assert.Equal(200, t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void The_roster_answers_who_is_aboard_ship_X()
+        {
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(1, StepOnto(Hull, 1f, isShip: true));
+            t.Observe(2, StepOnto(Hull, 1f, isShip: true));
+            t.Observe(3, StepOnto(Island, 1f, isShip: false)); // on the island
+
+            Assert.True(t.AnyoneAboard(Hull));
+            Assert.Equal(new ulong[] { 1, 2 }, t.AboardShip(Hull).OrderBy(x => x).ToArray());
+            Assert.Empty(t.AboardShip(999));
+        }
+
+        [Fact]
+        public void Disconnecting_while_aboard_reports_a_disembark_and_empties_the_ship()
+        {
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+
+            AboardTransition tr = t.Forget(Player);
+
+            Assert.Equal(AboardChange.Disembarked, tr.Change);
+            Assert.Equal(Hull, tr.PreviousShipRootEntityId);
+            Assert.False(t.AnyoneAboard(Hull));
+            Assert.Null(t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void Forgetting_a_player_who_was_not_aboard_is_a_no_op()
+        {
+            AboardTracker t = new AboardTracker(OneShip());
+            t.Observe(Player, StepOnto(Island, 1f, isShip: false));
+
+            Assert.Equal(AboardChange.None, t.Forget(Player).Change);
+        }
+    }
+}
