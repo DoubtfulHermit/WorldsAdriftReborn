@@ -66,6 +66,13 @@ namespace WorldsAdriftReborn
             // which the whole reconnect design depends on. Diagnostic only.
             gameObject.AddComponent<Patching.Multiplayer.ReconnectProbe>();
 
+            // F10 recovers the LOCAL player to Haven's spawn, client side, by the
+            // same path the server's teleport uses (set transform + PlayerMove.Respawn).
+            // This is the MANUAL replacement for the server's old automatic
+            // fall-yank, which is now off by default so a ship flying below the
+            // island is not snatched home. See ManualRecoveryProbe.
+            gameObject.AddComponent<Patching.Multiplayer.ManualRecoveryProbe>();
+
             // Reports which IDetermineOriginStrategy is live and what OffsetOrigin
             // is. The choice is scene-serialized so the decompile cannot answer it,
             // and every candidate behaves identically while the island sits at the

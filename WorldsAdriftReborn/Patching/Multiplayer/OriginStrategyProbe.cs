@@ -71,7 +71,11 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
      */
     internal class OriginStrategyProbe : MonoBehaviour
     {
-        private const KeyCode ReportKey = KeyCode.F10;
+        // F11, not F10: F10 is now the ManualRecoveryProbe's recover-to-Haven
+        // key. This diagnostic already reports automatically once the world is
+        // up, so the manual force is only a convenience and moving it costs
+        // nothing.
+        private const KeyCode ReportKey = KeyCode.F11;
 
         // Slow repeat. Cheap enough to poll for changes far more often than we
         // print a heartbeat.
@@ -107,7 +111,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 Debug.LogWarning("[WAReborn] ORIGIN probe: could not create a BepInEx log source ("
                     + e.Message + "); falling back to Debug.Log.");
             }
-            Say("ORIGIN probe armed. Reports automatically once the world is up; F10 forces a report.");
+            Say("ORIGIN probe armed. Reports automatically once the world is up; F11 forces a report.");
         }
 
         private void Update()

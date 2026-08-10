@@ -1538,18 +1538,16 @@ namespace WorldsAdriftRebornGameServer
             // go stale.
             Console.WriteLine("[info] teleport: write a destination to " + Teleports.TriggerFile
                 + " to move players. Destinations: " + string.Join(", ", TeleportPolicy.Names)
-                + ". Add an entity id to move just one, e.g. `echo '"
+                + ", or 'coord X Y Z' for an arbitrary world coordinate (metres) - e.g. a ferry's "
+                + "arrival on another island. Add an entity id to move just one, e.g. `echo '"
                 + TeleportPolicy.SafeDestination.Name + " 3' > " + Teleports.TriggerFile + "`.");
 
-            // Also said once, so that "why did I suddenly reappear at spawn?" has
-            // an answer in the same log as the event, and so that a wrong floor is
-            // visible on a server that never has anybody fall.
-            Console.WriteLine("[info] fall floor: anybody below y = "
-                + FallPolicy.FloorMetres.ToString("0.#") + " m ("
-                + FallPolicy.SafetyMarginMetres + " m under the deepest point of "
-                + SpawnPolicy.IslandAssetName + ") is teleported to "
-                + TeleportPolicy.SafeDestination.Name + ". Grep '"
-                + "fall-rescue" + "' to see it happen.");
+            // Also said once, so that "why did I suddenly reappear at spawn?" (or
+            // "why did I NOT?") has an answer in the same log as the event. The
+            // mode line comes from AutoFallRescuePolicy so it cannot drift from the
+            // floor the watch is actually using. Manual recovery is F10, client
+            // side; grep 'fall-rescue' to see any automatic catch happen.
+            Console.WriteLine("[info] fall floor: " + Falls.ModeDescription);
 
 
             // define initial world state for first chunk
