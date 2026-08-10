@@ -29,12 +29,32 @@ namespace WorldsAdriftRebornGameServer.Game
     {
         private readonly FallWatch _watch;
         private readonly TeleportService _teleports;
+        private readonly bool _autoRescueEnabled;
 
         public FallRescueService(IClock clock, TeleportService teleports)
+            : this(clock, teleports, AutoFallRescuePolicy.EnabledFromEnvironment())
         {
-            _watch = new FallWatch(clock);
+        }
+
+        /// <summary>
+        /// Test/explicit-mode seam. <paramref name="autoRescueEnabled"/> picks the
+        /// trigger floor via <see cref="AutoFallRescuePolicy.FloorYFor"/>: the
+        /// ordinary island floor when on (legacy yank), the deep world-fall net
+        /// when off (the default now that F10 is the manual recovery). Nothing
+        /// else about the watch changes.
+        /// </summary>
+        internal FallRescueService(IClock clock, TeleportService teleports, bool autoRescueEnabled)
+        {
+            _autoRescueEnabled = autoRescueEnabled;
+            _watch = new FallWatch(clock, AutoFallRescuePolicy.FloorYFor(autoRescueEnabled));
             _teleports = teleports;
         }
+
+        /// <summary>Whether the LEGACY automatic island-floor yank is on. For the startup banner.</summary>
+        public bool AutoRescueEnabled => _autoRescueEnabled;
+
+        /// <summary>One line describing the current fall-rescue mode. For the startup banner.</summary>
+        public string ModeDescription => AutoFallRescuePolicy.DescribeMode(_autoRescueEnabled);
 
         /// <summary>
         /// One position a player published about themselves, straight off 190602.

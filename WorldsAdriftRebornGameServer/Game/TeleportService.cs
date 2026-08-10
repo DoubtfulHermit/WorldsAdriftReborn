@@ -173,19 +173,20 @@ namespace WorldsAdriftRebornGameServer.Game
                 // there is still no fall damage and no world-edge pushback here,
                 // so the arrival is a fall rather than a landing.
                 //
-                // The fall no longer lasts forever: FallPolicy catches it. Which
-                // way that goes depends entirely on the destination's altitude,
-                // and both cases are surprising if unannounced, so say which one
-                // this is rather than making the operator work it out.
+                // Whether the fall ends automatically now depends on the
+                // fall-rescue MODE (see the startup banner / AutoFallRescuePolicy):
+                // the deep world-fall net is always armed, but the ordinary island
+                // floor only catches when the legacy auto-rescue is on. What is
+                // always true is that the player can press F10 to return to Haven.
                 Console.WriteLine("[warning] teleport: '" + command.Destination.Name
                     + "' has no entity spawned at it, so expect a fall. "
-                    + (FallPolicy.IsBelowFloor(command.Destination.Position)
-                        ? "It is BELOW the fall floor (" + FallPolicy.FloorMetres.ToString("0.#")
-                          + " m), so the rescue fires on arrival and sends the player straight back to "
-                          + TeleportPolicy.SafeDestination.Name + "."
-                        : "The fall floor at " + FallPolicy.FloorMetres.ToString("0.#")
-                          + " m will return the player to " + TeleportPolicy.SafeDestination.Name
-                          + " a few seconds after arrival."));
+                    + (FallPolicy.IsBelowDeepFloor(command.Destination.Position)
+                        ? "It is BELOW the deep world-fall net (" + FallPolicy.DeepFloorMetres.ToString("0.#")
+                          + " m), so it is caught on arrival and sent back to "
+                          + TeleportPolicy.SafeDestination.Name + " regardless of mode."
+                        : "It is above the deep net, so whether the fall is auto-caught depends on the "
+                          + "fall-rescue mode; the player can press F10 to return to "
+                          + TeleportPolicy.SafeDestination.Name + " at any time."));
             }
 
             int sent = 0;
@@ -230,11 +231,14 @@ namespace WorldsAdriftRebornGameServer.Game
         {
             TeleportDestination home = TeleportPolicy.SafeDestination;
 
+            // The trigger floor depends on the mode (island floor when the auto
+            // rescue is on, the deep world-fall net when it is off - see
+            // AutoFallRescuePolicy), so the actual y is logged rather than a
+            // hardcoded floor that would be wrong in one of the two modes.
             Console.WriteLine("[warning] " + FallRescueReason + ": entity " + entityId + " is at y "
-                + where.MetresY.ToString("0.#") + " m, below the fall floor at "
-                + FallPolicy.FloorMetres.ToString("0.#") + " m. It fell off the world; "
-                + "sending it to " + home.Name + " (attempt " + attempt + " of "
-                + FallWatch.MaxAttemptsPerFall + ").");
+                + where.MetresY.ToString("0.#") + " m, below the active fall floor. "
+                + "It fell out of the world; sending it to " + home.Name + " (attempt " + attempt
+                + " of " + FallWatch.MaxAttemptsPerFall + ").");
 
             foreach ((ulong peerId, long candidate) in WorldsAdriftRebornGameServer.Players.All())
             {

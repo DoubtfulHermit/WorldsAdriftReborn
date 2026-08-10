@@ -164,6 +164,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const string MausoleumName = "mausoleum";
 
         /// <summary>
+        /// The keyword that introduces an AD-HOC world coordinate, for reaching an
+        /// island this menu does not name - e.g. a ship ferry's destination while
+        /// its arrival is being tested. Grammar: <c>coord &lt;X&gt; &lt;Y&gt;
+        /// &lt;Z&gt; [entityId]</c>, the three numbers in world METRES (the same
+        /// space every named destination is written in). It rides the identical
+        /// parentless-190607 path, so it needs no new machinery; it is only a
+        /// different way to name the target.
+        /// </summary>
+        public const string CoordName = "coord";
+
+        /// <summary>
         /// The island-local offset that produced <see cref="SpawnPolicy.PlayerSpawnPosition"/>
         /// from <see cref="SpawnPolicy.IslandPosition"/>: (208.00, 6.70, 4.00) m,
         /// a measured LOD0 surface vertex at 4.70 m plus a 2.00 m stand-off.
@@ -325,9 +336,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             string[] parts = trimmed.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+
+            // Ad-hoc coordinate: `coord X Y Z [entityId]`. Handled first and on its
+            // own grammar because it is the one instruction that takes more than
+            // two words - it is how a ship ferry's arrival point, which no named
+            // destination covers, gets reached for testing.
+            if (parts[0].Equals(CoordName, StringComparison.OrdinalIgnoreCase))
+            {
+                return TryParseCoord(parts, out command, out error);
+            }
+
             if (parts.Length > 2)
             {
-                error = "expected '<destination> [entityId]', got " + parts.Length + " words";
+                error = "expected '<destination> [entityId]' or 'coord X Y Z [entityId]', got "
+                    + parts.Length + " words";
                 return false;
             }
 
@@ -350,6 +372,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             command = new TeleportCommand(destination, entityId);
             return true;
+        }
+
+        /// <summary>
+        /// Parses <c>coord X Y Z [entityId]</c> (the leading <c>coord</c> already
+        /// matched). The three numbers are world metres; they become a synthesized
+        /// <see cref="TeleportDestination"/> flagged <c>LandsOnLoadedGround: false</c>,
+        /// because an arbitrary coordinate is by definition not somewhere this
+        /// server has spawned ground - the caller is warned about the fall exactly
+        /// as it is for the named no-ground destinations.
+        /// </summary>
+        private static bool TryParseCoord(string[] parts, out TeleportCommand command, out string error)
+        {
+            command = default;
+            error = string.Empty;
+
+            if (parts.Length != 4 && parts.Length != 5)
+            {
+                error = "expected 'coord X Y Z [entityId]' (X Y Z in world metres), got "
+                    + parts.Length + " words";
+                return false;
+            }
+
+            if (!double.TryParse(parts[1], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double x)
+                || !double.TryParse(parts[2], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double y)
+                || !double.TryParse(parts[3], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double z))
+            {
+                error = "coord X Y Z must be three numbers in metres, got '"
+                    + parts[1] + " " + parts[2] + " " + parts[3] + "'";
+                return false;
+            }
+
+            long? entityId = null;
+            if (parts.Length == 5)
+            {
+                if (!long.TryParse(parts[4], out long parsed))
+                {
+                    error = "'" + parts[4] + "' is not an entity id";
+                    return false;
+                }
+                entityId = parsed;
+            }
+
+            command = new TeleportCommand(CoordDestination(x, y, z), entityId);
+            return true;
+        }
+
+        /// <summary>
+        /// Builds the synthesized destination for an ad-hoc <c>coord X Y Z</c>. It
+        /// is not in <see cref="Destinations"/> and never becomes the
+        /// <see cref="SafeDestination"/>: it is always assumed to have no ground
+        /// under it, so a typo'd coordinate can only ever produce a fall the
+        /// operator was warned about, never a silent bad "home".
+        /// </summary>
+        public static TeleportDestination CoordDestination(double xMetres, double yMetres, double zMetres)
+        {
+            return new TeleportDestination(
+                CoordName,
+                FixedPointPosition.FromMetres(xMetres, yMetres, zMetres),
+                landsOnLoadedGround: false,
+                "ad-hoc world coordinate (" + xMetres.ToString("0.###") + ", "
+                    + yMetres.ToString("0.###") + ", " + zMetres.ToString("0.###")
+                    + ") m; NO ground is guaranteed there.");
         }
     }
 

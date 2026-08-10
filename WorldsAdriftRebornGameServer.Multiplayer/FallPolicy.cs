@@ -169,8 +169,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The re-arm altitude in metres. For log lines and tests.</summary>
         public static double RearmMetres => (double)RearmY / FixedPointPosition.UnitsPerMetre;
 
+        // --------------------------------------------------------------------
+        // THE DEEP SAFETY NET. The floor above catches a player who fell off the
+        // island; this one catches a player who fell through the WORLD, and it
+        // exists so the automatic rescue can be turned OFF (see
+        // AutoFallRescuePolicy) without leaving a player in a genuinely endless
+        // fall completely unrecoverable.
+        //
+        // WHY A SECOND, DEEPER FLOOR AND NOT JUST THE FIRST ONE. Once ships fly,
+        // being below the island is normal - a player flying, boarding, or
+        // descending on a ship sits below FloorY on purpose, and the ordinary
+        // floor would snatch them home mid-flight. Recovery is now a manual F10
+        // (client side), so the automatic yank is off by default. But "off"
+        // must not mean "a fall through the bottom of the world is permanent":
+        // the world still writes no fall damage and no lower world bound, so a
+        // true fall accelerates without limit forever. The deep net is the
+        // last-ditch catch for exactly that, placed far enough down that nothing
+        // a ship does near any island reaches it.
+        //
+        // WHERE THE NUMBER COMES FROM. The deepest authored geometry in the
+        // whole world is Shattered Mausoleum's underside at world y = -828.3 m
+        // (see the type remarks). -2000 m is ~1.17 km below that - below every
+        // island and its underside by a wide margin, so a ship flown anywhere
+        // near real ground cannot trip it, while a player who has fallen a full
+        // kilometre past the lowest thing in the world has unambiguously fallen
+        // OUT of it. Like FloorY this MUST be revisited if a second island is
+        // ever spawned lower than this; today nothing authored reaches it.
+        // </summary>
+        public const long DeepSafetyNetMetresValue = -2000L;
+
+        /// <summary>
+        /// The deep net in fixed point: world y = -2000 m, in Q52.12. Kept in the
+        /// same encoding as <see cref="FloorY"/> so the hot-path comparison is a
+        /// single long compare with no arithmetic.
+        /// </summary>
+        public static readonly long DeepFloorY = DeepSafetyNetMetresValue * FixedPointPosition.UnitsPerMetre;
+
+        /// <summary>The deep net in metres. For log lines and tests.</summary>
+        public static double DeepFloorMetres => (double)DeepFloorY / FixedPointPosition.UnitsPerMetre;
+
         /// <summary>Whether this position is under the floor.</summary>
         public static bool IsBelowFloor(FixedPointPosition position) => position.Y < FloorY;
+
+        /// <summary>Whether this position is under the deep safety net - i.e. it fell through the world.</summary>
+        public static bool IsBelowDeepFloor(FixedPointPosition position) => position.Y < DeepFloorY;
 
         /// <summary>
         /// Whether this position is level with the island or higher. Only the y
@@ -247,10 +289,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         private readonly IClock _clock;
 
-        public FallWatch(IClock clock)
+        /// <summary>
+        /// The world-y, in Q52.12, below which a fall is acted on. Defaults to the
+        /// ordinary island floor (<see cref="FallPolicy.FloorY"/>); the glue passes
+        /// <see cref="FallPolicy.DeepFloorY"/> instead when the automatic rescue is
+        /// off (see AutoFallRescuePolicy), so that "below the island" - now an
+        /// ordinary thing for a ship to be - is NOT rescued, but "fell through the
+        /// world" still is. Everything else about the watch - one rescue per fall,
+        /// the retry interval, the attempt cap, the parented handling - is
+        /// unchanged: only the trigger altitude moves.
+        /// </summary>
+        private readonly long _floorY;
+
+        public FallWatch(IClock clock, long? floorY = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _floorY = floorY ?? FallPolicy.FloorY;
         }
+
+        /// <summary>The trigger floor this watch is using, in Q52.12. For tests and the banner.</summary>
+        public long FloorY => _floorY;
 
         /// <summary>
         /// Takes one position a player published and says what to do about it.
@@ -296,11 +354,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 return FallVerdict.InTheWorld;
             }
 
-            if (!FallPolicy.IsBelowFloor(position))
+            if (position.Y >= _floorY)
             {
-                // Under the island, above the floor. Falling, almost certainly -
-                // but this band is the margin, and acting inside it is how a
-                // rescue ends up fighting somebody who is standing on something.
+                // Above this watch's trigger floor. With the default floor this is
+                // "under the island, above the margin" - a normal fall in
+                // progress. With the deep floor (auto-rescue off) it is also every
+                // ship that is legitimately flying below the island: not rescued
+                // either way, because acting here is how a rescue ends up fighting
+                // somebody who is standing on - or flying - something.
                 return FallVerdict.Descending;
             }
 
