@@ -939,7 +939,8 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly WorldEntityRegistry WorldEntities =
             Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven,
                 Environment.GetEnvironmentVariable("WAREBORN_TREE_COUNT"),
-                Environment.GetEnvironmentVariable("WAREBORN_ORE_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_ORE_COUNT"),
+                SpawnDeck, SpawnExtraShipParts);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1035,6 +1036,29 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool MetalOnlyProven =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_METAL") == "proven";
+
+        /// <summary>
+        /// Whether to bolt the walkable Deck01 onto the hull (see
+        /// Multiplayer.WorldEntities.Deck01). ON unless WAREBORN_SHIP_DECK=0. It is
+        /// the whole point of the full-ship work, so opt-OUT like the tree, but with
+        /// a kill switch because its solid-floor path has never been in front of a
+        /// running client. Safe to leave on: AfterPlayer, so it cannot delay or break
+        /// a player's own spawn.
+        /// </summary>
+        private static bool SpawnDeck =>
+            Environment.GetEnvironmentVariable("WAREBORN_SHIP_DECK") != "0";
+
+        /// <summary>
+        /// Whether to add the cosmetic ModularEngine + Sail01 (see
+        /// Multiplayer.WorldEntities.ModularEngine/Sail01). OFF unless
+        /// WAREBORN_SHIP_PARTS=1: they rest on an unverified assumption that they
+        /// render from baked geometry without their special visualizer, so they are
+        /// opt-IN until a live client confirms it - the cautious default the standing
+        /// caveat calls for. Safe to enable: best-effort interest leaves an
+        /// unrenderable part inert, never the deck or the ship.
+        /// </summary>
+        private static bool SpawnExtraShipParts =>
+            Environment.GetEnvironmentVariable("WAREBORN_SHIP_PARTS") == "1";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.
@@ -1229,6 +1253,22 @@ namespace WorldsAdriftRebornGameServer
                 {
                     Console.WriteLine("[info] registered ship surface: hull entity " + entityId
                         + " is its own ship root (aboard-detection).");
+                }
+
+                // The DECK is a SECOND ship surface of the SAME ship: once it is
+                // bolted on, a player stands on the deck's solid collider, not the
+                // beams, so their 1073 relativeTo is the DECK's entity id. Map that id
+                // to the hull's ship so aboard-detection still fires. Same spawn seam,
+                // idempotent for the same reason; the hull is registered before the
+                // deck, so its id is known here.
+                if (entity.Key == Multiplayer.WorldEntities.DeckKey)
+                {
+                    long? hullId = WorldEntities.BoundEntityIdFor(Multiplayer.WorldEntities.ShipFrameKey);
+                    if (hullId.HasValue && ShipMembership.Register(entityId, hullId.Value))
+                    {
+                        Console.WriteLine("[info] registered ship surface: deck entity " + entityId
+                            + " belongs to hull " + hullId.Value + " (aboard-detection).");
+                    }
                 }
 
                 if (entity.SeedComponents.Count == 0)

@@ -905,8 +905,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         Multiplayer.ShipRootSeed? rootSeed = null;
                         if (hullEntityId.HasValue)
                         {
-                            if (shipEntityKey == Multiplayer.WorldEntities.HelmKey)
+                            if (Multiplayer.WorldEntities.IsBoltedPartKey(shipEntityKey))
                             {
+                                // Every part bolted onto the hull - helm, deck, engine,
+                                // sail - points its shipRoot at the hull. The deck is
+                                // the one whose ShipDeckVisualizer does not need 8066 at
+                                // all (it reads 1518 + 1099), so seeding 8066 here is
+                                // pure ship-membership truth for it, exactly as it is
+                                // dormant-but-correct for the helm.
                                 rootSeed = Multiplayer.ShipRootSeed.Part(hullEntityId.Value);
                             }
                             else if (shipEntityKey == Multiplayer.WorldEntities.ShipFrameKey)
@@ -939,6 +945,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             Console.WriteLine("[warn] 8066 requested for entity " + entityId
                                 + " but no ship hull id is known yet (or it is not a ship part); skipping.");
                         }
+                    }
+                    else if (componentId == 1518)
+                    {
+                        // THE WALKABLE FLOOR. 1518 ShipDeckState is one field, a
+                        // List<Vector3f> of the deck polygon (VERIFIED, ilspycmd:
+                        // ShipDeckState.Data(Improbable.Collections.List<Vector3f>
+                        // vertices)). Its reader hands ShipDeckVisualizer that list,
+                        // which - with the 1099 material above - runs the client's own
+                        // MeshGenerator.MakeDeck with isTriggerCollider:false, giving a
+                        // SOLID BoxCollider a player can stand on. The one component
+                        // that turns the beam skeleton into a ship you can walk on.
+                        //
+                        // The vertices are the pure Multiplayer.Deck.LocalVertices so
+                        // the polygon is asserted natively; only the Vector3f/List
+                        // construction lives here because those are game types. They
+                        // are in the deck entity's own local space and pre-ShipScale;
+                        // the client applies scale 2 in MakeMesh.
+                        Improbable.Collections.List<Improbable.Math.Vector3f> deckVertices =
+                            new Improbable.Collections.List<Improbable.Math.Vector3f>();
+                        foreach ((double vx, double vy, double vz) in Multiplayer.Deck.LocalVertices)
+                        {
+                            deckVertices.Add(new Improbable.Math.Vector3f((float)vx, (float)vy, (float)vz));
+                        }
+
+                        ShipDeckState.Data deckData = new ShipDeckState.Data(deckVertices);
+
+                        Console.WriteLine("[info] seeding 1518 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") -> " + deckVertices.Count + "-vertex deck polygon.");
+
+                        obj = deckData;
                     }
 
                     // ------------------------------------------------------------------
@@ -1104,9 +1141,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // the result, so an invented material id is a
                         // NullReferenceException in the client. Empty takes a
                         // guarded path - one logged error, mesh already built.
-                        bool isShipHull =
-                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
-                                == Multiplayer.WorldEntities.ShipFrameKey;
+                        string? entityKey =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key;
+                        bool isShipHull = entityKey == Multiplayer.WorldEntities.ShipFrameKey;
+                        bool isDeck = entityKey == Multiplayer.WorldEntities.DeckKey;
 
                         // A metal node names its OWN metal as the salvage item type,
                         // not the tree's wood. Cosmetic for the nugget today (it always
@@ -1119,6 +1157,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             ? metalNode.MetalType
                             : (isShipHull ? "" : Multiplayer.Trees.WoodType);
 
+                        // THE DECK IS THE ONE ENTITY WHOSE 1099 MUST NOT BE EMPTY.
+                        // ShipDeckVisualizer.OnEnable reads OriginalMaterials[0]
+                        // .rawMaterial.category (VERIFIED, ShipDeckVisualizer.cs:60)
+                        // and GetMaterial() reads [0].materialTypeId - an empty list is
+                        // an IndexOutOfRangeException and the deck's solid floor never
+                        // builds. So the deck alone carries exactly one material: a
+                        // "Wood" SlottedMaterial. category "Wood"/"Metal" picks the
+                        // deck prototype; the name resolves through MaterialManager,
+                        // which falls back safely (never NRE) on an unknown one - so a
+                        // wrong name is a tint, not a crash, and the collider is built
+                        // before any material is resolved anyway. Every OTHER entity
+                        // keeps the EMPTY list the hull needs (an invented id WOULD NRE
+                        // ComponentMaterialColors on the paths that dereference it).
+                        Improbable.Collections.List<SlottedMaterial> originalMaterials =
+                            isDeck
+                                ? new Improbable.Collections.List<SlottedMaterial>
+                                {
+                                    new SlottedMaterial(
+                                        0,
+                                        new Bossa.Travellers.Materials.RawMaterial(
+                                            Multiplayer.Deck.MaterialTypeId,
+                                            1,                                  // quality
+                                            Multiplayer.Deck.MaterialCategory,  // "Wood"
+                                            new Map<string, string> { }),
+                                        1,                                      // amount
+                                        new Option<Bossa.Travellers.Materials.RawMaterial> { }),
+                                }
+                                : new Improbable.Collections.List<SlottedMaterial> { };
+
                         Bossa.Travellers.Salvaging.SalvageAndRepairState.Data salvageData =
                             new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
                                 new Bossa.Travellers.Salvaging.SalvageAndRepairStateData(
@@ -1128,9 +1195,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     isShipHull ? 1f : 0f,   // repairToSalvageRatio - no client reader
                                     1f,             // period                 - no client reader
                                     false,          // isRepairable: keeps IsDamaged() false
-                                    !isShipHull,    // isSalvageable
+                                    !isShipHull && !isDeck,    // isSalvageable: deck is not (no salvage flow)
                                     "",             // isSalvageableStatus
-                                    new Improbable.Collections.List<SlottedMaterial> { },
+                                    originalMaterials,
                                     false,          // destroyOnSalvageComplete
                                     0f,             // salvageRatio           - no client reader
                                     new Option<float> { }));

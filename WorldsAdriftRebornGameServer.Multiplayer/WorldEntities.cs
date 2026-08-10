@@ -235,6 +235,100 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>The walkable deck part's registration key. See <see cref="Deck01"/>.</summary>
+        public const string DeckKey = Multiplayer.Deck.Key;
+
+        /// <summary>The aft engine part's registration key. See <see cref="ModularEngine"/>.</summary>
+        public const string EngineKey = ShipParts.EngineKey;
+
+        /// <summary>The amidships sail part's registration key. See <see cref="Sail01"/>.</summary>
+        public const string SailKey = ShipParts.SailKey;
+
+        /// <summary>
+        /// Whether <paramref name="key"/> names a part BOLTED onto the hull - a
+        /// helm, deck, engine or sail - as opposed to the hull itself. The 8066
+        /// branch in ComponentsSerializer asks this to decide isRoot: a bolted part
+        /// points its shipRoot at the hull (isRoot=false); the hull is its own root.
+        /// Centralised here so adding a part is one registration plus one line,
+        /// never a scattered set of <c>==</c> checks that fall out of step.
+        /// </summary>
+        public static bool IsBoltedPartKey(string? key)
+        {
+            return key == HelmKey || key == DeckKey || key == EngineKey || key == SailKey;
+        }
+
+        /// <summary>
+        /// The single walkable FLOOR bolted onto the static hull: a Deck01 whose
+        /// 1518 vertices the client turns into a SOLID collider a player can stand
+        /// on while the hull moves. THE primary deliverable of the full-ship work.
+        ///
+        /// A ship is N+1 entities linked by 8066 (findings-first-ship). This is the
+        /// floor +1: its OWN entity, its OWN global 190602, CENTRED on the hull by
+        /// <see cref="Multiplayer.Deck.OnHull"/> (its vertices are origin-centred, so
+        /// the deck centre coincides with the hull centre). It is NOT parented to the
+        /// hull - the part-to-hull link is 8066 and the player-to-deck link is 1073,
+        /// and neither moves a transform.
+        ///
+        /// Seeds NOTHING unprompted, exactly like the helm, the tree and the nugget:
+        /// the client checks the deck out and asks for what it wants over
+        /// SEND_COMPONENT_INTEREST, and ComponentsSerializer answers best-effort. The
+        /// two that make the floor solid - 1518 ShipDeckState (the polygon) and 1099
+        /// SalvageAndRepairState (one Wood material, so ShipDeckVisualizer.OnEnable's
+        /// OriginalMaterials[0] does not throw) - both have branches, so the client's
+        /// ShipDeckVisualizer enables and builds a solid BoxCollider deck. 8066 links
+        /// it to the hull. Everything else the prefab asks for is skipped, so
+        /// ShipPartVisualizer stays dormant - the same rule-7-safe state the helm's
+        /// 8066 sits in.
+        ///
+        /// AfterPlayer, and registered AFTER the hull so the hull's entity id is
+        /// already allocated when the deck's 8066 and its ship-surface membership
+        /// need to name it.
+        /// </summary>
+        public static WorldEntity Deck01()
+        {
+            return new WorldEntity(
+                DeckKey,
+                Multiplayer.Deck.AssetName,
+                DefaultAssetContext,
+                Multiplayer.Deck.OnHull(ShipFrame().Position),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
+        /// The aft engine part - cosmetic, so the hull reads as a whole ship. Baked
+        /// geometry + an 8066 link to the hull, exactly like the helm; its special
+        /// 12281 visualizer is left dormant (no exhaust VFX). See
+        /// <see cref="ShipParts"/> for the ASSUMPTION this rests on. AfterPlayer,
+        /// after the hull.
+        /// </summary>
+        public static WorldEntity ModularEngine()
+        {
+            return new WorldEntity(
+                EngineKey,
+                ShipParts.EngineAssetName,
+                DefaultAssetContext,
+                ShipParts.EngineOnHull(ShipFrame().Position),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
+        /// The amidships sail part - cosmetic, same footing as
+        /// <see cref="ModularEngine"/>; its 1303 SailState visualizer is left dormant
+        /// (no cloth physics). AfterPlayer, after the hull.
+        /// </summary>
+        public static WorldEntity Sail01()
+        {
+            return new WorldEntity(
+                SailKey,
+                ShipParts.SailAssetName,
+                DefaultAssetContext,
+                ShipParts.SailOnHull(ShipFrame().Position),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>The tree's registration key. See <see cref="HavenTree"/>.</summary>
         public const string HavenTreeKey = "tree-haven";
 
@@ -433,7 +527,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// the proven node, so any count keeps it. Ignored when
         /// <paramref name="metalOnlyProven"/> is set.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null)
+        /// <param name="includeDeck">
+        /// Whether to bolt the walkable <see cref="Deck01"/> onto the hull. ON by
+        /// default - it is THE point of the full-ship work - with WAREBORN_SHIP_DECK=0
+        /// as the kill switch, on the same footing as the tree and the helm: it is
+        /// AfterPlayer, so a misbehaving deck can never delay or break a player's own
+        /// spawn, and its solid-floor path has never been in front of a running
+        /// client, so a switch to turn it off without a rebuild is worth its one line.
+        /// </param>
+        /// <param name="includeExtraParts">
+        /// Whether to add the cosmetic <see cref="ModularEngine"/> and
+        /// <see cref="Sail01"/>. OFF by default (WAREBORN_SHIP_PARTS=1 to add them):
+        /// unlike the deck and the helm they rest on an unverified assumption that
+        /// they render from baked geometry without their special visualizer, so they
+        /// are opt-in until a live client confirms it. Safe to enable regardless -
+        /// best-effort interest leaves an unrenderable part inert, never the ship.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -453,6 +563,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // but always on: it is inert scenery until the client asks for its 1210,
             // and the whole point is to have it there to walk up to.
             registry.Register(Helm());
+
+            // The walkable floor, then the cosmetic parts - all AFTER the hull so
+            // its shared entity id is allocated first: each part's 8066 seed and (for
+            // the deck) its ship-surface membership name the hull by that id. Same
+            // always-on-with-a-kill-switch philosophy as the helm; the deck defaults
+            // on because it is the deliverable, the engine/sail off because they are
+            // unverified. AfterPlayer throughout, so none can delay a spawn.
+            if (includeDeck)
+            {
+                registry.Register(Deck01());
+            }
+            if (includeExtraParts)
+            {
+                registry.Register(ModularEngine());
+                registry.Register(Sail01());
+            }
+
             if (includeTree)
             {
                 // Total trees = HavenTree (always, index 0 of the set) + the first
