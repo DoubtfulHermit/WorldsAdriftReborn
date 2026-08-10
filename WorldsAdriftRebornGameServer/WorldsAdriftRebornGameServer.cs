@@ -887,6 +887,23 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly Networking.RelayEmitter Relay = new Networking.RelayEmitter(ServerClock, Players);
 
         /// <summary>
+        /// STEP 3, THE CARRY GATE. Fires ONE 1130 control point that translates the
+        /// spawned hull a few metres, on a human's write to /tmp/wareborn-ship, so
+        /// whether a player standing on the deck is carried can be proven before
+        /// the ferry is trusted. See Game.ShipMoveService.
+        /// </summary>
+        internal static readonly Game.ShipMoveService Ships = new Game.ShipMoveService();
+
+        /// <summary>
+        /// STEP 4, THE MILESTONE. Off unless WAREBORN_SHIP_FERRY=1. When armed it
+        /// flies the hull along a straight path by publishing one 1130 control
+        /// point every 0.24 s; the client's SSPDeadReckoningVisualizer -> PathFollower
+        /// does the motion, no client patch. Takes ServerClock for the same
+        /// textual-order reason as Falls/Relay. See Game.ShipFerryService.
+        /// </summary>
+        internal static readonly Game.ShipFerryService ShipFerry = new Game.ShipFerryService(ServerClock);
+
+        /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
         /// reused" rule is unit-testable; see EntityIdAllocator.
         /// </summary>
@@ -1541,6 +1558,15 @@ namespace WorldsAdriftRebornGameServer
                 + ". Add an entity id to move just one, e.g. `echo '"
                 + TeleportPolicy.SafeDestination.Name + " 3' > " + Teleports.TriggerFile + "`.");
 
+            // The ship carry gate (step 3), said once so a human can find it: write
+            // to the ship file to translate the spawned hull one control point and
+            // watch whether a player standing on it is carried along.
+            Console.WriteLine("[info] ship: CARRY TEST - write to " + Ships.TriggerFile
+                + " to move the spawned hull one 1130 control point (default 5 m north)."
+                + " e.g. `echo 'nudge 8' > " + Ships.TriggerFile + "`. Stand on the beams first."
+                + " The ferry (continuous flight) is "
+                + (ShipFerryService.Enabled ? "ARMED (WAREBORN_SHIP_FERRY=1)." : "OFF (set WAREBORN_SHIP_FERRY=1)."));
+
             // Also said once, so that "why did I suddenly reappear at spawn?" has
             // an answer in the same log as the event, and so that a wrong floor is
             // visible on a server that never has anybody fall.
@@ -1628,6 +1654,14 @@ namespace WorldsAdriftRebornGameServer
                 // throttled to twice a second, because this loop turns once per
                 // ENet EVENT rather than once per poll timeout.
                 Teleports.PollTrigger();
+                // STEP 3 carry gate: same file-poll shape as teleport, self-
+                // throttled to twice a second. A write to /tmp/wareborn-ship
+                // translates the spawned hull one 1130 control point.
+                Ships.PollTrigger();
+                // STEP 4 ferry: fixed-cadence 1130 control-point stream that flies
+                // the hull. Off unless WAREBORN_SHIP_FERRY=1; cheap when off (an env
+                // check) or idle (one Stopwatch compare). See Game.ShipFerryService.
+                ShipFerry.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a
                 // section, one when it leaves - so "hold the beam and the tree
