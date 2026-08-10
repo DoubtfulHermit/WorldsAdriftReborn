@@ -175,7 +175,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // the same pure function the live depletion broadcast uses
                         // (WorldsAdriftRebornGameServer.BroadcastNodeDepletion), so the
                         // two agree without the server storing a second coordinate.
-                        if (WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId))
+                        // A destroyed NUGGET sinks under the terrain (it has no
+                        // depletion feedback of its own). A destroyed DEPOSIT does NOT
+                        // sink - it stays anchored and shows its destroyed crust/core
+                        // (2103 isDestroyed + 12283 exploded, seeded below), exactly as
+                        // the shipped deposit does. So only sink a nugget.
+                        if (WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId)
+                            && WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId)?.IsDeposit != true)
                         {
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
@@ -1234,11 +1240,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // but the enum's 0 value is not a member at all (it starts at
                         // 1), so leaving it defaulted would put an out-of-range value
                         // on the wire.
+                        //
+                        // A DEPOSIT's 1016 is LIVE and drives its core: health is
+                        // maxHealth minus the shots taken (a pure function of the shot
+                        // count, so this seed and the live BroadcastDepositHealth agree),
+                        // so a late joiner checking out a half-mined deposit is told the
+                        // real health and the client's core-crack models pick up mid-way.
+                        // A destroyed deposit reads health 0. Everything else (the tree,
+                        // the nugget) keeps the full, equal, healthy pair.
+                        Multiplayer.MetalNode? healthNode =
+                            WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
+                        int seedHealth;
+                        int seedMaxHealth;
+                        if (healthNode != null && healthNode.IsDeposit)
+                        {
+                            seedMaxHealth = Multiplayer.MetalDeposits.MaxHealth;
+                            seedHealth = Multiplayer.MetalDeposits.HealthAfter(
+                                WorldsAdriftRebornGameServer.MetalHarvest.HitsOn(entityId));
+                        }
+                        else
+                        {
+                            seedMaxHealth = Multiplayer.Trees.ItemHealth;
+                            seedHealth = Multiplayer.Trees.ItemHealth;
+                        }
+
                         Bossa.Travellers.Items.ItemHealthState.Data itemHealthData =
                             new Bossa.Travellers.Items.ItemHealthState.Data(
                                 new Bossa.Travellers.Items.ItemHealthStateData(
-                                    Multiplayer.Trees.ItemHealth,
-                                    Multiplayer.Trees.ItemHealth,
+                                    seedHealth,
+                                    seedMaxHealth,
                                     Bossa.Travellers.Items.VulnerabilityState.Vulnerable,
                                     false));
                         obj = itemHealthData;
@@ -1335,6 +1365,101 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     new Option<float> { }));
 
                         obj = salvageData;
+                    }
+                    // ------------------------------------------------------------------
+                    // THE ANCHORED METAL DEPOSIT. Three components on top of 1016/1099/
+                    // 190602 above, all VERIFIED shapes (gencode Bossa.Travellers.Materials
+                    // + client vtables confirmed present). deposit, core and crust are
+                    // three MonoBehaviours on ONE SpatialOS entity in this build, so all
+                    // three are served on the same entity id and cross-reference it.
+                    // Served best-effort over interest (a deposit is not the sender's own
+                    // entity), so a single missing branch skips one component, not the
+                    // whole entity. See Multiplayer.MetalDeposits and findings-metal-deposits.md.
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1255)
+                    {
+                        // 1255 MetalDepositState - identity. Only variantId is read
+                        // (MetalDepositVisualiser.InstantiateVariant); coreId is a dead
+                        // field. variantId MUST name a real MetalDepositVisuals asset in
+                        // the biome PropLibrary or the visualiser sets enabled=false (an
+                        // invisible, dead entity), so it is served from the node (a live
+                        // capture / WAREBORN_DEPOSIT_VARIANT override reaches the wire).
+                        // coreId points at the deposit's own entity.
+                        Multiplayer.MetalNode? depositNode =
+                            WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
+                        string variantId = depositNode?.VariantId ?? Multiplayer.MetalDeposits.VariantId();
+
+                        Bossa.Travellers.Materials.MetalDepositState.Data depositData =
+                            new Bossa.Travellers.Materials.MetalDepositState.Data(
+                                new Bossa.Travellers.Materials.MetalDepositStateData(
+                                    variantId,
+                                    new EntityId(entityId)));
+
+                        Console.WriteLine("[info] seeding 1255 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") variant '" + variantId + "'.");
+
+                        obj = depositData;
+                    }
+                    else if (componentId == 2103)
+                    {
+                        // 2103 MetalRockCoreState - the core. Only isDestroyed is live
+                        // (the client's OnCoreDestroyed); depositId/islandId are dead
+                        // fields but attachedEntities MUST be non-null (DeepCopy reads
+                        // .Count). isDestroyed comes from the ledger, so a late joiner
+                        // checking out an emptied deposit is told it is destroyed - and
+                        // the client's one-shot suppression shows the SILENT destroyed
+                        // state, not a replayed explosion.
+                        bool coreDestroyed = WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId);
+
+                        Bossa.Travellers.Materials.MetalRockCoreState.Data coreData =
+                            new Bossa.Travellers.Materials.MetalRockCoreState.Data(
+                                new Bossa.Travellers.Materials.MetalRockCoreStateData(
+                                    new EntityId(entityId),                        // depositId (self)
+                                    new Improbable.Collections.List<EntityId> { }, // attachedEntities: non-null, empty
+                                    EntityId.InvalidEntityId,                      // islandId: dead field
+                                    coreDestroyed));
+
+                        Console.WriteLine("[info] seeding 2103 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") isDestroyed=" + coreDestroyed + ".");
+
+                        obj = coreData;
+                    }
+                    else if (componentId == 12283)
+                    {
+                        // 12283 MetalRockCrustState - the crust. shotPoints is the
+                        // accumulated damage cloud (plain Vector3f, NO x4096) a late
+                        // joiner replays via SimulatePastShot; it MUST be non-null
+                        // (DeepCopy reads .Count) and is capped by the ledger
+                        // (NodeRegistry.MaxShotPoints). exploded comes from the ledger.
+                        // The LIVE break VFX ride the transient ShotCrustEvent
+                        // (WorldsAdriftRebornGameServer.BroadcastCrustShot), which is NOT
+                        // part of Data - so a joiner reconstructs the STATE silently
+                        // rather than flashing every past impact. coreId and depositId
+                        // both name this same one-entity deposit.
+                        bool crustExploded = WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId);
+
+                        Improbable.Collections.List<Improbable.Math.Vector3f> crustShotPoints =
+                            new Improbable.Collections.List<Improbable.Math.Vector3f>();
+                        foreach (Multiplayer.ShotPoint sp in WorldsAdriftRebornGameServer.Nodes.ShotPointsOf(entityId))
+                        {
+                            crustShotPoints.Add(new Improbable.Math.Vector3f(sp.X, sp.Y, sp.Z));
+                        }
+
+                        Bossa.Travellers.Materials.MetalRockCrustState.Data crustData =
+                            new Bossa.Travellers.Materials.MetalRockCrustState.Data(
+                                new Bossa.Travellers.Materials.MetalRockCrustStateData(
+                                    new EntityId(entityId),   // coreId (self)
+                                    new EntityId(entityId),   // depositId (self)
+                                    crustShotPoints,
+                                    crustExploded));
+
+                        Console.WriteLine("[info] seeding 12283 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") " + crustShotPoints.Count + " shot point(s), exploded=" + crustExploded + ".");
+
+                        obj = crustData;
                     }
                     else if (componentId == 1183)
                     {

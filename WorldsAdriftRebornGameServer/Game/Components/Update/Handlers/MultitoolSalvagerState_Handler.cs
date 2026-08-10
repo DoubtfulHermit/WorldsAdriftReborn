@@ -82,8 +82,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 // OnSalvageShot is where "is that even a node" is decided: the beam
                 // rests on trees, hulls, players and already-depleted nodes too, and
                 // a shot naming any of them simply does nothing. Nothing here
-                // validates and then acts twice.
-                WorldsAdriftRebornGameServer.OnSalvageShot(entityId, targetEntityId);
+                // validates and then acts twice. shotCoordinate is the beam's world
+                // contact point - a deposit uses it to fracture its crust exactly
+                // where it was hit; a nugget ignores it.
+                WorldsAdriftRebornGameServer.OnSalvageShot(entityId, targetEntityId, shot.shotCoordinate);
             }
         }
     }

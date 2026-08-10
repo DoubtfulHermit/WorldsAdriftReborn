@@ -579,6 +579,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// An anchored metal DEPOSIT as a <see cref="WorldEntity"/>: the
+        /// <c>metal_deposit_entity</c> prefab at one measured Haven surface vertex.
+        ///
+        /// NO SEEDED COMPONENTS, exactly like the nugget, the tree and the island. The
+        /// deposit is NOT the sender's own player entity, so its interest requests are
+        /// answered BEST-EFFORT rather than all-or-nothing - the client checks it out,
+        /// asks for its 1255/2103/12283/1016/190602 (+ 1099) over
+        /// SEND_COMPONENT_INTEREST, and ComponentsSerializer answers each. Pushing an
+        /// unprompted seed batch would only add an all-or-nothing failure mode whose
+        /// contents are our guess at the prefab's needs rather than its own statement
+        /// of them. Unlike the nugget, the deposit's geometry is IMPORTED at runtime
+        /// from the variant named by 1255, so a missing/invalid variantId leaves it
+        /// invisible even though the entity exists (see <see cref="MetalDeposits.VariantId"/>).
+        ///
+        /// AfterPlayer: nobody stands on a deposit, so it never delays the loading
+        /// screen, and a misbehaving deposit can never break a player's own spawn.
+        /// </summary>
+        public static WorldEntity DepositEntity(MetalNode node)
+        {
+            return new WorldEntity(
+                node.Key,
+                MetalDeposits.AssetName,
+                DefaultAssetContext,
+                node.Position,
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
         /// The registry the server runs with.
         /// </summary>
         /// <param name="ids">The id source. Shared with player entity ids.</param>
@@ -644,7 +673,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// interest, so recognition degrades to best-effort rather than vanishing.
         /// See <see cref="ShipRecognitionSeedComponents"/>.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true)
+        /// <param name="includeDeposit">
+        /// Whether to place the <see cref="MetalDeposits.Haven"/> anchored deposit(s) -
+        /// the real ore mining loop. OFF by default (WAREBORN_SPAWN_DEPOSIT=1 to turn
+        /// it on), unlike the nugget: the deposit's coordinate AND its runtime-imported
+        /// variant chain have never been in front of a running client, and its geometry
+        /// is imported rather than baked, so an invalid variant is an invisible entity.
+        /// AfterPlayer, so a misbehaving deposit cannot delay or break a player's spawn.
+        /// </param>
+        /// <param name="depositCountEnv">
+        /// The raw WAREBORN_DEPOSIT_COUNT value, or null for one (the proven deposit).
+        /// Clamped to [1, all placed]; index 0 is the proven deposit, so any count keeps
+        /// it. Defaults to a single deposit - the cautious first-live count.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -707,6 +749,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 foreach (MetalNode node in MetalNodes.Haven(oreCount))
                 {
                     registry.Register(MetalNodeEntity(node));
+                }
+            }
+
+            if (includeDeposit)
+            {
+                // Default to ONE (the proven deposit) - the coordinate and the
+                // runtime-imported variant have never been validated live, so a single
+                // anchored rock before the whole table. A WAREBORN_DEPOSIT_COUNT is
+                // clamped to [1, full]; a null (unset) means the cautious one, NOT the
+                // full set. Index 0 (the proven deposit) is always kept.
+                int depositCount = depositCountEnv == null
+                    ? 1
+                    : SpawnCountPolicy.CountFrom(depositCountEnv, MetalDeposits.HavenPlacements.Count);
+                foreach (MetalNode node in MetalDeposits.Haven(depositCount))
+                {
+                    registry.Register(DepositEntity(node));
                 }
             }
 

@@ -15,7 +15,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// </summary>
     public sealed class MetalNode
     {
-        public MetalNode(string key, string metalType, int quality, FixedPointPosition position)
+        public MetalNode(string key, string metalType, int quality, FixedPointPosition position,
+            bool isDeposit = false, string? variantId = null)
         {
             if (string.IsNullOrWhiteSpace(key))
             {
@@ -30,7 +31,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             MetalType = metalType;
             Quality = quality;
             Position = position;
+            IsDeposit = isDeposit;
+            VariantId = variantId;
         }
+
+        /// <summary>
+        /// Whether this node is an ANCHORED metal DEPOSIT (the real WA ore mechanic:
+        /// crust breaks where the beam hits, core depletes over ~10 shots, stays put)
+        /// rather than the loose <c>MetalNugget</c> pickup. Deposits carry a
+        /// <see cref="VariantId"/> and drive the 1255/2103/12283 crust-and-core loop;
+        /// nuggets keep the count-and-sink path. Defaulted false so every existing
+        /// nugget placement is unchanged.
+        /// </summary>
+        public bool IsDeposit { get; }
+
+        /// <summary>
+        /// The 1255 MetalDepositState.variantId for a deposit - the name of a
+        /// <c>MetalDepositVisuals</c> asset in the biome's PropLibrary (case-insensitive
+        /// lookup in SharedResourceData.MetalDepositVariant); a value that does not
+        /// resolve leaves the visualiser disabled and the entity invisible. Null for a
+        /// nugget. See <see cref="MetalDeposits.VariantId"/> for the verified value.
+        /// </summary>
+        public string? VariantId { get; }
 
         /// <summary>Stable registration identity; the shared-entity-id key. Never on the wire.</summary>
         public string Key { get; }

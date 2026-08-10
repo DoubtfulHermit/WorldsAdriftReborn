@@ -472,10 +472,22 @@ namespace WorldsAdriftRebornGameServer
         /// so there is no double-payout even though a held beam keeps publishing
         /// ShotEvents until the node teleports out of the raycast's reach.
         /// </summary>
-        internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId)
+        internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId,
+            Improbable.Math.Coordinates shotCoordinate)
         {
             if (!MetalHarvest.IsNode(nodeEntityId))
             {
+                return;
+            }
+
+            Multiplayer.MetalNode? node = Nodes.NodeOf(nodeEntityId);
+
+            // A DEPOSIT runs the real crust/core mining loop; a nugget keeps the
+            // count-and-sink path below. The two share the ledger and the shot
+            // counter but nothing else about depletion.
+            if (node != null && node.IsDeposit)
+            {
+                OnDepositShot(harvesterEntityId, nodeEntityId, node, shotCoordinate);
                 return;
             }
 
@@ -490,7 +502,6 @@ namespace WorldsAdriftRebornGameServer
             // then grant, then make it visibly vanish.
             Nodes.MarkDestroyed(nodeEntityId);
 
-            Multiplayer.MetalNode? node = Nodes.NodeOf(nodeEntityId);
             string metalType = node?.MetalType ?? "metal";
 
             Console.WriteLine("[info] metal node " + nodeEntityId + " depleted by entity "
@@ -509,6 +520,76 @@ namespace WorldsAdriftRebornGameServer
                 "metal node " + nodeEntityId);
 
             BroadcastNodeDepletion(nodeEntityId);
+        }
+
+        /// <summary>
+        /// One salvage shot on an anchored metal DEPOSIT: fracture the crust where the
+        /// beam hit, wear the core, and - on the shot that empties it - destroy the
+        /// core, explode the crust and grant the metal. The deposit stays anchored
+        /// throughout (no sink); depletion is entirely state-based, exactly as the
+        /// shipped client's own deposit loop is.
+        /// </summary>
+        private static void OnDepositShot(long harvesterEntityId, long nodeEntityId,
+            Multiplayer.MetalNode node, Improbable.Math.Coordinates shotCoordinate)
+        {
+            // Already emptied? the beam legitimately keeps resting on the destroyed
+            // rock and publishing ShotEvents; nothing more to do.
+            if (Nodes.IsDestroyed(nodeEntityId))
+            {
+                return;
+            }
+
+            // 1. CRUST. The shot's LOCAL-space offset from the entity ROOT
+            //    (base.transform - the transform the server knows and the late-join
+            //    replay path uses), PLAIN METRES, NO x4096: the client feeds both the
+            //    shot coordinate and the entity's own position through the SAME
+            //    RemapGlobalToUnityVector (each subtracts the identical world origin),
+            //    so the origin cancels and the local offset is just
+            //    shotCoordinate - entityMetres. A server-placed deposit has identity
+            //    rotation, so world axes are its local axes. (12283 shotPoints is a
+            //    Vector3f cloud, not fixed point - mixing that up is the single easiest
+            //    way to get this wrong, findings-metal-deposits.md.)
+            Multiplayer.ShotPoint local = new Multiplayer.ShotPoint(
+                (float)(shotCoordinate.X - node.Position.MetresX),
+                (float)(shotCoordinate.Y - node.Position.MetresY),
+                (float)(shotCoordinate.Z - node.Position.MetresZ));
+            Nodes.AddShotPoint(nodeEntityId, local);
+            BroadcastCrustShot(nodeEntityId, local);
+
+            // 2. CORE HEALTH. Count the shot (MetalHarvest, sized to ten for a deposit)
+            //    and tell every viewer the decremented 1016 so the client's own
+            //    HealthPct-driven core-crack models advance.
+            MetalHitOutcome outcome = MetalHarvest.Hit(nodeEntityId);
+            BroadcastDepositHealth(nodeEntityId);
+
+            Console.WriteLine("[info] deposit " + nodeEntityId + " shot by entity " + harvesterEntityId
+                + ": " + MetalHarvest.HitsOn(nodeEntityId) + "/" + Multiplayer.MetalDeposits.ShotsToDeplete
+                + " shots, core health "
+                + Multiplayer.MetalDeposits.HealthAfter(MetalHarvest.HitsOn(nodeEntityId)) + ".");
+
+            if (!outcome.Depleted)
+            {
+                return;
+            }
+
+            // 3. DEPLETION. Mark the ledger destroyed (it STAYS in the registry, rule
+            //    1, so a late joiner is seeded isDestroyed=true - whose one-shot
+            //    suppression gives the SILENT destroyed state, not a replayed
+            //    explosion), tell present clients the core is destroyed and the crust
+            //    exploded, then award (grant + the 8060 toast, which fires only if the
+            //    grant landed). ORDER matches the tree/nugget: award before the flag is
+            //    the wire's concern, not the ledger's.
+            Nodes.MarkDestroyed(nodeEntityId);
+            BroadcastDepositDestroyed(nodeEntityId);
+
+            Console.WriteLine("[info] metal DEPOSIT " + nodeEntityId + " depleted by entity "
+                + harvesterEntityId + ": " + outcome.Units + " x " + node.MetalType + ".");
+
+            Game.Gathering.HarvestReward.Award(
+                harvesterEntityId,
+                node.MetalType,
+                outcome.Units,
+                "metal deposit " + nodeEntityId);
         }
 
         /// <summary>
@@ -560,6 +641,147 @@ namespace WorldsAdriftRebornGameServer
                 SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
                     new List<uint> { TransformStateComponentId },
                     new List<object> { sink });
+            }
+        }
+
+        /// <summary>
+        /// The stored native reference for one (peer, entity, component), or false if
+        /// that peer has not been served the component. The precondition every deposit
+        /// broadcast shares: a live update is only pushed to a peer that already holds
+        /// the component (it checked the deposit out); peers that have not are skipped
+        /// and pick up the accumulated state from the registry when they do check out.
+        /// </summary>
+        private static bool TryGetStoredComponentRef(ENetPeerHandle peer, long entityId, uint componentId, out ulong refId)
+        {
+            refId = 0;
+            return GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                && byEntity.TryGetValue(entityId, out Dictionary<uint, ulong>? byComponent)
+                && byComponent.TryGetValue(componentId, out refId);
+        }
+
+        /// <summary>
+        /// Tells every viewer of a deposit that its crust just fractured at one point.
+        /// Carries BOTH channels the shipped crust visualiser reads: the full
+        /// <c>shotPoints</c> STATE (so a re-serve and any future late joiner
+        /// reconstruct the same hole via SimulatePastShot) and the single new point as
+        /// a transient <c>ShotCrustEvent</c> (the LIVE break VFX via SimulateShot). The
+        /// event is not part of Data, so it is never replayed - which is exactly what
+        /// stops a late joiner seeing every past impact flash at once.
+        ///
+        /// RATE + RELAY: one update per salvage shot, and the client rate-limits itself
+        /// to ~0.75 s per deploy (MinDeployInterval), so this is a low-rate, event-paced
+        /// broadcast, NOT a per-frame stream. It is pushed to each peer DIRECTLY (never
+        /// through RelayToOtherPlayers, which re-addresses to the shooter's own avatar);
+        /// SendComponentUpdateOp is the same reliable component-update channel the tree
+        /// and nugget already use.
+        /// </summary>
+        private static void BroadcastCrustShot(long nodeEntityId, Multiplayer.ShotPoint newPoint)
+        {
+            Improbable.Collections.List<Improbable.Math.Vector3f> points =
+                new Improbable.Collections.List<Improbable.Math.Vector3f>();
+            foreach (Multiplayer.ShotPoint sp in Nodes.ShotPointsOf(nodeEntityId))
+            {
+                points.Add(new Improbable.Math.Vector3f(sp.X, sp.Y, sp.Z));
+            }
+            Improbable.Math.Vector3f offset = new Improbable.Math.Vector3f(newPoint.X, newPoint.Y, newPoint.Z);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, nodeEntityId, MetalRockCrustStateComponentId, out ulong refId))
+                {
+                    continue;
+                }
+
+                Bossa.Travellers.Materials.MetalRockCrustState.Update crustUpdate =
+                    new Bossa.Travellers.Materials.MetalRockCrustState.Update()
+                        .SetShotPoints(points)
+                        .AddShot(new Bossa.Travellers.Materials.ShotCrustEvent(offset));
+
+                // Keep this peer's stored crust in step with the state half of what it
+                // has just been told, so a later re-serve from the stored object carries
+                // the same shotPoints. The event half is transient and not stored.
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.MetalRockCrustState.Data stored)
+                {
+                    crustUpdate.ApplyTo(stored);
+                }
+
+                SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
+                    new List<uint> { MetalRockCrustStateComponentId },
+                    new List<object> { crustUpdate });
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer of a deposit its core's decremented 1016 health, so the
+        /// client's HealthPct-driven core-crack damage models advance. One update per
+        /// shot (same low, event-paced rate as the crust), pushed directly and
+        /// reliably. Health is a pure function of the shot count (MetalDeposits.
+        /// HealthAfter), so this live value and a late joiner's 1016 seed agree without
+        /// storing a second number.
+        /// </summary>
+        private static void BroadcastDepositHealth(long nodeEntityId)
+        {
+            int health = Multiplayer.MetalDeposits.HealthAfter(MetalHarvest.HitsOn(nodeEntityId));
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, nodeEntityId, ItemHealthStateComponentId, out ulong refId))
+                {
+                    continue;
+                }
+
+                Bossa.Travellers.Items.ItemHealthState.Update healthUpdate =
+                    new Bossa.Travellers.Items.ItemHealthState.Update().SetHealth(health);
+
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Items.ItemHealthState.Data stored)
+                {
+                    healthUpdate.ApplyTo(stored);
+                }
+
+                SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
+                    new List<uint> { ItemHealthStateComponentId },
+                    new List<object> { healthUpdate });
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer of a deposit that its core is destroyed (2103
+        /// isDestroyed) and its crust exploded (12283 exploded). Fired ONCE, on the
+        /// deplete transition. Both are single-field sets pushed directly and reliably;
+        /// the 1016 health was already driven to zero by the last
+        /// <see cref="BroadcastDepositHealth"/>. A late joiner is instead seeded these
+        /// as destroyed Data (ComponentsSerializer), whose one-shot suppression shows
+        /// the silent destroyed rock rather than a replayed blast.
+        /// </summary>
+        private static void BroadcastDepositDestroyed(long nodeEntityId)
+        {
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, nodeEntityId, MetalRockCoreStateComponentId, out ulong coreRef))
+                {
+                    Bossa.Travellers.Materials.MetalRockCoreState.Update coreUpdate =
+                        new Bossa.Travellers.Materials.MetalRockCoreState.Update().SetIsDestroyed(true);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(coreRef) is Bossa.Travellers.Materials.MetalRockCoreState.Data storedCore)
+                    {
+                        coreUpdate.ApplyTo(storedCore);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
+                        new List<uint> { MetalRockCoreStateComponentId },
+                        new List<object> { coreUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, nodeEntityId, MetalRockCrustStateComponentId, out ulong crustRef))
+                {
+                    Bossa.Travellers.Materials.MetalRockCrustState.Update crustUpdate =
+                        new Bossa.Travellers.Materials.MetalRockCrustState.Update().SetExploded(true);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(crustRef) is Bossa.Travellers.Materials.MetalRockCrustState.Data storedCrust)
+                    {
+                        crustUpdate.ApplyTo(storedCrust);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
+                        new List<uint> { MetalRockCrustStateComponentId },
+                        new List<object> { crustUpdate });
+                }
             }
         }
 
@@ -793,6 +1015,23 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private const uint TreeFSimStateComponentId = 1036;
 
+        /// <summary>1016 ItemHealthState - a deposit core's live health, decremented per salvage shot.</summary>
+        private const uint ItemHealthStateComponentId = 1016;
+
+        /// <summary>1255 MetalDepositState - the deposit's variantId + coreId; static once seeded.</summary>
+        private const uint MetalDepositStateComponentId = 1255;
+
+        /// <summary>2103 MetalRockCoreState - the core; only isDestroyed is live (set once, at depletion).</summary>
+        private const uint MetalRockCoreStateComponentId = 2103;
+
+        /// <summary>
+        /// 12283 MetalRockCrustState - the crust. shotPoints GROWS one point per shot
+        /// (state, replayed to late joiners via SimulatePastShot) and each shot ALSO
+        /// carries a transient ShotCrustEvent (the live break VFX, SimulateShot);
+        /// exploded is set once, at depletion.
+        /// </summary>
+        private const uint MetalRockCrustStateComponentId = 12283;
+
         /// <summary>
         /// Components seeded on a mirrored remote avatar: TransformState (position),
         /// 1086 PlayerName, the two [Require]s of CharacterCustomisationVisualizer
@@ -971,7 +1210,9 @@ namespace WorldsAdriftRebornGameServer
             Multiplayer.WorldEntities.Default(EntityIds, SpawnProofIsland, SpawnTree, SpawnMetal, MetalOnlyProven,
                 Environment.GetEnvironmentVariable("WAREBORN_TREE_COUNT"),
                 Environment.GetEnvironmentVariable("WAREBORN_ORE_COUNT"),
-                SpawnDeck, SpawnExtraShipParts, RecogniseShip);
+                SpawnDeck, SpawnExtraShipParts, RecogniseShip,
+                SpawnDeposit,
+                Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_COUNT"));
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1090,6 +1331,18 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool MetalOnlyProven =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_METAL") == "proven";
+
+        /// <summary>
+        /// Whether to place the anchored metal DEPOSIT(s) - the real ore mining loop
+        /// (see Multiplayer.MetalDeposits). OFF by default, opt-in with
+        /// WAREBORN_SPAWN_DEPOSIT=1, because the deposit is new: its measured coordinate
+        /// AND its runtime-imported variant (1255) have never been in front of a running
+        /// client, and unlike the nugget its geometry is imported rather than baked, so
+        /// an invalid variantId is an invisible entity. It is AfterPlayer, so leaving it
+        /// off or on cannot delay or break a player's own spawn either way.
+        /// </summary>
+        private static bool SpawnDeposit =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1";
 
         /// <summary>
         /// Whether to bolt the walkable Deck01 onto the hull (see
@@ -1307,6 +1560,36 @@ namespace WorldsAdriftRebornGameServer
                             + entityId + ": " + metalNode.MetalType + " q" + metalNode.Quality
                             + " at " + metalNode.Position + " (" + Multiplayer.MetalNodes.NuggetShotsToDeplete
                             + " shots -> " + Multiplayer.MetalNodes.NuggetYieldUnits + " units).");
+                    }
+                }
+
+                // An anchored metal DEPOSIT becomes an entry in the SAME ledgers the
+                // moment it has an entity id - the identical seam as the nugget above,
+                // and it shares the NodeRegistry (which carries the crust shotPoints)
+                // and the MetalHarvest shot counter. What differs is the DEPLETION
+                // SIZING (ten shots, richer yield) and the fact that it is a DEPOSIT
+                // (MetalNode.IsDeposit true), which OnSalvageShot and ComponentsSerializer
+                // branch on to run the crust/core loop instead of the nugget sink.
+                // Idempotent (Register/Place return false on re-registration) so the
+                // second joiner walking this same step cannot refill a mined-out core.
+                if (entity.AssetName == Multiplayer.MetalDeposits.AssetName)
+                {
+                    Multiplayer.MetalNode? deposit = Multiplayer.MetalDeposits.ByKey(entity.Key);
+                    if (deposit != null && Nodes.Register(entityId, deposit))
+                    {
+                        Game.Gathering.HarvestReward.Register(
+                            deposit.MetalType,
+                            new Multiplayer.Gathering.YieldRule(deposit.MetalType, amountPerUnit: 1));
+
+                        MetalHarvest.Place(entityId,
+                            Multiplayer.MetalDeposits.YieldUnits,
+                            shotsToDeplete: Multiplayer.MetalDeposits.ShotsToDeplete);
+
+                        Console.WriteLine("[info] placed metal DEPOSIT '" + entity.Key + "' as entity "
+                            + entityId + ": " + deposit.MetalType + " q" + deposit.Quality
+                            + " variant '" + deposit.VariantId + "' at " + deposit.Position
+                            + " (" + Multiplayer.MetalDeposits.ShotsToDeplete + " shots -> "
+                            + Multiplayer.MetalDeposits.YieldUnits + " units).");
                     }
                 }
 
