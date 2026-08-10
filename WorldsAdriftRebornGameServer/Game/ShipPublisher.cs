@@ -100,6 +100,18 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         public static int Broadcast(long entityId, object update)
         {
+            return Broadcast(entityId, ShipMotionPolicy.ComponentId, update);
+        }
+
+        /// <summary>
+        /// Sends one already-built component update on a GIVEN component id to every
+        /// fully-loaded peer, keeping count. The hull's 1130 SSPPredictedMotionState
+        /// and each bolted part's 190602 TransformState wake both ride this same
+        /// reliable path (see <see cref="ShipPartMotionService"/>); only the id and the
+        /// target entity differ.
+        /// </summary>
+        public static int Broadcast(long entityId, uint componentId, object update)
+        {
             int sent = 0;
             foreach ((ulong peerId, long _) in WorldsAdriftRebornGameServer.Players.All())
             {
@@ -112,7 +124,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (SendOPHelper.SendComponentUpdateOp(
                         peer,
                         entityId,
-                        new System.Collections.Generic.List<uint> { ShipMotionPolicy.ComponentId },
+                        new System.Collections.Generic.List<uint> { componentId },
                         new System.Collections.Generic.List<object> { update }))
                 {
                     sent++;

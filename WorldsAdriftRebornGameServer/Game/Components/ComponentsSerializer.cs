@@ -208,8 +208,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             if (hullEntityId.HasValue && hullSeed.HasValue)
                             {
                                 localSeed = Multiplayer.BoltedPartTransform.LocalOffset(seed, hullSeed.Value);
-                                parent = new Improbable.Collections.Option<Parent>(
-                                    new Parent(new EntityId(hullEntityId.Value), "~"));
+                                parent = ShipPartTransform.RelativeParent(hullEntityId.Value);
 
                                 Console.WriteLine("[info] seeding 190602 for bolted part " + entityId + " ("
                                     + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
@@ -223,15 +222,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             }
                         }
 
-                        TransformStateData tInit = new TransformStateData(new FixedPointVector3(new Improbable.Collections.List<long> { localSeed.X, localSeed.Y, localSeed.Z }),
-                                                                new Quaternion32(1023), // identity sentinel is the low 10 bits ALL set; 1 decodes to NaN
-                                                                parent,
-                                                                new Improbable.Math.Vector3d(0f, 0f, 0f),
-                                                                new Improbable.Math.Vector3f(0f, 0f, 0f),
-                                                                new Improbable.Math.Vector3f(0f, 0f, 0f),
-                                                                false,
-                                                                0f);
-                        TransformState.Data tData = new TransformState.Data(tInit);
+                        // Built through the shared Game.ShipPartTransform so this seed
+                        // and the wake heartbeat (ShipPartMotionService) can never carry
+                        // different transforms - a seed with a parent and a wake without
+                        // it would place the part right once and snap it to the origin
+                        // on the first heartbeat.
+                        TransformState.Data tData = ShipPartTransform.BuildSeed(
+                            ShipPartTransform.LocalPosition(localSeed),
+                            parent);
 
                         if (!parent.HasValue)
                         {

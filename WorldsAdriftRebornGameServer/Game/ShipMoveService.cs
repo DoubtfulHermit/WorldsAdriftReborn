@@ -131,6 +131,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 arrived: true);
 
             int sent = ShipPublisher.Broadcast(entityId, ShipPublisher.BuildUpdate(spec));
+            // Wake the bolted parts in the same breath as the hull move so the deck
+            // and helm follow this nudge immediately rather than waiting up to half a
+            // heartbeat; the standalone heartbeat then keeps them awake for the glide.
+            ShipPartMotionService.PublishWake(entityId);
             _current = to;
 
             if (sent == 0)

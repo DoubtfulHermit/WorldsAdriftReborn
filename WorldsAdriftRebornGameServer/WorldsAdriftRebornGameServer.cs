@@ -932,6 +932,16 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly Game.ShipFerryService ShipFerry = new Game.ShipFerryService(ServerClock);
 
         /// <summary>
+        /// Keeps the bolted parts (deck, helm, engine, sail) FOLLOWING the moving
+        /// hull. A hull-relative seed is not enough: the parts' follow-visualizer
+        /// sleeps after 1 s and only wakes on its own 190602 update, so this
+        /// re-publishes each part's transform on a 0.5 s heartbeat (and on every hull
+        /// move) to keep it awake. Takes ServerClock for the same textual-order reason
+        /// as Falls/Relay/ShipFerry. See Game.ShipPartMotionService.
+        /// </summary>
+        internal static readonly Game.ShipPartMotionService ShipPartMotion = new Game.ShipPartMotionService(ServerClock);
+
+        /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
         /// reused" rule is unit-testable; see EntityIdAllocator.
         /// </summary>
@@ -1820,6 +1830,12 @@ namespace WorldsAdriftRebornGameServer
                 // the hull. Off unless WAREBORN_SHIP_FERRY=1; cheap when off (an env
                 // check) or idle (one Stopwatch compare). See Game.ShipFerryService.
                 ShipFerry.Tick();
+                // Keep the bolted parts awake and following the hull: a 0.5 s heartbeat
+                // that re-publishes each part's 190602 (below the client's 1 s
+                // follow-visualizer sleep). Cheap when idle (one Stopwatch compare) and
+                // a no-op until a ship and a loaded client both exist. See
+                // Game.ShipPartMotionService.
+                ShipPartMotion.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a
                 // section, one when it leaves - so "hold the beam and the tree

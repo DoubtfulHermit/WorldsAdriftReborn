@@ -66,6 +66,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>Everything registered, in registration order.</summary>
         public IReadOnlyList<WorldEntity> Registrations => _registrations;
 
+        /// <summary>
+        /// The bolted ship parts that are actually registered, in registration order -
+        /// the deck, the helm, and the opt-in engine/sail, but never the hull itself.
+        /// This is the "which parts" half of the wake-the-parts policy: the heartbeat
+        /// re-publishes each of these entities' 190602 so its follow-visualizer never
+        /// sleeps while the hull moves (see Game.ShipPartMotionService). Empty when the
+        /// deck is switched off and no parts are present.
+        /// </summary>
+        public IReadOnlyList<WorldEntity> BoltedParts()
+        {
+            List<WorldEntity> parts = new List<WorldEntity>();
+            foreach (WorldEntity entity in _registrations)
+            {
+                if (WorldEntities.IsBoltedPartKey(entity.Key))
+                {
+                    parts.Add(entity);
+                }
+            }
+            return parts;
+        }
+
         /// <summary>Those registered to spawn at a given point in the handshake, in registration order.</summary>
         public IReadOnlyList<WorldEntity> InOrder(SpawnOrder order)
         {

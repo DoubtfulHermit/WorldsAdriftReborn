@@ -115,6 +115,9 @@ namespace WorldsAdriftRebornGameServer.Game
 
             ShipControlPointSpec spec = _plan.Spec(_index);
             int sent = ShipPublisher.Broadcast(entityId, ShipPublisher.BuildUpdate(spec));
+            // Wake the bolted parts alongside every ferry control point so they ride
+            // the whole flight with the hull, not just the first second of it.
+            ShipPartMotionService.PublishWake(entityId);
 
             if (sent > 0 && !_announced && _index == 0)
             {
