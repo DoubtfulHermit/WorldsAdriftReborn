@@ -155,25 +155,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Fact]
         public void The_ship_sits_on_measured_haven_ground_twelve_metres_north_of_the_spawn_point()
         {
-            // Island-local (208.00, 5.30, 16.00): the surface vertex
-            // (208.00, 4.80, 16.00) from the TRS-corrected LOD0 table, plus a
-            // 0.50 m stand-off. The hull's deck plane is at its own local y = 0,
-            // so that stand-off is literally the height of the step onto the
-            // ship - too high and it cannot be walked onto, zero and it z-fights
-            // with the ground.
+            // Island-local (208.00, 7.70, 16.00). X and Z are still the LOD0
+            // surface vertex (208.00, *, 16.00); Y is NOT. The 5.30 the LOD0 table
+            // implied (surface vertex 4.80 + 0.50 m stand-off) buried the deck
+            // ~1.4 m under the REAL collision terrain in a live client - the
+            // photoscan collision mesh sits ~2.4 m above the LOD0 vertex here - so
+            // the hull Y was raised empirically (commit "Raise ship spawn Y") until
+            // the deck plane cleared the ground. The live measurement supersedes
+            // the LOD0 derivation for Y; this test now pins that empirical value so
+            // a later refactor cannot silently sink the deck again.
             FixedPointPosition ship = WorldEntities.ShipFrame().Position;
             FixedPointPosition island = SpawnPolicy.IslandPosition;
 
             Assert.Equal(208.00, ship.MetresX - island.MetresX, 3);
-            Assert.Equal(5.30, ship.MetresY - island.MetresY, 3);
+            Assert.Equal(7.70, ship.MetresY - island.MetresY, 3);
             Assert.Equal(16.00, ship.MetresZ - island.MetresZ, 3);
 
             // Same X as the player, 12 m further north, so it is a straight walk.
             Assert.Equal(SpawnPolicy.PlayerSpawnPosition.X, ship.X);
             Assert.Equal(12.00, ship.MetresZ - SpawnPolicy.PlayerSpawnPosition.MetresZ, 3);
 
-            // Below the player, who stands 2.00 m over their own surface vertex.
-            Assert.True(ship.Y < SpawnPolicy.PlayerSpawnPosition.Y);
+            // The hull's deck plane (its own local y = 0) sits exactly 1.00 m ABOVE
+            // the player's spawn floor - a step UP onto the ship, not down. ONE
+            // metre is the value the original stand-off note warned "might be too
+            // tall to walk up"; whether the player can board a 1 m step, or whether
+            // it wants trimming, is the open LIVE-CLIENT question this height is
+            // pinned against. The deck part derives its Y from this, so it lifts
+            // with the hull and the two stay coincident.
+            Assert.True(ship.Y > SpawnPolicy.PlayerSpawnPosition.Y);
+            Assert.Equal(1.00, ship.MetresY - SpawnPolicy.PlayerSpawnPosition.MetresY, 3);
         }
 
         // ------------------------------------------------------------------
