@@ -18,7 +18,7 @@
         "iconId": "scrap items/4x2_saborian_Grand_mooring_rope",
         "component": "Plant Fibers",
         "description": "Plant fibers woven into a basic cloth.",
-        "amountRequired": 15,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -58,7 +58,7 @@
         "iconId": "woods/Wood_Cedar",
         "component": "Handle",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -67,7 +67,7 @@
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
-        "amountRequired": 10,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -107,7 +107,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -116,7 +116,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Docking Mechanism",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -125,7 +125,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Skyship Generator",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -165,7 +165,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -174,7 +174,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -183,7 +183,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Assembly Device",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -223,7 +223,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Frame",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -232,7 +232,7 @@
         "iconId": "scrap items/4x2_Beetle_Blood_Linen1",
         "component": "Wings",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -241,7 +241,7 @@
         "iconId": "scrap items/3x2_Herders_Saddlebag",
         "component": "Pack",
         "description": "",
-        "amountRequired": 15,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -281,7 +281,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Bullet",
         "description": "",
-        "amountRequired": 10,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -321,7 +321,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Shell",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -361,7 +361,7 @@
         "iconId": "woods/Wood_Cedar",
         "component": "Container",
         "description": "",
-        "amountRequired": 80,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -370,7 +370,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Clamps",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -410,7 +410,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -419,7 +419,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Generator",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -428,7 +428,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 2,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -468,7 +468,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Lantern",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -477,7 +477,7 @@
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -517,7 +517,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Torch",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -526,7 +526,7 @@
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
-        "amountRequired": 80,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -566,7 +566,7 @@
         "iconId": "woods/Wood_Cedar",
         "component": "Wood",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -575,7 +575,7 @@
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Fuel",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -615,7 +615,7 @@
         "iconId": "scrap items/2x2_Cooking_Pot",
         "component": "Raw Thuntomite Meat",
         "description": "",
-        "amountRequired": 3,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -624,7 +624,7 @@
         "iconId": "scrap items/2x2_Momorosan_Fruit_Platter2",
         "component": "Daccat Berries",
         "description": "",
-        "amountRequired": 10,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -744,7 +744,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -753,7 +753,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Respawn Tech",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -793,7 +793,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -802,7 +802,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Piping",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -842,7 +842,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Deck",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -882,7 +882,7 @@
         "iconId": "woods/Wood_Cedar",
         "component": "Mast",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -922,7 +922,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 80,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -931,7 +931,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Flight Stick",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -940,7 +940,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -980,7 +980,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Panel",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1020,7 +1020,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Panel",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1060,7 +1060,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Panel",
         "description": "",
-        "amountRequired": 80,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1100,7 +1100,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Window",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1140,7 +1140,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Staircase",
         "description": "",
-        "amountRequired": 80,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1180,7 +1180,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Rails",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1220,7 +1220,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Rails",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1260,7 +1260,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1269,7 +1269,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Hoops",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1309,7 +1309,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 80,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1318,7 +1318,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Hinges",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1358,7 +1358,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1367,7 +1367,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Nails",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1407,7 +1407,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1416,7 +1416,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Nails",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1456,7 +1456,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 120,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1465,7 +1465,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Hinges",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1505,7 +1505,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 250,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1514,7 +1514,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Hinges",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1554,7 +1554,7 @@
         "iconId": "woods/Wood_Cedar",
         "component": "Body",
         "description": "",
-        "amountRequired": 120,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1563,7 +1563,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Aparatus",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1572,7 +1572,7 @@
         "iconId": "scrap items/4x2_saborian_Grand_mooring_rope",
         "component": "Strings",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1612,7 +1612,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 120,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1621,7 +1621,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Filament",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1630,7 +1630,7 @@
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Fuel",
         "description": "",
-        "amountRequired": 10,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1670,7 +1670,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1679,7 +1679,7 @@
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1719,7 +1719,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1728,7 +1728,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Horn",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1768,7 +1768,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1777,7 +1777,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Needles & Dials",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1817,7 +1817,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1826,7 +1826,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Needles & Dials",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1866,7 +1866,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1875,7 +1875,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Gyro",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1915,7 +1915,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1924,7 +1924,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Ball",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -1964,7 +1964,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -1973,7 +1973,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Needle",
         "description": "",
-        "amountRequired": 20,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2013,7 +2013,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 100,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2022,7 +2022,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Generator",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2071,7 +2071,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2080,7 +2080,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2089,7 +2089,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 3,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2129,7 +2129,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2138,7 +2138,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2147,7 +2147,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 5,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2187,7 +2187,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2196,7 +2196,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2205,7 +2205,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 4,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2245,7 +2245,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2254,7 +2254,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2263,7 +2263,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 3,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2303,7 +2303,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2312,7 +2312,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2321,7 +2321,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 6,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2361,7 +2361,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 40,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2370,7 +2370,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2379,7 +2379,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 10,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2419,7 +2419,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2428,7 +2428,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 50,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2437,7 +2437,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 8,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2477,7 +2477,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
-        "amountRequired": 70,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2486,7 +2486,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
-        "amountRequired": 60,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2495,7 +2495,7 @@
         "iconId": "scrap items/2x3_Atlas_Hod",
         "component": "Atlas Shards",
         "description": "",
-        "amountRequired": 6,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2535,7 +2535,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "The delicate mechanisms of the wing are housed in this protective sheath.",
-        "amountRequired": 56,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2544,7 +2544,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Aileron",
         "description": "A flap along the back edge of the wing, which is positioned to exert torque.",
-        "amountRequired": 30,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
@@ -2553,7 +2553,7 @@
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "The cogs and levers inside the wing, which rotate the aileron.",
-        "amountRequired": 33,
+        "amountRequired": 1,
         "customizationCategory": ""
       }
     ],
@@ -2596,7 +2596,7 @@
         "iconId": "item_wood_large",
         "component": "Panel",
         "description": "Wood for the body.",
-        "amountRequired": 4,
+        "amountRequired": 1,
         "customizationCategory": ""
       },
       {
