@@ -95,7 +95,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // LEARN the schematic: append to 1079 learnedSchematics (idempotent)
                     // and fire the "SCHEMATIC LEARNED" card. A node that learns nothing
                     // (SLOT/CIPHERSLOT/TECHNOLOGY) leaves 1079 untouched.
+                    // ONLY learn a schematic id that actually exists in the 1097
+                    // catalogue. An unmapped tree node resolves to its raw node name
+                    // (SchematicIdFor falls through), which is NOT a catalogue key -
+                    // and the client's crafting-list rebuild does LookupSchematic on
+                    // every learned id, NREs on a miss, and blanks the whole panel.
+                    // So a node with no real recipe learns nothing craftable but is
+                    // still purchased (knowledge spent, node marked used).
                     if (!string.IsNullOrEmpty(spend.LearnedSchematicId)
+                        && Game.Items.SchematicHelper.Get(spend.LearnedSchematicId!) != null
                         && !prog.LearnedSchematics.Contains(spend.LearnedSchematicId!))
                     {
                         prog.LearnedSchematics.Add(spend.LearnedSchematicId!);
