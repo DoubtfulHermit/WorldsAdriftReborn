@@ -87,11 +87,11 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             }
         }
 
-        public static unsafe bool SendAddComponentOp( ENetPeerHandle destination, long entityId, List<Structs.Structs.InterestOverride> interests, bool failOnComponentInitError = false )
+        public static unsafe bool SendAddComponentOp( ENetPeerHandle destination, long entityId, List<Structs.Structs.InterestOverride> interests, bool failOnComponentInitError = false, List<uint>? servedOut = null )
         {
             fixed(Structs.Structs.InterestOverride* interestsArray = interests.ToArray())
             {
-                return SendAddComponentOp(destination, entityId, interestsArray, (uint)interests.Count, failOnComponentInitError);
+                return SendAddComponentOp(destination, entityId, interestsArray, (uint)interests.Count, failOnComponentInitError, servedOut);
             }
         }
 
@@ -123,7 +123,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
         /// nobody predicted is still fatal and still loud - that distinction is
         /// the entire value of this diagnostic.
         /// </summary>
-        public static unsafe bool SendAddComponentOp(ENetPeerHandle destination, long entityId, Structs.Structs.InterestOverride* interests, uint interestCount, bool failOnComponentInitError = false )
+        public static unsafe bool SendAddComponentOp(ENetPeerHandle destination, long entityId, Structs.Structs.InterestOverride* interests, uint interestCount, bool failOnComponentInitError = false, List<uint>? servedOut = null )
         {
             List<Structs.Structs.AddComponentOp> serializedComponents = new List<Structs.Structs.AddComponentOp>();
 
@@ -180,6 +180,12 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 component.DataLength = (int)len;
 
                 serializedComponents.Add(component);
+
+                // Report the ids that actually made it onto the wire so the caller
+                // can remember NOT to re-add them (ServedComponentLedger). Only
+                // successfully-serialised ids are recorded; a known-absent or
+                // unseeded id above 'continue'd past this and stays re-servable.
+                servedOut?.Add(interests[i].ComponentId);
             }
 
             // One line per batch, not per component: "the client asked for four

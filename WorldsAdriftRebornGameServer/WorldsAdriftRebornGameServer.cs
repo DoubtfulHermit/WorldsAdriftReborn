@@ -178,6 +178,11 @@ namespace WorldsAdriftRebornGameServer
             PeerManager.Instance.playerState.Remove(peer);
             PeerManager.Instance.clientSetupState.Remove(peer);
 
+            // The peer's served-component ledger. A reused handle would otherwise
+            // inherit a stale "already delivered" set and wrongly skip seeding the
+            // next joiner's entities.
+            ServedComponents.ForgetPeer(peer);
+
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
             SpawnPacers.Remove(peer);
@@ -335,6 +340,16 @@ namespace WorldsAdriftRebornGameServer
         /// <see cref="SpawnPacePolicy"/> and <see cref="CadenceTimer"/>.
         /// </summary>
         private static readonly Dictionary<ENetPeerHandle, CadenceTimer> SpawnPacers = new();
+
+        /// <summary>
+        /// Which components have already been delivered to each peer for each
+        /// entity, so a repeat interest request never re-ADDS one the client still
+        /// holds. See <see cref="Multiplayer.ServedComponentLedger{TPeer}"/> for the
+        /// reason this exists (the walk-on-then-fall-through deck: a second seed of
+        /// 1518/190602 was cycling ShipDeckVisualizer and destroying its solid
+        /// collider). Forgotten on disconnect alongside the other per-peer state.
+        /// </summary>
+        private static readonly Multiplayer.ServedComponentLedger<ENetPeerHandle> ServedComponents = new();
 
         /// <summary>
         /// Rate-limiter for the per-packet crash-isolation catch below. A modified
@@ -1472,10 +1487,17 @@ namespace WorldsAdriftRebornGameServer
                             }
 
                             // then send what the game requested
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true))
+                            List<uint> setupServed = new List<uint>();
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true, setupServed))
                             {
                                 continue;
                             }
+                            // Remember the player's own first-stage components so the
+                            // best-effort branch below does not re-ADD them when the
+                            // client later re-declares its interest for its own entity
+                            // (after setup, that path falls through to the else branch
+                            // too). Same reset hazard as the deck, one entity up.
+                            ServedComponents.MarkServed(keyValuePair.Key, entityId, setupServed);
 
                             // What the client did not ask for but needs, IN ORDER.
                             //
@@ -1548,7 +1570,55 @@ namespace WorldsAdriftRebornGameServer
                             // The first-time-setup sends above KEEP the flag: a player
                             // whose own batch is incomplete has no authority grants and
                             // no loading screen, which is worth failing loudly for.
-                            SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, false);
+                            //
+                            // DEDUPE - and it is why the spawned deck stops being a
+                            // trap. The client re-declares its whole interest set for
+                            // an entity from time to time (its SpatialCommunicator
+                            // clears the dict and resends) WITHOUT dropping what it
+                            // already holds. Re-ADDing a component the client still has
+                            // is at best the "already exists" error the client log
+                            // shows and at worst DESTRUCTIVE: re-delivering a
+                            // ShipDeckVisualizer [Require] (1518 / 1099) cycles the
+                            // reader, whose OnDisable Clear()s away the SOLID deck
+                            // collider, and the async rebuild can be dropped - the deck
+                            // is solid on first render, then the player falls through it
+                            // ever after. So serve only the ids this peer has not been
+                            // given for this entity; component VALUE updates are
+                            // unaffected because they travel on COMPONENT_UPDATE_OP, a
+                            // different channel, not this AddComponent path.
+                            List<uint> requestedIds = new List<uint>((int)interestCount);
+                            for (int ii = 0; ii < interestCount; ii++)
+                            {
+                                requestedIds.Add(interests[ii].ComponentId);
+                            }
+
+                            IReadOnlyList<uint> toServe =
+                                ServedComponents.UnservedOf(keyValuePair.Key, entityId, requestedIds);
+
+                            int skipped = requestedIds.Count - toServe.Count;
+                            if (skipped > 0)
+                            {
+                                Console.WriteLine("[interest] entity " + entityId + ": " + skipped + " of "
+                                    + requestedIds.Count + " requested component(s) already delivered to this peer; "
+                                    + "skipping the re-add that would reset live visualizers (e.g. the deck's solid collider)"
+                                    + (toServe.Count == 0 ? " - nothing new to send." : "."));
+                            }
+
+                            if (toServe.Count > 0)
+                            {
+                                List<Structs.Structs.InterestOverride> overrides =
+                                    new List<Structs.Structs.InterestOverride>(toServe.Count);
+                                foreach (uint id in toServe)
+                                {
+                                    overrides.Add(new Structs.Structs.InterestOverride(id, 1));
+                                }
+
+                                List<uint> served = new List<uint>();
+                                if (SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, overrides, false, served))
+                                {
+                                    ServedComponents.MarkServed(keyValuePair.Key, entityId, served);
+                                }
+                            }
                         }
                     }
                     else
