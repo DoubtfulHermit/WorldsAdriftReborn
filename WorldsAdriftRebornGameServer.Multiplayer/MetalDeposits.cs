@@ -164,8 +164,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static readonly IReadOnlyList<Placement> HavenPlacements = new[]
         {
             new Placement("iron",   6, 216.0, 4.57,   8.0), // PROVEN, 8.9 m from spawn (index 0)
-            new Placement("copper", 5, 192.0, 7.13,   8.0), // measured near-spawn vertex
-            new Placement("iron",   7, 184.0, 3.10, -32.0), // measured near-spawn vertex
+            // Generated from the extracted Haven LOD0 surface table
+            // (docs/research/world-data/island-surfaces/1431299145.json): flat ground
+            // (upward normal >= 0.92), reachable height y in [1.5,12], each >= 14 m
+            // apart and >= 9 m from the distributed trees, so ore and trees never
+            // overlap and none spawn buried. Metal/quality cycled for variety.
+            new Placement("iron",   5, 200.0, 4.27,   0.0),
+            new Placement("copper", 6, 184.0, 7.32,   0.0),
+            new Placement("iron",   7, 200.0, 4.98,  16.0),
+            new Placement("iron",   5, 184.0, 8.68, -16.0),
+            new Placement("copper", 6, 216.0, 5.51,  16.0),
+            new Placement("iron",   7, 184.0, 5.47,  24.0),
+            new Placement("copper", 5, 228.0, 3.32, -16.0),
+            new Placement("iron",   6, 208.0, 6.84,  32.0),
+            new Placement("iron",   7, 184.0, 3.10, -32.0),
+            new Placement("copper", 5, 168.0, 5.67, -16.0),
+            new Placement("iron",   6, 236.0, 3.07,   4.0),
+            new Placement("iron",   7, 152.0, 4.71,   0.0),
+            new Placement("copper", 5, 160.0, 5.33, -32.0),
+            new Placement("iron",   6, 192.0, 1.50,  56.0),
+            new Placement("copper", 7, 160.0, 4.08,  40.0),
+            new Placement("iron",   5, 136.0, 4.47,   0.0),
+            new Placement("iron",   6, 144.0, 3.91, -32.0),
+            new Placement("copper", 7, 136.0, 5.64,  32.0),
+            new Placement("iron",   5, 152.0, 3.95,  56.0),
+            new Placement("iron",   6, 116.0, 7.51,  12.0),
+            new Placement("copper", 7, 152.0, 2.36,  72.0),
+            new Placement("iron",   5, -32.0, 11.27,  72.0),
         };
 
         /// <summary>

@@ -43,7 +43,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// meaningful unlock, "Shipbuilding" (cost 20), so a single scan proves the
         /// whole GAIN -> SPEND -> LEARN loop.
         /// </summary>
-        public const long GrantAmount = 50;
+        public const long GrantAmount = 10000; // TESTING: big grant so many nodes can be unlocked from one scan
 
         /// <summary>The island every player spawns on; databanks are placed island-local against it.</summary>
         public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
@@ -75,7 +75,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static readonly IReadOnlyList<Placement> HavenPlacements = new[]
         {
-            new Placement(192.0, 7.13, 8.0), // measured near-spawn vertex (index 0)
+            new Placement(208.0, 4.99, 8.0), // flat on-surface spawn-zone vertex from the Haven surface table (index 0)
         };
 
         /// <summary>The registration key for the databank at a given index.</summary>
