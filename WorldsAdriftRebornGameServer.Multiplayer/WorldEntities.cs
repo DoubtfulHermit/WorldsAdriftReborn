@@ -197,7 +197,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 ShipFrameKey,
                 ShipFrameAssetName,
                 DefaultAssetContext,
-                new FixedPointPosition(70502113, -1283561, -4580013),
+                // Y raised from -1283561 (deck buried ~1.4 m under the surface) to
+                // -1273730 so the deck plane sits ~1 m ABOVE the player spawn floor
+                // (feet at -1277826), i.e. step-on-able rather than embedded. Deck /
+                // helm / parts derive from this position, so they lift together.
+                new FixedPointPosition(70502113, -1273730, -4580013),
                 ShipFrameSeedComponents,
                 SpawnOrder.AfterPlayer);
         }
