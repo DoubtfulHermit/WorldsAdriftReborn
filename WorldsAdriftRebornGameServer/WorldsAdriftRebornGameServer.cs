@@ -104,6 +104,19 @@ namespace WorldsAdriftRebornGameServer
             // reconnected player's fresh timestamps against a dead session.
             Relay.Forget(peerId);
 
+            // The aboard tracker's slice, keyed by the same peer id. A disconnect
+            // is a disembark the 1073 stream will never send, so dropping the peer
+            // here is also what tells the (future) abandonment timer that the ship
+            // may now be empty; Forget reports whether they were aboard for exactly
+            // that consumer. Left behind, a departed peer would count forever as
+            // "still aboard ship X".
+            Multiplayer.AboardTransition leftAboard = Aboard.Forget(peerId);
+            if (leftAboard.Change == Multiplayer.AboardChange.Disembarked)
+            {
+                Console.WriteLine("[info] peer left while aboard ship " + leftAboard.PreviousShipRootEntityId
+                    + "; cleared from aboard tracker.");
+            }
+
             // Drop the departed player's stored appearance so the store does not
             // grow across reconnects (entity ids are handed out monotonically, so
             // a stale record is never re-read, only wasted memory).
@@ -956,6 +969,29 @@ namespace WorldsAdriftRebornGameServer
             new MetalHarvest(Multiplayer.MetalNodes.NuggetShotsToDeplete);
 
         /// <summary>
+        /// Which entity ids are ship SURFACES, and which ship each belongs to. The
+        /// server fills this from its own spawn decisions (a hull registers itself
+        /// as its own surface in <see cref="AddWorldEntity"/>), so aboard-detection
+        /// never has to trust or read the client's 8066.
+        ///
+        /// Internal because the aboard glue in the 1073 handler consumes it via
+        /// <see cref="Aboard"/>, and AddWorldEntity writes it.
+        /// </summary>
+        internal static readonly ShipMembership ShipMembership = new ShipMembership();
+
+        /// <summary>
+        /// Who is aboard which ship, fed from the 1073 stream. THE piece the flight
+        /// publisher, the abandonment timer and the eventual pilot grant consume:
+        /// "is anyone on ship X" / "which ship is this player on". A player on a deck
+        /// is not parented - they attach via 1073 relativeTo - so this reads that,
+        /// accumulates the deltas, and emits board/leave edges. See AboardTracker.
+        ///
+        /// Internal because ClientAuthoritativePlayerState_Handler feeds it every
+        /// 1073 and ForgetPeer clears a departed peer from it.
+        /// </summary>
+        internal static readonly AboardTracker Aboard = new AboardTracker(ShipMembership);
+
+        /// <summary>
         /// Whether to also spawn the second Haven (see
         /// Multiplayer.WorldEntities.ProofIsland). OFF unless
         /// WAREBORN_SPAWN_PROOF_ISLAND=1.
@@ -1179,6 +1215,20 @@ namespace WorldsAdriftRebornGameServer
                             + " at " + metalNode.Position + " (" + Multiplayer.MetalNodes.NuggetShotsToDeplete
                             + " shots -> " + Multiplayer.MetalNodes.NuggetYieldUnits + " units).");
                     }
+                }
+
+                // The hull becomes a ship SURFACE the moment it has an entity id -
+                // the same spawn seam as the tree and node ledgers above. A player
+                // standing on this bare hull publishes 1073 relativeTo == this id
+                // (the ground object IS the hull, since no Deck01 parts are bolted
+                // on), so the hull registers itself as its own ship root. Idempotent
+                // (Register returns false on the second joiner walking this identical
+                // step): every client walks the same plan, but there is one ship.
+                if (entity.Key == Multiplayer.WorldEntities.ShipFrameKey
+                    && ShipMembership.Register(entityId, entityId))
+                {
+                    Console.WriteLine("[info] registered ship surface: hull entity " + entityId
+                        + " is its own ship root (aboard-detection).");
                 }
 
                 if (entity.SeedComponents.Count == 0)

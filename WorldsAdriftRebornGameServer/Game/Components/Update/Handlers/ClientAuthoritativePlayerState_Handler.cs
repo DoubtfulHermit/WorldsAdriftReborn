@@ -69,6 +69,31 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // touches 1073 under relay v2.
             WorldsAdriftRebornGameServer.Relay.ObservePlayerState(PeerIdentity.IdOf(player), clientComponentUpdate);
 
+            // Aboard-detection. A player on a deck is not parented; the client
+            // reports which entity they stand on via 1073 relativeTo (VERIFIED:
+            // ClientAuthoritativePlayerMovement.CollectDataHighFrequency sets
+            // relativeTo = the ground object's entity id and relativeBias = 1 when
+            // attached, InvalidEntityId / 0 when free). Those two fields arrive only
+            // when they CHANGE, so the tracker accumulates them and decides "aboard
+            // ship X" against the ships this server spawned. Nothing here depends on
+            // how a ship moves, which is why it can exist ahead of the flight work.
+            Multiplayer.AboardSample aboardSample = new Multiplayer.AboardSample(
+                clientComponentUpdate.relativeTo.HasValue,
+                clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L,
+                clientComponentUpdate.relativeBias.HasValue,
+                clientComponentUpdate.relativeBias.HasValue ? clientComponentUpdate.relativeBias.Value : 0f,
+                clientComponentUpdate.isRelativeToShip.HasValue,
+                clientComponentUpdate.isRelativeToShip.HasValue
+                    && clientComponentUpdate.isRelativeToShip.Value.HasValue
+                    && clientComponentUpdate.isRelativeToShip.Value.Value);
+
+            Multiplayer.AboardTransition aboard =
+                WorldsAdriftRebornGameServer.Aboard.Observe(PeerIdentity.IdOf(player), aboardSample);
+            if (aboard.Change != Multiplayer.AboardChange.None)
+            {
+                Console.WriteLine("[info] player entity " + entityId + " " + aboard + ".");
+            }
+
             if (!clientComponentUpdate.lastExecutedRequest.HasValue)
             {
                 return;

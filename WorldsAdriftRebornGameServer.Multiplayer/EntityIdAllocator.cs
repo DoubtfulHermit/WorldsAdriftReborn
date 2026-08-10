@@ -70,6 +70,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public bool IsAllocated(string key) => _shared.ContainsKey(key);
 
         /// <summary>
+        /// The shared id for a key IF it has already been handed out, without
+        /// allocating one otherwise. The read-only counterpart to
+        /// <see cref="SharedEntityId"/>, for code that needs to NAME an
+        /// already-spawned world entity (the helm's 8066 seed naming its hull) but
+        /// must not be what brings that entity into being by asking.
+        /// </summary>
+        public bool TryGetSharedEntityId(string key, out long id) => _shared.TryGetValue(key, out id);
+
+        /// <summary>
         /// The single island entity id shared by EVERY client. The degenerate
         /// case of <see cref="SharedEntityId"/>, kept because the island is named
         /// explicitly in the spawn backbone and in 1041 IslandState.

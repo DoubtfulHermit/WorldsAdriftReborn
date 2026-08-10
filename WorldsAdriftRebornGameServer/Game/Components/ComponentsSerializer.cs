@@ -290,35 +290,55 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1210)
                     {
-                        // ON A NODE (the MetalNugget), and the reason it offers an
-                        // "E to pick up" prompt. InteractiveObjectVisualizer.OnEnable
+                        // The interaction prompt. InteractiveObjectVisualizer.OnEnable
                         // does Interactions.FirstOrDefault(i => i.verb == Verb); with
-                        // NO matching entry the radius and timeToUse fall to 0 and the
-                        // prompt never appears (findings-metal-deposits.md). So one
-                        // InteractionEntry naming PickUp with a non-zero radius must
-                        // be present. VERIFIED ctor shapes via ilspycmd on
-                        // Generated.Code.dll (InteractiveStateData / InteractionEntry /
-                        // enum InteractVerb).
+                        // NO entry naming the prefab's baked verb the radius and
+                        // timeToUse fall to 0 and the prompt never appears
+                        // (findings-metal-deposits.md). So one InteractionEntry
+                        // naming that verb with a non-zero radius must be present.
+                        // VERIFIED ctor shapes via ilspycmd on Generated.Code.dll
+                        // (InteractiveStateData / InteractionEntry / enum
+                        // Bossa.Travellers.Interact.InteractVerb { Default, Activate,
+                        // PickUp, Man, ... } -> PickUp = 2, Man = 3).
+                        //
+                        // TWO prefabs ask for 1210 and they bake DIFFERENT verbs, so
+                        // this branch is entity-aware exactly like 1099:
+                        //   MetalNugget -> PickUp ("E to pick up")
+                        //   Helm01      -> Man    ("Man"), baked at
+                        //                  HelmPreprocessor.SetVerb(InteractVerb.Man).
+                        // A single-verb seed served to the wrong prefab would leave
+                        // its FirstOrDefault empty and its prompt dead.
                         //
                         // available TRUE, not in use by anyone; syncSchematics FALSE
-                        // (this is a rock, not a crafting station). The three unused
-                        // strings are empty, not null - they are copied by DeepCopy.
-                        InteractionEntry pickUp = new InteractionEntry(
-                            InteractVerb.PickUp,
-                            Multiplayer.MetalNodes.PickUpRadius,
-                            false,  // lockOnUse
-                            "",     // activatedByItem
-                            "",     // description
-                            "",     // lockedDescription
-                            false,  // exclusiveUse
-                            Multiplayer.MetalNodes.PickUpTimeToUse);
+                        // (neither a rock nor a helm is a crafting station). The three
+                        // unused strings are empty, not null - copied by DeepCopy.
+                        bool isHelm =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
+                                == Multiplayer.WorldEntities.HelmKey;
+
+                        InteractionEntry entry = isHelm
+                            ? new InteractionEntry(
+                                InteractVerb.Man,
+                                Multiplayer.Helm.ManRadius,
+                                false, "", "", "", false,
+                                Multiplayer.Helm.ManTimeToUse)
+                            : new InteractionEntry(
+                                InteractVerb.PickUp,
+                                Multiplayer.MetalNodes.PickUpRadius,
+                                false, "", "", "", false,
+                                Multiplayer.MetalNodes.PickUpTimeToUse);
 
                         InteractiveState.Data interactiveData = new InteractiveState.Data(
                             new InteractiveStateData(
                                 true,
                                 EntityId.InvalidEntityId,
-                                new Improbable.Collections.List<InteractionEntry> { pickUp },
+                                new Improbable.Collections.List<InteractionEntry> { entry },
                                 false));
+
+                        Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") with verb " + (isHelm ? "Man" : "PickUp") + ".");
+
                         obj = interactiveData;
                     }
                     else if(componentId == 1211)
@@ -845,6 +865,80 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + ") with one control point at rest at " + at + ".");
 
                         obj = pmData;
+                    }
+                    else if (componentId == 8066)
+                    {
+                        // 8066 ShipRootState is what makes the N+1 entities of a
+                        // ship ONE ship: a bolted-on part points its shipRoot at the
+                        // hull. VERIFIED shape (ilspycmd on Generated.Code.dll):
+                        //   struct ShipRootStateData { Option<EntityId> shipRoot; bool isRoot; }
+                        //   ShipRootState.Data(Option<EntityId> shipRoot, bool isRoot)
+                        // and SERVER-WRITTEN ONLY (ShipRootState.Reader has no
+                        // Trigger*). Its sole client consumer is
+                        // Assets.Scripts.Visualisers.Ship.ShipPartVisualizer.ShipEntityId,
+                        // which returns shipRoot.Value.
+                        //
+                        // The decision (isRoot, and which hull shipRoot names) is the
+                        // pure Multiplayer.ShipRootSeed so it is unit-tested without
+                        // the game types; only the Option<EntityId>/ShipRootState.Data
+                        // construction lives here, because those live in this assembly.
+                        //
+                        // The hull id is looked up WITHOUT allocating
+                        // (BoundEntityIdFor): the hull is registered and spawned
+                        // before the helm, so by the time the client requests the
+                        // helm's 8066 the id is known. If it somehow is not, obj stays
+                        // null and this best-effort interest simply skips 8066 - the
+                        // helm still renders and its 1210 Man prompt still works;
+                        // only the ship link waits for a later checkout.
+                        //
+                        // CLIENT-DORMANT TODAY, and honestly so: ShipPartVisualizer
+                        // [Require]s 1120/190601/1016/1013 too, which this server does
+                        // not yet seed, so the visualizer that reads 8066 does not
+                        // enable. Seeding 8066 is still the correct server-authoritative
+                        // truth and is what the aboard/abandonment/pilot work builds on
+                        // - and it enables nothing against default data (rule 7),
+                        // because its only reader needs four more components to wake up.
+                        var shipReg = WorldsAdriftRebornGameServer.WorldEntities;
+                        string? shipEntityKey = shipReg.ByEntityId(entityId)?.Key;
+                        long? hullEntityId = shipReg.BoundEntityIdFor(Multiplayer.WorldEntities.ShipFrameKey);
+
+                        Multiplayer.ShipRootSeed? rootSeed = null;
+                        if (hullEntityId.HasValue)
+                        {
+                            if (shipEntityKey == Multiplayer.WorldEntities.HelmKey)
+                            {
+                                rootSeed = Multiplayer.ShipRootSeed.Part(hullEntityId.Value);
+                            }
+                            else if (shipEntityKey == Multiplayer.WorldEntities.ShipFrameKey)
+                            {
+                                // Defensive: the ShipFrame carries no ShipPartVisualizer,
+                                // so the client never requests 8066 for the hull today.
+                                // Present so that IF the hull ever seeds 8066 the
+                                // isRoot=true value is already defined and tested.
+                                rootSeed = Multiplayer.ShipRootSeed.Root(hullEntityId.Value);
+                            }
+                        }
+
+                        if (rootSeed.HasValue)
+                        {
+                            Option<EntityId> shipRoot = rootSeed.Value.HasShipRoot
+                                ? new Option<EntityId>(new EntityId(rootSeed.Value.ShipRootEntityId))
+                                : new Option<EntityId>();
+
+                            ShipRootState.Data shipRootData =
+                                new ShipRootState.Data(shipRoot, rootSeed.Value.IsRoot);
+
+                            Console.WriteLine("[info] seeding 8066 for entity " + entityId + " ("
+                                + shipReg.Describe(entityId) + ") -> shipRoot " + rootSeed.Value.ShipRootEntityId
+                                + ", isRoot " + rootSeed.Value.IsRoot + ".");
+
+                            obj = shipRootData;
+                        }
+                        else
+                        {
+                            Console.WriteLine("[warn] 8066 requested for entity " + entityId
+                                + " but no ship hull id is known yet (or it is not a ship part); skipping.");
+                        }
                     }
 
                     // ------------------------------------------------------------------
