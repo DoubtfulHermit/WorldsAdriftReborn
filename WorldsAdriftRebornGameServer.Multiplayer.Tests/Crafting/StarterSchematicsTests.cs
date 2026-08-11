@@ -20,10 +20,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
             "storageContainer", "skyCoreAtlasEnhancer", "campFire", "stove",
         };
 
+        // TESTING OVERRIDE: Default now grants the WHOLE catalogue (see StarterSchematics).
         [Fact]
-        public void The_default_set_is_the_four_starters_only()
+        public void Default_testing_override_grants_the_whole_catalogue()
         {
             List<string> defaults = StarterSchematics.Default(CatalogueKeys).ToList();
+            Assert.Equal(CatalogueKeys.OrderBy(x => x), defaults.OrderBy(x => x));
+        }
+
+        // The FAITHFUL gate (preserved in FaithfulDefault) still holds - restoring the
+        // gate is just swapping Default back to this.
+        [Fact]
+        public void The_faithful_set_is_the_four_starters_only()
+        {
+            List<string> defaults = StarterSchematics.FaithfulDefault(CatalogueKeys).ToList();
 
             Assert.Equal(
                 new[] { "torch", "guitar", "clothMakeshift", "makeshiftStorage" },
@@ -31,14 +41,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
         }
 
         [Fact]
-        public void The_default_set_is_far_smaller_than_the_catalogue()
+        public void The_faithful_set_is_far_smaller_than_the_catalogue()
         {
-            int defaults = StarterSchematics.Default(CatalogueKeys).Count();
-            Assert.True(defaults < CatalogueKeys.Length, "defaults must be a strict subset - the catalogue is gated");
+            int defaults = StarterSchematics.FaithfulDefault(CatalogueKeys).Count();
+            Assert.True(defaults < CatalogueKeys.Length, "faithful defaults must be a strict subset - the catalogue is gated");
         }
 
         [Theory]
-        // The gated recipes are earned via the tree, so they must NOT be defaults.
+        // The gated recipes are earned via the tree, so they must NOT be faithful-defaults.
         [InlineData("shipyard")]
         [InlineData("glider")]
         [InlineData("proceduralWingDefault")]
@@ -46,9 +56,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
         [InlineData("storageContainer")]
         [InlineData("skyCoreAtlasEnhancer")]
         [InlineData("campFire")]
-        public void A_gated_recipe_is_not_a_default(string recipeId)
+        public void A_gated_recipe_is_not_a_faithful_default(string recipeId)
         {
-            Assert.DoesNotContain(recipeId, StarterSchematics.Default(CatalogueKeys));
+            Assert.DoesNotContain(recipeId, StarterSchematics.FaithfulDefault(CatalogueKeys));
         }
 
         [Fact]
@@ -56,7 +66,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
         {
             // A catalogue missing "makeshiftStorage" yields only the three that exist.
             string[] partial = { "torch", "guitar", "clothMakeshift", "shipyard" };
-            List<string> defaults = StarterSchematics.Default(partial).ToList();
+            List<string> defaults = StarterSchematics.FaithfulDefault(partial).ToList();
 
             Assert.Equal(new[] { "torch", "guitar", "clothMakeshift" }, defaults);
             Assert.DoesNotContain("makeshiftStorage", defaults);
