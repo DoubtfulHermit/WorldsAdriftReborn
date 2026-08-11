@@ -20,22 +20,30 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
      * player's own client->server writer. Real SpatialOS answered on 1274 with the
      * catalogue and Busy=false; our server had no reply, so the blocker spun forever.
      *
-     * So on a RefreshBlueprints event we send the sender ONE 1274 update: Busy=false
-     * + an empty ShipBlueprintList. Empty is the CORRECT list for a new player - the
-     * spinner lifting onto an empty (but interactive) panel is the whole Phase 1 goal.
-     * The other 1270 events (add/return item, save/rename/delete/autofill blueprint,
-     * set-schematic-enabled) are later milestones and are intentionally ignored here.
+     * BUSY IS PER-COMMAND, NOT PER-REFRESH. The client wraps EVERY 1270 command in
+     * LockOnBusyState: it sets the client-local BusyModel TRUE and waits for a 1274
+     * BusyUpdated event to clear it. Both LoadingInputBlockers (the left list and the
+     * centre overlay) bind that same BusyModel. So a reply is owed to ANY command, not
+     * only RefreshBlueprints. The bug this fixes: selecting a hull frame fires
+     * TriggerSetBlueprintId(None) (hulls and blueprints are mutually exclusive), which
+     * locked BusyModel; with no reply it stayed true forever and ate EDIT/SAVE/etc. Now
+     * every command earns a Busy=false. The blueprint LIST is only re-seeded (empty) on
+     * an actual refresh, so a non-refresh command clears Busy without churning the list.
+     *
+     * WIRE DETAIL: BusyUpdated fires only if field tag 2 is PRESENT
+     * (Field2BusySpecified => HasValue). SetBusy(false) sets the nullable so tag 2 is
+     * emitted; a protobuf default-dropped false would be silently ignored.
      *
      * 1270 is granted authoritative on + injected into the player only when the
      * shipyard build UI is wired (MirrorSendPolicy.ShipBuildUi*, gated with placement),
      * so this handler only ever runs for a peer that legitimately holds the 1270 writer.
      *
      * MULTIPLAYER SAFETY: per-player and event-driven. The reply goes ONLY to the
-     * peer that sent the refresh, ONLY about that peer's own player entity, and ONLY
-     * when a RefreshBlueprints event arrives - never per frame. 1270 (and 1208) are
-     * filtered out of the raw cross-entity relay (MirrorSendPolicy.IsRelayedToOtherPlayers),
-     * so nothing is re-addressed to another player's mirror. No high-rate reliably-
-     * relayed component is introduced.
+     * peer that sent the command, ONLY about that peer's own player entity, and ONLY
+     * when a command arrives - never per frame. 1270 (and 1208) are filtered out of the
+     * raw cross-entity relay (MirrorSendPolicy.IsRelayedToOtherPlayers), so nothing is
+     * re-addressed to another player's mirror. No high-rate reliably-relayed component
+     * is introduced.
      */
     [RegisterComponentUpdateHandler]
     internal class PlayerShipBlueprintInteractionState_Handler
@@ -64,27 +72,62 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            int refreshCount = clientComponentUpdate.refreshBlueprints?.Count ?? 0;
-            if (!ShipBlueprintInteraction.ShouldReplyToRefresh(refreshCount))
+            ShipBlueprintInteraction.BlueprintCommandCounts counts =
+                new ShipBlueprintInteraction.BlueprintCommandCounts(
+                    clientComponentUpdate.addItem?.Count ?? 0,
+                    clientComponentUpdate.returnItem?.Count ?? 0,
+                    clientComponentUpdate.startCrafting?.Count ?? 0,
+                    clientComponentUpdate.setBlueprintId?.Count ?? 0,
+                    clientComponentUpdate.refreshBlueprints?.Count ?? 0,
+                    clientComponentUpdate.saveBlueprint?.Count ?? 0,
+                    clientComponentUpdate.renameBlueprint?.Count ?? 0,
+                    clientComponentUpdate.deleteBlueprint?.Count ?? 0,
+                    clientComponentUpdate.autofillBlueprint?.Count ?? 0,
+                    clientComponentUpdate.returnAllItems?.Count ?? 0,
+                    clientComponentUpdate.setSchematicEnabled?.Count ?? 0);
+
+            if (!ShipBlueprintInteraction.ShouldReplyBusyFalse(counts))
             {
-                // A non-refresh 1270 update (item add/return, save/rename/delete, ...)
-                // is a later milestone; nothing to reply with, so drop it quietly.
+                // An empty 1270 update carries no LockOnBusyState command, so there is no
+                // BusyModel to clear. Nothing to do.
                 return;
             }
 
-            // Clear the spinner: Busy=false + an empty (None) ShipBlueprintList. Setting
-            // the list to None makes the client's serializer clear field 1, so the panel
-            // renders an explicitly-empty catalogue rather than a stale one.
+            bool isRefresh = ShipBlueprintInteraction.ShouldReplyToRefresh(counts.RefreshBlueprints);
+
+            // Clear the spinner for ANY command. The client wraps every 1270 command in
+            // LockOnBusyState (BusyModel=true) and clears it ONLY on a 1274 BusyUpdated
+            // event, which fires ONLY if field tag 2 (Busy) is PRESENT on the wire
+            // (Field2BusySpecified => HasValue). SetBusy(false) sets the nullable, so tag 2
+            // is emitted - a protobuf default-dropped false would be silently ignored and
+            // the blocker would never lift. Both LoadingInputBlockers (left list + centre
+            // overlay) bind the same BusyModel, so this one reply clears both.
+            //
+            // The blueprint LIST is re-seeded (to empty) ONLY on an actual refresh (panel
+            // open). A non-refresh command - e.g. the SetBlueprintId(None) the client fires
+            // when a hull frame is selected, hulls and blueprints being mutually exclusive -
+            // clears Busy WITHOUT touching the list model, so selecting a frame does not
+            // churn the (empty) blueprint list.
             GsimShipBlueprintInteractionState.Update reply = new GsimShipBlueprintInteractionState.Update();
             reply.SetBusy(ShipBlueprintInteraction.RepliedBusy);
-            reply.SetShipBlueprintList(new Improbable.Collections.Option<ShipBlueprintList>());
+            if (isRefresh)
+            {
+                reply.SetShipBlueprintList(new Improbable.Collections.Option<ShipBlueprintList>());
+            }
 
             SendOPHelper.SendComponentUpdateOp(player, entityId,
                 new List<uint> { 1274 },
                 new List<object> { reply });
 
-            Console.WriteLine("[info] 1270: entity " + entityId + " requested a blueprint refresh; replied 1274 Busy="
-                + ShipBlueprintInteraction.RepliedBusy + " with an empty ship-blueprint list.");
+            Console.WriteLine("[info] 1270: entity " + entityId + " command batch (locking="
+                + counts.Locking + ", refresh=" + counts.RefreshBlueprints + ", setBlueprintId="
+                + counts.SetBlueprintId + "); replied 1274 Busy=" + ShipBlueprintInteraction.RepliedBusy
+                + (isRefresh ? " + empty ship-blueprint list." : "."));
+
+            if (!isRefresh)
+            {
+                return;
+            }
 
             // TASK 4 - guarantee FRAME DESIGNS populates. A RefreshBlueprints fires when
             // the build UI OPENS (ShipCraftingUI.Activate -> TriggerShipBlueprintsRefresh),
