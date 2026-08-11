@@ -88,6 +88,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
             return JObject.Parse(File.ReadAllText(path));
         }
 
+        private static JArray ItemData()
+        {
+            string path = Path.Combine(
+                RepoRoot(),
+                "WorldsAdriftRebornGameServer", "Game", "Items", "Config", "itemData.json");
+            return JArray.Parse(File.ReadAllText(path));
+        }
+
+        // The exact set of textures the UNMODIFIED client can resolve, extracted from the
+        // client's own resource catalogue (globalgamemanagers ResourceManager m_Container)
+        // and saved to docs/research/valid-icons.txt. Each line is a catalogue path with the
+        // leading "icons/" stripped and lowercased -- i.e. the value the client resolves via
+        // Resources.Load("Icons/" + iconName). Resources.Load lookup is case-insensitive, so
+        // membership is tested lowercased.
+        private static HashSet<string> ValidIcons()
+        {
+            string path = Path.Combine(RepoRoot(), "docs", "research", "valid-icons.txt");
+            return File.ReadAllLines(path)
+                .Select(l => l.Trim().ToLowerInvariant())
+                .Where(l => l.Length > 0)
+                .ToHashSet();
+        }
+
         public static IEnumerable<object[]> AllRecipes()
         {
             foreach (KeyValuePair<string, JToken?> kv in Catalogue())
@@ -311,6 +334,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
             Assert.True(broken.Count == 0,
                 "SchematicAliases entries whose target recipe is absent from the catalogue: " +
                 string.Join(", ", broken));
+        }
+
+        /// <summary>
+        /// Every schematic's iconId MUST name a real baked client texture. The client renders
+        /// it via InventoryIconManager.GetIconTexture("Icons/" + iconId)
+        /// (acs/InventoryIconManager.cs:44); a name the resource catalogue does not contain
+        /// resolves to Icons/placeholder_icon -- the pink box -- instead of the intended art.
+        /// Validated against the client's own icon catalogue (docs/research/valid-icons.txt).
+        /// </summary>
+        [Fact]
+        public void Every_schematic_iconId_is_a_real_client_texture()
+        {
+            HashSet<string> valid = ValidIcons();
+            var bad = new List<string>();
+            foreach (KeyValuePair<string, JToken?> kv in Catalogue())
+            {
+                string? icon = (string?)kv.Value?["iconId"];
+                if (icon == null || !valid.Contains(icon.Trim().ToLowerInvariant()))
+                {
+                    bad.Add($"{kv.Key} -> '{icon}'");
+                }
+            }
+            Assert.True(bad.Count == 0,
+                "Schematic iconIds that resolve to the pink placeholder_icon (not in the client's " +
+                "icon catalogue): " + string.Join(", ", bad));
+        }
+
+        /// <summary>
+        /// Every item's iconName MUST name a real baked client texture, same resolution path
+        /// as above (InventoryIconManager.cs:44/64). An unknown name is the pink placeholder
+        /// box in the inventory grid.
+        /// </summary>
+        [Fact]
+        public void Every_item_iconName_is_a_real_client_texture()
+        {
+            HashSet<string> valid = ValidIcons();
+            var bad = new List<string>();
+            foreach (JToken entry in ItemData())
+            {
+                string? icon = (string?)entry["iconName"];
+                if (icon == null || !valid.Contains(icon.Trim().ToLowerInvariant()))
+                {
+                    bad.Add($"{(string?)entry["itemTypeID"]} -> '{icon}'");
+                }
+            }
+            Assert.True(bad.Count == 0,
+                "Item iconNames that resolve to the pink placeholder_icon (not in the client's " +
+                "icon catalogue): " + string.Join(", ", bad));
         }
     }
 }
