@@ -235,6 +235,49 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
                 $"{id}: itemType is empty (hierarchy bucket key at CharacterLearnedSchematicLibrary.cs:343).");
         }
 
+        // CraftingCategory enum ints, from the class doc above
+        // (acs/Travellers.UI.PlayerInventory/CraftingCategory.cs).
+        private static readonly Dictionary<string, int> CategoryEnumInt = new()
+        {
+            ["Shipyard"] = 0,
+            ["Personal"] = 1,
+            ["CraftingStation"] = 2,
+            ["Cooking"] = 3,
+            ["Clothing"] = 4,
+            ["None"] = 5,
+        };
+
+        /// <summary>
+        /// A schematic's numeric "CraftingCategoryEnum" field MUST equal the enum value its
+        /// "category" string maps to. The client itself IGNORES the numeric field and derives
+        /// the category by Enum.Parse(category) (acs/SchematicData.cs:165, a get-only property
+        /// Json.NET cannot set), so a stale numeric value never bit the client directly - but
+        /// a schematic whose loaded category has no built slot in the tab it is shown in is
+        /// exactly what NREs CraftingStationSchematicList.SelectSchematic
+        /// (CategoryPressed(schematic.CraftingCategoryEnum) -> null -> deref, cs:365-385) and
+        /// blanks the Crafting tab. Keeping the numeric field consistent with the string keeps
+        /// the two views of a schematic's category from ever disagreeing - any server-side
+        /// binning that trusts the number then agrees with the client that trusts the string.
+        /// (Found live: lamp shipped category "CraftingStation" but CraftingCategoryEnum 0
+        /// (Shipyard).)
+        /// </summary>
+        [Theory]
+        [MemberData(nameof(AllRecipes))]
+        public void Recipe_numeric_category_matches_its_category_string(string id)
+        {
+            JObject r = (JObject)Catalogue()[id]!;
+            string? category = (string?)r["category"];
+            Assert.NotNull(category);
+            Assert.True(CategoryEnumInt.ContainsKey(category!),
+                $"{id}: category '{category}' is not a known CraftingCategory name.");
+
+            int? enumInt = (int?)r["CraftingCategoryEnum"];
+            Assert.True(enumInt.HasValue, $"{id}: CraftingCategoryEnum is missing.");
+            Assert.True(enumInt!.Value == CategoryEnumInt[category!],
+                $"{id}: CraftingCategoryEnum {enumInt} disagrees with category '{category}' " +
+                $"(expected {CategoryEnumInt[category!]}). The client reads the STRING; keep the number in sync.");
+        }
+
         /// <summary>
         /// Every SCHEMATIC_FIXED knowledge node's baked schematicId MUST resolve in the
         /// served catalogue. KnowledgeInfoPanel.cs:92-93 does

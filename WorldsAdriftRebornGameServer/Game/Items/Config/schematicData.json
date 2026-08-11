@@ -1692,7 +1692,7 @@
     "hullData": "",
     "OrderedStats": [],
     "UniqueID": "lamp",
-    "CraftingCategoryEnum": 0,
+    "CraftingCategoryEnum": 2,
     "HumanReadableItemType": "Lamp",
     "rarityParsed": 1,
     "HullDataBytes": "",

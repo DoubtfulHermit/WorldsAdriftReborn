@@ -270,14 +270,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_injected_batch_is_the_authority_set_plus_exactly_three_extras()
+        public void The_injected_batch_is_the_authority_set_plus_exactly_four_extras()
         {
             // The injected batch and the authority grant are two different jobs
             // sharing one array; this pins how they differ so a future edit to one
-            // has to be a deliberate edit to the other. 1080, 1331 and 1086 are
+            // has to be a deliberate edit to the other. 1080, 1331, 1086 and 1240 are
             // injected but NOT granted - the client must not become the writer of its
-            // own name, of the schematics state, or of the server's scan dedup ledger.
-            Assert.Equal(MirrorSendPolicy.AuthoritativeComponents.Count + 3,
+            // own name, of the schematics state, of the server's scan dedup ledger, or
+            // of the server-owned known-lore reader.
+            Assert.Equal(MirrorSendPolicy.AuthoritativeComponents.Count + 4,
                          MirrorSendPolicy.InjectedComponents.Count);
 
             foreach (uint id in MirrorSendPolicy.AuthoritativeComponents)
@@ -288,6 +289,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.DoesNotContain(1080u, MirrorSendPolicy.AuthoritativeComponents);
             Assert.DoesNotContain(MirrorSendPolicy.ScanningAgentServerStateComponentId, MirrorSendPolicy.AuthoritativeComponents);
             Assert.DoesNotContain(MirrorSendPolicy.PlayerNameComponentId, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.DoesNotContain(MirrorSendPolicy.LorePiecesCollectorGsimStateComponentId, MirrorSendPolicy.AuthoritativeComponents);
+        }
+
+        [Fact]
+        public void The_known_lore_reader_is_injected_but_not_granted()
+        {
+            // 1240 LorePiecesCollectorGsimState is the server-owned READER of the
+            // player's known lore. LorePiecesCollectorVisualizer [Require]s it (as
+            // _serverState) alongside the 1241 writer (already granted). Without 1240
+            // checked out, _serverState is null and GetKnownPieces() throws an uncaught
+            // NRE from LogbookUI.ProtectedInit, taking the whole character sheet / Tab
+            // menu strip down. It must be checked out (injected) but never granted - the
+            // client only reads its known-lore list; the server owns it.
+            Assert.Equal(1240u, MirrorSendPolicy.LorePiecesCollectorGsimStateComponentId);
+            Assert.Contains(1240u, MirrorSendPolicy.InjectedComponents);
+            Assert.DoesNotContain(1240u, MirrorSendPolicy.AuthoritativeComponents);
         }
 
         [Fact]

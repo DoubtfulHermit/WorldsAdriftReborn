@@ -388,6 +388,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const uint ScanningAgentServerStateComponentId = 1331;
 
         /// <summary>
+        /// LorePiecesCollectorGsimState (1240). Injected but NOT granted, exactly like
+        /// 1080/1331: it is the server-owned READER of the player's known-lore list and
+        /// the client's writer twin (1241 LorePiecesCollectorClientState) is already in
+        /// <see cref="AuthoritativeComponents"/>.
+        ///
+        /// WHY THIS EXISTS. <c>LorePiecesCollectorVisualizer</c> carries
+        /// <c>[Require] LorePiecesCollectorGsimStateReader _serverState</c> (1240) and
+        /// <c>[Require] LorePiecesCollectorClientStateWriter _clientState</c> (1241).
+        /// Only 1241 was ever granted, so 1240 never checked out, so the visualizer's
+        /// <c>_serverState</c> stayed null. <c>LoreUI.RefreshLore</c> calls
+        /// <c>LocalPlayer.Instance.lorePiecesCollectorVisualizer.GetKnownPieces()</c>,
+        /// which dereferences <c>_serverState.KnownLore</c> -> an uncaught
+        /// NullReferenceException. That fires from <c>LogbookUI.ProtectedInit</c>, which
+        /// runs inside <c>CharacterSheetScreen.ProtectedInit</c> - so the throw does not
+        /// just break the Logbook tab, it takes the WHOLE character sheet (the Tab menu
+        /// strip) down with it (VERIFIED in the client log: LorePiecesCollectorVisualizer
+        /// .GetKnownPieces -> LoreUI.RefreshLore -> LogbookUI.ProtectedInit ->
+        /// CharacterSheetScreen.ProtectedInit). The serializer already answers 1240 with
+        /// an empty KnownLore list (ComponentsSerializer.cs componentId==1240), so
+        /// checking it out is enough: GetKnownPieces returns empty and the panel renders.
+        /// </summary>
+        public const uint LorePiecesCollectorGsimStateComponentId = 1240;
+
+        /// <summary>
         /// The components the server pushes at a client's OWN entity during
         /// first-time setup, unprompted and IN THIS ORDER, on top of whatever the
         /// client asked for.
@@ -413,7 +437,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// setup, inside the loading screen, before any of it has been acted on.
         /// </summary>
         public static readonly IReadOnlyList<uint> InjectedComponents =
-            new uint[] { SchematicsLearnerGSimStateComponentId, ScanningAgentServerStateComponentId, PlayerNameComponentId }
+            new uint[] { SchematicsLearnerGSimStateComponentId, ScanningAgentServerStateComponentId, PlayerNameComponentId, LorePiecesCollectorGsimStateComponentId }
                 .Concat(AuthoritativeComponents)
                 .ToArray();
 

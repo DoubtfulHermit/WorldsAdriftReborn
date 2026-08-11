@@ -246,7 +246,8 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             // signal to rebuild the list. Single choke point for every console open.
             Multiplayer.Ship.ShipDesignStore.For(playerEntityId).NoteConsole(shipyardEntityId);
 
-            return EmitPlayerStartCrafting(peer, playerEntityId, shipyardEntityId, "shipyard", "ship-build UI");
+            return EmitPlayerStartCrafting(peer, playerEntityId, shipyardEntityId, "shipyard", "ship-build UI",
+                resetToIdle: false);
         }
 
         /// <summary>
@@ -279,7 +280,27 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 return false;
             }
 
-            return EmitPlayerStartCrafting(peer, playerEntityId, stationEntityId, "crafting station", "parts crafting UI");
+            // resetToIdle: the parts-crafting UI (CraftingStationCraftingUI /
+            // CraftingStationSchematicList) is fragile against a STALE loaded schematic on
+            // the station's 1005. On open, CraftingStationBehaviour.OnStartInteraction runs
+            // RefreshCraftingData and CheckIfSchematicLoaded against whatever
+            // CraftingStationClientState the station currently holds. If clientSchematicId
+            // is non-empty (e.g. left over from a previous station craft's 1005 push) the
+            // client re-selects that schematic - CraftingStationSchematicList.SelectSchematic
+            // calls CategoryPressed(schematic.CraftingCategoryEnum) and dereferences the
+            // returned slot with NO null check (VERIFIED CraftingStationSchematicList.cs:365-385).
+            // If that category has no slot in the tab it just built, that is an uncaught NRE
+            // that blanks the whole Crafting tab. Its sibling SyncCraftingItems indexes the
+            // slotted-materials list up to the loaded schematic's requirement count with no
+            // bounds check (CraftingStationData.cs:283-285), an ArgumentOutOfRangeException
+            // when the two are momentarily inconsistent. Re-asserting the idle seed shape
+            // (empty schematic + empty slots + closed countdown) alongside the open echo
+            // makes the station always open in the crash-safe NoSchematic state: an empty
+            // clientSchematicId means LoadedSchematic is null, so SelectSchematic is never
+            // reached and SyncCraftingItems early-returns. The client picking a recipe then
+            // drives real values back through the 1003 handler exactly as before.
+            return EmitPlayerStartCrafting(peer, playerEntityId, stationEntityId, "crafting station", "parts crafting UI",
+                resetToIdle: true);
         }
 
         /// <summary>
@@ -292,11 +313,28 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
         /// only thing that decides which UI the client opens.
         /// </summary>
         private bool EmitPlayerStartCrafting(
-            ENetPeerHandle peer, long playerEntityId, long stationEntityId, string kind, string uiName)
+            ENetPeerHandle peer, long playerEntityId, long stationEntityId, string kind, string uiName,
+            bool resetToIdle)
         {
             // playerId = the interacting player's OWN entity id, NOT the station's.
             CraftingStationClientState.Update update = new CraftingStationClientState.Update();
             update.AddPlayerStartCrafting(new PlayerStartCrafting(new EntityId(playerEntityId), ""));
+
+            if (resetToIdle)
+            {
+                // Re-assert the crash-safe idle seed shape in the SAME update that opens the
+                // UI, so the parts station can never open on a stale loaded schematic (see
+                // OpenCraftingStationConsole). Empty schematic id + empty slotted list + a
+                // closed (-1) countdown is exactly what componentId==1005 seeds; clientSchematicId
+                // "" makes LoadedSchematic null, which is the branch the client renders safely.
+                // The shipyard path does NOT reset (resetToIdle:false) so the ship-build UI's
+                // existing open behaviour is unchanged.
+                update.SetClientSchematicId("");
+                update.SetSchematicOwner("");
+                update.SetSlottedMaterials(new Improbable.Collections.List<SlottedMaterial>());
+                update.SetItemReadyInSeconds(-1);
+                update.SetCurrentWeight(0f);
+            }
 
             bool ok = SendOPHelper.SendComponentUpdateOp(
                 peer, stationEntityId,
