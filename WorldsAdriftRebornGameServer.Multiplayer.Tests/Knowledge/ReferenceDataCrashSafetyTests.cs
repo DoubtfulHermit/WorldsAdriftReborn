@@ -194,7 +194,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         [InlineData("proceduralEngineDefault", "CraftingStation", "engine")]
         [InlineData("proceduralWingDefault", "Shipyard", "proceduralWing")]
         [InlineData("helm", "Shipyard", "helm")]
-        [InlineData("lamp", "Shipyard", "lamp")]
+        [InlineData("lamp", "CraftingStation", "lamp")]
         [InlineData("sail", "Shipyard", "sail")]
         [InlineData("makeshiftStorage", "Personal", "makeshiftStorage")]
         [InlineData("storageContainer", "Shipyard", "storageContainer")]
