@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using Bossa.Travellers.Craftingstation;
 using WorldsAdriftRebornGameServer.DLLCommunication;
+using WorldsAdriftRebornGameServer.Game.Crafting;
+using WorldsAdriftRebornGameServer.Game.Inventory;
 using WorldsAdriftRebornGameServer.Multiplayer.Crafting;
+using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
@@ -126,37 +129,208 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 foreach (SetShipBlueprint select in clientComponentUpdate.setBlueprintId)
                 {
                     long shipyardId = select.targetEntity.Id;
-                    ShipBlueprintCraftingState.Update crafting = new ShipBlueprintCraftingState.Update();
                     if (select.blueprintId.HasValue)
                     {
                         // TEST recipe (ShipBlueprintRecipe.TestMakeshiftShip) - authored
                         // conservative bill; real numbers get swapped in the recipe module.
-                        Multiplayer.Crafting.ShipBlueprintRecipe recipe =
-                            Multiplayer.Crafting.ShipBlueprintRecipe.TestMakeshiftShip();
-                        crafting.SetBlueprintId(
-                            new Improbable.Collections.Option<string>(select.blueprintId.Value));
-                        crafting.SetSchematics(
-                            Game.Crafting.ShipBlueprintSchematicMapper.ToSchematics(recipe));
-                        crafting.SetCraftingTime(recipe.CraftingTime);
-                        crafting.SetIsCrafting(false);
+                        // Phase 2: a LIVE build is created and stored under (shipyard, this
+                        // player) so the subsequent add/return/autofill/craft events on the
+                        // shared shipyard find THIS player's fill state, not another's.
+                        ShipBlueprintRecipe recipe = ShipBlueprintRecipe.TestMakeshiftShip();
+                        ShipBlueprintBuild build = new ShipBlueprintBuild(select.blueprintId.Value, recipe);
+                        ShipBlueprintBuildStore.Set(shipyardId, entityId, build);
+                        PushCrafting(player, shipyardId, build);
                         Console.WriteLine("[info] 1270: entity " + entityId + " selected blueprint \""
-                            + select.blueprintId.Value + "\"; pushed 1271 on shipyard " + shipyardId
-                            + " with " + recipe.Rows.Count + " schematic row(s).");
+                            + select.blueprintId.Value + "\"; stored build + pushed 1271 on shipyard " + shipyardId
+                            + " with " + build.Rows.Count + " schematic row(s).");
                     }
                     else
                     {
-                        // Blueprint cleared (hull frame selected): empty resting 1271.
+                        // Blueprint cleared (hull frame selected): drop the build and push
+                        // an empty resting 1271 so a previous cost does not linger.
+                        ShipBlueprintBuildStore.Clear(shipyardId, entityId);
+                        ShipBlueprintCraftingState.Update crafting = new ShipBlueprintCraftingState.Update();
                         crafting.SetBlueprintId(new Improbable.Collections.Option<string>());
                         crafting.SetSchematics(
                             new Improbable.Collections.List<ShipBlueprintSchematic>());
                         crafting.SetCraftingTime(0);
                         crafting.SetIsCrafting(false);
+                        SendOPHelper.SendComponentUpdateOp(player, shipyardId,
+                            new List<uint> { 1271 },
+                            new List<object> { crafting });
                         Console.WriteLine("[info] 1270: entity " + entityId
                             + " cleared blueprint selection; pushed empty 1271 on shipyard " + shipyardId + ".");
                     }
-                    SendOPHelper.SendComponentUpdateOp(player, shipyardId,
-                        new List<uint> { 1271 },
-                        new List<object> { crafting });
+                }
+            }
+
+            // ---- MATERIAL LOADING + CRAFT (Phase 2). Each event targets the shipyard;
+            // the build lives per (shipyard, this player). Every transaction is
+            // server-authoritative: the client sends only an item id, the amount is read
+            // from the server's own inventory. After a change we push the authoritative
+            // inventory (the client un-greys only on a 1081 InventoryPush) and re-push
+            // 1271 to THIS peer so the shipyard's material view updates for this player
+            // alone. Busy is cleared for all of them by the single 1274 reply below.
+
+            // ADD: drag an inventory item into a material slot.
+            if (counts.AddItem > 0 && clientComponentUpdate.addItem != null)
+            {
+                foreach (AddItemToShipBlueprint add in clientComponentUpdate.addItem)
+                {
+                    long shipyardId = add.targetEntity.Id;
+                    ShipBlueprintBuild? build = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (build == null)
+                    {
+                        Console.WriteLine("[warning] 1270 AddItem on shipyard " + shipyardId
+                            + " but entity " + entityId + " has no selected blueprint; ignoring.");
+                        continue;
+                    }
+                    InventoryModel inventory = InventoryService.ForEntity(entityId);
+                    AddItemOutcome outcome = ShipBlueprintTransaction.AddItem(
+                        build, inventory, add.schematicSlotIndex, add.materialSlotIndex, add.itemId);
+                    if (outcome == AddItemOutcome.Added)
+                    {
+                        InventoryPush.Push(entityId, "reserved item " + add.itemId + " into ship blueprint");
+                        PushCrafting(player, shipyardId, build);
+                    }
+                    Console.WriteLine("[info] 1270 AddItem(item=" + add.itemId + ", row="
+                        + add.schematicSlotIndex + ", slot=" + add.materialSlotIndex + ") on shipyard "
+                        + shipyardId + " -> " + outcome + ".");
+                }
+            }
+
+            // RETURN: click a filled slot with an empty hand to give the materials back.
+            if (counts.ReturnItem > 0 && clientComponentUpdate.returnItem != null)
+            {
+                foreach (ReturnItemFromShipBlueprint ret in clientComponentUpdate.returnItem)
+                {
+                    long shipyardId = ret.targetEntity.Id;
+                    ShipBlueprintBuild? build = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (build == null)
+                    {
+                        continue;
+                    }
+                    InventoryModel inventory = InventoryService.ForEntity(entityId);
+                    ReturnItemOutcome outcome = ShipBlueprintTransaction.ReturnItem(
+                        build, inventory, ret.schematicSlotIndex, ret.materialSlotIndex);
+                    if (outcome == ReturnItemOutcome.Returned)
+                    {
+                        InventoryPush.Push(entityId, "returned ship-blueprint materials");
+                        PushCrafting(player, shipyardId, build);
+                    }
+                    Console.WriteLine("[info] 1270 ReturnItem(row=" + ret.schematicSlotIndex + ", slot="
+                        + ret.materialSlotIndex + ") on shipyard " + shipyardId + " -> " + outcome + ".");
+                }
+            }
+
+            // AUTOFILL: pull matching items for every enabled row until satisfied/empty.
+            if (counts.AutofillBlueprint > 0 && clientComponentUpdate.autofillBlueprint != null)
+            {
+                foreach (AutoFillBlueprint fill in clientComponentUpdate.autofillBlueprint)
+                {
+                    long shipyardId = fill.targetShipyard.Id;
+                    ShipBlueprintBuild? build = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (build == null)
+                    {
+                        continue;
+                    }
+                    InventoryModel inventory = InventoryService.ForEntity(entityId);
+                    int loaded = ShipBlueprintTransaction.AutoFill(build, inventory);
+                    if (loaded > 0)
+                    {
+                        InventoryPush.Push(entityId, "autofilled " + loaded + " ship-blueprint material(s)");
+                        PushCrafting(player, shipyardId, build);
+                    }
+                    Console.WriteLine("[info] 1270 AutoFill on shipyard " + shipyardId + " -> reserved "
+                        + loaded + " item(s).");
+                }
+            }
+
+            // RETURN ALL: empty every slot back into the inventory.
+            if (counts.ReturnAllItems > 0 && clientComponentUpdate.returnAllItems != null)
+            {
+                foreach (ReturnAllItems all in clientComponentUpdate.returnAllItems)
+                {
+                    long shipyardId = all.targetShipyard.Id;
+                    ShipBlueprintBuild? build = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (build == null)
+                    {
+                        continue;
+                    }
+                    InventoryModel inventory = InventoryService.ForEntity(entityId);
+                    int returned = ShipBlueprintTransaction.ReturnAll(build, inventory);
+                    if (returned > 0)
+                    {
+                        InventoryPush.Push(entityId, "returned all " + returned + " ship-blueprint material(s)");
+                        PushCrafting(player, shipyardId, build);
+                    }
+                    Console.WriteLine("[info] 1270 ReturnAll on shipyard " + shipyardId + " -> returned "
+                        + returned + " item(s).");
+                }
+            }
+
+            // ENABLE/DISABLE a schematic row (mandatory shipFrame/deck01 are refused).
+            if (counts.SetSchematicEnabled > 0 && clientComponentUpdate.setSchematicEnabled != null)
+            {
+                foreach (SetSchematicEnabled toggle in clientComponentUpdate.setSchematicEnabled)
+                {
+                    long shipyardId = toggle.targetEntity.Id;
+                    ShipBlueprintBuild? build = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (build == null)
+                    {
+                        continue;
+                    }
+                    SchematicRowBuild? row = build.RowAt(toggle.schematicSlotIndex);
+                    bool changed = row != null && row.SetEnabled(toggle.enabled);
+                    if (changed)
+                    {
+                        PushCrafting(player, shipyardId, build);
+                    }
+                    Console.WriteLine("[info] 1270 SetSchematicEnabled(row=" + toggle.schematicSlotIndex
+                        + ", enabled=" + toggle.enabled + ") on shipyard " + shipyardId
+                        + " -> " + (changed ? "applied" : "refused (mandatory or no such row)") + ".");
+                }
+            }
+
+            // CRAFT: gate on all enabled rows filled, then start the timed build.
+            if (counts.StartCrafting > 0 && clientComponentUpdate.startCrafting != null)
+            {
+                foreach (StartCraftingShipBlueprint craft in clientComponentUpdate.startCrafting)
+                {
+                    long shipyardId = craft.targetEntity.Id;
+                    ShipBlueprintBuild? build = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (build == null)
+                    {
+                        Console.WriteLine("[warning] 1270 StartCrafting on shipyard " + shipyardId
+                            + " but entity " + entityId + " has no selected blueprint; ignoring.");
+                        continue;
+                    }
+                    StartCraftOutcome outcome = ShipBlueprintTransaction.StartCraft(build);
+                    if (outcome == StartCraftOutcome.Started)
+                    {
+                        // isCrafting=true -> atomizer VFX on; start the server timer.
+                        PushCrafting(player, shipyardId, build);
+                        ShipBuildTimerService.Start(player, shipyardId, entityId, build);
+                        Console.WriteLine("[info] 1270 StartCrafting on shipyard " + shipyardId
+                            + " -> STARTED (" + build.CraftingTime + "s).");
+                    }
+                    else
+                    {
+                        // Not buildable: tell the client why (1274 error) and clear busy
+                        // (the tail below clears busy for the whole batch anyway).
+                        string message = outcome == StartCraftOutcome.MissingMaterials
+                            ? "Blueprint is missing materials."
+                            : outcome == StartCraftOutcome.NothingEnabled
+                                ? "No schematics are enabled."
+                                : "Blueprint is already crafting.";
+                        GsimShipBlueprintInteractionState.Update err = new GsimShipBlueprintInteractionState.Update();
+                        err.SetBusy(ShipBlueprintInteraction.RepliedBusy);
+                        err.AddError(new ShipBlueprintErrorEvent(message));
+                        SendOPHelper.SendComponentUpdateOp(player, entityId,
+                            new List<uint> { 1274 }, new List<object> { err });
+                        Console.WriteLine("[info] 1270 StartCrafting on shipyard " + shipyardId
+                            + " -> BLOCKED (" + outcome + "): " + message);
+                    }
                 }
             }
 
@@ -227,6 +401,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             Console.WriteLine("[info] 1270: entity " + entityId + " pushed " + designs.Slots.Count
                 + " FRAME DESIGN(s) on 1207 so SchematicsUpdated fires.");
+        }
+
+        /// <summary>
+        /// Push a build's current material bill as a 1271 update on the shipyard, to
+        /// THIS peer only. The shipyard is a shared entity, so the update must not be
+        /// broadcast: each player's fill view is their own (keyed per player in the
+        /// build store), and a broadcast would show one player another's materials.
+        /// </summary>
+        private static void PushCrafting(ENetPeerHandle player, long shipyardId, ShipBlueprintBuild build)
+        {
+            ShipBlueprintCraftingState.Update crafting = new ShipBlueprintCraftingState.Update();
+            crafting.SetBlueprintId(new Improbable.Collections.Option<string>(build.BlueprintId));
+            crafting.SetSchematics(Game.Crafting.ShipBlueprintSchematicMapper.ToSchematics(build));
+            crafting.SetCraftingTime(build.CraftingTime);
+            crafting.SetIsCrafting(build.IsCrafting);
+            SendOPHelper.SendComponentUpdateOp(player, shipyardId,
+                new List<uint> { 1271 },
+                new List<object> { crafting });
         }
     }
 }

@@ -149,6 +149,11 @@ namespace WorldsAdriftRebornGameServer
                 // deliberately unsaveable.
                 Game.Inventory.InventoryService.Forget(ownEntity.Value);
 
+                // Drop this player's live ship-blueprint builds and cancel any running
+                // build timer, so the completion path never fires against a gone peer.
+                Multiplayer.Crafting.ShipBlueprintBuildStore.ForgetPlayer(ownEntity.Value);
+                Game.Crafting.ShipBuildTimerService.ForgetPlayer(ownEntity.Value);
+
                 Teleports.Forget(ownEntity.Value);
 
                 // The fall watch keyed by the same entity. Left behind, the record
