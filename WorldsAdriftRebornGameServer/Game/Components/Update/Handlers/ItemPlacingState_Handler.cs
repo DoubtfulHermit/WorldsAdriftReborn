@@ -99,6 +99,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             bool isDeployable = Deployables.TryGet(itemType, out DeployableDef def);
             string expectedType = isDeployable ? itemType! : PlacementService.NotADeployable;
 
+            // A generic crafting station (the Assembly Station) is legitimately placed
+            // ONTO a ship deck: its 1017 carries that deck/hull entity as the parent
+            // because the client preview raycast snapped to that surface. The server
+            // still spawns it parentless at the event's GLOBAL position, so it accepts
+            // the parent and then ignores it. The shipyard stays strictly parentless -
+            // it is a ground structure, and that invariant is what stops a client
+            // spawning one welded to a ship.
+            bool parentAllowed = isDeployable && def.IsCraftingStation;
+
             PlacementDecision decision = PlacementPolicy.Evaluate(
                 itemType,
                 expectedType,
@@ -106,7 +115,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 hasParent,
                 placement.globalPosition.X,
                 placement.globalPosition.Y,
-                placement.globalPosition.Z);
+                placement.globalPosition.Z,
+                parentAllowed: parentAllowed);
 
             if (!decision.Ok)
             {
@@ -114,8 +124,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     + " item " + placement.placeableItemId + ": " + decision.Outcome
                     + " (type=" + (itemType ?? "<none>") + ", source=" + placement.sourceEntity.Id
                     + ", parent=" + placement.parent.Id + ").");
-                // A definitive reject ends the session so the player can try again.
-                WorldsAdriftRebornGameServer.Placement.EndSession(entityId);
+                // A definitive reject must ALSO tell the client to leave placement mode,
+                // not just drop the server session: the client entered placement on send
+                // and only exits on the 1019 StopPlacing clear. Calling EndSession alone
+                // (server-only) left the player stuck in preview with every tool locked -
+                // the tool-lock bug. StopPlacing sends the clear AND ends the session.
+                if (PlacementPolicy.ClientMustLeavePlacing(decision.Outcome))
+                {
+                    WorldsAdriftRebornGameServer.Placement.StopPlacing(player, entityId);
+                }
+                else
+                {
+                    WorldsAdriftRebornGameServer.Placement.EndSession(entityId);
+                }
                 return;
             }
 

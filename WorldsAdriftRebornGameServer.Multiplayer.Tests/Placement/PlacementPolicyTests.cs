@@ -136,5 +136,80 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
                 posX: 10, posY: 0, posZ: 10);
             Assert.Equal(PlacementOutcome.WrongItemType, d.Outcome);
         }
+
+        // --- The parent-handling decision. A shipyard MUST go down parentless; a
+        //     crafting station (Assembly Station) placed on a ship deck carries that
+        //     deck/hull entity as its parent and is accepted (the server spawns it
+        //     parentless at the global position and ignores the parent). This is the
+        //     exact real bug: the live 1017 carried parent=3 (the ship's helm) and the
+        //     old policy rejected every parent unconditionally.
+
+        [Fact]
+        public void A_crafting_station_placed_on_a_parent_is_accepted_when_parent_is_allowed()
+        {
+            // parentAllowed == true is what the handler passes for def.IsCraftingStation.
+            PlacementDecision d = PlacementPolicy.Evaluate(
+                "assemblyStation", "assemblyStation", sourceMatchesPlayer: true, hasParent: true,
+                posX: 10, posY: 0, posZ: 10, parentAllowed: true);
+            Assert.True(d.Ok);
+            Assert.Equal(PlacementOutcome.Ok, d.Outcome);
+        }
+
+        [Fact]
+        public void A_shipyard_placed_on_a_parent_is_still_rejected()
+        {
+            // The shipyard keeps its parentless invariant: parentAllowed defaults false,
+            // so a 1017 that names a ship/hull parent (the real parent=3 case) is refused.
+            PlacementDecision d = PlacementPolicy.Evaluate(
+                Shipyard, Shipyard, sourceMatchesPlayer: true, hasParent: true,
+                posX: 10, posY: 0, posZ: 10);
+            Assert.Equal(PlacementOutcome.UnexpectedParent, d.Outcome);
+        }
+
+        [Fact]
+        public void Allowing_a_parent_does_not_bypass_the_other_checks()
+        {
+            // parentAllowed relaxes ONLY the parent rule - type, source and finiteness
+            // still gate a crafting station exactly as before.
+            Assert.Equal(PlacementOutcome.NonFinitePosition, PlacementPolicy.Evaluate(
+                "assemblyStation", "assemblyStation", sourceMatchesPlayer: true, hasParent: true,
+                posX: double.NaN, posY: 0, posZ: 0, parentAllowed: true).Outcome);
+            Assert.Equal(PlacementOutcome.SourceMismatch, PlacementPolicy.Evaluate(
+                "assemblyStation", "assemblyStation", sourceMatchesPlayer: false, hasParent: true,
+                posX: 10, posY: 0, posZ: 10, parentAllowed: true).Outcome);
+        }
+
+        // --- The tool-lock fix. A rejected 1017 must clear the CLIENT'S placement mode
+        //     (send the 1019 StopPlacing), not merely drop the server session: the
+        //     client entered placement on send and only exits on that clear, so a
+        //     server-only EndSession left the player stuck in preview with every tool
+        //     locked. The invariant holds for the accept path AND every reject.
+
+        [Theory]
+        [InlineData(PlacementOutcome.Ok)]
+        [InlineData(PlacementOutcome.ItemNotInInventory)]
+        [InlineData(PlacementOutcome.WrongItemType)]
+        [InlineData(PlacementOutcome.SourceMismatch)]
+        [InlineData(PlacementOutcome.UnexpectedParent)]
+        [InlineData(PlacementOutcome.NonFinitePosition)]
+        [InlineData(PlacementOutcome.TooFar)]
+        public void Every_terminal_outcome_clears_the_clients_placement_mode(PlacementOutcome outcome)
+        {
+            // Would have caught the bug: the old reject path cleared only the server
+            // session, so the client stayed in placement mode and tools were locked.
+            Assert.True(PlacementPolicy.ClientMustLeavePlacing(outcome));
+        }
+
+        [Fact]
+        public void A_rejected_parent_placement_still_clears_the_client()
+        {
+            // The exact failing case (UnexpectedParent) must clear the client, so a
+            // shipyard aimed at a ship no longer strands the player.
+            PlacementDecision d = PlacementPolicy.Evaluate(
+                Shipyard, Shipyard, sourceMatchesPlayer: true, hasParent: true,
+                posX: 10, posY: 0, posZ: 10);
+            Assert.False(d.Ok);
+            Assert.True(PlacementPolicy.ClientMustLeavePlacing(d.Outcome));
+        }
     }
 }
