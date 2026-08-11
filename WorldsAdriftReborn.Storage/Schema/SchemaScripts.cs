@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -285,6 +285,49 @@ CREATE TABLE server_config (
     -- server that is not reporting. Refused here as well as in the panel.
     CONSTRAINT server_config_value_not_blank
         CHECK (length(btrim(value)) > 0)
+);
+";
+
+        /// <summary>
+        /// v4 - character knowledge / progression.
+        ///
+        /// The exact sibling of v2's character_inventories, and appended for the
+        /// same reasons: the game server is the only writer, the login server
+        /// contributes nothing but the ON DELETE CASCADE that removes a deleted
+        /// character's progression with them, and the payload is opaque JSON the
+        /// database stores but does not understand.
+        ///
+        /// Knowledge (spendable points, the lifetime tally, purchased tree nodes,
+        /// learned schematics and the scanned-databank ledger) lived only in the
+        /// game server's in-memory ProgressionStore until now and was lost on
+        /// every restart. It is keyed by character uid exactly like the inventory,
+        /// so it survives a relog and a restart the same way.
+        /// </summary>
+        internal const string V4 = @"
+CREATE TABLE character_progression (
+    -- One progression per character; the foreign key is the point, not
+    -- decoration. The game server derives this uid from a JSON blob a client
+    -- published, so a uid that names no character is refused here rather than
+    -- creating progression that belongs to nobody.
+    --
+    -- CASCADE because a deleted character's progression is unreachable by
+    -- definition: nothing but the character uid can address it.
+    character_uid  UUID        NOT NULL PRIMARY KEY
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    -- Knowledge totals, node uses, learned schematics and the scanned ledger,
+    -- written by the game server's ProgressionSnapshot and understood by nothing
+    -- else. TEXT rather than JSONB for the same reason as the other payloads:
+    -- nothing queries it, and JSONB would reorder keys and normalise numbers.
+    data_json      TEXT        NOT NULL,
+
+    created_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT character_progression_data_json_not_empty
+        CHECK (length(btrim(data_json)) > 0),
+    CONSTRAINT character_progression_updated_after_created
+        CHECK (updated_at >= created_at)
 );
 ";
     }

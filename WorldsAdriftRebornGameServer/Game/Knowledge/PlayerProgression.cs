@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer.Knowledge;
 
 namespace WorldsAdriftRebornGameServer.Game.Knowledge
 {
@@ -35,6 +36,60 @@ namespace WorldsAdriftRebornGameServer.Game.Knowledge
         public HashSet<string> AlreadyScanned { get; } = new HashSet<string>();
 
         public int UsesOf(string nodeId) => NodeUses.TryGetValue(nodeId, out int u) ? u : 0;
+
+        /// <summary>
+        /// A pure snapshot of this state for persistence. A copy, not a view: the
+        /// live collections keep mutating after a save is serialised.
+        /// </summary>
+        public ProgressionState ToState()
+        {
+            return new ProgressionState
+            {
+                Knowledge = Knowledge,
+                LifetimeKnowledge = LifetimeKnowledge,
+                NodeUses = new Dictionary<string, int>(NodeUses),
+                LearnedSchematics = new List<string>(LearnedSchematics),
+                AlreadyScanned = new List<string>(AlreadyScanned),
+            };
+        }
+
+        /// <summary>
+        /// Overwrites this state with a stored snapshot on load. Only called when
+        /// <see cref="ProgressionLoadPolicy"/> has already ruled the replacement
+        /// safe, so it is unconditional here.
+        /// </summary>
+        public void ApplyState(ProgressionState state)
+        {
+            Knowledge = state.Knowledge;
+            LifetimeKnowledge = state.LifetimeKnowledge;
+
+            NodeUses.Clear();
+            if (state.NodeUses != null)
+            {
+                foreach (KeyValuePair<string, int> use in state.NodeUses)
+                {
+                    NodeUses[use.Key] = use.Value;
+                }
+            }
+
+            LearnedSchematics.Clear();
+            if (state.LearnedSchematics != null)
+            {
+                LearnedSchematics.AddRange(state.LearnedSchematics);
+            }
+
+            AlreadyScanned.Clear();
+            if (state.AlreadyScanned != null)
+            {
+                foreach (string scanned in state.AlreadyScanned)
+                {
+                    AlreadyScanned.Add(scanned);
+                }
+            }
+        }
+
+        /// <summary>Whether anything here differs from a fresh seed. See ProgressionState.</summary>
+        public bool HasProgress => ToState().HasProgress;
     }
 
     /// <summary>Process-global registry of per-player progression, keyed by entity id.</summary>

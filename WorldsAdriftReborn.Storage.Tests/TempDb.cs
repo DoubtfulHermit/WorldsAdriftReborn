@@ -48,6 +48,7 @@ namespace WorldsAdriftReborn.Storage.Tests
             Sessions = new Repositories.SessionRepository(Db);
             Characters = new Repositories.CharacterRepository(Db);
             Inventories = new Repositories.InventoryRepository(Db);
+            Progressions = new Repositories.ProgressionRepository(Db);
         }
 
         internal Db Db { get; }
@@ -59,6 +60,8 @@ namespace WorldsAdriftReborn.Storage.Tests
         internal Repositories.CharacterRepository Characters { get; }
 
         internal Repositories.InventoryRepository Inventories { get; }
+
+        internal Repositories.ProgressionRepository Progressions { get; }
 
         /// <summary>A fixed instant, so nothing here depends on the wall clock.</summary>
         internal static readonly DateTimeOffset Now =

@@ -149,6 +149,13 @@ namespace WorldsAdriftRebornGameServer
                 // deliberately unsaveable.
                 Game.Inventory.InventoryService.Forget(ownEntity.Value);
 
+                // Save, then drop, the departed player's knowledge, on the same
+                // last-chance contract as the inventory above: every scan and
+                // purchase already wrote through, but a mutation between the last
+                // write and this disconnect would otherwise be lost. A no-op for a
+                // player whose character uid never arrived.
+                Game.Knowledge.ProgressionService.Forget(ownEntity.Value);
+
                 // Drop this player's live ship-blueprint builds and cancel any running
                 // build timer, so the completion path never fires against a gone peer.
                 Multiplayer.Crafting.ShipBlueprintBuildStore.ForgetPlayer(ownEntity.Value);
@@ -2136,6 +2143,7 @@ namespace WorldsAdriftRebornGameServer
             // otherwise discovered several sessions later and blamed on the
             // wrong thing.
             Game.Inventory.InventoryService.ReportPersistenceState();
+            Game.Knowledge.ProgressionService.ReportPersistenceState();
 
             // Said once so the operator knows where the dashboard's live data
             // comes from and can point the login server at the same file if the
