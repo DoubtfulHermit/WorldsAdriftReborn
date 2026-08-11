@@ -43,6 +43,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 {
     internal class ComponentsSerializer
     {
+        /// <summary>
+        /// Whether an entity is the REQUESTING peer's OWN player avatar - the only
+        /// thing the loading barrier ever holds. The barrier seeds (190000 Requested,
+        /// 190002 IsActive=false) must land on the joining peer's own player and
+        /// nothing else: a mirrored REMOTE player also looks like "a player" to the
+        /// registry, but seeding its Activated false on the observing client would
+        /// freeze the wrong avatar, and a world entity must never be seeded Requested
+        /// at all. Ownership is the exact "is this your own avatar" test used across
+        /// the setup path.
+        /// </summary>
+        private static bool IsOwnPlayerEntity(ENetPeerHandle player, long entityId) =>
+            WorldsAdriftRebornGameServer.Players.Owns(PeerIdentity.IdOf(player), entityId);
+
         public unsafe static Multiplayer.ComponentSeedOutcome InitAndSerialize(ENetPeerHandle player, long entityId, uint componentId, byte** buffer, uint* length)
         {
             // THREE DIFFERENT THINGS LOOK IDENTICAL TO A CALLER THAT ONLY READS
@@ -1045,19 +1058,62 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 190002)
                     {
-                        Activated.Data aData = new Activated.Data(new ActivatedData(true, true, 0));
+                        // LOADING BARRIER. PlayerActivationVisualiser fades the loading
+                        // screen when Activated.IsActive goes TRUE. With the barrier on we
+                        // seed it FALSE for the player, so the screen stays up while the
+                        // ground and ship stream in behind it; EntityLoadingResponse_Handler
+                        // (or the timeout) pushes IsActive=true to release the player once
+                        // the initial set is ready. Barrier off (or a non-player entity) =>
+                        // the original always-active seed, unchanged. Seeding false also
+                        // sets the player kinematic (frozen) until activation, which is
+                        // exactly the intended "held on the loading screen" behaviour.
+                        bool active = !(global::WorldsAdriftRebornGameServer.Game.LoadBarrier.Enabled && IsOwnPlayerEntity(player, entityId));
+                        Activated.Data aData = new Activated.Data(new ActivatedData(active, true, 0));
 
                         obj = aData;
                     }
                     else if(componentId == 190000)
                     {
-                        EntityLoadingControl.Data elData = new EntityLoadingControl.Data(new EntityLoadingControlData(EntityLoadingControlData.EntityLoadingStates.Idle,
-                                                                                                            0,
-                                                                                                            5,
-                                                                                                            100,
-                                                                                                            false,
-                                                                                                            new Improbable.Collections.List<EntityId> { }));
-                        obj = elData;
+                        if (global::WorldsAdriftRebornGameServer.Game.LoadBarrier.Enabled && IsOwnPlayerEntity(player, entityId))
+                        {
+                            // Requested + the initial entity-id list is WA's shipped
+                            // readiness barrier: BossaEntityLoadingChecker publishes
+                            // 190001 Loaded=true only once every id named here exists and
+                            // is active on the client. Distant scenery is deliberately NOT
+                            // named, so 21 trees and 21 ore never gate the loading screen.
+                            EntityLoadingControl.Data elData = new EntityLoadingControl.Data(new EntityLoadingControlData(EntityLoadingControlData.EntityLoadingStates.Requested,
+                                                                                                                0,
+                                                                                                                5,
+                                                                                                                100,
+                                                                                                                false,
+                                                                                                                global::WorldsAdriftRebornGameServer.Game.LoadBarrier.InitialEntityIds()));
+                            obj = elData;
+                        }
+                        else
+                        {
+                            // The original bypass: Idle with an empty list means the
+                            // client's checker never runs and the barrier is not used.
+                            EntityLoadingControl.Data elData = new EntityLoadingControl.Data(new EntityLoadingControlData(EntityLoadingControlData.EntityLoadingStates.Idle,
+                                                                                                                0,
+                                                                                                                5,
+                                                                                                                100,
+                                                                                                                false,
+                                                                                                                new Improbable.Collections.List<EntityId> { }));
+                            obj = elData;
+                        }
+                    }
+                    else if(componentId == 190001)
+                    {
+                        // EntityLoadingResponse: the client's writer twin of 190000.
+                        // BossaEntityLoadingChecker holds this writer and flips loaded=true
+                        // when the initial set is ready. Seeded false and (in barrier mode)
+                        // granted to the client at setup so the writer enables; the server
+                        // READS the update in EntityLoadingResponse_Handler. Harmless when
+                        // the barrier is off - nothing grants the client authority, so the
+                        // checker never enables and this component is inert.
+                        EntityLoadingResponse.Data erData = new EntityLoadingResponse.Data(false);
+
+                        obj = erData;
                     }
                     else if(componentId == 1150)
                     {
