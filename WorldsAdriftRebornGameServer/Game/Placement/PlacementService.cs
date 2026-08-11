@@ -154,6 +154,28 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             _sessions.Remove(playerEntityId);
         }
 
+        /// <summary>
+        /// Tells the CLIENT to leave placement mode and drop the preview ghost after a
+        /// placement completes (or is cancelled server-side): pushes 1019 with
+        /// Placing=false + PlacingItemId=0 and a StopPlacingItemEvent. Without this the
+        /// client's ItemPlacingBehaviour stays in preview mode (Placing still true) and
+        /// the green ghost stays stuck to the player. Also clears the server session.
+        /// </summary>
+        public void StopPlacing(ENetPeerHandle peer, long playerEntityId)
+        {
+            ItemPlacementAgentState.Update update = new ItemPlacementAgentState.Update();
+            update.SetPlacing(false);
+            update.SetPlacingItemId(0);
+            update.AddStopPlacingItemEvent(default(StopPlacingItemEvent));
+
+            SendOPHelper.SendComponentUpdateOp(
+                peer, playerEntityId,
+                new List<uint> { ItemPlacementAgentStateComponentId },
+                new List<object> { update });
+
+            EndSession(playerEntityId);
+        }
+
         private void PrewarmShipyardAsset()
         {
             foreach (ENetPeerHandle peer in ConnectedPeers())

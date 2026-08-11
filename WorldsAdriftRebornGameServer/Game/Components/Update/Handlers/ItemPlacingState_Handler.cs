@@ -129,7 +129,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 Console.WriteLine("[warning] placement: entity " + entityId + " item " + placement.placeableItemId
                     + " validated but the shipyard could not be spawned; NOT consuming the item.");
-                WorldsAdriftRebornGameServer.Placement.EndSession(entityId);
+                WorldsAdriftRebornGameServer.Placement.StopPlacing(player, entityId);
                 return;
             }
 
@@ -146,7 +146,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     + placement.placeableItemId + " was already gone from entity " + entityId + "'s inventory.");
             }
 
-            WorldsAdriftRebornGameServer.Placement.EndSession(entityId);
+            // Tell the client to leave placement mode + drop the preview ghost (which
+            // otherwise stays stuck to the player after a successful placement).
+            WorldsAdriftRebornGameServer.Placement.StopPlacing(player, entityId);
 
             Console.WriteLine("[info] placement: entity " + entityId + " placed a shipyard (item "
                 + placement.placeableItemId + ") -> world entity " + spawned.Value + ".");
