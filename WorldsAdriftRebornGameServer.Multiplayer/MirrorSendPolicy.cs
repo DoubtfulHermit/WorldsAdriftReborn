@@ -189,6 +189,68 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             new uint[] { ItemPlacingStateComponentId };
 
         /// <summary>
+        /// ShipHullAgentState (1207): the SERVER-&gt;CLIENT reader the FRAME DESIGNS
+        /// visualizer needs. Empty (no schematics), server-owned; the client only
+        /// reads it. Injected so <c>ShipHullAgentVisualizer</c>'s reader binds.
+        /// </summary>
+        public const uint ShipHullAgentStateComponentId = 1207;
+
+        /// <summary>
+        /// ShipHullAgentClientState (1208): the CLIENT-&gt;SERVER writer of the FRAME
+        /// DESIGNS visualizer. <c>ShipHullAgentVisualizer</c> [Require]s this WRITER
+        /// alongside the 1207 reader, and a writer exists only for a component the
+        /// client holds AUTHORITY over - so the visualizer never enables unless 1208
+        /// is granted. Its payload is schematic-edit events this milestone ignores.
+        /// </summary>
+        public const uint ShipHullAgentClientStateComponentId = 1208;
+
+        /// <summary>
+        /// PlayerShipBlueprintInteractionState (1270): the CLIENT-&gt;SERVER command
+        /// writer on the player. <c>PlayerShipBlueprintInteractionBehaviour</c>
+        /// [Require]s this WRITER (+ the 1274 reader) and fires RefreshBlueprints on
+        /// it when the ship-build UI opens - so, like 1017/1211/1334, it must be
+        /// granted authority or the behaviour never enables and never sends.
+        /// </summary>
+        public const uint PlayerShipBlueprintInteractionStateComponentId = 1270;
+
+        /// <summary>
+        /// GsimShipBlueprintInteractionState (1274): the SERVER-&gt;CLIENT reply that
+        /// carries the ship-build panel's Busy flag + blueprint list. Server-owned;
+        /// the client only reads it. Injected so the reader binds and the checked-out
+        /// component can receive the handler's Busy=false reply that lifts the loading
+        /// spinner. NOT granted - the client must never author its own blueprint state.
+        /// </summary>
+        public const uint GsimShipBlueprintInteractionStateComponentId = 1274;
+
+        /// <summary>
+        /// The placed-shipyard BUILD UI components a client is granted AUTHORITY over:
+        /// the two client writers 1208 + 1270. 1207 + 1274 stay server-owned readers.
+        /// Kept OUT of the always-on <see cref="AuthoritativeComponents"/> and appended
+        /// at the setup site only when the shipyard feature is armed (it shares the
+        /// placement env flag - a build UI is only reachable through a PLACED shipyard),
+        /// exactly like <see cref="PlacementAuthoritativeComponents"/>.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipBuildUiAuthoritativeComponents =
+            new uint[] { ShipHullAgentClientStateComponentId, PlayerShipBlueprintInteractionStateComponentId };
+
+        /// <summary>
+        /// The placed-shipyard BUILD UI components injected onto the player so every
+        /// [Require] of the two behaviours resolves: 1207 + 1208 for
+        /// <c>ShipHullAgentVisualizer</c> (FRAME DESIGNS), 1270 + 1274 for
+        /// <c>PlayerShipBlueprintInteractionBehaviour</c> (SHIP BLUEPRINTS). 1208 + 1270
+        /// are ALSO granted (see <see cref="ShipBuildUiAuthoritativeComponents"/>); 1207
+        /// + 1274 are inject-only server-owned readers. Appended at the setup site under
+        /// the placement flag, so an un-flagged server injects none of them.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipBuildUiInjectedComponents = new uint[]
+        {
+            ShipHullAgentStateComponentId,
+            ShipHullAgentClientStateComponentId,
+            PlayerShipBlueprintInteractionStateComponentId,
+            GsimShipBlueprintInteractionStateComponentId,
+        };
+
+        /// <summary>
         /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
         /// (2105), MultitoolSalvagerState (2106), MultitoolRepairerState (2002).
         ///
@@ -372,13 +434,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// the SERVER (the 1017 handler spawns the shipyard as a shared world entity
         /// every peer sees), not by relaying the client's event. It is also a one-shot
         /// on confirm, not a per-frame stream, so this is correctness, not bandwidth.
+        /// 1270 PlayerShipBlueprintInteractionState and 1208 ShipHullAgentClientState
+        /// are filtered OUT for the same cross-entity reason as 1017/1211: both are
+        /// client-authoritative, so a client's update reaches the raw relay path, and
+        /// RelayToOtherPlayers would re-address it to the SENDER's own entity - where a
+        /// remote Traveller@Default rig neither seeds these components nor runs the
+        /// ship-build behaviours that read them. The refresh is answered by the SERVER
+        /// (the 1270 handler replies on 1274), not by relaying the client's event, and
+        /// it is a command-on-open, not a per-frame stream - so this is correctness, not
+        /// bandwidth.
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
                 && componentId != TreeCutterStateComponentId
                 && componentId != InteractAgentStateComponentId
                 && componentId != UtilitySlotActivatedStateComponentId
-                && componentId != ItemPlacingStateComponentId;
+                && componentId != ItemPlacingStateComponentId
+                && componentId != ShipHullAgentClientStateComponentId
+                && componentId != PlayerShipBlueprintInteractionStateComponentId;
         }
 
         /// <summary>

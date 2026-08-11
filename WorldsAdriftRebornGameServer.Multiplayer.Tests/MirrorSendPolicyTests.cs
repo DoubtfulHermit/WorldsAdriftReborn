@@ -366,14 +366,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_five_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_seven_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
             // invisible until two players are in the world. 6910 joined the list
             // on 2026-08-09 after its ~170/s relay bufferbloated the link; 1017
             // ItemPlacingState joined with deployable placement (a client-authored
-            // confirm event realised server-side, never relayed raw).
+            // confirm event realised server-side, never relayed raw); 1208
+            // ShipHullAgentClientState and 1270 PlayerShipBlueprintInteractionState
+            // joined with the ship-build UI - both client-authoritative, cross-entity,
+            // answered by the server on 1274, never relayed raw.
             List<uint> filtered = new List<uint>();
             for (uint id = 0; id < 200000; id++)
             {
@@ -383,7 +386,57 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1017, 1037, 1211, 1231, 6910 }, filtered);
+            Assert.Equal(new uint[] { 1017, 1037, 1208, 1211, 1231, 1270, 6910 }, filtered);
+        }
+
+        // ------------------------------------------------------------------
+        // Placed-shipyard build UI (kept out of the always-on sets; env-gated)
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void ShipBuildUi_grants_authority_over_the_two_client_writers_only()
+        {
+            // 1208 ShipHullAgentClientState (FRAME DESIGNS visualizer's writer) and
+            // 1270 PlayerShipBlueprintInteractionState (SHIP BLUEPRINTS behaviour's
+            // writer). 1207 + 1274 are server-owned readers and must NOT be granted.
+            Assert.Equal(new uint[] { 1208, 1270 }, MirrorSendPolicy.ShipBuildUiAuthoritativeComponents);
+            Assert.DoesNotContain(1207u, MirrorSendPolicy.ShipBuildUiAuthoritativeComponents);
+            Assert.DoesNotContain(1274u, MirrorSendPolicy.ShipBuildUiAuthoritativeComponents);
+        }
+
+        [Fact]
+        public void ShipBuildUi_injects_all_four_so_every_require_reader_and_writer_binds()
+        {
+            // ShipHullAgentVisualizer [Require]s 1207 reader + 1208 writer;
+            // PlayerShipBlueprintInteractionBehaviour [Require]s 1270 writer + 1274
+            // reader. All four must be checked out on the player for either to resolve.
+            Assert.Contains(1207u, MirrorSendPolicy.ShipBuildUiInjectedComponents);
+            Assert.Contains(1208u, MirrorSendPolicy.ShipBuildUiInjectedComponents);
+            Assert.Contains(1270u, MirrorSendPolicy.ShipBuildUiInjectedComponents);
+            Assert.Contains(1274u, MirrorSendPolicy.ShipBuildUiInjectedComponents);
+        }
+
+        [Fact]
+        public void ShipBuildUi_components_are_not_in_the_always_on_sets_so_the_feature_can_be_gated()
+        {
+            // They ride in only when the placement flag wires them at the setup site,
+            // exactly like deployable placement - so an un-flagged server neither
+            // grants the writers nor injects the four.
+            foreach (uint id in new uint[] { 1207, 1208, 1270, 1274 })
+            {
+                Assert.DoesNotContain(id, MirrorSendPolicy.AuthoritativeComponents);
+                Assert.DoesNotContain(id, MirrorSendPolicy.InjectedComponents);
+            }
+        }
+
+        [Fact]
+        public void ShipBuildUi_client_writers_are_never_relayed_cross_entity()
+        {
+            // 1208 + 1270 are client-authoritative; relaying them would re-address the
+            // event to the sender's own entity on a remote rig that runs none of the
+            // ship-build behaviours. The refresh is answered server-side on 1274.
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1208));
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1270));
         }
 
         // ------------------------------------------------------------------

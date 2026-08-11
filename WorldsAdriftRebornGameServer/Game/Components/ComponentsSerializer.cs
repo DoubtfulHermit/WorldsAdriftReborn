@@ -626,6 +626,51 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = shData;
                     }
+                    else if(componentId == 1208)
+                    {
+                        // ShipHullAgentClientState: the CLIENT-authoritative marker the
+                        // FRAME DESIGNS visualizer needs. ShipHullAgentVisualizer
+                        // [Require]s ShipHullAgentStateReader (1207, served above, empty)
+                        // AND ShipHullAgentClientStateWriter (1208) - and a WRITER exists
+                        // only for a component the client holds authority over, so this
+                        // seed is granted+injected via MirrorSendPolicy.ShipBuildUi* under
+                        // the placement flag. Data is an empty struct (the component
+                        // carries only its schematic-edit events), so the seed is just
+                        // "the component exists". Nothing here is server-owned state; the
+                        // client publishes its own events, none of which this milestone
+                        // acts on.
+                        obj = new ShipHullAgentClientState.Data();
+                    }
+                    else if(componentId == 1270)
+                    {
+                        // PlayerShipBlueprintInteractionState: the CLIENT->SERVER command
+                        // channel on the PLAYER. PlayerShipBlueprintInteractionBehaviour
+                        // [Require]s its WRITER (1270) + the 1274 READER; the behaviour
+                        // fires RefreshBlueprints on this writer when the ship-build UI
+                        // opens. Empty Data (the component carries only its events), so
+                        // the seed just makes the component exist so the client can check
+                        // it out and - once granted authority (MirrorSendPolicy) - bind
+                        // its writer. The RefreshBlueprints reply is
+                        // PlayerShipBlueprintInteractionState_Handler.
+                        obj = new PlayerShipBlueprintInteractionState.Data();
+                    }
+                    else if(componentId == 1274)
+                    {
+                        // GsimShipBlueprintInteractionState: the SERVER->CLIENT reply
+                        // channel on the PLAYER, and the one that clears the FRAME
+                        // DESIGNS/SHIP BLUEPRINTS loading spinner. The full-panel
+                        // LoadingInputBlocker (ShipSchematicsList._loadingInputBlocker)
+                        // is bound to Busy; the UI sets Busy true locally on open and it
+                        // only clears when the server sends Busy=false on 1274 (the
+                        // handler does this on RefreshBlueprints). Seeded Busy=FALSE with
+                        // an absent (None) ShipBlueprintList so a fresh checkout is not
+                        // already spinning; ShipBlueprintList stays None (empty is the
+                        // correct list for a new player). VERIFIED shape (gencode):
+                        // GsimShipBlueprintInteractionState.Data(Option<ShipBlueprintList>,
+                        // bool busy).
+                        obj = new GsimShipBlueprintInteractionState.Data(
+                            new Improbable.Collections.Option<ShipBlueprintList>(), false);
+                    }
                     else if(componentId == 2001)
                     {
                         PlayerAnalyticsState.Data paData = new PlayerAnalyticsState.Data(new PlayerAnalyticsStateData("someuser_id",

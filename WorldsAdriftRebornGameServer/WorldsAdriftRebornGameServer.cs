@@ -985,6 +985,10 @@ namespace WorldsAdriftRebornGameServer
             if (PlacementEnabled)
             {
                 list.AddRange(MirrorSendPolicy.PlacementAuthoritativeComponents);
+                // The placed-shipyard BUILD UI shares the placement flag (a build UI is
+                // only reachable through a placed shipyard). 1208 + 1270 are the two
+                // client writers the FRAME DESIGNS / SHIP BLUEPRINTS behaviours [Require].
+                list.AddRange(MirrorSendPolicy.ShipBuildUiAuthoritativeComponents);
             }
             return list;
         }
@@ -1917,6 +1921,10 @@ namespace WorldsAdriftRebornGameServer
                             if (PlacementEnabled)
                             {
                                 injectedIds.AddRange(MirrorSendPolicy.PlacementInjectedComponents);
+                                // Ship-build UI: 1207+1208 (FRAME DESIGNS visualizer) and
+                                // 1270+1274 (SHIP BLUEPRINTS behaviour) so every [Require]
+                                // reader/writer checks out. 1208+1270 are also granted above.
+                                injectedIds.AddRange(MirrorSendPolicy.ShipBuildUiInjectedComponents);
                             }
 
                             List<Structs.Structs.InterestOverride> injected = injectedIds
