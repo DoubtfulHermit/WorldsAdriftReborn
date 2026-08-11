@@ -104,19 +104,34 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         }
 
         /// <summary>
-        /// Applies WAREBORN_LAMP_PREFAB / WAREBORN_LAMP_ATTACH overrides to the lamp
-        /// definition. Any other part passes through unchanged (its overrides can be
-        /// added the same way). A blank/unset variable keeps the catalogue default.
+        /// Applies the per-part prefab/attachment env overrides so a live prefab-name
+        /// mismatch is a config change, not a rebuild - the escape hatch every row
+        /// needs because a prefab name is the one value the client decompile cannot
+        /// confirm (it only reads it back from 1120). For ANY part, the generic
+        /// <c>WAREBORN_PART_PREFAB__&lt;schematicId&gt;</c> /
+        /// <c>WAREBORN_PART_ATTACH__&lt;schematicId&gt;</c> pair wins first; the lamp
+        /// additionally honours its original <c>WAREBORN_LAMP_PREFAB</c> /
+        /// <c>WAREBORN_LAMP_ATTACH</c> names for back-compat. A blank/unset variable
+        /// keeps the catalogue default.
         /// </summary>
         private static LoosePartDefinition ApplyEnvOverrides(LoosePartDefinition definition)
         {
-            if (definition.SchematicId != LoosePartCatalogue.LampSchematicId)
-            {
-                return definition;
-            }
+            string? prefab = Environment.GetEnvironmentVariable("WAREBORN_PART_PREFAB__" + definition.SchematicId);
+            string? attach = Environment.GetEnvironmentVariable("WAREBORN_PART_ATTACH__" + definition.SchematicId);
 
-            string? prefab = Environment.GetEnvironmentVariable("WAREBORN_LAMP_PREFAB");
-            string? attach = Environment.GetEnvironmentVariable("WAREBORN_LAMP_ATTACH");
+            // Legacy lamp-specific names, kept working; the generic per-part names above
+            // take precedence when both are set.
+            if (definition.SchematicId == LoosePartCatalogue.LampSchematicId)
+            {
+                if (string.IsNullOrWhiteSpace(prefab))
+                {
+                    prefab = Environment.GetEnvironmentVariable("WAREBORN_LAMP_PREFAB");
+                }
+                if (string.IsNullOrWhiteSpace(attach))
+                {
+                    attach = Environment.GetEnvironmentVariable("WAREBORN_LAMP_ATTACH");
+                }
+            }
 
             string effectivePrefab = string.IsNullOrWhiteSpace(prefab) ? definition.PrefabName : prefab;
             string effectiveAttach = string.IsNullOrWhiteSpace(attach) ? definition.AttachmentType : attach;

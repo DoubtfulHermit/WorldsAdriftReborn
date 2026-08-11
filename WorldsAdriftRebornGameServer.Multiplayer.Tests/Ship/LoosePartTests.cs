@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
@@ -6,15 +7,44 @@ using Xunit;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 {
     /// <summary>
-    /// Phase 1 of the ship-PART work: crafting a lamp spawns a LOOSE, unattached
-    /// ship-part world entity. This pins the PURE half - the exact all-or-nothing
-    /// seed set (get one id wrong and the client's interest batch drops and the part
-    /// is invisible), the recipe->part mapping, where the part lands next to the
-    /// station, and the world-entity registration - so the parts that only fail on a
-    /// live client are asserted natively here.
+    /// The ship-PART craft: crafting ANY CraftingStation-category ship part spawns a
+    /// LOOSE, unattached ship-part world entity (not just the lamp). This pins the
+    /// PURE half - the exact all-or-nothing seed set (get one id wrong and the
+    /// client's interest batch drops and the part is invisible), that the catalogue
+    /// covers every CraftingStation recipe the bench shows, that every part resolves
+    /// with valid metadata, where the part lands next to the station, and the
+    /// world-entity registration - so the parts that only fail on a live client are
+    /// asserted natively here.
     /// </summary>
     public class LoosePartTests
     {
+        /// <summary>
+        /// Every CraftingStation-category recipe the assembly bench shows (the source
+        /// of truth is schematicData.json, category "CraftingStation"). The catalogue
+        /// MUST spawn a loose part for each; this list is the regression pin so a new
+        /// bench recipe that is not wired here fails the coverage test rather than
+        /// silently "not supported this phase" on a live client.
+        /// </summary>
+        private static readonly string[] AllCraftingStationShipParts =
+        {
+            "helm", "sail", "deck",
+            "proceduralEngineDefault", "proceduralWingDefault",
+            "atlasSkyCore", "skyCoreAtlasEnhancer", "skyCoreGenerator", "skyCoreAirFilter",
+            "skyCoreCoolantSystem", "skyCoreStabiliser", "skyCoreComputer",
+            "skyCoreCircuitryNetwork", "skyCoreEfficiencyModule",
+            "smallPanel", "mediumPanel", "largePanel", "window", "stairs", "railing", "railingCorner",
+            "trunk", "mountedBox", "storageContainer", "shippingContainer",
+            "barrel", "cupboard", "horn", "lamp",
+            "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
+            "powerGenerator", "powerGenerator01", "personalReviver",
+        };
+
+        // The ONLY functional component ids a row may seed on top of the base 7:
+        // ids that ComponentsSerializer serves crash-safe. Seeding any other id would
+        // drop the whole all-or-nothing interest batch and render the part invisible.
+        private static readonly HashSet<uint> ServedFunctionalIds =
+            new HashSet<uint> { 1108, 1236, 1303, 1107 };
+
         // A stand-in station position, off the origin so a bug that keeps the origin
         // is visible.
         private static readonly FixedPointPosition Station =
@@ -67,16 +97,120 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         // --- Recipe -> part mapping ---------------------------------------------
 
         [Fact]
-        public void Only_the_lamp_recipe_produces_a_loose_part_this_phase()
+        public void Catalogue_covers_every_CraftingStation_ship_part_the_bench_shows()
         {
-            Assert.True(LoosePartCatalogue.IsLoosePart("lamp"));
-            Assert.False(LoosePartCatalogue.IsLoosePart("torch"));
-            Assert.False(LoosePartCatalogue.IsLoosePart("helm"));
+            foreach (string schematicId in AllCraftingStationShipParts)
+            {
+                Assert.True(LoosePartCatalogue.IsLoosePart(schematicId),
+                    "CraftingStation recipe '" + schematicId + "' produces no loose part - crafting it would be rejected as 'not supported'.");
+                Assert.NotNull(LoosePartCatalogue.ForSchematic(schematicId));
+            }
+        }
+
+        [Fact]
+        public void Non_ship_part_recipes_and_null_do_not_produce_a_loose_part()
+        {
+            // Personal/Cooking/Shipyard recipes are NOT loose ship parts.
+            Assert.False(LoosePartCatalogue.IsLoosePart("torch"));       // Personal
+            Assert.False(LoosePartCatalogue.IsLoosePart("glider"));      // Personal
+            Assert.False(LoosePartCatalogue.IsLoosePart("campFire"));    // Cooking
+            Assert.False(LoosePartCatalogue.IsLoosePart("shipyard"));    // Personal deployable
+            Assert.False(LoosePartCatalogue.IsLoosePart("territory_control_beacon")); // Shipyard-category, not a bolt-on
             Assert.False(LoosePartCatalogue.IsLoosePart(null));
 
-            Assert.NotNull(LoosePartCatalogue.ForSchematic("lamp"));
             Assert.Null(LoosePartCatalogue.ForSchematic("torch"));
             Assert.Null(LoosePartCatalogue.ForSchematic(null));
+        }
+
+        [Fact]
+        public void Every_part_resolves_with_the_1120_metadata_the_client_reads_back()
+        {
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(part.SchematicId));
+                Assert.False(string.IsNullOrWhiteSpace(part.ItemType), part.SchematicId + " has no itemType");
+                Assert.False(string.IsNullOrWhiteSpace(part.Title), part.SchematicId + " has no title");
+                Assert.False(string.IsNullOrWhiteSpace(part.PrefabName), part.SchematicId + " has no prefab");
+                Assert.False(string.IsNullOrWhiteSpace(part.AttachmentType), part.SchematicId + " has no attachmentType");
+                // A recognised BuilderVisualizer.GetAttachmentType string (an unknown
+                // one still renders + lifts, degrading only placement snapping to None,
+                // but pinning the set catches a typo'd attachment).
+                Assert.Contains(part.AttachmentType,
+                    new[] { "none", "side", "deck", "wing", "deckGrid", "deckForward", "engine", "shipSurfaces", "coreModule" });
+            }
+        }
+
+        [Fact]
+        public void Every_part_seed_set_is_complete_leads_with_position_and_has_no_duplicates()
+        {
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                var seeds = part.SeedComponents;
+
+                // Leads with 190602 - the position every other behaviour composes against.
+                Assert.Equal(190602u, seeds.First());
+
+                // Carries the full ShipPartVisualizer render/lift base (+ 1099 salvage).
+                foreach (uint baseId in LoosePartDefinition.BaseShipPartComponents)
+                {
+                    Assert.Contains(baseId, seeds);
+                }
+
+                // No duplicate ids (a repeated id would double-serve).
+                Assert.Equal(seeds.Count, seeds.Distinct().Count());
+            }
+        }
+
+        [Fact]
+        public void No_part_seeds_a_functional_id_that_is_not_served_crash_safe()
+        {
+            // The all-or-nothing footgun: a seeded id with no ComponentsSerializer
+            // branch drops the whole interest batch and the part spawns invisible.
+            // Only 1108/1236/1303/1107 have crash-safe branches today.
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                foreach (uint functionalId in part.PartSpecificComponents)
+                {
+                    Assert.Contains(functionalId, ServedFunctionalIds);
+                }
+            }
+        }
+
+        [Fact]
+        public void Functional_seeds_match_the_part_type()
+        {
+            // The lamp glows (1108 + 1236); instruments and sky cores wake their
+            // damage-gated visualizer (1236); the sail (1303) and horn (1107) wake
+            // their own state. Everything else renders inert on the base 7 alone.
+            Assert.Equal(new uint[] { 1108, 1236 }, LoosePartCatalogue.ForSchematic("lamp")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1303 }, LoosePartCatalogue.ForSchematic("sail")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1107 }, LoosePartCatalogue.ForSchematic("horn")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1236 }, LoosePartCatalogue.ForSchematic("altimeter")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1236 }, LoosePartCatalogue.ForSchematic("atlasSkyCore")!.PartSpecificComponents);
+
+            // Parts left dormant carry NO functional id (render + lift only).
+            Assert.Empty(LoosePartCatalogue.ForSchematic("helm")!.PartSpecificComponents);
+            Assert.Empty(LoosePartCatalogue.ForSchematic("proceduralEngineDefault")!.PartSpecificComponents);
+            Assert.Empty(LoosePartCatalogue.ForSchematic("proceduralWingDefault")!.PartSpecificComponents);
+            Assert.Empty(LoosePartCatalogue.ForSchematic("storageContainer")!.PartSpecificComponents);
+        }
+
+        [Fact]
+        public void Every_part_spawn_plan_registers_its_prefab_with_its_full_seed_set()
+        {
+            // The whole catalogue round-trips through the spawn plan (asset name = its
+            // prefab, seed set = its own), not just the lamp.
+            FixedPointPosition partPos = LoosePartPlacement.NextTo(Station);
+            int seq = 0;
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                WorldEntity reg = LoosePartSpawnPlan.For(seq, partPos, part);
+                Assert.Equal(LoosePartPlacement.Key(seq, part.SchematicId), reg.Key);
+                Assert.Equal(part.PrefabName, reg.AssetName);
+                Assert.Equal(part.SeedComponents, reg.SeedComponents);
+                Assert.Equal(SpawnOrder.AfterPlayer, reg.Order);
+                seq++;
+            }
         }
 
         [Fact]

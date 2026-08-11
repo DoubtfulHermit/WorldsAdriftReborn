@@ -1589,6 +1589,33 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             obj = new IsTooDamagedToWorkState.Data(0.2f, true);
                         }
                     }
+                    else if (componentId == 1303)
+                    {
+                        // SailState: SailVisualizer + SailBehaviour [Require] it
+                        // (SailVisualizer.cs:19, SailBehaviour.cs:15). A freshly crafted
+                        // loose sail is furled and still: unfurled=false, power=0.
+                        // SailVisualizer.OnEnable only subscribes to UnfurledUpdated (it
+                        // fires immediately with unfurled=false) - no Option deref - so
+                        // this idle Data is crash-safe. Only a sail seeds 1303, so only a
+                        // sail ever requests it. VERIFIED ctor (gencode SailState.cs:375,
+                        // SailStateData fields unfurled/power).
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new SailState.Data(false, 0f);
+                        }
+                    }
+                    else if (componentId == 1107)
+                    {
+                        // HornState: HornVisualizer [Require]s it (HornVisualizer.cs:12).
+                        // A loose horn is silent: charge=0. HornVisualizer.OnEnable reads
+                        // _state.Charge (a plain float, no Option), so idle Data cannot
+                        // NRE. Only a horn seeds 1107, so only a horn requests it. VERIFIED
+                        // ctor (gencode HornState.cs:362, HornStateData field charge).
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new HornState.Data(0f);
+                        }
+                    }
                     else if (componentId == 8062)
                     {
                         // ShipOwnersDeprecatedState - one of ShipVisualizer's three
