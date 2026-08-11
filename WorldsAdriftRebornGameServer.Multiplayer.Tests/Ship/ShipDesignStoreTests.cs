@@ -145,6 +145,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
+        public void Rename_persists_into_what_the_1207_serve_reads()
+        {
+            // The 1208 rename handler calls Rename then re-serves 1207 from the store;
+            // ComponentsSerializer's 1207 checkout also reads the same store's Slots. Both
+            // must observe the new name, so a renamed frame keeps its name across a
+            // re-push and a re-checkout (this was the reported "rename doesn't persist").
+            long id = 0x5151_0002;
+            ShipDesignStore.Forget(id);
+            var d = ShipDesignStore.For(id);
+
+            Assert.True(d.Rename(0, "Nimbus"));
+
+            // what the 1207 serve branch iterates (designs.Slots[i].Name)
+            var served = ShipDesignStore.For(id).Slots[0].Name;
+            Assert.Equal("Nimbus", served);
+
+            // a null name is stored as empty, never left as the old name or null
+            Assert.True(d.Rename(0, null!));
+            Assert.Equal("", ShipDesignStore.For(id).Slots[0].Name);
+
+            ShipDesignStore.Forget(id);
+        }
+
+        [Fact]
+        public void Rename_does_not_disturb_the_loaded_editor_state()
+        {
+            // Renaming a slot must not unload the working design or flip Active, so the
+            // panel restored on Done still has EDIT enabled.
+            var d = new PlayerShipDesigns();
+            d.LoadSlot(0);
+            d.ApplyEditedHull(ThreeCellHull());
+
+            Assert.True(d.Rename(0, "Anvil"));
+            Assert.True(d.Active);
+            Assert.Equal(0, d.LoadedSlot);
+            Assert.Equal(ThreeCellHull(), d.WorkingHull);
+        }
+
+        [Fact]
         public void Store_seeds_once_and_is_stable_per_entity()
         {
             long id = 0x5151_0001;
