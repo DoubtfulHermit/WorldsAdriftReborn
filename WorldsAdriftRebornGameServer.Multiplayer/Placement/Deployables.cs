@@ -195,13 +195,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
                 hasBackedState: true, assetVerified: true);
 
             // --- The Assembly Station: a generic crafting station that places like the
-            // shipyard but opens the PARTS UI instead of ship-build. Asset "AssemblyStation"
-            // is confirmed (TrackedEntityLoadDbSchema.KeyAssemblyStation). Its interact seed
-            // set (190602 + 1004 + 1005 + 1210) makes CraftingStationBehaviour +
+            // shipyard but opens the PARTS UI instead of ship-build. Its LOADABLE world
+            // prefab is "CraftingStation" (client bundle "CraftingStation_unityclient" +
+            // held-model "CraftingStationEquip_unityclient"), the SAME base-name -> worker-
+            // asset resolution the shipyard uses ("Shipyard" -> "Shipyard_unityclient").
+            // The player-facing name is "Assembly Station" but there is NO loadable
+            // "AssemblyStation" deployable prefab in the client bundles (only the UI/quest
+            // strings and a stray "AssemblyStationEquiped"); naming the asset "AssemblyStation"
+            // gave the client a StartPlacingItemEvent.PlacingPrefab it could not load, so the
+            // placement preview never instantiated and the client never sent the 1017 confirm
+            // -> the station could be selected and "used" but never placed. "CraftingStation"
+            // is the real WA prefab and resolves identically to every other deployable here.
+            // Its interact seed set (190602 + 1004 + 1005 + 1210) makes CraftingStationBehaviour +
             // InteractiveObjectVisualizer enable; the prefab's baked CraftingStation category
             // routes the Craft interact to the parts tab. isCraftingStation records the placed
             // instance in PlacedCraftingStations so the 1210 verb + interact echo recognise it.
-            Add("assemblyStation", "AssemblyStation", TransformAndCraftingStation,
+            Add("assemblyStation", "CraftingStation", TransformAndCraftingStation,
                 "placed-assemblyStation", hasBackedState: false, assetVerified: true,
                 isCraftingStation: true);
 

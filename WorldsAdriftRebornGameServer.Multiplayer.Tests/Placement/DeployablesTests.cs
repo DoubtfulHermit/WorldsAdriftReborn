@@ -139,14 +139,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
         [Fact]
         public void AssemblyStation_places_and_opens_the_parts_UI_via_its_interact_seeds()
         {
-            // The Assembly Station is the generic crafting station: confirmed asset
-            // "AssemblyStation", flagged IsCraftingStation, and seeded with EXACTLY the
-            // interact set that makes CraftingStationBehaviour (1004+1005) and
-            // InteractiveObjectVisualizer (1210) enable - plus 190602 to place it. It must
-            // NOT carry the shipyard-only 1205/1206/1207, or the client would mis-open
+            // The Assembly Station is the generic crafting station: its LOADABLE world
+            // prefab is "CraftingStation" (client bundle "CraftingStation_unityclient") -
+            // NOT "AssemblyStation", which is only a UI/quest label with no deployable
+            // prefab, so naming it that gave the client a PlacingPrefab it could not load
+            // and the placement preview never confirmed. Flagged IsCraftingStation, seeded
+            // with EXACTLY the interact set that makes CraftingStationBehaviour (1004+1005)
+            // and InteractiveObjectVisualizer (1210) enable - plus 190602 to place it. It
+            // must NOT carry the shipyard-only 1205/1206/1207, or the client would mis-open
             // ship-build instead of the parts tab.
             Assert.True(Deployables.TryGet("assemblyStation", out DeployableDef def));
-            Assert.Equal("AssemblyStation", def.AssetName);
+            Assert.Equal("CraftingStation", def.AssetName);
             Assert.True(def.AssetVerified);
             Assert.True(def.IsCraftingStation);
             Assert.False(def.HasBackedState);
