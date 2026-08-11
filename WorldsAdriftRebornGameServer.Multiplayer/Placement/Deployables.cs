@@ -99,6 +99,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         /// <summary>ShipyardState - the shipyard's deployed/owner state (serializer-backed).</summary>
         public const uint ShipyardStateComponentId = 1205;
 
+        /// <summary>
+        /// ShipHullEditorState - the read-only editor state the client's
+        /// ShipHullEditorVisualizer [Require]s (with 1205) to construct. Seeded inactive;
+        /// the 1208 handler pushes Active/HullData per-peer when a frame is loaded.
+        /// </summary>
+        public const uint ShipHullEditorStateComponentId = 1206;
+
         /// <summary>InteractiveState - the 1210 that puts the "Craft" prompt on the console.</summary>
         public const uint InteractiveStateComponentId = 1210;
 
@@ -120,12 +127,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         /// interactive by 1210 InteractiveState (verb Craft); the UI is opened by
         /// CraftingStationBehaviour, which only enables when BOTH 1004
         /// CraftingStationGSimState and 1005 CraftingStationClientState are present.
-        /// Every id here has a ComponentsSerializer branch (190602, 1205, 1210, 1004,
-        /// 1005) - required, because the seed push is all-or-nothing: one id without a
-        /// branch drops the WHOLE batch and the shipyard spawns inert at the origin.
+        /// Every id here has a ComponentsSerializer branch (190602, 1205, 1206, 1210,
+        /// 1004, 1005) - required, because the seed push is all-or-nothing: one id
+        /// without a branch drops the WHOLE batch and the shipyard spawns inert at the
+        /// origin. 1206 ShipHullEditorState is what lets the client CONSTRUCT its hull
+        /// editor at all (ShipHullEditorVisualizer [Require]s the 1206 reader + 1205);
+        /// it is seeded inactive and driven live by the 1208 command handler.
         /// </summary>
         private static readonly uint[] TransformAndShipyard =
             { TransformStateComponentId, ShipyardStateComponentId,
+              ShipHullEditorStateComponentId,
               InteractiveStateComponentId, CraftingStationGSimStateComponentId,
               CraftingStationClientStateComponentId };
 

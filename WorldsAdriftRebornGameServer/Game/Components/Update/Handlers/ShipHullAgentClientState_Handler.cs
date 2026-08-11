@@ -1,0 +1,257 @@
+using System;
+using System.Collections.Generic;
+using Bossa.Travellers.Items;
+using Improbable;
+using WorldsAdriftRebornGameServer.DLLCommunication;
+using WorldsAdriftRebornGameServer.Game.Placement;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
+using WorldsAdriftRebornGameServer.Networking.Singleton;
+using WorldsAdriftRebornGameServer.Networking.Wrapper;
+
+namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
+{
+    /*
+     * 1208 ShipHullAgentClientState - the FRAME DESIGNS command channel on the PLAYER.
+     *
+     * This is the SELECT -> EDIT -> SAVE half of the placed-shipyard build UI. The
+     * client's ShipHullAgentVisualizer holds the 1208 WRITER and sends one Trigger*
+     * command per user action, each carrying a client-generated requestId; it then
+     * WAITS for a ShipHullAgentRequestResponse(requestId, success) on its 1207 READER
+     * before proceeding (acs/ShipHullAgentVisualizer.cs:116-171). So every command we
+     * accept MUST be acked on 1207 or the client's button stays spinning forever.
+     *
+     * The commands (verified, acs/gencode):
+     *   TriggerLoadSchematic(slot, editorId, id)   - load a saved frame into the editor.
+     *   TriggerUpdateShip(beams, decks, data, editorId, id) - the periodic (~3s) push of
+     *                                                the edited hull blob while editing.
+     *   TriggerSaveSchematic(slot, editorId, id)   - persist the working hull to the slot.
+     *   TriggerResetSchematic(slot, editorId, id)  - discard edits, reload the slot.
+     *   TriggerUnloadSchematic(editorId, id)       - clear the editor.
+     *   TriggerRenameSchematic(slot, name, id)     - rename a saved frame.
+     *   TriggerStartEditingSchematic(editorId)     - enter the mesh editor (no ack).
+     *   TriggerStopEditingSchematic(editorId)      - leave the mesh editor (no ack).
+     *
+     * editorId is the SHIPYARD entity id (the ShipHullEditorVisualizer's EntityId is the
+     * shipyard). 1206 ShipHullEditorState lives on THAT entity; the client reads Active
+     * (HasShipLoaded) to enable Edit, and HullData to rebuild the mesh. So on load we
+     * push a 1206 update to the shipyard with Active=true + the working hull, and ack on
+     * 1207. All command state is a per-player in-memory PlayerShipDesigns (ShipDesignStore).
+     * Every client-supplied blob goes through ShipPlanModel.TryDecode inside the store,
+     * so a malformed design is dropped, never stored, and never throws here.
+     *
+     * MULTIPLAYER SAFETY: event-driven and per-player. Every reply is sent ONLY to the
+     * peer that issued the command. The 1207 acks/schematics ride that peer's own player
+     * entity. The 1206 update rides the SHARED shipyard entity, but is addressed to the
+     * ISSUING peer ALONE - never broadcast - so two players editing never clobber each
+     * other's view. Rate is a user click, or the client's ~3s UpdateShip; nothing is
+     * per-frame and nothing is relayed cross-entity. 1208 is filtered out of the raw
+     * relay (MirrorSendPolicy), same as 1270.
+     */
+    [RegisterComponentUpdateHandler]
+    internal class ShipHullAgentClientState_Handler
+        : IComponentUpdateHandler<ShipHullAgentClientState,
+            ShipHullAgentClientState.Update, ShipHullAgentClientState.Data>
+    {
+        public ShipHullAgentClientState_Handler() { Init(1208); }
+
+        protected override void Init(uint ComponentId)
+        {
+            this.ComponentId = ComponentId;
+        }
+
+        public override void HandleUpdate(ENetPeerHandle player, long entityId,
+            ShipHullAgentClientState.Update clientComponentUpdate,
+            ShipHullAgentClientState.Data serverComponentData)
+        {
+            // Only the sender's OWN entity: 1208 rides the player's own hull-agent writer.
+            ulong peerId = PeerIdentity.IdOf(player);
+            if (!WorldsAdriftRebornGameServer.Players.Owns(peerId, entityId))
+            {
+                Console.WriteLine("[warning] 1208 update for entity " + entityId + " from a peer that owns "
+                    + WorldsAdriftRebornGameServer.Players.EntityOf(peerId) + ", ignoring.");
+                return;
+            }
+
+            PlayerShipDesigns designs = ShipDesignStore.For(entityId);
+
+            // Order mirrors the client's own ordering guarantees loosely; each list is a
+            // batch of same-kind events. Editing lifecycle (start/stop) carries no ack.
+            if (clientComponentUpdate.startEditingSchematic != null)
+            {
+                foreach (StartEditingSchematic ev in clientComponentUpdate.startEditingSchematic)
+                {
+                    long shipyardId = ev.editorId.Id;
+                    designs.StartEditing(shipyardId);
+                    // 1207 editorId tells ShipHullAgentVisualizer to enter editor input mode;
+                    // 1206 editorId makes ShipHullEditorVisualizer.BeingEdited true (zoom in).
+                    Send1207(player, entityId, u => u.SetEditorId(new EntityId(shipyardId)));
+                    Send1206(player, shipyardId, u => u.SetEditorId(new EntityId(shipyardId)));
+                    Console.WriteLine("[info] 1208: entity " + entityId + " started editing shipyard " + shipyardId + ".");
+                }
+            }
+
+            if (clientComponentUpdate.loadSchematic != null)
+            {
+                foreach (LoadSchematic ev in clientComponentUpdate.loadSchematic)
+                {
+                    bool ok = designs.LoadSlot(ev.slot);
+                    long shipyardId = ev.editorId.Id;
+                    if (ok)
+                    {
+                        PushEditorState(player, shipyardId, designs);
+                    }
+                    Ack(player, entityId, ev.id, ok);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " load slot " + ev.slot
+                        + " on shipyard " + shipyardId + " -> " + ok + ".");
+                }
+            }
+
+            if (clientComponentUpdate.updateShip != null)
+            {
+                foreach (UpdateShip ev in clientComponentUpdate.updateShip)
+                {
+                    bool ok = designs.ApplyEditedHull(ev.data);
+                    long shipyardId = ev.editorId.Id;
+                    if (ok)
+                    {
+                        PushEditorState(player, shipyardId, designs);
+                    }
+                    Ack(player, entityId, ev.id, ok);
+                }
+            }
+
+            if (clientComponentUpdate.saveSchematic != null)
+            {
+                foreach (SaveSchematic ev in clientComponentUpdate.saveSchematic)
+                {
+                    bool ok = designs.Save(ev.slot);
+                    long shipyardId = ev.editorId.Id;
+                    if (ok)
+                    {
+                        // the saved slot's geometry changed -> re-serve the schematics list
+                        // so the FRAME DESIGNS row reflects it, and clear Modified on 1206.
+                        PushSchematics(player, entityId, designs);
+                        PushEditorState(player, shipyardId, designs);
+                    }
+                    Ack(player, entityId, ev.id, ok);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " save slot " + ev.slot + " -> " + ok + ".");
+                }
+            }
+
+            if (clientComponentUpdate.resetSchematic != null)
+            {
+                foreach (ResetSchematic ev in clientComponentUpdate.resetSchematic)
+                {
+                    bool ok = designs.Reset(ev.slot);
+                    long shipyardId = ev.editorId.Id;
+                    if (ok)
+                    {
+                        PushEditorState(player, shipyardId, designs);
+                    }
+                    Ack(player, entityId, ev.id, ok);
+                }
+            }
+
+            if (clientComponentUpdate.renameSchematic != null)
+            {
+                foreach (RenameSchematic ev in clientComponentUpdate.renameSchematic)
+                {
+                    bool ok = designs.Rename(ev.slot, ev.name);
+                    if (ok)
+                    {
+                        PushSchematics(player, entityId, designs);
+                    }
+                    Ack(player, entityId, ev.id, ok);
+                }
+            }
+
+            if (clientComponentUpdate.unloadSchematic != null)
+            {
+                foreach (UnloadSchematic ev in clientComponentUpdate.unloadSchematic)
+                {
+                    long shipyardId = ev.editorId.Id;
+                    designs.Unload();
+                    // Active=false so HasShipLoaded() goes false and Edit disables.
+                    Send1206(player, shipyardId, u =>
+                    {
+                        u.SetActive(false);
+                        u.SetModified(false);
+                        u.SetEditorId(new EntityId(0));
+                    });
+                    Ack(player, entityId, ev.id, true);
+                }
+            }
+
+            if (clientComponentUpdate.stopEditingSchematic != null)
+            {
+                foreach (StopEditingSchematic ev in clientComponentUpdate.stopEditingSchematic)
+                {
+                    long shipyardId = ev.editorId.Id;
+                    designs.StopEditing();
+                    Send1207(player, entityId, u => u.SetEditorId(new EntityId(0)));
+                    Send1206(player, shipyardId, u => u.SetEditorId(new EntityId(0)));
+                }
+            }
+        }
+
+        /// <summary>
+        /// Push the full editor state onto the shipyard's 1206 for the acting peer:
+        /// Active + the current working hull + slot + owner. This is what turns
+        /// HasShipLoaded() true and feeds the mesh.
+        /// </summary>
+        private static void PushEditorState(ENetPeerHandle player, long shipyardId, PlayerShipDesigns designs)
+        {
+            byte[] hull = designs.WorkingHull ?? new byte[0];
+            string ownerUid = PlacedShipyards.SeedFor(shipyardId).OwnerCharacterUid;
+            int slot = designs.LoadedSlot < 0 ? 0 : designs.LoadedSlot;
+            Send1206(player, shipyardId, u =>
+            {
+                u.SetActive(designs.Active);
+                u.SetModified(designs.Modified);
+                u.SetHullData(hull);
+                u.SetSlotId(slot);
+                u.SetHasDirectAccess(true);
+                u.SetOwnerPlayerId(ownerUid);
+            });
+        }
+
+        /// <summary>Re-serve the player's FRAME DESIGNS list on 1207 (after a save/rename).</summary>
+        private static void PushSchematics(ENetPeerHandle player, long playerEntityId, PlayerShipDesigns designs)
+        {
+            Improbable.Collections.List<ShipHullSchematicData> list =
+                new Improbable.Collections.List<ShipHullSchematicData>();
+            foreach (ShipDesignSlot slot in designs.Slots)
+            {
+                list.Add(new ShipHullSchematicData(
+                    (byte[])slot.Data.Clone(), slot.Name, slot.BeamsLength,
+                    slot.NumberOfDecks, slot.ClientSchematicsIdJson, slot.Uuid));
+            }
+            Send1207(player, playerEntityId, u => u.SetSchematics(list));
+        }
+
+        /// <summary>Ack a requestId on 1207 so the client's pending reply resolves.</summary>
+        private static void Ack(ENetPeerHandle player, long playerEntityId, int requestId, bool success)
+        {
+            Send1207(player, playerEntityId,
+                u => u.AddRequestResponse(new ShipHullAgentRequestResponse(requestId, success)));
+        }
+
+        private static void Send1207(ENetPeerHandle player, long playerEntityId,
+            Action<ShipHullAgentState.Update> build)
+        {
+            ShipHullAgentState.Update update = new ShipHullAgentState.Update();
+            build(update);
+            SendOPHelper.SendComponentUpdateOp(player, playerEntityId,
+                new List<uint> { 1207 }, new List<object> { update });
+        }
+
+        private static void Send1206(ENetPeerHandle player, long shipyardEntityId,
+            Action<ShipHullEditorState.Update> build)
+        {
+            ShipHullEditorState.Update update = new ShipHullEditorState.Update();
+            build(update);
+            SendOPHelper.SendComponentUpdateOp(player, shipyardEntityId,
+                new List<uint> { 1206 }, new List<object> { update });
+        }
+    }
+}

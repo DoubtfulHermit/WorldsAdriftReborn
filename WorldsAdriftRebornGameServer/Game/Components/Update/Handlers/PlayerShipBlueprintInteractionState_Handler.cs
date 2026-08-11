@@ -85,6 +85,33 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             Console.WriteLine("[info] 1270: entity " + entityId + " requested a blueprint refresh; replied 1274 Busy="
                 + ShipBlueprintInteraction.RepliedBusy + " with an empty ship-blueprint list.");
+
+            // TASK 4 - guarantee FRAME DESIGNS populates. A RefreshBlueprints fires when
+            // the build UI OPENS (ShipCraftingUI.Activate -> TriggerShipBlueprintsRefresh),
+            // so it is the reliable hook to (re)push the player's 1207 schematics list. The
+            // client's SchematicsUpdated is a PropertyCallbackHandler and it is UNVERIFIED
+            // whether it fires on the initial 1207 checkout value alone; pushing the list
+            // here as an explicit UPDATE makes the event fire deterministically every time
+            // the panel opens, so the FRAME DESIGNS list is never empty when it should not
+            // be. Same entity (the player), same peer, event-driven - no relay, no per-frame.
+            Bossa.Travellers.Items.ShipHullAgentState.Update schematicsPush =
+                new Bossa.Travellers.Items.ShipHullAgentState.Update();
+            Improbable.Collections.List<Bossa.Travellers.Items.ShipHullSchematicData> schematics =
+                new Improbable.Collections.List<Bossa.Travellers.Items.ShipHullSchematicData>();
+            Multiplayer.Ship.PlayerShipDesigns designs = Multiplayer.Ship.ShipDesignStore.For(entityId);
+            foreach (Multiplayer.Ship.ShipDesignSlot slot in designs.Slots)
+            {
+                schematics.Add(new Bossa.Travellers.Items.ShipHullSchematicData(
+                    (byte[])slot.Data.Clone(), slot.Name, slot.BeamsLength,
+                    slot.NumberOfDecks, slot.ClientSchematicsIdJson, slot.Uuid));
+            }
+            schematicsPush.SetSchematics(schematics);
+            SendOPHelper.SendComponentUpdateOp(player, entityId,
+                new List<uint> { 1207 },
+                new List<object> { schematicsPush });
+
+            Console.WriteLine("[info] 1270: entity " + entityId + " pushed " + designs.Slots.Count
+                + " FRAME DESIGN(s) on 1207 so SchematicsUpdated fires.");
         }
     }
 }

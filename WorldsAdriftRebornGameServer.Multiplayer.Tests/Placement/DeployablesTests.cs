@@ -21,14 +21,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
             Assert.Equal("Shipyard", def.AssetName);
             Assert.True(def.HasBackedState);
             Assert.True(def.AssetVerified);
-            // The shipyard renders deployed (190602 + 1205) AND its console shows an
-            // interact prompt that opens the ship-build UI (1210 + the crafting-station
-            // pair 1004/1005). Every id has a ComponentsSerializer branch.
+            // The shipyard renders deployed (190602 + 1205), carries the hull-editor
+            // state (1206) the client needs to construct its editor, AND its console
+            // shows an interact prompt that opens the ship-build UI (1210 + the
+            // crafting-station pair 1004/1005). Every id has a ComponentsSerializer branch.
             Assert.Equal(
                 new uint[]
                 {
                     Deployables.TransformStateComponentId,
                     Deployables.ShipyardStateComponentId,
+                    Deployables.ShipHullEditorStateComponentId,
                     Deployables.InteractiveStateComponentId,
                     Deployables.CraftingStationGSimStateComponentId,
                     Deployables.CraftingStationClientStateComponentId,
@@ -78,9 +80,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
         {
             // THE SAFETY INVARIANT. A seed batch is all-or-nothing: an id with no
             // ComponentsSerializer branch drops the WHOLE batch. Only the shipyard's
-            // 1205 has a branch, so any other deployable that listed a second seed id
-            // would silently place itself at the world origin. Guard against a future
-            // row doing that before its serializer branch exists.
+            // extra ids (1205 + 1206) have branches, so any other deployable that listed
+            // a second seed id would silently place itself at the world origin. Guard
+            // against a future row doing that before its serializer branch exists.
             foreach (DeployableDef def in Deployables.All.Where(d => !d.HasBackedState))
             {
                 Assert.Equal(

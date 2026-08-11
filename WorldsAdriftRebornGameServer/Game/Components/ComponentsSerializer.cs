@@ -620,9 +620,59 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         obj = rcData;
                     }
+                    else if(componentId == 1206)
+                    {
+                        // ShipHullEditorState on the placed SHIPYARD entity: the
+                        // read-only editor state the client's ShipHullEditorVisualizer
+                        // [Require]s (alongside 1205 ShipyardState) to construct at all.
+                        // Seeded INACTIVE - HasShipLoaded() == Active stays false, so the
+                        // Edit button is disabled, until a player loads a frame, at which
+                        // point ShipHullAgentClientState_Handler pushes an Active=true 1206
+                        // update to THAT player only (the entity is shared, so a broadcast
+                        // would cross-clobber; the update is per-peer). ownerPlayerId is the
+                        // shipyard's registered owner uid, which equals the client's
+                        // LocalPlayer.PlayerId (ShipyardVisualizer matches on the same uid),
+                        // so the owner's Save/Reset buttons enable. hasDirectAccess=true and
+                        // hullData empty (the mesh is rebuilt from the pushed working blob).
+                        string ownerUid = Placement.PlacedShipyards.SeedFor(entityId).OwnerCharacterUid;
+                        ShipHullEditorState.Data heData = new ShipHullEditorState.Data(
+                            false,                                    // active
+                            false,                                    // modified
+                            new EntityId(0),                          // editorId (invalid = not being edited)
+                            0f,                                       // beamsLength
+                            Multiplayer.Ship.StarterFrame.NumberOfDecks, // numberOfDecks
+                            new byte[0],                              // hullData
+                            0,                                        // slotId
+                            true,                                     // hasDirectAccess
+                            ownerUid);                                // ownerPlayerId
+                        obj = heData;
+                    }
                     else if(componentId == 1207)
                     {
-                        ShipHullAgentState.Data shData = new ShipHullAgentState.Data(new ShipHullAgentStateData(new Improbable.Collections.List<ShipHullSchematicData> { }, new EntityId(0)));
+                        // FRAME DESIGNS: served from the player's live ship-design store
+                        // so a re-checkout re-serves the CURRENT saved frames (mutated by
+                        // the 1208 save handler), and a fresh player gets exactly one
+                        // starter frame (StarterFrame). field6_uuid MUST equal the JSON
+                        // uUID or a selected row resolves to slot -1 and never loads;
+                        // StarterFrame feeds the same Uuid to both. editorId carries the
+                        // shipyard being edited (0 = none) so the client's
+                        // ShipHullAgentVisualizer knows whether it is in editor input mode.
+                        Multiplayer.Ship.PlayerShipDesigns designs =
+                            Multiplayer.Ship.ShipDesignStore.For(entityId);
+                        Improbable.Collections.List<ShipHullSchematicData> schematics =
+                            new Improbable.Collections.List<ShipHullSchematicData>();
+                        foreach (Multiplayer.Ship.ShipDesignSlot slot in designs.Slots)
+                        {
+                            schematics.Add(new ShipHullSchematicData(
+                                (byte[])slot.Data.Clone(),
+                                slot.Name,
+                                slot.BeamsLength,
+                                slot.NumberOfDecks,
+                                slot.ClientSchematicsIdJson,
+                                slot.Uuid));
+                        }
+                        ShipHullAgentState.Data shData = new ShipHullAgentState.Data(
+                            new ShipHullAgentStateData(schematics, new EntityId(designs.EditingShipyardEntityId)));
 
                         obj = shData;
                     }
