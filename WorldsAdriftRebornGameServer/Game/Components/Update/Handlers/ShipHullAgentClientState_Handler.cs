@@ -160,12 +160,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (RenameSchematic ev in clientComponentUpdate.renameSchematic)
                 {
+                    // Rename a saved FRAME DESIGN (the pencil icon in the list). The client
+                    // sends the slot it resolved from the row's UUID plus the new name; we
+                    // persist it into the per-player store, re-serve the FRAME DESIGNS list
+                    // on 1207 so the row shows the new name (and a re-checkout re-serves it,
+                    // ComponentsSerializer 1207 reads the same store), and ack so the client's
+                    // pending reply resolves and it fires SchematicsUpdated. NOTE: this is the
+                    // HULL FRAME rename on 1208 - NOT the ship-blueprint RenameBlueprint (1270).
                     bool ok = designs.Rename(ev.slot, ev.name);
                     if (ok)
                     {
                         PushSchematics(player, entityId, designs);
                     }
                     Ack(player, entityId, ev.id, ok);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " rename slot " + ev.slot
+                        + " -> '" + ev.name + "' -> " + ok + ".");
                 }
             }
 
@@ -199,19 +208,42 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     Send1207(player, entityId, u => u.SetEditorId(new EntityId(0)));
                     Send1206(player, shipyardId, u => u.SetEditorId(new EntityId(0)));
 
-                    // REPOPULATE THE PANEL ON "Done". ShipHullEditorScreen's Done pops the
-                    // editor UI state and the ShipCraftingUI panel reappears; without a
-                    // schematics signal it came back BLANK (the only way the user could
-                    // recover it was Tab + re-interact, which re-fires RefreshBlueprints and
-                    // re-pushes 1207). Re-pushing the FRAME DESIGNS list here fires the
-                    // client's SchematicsUpdated (OnSchematicsUpdated -> UpdateShipSchematics
-                    // -> AddShipSchematics -> the internal SchematicsUpdated the panel binds),
-                    // so Done returns to a POPULATED panel - the same result as the workaround,
-                    // without needing to re-open. The design stays LOADED (Active untouched),
-                    // so EDIT is still enabled on the restored panel.
+                    // Refresh the state the restored panel READS, so the console echo below
+                    // rebuilds from current data: 1207 = the FRAME DESIGNS list, 1206 =
+                    // Active + working hull + owner (StopEditing leaves the design LOADED, so
+                    // Active stays true -> HasShipLoaded() true -> EDIT enabled + hull preview).
                     PushSchematics(player, entityId, designs);
+                    PushEditorState(player, shipyardId, designs);
+
+                    // REPOPULATE THE PANEL ON "Done" - the REAL fix.
+                    //
+                    // Done -> ShipHullEditorScreen.CloseScreen -> PopState<ShipyardEditorUIState>.
+                    // That editor state lives on the SAME window layer (TabbedInventoryInterface)
+                    // as the ship-build panel's MainInventoryUIState, so opening the editor POPS
+                    // that state (MainInventoryUIState.ShouldPopState: same layer -> true), tearing
+                    // the ShipCraftingUI down (Deactivate -> _leftPanelRoot inactive). Popping the
+                    // editor does NOT re-push it, so the panel comes back with its left panel and
+                    // content ROOTS still inactive = the empty brown panel.
+                    //
+                    // The exit's LoadSchematic ack only reaches ShipCraftingUIHelper.DoUpdateSchematic
+                    // -> UpdateSchematicsList, which NEVER re-activates _leftPanelRoot nor re-runs
+                    // ShipCraftingUI.Activate - that is why re-pushing 1207 alone (the previous fix)
+                    // did nothing visible. The ONLY path that fully rebuilds the panel is
+                    // CraftingStationBehaviour.OnStartInteraction (1005 PlayerStartCrafting) ->
+                    // PushState(MainInventoryUIState.ShipCraft) -> ShowCraftingModule ->
+                    // SetCraftingDataTemplate + Activate (leftPanelRoot on, FRAME DESIGNS + hull
+                    // preview). That is EXACTLY what the Tab + re-interact workaround triggers.
+                    //
+                    // So we reproduce the interact-open signal server-side: re-emit the shipyard's
+                    // 1005 PlayerStartCrafting to THIS player only. OpenShipyardConsole is the same
+                    // call the interact handler uses (InteractAgentState_Handler), so Done now
+                    // restores a fully populated panel without the manual workaround.
+                    bool reopened = WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
+                        player, entityId, shipyardId);
                     Console.WriteLine("[info] 1208: entity " + entityId + " stopped editing shipyard " + shipyardId
-                        + "; re-pushed " + designs.Slots.Count + " FRAME DESIGN(s) so the panel repopulates.");
+                        + "; re-pushed " + designs.Slots.Count + " FRAME DESIGN(s) and "
+                        + (reopened ? "re-emitted 1005 PlayerStartCrafting so the panel fully repopulates."
+                                    : "could NOT re-open the console (not a placed shipyard / feature off)."));
                 }
             }
         }
