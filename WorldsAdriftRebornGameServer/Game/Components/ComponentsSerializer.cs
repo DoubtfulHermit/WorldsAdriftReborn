@@ -238,18 +238,85 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // different transforms - a seed with a parent and a wake without
                         // it would place the part right once and snap it to the origin
                         // on the first heartbeat.
+                        // Rotation: a bolted part keeps the identity sentinel (its
+                        // facing rides its "~" parent), but a parentless registered
+                        // world entity - a placed shipyard - carries the yaw the
+                        // placing player chose, packed into its registration. For
+                        // everything that never set a rotation, RotationSeedFor
+                        // returns 1023 (identity), so this is byte-for-byte the old
+                        // behaviour except for the one entity kind that opts in.
+                        Quaternion32 rotationSeed = parent.HasValue
+                            ? new Quaternion32(1023)
+                            : new Quaternion32(WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId));
+
                         TransformState.Data tData = ShipPartTransform.BuildSeed(
                             ShipPartTransform.LocalPosition(localSeed),
-                            parent);
+                            parent,
+                            rotationSeed);
 
                         if (!parent.HasValue)
                         {
                             Console.WriteLine("[info] seeding 190602 for entity " + entityId + " ("
                                 + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                                + ") at " + seed + ".");
+                                + ") at " + seed
+                                + (rotationSeed.quaternion != 1023 ? " rot=" + rotationSeed.quaternion : "")
+                                + ".");
                         }
 
                         obj = tData;
+                    }
+                    else if(componentId == 1017)
+                    {
+                        // ItemPlacingState: the client-authoritative confirm channel
+                        // for deployable placement, seeded on the PLAYER. Its data is
+                        // an empty struct (it carries only the PlaceItemEvent), so the
+                        // seed is just "the component exists" - which is what lets the
+                        // client's ItemPlacingBehaviour bind its 1017 WRITER once the
+                        // authority grant lands. Env-gated: only injected when
+                        // WAREBORN_PLACEMENT=1, so this branch never runs otherwise.
+                        obj = new ItemPlacingState.Data();
+                    }
+                    else if(componentId == 1019)
+                    {
+                        // ItemPlacementAgentState: the server-owned placement agent on
+                        // the PLAYER. Seeded idle (not placing); the server later writes
+                        // a StartPlacingItemEvent onto it to drive the client into
+                        // placement preview. The client only READS it.
+                        obj = new ItemPlacementAgentState.Data(false, 0, "", false);
+                    }
+                    else if(componentId == 1205)
+                    {
+                        // ShipyardState: seeded on a PLACED shipyard world entity so the
+                        // client's ShipyardVisualizer treats it as deployed (renders the
+                        // legs/dome and calls Shipyard.Deploy()) rather than an inert
+                        // prop. Owner/registration are read from the placed-structure
+                        // ledger; docked ship is none, inactivity 0, initialised true.
+                        // registeredCharacterUids is left empty for this milestone -
+                        // per-owner dome visibility and interaction are the Phase B+
+                        // follow-on (findings-deployable-placement.md).
+                        Placement.PlacedShipyards.Seed shipyardSeed =
+                            Placement.PlacedShipyards.SeedFor(entityId);
+
+                        Improbable.Collections.List<string> registered =
+                            new Improbable.Collections.List<string>();
+                        if (!string.IsNullOrEmpty(shipyardSeed.OwnerCharacterUid))
+                        {
+                            registered.Add(shipyardSeed.OwnerCharacterUid);
+                        }
+
+                        obj = new ShipyardState.Data(
+                            shipyardSeed.Active,
+                            new EntityId(0),
+                            shipyardSeed.Deployed,
+                            shipyardSeed.OwnerCharacterUid,
+                            0,
+                            true,
+                            new Improbable.Collections.Map<string, EntityId>(),
+                            registered);
+
+                        Console.WriteLine("[info] seeding 1205 ShipyardState for placed shipyard entity "
+                            + entityId + " (deployed=" + shipyardSeed.Deployed + ", active=" + shipyardSeed.Active
+                            + ", owner='" + shipyardSeed.OwnerCharacterUid + "').");
                     }
                     else if(componentId == 190601)
                     {

@@ -964,8 +964,30 @@ namespace WorldsAdriftRebornGameServer
         // tick (that writer is authority-gated - without the grant it never runs
         // and remote avatars stay in T-pose). The grant only ever applies to the
         // sender's OWN entity (isSendersOwnEntity gate below).
-        // The set itself lives in MirrorSendPolicy so it is testable.
-        private static readonly List<uint> authoritativeComponents = new List<uint>(MirrorSendPolicy.AuthoritativeComponents);
+        /// <summary>
+        /// Whether deployable placement is armed (WAREBORN_PLACEMENT=1). Declared
+        /// here, ABOVE <see cref="authoritativeComponents"/>, because a static field
+        /// initialiser reads it, and static initialisers run in textual order. Kept
+        /// as its own bool rather than reading <c>Placement.Enabled</c> so it does not
+        /// depend on the init order of that heavier field.
+        /// </summary>
+        private static readonly bool PlacementEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_PLACEMENT") == "1";
+
+        // The set itself lives in MirrorSendPolicy so it is testable. Placement's 1017
+        // grant is appended ONLY when the feature is armed, so an un-flagged server
+        // grants exactly what it always did (see MirrorSendPolicy.PlacementAuthoritativeComponents).
+        private static readonly List<uint> authoritativeComponents = BuildAuthoritativeComponents();
+
+        private static List<uint> BuildAuthoritativeComponents()
+        {
+            List<uint> list = new List<uint>(MirrorSendPolicy.AuthoritativeComponents);
+            if (PlacementEnabled)
+            {
+                list.AddRange(MirrorSendPolicy.PlacementAuthoritativeComponents);
+            }
+            return list;
+        }
 
         /// <summary>
         /// How many clients the ENet host accepts. Was 1, which made the server
@@ -1166,6 +1188,17 @@ namespace WorldsAdriftRebornGameServer
         /// the ferry is trusted. See Game.ShipMoveService.
         /// </summary>
         internal static readonly Game.ShipMoveService Ships = new Game.ShipMoveService();
+
+        /// <summary>
+        /// THE DEPLOYABLE-PLACEMENT MILESTONE. Off unless WAREBORN_PLACEMENT=1. When
+        /// armed, a player who selects a crafted shipyard on the hotbar and presses
+        /// use (or a write to the debug file) enters the native placement preview and,
+        /// on confirm, deploys a shipyard both players see. All of it - the 1019
+        /// start, the 1017 confirm handler, the runtime spawn broadcast - lives in
+        /// Game.Placement.PlacementService. See Game.Placement and the two handlers
+        /// (ItemPlacingState_Handler / InteractAgentState_Handler).
+        /// </summary>
+        internal static readonly Game.Placement.PlacementService Placement = new Game.Placement.PlacementService();
 
         /// <summary>
         /// STEP 4, THE MILESTONE. Off unless WAREBORN_SHIP_FERRY=1. When armed it
@@ -1874,7 +1907,19 @@ namespace WorldsAdriftRebornGameServer
                             //
                             // The order is load-bearing and lives in MirrorSendPolicy so a
                             // test can hold it, rather than in the shape of this expression.
-                            List<Structs.Structs.InterestOverride> injected = MirrorSendPolicy.InjectedComponents
+                            // Placement's 1017 (writer, granted) + 1019 (reader,
+                            // server-owned) ride in here ONLY when the feature is armed,
+                            // so ItemPlacingBehaviour's [Require]d 1017 writer and 1019
+                            // reader can bind. Appended, not baked into MirrorSendPolicy's
+                            // always-on set, so an un-flagged server injects exactly what
+                            // it always did.
+                            List<uint> injectedIds = MirrorSendPolicy.InjectedComponents.ToList();
+                            if (PlacementEnabled)
+                            {
+                                injectedIds.AddRange(MirrorSendPolicy.PlacementInjectedComponents);
+                            }
+
+                            List<Structs.Structs.InterestOverride> injected = injectedIds
                                 .Select(p => new Structs.Structs.InterestOverride(p, 1))
                                 .ToList();
 
@@ -2093,6 +2138,19 @@ namespace WorldsAdriftRebornGameServer
                 + " The ferry (continuous flight) is "
                 + (ShipFerryService.Enabled ? "ARMED (WAREBORN_SHIP_FERRY=1)." : "OFF (set WAREBORN_SHIP_FERRY=1)."));
 
+            // Deployable placement (the milestone), said once so a human can find it.
+            if (Placement.Enabled)
+            {
+                Console.WriteLine("[info] placement: ARMED (WAREBORN_PLACEMENT=1). Craft a shipyard, put it on the"
+                    + " hotbar, SELECT it and press use (left hand) to start placing; position the ghost and hold use"
+                    + " to deploy. If the native trigger does not fire, `echo > " + Placement.TriggerFile
+                    + "` (optionally with a player entity id) to start placement for that player's shipyard.");
+            }
+            else
+            {
+                Console.WriteLine("[info] placement: OFF (set WAREBORN_PLACEMENT=1 to enable shipyard deployment).");
+            }
+
             // Also said once, so that "why did I suddenly reappear at spawn?" (or
             // "why did I NOT?") has an answer in the same log as the event. The
             // mode line comes from AutoFallRescuePolicy so it cannot drift from the
@@ -2181,6 +2239,10 @@ namespace WorldsAdriftRebornGameServer
                 // throttled to twice a second. A write to /tmp/wareborn-ship
                 // translates the spawned hull one 1130 control point.
                 Ships.PollTrigger();
+                // DEPLOYABLE PLACEMENT debug trigger: same file-poll shape, self-
+                // throttled. A write to /tmp/wareborn-place starts placement for a
+                // player's hotbar shipyard. A no-op unless WAREBORN_PLACEMENT=1.
+                Placement.PollTrigger();
                 // STEP 4 ferry: fixed-cadence 1130 control-point stream that flies
                 // the hull. Off unless WAREBORN_SHIP_FERRY=1; cheap when off (an env
                 // check) or idle (one Stopwatch compare). See Game.ShipFerryService.

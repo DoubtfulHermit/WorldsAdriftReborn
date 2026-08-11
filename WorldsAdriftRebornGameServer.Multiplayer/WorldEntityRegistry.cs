@@ -189,6 +189,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// The 190602 localRotation seed for one entity, as a packed
+        /// <c>Quaternion32</c> uint. The rotation counterpart to
+        /// <see cref="TransformSeedFor"/>: a registered world entity gets its own
+        /// packed facing; everything else (players, unregistered ids) gets the
+        /// identity SENTINEL 1023, which is exactly the value the 190602 seed
+        /// hard-coded before rotation was a field - so nothing that does not set a
+        /// rotation changes by a single bit.
+        /// </summary>
+        public uint RotationSeedFor(long entityId)
+        {
+            WorldEntity? entity = ByEntityId(entityId);
+            return entity != null ? entity.PackedRotation : Placement.Quaternion32Packing.Identity;
+        }
+
+        /// <summary>
         /// Which kind of entity a seed is being fabricated for, given everything
         /// this server has put in the world. For logs and for the handful of
         /// component branches that are genuinely island-specific (1041

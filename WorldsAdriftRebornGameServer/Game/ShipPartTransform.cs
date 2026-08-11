@@ -62,9 +62,23 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         public static TransformState.Data BuildSeed(FixedPointVector3 localPosition, Option<Parent> parent)
         {
+            return BuildSeed(localPosition, parent, IdentityRotation);
+        }
+
+        /// <summary>
+        /// The 190602 seed with an EXPLICIT localRotation. Everything that faces
+        /// world-north passes the identity SENTINEL through the overload above; a
+        /// DEPLOYED structure whose facing the placing player chose (a shipyard)
+        /// passes its own packed <paramref name="rotation"/> here. The rotation is
+        /// a <c>Quaternion32</c> and MUST already be a valid packed value - 1023 for
+        /// identity, or <c>Placement.Quaternion32Packing.Encode(...)</c> for a real
+        /// yaw; a raw 0 decodes to NaN and the client rejects the whole transform.
+        /// </summary>
+        public static TransformState.Data BuildSeed(FixedPointVector3 localPosition, Option<Parent> parent, Quaternion32 rotation)
+        {
             return new TransformState.Data(new TransformStateData(
                 localPosition,
-                IdentityRotation,
+                rotation,
                 parent,
                 new Vector3d(0f, 0f, 0f),
                 new Vector3f(0f, 0f, 0f),

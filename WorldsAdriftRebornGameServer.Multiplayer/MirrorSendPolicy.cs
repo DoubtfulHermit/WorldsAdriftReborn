@@ -147,6 +147,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const uint InteractAgentStateComponentId = 1211;
 
         /// <summary>
+        /// ItemPlacingState (1017): the CLIENT-authoritative confirm channel for
+        /// deployable placement. Its only payload is the <c>PlaceItemEvent</c> the
+        /// client publishes when the player finishes positioning a preview and
+        /// holds use to place it. The client's <c>ItemPlacingBehaviour</c>
+        /// <c>[Require]</c>s a 1017 WRITER, and a writer exists only for a component
+        /// the client holds AUTHORITY over - so placement is dead unless 1017 is
+        /// granted. It is the DEPLOYABLE-PLACEMENT counterpart of 1211: granted,
+        /// injected, event-on-confirm (NOT per-frame), and its handler validates
+        /// every field because the client chooses the transform.
+        /// </summary>
+        public const uint ItemPlacingStateComponentId = 1017;
+
+        /// <summary>
+        /// ItemPlacementAgentState (1019): the SERVER-owned placement agent on the
+        /// player. The server writes <c>StartPlacingItemEvent(itemId, prefab, type,
+        /// timeToPlace)</c> onto it to put the client into placement preview; the
+        /// client only READS it (its behaviour holds the 1019 READER, never the
+        /// writer). Injected so the reader binds, but deliberately NOT granted -
+        /// the client must never decide when its own placement starts.
+        /// </summary>
+        public const uint ItemPlacementAgentStateComponentId = 1019;
+
+        /// <summary>
+        /// The deployable-placement components, kept OUT of the always-on
+        /// <see cref="AuthoritativeComponents"/>/<see cref="InjectedComponents"/>
+        /// sets so the feature can be gated behind an env var at the wiring site
+        /// (like the ship-ferry and databank features). 1017 is granted AND
+        /// injected; 1019 is injected only (server-owned). The game server appends
+        /// these to the per-player setup only when placement is enabled.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> PlacementInjectedComponents =
+            new uint[] { ItemPlacingStateComponentId, ItemPlacementAgentStateComponentId };
+
+        /// <summary>
+        /// The deployable-placement components a client is granted authority over:
+        /// 1017 ONLY. 1019 stays server-owned. Appended to the authority grant at
+        /// the wiring site only when placement is enabled.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> PlacementAuthoritativeComponents =
+            new uint[] { ItemPlacingStateComponentId };
+
+        /// <summary>
         /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
         /// (2105), MultitoolSalvagerState (2106), MultitoolRepairerState (2002).
         ///
@@ -322,12 +364,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// dropped), which restores the glider+tool visual at a handful of packets.
         /// (6910 stays Unreliable in RelayReliabilityFor as defence-in-depth for the
         /// raw path; the handler forces its own event sends reliable.)
+        /// 1017 ItemPlacingState is filtered OUT for the same cross-entity reason as
+        /// 1211: it is client-authoritative, so it reaches the raw relay path, and
+        /// RelayToOtherPlayers would re-address its PlaceItemEvent to the SENDER's own
+        /// entity - meaningless to a remote rig, which neither seeds 1017 nor runs the
+        /// placement behaviour on a mirror. The placement it describes is realised by
+        /// the SERVER (the 1017 handler spawns the shipyard as a shared world entity
+        /// every peer sees), not by relaying the client's event. It is also a one-shot
+        /// on confirm, not a per-frame stream, so this is correctness, not bandwidth.
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
                 && componentId != TreeCutterStateComponentId
                 && componentId != InteractAgentStateComponentId
-                && componentId != UtilitySlotActivatedStateComponentId;
+                && componentId != UtilitySlotActivatedStateComponentId
+                && componentId != ItemPlacingStateComponentId;
         }
 
         /// <summary>

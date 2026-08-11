@@ -88,13 +88,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// requested list next to it.
         /// </param>
         /// <param name="order">See <see cref="SpawnOrder"/>. Defaults to AfterPlayer.</param>
+        /// <param name="packedRotation">
+        /// The 190602 TransformState.localRotation seed, in the game's 32-bit
+        /// <c>Quaternion32</c> wire form (see
+        /// <see cref="Placement.Quaternion32Packing"/>). Defaults to the identity
+        /// SENTINEL 1023 - the same value every existing seed carried before this
+        /// existed, so a registration that does not care about facing is byte-for-byte
+        /// unchanged. A DEPLOYED structure whose facing the placing player chose (a
+        /// shipyard) passes its packed yaw here so it does not always face world-north.
+        /// </param>
         public WorldEntity(
             string key,
             string assetName,
             string assetContext,
             FixedPointPosition position,
             IReadOnlyList<uint>? seedComponents = null,
-            SpawnOrder order = SpawnOrder.AfterPlayer)
+            SpawnOrder order = SpawnOrder.AfterPlayer,
+            uint packedRotation = Placement.Quaternion32Packing.Identity)
         {
             if (string.IsNullOrWhiteSpace(key))
             {
@@ -115,6 +125,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Position = position;
             SeedComponents = seedComponents ?? Array.Empty<uint>();
             Order = order;
+            PackedRotation = packedRotation;
         }
 
         /// <summary>Stable registration identity. Never sent on the wire.</summary>
@@ -134,6 +145,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>Whether this is spawned before or after the joining player's own avatar.</summary>
         public SpawnOrder Order { get; }
+
+        /// <summary>
+        /// The 190602 localRotation seed as a packed <c>Quaternion32</c> uint.
+        /// Identity (1023) for anything that faces world-north; a placed shipyard's
+        /// chosen yaw otherwise. Consumed once, at OnEnable, like <see cref="Position"/>.
+        /// </summary>
+        public uint PackedRotation { get; }
 
         public override string ToString()
         {

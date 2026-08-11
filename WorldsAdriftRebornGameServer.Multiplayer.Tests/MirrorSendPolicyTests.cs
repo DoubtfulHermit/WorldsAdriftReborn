@@ -366,12 +366,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_four_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_five_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
             // invisible until two players are in the world. 6910 joined the list
-            // on 2026-08-09 after its ~170/s relay bufferbloated the link.
+            // on 2026-08-09 after its ~170/s relay bufferbloated the link; 1017
+            // ItemPlacingState joined with deployable placement (a client-authored
+            // confirm event realised server-side, never relayed raw).
             List<uint> filtered = new List<uint>();
             for (uint id = 0; id < 200000; id++)
             {
@@ -381,7 +383,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1037, 1211, 1231, 6910 }, filtered);
+            Assert.Equal(new uint[] { 1017, 1037, 1211, 1231, 6910 }, filtered);
+        }
+
+        // ------------------------------------------------------------------
+        // Deployable placement (kept out of the always-on sets; env-gated)
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Placement_grants_authority_over_1017_only_and_keeps_1019_server_owned()
+        {
+            // The client is the WRITER of the confirm event (1017) and only a READER
+            // of the placement-start agent (1019). Granting 1019 would let a modified
+            // client decide when its own placement starts.
+            Assert.Equal(new uint[] { 1017 }, MirrorSendPolicy.PlacementAuthoritativeComponents);
+            Assert.DoesNotContain(1019u, MirrorSendPolicy.PlacementAuthoritativeComponents);
+        }
+
+        [Fact]
+        public void Placement_injects_both_1017_and_1019_so_the_behaviours_writer_and_reader_bind()
+        {
+            // ItemPlacingBehaviour [Require]s a 1017 writer AND a 1019 reader; both
+            // components must be checked out on the player for either to resolve.
+            Assert.Contains(1017u, MirrorSendPolicy.PlacementInjectedComponents);
+            Assert.Contains(1019u, MirrorSendPolicy.PlacementInjectedComponents);
+        }
+
+        [Fact]
+        public void Placement_components_are_not_in_the_always_on_sets_so_the_feature_can_be_gated()
+        {
+            // They ride in only when WAREBORN_PLACEMENT=1 wires them at the setup
+            // site, exactly like the ferry/databank features - so an un-flagged
+            // server neither grants 1017 authority nor injects the pair.
+            Assert.DoesNotContain(1017u, MirrorSendPolicy.AuthoritativeComponents);
+            Assert.DoesNotContain(1017u, MirrorSendPolicy.InjectedComponents);
+            Assert.DoesNotContain(1019u, MirrorSendPolicy.InjectedComponents);
+        }
+
+        [Fact]
+        public void The_placement_confirm_event_is_never_relayed_raw_to_other_players()
+        {
+            // 1017 is client-authoritative, so it reaches the relay path; relaying it
+            // would re-address a PlaceItemEvent to the sender's own entity, which a
+            // remote rig cannot act on. The server realises the placement instead.
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1017u));
         }
 
         // ------------------------------------------------------------------
