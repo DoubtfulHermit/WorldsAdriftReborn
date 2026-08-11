@@ -429,32 +429,62 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // Bossa.Travellers.Interact.InteractVerb { Default, Activate,
                         // PickUp, Man, ... } -> PickUp = 2, Man = 3).
                         //
-                        // TWO prefabs ask for 1210 and they bake DIFFERENT verbs, so
+                        // THREE prefabs ask for 1210 and they bake DIFFERENT verbs, so
                         // this branch is entity-aware exactly like 1099:
-                        //   MetalNugget -> PickUp ("E to pick up")
-                        //   Helm01      -> Man    ("Man"), baked at
-                        //                  HelmPreprocessor.SetVerb(InteractVerb.Man).
+                        //   MetalNugget      -> PickUp ("E to pick up")
+                        //   Helm01           -> Man    ("Man"), baked at
+                        //                       HelmPreprocessor.SetVerb(InteractVerb.Man).
+                        //   placed Shipyard  -> Craft  ("Craft"), the centre-console
+                        //                       prompt that opens the ship-build UI.
+                        //                       The Shipyard prefab bakes InteractVerb.Craft
+                        //                       and CraftingStationBehaviour reacts to the
+                        //                       1005 PlayerStartCrafting the server echoes
+                        //                       back when the client fires this interaction
+                        //                       (InteractAgentState_Handler).
                         // A single-verb seed served to the wrong prefab would leave
                         // its FirstOrDefault empty and its prompt dead.
                         //
                         // available TRUE, not in use by anyone; syncSchematics FALSE
-                        // (neither a rock nor a helm is a crafting station). The three
-                        // unused strings are empty, not null - copied by DeepCopy.
-                        bool isHelm =
-                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
+                        // for the rock and helm. The shipyard is a crafting station, but
+                        // syncSchematics stays FALSE for this milestone - the schematic
+                        // catalogue sync (1271) is the full-ship-building follow-on and
+                        // the UI opens without it. The three unused strings are empty,
+                        // not null - copied by DeepCopy. Craft verb = 5 (VERIFIED).
+                        bool isPlacedShipyard =
+                            Placement.PlacedShipyards.IsPlacedShipyard(entityId);
+                        bool isHelm = !isPlacedShipyard
+                            && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                                 == Multiplayer.WorldEntities.HelmKey;
 
-                        InteractionEntry entry = isHelm
-                            ? new InteractionEntry(
+                        InteractionEntry entry;
+                        string verbName;
+                        if (isPlacedShipyard)
+                        {
+                            entry = new InteractionEntry(
+                                InteractVerb.Craft,
+                                Multiplayer.Placement.ShipyardInteraction.CraftRadius,
+                                false, "", "", "", false,
+                                Multiplayer.Placement.ShipyardInteraction.CraftTimeToUse);
+                            verbName = "Craft";
+                        }
+                        else if (isHelm)
+                        {
+                            entry = new InteractionEntry(
                                 InteractVerb.Man,
                                 Multiplayer.Helm.ManRadius,
                                 false, "", "", "", false,
-                                Multiplayer.Helm.ManTimeToUse)
-                            : new InteractionEntry(
+                                Multiplayer.Helm.ManTimeToUse);
+                            verbName = "Man";
+                        }
+                        else
+                        {
+                            entry = new InteractionEntry(
                                 InteractVerb.PickUp,
                                 Multiplayer.MetalNodes.PickUpRadius,
                                 false, "", "", "", false,
                                 Multiplayer.MetalNodes.PickUpTimeToUse);
+                            verbName = "PickUp";
+                        }
 
                         InteractiveState.Data interactiveData = new InteractiveState.Data(
                             new InteractiveStateData(
@@ -465,7 +495,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with verb " + (isHelm ? "Man" : "PickUp") + ".");
+                            + ") with verb " + verbName + ".");
 
                         obj = interactiveData;
                     }
@@ -740,8 +770,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     else if(componentId == 1003)
                     {
                         PlayerCraftingInteractionState.Data pcisData = new PlayerCraftingInteractionState.Data(new EntityId(0), true);
-                        
+
                         obj = pcisData;
+                    }
+                    else if(componentId == 1004)
+                    {
+                        // CraftingStationGSimState: the SECOND [Require] reader
+                        // CraftingStationBehaviour needs (alongside 1005) to enable at
+                        // all - without it the placed shipyard's console never registers
+                        // its crafting data and the Craft interaction opens nothing
+                        // (VERIFIED: CraftingStationBehaviour.cs [Require] _gsimState).
+                        // gsimSchematicId "" (no craft queued), lastCreatedEntityId
+                        // invalid: an idle station. The 1005 event echo drives the open;
+                        // this branch exists only so the require-gate is satisfied and
+                        // the seed batch is not dropped. Data shape VERIFIED via gencode
+                        // CraftingStationGSimStateData(string gsimSchematicId,
+                        // EntityId lastCreatedEntityId).
+                        CraftingStationGSimState.Data csgData = new CraftingStationGSimState.Data(
+                            new CraftingStationGSimStateData("", EntityId.InvalidEntityId));
+                        obj = csgData;
                     }
                     else if(componentId == 1005)
                     {

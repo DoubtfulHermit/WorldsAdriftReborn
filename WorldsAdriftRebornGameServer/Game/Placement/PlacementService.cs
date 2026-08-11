@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Bossa.Travellers.Craftingstation;
 using Bossa.Travellers.Items;
+using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Inventory;
 using WorldsAdriftRebornGameServer.Multiplayer;
@@ -196,6 +198,69 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 new List<object> { update });
 
             EndSession(playerEntityId);
+        }
+
+        // -----------------------------------------------------------------
+        // 1b. OPEN a placed shipyard's ship-build UI (the interact-open path)
+        // -----------------------------------------------------------------
+
+        /// <summary>
+        /// Opens the ship-build UI on the interacting player's client after they
+        /// complete the "Craft" interaction on a placed shipyard's centre console.
+        ///
+        /// The client fired 1211 <c>TriggerInteractWithObject(shipyard, Craft)</c>, but
+        /// the ship-build UI does NOT open off that event. CraftingStationBehaviour
+        /// opens it only when the SHIPYARD entity's 1005 CraftingStationClientState
+        /// emits <c>PlayerStartCrafting</c> whose <c>playerId</c> equals the LOCAL
+        /// player's own entity id (VERIFIED: CraftingStationBehaviour.OnStartInteraction
+        /// early-returns when <c>playerId != PlayerCraftingStationData.CraftingEntityId</c>,
+        /// which resolves to the local player entity). So the server echoes that event
+        /// back on the shipyard, addressed to the player who interacted, carrying an
+        /// EMPTY schematic id (open the UI; do not start a real craft).
+        ///
+        /// MULTIPLAYER-SAFE: this is a single, event-driven echo in response to one
+        /// client interaction - no per-frame state, no relay, no shared mutable
+        /// structure. The shipyard's interaction components are one-time seeds.
+        ///
+        /// A no-op when the feature is off or the target is not a placed shipyard.
+        /// Returns true when the echo was sent.
+        /// </summary>
+        public bool OpenShipyardConsole(ENetPeerHandle peer, long playerEntityId, long shipyardEntityId)
+        {
+            if (!Enabled)
+            {
+                return false;
+            }
+
+            if (!PlacedShipyards.IsPlacedShipyard(shipyardEntityId))
+            {
+                // The player interacted with something that is not a shipyard we
+                // placed (a helm, a rock, a world prop) - not our event to answer.
+                return false;
+            }
+
+            // playerId = the interacting player's OWN entity id, NOT the shipyard's.
+            CraftingStationClientState.Update update = new CraftingStationClientState.Update();
+            update.AddPlayerStartCrafting(new PlayerStartCrafting(new EntityId(playerEntityId), ""));
+
+            bool ok = SendOPHelper.SendComponentUpdateOp(
+                peer, shipyardEntityId,
+                new List<uint> { Deployables.CraftingStationClientStateComponentId },
+                new List<object> { update });
+
+            if (ok)
+            {
+                Console.WriteLine("[info] placement: shipyard console " + shipyardEntityId
+                    + " opened the ship-build UI for player " + playerEntityId + ".");
+            }
+            else
+            {
+                Console.WriteLine("[warning] placement: failed to echo 1005 PlayerStartCrafting for shipyard "
+                    + shipyardEntityId + " to player " + playerEntityId
+                    + " (is 1005 checked out on that client? the shipyard must have seeded it).");
+            }
+
+            return ok;
         }
 
         private void PrewarmAsset(string assetName)

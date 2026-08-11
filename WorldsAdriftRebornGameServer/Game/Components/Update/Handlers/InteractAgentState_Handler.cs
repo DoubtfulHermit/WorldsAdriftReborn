@@ -11,29 +11,41 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
      * 1211 InteractAgentState - the player's per-frame "what am I looking at, which
      * hotbar slot is selected, is the use key down" state.
      *
-     * This handler exists for ONE reason: to be the NATIVE deploy trigger for
-     * placement. The decompiled client has no dedicated "start placing" command -
-     * the original game started placement from server-side item-use logic that is
-     * not in the client. The closest observable client signal is 1211's
-     * UseItemKeyPressed event: it fires exactly once on use-key-DOWN and carries the
-     * selected hotbar slot (itemSlot == CurrentItemSlot, 0-7). So: when the player
-     * has a shipyard on the selected hotbar slot and presses use, that is the deploy
-     * trigger, and we send them 1019 StartPlacingItemEvent (via PlacementService).
+     * This handler does TWO event-driven jobs, both on the sender's OWN player entity
+     * and both gated behind WAREBORN_PLACEMENT=1:
+     *
+     *   1. DEPLOY TRIGGER (useItemKeyPressed): the decompiled client has no dedicated
+     *      "start placing" command. The closest observable signal is 1211's
+     *      UseItemKeyPressed event, which fires once on use-key-DOWN and carries the
+     *      selected hotbar slot. When the player has a deployable on that slot and
+     *      presses use, we send them 1019 StartPlacingItemEvent (via PlacementService).
+     *
+     *   2. INTERACT-OPEN (interactWithObject): when the player completes a timed
+     *      interaction on a world object, the client fires
+     *      TriggerInteractWithObject(target, verb) on its own 1211 - VERIFIED at
+     *      InteractAgentObserver.IssueInteraction. For a placed shipyard's centre
+     *      console the verb is Craft. The ship-build UI does NOT open off that event
+     *      directly: CraftingStationBehaviour opens it only when the SHIPYARD's 1005
+     *      emits PlayerStartCrafting for the local player. So we translate the Craft
+     *      interaction into that 1005 echo (PlacementService.OpenShipyardConsole).
      *
      * WHY THIS IS SAFE despite 1211 being a per-frame stream:
-     *   - The handler reads ONLY the useItemKeyPressed event list and early-returns
-     *     when it is empty, which is every frame except a key-down. The per-frame
-     *     LookingAt/slot DATA is ignored (same shape as MultitoolSalvagerState's
-     *     shotEvent handling). So the per-frame cost is one null/empty check.
+     *   - The handler early-returns when BOTH event lists are empty, which is every
+     *     frame except a key-down or an interaction completion. The per-frame
+     *     LookingAt/slot DATA is ignored. So the per-frame cost is two empty checks.
      *   - It never relays anything and never mutates inventory; it only starts a
-     *     preview on the sender's OWN client.
+     *     preview or opens a UI on the sender's OWN client.
      *   - It is a no-op unless WAREBORN_PLACEMENT=1.
      *
-     * RESIDUAL RISK (needs a live client to settle, documented in the report): that
-     * UseItemKeyPressed actually fires for a placeable non-tool hotbar item, and that
-     * the client's CurrentItemSlot indexing matches the server's HotBarSlotNum. If it
-     * does not, the debug file trigger (WAREBORN_PLACEMENT_FILE) drives the exact
-     * same StartPlacing path and proves the rest of the pipeline regardless.
+     * RESIDUAL RISK (needs a live client to settle, documented in the report):
+     *   - that UseItemKeyPressed fires for a placeable non-tool hotbar item and that
+     *     CurrentItemSlot matches HotBarSlotNum (the debug file trigger proves the
+     *     rest of the pipeline regardless);
+     *   - that the client actually SENDS the Craft interactWithObject: the client
+     *     gates the interact behind _isShipBuildingAware (InteractAgentObserver), so a
+     *     player who is not yet shipbuilding-aware is shown a "no crafting yet" chat
+     *     message and NO 1211 event is sent - the server never sees it and cannot
+     *     open the UI. This is a client onboarding gate, not a missing seed.
      */
     [RegisterComponentUpdateHandler]
     internal class InteractAgentState_Handler : IComponentUpdateHandler<InteractAgentState, InteractAgentState.Update, InteractAgentState.Data>
@@ -54,10 +66,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             }
 
             // A DELTA: the vast majority of 1211 packets carry only look/slot data and
-            // no event. Read the event list straight off the update and get out fast
+            // no event. Read both event lists straight off the update and get out fast
             // when there is nothing to act on - this runs at frame rate.
             Improbable.Collections.List<UseItemKeyPressed>? presses = clientComponentUpdate.useItemKeyPressed;
-            if (presses == null || presses.Count == 0)
+            Improbable.Collections.List<InteractWithObject>? interacts = clientComponentUpdate.interactWithObject;
+            bool noPress = presses == null || presses.Count == 0;
+            bool noInteract = interacts == null || interacts.Count == 0;
+            if (noPress && noInteract)
             {
                 return;
             }
@@ -65,6 +80,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // Only the sender's OWN entity: 1211 is the player's own interact state.
             ulong peerId = PeerIdentity.IdOf(player);
             if (!WorldsAdriftRebornGameServer.Players.Owns(peerId, entityId))
+            {
+                return;
+            }
+
+            // INTERACT-OPEN: the player completed an interaction on a world object. For
+            // a placed shipyard's console (verb Craft) echo 1005 PlayerStartCrafting so
+            // their client opens the ship-build UI. Other verbs/targets are ignored here.
+            if (!noInteract)
+            {
+                foreach (InteractWithObject interact in interacts!)
+                {
+                    if (interact.verb == InteractVerb.Craft)
+                    {
+                        WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
+                            player, entityId, interact.target.Id);
+                    }
+                }
+            }
+
+            if (noPress)
             {
                 return;
             }
@@ -77,7 +112,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            foreach (UseItemKeyPressed press in presses)
+            foreach (UseItemKeyPressed press in presses!)
             {
                 int slot = press.itemSlot; // CurrentItemSlot, the selected hotbar slot 0-7
                 InventoryModel model = InventoryService.ForEntity(entityId);

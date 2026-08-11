@@ -99,12 +99,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         /// <summary>ShipyardState - the shipyard's deployed/owner state (serializer-backed).</summary>
         public const uint ShipyardStateComponentId = 1205;
 
+        /// <summary>InteractiveState - the 1210 that puts the "Craft" prompt on the console.</summary>
+        public const uint InteractiveStateComponentId = 1210;
+
+        /// <summary>CraftingStationGSimState - the 1004 gate CraftingStationBehaviour requires.</summary>
+        public const uint CraftingStationGSimStateComponentId = 1004;
+
+        /// <summary>CraftingStationClientState - the 1005 that carries PlayerStartCrafting.</summary>
+        public const uint CraftingStationClientStateComponentId = 1005;
+
         /// <summary>The item type of the one fully-proven deployable.</summary>
         public const string ShipyardItemType = "shipyard";
 
         private static readonly uint[] TransformOnly = { TransformStateComponentId };
+
+        /// <summary>
+        /// The placed shipyard's full seed set: it renders as a deployed structure
+        /// (190602 transform + 1205 ShipyardState) AND its centre console shows an
+        /// interact prompt that opens the ship-build UI. The console is made
+        /// interactive by 1210 InteractiveState (verb Craft); the UI is opened by
+        /// CraftingStationBehaviour, which only enables when BOTH 1004
+        /// CraftingStationGSimState and 1005 CraftingStationClientState are present.
+        /// Every id here has a ComponentsSerializer branch (190602, 1205, 1210, 1004,
+        /// 1005) - required, because the seed push is all-or-nothing: one id without a
+        /// branch drops the WHOLE batch and the shipyard spawns inert at the origin.
+        /// </summary>
         private static readonly uint[] TransformAndShipyard =
-            { TransformStateComponentId, ShipyardStateComponentId };
+            { TransformStateComponentId, ShipyardStateComponentId,
+              InteractiveStateComponentId, CraftingStationGSimStateComponentId,
+              CraftingStationClientStateComponentId };
 
         private static readonly Dictionary<string, DeployableDef> ByType =
             BuildTable();

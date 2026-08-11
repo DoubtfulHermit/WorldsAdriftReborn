@@ -21,9 +21,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
             Assert.Equal("Shipyard", def.AssetName);
             Assert.True(def.HasBackedState);
             Assert.True(def.AssetVerified);
+            // The shipyard renders deployed (190602 + 1205) AND its console shows an
+            // interact prompt that opens the ship-build UI (1210 + the crafting-station
+            // pair 1004/1005). Every id has a ComponentsSerializer branch.
             Assert.Equal(
-                new uint[] { Deployables.TransformStateComponentId, Deployables.ShipyardStateComponentId },
+                new uint[]
+                {
+                    Deployables.TransformStateComponentId,
+                    Deployables.ShipyardStateComponentId,
+                    Deployables.InteractiveStateComponentId,
+                    Deployables.CraftingStationGSimStateComponentId,
+                    Deployables.CraftingStationClientStateComponentId,
+                },
                 def.SeedComponents.ToArray());
+        }
+
+        [Fact]
+        public void Shipyard_seeds_the_console_interaction_components()
+        {
+            // The three ids that make the centre console interactive and open the UI.
+            // If any is dropped, either the prompt never appears (1210) or
+            // CraftingStationBehaviour never enables (1004/1005) and interacting opens
+            // nothing.
+            Assert.True(Deployables.TryGet("shipyard", out DeployableDef def));
+            Assert.Contains(Deployables.InteractiveStateComponentId, def.SeedComponents);
+            Assert.Contains(Deployables.CraftingStationGSimStateComponentId, def.SeedComponents);
+            Assert.Contains(Deployables.CraftingStationClientStateComponentId, def.SeedComponents);
         }
 
         [Theory]
