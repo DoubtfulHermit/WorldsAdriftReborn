@@ -66,6 +66,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             }
 
             PlayerProgression prog = ProgressionStore.For(entityId);
+            bool mutated = false;
 
             foreach (UseNode use in uses)
             {
@@ -82,6 +83,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
                 if (spend.Ok)
                 {
+                    mutated = true;
                     prog.Knowledge = spend.NewKnowledge;
                     prog.NodeUses[nodeId] = spend.NewNodeUseCount;
 
@@ -126,6 +128,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 }
 
                 SendOPHelper.SendComponentUpdateOp(player, entityId, componentIds, updates);
+            }
+
+            // Write-through: a purchase spent knowledge and may have learned a
+            // schematic, so persist the new totals under the character key. Guarded
+            // so a click that bought nothing does not write a row.
+            if (mutated)
+            {
+                Game.Knowledge.ProgressionService.Save(entityId);
             }
         }
 

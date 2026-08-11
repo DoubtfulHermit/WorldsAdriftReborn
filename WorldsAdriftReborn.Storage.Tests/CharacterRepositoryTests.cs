@@ -298,5 +298,95 @@ namespace WorldsAdriftReborn.Storage.Tests
 
             Assert.Single(db.Characters.ListForAccount(account.AccountId));
         }
+
+        [PostgresFact]
+        public void Rewriting_a_roster_keeps_a_surviving_characters_inventory()
+        {
+            // THE RELOG BUG. AccountRosters rewrites the normalised roster on
+            // every character-list load; a delete-then-reinsert would CASCADE a
+            // surviving character's inventory away through the foreign key. The
+            // reconcile must leave the row - and its inventory - untouched.
+            using TempDb db = new TempDb();
+
+            AccountRecord account = db.AnAccount();
+            CharacterRecord hermit = TempDb.ACharacter(account.AccountId, "Hermit", 0);
+
+            db.Characters.ReplaceRoster(account.AccountId, new[] { hermit });
+            db.Inventories.Save(new InventoryRecord(
+                hermit.CharacterUid, "{\"items\":[\"iron\"]}", TempDb.Now, TempDb.Now));
+
+            // The relog: the same roster is written again.
+            db.Characters.ReplaceRoster(account.AccountId, new[] { hermit });
+
+            InventoryRecord? kept = db.Inventories.Find(hermit.CharacterUid);
+            Assert.NotNull(kept);
+            Assert.Equal("{\"items\":[\"iron\"]}", kept!.DataJson);
+        }
+
+        [PostgresFact]
+        public void Rewriting_a_roster_does_not_reset_a_survivors_created_at()
+        {
+            // The recreation stamped a fresh created_at (the 19:50 symptom in the
+            // live DB). A character still in the roster must keep its own.
+            using TempDb db = new TempDb();
+
+            AccountRecord account = db.AnAccount();
+            CharacterRecord hermit = TempDb.ACharacter(account.AccountId, "Hermit", 0);
+
+            db.Characters.ReplaceRoster(account.AccountId, new[] { hermit });
+            db.Characters.ReplaceRoster(
+                account.AccountId,
+                new[] { hermit with { CreatedAt = TempDb.Now.AddDays(3), UpdatedAt = TempDb.Now.AddDays(3) } });
+
+            Assert.Equal(TempDb.Now, db.Characters.Find(hermit.CharacterUid)!.CreatedAt);
+        }
+
+        [PostgresFact]
+        public void Dropping_a_character_from_the_roster_still_takes_its_inventory()
+        {
+            // The other half of the rule: a genuinely removed character's
+            // inventory SHOULD cascade with it - nothing can address it any more.
+            using TempDb db = new TempDb();
+
+            AccountRecord account = db.AnAccount();
+            CharacterRecord keep = TempDb.ACharacter(account.AccountId, "Keep", 0);
+            CharacterRecord drop = TempDb.ACharacter(account.AccountId, "Drop", 1);
+
+            db.Characters.ReplaceRoster(account.AccountId, new[] { keep, drop });
+            db.Inventories.Save(new InventoryRecord(keep.CharacterUid, "{\"k\":1}", TempDb.Now, TempDb.Now));
+            db.Inventories.Save(new InventoryRecord(drop.CharacterUid, "{\"d\":1}", TempDb.Now, TempDb.Now));
+
+            db.Characters.ReplaceRoster(account.AccountId, new[] { keep });
+
+            Assert.NotNull(db.Inventories.Find(keep.CharacterUid));
+            Assert.Null(db.Inventories.Find(drop.CharacterUid));
+        }
+
+        [PostgresFact]
+        public void Swapping_two_characters_slots_keeps_both_inventories()
+        {
+            // The renumber path (a slot cycle) must reach its target by moving
+            // rows, never by deleting and reinserting them - a delete would
+            // cascade the inventory even though the character survives.
+            using TempDb db = new TempDb();
+
+            AccountRecord account = db.AnAccount();
+            CharacterRecord a = TempDb.ACharacter(account.AccountId, "A", 0);
+            CharacterRecord b = TempDb.ACharacter(account.AccountId, "B", 1);
+
+            db.Characters.ReplaceRoster(account.AccountId, new[] { a, b });
+            db.Inventories.Save(new InventoryRecord(a.CharacterUid, "{\"a\":1}", TempDb.Now, TempDb.Now));
+            db.Inventories.Save(new InventoryRecord(b.CharacterUid, "{\"b\":1}", TempDb.Now, TempDb.Now));
+
+            db.Characters.ReplaceRoster(
+                account.AccountId,
+                new[] { b with { SlotIndex = 0 }, a with { SlotIndex = 1 } });
+
+            Assert.Equal("{\"a\":1}", db.Inventories.Find(a.CharacterUid)!.DataJson);
+            Assert.Equal("{\"b\":1}", db.Inventories.Find(b.CharacterUid)!.DataJson);
+            Assert.Equal(
+                new[] { "B", "A" },
+                db.Characters.ListForAccount(account.AccountId).Select(c => c.Name).ToArray());
+        }
     }
 }

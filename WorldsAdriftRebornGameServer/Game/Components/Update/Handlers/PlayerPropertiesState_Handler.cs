@@ -86,6 +86,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // that makes the client re-read it.
             bool durable = Game.Inventory.InventoryService.BindIdentity(entityId, map);
 
+            // The knowledge sibling of the inventory bind: same character-uid seam,
+            // same load-once-then-push. It restores the player's stored knowledge,
+            // node uses and learned schematics over the seed the checkout served,
+            // and is a no-op when the uid did not arrive.
+            Game.Knowledge.ProgressionService.BindIdentity(entityId, map, player);
+
             // Keep the server-side stored component in sync so later re-serves of
             // this entity's 1088 (interest requests) also carry the real data.
             //

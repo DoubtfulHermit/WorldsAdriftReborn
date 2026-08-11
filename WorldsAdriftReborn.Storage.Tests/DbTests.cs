@@ -49,10 +49,10 @@ namespace WorldsAdriftReborn.Storage.Tests
         [PostgresFact]
         public void The_schema_contains_exactly_the_tables_the_shipped_scripts_declare()
         {
-            // v1 declared three, all login-server-owned. v2 adds exactly one
-            // more, character_inventories, which the GAME server owns - the
-            // first table in this database written by the other process.
-            // Progression is still deliberately absent.
+            // v1 declared three, all login-server-owned. v2 adds
+            // character_inventories and v4 adds character_progression, both
+            // GAME-server-owned - the tables in this database written by the
+            // other process. v3 adds server_config.
             using TempDb db = new TempDb();
 
             Assert.Equal(1, db.Scalar<int>(
@@ -67,10 +67,17 @@ namespace WorldsAdriftReborn.Storage.Tests
             Assert.Equal(1, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema() AND table_name = 'character_inventories';"));
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'server_config';"));
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'character_progression';"));
 
             // accounts, sessions, characters, character_inventories,
-            // schema_version - and nothing else.
-            Assert.Equal(5, db.Scalar<int>(
+            // server_config, character_progression, schema_version - and nothing
+            // else.
+            Assert.Equal(7, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema();"));
         }
@@ -81,14 +88,15 @@ namespace WorldsAdriftReborn.Storage.Tests
             // The reason this is a one-line test rather than a per-connection
             // pragma the whole library has to remember.
             //
-            // Three: sessions -> accounts, characters -> accounts, and
-            // character_inventories -> characters. The third is the one that
-            // matters most, because its key arrives from outside the database -
-            // the game server digs the character uid out of a JSON blob a client
-            // published - so it is the only place a made-up key could get in.
+            // Four: sessions -> accounts, characters -> accounts,
+            // character_inventories -> characters and character_progression ->
+            // characters. The last two matter most, because their key arrives
+            // from outside the database - the game server digs the character uid
+            // out of a JSON blob a client published - so they are the only place
+            // a made-up key could get in.
             using TempDb db = new TempDb();
 
-            Assert.Equal(3, db.Scalar<int>(
+            Assert.Equal(4, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.table_constraints "
                 + "WHERE table_schema = current_schema() AND constraint_type = 'FOREIGN KEY';"));
         }

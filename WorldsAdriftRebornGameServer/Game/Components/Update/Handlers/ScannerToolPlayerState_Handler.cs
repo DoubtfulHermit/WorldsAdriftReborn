@@ -67,6 +67,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             }
 
             PlayerProgression prog = ProgressionStore.For(entityId);
+            bool mutated = false;
 
             foreach (ScanEntityEvent scan in scans)
             {
@@ -100,6 +101,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
                     case ScanGrantOutcome.Granted:
                     {
+                        mutated = true;
                         prog.Knowledge = grant.NewKnowledge;
                         prog.LifetimeKnowledge = grant.NewLifetimeKnowledge;
                         prog.AlreadyScanned.Add(key);
@@ -115,6 +117,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         break;
                     }
                 }
+            }
+
+            // Write-through: a first-time databank scan granted knowledge and
+            // recorded the databank in the dedup ledger, so persist under the
+            // character key. Re-scans and non-databank hits change nothing.
+            if (mutated)
+            {
+                Game.Knowledge.ProgressionService.Save(entityId);
             }
         }
 
