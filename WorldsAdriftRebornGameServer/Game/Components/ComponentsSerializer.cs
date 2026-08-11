@@ -233,6 +233,55 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             }
                         }
 
+                        // A MOUNTED loose part (attached to a BUILT ship via the 1070 flow):
+                        // re-seed it already riding the hull - Parent(hullId, "~") + the
+                        // stored hull-local offset - so a re-checkout shows it bolted on
+                        // rather than loose. VALUE-equivalent to the wake the commit sent.
+                        if (!parent.HasValue && Game.Crafting.MountedParts.Is(entityId))
+                        {
+                            Game.Crafting.MountedParts.Mount? mount = Game.Crafting.MountedParts.MountFor(entityId);
+                            if (mount.HasValue)
+                            {
+                                localSeed = mount.Value.LocalOffset;
+                                parent = ShipPartTransform.RelativeParent(
+                                    mount.Value.HullEntityId, Multiplayer.BoltedPartTransform.RelativeSlotKey);
+                                Console.WriteLine("[info] seeding 190602 for MOUNTED part " + entityId
+                                    + " parent=~ of hull " + mount.Value.HullEntityId
+                                    + " at local offset " + localSeed + ".");
+                            }
+                        }
+
+                        // A BUILT SHIP'S DECK: make it a genuine Unity CHILD of its built
+                        // hull (Parent(hullId, "deck"), the same real hierarchy key the
+                        // static test deck uses) so the client's AttachToShip HasParentEntity
+                        // gate accepts it as a placement SURFACE - the part-mount make-or-break.
+                        // Without a real-key parent the deck is world-absolute, HasParentEntity
+                        // returns false, and a player can place NOTHING on the built ship.
+                        if (!parent.HasValue && Game.Crafting.BuiltShips.IsBuiltDeck(entityId))
+                        {
+                            string? deckKey = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key;
+                            string? hullKey = Multiplayer.Ship.BuiltShipPlacement.HullKeyForDeckKey(deckKey);
+                            long? builtHullId = hullKey == null
+                                ? null
+                                : WorldsAdriftRebornGameServer.WorldEntities.BoundEntityIdFor(hullKey);
+                            Multiplayer.FixedPointPosition? builtHullSeed = hullKey == null
+                                ? null
+                                : WorldsAdriftRebornGameServer.WorldEntities.ByKey(hullKey)?.Position;
+                            if (builtHullId.HasValue && builtHullSeed.HasValue)
+                            {
+                                localSeed = Multiplayer.BoltedPartTransform.LocalOffset(seed, builtHullSeed.Value);
+                                parent = ShipPartTransform.RelativeParent(builtHullId.Value, Multiplayer.Deck.HierarchyKey);
+                                Console.WriteLine("[info] seeding 190602 for BUILT DECK " + entityId
+                                    + " parent=" + Multiplayer.Deck.HierarchyKey + " (Unity child) of built hull "
+                                    + builtHullId.Value + " at local offset " + localSeed + ".");
+                            }
+                            else
+                            {
+                                Console.WriteLine("[warn] 190602 for built deck " + entityId
+                                    + " but its built hull id is not known yet; seeding world-absolute this once.");
+                            }
+                        }
+
                         // Built through the shared Game.ShipPartTransform so this seed
                         // and the wake heartbeat (ShipPartMotionService) can never carry
                         // different transforms - a seed with a parent and a wake without
@@ -613,6 +662,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         BuilderServerState.Data bsData = new BuilderServerState.Data(new BuilderServerStateData(new EntityId(0)));
 
                         obj = bsData;
+                    }
+                    else if(componentId == 1070)
+                    {
+                        // BuilderState on the PLAYER: the CLIENT-authoritative event writer
+                        // for the part-mount commit (PlacePart/CancelPlacePart/TeleportPart).
+                        // BuilderStateData is EMPTY (event-only), so the seed is just "the
+                        // component exists" - which lets BuilderObserver bind its 1070 WRITER
+                        // once the authority grant lands, AND puts 1070 in ComponentMap so an
+                        // inbound PlacePart is dispatched rather than dropped
+                        // (ComponentUpdateManager.HandleComponentUpdate). Placement-gated:
+                        // only injected when WAREBORN_PLACEMENT=1, so this never runs otherwise.
+                        obj = new BuilderState.Data(default(BuilderStateData));
+                    }
+                    else if(componentId == 1239)
+                    {
+                        // PlacementToolPlayerState on the PLAYER: the CLIENT-authoritative
+                        // lift-tool notification writer (PickedUp/Placed/Dropped). Data is
+                        // EMPTY; seeded so PlayerPlacementToolBehaviour binds its 1239 WRITER
+                        // and so its PickedUpEntityEvent is dispatched not dropped - that event
+                        // is how the server learns which part a later PlacePart refers to (the
+                        // carry tracker). Placement-gated, exactly like 1070.
+                        obj = new PlacementToolPlayerState.Data(default(PlacementToolPlayerStateData));
                     }
                     else if(componentId == 1131)
                     {
@@ -1337,7 +1408,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // LIVE-ONLY UNKNOWN: whether the original loose part used an
                         // absent shipRoot or pointed at itself; absent matches the
                         // InvalidEntityId contract and enables nothing against defaults.
-                        if (Game.Crafting.LooseParts.Is(entityId))
+                        if (Game.Crafting.MountedParts.Is(entityId))
+                        {
+                            // A MOUNTED part belongs to its built hull: shipRoot = the hull,
+                            // isRoot=false. This is what ShipPartVisualizer.ShipEntityId reads
+                            // to know which ship the part rides - flipped from the loose part's
+                            // absent shipRoot by the 1070 commit, and re-seeded here on checkout.
+                            Game.Crafting.MountedParts.Mount? mount = Game.Crafting.MountedParts.MountFor(entityId);
+                            Console.WriteLine("[info] seeding 8066 for MOUNTED part " + entityId
+                                + " -> shipRoot " + mount.Value.HullEntityId + " (isRoot=false).");
+                            obj = new ShipRootState.Data(
+                                new Option<EntityId>(new EntityId(mount.Value.HullEntityId)), false);
+                        }
+                        else if (Game.Crafting.LooseParts.Is(entityId))
                         {
                             Console.WriteLine("[info] seeding 8066 for LOOSE part " + entityId
                                 + " -> no ship (shipRoot absent, isRoot=false).");
@@ -1408,8 +1491,41 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // VERIFIED ctor (gencode ShipPartState.cs:1238). Only a loose part
                         // ever requests 1120, so a non-loose entity serves nothing and
                         // best-effort interest skips it.
+                        Game.Crafting.MountedParts.Mount? mountedPart = Game.Crafting.MountedParts.MountFor(entityId);
                         var loosePart = Game.Crafting.LooseParts.DefFor(entityId);
-                        if (loosePart != null)
+                        if (mountedPart.HasValue)
+                        {
+                            // A MOUNTED part reads as ATTACHED (not liftable): attached=true,
+                            // held cleared, attachedTo = the hull (safe default, see spec 3.4).
+                            // prefab/attach/title/itemType come from the mount record so the
+                            // client still loads the right prefab. attachPos is the hull-local
+                            // offset in metres; attachRot is identity (the part's facing rides
+                            // its "~" parent). Re-seeds the exact attach the 1070 commit made.
+                            Game.Crafting.MountedParts.Mount mp = mountedPart.Value;
+                            Improbable.Math.Vector3f attachPos = new Improbable.Math.Vector3f(
+                                (float)mp.LocalOffset.MetresX, (float)mp.LocalOffset.MetresY, (float)mp.LocalOffset.MetresZ);
+                            Improbable.Corelib.Math.Quaternion attachRot = new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0);
+                            obj = new ShipPartState.Data(
+                                true,                                   // attached
+                                new EntityId(mp.AttachedToEntityId),    // attachedTo (the hull)
+                                false,                                  // held
+                                EntityId.InvalidEntityId,               // heldBy
+                                EntityId.InvalidEntityId,               // heldByTool
+                                attachPos,                              // attachPos
+                                attachRot,                              // attachRot
+                                new Bossa.Travellers.Motion.RelativeLocation(
+                                    new EntityId(mp.AttachedToEntityId), attachPos, attachRot),  // lastAttachment
+                                mp.PrefabName,
+                                mp.AttachmentType,
+                                mp.Title,
+                                mp.ItemType,
+                                new Option<Improbable.Math.Vector3f>(new Improbable.Math.Vector3f(1f, 1f, 1f)),  // scale (must be present)
+                                new Option<Bossa.Travellers.Materials.SchematicsRarity>(Bossa.Travellers.Materials.SchematicsRarity.Tier1),
+                                new Improbable.Collections.List<EntityId> { });           // playersPlacingPart
+                            Console.WriteLine("[info] seeding 1120 for MOUNTED part " + entityId + " (prefab '"
+                                + mp.PrefabName + "', attached=true, hull " + mp.AttachedToEntityId + ").");
+                        }
+                        else if (loosePart != null)
                         {
                             obj = new ShipPartState.Data(
                                 false,                                  // attached

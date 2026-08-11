@@ -251,6 +251,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         };
 
         /// <summary>
+        /// BuilderState (1070): the CLIENT-&gt;SERVER event writer that carries the
+        /// part-mount commit. <c>BuilderObserver</c> [Require]s a 1070 WRITER and only
+        /// <c>TriggerPlacePart</c>s when it holds authority, so - like 1017/1211/1270 -
+        /// the mount is dead unless 1070 is granted. Its payload is the
+        /// <c>PlacePart</c>/<c>CancelPlacePart</c>/<c>TeleportPart</c> events; the data
+        /// struct is empty (event-only), and the handler acts purely on the decoded
+        /// events. Decoded and validated in <c>BuilderState_Handler</c>.
+        /// </summary>
+        public const uint BuilderStateComponentId = 1070;
+
+        /// <summary>
+        /// BuilderServerState (1071): the SERVER-&gt;CLIENT reader of the builder toolchain.
+        /// <c>BuilderVisualizer</c> [Require]s a 1071 READER, so it must be checked out
+        /// (injected) for the visualizer to enable, but the client never authors it -
+        /// it is server-owned, seeded <c>carryingPart = InvalidEntityId</c>. Injected,
+        /// NOT granted. Only needed by the server->client carry hand-off (crafting
+        /// hand-off / reconnect resume), which the client-initiated mount does not use.
+        /// </summary>
+        public const uint BuilderServerStateComponentId = 1071;
+
+        /// <summary>
+        /// PlacementToolPlayerState (1239): the CLIENT-&gt;SERVER notification writer the
+        /// lift tool publishes when the player PICKS UP / DROPS / PLACES a part
+        /// (<c>PlayerPlacementToolBehaviour</c> [Require]s its WRITER). Its
+        /// <c>PickedUpEntityEvent</c> names the entity the player is now carrying - the
+        /// authoritative "what am I holding" signal - which is how the server resolves
+        /// the part a <c>1070 PlacePart</c> refers to (PlacePart carries no part id).
+        /// Granted so the writer binds; tracked in <c>PlacementToolPlayerState_Handler</c>.
+        /// </summary>
+        public const uint PlacementToolPlayerStateComponentId = 1239;
+
+        /// <summary>
+        /// The part-mount toolchain components a client is granted AUTHORITY over: the
+        /// two client writers 1070 (the commit) + 1239 (carry notifications). 1071 is a
+        /// server-owned reader and is NOT granted. Kept OUT of the always-on
+        /// <see cref="AuthoritativeComponents"/> and appended at the setup site only when
+        /// the placement/shipyard feature is armed (a shipyard-docked ship is the only
+        /// place a part is ever lifted), exactly like <see cref="ShipBuildUiAuthoritativeComponents"/>.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> PartMountAuthoritativeComponents =
+            new uint[] { BuilderStateComponentId, PlacementToolPlayerStateComponentId };
+
+        /// <summary>
+        /// The part-mount toolchain components injected onto the player so every
+        /// [Require] reader/writer resolves: 1070 (BuilderObserver writer, also granted),
+        /// 1071 (BuilderVisualizer reader, server-owned), 1239 (PlayerPlacementToolBehaviour
+        /// writer, also granted). A component MUST be seeded before its updates can be
+        /// handled - inbound updates look it up in the component map or are dropped - so
+        /// injecting them is what puts 1070/1239 in the map for the handlers to receive.
+        /// Appended under the placement flag; an un-flagged server injects none of them.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> PartMountInjectedComponents =
+            new uint[] { BuilderStateComponentId, BuilderServerStateComponentId, PlacementToolPlayerStateComponentId };
+
+        /// <summary>
         /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
         /// (2105), MultitoolSalvagerState (2106), MultitoolRepairerState (2002).
         ///
@@ -443,6 +498,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// (the 1270 handler replies on 1274), not by relaying the client's event, and
         /// it is a command-on-open, not a per-frame stream - so this is correctness, not
         /// bandwidth.
+        /// 1070 BuilderState and 1239 PlacementToolPlayerState are filtered OUT for the
+        /// same cross-entity reason as 1017/1270/1208: both are client-authoritative, so
+        /// a client's update reaches the raw relay path, and RelayToOtherPlayers would
+        /// re-address its PlacePart / PickedUp event to the SENDER's own entity - where a
+        /// remote Traveller@Default rig neither seeds these nor runs the builder/lift
+        /// behaviours. The mount is realised by the SERVER (the 1070 handler writes the
+        /// part entity's 8066/190602/1120, which every peer already sees as a shared
+        /// world entity), not by relaying the client's event, and it is an event on
+        /// pickup/place, not a per-frame stream - so this is correctness, not bandwidth.
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
@@ -451,7 +515,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 && componentId != UtilitySlotActivatedStateComponentId
                 && componentId != ItemPlacingStateComponentId
                 && componentId != ShipHullAgentClientStateComponentId
-                && componentId != PlayerShipBlueprintInteractionStateComponentId;
+                && componentId != PlayerShipBlueprintInteractionStateComponentId
+                && componentId != BuilderStateComponentId
+                && componentId != PlacementToolPlayerStateComponentId;
         }
 
         /// <summary>

@@ -366,7 +366,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_seven_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_nine_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
@@ -376,7 +376,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // confirm event realised server-side, never relayed raw); 1208
             // ShipHullAgentClientState and 1270 PlayerShipBlueprintInteractionState
             // joined with the ship-build UI - both client-authoritative, cross-entity,
-            // answered by the server on 1274, never relayed raw.
+            // answered by the server on 1274, never relayed raw. 1070 BuilderState and
+            // 1239 PlacementToolPlayerState joined with part-mounting - both
+            // client-authoritative, cross-entity (PlacePart / PickedUp name a THIRD
+            // entity), realised server-side by writing the part's 8066/190602/1120.
             List<uint> filtered = new List<uint>();
             for (uint id = 0; id < 200000; id++)
             {
@@ -386,7 +389,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1017, 1037, 1208, 1211, 1231, 1270, 6910 }, filtered);
+            Assert.Equal(new uint[] { 1017, 1037, 1070, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
         }
 
         // ------------------------------------------------------------------
@@ -533,6 +536,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                     Assert.Contains(id, unreliable);
                 }
             }
+        }
+
+        // ------------------------------------------------------------------
+        // Part-mount toolchain serve + grant (findings-part-mount-spec.md 4.1/4.2).
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void The_part_mount_grant_is_the_two_client_writers_only()
+        {
+            // 1070 (the PlacePart commit) and 1239 (carry notifications) are the two the
+            // client authors and MUST be granted, or BuilderObserver / the lift tool never
+            // enable. 1071 is a server-owned reader and must NOT be granted.
+            Assert.Equal(
+                new uint[] { 1070u, 1239u },
+                MirrorSendPolicy.PartMountAuthoritativeComponents.ToArray());
+            Assert.DoesNotContain(1071u, MirrorSendPolicy.PartMountAuthoritativeComponents);
+        }
+
+        [Fact]
+        public void The_part_mount_inject_set_covers_every_require_including_the_1071_reader()
+        {
+            // All three must be checked out so every [Require] resolves: 1070 (writer),
+            // 1071 (BuilderVisualizer reader), 1239 (writer). A component must be seeded
+            // before its updates can be handled, so injecting is what puts 1070/1239 in
+            // the component map for their handlers.
+            Assert.Equal(
+                new uint[] { 1070u, 1071u, 1239u },
+                MirrorSendPolicy.PartMountInjectedComponents.ToArray());
+        }
+
+        [Fact]
+        public void The_part_mount_components_are_NOT_in_the_always_on_sets()
+        {
+            // They ride the placement flag (a part is only lifted at a shipyard-docked
+            // ship), exactly like the ship-build UI - never the always-on grant/inject.
+            foreach (uint id in new uint[] { 1070u, 1071u, 1239u })
+            {
+                Assert.DoesNotContain(id, MirrorSendPolicy.AuthoritativeComponents);
+                Assert.DoesNotContain(id, MirrorSendPolicy.InjectedComponents);
+            }
+        }
+
+        [Fact]
+        public void The_client_authoritative_mount_events_are_never_relayed_to_other_players()
+        {
+            // 1070/1239 are client-authoritative with cross-entity payloads; relaying
+            // would re-address them to the sender's own entity on a remote rig that runs
+            // neither behaviour. The mount is realised server-side, not by relaying.
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1070u));
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1239u));
         }
     }
 }

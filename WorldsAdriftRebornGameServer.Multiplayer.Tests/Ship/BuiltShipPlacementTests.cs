@@ -102,11 +102,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void Built_hull_key_is_not_a_bolted_part_key_so_the_deck_seeds_world_absolute()
+        public void Built_ship_keys_are_not_static_ship_bolted_part_keys()
         {
-            // The 190602 branch seeds hull-relative only for IsBoltedPartKey; a built
-            // deck's key must NOT match, so its static position is seeded world-absolute
-            // (a solid floor for a ship that does not move this phase).
+            // The 190602 IsBoltedPartKey branch is for the STATIC test ship's parts and
+            // resolves the single global ShipFrameKey hull; a built hull/deck must NOT
+            // match it (they resolve their OWN built hull instead) - the built deck is
+            // made a Unity child of its built hull by the dedicated built-deck branch
+            // (BuiltShips.IsBuiltDeck), and a mounted part by the mounted-part branch.
             Assert.False(WorldEntities.IsBoltedPartKey(BuiltShipPlacement.HullKey(0)));
             Assert.False(WorldEntities.IsBoltedPartKey(BuiltShipPlacement.DeckKey(0)));
         }
