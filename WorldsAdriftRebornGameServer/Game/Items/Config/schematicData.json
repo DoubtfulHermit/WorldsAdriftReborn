@@ -2577,6 +2577,80 @@
     "IsShip": false,
     "cipherSlotParsed": []
   },
+  "proceduralEngineDefault": {
+    "SchematicType": 1,
+    "uUID": "proceduralEngineDefault",
+    "schematicId": "proceduralEngineDefault",
+    "referenceData": "proceduralEngineDefault",
+    "category": "CraftingStation",
+    "title": "Procedural Engine",
+    "iconId": "metals/Metal_Iron",
+    "description": "A combustion engine that drives a ship forward under the helmsman's throttle.",
+    "timeToCraft": 10,
+    "amountToCraft": 1,
+    "itemType": "engine",
+    "craftingRequirements": [
+      {
+        "id": 0,
+        "name": "iron",
+        "iconId": "metals/Metal_Iron",
+        "component": "Casing",
+        "description": "The protective sheath that houses the engine's internals.",
+        "amountRequired": 1,
+        "customizationCategory": ""
+      },
+      {
+        "id": 1,
+        "name": "iron",
+        "iconId": "metals/Metal_Iron",
+        "component": "Combustion Internals",
+        "description": "The firing chamber that converts fuel into thrust.",
+        "amountRequired": 1,
+        "customizationCategory": ""
+      },
+      {
+        "id": 2,
+        "name": "iron",
+        "iconId": "metals/Metal_Iron",
+        "component": "Mechanical Internals",
+        "description": "The cogs and shafts that transfer power to the propeller.",
+        "amountRequired": 1,
+        "customizationCategory": ""
+      },
+      {
+        "id": 3,
+        "name": "iron",
+        "iconId": "metals/Metal_Iron",
+        "component": "Propeller",
+        "description": "The blades that bite the air and pull the ship forward.",
+        "amountRequired": 1,
+        "customizationCategory": ""
+      }
+    ],
+    "baseHp": 0.3,
+    "baseStats": {
+      "power": 0.15,
+      "boost": 0.15,
+      "overheatLimit": 0.15,
+      "fuelEfficiency": 0.15
+    },
+    "rarity": 0,
+    "cipherSlots": [],
+    "unlearnable": false,
+    "modules": {
+      "Head": "Standard"
+    },
+    "hullData": "",
+    "OrderedStats": [],
+    "UniqueID": "proceduralEngineDefault",
+    "CraftingCategoryEnum": 2,
+    "HumanReadableItemType": "Engine",
+    "rarityParsed": 0,
+    "HullDataBytes": "",
+    "IsProcedural": true,
+    "IsShip": false,
+    "cipherSlotParsed": []
+  },
   "guitar": {
     "SchematicType": 0,
     "uUID": "guitar",

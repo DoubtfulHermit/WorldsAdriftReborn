@@ -176,6 +176,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         }
 
         /// <summary>
+        /// The Phase-0 starter ship-part set MUST be present in the served catalogue and
+        /// crash-safe. The client learns/renders these as craftable ship parts, so a
+        /// missing record (or a bad category/itemType) is either a silent no-show or an
+        /// uncaught throw on the schematics/knowledge panels. These are the ids the ship
+        /// build effort proves against; lamp + helm are the first proof targets.
+        ///
+        /// Categories are asserted against the client's routing (CraftingUI splits craft
+        /// actions by CraftingCategory): functional MODULAR parts (engine/wing) are
+        /// CraftingStation-category assembly-station schematics per SchematicData.cs's
+        /// modular item types (engine/cannon/wing/swivelGun) and the assemblyStation
+        /// ("construct ship parts and equipment"); helm/lamp/sail/storage are the
+        /// bolt-on/utility parts the branch surfaces through the Shipyard flow. Every
+        /// value below is also covered field-by-field by <see cref="Recipe_is_crash_safe"/>.
+        /// </summary>
+        [Theory]
+        [InlineData("proceduralEngineDefault", "CraftingStation", "engine")]
+        [InlineData("proceduralWingDefault", "Shipyard", "proceduralWing")]
+        [InlineData("helm", "Shipyard", "helm")]
+        [InlineData("lamp", "Shipyard", "lamp")]
+        [InlineData("sail", "Shipyard", "sail")]
+        [InlineData("makeshiftStorage", "Personal", "makeshiftStorage")]
+        [InlineData("storageContainer", "Shipyard", "storageContainer")]
+        public void Starter_ship_part_is_served_and_correctly_categorised(string id, string category, string itemType)
+        {
+            JObject cat = Catalogue();
+            Assert.True(cat[id] is JObject, $"{id}: starter ship-part record absent from the served catalogue.");
+            JObject r = (JObject)cat[id]!;
+
+            Assert.Equal(category, (string?)r["category"]);
+            Assert.True(ValidCategories.Contains((string?)r["category"]!),
+                $"{id}: category is not a client-parseable CraftingCategory.");
+            Assert.Equal(itemType, (string?)r["itemType"]);
+            Assert.False(string.IsNullOrEmpty((string?)r["itemType"]),
+                $"{id}: itemType is empty (hierarchy bucket key at CharacterLearnedSchematicLibrary.cs:343).");
+        }
+
+        /// <summary>
         /// Every SCHEMATIC_FIXED knowledge node's baked schematicId MUST resolve in the
         /// served catalogue. KnowledgeInfoPanel.cs:92-93 does
         /// <c>LookupSchematic(node.schematicId).GetFormattedTitle()</c> with no null
