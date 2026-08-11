@@ -171,10 +171,39 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     if (ok)
                     {
                         PushSchematics(player, entityId, designs);
+
+                        // LIVE-REFRESH THE FRAME DESIGNS LIST. Re-pushing 1207 (above)
+                        // updates the schematic system but does NOT re-run the panel's
+                        // Activate/rebuild, so the renamed row does not visibly change
+                        // until the panel is re-opened - the SAME display-rebuild gap the
+                        // Done-exit fix closed. So we re-emit the console-open signal (1005
+                        // PlayerStartCrafting) exactly as StopEditing/Done does, which is
+                        // the only path that re-runs ShipCraftingUI.Activate and re-reads
+                        // the just-pushed 1207, so the new name shows immediately.
+                        //
+                        // RenameSchematic carries NO editorId, so the shipyard is resolved
+                        // from the player's tracked console (the last yard they opened /
+                        // were editing). One echo per rename - a discrete user action, not
+                        // a per-frame loop; a re-open does not itself trigger a rename, so
+                        // there is no re-open loop.
+                        long renameShipyardId = designs.EditingShipyardEntityId != 0
+                            ? designs.EditingShipyardEntityId
+                            : designs.LastConsoleShipyardEntityId;
+                        bool relisted = renameShipyardId != 0
+                            && WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
+                                player, entityId, renameShipyardId);
+                        Console.WriteLine("[info] 1208: entity " + entityId + " rename slot " + ev.slot
+                            + " -> '" + ev.name + "' -> " + ok + "; "
+                            + (relisted
+                                ? "re-emitted 1005 on shipyard " + renameShipyardId
+                                    + " so the FRAME DESIGNS list shows the new name immediately."
+                                : "no open console tracked / feature off, list refreshes on next open."));
+                        Ack(player, entityId, ev.id, ok);
+                        continue;
                     }
                     Ack(player, entityId, ev.id, ok);
                     Console.WriteLine("[info] 1208: entity " + entityId + " rename slot " + ev.slot
-                        + " -> '" + ev.name + "' -> " + ok + ".");
+                        + " -> '" + ev.name + "' -> " + ok + " (no such slot).");
                 }
             }
 

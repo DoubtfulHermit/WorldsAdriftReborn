@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Bossa.Travellers.Items;
+using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
@@ -100,6 +102,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             BuiltShips.RegisterHull(hullEntityId, hullBytes);
             BuiltShips.RegisterDeck(deckEntityId);
 
+            // ONE SHIP PER SHIPYARD: record which yard produced this hull, so its 1205
+            // ShipyardState.DockedShipId reports it and a further CRAFT on that yard is
+            // refused until it is cleared (see the 1270 StartCrafting gate + the undock
+            // trigger). Recorded BEFORE the 1205 push below so the serve branch agrees.
+            BuiltShips.SetDocked(shipyardEntityId, hullEntityId);
+
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
@@ -109,6 +117,13 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 {
                     reached++;
                 }
+                // Tell every peer holding the shipyard in interest that it is now docked
+                // to this hull, so ShipyardVisualizer.OnDockedShipChanged fires live
+                // rather than only on a fresh checkout. dockedShipId is SHARED world
+                // truth (the shipyard is a shared entity), so this goes to all peers -
+                // a one-time event, not a stream. Best-effort: a drop is corrected by the
+                // serve branch on the next checkout.
+                PushDockedShipId(peer, shipyardEntityId, hullEntityId);
             }
 
             Console.WriteLine("[info] built-ship spawn: BUILT ship for shipyard " + shipyardEntityId
@@ -174,6 +189,34 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         private static IEnumerable<ENetPeerHandle> ConnectedPeers()
         {
             return PeerManager.Instance.playerState.Keys.ToList();
+        }
+
+        /// <summary>
+        /// Pushes a live 1205 ShipyardState update carrying only DockedShipId to one
+        /// peer, so its ShipyardVisualizer learns the yard is docked without waiting for
+        /// a re-checkout. Shared by the spawn path (dockedShipId = the new hull) and,
+        /// via <see cref="PushUndocked"/>, the undock trigger (dockedShipId = invalid 0).
+        /// </summary>
+        internal static void PushDockedShipId(ENetPeerHandle peer, long shipyardEntityId, long dockedHullEntityId)
+        {
+            ShipyardState.Update update = new ShipyardState.Update();
+            update.SetDockedShipId(new EntityId(dockedHullEntityId));
+            SendOPHelper.SendComponentUpdateOp(peer, shipyardEntityId,
+                new List<uint> { 1205 }, new List<object> { update });
+        }
+
+        /// <summary>
+        /// Broadcasts "this shipyard no longer has a docked ship" (1205 DockedShipId =
+        /// invalid) to every connected peer. Called by the undock trigger after clearing
+        /// the ledger association, so the client drops the docked ship and CRAFT is
+        /// allowed again.
+        /// </summary>
+        internal static void PushUndocked(long shipyardEntityId)
+        {
+            foreach (ENetPeerHandle peer in ConnectedPeers())
+            {
+                PushDockedShipId(peer, shipyardEntityId, 0);
+            }
         }
     }
 }

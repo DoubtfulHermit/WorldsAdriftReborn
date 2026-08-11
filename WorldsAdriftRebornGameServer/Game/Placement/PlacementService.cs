@@ -239,6 +239,11 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 return false;
             }
 
+            // Remember which yard this player has a console open on, so a later FRAME
+            // DESIGNS rename (which carries no editorId) can re-emit this same open
+            // signal to rebuild the list. Single choke point for every console open.
+            Multiplayer.Ship.ShipDesignStore.For(playerEntityId).NoteConsole(shipyardEntityId);
+
             // playerId = the interacting player's OWN entity id, NOT the shipyard's.
             CraftingStationClientState.Update update = new CraftingStationClientState.Update();
             update.AddPlayerStartCrafting(new PlayerStartCrafting(new EntityId(playerEntityId), ""));

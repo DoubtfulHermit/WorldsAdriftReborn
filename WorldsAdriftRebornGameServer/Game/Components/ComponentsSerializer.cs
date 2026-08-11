@@ -304,9 +304,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             registered.Add(shipyardSeed.OwnerCharacterUid);
                         }
 
+                        // DockedShipId reports the built ship this shipyard produced (or
+                        // an invalid EntityId 0 when empty), so a re-checkout of an
+                        // occupied yard shows it docked and the ONE-ship-per-yard gate
+                        // stays consistent with what the client sees. A live 1205 update
+                        // is also pushed at spawn/undock (BuiltShipSpawner / the undock
+                        // trigger) for clients already holding the shipyard in interest.
+                        long dockedShipId = Crafting.BuiltShips.DockedShipFor(entityId);
+
                         obj = new ShipyardState.Data(
                             shipyardSeed.Active,
-                            new EntityId(0),
+                            new EntityId(dockedShipId),
                             shipyardSeed.Deployed,
                             shipyardSeed.OwnerCharacterUid,
                             0,
@@ -316,7 +324,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         Console.WriteLine("[info] seeding 1205 ShipyardState for placed shipyard entity "
                             + entityId + " (deployed=" + shipyardSeed.Deployed + ", active=" + shipyardSeed.Active
-                            + ", owner='" + shipyardSeed.OwnerCharacterUid + "').");
+                            + ", owner='" + shipyardSeed.OwnerCharacterUid + "', dockedShip=" + dockedShipId + ").");
                     }
                     else if(componentId == 190601)
                     {

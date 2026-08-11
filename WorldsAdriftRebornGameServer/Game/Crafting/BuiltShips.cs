@@ -28,6 +28,15 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     {
         private static readonly Dictionary<long, byte[]> HullBytesByEntityId = new Dictionary<long, byte[]>();
         private static readonly HashSet<long> DeckEntityIds = new HashSet<long>();
+
+        /// <summary>
+        /// The shipyard-&gt;built-ship association: shipyard entity id -&gt; the hull
+        /// entity id of the ONE ship currently docked at it. A shipyard's 1205
+        /// <c>ShipyardState.DockedShipId</c> is SINGULAR (one ship per yard), so this is
+        /// a plain one-to-one map, not a list. Additive to the ledger so the parallel
+        /// persistence work merges cleanly; it never touches the hull/deck maps above.
+        /// </summary>
+        private static readonly Dictionary<long, long> DockedHullByShipyard = new Dictionary<long, long>();
         private static int _sequence;
 
         /// <summary>
@@ -80,5 +89,55 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
 
         /// <summary>How many ships have been built this session.</summary>
         internal static int Count => HullBytesByEntityId.Count;
+
+        // ------------------------------------------------------------------
+        // ONE SHIP PER SHIPYARD (1205 ShipyardState.DockedShipId is singular).
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Records that <paramref name="hullEntityId"/> is now the ship docked at
+        /// <paramref name="shipyardEntityId"/>. Called by the spawner once a build
+        /// completes, so the 1205 serve branch reports it and a further CRAFT on that
+        /// yard is refused until it is cleared.
+        /// </summary>
+        internal static void SetDocked(long shipyardEntityId, long hullEntityId)
+        {
+            DockedHullByShipyard[shipyardEntityId] = hullEntityId;
+        }
+
+        /// <summary>
+        /// The hull entity id docked at a shipyard, or 0 (an INVALID EntityId) when the
+        /// yard is empty - exactly the value the 1205 <c>ShipyardState.DockedShipId</c>
+        /// seed/update wants for "no ship docked".
+        /// </summary>
+        internal static long DockedShipFor(long shipyardEntityId)
+        {
+            return DockedHullByShipyard.TryGetValue(shipyardEntityId, out long hullId) ? hullId : 0;
+        }
+
+        /// <summary>Whether a shipyard already holds a built/docked ship (CRAFT gate).</summary>
+        internal static bool IsShipyardOccupied(long shipyardEntityId)
+        {
+            return DockedHullByShipyard.ContainsKey(shipyardEntityId);
+        }
+
+        /// <summary>
+        /// Clears a shipyard's docked-ship association so a new build is allowed again,
+        /// returning the hull entity id that WAS docked (or 0 if the yard was empty).
+        /// Used by the debug undock trigger; the caller then re-pushes 1205 with an
+        /// invalid DockedShipId so CRAFT is permitted.
+        /// </summary>
+        internal static long ClearDocked(long shipyardEntityId)
+        {
+            if (DockedHullByShipyard.TryGetValue(shipyardEntityId, out long hullId))
+            {
+                DockedHullByShipyard.Remove(shipyardEntityId);
+                return hullId;
+            }
+            return 0;
+        }
+
+        /// <summary>Every shipyard that currently holds a docked ship (debug undock: clear all).</summary>
+        internal static IReadOnlyCollection<long> OccupiedShipyards => new List<long>(DockedHullByShipyard.Keys);
     }
 }

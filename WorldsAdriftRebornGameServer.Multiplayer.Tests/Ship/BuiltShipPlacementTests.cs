@@ -21,25 +21,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             new FixedPointPosition(70502113, -1273730, -4580013);
 
         [Fact]
-        public void Hull_is_offset_to_the_side_of_the_shipyard_so_it_does_not_overlap_the_console()
+        public void Hull_is_centred_horizontally_on_the_shipyard_so_it_docks_above_not_beside()
         {
             FixedPointPosition hull = BuiltShipPlacement.HullNextTo(Shipyard);
 
-            // +10 m on X (port-starboard), so the 12 m-wide hull's near edge is 4 m clear.
-            Assert.Equal(Shipyard.X + (long)(BuiltShipPlacement.SideOffsetMetres * FixedPointPosition.UnitsPerMetre), hull.X);
+            // Same X and Z as the shipyard: the ship hovers directly above the yard,
+            // not offset to one side sitting on the ground next to the console.
+            Assert.Equal(Shipyard.X, hull.X);
             Assert.Equal(Shipyard.Z, hull.Z);
-            // The hull is offset, never on top of the shipyard.
-            Assert.NotEqual(Shipyard.X, hull.X);
         }
 
         [Fact]
-        public void Hull_deck_plane_stands_off_above_the_shipyard_ground()
+        public void Hull_hovers_a_modest_height_above_the_shipyard()
         {
             FixedPointPosition hull = BuiltShipPlacement.HullNextTo(Shipyard);
 
-            // Raised half a metre so the deck plane clears the terrain rather than sinking.
-            Assert.Equal(Shipyard.Y + (long)(BuiltShipPlacement.UpMetres * FixedPointPosition.UnitsPerMetre), hull.Y);
+            // Raised the derived hover height so the whole hull body floats clear of the
+            // yard and reads as "docked above".
+            Assert.Equal(Shipyard.Y + (long)(BuiltShipPlacement.HoverHeightMetres * FixedPointPosition.UnitsPerMetre), hull.Y);
             Assert.True(hull.Y > Shipyard.Y);
+
+            // Derived from geometry (hull body height + clearance), a few metres - clear
+            // of the hull's own 3.4 m body but not way up high.
+            Assert.Equal(
+                BuiltShipPlacement.HullBodyHeightMetres + BuiltShipPlacement.HoverClearanceMetres,
+                BuiltShipPlacement.HoverHeightMetres);
+            Assert.True(BuiltShipPlacement.HoverHeightMetres > BuiltShipPlacement.HullBodyHeightMetres);
+            Assert.True(BuiltShipPlacement.HoverHeightMetres <= 10.0);
         }
 
         [Fact]

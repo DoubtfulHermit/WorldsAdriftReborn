@@ -1210,6 +1210,16 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly Game.Placement.PlacementService Placement = new Game.Placement.PlacementService();
 
         /// <summary>
+        /// DEBUG UNDOCK. Since flight does not exist yet, a built ship cannot be flown
+        /// off its shipyard to free the dock, so a second build cannot be tested. A
+        /// human write of a shipyard entity id (or an empty file for "all") to
+        /// /tmp/wareborn-undock clears that yard's docked-ship association and pushes a
+        /// live 1205 DockedShipId=invalid, re-opening the one-ship-per-yard CRAFT gate.
+        /// See Game.Crafting.ShipUndockTrigger.
+        /// </summary>
+        internal static readonly Game.Crafting.ShipUndockTrigger ShipUndock = new Game.Crafting.ShipUndockTrigger();
+
+        /// <summary>
         /// STEP 4, THE MILESTONE. Off unless WAREBORN_SHIP_FERRY=1. When armed it
         /// flies the hull along a straight path by publishing one 1130 control
         /// point every 0.24 s; the client's SSPDeadReckoningVisualizer -> PathFollower
@@ -2256,6 +2266,10 @@ namespace WorldsAdriftRebornGameServer
                 // throttled. A write to /tmp/wareborn-place starts placement for a
                 // player's hotbar shipyard. A no-op unless WAREBORN_PLACEMENT=1.
                 Placement.PollTrigger();
+                // DEBUG UNDOCK: same file-poll shape, self-throttled. A write of a
+                // shipyard entity id (or an empty file for "all") to /tmp/wareborn-undock
+                // frees that yard's dock so a second ship can be built and tested.
+                ShipUndock.PollTrigger();
                 // STEP 4 ferry: fixed-cadence 1130 control-point stream that flies
                 // the hull. Off unless WAREBORN_SHIP_FERRY=1; cheap when off (an env
                 // check) or idle (one Stopwatch compare). See Game.ShipFerryService.

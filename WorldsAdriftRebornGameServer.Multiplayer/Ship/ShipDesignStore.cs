@@ -98,6 +98,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>The shipyard entity currently being edited, or 0.</summary>
         public long EditingShipyardEntityId { get; private set; }
 
+        /// <summary>
+        /// The shipyard whose build console this player most recently had open - the
+        /// last editorId seen on any 1208 command or the last console this player opened.
+        /// STICKY (not cleared when editing stops), because a FRAME DESIGNS rename
+        /// (TriggerRenameSchematic) carries NO editorId of its own, yet needs the
+        /// shipyard id to re-emit the console-open signal that rebuilds the list with the
+        /// new name. Zero until the player first touches a shipyard console.
+        /// </summary>
+        public long LastConsoleShipyardEntityId { get; private set; }
+
+        /// <summary>
+        /// Record the shipyard whose build console this player is working with, so a
+        /// later rename (which carries no editorId) can address the right yard. Idempotent;
+        /// ignores 0 so a clear-on-exit does not erase the sticky value.
+        /// </summary>
+        public void NoteConsole(long shipyardEntityId)
+        {
+            if (shipyardEntityId != 0)
+            {
+                LastConsoleShipyardEntityId = shipyardEntityId;
+            }
+        }
+
         /// <summary>Whether a slot index addresses a real saved design.</summary>
         public bool IsValidSlot(int slot) => slot >= 0 && slot < Slots.Count;
 
@@ -196,6 +219,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public void StartEditing(long shipyardEntityId)
         {
             EditingShipyardEntityId = shipyardEntityId;
+            NoteConsole(shipyardEntityId);
         }
 
         /// <summary>TriggerStopEditingSchematic(): leave the mesh editor (design stays loaded).</summary>

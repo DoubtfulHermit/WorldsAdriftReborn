@@ -59,36 +59,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         }
 
         /// <summary>
-        /// How far to the side (+X, port-starboard) of the shipyard the hull centre
-        /// sits. The one-cell hull is 12 m wide (X) at the client's fixed ShipScale 2,
-        /// so its near edge lands (10 - 6) = 4 m from the shipyard's centre - clear of
-        /// the console the player just used to build it. Documented and separate so a
-        /// live client showing overlap (or too far to reach) is one edit.
+        /// The hull's own body height in metres. A one-cell frame is "roughly 12 m
+        /// across, 4 m fore-to-aft and 3.4 m tall" at the client's fixed ShipScale 2
+        /// (<see cref="ShipHull"/>), and the hull's deck plane is at the hull entity's
+        /// own local y = 0 with nothing hanging below it - so the whole hull body sits
+        /// BETWEEN y = 0 and y = +3.4 above its registration. Named so the hover height
+        /// below is derived from geometry, not a bare literal.
         /// </summary>
-        public const double SideOffsetMetres = 10.0;
+        public const double HullBodyHeightMetres = 3.4;
 
         /// <summary>
-        /// How far ABOVE the shipyard's own registered Y the hull's deck plane sits.
-        /// The hull's deck plane is at the hull entity's own local y = 0 and nothing on
-        /// a one-cell plan hangs below it, so this is the height of the step up onto the
-        /// ship - the same 0.5 m stand-off the static test hull uses over its ground
-        /// vertex. A metre would clear the terrain more comfortably but might be too
-        /// tall to walk up; zero would z-fight the ground.
+        /// The clearance gap left between the shipyard (and the console + dome the
+        /// player builds at) and the underside of the docked hull. A couple of metres:
+        /// enough that the ship visibly floats above the yard and clears the console
+        /// geometry, small enough that the ship still reads as docked TO this yard
+        /// rather than drifting off high above it.
         /// </summary>
-        public const double UpMetres = 0.5;
+        public const double HoverClearanceMetres = 2.6;
 
         /// <summary>
-        /// Where a ship built at <paramref name="shipyard"/> materialises: its hull
-        /// centre, offset <see cref="SideOffsetMetres"/> to the side and raised
-        /// <see cref="UpMetres"/> so the deck plane clears the ground. A pure function
-        /// of the shipyard position so the hull, its at-rest 1130 and its deck all
-        /// derive from one place and the arithmetic is asserted in tests.
+        /// How far ABOVE the shipyard's own registered Y the built hull hovers: the
+        /// hull's deck plane (its local y = 0) is raised this many metres so the whole
+        /// hull body floats clear of the yard, reading as a ship DOCKED ABOVE the
+        /// shipyard (as in WA), not one sitting on the ground beside it.
+        ///
+        /// Derived from geometry rather than picked blind: the hull body is
+        /// <see cref="HullBodyHeightMetres"/> (3.4 m) tall and the deck plane is its
+        /// lowest point, so raising the deck plane by 3.4 m alone would leave the hull
+        /// body starting exactly at the yard's top; adding <see cref="HoverClearanceMetres"/>
+        /// (2.6 m) opens a visible float gap that also clears the console/dome. The
+        /// resulting ~6 m is a modest "docked above" height - a few metres, not way up.
+        /// Documented and separate so a live client showing it too low (clipping the
+        /// dome) or too high (detached) is one edit.
+        /// </summary>
+        public const double HoverHeightMetres = HullBodyHeightMetres + HoverClearanceMetres;
+
+        /// <summary>
+        /// Where a ship built at <paramref name="shipyard"/> materialises: centred
+        /// HORIZONTALLY on the shipyard (same X and Z) and raised <see cref="HoverHeightMetres"/>
+        /// so the hull hovers a modest height directly ABOVE the yard - docked above it,
+        /// not beside it. A pure function of the shipyard position so the hull, its
+        /// at-rest 1130 and its deck (kept centred on the hull by <see cref="Deck.OnHull"/>)
+        /// all derive from one place and the arithmetic is asserted in tests.
         /// </summary>
         public static FixedPointPosition HullNextTo(FixedPointPosition shipyard)
         {
             return new FixedPointPosition(
-                shipyard.X + (long)(SideOffsetMetres * FixedPointPosition.UnitsPerMetre),
-                shipyard.Y + (long)(UpMetres * FixedPointPosition.UnitsPerMetre),
+                shipyard.X,
+                shipyard.Y + (long)(HoverHeightMetres * FixedPointPosition.UnitsPerMetre),
                 shipyard.Z);
         }
 

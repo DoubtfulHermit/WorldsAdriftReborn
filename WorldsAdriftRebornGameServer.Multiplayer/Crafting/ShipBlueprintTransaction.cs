@@ -48,6 +48,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
 
         /// <summary>An enabled row is not fully filled - the craft is blocked.</summary>
         MissingMaterials,
+
+        /// <summary>
+        /// The target shipyard already holds a built/docked ship. A shipyard's 1205
+        /// DockedShipId is singular, so it may build only ONE ship at a time; the
+        /// current one must be removed before another is built.
+        /// </summary>
+        ShipyardOccupied,
     }
 
     /// <summary>
@@ -204,9 +211,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         /// reserved materials are consumed for real (they are already out of the
         /// inventory; setting IsCrafting makes them non-returnable) and the timer may
         /// begin. On failure nothing changes and the caller emits an error + clears busy.
+        ///
+        /// <paramref name="shipyardOccupied"/> gates ONE ship per shipyard: when the
+        /// target yard already holds a built/docked ship the craft is refused with
+        /// <see cref="StartCraftOutcome.ShipyardOccupied"/> and nothing is consumed. It
+        /// is checked FIRST (before materials) so an occupied yard never burns the
+        /// player's loaded materials. The occupancy is passed in rather than looked up
+        /// here so this stays a pure, engine-free policy the tests drive directly.
         /// </summary>
-        public static StartCraftOutcome StartCraft(ShipBlueprintBuild build)
+        public static StartCraftOutcome StartCraft(ShipBlueprintBuild build, bool shipyardOccupied = false)
         {
+            if (shipyardOccupied)
+            {
+                return StartCraftOutcome.ShipyardOccupied;
+            }
             if (build.IsCrafting)
             {
                 return StartCraftOutcome.AlreadyCrafting;

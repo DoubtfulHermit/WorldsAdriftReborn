@@ -136,6 +136,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
+        public void Editing_a_shipyard_records_it_as_the_console_for_rename()
+        {
+            // A rename carries no editorId, so it re-emits the console-open signal using
+            // the tracked console. Editing a yard records it, and - crucially - it stays
+            // recorded after editing STOPS (StopEditing clears the live editor id, but the
+            // sticky console id must survive so a later rename still finds the yard).
+            var d = new PlayerShipDesigns();
+            Assert.Equal(0, d.LastConsoleShipyardEntityId);
+
+            d.StartEditing(777);
+            Assert.Equal(777, d.LastConsoleShipyardEntityId);
+
+            d.StopEditing();
+            Assert.Equal(0, d.EditingShipyardEntityId);        // live editor id cleared
+            Assert.Equal(777, d.LastConsoleShipyardEntityId);  // sticky console id kept
+        }
+
+        [Fact]
+        public void NoteConsole_tracks_the_last_open_yard_and_ignores_zero()
+        {
+            // Opening a console records the yard; a later open updates it; a clear-to-zero
+            // never erases the sticky value (so a rename after an exit still has a yard).
+            var d = new PlayerShipDesigns();
+            d.NoteConsole(111);
+            Assert.Equal(111, d.LastConsoleShipyardEntityId);
+
+            d.NoteConsole(222);
+            Assert.Equal(222, d.LastConsoleShipyardEntityId);
+
+            d.NoteConsole(0);
+            Assert.Equal(222, d.LastConsoleShipyardEntityId);
+        }
+
+        [Fact]
         public void Rename_updates_the_slot_name()
         {
             var d = new PlayerShipDesigns();

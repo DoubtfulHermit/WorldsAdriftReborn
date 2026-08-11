@@ -298,6 +298,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
         }
 
         [Fact]
+        public void Craft_is_refused_when_the_shipyard_already_has_a_docked_ship()
+        {
+            // ONE SHIP PER SHIPYARD: even a fully-filled, buildable blueprint is refused
+            // when the target yard already holds a built/docked ship, and nothing is
+            // consumed (IsCrafting stays false so the materials remain returnable).
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(6000, "birch", amount: 3, quality: 1, x: 0, y: 0));
+            inv.Add(Material(6001, "iron", amount: 2, quality: 1, x: 3, y: 0));
+            ShipBlueprintTransaction.AutoFill(build, inv);
+
+            Assert.Equal(StartCraftOutcome.ShipyardOccupied,
+                ShipBlueprintTransaction.StartCraft(build, shipyardOccupied: true));
+            Assert.False(build.IsCrafting);
+
+            // Once the yard is freed, the very same build starts.
+            Assert.Equal(StartCraftOutcome.Started,
+                ShipBlueprintTransaction.StartCraft(build, shipyardOccupied: false));
+            Assert.True(build.IsCrafting);
+        }
+
+        [Fact]
+        public void Occupied_yard_is_checked_before_materials_so_a_bad_build_is_not_the_reason_reported()
+        {
+            // An occupied yard trumps even a missing-materials build: the player is told
+            // the yard is full, not that they are short materials.
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(6100, "birch", amount: 3, quality: 1));     // only the frame
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 6100);
+
+            Assert.Equal(StartCraftOutcome.ShipyardOccupied,
+                ShipBlueprintTransaction.StartCraft(build, shipyardOccupied: true));
+            Assert.False(build.IsCrafting);
+        }
+
+        [Fact]
         public void No_material_transaction_is_accepted_while_crafting()
         {
             ShipBlueprintBuild build = NewBuild();

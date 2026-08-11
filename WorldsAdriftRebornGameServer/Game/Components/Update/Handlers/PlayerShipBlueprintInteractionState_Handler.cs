@@ -315,7 +315,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                             + " but entity " + entityId + " has no selected blueprint; ignoring.");
                         continue;
                     }
-                    StartCraftOutcome outcome = ShipBlueprintTransaction.StartCraft(build);
+                    // ONE SHIP PER SHIPYARD: refuse the craft if this yard already holds a
+                    // built/docked ship (its 1205 DockedShipId is singular). Checked here
+                    // so no materials are consumed and no timer starts; the current ship
+                    // must be removed (undock trigger) before another can be built.
+                    bool shipyardOccupied = Game.Crafting.BuiltShips.IsShipyardOccupied(shipyardId);
+                    StartCraftOutcome outcome = ShipBlueprintTransaction.StartCraft(build, shipyardOccupied);
                     if (outcome == StartCraftOutcome.Started)
                     {
                         // isCrafting=true -> atomizer VFX on; start the server timer.
@@ -332,7 +337,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                             ? "Blueprint is missing materials."
                             : outcome == StartCraftOutcome.NothingEnabled
                                 ? "No schematics are enabled."
-                                : "Blueprint is already crafting.";
+                                : outcome == StartCraftOutcome.ShipyardOccupied
+                                    ? "This shipyard already has a ship docked. Remove it before building another."
+                                    : "Blueprint is already crafting.";
                         GsimShipBlueprintInteractionState.Update err = new GsimShipBlueprintInteractionState.Update();
                         err.SetBusy(ShipBlueprintInteraction.RepliedBusy);
                         err.AddError(new ShipBlueprintErrorEvent(message));
