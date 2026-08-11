@@ -24,6 +24,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     {
         public string? SchematicId;
         public SlotHold[] Slots = System.Array.Empty<SlotHold>();
+
+        /// <summary>
+        /// The placed crafting station this session's craft is bound to, or null for
+        /// a personal (multitool) craft. Set from the 1003 craftingStationEntityId
+        /// field as updates arrive, so a station console re-open can tell an in-
+        /// progress craft AT THIS station (preserve it) from a fresh open or a craft
+        /// that belonged to a different station / to personal crafting (reset it to
+        /// the crash-safe idle shape). See StationCraftRouting.ShouldResetToIdleOnOpen.
+        /// </summary>
+        public long? StationEntityId;
     }
 
     /// <summary>

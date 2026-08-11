@@ -7,9 +7,11 @@ using Bossa.Travellers.Craftingstation;
 using Bossa.Travellers.Items;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
+using WorldsAdriftRebornGameServer.Game.Crafting;
 using WorldsAdriftRebornGameServer.Game.Inventory;
 using WorldsAdriftRebornGameServer.Game.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Crafting;
 using WorldsAdriftRebornGameServer.Multiplayer.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
 using WorldsAdriftRebornGameServer.Multiplayer.Placement;
@@ -299,8 +301,23 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             // clientSchematicId means LoadedSchematic is null, so SelectSchematic is never
             // reached and SyncCraftingItems early-returns. The client picking a recipe then
             // drives real values back through the 1003 handler exactly as before.
+            //
+            // BUT the interact-open fires REPEATEDLY while the player stands at the console
+            // (the client re-sends the Craft interaction), so an UNCONDITIONAL idle reset
+            // wipes an in-progress multi-slot craft's recipe + slots mid-fill - the client's
+            // OnSchematicChanged("") clears LoadedSchematic and the empty slotted list blanks
+            // the panel, stranding every slot after the first. So reset ONLY on a fresh open
+            // (no craft in progress bound to THIS station); when this player already has an
+            // active craft here, re-echo WITHOUT the reset - the station's 1005 already holds
+            // the live slot state (the per-slot 1003 fills now push to the station), so the
+            // re-open preserves it. A stale schematic on a genuine first open is still reset,
+            // because a fresh session has no schematic and no station binding.
+            CraftSession session = CraftSessions.For(playerEntityId);
+            bool resetToIdle = StationCraftRouting.ShouldResetToIdleOnOpen(
+                session.SchematicId, session.StationEntityId, stationEntityId);
+
             return EmitPlayerStartCrafting(peer, playerEntityId, stationEntityId, "crafting station", "parts crafting UI",
-                resetToIdle: true);
+                resetToIdle);
         }
 
         /// <summary>
