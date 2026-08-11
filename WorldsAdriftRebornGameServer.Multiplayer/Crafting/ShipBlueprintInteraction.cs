@@ -44,6 +44,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         }
 
         /// <summary>
+        /// Whether an inbound 1270 update must RE-PUSH the 1274 blueprint LIST. True on an
+        /// actual refresh (panel open) OR a save: a <c>SaveBlueprint</c> adds a new entry
+        /// to the player's catalog, so the newly-grown list must be sent for the SHIP
+        /// BLUEPRINTS panel to show it. Every other command clears Busy without churning
+        /// the list (<see cref="ShouldReplyBusyFalse"/> / <see cref="ShouldReplyToRefresh"/>).
+        /// </summary>
+        public static bool ShouldReplyWithBlueprintList(BlueprintCommandCounts counts)
+        {
+            return counts.RefreshBlueprints > 0 || counts.SaveBlueprint > 0;
+        }
+
+        /// <summary>
         /// The per-kind counts of the eleven 1270 commands in one update. EVERY one of
         /// them is wrapped by the client in <c>LockOnBusyState</c>
         /// (PlayerShipBlueprintInteractionBehaviour), which sets the client-local

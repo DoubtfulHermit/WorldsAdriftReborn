@@ -99,6 +99,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
         }
 
         [Fact]
+        public void Refresh_re_pushes_the_blueprint_list()
+        {
+            // Panel open => the SHIP BLUEPRINTS list must be (re-)sent.
+            var counts = new ShipBlueprintInteraction.BlueprintCommandCounts(
+                0, 0, 0, 0, refreshBlueprints: 1, 0, 0, 0, 0, 0, 0);
+            Assert.True(ShipBlueprintInteraction.ShouldReplyWithBlueprintList(counts));
+        }
+
+        [Fact]
+        public void Save_re_pushes_the_blueprint_list()
+        {
+            // A newly saved blueprint must appear, so the grown list is re-sent.
+            var counts = new ShipBlueprintInteraction.BlueprintCommandCounts(
+                0, 0, 0, 0, 0, saveBlueprint: 1, 0, 0, 0, 0, 0);
+            Assert.True(ShipBlueprintInteraction.ShouldReplyWithBlueprintList(counts));
+            // ...and it still clears busy.
+            Assert.True(ShipBlueprintInteraction.ShouldReplyBusyFalse(counts));
+        }
+
+        [Fact]
+        public void Selecting_a_blueprint_clears_busy_without_re_pushing_the_list()
+        {
+            // SetBlueprintId populates 1271 (cost), clears busy, but must NOT churn the
+            // 1274 list model - selecting must not rebuild the list under the user.
+            var counts = new ShipBlueprintInteraction.BlueprintCommandCounts(
+                0, 0, 0, setBlueprintId: 1, 0, 0, 0, 0, 0, 0, 0);
+            Assert.True(ShipBlueprintInteraction.ShouldReplyBusyFalse(counts));
+            Assert.False(ShipBlueprintInteraction.ShouldReplyWithBlueprintList(counts));
+        }
+
+        [Fact]
         public void Locking_sums_all_kinds()
         {
             var counts = new ShipBlueprintInteraction.BlueprintCommandCounts(

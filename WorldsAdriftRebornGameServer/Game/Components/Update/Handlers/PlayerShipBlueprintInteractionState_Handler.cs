@@ -95,6 +95,71 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             bool isRefresh = ShipBlueprintInteraction.ShouldReplyToRefresh(counts.RefreshBlueprints);
 
+            // ---- SAVE: add each saved design to the player's blueprint catalogue so the
+            // SHIP BLUEPRINTS list grows. SaveBlueprint(targetShipyard, newId) - newId is
+            // the blueprint name. The list is (re-)pushed below on save (or refresh).
+            Multiplayer.Crafting.PlayerShipBlueprints catalog =
+                Multiplayer.Crafting.ShipBlueprintCatalogStore.For(entityId);
+            if (counts.SaveBlueprint > 0 && clientComponentUpdate.saveBlueprint != null)
+            {
+                foreach (SaveBlueprint save in clientComponentUpdate.saveBlueprint)
+                {
+                    if (catalog.Save(save.newId))
+                    {
+                        Console.WriteLine("[info] 1270: entity " + entityId
+                            + " saved blueprint \"" + save.newId + "\".");
+                    }
+                }
+            }
+
+            // ---- SELECT: populate 1271 on the TARGET SHIPYARD with the selected
+            // blueprint's cost bill. SetShipBlueprint(targetEntity=shipyard, blueprintId).
+            // A blueprintId with a value -> push the recipe's schematic rows; the None
+            // case (the client fires SetBlueprintId(None) when a hull frame is selected,
+            // hulls and blueprints being mutually exclusive) -> push an EMPTY 1271 so a
+            // previously selected blueprint's cost does not linger. 1271 lives on the
+            // shipyard, which the player has interest in while the build UI is open, so
+            // the update reaches this peer and drives ShipBlueprintCraftingBehaviour's
+            // SchematicsUpdated. Per-shipyard, event-driven, sent only to this peer.
+            if (counts.SetBlueprintId > 0 && clientComponentUpdate.setBlueprintId != null)
+            {
+                foreach (SetShipBlueprint select in clientComponentUpdate.setBlueprintId)
+                {
+                    long shipyardId = select.targetEntity.Id;
+                    ShipBlueprintCraftingState.Update crafting = new ShipBlueprintCraftingState.Update();
+                    if (select.blueprintId.HasValue)
+                    {
+                        // TEST recipe (ShipBlueprintRecipe.TestMakeshiftShip) - authored
+                        // conservative bill; real numbers get swapped in the recipe module.
+                        Multiplayer.Crafting.ShipBlueprintRecipe recipe =
+                            Multiplayer.Crafting.ShipBlueprintRecipe.TestMakeshiftShip();
+                        crafting.SetBlueprintId(
+                            new Improbable.Collections.Option<string>(select.blueprintId.Value));
+                        crafting.SetSchematics(
+                            Game.Crafting.ShipBlueprintSchematicMapper.ToSchematics(recipe));
+                        crafting.SetCraftingTime(recipe.CraftingTime);
+                        crafting.SetIsCrafting(false);
+                        Console.WriteLine("[info] 1270: entity " + entityId + " selected blueprint \""
+                            + select.blueprintId.Value + "\"; pushed 1271 on shipyard " + shipyardId
+                            + " with " + recipe.Rows.Count + " schematic row(s).");
+                    }
+                    else
+                    {
+                        // Blueprint cleared (hull frame selected): empty resting 1271.
+                        crafting.SetBlueprintId(new Improbable.Collections.Option<string>());
+                        crafting.SetSchematics(
+                            new Improbable.Collections.List<ShipBlueprintSchematic>());
+                        crafting.SetCraftingTime(0);
+                        crafting.SetIsCrafting(false);
+                        Console.WriteLine("[info] 1270: entity " + entityId
+                            + " cleared blueprint selection; pushed empty 1271 on shipyard " + shipyardId + ".");
+                    }
+                    SendOPHelper.SendComponentUpdateOp(player, shipyardId,
+                        new List<uint> { 1271 },
+                        new List<object> { crafting });
+                }
+            }
+
             // Clear the spinner for ANY command. The client wraps every 1270 command in
             // LockOnBusyState (BusyModel=true) and clears it ONLY on a 1274 BusyUpdated
             // event, which fires ONLY if field tag 2 (Busy) is PRESENT on the wire
@@ -103,16 +168,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // the blocker would never lift. Both LoadingInputBlockers (left list + centre
             // overlay) bind the same BusyModel, so this one reply clears both.
             //
-            // The blueprint LIST is re-seeded (to empty) ONLY on an actual refresh (panel
-            // open). A non-refresh command - e.g. the SetBlueprintId(None) the client fires
-            // when a hull frame is selected, hulls and blueprints being mutually exclusive -
-            // clears Busy WITHOUT touching the list model, so selecting a frame does not
-            // churn the (empty) blueprint list.
+            // The blueprint LIST is re-pushed on a refresh (panel open) OR a save (a new
+            // entry must appear). Any other command - e.g. SetBlueprintId - clears Busy
+            // WITHOUT touching the list model, so selecting a frame/blueprint does not
+            // churn the list.
+            bool pushList = ShipBlueprintInteraction.ShouldReplyWithBlueprintList(counts);
             GsimShipBlueprintInteractionState.Update reply = new GsimShipBlueprintInteractionState.Update();
             reply.SetBusy(ShipBlueprintInteraction.RepliedBusy);
-            if (isRefresh)
+            if (pushList)
             {
-                reply.SetShipBlueprintList(new Improbable.Collections.Option<ShipBlueprintList>());
+                Improbable.Collections.List<string> available = new Improbable.Collections.List<string>();
+                foreach (string blueprintId in catalog.Available)
+                {
+                    available.Add(blueprintId);
+                }
+                reply.SetShipBlueprintList(new Improbable.Collections.Option<ShipBlueprintList>(
+                    new ShipBlueprintList(available)));
             }
 
             SendOPHelper.SendComponentUpdateOp(player, entityId,
@@ -121,8 +192,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             Console.WriteLine("[info] 1270: entity " + entityId + " command batch (locking="
                 + counts.Locking + ", refresh=" + counts.RefreshBlueprints + ", setBlueprintId="
-                + counts.SetBlueprintId + "); replied 1274 Busy=" + ShipBlueprintInteraction.RepliedBusy
-                + (isRefresh ? " + empty ship-blueprint list." : "."));
+                + counts.SetBlueprintId + ", save=" + counts.SaveBlueprint + "); replied 1274 Busy="
+                + ShipBlueprintInteraction.RepliedBusy
+                + (pushList ? (" + ship-blueprint list (" + catalog.Available.Count + " entr(y/ies)).") : "."));
 
             if (!isRefresh)
             {
