@@ -53,6 +53,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         private const int MaxSchematicType = 2;  // Ship
         private const int MaxStatBars = 10;      // acs/SchematicsSubScreen.cs:331 bar array
 
+        // The materials a player can actually GATHER in the live world. A recipe whose
+        // craftingRequirements name anything outside this set is uncraftable (the lamp
+        // that needed "fuel" was the motivating case). Derived from the live harvest
+        // sources: metal nodes + deposits yield iron/copper/aluminium
+        // (WorldsAdriftRebornGameServer.cs registers HarvestReward for each MetalNode /
+        // MetalDeposits.MetalType), and trees yield birch (Trees.WoodType). Keep this in
+        // sync if a new gather source lands.
+        private static readonly HashSet<string> GatherableMaterials = new()
+        {
+            "iron", "copper", "aluminium", "birch",
+        };
+
+        // The node types that actually learn a craftable schematic (mirror of
+        // KnowledgeNodeInfo.LearnsSchematic). CIPHERSLOT/SLOT/TECHNOLOGY learn nothing.
+        private static readonly HashSet<string> LearningNodeTypes = new()
+        {
+            "SCHEMATIC_LIST", "SCHEMATIC_FIXED", "SCHEMATIC_RANDOM",
+        };
+
         private static string RepoRoot()
         {
             DirectoryInfo? dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -377,6 +396,85 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
             Assert.True(broken.Count == 0,
                 "SchematicAliases entries whose target recipe is absent from the catalogue: " +
                 string.Join(", ", broken));
+        }
+
+        /// <summary>
+        /// COVERAGE: every recipe in the served catalogue MUST be reachable by unlocking
+        /// some knowledge node. A recipe no node ever learns is dead content - the player
+        /// can never surface it in the crafting list however far they progress the tree.
+        /// Reachability mirrors the 1334 handler exactly: a SCHEMATIC_* node learns
+        /// KnowledgeSpendPolicy.SchematicIdFor(nodeId); if that resolves to a catalogue
+        /// key, the recipe is reachable. This is the coverage half of feat/all-recipes-knowledge.
+        /// </summary>
+        [Fact]
+        public void Every_recipe_is_reachable_from_a_knowledge_node()
+        {
+            JObject cat = Catalogue();
+            JObject tree = KnowledgeTree();
+
+            var reachable = new HashSet<string>();
+            foreach (JToken node in (JArray)tree["nodes"]!)
+            {
+                string nodeType = (string?)node["nodeType"] ?? "";
+                if (!LearningNodeTypes.Contains(nodeType))
+                {
+                    continue;
+                }
+                string nodeId = (string?)node["id"] ?? "";
+                string learned = KnowledgeSpendPolicy.SchematicIdFor(nodeId);
+                if (cat[learned] != null)
+                {
+                    reachable.Add(learned);
+                }
+            }
+
+            var unreachable = new List<string>();
+            foreach (KeyValuePair<string, JToken?> kv in cat)
+            {
+                if (!reachable.Contains(kv.Key))
+                {
+                    unreachable.Add(kv.Key);
+                }
+            }
+
+            Assert.True(unreachable.Count == 0,
+                "Catalogue recipes not learnable from any knowledge node (dead content - " +
+                "add a KnowledgeSpendPolicy.SchematicAliases entry pointing some node at each): " +
+                string.Join(", ", unreachable));
+        }
+
+        /// <summary>
+        /// CRAFTABILITY: every recipe's craftingRequirements must reference only materials
+        /// a player can actually gather (<see cref="GatherableMaterials"/>). A recipe whose
+        /// material has no gather source can be unlocked but never crafted - the lamp that
+        /// required "fuel" was exactly this. The craftability half of feat/all-recipes-knowledge.
+        /// </summary>
+        [Fact]
+        public void Every_recipe_material_is_gatherable()
+        {
+            JObject cat = Catalogue();
+            var bad = new List<string>();
+
+            foreach (KeyValuePair<string, JToken?> kv in cat)
+            {
+                if (kv.Value is not JObject r || r["craftingRequirements"] is not JArray reqs)
+                {
+                    continue;
+                }
+                foreach (JToken req in reqs)
+                {
+                    string? name = (string?)req["name"];
+                    if (string.IsNullOrEmpty(name) || !GatherableMaterials.Contains(name!))
+                    {
+                        bad.Add($"{kv.Key} -> '{name}'");
+                    }
+                }
+            }
+
+            Assert.True(bad.Count == 0,
+                "Recipes whose crafting material is not gatherable in the live world " +
+                "(uncraftable - substitute a gatherable material or add a gather source): " +
+                string.Join(", ", bad.Distinct()));
         }
 
         /// <summary>
