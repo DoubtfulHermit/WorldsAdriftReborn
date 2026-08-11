@@ -61,7 +61,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
                 {
                     Assert.Contains(mat.MaterialTypeId, knownIds);
                     Assert.InRange(mat.Amount, 1, 3);
-                    Assert.True(mat.Quality >= 1);
+                    // Test recipe uses quality 0 so ANY harvested birch/iron (which are
+                    // granted at Q0) can fill the slot - a Q1+ gate blocked all fills.
+                    Assert.True(mat.Quality >= 0);
                     Assert.False(string.IsNullOrEmpty(mat.Category));
                 }
             }

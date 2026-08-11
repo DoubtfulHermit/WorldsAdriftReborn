@@ -120,16 +120,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
                 ShipFrameSchematicId, nodeCount: 1, isEnabled: true, craftingTime: 5,
                 materials: new[]
                 {
-                    // "birch" / "Wood" -> "Q1+ Birch Wood", icon woods/Wood_Birch.
-                    new MaterialRequirement("birch", "Wood", quality: 1, amount: 3),
+                    // "birch" / "Wood" -> icon woods/Wood_Birch. quality:0 so any
+                    // harvested birch matches (trees grant Q0) - test recipe, easy to fill.
+                    new MaterialRequirement("birch", "Wood", quality: 0, amount: 3),
                 });
 
             var deck = new SchematicRow(
                 Deck01SchematicId, nodeCount: 1, isEnabled: true, craftingTime: 5,
                 materials: new[]
                 {
-                    // "iron" / "Metal" -> "Q1+ Iron", icon metals/Metal_Iron.
-                    new MaterialRequirement("iron", "Metal", quality: 1, amount: 2),
+                    // "iron" / "Metal" -> icon metals/Metal_Iron. quality:0 so any
+                    // harvested iron matches (deposits may grant Q0) - test recipe.
+                    new MaterialRequirement("iron", "Metal", quality: 0, amount: 2),
                 });
 
             return new ShipBlueprintRecipe(craftingTime: 10, rows: new[] { frame, deck });

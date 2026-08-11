@@ -193,6 +193,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         InventoryPush.Push(entityId, "reserved item " + add.itemId + " into ship blueprint");
                         PushCrafting(player, shipyardId, build);
                     }
+                    else
+                    {
+                        // The client greys its inventory optimistically the instant the
+                        // item is dragged out, and un-greys ONLY when an authoritative
+                        // 1081 inventory push arrives. A rejected item (type/quality
+                        // mismatch, slot full, not owned) must STILL echo the unchanged
+                        // inventory back, or the whole inventory panel hangs blacked-out.
+                        InventoryPush.Push(entityId, "rejected item " + add.itemId
+                            + " into ship blueprint (" + outcome + ")");
+                    }
                     Console.WriteLine("[info] 1270 AddItem(item=" + add.itemId + ", row="
                         + add.schematicSlotIndex + ", slot=" + add.materialSlotIndex + ") on shipyard "
                         + shipyardId + " -> " + outcome + ".");
