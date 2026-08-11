@@ -137,6 +137,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         }
 
         /// <summary>
+        /// Validate the recipe against the bag and consume the materials, WITHOUT
+        /// granting any inventory output - all or nothing. This is the transaction a
+        /// craft whose output is a WORLD ENTITY needs (a loose ship part is spawned
+        /// in the world, not placed in the bag), where <see cref="TryCraft"/> cannot
+        /// be used because its output itemType is deliberately absent from the item
+        /// database. Atomic: it works on a copy and commits the drawn-down bag only
+        /// when every requirement is met, so a shortfall leaves the bag untouched.
+        /// </summary>
+        public static bool TryConsumeOnly(
+            SchematicRecord schematic,
+            InventoryModel model,
+            MaterialCategoryLookup categoryLookup,
+            out string reason)
+        {
+            if (schematic == null)
+            {
+                reason = "no schematic selected";
+                return false;
+            }
+
+            InventoryModel work = model.Copy();
+
+            if (!TryConsume(schematic, work, categoryLookup, out reason, out _))
+            {
+                return false;
+            }
+
+            model.Reset(work.Items);
+            reason = string.Empty;
+            return true;
+        }
+
+        /// <summary>
         /// Validate the recipe against the bag, consume the materials, and grant
         /// the output - all or nothing.
         ///
