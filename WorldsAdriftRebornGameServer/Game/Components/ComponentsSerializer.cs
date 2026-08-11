@@ -1202,13 +1202,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // where we cannot see it. See Multiplayer.ShipHull.
                         //
                         // Fresh array per call, also deliberate - see the same file.
+                        //
+                        // A BUILT ship (spawned by BuiltShipSpawner on craft completion)
+                        // serves its OWN saved-design bytes from the built-ship ledger,
+                        // so different builds render as different ships; the global
+                        // minimum hull is the fallback for the static test hull and for
+                        // any hull whose bytes were not recorded. The spawner already
+                        // validated the built bytes (falling back to the minimum hull on
+                        // a bad blob), so this is a straight lookup with no re-validation.
+                        byte[] builtBytes = Game.Crafting.BuiltShips.HullBytesFor(entityId);
+                        byte[] hullBytes = builtBytes ?? Multiplayer.ShipHull.MinimumHullData();
+
                         CustomShipHullState.Data hullData =
-                            new CustomShipHullState.Data(Multiplayer.ShipHull.MinimumHullData());
+                            new CustomShipHullState.Data(hullBytes);
 
                         Console.WriteLine("[info] seeding 1209 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with the " + Multiplayer.ShipHull.MinimumHullDataLength
-                            + "-byte minimum hull.");
+                            + ") with the " + hullBytes.Length + "-byte "
+                            + (builtBytes != null ? "built-ship" : "minimum") + " hull.");
 
                         obj = hullData;
                     }
@@ -1650,8 +1661,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // guarded path - one logged error, mesh already built.
                         string? entityKey =
                             WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key;
-                        bool isShipHull = entityKey == Multiplayer.WorldEntities.ShipFrameKey;
-                        bool isDeck = entityKey == Multiplayer.WorldEntities.DeckKey;
+                        // A BUILT ship's hull/deck (spawned by BuiltShipSpawner) carry the
+                        // same 1099 as the static test hull/deck: the built hull wants the
+                        // EMPTY material list (an invented id NREs ComponentMaterialColors),
+                        // the built deck wants the one Wood material (ShipDeckVisualizer
+                        // .OnEnable IndexOutOfRanges on an empty list).
+                        bool isShipHull = entityKey == Multiplayer.WorldEntities.ShipFrameKey
+                            || Game.Crafting.BuiltShips.IsBuiltHull(entityId);
+                        bool isDeck = entityKey == Multiplayer.WorldEntities.DeckKey
+                            || Game.Crafting.BuiltShips.IsBuiltDeck(entityId);
 
                         // A metal node names its OWN metal as the salvage item type,
                         // not the tree's wood. Cosmetic for the nugget today (it always
