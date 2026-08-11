@@ -224,22 +224,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         /// uncaught throw on the schematics/knowledge panels. These are the ids the ship
         /// build effort proves against; lamp + helm are the first proof targets.
         ///
-        /// Categories are asserted against the client's routing (CraftingUI splits craft
-        /// actions by CraftingCategory): functional MODULAR parts (engine/wing) are
-        /// CraftingStation-category assembly-station schematics per SchematicData.cs's
-        /// modular item types (engine/cannon/wing/swivelGun) and the assemblyStation
-        /// ("construct ship parts and equipment"); helm/lamp/sail/storage are the
-        /// bolt-on/utility parts the branch surfaces through the Shipyard flow. Every
-        /// value below is also covered field-by-field by <see cref="Recipe_is_crash_safe"/>.
+        /// Categories are asserted against the client's routing (CharacterLearnedSchematic
+        /// Library keys tabs by CraftingCategory): the ASSEMBLY STATION (ItemCraft tab)
+        /// shows exactly the CraftingStation category, so every genuine ship PART is now
+        /// CraftingStation and surfaces at the bench - engine/wing (modular), the cores,
+        /// hull basics (helm/sail/deck/personalReviver), structural panels, storage and
+        /// decoration. The station GROUPS them under headers derived from itemType
+        /// (SchematicData.HumanReadableItemType = itemType.CamelCaseToSpaces()), so the
+        /// non-modular parts carry a GROUP itemType (basics/skyCore/structural/storage/
+        /// decoration/instruments/power) while the two procedural parts keep their own
+        /// modular itemType (engine/proceduralWing). makeshiftStorage stays Personal (a
+        /// personal, multitool craft). Every value below is also covered field-by-field
+        /// by <see cref="Recipe_is_crash_safe"/>.
         /// </summary>
         [Theory]
         [InlineData("proceduralEngineDefault", "CraftingStation", "engine")]
-        [InlineData("proceduralWingDefault", "Shipyard", "proceduralWing")]
-        [InlineData("helm", "Shipyard", "helm")]
-        [InlineData("lamp", "CraftingStation", "lamp")]
-        [InlineData("sail", "Shipyard", "sail")]
+        [InlineData("proceduralWingDefault", "CraftingStation", "proceduralWing")]
+        [InlineData("helm", "CraftingStation", "basics")]
+        [InlineData("sail", "CraftingStation", "basics")]
+        [InlineData("deck", "CraftingStation", "basics")]
+        [InlineData("personalReviver", "CraftingStation", "basics")]
+        [InlineData("atlasSkyCore", "CraftingStation", "skyCore")]
+        [InlineData("smallPanel", "CraftingStation", "structural")]
+        [InlineData("storageContainer", "CraftingStation", "storage")]
+        [InlineData("lamp", "CraftingStation", "decoration")]
         [InlineData("makeshiftStorage", "Personal", "makeshiftStorage")]
-        [InlineData("storageContainer", "Shipyard", "storageContainer")]
         public void Starter_ship_part_is_served_and_correctly_categorised(string id, string category, string itemType)
         {
             JObject cat = Catalogue();
@@ -377,19 +386,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
                     continue;
                 }
                 string nodeId = (string?)node["id"] ?? "";
-                string learned = KnowledgeSpendPolicy.SchematicIdFor(nodeId);
 
-                // A learned id that IS a catalogue key must be a real record (safe to
-                // learn). A learned id that is NOT a catalogue key is dropped by the
-                // handler guard, which is the intended no-op for un-recovered nodes.
-                if (cat[learned] != null)
+                // A node may learn SEVERAL recipes (SchematicIdsFor); check EACH.
+                foreach (string learned in KnowledgeSpendPolicy.SchematicIdsFor(nodeId))
                 {
-                    Assert.True(cat[learned] is JObject, $"{nodeId}: learned id '{learned}' is not a record object.");
-                }
-                else if (nodeId != learned)
-                {
-                    // An alias was applied but its target is missing -> a mapping bug.
-                    broken.Add($"{nodeId} -> '{learned}'");
+                    // A learned id that IS a catalogue key must be a real record (safe
+                    // to learn). A learned id that is NOT a catalogue key is dropped by
+                    // the handler guard - the intended no-op for un-recovered nodes.
+                    if (cat[learned] != null)
+                    {
+                        Assert.True(cat[learned] is JObject, $"{nodeId}: learned id '{learned}' is not a record object.");
+                    }
+                    else if (nodeId != learned)
+                    {
+                        // An alias was applied but its target is missing -> a mapping bug.
+                        broken.Add($"{nodeId} -> '{learned}'");
+                    }
                 }
             }
 
@@ -399,12 +411,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         }
 
         /// <summary>
-        /// COVERAGE: every recipe in the served catalogue MUST be reachable by unlocking
-        /// some knowledge node. A recipe no node ever learns is dead content - the player
-        /// can never surface it in the crafting list however far they progress the tree.
-        /// Reachability mirrors the 1334 handler exactly: a SCHEMATIC_* node learns
-        /// KnowledgeSpendPolicy.SchematicIdFor(nodeId); if that resolves to a catalogue
-        /// key, the recipe is reachable. This is the coverage half of feat/all-recipes-knowledge.
+        /// COVERAGE: every recipe in the served catalogue MUST be AVAILABLE to a player -
+        /// either learnable by unlocking some knowledge node OR granted as a starter. A
+        /// recipe that is neither is dead content the player can never surface. Node
+        /// reachability mirrors the 1334 handler / login reconcile exactly: a SCHEMATIC_*
+        /// node learns every id in KnowledgeSpendPolicy.SchematicIdsFor(nodeId) that
+        /// resolves to a catalogue key. The starter set (StarterSchematics.Ids) covers
+        /// the handful of items that legitimately have no tree node (torch, guitar, lamp)
+        /// - they are owned from birth, so they are reachable without a node.
         /// </summary>
         [Fact]
         public void Every_recipe_is_reachable_from_a_knowledge_node()
@@ -421,11 +435,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
                     continue;
                 }
                 string nodeId = (string?)node["id"] ?? "";
-                string learned = KnowledgeSpendPolicy.SchematicIdFor(nodeId);
-                if (cat[learned] != null)
+                foreach (string learned in KnowledgeSpendPolicy.SchematicIdsFor(nodeId))
                 {
-                    reachable.Add(learned);
+                    if (cat[learned] != null)
+                    {
+                        reachable.Add(learned);
+                    }
                 }
+            }
+
+            // Starters are available without a node (owned from birth).
+            foreach (string starter in WorldsAdriftRebornGameServer.Multiplayer.Crafting.StarterSchematics.Ids)
+            {
+                reachable.Add(starter);
             }
 
             var unreachable = new List<string>();
@@ -438,9 +460,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
             }
 
             Assert.True(unreachable.Count == 0,
-                "Catalogue recipes not learnable from any knowledge node (dead content - " +
-                "add a KnowledgeSpendPolicy.SchematicAliases entry pointing some node at each): " +
-                string.Join(", ", unreachable));
+                "Catalogue recipes neither learnable from any knowledge node nor granted as a " +
+                "starter (dead content - point some node at each via KnowledgeSpendPolicy." +
+                "SchematicAliases, or add it to StarterSchematics.Ids): " + string.Join(", ", unreachable));
         }
 
         /// <summary>

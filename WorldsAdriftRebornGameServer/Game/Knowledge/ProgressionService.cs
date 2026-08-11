@@ -82,17 +82,17 @@ namespace WorldsAdriftRebornGameServer.Game.Knowledge
 
             ProgressionState? stored = Persistence.Load(uid.Value);
             PlayerProgression live = ProgressionStore.For(entityId);
+            bool applied = false;
 
             if (ProgressionLoadPolicy.ShouldApplyStored(live.HasProgress, stored))
             {
                 live.ApplyState(stored!);
+                applied = true;
 
                 Console.WriteLine("[info] restored progression for character:" + uid.Value.ToString("D")
                     + " (entity " + entityId + "): knowledge " + live.Knowledge + ", "
                     + live.LearnedSchematics.Count + " schematic(s), " + live.NodeUses.Count + " node(s), "
                     + live.AlreadyScanned.Count + " scan(s).");
-
-                PushProgression(player, entityId, live);
             }
             else if (stored == null)
             {
@@ -105,6 +105,58 @@ namespace WorldsAdriftRebornGameServer.Game.Knowledge
                     + " (entity " + entityId + ") is seed-only but this session holds progress; "
                     + "keeping the session's knowledge rather than resetting it.");
             }
+
+            // RECONCILE: learned schematics are a DERIVED function of the purchased
+            // node set. Retro-grant any recipe a node the player already owns should
+            // have learned but did not (a node unlocked before its alias/recipe
+            // existed, or a foundational node whose full schematicList was not learned
+            // at purchase time). This is the source of truth - the purchase-time learn
+            // in the 1334 handler is the live "SCHEMATIC LEARNED" moment, but timing or
+            // ordering can never lose a recipe now, because every login re-derives the
+            // book from the tree the player has actually unlocked. Idempotent and
+            // catalogue-guarded, so it is safe to run on every bind.
+            int reconciled = ReconcileLearnedSchematics(live);
+            if (reconciled > 0)
+            {
+                Console.WriteLine("[info] reconciled " + reconciled + " learned schematic(s) for character:"
+                    + uid.Value.ToString("D") + " (entity " + entityId + ") from " + live.NodeUses.Count
+                    + " purchased node(s); book now holds " + live.LearnedSchematics.Count + ".");
+            }
+
+            // Push the restored/derived 1332+1079 so the bench and schematics tabs
+            // reflect the reconciled book immediately, and persist the derived grants
+            // so they survive without being re-derived every login.
+            if (applied || reconciled > 0)
+            {
+                PushProgression(player, entityId, live);
+            }
+            if (reconciled > 0)
+            {
+                Save(entityId);
+            }
+        }
+
+        /// <summary>
+        /// Applies <see cref="Multiplayer.Knowledge.LearnedSchematicsReconciler"/> to a
+        /// live progression: appends every catalogue recipe the player's purchased
+        /// nodes entitle them to but that is not yet in the book. Uses the SAME
+        /// catalogue-membership guard as the 1334 learn path
+        /// (<see cref="Items.SchematicHelper.Get"/>), so only learnable ids are added.
+        /// Returns how many were appended.
+        /// </summary>
+        private static int ReconcileLearnedSchematics(PlayerProgression prog)
+        {
+            IReadOnlyList<string> missing = Multiplayer.Knowledge.LearnedSchematicsReconciler.MissingRecipes(
+                prog.NodeUses.Keys,
+                prog.LearnedSchematics,
+                id => Items.SchematicHelper.Get(id) != null);
+
+            foreach (string recipe in missing)
+            {
+                prog.LearnedSchematics.Add(recipe);
+            }
+
+            return missing.Count;
         }
 
         /// <summary>

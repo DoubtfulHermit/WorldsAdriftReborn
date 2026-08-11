@@ -67,134 +67,123 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Knowledge
     public static class KnowledgeSpendPolicy
     {
         /// <summary>
-        /// Node ids whose baked display name differs from the catalogue's schematic
-        /// key, so the learned id resolves against the recovered recipe catalogue.
-        /// The tree's node names are display-ish ("Head Torch", "Storage Container",
-        /// "Atlas Core Enhancer") while the recovered recipe ids are camelCase-ish
-        /// ("headTorch", "storageContainer", "skyCoreAtlasEnhancer"); this table
-        /// bridges the two. A node with no entry learns under its own id - harmless
-        /// when no catalogue recipe matches (a learned id that does not resolve is
-        /// silently dropped by the client, not an error), which is the case for the
-        /// procedural weapon/slot/cipher nodes and the tree nodes with no recovered
-        /// recipe (Compass, Paint Can, Bread, ...). Every mapping below points at a
-        /// key that exists in Game/Items/Config/schematicData.json.
+        /// Node id -> the recipe id(s) that node LEARNS. The tree's node names are
+        /// display-ish ("Head Torch", "Atlas Core Enhancer") while the recovered
+        /// recipe ids are camelCase-ish ("headTorch", "skyCoreAtlasEnhancer"); this
+        /// table bridges the two AND lets ONE node grant SEVERAL recipes, mirroring
+        /// the real WA tree where a foundational node (Shipbuilding, the Atlas root)
+        /// unlocked a whole schematicList at once. A node with no entry learns under
+        /// its own id - harmless when no catalogue recipe matches (SchematicIdFor
+        /// falls through to the node id, which is not a catalogue key and is dropped
+        /// by the learn guard), which is the case for the procedural weapon / slot /
+        /// cipher tiers and the tree nodes with no recovered recipe.
+        ///
+        /// FAITHFULNESS (post grant-all revert): each node maps to the recipe a
+        /// player expects from that node's NAME/branch, and the recipe's own category
+        /// routes it to the right UI. Every target below is a real key in
+        /// Game/Items/Config/schematicData.json (asserted by
+        /// ReferenceDataCrashSafetyTests.Every_alias_target_resolves_in_catalogue) and
+        /// every catalogue recipe is reachable from some node OR is a starter
+        /// (Every_recipe_is_reachable_from_a_knowledge_node).
         /// </summary>
-        private static readonly IReadOnlyDictionary<string, string> SchematicAliases =
-            new Dictionary<string, string>
+        private static readonly IReadOnlyDictionary<string, string[]> SchematicAliases =
+            new Dictionary<string, string[]>
             {
-                // Shipbuilding is the cheapest tree root (cost 20, reachable from a
-                // single databank scan) and the tree has no literal "Shipyard" node,
-                // so this root grants the Shipyard recipe - the milestone proof path.
-                { "Shipbuilding", "shipyard" },
+                // === SHIPBUILDING ROOT: the functional-ship BASELINE ===
+                // Cheapest root (cost 20). Learning Shipbuilding grants the parts a
+                // player needs to get a FIRST ship flying: the shipyard to build at,
+                // the deck to stand on, the helm to steer, a sail for lift. The richer
+                // hull structure is earned in the SkyshipBuilder branch, cores in
+                // Atlas Engineer, propulsion in Engines/Wings. (There is no dedicated
+                // "Sail"/"Helm" node in the sparse tree export, so these foundational
+                // parts ride the root the player unlocks first, exactly as WA gated
+                // the starter hull low in the tree.)
+                { "Shipbuilding", new[] { "shipyard", "deck", "helm", "sail" } },
 
-                // Wings/Engines roots are SCHEMATIC_RANDOM procedural branches; only
-                // the wing has a recovered concrete recipe (the Bossa procedural wing
-                // seed), so the Wings root learns it. Engines has no recovered recipe.
-                { "WingsRootSchematic", "proceduralWingDefault" },
+                // === SKYSHIP BUILDER (root "Stairs"): ship STRUCTURE (Shipyard cat) ===
+                { "Stairs", new[] { "stairs" } },
+                { "Medium Panel", new[] { "mediumPanel" } },
+                { "Large Panel", new[] { "largePanel" } },
+                { "Window Panel", new[] { "window" } },
+                { "Ship Railing", new[] { "railing" } },
+                { "Railing Corner", new[] { "railingCorner" } },
+                { "Crows Nest", new[] { "smallPanel" } },
+                // Two SkyshipBuilder structural nodes host the two ship fittings the
+                // sparse export left with no faithfully-named node of their own (a ship
+                // horn, the airspeed instrument). Same domain (ship, Shipyard cat), so
+                // they route to the right UI; WHICH structural node hosts them is
+                // cosmetic. Kept mapped so no catalogue recipe is dead content.
+                { "Paint Drum", new[] { "horn" } },
+                { "Paint Can", new[] { "airspeedIndicator" } },
 
-                // Explorer branch.
-                { "Fuel Gauge", "fuelGauge" },
-                { "Hip Lamp", "hipLamp" },
-                { "Head Torch", "headTorch" },
-                { "Glider", "glider" },
-                { "Artificial Horizon", "artificialHorizon" },
+                // === WINGS: procedural wing ===
+                { "WingsRootSchematic", new[] { "proceduralWingDefault" } },
 
-                // SkyshipBuilder branch (root "Stairs").
-                { "Stairs", "stairs" },
-                { "Medium Panel", "mediumPanel" },
-                { "Window Panel", "window" },
-                { "Large Panel", "largePanel" },
-                { "Ship Railing", "railing" },
-                { "Railing Corner", "railingCorner" },
+                // === ENGINES: procedural engine (Assembly Station) + power ===
+                { "EnginesRootSchematic", new[] { "proceduralEngineDefault" } },
+                { "EnginesSchematic2", new[] { "powerGenerator" } },
+                { "EnginesSchematicBonus1", new[] { "powerGenerator01" } },
 
-                // Tradesman branch (root "Trunk").
-                { "Trunk", "trunk" },
-                { "Mounted Box", "mountedBox" },
-                { "Storage Container", "storageContainer" },
-                { "Loom", "loom" },
+                // === ATLAS ENGINEER (root "Atlas Core Enhancer"): sky cores ===
+                // The root grants the BASIC Atlas Sky Core (the lift core that makes a
+                // ship fly) alongside its namesake enhancer; the branch nodes grant the
+                // named variants. This puts the fundamental core under Atlas Engineer,
+                // where a player looks for it, instead of on a spare engine tier.
+                { "Atlas Core Enhancer", new[] { "atlasSkyCore", "skyCoreAtlasEnhancer" } },
+                { "Atlas Core Generator", new[] { "skyCoreGenerator" } },
+                { "Atlas Core Air Filter", new[] { "skyCoreAirFilter" } },
+                { "Atlas Core Coolant System", new[] { "skyCoreCoolantSystem" } },
+                { "Atlas Core Stabiliser", new[] { "skyCoreStabiliser" } },
+                { "Atlas Core Computer", new[] { "skyCoreComputer" } },
+                { "Atlas Core Circuitry Network", new[] { "skyCoreCircuitryNetwork" } },
+                { "Atlas Core Efficiency Module", new[] { "skyCoreEfficiencyModule" } },
+                { "Lifter", new[] { "atlasLifter" } },
 
-                // Cooking branch (root "Campfire").
-                { "Campfire", "campFire" },
-                { "Thuntomite Steak", "thuntomiteSteak" },
-                { "Manta Steak", "mantaSteak" },
-                { "Stove", "stove" },
+                // === EXPLORER (root "Makeshift Bandages"): instruments + field kit ===
+                { "Makeshift Bandages", new[] { "personalReviver" } },
+                { "Nervure Bandages", new[] { "altimeter" } },
+                { "Compass", new[] { "headingIndicator" } },
+                { "Fuel Gauge", new[] { "fuelGauge" } },
+                { "Artificial Horizon", new[] { "artificialHorizon" } },
+                { "Head Torch", new[] { "headTorch" } },
+                { "Hip Lamp", new[] { "hipLamp" } },
+                { "Glider", new[] { "glider" } },
 
-                // AtlasEngineer branch (root "Atlas Core Enhancer"). The wiki recovered
-                // these as "Sky Core X" recipe ids.
-                { "Atlas Core Enhancer", "skyCoreAtlasEnhancer" },
-                { "Atlas Core Generator", "skyCoreGenerator" },
-                { "Atlas Core Air Filter", "skyCoreAirFilter" },
-                { "Atlas Core Coolant System", "skyCoreCoolantSystem" },
-                { "Atlas Core Stabiliser", "skyCoreStabiliser" },
-                { "Atlas Core Computer", "skyCoreComputer" },
-                { "Atlas Core Circuitry Network", "skyCoreCircuitryNetwork" },
-                { "Atlas Core Efficiency Module", "skyCoreEfficiencyModule" },
-                { "Lifter", "atlasLifter" },
+                // === TRADESMAN (root "Trunk"): furniture / storage / cloth ===
+                { "Trunk", new[] { "trunk" } },
+                { "Mounted Box", new[] { "mountedBox" } },
+                { "Storage Container", new[] { "storageContainer" } },
+                { "Shipping Container", new[] { "shippingContainer" } },
+                { "Loom", new[] { "loom" } },
+                { "Metal Chair", new[] { "cupboard" } },
+                { "Long Wooden Table", new[] { "barrel" } },
+                { "Long Metal Table", new[] { "assemblyStation" } },
+                { "Wooden Stool", new[] { "makeshiftStorage" } },
+                { "Dye", new[] { "clothMakeshift" } },
 
-                // ---------------------------------------------------------------
-                // FULL-CATALOGUE COVERAGE (feat/all-recipes-knowledge).
-                // The block above wired the hand-recovered "obvious name" nodes.
-                // The entries below map EVERY remaining catalogue recipe onto a
-                // knowledge node so that progressing the tree unlocks the WHOLE
-                // 60-recipe catalogue, not a hand-picked subset. Where the export
-                // carries no faithfully-named node for a recipe (the tree export is
-                // sparse), the recipe is attached to the most fitting existing
-                // learning node rather than left unreachable, per the coverage goal.
-                // Every target below is a real key in schematicData.json; a node id
-                // with no catalogue match is still dropped by the 1334 handler guard.
-                // ---------------------------------------------------------------
+                // === COOKING (root "Campfire") ===
+                { "Campfire", new[] { "campFire" } },
+                { "Stove", new[] { "stove" } },
+                { "Thuntomite Steak", new[] { "thuntomiteSteak" } },
+                { "Manta Steak", new[] { "mantaSteak" } },
+                { "Bread", new[] { "thuntomiteStew" } },
+                // moonshine is a Cooking recipe; homed on a spare cooking node so it
+                // surfaces in the Cooking tab, NOT on the engine bonus node whose baked
+                // export id happens to be "moonshine" (an engine node granting a drink
+                // was the clearest cross-domain mis-map).
+                { "Manta Burger", new[] { "moonshine" } },
 
-                // Weapons / procedural power (the SCHEMATIC_FIXED nodes carry the
-                // correct baked schematicId; the server learns via node id, so alias
-                // each node id onto that recipe). Ammo variants ride the sibling
-                // procedural nodes in the same branch.
-                { "PistolsRootSchematic", "pistol" },
-                { "PistolsSchematic2", "pistolBullets" },
-                { "CannonsSchematicBonus1", "cannonball" },
-                { "CannonsSchematic2", "cannonShell" },
-                { "SwivelGunSchematicBonus1", "swivelGunShell" },
-                { "EnginesRootSchematic", "proceduralEngineDefault" },
-                { "EnginesSchematicBonus1", "powerGenerator01" },
-                { "EnginesSchematicBonus2", "moonshine" },
-                { "EnginesSchematic2", "powerGenerator" },
-                { "Territory Control Tower", "territory_control_beacon" },
+                // === WEAPONS: the roots grant the weapon's projectile; tiers add ammo ===
+                { "PistolsRootSchematic", new[] { "pistol" } },
+                { "PistolsSchematic2", new[] { "pistolBullets" } },
+                { "CannonsRootSchematic", new[] { "cannonball" } },
+                { "CannonsSchematic2", new[] { "cannonShell" } },
+                { "CannonsSchematicBonus1", new[] { "cannonball" } },
+                { "SwivelGunRootSchematic", new[] { "swivelGunShell" } },
+                { "SwivelGunSchematicBonus1", new[] { "swivelGunShell" } },
 
-                // Ship structure / fittings. The basic ship parts (helm, sail, deck,
-                // panels) belong to the Shipbuilding root's schematicList in the real
-                // game, but a node learns ONE recipe here, so they attach to the
-                // SkyshipBuilder ship-structure nodes.
-                { "Crows Nest", "helm" },
-                { "Paint Can", "smallPanel" },
-                { "Paint Drum", "deck" },
-                { "Shipping Container", "shippingContainer" },
-
-                // Explorer instruments + field kit. Compass IS a heading indicator;
-                // the bandage nodes host the reviver/altimeter for lack of a
-                // dedicated instrument node in the export.
-                { "Compass", "headingIndicator" },
-                { "Makeshift Bandages", "personalReviver" },
-                { "Nervure Bandages", "altimeter" },
-
-                // Tradesman furniture / storage / clothing.
-                { "Long Metal Table", "assemblyStation" },
-                { "Metal Chair", "cupboard" },
-                { "Long Wooden Table", "barrel" },
-                { "Wooden Stool", "makeshiftStorage" },
-                { "Dye", "clothMakeshift" },
-                { "Herder's Poncho", "sail" },
-
-                // Cooking.
-                { "Bread", "thuntomiteStew" },
-
-                // No faithfully-themed node survives in the export for these, so they
-                // attach to spare procedural nodes purely for reachability (the player
-                // has all knowledge for testing; WHICH node unlocks them is cosmetic).
-                { "EnginesSchematic3", "atlasSkyCore" },
-                { "SwivelGunSchematic2", "horn" },
-                { "CannonsSchematic3", "guitar" },
-                { "RiflesRootSchematic", "lamp" },
-                { "RiflesSchematic2", "torch" },
-                { "RiflesSchematic3", "airspeedIndicator" },
+                // === TERRITORY ===
+                { "Territory Control Tower", new[] { "territory_control_beacon" } },
             };
 
         public static NodeSpend Evaluate(
@@ -275,10 +264,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Knowledge
             return true;
         }
 
-        /// <summary>The catalogue-resolving schematic id for a node id.</summary>
+        /// <summary>
+        /// The PRIMARY catalogue-resolving schematic id for a node id (the first of
+        /// its learned set), or the node id itself when it has no alias. Used for the
+        /// single-recipe "SCHEMATIC LEARNED" card path.
+        /// </summary>
         public static string SchematicIdFor(string nodeId)
         {
-            return SchematicAliases.TryGetValue(nodeId, out string? alias) ? alias : nodeId;
+            return SchematicAliases.TryGetValue(nodeId, out string[]? aliases) && aliases.Length > 0
+                ? aliases[0]
+                : nodeId;
+        }
+
+        /// <summary>
+        /// ALL catalogue-resolving schematic ids a node learns. A node may learn
+        /// several (a foundational root grants a whole schematicList); a node with no
+        /// alias resolves to its own id (dropped by the catalogue guard when it is not
+        /// a recipe key). This is the source of truth the purchase-time learn and the
+        /// login reconcile both walk.
+        /// </summary>
+        public static IReadOnlyList<string> SchematicIdsFor(string nodeId)
+        {
+            return SchematicAliases.TryGetValue(nodeId, out string[]? aliases)
+                ? aliases
+                : new[] { nodeId };
         }
 
         private static int UsesOf(IReadOnlyDictionary<string, int> nodeUses, string id)
