@@ -63,7 +63,7 @@
       },
       {
         "id": 1,
-        "name": "fuel",
+        "name": "birch",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -473,7 +473,7 @@
       },
       {
         "id": 1,
-        "name": "fuel",
+        "name": "birch",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -522,7 +522,7 @@
       },
       {
         "id": 1,
-        "name": "fuel",
+        "name": "birch",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -571,7 +571,7 @@
       },
       {
         "id": 1,
-        "name": "fuel",
+        "name": "birch",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Fuel",
         "description": "",
@@ -1626,7 +1626,7 @@
       },
       {
         "id": 2,
-        "name": "fuel",
+        "name": "birch",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Fuel",
         "description": "",
@@ -1675,7 +1675,7 @@
       },
       {
         "id": 1,
-        "name": "fuel",
+        "name": "birch",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -2666,7 +2666,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "Wood",
+        "name": "birch",
         "iconId": "item_wood_large",
         "component": "Panel",
         "description": "Wood for the body.",
@@ -2675,7 +2675,7 @@
       },
       {
         "id": 1,
-        "name": "Metal",
+        "name": "iron",
         "iconId": "item_metal_large",
         "component": "Mechanical Internals",
         "description": "Metal for the strings and bridge.",

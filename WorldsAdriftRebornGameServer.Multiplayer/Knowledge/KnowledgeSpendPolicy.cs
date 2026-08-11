@@ -130,6 +130,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Knowledge
                 { "Atlas Core Circuitry Network", "skyCoreCircuitryNetwork" },
                 { "Atlas Core Efficiency Module", "skyCoreEfficiencyModule" },
                 { "Lifter", "atlasLifter" },
+
+                // ---------------------------------------------------------------
+                // FULL-CATALOGUE COVERAGE (feat/all-recipes-knowledge).
+                // The block above wired the hand-recovered "obvious name" nodes.
+                // The entries below map EVERY remaining catalogue recipe onto a
+                // knowledge node so that progressing the tree unlocks the WHOLE
+                // 60-recipe catalogue, not a hand-picked subset. Where the export
+                // carries no faithfully-named node for a recipe (the tree export is
+                // sparse), the recipe is attached to the most fitting existing
+                // learning node rather than left unreachable, per the coverage goal.
+                // Every target below is a real key in schematicData.json; a node id
+                // with no catalogue match is still dropped by the 1334 handler guard.
+                // ---------------------------------------------------------------
+
+                // Weapons / procedural power (the SCHEMATIC_FIXED nodes carry the
+                // correct baked schematicId; the server learns via node id, so alias
+                // each node id onto that recipe). Ammo variants ride the sibling
+                // procedural nodes in the same branch.
+                { "PistolsRootSchematic", "pistol" },
+                { "PistolsSchematic2", "pistolBullets" },
+                { "CannonsSchematicBonus1", "cannonball" },
+                { "CannonsSchematic2", "cannonShell" },
+                { "SwivelGunSchematicBonus1", "swivelGunShell" },
+                { "EnginesRootSchematic", "proceduralEngineDefault" },
+                { "EnginesSchematicBonus1", "powerGenerator01" },
+                { "EnginesSchematicBonus2", "moonshine" },
+                { "EnginesSchematic2", "powerGenerator" },
+                { "Territory Control Tower", "territory_control_beacon" },
+
+                // Ship structure / fittings. The basic ship parts (helm, sail, deck,
+                // panels) belong to the Shipbuilding root's schematicList in the real
+                // game, but a node learns ONE recipe here, so they attach to the
+                // SkyshipBuilder ship-structure nodes.
+                { "Crows Nest", "helm" },
+                { "Paint Can", "smallPanel" },
+                { "Paint Drum", "deck" },
+                { "Shipping Container", "shippingContainer" },
+
+                // Explorer instruments + field kit. Compass IS a heading indicator;
+                // the bandage nodes host the reviver/altimeter for lack of a
+                // dedicated instrument node in the export.
+                { "Compass", "headingIndicator" },
+                { "Makeshift Bandages", "personalReviver" },
+                { "Nervure Bandages", "altimeter" },
+
+                // Tradesman furniture / storage / clothing.
+                { "Long Metal Table", "assemblyStation" },
+                { "Metal Chair", "cupboard" },
+                { "Long Wooden Table", "barrel" },
+                { "Wooden Stool", "makeshiftStorage" },
+                { "Dye", "clothMakeshift" },
+                { "Herder's Poncho", "sail" },
+
+                // Cooking.
+                { "Bread", "thuntomiteStew" },
+
+                // No faithfully-themed node survives in the export for these, so they
+                // attach to spare procedural nodes purely for reachability (the player
+                // has all knowledge for testing; WHICH node unlocks them is cosmetic).
+                { "EnginesSchematic3", "atlasSkyCore" },
+                { "SwivelGunSchematic2", "horn" },
+                { "CannonsSchematic3", "guitar" },
+                { "RiflesRootSchematic", "lamp" },
+                { "RiflesSchematic2", "torch" },
+                { "RiflesSchematic3", "airspeedIndicator" },
             };
 
         public static NodeSpend Evaluate(
