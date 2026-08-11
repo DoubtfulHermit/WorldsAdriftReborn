@@ -37,7 +37,18 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     }
 
     /// <summary>
-    /// The per-player crafting sessions, keyed by the player's entity id.
+    /// The crafting sessions, keyed by (player entity id, craft-target entity id).
+    ///
+    /// A player has ONE session per crafting CONTEXT, not one session total: their
+    /// personal (multitool) craft is keyed (player, player); a craft at a placed
+    /// Assembly Station is keyed (player, station). Keeping the two apart is what
+    /// stops a station recipe (category CraftingStation) from leaking into the
+    /// player's own 1005 personal model and blanking the personal Crafting tab
+    /// (CraftingStationSchematicList.SelectSchematic NRE). Even a delayed or
+    /// mis-tagged update lands in its own bucket rather than becoming the next
+    /// personal transaction. The per-target session also keeps the
+    /// one-SlottedMaterial-per-requirement sizing correct per context, so the
+    /// client's positional SyncCraftingItems never indexes past the wire list.
     ///
     /// Server-owned and per-player: a session is never relayed to any other
     /// player, and 1005 is pushed only to the crafting player's own peer. This is
@@ -46,19 +57,44 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     /// </summary>
     internal static class CraftSessions
     {
-        private static readonly Dictionary<long, CraftSession> Sessions = new Dictionary<long, CraftSession>();
+        private static readonly Dictionary<(long Player, long Target), CraftSession> Sessions =
+            new Dictionary<(long Player, long Target), CraftSession>();
 
-        public static CraftSession For(long entityId)
+        /// <summary>The player's PERSONAL (multitool) session: target is the player itself.</summary>
+        public static CraftSession For(long playerEntityId) => For(playerEntityId, playerEntityId);
+
+        /// <summary>
+        /// The session for a specific crafting target: (player, player) for a personal
+        /// multitool craft, (player, station) for a craft at a placed station.
+        /// </summary>
+        public static CraftSession For(long playerEntityId, long craftTargetEntityId)
         {
-            if (!Sessions.TryGetValue(entityId, out CraftSession? session))
+            (long, long) key = (playerEntityId, craftTargetEntityId);
+            if (!Sessions.TryGetValue(key, out CraftSession? session))
             {
                 session = new CraftSession();
-                Sessions[entityId] = session;
+                Sessions[key] = session;
             }
 
             return session;
         }
 
-        public static void Forget(long entityId) => Sessions.Remove(entityId);
+        /// <summary>Drops every session belonging to this player (personal and any station targets).</summary>
+        public static void Forget(long playerEntityId)
+        {
+            List<(long Player, long Target)> mine = new List<(long Player, long Target)>();
+            foreach ((long Player, long Target) key in Sessions.Keys)
+            {
+                if (key.Player == playerEntityId)
+                {
+                    mine.Add(key);
+                }
+            }
+
+            foreach ((long Player, long Target) key in mine)
+            {
+                Sessions.Remove(key);
+            }
+        }
     }
 }

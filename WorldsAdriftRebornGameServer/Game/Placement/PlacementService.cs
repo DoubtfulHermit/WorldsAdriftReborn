@@ -312,7 +312,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             // the live slot state (the per-slot 1003 fills now push to the station), so the
             // re-open preserves it. A stale schematic on a genuine first open is still reset,
             // because a fresh session has no schematic and no station binding.
-            CraftSession session = CraftSessions.For(playerEntityId);
+            CraftSession session = CraftSessions.For(playerEntityId, stationEntityId);
             bool resetToIdle = StationCraftRouting.ShouldResetToIdleOnOpen(
                 session.SchematicId, session.StationEntityId, stationEntityId);
 

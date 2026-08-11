@@ -52,6 +52,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         /// </summary>
         public static bool HasActiveCraft(string? schematicId) => !string.IsNullOrEmpty(schematicId);
 
+        /// <summary>The recipe category the personal (multitool) Craft tab shows and accepts.</summary>
+        public const string PersonalCategory = "Personal";
+
+        /// <summary>The recipe category the generic Assembly Station shows and accepts.</summary>
+        public const string CraftingStationCategory = "CraftingStation";
+
+        /// <summary>
+        /// The recipe category a crafting TARGET accepts. The personal multitool model
+        /// (target == player) shows exactly the Personal records; a placed Assembly
+        /// Station shows exactly the CraftingStation records. This is baked per prefab
+        /// on the client (MultitoolCraft -> Personal; the station's _craftingCategory ->
+        /// CraftingStation), so the server mirrors it to decide which selections are
+        /// legal in which context.
+        /// </summary>
+        public static string ExpectedCategoryFor(bool isPersonalTarget)
+            => isPersonalTarget ? PersonalCategory : CraftingStationCategory;
+
+        /// <summary>
+        /// Whether a selected recipe's category is allowed to be loaded into a target's
+        /// 1005 model. THE personal-tab crash guard: the client builds a Personal-only
+        /// category hierarchy for the multitool tab and then selects whatever recipe the
+        /// player's 1005 retained WITHOUT a compatibility check
+        /// (CraftingStationSchematicList.SelectSchematic dereferences the null slot from
+        /// CategoryPressed for a mismatched category). By refusing to ever store a
+        /// non-Personal recipe in the personal target's session - and symmetrically a
+        /// non-CraftingStation recipe in a station target - the player 1005 can only ever
+        /// hold "" or a Personal recipe, so CategoryPressed(Personal) always resolves and
+        /// the tab never throws. Comparison is ordinal: the client bins by the exact,
+        /// case-sensitive category string.
+        /// </summary>
+        public static bool CategoryMatchesTarget(bool isPersonalTarget, string? recordCategory)
+            => string.Equals(recordCategory ?? "", ExpectedCategoryFor(isPersonalTarget), System.StringComparison.Ordinal);
+
         /// <summary>
         /// Whether a station console open must re-assert the crash-safe idle shape
         /// (empty schematic + empty slots + closed countdown) on the station's 1005.

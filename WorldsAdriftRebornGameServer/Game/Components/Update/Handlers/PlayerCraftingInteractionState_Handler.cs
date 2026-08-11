@@ -55,28 +55,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             clientComponentUpdate.ApplyTo(serverComponentData);
             PlayerCraftingInteractionState.Update serverComponentUpdate = (PlayerCraftingInteractionState.Update)serverComponentData.ToUpdate();
 
-            CraftSession session = CraftSessions.For(entityId);
-
-            // WHICH entity's 1005 the active crafting UI reads its slot state from.
-            // For a placed-station craft the client tags the 1003 update with the
-            // station's entity id (craftingStationEntityId); the station's UI reader
-            // lives on that entity, so the per-slot 1005 must go there or its
-            // "waiting for server" flag never clears. For a personal (multitool)
-            // craft the field is the player's own entity, so this stays the player -
-            // personal crafting is byte-identical. The station binding is remembered
-            // on the session so a repeated console-open can preserve an in-progress
-            // craft here instead of wiping it (see OpenCraftingStationConsole).
+            // WHICH entity's 1005 the active crafting UI reads its slot state from, and
+            // therefore WHICH crafting context this update belongs to. For a placed-
+            // station craft the client tags the 1003 update with the station's entity id
+            // (craftingStationEntityId); the station's UI reader lives on that entity, so
+            // the per-slot 1005 must go there or its "waiting for server" flag never
+            // clears. For a personal (multitool) craft the field is the player's own
+            // entity (or unset), so the target IS the player.
+            //
+            // The resolved target is BOTH the 1005 push address AND the session key: the
+            // player's personal craft and any station craft are separate sessions
+            // (CraftSessions.For(player, target)), so a station recipe can never leak
+            // into the personal 1005 and blank the personal Crafting tab. isPersonalTarget
+            // then drives the category gate in HandleSetSchematic - the personal model
+            // accepts only Personal recipes, a station only CraftingStation ones.
             long craftingStationEntityId = serverComponentData.Value.craftingStationEntityId.Id;
-            long pushTarget = StationCraftRouting.ResolvePushTarget(
+            long craftTarget = StationCraftRouting.ResolvePushTarget(
                 entityId, craftingStationEntityId,
                 PlacedCraftingStations.IsPlacedCraftingStation);
-            session.StationEntityId = pushTarget != entityId ? pushTarget : (long?)null;
+            bool isPersonalTarget = craftTarget == entityId;
+
+            CraftSession session = CraftSessions.For(entityId, craftTarget);
+            // Remember the station binding on the session so a repeated console-open can
+            // preserve an in-progress craft here instead of wiping it (see
+            // OpenCraftingStationConsole / StationCraftRouting.ShouldResetToIdleOnOpen).
+            session.StationEntityId = isPersonalTarget ? (long?)null : craftTarget;
 
             if (clientComponentUpdate.setSchematic != null)
             {
                 foreach (SetSchematic set in clientComponentUpdate.setSchematic)
                 {
-                    HandleSetSchematic(player, entityId, pushTarget, session, set);
+                    HandleSetSchematic(player, entityId, craftTarget, isPersonalTarget, session, set);
                 }
             }
 
@@ -84,7 +93,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (AddItemFromInventory add in clientComponentUpdate.addItemFromInventory)
                 {
-                    HandleAddItem(player, entityId, pushTarget, session, add);
+                    HandleAddItem(player, entityId, craftTarget, session, add);
                 }
             }
 
@@ -92,27 +101,31 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (ReturnItemToInventory ret in clientComponentUpdate.returnItemToInventory)
                 {
-                    HandleReturnItem(player, entityId, pushTarget, session, ret);
+                    HandleReturnItem(player, entityId, craftTarget, session, ret);
                 }
             }
 
+            // StartPlayerCrafting is the PERSONAL Craft button: it always resolves to the
+            // player's own target/session regardless of the field, so a personal craft
+            // consumes from and completes on the personal model, never a station's.
             if (clientComponentUpdate.startPlayerCrafting != null)
             {
+                CraftSession personalSession = CraftSessions.For(entityId, entityId);
                 foreach (StartPlayerCrafting _ in clientComponentUpdate.startPlayerCrafting)
                 {
-                    HandleStartCrafting(player, entityId, pushTarget, session);
+                    HandleStartCrafting(player, entityId, entityId, personalSession);
                 }
             }
 
-            // STATION crafting: a Shipyard / CraftingStation-category craft fires
+            // STATION crafting: a CraftingStation-category craft fires
             // StartCrafting(stationEntityId) rather than StartPlayerCrafting. This is
-            // the faithful path for a ship PART (the lamp is category "Shipyard"), and
-            // its output is a loose WORLD entity, not an inventory item.
+            // the faithful path for a loose ship PART, and its output is a loose WORLD
+            // entity, not an inventory item. It routes to the explicit station's session.
             if (clientComponentUpdate.startCrafting != null)
             {
                 foreach (StartCrafting start in clientComponentUpdate.startCrafting)
                 {
-                    HandleStartStationCrafting(player, entityId, session, start);
+                    HandleStartStationCrafting(player, entityId, start);
                 }
             }
 
@@ -122,7 +135,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             SendOPHelper.SendComponentUpdateOp(player, entityId, new System.Collections.Generic.List<uint> { ComponentId }, new System.Collections.Generic.List<object> { serverComponentUpdate });
         }
 
-        private static void HandleSetSchematic( ENetPeerHandle player, long entityId, long pushTarget, CraftSession session, SetSchematic set )
+        private static void HandleSetSchematic( ENetPeerHandle player, long entityId, long pushTarget, bool isPersonalTarget, CraftSession session, SetSchematic set )
         {
             string? schematicId = set.schematicId.HasValue ? set.schematicId.Value : null;
 
@@ -144,6 +157,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 session.Slots = Array.Empty<SlotHold>();
                 PushCraftingState(player, pushTarget, session,
                     update => update.AddCraftingValidationFailed(new CraftingValidationFailed("unknown recipe")));
+                return;
+            }
+
+            // CATEGORY GATE - the personal-tab crash guard. The personal (multitool)
+            // model shows only Personal recipes and a station only CraftingStation ones;
+            // the client selects the retained 1005 recipe against the tab's own category
+            // hierarchy WITHOUT a compatibility check, so a station recipe left in the
+            // personal 1005 dereferences a null category slot and blanks the tab
+            // (CraftingStationSchematicList.SelectSchematic NRE). Refuse to store a recipe
+            // whose category does not belong to THIS target, clear the target's selection
+            // and report a validation failure - so the player 1005 can only ever hold ""
+            // or a Personal recipe.
+            if (!StationCraftRouting.CategoryMatchesTarget(isPersonalTarget, record.Category))
+            {
+                Console.WriteLine("[warning] craft: entity " + entityId + " selected recipe '" + schematicId
+                    + "' (category '" + record.Category + "') in a "
+                    + (isPersonalTarget ? "personal" : "station")
+                    + " crafting context that only accepts '"
+                    + StationCraftRouting.ExpectedCategoryFor(isPersonalTarget) + "'; rejected.");
+                session.SchematicId = null;
+                session.Slots = Array.Empty<SlotHold>();
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingValidationFailed(new CraftingValidationFailed("recipe not available here")));
                 return;
             }
 
@@ -309,10 +345,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         /// completion are simplifications flagged for follow-on; the completion->spawn
         /// hook (<see cref="LoosePartSpawner.Spawn"/>) is deliberately reusable.
         /// </summary>
-        private static void HandleStartStationCrafting( ENetPeerHandle player, long entityId, CraftSession session, StartCrafting start )
+        private static void HandleStartStationCrafting( ENetPeerHandle player, long entityId, StartCrafting start )
         {
             long stationEntityId = start.craftingEntity.Id;
             long pushTarget = stationEntityId > 0 ? stationEntityId : entityId;
+
+            // Read the recipe/slots from THIS station's own session (the same
+            // (player, station) bucket SetSchematic/AddItem filled), not a shared one.
+            CraftSession session = CraftSessions.For(entityId, pushTarget);
 
             SchematicRecord? record = session.SchematicId != null ? SchematicHelper.Get(session.SchematicId) : null;
 

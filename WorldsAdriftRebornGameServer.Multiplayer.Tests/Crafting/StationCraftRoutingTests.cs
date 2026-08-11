@@ -118,5 +118,98 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
             // suppress the reset when opening a station.
             Assert.True(StationCraftRouting.ShouldResetToIdleOnOpen("torch", null, Station));
         }
+
+        // ---- Category gate: the personal-tab blank-panel crash guard --------------
+        //
+        // The empty personal Crafting tab was an uncaught client NRE: a CraftingStation
+        // recipe (lamp / proceduralEngineDefault) selected at the Assembly Station was
+        // retained in the PLAYER'S 1005, and the Personal-only tab then tried to select
+        // it against a category hierarchy that has no CraftingStation slot. The server
+        // guarantee is that a recipe's category must match its crafting target, so the
+        // player 1005 can never hold a CraftingStation recipe.
+
+        [Fact]
+        public void ExpectedCategory_PersonalVsStation()
+        {
+            Assert.Equal("Personal", StationCraftRouting.ExpectedCategoryFor(isPersonalTarget: true));
+            Assert.Equal("CraftingStation", StationCraftRouting.ExpectedCategoryFor(isPersonalTarget: false));
+        }
+
+        [Theory]
+        [InlineData("lamp category is CraftingStation", "CraftingStation")]
+        [InlineData("proceduralEngineDefault category is CraftingStation", "CraftingStation")]
+        public void CategoryGate_StationRecipe_RejectedFromPersonalTarget(string _, string category)
+        {
+            // THE fix: a station recipe can never be stored in / pushed to the player 1005.
+            Assert.False(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: true, category));
+        }
+
+        [Fact]
+        public void CategoryGate_PersonalRecipe_AcceptedByPersonalTarget()
+        {
+            // The 18 Personal records still list and select normally in the personal tab.
+            Assert.True(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: true, "Personal"));
+        }
+
+        [Fact]
+        public void CategoryGate_StationRecipe_AcceptedByStationTarget()
+        {
+            // Lamp + Procedural Engine still craft at the Assembly Station.
+            Assert.True(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: false, "CraftingStation"));
+        }
+
+        [Fact]
+        public void CategoryGate_PersonalRecipe_RejectedFromStationTarget()
+        {
+            // Symmetric: a Personal recipe cannot be loaded into a station's 1005 either.
+            Assert.False(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: false, "Personal"));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("personal")]   // case matters - the client bins by the exact string
+        [InlineData("Cooking")]
+        [InlineData("Shipyard")]
+        public void CategoryGate_WrongOrMissingCategory_RejectedFromPersonalTarget(string? category)
+        {
+            Assert.False(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: true, category));
+        }
+
+        [Fact]
+        public void OpenStation_SelectLamp_SelectEngine_ThenOpenPersonal_LeavesPlayerModelClean()
+        {
+            // End-to-end acceptance shape at the pure-routing level: with the Assembly
+            // Station recognised, selecting Lamp then Engine both route to the STATION
+            // and both pass the station's category gate; the personal context never
+            // accepts either, so the player 1005 stays empty/Personal-only.
+            System.Func<long, bool> placed = Placed(Station);
+
+            // 1003 updates tagged with the station -> station target.
+            long lampTarget = StationCraftRouting.ResolvePushTarget(Player, Station, placed);
+            long engineTarget = StationCraftRouting.ResolvePushTarget(Player, Station, placed);
+            Assert.Equal(Station, lampTarget);
+            Assert.Equal(Station, engineTarget);
+            Assert.True(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: lampTarget == Player, "CraftingStation"));
+            Assert.True(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: engineTarget == Player, "CraftingStation"));
+
+            // Opening the personal tab (field unset/own id) -> player target, which
+            // rejects the CraftingStation recipe outright.
+            long personalTarget = StationCraftRouting.ResolvePushTarget(Player, 0, placed);
+            Assert.Equal(Player, personalTarget);
+            Assert.False(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: personalTarget == Player, "CraftingStation"));
+        }
+
+        [Fact]
+        public void UnknownStationFallsBackToPlayer_ButCategoryGateStillProtectsPlayerModel()
+        {
+            // The routing fallback for an UNRECOGNISED station id is the player (so the
+            // wait flag still clears). Without the category gate that fallback is exactly
+            // the contamination path - a CraftingStation recipe pushed to the player 1005.
+            // The gate closes it: the personal target refuses the CraftingStation category.
+            long target = StationCraftRouting.ResolvePushTarget(Player, Station, Placed(OtherStation));
+            Assert.Equal(Player, target);
+            Assert.False(StationCraftRouting.CategoryMatchesTarget(isPersonalTarget: target == Player, "CraftingStation"));
+        }
     }
 }
