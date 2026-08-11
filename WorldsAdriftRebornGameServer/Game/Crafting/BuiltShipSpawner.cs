@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using WorldsAdriftRebornGameServer.DLLCommunication;
+using WorldsAdriftRebornGameServer.Game.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
@@ -69,36 +71,14 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     + " ship spot " + shipyardPos + " instead of next to the console.");
             }
 
-            int sequence = BuiltShips.NextSequence();
             FixedPointPosition hullPos = BuiltShipPlacement.HullNextTo(shipyardPos);
-            FixedPointPosition deckPos = BuiltShipPlacement.DeckOn(hullPos);
 
-            WorldEntity hull = new WorldEntity(
-                BuiltShipPlacement.HullKey(sequence),
-                Multiplayer.WorldEntities.ShipFrameAssetName,
-                Multiplayer.WorldEntities.DefaultAssetContext,
-                hullPos,
-                seedComponents: BuiltShipPlacement.HullSeedComponents.ToArray(),
-                order: SpawnOrder.AfterPlayer);
+            (long hullEntityId, WorldEntity hull, WorldEntity deck, long deckEntityId) =
+                RegisterBuiltShip(hullPos, hullBytes);
 
-            WorldEntity deck = new WorldEntity(
-                BuiltShipPlacement.DeckKey(sequence),
-                Multiplayer.Deck.AssetName,
-                Multiplayer.WorldEntities.DefaultAssetContext,
-                deckPos,
-                seedComponents: BuiltShipPlacement.DeckSeedComponents.ToArray(),
-                order: SpawnOrder.AfterPlayer);
-
-            WorldsAdriftRebornGameServer.WorldEntities.Register(hull);
-            WorldsAdriftRebornGameServer.WorldEntities.Register(deck);
-
-            // Allocate the shared ids once (EntityIdFor is what allocates), then record
-            // the per-ship truth the serializer reads back BEFORE any peer can check the
-            // entities out: the hull's own bytes (1209) and that the deck is a deck (1099).
-            long hullEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(hull);
-            long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(deck);
-            BuiltShips.RegisterHull(hullEntityId, hullBytes);
-            BuiltShips.RegisterDeck(deckEntityId);
+            // Persist the built ship so it reappears next boot - re-spawned as a world
+            // entity in the connect-time spawn plan, exactly like this runtime spawn.
+            WorldStatePersistence.RecordBuiltShip(hullPos, hullBytes);
 
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
@@ -126,6 +106,56 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             }
 
             return hullEntityId;
+        }
+
+        /// <summary>
+        /// Re-creates ONE persisted ship at boot from its stored hull position and hull
+        /// bytes, via the SAME <see cref="RegisterBuiltShip"/> core the runtime build
+        /// uses, so a restored ship is byte-identical and the spawn plan serves it to
+        /// every joining client. Returns the allocated hull entity id, or null if the
+        /// stored bytes could not be resolved. Does not broadcast (no peers at boot) and
+        /// does not re-persist (the record it came from is already on disk).
+        /// </summary>
+        internal static long? Restore(BuiltShipRecord record)
+        {
+            byte[] hullBytes = ResolveValidHullBytes(record.HullBytes);
+            FixedPointPosition hullPos = record.HullPosition();
+
+            (long hullEntityId, WorldEntity hull, WorldEntity _, long deckEntityId) =
+                RegisterBuiltShip(hullPos, hullBytes);
+
+            Console.WriteLine("[info] built-ship spawn: RESTORED ship as hull entity " + hullEntityId
+                + " + deck entity " + deckEntityId + " at " + hull.Position + " (" + hullBytes.Length
+                + "-byte hull); it will be served to every joining client via the spawn plan.");
+
+            return hullEntityId;
+        }
+
+        /// <summary>
+        /// Registers a built ship's hull and deck and seeds the built-ship ledger,
+        /// allocating their shared entity ids - the part common to a runtime build and a
+        /// boot restore. The two WorldEntities are built by
+        /// <see cref="BuiltShipSpawnPlan"/>, the single source of truth for a built
+        /// ship's asset + seed sets, so the two paths cannot diverge. Does NOT broadcast.
+        ///
+        /// The ledger is seeded BEFORE any peer can check the entities out: the hull's
+        /// own bytes (1209) and that the deck is a deck (1099).
+        /// </summary>
+        private static (long HullEntityId, WorldEntity Hull, WorldEntity Deck, long DeckEntityId)
+            RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes)
+        {
+            int sequence = BuiltShips.NextSequence();
+            BuiltShipSpawnPlan.HullAndDeck plan = BuiltShipSpawnPlan.For(sequence, hullPos);
+
+            WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Hull);
+            WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Deck);
+
+            long hullEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Hull);
+            long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Deck);
+            BuiltShips.RegisterHull(hullEntityId, hullBytes);
+            BuiltShips.RegisterDeck(deckEntityId);
+
+            return (hullEntityId, plan.Hull, plan.Deck, deckEntityId);
         }
 
         private static byte[] ResolveValidHullBytes(byte[] savedHullBytes)
