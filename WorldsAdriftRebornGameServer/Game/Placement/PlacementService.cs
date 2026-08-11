@@ -8,7 +8,9 @@ using Bossa.Travellers.Items;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Inventory;
+using WorldsAdriftRebornGameServer.Game.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Persistence;
 using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
 using WorldsAdriftRebornGameServer.Multiplayer.Placement;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
@@ -303,31 +305,15 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 return null;
             }
 
-            int sequence = _placedSequence++;
-            string key = def.KeyPrefix + ":" + sequence;
+            (WorldEntity registration, long entityId) =
+                RegisterDeployable(def, position, packedRotation, ownerCharacterUid);
 
-            WorldEntity registration =
-                new WorldEntity(
-                    key,
-                    def.AssetName,
-                    AssetContext,
-                    position,
-                    seedComponents: def.SeedComponents.ToArray(),
-                    order: SpawnOrder.AfterPlayer,
-                    packedRotation: packedRotation);
-
-            WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
-            long entityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
-
-            // A shipyard also carries 1205 ShipyardState, seeded from the placed-
-            // structure ledger by ComponentsSerializer's 1205 branch. Record it there
-            // so that branch renders it deployed rather than an inert prop. Other
-            // deployables seed 190602 only and need no ledger entry (the 190602 branch
-            // reads their transform straight from the world-entity registry).
-            if (def.SeedComponents.Contains(Deployables.ShipyardStateComponentId))
-            {
-                PlacedShipyards.Register(entityId, ownerCharacterUid);
-            }
+            // PERSIST BEFORE BROADCASTING. A crash between here and the last peer send
+            // still leaves the record on disk, so the deployable reappears next boot;
+            // recording one that reaches no peer is harmless, because the boot restore
+            // is what makes it universal anyway.
+            WorldStatePersistence.RecordPlacedDeployable(
+                def.ItemTypeId, position, packedRotation, ownerCharacterUid);
 
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
@@ -348,6 +334,76 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 Console.WriteLine("[warning] placement: deployable " + entityId
                     + " was registered but reached no fully-connected peer.");
             }
+
+            return entityId;
+        }
+
+        /// <summary>
+        /// Registers ONE deployed world entity of <paramref name="def"/> and seeds its
+        /// ledger, allocating its shared entity id - the part common to a runtime
+        /// placement and a boot restore, so the two cannot build a different entity.
+        /// The WorldEntity itself is built by <see cref="PlacedDeployableSpawnPlan"/>,
+        /// the single source of truth for a placed deployable's asset + seed set. Does
+        /// NOT broadcast: the caller sends (runtime) or leaves it to the spawn plan (boot).
+        /// </summary>
+        private (WorldEntity Registration, long EntityId) RegisterDeployable(
+            DeployableDef def,
+            FixedPointPosition position,
+            uint packedRotation,
+            string ownerCharacterUid)
+        {
+            WorldEntity registration =
+                PlacedDeployableSpawnPlan.WorldEntityFor(def, _placedSequence++, position, packedRotation);
+
+            WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
+            long entityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
+
+            // A shipyard also carries 1205 ShipyardState, seeded from the placed-
+            // structure ledger by ComponentsSerializer's 1205 branch. Record it there
+            // so that branch renders it deployed rather than an inert prop. Other
+            // deployables seed 190602 only and need no ledger entry (the 190602 branch
+            // reads their transform straight from the world-entity registry).
+            if (def.SeedComponents.Contains(Deployables.ShipyardStateComponentId))
+            {
+                PlacedShipyards.Register(entityId, ownerCharacterUid);
+            }
+
+            return (registration, entityId);
+        }
+
+        /// <summary>
+        /// Re-creates ONE persisted deployable at boot: resolves its
+        /// <see cref="DeployableDef"/> from the stored item type and registers it via
+        /// the SAME <see cref="RegisterDeployable"/> core a runtime placement uses, so it
+        /// is byte-identical and the spawn plan serves it to every joining client.
+        /// Returns the allocated entity id, or null when placement is off (nothing to
+        /// interact with) or the stored item type is no longer a known deployable.
+        ///
+        /// Does not broadcast (there are no peers at boot) and does not re-persist (the
+        /// record it came from is already on disk).
+        /// </summary>
+        public long? RestorePlacedDeployable(PlacedDeployableRecord record)
+        {
+            if (!Enabled)
+            {
+                Console.WriteLine("[info] placement: NOT restoring persisted deployable '"
+                    + record.ItemTypeId + "' because placement is off (set WAREBORN_PLACEMENT=1).");
+                return null;
+            }
+
+            if (!Deployables.TryGet(record.ItemTypeId, out DeployableDef def))
+            {
+                Console.WriteLine("[warning] placement: persisted deployable '" + record.ItemTypeId
+                    + "' is no longer a registered deployable; skipping its restore.");
+                return null;
+            }
+
+            (_, long entityId) = RegisterDeployable(
+                def, record.Position(), record.PackedRotation, record.OwnerCharacterUid);
+
+            Console.WriteLine("[info] placement: RESTORED '" + def.ItemTypeId + "' as entity " + entityId
+                + " at " + record.Position() + " (owner '" + record.OwnerCharacterUid
+                + "'); it will be served to every joining client via the spawn plan.");
 
             return entityId;
         }

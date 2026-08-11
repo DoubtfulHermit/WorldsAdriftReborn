@@ -2182,6 +2182,15 @@ namespace WorldsAdriftRebornGameServer
             Console.WriteLine("[info] fall floor: " + Falls.ModeDescription);
 
 
+            // RESTORE PERSISTED WORLD STATE before the spawn plan is computed. Placed
+            // deployables (shipyards) and built ships a player made in an earlier
+            // session are re-registered as world entities HERE, so the plan below picks
+            // them up and every joining client is served them exactly like the static
+            // world entities - the whole point of persistence being that the shipyard is
+            // still standing after a restart without anyone re-placing it. Must run
+            // before SpawnPlan.For, and does: this is the last thing before it.
+            Game.Persistence.WorldStatePersistence.RestoreOnBoot(Placement);
+
             // define initial world state for first chunk
             //
             // Built FROM SpawnPlan - i.e. derived from what is REGISTERED -
