@@ -1656,7 +1656,7 @@
     "uUID": "lamp",
     "schematicId": "lamp",
     "referenceData": "lamp",
-    "category": "Shipyard",
+    "category": "CraftingStation",
     "title": "Lamp",
     "iconId": "metals/Metal_Iron",
     "description": "A lamp for the ship.",

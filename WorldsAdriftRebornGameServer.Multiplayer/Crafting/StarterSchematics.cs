@@ -26,10 +26,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
             "guitar",
             "clothMakeshift",
             "makeshiftStorage",
-            // TEMPORARY (test convenience): "lamp" is a loose ship-part, faithfully it
-            // should be knowledge-EARNED, not a starter. Seeded here so the craft->loose-
-            // part->mount loop is testable immediately; move to a knowledge alias once proven.
+            // TEMPORARY (test convenience): "lamp" is a loose ship-part and
+            // "assemblyStation" is the workbench you craft ship parts AT - faithfully both
+            // should be knowledge-EARNED, not starters. Seeded here so the whole
+            // craft-station -> place -> craft-part -> (soon) mount loop is testable
+            // immediately; move both to knowledge aliases once the loop is proven.
             "lamp",
+            "assemblyStation",
         };
 
         /// <summary>
