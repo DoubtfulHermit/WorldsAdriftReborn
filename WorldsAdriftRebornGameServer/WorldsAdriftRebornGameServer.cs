@@ -210,6 +210,11 @@ namespace WorldsAdriftRebornGameServer
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
             SpawnPacers.Remove(peer);
 
+            // The peer's loading-barrier slot. Dropped so a departed peer can never
+            // be reported as timing out (which would push an Activated update to a
+            // dead peer) and so a reused id starts fresh.
+            LoadBarriers.Forget(peerId);
+
             // The peer's wire-metrics window. Left behind it would keep emitting
             // an all-zero [rates] line for a ghost every five seconds, forever.
             Rates.Forget(peerId);
@@ -363,6 +368,79 @@ namespace WorldsAdriftRebornGameServer
         /// <see cref="SpawnPacePolicy"/> and <see cref="CadenceTimer"/>.
         /// </summary>
         private static readonly Dictionary<ENetPeerHandle, CadenceTimer> SpawnPacers = new();
+
+        /// <summary>
+        /// The loading-barrier readiness tracker: which joining peers are still
+        /// holding the loading screen waiting for their initial world set, and when
+        /// each one's patience runs out. Fed at first-time setup (Arm), released by
+        /// the 190001 handler (Complete) or the per-loop timeout sweep
+        /// (DueTimeouts), and cleared in ForgetPeer. Only ever touched from the
+        /// single-threaded main loop and the callbacks it drives, so it needs no
+        /// lock. Inert unless <see cref="Game.LoadBarrier.Enabled"/>. See
+        /// <see cref="LoadBarrierTracker"/> and <see cref="LoadBarrierPolicy"/>.
+        /// </summary>
+        internal static readonly LoadBarrierTracker LoadBarriers = new LoadBarrierTracker();
+
+        /// <summary>
+        /// Releases a peer from the loading barrier: pushes <c>190002 Activated
+        /// IsActive=true</c> (which lets PlayerActivationVisualiser fade the loading
+        /// screen and un-freezes the player) and moves <c>190000 EntityLoadingControl</c>
+        /// to <c>Loaded</c> for tidiness. Reliable-ordered, one-shot, to the peer's
+        /// own entity only. Called from exactly two places - the 190001 readiness
+        /// handler and the timeout sweep - both of which have already claimed this
+        /// peer from <see cref="LoadBarriers"/>, so this never double-fires.
+        /// </summary>
+        internal static void ReleaseLoadBarrier(ENetPeerHandle peer, long entityId, string reason)
+        {
+            Improbable.Corelibrary.Activation.Activated.Update activate =
+                new Improbable.Corelibrary.Activation.Activated.Update().SetIsActive(true);
+
+            Improbable.Corelib.Worker.Checkout.EntityLoadingControl.Update loaded =
+                new Improbable.Corelib.Worker.Checkout.EntityLoadingControl.Update()
+                    .SetLoadedState(Improbable.Corelib.Worker.Checkout.EntityLoadingControlData.EntityLoadingStates.Loaded);
+
+            bool ok = SendOPHelper.SendComponentUpdateOp(
+                peer, entityId,
+                new List<uint> { 190002, 190000 },
+                new List<object> { activate, loaded });
+
+            Console.WriteLine("[load-barrier] releasing " + Describe(peer.DangerousGetHandle())
+                + " entity " + entityId + " (" + reason + "): Activated=true "
+                + (ok ? "sent." : "FAILED to send - the client may stay on the loading screen; check the wire."));
+        }
+
+        /// <summary>
+        /// The loading-barrier safety net: releases any peer whose readiness deadline
+        /// has passed, so a client that never publishes 190001 (an old mod build with
+        /// no checker, a prefab that never instantiates) is never trapped on the
+        /// loading screen. Cheap and a no-op when nothing is pending. Runs once per
+        /// main-loop turn beside the other timers.
+        /// </summary>
+        private static void TickLoadBarrierTimeouts()
+        {
+            if (LoadBarriers.PendingCount == 0)
+            {
+                return;
+            }
+
+            foreach (ulong peerId in LoadBarriers.DueTimeouts(ServerClock.Elapsed))
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                long? entityId = Players.EntityOf(peerId);
+                if (peer == null || entityId == null)
+                {
+                    // The peer left between arming and timing out; ForgetPeer should
+                    // have dropped it, but if a race got here there is nothing to
+                    // release. Nothing to clean up - DueTimeouts already removed it.
+                    continue;
+                }
+
+                Console.WriteLine("[load-barrier] TIMEOUT: " + Describe(peer.DangerousGetHandle())
+                    + " did not signal ready within " + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0")
+                    + " s; activating in degraded mode so it is not stuck on the loading screen.");
+                ReleaseLoadBarrier(peer, entityId.Value, "readiness timeout");
+            }
+        }
 
         /// <summary>
         /// Which components have already been delivered to each peer for each
@@ -2250,23 +2328,77 @@ namespace WorldsAdriftRebornGameServer
                                 injectedIds.AddRange(MirrorSendPolicy.PartMountInjectedComponents);
                             }
 
+                            // LOADING BARRIER (WAREBORN_LOAD_BARRIER=1). Inject the three
+                            // barrier components with the rest of the atomic setup batch so
+                            // they are guaranteed present before activation is decided:
+                            //   190000 EntityLoadingControl  - server-owned, seeded Requested
+                            //          + the initial entity-id list (ComponentsSerializer);
+                            //   190001 EntityLoadingResponse - the client's readiness writer,
+                            //          seeded false and GRANTED below so its writer enables;
+                            //   190002 Activated             - server-owned, seeded IsActive
+                            //          FALSE so the loading screen stays up until we release it.
+                            // These seeds are trivial and always serialize, so folding them
+                            // into the fatal batch adds no real failure risk while keeping the
+                            // "all present or no spawn" atomicity the rest of setup relies on.
+                            List<uint> authNow = authoritativeComponents;
+                            if (Game.LoadBarrier.Enabled)
+                            {
+                                injectedIds.Add(190000);
+                                injectedIds.Add(190001);
+                                injectedIds.Add(190002);
+                                // Only 190001 becomes client-authoritative; 190000/190002 stay
+                                // server-owned readers on the client.
+                                authNow = authoritativeComponents.Concat(new uint[] { 190001 }).ToList();
+                            }
+
                             List<Structs.Structs.InterestOverride> injected = injectedIds
                                 .Select(p => new Structs.Structs.InterestOverride(p, 1))
                                 .ToList();
 
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true))
+                            List<uint> injectedServed = new List<uint>();
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true, injectedServed))
                             {
                                 continue;
                             }
 
+                            // Mark ONLY the barrier components served, so the client's own
+                            // later interest request for 190000/190001/190002 is deduped by
+                            // the best-effort branch below instead of RE-adding them. A
+                            // re-add of 190000 would re-fire the client's EntitiesUpdated and
+                            // reset the barrier's entity list; a re-add of 190002 would drop
+                            // the client back to IsActive=false after we released it. The
+                            // other injected ids keep their existing (unmarked) behaviour -
+                            // the client never requests them, so they are never re-added.
+                            if (Game.LoadBarrier.Enabled)
+                            {
+                                ServedComponents.MarkServed(keyValuePair.Key, entityId,
+                                    injectedServed.Where(id => id == 190000 || id == 190001 || id == 190002).ToList());
+                            }
+
                             // now send auth change
-                            if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authoritativeComponents))
+                            if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authNow))
                             {
                                 continue;
                             }
 
                             // now add player to clientSetupState
                             PeerManager.Instance.clientSetupState.Add(keyValuePair.Key);
+
+                            // Arm the loading barrier for this peer: it is now holding the
+                            // loading screen (190002 IsActive=false) until its
+                            // BossaEntityLoadingChecker publishes 190001 Loaded=true for the
+                            // initial set, or the timeout sweep releases it. Armed AFTER the
+                            // atomic setup succeeded, so a peer we could not fully set up is
+                            // never left waiting on a barrier that will not resolve.
+                            if (Game.LoadBarrier.Enabled)
+                            {
+                                LoadBarriers.Arm(PeerIdentity.IdOf(keyValuePair.Key),
+                                    ServerClock.Elapsed + Game.LoadBarrier.Timeout);
+                                Console.WriteLine("[load-barrier] armed " + Describe(keyValuePair.Key.DangerousGetHandle())
+                                    + " entity " + entityId + "; holding the loading screen for up to "
+                                    + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0")
+                                    + " s or until 190001 Loaded=true.");
+                            }
 
                             // Teleport last, and on its own. 190607 is the third
                             // [Require] of TeleportTransformVisualizer and the client does
@@ -2520,7 +2652,32 @@ namespace WorldsAdriftRebornGameServer
             // The plan is computed ONCE, not per peer, so every client walks an
             // identical sequence and every world entity's id is allocated by
             // whichever client reaches its step first and then reused verbatim.
-            IReadOnlyList<SpawnPlanStep> plan = SpawnPlan.For(WorldEntities);
+            // LOADING BARRIER (WAREBORN_LOAD_BARRIER=1). When armed, bind every world
+            // entity id now - so the initial set can be NAMED in 190000 before those
+            // entities' AddEntity steps run - and order the plan so the initial set
+            // (island + ship + parts) streams BEFORE the distant scenery, so the
+            // barrier is not stuck behind every tree in the pacer. When off, this is
+            // exactly the registration-order plan the server has always produced.
+            IReadOnlyList<SpawnPlanStep> plan;
+            if (Game.LoadBarrier.Enabled)
+            {
+                Game.LoadBarrier.Prime(WorldEntities);
+                plan = SpawnPlan.For(WorldEntities, LoadBarrierPolicy.IsInitialKey);
+
+                Console.WriteLine("[load-barrier] ON (WAREBORN_LOAD_BARRIER=1). Loading screen is held via"
+                    + " 190000/190001/190002 until the initial set is ready, timeout "
+                    + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0") + " s.");
+                Console.WriteLine("[load-barrier] initial set (" + Game.LoadBarrier.InitialKeys.Count
+                    + ", gates the loading screen): " + string.Join(", ", Game.LoadBarrier.InitialKeys));
+                Console.WriteLine("[load-barrier] streamed after spawn (" + Game.LoadBarrier.DistantKeys.Count
+                    + ", does not gate): " + string.Join(", ", Game.LoadBarrier.DistantKeys));
+            }
+            else
+            {
+                plan = SpawnPlan.For(WorldEntities);
+                Console.WriteLine("[load-barrier] OFF (set WAREBORN_LOAD_BARRIER=1 to hold the loading screen"
+                    + " until the initial world set is ready).");
+            }
 
             Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
@@ -2609,6 +2766,11 @@ namespace WorldsAdriftRebornGameServer
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
                 // Cheap when idle (one UtcNow compare over an empty list). See Game.DeferredActions.
                 Game.DeferredActions.Tick();
+                // Loading-barrier safety net: release any joiner whose readiness
+                // deadline passed, so a client that never signals ready is not stuck
+                // on the loading screen. No-op when nothing is pending (barrier off,
+                // or every joiner already activated). See TickLoadBarrierTimeouts.
+                TickLoadBarrierTimeouts();
                 Relay.Tick(); // fixed-cadence movement emit + 5 s relay stats; cheap when idle (two Stopwatch compares). See Networking.RelayEmitter.
 
                 // Report each connected peer's 5 s wire-rate line (with ENet peer
