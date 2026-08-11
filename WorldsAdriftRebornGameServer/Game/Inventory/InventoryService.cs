@@ -180,16 +180,37 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
             {
                 InventoryModel? stored = Persistence.Load(key);
 
-                if (stored != null)
+                // The live inventory the entity is now bound to. After Rebind this
+                // is never null; the fallback only guards a future refactor. Its
+                // count is the OTHER half of the wipe decision - a stored payload
+                // is allowed to replace it only when doing so cannot destroy data.
+                int currentCount = Store.ForKey(key)?.Items.Count ?? 0;
+
+                if (InventoryLoadPolicy.ShouldApplyStored(currentCount, stored?.Items))
                 {
-                    Store.Load(key, stored.Items);
-                    Console.WriteLine("[info] restored " + stored.Items.Count + " item(s) for " + key
+                    Store.Load(key, stored!.Items);
+                    Console.WriteLine("[info] restored " + stored!.Items.Count + " item(s) for " + key
                         + " (entity " + entityId + ").");
+                }
+                else if (stored == null)
+                {
+                    // No row, an unreadable database, or an unparseable payload -
+                    // the persistence layer collapses all three to null on
+                    // purpose. Keep the session's contents; a transient database
+                    // error must never present as a wipe.
+                    Console.WriteLine("[info] no stored inventory for " + key
+                        + " (entity " + entityId + "); keeping this session's contents.");
                 }
                 else
                 {
-                    Console.WriteLine("[info] no stored inventory for " + key
-                        + " (entity " + entityId + "); keeping this session's contents.");
+                    // The row parsed but is empty while this session is not. An
+                    // empty row is indistinguishable from a truncated one, so it
+                    // is treated as suspect rather than authoritative: the live
+                    // inventory is kept and the next save overwrites the empty
+                    // row with it. See InventoryLoadPolicy for the asymmetry.
+                    Console.WriteLine("[warning] stored inventory for " + key + " (entity " + entityId
+                        + ") is empty but this session holds " + currentCount
+                        + " item(s); keeping the session's contents rather than wiping them.");
                 }
             }
 
