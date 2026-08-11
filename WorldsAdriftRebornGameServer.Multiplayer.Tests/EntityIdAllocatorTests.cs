@@ -63,13 +63,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Entity_ids_start_at_zero_and_increase_by_one()
+        public void Entity_ids_start_at_one_not_zero_because_id_zero_is_invalid_on_the_client()
         {
+            // The client's Improbable.Worker.EntityId.IsValid() is Id > 0: entity id
+            // 0 is invalid there (indistinguishable from a default/unset EntityId),
+            // so it must never be handed to a real entity. The first id is 1.
             EntityIdAllocator ids = new();
 
-            Assert.Equal(0, ids.Next());
             Assert.Equal(1, ids.Next());
             Assert.Equal(2, ids.Next());
+            Assert.Equal(3, ids.Next());
+        }
+
+        [Fact]
+        public void No_id_is_ever_zero_so_a_restored_shipyard_cannot_land_on_the_invalid_sentinel()
+        {
+            // The boot-restored shipyard was the FIRST SharedEntityId allocated
+            // (restore runs before any client, so before the island) and landed on
+            // 0 - an invalid client id, which collided with the client's default
+            // entity slot and crashed every joining player re-seeding "entity 0".
+            EntityIdAllocator ids = new();
+
+            // The very first allocation - what a boot-restored deployable takes.
+            Assert.True(ids.SharedEntityId("placed-shipyard:0") > 0);
+
+            for (int i = 0; i < 1000; i++)
+            {
+                Assert.True(ids.Next() > 0, "a zero (invalid) entity id was handed out");
+            }
+        }
+
+        [Fact]
+        public void The_first_allocated_shared_id_is_valid_on_the_client()
+        {
+            // Mirrors the client contract EntityId.IsValid() == (Id > 0). The island,
+            // a placed deployable, a tree - whichever is asked for first - must be > 0.
+            EntityIdAllocator ids = new();
+            Assert.True(ids.SharedIslandEntityId > 0);
+            Assert.Equal(EntityIdAllocator.FirstEntityId, ids.SharedIslandEntityId);
         }
 
         [Fact]

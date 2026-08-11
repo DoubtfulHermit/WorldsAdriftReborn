@@ -367,7 +367,7 @@ namespace WorldsAdriftRebornGameServer
         /// 1518/190602 was cycling ShipDeckVisualizer and destroying its solid
         /// collider). Forgotten on disconnect alongside the other per-peer state.
         /// </summary>
-        private static readonly Multiplayer.ServedComponentLedger<ENetPeerHandle> ServedComponents = new();
+        internal static readonly Multiplayer.ServedComponentLedger<ENetPeerHandle> ServedComponents = new();
 
         /// <summary>
         /// Rate-limiter for the per-packet crash-isolation catch below. A modified
@@ -1724,11 +1724,24 @@ namespace WorldsAdriftRebornGameServer
                     .Select(id => new Structs.Structs.InterestOverride(id, 1))
                     .ToList();
 
-                if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+                // Record what the seed push actually delivered, so this peer's later
+                // interest re-checkout (the else branch above) does NOT re-ADD these
+                // ids. Without this the ledger was empty for the entity and the
+                // re-checkout re-seeded the whole set - "Component X added to entity N,
+                // but it already exists" on the client, which is merely wasteful for
+                // most entities but a CRASH for a placed shipyard (a second seed of
+                // 1205/1210/1004/1005/1206 on the same entity while its visualizers are
+                // already registered) and DESTRUCTIVE for the deck (cycles
+                // ShipDeckVisualizer, Clear()ing its solid collider). The joining
+                // client's spawn plan serves the restored shipyard HERE, so this is the
+                // exact path that crashed the second player.
+                List<uint> seedServed = new List<uint>();
+                if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true, seedServed))
                 {
                     Console.WriteLine("[error] '" + entity.Key + "' (" + entityId
                         + ") was created but its seeded components were dropped. It will render and do nothing.");
                 }
+                ServedComponents.MarkServed(peer, entityId, seedServed);
             };
         }
 

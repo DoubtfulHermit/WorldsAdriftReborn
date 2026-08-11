@@ -525,11 +525,20 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))
                 .ToList();
 
-            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+            // Record the seed push in the served-component ledger, exactly as the
+            // connect-time spawn plan (AddWorldEntity) now does, so this peer's later
+            // interest re-checkout does not re-ADD the shipyard's already-delivered
+            // 1205/1210/1004/1005/1206 - the duplicate AddComponent that crashes the
+            // client. This is the LIVE placer's path (the joiner's is the spawn plan);
+            // both must mark served or the re-checkout re-seeds and the entity store
+            // throws "component already exists".
+            List<uint> seedServed = new List<uint>();
+            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true, seedServed))
             {
                 Console.WriteLine("[error] placement: deployable " + entityId
                     + " was created on a peer but its seed components were dropped; it will render inert.");
             }
+            WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, seedServed);
 
             return true;
         }

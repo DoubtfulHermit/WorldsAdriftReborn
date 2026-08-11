@@ -313,11 +313,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_island_still_gets_entity_id_zero_and_the_first_player_still_gets_one()
+        public void The_island_gets_entity_id_one_and_the_first_player_gets_two()
         {
-            // Not a rule, but it IS the numbering every existing log line, saved
-            // capture and debugging habit was built against. If the seam changed
-            // it, that is worth knowing deliberately rather than discovering.
+            // The base id is 1, not 0: id 0 is the client's INVALID sentinel
+            // (EntityId.IsValid() == Id > 0), so nothing real may take it. The island
+            // is the first AddEntity in the plan, so it takes 1; the first player the
+            // next id, 2. (This used to be 0 and 1 - the shift is deliberate and is
+            // what stops a boot-restored deployable landing on the invalid id 0.)
             EntityIdAllocator ids = new EntityIdAllocator();
             WorldEntityRegistry registry = WorldEntities.Default(ids, includeProofIsland: true);
 
@@ -339,8 +341,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(0, island);
-            Assert.Equal(1, player);
+            Assert.Equal(1, island);
+            Assert.Equal(2, player);
         }
 
         private static int IndexOf(IReadOnlyList<SpawnPlanStep> plan, SpawnOp op, string? key)

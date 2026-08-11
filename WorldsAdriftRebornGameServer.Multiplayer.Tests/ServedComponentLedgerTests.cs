@@ -101,6 +101,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_spawn_seeded_shipyard_is_not_re_added_on_the_joiners_interest_recheckout()
+        {
+            // The placement crash: a boot-restored shipyard's seed set
+            // {190602, 1205, 1206, 1210, 1004, 1005} is pushed once when the joining
+            // client's spawn plan creates the entity. If that push is NOT recorded,
+            // the client's later interest re-checkout (which re-declares its whole
+            // set) re-ADDs every id - "Component ShipyardState added to entity 0, but
+            // it already exists" - and the entity store throws. Recording the seed
+            // push (what AddWorldEntity / BroadcastToPeer now do) makes the
+            // re-checkout serve nothing.
+            const long Shipyard = 7;
+            uint[] seed = { 190602, 1205, 1206, 1210, 1004, 1005 };
+
+            var ledger = new ServedComponentLedger<int>();
+
+            // The spawn plan seeds the shipyard and records what it delivered.
+            var seeded = ledger.UnservedOf(1, Shipyard, seed);
+            Assert.Equal(seed, seeded);
+            ledger.MarkServed(1, Shipyard, seeded);
+
+            // The client re-declares interest in the whole set: none of it goes back.
+            var recheckout = ledger.UnservedOf(1, Shipyard, seed);
+            Assert.Empty(recheckout);
+        }
+
+        [Fact]
         public void Marking_served_is_additive_across_calls()
         {
             var ledger = new ServedComponentLedger<int>();

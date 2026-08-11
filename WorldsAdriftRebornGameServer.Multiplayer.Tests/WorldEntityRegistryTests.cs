@@ -116,8 +116,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         public void Asking_which_entity_an_id_belongs_to_never_allocates_an_id()
         {
             // Allocation on read is what makes ids shared; allocation on a
-            // QUESTION would make the answer depend on who asked first, and
-            // entity 0 would be mistaken for the island.
+            // QUESTION would make the answer depend on who asked first. Id 0 is the
+            // INVALID sentinel on the client (EntityId.IsValid() == Id > 0) and is
+            // never handed out, so it must always read back as "not a world entity".
             EntityIdAllocator ids = new EntityIdAllocator();
             WorldEntityRegistry registry = WorldEntities.Default(ids);
             WorldEntity island = registry.ByKey(WorldEntities.IslandKey)!;
@@ -127,7 +128,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(SeededEntityKind.Player, registry.KindOf(0));
             Assert.False(registry.IsBound(island));
 
-            Assert.Equal(0, registry.EntityIdFor(island));
+            // The island is the first thing allocated, so it takes the base id 1 -
+            // never 0, which no valid entity may occupy.
+            Assert.Equal(EntityIdAllocator.FirstEntityId, registry.EntityIdFor(island));
             Assert.True(registry.IsBound(island));
         }
 

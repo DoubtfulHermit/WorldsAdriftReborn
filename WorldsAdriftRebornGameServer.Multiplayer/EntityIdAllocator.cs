@@ -25,12 +25,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public const string IslandKey = "island";
 
-        private long _next;
+        /// <summary>
+        /// The lowest id ever handed out. It is 1, not 0, because on the CLIENT
+        /// <c>Improbable.Worker.EntityId.IsValid()</c> is <c>Id &gt; 0</c>: entity id
+        /// 0 is an INVALID id there, indistinguishable from a default-constructed /
+        /// unset <c>EntityId</c>, and <c>InvalidEntityId</c> is -1. A real entity that
+        /// lands on id 0 collides with the client's default/invalid slot - a
+        /// cross-client parent reference to it resolves to nothing, and the entity
+        /// store treats it as the same key as any other default id, so its components
+        /// get AddComponent'd on top of one that "already exists" and the SpatialOS
+        /// store throws. This bit the boot-restored shipyard: it was the FIRST
+        /// SharedEntityId the server allocated (restore runs before any client
+        /// connects, so before the island), landed on 0, and every joining client
+        /// crashed re-seeding "entity 0". Basing the counter at 1 keeps id 0 reserved
+        /// for the sentinel it already is on the wire.
+        /// </summary>
+        public const long FirstEntityId = 1;
+
+        private long _next = FirstEntityId;
         private readonly Dictionary<string, long> _shared = new Dictionary<string, long>();
 
         /// <summary>
-        /// A fresh entity id. Monotonic from 0 and never reused, including after
-        /// the owning peer disconnects.
+        /// A fresh entity id. Monotonic from <see cref="FirstEntityId"/> (1, never 0 -
+        /// id 0 is invalid on the client) and never reused, including after the owning
+        /// peer disconnects.
         /// </summary>
         public long Next()
         {
