@@ -23,7 +23,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         /// <summary>The event's sourceEntity is not the player entity the 1017 update rode in on.</summary>
         SourceMismatch,
 
-        /// <summary>A real parent entity was named. Terrain placement of a shipyard must be parentless.</summary>
+        /// <summary>A real parent entity was named by a deployable that must go down parentless (the shipyard). A crafting station may carry a parent (it is placed on a ship/surface) and is NOT rejected for it.</summary>
         UnexpectedParent,
 
         /// <summary>A coordinate was NaN or infinite - a malformed or malicious transform.</summary>
@@ -84,6 +84,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         /// supplied. The server has no live player-position store today, so the
         /// handler passes null and distance is skipped - documented, not silently
         /// dropped.
+        ///
+        /// <paramref name="parentAllowed"/> relaxes the parentless rule for the ONE
+        /// deployable family that is legitimately placed onto another entity: a
+        /// generic crafting station (the Assembly Station) placed on a ship deck.
+        /// Its 1017 carries the deck/hull entity as the parent (the client's preview
+        /// raycast snapped to that surface), yet the server still spawns it parentless
+        /// at the event's GLOBAL position, so the parent is accepted and then ignored.
+        /// The shipyard leaves this false: it is a ground structure and its parentless
+        /// invariant is what keeps a client from spawning one welded to a ship.
         /// </summary>
         public static PlacementDecision Evaluate(
             string? placeableItemTypeId,
@@ -96,7 +105,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
             double? playerX = null,
             double? playerY = null,
             double? playerZ = null,
-            double maxDistanceMetres = MaxPlacementDistanceMetres)
+            double maxDistanceMetres = MaxPlacementDistanceMetres,
+            bool parentAllowed = false)
         {
             if (placeableItemTypeId == null)
             {
@@ -113,7 +123,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
                 return new PlacementDecision(PlacementOutcome.SourceMismatch);
             }
 
-            if (hasParent)
+            if (hasParent && !parentAllowed)
             {
                 return new PlacementDecision(PlacementOutcome.UnexpectedParent);
             }
@@ -142,6 +152,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         private static bool IsFinite(double d)
         {
             return !double.IsNaN(d) && !double.IsInfinity(d);
+        }
+
+        /// <summary>
+        /// After a 1017 has been evaluated to this <paramref name="outcome"/>, must the
+        /// server tell the CLIENT to leave placement mode (push the 1019 StopPlacing
+        /// clear), not merely drop its own server-side session?
+        ///
+        /// TRUE for EVERY outcome - accept AND every reject. The client enters placement
+        /// mode the instant it sends the 1017 and it does NOT self-exit on a server
+        /// reject: it waits for the 1019 Placing=false + StopPlacingItemEvent. So a
+        /// reject path that only clears the server session (EndSession) leaves the client
+        /// stuck in preview with the green ghost attached and EVERY tool (scanner, etc.)
+        /// locked, exactly the assembly-station bug. Both the accept and the reject paths
+        /// must therefore call StopPlacing. This is the pure, test-guarded statement of
+        /// that invariant: any future outcome that fails to clear the client is a
+        /// regression the handler must not introduce.
+        /// </summary>
+        public static bool ClientMustLeavePlacing(PlacementOutcome outcome)
+        {
+            // Placement is a modal client state entered on send and only ever left on
+            // an explicit server clear; no terminal outcome may skip that clear.
+            return true;
         }
     }
 }
