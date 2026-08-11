@@ -721,6 +721,44 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         obj = new GsimShipBlueprintInteractionState.Data(
                             new Improbable.Collections.Option<ShipBlueprintList>(), false);
                     }
+                    else if(componentId == 1271)
+                    {
+                        // ShipBlueprintCraftingState on the placed SHIPYARD. When the hull
+                        // editor ACTIVATES, the client's interest in the shipyard expands to
+                        // an 11-component batch that includes THIS id; with no serve branch
+                        // it came back UnhandledId and - because an interest batch is
+                        // all-or-nothing - dropped the WHOLE editor payload, leaving the
+                        // client permanently input-blocked under the LoadingInputBlocker.
+                        // Seeded IDLE/EMPTY: no blueprint selected (None prefix + None id),
+                        // no schematics, zero crafting time, no character schematics, not
+                        // crafting. That is the correct resting state for a shipyard nobody
+                        // is blueprint-crafting a ship at, and it lets the blueprint-crafting
+                        // behaviour bind without doing anything. VERIFIED shape (gencode):
+                        // Data(Option<string> prefix, Option<string> id,
+                        // List<ShipBlueprintSchematic>, int craftingTime,
+                        // Map<string, CharacterSchematics>, bool isCrafting).
+                        obj = new ShipBlueprintCraftingState.Data(
+                            new Improbable.Collections.Option<string>(),
+                            new Improbable.Collections.Option<string>(),
+                            new Improbable.Collections.List<ShipBlueprintSchematic>(),
+                            0,
+                            new Map<string, CharacterSchematics>(),
+                            false);
+                    }
+                    else if(componentId == 1450)
+                    {
+                        // ItemHealthNormalizedState on the placed SHIPYARD - the 0..1
+                        // normalised health the client's NormalizedItemHealthVisualizer
+                        // [Require]s (READER) to draw a health bar. The same editor-active
+                        // interest batch asks for it, and its missing branch was the SECOND
+                        // UnhandledId that dropped the batch. Seeded FULL (1.0), consistent
+                        // with the shipyard's already-healthy 1016 ItemHealthState: a freshly
+                        // placed structure is undamaged. Chosen SEED over known-absent because
+                        // a real visualizer requires it and seeding both fixes the batch AND
+                        // lets the health bar read correctly - strictly safer than omitting.
+                        // VERIFIED shape (gencode): Data(float healthNormalized).
+                        obj = new ItemHealthNormalizedState.Data(1f);
+                    }
                     else if(componentId == 2001)
                     {
                         PlayerAnalyticsState.Data paData = new PlayerAnalyticsState.Data(new PlayerAnalyticsStateData("someuser_id",
