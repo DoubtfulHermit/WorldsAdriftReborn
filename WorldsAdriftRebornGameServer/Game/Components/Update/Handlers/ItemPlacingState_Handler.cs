@@ -75,11 +75,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             foreach (PlaceItemEvent placement in events)
             {
-                HandleOnePlacement(entityId, placement);
+                HandleOnePlacement(player, entityId, placement);
             }
         }
 
-        private static void HandleOnePlacement(long entityId, PlaceItemEvent placement)
+        private static void HandleOnePlacement(ENetPeerHandle player, long entityId, PlaceItemEvent placement)
         {
             InventoryModel model = InventoryService.ForEntity(entityId);
             InventoryItem? item = model.ById(placement.placeableItemId);
