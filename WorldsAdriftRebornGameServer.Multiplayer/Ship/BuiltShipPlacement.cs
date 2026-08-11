@@ -58,6 +58,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             return KeyPrefix + ":" + sequence + ":deck";
         }
 
+        /// <summary>The suffix a built ship's HULL registration key ends with.</summary>
+        private const string HullSuffix = ":hull";
+
+        /// <summary>The suffix a built ship's DECK registration key ends with.</summary>
+        private const string DeckSuffix = ":deck";
+
+        /// <summary>
+        /// The HULL registration key sibling of a built ship's DECK key, or null if
+        /// <paramref name="deckKey"/> is not a built-ship deck key.
+        ///
+        /// THE PART-MOUNT MAKE-OR-BREAK. A player can only place a ship part on a
+        /// surface that is a genuine Unity CHILD of the ship root: the client's
+        /// <c>AttachToShip</c> refuses to send <c>1070 PlacePart</c> unless
+        /// <c>spatialOsEntity.HasParentEntity(shipEntity)</c>, and that walks the Unity
+        /// <c>transform.parent</c> chain (EntityX.HasParentEntity), NOT the SpatialOS
+        /// interest graph. Our built ship spawns the hull and the deck as TWO separate
+        /// entities and, this phase, seeds the deck WORLD-ABSOLUTE (parent absent), so
+        /// the deck is not a Unity child of the hull and the player has no valid surface
+        /// to place onto - mounting fails silently client-side. Making the built deck a
+        /// Unity child of its built hull (190602 parent = Parent(hullId, "deck"), the
+        /// same real hierarchy key the static test deck uses, resolved in the
+        /// serializer) is what turns it into a placeable surface. This helper is the
+        /// pure hull-id resolution: a built deck's hull is its sibling by SEQUENCE, so
+        /// <c>built-ship:N:deck</c> -&gt; <c>built-ship:N:hull</c>, string-for-string,
+        /// with no ledger lookup - asserted natively rather than by staring at a client.
+        /// </summary>
+        public static string? HullKeyForDeckKey(string? deckKey)
+        {
+            if (deckKey == null
+                || !deckKey.StartsWith(KeyPrefix + ":", System.StringComparison.Ordinal)
+                || !deckKey.EndsWith(DeckSuffix, System.StringComparison.Ordinal))
+            {
+                return null;
+            }
+            return deckKey.Substring(0, deckKey.Length - DeckSuffix.Length) + HullSuffix;
+        }
+
         /// <summary>
         /// The hull's own body height in metres. A one-cell frame is "roughly 12 m
         /// across, 4 m fore-to-aft and 3.4 m tall" at the client's fixed ShipScale 2

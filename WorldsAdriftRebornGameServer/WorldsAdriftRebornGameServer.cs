@@ -1001,6 +1001,11 @@ namespace WorldsAdriftRebornGameServer
                 // only reachable through a placed shipyard). 1208 + 1270 are the two
                 // client writers the FRAME DESIGNS / SHIP BLUEPRINTS behaviours [Require].
                 list.AddRange(MirrorSendPolicy.ShipBuildUiAuthoritativeComponents);
+                // The PART-MOUNT toolchain shares the flag too (a part is only ever lifted
+                // at a shipyard-docked ship). 1070 (the commit) + 1239 (carry notifications)
+                // are the two client writers BuilderObserver / PlayerPlacementToolBehaviour
+                // [Require]; 1071 stays a server-owned reader (injected, not granted).
+                list.AddRange(MirrorSendPolicy.PartMountAuthoritativeComponents);
             }
             return list;
         }
@@ -1947,6 +1952,11 @@ namespace WorldsAdriftRebornGameServer
                                 // 1270+1274 (SHIP BLUEPRINTS behaviour) so every [Require]
                                 // reader/writer checks out. 1208+1270 are also granted above.
                                 injectedIds.AddRange(MirrorSendPolicy.ShipBuildUiInjectedComponents);
+                                // Part-mount toolchain: 1070 (BuilderObserver writer) + 1071
+                                // (BuilderVisualizer reader) + 1239 (PlayerPlacementToolBehaviour
+                                // writer) so every [Require] resolves and 1070/1239 are in the
+                                // component map for their handlers. 1070+1239 are also granted.
+                                injectedIds.AddRange(MirrorSendPolicy.PartMountInjectedComponents);
                             }
 
                             List<Structs.Structs.InterestOverride> injected = injectedIds
