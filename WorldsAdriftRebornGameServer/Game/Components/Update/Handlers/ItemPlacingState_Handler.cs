@@ -84,14 +84,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             InventoryModel model = InventoryService.ForEntity(entityId);
             InventoryItem? item = model.ById(placement.placeableItemId);
 
-            // parent.Id > 0 means the client aimed at a real entity; shipyard terrain
-            // placement must be parentless. sourceEntity must be the placer.
+            // parent.Id > 0 means the client aimed at a real entity; terrain placement
+            // of a deployable must be parentless. sourceEntity must be the placer.
             bool hasParent = placement.parent.Id > 0;
             bool sourceMatches = placement.sourceEntity.Id == entityId;
 
+            // Which deployable is this? The item's OWN type is the expected type - the
+            // policy still runs every other check (real, mine, source, parentless,
+            // finite) - but the type gate is now "is this a REGISTERED deployable"
+            // rather than "is this the shipyard". An item that is not a deployable (or
+            // was already consumed, so null) fails the WrongItemType / ItemNotInInventory
+            // reject exactly as before.
+            string? itemType = item?.ItemTypeId;
+            bool isDeployable = Deployables.TryGet(itemType, out DeployableDef def);
+            string expectedType = isDeployable ? itemType! : PlacementService.NotADeployable;
+
             PlacementDecision decision = PlacementPolicy.Evaluate(
-                item?.ItemTypeId,
-                PlacementService.ShipyardItemType,
+                itemType,
+                expectedType,
                 sourceMatches,
                 hasParent,
                 placement.globalPosition.X,
@@ -102,7 +112,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 Console.WriteLine("[warning] placement: rejected 1017 for entity " + entityId
                     + " item " + placement.placeableItemId + ": " + decision.Outcome
-                    + " (source=" + placement.sourceEntity.Id + ", parent=" + placement.parent.Id + ").");
+                    + " (type=" + (itemType ?? "<none>") + ", source=" + placement.sourceEntity.Id
+                    + ", parent=" + placement.parent.Id + ").");
                 // A definitive reject ends the session so the player can try again.
                 WorldsAdriftRebornGameServer.Placement.EndSession(entityId);
                 return;
@@ -123,12 +134,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             // Owner is left empty for this milestone (Phase A = visible + deployed for
             // everyone). Per-owner dome/registration is the Phase B+ follow-on.
-            long? spawned = WorldsAdriftRebornGameServer.Placement.SpawnPlacedShipyard(position, packedRotation, "");
+            long? spawned = WorldsAdriftRebornGameServer.Placement.SpawnPlacedDeployable(def, position, packedRotation, "");
 
             if (!spawned.HasValue)
             {
                 Console.WriteLine("[warning] placement: entity " + entityId + " item " + placement.placeableItemId
-                    + " validated but the shipyard could not be spawned; NOT consuming the item.");
+                    + " (" + def.ItemTypeId + ") validated but could not be spawned; NOT consuming the item.");
                 WorldsAdriftRebornGameServer.Placement.StopPlacing(player, entityId);
                 return;
             }
@@ -138,11 +149,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // rejected - the idempotency guard.
             if (model.Remove(placement.placeableItemId))
             {
-                InventoryPush.Push(entityId, "consumed shipyard item " + placement.placeableItemId + " on placement");
+                InventoryPush.Push(entityId, "consumed " + def.ItemTypeId + " item " + placement.placeableItemId + " on placement");
             }
             else
             {
-                Console.WriteLine("[warning] placement: shipyard " + spawned.Value + " spawned but item "
+                Console.WriteLine("[warning] placement: " + def.ItemTypeId + " " + spawned.Value + " spawned but item "
                     + placement.placeableItemId + " was already gone from entity " + entityId + "'s inventory.");
             }
 
@@ -150,7 +161,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // otherwise stays stuck to the player after a successful placement).
             WorldsAdriftRebornGameServer.Placement.StopPlacing(player, entityId);
 
-            Console.WriteLine("[info] placement: entity " + entityId + " placed a shipyard (item "
+            Console.WriteLine("[info] placement: entity " + entityId + " placed a " + def.ItemTypeId + " (item "
                 + placement.placeableItemId + ") -> world entity " + spawned.Value + ".");
         }
     }

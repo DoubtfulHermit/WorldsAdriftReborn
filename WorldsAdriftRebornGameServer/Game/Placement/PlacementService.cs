@@ -15,37 +15,42 @@ using WorldsAdriftRebornGameServer.Networking.Wrapper;
 namespace WorldsAdriftRebornGameServer.Game.Placement
 {
     /// <summary>
-    /// The whole server side of deployable placement, in one seam. It does three
-    /// jobs and nothing else:
+    /// The whole server side of deployable placement, in one seam. It is DATA-DRIVEN
+    /// by <see cref="Deployables"/>: it names no item type of its own, so every
+    /// deployable in that table (shipyard, chest, campfire, ...) rides the exact same
+    /// path. It does three jobs and nothing else:
     ///
     ///   1. START a placement: write 1019 StartPlacingItemEvent onto a player so
-    ///      their client enters the native placement preview, and PRE-WARM the
-    ///      Shipyard bundle on every connected peer (seconds before the confirm, so
-    ///      the runtime AddEntity at confirm time never races a bundle load).
-    ///   2. SPAWN the confirmed shipyard as a shared world entity every connected
-    ///      peer sees (there is no existing runtime-AddEntity broadcast on this
-    ///      server - spawning was connect-time only - so this is that broadcast).
-    ///   3. Offer a DEBUG file-poll trigger (WAREBORN_PLACEMENT_FILE), the same
-    ///      shape as the ship/teleport triggers, so the pipeline is testable even
-    ///      if the native 1211 use-press trigger does not fire on a live client.
+    ///      their client enters the native placement preview with the DEPLOYABLE'S OWN
+    ///      asset, and PRE-WARM that bundle on every connected peer (seconds before the
+    ///      confirm, so the runtime AddEntity at confirm time never races a load).
+    ///   2. SPAWN the confirmed deployable as a shared world entity every connected
+    ///      peer sees, seeded with the deployable's own component set.
+    ///   3. Offer a DEBUG file-poll trigger (WAREBORN_PLACEMENT_FILE), the same shape
+    ///      as the ship/teleport triggers, so the pipeline is testable even if the
+    ///      native 1211 use-press trigger does not fire on a live client.
     ///
-    /// The 1017 confirm handler and the 1211 use-press trigger both call in here;
-    /// the pure validation and rotation packing live in the Multiplayer assembly.
+    /// The 1017 confirm handler and the 1211 use-press trigger both call in here; the
+    /// pure validation, the deployable table and rotation packing live in the
+    /// Multiplayer assembly.
     ///
     /// Gated behind WAREBORN_PLACEMENT=1: when off, every entry point returns
     /// immediately, so an un-flagged server behaves exactly as before.
     /// </summary>
     internal sealed class PlacementService
     {
-        internal const string ShipyardAsset = "Shipyard";
-        internal const string ShipyardItemType = "shipyard";
+        /// <summary>
+        /// A sentinel "expected type" the 1017 handler passes to PlacementPolicy when
+        /// the placed item is NOT a registered deployable, so the policy's type check
+        /// fails with WrongItemType. It can never equal a real item type.
+        /// </summary>
+        public const string NotADeployable = "<not-a-deployable>";
+
         private const string PlacementType = "Terrain";
         private const string AssetContext = "notNeeded?";
         private const float TimeToPlace = 1.0f;
 
         private const uint ItemPlacementAgentStateComponentId = 1019;
-        private const uint TransformStateComponentId = 190602;
-        private const uint ShipyardStateComponentId = 1205;
 
         private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
         private const string DefaultTriggerFile = "/tmp/wareborn-place";
@@ -60,6 +65,14 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
         private readonly Dictionary<long, (int ItemId, DateTime Started)> _sessions = new();
         private readonly Stopwatch _sinceLastPoll = Stopwatch.StartNew();
         private readonly string _triggerFile;
+
+        /// <summary>
+        /// A never-reused suffix for a placed deployable's registration key. The key
+        /// is what the world-entity registry allocates a shared entity id from, so it
+        /// must be unique for the life of the process; a monotonic counter is the
+        /// simplest thing that cannot collide across deployable kinds.
+        /// </summary>
+        private int _placedSequence;
 
         public PlacementService()
         {
@@ -79,16 +92,25 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Puts a player's client into placement preview for the shipyard with
-        /// inventory id <paramref name="itemId"/>: writes the 1019 state + fires
-        /// StartPlacingItemEvent to that peer, and pre-warms the bundle everywhere.
-        /// Returns true if the start event was sent. A no-op when disabled, when the
-        /// player is already mid-placement, or when the send fails.
+        /// Puts a player's client into placement preview for the deployable of type
+        /// <paramref name="itemTypeId"/> with inventory id <paramref name="itemId"/>:
+        /// writes the 1019 state + fires StartPlacingItemEvent (naming the deployable's
+        /// OWN asset) to that peer, and pre-warms that bundle everywhere. Returns true
+        /// if the start event was sent. A no-op when disabled, when the type is not a
+        /// known deployable, when the player is already mid-placement, or on send
+        /// failure.
         /// </summary>
-        public bool StartPlacing(ENetPeerHandle peer, long playerEntityId, int itemId)
+        public bool StartPlacing(ENetPeerHandle peer, long playerEntityId, int itemId, string itemTypeId)
         {
             if (!Enabled)
             {
+                return false;
+            }
+
+            if (!Deployables.TryGet(itemTypeId, out DeployableDef def))
+            {
+                Console.WriteLine("[warning] placement: entity " + playerEntityId + " tried to place '"
+                    + itemTypeId + "' which is not a registered deployable; ignoring.");
                 return false;
             }
 
@@ -97,18 +119,18 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 return false;
             }
 
-            // The server SETS the 1019 state (Placing / PlacingItemId / type /
-            // consume) AND fires the StartPlacingItemEvent in one update. The state's
-            // PlacingItemId is what the client echoes back as PlaceItemEvent.
-            // placeableItemId on confirm, so it MUST be the real inventory id or the
-            // server cannot consume the right item.
+            // The server SETS the 1019 state (Placing / PlacingItemId / type / consume)
+            // AND fires the StartPlacingItemEvent in one update. The state's
+            // PlacingItemId is what the client echoes back as PlaceItemEvent
+            // .placeableItemId on confirm, so it MUST be the real inventory id or the
+            // server cannot consume the right item. The asset is the deployable's own.
             ItemPlacementAgentState.Update update = new ItemPlacementAgentState.Update();
             update.SetPlacing(true);
             update.SetPlacingItemId(itemId);
             update.SetPlacingType(PlacementType);
             update.SetConsumeItemOnPlacement(true);
             update.AddStartPlacingItemEvent(
-                new StartPlacingItemEvent(itemId, ShipyardAsset, PlacementType, TimeToPlace));
+                new StartPlacingItemEvent(itemId, def.AssetName, PlacementType, TimeToPlace));
 
             if (!SendOPHelper.SendComponentUpdateOp(
                     peer, playerEntityId,
@@ -123,10 +145,10 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             _sessions[playerEntityId] = (itemId, DateTime.UtcNow);
 
             // Pre-warm the bundle on every peer NOW, well before the confirm.
-            PrewarmShipyardAsset();
+            PrewarmAsset(def.AssetName);
 
-            Console.WriteLine("[info] placement: entity " + playerEntityId + " is now placing shipyard item "
-                + itemId + " (prefab '" + ShipyardAsset + "', type '" + PlacementType + "', "
+            Console.WriteLine("[info] placement: entity " + playerEntityId + " is now placing '" + def.ItemTypeId
+                + "' item " + itemId + " (prefab '" + def.AssetName + "', type '" + PlacementType + "', "
                 + TimeToPlace + "s to place). Position the preview and hold use to place it.");
             return true;
         }
@@ -176,30 +198,32 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             EndSession(playerEntityId);
         }
 
-        private void PrewarmShipyardAsset()
+        private void PrewarmAsset(string assetName)
         {
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
-                SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", ShipyardAsset, AssetContext);
+                SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", assetName, AssetContext);
             }
         }
 
         // -----------------------------------------------------------------
-        // 2. SPAWN the confirmed shipyard to every connected peer
+        // 2. SPAWN the confirmed deployable to every connected peer
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// Registers and spawns ONE deployed shipyard world entity at the placed
-        /// transform, broadcasting AssetLoadRequest -> AddEntity -> seed(190602,1205)
+        /// Registers and spawns ONE deployed world entity of <paramref name="def"/> at
+        /// the placed transform, broadcasting AssetLoadRequest -> AddEntity -> seed(s)
         /// to every currently-connected peer. Returns the allocated shared entity id,
         /// or null if nothing could be sent.
         ///
-        /// The entity is added to the world-entity registry so its 190602/1205 seeds
-        /// resolve through the normal serializer path; late joiners in the SAME
-        /// session are a documented gap (the connect-time spawn plan is built once
-        /// and not re-walked), so this reaches the peers present at confirm time.
+        /// The entity is added to the world-entity registry so its 190602 (and, for a
+        /// shipyard, 1205) seeds resolve through the normal serializer path; late
+        /// joiners in the SAME session are a documented gap (the connect-time spawn
+        /// plan is built once and not re-walked), so this reaches the peers present at
+        /// confirm time.
         /// </summary>
-        public long? SpawnPlacedShipyard(
+        public long? SpawnPlacedDeployable(
+            DeployableDef def,
             FixedPointPosition position,
             uint packedRotation,
             string ownerCharacterUid)
@@ -209,47 +233,56 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 return null;
             }
 
-            int sequence = PlacedShipyards.NextSequence();
-            string key = "placed-shipyard:" + sequence;
+            int sequence = _placedSequence++;
+            string key = def.KeyPrefix + ":" + sequence;
 
             WorldEntity registration =
                 new WorldEntity(
                     key,
-                    ShipyardAsset,
+                    def.AssetName,
                     AssetContext,
                     position,
-                    seedComponents: new uint[] { TransformStateComponentId, ShipyardStateComponentId },
+                    seedComponents: def.SeedComponents.ToArray(),
                     order: SpawnOrder.AfterPlayer,
                     packedRotation: packedRotation);
 
             WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
             long entityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
 
-            PlacedShipyards.Register(entityId, ownerCharacterUid);
+            // A shipyard also carries 1205 ShipyardState, seeded from the placed-
+            // structure ledger by ComponentsSerializer's 1205 branch. Record it there
+            // so that branch renders it deployed rather than an inert prop. Other
+            // deployables seed 190602 only and need no ledger entry (the 190602 branch
+            // reads their transform straight from the world-entity registry).
+            if (def.SeedComponents.Contains(Deployables.ShipyardStateComponentId))
+            {
+                PlacedShipyards.Register(entityId, ownerCharacterUid);
+            }
 
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
-                if (BroadcastShipyardToPeer(peer, entityId, registration))
+                if (BroadcastToPeer(peer, entityId, registration))
                 {
                     reached++;
                 }
             }
 
-            Console.WriteLine("[info] placement: DEPLOYED shipyard '" + key + "' as entity " + entityId
-                + " at " + position + " (packed rot " + packedRotation + ", owner '" + ownerCharacterUid
+            Console.WriteLine("[info] placement: DEPLOYED '" + def.ItemTypeId + "' as entity " + entityId
+                + " (asset '" + def.AssetName + "'" + (def.AssetVerified ? "" : ", UNVERIFIED asset - may render invisible")
+                + ") at " + position + " (packed rot " + packedRotation + ", owner '" + ownerCharacterUid
                 + "'), sent to " + reached + " peer(s).");
 
             if (reached == 0)
             {
-                Console.WriteLine("[warning] placement: shipyard " + entityId
+                Console.WriteLine("[warning] placement: deployable " + entityId
                     + " was registered but reached no fully-connected peer.");
             }
 
             return entityId;
         }
 
-        private bool BroadcastShipyardToPeer(
+        private bool BroadcastToPeer(
             ENetPeerHandle peer,
             long entityId,
             WorldEntity registration)
@@ -261,7 +294,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
 
             if (!SendOPHelper.SendAddEntityOP(peer, entityId, registration.AssetName, registration.AssetContext))
             {
-                Console.WriteLine("[error] placement: failed to send AddEntityOp for shipyard " + entityId + " to a peer.");
+                Console.WriteLine("[error] placement: failed to send AddEntityOp for deployable " + entityId + " to a peer.");
                 return false;
             }
 
@@ -271,8 +304,8 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
 
             if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
             {
-                Console.WriteLine("[error] placement: shipyard " + entityId
-                    + " was created on a peer but its 190602/1205 seed components were dropped; it will render inert.");
+                Console.WriteLine("[error] placement: deployable " + entityId
+                    + " was created on a peer but its seed components were dropped; it will render inert.");
             }
 
             return true;
@@ -284,10 +317,10 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
 
         /// <summary>
         /// Reads and consumes the trigger file, starting placement for a player's
-        /// hotbar (or any) shipyard. The file may name a player entity id; empty
-        /// means "the first connected player". The same file-not-keypress shape as
-        /// the ship/teleport triggers, because the server runs headless. Cheap when
-        /// idle; a no-op when disabled.
+        /// hotbar (or any) deployable. The file may name a player entity id; empty
+        /// means "the first connected player". The same file-not-keypress shape as the
+        /// ship/teleport triggers, because the server runs headless. Cheap when idle; a
+        /// no-op when disabled.
         /// </summary>
         public void PollTrigger()
         {
@@ -345,11 +378,11 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                     continue;
                 }
 
-                InventoryItem? shipyard = FindShipyard(entityId.Value);
-                if (shipyard == null)
+                InventoryItem? deployable = FindDeployable(entityId.Value);
+                if (deployable == null)
                 {
                     Console.WriteLine("[warning] placement: entity " + entityId.Value
-                        + " has no '" + ShipyardItemType + "' item to place (craft one and put it on the hotbar first).");
+                        + " has no deployable item to place (craft one - e.g. a shipyard - and put it on the hotbar first).");
                     if (requestedEntity.HasValue)
                     {
                         return;
@@ -357,7 +390,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                     continue;
                 }
 
-                StartPlacing(peer, entityId.Value, shipyard.ItemId);
+                StartPlacing(peer, entityId.Value, deployable.ItemId, deployable.ItemTypeId);
                 return;
             }
 
@@ -370,17 +403,18 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
         // -----------------------------------------------------------------
 
         /// <summary>
-        /// The shipyard item to place: one on the hotbar first (that is what the
-        /// quest asks the player to select), otherwise any shipyard in the bag.
+        /// The deployable item to place: one on the hotbar first (that is what the
+        /// player selects), otherwise any deployable in the bag. Any registered
+        /// deployable type, not just a shipyard.
         /// </summary>
-        internal static InventoryItem? FindShipyard(long entityId)
+        internal static InventoryItem? FindDeployable(long entityId)
         {
             InventoryModel model = InventoryService.ForEntity(entityId);
 
             for (int slot = 0; slot < InventoryModel.HotBarSlots; slot++)
             {
                 InventoryItem? onBar = model.OnHotBar(slot);
-                if (onBar != null && string.Equals(onBar.ItemTypeId, ShipyardItemType, StringComparison.Ordinal))
+                if (onBar != null && Deployables.IsDeployable(onBar.ItemTypeId))
                 {
                     return onBar;
                 }
@@ -388,7 +422,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
 
             foreach (InventoryItem item in model.Items)
             {
-                if (string.Equals(item.ItemTypeId, ShipyardItemType, StringComparison.Ordinal))
+                if (Deployables.IsDeployable(item.ItemTypeId))
                 {
                     return item;
                 }

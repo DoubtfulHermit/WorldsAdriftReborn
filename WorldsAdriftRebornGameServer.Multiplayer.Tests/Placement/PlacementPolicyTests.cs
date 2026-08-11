@@ -105,5 +105,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
                 posX: double.NaN, posY: 0, posZ: 0);
             Assert.Equal(PlacementOutcome.WrongItemType, d.Outcome);
         }
+
+        // --- The generalization: placement is no longer shipyard-only. The 1017
+        //     handler passes the item's OWN type as the expected type once it has
+        //     confirmed the type is a registered deployable, so ANY deployable is
+        //     accepted while a mismatch is still rejected.
+
+        [Theory]
+        [InlineData("makeshiftStorage")]
+        [InlineData("storageContainer")]
+        [InlineData("campFire")]
+        [InlineData("cupboard")]
+        public void Any_deployable_placed_as_its_own_type_is_accepted(string type)
+        {
+            // Mirrors the handler: expected == the item's own type when it is a
+            // deployable. The transform/source/parent checks still run.
+            PlacementDecision d = PlacementPolicy.Evaluate(
+                type, type, sourceMatchesPlayer: true, hasParent: false,
+                posX: 10, posY: 0, posZ: 10);
+            Assert.True(d.Ok);
+        }
+
+        [Fact]
+        public void An_item_that_is_not_a_registered_deployable_is_rejected()
+        {
+            // The handler passes a sentinel expected type for a non-deployable item,
+            // so the type check fails exactly as a wrong item would.
+            PlacementDecision d = PlacementPolicy.Evaluate(
+                "sail", "<not-a-deployable>", sourceMatchesPlayer: true, hasParent: false,
+                posX: 10, posY: 0, posZ: 10);
+            Assert.Equal(PlacementOutcome.WrongItemType, d.Outcome);
+        }
     }
 }

@@ -84,11 +84,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 InventoryItem? selected = model.OnHotBar(slot);
 
                 if (selected != null
-                    && string.Equals(selected.ItemTypeId, PlacementService.ShipyardItemType, System.StringComparison.Ordinal))
+                    && Multiplayer.Placement.Deployables.IsDeployable(selected.ItemTypeId))
                 {
-                    Console.WriteLine("[info] placement: entity " + entityId + " pressed use on a shipyard in hotbar slot "
-                        + slot + " (item " + selected.ItemId + "); starting placement.");
-                    WorldsAdriftRebornGameServer.Placement.StartPlacing(player, entityId, selected.ItemId);
+                    Console.WriteLine("[info] placement: entity " + entityId + " pressed use on a '"
+                        + selected.ItemTypeId + "' in hotbar slot " + slot + " (item " + selected.ItemId
+                        + "); starting placement.");
+                    WorldsAdriftRebornGameServer.Placement.StartPlacing(player, entityId, selected.ItemId, selected.ItemTypeId);
                     return;
                 }
             }
