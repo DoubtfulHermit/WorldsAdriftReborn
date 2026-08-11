@@ -93,8 +93,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 {
                     if (interact.verb == InteractVerb.Craft)
                     {
-                        WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
-                            player, entityId, interact.target.Id);
+                        // Both a placed shipyard and a placed Assembly Station bake the
+                        // Craft verb, and BOTH open off the same 1005 PlayerStartCrafting
+                        // echo - the prefab's baked category decides ship-build vs parts.
+                        // Try the shipyard first (it also notes the frame-design console);
+                        // it returns false when the target is not a shipyard we placed, so
+                        // fall through to the crafting station. Each guard checks its own
+                        // ledger, so only the matching one answers.
+                        long target = interact.target.Id;
+                        bool opened = WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
+                            player, entityId, target);
+                        if (!opened)
+                        {
+                            WorldsAdriftRebornGameServer.Placement.OpenCraftingStationConsole(
+                                player, entityId, target);
+                        }
                     }
                 }
             }

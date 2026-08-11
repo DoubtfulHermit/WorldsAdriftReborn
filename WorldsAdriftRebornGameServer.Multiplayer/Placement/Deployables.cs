@@ -34,7 +34,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
             IReadOnlyList<uint> seedComponents,
             string keyPrefix,
             bool hasBackedState,
-            bool assetVerified)
+            bool assetVerified,
+            bool isCraftingStation = false)
         {
             ItemTypeId = itemTypeId;
             AssetName = assetName;
@@ -42,6 +43,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
             KeyPrefix = keyPrefix;
             HasBackedState = hasBackedState;
             AssetVerified = assetVerified;
+            IsCraftingStation = isCraftingStation;
         }
 
         /// <summary>The crafted item type that deploys this (e.g. "shipyard").</summary>
@@ -76,6 +78,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
         /// wire; drives nothing but the residual-risk log line.
         /// </summary>
         public bool AssetVerified { get; }
+
+        /// <summary>
+        /// True when a placed instance is a generic CraftingStation-category workbench
+        /// (the Assembly Station): the spawn seam records it in
+        /// <c>Game.Placement.PlacedCraftingStations</c> so the 1210 branch seeds the
+        /// "Craft" verb and the interact handler answers with the 1005 PlayerStartCrafting
+        /// echo that opens the PARTS crafting UI. Distinct from <see cref="HasBackedState"/>
+        /// (the shipyard's ledger-seeded 1205 state): a crafting station's extra seeds
+        /// (1004/1005/1210) are entity-agnostic idle defaults, not ledger-sourced. The
+        /// prefab's baked crafting category - NOT this flag - decides parts-vs-ship-build.
+        /// </summary>
+        public bool IsCraftingStation { get; }
     }
 
     /// <summary>
@@ -140,6 +154,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
               InteractiveStateComponentId, CraftingStationGSimStateComponentId,
               CraftingStationClientStateComponentId };
 
+        /// <summary>
+        /// The placed Assembly Station's full seed set: it stands in the world (190602
+        /// transform) and its body shows an interact prompt (1210 InteractiveState, verb
+        /// Craft) that opens the GENERIC PARTS crafting UI. The UI is opened by
+        /// CraftingStationBehaviour, which [Require]s BOTH 1004 CraftingStationGSimState
+        /// and 1005 CraftingStationClientState (VERIFIED via the decompile), so both must
+        /// be seeded or the behaviour never enables and the Craft interaction opens
+        /// nothing. It deliberately does NOT carry the shipyard-only 1205/1206/1207 - the
+        /// AssemblyStation prefab bakes crafting category CraftingStation, so this SAME
+        /// 1005-PlayerStartCrafting interact opens the parts tab (ItemCraft), whereas the
+        /// Shipyard prefab (category Shipyard) opens ship-build (ShipCraft). Every id here
+        /// has a ComponentsSerializer branch (190602, 1004, 1005, 1210) - required,
+        /// because the seed push is all-or-nothing: one id without a branch drops the
+        /// WHOLE batch and the station spawns inert at the origin.
+        /// </summary>
+        private static readonly uint[] TransformAndCraftingStation =
+            { TransformStateComponentId,
+              CraftingStationGSimStateComponentId,
+              CraftingStationClientStateComponentId,
+              InteractiveStateComponentId };
+
         private static readonly Dictionary<string, DeployableDef> ByType =
             BuildTable();
 
@@ -148,15 +183,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
             var table = new Dictionary<string, DeployableDef>();
 
             void Add(string itemType, string asset, uint[] seeds, string keyPrefix,
-                bool hasBackedState, bool assetVerified)
+                bool hasBackedState, bool assetVerified, bool isCraftingStation = false)
             {
                 table[itemType] = new DeployableDef(
-                    itemType, asset, seeds, keyPrefix, hasBackedState, assetVerified);
+                    itemType, asset, seeds, keyPrefix, hasBackedState, assetVerified,
+                    isCraftingStation);
             }
 
             // --- Fully proven: asset + transform + serializer-backed state. ---
             Add(ShipyardItemType, "Shipyard", TransformAndShipyard, "placed-shipyard",
                 hasBackedState: true, assetVerified: true);
+
+            // --- The Assembly Station: a generic crafting station that places like the
+            // shipyard but opens the PARTS UI instead of ship-build. Asset "AssemblyStation"
+            // is confirmed (TrackedEntityLoadDbSchema.KeyAssemblyStation). Its interact seed
+            // set (190602 + 1004 + 1005 + 1210) makes CraftingStationBehaviour +
+            // InteractiveObjectVisualizer enable; the prefab's baked CraftingStation category
+            // routes the Craft interact to the parts tab. isCraftingStation records the placed
+            // instance in PlacedCraftingStations so the 1210 verb + interact echo recognise it.
+            Add("assemblyStation", "AssemblyStation", TransformAndCraftingStation,
+                "placed-assemblyStation", hasBackedState: false, assetVerified: true,
+                isCraftingStation: true);
 
             // --- Storage & containers ---
             // These place + consume today (visible prop at the placed transform); their
@@ -187,8 +234,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
                 hasBackedState: false, assetVerified: true);   // +crafting-station family (1264/1004)
             Add("loom", "Loom01", TransformOnly, "placed-loom",
                 hasBackedState: false, assetVerified: true);   // +1264 InventoryItemCraftingStationState
-            Add("assemblyStation", "CraftingStation", TransformOnly, "placed-assemblyStation",
-                hasBackedState: false, assetVerified: false);  // prefab not found; crafting-station family
             Add("atlasLifter", "Lifter", TransformOnly, "placed-atlasLifter",
                 hasBackedState: false, assetVerified: true);   // +1021 LifterState
             Add("lamp", "Lamp01", TransformOnly, "placed-lamp",

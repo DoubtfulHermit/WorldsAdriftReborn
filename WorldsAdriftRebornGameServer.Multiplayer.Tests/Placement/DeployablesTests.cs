@@ -75,15 +75,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
             }
         }
 
-        [Fact]
-        public void A_deployable_without_backed_state_seeds_the_transform_ALONE()
+        /// <summary>
+        /// The set of component ids that have a ComponentsSerializer branch and so may
+        /// appear in a seed batch. The safety invariant below is asserted against this:
+        /// a seed push is all-or-nothing, so an id NOT in this set drops the WHOLE batch
+        /// (190602 included) and the deployable spawns inert at the world origin.
+        /// </summary>
+        private static readonly uint[] IdsWithSerializerBranch =
         {
-            // THE SAFETY INVARIANT. A seed batch is all-or-nothing: an id with no
-            // ComponentsSerializer branch drops the WHOLE batch. Only the shipyard's
-            // extra ids (1205 + 1206) have branches, so any other deployable that listed
-            // a second seed id would silently place itself at the world origin. Guard
-            // against a future row doing that before its serializer branch exists.
-            foreach (DeployableDef def in Deployables.All.Where(d => !d.HasBackedState))
+            Deployables.TransformStateComponentId,            // 190602
+            Deployables.ShipyardStateComponentId,             // 1205
+            Deployables.ShipHullEditorStateComponentId,       // 1206
+            Deployables.InteractiveStateComponentId,          // 1210
+            Deployables.CraftingStationGSimStateComponentId,  // 1004
+            Deployables.CraftingStationClientStateComponentId,// 1005
+        };
+
+        [Fact]
+        public void Every_seeded_component_has_a_serializer_branch()
+        {
+            // THE SAFETY INVARIANT. Every id any deployable seeds must have a
+            // ComponentsSerializer branch, or its all-or-nothing batch is dropped and it
+            // spawns at the origin. Guards a future row from listing an id before its
+            // branch exists (the trap the old transform-ALONE test approximated).
+            foreach (DeployableDef def in Deployables.All)
+            {
+                foreach (uint id in def.SeedComponents)
+                {
+                    Assert.Contains(id, IdsWithSerializerBranch);
+                }
+            }
+        }
+
+        [Fact]
+        public void A_plain_deployable_seeds_the_transform_ALONE()
+        {
+            // Everything that is neither the shipyard (ledger-backed 1205 state) nor a
+            // crafting station (the 1004/1005/1210 interact set) still seeds 190602 alone -
+            // a container/lamp/campfire renders at its transform in prefab-default state.
+            foreach (DeployableDef def in Deployables.All
+                .Where(d => !d.HasBackedState && !d.IsCraftingStation))
             {
                 Assert.Equal(
                     new[] { Deployables.TransformStateComponentId },
@@ -92,18 +123,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
         }
 
         [Fact]
-        public void A_backed_deployable_is_the_only_one_carrying_extra_seeds()
+        public void Only_a_backed_or_crafting_station_deployable_carries_extra_seeds()
         {
-            // The converse: the only deployable allowed a non-transform seed today is
-            // one flagged HasBackedState (the shipyard). If a new backed deployable is
-            // added, it needs its own ComponentsSerializer branch - this test is the
-            // reminder to add it.
+            // The converse: a non-transform seed is allowed ONLY on the shipyard
+            // (HasBackedState) or a crafting station (IsCraftingStation). A new deployable
+            // with extra seeds must declare one of the two - the reminder to add its
+            // serializer branch / ledger wiring before it can carry more than 190602.
             foreach (DeployableDef def in Deployables.All.Where(d => d.SeedComponents.Count > 1))
             {
-                Assert.True(def.HasBackedState,
-                    def.ItemTypeId + " carries extra seed components but is not flagged HasBackedState");
-                Assert.Equal("shipyard", def.ItemTypeId);
+                Assert.True(def.HasBackedState || def.IsCraftingStation,
+                    def.ItemTypeId + " carries extra seed components but is neither HasBackedState nor IsCraftingStation");
             }
+        }
+
+        [Fact]
+        public void AssemblyStation_places_and_opens_the_parts_UI_via_its_interact_seeds()
+        {
+            // The Assembly Station is the generic crafting station: confirmed asset
+            // "AssemblyStation", flagged IsCraftingStation, and seeded with EXACTLY the
+            // interact set that makes CraftingStationBehaviour (1004+1005) and
+            // InteractiveObjectVisualizer (1210) enable - plus 190602 to place it. It must
+            // NOT carry the shipyard-only 1205/1206/1207, or the client would mis-open
+            // ship-build instead of the parts tab.
+            Assert.True(Deployables.TryGet("assemblyStation", out DeployableDef def));
+            Assert.Equal("AssemblyStation", def.AssetName);
+            Assert.True(def.AssetVerified);
+            Assert.True(def.IsCraftingStation);
+            Assert.False(def.HasBackedState);
+            Assert.Equal(
+                new uint[]
+                {
+                    Deployables.TransformStateComponentId,
+                    Deployables.CraftingStationGSimStateComponentId,
+                    Deployables.CraftingStationClientStateComponentId,
+                    Deployables.InteractiveStateComponentId,
+                },
+                def.SeedComponents.ToArray());
+            Assert.DoesNotContain(Deployables.ShipyardStateComponentId, def.SeedComponents);
+            Assert.DoesNotContain(Deployables.ShipHullEditorStateComponentId, def.SeedComponents);
+        }
+
+        [Fact]
+        public void The_shipyard_is_not_flagged_a_generic_crafting_station()
+        {
+            // The shipyard opens ship-build, not the parts tab, so it is NOT an
+            // IsCraftingStation deployable even though it too carries 1004/1005/1210.
+            // The two are recorded in separate ledgers so their interacts never cross.
+            Assert.True(Deployables.TryGet("shipyard", out DeployableDef yard));
+            Assert.False(yard.IsCraftingStation);
         }
 
         [Theory]

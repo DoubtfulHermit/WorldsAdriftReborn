@@ -246,25 +246,73 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             // signal to rebuild the list. Single choke point for every console open.
             Multiplayer.Ship.ShipDesignStore.For(playerEntityId).NoteConsole(shipyardEntityId);
 
-            // playerId = the interacting player's OWN entity id, NOT the shipyard's.
+            return EmitPlayerStartCrafting(peer, playerEntityId, shipyardEntityId, "shipyard", "ship-build UI");
+        }
+
+        /// <summary>
+        /// Opens the GENERIC PARTS crafting UI on the interacting player's client after
+        /// they complete the "Craft" interaction on a placed Assembly Station.
+        ///
+        /// This is the crafting-station twin of <see cref="OpenShipyardConsole"/> and
+        /// sends the IDENTICAL signal - a 1005 CraftingStationClientState.PlayerStartCrafting
+        /// echoed back on the station entity, addressed to the interacting player. What
+        /// differs is NOT the server signal but the PREFAB: CraftingStationBehaviour's
+        /// OnStartInteraction switches on the prefab-baked _craftingCategory (VERIFIED in
+        /// the decompile), so the AssemblyStation prefab (category CraftingStation) opens
+        /// MainInventoryUIState.ItemCraft (the parts tab) where the Shipyard prefab opens
+        /// ShipCraft. So one server path serves both; the entity's asset decides the UI.
+        /// It does NOT touch ShipDesignStore - a parts station has no frame-design console.
+        ///
+        /// MULTIPLAYER-SAFE: a single, event-driven, per-player echo in response to one
+        /// client interaction - no per-frame state, no relay. A no-op when the feature is
+        /// off or the target is not a placed crafting station. Returns true when sent.
+        /// </summary>
+        public bool OpenCraftingStationConsole(ENetPeerHandle peer, long playerEntityId, long stationEntityId)
+        {
+            if (!Enabled)
+            {
+                return false;
+            }
+
+            if (!PlacedCraftingStations.IsPlacedCraftingStation(stationEntityId))
+            {
+                return false;
+            }
+
+            return EmitPlayerStartCrafting(peer, playerEntityId, stationEntityId, "crafting station", "parts crafting UI");
+        }
+
+        /// <summary>
+        /// Echoes the 1005 CraftingStationClientState.PlayerStartCrafting event back on a
+        /// placed crafting-station entity (<paramref name="stationEntityId"/>), addressed
+        /// to the interacting player (<paramref name="playerEntityId"/>) with an EMPTY
+        /// schematic id (open the UI; do not start a real craft). The single choke point
+        /// both the shipyard console and the parts-station console open through, so the
+        /// on-the-wire signal is byte-identical and the prefab's baked category is the
+        /// only thing that decides which UI the client opens.
+        /// </summary>
+        private bool EmitPlayerStartCrafting(
+            ENetPeerHandle peer, long playerEntityId, long stationEntityId, string kind, string uiName)
+        {
+            // playerId = the interacting player's OWN entity id, NOT the station's.
             CraftingStationClientState.Update update = new CraftingStationClientState.Update();
             update.AddPlayerStartCrafting(new PlayerStartCrafting(new EntityId(playerEntityId), ""));
 
             bool ok = SendOPHelper.SendComponentUpdateOp(
-                peer, shipyardEntityId,
+                peer, stationEntityId,
                 new List<uint> { Deployables.CraftingStationClientStateComponentId },
                 new List<object> { update });
 
             if (ok)
             {
-                Console.WriteLine("[info] placement: shipyard console " + shipyardEntityId
-                    + " opened the ship-build UI for player " + playerEntityId + ".");
+                Console.WriteLine("[info] placement: " + kind + " console " + stationEntityId
+                    + " opened the " + uiName + " for player " + playerEntityId + ".");
             }
             else
             {
-                Console.WriteLine("[warning] placement: failed to echo 1005 PlayerStartCrafting for shipyard "
-                    + shipyardEntityId + " to player " + playerEntityId
-                    + " (is 1005 checked out on that client? the shipyard must have seeded it).");
+                Console.WriteLine("[warning] placement: failed to echo 1005 PlayerStartCrafting for " + kind + " "
+                    + stationEntityId + " to player " + playerEntityId
+                    + " (is 1005 checked out on that client? the station must have seeded it).");
             }
 
             return ok;
@@ -366,6 +414,17 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             if (def.SeedComponents.Contains(Deployables.ShipyardStateComponentId))
             {
                 PlacedShipyards.Register(entityId, ownerCharacterUid);
+            }
+
+            // A generic crafting station (the Assembly Station) records its placed id in
+            // its own ledger so the 1210 verb branch seeds Craft (not PickUp) and the
+            // interact handler answers with the parts-UI 1005 echo. It seeds no ledger-
+            // sourced state - its 1004/1005 are entity-agnostic idle defaults - so unlike
+            // the shipyard the ledger is pure membership. Runtime placement and boot
+            // restore both reach here, so a restored station is recognised identically.
+            else if (def.IsCraftingStation)
+            {
+                PlacedCraftingStations.Register(entityId, ownerCharacterUid);
             }
 
             return (registration, entityId);

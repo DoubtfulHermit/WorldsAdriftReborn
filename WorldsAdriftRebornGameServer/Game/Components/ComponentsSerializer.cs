@@ -465,13 +465,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // not null - copied by DeepCopy. Craft verb = 5 (VERIFIED).
                         bool isPlacedShipyard =
                             Placement.PlacedShipyards.IsPlacedShipyard(entityId);
-                        bool isHelm = !isPlacedShipyard
+                        // A placed Assembly Station bakes the SAME Craft verb as the
+                        // shipyard console - the prefab's crafting category (not this
+                        // seed) decides parts-vs-ship-build once the interact opens.
+                        bool isPlacedCraftingStation = !isPlacedShipyard
+                            && Placement.PlacedCraftingStations.IsPlacedCraftingStation(entityId);
+                        bool isCraftStation = isPlacedShipyard || isPlacedCraftingStation;
+                        bool isHelm = !isCraftStation
                             && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                                 == Multiplayer.WorldEntities.HelmKey;
 
                         InteractionEntry entry;
                         string verbName;
-                        if (isPlacedShipyard)
+                        if (isCraftStation)
                         {
                             entry = new InteractionEntry(
                                 InteractVerb.Craft,
