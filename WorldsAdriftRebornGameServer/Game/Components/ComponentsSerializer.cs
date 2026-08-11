@@ -1323,6 +1323,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // truth and is what the aboard/abandonment/pilot work builds on
                         // - and it enables nothing against default data (rule 7),
                         // because its only reader needs four more components to wake up.
+                        // A LOOSE (unattached) crafted part belongs to NO ship yet:
+                        // shipRoot absent, isRoot=false. ShipPartVisualizer.ShipEntityId
+                        // returns InvalidEntityId for an absent option
+                        // (ShipPartVisualizer.cs:100) - exactly "not on a ship", the
+                        // resting state before the builder/mount flow sets membership.
+                        // LIVE-ONLY UNKNOWN: whether the original loose part used an
+                        // absent shipRoot or pointed at itself; absent matches the
+                        // InvalidEntityId contract and enables nothing against defaults.
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            Console.WriteLine("[info] seeding 8066 for LOOSE part " + entityId
+                                + " -> no ship (shipRoot absent, isRoot=false).");
+                            obj = new ShipRootState.Data(new Option<EntityId>(), false);
+                        }
+                        else
+                        {
                         var shipReg = WorldsAdriftRebornGameServer.WorldEntities;
                         string? shipEntityKey = shipReg.ByEntityId(entityId)?.Key;
                         long? hullEntityId = shipReg.BoundEntityIdFor(Multiplayer.WorldEntities.ShipFrameKey);
@@ -1369,6 +1385,86 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         {
                             Console.WriteLine("[warn] 8066 requested for entity " + entityId
                                 + " but no ship hull id is known yet (or it is not a ship part); skipping.");
+                        }
+                        }
+                    }
+                    else if (componentId == 1120)
+                    {
+                        // ShipPartState: the logical part metadata ShipPartVisualizer
+                        // [Require]s (ShipPartVisualizer.cs:26). Served per-entity from
+                        // the LooseParts ledger so each crafted part loads its own prefab
+                        // and reports how it would mount. For a LOOSE part: attached=false,
+                        // held=false, no attach transform, and scale MUST be present -
+                        // ShipPartVisualizer.OnEnable:119 reads _state.Scale.Value and
+                        // throws on an absent option, so scale = Some((1,1,1)). rarity is a
+                        // valid tier (EngineVisualizer warns on an absent one; harmless for
+                        // the lamp but cheap to set). playersPlacingPart is empty, non-null.
+                        // VERIFIED ctor (gencode ShipPartState.cs:1238). Only a loose part
+                        // ever requests 1120, so a non-loose entity serves nothing and
+                        // best-effort interest skips it.
+                        var loosePart = Game.Crafting.LooseParts.DefFor(entityId);
+                        if (loosePart != null)
+                        {
+                            obj = new ShipPartState.Data(
+                                false,                                  // attached
+                                EntityId.InvalidEntityId,               // attachedTo
+                                false,                                  // held
+                                EntityId.InvalidEntityId,               // heldBy
+                                EntityId.InvalidEntityId,               // heldByTool
+                                new Improbable.Math.Vector3f(0f, 0f, 0f),                 // attachPos
+                                new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0),       // attachRot (w-first identity)
+                                new Bossa.Travellers.Motion.RelativeLocation(
+                                    EntityId.InvalidEntityId,
+                                    new Improbable.Math.Vector3f(0f, 0f, 0f),
+                                    new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0)),  // lastAttachment
+                                loosePart.PrefabName,
+                                loosePart.AttachmentType,
+                                loosePart.Title,
+                                loosePart.ItemType,
+                                new Option<Improbable.Math.Vector3f>(new Improbable.Math.Vector3f(1f, 1f, 1f)),  // scale (must be present)
+                                new Option<Bossa.Travellers.Materials.SchematicsRarity>(Bossa.Travellers.Materials.SchematicsRarity.Tier1),
+                                new Improbable.Collections.List<EntityId> { });           // playersPlacingPart
+                            Console.WriteLine("[info] seeding 1120 for LOOSE part " + entityId + " (prefab '"
+                                + loosePart.PrefabName + "', attach '" + loosePart.AttachmentType
+                                + "', attached=false).");
+                        }
+                    }
+                    else if (componentId == 1013)
+                    {
+                        // CraftableSpawningState: ShipPartVisualizer [Require]s it
+                        // (ShipPartVisualizer.cs:38). spawning=FALSE means DONE spawning -
+                        // ShipPartVisualizer.OnSpawningUpdated sets rigidbody.isKinematic =
+                        // spawning, and CanPickUp returns false while spawning
+                        // (ShipPartVisualizer.cs:155-161,233), so a finished loose part must
+                        // be spawning=false to be non-kinematic and liftable. VERIFIED ctor
+                        // (gencode CraftableSpawningState.cs:441).
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new CraftableSpawningState.Data(false, 0f, 0f);
+                        }
+                    }
+                    else if (componentId == 1108)
+                    {
+                        // LampState: LampVisualizer [Require]s it (LampVisualizer.cs:13).
+                        // The light is on only when enabled AND IsFunctional (1236) are
+                        // both true (LampVisualizer.cs:87), so a working lamp seeds
+                        // enabled=true. VERIFIED ctor (gencode LampState.cs:309).
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new LampState.Data(true);
+                        }
+                    }
+                    else if (componentId == 1236)
+                    {
+                        // IsTooDamagedToWorkState: LampVisualizer [Require]s it
+                        // (LampVisualizer.cs:16). isFunctional=true (the lamp is undamaged),
+                        // so with 1108 enabled the light turns on. healthThreshold is the
+                        // fraction below which it would stop working; 0.2 is a sane default
+                        // with no client reader that matters here. VERIFIED ctor (gencode
+                        // IsTooDamagedToWorkState.cs:375, struct IsTooDamagedtoWorkStateData).
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new IsTooDamagedToWorkState.Data(0.2f, true);
                         }
                     }
                     else if (componentId == 8062)
@@ -1639,6 +1735,31 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if (componentId == 1099)
                     {
+                        // A LOOSE crafted part (lamp) served from the LooseParts ledger:
+                        // its OWN itemType, an EMPTY material list (an invented material id
+                        // NREs ComponentMaterialColors on the client, exactly as for the
+                        // hull; LampVisualizer guards its OriginalMaterials read so empty is
+                        // fine), and NOT salvageable - there is no loose-part salvage flow
+                        // yet, so the multitool offers nothing on it. LampVisualizer
+                        // [Require]s 1099 (LampVisualizer.cs:19), so this is on the essential
+                        // seed path, not cosmetic.
+                        var loosePart1099 = Game.Crafting.LooseParts.DefFor(entityId);
+                        if (loosePart1099 != null)
+                        {
+                            obj = new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
+                                new Bossa.Travellers.Salvaging.SalvageAndRepairStateData(
+                                    loosePart1099.ItemType,
+                                    0f, 0f, 0f, 1f,
+                                    false,          // isRepairable
+                                    false,          // isSalvageable (no loose-part salvage flow)
+                                    "",
+                                    new Improbable.Collections.List<SlottedMaterial> { },
+                                    false, 0f, new Option<float> { }));
+                            Console.WriteLine("[info] seeding 1099 for LOOSE part " + entityId
+                                + " (itemType '" + loosePart1099.ItemType + "', empty materials).");
+                        }
+                        else
+                        {
                         // 1099 is required by BOTH a procedural ship hull
                         // (CustomShipFrameVisualizer will not enable without it,
                         // alongside 1209) and a tree (the Salvageable base class
@@ -1736,6 +1857,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     new Option<float> { }));
 
                         obj = salvageData;
+                        }
                     }
                     // ------------------------------------------------------------------
                     // THE ANCHORED METAL DEPOSIT. Three components on top of 1016/1099/

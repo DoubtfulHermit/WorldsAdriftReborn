@@ -10,6 +10,7 @@ using WorldsAdriftRebornGameServer.Game.Inventory;
 using WorldsAdriftRebornGameServer.Game.Items;
 using WorldsAdriftRebornGameServer.Multiplayer.Crafting;
 using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
 namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
@@ -84,6 +85,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 foreach (StartPlayerCrafting _ in clientComponentUpdate.startPlayerCrafting)
                 {
                     HandleStartCrafting(player, entityId, session);
+                }
+            }
+
+            // STATION crafting: a Shipyard / CraftingStation-category craft fires
+            // StartCrafting(stationEntityId) rather than StartPlayerCrafting. This is
+            // the faithful path for a ship PART (the lamp is category "Shipyard"), and
+            // its output is a loose WORLD entity, not an inventory item.
+            if (clientComponentUpdate.startCrafting != null)
+            {
+                foreach (StartCrafting start in clientComponentUpdate.startCrafting)
+                {
+                    HandleStartStationCrafting(player, entityId, session, start);
                 }
             }
 
@@ -263,6 +276,80 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             Console.WriteLine("[info] entity " + entityId + " crafted " + record.ItemType + " (item id "
                 + outcome.OutputItemId + "), consumed " + outcome.Consumed.Count + " stack(s).");
+        }
+
+        /// <summary>
+        /// A CraftingStation / Shipyard-category craft (StartCrafting), for a recipe
+        /// whose output is a loose WORLD part rather than an inventory item - the lamp.
+        /// Validates the selected recipe is a loose ship part, consumes its materials
+        /// atomically (no inventory grant), spawns the part next to the station, and
+        /// tells the client the craft started and completed. The 1005 reply is pushed
+        /// to the STATION entity (where CraftingStationClientState lives) so the
+        /// station panel unlocks; exact 1005 routing for a station craft is a
+        /// live-only unknown, so a non-positive station id falls back to the player's
+        /// own 1003/1005.
+        ///
+        /// FAITHFULNESS: the ship-part craft category and instant (vs timed)
+        /// completion are simplifications flagged for follow-on; the completion->spawn
+        /// hook (<see cref="LoosePartSpawner.Spawn"/>) is deliberately reusable.
+        /// </summary>
+        private static void HandleStartStationCrafting( ENetPeerHandle player, long entityId, CraftSession session, StartCrafting start )
+        {
+            long stationEntityId = start.craftingEntity.Id;
+            long pushTarget = stationEntityId > 0 ? stationEntityId : entityId;
+
+            SchematicRecord? record = session.SchematicId != null ? SchematicHelper.Get(session.SchematicId) : null;
+
+            if (record == null)
+            {
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingValidationFailed(new CraftingValidationFailed("no recipe selected")));
+                return;
+            }
+
+            LoosePartDefinition? part = LoosePartCatalogue.ForSchematic(record.SchematicId);
+
+            if (part == null)
+            {
+                Console.WriteLine("[info] station craft: entity " + entityId + " tried to craft '"
+                    + record.SchematicId + "', which is not a loose ship part; not supported this phase.");
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingValidationFailed(new CraftingValidationFailed(
+                        "station craft for '" + record.SchematicId + "' is not supported yet")));
+                return;
+            }
+
+            InventoryModel model = InventoryService.ForEntity(entityId);
+
+            if (!CraftingPolicy.TryConsumeOnly(record, model, InventoryWire.CategoryLookup, out string reason))
+            {
+                Console.WriteLine("[info] station craft rejected (entity " + entityId + ", recipe "
+                    + record.SchematicId + "): " + reason);
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingValidationFailed(new CraftingValidationFailed(reason)));
+                InventoryPush.Push(entityId, "station craft rejected");
+                return;
+            }
+
+            InventoryPush.Push(entityId, "crafted " + record.ItemType);
+
+            long? spawned = LoosePartSpawner.Spawn(stationEntityId, part);
+
+            for (int i = 0; i < session.Slots.Length; i++)
+            {
+                session.Slots[i] = new SlotHold { Amount = 0, MaterialTypeId = "" };
+            }
+
+            string schematicId = record.SchematicId;
+            PushCraftingState(player, pushTarget, session, update =>
+            {
+                update.AddCraftingStarted(new CraftingStarted(-1, schematicId));
+                update.AddCraftingCompleted(new CraftingCompleted(schematicId));
+            });
+
+            Console.WriteLine("[info] entity " + entityId + " station-crafted loose part '" + record.ItemType
+                + "' at station " + stationEntityId + " -> part entity "
+                + (spawned?.ToString() ?? "none") + ".");
         }
 
         private static void FailAdd( ENetPeerHandle player, long entityId, CraftSession session, string reason )

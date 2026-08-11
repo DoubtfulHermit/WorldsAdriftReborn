@@ -317,5 +317,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
             Assert.Equal(3, model.ById(10)!.Amount);
             Assert.Equal(2, model.ById(11)!.Amount);
         }
+
+        // --- TryConsumeOnly: the world-part craft transaction -------------------
+        // A ship part is spawned in the world, not the bag, so its craft consumes
+        // materials WITHOUT granting an inventory output (its itemType is
+        // deliberately absent from the item database, so TryCraft cannot be used).
+
+        [Fact]
+        public void ConsumeOnly_removes_the_materials_and_grants_no_item()
+        {
+            InventoryModel model = InventoryModel.DefaultGrid();
+            model.Add(Mat(10, "iron", 3, 0, 0));   // Metal
+            model.Add(Mat(11, "fuel", 3, 3, 0));   // Fuel
+
+            // lamp: iron x1 + fuel x1 -> a WORLD entity, no bag output.
+            SchematicRecord lamp = Recipe("lamp", "lamp", 1, Req(0, "iron", 1), Req(1, "fuel", 1));
+
+            Assert.True(CraftingPolicy.TryConsumeOnly(lamp, model, CategoryLookup, out string reason));
+            Assert.Equal(string.Empty, reason);
+
+            // Materials drawn down...
+            Assert.Equal(2, model.ById(10)!.Amount);
+            Assert.Equal(2, model.ById(11)!.Amount);
+            // ...and NOTHING granted: the only items are the two drawn-down stacks, no
+            // "lamp" item appeared in the bag.
+            Assert.DoesNotContain(model.Items, i => i.ItemTypeId == "lamp");
+        }
+
+        [Fact]
+        public void ConsumeOnly_rejects_and_leaves_the_bag_untouched_when_short()
+        {
+            InventoryModel model = InventoryModel.DefaultGrid();
+            model.Add(Mat(10, "iron", 1, 0, 0));   // has iron, but no fuel
+
+            SchematicRecord lamp = Recipe("lamp", "lamp", 1, Req(0, "iron", 1), Req(1, "fuel", 1));
+
+            Assert.False(CraftingPolicy.TryConsumeOnly(lamp, model, CategoryLookup, out string reason));
+            Assert.Contains("fuel", reason);
+            // Atomic: the iron it could have taken is still there because the whole
+            // transaction ran on a copy and never committed.
+            Assert.Equal(1, model.ById(10)!.Amount);
+        }
     }
 }
