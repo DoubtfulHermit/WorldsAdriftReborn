@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Bossa.Travellers.Items;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
-using WorldsAdriftRebornGameServer.Game.Placement;
+using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
@@ -110,6 +110,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (UpdateShip ev in clientComponentUpdate.updateShip)
                 {
+                    int len = ev.data?.Length ?? 0;
                     bool ok = designs.ApplyEditedHull(ev.data);
                     long shipyardId = ev.editorId.Id;
                     if (ok)
@@ -117,6 +118,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         PushEditorState(player, shipyardId, designs);
                     }
                     Ack(player, entityId, ev.id, ok);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " updateShip on shipyard " + shipyardId
+                        + " (" + len + " bytes, modified=" + designs.Modified + ") -> " + ok + ".");
                 }
             }
 
@@ -149,6 +152,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         PushEditorState(player, shipyardId, designs);
                     }
                     Ack(player, entityId, ev.id, ok);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " reset slot " + ev.slot + " -> " + ok + ".");
                 }
             }
 
@@ -179,6 +183,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         u.SetEditorId(new EntityId(0));
                     });
                     Ack(player, entityId, ev.id, true);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " unload on shipyard " + shipyardId + ".");
                 }
             }
 
@@ -188,8 +193,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 {
                     long shipyardId = ev.editorId.Id;
                     designs.StopEditing();
+                    // Leave editor input mode: clear editorId on both the player's 1207
+                    // (ShipHullAgentVisualizer exits editor mode) and the shipyard's 1206
+                    // (BeingEdited false -> the mesh zooms back out).
                     Send1207(player, entityId, u => u.SetEditorId(new EntityId(0)));
                     Send1206(player, shipyardId, u => u.SetEditorId(new EntityId(0)));
+
+                    // REPOPULATE THE PANEL ON "Done". ShipHullEditorScreen's Done pops the
+                    // editor UI state and the ShipCraftingUI panel reappears; without a
+                    // schematics signal it came back BLANK (the only way the user could
+                    // recover it was Tab + re-interact, which re-fires RefreshBlueprints and
+                    // re-pushes 1207). Re-pushing the FRAME DESIGNS list here fires the
+                    // client's SchematicsUpdated (OnSchematicsUpdated -> UpdateShipSchematics
+                    // -> AddShipSchematics -> the internal SchematicsUpdated the panel binds),
+                    // so Done returns to a POPULATED panel - the same result as the workaround,
+                    // without needing to re-open. The design stays LOADED (Active untouched),
+                    // so EDIT is still enabled on the restored panel.
+                    PushSchematics(player, entityId, designs);
+                    Console.WriteLine("[info] 1208: entity " + entityId + " stopped editing shipyard " + shipyardId
+                        + "; re-pushed " + designs.Slots.Count + " FRAME DESIGN(s) so the panel repopulates.");
                 }
             }
         }
@@ -202,7 +224,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         private static void PushEditorState(ENetPeerHandle player, long shipyardId, PlayerShipDesigns designs)
         {
             byte[] hull = designs.WorkingHull ?? new byte[0];
-            string ownerUid = PlacedShipyards.SeedFor(shipyardId).OwnerCharacterUid;
+            // ownerPlayerId MUST equal the client's LocalPlayer.PlayerId (1086 PlayerName
+            // field2, served from LocalPlayerIdentity) or SAVE/RESET stay greyed
+            // (ShipCraftingUIHelper gates them on GetOwnerId() == LocalPlayer.PlayerId).
+            // The 1206 is pushed per-peer to the acting player, so treating the editing
+            // player as the owner is correct.
+            string ownerId = LocalPlayerIdentity.PlayerId;
             int slot = designs.LoadedSlot < 0 ? 0 : designs.LoadedSlot;
             Send1206(player, shipyardId, u =>
             {
@@ -211,7 +238,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 u.SetHullData(hull);
                 u.SetSlotId(slot);
                 u.SetHasDirectAccess(true);
-                u.SetOwnerPlayerId(ownerUid);
+                u.SetOwnerPlayerId(ownerId);
             });
         }
 

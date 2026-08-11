@@ -365,7 +365,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1086)
                     {
-                        PlayerName.Data pData = new PlayerName.Data(new PlayerNameData("sp00ktober", "id", "cUid", "bossaToken", "bossaId"));
+                        // field2_player_id is what the client exposes as LocalPlayer.PlayerId;
+                        // sourced from the shared LocalPlayerIdentity so anything the server
+                        // writes that the client compares against PlayerId (e.g. the ship
+                        // editor's 1206 ownerPlayerId, gating SAVE) cannot drift from it.
+                        PlayerName.Data pData = new PlayerName.Data(new PlayerNameData(
+                            "sp00ktober", Multiplayer.LocalPlayerIdentity.PlayerId, "cUid", "bossaToken", "bossaId"));
 
                         obj = pData;
                     }
@@ -629,12 +634,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // Edit button is disabled, until a player loads a frame, at which
                         // point ShipHullAgentClientState_Handler pushes an Active=true 1206
                         // update to THAT player only (the entity is shared, so a broadcast
-                        // would cross-clobber; the update is per-peer). ownerPlayerId is the
-                        // shipyard's registered owner uid, which equals the client's
-                        // LocalPlayer.PlayerId (ShipyardVisualizer matches on the same uid),
-                        // so the owner's Save/Reset buttons enable. hasDirectAccess=true and
-                        // hullData empty (the mesh is rebuilt from the pushed working blob).
-                        string ownerUid = Placement.PlacedShipyards.SeedFor(entityId).OwnerCharacterUid;
+                        // would cross-clobber; the update is per-peer). ownerPlayerId MUST
+                        // equal the client's LocalPlayer.PlayerId or the editor's SAVE/RESET
+                        // buttons stay greyed (ShipCraftingUIHelper gates them on
+                        // GetOwnerId() == LocalPlayer.PlayerId). That id is the 1086 PlayerName
+                        // field2_player_id, served from LocalPlayerIdentity - NOT the placed-
+                        // shipyard ledger's owner uid (a different string, which was the
+                        // mismatch that greyed SAVE). hasDirectAccess=true; hullData empty
+                        // (the mesh is rebuilt from the pushed working blob).
                         ShipHullEditorState.Data heData = new ShipHullEditorState.Data(
                             false,                                    // active
                             false,                                    // modified
@@ -644,7 +651,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             new byte[0],                              // hullData
                             0,                                        // slotId
                             true,                                     // hasDirectAccess
-                            ownerUid);                                // ownerPlayerId
+                            Multiplayer.LocalPlayerIdentity.PlayerId); // ownerPlayerId
                         obj = heData;
                     }
                     else if(componentId == 1207)
