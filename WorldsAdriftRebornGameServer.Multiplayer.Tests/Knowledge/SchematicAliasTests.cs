@@ -8,40 +8,64 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
     /// recovered recipe catalogue. The tree carries display-ish node names ("Head
     /// Torch", "Storage Container", "Atlas Core Enhancer"); the catalogue keys are
     /// camelCase-ish ("headTorch", "storageContainer", "skyCoreAtlasEnhancer").
-    /// <see cref="KnowledgeSpendPolicy.SchematicIdFor"/> must bridge them so unlocking
-    /// a node learns the RIGHT recipe. Every expected id here exists as a key in
+    /// <see cref="KnowledgeSpendPolicy.SchematicIdsFor"/> must bridge them so unlocking
+    /// a node learns the RIGHT recipe(s). A node may learn SEVERAL (a foundational root
+    /// grants a whole schematicList). Every expected id here exists as a key in
     /// Game/Items/Config/schematicData.json.
     /// </summary>
     public class SchematicAliasTests
     {
         [Theory]
-        // Milestone + procedural ship parts.
+        // Shipbuilding root: the functional-ship BASELINE (multi-grant).
         [InlineData("Shipbuilding", "shipyard")]
+        [InlineData("Shipbuilding", "deck")]
+        [InlineData("Shipbuilding", "helm")]
+        [InlineData("Shipbuilding", "sail")]
+        // Wings / Engines propulsion + power.
         [InlineData("WingsRootSchematic", "proceduralWingDefault")]
+        [InlineData("EnginesRootSchematic", "proceduralEngineDefault")]
+        [InlineData("EnginesSchematic2", "powerGenerator")]
+        [InlineData("EnginesSchematicBonus1", "powerGenerator01")]
         // Explorer branch.
         [InlineData("Fuel Gauge", "fuelGauge")]
         [InlineData("Hip Lamp", "hipLamp")]
         [InlineData("Head Torch", "headTorch")]
         [InlineData("Glider", "glider")]
         [InlineData("Artificial Horizon", "artificialHorizon")]
-        // SkyshipBuilder branch.
+        [InlineData("Compass", "headingIndicator")]
+        [InlineData("Makeshift Bandages", "personalReviver")]
+        [InlineData("Nervure Bandages", "altimeter")]
+        // SkyshipBuilder (Stairs) branch: ship structure.
         [InlineData("Stairs", "stairs")]
         [InlineData("Medium Panel", "mediumPanel")]
         [InlineData("Window Panel", "window")]
         [InlineData("Large Panel", "largePanel")]
         [InlineData("Ship Railing", "railing")]
         [InlineData("Railing Corner", "railingCorner")]
-        // Tradesman branch.
+        [InlineData("Crows Nest", "smallPanel")]
+        [InlineData("Paint Drum", "horn")]
+        [InlineData("Paint Can", "airspeedIndicator")]
+        // Tradesman (Trunk) branch: furniture / storage.
         [InlineData("Trunk", "trunk")]
         [InlineData("Mounted Box", "mountedBox")]
         [InlineData("Storage Container", "storageContainer")]
+        [InlineData("Shipping Container", "shippingContainer")]
         [InlineData("Loom", "loom")]
-        // Cooking branch.
+        [InlineData("Metal Chair", "cupboard")]
+        [InlineData("Long Wooden Table", "barrel")]
+        [InlineData("Long Metal Table", "assemblyStation")]
+        [InlineData("Wooden Stool", "makeshiftStorage")]
+        [InlineData("Dye", "clothMakeshift")]
+        // Cooking (Campfire) branch.
         [InlineData("Campfire", "campFire")]
         [InlineData("Thuntomite Steak", "thuntomiteSteak")]
         [InlineData("Manta Steak", "mantaSteak")]
         [InlineData("Stove", "stove")]
-        // AtlasEngineer branch.
+        [InlineData("Bread", "thuntomiteStew")]
+        [InlineData("Manta Burger", "moonshine")]
+        // Atlas Engineer (Atlas Core Enhancer) branch: sky cores. The root grants the
+        // BASIC core AND its enhancer (multi-grant).
+        [InlineData("Atlas Core Enhancer", "atlasSkyCore")]
         [InlineData("Atlas Core Enhancer", "skyCoreAtlasEnhancer")]
         [InlineData("Atlas Core Generator", "skyCoreGenerator")]
         [InlineData("Atlas Core Air Filter", "skyCoreAirFilter")]
@@ -51,45 +75,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         [InlineData("Atlas Core Circuitry Network", "skyCoreCircuitryNetwork")]
         [InlineData("Atlas Core Efficiency Module", "skyCoreEfficiencyModule")]
         [InlineData("Lifter", "atlasLifter")]
-        // Full-catalogue coverage: weapons / procedural power.
+        // Weapons: the roots grant the projectile; ammo tiers add variants.
         [InlineData("PistolsRootSchematic", "pistol")]
         [InlineData("PistolsSchematic2", "pistolBullets")]
-        [InlineData("CannonsSchematicBonus1", "cannonball")]
+        [InlineData("CannonsRootSchematic", "cannonball")]
         [InlineData("CannonsSchematic2", "cannonShell")]
+        [InlineData("CannonsSchematicBonus1", "cannonball")]
+        [InlineData("SwivelGunRootSchematic", "swivelGunShell")]
         [InlineData("SwivelGunSchematicBonus1", "swivelGunShell")]
-        [InlineData("EnginesRootSchematic", "proceduralEngineDefault")]
-        [InlineData("EnginesSchematicBonus1", "powerGenerator01")]
-        [InlineData("EnginesSchematicBonus2", "moonshine")]
-        [InlineData("EnginesSchematic2", "powerGenerator")]
+        // Territory.
         [InlineData("Territory Control Tower", "territory_control_beacon")]
-        // Ship structure / fittings.
-        [InlineData("Crows Nest", "helm")]
-        [InlineData("Paint Can", "smallPanel")]
-        [InlineData("Paint Drum", "deck")]
-        [InlineData("Shipping Container", "shippingContainer")]
-        // Explorer instruments + field kit.
-        [InlineData("Compass", "headingIndicator")]
-        [InlineData("Makeshift Bandages", "personalReviver")]
-        [InlineData("Nervure Bandages", "altimeter")]
-        // Tradesman furniture / storage / clothing.
-        [InlineData("Long Metal Table", "assemblyStation")]
-        [InlineData("Metal Chair", "cupboard")]
-        [InlineData("Long Wooden Table", "barrel")]
-        [InlineData("Wooden Stool", "makeshiftStorage")]
-        [InlineData("Dye", "clothMakeshift")]
-        [InlineData("Herder's Poncho", "sail")]
-        // Cooking.
-        [InlineData("Bread", "thuntomiteStew")]
-        // Reachability attachments on spare procedural nodes.
-        [InlineData("EnginesSchematic3", "atlasSkyCore")]
-        [InlineData("SwivelGunSchematic2", "horn")]
-        [InlineData("CannonsSchematic3", "guitar")]
+        public void A_mapped_node_learns_its_recovered_recipe_id(string nodeId, string recipeId)
+        {
+            Assert.Contains(recipeId, KnowledgeSpendPolicy.SchematicIdsFor(nodeId));
+        }
+
+        [Theory]
+        // The grant-all-era coverage hacks that parked unrelated recipes on WEAPON /
+        // rifle tiers (and moonshine on an engine node) are REMOVED. These nodes no
+        // longer learn those recipes; the recipes are homed faithfully elsewhere
+        // (moonshine -> Manta Burger, horn/airspeedIndicator -> ship-structure nodes)
+        // or are starters (lamp/torch/guitar).
         [InlineData("RiflesRootSchematic", "lamp")]
         [InlineData("RiflesSchematic2", "torch")]
         [InlineData("RiflesSchematic3", "airspeedIndicator")]
-        public void A_mapped_node_resolves_to_its_recovered_recipe_id(string nodeId, string recipeId)
+        [InlineData("CannonsSchematic3", "guitar")]
+        [InlineData("SwivelGunSchematic2", "horn")]
+        [InlineData("EnginesSchematic3", "atlasSkyCore")]
+        [InlineData("EnginesSchematicBonus2", "moonshine")]
+        public void A_removed_coverage_hack_no_longer_learns_that_recipe(string nodeId, string recipeId)
         {
-            Assert.Equal(recipeId, KnowledgeSpendPolicy.SchematicIdFor(nodeId));
+            Assert.DoesNotContain(recipeId, KnowledgeSpendPolicy.SchematicIdsFor(nodeId));
         }
 
         [Theory]
@@ -104,6 +120,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         public void An_unmapped_node_learns_under_its_own_id(string nodeId)
         {
             Assert.Equal(nodeId, KnowledgeSpendPolicy.SchematicIdFor(nodeId));
+            Assert.Equal(new[] { nodeId }, KnowledgeSpendPolicy.SchematicIdsFor(nodeId));
         }
     }
 }

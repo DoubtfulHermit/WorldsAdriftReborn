@@ -94,31 +94,49 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         + "', -" + (spend.Response == NodeSpendResponse.Success ? "cost" : "0")
                         + ", knowledge now " + prog.Knowledge + ".");
 
-                    // LEARN the schematic: append to 1079 learnedSchematics (idempotent)
-                    // and fire the "SCHEMATIC LEARNED" card. A node that learns nothing
-                    // (SLOT/CIPHERSLOT/TECHNOLOGY) leaves 1079 untouched.
+                    // LEARN the schematic(s): append to 1079 learnedSchematics
+                    // (idempotent) and fire a "SCHEMATIC LEARNED" card for each. A node
+                    // that learns nothing (SLOT/CIPHERSLOT/TECHNOLOGY) leaves 1079
+                    // untouched (spend.LearnedSchematicId is null there). A node can
+                    // learn SEVERAL recipes (a foundational root grants a whole
+                    // schematicList), so learn EVERY id in SchematicIdsFor - the same
+                    // set the login reconcile derives, keeping purchase-time and
+                    // reconcile in lockstep.
                     // ONLY learn a schematic id that actually exists in the 1097
                     // catalogue. An unmapped tree node resolves to its raw node name
-                    // (SchematicIdFor falls through), which is NOT a catalogue key -
+                    // (SchematicIdsFor falls through), which is NOT a catalogue key -
                     // and the client's crafting-list rebuild does LookupSchematic on
                     // every learned id, NREs on a miss, and blanks the whole panel.
                     // So a node with no real recipe learns nothing craftable but is
                     // still purchased (knowledge spent, node marked used).
-                    if (!string.IsNullOrEmpty(spend.LearnedSchematicId)
-                        && Game.Items.SchematicHelper.Get(spend.LearnedSchematicId!) != null
-                        && !prog.LearnedSchematics.Contains(spend.LearnedSchematicId!))
+                    if (!string.IsNullOrEmpty(spend.LearnedSchematicId))
                     {
-                        prog.LearnedSchematics.Add(spend.LearnedSchematicId!);
+                        SchematicsLearnerClientState.Update? learnUpdate = null;
 
-                        SchematicsLearnerClientState.Update learnUpdate = new SchematicsLearnerClientState.Update();
-                        learnUpdate.SetLearnedSchematics(ToList(prog.LearnedSchematics));
-                        learnUpdate.AddSchematicLearnt(new SchematicLearnt(spend.LearnedSchematicId!));
+                        foreach (string learnedId in KnowledgeSpendPolicy.SchematicIdsFor(nodeId))
+                        {
+                            if (string.IsNullOrEmpty(learnedId)
+                                || Game.Items.SchematicHelper.Get(learnedId) == null
+                                || prog.LearnedSchematics.Contains(learnedId))
+                            {
+                                continue;
+                            }
 
-                        componentIds.Add(1079);
-                        updates.Add(learnUpdate);
+                            prog.LearnedSchematics.Add(learnedId);
 
-                        Console.WriteLine("[info] 1334: entity " + entityId + " learned schematic '"
-                            + spend.LearnedSchematicId + "'.");
+                            learnUpdate ??= new SchematicsLearnerClientState.Update();
+                            learnUpdate.AddSchematicLearnt(new SchematicLearnt(learnedId));
+
+                            Console.WriteLine("[info] 1334: entity " + entityId + " learned schematic '"
+                                + learnedId + "'.");
+                        }
+
+                        if (learnUpdate != null)
+                        {
+                            learnUpdate.SetLearnedSchematics(ToList(prog.LearnedSchematics));
+                            componentIds.Add(1079);
+                            updates.Add(learnUpdate);
+                        }
                     }
                 }
                 else

@@ -36,30 +36,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         };
 
         /// <summary>
-        /// The starter ids that actually exist in the loaded catalogue, in declaration
-        /// order. A starter id the catalogue does not carry is dropped rather than
-        /// dangled, so the set always tracks the file while staying minimal.
+        /// The faithful, knowledge-GATED starter set: the starter ids that actually
+        /// exist in the loaded catalogue, in declaration order. A starter id the
+        /// catalogue does not carry is dropped rather than dangled, so the set always
+        /// tracks the file while staying minimal. Everything richer is EARNED through
+        /// the knowledge tree and reaches the book via 1079 learnedSchematics
+        /// (purchase-time in the 1334 handler, plus the login reconcile that derives
+        /// learned from purchased nodes - see <c>KnowledgeSpendPolicy</c> and
+        /// <c>LearnedSchematicsReconciler</c>).
+        ///
+        /// This is the ONLY default now. A 2026-08-11 testing override made this method
+        /// grant the WHOLE catalogue ("show all recipes"); that hack is reverted - the
+        /// gate is faithful again, so a fresh player owns only the starters and sees
+        /// gated recipes strictly through nodes they have actually unlocked.
         /// </summary>
         public static IEnumerable<string> Default(IEnumerable<string> catalogueKeys)
-        {
-            // TESTING OVERRIDE (2026-08-11): grant the WHOLE catalogue as learned so the
-            // full craftable set is visible immediately for testing ("put all items there,
-            // don't fake it by only 1 lamp"). Faithful knowledge-gating is preserved in the
-            // data - every recipe is wired to a knowledge node via KnowledgeSpendPolicy
-            // aliases - so restoring the gate is just returning to the `Ids`-filtered set
-            // below. Every catalogue id is crash-safe (ReferenceDataCrashSafetyTests), so
-            // learning them all is safe.
-            foreach (string id in catalogueKeys)
-            {
-                yield return id;
-            }
-        }
-
-        /// <summary>
-        /// The faithful, knowledge-gated starter set (currently overridden by the testing
-        /// grant-all in <see cref="Default"/>). Kept so the gate can be restored trivially.
-        /// </summary>
-        public static IEnumerable<string> FaithfulDefault(IEnumerable<string> catalogueKeys)
         {
             HashSet<string> keys = new HashSet<string>(catalogueKeys);
             foreach (string id in Ids)
@@ -70,5 +61,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
                 }
             }
         }
+
+        /// <summary>
+        /// Back-compat alias for the faithful gated set. Identical to
+        /// <see cref="Default"/>; retained so callers/tests written against the
+        /// grant-all era still resolve. Prefer <see cref="Default"/>.
+        /// </summary>
+        public static IEnumerable<string> FaithfulDefault(IEnumerable<string> catalogueKeys)
+            => Default(catalogueKeys);
     }
 }
