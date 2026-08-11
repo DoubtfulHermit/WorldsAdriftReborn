@@ -1560,9 +1560,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // (ShipPartVisualizer.cs:155-161,233), so a finished loose part must
                         // be spawning=false to be non-kinematic and liftable. VERIFIED ctor
                         // (gencode CraftableSpawningState.cs:441).
+                        //
+                        // MATERIALIZE (3.2 / 6.2): a FRESHLY-crafted part is served
+                        // spawning=true (timeLeft==totalTime) so CraftableSpawningVisualizer
+                        // plays the dissolve-in; the LooseParts ledger flips it to the settled
+                        // (false,0,0) after the dissolve so a later checkout gets the liftable
+                        // part. SpawnStateFor returns the settled value for any part not
+                        // currently materializing (and for boot-restored / mounted parts).
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new CraftableSpawningState.Data(false, 0f, 0f);
+                            var spawnState = Game.Crafting.LooseParts.SpawnStateFor(entityId);
+                            obj = new CraftableSpawningState.Data(
+                                spawnState.Spawning, spawnState.TimeLeft, spawnState.TotalTime);
                         }
                     }
                     else if (componentId == 1108)

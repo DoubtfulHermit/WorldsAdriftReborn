@@ -161,6 +161,11 @@ namespace WorldsAdriftRebornGameServer
                 Multiplayer.Crafting.ShipBlueprintBuildStore.ForgetPlayer(ownEntity.Value);
                 Game.Crafting.ShipBuildTimerService.ForgetPlayer(ownEntity.Value);
 
+                // Free any in-flight timed STATION craft guard this player held, so a re-use
+                // of the id is clean. The deferred completion (if still pending) fires
+                // harmlessly on the main loop and spawns the part into the world regardless.
+                Game.Crafting.StationCraftTracker.ForgetPlayer(ownEntity.Value);
+
                 Teleports.Forget(ownEntity.Value);
 
                 // The fall watch keyed by the same entity. Left behind, the record
@@ -1677,7 +1682,8 @@ namespace WorldsAdriftRebornGameServer
                 // walking this same step cannot double-register it.
                 if (entity.AssetName == Multiplayer.Databanks.AssetName)
                 {
-                    if (Multiplayer.DatabankLedger.Register(entityId, Multiplayer.Databanks.GrantAmount))
+                    if (Multiplayer.DatabankLedger.Register(entityId, Multiplayer.Databanks.GrantAmount,
+                            Multiplayer.Databanks.NoteTitle, Multiplayer.Databanks.NoteDescription))
                     {
                         Console.WriteLine("[info] placed scannable DATABANK '" + entity.Key + "' as entity "
                             + entityId + " at " + entity.Position + " (scan grants "
@@ -2326,6 +2332,11 @@ namespace WorldsAdriftRebornGameServer
                 // comes apart" is this timer or it does not happen. Cheap when
                 // nobody is chopping: an empty dictionary.
                 TickTreeHarvest();
+                // Fire any due one-shot "seed in-progress then flip" completions on the main
+                // loop: the shipyard fold-out flip (1205 deployed=true), the crafted-part
+                // materialize flip (1013 spawning=false), and timed station-craft completions.
+                // Cheap when idle (one UtcNow compare over an empty list). See Game.DeferredActions.
+                Game.DeferredActions.Tick();
                 Relay.Tick(); // fixed-cadence movement emit + 5 s relay stats; cheap when idle (two Stopwatch compares). See Networking.RelayEmitter.
 
                 // Report each connected peer's 5 s wire-rate line (with ENet peer

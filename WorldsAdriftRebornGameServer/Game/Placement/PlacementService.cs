@@ -409,7 +409,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             }
 
             (WorldEntity registration, long entityId) =
-                RegisterDeployable(def, position, packedRotation, ownerCharacterUid);
+                RegisterDeployable(def, position, packedRotation, ownerCharacterUid, livePlacement: true);
 
             // PERSIST BEFORE BROADCASTING. A crash between here and the last peer send
             // still leaves the record on disk, so the deployable reappears next boot;
@@ -425,6 +425,16 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 {
                     reached++;
                 }
+            }
+
+            // SHIPYARD FOLD-OUT (3.1): a live placement was seeded deployed=false (above,
+            // via RegisterDeployable) so the placer's ShipyardVisualizer plays the
+            // Shipyard_Deploy panel/leg fold-out. After the clip has played, flip the 1205
+            // seed to deployed=true and push it, so any LATER checkout snaps instead of
+            // re-animating. One-shot, per-entity, drained on the main loop - not a relay.
+            if (def.SeedComponents.Contains(Deployables.ShipyardStateComponentId))
+            {
+                DeployableDeployFlip.ScheduleShipyardFoldOut(entityId);
             }
 
             Console.WriteLine("[info] placement: DEPLOYED '" + def.ItemTypeId + "' as entity " + entityId
@@ -453,7 +463,8 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             DeployableDef def,
             FixedPointPosition position,
             uint packedRotation,
-            string ownerCharacterUid)
+            string ownerCharacterUid,
+            bool livePlacement)
         {
             WorldEntity registration =
                 PlacedDeployableSpawnPlan.WorldEntityFor(def, _placedSequence++, position, packedRotation);
@@ -468,7 +479,12 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             // reads their transform straight from the world-entity registry).
             if (def.SeedComponents.Contains(Deployables.ShipyardStateComponentId))
             {
-                PlacedShipyards.Register(entityId, ownerCharacterUid);
+                // FOLD-OUT SEED (3.1): a LIVE placement is seeded deployed=false so the
+                // client plays the Shipyard_Deploy clip; a BOOT RESTORE (already deployed
+                // last session) is seeded deployed=true so it snaps. The live case's flip
+                // back to true is scheduled by SpawnPlacedDeployable after broadcast.
+                bool deployed = Multiplayer.Placement.ShipyardDeployPolicy.InitialDeployed(livePlacement);
+                PlacedShipyards.Register(entityId, ownerCharacterUid, deployed: deployed);
             }
 
             // A generic crafting station (the Assembly Station) records its placed id in
@@ -513,7 +529,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             }
 
             (_, long entityId) = RegisterDeployable(
-                def, record.Position(), record.PackedRotation, record.OwnerCharacterUid);
+                def, record.Position(), record.PackedRotation, record.OwnerCharacterUid, livePlacement: false);
 
             Console.WriteLine("[info] placement: RESTORED '" + def.ItemTypeId + "' as entity " + entityId
                 + " at " + record.Position() + " (owner '" + record.OwnerCharacterUid

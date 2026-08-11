@@ -73,7 +73,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 long target = scan.entityId.Id;
                 string key = target.ToString();
-                string scanData = scan.assetGuid ?? "";
+
+                // SCAN NOTE TEXT (5.1): the client parses scanData as ScannableData JSON
+                // (JsonUtility) and only prints the note when the parse is non-null. We used
+                // to send the raw asset GUID, which is not JSON, so the note printed blank.
+                // Serve the databank's real ScannableData note (title/body) instead; for a
+                // non-databank target (which owes no scan response anyway) fall back to the
+                // GUID so nothing else changes.
+                string scanData = DatabankLedger.IsDatabank(target)
+                    ? DatabankLedger.ScanDataFor(target)
+                    : (scan.assetGuid ?? "");
 
                 ScanGrant grant = KnowledgeScanPolicy.Evaluate(
                     targetIsScannableDatabank: DatabankLedger.IsDatabank(target),

@@ -45,6 +45,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public const long GrantAmount = 10000; // TESTING: big grant so many nodes can be unlocked from one scan
 
+        /// <summary>
+        /// The scan NOTE heading the client prints when a databank is scanned. Served as
+        /// ScannableData JSON (title/description) so the scan note reads as real text
+        /// instead of the old blank (which happened because we sent a raw asset GUID that
+        /// <c>ScannableData.Parse</c> could not parse). Flavour, not gameplay - any
+        /// non-empty text makes the note render.
+        /// </summary>
+        public const string NoteTitle = "Ancient Databank";
+
+        /// <summary>The scan note body the client prints under <see cref="NoteTitle"/>.</summary>
+        public const string NoteDescription =
+            "A cache of pre-Collapse knowledge. Scanning it adds to your understanding of the world.";
+
         /// <summary>The island every player spawns on; databanks are placed island-local against it.</summary>
         public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
 

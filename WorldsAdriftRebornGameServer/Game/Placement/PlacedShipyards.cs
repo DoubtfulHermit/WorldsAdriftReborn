@@ -56,6 +56,20 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             ByEntityId[entityId] = new Seed(ownerCharacterUid, deployed, active);
         }
 
+        /// <summary>
+        /// Flip a placed shipyard's seed to deployed=true (owner/active unchanged) after its
+        /// fold-out clip has played, so a LATER checkout of the yard (a re-join, a boot
+        /// restore) snaps to the finished pose instead of re-animating. A no-op for an id we
+        /// do not know. See <see cref="Multiplayer.Placement.ShipyardDeployPolicy"/>.
+        /// </summary>
+        internal static void MarkDeployed(long entityId)
+        {
+            if (ByEntityId.TryGetValue(entityId, out Seed seed) && !seed.Deployed)
+            {
+                ByEntityId[entityId] = new Seed(seed.OwnerCharacterUid, deployed: true, active: seed.Active);
+            }
+        }
+
         /// <summary>The seed for a placed shipyard id, or a default deployed seed if unknown.</summary>
         internal static Seed SeedFor(long entityId)
         {

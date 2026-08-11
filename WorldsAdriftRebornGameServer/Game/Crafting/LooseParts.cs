@@ -30,6 +30,17 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     {
         private static readonly Dictionary<long, LoosePartDefinition> ByEntityId =
             new Dictionary<long, LoosePartDefinition>();
+
+        /// <summary>
+        /// The 1013 CraftableSpawningState a loose part is currently served with, per entity.
+        /// Absent = the settled <see cref="CraftableSpawnPolicy.Done"/> value (not spawning,
+        /// liftable). A FRESH craft records a <see cref="CraftableSpawnPolicy.Materializing"/>
+        /// value here so its first checkout plays the dissolve; the materialize flip then
+        /// removes the entry (back to Done) so a later checkout sees the finished part.
+        /// </summary>
+        private static readonly Dictionary<long, CraftableSpawnState> SpawnStateByEntityId =
+            new Dictionary<long, CraftableSpawnState>();
+
         private static int _sequence;
 
         /// <summary>
@@ -70,5 +81,40 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
 
         /// <summary>How many loose parts have been crafted this session.</summary>
         internal static int Count => ByEntityId.Count;
+
+        // -- MATERIALIZE (1013 CraftableSpawningState) dissolve, per entity --------------
+
+        /// <summary>
+        /// Record that a freshly-crafted part is DISSOLVING IN: its 1013 is served
+        /// spawning=true for <paramref name="totalTime"/> seconds so the client plays the
+        /// materialize. Called by the spawner BEFORE it broadcasts, so the first checkout
+        /// already sees spawning=true. The mandatory flip to spawning=false (making the part
+        /// liftable) is <see cref="MarkSpawned"/>.
+        /// </summary>
+        internal static void MarkSpawning(long entityId, float totalTime)
+        {
+            SpawnStateByEntityId[entityId] = CraftableSpawnPolicy.Materializing(totalTime);
+        }
+
+        /// <summary>
+        /// Flip a part to the settled state (spawning=false, no timers) after its dissolve, so
+        /// it becomes non-kinematic and liftable and a later checkout does not re-dissolve.
+        /// </summary>
+        internal static void MarkSpawned(long entityId)
+        {
+            SpawnStateByEntityId.Remove(entityId);
+        }
+
+        /// <summary>
+        /// The 1013 CraftableSpawningState the serializer serves for this part: the recorded
+        /// in-progress dissolve while it is materializing, else the settled
+        /// <see cref="CraftableSpawnPolicy.Done"/>.
+        /// </summary>
+        internal static CraftableSpawnState SpawnStateFor(long entityId)
+        {
+            return SpawnStateByEntityId.TryGetValue(entityId, out CraftableSpawnState state)
+                ? state
+                : CraftableSpawnPolicy.Done;
+        }
     }
 }

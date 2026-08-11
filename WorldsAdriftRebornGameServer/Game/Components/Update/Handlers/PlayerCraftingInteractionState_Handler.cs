@@ -341,9 +341,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         /// live-only unknown, so a non-positive station id falls back to the player's
         /// own 1003/1005.
         ///
-        /// FAITHFULNESS: the ship-part craft category and instant (vs timed)
-        /// completion are simplifications flagged for follow-on; the completion->spawn
-        /// hook (<see cref="LoosePartSpawner.Spawn"/>) is deliberately reusable.
+        /// TIMED (6.1): materials are consumed atomically at START, then the craft is HELD
+        /// OPEN for the recipe's craft time (a positive itemReadyInSeconds + CraftingStarted,
+        /// which shoots the atomizer and keeps the aperture open); the part spawns and
+        /// CraftingCompleted fires only after that, on the main-loop DeferredActions drain. A
+        /// second StartCrafting arriving during the window is rejected without re-consuming
+        /// (StationCraftTracker). The completion->spawn hook
+        /// (<see cref="LoosePartSpawner.Spawn"/>) is unchanged.
         /// </summary>
         private static void HandleStartStationCrafting( ENetPeerHandle player, long entityId, StartCrafting start )
         {
@@ -375,10 +379,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
+            // AT-MOST-ONE guard: a craft already running on this (station, player) must not
+            // consume again. Reserve BEFORE consuming; the deferred completion releases it.
+            if (!StationCraftTracker.TryBegin(pushTarget, entityId))
+            {
+                Console.WriteLine("[info] station craft: entity " + entityId
+                    + " sent StartCrafting while a craft is already running at station " + stationEntityId
+                    + "; ignoring the duplicate (no re-consume).");
+                return;
+            }
+
             InventoryModel model = InventoryService.ForEntity(entityId);
 
             if (!CraftingPolicy.TryConsumeOnly(record, model, InventoryWire.CategoryLookup, out string reason))
             {
+                StationCraftTracker.End(pushTarget, entityId); // nothing consumed; free the slot
                 Console.WriteLine("[info] station craft rejected (entity " + entityId + ", recipe "
                     + record.SchematicId + "): " + reason);
                 PushCraftingState(player, pushTarget, session,
@@ -389,23 +404,44 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             InventoryPush.Push(entityId, "crafted " + record.ItemType);
 
-            long? spawned = LoosePartSpawner.Spawn(stationEntityId, part);
-
-            for (int i = 0; i < session.Slots.Length; i++)
-            {
-                session.Slots[i] = new SlotHold { Amount = 0, MaterialTypeId = "" };
-            }
-
             string schematicId = record.SchematicId;
-            PushCraftingState(player, pushTarget, session, update =>
-            {
-                update.AddCraftingStarted(new CraftingStarted(-1, schematicId));
-                update.AddCraftingCompleted(new CraftingCompleted(schematicId));
-            });
+            int seconds = Multiplayer.Crafting.StationCraftTimePolicy.Seconds(record.TimeToCraft);
 
-            Console.WriteLine("[info] entity " + entityId + " station-crafted loose part '" + record.ItemType
-                + "' at station " + stationEntityId + " -> part entity "
-                + (spawned?.ToString() ?? "none") + ".");
+            // START the craft: positive itemReadyInSeconds keeps the aperture OPEN and
+            // CraftingStarted shoots the atomizer. Session slots/recipe are LEFT INTACT so a
+            // console re-open during the craft preserves the in-progress display
+            // (StationCraftRouting.ShouldResetToIdleOnOpen sees an active craft here). The part
+            // is NOT spawned yet and CraftingCompleted is NOT sent - both wait for the timer.
+            PushCraftingState(player, pushTarget, session,
+                update => update.AddCraftingStarted(new CraftingStarted(seconds, schematicId)),
+                itemReadyInSeconds: seconds);
+
+            Console.WriteLine("[info] entity " + entityId + " STARTED station craft of loose part '"
+                + record.ItemType + "' at station " + stationEntityId + "; holding " + seconds
+                + "s (aperture open, atomizer on) before spawning.");
+
+            // COMPLETE after the craft time, on the main poll loop: spawn the part, clear the
+            // session, release the guard, and close the aperture (itemReadyInSeconds=-1 +
+            // CraftingCompleted). Wrapped by DeferredActions.Tick's own try/catch.
+            DeferredActions.After(seconds, () =>
+            {
+                long? spawned = LoosePartSpawner.Spawn(stationEntityId, part);
+
+                for (int i = 0; i < session.Slots.Length; i++)
+                {
+                    session.Slots[i] = new SlotHold { Amount = 0, MaterialTypeId = "" };
+                }
+                session.SchematicId = null; // craft done -> no active craft (re-open may reset to idle)
+
+                StationCraftTracker.End(pushTarget, entityId);
+
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)));
+
+                Console.WriteLine("[info] entity " + entityId + " COMPLETED station craft of loose part '"
+                    + record.ItemType + "' at station " + stationEntityId + " -> part entity "
+                    + (spawned?.ToString() ?? "none") + ".");
+            });
         }
 
         private static void FailAdd( ENetPeerHandle player, long entityId, long pushTarget, CraftSession session, string reason )
@@ -430,7 +466,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         /// bound entity clears its per-slot wait flag.
         /// </summary>
         private static void PushCraftingState( ENetPeerHandle player, long pushTarget, CraftSession session,
-            Action<CraftingStationClientState.Update>? addEvents = null )
+            Action<CraftingStationClientState.Update>? addEvents = null,
+            int itemReadyInSeconds = -1 )
         {
             Improbable.Collections.List<SlottedMaterial> slotted = new Improbable.Collections.List<SlottedMaterial>();
 
@@ -445,7 +482,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             update.SetClientSchematicId(session.SchematicId ?? "");
             update.SetSchematicOwner("");
             update.SetSlottedMaterials(slotted);
-            update.SetItemReadyInSeconds(-1);
+            // -1 = closed countdown (aperture shut); a POSITIVE value holds the aperture open
+            // and the client counts it down (a timed station craft, CraftingStationBehaviour
+            // .OnItemReadyInSecondsUpdated). Every other push keeps the default -1.
+            update.SetItemReadyInSeconds(itemReadyInSeconds);
             update.SetCurrentWeight(0f);
 
             addEvents?.Invoke(update);

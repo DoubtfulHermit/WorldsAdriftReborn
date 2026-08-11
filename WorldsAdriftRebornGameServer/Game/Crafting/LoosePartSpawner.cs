@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Bossa.Travellers.Items;
 using WorldsAdriftRebornGameServer.DLLCommunication;
+using WorldsAdriftRebornGameServer.Game;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
@@ -78,6 +80,15 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // first peer checks it out.
             LooseParts.Register(partEntityId, part);
 
+            // MATERIALIZE (3.2 / 6.2): seed 1013 spawning=true (a full timer) BEFORE the
+            // broadcast so the first checkout plays the dissolve-in, then flip to
+            // spawning=false after the dissolve so the part becomes non-kinematic and
+            // liftable (the flip is MANDATORY - a part left spawning=true is frozen). The
+            // flip is one-shot, per-entity, drained on the main loop (DeferredActions).
+            float materializeSeconds = Multiplayer.Ship.CraftableSpawnPolicy.MaterializeSeconds(
+                Environment.GetEnvironmentVariable("WAREBORN_MATERIALIZE_SECONDS"));
+            LooseParts.MarkSpawning(partEntityId, materializeSeconds);
+
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
@@ -100,7 +111,52 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     + " get it via the connect-time spawn plan.");
             }
 
+            // Schedule the mandatory materialize flip: after the dissolve, mark the part
+            // spawned (so a later checkout serves the liftable value) and push 1013
+            // (false,0,0) to connected peers so anyone watching it dissolve can now lift it.
+            ScheduleMaterializeFlip(partEntityId, materializeSeconds);
+
             return partEntityId;
+        }
+
+        /// <summary>
+        /// Schedule the one-shot 1013 spawning=true -> false flip that ends a part's
+        /// materialize. Runs on the main poll loop (DeferredActions), so enumerating peers
+        /// here is on the thread that owns the peer set. The ledger flip (MarkSpawned) makes
+        /// every future checkout correct; the push updates peers already watching the dissolve.
+        /// </summary>
+        private static void ScheduleMaterializeFlip(long partEntityId, float seconds)
+        {
+            DeferredActions.After(seconds, () =>
+            {
+                LooseParts.MarkSpawned(partEntityId);
+
+                int pushed = 0;
+                foreach (ENetPeerHandle peer in ConnectedPeers())
+                {
+                    try
+                    {
+                        CraftableSpawningState.Update update = new CraftableSpawningState.Update();
+                        update.SetSpawning(false);
+                        update.SetTimeLeft(0f);
+                        update.SetTotalTime(0f);
+                        if (SendOPHelper.SendComponentUpdateOp(peer, partEntityId,
+                                new List<uint> { 1013 }, new List<object> { update }))
+                        {
+                            pushed++;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("[warning] loose-part spawn: could not push part " + partEntityId
+                            + " spawning=false to a peer: " + e.Message);
+                    }
+                }
+
+                Console.WriteLine("[info] loose-part spawn: part " + partEntityId
+                    + " materialize complete; flipped 1013 spawning=false (ledger + " + pushed
+                    + " peer push(es)); it is now liftable.");
+            });
         }
 
         /// <summary>
