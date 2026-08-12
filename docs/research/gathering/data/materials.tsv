@@ -1,0 +1,25 @@
+itemTypeId	name	category	community_type_id	rarity	width	height	iconName	observed_q_min	observed_q_max	observed_islands	description
+fuel	Fuel	Fuel			2	2	misc craft materials/2x2_Fuel_container			0	
+iron	Iron	Metal	1	0	3	2	metals/Metal_Iron	1	10	37	Reasonably tough and heat resistant given its modest weight.
+steel	Steel	Metal	2	1	3	2	metals/Metal_Steel	3	10	32	Very hard and high performance metal for its weight.
+nickel	Nickel	Metal	3	2	3	2	metals/Metal_Nickel	5	10	26	Versatile thanks to its medium weight and a few weaknesses.
+copper	Copper	Metal	4	1	3	2	metals/Metal_Copper	4	10	25	A great conductor but otherwise unexceptional.
+bronze	Bronze	Metal	5	0	3	2	metals/Metal_Bronze	2	10	31	Capable of withstanding a lot of stress for its medium weight.
+titanium	Titanium	Metal	7	2	3	2	metals/Metal_Titanium	4	10	31	Very light for such a hard metal but a bad conductor.
+aluminium	Aluminium	Metal	8	3	3	2	metals/Metal_Aluminium	2	10	25	Extremely light without compromising too much on strength
+tin	Tin	Metal	9	1	3	2	metals/Metal_Tin	2	10	30	Lightweight but weak, soft and susceptible to heat.
+silver	Silver	Metal	10	2	3	2	metals/Metal_Silver	3	10	19	A jack of all trades but master of only conductivity.
+lead	Lead	Metal	11	0	3	2	metals/Metal_Lead	2	10	36	Durable and strong but too heavy for many uses.
+gold	Gold	Metal	12	3	3	2	metals/Metal_Gold	5	10	21	Dense yet malleable with extremely high conductivity.
+tungsten	Tungsten	Metal	13	3	3	2	metals/Metal_Tungsten	5	10	18	Unparalleled resistance to the elements but very heavy.
+epilar	Epilar	Metal	14	2	3	2	metals/Metal_Epilar	2	10	30	Durable and resistant to stress but not really hard.
+eternium	Eternium	Metal	15	3	3	2	metals/Metal_Eternium	6	10	12	Hard, durable, heat resisantant but poor under stress.
+orthite	Orthite	Metal	16	1	3	2	metals/Metal_Orthite	6	10	32	Moderately conductive, stress resistant, but weak to heat.
+ash	Ash Wood	Wood			3	2	woods/Wood_Ash			0	Extremely flexible all-rounder but heavy for timber.
+birch	Birch Wood	Wood			3	2	woods/Wood_Birch			0	Soft but otherwise high performance for it's weight.
+cedar	Cedar Wood	Wood			3	2	woods/Wood_Cedar			0	Extremely light and soft, cannot withstand much damage.
+chestnut	Chestnut Wood	Wood			3	2	woods/Wood_Chestnut			0	Lightweight but nevertheless versatile timber.
+elm	Elm Wood	Wood			3	2	woods/Wood_Elm			0	Medium weight with no outstanding strengths or vulnerabilities.
+hemlock	Hemlock Wood	Wood			3	2	woods/Wood_Hemlock			0	Very light but durable enough to be used in certain scenarios.
+oak	Oak Wood	Wood			3	2	woods/Wood_Oak			0	Durable and versatile but heavy for wood.
+palm	Palm Wood	Wood			3	2	woods/Wood_palm			0	The heaviest but also most useful wood.

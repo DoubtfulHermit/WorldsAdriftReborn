@@ -1,0 +1,1010 @@
+3x2_head_christmas_male
+3x3_marauder_compass
+4x4_crafting_station
+alliance/health_heart
+alliance/notification_diamond
+alliance/options_diamond_off
+alliance/options_diamond_on
+alliance/tick_box
+alliance/tick_box_full
+atlas/1x2_atlas_shard
+atlas_compressor
+atlas_injector
+beltseparator
+blue_ciphers
+cannon_ciphers
+character customisation/female_face_1
+character customisation/female_face_2
+character customisation/female_face_3
+character customisation/female_face_4
+character customisation/female_face_5
+character customisation/female_hair_bald
+character customisation/female_hair_bowlcut
+character customisation/female_hair_braidbun
+character customisation/female_hair_cropped
+character customisation/female_hair_dreadlocks
+character customisation/female_hair_fringe
+character customisation/female_hair_headband
+character customisation/female_hair_hightopdreads
+character customisation/female_hair_kilmer
+character customisation/female_hair_mohawk
+character customisation/female_hair_native
+character customisation/female_hair_shortspiked
+character customisation/female_hair_squarefringe
+character customisation/female_hair_studded
+character customisation/female_hair_swept
+character customisation/female_hair_uber
+character customisation/female_legs_boots
+character customisation/female_legs_shorts
+character customisation/female_legs_wrap
+character customisation/female_torso_engineer
+character customisation/female_torso_ponchovariantb
+character customisation/female_torso_squirevarianta
+character customisation/female_torso_wanderer
+character customisation/male_bald
+character customisation/male_face_1
+character customisation/male_face_2
+character customisation/male_face_3
+character customisation/male_face_4
+character customisation/male_face_5
+character customisation/male_facialhair_amishbeard
+character customisation/male_facialhair_bald
+character customisation/male_facialhair_doublebraid_beard
+character customisation/male_facialhair_doublebraid_combo
+character customisation/male_facialhair_doublebraid_moustache
+character customisation/male_facialhair_hunterbeard
+character customisation/male_facialhair_huntermustache
+character customisation/male_facialhair_vikingbeard
+character customisation/male_facialhair_vikingcombo
+character customisation/male_facialhair_vikingmustache
+character customisation/male_facialhiar_huntermustache
+character customisation/male_hair_bald
+character customisation/male_hair_bowlcut
+character customisation/male_hair_braidbun
+character customisation/male_hair_cropped
+character customisation/male_hair_dreadlocks
+character customisation/male_hair_fringe
+character customisation/male_hair_headband
+character customisation/male_hair_hightopdreads
+character customisation/male_hair_kilmer
+character customisation/male_hair_mohawk
+character customisation/male_hair_native
+character customisation/male_hair_shortspiked
+character customisation/male_hair_squarefringe
+character customisation/male_hair_studded
+character customisation/male_hair_swept
+character customisation/male_hair_uber
+character customisation/male_legs_boots
+character customisation/male_legs_shorts
+character customisation/male_legs_wrap
+character customisation/male_torso_engineer
+character customisation/male_torso_ponchovariantb
+character customisation/male_torso_squirevarianta
+character customisation/male_torso_wanderer
+clothing/heads/2x2_head_artisan_male
+clothing/heads/2x2_head_bandana_male
+clothing/heads/2x2_head_banditmask_male
+clothing/heads/2x2_head_banditmaskpekoe_male
+clothing/heads/2x2_head_cap_male
+clothing/heads/2x2_head_christmas_2018_male
+clothing/heads/2x2_head_circlemask_male
+clothing/heads/2x2_head_devhat_male
+clothing/heads/2x2_head_featherhat_male
+clothing/heads/2x2_head_fugitive_male
+clothing/heads/2x2_head_goatmask_male
+clothing/heads/2x2_head_godhand_hood_male
+clothing/heads/2x2_head_godhand_male
+clothing/heads/2x2_head_gogglecap_male
+clothing/heads/2x2_head_goggles_male
+clothing/heads/2x2_head_hawkhelm_male
+clothing/heads/2x2_head_hoodcap_male
+clothing/heads/2x2_head_hood_male
+clothing/heads/2x2_head_hoodvarianta_male
+clothing/heads/2x2_head_hunterwide_male
+clothing/heads/2x2_head_intucki_mask_male
+clothing/heads/2x2_head_ishgiruan_pilot_male
+clothing/heads/2x2_head_kitsunemask_male
+clothing/heads/2x2_head_lallarahelm_male
+clothing/heads/2x2_head_merchant_male
+clothing/heads/2x2_head_metal_male
+clothing/heads/2x2_head_navigator_male
+clothing/heads/2x2_head_owl_male
+clothing/heads/2x2_head_pilotcap_male
+clothing/heads/2x2_head_pioneer_male
+clothing/heads/2x2_head_reaver_bandage_male
+clothing/heads/2x2_head_reaver_male
+clothing/heads/2x2_head_reaver_porcupine_male
+clothing/heads/2x2_head_reaver_porcupinevariantb_male
+clothing/heads/2x2_head_reaver_raiderb_male
+clothing/heads/2x2_head_reaver_raider_male
+clothing/heads/2x2_head_reaverscarf_male
+clothing/heads/2x2_head_reaverscarf_variantb_male
+clothing/heads/2x2_head_reaver_shark_male
+clothing/heads/2x2_head_rogue_male
+clothing/heads/2x2_head_saborianmask_chevron_male
+clothing/heads/2x2_head_saborianmask_diamond_male
+clothing/heads/2x2_head_saborianmask_eyes_male
+clothing/heads/2x2_head_saborianmask_hoodscarf_male
+clothing/heads/2x2_head_saborianmask_sharp_scarf_male
+clothing/heads/2x2_head_samurai_male
+clothing/heads/2x2_head_scarfhood_male
+clothing/heads/2x2_head_scarf_male
+clothing/heads/2x2_head_skullcap_male
+clothing/heads/2x2_head_skullmask_male
+clothing/heads/2x2_head_tamoe_mask_male
+clothing/heads/2x2_head_tank_male
+clothing/heads/2x2_head_turban_male
+clothing/heads/2x2_head_wrap_male
+clothing/heads/2x2_head_yharma_mask_male
+clothing/heads/2x3_head_moebius_male
+clothing/heads/3x2_head_christmas_male
+clothing/heads/3x3_head_bargu_mask_male
+clothing/heads/4x2_head_horned_male
+clothing/legs/2x4_legs_baggy_female
+clothing/legs/2x4_legs_baggy_male
+clothing/legs/2x4_legs_belts_female
+clothing/legs/2x4_legs_belts_male
+clothing/legs/2x4_legs_boots_female
+clothing/legs/2x4_legs_boots_male
+clothing/legs/2x4_legs_christmas_2018_female
+clothing/legs/2x4_legs_christmas_2018_male
+clothing/legs/2x4_legs_fugitive_female
+clothing/legs/2x4_legs_fugitive_male
+clothing/legs/2x4_legs_goner_female
+clothing/legs/2x4_legs_goner_male
+clothing/legs/2x4_legs_naked_female
+clothing/legs/2x4_legs_naked_male
+clothing/legs/2x4_legs_reaver_paddedvarianta_female
+clothing/legs/2x4_legs_reaver_paddedvarianta_male
+clothing/legs/2x4_legs_reaver_paddedvariantb_female
+clothing/legs/2x4_legs_reaver_paddedvariantb_male
+clothing/legs/2x4_legs_saborianuniform_female
+clothing/legs/2x4_legs_saborianuniform_male
+clothing/legs/2x4_legs_saborianuniform_stripe_female
+clothing/legs/2x4_legs_saborianuniform_stripe_male
+clothing/legs/2x4_legs_samurai_female
+clothing/legs/2x4_legs_samurai_male
+clothing/legs/2x4_legs_shinpads_female
+clothing/legs/2x4_legs_shinpads_male
+clothing/legs/2x4_legs_shorts_female
+clothing/legs/2x4_legs_shorts_male
+clothing/legs/2x4_legs_shortsvarianta_female
+clothing/legs/2x4_legs_shortsvarianta_male
+clothing/legs/2x4_legs_summer_female
+clothing/legs/2x4_legs_summer_male
+clothing/legs/2x4_legs_tribal_bargu_female
+clothing/legs/2x4_legs_tribal_bargu_male
+clothing/legs/2x4_legs_tribal_female
+clothing/legs/2x4_legs_tribal_intucki_female
+clothing/legs/2x4_legs_tribal_intucki_male
+clothing/legs/2x4_legs_tribal_male
+clothing/legs/2x4_legs_tribal_skeleton_female
+clothing/legs/2x4_legs_tribal_skeleton_male
+clothing/legs/2x4_legs_tribal_tamoe_female
+clothing/legs/2x4_legs_tribal_tamoe_male
+clothing/legs/2x4_legs_tribal_yharma_female
+clothing/legs/2x4_legs_tribal_yharma_male
+clothing/legs/2x4_legs_wrap_female
+clothing/legs/2x4_legs_wrap_male
+clothing/torsos/2x3_torso_bandages_female
+clothing/torsos/2x3_torso_bandages_male
+clothing/torsos/2x3_torso_bandages_ninja_female
+clothing/torsos/2x3_torso_bandages_ninja_male
+clothing/torsos/2x3_torso_bandages_scales_female
+clothing/torsos/2x3_torso_bandages_scales_male
+clothing/torsos/2x3_torso_cape_female
+clothing/torsos/2x3_torso_cape_male
+clothing/torsos/2x3_torso_christmas_2018_female
+clothing/torsos/2x3_torso_christmas_2018_male
+clothing/torsos/2x3_torso_combob_female
+clothing/torsos/2x3_torso_combob_male
+clothing/torsos/2x3_torso_combo_female
+clothing/torsos/2x3_torso_combo_male
+clothing/torsos/2x3_torso_devjacket_female
+clothing/torsos/2x3_torso_devjacket_male
+clothing/torsos/2x3_torso_engineer_female
+clothing/torsos/2x3_torso_engineer_male
+clothing/torsos/2x3_torso_engineervarianta_female
+clothing/torsos/2x3_torso_engineervarianta_male
+clothing/torsos/2x3_torso_fugitive_female
+clothing/torsos/2x3_torso_fugitive_male
+clothing/torsos/2x3_torso_ishgiruan_pilot_female
+clothing/torsos/2x3_torso_ishgiruan_pilot_male
+clothing/torsos/2x3_torso_ishgiruan_pilot_varianta_female
+clothing/torsos/2x3_torso_ishgiruan_pilot_varianta_male
+clothing/torsos/2x3_torso_ishgiruan_pilot_variantb_female
+clothing/torsos/2x3_torso_ishgiruan_pilot_variantb_male
+clothing/torsos/2x3_torso_naked_female
+clothing/torsos/2x3_torso_naked_male
+clothing/torsos/2x3_torso_neckguard_female
+clothing/torsos/2x3_torso_neckguard_male
+clothing/torsos/2x3_torso_pirate_female
+clothing/torsos/2x3_torso_pirate_male
+clothing/torsos/2x3_torso_piratevarianta_female
+clothing/torsos/2x3_torso_piratevarianta_male
+clothing/torsos/2x3_torso_ponchob_female
+clothing/torsos/2x3_torso_ponchob_male
+clothing/torsos/2x3_torso_ponchobvarianta_female
+clothing/torsos/2x3_torso_ponchobvarianta_male
+clothing/torsos/2x3_torso_poncho_female
+clothing/torsos/2x3_torso_poncho_male
+clothing/torsos/2x3_torso_ponchovarianta_female
+clothing/torsos/2x3_torso_ponchovarianta_male
+clothing/torsos/2x3_torso_ponchovariantb_female
+clothing/torsos/2x3_torso_ponchovariantb_male
+clothing/torsos/2x3_torso_reaver_bandage_female
+clothing/torsos/2x3_torso_reaver_bandage_male
+clothing/torsos/2x3_torso_reaver_jacket_female
+clothing/torsos/2x3_torso_reaver_jacket_male
+clothing/torsos/2x3_torso_reaver_jacket_variantb_female
+clothing/torsos/2x3_torso_reaver_jacket_variantb_male
+clothing/torsos/2x3_torso_reaver_paddedvarianta_female
+clothing/torsos/2x3_torso_reaver_paddedvarianta_male
+clothing/torsos/2x3_torso_reaver_paddedvariantb_female
+clothing/torsos/2x3_torso_reaver_paddedvariantb_male
+clothing/torsos/2x3_torso_reaver_paddedvariantc_female
+clothing/torsos/2x3_torso_reaver_paddedvariantc_male
+clothing/torsos/2x3_torso_roman_female
+clothing/torsos/2x3_torso_roman_male
+clothing/torsos/2x3_torso_saborianuniform_1pip_female
+clothing/torsos/2x3_torso_saborianuniform_1pip_male
+clothing/torsos/2x3_torso_saborianuniform_2pip_female
+clothing/torsos/2x3_torso_saborianuniform_2pip_male
+clothing/torsos/2x3_torso_saborianuniform_3pip_female
+clothing/torsos/2x3_torso_saborianuniform_3pip_male
+clothing/torsos/2x3_torso_saborianuniform_godhand_female
+clothing/torsos/2x3_torso_saborianuniform_godhand_male
+clothing/torsos/2x3_torso_samurai_female
+clothing/torsos/2x3_torso_samurai_male
+clothing/torsos/2x3_torso_scales_female
+clothing/torsos/2x3_torso_scales_male
+clothing/torsos/2x3_torso_squire_female
+clothing/torsos/2x3_torso_squire_male
+clothing/torsos/2x3_torso_squirevarianta_female
+clothing/torsos/2x3_torso_squirevarianta_male
+clothing/torsos/2x3_torso_summer_female
+clothing/torsos/2x3_torso_summer_male
+clothing/torsos/2x3_torso_tribal_bargu_female
+clothing/torsos/2x3_torso_tribal_bargu_male
+clothing/torsos/2x3_torso_tribal_intucki_female
+clothing/torsos/2x3_torso_tribal_intucki_male
+clothing/torsos/2x3_torso_tribal_skeleton_female
+clothing/torsos/2x3_torso_tribal_skeleton_male
+clothing/torsos/2x3_torso_tribal_tamoe_female
+clothing/torsos/2x3_torso_tribal_tamoe_male
+clothing/torsos/2x3_torso_tribal_yharma_female
+clothing/torsos/2x3_torso_tribal_yharma_male
+clothing/torsos/2x3_torso_wanderer_female
+clothing/torsos/2x3_torso_wanderer_male
+clothing/torsos/2x3_torso_wanderervarianta_female
+clothing/torsos/2x3_torso_wanderervarianta_male
+clothing/torsos/2x3_torso_wrap_female
+clothing/torsos/2x3_torso_wrap_male
+coreairfilter
+coreatlasenhancer
+corecircuitrynetwork
+corecomputer
+corecoolantsystem
+coreefficiencymodule
+coregenerator
+coremain
+corestabiliser
+crafted items/1x1_atlas_lifter
+crafted items/1x1_bullets
+crafted items/1x1_flaregun_stubby_cartridges
+crafted items/1x1_swivel_gun_cartridges1
+crafted items/1x2_dye
+crafted items/1x2_hip_lamp
+crafted items/1x4_torch
+crafted items/2x1_head_torch
+crafted items/2x1_makeshiftbandages
+crafted items/2x1_nervurebandages
+crafted items/2x2_bioelectrical_generator2
+crafted items/2x2_cannon_ball_shell
+crafted items/2x2_makeshift_storage
+crafted items/2x2_paintcan
+crafted items/2x2_timed_explosive
+crafted items/3x2_default_pistol
+crafted items/3x2_flaregun
+crafted items/3x2_pioneer_pistol
+crafted items/3x3_camp_fire
+crafted items/3x3_rhegus_greaves
+crafted items/3x4_glider
+crafted items/3x4_inertia_pack
+crafted items/3x4_paintdrum
+crafted items/3x4_stasis_pack
+crafted items/4x4_crafting_station
+crafted items/6x2_guitar
+crafted items/6x2_marauder_guitar
+crew/crew_leader_icon
+crew/playersilhouette
+engine_ciphers
+foods/1x1_climberselixir
+foods/1x1_cloudworm
+foods/1x1_cloudwormcordial
+foods/1x1_conossalt
+foods/1x1_craggy cap mushroom
+foods/1x1_greyshell
+foods/1x1_greyshellbrew
+foods/1x1_hardy_draught
+foods/1x1_killa_mushrooms
+foods/1x1_selenesugar
+foods/1x1_slug
+foods/1x1_sweets
+foods/1x1_tasty_mushrooms
+foods/1x1_vinegar
+foods/1x1_worm
+foods/1x2_berrysyrup
+foods/1x2_birikoispices
+foods/1x2_flour
+foods/1x2_grog
+foods/1x2_moonshine
+foods/1x2_witchsbrew
+foods/2x1_shortbread
+foods/2x1_sweetrice_bar
+foods/2x1_yeast
+foods/2x2_beetle_biome2_meatraw
+foods/2x2_beetle_biome3_meatraw
+foods/2x2_beetle_biome4_meatraw
+foods/2x2_beetle_steak_cooked
+foods/2x2_beetle_steak_raw
+foods/2x2_berries
+foods/2x2_bread
+foods/2x2_breadedmushrooms
+foods/2x2_breadedthuntnuggets
+foods/2x2_crunchythuntomitestew
+foods/2x2_exquisitethuntomitestuffedshell
+foods/2x2_fruityrice
+foods/2x2_glazedmanta
+foods/2x2_glazed_thuntomite
+foods/2x2_gourmetmantacurry
+foods/2x2_infusedrice
+foods/2x2_killer_mushroom_soup
+foods/2x2_mantaburger
+foods/2x2_mantacurry
+foods/2x2_mantagoulash
+foods/2x2_mantaray_biome2_meatraw
+foods/2x2_mantaray_biome3_meatraw
+foods/2x2_mantaray_biome4_meatraw
+foods/2x2_mantaskewers
+foods/2x2_manta_steak_cooked
+foods/2x2_manta_steak_raw
+foods/2x2_nice_mushroom_soup
+foods/2x2_pickledberries
+foods/2x2_plainrice
+foods/2x2_pot_of_beetle_stew
+foods/2x2_pulledthuntomitesalsa
+foods/2x2_pumpkin
+foods/2x2_pumpkincurry
+foods/2x2_rumberrydesert
+foods/2x2_rum marinated manta
+foods/2x2_spicymantagoulash
+foods/2x2_sweetenedmantaskewers
+foods/2x2_sweetthuntomitericebowl
+foods/2x2_thuntomitericebowl
+foods/2x2_thuntomitestuffedshell
+foods/2x2_verdubanstylebatteredthuntomite
+foods/2x3_meatpaste
+foods/2x3_rum
+foods/2x3_slugsauce
+gauntlet_build
+gauntlet_repair
+gauntlet_salvage
+green_ciphers
+hotbar_inventory
+hotbar_multitool
+hotbar_repair
+hotbar_scanner
+hotbar_shipbuilding
+hotbar_social_scroll
+hud/local-player-speech-indicator
+hud/voip-fail
+hud/voip-speech-indicator
+icon_avatar_height
+item_airspeed
+item_altimeter
+item_artificial_horizon
+item_atlas_stone
+item_axe
+item_bar
+item_bar_bent
+item_black_hood
+item_blue_hood
+item_bolt_metal
+item_bolt_wood
+item_bomb
+item_bow
+item_box_large
+item_box_small
+item_build
+item_camera
+item_campfire
+item_cannonball
+item_circle_frame
+item_crafting_station
+item_crossbow
+item_flare
+item_flare_gun
+item_fuel
+item_fuel_crystal
+item_fuel_extractor
+item_fuel_guage
+item_fuel_tank
+item_gasmask
+item_glider
+item_grapple
+item_green_hood
+item_harpoon
+item_head_cap
+item_head_founders
+item_head_hoodcap
+item_heading
+item_head_skullmask
+item_head_turban
+item_head_wrap
+item_heart_frame
+item_helm
+item_helm_core
+item_hook
+item_horn
+item_lamp
+item_legs_baggy
+item_legs_boots
+item_legs_tribal_skeleton
+item_lifter
+item_metal_large
+item_multitool
+item_multitool_blue
+item_multitool_cyan
+item_multitool_green
+item_multitool_red
+item_multitool_yellow
+item_ocarina
+item_orange_hood
+item_panel_01
+item_panel_02
+item_panel_03
+item_panel_04
+item_panel_05
+item_panel_06
+item_purple_hood
+item_red_hood
+item_repair
+item_salvage
+item_scan
+item_schematic_common
+item_schematic_exotic
+item_schematic_rare
+item_schematics
+item_schematic_uncommon
+item_shipyard
+item_square_frame
+item_tct
+item_telescope
+item_torch
+item_torso_cape
+item_torso_tribal_skeleton
+item_torso_wrap
+item_white_hood
+item_wood_large
+item_wood_or_metal_large
+item_wood_panel_01
+item_wood_panel_02
+item_wood_panel_03
+item_yellow_hood
+lifetime knowledge nodes/ship parts/coreairfilter
+lifetime knowledge nodes/ship parts/coreatlasenhancer
+lifetime knowledge nodes/ship parts/corecircuitrynetwork
+lifetime knowledge nodes/ship parts/corecomputer
+lifetime knowledge nodes/ship parts/corecoolantsystem
+lifetime knowledge nodes/ship parts/coreefficiencymodule
+lifetime knowledge nodes/ship parts/coregenerator
+lifetime knowledge nodes/ship parts/corestabiliser
+loading_logo_noglow
+materials/1x1_biome1_neuralcluster
+materials/1x1_biome2_neuralcluster
+materials/1x1_biome3_neuralcluster
+materials/1x1_biome4_neuralcluster
+materials/1x1_pigment
+materials/1x2_plantfiber
+materials/2x1_ancientglass
+materials/2x1_biome1_conductivevessels
+materials/2x1_biome2_conductivevessels
+materials/2x1_biome3_conductivevessels
+materials/2x1_biome4_conductivevessels
+materials/2x1_glassshards
+materials/2x2_cloth
+materials/2x2_leather
+materials/2x2_leathersalvage
+materials/2x3_beetle_biome1_resource1
+materials/2x3_beetle_biome2_resource1
+materials/2x3_beetle_biome3_resource1
+materials/2x3_beetle_biome4_resource1
+materials/2x3_chitin
+materials/3x1_clothdyed
+materials/3x1_clothmakeshift
+materials/3x1_clothmakeshift_brown
+materials/3x1_clothsalvage
+materials/3x2_mantaray_biome1_resource1
+materials/3x2_mantaray_biome2_resource2
+materials/3x2_mantaray_biome3_resource3
+materials/3x2_mantaray_biome4_resource4
+materials/ship_core
+materials/ship_engine
+metals/metal_aluminium
+metals/metal_bronze
+metals/metal_copper
+metals/metal_epilar
+metals/metal_eternium
+metals/metal_gold
+metals/metal_iron
+metals/metal_lead
+metals/metal_magnesium
+metals/metal_nickel
+metals/metal_orthite
+metals/metal_palladium
+metals/metal_platinum
+metals/metal_silver
+metals/metal_steel
+metals/metal_tin
+metals/metal_titanium
+metals/metal_tungsten
+misc craft materials/2x2_fuel_container
+orange_ciphers
+pets/3x3_basher
+placeholder_icon
+procedual ship parts menu icons/cannon-1
+procedual ship parts menu icons/cannon-2
+procedual ship parts menu icons/cannon-3
+procedual ship parts menu icons/cannon-4
+procedual ship parts menu icons/cannon-5
+procedual ship parts menu icons/engine-1
+procedual ship parts menu icons/engine-2
+procedual ship parts menu icons/engine-3
+procedual ship parts menu icons/engine-4
+procedual ship parts menu icons/engine-5
+procedual ship parts menu icons/swivel-1
+procedual ship parts menu icons/swivel-2
+procedual ship parts menu icons/swivel-3
+procedual ship parts menu icons/swivel-4
+procedual ship parts menu icons/wing-1
+procedual ship parts menu icons/wing-2
+procedual ship parts menu icons/wing-3
+procedual ship parts menu icons/wing-4
+procedual ship parts menu icons/wing-5
+purple_ciphers
+red_ciphers
+scanner_build
+scanner_icon
+scanner_scan
+schematic_capsule_common
+schematic_capsule_exotic
+schematic_capsule_legendary
+schematic_capsule_rare
+schematic_capsule_uncommon
+schematic_icon_cannon
+schematic_icon_clothing
+schematic_icon_communications
+schematic_icon_cooking
+schematic_icon_crafting
+schematic_icon_engine
+schematic_icon_firstaid
+schematic_icon_flightinstruments
+schematic_icon_furnciture
+schematic_icon_sails
+schematic_icon_shipbuildingtool
+schematic_icon_shipdecoration
+schematic_icon_shipshelm
+schematic_icon_skycore
+schematic_icon_storage
+schematic_icon_structural
+schematic_icon_swivelgun
+schematic_icon_utility
+schematic_icon_utility1
+schematic_icon_weapons
+schematic_icon_wing
+schematics_capsule_basic2bb
+scrap items/1x1_badge_ofold_age
+scrap items/1x1_bandinian_currency
+scrap items/1x1_childs_magnet
+scrap items/1x1_currency
+scrap items/1x1_decorative
+scrap items/1x1_disc
+scrap items/1x1_geodesanguinator
+scrap items/1x1_globe_decor
+scrap items/1x1_goatbear_trinket
+scrap items/1x1_hubcap
+scrap items/1x1_kuboan_triangular_pendant
+scrap items/1x1_lucky_donkey
+scrap items/1x1_maquillage_case
+scrap items/1x1_mellifluan_currency
+scrap items/1x1_metal_plug
+scrap items/1x1_mouse_effigy
+scrap items/1x1_pendant_king_orthosa
+scrap items/1x1_rod
+scrap items/1x1saborian_badge_ofstate
+scrap items/1x1_saborian_demarcate_badge
+scrap items/1x1saborian_flyingwings
+scrap items/1x1_saborian_shoulder_clasp
+scrap items/1x1_seal_of_empress
+scrap items/1x1_shrapnel
+scrap items/1x1_ternanuan_toggle
+scrap items/1x1_ternanuan_toggle2
+scrap items/1x1_the_empress_incense
+scrap items/1x1_tonking_puck
+scrap items/1x1_tonking_punk
+scrap items/1x1_washer
+scrap items/1x1_waxwork_mouse
+scrap items/1x1_wolf_token
+scrap items/1x2_beetleblood_extraction_tool
+scrap items/1x2_bonehandle_magnifying_glass
+scrap items/1x2_boviary_pressure_jet
+scrap items/1x2_boviary_pressure_jet2
+scrap items/1x2_candlestick
+scrap items/1x2_catonine-tails
+scrap items/1x2_catonine-tails 1
+scrap items/1x2_cracked_mining_drill
+scrap items/1x2_diode_nodule
+scrap items/1x2_dusty_lallara_glove
+scrap items/1x2_engine_part
+scrap items/1x2_engine_part_d
+scrap items/1x2_fakeatlas
+scrap items/1x2_golden_paw_gloves
+scrap items/1x2_hexogon_steps
+scrap items/1x2_molin_brand_cutlery
+scrap items/1x2_molin_brand_cutlery2
+scrap items/1x2_nodule
+scrap items/1x2_old_pipe
+scrap items/1x2_ornatebottle
+scrap items/1x2_penitentself_flagellation_stick
+scrap items/1x2_pipe
+scrap items/1x2_refibulater
+scrap items/1x2_saborian_dining_tongs
+scrap items/1x2_saborian_miningdrill
+scrap items/1x2_sword_hilt
+scrap items/1x3_ancient_bandinian_sword
+scrap items/1x3_barbers_spoonstick
+scrap items/1x3_boviary_coercion_prod
+scrap items/1x3_boviary_prod
+scrap items/1x3_cracked_soldering_rod
+scrap items/1x3_engine_crank
+scrap items/1x3_fine_cloistrum_strigil
+scrap items/1x3_saborian_blowtorch
+scrap items/1x3_saborian_cloistrum_strigal.2
+scrap items/1x3_saborian_cloistrum_strigal2
+scrap items/1x3_whale_stripper
+scrap items/1x4_grandfrillship_antenna
+scrap items/1x4_longbow_bits
+scrap items/1x4_racing_stilts
+scrap items/1x4_sword_blade
+scrap items/1x5_windbreak
+scrap items/2x1_anklet
+scrap items/2x1_broken_cymbol
+scrap items/2x1_cracked_binoculars
+scrap items/2x1_dainty_courtlymobiles
+scrap items/2x1_doorhandle
+scrap items/2x1_marimbian_nosepipe
+scrap items/2x1_mousetrap
+scrap items/2x1_oldwrench
+scrap items/2x1_silver_birds_whistle
+scrap items/2x1_slave_manacles
+scrap items/2x1_smashed_cymbal
+scrap items/2x1_textile_cutter
+scrap items/2x1_warlocks_flute
+scrap items/2x2_antique_lamp
+scrap items/2x2_bandinian_beeswax_tablet
+scrap items/2x2_bathhouse_valve
+scrap items/2x2_bathhouse_valve2
+scrap items/2x2_book.of
+scrap items/2x2.book.of.entitlement
+scrap items/2x2_boviary_harvester
+scrap items/2x2_boviary_harvester2
+scrap items/2x2_broken_drum
+scrap items/2x2.bustoftelemon
+scrap items/2x2_ceramic_pot
+scrap items/2x2_childs_ball
+scrap items/2x2_childs_kitchenset
+scrap items/2x2_clamp
+scrap items/2x2_cooking_pot
+scrap items/2x2_cover_sleeve
+scrap items/2x2_cracked_hydraulic_pins
+scrap items/2x2_dining_trencher
+scrap items/2x2_drinks_decanter
+scrap items/2x2_engine_plug
+scrap items/2x2_filter
+scrap items/2x2_fountain_shards
+scrap items/2x2_gugustus_molins_napkins
+scrap items/2x2_hand_chisel
+scrap items/2x2_imperial_animal_bell
+scrap items/2x2_ishgiruan_defective_owl_camera
+scrap items/2x2_jar_of_mold
+scrap items/2x2_jarof_whale_oil
+scrap items/2x2_jetpack_engine
+scrap items/2x2_lallara_ball
+scrap items/2x2_melted_canonball
+scrap items/2x2_metal_pot
+scrap items/2x2_momorosan_fruit_platter
+scrap items/2x2_momorosan_fruit_platter2
+scrap items/2x2_ornate_magnifying_glass
+scrap items/2x2_pipinturi_bucket
+scrap items/2x2_plant_pot
+scrap items/2x2_plinth
+scrap items/2x2_ruined_helmet
+scrap items/2x2_rusted_microscope
+scrap items/2x2_saborian_public_addresssystem
+scrap items/2x2_saborian_transistor
+scrap items/2x2_shattered_seismometer
+scrap items/2x2_signed_photo_of_konstini_vaduva
+scrap items/2x2_skiwax
+scrap items/2x2_skullofimhorta
+scrap items/2x2_skyship_mooring_capstan
+scrap items/2x2_smallplate
+scrap items/2x2_small_power_conductor
+scrap items/2x2_tackyornament
+scrap items/2x2_three_pronged_plug
+scrap items/2x2_tincan
+scrap items/2x2_waterguji_market_awning
+scrap items/2x2_wooden_bowl
+scrap items/2x2_woollen_quilt
+scrap items/2x3_atlas_hod
+scrap items/2x3_bandinan.mining.handpick
+scrap items/2x3_bandinan_mining_handpick
+scrap items/2x3_boviary_chem_cylinder
+scrap items/2x3_boviary_chem_cylinder2
+scrap items/2x3_brittle_rake2
+scrap items/2x3_bust_of_telemon
+scrap items/2x3_cloistra_pipework
+scrap items/2x3cloistra_pipework
+scrap items/2x3_fireworks
+scrap items/2x3_godhand_hull_shards
+scrap items/2x3_godhand_hull_shards2
+scrap items/2x3_jack_rocket_thing2
+scrap items/2x3_loom_shuttle
+scrap items/2x3_nabob's_tabard
+scrap items/2x3_saborian_blowtorch
+scrap items/2x3_shard_of_moon_craft
+scrap items/2x3_shard_of_moon_craft2
+scrap items/2x3_ululating_horn_of_bargo_jiu
+scrap items/2x4_brittle_rake
+scrap items/2x4_broom
+scrap items/2x4_jack_staff
+scrap items/2x4_mellifluan_narghile
+scrap items/2x4_saborian_wrestler_sculpture
+scrap items/2x5_bathhouse_mop
+scrap items/2x5_colourful_oar
+scrap items/2x5_pitchfork
+scrap items/2x5_tonking_stick
+scrap items/2x5_tonking_stick2
+scrap items/3x1_damaged_telescope
+scrap items/3x1.deconstructed_telescope
+scrap items/3x2_bandinian_popel
+scrap items/3x2_bandinian_shield
+scrap items/3x2_charango
+scrap items/3x2_ferry_crank
+scrap items/3x2_footstool
+scrap items/3x2_harpoon_fragments
+scrap items/3x2_herders_saddlebag
+scrap items/3x2_industrial_loom_parts
+scrap items/3x2_ishgiruan_horn_trumpet
+scrap items/3x2_knotted_frillship_horn
+scrap items/3x2_lallara_goal_hoop
+scrap items/3x2_ornithological_binocular_valise
+scrap items/3x2_saborian_weights
+scrap items/3x2_selenists_wooden_orrery
+scrap items/3x2_sewing_machine
+scrap items/3x2_ship_handrail
+scrap items/3x2_windsock
+scrap items/3x3_beartrap
+scrap items/3x3_blubber_furnace
+scrap items/3x3_boat_siren
+scrap items/3x3_defunct_essedari_gymnothruster
+scrap items/3x3_engine_housing
+scrap items/3x3_engine_radiator
+scrap items/3x3_engine_two_d
+scrap items/3x3_essedari_gymnothruster
+scrap items/3x3_farmers_cartwheel
+scrap items/3x3_farm_parts
+scrap items/3x3_funicular_parts
+scrap items/3x3_generator
+scrap items/3x3_godhand_cannon_fragments
+scrap items/3x3_godhand_cannon_fragments2
+scrap items/3x3_grandfrillship_porthole
+scrap items/3x3_jack_rocket_thing1
+scrap items/3x3_large_plug
+scrap items/3x3_lumberyard_machinery
+scrap items/3x3_molin_brand_processor
+scrap items/3x3_molin_brand_processor2
+scrap items/3x3_ornate_empty_box
+scrap items/3x3_small_generator
+scrap items/3x3_steam_boat_engine_scrap
+scrap items/3x3_vinyl_player
+scrap items/3x3_warlock_bijoux_bureau
+scrap items/3x3_warlock's_cauldron
+scrap items/3x3_wolf_figurehead
+scrap items/3x4_big_engine
+scrap items/3x4_steamerstack
+scrap items/3x5_landing _pad_leg
+scrap items/3x5_landing_pad_leg
+scrap items/3x5_shack_doors
+scrap items/3x5_shack_doors 1
+scrap items/4x1_deconstructed_telescope
+scrap items/4x2_beetle_blood_linen1
+scrap items/4x2_godhand_cage_bar
+scrap items/4x2_godhand_cage_bar2
+scrap items/4x2_insideout_umbrella
+scrap items/4x2_saborian_grand_mooring_rope
+scrap items/4x2_shelving
+scrap items/4x2_ship_handrail
+scrap items/4x3_boat_spares
+scrap items/4x3_imperial_turret
+scrap items/4x3_knackered_ship_hatch
+scrap items/4x3_mining_lift_parts
+scrap items/4x3_mining_lift_parts2
+scrap items/4x3_mountain_tent
+scrap items/4x3_mounted_canon
+scrap items/4x3_saborian_howitzer_bits
+scrap items/4x3_saborian_howitzer_bits2
+scrap items/4x3_small_table
+scrap items/4x3_tapestry
+scrap items/4x4_dismantled_organ
+scrap items/4x4_pieces_of_crane_bits
+scrap items/4x4_warlock's_cauldron
+scrap items/5x3_deep_miner_fragments
+scrap items/5x3_steamboat_wheel_blades
+scrap items/5x3_toboggan_dogharness
+scrap items/5x4_crumpled_icebreaker
+scrap items/6x2_steamboat_hog_chain
+ship_bossaflag
+ship_cannon
+ship_core
+ship_core_wooden
+ship_crate
+ship_crowsnest
+ship_engine
+ship_fin
+ship_frame01
+ship_frame02
+ship_gabenflag
+ship_helm
+ship_helm_wooden
+ship_improbableflag
+ship_metalpanel
+ship parts/allianceradio01
+ship parts/barpipe
+ship parts/barpipebent
+ship parts/barrelmetal
+ship parts/barrelwood
+ship parts/containerlargemetal
+ship parts/containerlargewood
+ship parts/containermediummetal
+ship parts/containermediumwood
+ship parts/containermountmetal
+ship parts/containermountwood
+ship parts/containersmallmetal
+ship parts/containersmallwood
+ship parts/coreairfilter
+ship parts/coreatlasenhancer
+ship parts/corecircuitrynetwork
+ship parts/corecomputer
+ship parts/corecoolantsystem
+ship parts/coreefficiencymodule
+ship parts/coregenerator
+ship parts/coremain
+ship parts/corestabiliser
+ship parts/crowsnest
+ship parts/cupboardmetal
+ship parts/cupboardwood
+ship parts/deckmetal
+ship parts/deckwood
+ship parts/figureheadfounder01
+ship parts/figureheadkioki01
+ship parts/figureheadkioki02
+ship parts/figureheadpekoe01
+ship parts/figureheadpekoe02
+ship parts/figureheadpioneer01
+ship parts/figureheadsaborian01
+ship parts/figureheadsaborian02
+ship parts/flagbossa
+ship parts/flagfounder01
+ship parts/flagfounder02
+ship parts/flagimprobable
+ship parts/flagnailandgear
+ship parts/flagpirate
+ship parts/furniture/chair_marauder_01
+ship parts/furniture/chair_metal_001
+ship parts/furniture/chair_metal_002
+ship parts/furniture/chair_wood_001
+ship parts/furniture/lamp_marauder_01
+ship parts/furniture/marauder_table
+ship parts/furniture/shelf_metal_001
+ship parts/furniture/shelf_wood_001
+ship parts/furniture/stool_marauder_01
+ship parts/furniture/stool_metal_001
+ship parts/furniture/stool_wood_001
+ship parts/furniture/stool_wood_002
+ship parts/furniture/stool_wood_003
+ship parts/furniture/table_metal_001
+ship parts/furniture/table_metal_002
+ship parts/furniture/table_wood_001
+ship parts/furniture/table_wood_002
+ship parts/gaugeairspeed
+ship parts/gaugealtitude
+ship parts/gaugefuel
+ship parts/gaugeheading
+ship parts/gaugehorizon
+ship parts/generatormetal
+ship parts/generatorwood
+ship parts/helmfounder01
+ship parts/helmmetal
+ship parts/helmwood
+ship parts/horn
+ship parts/jack_o_lantern01
+ship parts/lamp
+ship parts/lampchristmas_01
+ship parts/lampkioki_01
+ship parts/lamppekoe01
+ship parts/lampsaborian_01
+ship parts/lanternpioneer01
+ship parts/loom
+ship parts/marauder_mask_01
+ship parts/marauder_mask_02
+ship parts/panellargemetal
+ship parts/panellargewood
+ship parts/panelmediummetal
+ship parts/panelmediumwood
+ship parts/panelsmallmetal
+ship parts/panelsmallwood
+ship parts/panelwindow
+ship parts/personalreviver
+ship parts/plaquefounder01
+ship parts/railcornermetal
+ship parts/railcornerwood
+ship parts/railstraightmetal
+ship parts/railstraightwood
+ship parts/sail
+ship parts/sailfounder01
+ship parts/shipframe
+ship parts/stairsmetal
+ship parts/stairswood
+ship parts/stove
+ship_pirateflag
+ship_respawner
+ship_swivel
+ship_wing
+ship_woodpanel
+shipyard_placeholder_icon
+slot_blue_ciphers
+slot_ciphers
+slot_green_ciphers
+slot_orange_ciphers
+slot_purple_ciphers
+slot_red_ciphers
+slot_yellow_ciphers
+steam inventory bundles/2x2_xmas_present
+swivelgun_ciphers
+temp_lore_icon
+turrets/electric_turret
+turrets/explosive_kioki_turret
+turrets/explosive_turret
+turrets/heavy_kioki_turret
+turrets/heavy_turret
+turrets/light_turret
+turrets/snare_turret
+tutorial/tutorial_arrow
+tutorial/tutorial_mouse_left
+tutorial/tutorial_mouse_right
+wing_ciphers
+woods/wood_ash
+woods/wood_birch
+woods/wood_cedar
+woods/wood_chestnut
+woods/wood_ebony
+woods/wood_elm
+woods/wood_hemlock
+woods/wood_ironwood
+woods/wood_mahogany
+woods/wood_maple
+woods/wood_oak
+woods/wood_palm
+woods/wood_palm2
+yellow_ciphers

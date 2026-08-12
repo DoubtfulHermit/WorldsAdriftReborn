@@ -1,12 +1,13 @@
 ﻿using System.IO.Compression;
 using System.Text;
+using System.Text.Json;
+using Bossa.Travellers.Player;
 using Bossa.Travellers.Refdata;
 using Improbable.Worker.Internal;
-using Newtonsoft.Json;
 using WorldsAdriftRebornGameServer.DLLCommunication;
-using WorldsAdriftRebornGameServer.Game.World;
+using WorldsAdriftRebornGameServer.Game.Items;
+using WorldsAdriftRebornGameServer.Game.Knowledge;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 {
@@ -54,13 +55,38 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 newRefData.AddScrapItemDescriptionsSent(new SendScrapItemsDescriptions(scrapDesc, doComp ? Compress(JsonSerializer.Serialize(scrapDesc)) : null));
                 newRefData.AddSteamInvBundlesDescriptionsSent(
                     new SendSteamInventoryBundlesDescriptions(bundleDesc, doComp ? Compress(JsonSerializer.Serialize(bundleDesc)) : null));
-                // var schematicData =
-                    // "{\"glider\":{\"SchematicType\":0,\"uUID\":\"glider\",\"schematicId\":\"glider\",\"referenceData\":\"glider\",\"category\":\"Personal\",\"title\":\"cool glider\",\"iconId\":\"crafted items/3x4_glider\",\"description\":\"wolo\",\"timeToCraft\":10,\"amountToCraft\":1,\"itemType\":\"hmm\",\"craftingRequirements\":[],\"baseHp\":100.0,\"baseStats\":{},\"rarity\":1,\"cipherSlots\":[],\"unlearnable\":false,\"modules\":{},\"hullData\":\"hullData\",\"OrderedStats\":[],\"UniqueID\":\"glider\",\"CraftingCategoryEnum\":1,\"HumanReadableItemType\":\"Hmm\",\"rarityParsed\":1,\"HullDataBytes\":\"hullData\",\"IsProcedural\":false,\"IsShip\":false,\"cipherSlotParsed\":[]}}";
-                var schematicData = JsonConvert.SerializeObject(SchematicList.SchematicsById);
+                // The recipe catalogue now lives in a file (Game/Items/Config/
+                // schematicData.json), loaded like itemData.json. It is served
+                // verbatim so the client parses the full SchematicData field set,
+                // and the compressed path is preserved unchanged.
+                var schematicData = SchematicHelper.RawJson;
                 newRefData.SetSchematicsData(schematicData);
                 newRefData.AddSchematicDataSent(new SendSchematicData(schematicData, doComp ? Compress(schematicData) : null));
 
                 SendOPHelper.SendComponentUpdateOp(player, entityId, new List<uint> { 1097 }, new List<object> { newRefData });
+
+                // CATALOGUE-INIT DETERMINISM (server-only workaround). The BepInEx mod's
+                // ReferenceDataFakeLoad fake-marks Schematics loaded and injects a fake
+                // one-record 'glider' catalogue BEFORE this real 1097 arrives; the learned
+                // library can then resolve the 60 raw 1079 ids against the fake dictionary
+                // and drop most of them, and it is NOT rebuilt when the real catalogue
+                // replaces the dictionary UNLESS the 1079 learnedSchematics field is touched
+                // again (InventoryVisualiser listens only to that field). So immediately
+                // after the real catalogue, re-send 1079 with the player's CURRENT complete
+                // learnedSchematics to force one more resolve against the now-real 1097 data.
+                // Touch learnedSchematics specifically - defaultSchematics has no client
+                // callback. This is a compatibility shim to be removed once the client mod
+                // stops fake-initialising Schematics (client-mod commit 2e8ca35).
+                PlayerProgression prog = ProgressionStore.For(entityId);
+                Improbable.Collections.List<string> learned = new Improbable.Collections.List<string>();
+                foreach (string s in prog.LearnedSchematics)
+                {
+                    learned.Add(s);
+                }
+
+                SchematicsLearnerClientState.Update learnedRefresh = new SchematicsLearnerClientState.Update();
+                learnedRefresh.SetLearnedSchematics(learned);
+                SendOPHelper.SendComponentUpdateOp(player, entityId, new List<uint> { 1079 }, new List<object> { learnedRefresh });
             }
 
             SendOPHelper.SendComponentUpdateOp(player, entityId, new List<uint> { ComponentId }, new List<object> { serverComponentUpdate });

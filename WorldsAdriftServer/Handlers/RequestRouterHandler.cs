@@ -1,8 +1,12 @@
 ﻿using System.Net.Sockets;
 using NetCoreServer;
+using WorldsAdriftServer.Handlers.Admin;
 using WorldsAdriftServer.Handlers.Authentication;
+using WorldsAdriftServer.Handlers.Download;
+using WorldsAdriftServer.Handlers.Patch;
 using WorldsAdriftServer.Handlers.CharacterScreen;
 using WorldsAdriftServer.Handlers.ServerStatus;
+using WorldsAdriftServer.Persistence;
 
 namespace WorldsAdriftServer.Handlers
 {
@@ -10,13 +14,82 @@ namespace WorldsAdriftServer.Handlers
     {
         public RequestRouterHandler( HttpServer server ) : base(server) { }
 
+        protected override void OnReceived( byte[] buffer, long offset, long size )
+        {
+            // OnReceived isn't guaranteed to get entire request. Report what was received.
+            if (buffer != null && size != 0)  { DataParser.ParseIncomingData(buffer, offset, size); }
+            base.OnReceived(buffer, offset, size);
+        }
+
+        // NOTE: OnReceivedRequest is only called once a complete request has been constructed inside HttpRequest's _cache.
         protected override void OnReceivedRequest( HttpRequest request )
         {
             if(request != null)
             {
+                // The operator dashboard takes any /admin* URL. Checked first and
+                // self-contained: it is auth-gated end to end and shares nothing
+                // with the player-facing routes below.
+                if (AdminHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
+                // The patch manifest and files are static bytes read off the host
+                // patch dir. They are served HERE, by this native process, because
+                // the Caddy in front of the public host is a container that cannot
+                // see host paths - a file_server would 404. Self-contained and
+                // security-gated (path-traversal policy); the /patch HTML index
+                // below is a separate, human-facing route.
+                if (PatchFilesHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
+                // The browser sign-in page and endpoint (/login, POST /login).
+                // Checked here, before the player-facing routes below, and
+                // self-contained: it owns the wa_player cookie the download gate
+                // reads and shares nothing with the game client's /authenticate.
+                if (LoginHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
+                // The login-gated download page (/download) and the WAPatch binary
+                // behind it (/download/WAPatch.exe). Gated on the wa_player cookie
+                // LoginHandler issues; an unauthenticated visitor is bounced to
+                // /login. The exe is served off the host downloads dir by this
+                // native process, for the same reason the patch files are.
+                if (DownloadHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 if(request.Method == "POST" && request.Url == "/authenticate")
                 {
-                    SteamAuthenticationHandler.HandleAuthRequest(this, request, "Jim Hawkins");
+                    SteamAuthenticationHandler.HandleAuthRequest(this, request);
+                }
+                else if (request.Method == "GET" && (request.Url == "/signup" || request.Url == "/signup/"))
+                {
+                    RegistrationHandler.HandleSignupPage(this);
+                }
+                else if (request.Method == "POST" && request.Url == "/register")
+                {
+                    RegistrationHandler.HandleRegister(this, request);
+                }
+                else if (request.Method == "GET" && (request.Url == "/patch" || request.Url == "/patch/"))
+                {
+                    // The human-readable index of the latest client patch. The
+                    // manifest and the files themselves are served by
+                    // PatchFilesHandler above (/patch/manifest.json,
+                    // /patch/files/*); this page just fetches that manifest
+                    // client-side and lists it. Same self-contained, themed
+                    // style as the sign-up page.
+                    HttpResponse patchResp = new HttpResponse();
+                    patchResp.SetBegin(200);
+                    patchResp.SetHeader("Content-Type", Web.PatchPage.ContentType);
+                    patchResp.SetHeader("Cache-Control", "no-store");
+                    patchResp.SetBody(Web.PatchPage.Html);
+                    SendResponseAsync(patchResp);
                 }
                 else if (request.Method == "GET" && request.Url.Contains("/characterList/") && request.Url.Contains("/steam/1234"))
                 {
@@ -28,7 +101,22 @@ namespace WorldsAdriftServer.Handlers
                 }
                 else if(request.Method == "GET" && request.Url == "/deploymentStatus")
                 {
-                    DeploymentStatusHandler.HandleDeploymentStatusRequest(this, request, "awesome community server", "community_server", 0);
+                    // The server name is now operator-configurable via the admin
+                    // panel (server_config table). Read it here so the in-game
+                    // browser reflects a change without a redeploy; fall back to
+                    // the historic default if the database cannot be reached, so
+                    // this hot path never fails where a literal never did.
+                    string serverName;
+                    try
+                    {
+                        serverName = Accounts.ServerConfig.GetServerName();
+                    }
+                    catch (Exception)
+                    {
+                        serverName = WorldsAdriftReborn.Storage.Policy.ServerConfigPolicy.DefaultServerName;
+                    }
+
+                    DeploymentStatusHandler.HandleDeploymentStatusRequest(this, request, serverName, "community_server", 0);
                 }
                 else if(request.Method == "GET" && request.Url == "/authorizeCharacter")
                 {
@@ -36,7 +124,7 @@ namespace WorldsAdriftServer.Handlers
                 }
                 else if(request.Method == "POST" && request.Url.Contains("/character/") && request.Url.Contains("/steam/1234/"))
                 {
-                    CharacterSaveHandler.HandleCharacterSave(this, request);
+                    CharacterSaveHandler.HandleCharacterSave(this, request, "community_server");
                 }
             }
         }

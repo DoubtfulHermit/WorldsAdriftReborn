@@ -4,6 +4,14 @@ namespace WorldsAdriftServer.Helper.CharacterSelection
 {
     internal static class Character
     {
+        /*
+         * Character uids must be real GUIDs. Bossa's social code checks for a '-'
+         * and then calls new Guid(uid) (SocialHelper.cs:30-47), so the old
+         * placeholder "valid-UIDs-have-at-least-one-" passed the first check and
+         * threw on the second. They must also be unique: every generated
+         * character previously shared one literal uid, which makes them
+         * indistinguishable to anything that keys on it - including persistence.
+         */
         internal static CharacterCreationData GenerateRandomCharacter(string serverIdentifier, string characterName)
         {
             Dictionary<CharacterSlotType, ItemData> cosmetics = new Dictionary<CharacterSlotType, ItemData>();
@@ -48,7 +56,7 @@ namespace WorldsAdriftServer.Helper.CharacterSelection
                                                                 default(ColorProperties),
                                                                 100f));
 
-            return new CharacterCreationData(1, "valid-UIDs-have-at-least-one-", characterName, "serverName?", serverIdentifier, cosmetics, colors, true, false, false);
+            return new CharacterCreationData(1, Guid.NewGuid().ToString(), characterName, "serverName?", serverIdentifier, cosmetics, colors, true, false, false);
         }
         /*
          * generates a character without cosmetics which reflects as an empty slot in the character select screen.
@@ -66,7 +74,7 @@ namespace WorldsAdriftServer.Helper.CharacterSelection
             colors.LipColor = CustomisationSettings.lipColors[num];
             colors.HairColor = CustomisationSettings.hairColors[r.Next(0, CustomisationSettings.hairColors.Length)];
 
-            return new CharacterCreationData(1, "UID", characterName, "serverName?", serverIdentifier, null, colors, true, false, false);
+            return new CharacterCreationData(1, Guid.NewGuid().ToString(), characterName, "serverName?", serverIdentifier, null, colors, true, false, false);
         }
     }
 }

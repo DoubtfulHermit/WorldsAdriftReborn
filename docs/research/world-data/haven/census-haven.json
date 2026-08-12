@@ -1,0 +1,220 @@
+{
+ "bundle": "1431299145@island_unityclient",
+ "size_mib": 4.31,
+ "objectTypes": {
+  "MeshFilter": 270,
+  "MeshRenderer": 270,
+  "Transform": 363,
+  "Mesh": 270,
+  "MeshCollider": 90,
+  "GameObject": 363,
+  "TextAsset": 4,
+  "MonoBehaviour": 18,
+  "MonoScript": 17,
+  "LODGroup": 1,
+  "AssetBundle": 1
+ },
+ "monobehaviourScripts": {
+  "ObjectDataListAsset": 2,
+  "Bossa.Travellers.Visualisers.Islands.IslandVisualiser": 1,
+  "EntityLoadedVerifier": 1,
+  "GenerateDynamicMaterial": 1,
+  "Improbable.CoreLibrary.Transforms.Global.StaticGlobalTransformBehaviour": 1,
+  "Improbable.CoreLibrary.Transforms.Hierarchy.TransformChildHierarchyBehaviour": 1,
+  "Improbable.CoreLibrary.Transforms.Hierarchy.TransformParentHierarchyBehaviour": 1,
+  "Improbable.CoreLibrary.Transforms.Local.StaticLocalTransformBehaviour": 1,
+  "Improbable.CoreLibrary.Transforms.Offsets.TransformOffsetsRegistry": 1,
+  "Improbable.CoreLibrary.Transforms.TransformNature": 1,
+  "IslandAmbienceVolume": 1,
+  "IslandLightningTimerVisualizer": 1,
+  "IslandMetaData": 1,
+  "IslandSurfaceData": 1,
+  "IslandSurfaceType": 1,
+  "LocationAnchorEntity": 1,
+  "PopulateStaticPrefabs": 1
+ },
+ "monobehaviourTotal": 18,
+ "gameObjectCount": 363,
+ "monobehaviours": [
+  {
+   "script": "Improbable.CoreLibrary.Transforms.Global.StaticGlobalTransformBehaviour",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "LocationAnchorEntity",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformChildHierarchyBehaviour",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "IslandLightningTimerVisualizer",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "Improbable.CoreLibrary.Transforms.Hierarchy.TransformParentHierarchyBehaviour",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "IslandAmbienceVolume",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "Improbable.CoreLibrary.Transforms.TransformNature",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "IslandMetaData",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "IslandSurfaceType",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "ObjectDataListAsset",
+   "go": null,
+   "path": "",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "PopulateStaticPrefabs",
+   "go": "Island Objects",
+   "path": "1431299145@Island_unityclient/Island Objects",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "IslandSurfaceData",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "Bossa.Travellers.Visualisers.Islands.IslandVisualiser",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "GenerateDynamicMaterial",
+   "go": "Island Terrain",
+   "path": "1431299145@Island_unityclient/Island Terrain",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "Improbable.CoreLibrary.Transforms.Local.StaticLocalTransformBehaviour",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "Improbable.CoreLibrary.Transforms.Offsets.TransformOffsetsRegistry",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "EntityLoadedVerifier",
+   "go": "1431299145@Island_unityclient",
+   "path": "1431299145@Island_unityclient",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "script": "ObjectDataListAsset",
+   "go": null,
+   "path": "",
+   "pos": [
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ]
+}

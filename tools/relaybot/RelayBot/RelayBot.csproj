@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!--
+      net8.0, not the server's net6.0: this tool runs on the host's NATIVE
+      .NET SDK (8.x) against the natively built libCoreSdkDll.so. No Wine in
+      the measurement path - the bot's whole job is timing, and Wine would put
+      an emulation layer inside the thing being measured.
+    -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!--
+      The game's Unity-era assemblies (net35) resolve against a different
+      mscorlib; the compiler warns MSB3277 about it and the runtime handles it
+      fine - the game server has shipped on exactly this arrangement for
+      months (under Wine; verified natively by this tool's own spike).
+    -->
+    <ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>None</ResolveAssemblyWarnOrErrorOnTargetArchitectureMismatch>
+  </PropertyGroup>
+
+  <!--
+    The same four game assemblies the game server links, for the same reason:
+    the INNER component payloads (190602 TransformState, 1073
+    ClientAuthoritativePlayerState) are serialized by the game's own generated
+    vtable code, so using it produces bytes IDENTICAL to a real client's - no
+    hand-maintained mirror of Improbable's update encoding to drift out of
+    sync. $(WorldsAdriftGameDir) comes from DevEnv.targets at the repo root.
+  -->
+  <ItemGroup>
+    <Reference Include="Generated.Code">
+      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Generated.Code.dll</HintPath>
+    </Reference>
+    <Reference Include="Improbable.WorkerSdkCsharp">
+      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Improbable.WorkerSdkCsharp.dll</HintPath>
+    </Reference>
+    <Reference Include="Improbable.WorkerSdkCsharp.Framework">
+      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Improbable.WorkerSdkCsharp.Framework.dll</HintPath>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\protobuf-net.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <!-- The natively built shim, if present, rides along to the output dir. -->
+  <ItemGroup>
+    <None Include="../build-native/libCoreSdkDll.so"
+          CopyToOutputDirectory="PreserveNewest"
+          Condition="Exists('../build-native/libCoreSdkDll.so')" />
+  </ItemGroup>
+
+</Project>

@@ -19,12 +19,30 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
             UNRELIABLE = 1,
             UNRELIABLE_UNSEQUENCED = 2
         }
+        /// <summary>
+        /// Mirror of the C++ ENetPacket_Wrapper in enetLayer.h.
+        ///
+        /// Explicit offsets, because the native struct is NOT what a naive C#
+        /// translation produces: C++ 'long' is 32-bit on Windows (LLP64) while
+        /// C# 'long' is 64-bit. Measured native layout on x64 is
+        /// size=48, data=0, dataLength=8, identifier=16, channel=24, packet=32,
+        /// peer=40. The previous sequential layout only worked because the
+        /// 4 bytes of padding after dataLength happened to be zeroed.
+        /// </summary>
+        [StructLayout(LayoutKind.Explicit, Size = 48)]
         public struct ENetPacket_Wrapper
         {
-            public unsafe byte* Data;
-            public long DataLength;
-            public unsafe byte* UserData;
-            public int Channel;
+            [FieldOffset(0)] public unsafe byte* Data;
+
+            /// <summary>Native type is C++ 'long', which is 32-bit here.</summary>
+            [FieldOffset(8)] public int DataLength;
+
+            [FieldOffset(16)] public unsafe byte* UserData;
+            [FieldOffset(24)] public int Channel;
+            [FieldOffset(32)] public IntPtr Packet;
+
+            /// <summary>The client that sent this packet. Zero if unavailable.</summary>
+            [FieldOffset(40)] public IntPtr Peer;
         }
 
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "ENet_EXP_Initialize")]
@@ -71,6 +89,13 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
 
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_ComponentUpdateOp_Deserialize")]
         public static unsafe extern bool PB_EXP_ComponentUpdateOp_Deserialize( void* data, int len, long* entityId, ComponentUpdateOp** componentUpdateOp, uint* componentUpdateOp_count );
+
+        // Frees a buffer returned by any PB_*_Serialize export. Every serialize
+        // return value MUST be handed back here exactly once after ENet_Send has
+        // copied its bytes; not doing so leaked the buffer on every send. NULL is
+        // a safe no-op. See the ownership contract in enetLayer.h.
+        [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_Free")]
+        public static unsafe extern void PB_Free( void* handle );
 
         [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
         public unsafe delegate void ENet_Poll_Callback( IntPtr peer );

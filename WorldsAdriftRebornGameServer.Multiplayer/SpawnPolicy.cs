@@ -1,0 +1,210 @@
+namespace WorldsAdriftRebornGameServer.Multiplayer
+{
+    /// <summary>
+    /// What a server-fabricated component seed is FOR. The component serializer
+    /// used to switch on component id alone, so every entity that asked for
+    /// 190602 TransformState got byte-identical data.
+    /// </summary>
+    public enum SeededEntityKind
+    {
+        /// <summary>The one shared island entity. Gets the island's world position.</summary>
+        Island,
+
+        /// <summary>
+        /// A player avatar - the peer's own, or another player mirrored onto it.
+        /// Gets the spawn point. A mirrored remote is overwritten within a tick
+        /// by the relayed real transform, so its seed only has to be somewhere
+        /// harmless; the OWNER's seed is the one that decides where they wake up.
+        /// </summary>
+        Player,
+
+        /// <summary>
+        /// Any other registered <see cref="WorldEntity"/> - a tree, a ship hull,
+        /// a second island. Gets ITS OWN position from its registration, not a
+        /// position this enum knows about.
+        ///
+        /// This member is why the enum stopped being the answer and became a
+        /// label. When there were two kinds, "which kind is it" and "where does it
+        /// go" were the same question. With an open set of world entities they are
+        /// not: the kind is only useful for a log line, and the position comes
+        /// from <see cref="WorldEntityRegistry"/>. Adding a fourth world entity
+        /// must never mean adding a fourth member here.
+        /// </summary>
+        World,
+    }
+
+    /// <summary>
+    /// WHERE things go, and which entity gets which seed. Pure: no ENet, no
+    /// Improbable types, no game install, so every coordinate below is asserted
+    /// on natively in the test suite rather than by staring at a game client.
+    ///
+    /// THE ONE MECHANISM THAT MATTERS (docs/research/findings-spawn.md):
+    /// a player is placed by <c>190602 TransformState.localPosition</c>, sent as
+    /// FixedPointVector3 with <c>parent</c> ABSENT, in that entity's FIRST
+    /// AddComponentOp - before the transform behaviours enable - and never
+    /// re-sent. Position, gravity and ground collision already worked; the value
+    /// was the only thing that was ever wrong. 190607 TeleportRequestState is for
+    /// LATER teleports and respawn and is deliberately NOT used for first spawn.
+    ///
+    /// Consequently: never send a 190602 ComponentUpdate to a player (the client
+    /// is the authoritative writer), and never re-send AddComponents to a live
+    /// entity - see <see cref="MirrorSendPolicy.MayResend"/>. That rule got more
+    /// dangerous with this change, not less: the default seed used to land you at
+    /// the world origin, which is where the island was. The island is now 17 km
+    /// away, so a stray re-seed is an out-of-world drop with no
+    /// WorldEdgePushback to catch it (that behaviour never runs - it gates on
+    /// world bounds this server never sends).
+    /// </summary>
+    public static class SpawnPolicy
+    {
+        /// <summary>
+        /// Haven, the game's original starter island - Bossa-authored, 4.31 MiB
+        /// and 90 colliders against the 28.21 MiB / 497 colliders of the island
+        /// this server used before, so it streams in faster and narrows the
+        /// window in which a player could be published before the ground exists.
+        ///
+        /// It is a constant because the id appeared as a bare string literal at
+        /// three sites (the asset-load request, the AddEntityOp, and
+        /// IslandState's prefab name) that MUST agree - a mismatch means the
+        /// client is told to place an island it never loaded.
+        ///
+        /// Note what Haven is NOT: its bundle contains no teleporter, no barrier
+        /// dome, no respawner, no starter ship. All of that was GSim-spawned
+        /// entities and is gone. This is a small pretty island with a ruined
+        /// metal camp, not a tutorial.
+        /// </summary>
+        public const string IslandAssetName = "1431299145@Island";
+
+        /// <summary>
+        /// The island this server shipped before Haven. Kept only so a test can
+        /// assert we actually moved off it; nothing sends it.
+        /// </summary>
+        public const string PreviousIslandAssetName = "949069116@Island";
+
+        /// <summary>
+        /// Haven instance #5's world position, (17004.43, -318.6693420,
+        /// -1134.16748) m.
+        ///
+        /// NOT a guess: it is entry 5 of the twelve `1431299145.json` placements
+        /// in `docs/research/world-data/wamap-islands.json`, a preserved copy of
+        /// the studio's own world map in Bossa's `MapFile` shape (266 islands).
+        /// The same file places the island this server shipped before at
+        /// (14321.44, -527.0027, -4647.39648) - which the server ignored, seeding
+        /// it at the origin instead. There is a real world layout; we have simply
+        /// never used it.
+        ///
+        /// Haven ships as ONE asset placed at TWELVE world positions - a
+        /// north-south column, one physical copy per shard band. Any of the
+        /// twelve is functionally identical; #5 is simply nearest the world
+        /// centre in z. We spawn exactly one.
+        ///
+        /// This is the island's FIRST and ONLY 190602. It must never arrive as a
+        /// follow-up update: IslandLocalTransformVisualizer.UpdatePosition does
+        /// not teleport, it starts a 5-second smoothstep slide, which would drag
+        /// the terrain out from under everyone standing on it.
+        /// </summary>
+        public static readonly FixedPointPosition IslandPosition =
+            new FixedPointPosition(69650145, -1305269, -4645549);
+
+        /// <summary>
+        /// Island-local (208.00, 6.70, 4.00) on Haven instance #5, i.e. world
+        /// (17212.4300, -311.9693420, -1130.16748) m. That is a measured LOD0
+        /// surface vertex at 4.70 m plus a 2.00 m stand-off, 5.5 m from the
+        /// centroid of the ruined metal camp - the only constructed area on the
+        /// island.
+        ///
+        /// Quality of the point: normal ny = 0.994 (dead flat), 13.52 m of prop
+        /// clearance in 3D, nearest thing overhead a metal platform 19.5 m up.
+        /// Confirmed to be the TOP surface three ways, the strongest being that
+        /// the lowest surface vertex in the same column is 37 m below it.
+        ///
+        /// This replaces a coordinate derived from the pre-TRS surface tables,
+        /// which were wrong by a mean of 47.7 m in 3D - not, as we first
+        /// believed, only in altitude. The old point was 0.15 m UNDERGROUND and
+        /// the documented fallback was 6 m underground; its Y looked plausible
+        /// purely by coincidence. See docs/research/findings-spawn.md.
+        ///
+        /// Changing it is a one-line change: replace these three numbers, or
+        /// call FixedPointPosition.FromMetres with the corrected metres.
+        ///
+        /// If the altitude is too low the player interpenetrates the ground; if
+        /// it is too high they free-fall - and fall damage does not exist on this
+        /// server, so a bad spawn is an endless fall rather than a death.
+        /// </summary>
+        public static readonly FixedPointPosition PlayerSpawnPosition =
+            new FixedPointPosition(70502113, -1277826, -4629165);
+
+        /// <summary>
+        /// The value seeded into 8055 NewPlayerState. FALSE, deliberately, and
+        /// spawning on the real Haven does not change that.
+        ///
+        /// 8055 is the SOLE runtime source of truth for "this player is in
+        /// Haven" - the client does not derive it from position. The only exit is
+        /// component 8056 LeaveHavenRequest, which has ZERO references in the
+        /// entire client, is triggered and consumed server-side, and is not
+        /// implemented here. There is no handler that could ever flip 8055 back,
+        /// and the client cannot: it has no writer, and 8055 is correctly absent
+        /// from <see cref="MirrorSendPolicy.AuthoritativeComponents"/>.
+        ///
+        /// So `true` is a permanent prison: five UI features disabled forever,
+        /// plus every biome banner in the game suppressed, because
+        /// DisplayBiomeNotification is called from RespawnVisualizer.Update on a
+        /// one-second poll that checks this flag.
+        ///
+        /// `false` is silent - NewPlayerVisualiser.OnNewPlayerChanged only acts
+        /// on the true-to-false EDGE, so seeding false fires nothing.
+        ///
+        /// If real Haven progression is ever built, the trigger is server-side:
+        /// watch for the RevivalChamberInterface knowledge node, then push 8055
+        /// false and the bloom flash and quest unlock fire for free.
+        /// </summary>
+        public const bool SeedIsNewPlayer = false;
+
+        /// <summary>
+        /// Which kind of entity a seed is being fabricated for, when the island is
+        /// the only world entity there is.
+        ///
+        /// The degenerate case of <see cref="WorldEntityRegistry.KindOf"/>, kept
+        /// because the island-versus-player question is still meaningful on its
+        /// own and is asserted directly. PRODUCTION GOES THROUGH THE REGISTRY -
+        /// which also owns the general form of both these methods, rather than
+        /// overloading them here, because a second nullable-second-argument
+        /// overload makes the call `KindOf(id, null)` ambiguous and that call is
+        /// the one asserting the island cannot be mistaken for entity 0.
+        ///
+        /// <paramref name="islandEntityId"/> is nullable because the id is
+        /// allocated lazily, on the island's AddEntityOp. Before that moment
+        /// nothing can be the island - and asking must not be what allocates it,
+        /// or the answer would depend on who asked first.
+        /// </summary>
+        public static SeededEntityKind KindOf(long entityId, long? islandEntityId)
+        {
+            return islandEntityId.HasValue && entityId == islandEntityId.Value
+                ? SeededEntityKind.Island
+                : SeededEntityKind.Player;
+        }
+
+        /// <summary>The 190602 localPosition seed for a kind of entity.</summary>
+        public static FixedPointPosition TransformSeedFor(SeededEntityKind kind)
+        {
+            return kind == SeededEntityKind.Island ? IslandPosition : PlayerSpawnPosition;
+        }
+
+        /// <summary>
+        /// The 190602 localPosition seed for one entity, when the island is the
+        /// only world entity there is. The degenerate case of
+        /// <see cref="WorldEntityRegistry.TransformSeedFor"/>; production goes
+        /// through the registry.
+        ///
+        /// The whole point of this module: before it existed the serializer
+        /// switched on component id alone, so the island and the player were
+        /// handed the same transform. With Haven that is fatal rather than untidy
+        /// - it is one asset placed at twelve world positions, so "the default" is
+        /// not a position any island is actually at.
+        /// </summary>
+        public static FixedPointPosition TransformSeedFor(long entityId, long? islandEntityId)
+        {
+            return TransformSeedFor(KindOf(entityId, islandEntityId));
+        }
+    }
+}

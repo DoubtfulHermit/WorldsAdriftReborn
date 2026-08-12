@@ -1,0 +1,16 @@
+event	server_status	evidence
+AssignToHotBar	LOGS ONLY	InventoryModificationState_Handler.cs:114
+CraftItem	LOGS ONLY	InventoryModificationState_Handler.cs:80
+CrossInventoryMoveItem	LOGS ONLY	InventoryModificationState_Handler.cs:87
+DestroyCipher	NOT MENTIONED	-
+EquipTool	LOGS ONLY	InventoryModificationState_Handler.cs:75
+EquipWearable	HANDLED (mutates 1081)	InventoryModificationState_Handler.cs:26
+InstallCipher	NOT MENTIONED	-
+MoveAll	NOT MENTIONED	-
+MoveItem	LOGS ONLY	InventoryModificationState_Handler.cs:98
+RemoveFromHotBar	LOGS ONLY	InventoryModificationState_Handler.cs:108
+RemoveItem	NOT MENTIONED	-
+SplitItemStack	NOT MENTIONED	-
+TryToConsume	NOT MENTIONED	-
+TryToLearn	NOT MENTIONED	-
+UnequipWearable	NOT MENTIONED	-

@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 using Travellers.UI.Framework;
 using Travellers.UI.Models;
 using Travellers.UI.PlayerInventory;
+using UnityEngine;
 
 namespace WorldsAdriftReborn.Patching.Inventory
 {
@@ -18,6 +19,38 @@ namespace WorldsAdriftReborn.Patching.Inventory
         {
             if (__instance.ScreenModule == null)
                 return false;
+            return true;
+        }
+    }
+
+    // Tab -> character sheet -> Schematics sub-screen crash guard.
+    //
+    // SchematicsSubScreen.Activate() builds a fresh CraftingStationData, rebuilds the
+    // schematic hierarchy (which only fills SchematicCategoryData, never LoadedSchematic),
+    // then calls LoadSchematicFromCraftingData() unconditionally. In the stock game the
+    // schematic list's SelectFirstAvailableSlot() has by then loaded the player's first
+    // learned schematic. In WAReborn the player has no learned schematics, so
+    // _allItemSchematicData is empty, SelectFirstAvailableSlot() calls LoadSchematic(null),
+    // and LoadedSchematic stays null. LoadSchematicFromCraftingData() then dereferences
+    // LoadedSchematic in SetName() (.rarityParsed), SetDescription(), SetAttributes(), etc.,
+    // NRE-ing the whole character sheet.
+    //
+    // Guard: when there is no loaded schematic, skip the load body and fall back to the
+    // game's own empty-state ("no schematic" warning) instead of crashing. This keeps the
+    // tab (and the rest of the sheet) usable; it shows empty because we have no learned
+    // schematics to display yet.
+    [HarmonyPatch(typeof(SchematicsSubScreen), "LoadSchematicFromCraftingData")]
+    public static class SchematicsSubScreenNullGuard
+    {
+        [HarmonyPrefix]
+        public static bool Prefix( CraftingStationData ____craftingStationData, GameObject ____noSchematicWarning )
+        {
+            if (____craftingStationData == null || ____craftingStationData.LoadedSchematic == null)
+            {
+                if (____noSchematicWarning != null)
+                    ____noSchematicWarning.SetActive(true);
+                return false;
+            }
             return true;
         }
     }

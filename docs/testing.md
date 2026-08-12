@@ -1,0 +1,225 @@
+# Testing: what the suite covers, and what it does not
+
+Everything in `docs/multiplayer.md` was learned by launching two game clients
+and looking at them. This suite exists so the parts of it that are *pure logic*
+stop needing a human and two clients. It does not replace that human. Read the
+"still needs two clients" list at the bottom before you trust a green run.
+
+## Running it
+
+```sh
+dotnet test WorldsAdriftRebornGameServer.Multiplayer.Tests
+```
+
+No Wine, no game install, no `DevEnv.targets`, no network. The library under
+test (`WorldsAdriftRebornGameServer.Multiplayer`) deliberately references
+nothing — not ENet, not the game's assemblies, not the server project — which is
+what makes this runnable natively on Linux in under a second.
+
+The full build gate, which does need `DevEnv.targets` pointing at a real game
+install:
+
+```sh
+dotnet build WorldsAdriftRebornGameServer -c Release   # net6.0 server
+dotnet build WorldsAdriftReborn         -c Release     # net35 BepInEx mod
+dotnet test  WorldsAdriftRebornGameServer.Multiplayer.Tests
+```
+
+Note that building the mod writes straight into
+`$(WorldsAdriftGameDir)BepInEx/plugins/WorldsAdriftReborn/`. To build without
+touching a live install, override the output:
+
+```sh
+dotnet build WorldsAdriftReborn -c Release -p:PluginOutputDirectory=/tmp/modout/
+```
+
+Neither multiplayer project is in `WorldsAdriftReborn.sln`; name them
+explicitly as above.
+
+## The storage suite
+
+```sh
+dotnet test WorldsAdriftReborn.Storage.Tests
+```
+
+Split in two by what it needs:
+
+- The **policy and migrator tests** are pure — usernames, PBKDF2, session
+  tokens, expiry arithmetic, which schema scripts a version still needs. They
+  need no database, no network and no setup, and they always run.
+- The **repository, constraint and schema tests** need a real PostgreSQL
+  server, because what they assert is that the schema *refuses* bad rows. A
+  fake that accepted rows the real server rejects would be worse than no test.
+  They **skip with a printed reason** when `WAREBORN_DB` is unset, so a green
+  run on a machine with no database is honest rather than misleading.
+
+To run the whole suite, point `WAREBORN_DB` at any PostgreSQL server you do not
+mind being written to:
+
+```sh
+WAREBORN_DB='Host=127.0.0.1;Port=5432;Database=wareborn;Username=wareborn' \
+  dotnet test WorldsAdriftReborn.Storage.Tests
+```
+
+Each test creates its own throwaway **schema** (`wareborn_test_<guid>`),
+migrates it, and drops it on the way out — never a database, so the role needs
+no `CREATEDB`, and nothing already in that database is touched.
+
+Verified against PostgreSQL 18 (local) and 16 (the deployment target).
+
+## How it is arranged
+
+Rules are tested through **pure policy types**, and production calls those same
+types. Nothing here asserts on a mock's call count: where a rule is about a
+value that must never go on the wire (a prefab context, a component id in a
+resend set) the test asserts on the value itself.
+
+| Type | Owns |
+| --- | --- |
+| `PlayerRegistry` | peer↔entity ownership, relay target sets, the `Owns` gate |
+| `RemotePlayerMirror` | join/relay/leave intents |
+| `AppearanceStore` | per-entity customisation |
+| `MirrorSendPolicy` | prefab contexts, remote seed, authority set, resend set, relay reliability |
+| `EntityIdAllocator` | entity ids, the one shared island id |
+| `ClientRigPolicy` | local-vs-remote rig discrimination, keep-first singleton claiming |
+
+`ClientRigPolicy` is client-side logic living in a server-side library. That is
+deliberate: the BepInEx mod is `net35` and cannot reference a `net6.0` assembly,
+so `WorldsAdriftReborn.csproj` **links the source file** (`<Compile Include=...
+Link=...>`). The mod and the tests therefore compile the same code — a copy
+would have gone stale silently. Keep that one file `net35` / C# 7.3 clean: no
+`IReadOnly*` generics, no LINQ, no nullable annotations, no target-typed `new`.
+
+The suite is mutation-checked: 12 hand-written mutations (prefab context flipped
+to `"Player"`, `AddComponents` added to the resend set, `1073` reclassified as
+reliable, `1072` added to the remote seed, `190602` dropped from the authority
+set, the island id re-allocated per call, `CameraProxy` dropped from the
+local-only markers, keep-first turned into last-wins, `Owns` weakened to "any
+registered peer", …) were all caught. It is not vacuous.
+
+## Rule-by-rule coverage
+
+Numbering follows `docs/multiplayer.md`.
+
+| # | Rule | Status |
+| --- | --- | --- |
+| 1 | Packets must carry their sender (48-byte explicit layout) | **Not covered.** Native struct layout. A `Marshal.SizeOf`/`OffsetOf` test is possible but would force the test project to reference the server exe and therefore a real game install. Left alone on purpose. |
+| 2 | Remote players use prefab context `"Default"`, never `"Player"` | **Covered** — `MirrorSendPolicyTests`, asserted as a value plus a not-equal against the local context. |
+| 3 | The mirror is two-phase (asset request → park → flush on ack) | **Not covered.** The parking/flush/timeout logic is entangled with `ENetPeerHandle` in the main loop. Deliberately not extracted; see "left alone" below. |
+| 4 | All clients get the SAME island entity id | **Covered** — `EntityIdAllocatorTests`, including that the id is a real allocation rather than a constant and can never collide with a player entity. |
+| 5 | Grant each client authority over its own TransformState (190602) | **Covered** — set membership for `190602` and `1073`, plus a no-duplicates check. |
+| 6 | First-time setup + authority only against the sender's OWN entity | **Covered** — `PlayerRegistry.Owns`, including that an unregistered peer does not own entity `0`. |
+| 7 | Remote seed is exactly `{190602, 1086, 1081, 1088, 1073, 6910, 1098}` | **Covered** — exact-set assertion, plus explicit "never `1072`", "never `1109`", and a size ceiling so a widened seed has to come through this test. |
+| 8 | Never read `ComponentDatabase.MetaclassMap` before the game populates it | **Not testable.** Static-initialiser ordering inside the game client. Two clients and a human. |
+| 9 | Unity `[Require]` gating only affects OnEnable/Update; keep-first singleton guards | **Partly covered.** The keep-first *decision* is now `ClientRigPolicy.ShouldClaimSingleton` and is tested (first claims, a live owner is never taken, the owner may re-claim, a destroyed owner may be replaced). Whether Unity actually runs `Awake` on a mirrored rig is live-client. |
+| 10 | The plain rig has no `CharacterTransformVisualizer`; `RemoteRigMover` fills the gap | **Not covered.** Reflection against Unity/SDK types, per-frame, coordinate remapping. Live-client. |
+| 11 | `LocalPlayer` is a scene object — identify "my rig" by components, never by name | **Covered** — `ClientRigPolicyTests`: a rig *named* like the local player but carrying no local-only component is remote, and a rig *named* like a remote but carrying `LocalPlayerInit` is local. Each of the five markers is tested individually. **One violation remains in production — see the bug below.** |
+| 12 | BepInEx `WriteUnityLog = false` hides all mod logging | **Not testable.** Environment configuration. |
+
+Rules that were only in the code, not in `docs/multiplayer.md`, and are now
+covered:
+
+- **Only `AddEntity` may be resent; never `AddComponents`.** Resending
+  `AddComponents` re-applies the default seeded `TransformState` to a live
+  player and launches them into the sky. Covered by `MirrorSendPolicy.MayResend`
+  tests, including a sweep over every `MirrorOp`.
+- **The fall floor** (rule 17). `FallPolicyTests` pins where the floor is
+  against the two measured numbers it is derived from (Haven's world y and the
+  local AABB minimum of `island-surfaces/1431299145.json`), asserts that nothing
+  anyone can stand on and no safe destination is below it, and that the fall to
+  it takes single-digit seconds. `FallWatch` is tested for the behaviour that
+  cannot be observed by falling off an island once: one rescue per fall across
+  50 packets, a retry when a rescue produces no ack, a give-up said exactly once,
+  re-arming the moment the player is level with the island, per-entity
+  independence, and that a parented transform — whose position is local, not
+  world — is never judged, including across the later updates that do not
+  mention `parent` at all. What is **not** covered is whether the client applies
+  the 190607 that results; that is the teleport path, and its only evidence is
+  the 1073 ack.
+- **Relay reliability.** `190602` and `1073` unreliable (superseded every tick;
+  reliable ordering head-of-line stalls on loss), *everything else* reliable
+  (a dropped one-shot such as appearance never comes back). Covered by a sweep
+  over ids `0..1999`, not a hand-picked list.
+- **Per-peer cleanup on disconnect** for everything the multiplayer library
+  owns — `PeerCleanupTests` drives the same call sequence the server's
+  connect/update/disconnect paths use and asserts the departed peer is gone from
+  the registry, the appearance store and every relay target set, that a later
+  joiner is never told about the departed avatar, that other players are
+  untouched, and that a reused ENet peer slot inherits nothing.
+- **Entity ids are never reused**, so a stale cross-client reference can never
+  resolve to a different player.
+
+## Known bug, found while writing this and deliberately NOT fixed
+
+`WorldsAdriftReborn/Patching/Multiplayer/PlayerVisualizer_Patch.cs` decides
+"is this the local rig?" as
+
+```
+rootName.StartsWith("Traveller@Player") || <component-based check>
+```
+
+The name clause is exactly the rule-11 discrimination that cost a test round
+everywhere else in the mod. It is **unreachable today** — mirrored remotes spawn
+from prefab context `"Default"`, so their roots are named `Traveller N` and
+never `Traveller@Player` — but it means the patch would hand a *remote* rig to
+the game's own `FixedUpdate`, whose Parent branch is what previously dropped a
+rig ~90km away and through the map.
+
+The failing test is written and **skipped**:
+`ClientRigPolicyTests.PlayerVisualizer_decides_local_vs_remote_by_components_only_and_never_by_name`.
+Verified to fail when unskipped. The fix is to delete the `FullRigRootPrefix`
+clause from `ClientRigPolicy.TreatAsLocalForPlayerVisualizer` and unskip.
+
+Related, not a bug but worth knowing: `RemoteRigSweeper` also gates on
+`root.name.StartsWith("Traveller")` / `"Traveller@Player"` before consulting
+`IsLocalRig`. There it is a cheap pre-filter *in front of* the component check
+rather than an override of it, so it is safe as written — but it is the same
+smell and the same failure mode if it is ever reordered.
+
+## What was deliberately left alone
+
+- **The two-phase mirror queue** (`pendingMirrors`, `pendingMirrorTick`,
+  `mirrorResends`, `mirrorResendTick`, `mirrorResendsLeft`, `FlushStaleMirrors`,
+  `ResendMirrors`, `FlushPendingMirrors`). Extracting it is a ~120-line rewrite
+  of the main loop, which is not a "test + extraction" pass.
+- **`PeerIdentity`, `PeerManager`** and everything keyed on `ENetPeerHandle`.
+- **`ComponentsSerializer` / `ComponentUpdateManager`**, which need the game's
+  generated component assemblies.
+
+Consequence, stated plainly: **the ENet-side per-peer maps are not covered by
+`PeerCleanupTests`.** That test proves the *multiplayer library* forgets a
+departed peer. It proves nothing about the main loop's dictionaries.
+
+## Still needs two humans and two clients
+
+No test in this repo can tell you any of the following. If you changed anything
+near them, you launch two clients and look.
+
+1. **That a remote avatar is actually visible** — spawned, skinned, on a layer
+   the camera draws, not culled, not at the default seed position 90km away.
+2. **That the camera and local-player identity stay with the right rig** when a
+   second player joins. The keep-first *decision* is tested; whether Unity's
+   `Awake`/`Start` ordering still puts the local rig first is not.
+3. **That movement is smooth and correctly positioned** — the coordinate remap,
+   the interpolators, parented vs unparented `TransformState`, and whether
+   `PlayerVisualizer` or `RemoteRigMover` is doing the positioning.
+4. **That the two-phase asset flush actually lands** — the ack payload is not
+   parsed, so a joining client's own spawn acks can race the flush. Only two
+   clients will show you a missing rig.
+5. **That the resend window is long enough** for a client still loading the
+   prefab, and that the fallback flush timing still suits an idle in-world
+   player. Timing constants are not asserted anywhere on purpose; they are
+   empirical.
+6. **That nobody gets launched into the sky** on a second player's join. The
+   *rule* (never resend `AddComponents`) is tested; the physics outcome is not.
+7. **That appearance, glider wings and the grapple rope render on a remote.**
+8. **That a departed player's avatar disappears.** It does not: there is no
+   wire message for entity removal (no `ENetChannel`, no `RemoveEntityOp` proto,
+   `RegisterRemoveEntityCallback` is an unimplemented TODO in `Exports.cpp`).
+   The server logs a warning and leaves a stale body. Tested as *intent*
+   (`OnLeave` emits `RemoveEntity`), untested and unimplemented as *delivery*.
+9. **Anything about latency, packet loss or bandwidth** over a real internet
+   path. The reliable/unreliable classification is tested as a classification
+   only.
+10. **That the mod loads at all** under BepInEx, and that its Harmony patches
+    still bind after any game or SDK change.

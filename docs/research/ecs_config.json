@@ -1,0 +1,23 @@
+{
+	"FixedUpdate" : {
+		"typeName" : "SpatialTranslator.Systems.SpatialRuntimeWrapperS, SpatialTranslator",
+        "subSystems": [
+            { "typeName": "AssignViewInstancesSystem, Assembly-CSharp" },
+            { "typeName": "UpdateViewInstancesMapSystem, Assembly-CSharp" },
+
+            { "typeName": "RemapTransformsCompositeSystem, Assembly-CSharp" },
+
+            { "typeName": "BlightSharedCompositeSystem, Assembly-CSharp" },
+            { "typeName": "BlightViewSystem, Assembly-CSharp" },
+
+            { "typeName": "WASystems.Systems.Weather.AddWeatherCellCoordsS, WASystems" },
+            { "typeName": "WASystems.Systems.Weather.UpdateWeatherCellCoordsMapS, WASystems" }
+        ]
+	},
+	"OnDrawGizmos" : {
+		"typeName" : "BossaECS.Core.System.CompositeSystem, BossaECS",
+		"subSystems" :  [
+			{ "typeName" : "DrawWeatherCellGizmosS, Assembly-CSharp" }
+		]
+	} 
+}

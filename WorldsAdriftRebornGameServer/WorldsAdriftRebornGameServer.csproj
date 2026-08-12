@@ -13,7 +13,13 @@
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="8.0.0-preview.2.23128.3" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!--
+    The C++ SDK is only buildable by MSBuild on Windows. On Linux it is built
+    separately by WorldsAdriftRebornCoreSdk/build-mingw.sh and deployed by
+    deploy-coresdk.sh, so this reference is skipped rather than failing with
+    "The imported project /Microsoft.Cpp.Default.props was not found".
+  -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <ProjectReference Include="..\WorldsAdriftRebornCoreSdk\WorldsAdriftRebornCoreSdk.vcxproj">
       <ReferenceOutputAssembly>False</ReferenceOutputAssembly>
       <OutputItemType>Content</OutputItemType>
@@ -22,9 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Reference Include="Assembly-CSharp">
-      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Assembly-CSharp.dll</HintPath>
-    </Reference>
     <Reference Include="Generated.Code">
       <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Generated.Code.dll</HintPath>
     </Reference>
@@ -34,19 +37,29 @@
     <Reference Include="Improbable.WorkerSdkCsharp.Framework">
       <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Improbable.WorkerSdkCsharp.Framework.dll</HintPath>
     </Reference>
-    <Reference Include="Newtonsoft.Json">
-      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Newtonsoft.Json.dll</HintPath>
-    </Reference>
     <Reference Include="protobuf-net">
       <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\protobuf-net.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <None Update="Game\World\Config\itemData.csv">
+    <None Update="Game\Items\Config\itemData.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="Game\World\Config\schematicData.csv">
+    <None Update="Game\Items\Config\schematicData.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Game\Knowledge\Config\knowledge-tree.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />
+    <!--
+      Inventory persistence. The game server had no database access at all
+      before this; it now owns exactly one table, character_inventories, keyed
+      by the character uid the login server issues. Npgsql is 100% managed, so
+      this adds no native binary to a build that runs under Wine.
+    -->
+    <ProjectReference Include="..\WorldsAdriftReborn.Storage\WorldsAdriftReborn.Storage.csproj" />
   </ItemGroup>
 </Project>

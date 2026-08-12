@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <!-- Only the test project takes this dependency: it parses the stats-file
+         JSON with the same library the login server reads it with, so the
+         cross-process contract is asserted end to end. The production
+         Multiplayer assembly stays dependency-free and hand-builds the JSON. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.2-beta2" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The REAL client entity-prefab base names, extracted from the unmodified
+         client assets (entityprefabs/<name>_unityclient). Embedded so LoosePartTests
+         can assert every catalogue prefab name resolves against the real asset set,
+         with no runtime path dependency. -->
+    <EmbeddedResource Include="Ship\client-entity-prefabs.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />
+  </ItemGroup>
+
+</Project>

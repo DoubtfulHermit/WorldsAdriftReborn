@@ -234,3 +234,14 @@ void __cdecl WorkerProtocol_SaveSnapshot(char* filename, SnapshotParameters* par
     hook("WorkerProtocol_SaveSnapshot");
     // TODO: Add implementation (in another file please T.T)
 }
+// Game server port, set by the mod at startup. An environment variable cannot be
+// used: the mod sets it through .NET, which updates the Win32 environment, but
+// this DLL's C runtime reads a snapshot of the environment taken when it loaded,
+// so getenv() never sees it (observed: client kept connecting to 7777).
+int g_warGamePort = 0;
+
+void __cdecl WAR_SetGamePort(int port) {
+    if (port > 0 && port < 65536) {
+        g_warGamePort = port;
+    }
+}

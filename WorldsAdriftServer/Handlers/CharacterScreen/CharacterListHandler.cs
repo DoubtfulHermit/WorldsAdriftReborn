@@ -1,7 +1,8 @@
 ﻿using NetCoreServer;
 using Newtonsoft.Json.Linq;
-using WorldsAdriftServer.Helper.CharacterSelection;
+using WorldsAdriftReborn.Storage.Records;
 using WorldsAdriftServer.Objects.CharacterSelection;
+using WorldsAdriftServer.Persistence;
 
 namespace WorldsAdriftServer.Handlers.CharacterScreen
 {
@@ -9,22 +10,23 @@ namespace WorldsAdriftServer.Handlers.CharacterScreen
     {
         /*
          * URL: /characterList/{buildNumber}/steam/1234
-         * 
+         *
          * once the user clicks on the play button the game requests a list of characters.
          * the response also decides whether there is an option to create a new character using the unlockedSlots field
+         *
+         * The "1234" is hardcoded by the client for every player, so the account
+         * comes from the Security header instead - see Accounts.SecurityHeader.
          */
         internal static void HandleCharacterListRequest(HttpSession session, HttpRequest request, string serverIdentifier )
         {
-            List<CharacterCreationData> list = new List<CharacterCreationData>();
+            AccountRecord? account = CharacterRequest.Authorize(session, request, "character list");
+            if (account == null)
+            {
+                return;
+            }
 
-            list.Add(Character.GenerateRandomCharacter(serverIdentifier, "Billy Bones"));
-            list.Add(Character.GenerateRandomCharacter(serverIdentifier, "Long John Silver"));
-            list.Add(Character.GenerateNewCharacter(serverIdentifier, "Jim Hawkins"));
-
-            CharacterListResponse characterList = new CharacterListResponse(list);
-            characterList.unlockedSlots = list.Count; // let the player create a new character below the list of existing characters (last provided character above must be a GenerateNewCharacter())
-            characterList.hasMainCharacter = true;
-            characterList.havenFinished = true;
+            List<CharacterCreationData> list = AccountRosters.Load(account, serverIdentifier);
+            CharacterListResponse characterList = RosterPolicy.ToResponse(list);
 
             JObject respO = (JObject)JToken.FromObject(characterList);
             if (respO != null)

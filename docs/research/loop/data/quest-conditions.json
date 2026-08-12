@@ -1,0 +1,423 @@
+{
+ "250713": {
+  "_unparsed_bytes": "00000000",
+  "_trailing": null,
+  "asset": "ClimbInstructionCondition0",
+  "class": "QuestInstructionConditionData"
+ },
+ "250736": {
+  "_unparsed_bytes": "00000000",
+  "_trailing": null,
+  "asset": "ClimbInstructionCondition",
+  "class": "QuestInstructionConditionData"
+ },
+ "250788": {
+  "raw_i32": 13,
+  "_trailing": 16,
+  "asset": "ConsumeItem-daccatBerries",
+  "class": "ConsumeItemConditionData"
+ },
+ "250789": {
+  "itemIdToCraft": "Respawner01",
+  "_trailing": 0,
+  "asset": "CraftShipPartCondition - Personal Reviver",
+  "class": "CraftShipPartConditionData"
+ },
+ "250790": {
+  "knowledgeNodeToLearn": "RevivalChamberInterface",
+  "checkIfNodeIsLearned": true,
+  "_trailing": 0,
+  "asset": "HasKnowledgeNode-RevivalChamberInterface",
+  "class": "HasLearnedKnowledgeNodeConditionData"
+ },
+ "250791": {
+  "knowledgeNodeToLearn": "Shipbuilding",
+  "checkIfNodeIsLearned": true,
+  "_trailing": 0,
+  "asset": "HasKnowledgeNode-Shipbuilding",
+  "class": "HasLearnedKnowledgeNodeConditionData"
+ },
+ "250792": {
+  "requirements": [
+   {
+    "itemCategory": "Metal",
+    "requiredQuantities": [
+     100,
+     100
+    ]
+   }
+  ],
+  "checkIfContainsItems": true,
+  "_trailing": 0,
+  "asset": "HaveItems-ScannerMetal100_100",
+  "class": "HaveItemByCategoryConditionData"
+ },
+ "250793": {
+  "requirements": [
+   {
+    "itemCategory": "Metal",
+    "requiredQuantities": [
+     50,
+     20,
+     30
+    ]
+   }
+  ],
+  "checkIfContainsItems": true,
+  "_trailing": 0,
+  "asset": "HaveItemsAssemblyStation-Metal50_20_30",
+  "class": "HaveItemByCategoryConditionData"
+ },
+ "250794": {
+  "requirements": [
+   {
+    "itemCategory": "plantFiber",
+    "requiredQuantities": [
+     15
+    ]
+   }
+  ],
+  "checkIfContainsItems": true,
+  "_trailing": 0,
+  "asset": "HaveItemsCloth-plantFiber15",
+  "class": "HaveItemByCategoryConditionData"
+ },
+ "250795": {
+  "requirements": [
+   {
+    "itemCategory": "Metal",
+    "requiredQuantities": [
+     100,
+     30,
+     30
+    ]
+   }
+  ],
+  "checkIfContainsItems": true,
+  "_trailing": 0,
+  "asset": "HaveItemsShipyard-Metal100_30_30",
+  "class": "HaveItemByCategoryConditionData"
+ },
+ "250796": {
+  "requirements": [
+   {
+    "itemCategory": "Wood",
+    "requiredQuantities": [
+     20
+    ]
+   }
+  ],
+  "checkIfContainsItems": true,
+  "_trailing": 0,
+  "asset": "HaveItemsTorch-Wood20",
+  "class": "HaveItemByCategoryConditionData"
+ },
+ "250797": {
+  "knowledgeQuantity": 50,
+  "checkIfHasKnowledge": false,
+  "_trailing": 0,
+  "asset": "DoesntHaveKnowledge-50",
+  "class": "HaveKnowledgeConditionData"
+ },
+ "250798": {
+  "knowledgeQuantity": 225,
+  "checkIfHasKnowledge": true,
+  "_trailing": 0,
+  "asset": "HaveKnowledge-225",
+  "class": "HaveKnowledgeConditionData"
+ },
+ "250799": {
+  "knowledgeQuantity": 50,
+  "checkIfHasKnowledge": true,
+  "_trailing": 0,
+  "asset": "HaveKnowledge-50",
+  "class": "HaveKnowledgeConditionData"
+ },
+ "250800": {
+  "categoryToInteractWith": "CraftingStation",
+  "_trailing": 0,
+  "asset": "InteractWith-CraftingStation",
+  "class": "InteractWithCraftingObjectConditionData"
+ },
+ "250801": {
+  "categoryToInteractWith": "Shipyard",
+  "_trailing": 0,
+  "asset": "InteractWith-Shipyard",
+  "class": "InteractWithCraftingObjectConditionData"
+ },
+ "250802": {
+  "_unparsed_bytes": "00000000",
+  "_trailing": null,
+  "asset": "IsInventoryClosed",
+  "class": "InventoryOpenConditionData"
+ },
+ "250803": {
+  "_unparsed_bytes": "01000000",
+  "_trailing": null,
+  "asset": "IsInventoryOpen",
+  "class": "InventoryOpenConditionData"
+ },
+ "250804": {
+  "itemIdToKeep": "daccatBerries",
+  "checkIfItemIsPresentOnHotbar": false,
+  "_trailing": 0,
+  "asset": "ItemIsNotOnHotbar-daccatBerries",
+  "class": "ItemOnHotbarConditionData"
+ },
+ "250805": {
+  "itemIdToKeep": "craftingStation",
+  "checkIfItemIsPresentOnHotbar": true,
+  "_trailing": 0,
+  "asset": "ItemIsOnHotbar-assemblyStation",
+  "class": "ItemOnHotbarConditionData"
+ },
+ "250806": {
+  "itemIdToKeep": "daccatBerries",
+  "checkIfItemIsPresentOnHotbar": true,
+  "_trailing": 0,
+  "asset": "ItemIsOnHotbar-daccatBerries",
+  "class": "ItemOnHotbarConditionData"
+ },
+ "250807": {
+  "itemIdToKeep": "shipyard",
+  "checkIfItemIsPresentOnHotbar": true,
+  "_trailing": 0,
+  "asset": "ItemIsOnHotbar-shipyard",
+  "class": "ItemOnHotbarConditionData"
+ },
+ "250808": {
+  "itemIdToKeep": "torch",
+  "checkIfItemIsPresentOnHotbar": true,
+  "_trailing": 0,
+  "asset": "ItemIsOnHotbar-torch",
+  "class": "ItemOnHotbarConditionData"
+ },
+ "250809": {
+  "itemIdToLookFor": "clothMakeshift",
+  "checkIfItemIsPresent": false,
+  "_trailing": 0,
+  "asset": "ItemNotPresent-clothMakeshift",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250810": {
+  "itemIdToLookFor": "daccatBerries",
+  "checkIfItemIsPresent": false,
+  "_trailing": 0,
+  "asset": "ItemNotPresent-daccatBerries",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250811": {
+  "itemIdToLookFor": "clothMakeshift",
+  "checkIfItemIsPresent": true,
+  "_trailing": 0,
+  "asset": "ItemPresent-clothMakeshift",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250812": {
+  "itemIdToLookFor": "craftingStation",
+  "checkIfItemIsPresent": true,
+  "_trailing": 0,
+  "asset": "ItemPresent-craftingStation",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250813": {
+  "itemIdToLookFor": "daccatBerries",
+  "checkIfItemIsPresent": true,
+  "_trailing": 0,
+  "asset": "ItemPresent-daccatBerries",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250814": {
+  "itemIdToLookFor": "scannerTool",
+  "checkIfItemIsPresent": true,
+  "_trailing": 0,
+  "asset": "ItemPresent-scannerTool",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250815": {
+  "itemIdToLookFor": "shipyard",
+  "checkIfItemIsPresent": true,
+  "_trailing": 0,
+  "asset": "ItemPresent-shipyard",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250816": {
+  "itemIdToLookFor": "torch",
+  "checkIfItemIsPresent": true,
+  "_trailing": 0,
+  "asset": "ItemPresent-torch",
+  "class": "ItemPresenceInInventoryConditionData"
+ },
+ "250817": {
+  "itemId": "torch",
+  "check": true,
+  "_trailing": 0,
+  "asset": "IsItemSelected-torch",
+  "class": "ItemSelectedOnHotbarConditionData"
+ },
+ "250818": {
+  "itemId": "daccatBerries",
+  "check": true,
+  "_trailing": 0,
+  "asset": "IsItemSelectedTRUE-daccatBerries",
+  "class": "ItemSelectedOnHotbarConditionData"
+ },
+ "250819": {
+  "shipPartType": "Respawner",
+  "requiredAmount": 1,
+  "checkIfAttached": true,
+  "_trailing": 0,
+  "asset": "RespawnerAttachedToDockedShipCondition",
+  "class": "ShipPartAttachedToDockedShipConditionData"
+ },
+ "250820": {
+  "shipPartType": "Core",
+  "requiredAmount": 1,
+  "checkIfAttached": true,
+  "_trailing": 0,
+  "asset": "CoreAttachedToOwnedShipCondition",
+  "class": "ShipPartAttachedToOwnedShipConditionData"
+ },
+ "250821": {
+  "shipPartType": "Helm",
+  "requiredAmount": 1,
+  "checkIfAttached": true,
+  "_trailing": 0,
+  "asset": "HelmAttachedToOwnedShipCondition",
+  "class": "ShipPartAttachedToOwnedShipConditionData"
+ },
+ "250822": {
+  "shipPartType": "Sail",
+  "requiredAmount": 1,
+  "checkIfAttached": true,
+  "_trailing": 0,
+  "asset": "SailAttachedToOwnedShipCondition",
+  "class": "ShipPartAttachedToOwnedShipConditionData"
+ },
+ "250823": {
+  "itemIdToPlace": "craftingStation",
+  "_trailing": 0,
+  "asset": "PlaceAssemblyStationCondition",
+  "class": "PlaceItemInWorldConditionData"
+ },
+ "250824": {
+  "itemIdToPlace": "shipyard",
+  "_trailing": 0,
+  "asset": "PlaceShipyardCondition",
+  "class": "PlaceItemInWorldConditionData"
+ },
+ "250825": {
+  "_unparsed_bytes": "01000000",
+  "_trailing": null,
+  "asset": "IsRegisteredToPersonalReviver",
+  "class": "RegisteredAndPresentPersonalReviverConditionData"
+ },
+ "250826": {
+  "_unparsed_bytes": "01000000",
+  "_trailing": null,
+  "asset": "RegisteredShipyardHasDockedShipCondition",
+  "class": "RegisteredShipyardHasDockedShipConditionData"
+ },
+ "250827": {
+  "schematicId": "clothMakeshift",
+  "checkIfSchematicIsSelected": false,
+  "_trailing": 0,
+  "asset": "SchematicNotSelected-clothMakeshift",
+  "class": "SchematicSelectedConditionData"
+ },
+ "250828": {
+  "schematicId": "clothMakeshift",
+  "checkIfSchematicIsSelected": true,
+  "_trailing": 0,
+  "asset": "SchematicSelected-clothMakeshift",
+  "class": "SchematicSelectedConditionData"
+ },
+ "250829": {
+  "schematicId": "scannerTool",
+  "checkIfSchematicIsSelected": true,
+  "_trailing": 0,
+  "asset": "SchematicSelected-scannerTool",
+  "class": "SchematicSelectedConditionData"
+ },
+ "250830": {
+  "schematicId": "torch",
+  "checkIfSchematicIsSelected": true,
+  "_trailing": 0,
+  "asset": "SchematicSelected-torch",
+  "class": "SchematicSelectedConditionData"
+ },
+ "250831": {
+  "_unparsed_bytes": "01000000",
+  "_trailing": null,
+  "asset": "SchematicSlotMaterialsAreFull",
+  "class": "SchematicSlotMaterialsFullConditionData"
+ },
+ "250832": {
+  "_unparsed_bytes": "0500000001000000",
+  "_trailing": null,
+  "asset": "IsCharacterTabOpen",
+  "class": "CharacterTabOpenConditionData"
+ },
+ "250833": {
+  "_unparsed_bytes": "0400000000000000",
+  "_trailing": null,
+  "asset": "IsKnowledgeTabClosed",
+  "class": "CharacterTabOpenConditionData"
+ },
+ "250834": {
+  "_unparsed_bytes": "0400000001000000",
+  "_trailing": null,
+  "asset": "IsKnowledgeTabOpen",
+  "class": "CharacterTabOpenConditionData"
+ },
+ "250835": {
+  "_unparsed_bytes": "0000000001000000",
+  "_trailing": null,
+  "asset": "IsMultitoolCraftTabOpen",
+  "class": "CharacterTabOpenConditionData"
+ },
+ "250836": {
+  "toolToCheck": "Repair",
+  "checkIfToolIsUnlocked": true,
+  "_trailing": 0,
+  "asset": "ToolUnlocked-Repair",
+  "class": "ToolUnlockedConditionData"
+ },
+ "250837": {
+  "toolToCheck": "Scan",
+  "checkIfToolIsUnlocked": true,
+  "_trailing": 0,
+  "asset": "ToolUnlocked-Scan",
+  "class": "ToolUnlockedConditionData"
+ },
+ "250838": {
+  "triggerId": 1000,
+  "_trailing": 0,
+  "asset": "EnterTrigger-1000",
+  "class": "TriggerEnterConditionData"
+ },
+ "250839": {
+  "triggerId": 1001,
+  "_trailing": 0,
+  "asset": "EnterTrigger-1001",
+  "class": "TriggerEnterConditionData"
+ },
+ "250840": {
+  "triggerId": 1002,
+  "_trailing": 0,
+  "asset": "EnterTrigger-1002",
+  "class": "TriggerEnterConditionData"
+ },
+ "250841": {
+  "_unparsed_bytes": "",
+  "_trailing": null,
+  "asset": "UseGrappleCondition",
+  "class": "UseGrappleConditionData"
+ },
+ "250842": {
+  "_unparsed_bytes": "",
+  "_trailing": null,
+  "asset": "UseSalvageToolCondition",
+  "class": "UseSalvageToolConditionData"
+ }
+}

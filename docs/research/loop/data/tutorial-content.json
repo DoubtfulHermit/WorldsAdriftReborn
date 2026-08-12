@@ -1,0 +1,1248 @@
+[
+ {
+  "asset": "TUTORIAL_FIRST_REVIVAL_CHAMBER",
+  "pathid": 250907,
+  "Step": "FIRST_REVIVAL_CHAMBER",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "RMB",
+    "Anchor": "MIDDLE",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_GRAPLING_HOOK",
+  "pathid": 250909,
+  "Step": "GRAPLING_HOOK",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "TWO_BUTTONS",
+    "Anchor": "LEFT",
+    "Name": "Reel In / Out",
+    "Hold": true,
+    "InputButtons": [
+     "RopeReelIn",
+     "RopeReelOut"
+    ]
+   },
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "RIGHT",
+    "Name": "Jump / Boost",
+    "Hold": false,
+    "InputButtons": [
+     "Jump"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_CLIMBABLE_SURFACE",
+  "pathid": 250893,
+  "Step": "CLIMBABLE_SURFACE",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Climb",
+    "Hold": false,
+    "InputButtons": [
+     "Grab"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_CLIMBING",
+  "pathid": 250894,
+  "Step": "CLIMBING",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Let Go",
+    "Hold": false,
+    "InputButtons": [
+     "Grab"
+    ]
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_LEAVE_REVIVAL_CHAMBER",
+  "pathid": 250913,
+  "Step": "LEAVE_REVIVAL_CHAMBER",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Inventory",
+    "Hold": false,
+    "InputButtons": [
+     "OpenInventory"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_LOAD_SHIP",
+  "pathid": 250914,
+  "Step": "LOAD_SHIP",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "Click Edit to design the shape of your hull",
+  "Controls": [],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_EDIT_SHIP",
+  "pathid": 250897,
+  "Step": "EDIT_SHIP",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "Click on the nodes to adjust the frame and drag the boxes to add or remove sections of the hull",
+  "Controls": [],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_POST_EDIT_SHIP",
+  "pathid": 250918,
+  "Step": "POST_EDIT_SHIP",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "Click Done when you're happy with the shape",
+  "Controls": [],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_ENTER_SHIP_BUBBLE",
+  "pathid": 250898,
+  "Step": "ENTER_SHIP_BUBBLE",
+  "Duration": "ONE_SHOT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Ship Builder",
+    "Hold": false,
+    "InputButtons": [
+     "SelectItem3"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_EQUIP_SHIP_BUILDER",
+  "pathid": 250903,
+  "Step": "EQUIP_SHIP_BUILDER",
+  "Duration": "TEMPORARY",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "Shipbuilding Tool",
+  "Message": "Use this to pick up ship parts while inside a shipyard dome and attach them to a docked ship.",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Object",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_PLACE_SHIP_PART",
+  "pathid": 250917,
+  "Step": "PLACE_SHIP_PART",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Place Object",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Fixed Rotate",
+    "Hold": false,
+    "InputButtons": [
+     "RotatePart"
+    ]
+   },
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "RIGHT",
+    "Name": "Free Rotate",
+    "Hold": true,
+    "InputButtons": [
+     "RotatePart"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_EQUIP_SCANNER",
+  "pathid": 250902,
+  "Step": "EQUIP_SCANNER",
+  "Duration": "TEMPORARY",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "Scanner",
+  "Message": "Scan everything you find to acquire knowledge, this can be used to study ship building and unlock new ship parts.",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Scan",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_FLY_SHIP",
+  "pathid": 250908,
+  "Step": "FLY_SHIP",
+  "Duration": "TEMPORARY",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "LEFT",
+    "Name": "Release Control",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   },
+   {
+    "Type": "TWO_BUTTONS",
+    "Anchor": "MIDDLE",
+    "Name": "Up / Down",
+    "Hold": false,
+    "InputButtons": [
+     "ShipMoveUp",
+     "ShipMoveDown"
+    ]
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Look around",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_HELM",
+  "pathid": 250882,
+  "Step": "MOUSE_OVER_HELM",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Take Control",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_CANNON",
+  "pathid": 250878,
+  "Step": "MOUSE_OVER_CANNON",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Take Control",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_REVIVER",
+  "pathid": 250883,
+  "Step": "MOUSE_OVER_REVIVER",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Register",
+    "Hold": true,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_GENERATOR",
+  "pathid": 250881,
+  "Step": "MOUSE_OVER_GENERATOR",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Refuel",
+    "Hold": true,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_CONTAINER",
+  "pathid": 250879,
+  "Step": "MOUSE_OVER_CONTAINER",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Open",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_SHIPYARD",
+  "pathid": 250886,
+  "Step": "MOUSE_OVER_SHIPYARD",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Interact",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_ASSEMBLY_STATION",
+  "pathid": 250877,
+  "Step": "MOUSE_OVER_ASSEMBLY_STATION",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Interact",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_INVENTORY_PICKED_ITEM",
+  "pathid": 250876,
+  "Step": "INVENTORY_PICKED_ITEM",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Place Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Rotate Item",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_SAIL_OPEN",
+  "pathid": 250885,
+  "Step": "MOUSE_OVER_SAIL_OPEN",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Unfurl",
+    "Hold": true,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_SAIL_CLOSE",
+  "pathid": 250884,
+  "Step": "MOUSE_OVER_SAIL_CLOSE",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Furl",
+    "Hold": true,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_EQUIP_GAUNTLET_REPAIR",
+  "pathid": 250899,
+  "Step": "EQUIP_GAUNTLET_REPAIR",
+  "Duration": "TEMPORARY",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "Gauntlet Repair Mode",
+  "Message": "Repairs damaged ship parts if you have the correct materials in your inventory.",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Repair",
+    "Hold": true,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_EQUIP_GAUNTLET_SALVAGE",
+  "pathid": 250900,
+  "Step": "EQUIP_GAUNTLET_SALVAGE",
+  "Duration": "TEMPORARY",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "Gauntlet Salvage Mode",
+  "Message": "Allows you to salvage trees, corpses, fuel, ship parts, and break open cracked rocks to reveal metal shards.",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Salvage",
+    "Hold": true,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_GRAPLING_HOOK_CAN_CLIMB",
+  "pathid": 250910,
+  "Step": "GRAPLING_HOOK_CAN_CLIMB",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "TWO_BUTTONS",
+    "Anchor": "LEFT",
+    "Name": "Reel In / Out",
+    "Hold": true,
+    "InputButtons": [
+     "RopeReelIn",
+     "RopeReelOut"
+    ]
+   },
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Climb",
+    "Hold": false,
+    "InputButtons": [
+     "Grab"
+    ]
+   },
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "RIGHT",
+    "Name": "Jump / Boost",
+    "Hold": false,
+    "InputButtons": [
+     "Jump"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_EQUIP_RANGED_WEAPON",
+  "pathid": 250901,
+  "Step": "EQUIP_RANGED_WEAPON",
+  "Duration": "TEMPORARY",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Fire Weapon",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_FIRST_CANNON",
+  "pathid": 250904,
+  "Step": "FIRST_CANNON",
+  "Duration": "ONE_SHOT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "MIDDLE",
+    "Name": "Fire Cannon",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_FIRST_GLIDER",
+  "pathid": 250905,
+  "Step": "FIRST_GLIDER",
+  "Duration": "ONE_SHOT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Open Glider",
+    "Hold": false,
+    "InputButtons": [
+     "MoveLeft"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_FIRST_GLIDER_FLY",
+  "pathid": 250906,
+  "Step": "FIRST_GLIDER_FLY",
+  "Duration": "ONE_SHOT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "TWO_BUTTONS",
+    "Anchor": "LEFT",
+    "Name": "Pitch",
+    "Hold": false,
+    "InputButtons": [
+     "ShipThrottleUp",
+     "ShipThrottleDown"
+    ]
+   },
+   {
+    "Type": "TWO_BUTTONS",
+    "Anchor": "RIGHT",
+    "Name": "Roll",
+    "Hold": false,
+    "InputButtons": [
+     "ShipYawLeft",
+     "ShipYawRight"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_PICKUP_SHIP_PART",
+  "pathid": 250916,
+  "Step": "PICKUP_SHIP_PART",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Move Object",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Aim Grapple Hook",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_INVENTORY_PLACE_ITEM",
+  "pathid": 250911,
+  "Step": "INVENTORY_PLACE_ITEM",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "MIDDLE",
+    "Name": "Place Object",
+    "Hold": true,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_SAVE_SHIP",
+  "pathid": 250919,
+  "Step": "SAVE_SHIP",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": true,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "Save your new design to see the material costs.",
+  "Controls": [],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_PICKUP_ATLAS_SHARD",
+  "pathid": 250888,
+  "Step": "PICKUP_ATLAS_SHARD",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Pick up",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_PICKUP_BOMB",
+  "pathid": 250889,
+  "Step": "PICKUP_BOMB",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Pick up",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_PICKUP_ATLAS_LIFTER",
+  "pathid": 250887,
+  "Step": "PICKUP_ATLAS_LIFTER",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Pick up",
+    "Hold": false,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_STAND_UP",
+  "pathid": 250890,
+  "Step": "STAND_UP",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Stand up",
+    "Hold": false,
+    "InputButtons": [
+     "Sit"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "STANDARD_MOUSE_OVER_CORE",
+  "pathid": 250880,
+  "Step": "MOUSE_OVER_CORE",
+  "Duration": "PERMANENT",
+  "activeState": "InWorld",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": true,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "ONE_BUTTON",
+    "Anchor": "MIDDLE",
+    "Name": "Activate Atlas Pulse",
+    "Hold": true,
+    "InputButtons": [
+     "Interact"
+    ]
+   }
+  ],
+  "AnchoredPopups": [],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_SCHEMATICS_TAB_ACTIVE",
+  "pathid": 250920,
+  "Step": "SCHEMATICS_TAB_ACTIVE",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Item Actions",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [
+   {
+    "HookType": "Schematics_PersonalCraftingCategory",
+    "HookDirection": "MiddleRight",
+    "Message": "Inventory items can be crafted by the gauntlet here"
+   },
+   {
+    "HookType": "Inventory_SchematicsTab",
+    "HookDirection": "DownCentre",
+    "Message": "Craft inventory items and manage your schematics here"
+   },
+   {
+    "HookType": "Inventory_Belt",
+    "HookDirection": "MiddleLeft",
+    "Message": "Items on your belt are not dropped on death"
+   }
+  ],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_ASSEMBLY_STATION_TAB_CLICKED",
+  "pathid": 250891,
+  "Step": "ASSEMBLY_STATION_TAB_CLICKED",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Item Actions",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [
+   {
+    "HookType": "Schematics_AssemblyStationCraftingCategory",
+    "HookDirection": "MiddleRight",
+    "Message": "These items can only be crafted at an assembly station or shipyard"
+   },
+   {
+    "HookType": "Inventory_Belt",
+    "HookDirection": "MiddleLeft",
+    "Message": "Items in your belt are not dropped on death"
+   }
+  ],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_CHARACTER_TAB_ACTIVE",
+  "pathid": 250892,
+  "Step": "CHARACTER_TAB_ACTIVE",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Item Actions",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [
+   {
+    "HookType": "Inventory_Belt",
+    "HookDirection": "MiddleLeft",
+    "Message": "Items on your belt are not dropped on death"
+   },
+   {
+    "HookType": "Inventory_CharacterTab",
+    "HookDirection": "DownCentre",
+    "Message": "Equip and preview gear and clothing"
+   }
+  ],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_KNOWLEDGE_TAB_ACTIVE",
+  "pathid": 250912,
+  "Step": "KNOWLEDGE_TAB_ACTIVE",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Item Actions",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [
+   {
+    "HookType": "Inventory_KnowledgeTab",
+    "HookDirection": "DownCentre",
+    "Message": "Scan objects to accumulate knowledge and unlock shipbuilding. The scanner is [4] on the hotbar"
+   },
+   {
+    "HookType": "Inventory_Belt",
+    "HookDirection": "MiddleLeft",
+    "Message": "Items on your belt are not dropped on death"
+   }
+  ],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_CREW_TAB_ACTIVE",
+  "pathid": 250895,
+  "Step": "CREW_TAB_ACTIVE",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Item Actions",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [
+   {
+    "HookType": "Inventory_Belt",
+    "HookDirection": "MiddleLeft",
+    "Message": "Items on your belt are not dropped on death"
+   },
+   {
+    "HookType": "Inventory_CrewTab",
+    "HookDirection": "DownCentre",
+    "Message": "Easily meet up and stick together by forming a crew"
+   }
+  ],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_LOGBOOK_TAB_ACTIVE",
+  "pathid": 250915,
+  "Step": "LOGBOOK_TAB_ACTIVE",
+  "Duration": "PERMANENT",
+  "activeState": "InInventory",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [
+   {
+    "Type": "LMB",
+    "Anchor": "LEFT",
+    "Name": "Pick Up Item",
+    "Hold": false,
+    "InputButtons": []
+   },
+   {
+    "Type": "RMB",
+    "Anchor": "RIGHT",
+    "Name": "Item Actions",
+    "Hold": false,
+    "InputButtons": []
+   }
+  ],
+  "AnchoredPopups": [
+   {
+    "HookType": "Inventory_LogbookTab",
+    "HookDirection": "DownCentre",
+    "Message": "Read the lore and history of the old world that you have collected"
+   },
+   {
+    "HookType": "Inventory_Belt",
+    "HookDirection": "MiddleLeft",
+    "Message": "Items on your belt are not dropped on death"
+   }
+  ],
+  "_trailing": 16
+ },
+ {
+  "asset": "TUTORIAL_DEATH_SCREEN",
+  "pathid": 250896,
+  "Step": "DEATH_SCREEN",
+  "Duration": "PERMANENT",
+  "activeState": "InMenu",
+  "GracePeriodOnly": false,
+  "CanShowWhileHavenIsActive": false,
+  "Title": "",
+  "Message": "",
+  "Controls": [],
+  "AnchoredPopups": [
+   {
+    "HookType": "Personal_Reviver",
+    "HookDirection": "MiddleLeft",
+    "Message": "TUTORIAL_DEATH_SCREEN_PERSONAL_REVIVER"
+   }
+  ],
+  "_trailing": 16
+ }
+]

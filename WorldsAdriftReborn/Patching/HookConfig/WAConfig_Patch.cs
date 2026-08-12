@@ -8,6 +8,9 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
 {
     internal class WAConfig_Patch
     {
+        private static readonly System.Collections.Generic.HashSet<string> loggedUntouched =
+            new System.Collections.Generic.HashSet<string>();
+
         [HarmonyPatch()]
         class Get_String
         {
@@ -43,7 +46,16 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
                     __result = ModSettings.NTPServerUrl.Value;
                     return false;
                 }
-                Debug.LogWarning("not touching " + key);
+                // Log ONCE per key. This fires on every config read, and a
+                // two-client session produced 327,713 copies of one line - about
+                // 90% of all log output, ~10x the exception count. It is the
+                // client-side twin of the server logging stall that starved
+                // position relays, and it buries the evidence in any log we then
+                // try to diagnose from.
+                if (loggedUntouched.Add(key))
+                {
+                    Debug.LogWarning("not touching " + key);
+                }
 
                 return true;
             }
@@ -74,7 +86,16 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
                     __result = false;
                     return false;
                 }
-                Debug.LogWarning("not touching " + key);
+                // Log ONCE per key. This fires on every config read, and a
+                // two-client session produced 327,713 copies of one line - about
+                // 90% of all log output, ~10x the exception count. It is the
+                // client-side twin of the server logging stall that starved
+                // position relays, and it buries the evidence in any log we then
+                // try to diagnose from.
+                if (loggedUntouched.Add(key))
+                {
+                    Debug.LogWarning("not touching " + key);
+                }
 
                 return true;
             }

@@ -1,0 +1,284 @@
+itemTypeId	name	category	iconName	width	height	equippable	characterSlot	rarity	hasMeta	hasColours	hasRewards	description
+lore	Codex - Lore Piece		temp_lore_icon	2	2	False	None		False	False	False	
+steamInvBundle-xmas_present	Kahi Ceremony Gift	Steam Inventory Bundle	steam inventory bundles/2x2_xmas_present	2	2	False	None		False	False	False	
+guitar	Guitar	Instrument	crafted items/6x2_guitar	6	2	True	Tool		True	False	False	
+glider	Glider	Equipment	crafted items/3x4_glider	3	4	True	Utility		True	False	False	A personal glider you can deploy by pressing Spacebar while in the air.
+marauder_guitar	Marauder Guitar	Instrument	crafted items/6x2_marauder_guitar	6	2	True	Tool		True	False	False	
+iron	Iron	Metal	metals/Metal_Iron	3	2	False	None	0	False	False	False	Reasonably tough and heat resistant given its modest weight.
+lead	Lead	Metal	metals/Metal_Lead	3	2	False	None	0	False	False	False	Durable and strong but too heavy for many uses.
+bronze	Bronze	Metal	metals/Metal_Bronze	3	2	False	None	0	False	False	False	Capable of withstanding a lot of stress for its medium weight.
+tin	Tin	Metal	metals/Metal_Tin	3	2	False	None	1	False	False	False	Lightweight but weak, soft and susceptible to heat.
+orthite	Orthite	Metal	metals/Metal_Orthite	3	2	False	None	1	False	False	False	Moderately conductive, stress resistant, but weak to heat.
+steel	Steel	Metal	metals/Metal_Steel	3	2	False	None	1	False	False	False	Very hard and high performance metal for its weight.
+copper	Copper	Metal	metals/Metal_Copper	3	2	False	None	1	False	False	False	A great conductor but otherwise unexceptional.
+titanium	Titanium	Metal	metals/Metal_Titanium	3	2	False	None	2	False	False	False	Very light for such a hard metal but a bad conductor.
+nickel	Nickel	Metal	metals/Metal_Nickel	3	2	False	None	2	False	False	False	Versatile thanks to its medium weight and a few weaknesses.
+epilar	Epilar	Metal	metals/Metal_Epilar	3	2	False	None	2	False	False	False	Durable and resistant to stress but not really hard.
+silver	Silver	Metal	metals/Metal_Silver	3	2	False	None	2	False	False	False	A jack of all trades but master of only conductivity.
+aluminium	Aluminium	Metal	metals/Metal_Aluminium	3	2	False	None	3	False	False	False	Extremely light without compromising too much on strength
+gold	Gold	Metal	metals/Metal_Gold	3	2	False	None	3	False	False	False	Dense yet malleable with extremely high conductivity.
+eternium	Eternium	Metal	metals/Metal_Eternium	3	2	False	None	3	False	False	False	Hard, durable, heat resisantant but poor under stress.
+tungsten	Tungsten	Metal	metals/Metal_Tungsten	3	2	False	None	3	False	False	False	Unparalleled resistance to the elements but very heavy.
+cedar	Cedar Wood	Wood	woods/Wood_Cedar	3	2	False	None		False	False	False	Extremely light and soft, cannot withstand much damage.
+hemlock	Hemlock Wood	Wood	woods/Wood_Hemlock	3	2	False	None		False	False	False	Very light but durable enough to be used in certain scenarios.
+chestnut	Chestnut Wood	Wood	woods/Wood_Chestnut	3	2	False	None		False	False	False	Lightweight but nevertheless versatile timber.
+elm	Elm Wood	Wood	woods/Wood_Elm	3	2	False	None		False	False	False	Medium weight with no outstanding strengths or vulnerabilities.
+birch	Birch Wood	Wood	woods/Wood_Birch	3	2	False	None		False	False	False	Soft but otherwise high performance for it's weight.
+ash	Ash Wood	Wood	woods/Wood_Ash	3	2	False	None		False	False	False	Extremely flexible all-rounder but heavy for timber.
+oak	Oak Wood	Wood	woods/Wood_Oak	3	2	False	None		False	False	False	Durable and versatile but heavy for wood.
+palm	Palm Wood	Wood	woods/Wood_palm	3	2	False	None		False	False	False	The heaviest but also most useful wood.
+fuel	Fuel	Fuel	misc craft materials/2x2_Fuel_container	2	2	False	None		False	False	False	
+torch	Torch		crafted items/1x4_Torch	1	4	False	None		True	False	False	
+gauntlet_salvage	Salvage Item		Gauntlet_Salvage	0	0	True	Tool		False	False	False	
+gauntlet_repair	Repair Item		Gauntlet_Repair	0	0	True	Tool		False	False	False	
+gauntlet_build	Build Item		Gauntlet_Build	0	0	True	Tool		False	False	False	
+gauntlet_scanner	Scanner Item		Scanner_Scan	0	0	True	Tool		False	False	False	
+scrapItem-Founder's Tome	Founder's Tome	Founder's Pack	scrap items/2x2.Book.Of.Entitlement	2	2	False	None		True	False	False	
+scrapItem-badgeofoldage	Badge of the Elderly	Salvage	scrap items/1x1_Badge_ofOld_Age	1	1	False	None		True	False	True	
+scrapItem-bandiniancurrency	Bandinian Currency	Salvage	scrap items/1x1_Bandinian_Currency	1	1	False	None		True	False	True	
+scrapItem-luckydonkey	Lucky Donkey Hoof	Salvage	scrap items/1x1_Lucky_Donkey	1	1	False	None		True	False	True	
+scrapItem-mouseeffigy	Mouse Effigy	Salvage	scrap items/1x1_Mouse_Effigy	1	1	False	None		True	False	True	
+scrapItem-saboriandemarcatebadge	Saborian Demarcate Badge	Salvage	scrap items/1x1_Saborian_demarcate_badge	1	1	False	None		True	False	True	
+scrapItem-saborianshoulderclasp	Saborian Shoulder Clasp	Salvage	scrap items/1x1_Saborian_Shoulder_Clasp	1	1	False	None		True	False	True	
+scrapItem-ternanuantoggle	Ternanuan Thread Spool	Salvage	scrap items/1x1_Ternanuan_Toggle	1	1	False	None		True	False	True	
+scrapItem-ternanuantoggle2	Ternanuan Toggle	Salvage	scrap items/1x1_Ternanuan_Toggle2	1	1	False	None		True	False	True	
+scrapItem-tonkingpuck	Tonking Puck	Salvage	scrap items/1x1_Tonking_Punk	1	1	False	None		True	False	True	
+scrapItem-washer	Iron Washer	Salvage	scrap items/1x1_washer	1	1	False	None		True	False	True	
+scrapItem-wolftoken	Wolf Token	Salvage	scrap items/1x1_Wolf_token	1	1	False	None		True	False	True	
+scrapItem-saborianbadgeofstate	Saborian Badge of State	Salvage	scrap items/1x1Saborian_Badge_ofState	1	1	False	None		True	False	True	
+scrapItem-saborianflyingwings	Saborian Flying Wings	Salvage	scrap items/1x1Saborian_FlyingWings	1	1	False	None		True	False	True	
+scrapItem-beetlebloodextractiontool	Beetleblood Extraction Tool	Salvage	scrap items/1x2_Beetleblood_Extraction_Tool	1	2	False	None		True	False	True	
+scrapItem-bonehandlemagnifyingglass	BoneHandle Magnifying Glass	Salvage	scrap items/1x2_BoneHandle_Magnifying_Glass	1	2	False	None		True	False	True	
+scrapItem-boviarypressurejet	Boviary Pressure Jet	Salvage	scrap items/1x2_Boviary_Pressure_Jet2	1	2	False	None		True	False	True	
+scrapItem-candlestick	Candlestick	Salvage	scrap items/1x2_Candlestick	1	2	False	None		True	False	True	
+scrapItem-catoNinetails	Snapped Cat o' Nine-tails	Salvage	scrap items/1x2_CatoNine-tails	1	2	False	None		True	False	True	
+scrapItem-crackedminingdrill	Mangled Mining Drill	Salvage	scrap items/1x2_cracked_mining_Drill	1	2	False	None		True	False	True	
+scrapItem-dustylallaraglove	Dusty Lallara Glove	Salvage	scrap items/1x2_Dusty_Lallara_Glove	1	2	False	None		True	False	True	
+scrapItem-oldpipe	Old Pipe	Salvage	scrap items/1x2_Old_pipe	1	2	False	None		True	False	True	
+scrapItem-bentpipe	Bent Pipe	Salvage	scrap items/1x2_pipe	1	2	False	None		True	False	True	
+scrapItem-saboriandiningtongs	Saborian Dining Tongs	Salvage	scrap items/1x2_Saborian_Dining_Tongs	1	2	False	None		True	False	True	
+scrapItem-swordhilt	Sword Hilt	Salvage	scrap items/1x2_Sword_Hilt	1	2	False	None		True	False	True	
+scrapItem-ancientbandiniansword	Ancient Bandinian Sword	Salvage	scrap items/1x3_Ancient_Bandinian_Sword	1	3	False	None		True	False	True	
+scrapItem-barbersspoonstick	Barbers Spoonstick	Salvage	scrap items/1x3_Barbers_Spoonstick	1	3	False	None		True	False	True	
+scrapItem-boviarycoercionprod	Boviary Coercion Prod	Salvage	scrap items/1x3_Boviary_Coercion_prod	1	3	False	None		True	False	True	
+scrapItem-crackedsolderingrod	Cracked Soldering Rod	Salvage	scrap items/1x3_Cracked_Soldering_Rod	1	3	False	None		True	False	True	
+scrapItem-enginecrank	Engine Crank	Salvage	scrap items/1x3_engine_crank	1	3	False	None		True	False	True	
+scrapItem-finecloistrumstrigil	Fine Cloistrum Strigil	Salvage	scrap items/1x3_Fine_Cloistrum_Strigil	1	3	False	None		True	False	True	
+scrapItem-grandfrillshipantenna	Grand Frillship Antenna	Salvage	scrap items/1X4_GrandFrillship_Antenna	1	4	False	None		True	False	True	
+scrapItem-racingstilts	Pair of Racing Stilts	Salvage	scrap items/1x4_Racing_stilts	1	4	False	None		True	False	True	
+scrapItem-swordblade	Sword Blade	Salvage	scrap items/1x4_Sword_Blade	4	1	False	None		True	False	True	
+scrapItem-brokencymbal	Broken Cymbal	Salvage	scrap items/2x1_Broken_Cymbol	2	1	False	None		True	False	True	
+scrapItem-crackedbinoculars	Cracked Binoculars	Salvage	scrap items/2x1_Cracked_Binoculars	2	1	False	None		True	False	True	
+scrapItem-doorhandle	Door Handle	Salvage	scrap items/2x1_Doorhandle	2	1	False	None		True	False	True	
+scrapItem-marimbiannosepipe	Marimbian Nosepipe	Salvage	scrap items/2x1_Marimbian_Nosepipe	1	2	False	None		True	False	True	
+scrapItem-oldwrench	Old Wrench	Salvage	scrap items/2x1_oldWrench	2	1	False	None		True	False	True	
+scrapItem-warlocksilverwhistle	Warlock's Silver Whistle	Salvage	scrap items/2x1_Silver_Birds_Whistle	1	2	False	None		True	False	True	
+scrapItem-smashedcymbal	Smashed Cymbal	Salvage	scrap items/2x1_Smashed_Cymbal	1	2	False	None		True	False	True	
+scrapItem-bustoftelemon	Bust Of Telemon	Salvage	scrap items/2x2.bustOfTelemon	2	2	False	None		True	False	True	
+scrapItem-antiquelamp	Antique Lamp	Salvage	scrap items/2x2_Antique_Lamp	2	2	False	None		True	False	True	
+scrapItem-bandinianbeeswaxtablet	Bandinian Beeswax Tablet	Salvage	scrap items/2x2_Bandinian_Beeswax_Tablet	2	2	False	None		True	False	True	
+scrapItem-bathhousevalve	Bathhouse Valve	Salvage	scrap items/2x2_Bathhouse_Valve2	2	2	False	None		True	False	True	
+scrapItem-boviaryharvester	Boviary Harvester	Salvage	scrap items/2x2_Boviary_Harvester2	2	2	False	None		True	False	True	
+scrapItem-brokendrum	Broken Drum	Salvage	scrap items/2x2_Broken_Drum	2	2	False	None		True	False	True	
+scrapItem-ceramicpot	Ceramic pot	Salvage	scrap items/2x2_Ceramic_pot	2	2	False	None		True	False	True	
+scrapItem-childsball	Childs Ball	Salvage	scrap items/2x2_Childs_Ball	2	2	False	None		True	False	True	
+scrapItem-childskitchenset	Childs Kitchen Set	Salvage	scrap items/2x2_Childs_KitchenSet	2	2	False	None		True	False	True	
+scrapItem-clamp	Godhand Clamp	Salvage	scrap items/2x2_clamp	2	2	False	None		True	False	True	
+scrapItem-cookingpot	Cooking Pot	Salvage	scrap items/2x2_Cooking_Pot	2	2	False	None		True	False	True	
+scrapItem-coversleeve	Cover Sleeve	Salvage	scrap items/2x2_Cover_sleeve	2	2	False	None		True	False	True	
+scrapItem-crackedhydraulicpins	Cracked Hydraulic Pins	Salvage	scrap items/2x2_Cracked_Hydraulic_Pins	2	2	False	None		True	False	True	
+scrapItem-diningtrencher	Dining Trencher	Salvage	scrap items/2x2_Dining_Trencher	2	2	False	None		True	False	True	
+scrapItem-fountainshards	Fountain Shards	Salvage	scrap items/2x2_Fountain_shards	2	2	False	None		True	False	True	
+scrapItem-handchisel	Hand Chisel	Salvage	scrap items/2x2_Hand_Chisel	2	2	False	None		True	False	True	
+scrapItem-imperialanimalbell	Imperial Animal Bell	Salvage	scrap items/2x2_Imperial_Animal_Bell	2	2	False	None		True	False	True	
+scrapItem-defectiveowlcamera	Defective Owl Camera	Salvage	scrap items/2x2_Ishgiruan_Defective_Owl_Camera	2	2	False	None		True	False	True	
+scrapItem-jarofmold	Jar of Mold	Salvage	scrap items/2x2_Jar_of_mold	2	2	False	None		True	False	True	
+scrapItem-meltedcanonBall	Melted CanonBall	Salvage	scrap items/2x2_melted_CanonBall	2	2	False	None		True	False	True	
+scrapItem-metalpot	Metal Pot	Salvage	scrap items/2x2_Metal_Pot	2	2	False	None		True	False	True	
+scrapItem-momorosanfruitplatter	Momorosan Fruit Platter	Salvage	scrap items/2x2_Momorosan_Fruit_Platter2	2	2	False	None		True	False	True	
+scrapItem-ornatemagnifyingglass	Ornate Magnifying Glass	Salvage	scrap items/2x2_Ornate_Magnifying_Glass	2	2	False	None		True	False	True	
+scrapItem-plantpot	Plant Pot	Salvage	scrap items/2x2_Plant_Pot	2	2	False	None		True	False	True	
+scrapItem-plinth	Decorative Plinth	Salvage	scrap items/2x2_plinth	2	2	False	None		True	False	True	
+scrapItem-ruinedhelmet	Ruined Helmet	Salvage	scrap items/2x2_ruined_Helmet	2	2	False	None		True	False	True	
+scrapItem-rustedmicroscope	Rusted Microscope	Salvage	scrap items/2x2_Rusted_Microscope	2	2	False	None		True	False	True	
+scrapItem-publicaddresssystem	Public Address System	Salvage	scrap items/2x2_Saborian_Public_AddressSystem	2	2	False	None		True	False	True	
+scrapItem-shatteredseismometer	Shattered Seismometer	Salvage	scrap items/2x2_Shattered_Seismometer	2	2	False	None		True	False	True	
+scrapItem-signedphotoofkonstinivaduva	Signed Photograph of Konstini Vaduva	Salvage	scrap items/2x2_Signed_Photo_of_Konstini_Vaduva	2	2	False	None		True	False	True	
+scrapItem-skiwax	Ski Wax	Salvage	scrap items/2x2_SkiWax	2	2	False	None		True	False	True	
+scrapItem-skullofimhorta	Skull of Imhorta	Salvage	scrap items/2x2_SkullOfImHorta	2	2	False	None		True	False	True	
+scrapItem-skyshipmooringcapstan	Skyship Mooring Capstan	Salvage	scrap items/2x2_Skyship_Mooring_Capstan	2	2	False	None		True	False	True	
+scrapItem-smallplate	Small Plate	Salvage	scrap items/2x2_SmallPlate	2	2	False	None		True	False	True	
+scrapItem-tackyornament	Tacky Ornament	Salvage	scrap items/2x2_TackyOrnament	2	2	False	None		True	False	True	
+scrapItem-tincan	Tin Can	Salvage	scrap items/2x2_tinCan	2	2	False	None		True	False	True	
+scrapItem-watergujimarketawning	Waterguji Market Awning	Salvage	scrap items/2x2_Waterguji_Market_Awning	2	2	False	None		True	False	True	
+scrapItem-woodenbowl	Wooden Bowl	Salvage	scrap items/2x2_Wooden_bowl	2	2	False	None		True	False	True	
+scrapItem-woollenquilt	Woollen Quilt	Salvage	scrap items/2x2_Woollen_Quilt	2	2	False	None		True	False	True	
+scrapItem-atlashod	Atlas Hod	Salvage	scrap items/2x3_Atlas_Hod	2	3	False	None		True	False	True	
+scrapItem-bandinanmininghandpick	Bandinan Mining Handpick	Salvage	scrap items/2x3_Bandinan_Mining_Handpick	2	3	False	None		True	False	True	
+scrapItem-brittlerake	Brittle Old Rake	Salvage	scrap items/2x3_Brittle_rake2	2	3	False	None		True	False	True	
+scrapItem-loomshuttle	Loom Shuttle	Salvage	scrap items/2x3_Loom_Shuttle	2	3	False	None		True	False	True	
+scrapItem-saborianblowtorch	Saborian Blowtorch	Salvage	scrap items/2x3_Saborian_Blowtorch	2	3	False	None		True	False	True	
+scrapItem-shardofmooncraft	Shard of a Moon Craft	Salvage	scrap items/2x3_Shard_Of_Moon_Craft2	2	3	False	None		True	False	True	
+scrapItem-ululatinghornofbargojiu	Ululating Horn of Bargo Jiu	Salvage	scrap items/2x3_Ululating_Horn_of_Bargo_Jiu	2	3	False	None		True	False	True	
+scrapItem-cloistrapipework	Cloistra Pipework	Salvage	scrap items/2x3Cloistra_pipework	2	3	False	None		True	False	True	
+scrapItem-brokenbroom	Broken Broom	Salvage	scrap items/2x4_Broom	2	4	False	None		True	False	True	
+scrapItem-mellifluannarghile	Mellifluan Narghile	Salvage	scrap items/2x4_Mellifluan_Narghile	2	4	False	None		True	False	True	
+scrapItem-deconstructedtelescope	Deconstructed Telescope	Salvage	scrap items/3x1.Deconstructed_Telescope	3	1	False	None		True	False	True	
+scrapItem-damagedtelescope	Damaged Telescope	Salvage	scrap items/3x1_Damaged_Telescope	3	1	False	None		True	False	True	
+scrapItem-bandinianpopel	Bandinian Popel	Salvage	scrap items/3x2_Bandinian_Popel	3	2	False	None		True	False	True	
+scrapItem-ferrycrank	Ferry Hand Crank	Salvage	scrap items/3x2_ferry_Crank	3	2	False	None		True	False	True	
+scrapItem-footstool	Dinky Footstool	Salvage	scrap items/3x2_Footstool	3	2	False	None		True	False	True	
+scrapItem-herderssaddlebag	Herder's Saddlebag	Salvage	scrap items/3x2_Herders_Saddlebag	3	2	False	None		True	False	True	
+scrapItem-industrialloomparts	Industrial Loom Parts	Salvage	scrap items/3x2_Industrial_Loom_Parts	3	2	False	None		True	False	True	
+scrapItem-ishgiruanhorntrumpet	Ishgiruan Horn Trumpet	Salvage	scrap items/3x2_Ishgiruan_Horn_Trumpet	3	2	False	None		True	False	True	
+scrapItem-knottedfrillshiphorn	Knotted Frillship Horn	Salvage	scrap items/3x2_Knotted_Frillship_Horn	3	2	False	None		True	False	True	
+scrapItem-lallaragoalhoop	Lallara Goal Hoop	Salvage	scrap items/3x2_Lallara_Goal_Hoop	3	2	False	None		True	False	True	
+scrapItem-ornithologicalbinocularvalise	Ornithological Binocular Valise	Salvage	scrap items/3x2_Ornithological_Binocular_Valise	3	2	False	None		True	False	True	
+scrapItem-saborianweights	Saborian Weights	Salvage	scrap items/3x2_Saborian_Weights	3	2	False	None		True	False	True	
+scrapItemselenistswoodenorrery	Selenists Wooden Orrery	Salvage	scrap items/3x2_Selenists_Wooden_Orrery	3	2	False	None		True	False	True	
+scrapItem-sewingmachine	Sewing Machine	Salvage	scrap items/3x2_Sewing_Machine	3	2	False	None		True	False	True	
+scrapItem-shiphandrail	Ship Handrail	Salvage	scrap items/3x2_Ship_Handrail	3	2	False	None		True	False	True	
+scrapItem-beartrap	Shattered Bear Trap	Salvage	scrap items/3x3_BearTrap	3	3	False	None		True	False	True	
+scrapItem-boatsiren	Boat Siren	Salvage	scrap items/3x3_Boat_Siren	3	3	False	None		True	False	True	
+scrapItem-enginehousing	Engine Housing	Salvage	scrap items/3x3_Engine_Housing	3	3	False	None		True	False	True	
+scrapItem-farmparts	Farm Parts	Salvage	scrap items/3x3_Farm_Parts	3	3	False	None		True	False	True	
+scrapItem-farmerscartWheel	Farmers Cartwheel	Salvage	scrap items/3x3_Farmers_CartWheel	3	3	False	None		True	False	True	
+scrapItem-funicularparts	Funicular Parts	Salvage	scrap items/3x3_Funicular_Parts	3	3	False	None		True	False	True	
+scrapItem-generator	Defunct Generator	Salvage	scrap items/3x3_generator	3	3	False	None		True	False	True	
+scrapItem-godhandcannon	Godhand Cannon Fragments	Salvage	scrap items/3x3_Godhand_Cannon_Fragments2	3	3	False	None		True	False	True	
+scrapItem-grandFfrillshipporthole	Grand Frillship Porthole	Salvage	scrap items/3x3_GrandFrillship_porthole	3	3	False	None		True	False	True	
+scrapItem-molinbrandprocessor	Molin Brand Processor	Salvage	scrap items/3x3_Molin_Brand_Processor2	3	3	False	None		True	False	True	
+scrapItem-ornateemptybox	Ornate Empty Box	Salvage	scrap items/3x3_Ornate_Empty_Box	3	3	False	None		True	False	True	
+scrapItem-steamboatenginescrap	Steamboat Engine Scrap	Salvage	scrap items/3x3_Steam_Boat_Engine_Scrap	3	3	False	None		True	False	True	
+scrapItem-vinylplayer	Vinyl Player	Salvage	scrap items/3x3_Vinyl_Player	3	3	False	None		True	False	True	
+scrapItem-warlockbijouxbureau	Warlock's Bijoux Bureau	Salvage	scrap items/3x3_Warlock_Bijoux_Bureau	3	3	False	None		True	False	True	
+scrapItem-steamerstack	Steamer Stack	Salvage	scrap items/3x4_SteamerStack	3	4	False	None		True	False	True	
+scrapItem-beetlebloodlinen	Beetle Blood Linen	Salvage	scrap items/4x2_Beetle_Blood_Linen1	4	2	False	None		True	False	True	
+scrapItem-Godhandcagebar	Godhand Cage Bar	Salvage	scrap items/4x2_Godhand_Cage_Bar2	4	2	False	None		True	False	True	
+scrapItem-grandmooringrope	Grand Mooring Rope	Salvage	scrap items/4x2_saborian_Grand_mooring_rope	4	2	False	None		True	False	True	
+scrapItem-shelving	Shelving	Salvage	scrap items/4x2_Shelving	4	2	False	None		True	False	True	
+scrapItem-imperialturret	Imperial Turret	Salvage	scrap items/4x3_imperial_turret	4	3	False	None		True	False	True	
+scrapItem-knackeredshiphatch	Knackered Ship Hatch	Salvage	scrap items/4x3_knackered_Ship_Hatch	4	3	False	None		True	False	True	
+scrapItem-miningliftparts	Mining Lift Parts	Salvage	scrap items/4x3_Mining_Lift_Parts2	4	3	False	None		True	False	True	
+scrapItem-mountedcannon	Mounted Cannon	Salvage	scrap items/4x3_Mounted_Canon	4	3	False	None		True	False	True	
+scrapItem-saborianhowitzerbits	Saborian Howitzer Bits	Salvage	scrap items/4x3_Saborian_Howitzer_Bits2	4	3	False	None		True	False	True	
+scrapItem-smalltable	Small Table	Salvage	scrap items/4x3_Small_table	4	3	False	None		True	False	True	
+scrapItem-tapestry	Tapestry	Salvage	scrap items/4x3_Tapestry	4	3	False	None		True	False	True	
+scrapItem-dismantledorgan	Dismantled Organ	Salvage	scrap items/4x4_Dismantled_Organ	4	4	False	None		True	False	True	
+scrapItem-steamboatwheelblades	Steamboat Wheel Blades	Salvage	scrap items/5x3_Steamboat_Wheel_Blades	5	3	False	None		True	False	True	
+scrapItem-crumpledicebreaker	Crumpled Icebreaker	Salvage	scrap items/5x4_Crumpled_Icebreaker	4	3	False	None		True	False	True	
+scrapItem-steamboathogchain	Steamboat Hog Chain	Salvage	scrap items/6x2_Steamboat_hog_chain	4	3	False	None		True	False	True	
+scrapItem-Founder's Tome	Founder's Tome	Founder's Pack	scrap items/2x2.Book.Of.Entitlement	2	2	False	None		True	False	False	
+scrapItem-woodenbowl			scrap items/2x2_Wooden_bowl	2	2	False	None		True	False	False	
+head_christmas	Antlers of Kif	Founder's Pack	clothing/heads/3x2_head_christmas_male	3	2	True	Head		True	False	False	
+head_skullmask	Barguan Skull Mask	Founder's Pack	clothing/heads/2x2_head_skullmask_male	2	2	True	Head		True	True	False	
+head_hoodVariantA	Clawscarf of Capulca	Founder's Pack	clothing/heads/2x2_head_hoodVariantA_male	2	2	True	Head		True	True	False	
+head_devhat	Developer's Cap	-	clothing/heads/2x2_head_devhat_male	2	2	True	Head		True	False	False	
+head_pioneer	Drissian Cowl	Pioneer Edition	clothing/heads/2x2_head_pioneer_male	2	2	True	Head		True	False	False	
+head_goatmask	Forgotten Horns of the Olk	-	clothing/heads/2x2_head_goatmask_male	2	2	True	Head		True	False	False	
+head_bargu_mask	Mask of the Bargu	Steam Items	clothing/heads/3x3_head_bargu_mask_male	3	3	True	Head		True	True	False	
+head_intucki_mask	Mask of the Intucki	Steam Items	clothing/heads/2x2_head_intucki_mask_male	2	2	True	Head		True	True	False	
+head_tamoe_mask	Mask of the Tamoe	Steam Items	clothing/heads/2x2_head_tamoe_mask_male	2	2	True	Head		True	True	False	
+head_yharma_mask	Mask of the Yharma	Steam Items	clothing/heads/2x2_head_yharma_mask_male	2	2	True	Head		True	True	False	
+head_christmas_2018	Natiq Mask	Steam Items	clothing/heads/2x2_head_christmas_2018_male	2	2	True	Head		True	False	False	
+torso_tribal_skeleton	Barguan Skeleton Paint	Founder's Pack	clothing/torsos/2x3_torso_tribal_skeleton_male	2	3	True	Body		True	True	False	
+torso_devjacket	Developer's Jacket	-	clothing/torsos/2x3_torso_devjacket_male	2	3	True	Body		True	True	False	
+torso_christmas_2018	Kahi Ceremony Parka	Steam Items	clothing/torsos/2x3_torso_christmas_2018_male	2	3	True	Body		True	False	False	
+torso_tribal_tamoe	Tamoe War Belt	Steam Items	clothing/torsos/2x3_torso_tribal_tamoe_male	2	3	True	Body		True	False	False	
+torso_summer_male	Vinicoti Holiday Beads	Steam Items	clothing/torsos/2x3_torso_summer_male	2	3	True	Body		True	False	False	
+legs_tribal_skeleton	Barguan Skeleton Skirt	Founder's Pack	clothing/legs/2x4_legs_tribal_skeleton_male	2	4	True	Feet		True	True	False	
+legs_christmas_2018	Kahi Ceremony Leggings	Steam Items	clothing/legs/2x4_legs_christmas_2018_male	2	4	True	Feet		True	False	False	
+legs_tribal_tamoe	Tamoe Skirt	Steam Items	clothing/legs/2x4_legs_tribal_tamoe_male	2	4	True	Feet		True	False	False	
+legs_summer	Vinicoti Holiday Wrap	Steam Items	clothing/legs/2x4_legs_summer_male	2	4	True	Feet		True	False	False	
+head_scarf			clothing/heads/2x2_head_scarf_male	2	2	True	Head		True	False	False	
+head_bandana			clothing/heads/2x2_head_bandana_male	2	2	True	Head		True	False	False	
+torse_squireVariantA			clothing/torsos/2x3_torso_squireVariantA_male	2	3	True	Body		True	False	False	
+torso_ponchoVariantB			clothing/torsos/2x3_torso_ponchoVariantB_male	2	3	True	Body		True	False	False	
+torso_engineer			clothing/torsos/2x3_torso_engineer_male	2	3	True	Body		True	False	False	
+torso_wanderer			clothing/torsos/2x3_torso_wanderer_male	2	3	True	Body		True	False	False	
+legs_boots			clothing/legs/2x4_legs_boots_male	2	4	True	Feet		True	False	False	
+legs_shorts			clothing/legs/2x4_legs_shorts_male	2	4	True	Feet		True	False	False	
+legs_wrap			clothing/legs/2x4_legs_wrap_male	2	4	True	Feet		True	False	False	
+legs_belts			clothing/legs/2x4_legs_belts_male	2	4	True	Feet		True	False	False	
+head_turban			clothing/heads/2x2_head_turban_male	2	2	True	Head		True	False	False	
+head_banditmask			clothing/heads/2x2_head_banditmask_male	2	2	True	Head		True	False	False	
+head_banditmaskpekoe			clothing/heads/2x2_head_banditmaskpekoe_male	2	2	True	Head		True	False	False	
+head_kitsunemask			clothing/heads/2x2_head_kitsunemask_male	2	2	True	Head		True	False	False	
+head_lallarahelm			clothing/heads/2x2_head_lallarahelm_male	2	2	True	Head		True	False	False	
+torso_bandages_ninja			clothing/torsos/2x3_torso_bandages_ninja_male	2	3	True	Body		True	False	False	
+torso_bandages_scales			clothing/torsos/2x3_torso_bandages_scales_male	2	3	True	Body		True	False	False	
+legs_goner			clothing/legs/2x4_legs_goner_male	2	4	True	Feet		True	False	False	
+head_metal			clothing/heads/2x2_head_metal_male	2	2	True	Head		True	False	False	
+head_artisan			clothing/heads/2x2_head_artisan_male	2	2	True	Head		True	False	False	
+head_gogglecap			clothing/heads/2x2_head_gogglecap_male	2	2	True	Head		True	False	False	
+head_hawkhelm			clothing/heads/2x2_head_hawkhelm_male	2	2	True	Head		True	False	False	
+head_owl			clothing/heads/2x2_head_owl_male	2	2	True	Head		True	False	False	
+head_horned	Horns		clothing/heads/4x2_head_horned_male	4	2	True	Head		True	False	False	
+head_merchant			clothing/heads/2x2_head_merchant_male	2	2	True	Head		True	False	False	
+head_ishgiruan_pilot			clothing/heads/2x2_head_ishgiruan_pilot_male	2	2	True	Head		True	False	False	
+head_navigator			clothing/heads/2x2_head_navigator_male	2	2	True	Head		True	False	False	
+head_moebius			clothing/heads/2x3_head_moebius_male	2	3	True	Head		True	False	False	
+head_rogue			clothing/heads/2x2_head_rogue_male	2	2	True	Head		True	False	False	
+head_pilotcap			clothing/heads/2x2_head_pilotcap_male	2	2	True	Head		True	False	False	
+torso_scales			clothing/torsos/2x3_torso_scales_male	2	3	True	Body		True	False	False	
+torso_engineerVariantA			clothing/torsos/2x3_torso_engineerVariantA_male	2	3	True	Body		True	False	False	
+torso_ishgiruan_pilot			clothing/torsos/2x3_torso_ishgiruan_pilot_male	2	3	True	Body		True	False	False	
+torso_combo			clothing/torsos/2x3_torso_combo_male	2	3	True	Body		True	False	False	
+torso_ishgiruan_pilot_variantA			clothing/torsos/2x3_torso_ishgiruan_pilot_variantA_male	2	3	True	Body		True	False	False	
+torso_ishgiruan_pilot_variantB			clothing/torsos/2x3_torso_ishgiruan_pilot_variantB_male	2	3	True	Body		True	False	False	
+torso_ponchoB			clothing/torsos/2x3_torso_ponchoB_male	2	3	True	Body		True	False	False	
+torso_ponchoBVariantA			clothing/torsos/2x3_torso_ponchoBVariantA_male	2	3	True	Body		True	False	False	
+torso_neckguard			clothing/torsos/2x3_torso_neckguard_male	2	3	True	Body		True	False	False	
+torso_squire			clothing/torsos/2x3_torso_squire_male	2	3	True	Body		True	False	False	
+torso_pirate			clothing/torsos/2x3_torso_pirate_male	2	3	True	Body		True	False	False	
+torso_pirateVariantA			clothing/torsos/2x3_torso_pirateVariantA_male	2	3	True	Body		True	False	False	
+torso_roman			clothing/torsos/2x3_torso_roman_male	2	3	True	Body		True	False	False	
+torso_cape			clothing/torsos/2x3_torso_cape_male	2	3	True	Body		True	False	False	
+legs_baggy			clothing/legs/2x4_legs_baggy_male	2	4	True	Feet		True	False	False	
+head_hunterwide			clothing/heads/2x2_head_hunterwide_male	2	2	True	Head		True	False	False	
+head_featherhat			clothing/heads/2x2_head_featherhat_male	2	2	True	Head		True	False	False	
+head_godhand			clothing/heads/2x2_head_godhand_male	2	2	True	Head		True	False	False	
+head_hoodcap			clothing/heads/2x2_head_hoodcap_male	2	2	True	Head		True	False	False	
+head_circlemask			clothing/heads/2x2_head_circlemask_male	2	2	True	Head		True	False	False	
+head_tank			clothing/heads/2x2_head_tank_male	2	2	True	Head		True	False	False	
+head_skullcap			clothing/heads/2x2_head_skullcap_male	2	2	True	Head		True	False	False	
+head_scarfhood			clothing/heads/2x2_head_scarfhood_male	2	2	True	Head		True	False	False	
+head_godhand_hood			clothing/heads/2x2_head_godhand_hood_male	2	2	True	Head		True	False	False	
+head_saborianmask_chevron			clothing/heads/2x2_head_saborianmask_chevron_male	2	2	True	Head		True	False	False	
+head_saborianmask_diamond			clothing/heads/2x2_head_saborianmask_diamond_male	2	2	True	Head		True	False	False	
+head_saborianmask_eyes			clothing/heads/2x2_head_saborianmask_eyes_male	2	2	True	Head		True	False	False	
+head_saborianmask_sharp_scarf			clothing/heads/2x2_head_saborianmask_sharp_scarf_male	2	2	True	Head		True	False	False	
+head_saborianmask_hoodscarf	Saborian Hood		clothing/heads/2x2_head_saborianmask_hoodscarf_male	2	2	True	Head		True	False	False	
+head_hood			clothing/heads/2x2_head_hood_male	2	2	True	Head		True	False	False	
+head_wrap			clothing/heads/2x2_head_wrap_male	2	2	True	Head		True	False	False	
+torso_wandererVariantA			clothing/torsos/2x3_torso_wandererVariantA_male	2	3	True	Body		True	False	False	
+torso_ponchoVariantA			clothing/torsos/2x3_torso_ponchoVariantA_male	2	3	True	Body		True	False	False	
+torso_saborianuniform_godhand			clothing/torsos/2x3_torso_saborianuniform_godhand_male	2	3	True	Body		True	False	False	
+torso_bandages			clothing/torsos/2x3_torso_bandages_male	2	3	True	Body		True	False	False	
+torso_poncho	Poncho	Clothing	clothing/torsos/2x3_torso_poncho_male	2	3	True	Body		True	True	False	
+torso_comboB			clothing/torsos/2x3_torso_comboB_male	2	3	True	Body		True	False	False	
+torso_saborianuniform_3pip			clothing/torsos/2x3_torso_saborianuniform_3pip_male	2	3	True	Body		True	False	False	
+torso_saborianuniform_2pip			clothing/torsos/2x3_torso_saborianuniform_2pip_male	2	3	True	Body		True	False	False	
+torso_saborianuniform_1pip			clothing/torsos/2x3_torso_saborianuniform_1pip_male	2	3	True	Body		True	False	False	
+torso_wrap			clothing/torsos/2x3_torso_wrap_male	2	3	True	Body		True	False	False	
+legs_saborianuniform			clothing/legs/2x4_legs_saborianuniform_male	2	4	True	Feet		True	False	False	
+legs_saborianuniform_stripe			clothing/legs/2x4_legs_saborianuniform_stripe_male	2	4	True	Feet		True	False	False	
+legs_shinpads			clothing/legs/2x4_legs_shinpads_male	2	4	True	Feet		True	False	False	
+legs_shortsVariantA			clothing/legs/2x4_legs_shortsVariantA_male	2	4	True	Feet		True	False	False	
+head_reaver_raiderB			clothing/heads/2x2_head_reaver_raiderB_male	2	2	True	Head		True	False	False	
+head_reaver_bandage			clothing/heads/2x2_head_reaver_bandage_male	2	2	True	Head		True	False	False	
+head_reaver_porcupineVariantB			clothing/heads/2x2_head_reaver_porcupineVariantB_male	2	2	True	Head		True	False	False	
+head_reaver_raider			clothing/heads/2x2_head_reaver_raider_male	2	2	True	Head		True	False	False	
+head_reaverscarf			clothing/heads/2x2_head_reaverscarf_male	2	2	True	Head		True	False	False	
+head_reaver			clothing/heads/2x2_head_reaver_male	2	2	True	Head		True	False	False	
+head_reaver_shark			clothing/heads/2x2_head_reaver_shark_male	2	2	True	Head		True	False	False	
+head_reaver_porcupine			clothing/heads/2x2_head_reaver_porcupine_male	2	2	True	Head		True	False	False	
+head_reaverscarf_VariantB			clothing/heads/2x2_head_reaverscarf_VariantB_male	2	2	True	Head		True	False	False	
+torso_reaver_paddedvariantC			clothing/torsos/2x3_torso_reaver_paddedvariantC_male	2	3	True	Body		True	False	False	
+torso_reaver_paddedvariantB			clothing/torsos/2x3_torso_reaver_paddedvariantB_male	2	3	True	Body		True	False	False	
+torso_reaver_paddedvariantA			clothing/torsos/2x3_torso_reaver_paddedvariantA_male	2	3	True	Body		True	False	False	
+torso_reaver_jacket			clothing/torsos/2x3_torso_reaver_jacket_male	2	3	True	Body		True	False	False	
+torso_reaver_jacket_variantB			clothing/torsos/2x3_torso_reaver_jacket_VariantB_male	2	3	True	Body		True	False	False	
+torso_reaver_bandage			clothing/torsos/2x3_torso_reaver_bandage_male	2	3	True	Body		True	False	False	
+legs_reaver_paddedVariantB			clothing/legs/2x4_legs_reaver_paddedVariantB_male	2	4	True	Feet		True	False	False	
+legs_reaver_paddedVariantA			clothing/legs/2x4_legs_reaver_paddedVariantA_male	2	4	True	Feet		True	False	False	

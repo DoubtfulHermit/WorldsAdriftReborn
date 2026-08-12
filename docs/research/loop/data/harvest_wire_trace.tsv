@@ -1,0 +1,20 @@
+step	direction	component_id	component	payload_or_event	authority	status_today	evidence
+0	server->client	1081	InventoryState	seed: 7 default items (4 gauntlet shells, glider, poncho, devhat), 10x18, hasBelt, beltRow 3	server	WORKS	ComponentsSerializer.cs:118-130 ; ItemHelper.cs:137-150
+0b	server->client	8051	ToolState	unlockedTools = 30 (Salvage|Scan|Repair|Build)	server	WORKS	ComponentsSerializer.cs:556-561 ; acs/ToolType.cs
+0c	server->client	1211	InteractAgentState	seed: useItemKeyHeld=true, lookingAt/lookingAtInteractive/debugLookingAt=EntityId(0), itemSlot=1, selectedHotbar=1	client (NOT GRANTED)	BROKEN	ComponentsSerializer.cs:184-194 ; MirrorSendPolicy.cs:125-132
+1	client-local	-	InteractAgentObserver.OnEnable	_pendingSlot=0 ; _input.Enabled=true	-	NEVER RUNS (1211 writer unresolved)	acs/Bossa.Prototype.Character.Observer/InteractAgentObserver.cs:167-179
+2	client-local	-	InteractAgentObserver.Update	CurrentItemSlot=0 -> published itemSlot = -2	-	NEVER RUNS	InteractAgentObserver.cs:229-282
+3	client-local	-	PlayerEquipmentVisualizer.OnHotbarSlotChanged(-2)	TryEquip(Multitool) ; Mode=Salvage	-	runs, receives seeded 1 -> TryEquip(null)	acs/PlayerEquipmentVisualizer.cs:45,48-56
+4	client-local	-	PlayerMultitool.Update	early-return unless Equippable.IsEquipped ; registers PlayerItem input sink	-	returns immediately	acs/PlayerMultitool.cs:190-196
+5a	client->server	1211	InteractAgentState	InteractWithObject{target, verb} on E key	client (NOT GRANTED)	MISSING GRANT	InteractAgentObserver.cs:341,400-408,451-454
+5b	client->server	1211	InteractAgentState	UseItemKeyPressed{target, lookDirection:Quaternion, itemSlot, sourcePosition:Coordinates} on LMB	client (NOT GRANTED)	MISSING GRANT + INPUT STEAL (see input_sink_priority.tsv)	InteractAgentObserver.cs:291-300 ; gencode UseItemKeyPressed.cs:18
+6a	client->server	2105	MultiToolPlayerState	ShotEntityEvent{EntityId, Vector3f relativeOffset}	client (NOT GRANTED, no seed branch)	MISSING	acs/PlayerMultitoolVisualizer.cs:26-27,92
+6b	client->server	2106	MultitoolSalvagerState	ShotEvent{EntityId, Coordinates, Vector3d}	client (NOT GRANTED, no seed branch)	MISSING	acs/PlayerMultitoolVisualizer.cs:29-30,93
+6c	client->server	2106	MultitoolSalvagerState	DeployedEvent{}	client (NOT GRANTED, no seed branch)	MISSING	acs/PlayerMultitoolVisualizer.cs:87-90
+6d	client->server	2002	MultitoolRepairerState	(no event; [Require] writer on the same MonoBehaviour as 6a/6b)	client (NOT GRANTED, no seed branch)	MISSING	acs/PlayerMultitoolVisualizer.cs:32-33
+7	server	-	yield decision	server invents amount+quality; client ships NO yield table	server ONLY	NOT IMPLEMENTED	acs/InventoryItemData.cs (9 fields, no rewards) ; zero 'rewards' hits in decompile
+8	server->client	1081	InventoryState	full replacement inventoryList with the new ScalaSlottedInventoryItem	server	NOT IMPLEMENTED (no harvest path)	gencode InventoryStateData.cs:26 ; InventoryVisualiser.cs:98,106-109,121-130
+9	server->client	8060	FeedbackListener	ReceiveSalvageFeedback{itemTypeId:string, quantity:int} -> HUD toast "Salvaged <name> x<N>"	server	SEEDED, NEVER TRIGGERED	ComponentsSerializer.cs:413-418 ; acs/FeedbackVisualizer.cs:24,41-43 ; acs/Travellers.UI.Feedback/FeedbackScreen.cs:139-141
+10	server->client	1210	InteractiveState	on the NODE: available/inUseBy/interactions/syncSchematics + Interact{verb, playerEntityId, characterUid}	server	NO SEED BRANCH	gencode InteractiveStateData.cs:9-22 ; Interact.cs:8-11
+11	server->client	12283	MetalRockCrustState	shotPoints (GROWING list), exploded, coreId, depositId - the depletion tell	server	NO SEED BRANCH	gencode MetalRockCrustStateData.cs (per findings-node-relay, not re-verified here)
+12	persistence	-	-	inventory written to a store keyed by character uid	server	DOES NOT EXIST	no InventoryStore anywhere; ComponentsSerializer.cs:636-641 replaces the stored refId on every re-seed
