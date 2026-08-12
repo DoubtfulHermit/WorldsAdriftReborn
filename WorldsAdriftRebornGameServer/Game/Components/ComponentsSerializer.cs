@@ -1553,12 +1553,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             // held cleared, attachedTo = the hull (safe default, see spec 3.4).
                             // prefab/attach/title/itemType come from the mount record so the
                             // client still loads the right prefab. attachPos is the hull-local
-                            // offset in metres; attachRot is identity (the part's facing rides
-                            // its "~" parent). Re-seeds the exact attach the 1070 commit made.
+                            // offset in metres.
+                            //
+                            // attachRot: the PLACED hull-local rotation, decoded from the mount
+                            // record's packed 32-bit form - NOT the identity it used to hard-code.
+                            // The visible facing of a "~"-follow part is driven by the 190602
+                            // localRotation (FixedUpdateLerpLocalTransformBehaviour composes
+                            // hull.rotation * localRotation, MoveTransform:245-252), which the
+                            // re-seed above already honors via mountedPartRotation, and the live
+                            // 1070 commit's own 1120 already carried the placed rotation - so this
+                            // only makes the RE-CHECKOUT 1120 self-consistent with the 190602
+                            // beside it (a served 1120 whose attachRot disagreed with the 190602
+                            // was the "served component snaps the rotation back" suspect). Decode
+                            // is the exact inverse of the Encode the commit packed with, and the
+                            // sentinel decodes to identity, so an unrotated mount is unchanged.
+                            // Still checkout-only: NOT a new stream, NOT a re-seed of a live part.
                             Game.Crafting.MountedParts.Mount mp = mountedPart.Value;
                             Improbable.Math.Vector3f attachPos = new Improbable.Math.Vector3f(
                                 (float)mp.LocalOffset.MetresX, (float)mp.LocalOffset.MetresY, (float)mp.LocalOffset.MetresZ);
-                            Improbable.Corelib.Math.Quaternion attachRot = new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0);
+                            (float rw, float rx, float ry, float rz) =
+                                Multiplayer.Placement.Quaternion32Packing.Decode(mp.PackedRotation);
+                            Improbable.Corelib.Math.Quaternion attachRot =
+                                new Improbable.Corelib.Math.Quaternion(rw, rx, ry, rz);
                             obj = new ShipPartState.Data(
                                 true,                                   // attached
                                 new EntityId(mp.AttachedToEntityId),    // attachedTo (the hull)

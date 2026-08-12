@@ -202,6 +202,99 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Null(BuiltShipPlacement.HullKeyForDeckKey(null));
         }
 
+        // ------------------------------------------------------------------
+        // BUG 1: the mount SURFACE a part's attachmentType selects. A helm must
+        // resolve to the DECK surface (the walkable Deck01 collider the built ship
+        // presents) so it can be placed across the whole deck - the old best-guess
+        // "shipSurfaces" resolved to the Environment layer, which never hits that
+        // deck, so the helm only landed on one incidental spot. This is the pure
+        // mirror of the client's GetAttachmentType + DeterminePlacementType.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_helm_mounts_on_the_ship_deck_surface_not_a_generic_surface()
+        {
+            // The regression fix: the catalogue helm is authored "deck", which resolves
+            // to the ShipDeck surface the client raycasts against the solid deck collider.
+            string helmAttachment = LoosePartCatalogue.ForSchematic("helm")!.AttachmentType;
+
+            Assert.Equal("deck", helmAttachment);
+            Assert.Equal(PartMountSurface.ShipDeck, PartMountSurfaces.ForAttachmentType(helmAttachment));
+            Assert.True(PartMountSurfaces.MountsOnDeckSurface(helmAttachment));
+        }
+
+        [Fact]
+        public void The_old_shipSurfaces_guess_would_not_reach_the_deck_collider()
+        {
+            // Documents WHY "helm only mounts in one spot": a "shipSurfaces" part resolves
+            // to the ShipSurfaces (Environment-layer, no-tag) raycast, which does NOT hit
+            // the ShipAttachmentSolid "ShipDeck" collider our built deck presents.
+            Assert.Equal(PartMountSurface.ShipSurfaces, PartMountSurfaces.ForAttachmentType("shipSurfaces"));
+            Assert.False(PartMountSurfaces.MountsOnDeckSurface("shipSurfaces"));
+        }
+
+        [Theory]
+        [InlineData("deck", PartMountSurface.ShipDeck)]
+        [InlineData("deckForward", PartMountSurface.ShipDeck)]
+        [InlineData("side", PartMountSurface.ShipSide)]
+        [InlineData("engine", PartMountSurface.ShipSide)]
+        [InlineData("wing", PartMountSurface.ShipSide)]
+        [InlineData("deckGrid", PartMountSurface.DeckGrid)]
+        [InlineData("shipSurfaces", PartMountSurface.ShipSurfaces)]
+        [InlineData("coreModule", PartMountSurface.CoreModule)]
+        [InlineData("none", PartMountSurface.None)]
+        [InlineData("nonsense", PartMountSurface.None)]
+        [InlineData(null, PartMountSurface.None)]
+        public void Attachment_type_resolves_to_the_client_surface(string? attachmentType, PartMountSurface expected)
+        {
+            // Pins the string -> surface map against the decompiled client
+            // (BuilderVisualizer.GetAttachmentType + ShipPartPlacement.DeterminePlacementType),
+            // so a future catalogue edit that mis-authors a surface fails here.
+            Assert.Equal(expected, PartMountSurfaces.ForAttachmentType(attachmentType));
+        }
+
+        // ------------------------------------------------------------------
+        // BUG 2 coherence: a mounted part's placed rotation survives the pack/unpack
+        // the 190602 and the re-checkout 1120 both use, so the served attach state is
+        // self-consistent (the 1120 re-seed no longer disagrees with the 190602 beside
+        // it). The visible facing is driven by the 190602 "~" localRotation; this pins
+        // that the SAME rotation the commit packed decodes back to a real (non-identity)
+        // quaternion for the 1120 re-seed, never snapping to identity.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_mounted_yaw_round_trips_through_the_packed_form_for_the_reseed()
+        {
+            // 90-degree yaw about +Y, packed exactly as the mount commit packs it, then
+            // decoded exactly as the 1120 re-seed now decodes it: it must come back a
+            // non-identity rotation, not collapse to (1,0,0,0).
+            double half = 90.0 * System.Math.PI / 180.0 / 2.0;
+            float w = (float)System.Math.Cos(half);
+            float y = (float)System.Math.Sin(half);
+
+            uint packed = Quaternion32Packing.Encode(w, 0f, y, 0f);
+            (float dw, float dx, float dy, float dz) = Quaternion32Packing.Decode(packed);
+
+            // Not identity - the placed facing is preserved for the re-checkout attach.
+            Assert.False(System.Math.Abs(dw - 1f) < 1e-4 && System.Math.Abs(dx) < 1e-4
+                && System.Math.Abs(dy) < 1e-4 && System.Math.Abs(dz) < 1e-4);
+            // And close to the yaw we placed (smallest-three has ~1e-3 precision).
+            Assert.True(System.Math.Abs(dw - w) < 0.01, "w=" + dw);
+            Assert.True(System.Math.Abs(dy - y) < 0.01, "y=" + dy);
+        }
+
+        [Fact]
+        public void An_unrotated_mount_reseed_decodes_to_identity()
+        {
+            // The sentinel an unrotated placement packs to must decode back to identity,
+            // so the 1120 re-seed of a north-facing part is byte-identical to the old code.
+            (float dw, float dx, float dy, float dz) = Quaternion32Packing.Decode(Quaternion32Packing.Identity);
+            Assert.Equal(1f, dw);
+            Assert.Equal(0f, dx);
+            Assert.Equal(0f, dy);
+            Assert.Equal(0f, dz);
+        }
+
         [Fact]
         public void The_mounted_part_rides_via_the_relative_slot_not_a_unity_child()
         {

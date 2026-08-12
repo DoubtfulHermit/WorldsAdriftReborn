@@ -137,7 +137,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // --- Basics: helm / sail / deck -------------------------------------
             // Helm renders + lifts on base 7; HelmVisualizer needs the ship's 1111,
             // not a loose-part component, so no functional id here.
-            new Row("helm",  "basics", "Helm", "Helm01", "shipSurfaces", new uint[] { }),
+            //
+            // attachmentType "deck" (NOT the former best-guess "shipSurfaces"): a helm
+            // mounts on the DECK, exactly as retail. The value decides WHICH ship surface
+            // the unmodified client raycasts when the helm is lifted (BuilderVisualizer
+            // .GetAttachmentType -> ShipPartPlacement.DeterminePlacementType, decompiled):
+            //   * "deck" -> PlacementLocationType.ShipDeck -> raycast mask Layers
+            //     .ShipAttachmentSolid, tag "ShipDeck" (PlacementPreview.GetMask:449,
+            //     GetTag:434). That is EXACTLY the surface our built-ship deck (Deck01,
+            //     Multiplayer.Deck) presents as a solid BoxCollider, so the helm can be
+            //     placed ACROSS THE WHOLE DECK - and the ShipDeck path derives a STABLE,
+            //     ship-aligned base rotation (PlacementPreview.PositionOnShip:757-761), so
+            //     an interactive Z-rotate composes cleanly and holds.
+            //   * the old "shipSurfaces" -> PlacementLocationType.ShipSurfaces -> raycast
+            //     mask Layers.Environment with an EMPTY tag (GetMask:457, GetTag:438),
+            //     which NEVER hits the ShipAttachmentSolid deck. The helm then only landed
+            //     on whatever single incidental Environment-layer collider the ship exposed
+            //     ("helm only mounts in ONE spot"), and that generic-surface path re-derives
+            //     its base rotation from the raw hit normal every frame (PositionOnShip:
+            //     784-792), so a Z-rotate visibly twitched and snapped back.
+            // The server's own mount gate already accepts a built-deck target (PartMount
+            // + PartMountService.TargetIsChildOfShip); the missing half was authoring the
+            // deck surface here so the client raycasts it. See PartMountSurfaces.
+            new Row("helm",  "basics", "Helm", "Helm01", "deck", new uint[] { }),
             // Sail: 1303 SailState wakes SailVisualizer/SailBehaviour (unfurled=false,
             // no cloth force at rest); the ctor is a bool+float and OnEnable only
             // subscribes, so it is crash-safe. Served by a new 1303 branch.

@@ -307,6 +307,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal("shipSurfaces", lamp.AttachmentType);
         }
 
+        [Fact]
+        public void Helm_mounts_on_the_deck_surface()
+        {
+            // Regression pin (BUG 1): a helm is a DECK part, so its attachmentType must be
+            // "deck" - which the client resolves to the ShipDeck raycast surface (the solid
+            // Deck01 collider), placeable across the whole deck. The former best-guess
+            // "shipSurfaces" resolved to the Environment layer and only landed on one spot.
+            var helm = LoosePartCatalogue.ForSchematic("helm")!;
+            Assert.Equal("deck", helm.AttachmentType);
+            Assert.Equal(PartMountSurface.ShipDeck, PartMountSurfaces.ForAttachmentType(helm.AttachmentType));
+        }
+
         // --- Placement -----------------------------------------------------------
 
         [Fact]
