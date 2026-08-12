@@ -99,14 +99,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             bool isDeployable = Deployables.TryGet(itemType, out DeployableDef def);
             string expectedType = isDeployable ? itemType! : PlacementService.NotADeployable;
 
-            // A generic crafting station (the Assembly Station) is legitimately placed
-            // ONTO a ship deck: its 1017 carries that deck/hull entity as the parent
-            // because the client preview raycast snapped to that surface. The server
-            // still spawns it parentless at the event's GLOBAL position, so it accepts
-            // the parent and then ignores it. The shipyard stays strictly parentless -
-            // it is a ground structure, and that invariant is what stops a client
-            // spawning one welded to a ship.
-            bool parentAllowed = isDeployable && def.IsCraftingStation;
+            // ANY deployable's 1017 can carry a parent entity: the client preview
+            // raycast snaps to whatever surface it's aimed at (bare ground -> parent 0,
+            // but an assembly station / ship deck / another prop nearby -> that entity).
+            // The server ALWAYS spawns the deployable parentless at the event's GLOBAL
+            // position, so the parent is purely informational - accept it and ignore it.
+            // (A too-strict parentless rule made the shipyard un-placeable near any other
+            // entity, e.g. next to the assembly station: parent snapped to it -> reject.)
+            bool parentAllowed = isDeployable;
 
             PlacementDecision decision = PlacementPolicy.Evaluate(
                 itemType,
