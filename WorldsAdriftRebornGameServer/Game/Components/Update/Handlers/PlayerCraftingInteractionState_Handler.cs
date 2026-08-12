@@ -405,8 +405,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // the client's SyncCraftingItems throws IndexOutOfRange and the station wedges
             // mid-animation (StationCraftPushPlan / CraftingStatePush).
             int requirementCount = record.CraftingRequirements.Count;
-            CraftingStatePush startPush = StationCraftPushPlan.Start(pushTarget, requirementCount, seconds);
-            CraftingStatePush donePush = StationCraftPushPlan.Complete(pushTarget, requirementCount);
+            CraftingStatePush startPush = StationCraftPushPlan.Start(pushTarget, requirementCount, seconds, schematicId);
+            CraftingStatePush donePush = StationCraftPushPlan.Complete(pushTarget, requirementCount, schematicId);
             try
             {
                 InventoryModel model = InventoryService.ForEntity(entityId);
@@ -484,10 +484,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // be empty - and an empty list throws IndexOutOfRange in the client's
                     // CraftingStationData.SyncCraftingItems, aborting OnCraftingCompleted before
                     // it closes the aperture, stops the atomizer and unlocks the station.
+                    //
+                    // THE FIX for "detail blank after one craft": the COMPLETE push must carry the
+                    // SAME crafted schematicId as START (clientSchematicIdOverride: donePush.SchematicId),
+                    // NOT the "" that ReturnToIdle would otherwise make PushCraftingState send. Keeping
+                    // it identical means the client's ClientSchematicIdUpdated never fires on completion,
+                    // so its loaded schematic can never be cleared mid-completion; SyncCraftingItems then
+                    // always recomputes AllSlotsAreEmptyRemotely=true and the schematic list's input
+                    // blocker lifts, so the next schematic click re-populates the recipe detail. The
+                    // server session is still fully idled above (ReturnToIdle) - only the wire keeps the
+                    // recipe selected, and a later open re-asserts idle (ShouldResetToIdleOnOpen).
                     PushCraftingState(player, donePush.Target, session,
                         update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)),
                         itemReadyInSeconds: donePush.ItemReadyInSeconds,
-                        minSlotCount: donePush.SlotCount);
+                        minSlotCount: donePush.SlotCount,
+                        clientSchematicIdOverride: donePush.SchematicId);
                 }
 
                 Console.WriteLine("[info] entity " + entityId + " COMPLETED station craft of loose part '"
@@ -520,7 +531,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         private static void PushCraftingState( ENetPeerHandle player, long pushTarget, CraftSession session,
             Action<CraftingStationClientState.Update>? addEvents = null,
             int itemReadyInSeconds = -1,
-            int minSlotCount = 0 )
+            int minSlotCount = 0,
+            string? clientSchematicIdOverride = null )
         {
             Improbable.Collections.List<SlottedMaterial> slotted = new Improbable.Collections.List<SlottedMaterial>();
 
@@ -541,8 +553,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 slotted.Add(new SlottedMaterial(i, rawMaterial, hold.Amount, new Option<RawMaterial>()));
             }
 
+            // clientSchematicId normally mirrors the session's selected recipe. The station
+            // timed-craft COMPLETE push overrides it with the crafted id so the completion never
+            // blanks the client's loaded schematic (see the "detail blank after one craft" fix in
+            // HandleStartStationCrafting) even though the server session has already been idled.
             CraftingStationClientState.Update update = new CraftingStationClientState.Update();
-            update.SetClientSchematicId(session.SchematicId ?? "");
+            update.SetClientSchematicId(clientSchematicIdOverride ?? session.SchematicId ?? "");
             update.SetSchematicOwner("");
             update.SetSlottedMaterials(slotted);
             // -1 = closed countdown (aperture shut); a POSITIVE value holds the aperture open

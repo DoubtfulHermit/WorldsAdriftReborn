@@ -35,13 +35,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         /// <summary>How many SlottedMaterial entries the wire list must carry - one per recipe requirement, at START AND COMPLETE.</summary>
         public int SlotCount { get; }
 
-        public CraftingStatePush(long target, int itemReadyInSeconds, bool craftingStarted, bool craftingCompleted, int slotCount)
+        /// <summary>
+        /// The clientSchematicId this push must carry on the station's 1005. It is the SAME
+        /// crafted recipe at START AND COMPLETE, deliberately: see the class remarks
+        /// ("the second wedge"). The COMPLETE push must NOT blank it to "".
+        /// </summary>
+        public string SchematicId { get; }
+
+        public CraftingStatePush(long target, int itemReadyInSeconds, bool craftingStarted, bool craftingCompleted, int slotCount, string schematicId)
         {
             Target = target;
             ItemReadyInSeconds = itemReadyInSeconds;
             CraftingStarted = craftingStarted;
             CraftingCompleted = craftingCompleted;
             SlotCount = slotCount;
+            SchematicId = schematicId ?? "";
         }
     }
 
@@ -57,9 +65,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
     ///   * BOTH pushes carry one SlottedMaterial per requirement - a shorter (empty) COMPLETE
     ///     list throws IndexOutOfRange in the client's SyncCraftingItems and aborts
     ///     OnCraftingCompleted before it can stop the animation (see <see cref="CraftingStatePush"/>).
+    ///   * BOTH pushes carry the SAME crafted <c>schematicId</c> - the COMPLETE push must NOT
+    ///     blank clientSchematicId to "". This is THE SECOND WEDGE ("craft one, then every
+    ///     schematic click leaves the detail on 'Choose a schematic to craft'"): the station
+    ///     UI's schematic list raises its input blocker whenever <c>IsCurrentlyCrafting()</c>
+    ///     is true, and that is <c>CraftingInProgress || !AllSlotsAreEmptyRemotely ||
+    ///     !allSlotsEmptyLocally</c> (SchematicList.cs). <c>AllSlotsAreEmptyRemotely</c> is only
+    ///     recomputed by <c>CraftingStationData.SyncCraftingItems</c>, which EARLY-RETURNS when
+    ///     <c>!HasLoadedSchematic</c>. If the COMPLETE push blanks clientSchematicId, the
+    ///     client's <c>ClientSchematicIdUpdated("")</c> fires <c>LoadSchematic(null)</c> and can
+    ///     clear the loaded schematic in the same update that finishes the craft; SyncCraftingItems
+    ///     then skips the recompute and <c>AllSlotsAreEmptyRemotely</c> stays FALSE from the start
+    ///     push - so the input blocker never lifts and every later schematic click is eaten. By
+    ///     keeping the SAME schematicId on both pushes, the completion's ClientSchematicIdUpdated
+    ///     never fires (no change), <c>HasLoadedSchematic</c> stays true through the completion,
+    ///     SyncCraftingItems always recomputes <c>AllSlotsAreEmptyRemotely = true</c>, and the
+    ///     station returns to a fully interactive idle. The server session is still idled
+    ///     (CraftSession.ReturnToIdle) so the NEXT open/select starts clean; only the WIRE keeps
+    ///     the recipe visible. Deterministic - independent of SpatialOS callback ordering.
     ///
-    /// Dependency-free (longs and ints only), so it unit-tests natively - no game install,
-    /// no wire.
+    /// Dependency-free (longs, ints and a string id), so it unit-tests natively - no game
+    /// install, no wire.
     /// </summary>
     public static class StationCraftPushPlan
     {
@@ -74,17 +100,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         /// <summary>
         /// The START push: hold the aperture open for <paramref name="seconds"/> (a positive
         /// served countdown) and fire CraftingStarted, with one slot per requirement so the
-        /// station shows the filled slots while it works.
+        /// station shows the filled slots while it works, carrying the crafted
+        /// <paramref name="schematicId"/> on clientSchematicId.
         /// </summary>
-        public static CraftingStatePush Start(long target, int requirementCount, int seconds) =>
-            new CraftingStatePush(target, seconds, craftingStarted: true, craftingCompleted: false, slotCount: requirementCount);
+        public static CraftingStatePush Start(long target, int requirementCount, int seconds, string schematicId) =>
+            new CraftingStatePush(target, seconds, craftingStarted: true, craftingCompleted: false, slotCount: requirementCount, schematicId: schematicId);
 
         /// <summary>
         /// The COMPLETE push: close the aperture (<see cref="ClosedCountdown"/>) and fire
         /// CraftingCompleted, STILL carrying one slot per requirement - the fix for the
-        /// stuck-animation IndexOutOfRange. Same target as <see cref="Start"/>.
+        /// stuck-animation IndexOutOfRange - AND STILL carrying the SAME crafted
+        /// <paramref name="schematicId"/> as <see cref="Start"/> (never "") - the fix for the
+        /// "detail blank after one craft" wedge (see class remarks). Same target as
+        /// <see cref="Start"/>.
         /// </summary>
-        public static CraftingStatePush Complete(long target, int requirementCount) =>
-            new CraftingStatePush(target, ClosedCountdown, craftingStarted: false, craftingCompleted: true, slotCount: requirementCount);
+        public static CraftingStatePush Complete(long target, int requirementCount, string schematicId) =>
+            new CraftingStatePush(target, ClosedCountdown, craftingStarted: false, craftingCompleted: true, slotCount: requirementCount, schematicId: schematicId);
     }
 }
