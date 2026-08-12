@@ -391,7 +391,19 @@ namespace WorldsAdriftRebornGameServer
         /// chopped half of it must be told what is actually standing, not what the
         /// prefab was authored with.
         /// </summary>
-        internal static readonly TreeHarvest Harvest = new TreeHarvest(ServerClock);
+        /// <remarks>
+        /// The regrowth delay is tunable without a rebuild via
+        /// <c>WAREBORN_TREE_RESPAWN_SECONDS</c> (a bad value falls back to
+        /// <see cref="TreeHarvest.DefaultRespawnDelay"/> rather than refusing to
+        /// boot). Set it to <see cref="TreeHarvest.UnderstormCadence"/>'s 6300 to
+        /// approximate retail's ~1.75 h world reset - though see that field for why
+        /// a per-tree timer is a different shape from retail's global understorm.
+        /// </remarks>
+        internal static readonly TreeHarvest Harvest = new TreeHarvest(
+            ServerClock,
+            cutInterval: null,
+            respawnDelay: TreeHarvest.ParseRespawnDelay(
+                Environment.GetEnvironmentVariable("WAREBORN_TREE_RESPAWN_SECONDS")));
 
         /// <summary>
         /// Once per main-loop turn: applies every cut whose timer has elapsed
@@ -1867,13 +1879,23 @@ namespace WorldsAdriftRebornGameServer
                 // of the same prefab is planted too, and idempotent so the second
                 // player walking this same step does not stand the tree back up:
                 // every client walks the identical plan, but there is one tree.
-                if (entity.AssetName == Multiplayer.Trees.AssetName
-                    && Harvest.Plant(entityId, Multiplayer.Trees.Topology(), Multiplayer.Trees.WoodType))
+                // The SPECIES decides the wood, recovered per prefab from the shipped
+                // _unityworker exports (Multiplayer.TreeSpecies, 65/65 mapped). Retail
+                // gave each tree type its own wood with its own weight and strength,
+                // so the yield is looked up per tree rather than being one constant -
+                // `Tree` is birch, and a palm placed later pays palm without a code
+                // change. The TOPOLOGY is still `Tree`'s: only that prefab's TreeBase
+                // has been parsed, and cutting another skeleton with it would produce
+                // a mask the client disagrees with (see TreeSpecies remarks). That is
+                // why the world places `Tree` today.
+                string? treeWood = Multiplayer.TreeSpecies.WoodFor(entity.AssetName);
+                if (treeWood != null
+                    && Harvest.Plant(entityId, Multiplayer.Trees.Topology(), treeWood))
                 {
                     Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
                         + ": " + Multiplayer.Trees.SectionCount + " sections, mask "
                         + Convert.ToString(Multiplayer.Trees.FullSectionMask, 2)
-                        + ", " + Multiplayer.Trees.WoodType + ".");
+                        + ", " + treeWood + ".");
                 }
 
                 // A metal node becomes an entry in the harvest ledger the moment it

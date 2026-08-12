@@ -218,6 +218,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static readonly TimeSpan DefaultRespawnDelay = TimeSpan.FromMinutes(5);
 
+        /// <summary>
+        /// HOW THIS RELATES TO RETAIL'S "UNDERSTORM". Retail did not regrow each
+        /// tree on its own clock: the world reset on a GLOBAL cadence of roughly
+        /// 1.5-2 hours, an understorm sweeping through and replacing resources
+        /// (worldsadrift.fandom.com/wiki/Resources). That is a different SHAPE from
+        /// what this class does, not merely a different number - one synchronized
+        /// world-wide event versus N independent per-tree timers - and the
+        /// difference is player-visible: retail let you strip an area bare and know
+        /// it stayed bare until the storm, where this heals each tree quietly on its
+        /// own schedule.
+        ///
+        /// The per-tree timer is what this server can honestly do today, because
+        /// there is no weather/world-event system to hang a global reset on (the
+        /// whole weather pillar is unserved). If an understorm is ever built, tree
+        /// regrowth should STOP using its own delay and ride that event instead:
+        /// the seam is exactly <see cref="DueRespawns"/>, which would become
+        /// "reset every stand" called by the storm rather than "reset the stands
+        /// whose timers elapsed". <see cref="UnderstormCadence"/> is that cadence,
+        /// recorded here so the eventual global system has the number and so the
+        /// operator can approximate it today by setting the delay to it.
+        /// </summary>
+        public static readonly TimeSpan UnderstormCadence = TimeSpan.FromMinutes(105);
+
+        /// <summary>
+        /// Reads a respawn delay from an operator-supplied string (the
+        /// <c>WAREBORN_TREE_RESPAWN_SECONDS</c> knob), or null to accept
+        /// <see cref="DefaultRespawnDelay"/>.
+        ///
+        /// Whole seconds, invariant culture, and anything unparseable or
+        /// non-positive returns null rather than throwing: a typo in an environment
+        /// variable must not stop a server booting, and the caller logs what it
+        /// settled on. Seconds rather than minutes because the useful range spans
+        /// "30 for testing the loop" to "6300 for retail's understorm cadence".
+        /// </summary>
+        public static TimeSpan? ParseRespawnDelay(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            if (!double.TryParse(raw.Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+            {
+                return null;
+            }
+
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds <= 0)
+            {
+                return null;
+            }
+
+            return TimeSpan.FromSeconds(seconds);
+        }
+
         private sealed class Stand
         {
             public Stand(TreeTopology topology, string woodType)

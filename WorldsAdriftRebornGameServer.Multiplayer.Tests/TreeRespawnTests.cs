@@ -309,6 +309,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 () => new TreeHarvest(new FakeClock(), Interval, TimeSpan.FromSeconds(-1)));
         }
 
+        // ------------------------------------------------------------------
+        // The operator knob (WAREBORN_TREE_RESPAWN_SECONDS)
+        // ------------------------------------------------------------------
+
+        [Theory]
+        [InlineData("30", 30)]
+        [InlineData("300", 300)]
+        [InlineData(" 90 ", 90)]
+        [InlineData("6300", 6300)]   // retail's ~1.75 h understorm cadence
+        [InlineData("0.5", 0.5)]
+        public void A_valid_respawn_knob_is_read_in_seconds(string raw, double seconds)
+        {
+            Assert.Equal(TimeSpan.FromSeconds(seconds), TreeHarvest.ParseRespawnDelay(raw));
+        }
+
+        [Theory]
+        [InlineData(null)]
+        [InlineData("")]
+        [InlineData("   ")]
+        [InlineData("soon")]
+        [InlineData("5 minutes")]
+        [InlineData("0")]
+        [InlineData("-30")]
+        [InlineData("NaN")]
+        [InlineData("Infinity")]
+        public void A_bad_or_absent_respawn_knob_falls_back_rather_than_stopping_the_boot(string? raw)
+        {
+            // A typo in an environment variable must never be the reason a server
+            // refuses to start; null means "use the default".
+            Assert.Null(TreeHarvest.ParseRespawnDelay(raw));
+        }
+
+        [Fact]
+        public void The_knob_is_culture_invariant()
+        {
+            // A German-locale host must not read "1.5" as fifteen.
+            Assert.Equal(TimeSpan.FromSeconds(1.5), TreeHarvest.ParseRespawnDelay("1.5"));
+        }
+
+        [Fact]
+        public void An_unset_knob_leaves_the_default_delay_in_force()
+        {
+            TreeHarvest harvest = new TreeHarvest(new FakeClock(), null, TreeHarvest.ParseRespawnDelay(null));
+            Assert.Equal(TreeHarvest.DefaultRespawnDelay, harvest.RespawnDelay);
+        }
+
+        [Fact]
+        public void Retails_understorm_cadence_is_recorded_as_one_and_three_quarter_hours()
+        {
+            // Retail reset the world globally every ~1.5-2 h. Recorded so the
+            // eventual global system has the number; see the field's remarks for why
+            // a per-tree timer is a different shape from that storm.
+            Assert.Equal(TimeSpan.FromMinutes(105), TreeHarvest.UnderstormCadence);
+        }
+
         private static int Outermost(TreeTopology topology, int mask)
         {
             for (int s = topology.SectionCount - 1; s >= 0; s--)
