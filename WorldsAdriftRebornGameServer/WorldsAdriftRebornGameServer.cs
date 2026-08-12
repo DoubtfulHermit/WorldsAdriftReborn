@@ -394,28 +394,11 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly TreeHarvest Harvest = new TreeHarvest(ServerClock);
 
         /// <summary>
-        /// Applies every cut whose timer has elapsed and tells the clients.
-        ///
-        /// TWO RULES, both of which cost a debugging round elsewhere in this file
-        /// if broken:
-        ///
-        /// 1. The update is pushed to each peer DIRECTLY, never through
-        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
-        ///    player's update about THEMSELVES and substitutes the sender's own
-        ///    entity id for the address; routed through it, a tree's mask change
-        ///    would arrive addressed to whoever happened to be chopping, and the
-        ///    tree would never change on anyone's screen.
-        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
-        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
-        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
-        ///    audio loop on the true edge. Sending the whole component every 0.75 s
-        ///    would also re-assert sectionCount and massPerSection at the client
-        ///    for no reason. One field changed, one field sent.
-        ///
-        /// Peers that have not been served the tree's 1036 are skipped: an update
-        /// for a component a client does not hold is at best ignored, and the
-        /// ComponentMap lookup that establishes it is the same one the update path
-        /// uses, so this cannot disagree with reality.
+        /// Once per main-loop turn: applies every cut whose timer has elapsed
+        /// (telling the clients and granting the wood), then stands back up every
+        /// tree whose regrowth delay has elapsed. Both talk to the clients through
+        /// the one <see cref="PushTreeSectionMask"/> seam, whose doc carries the two
+        /// rules a tree mask push must never break.
         /// </summary>
         private static void TickTreeHarvest()
         {
@@ -423,30 +406,7 @@ namespace WorldsAdriftRebornGameServer
             {
                 Console.WriteLine("[info] " + change + ".");
 
-                foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
-                {
-                    if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
-                        || !byEntity.TryGetValue(change.TreeEntityId, out Dictionary<uint, ulong>? byComponent)
-                        || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
-                    {
-                        continue;
-                    }
-
-                    Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
-                        new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(change.SectionMask);
-
-                    // Keep this peer's stored component in step with what it has
-                    // just been told, so a later re-serve of 1036 from the stored
-                    // object cannot resurrect a felled section.
-                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
-                    {
-                        maskOnly.ApplyTo(stored);
-                    }
-
-                    SendOPHelper.SendComponentUpdateOp(peer, change.TreeEntityId,
-                        new List<uint> { TreeFSimStateComponentId },
-                        new List<object> { maskOnly });
-                }
+                PushTreeSectionMask(change.TreeEntityId, change.SectionMask);
 
                 // ------------------------------------------------------------------
                 // INVENTORY GRANT SEAM (Phase 5.4). The empty comment that used to
@@ -471,6 +431,75 @@ namespace WorldsAdriftRebornGameServer
                     change.WoodType,
                     change.SectionsFelled,
                     "tree " + change.TreeEntityId + " section " + change.SectionId);
+            }
+
+            // ----------------------------------------------------------------------
+            // REGROWTH (P1-9). A tree chopped and then left alone grows its sections
+            // back after Harvest's respawn delay, so the island stops deforesting
+            // permanently. This is the SAME wire move as a cut - a 1036 sectionMask
+            // push - only the mask climbs back to full instead of shrinking, so the
+            // client reactivates the sections (TreeVisualizer re-inits off the mask)
+            // and plays NOTHING (TreeClientVisualizer's break effect fires only on
+            // bits LEAVING the mask). No wood is granted: regrowth is not a harvest,
+            // so there is no CutterEntityId and no HarvestReward.Award here.
+            foreach (TreeRespawn respawn in Harvest.DueRespawns())
+            {
+                Console.WriteLine("[info] " + respawn + ".");
+                PushTreeSectionMask(respawn.TreeEntityId, respawn.SectionMask);
+            }
+        }
+
+        /// <summary>
+        /// Pushes one tree's new <c>1036 sectionMask</c> to every peer that holds
+        /// the tree's 1036 - the shared move behind both a cut (mask shrinks) and a
+        /// respawn (mask climbs back to full).
+        ///
+        /// TWO RULES, both of which cost a debugging round elsewhere in this file
+        /// if broken:
+        ///
+        /// 1. The update is pushed to each peer DIRECTLY, never through
+        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
+        ///    player's update about THEMSELVES and substitutes the sender's own
+        ///    entity id for the address; routed through it, a tree's mask change
+        ///    would arrive addressed to whoever happened to be chopping, and the
+        ///    tree would never change on anyone's screen.
+        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
+        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
+        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
+        ///    audio loop on the true edge. Sending the whole component would also
+        ///    re-assert sectionCount and massPerSection at the client for no reason.
+        ///    One field changed, one field sent.
+        ///
+        /// Peers that have not been served the tree's 1036 are skipped: an update
+        /// for a component a client does not hold is at best ignored, and the
+        /// ComponentMap lookup that establishes it is the same one the update path
+        /// uses, so this cannot disagree with reality.
+        /// </summary>
+        private static void PushTreeSectionMask(long treeEntityId, int newMask)
+        {
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                    || !byEntity.TryGetValue(treeEntityId, out Dictionary<uint, ulong>? byComponent)
+                    || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
+                {
+                    continue;
+                }
+
+                Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
+                    new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(newMask);
+
+                // Keep this peer's stored component in step with what it has just
+                // been told, so a later re-serve of 1036 from the stored object
+                // cannot resurrect a felled section (or drop a regrown one).
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
+                {
+                    maskOnly.ApplyTo(stored);
+                }
+
+                SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
+                    new List<uint> { TreeFSimStateComponentId },
+                    new List<object> { maskOnly });
             }
         }
 
