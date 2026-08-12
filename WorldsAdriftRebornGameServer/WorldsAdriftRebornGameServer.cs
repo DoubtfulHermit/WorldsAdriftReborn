@@ -570,6 +570,17 @@ namespace WorldsAdriftRebornGameServer
         internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId,
             Improbable.Math.Coordinates shotCoordinate)
         {
+            // A FUEL CANISTER is salvaged with the SAME gauntlet beam as metal and
+            // wood, so its shots arrive here on the same 2106 path - it is simply a
+            // different kind of target with its own per-shot yield curve. Checked
+            // FIRST because a canister is not a MetalHarvest node and would otherwise
+            // fall out at the IsNode guard below.
+            if (FuelCanisters.IsCanister(nodeEntityId))
+            {
+                OnFuelCanisterShot(harvesterEntityId, nodeEntityId);
+                return;
+            }
+
             if (!MetalHarvest.IsNode(nodeEntityId))
             {
                 return;
@@ -974,6 +985,104 @@ namespace WorldsAdriftRebornGameServer
                         new List<uint> { TransformStateComponentId },
                         new List<object> { sink });
                 }
+            }
+        }
+
+        // ==================================================================
+        // FUEL CANISTERS. The FUEL crafting-material gather loop. A canister is a
+        // SALVAGE TARGET, not a pickup: retail fuel is obtained by salvaging fuel
+        // canisters with the gauntlet salvage tool, the same tool and flow as metal
+        // and wood (worldsadrift.fandom.com/wiki/Fuel, /wiki/Resources, /wiki/Mining).
+        // The client gate is 1099 SalvageAndRepairState.isSalvageable, which
+        // PlayerMultitool.TryDeploySalvager reads through the Salvageable base class
+        // before it will raise a shot at all. Unlike a metal node, EVERY shot pays
+        // out: the recovered retail curve is 8 + 8 + 9 = 25 fuel over three shots
+        // (Multiplayer.FuelCanisterYield). See docs/research/findings-combustion-fuel.md.
+        // ==================================================================
+
+        /// <summary>
+        /// One salvage shot landed on a FUEL CANISTER. The fuel counterpart to the
+        /// nugget path in <see cref="OnSalvageShot"/>, and deliberately the same
+        /// shape - count the shot, award, and on the emptying shot sink the husk -
+        /// with ONE difference: a canister grants on EVERY shot (8/8/9), not only on
+        /// the shot that empties it, so the award is inside the loop rather than
+        /// behind a deplete transition.
+        ///
+        /// RATE + RELAY: event-driven, one award per client-rate-limited 2106
+        /// ShotEvent (the client's MultitoolSalvageController already throttles to one
+        /// deploy per ~0.75 s), and at most ONE sink broadcast per canister. No
+        /// per-frame work, and the sink is pushed to each peer DIRECTLY, never through
+        /// RelayToOtherPlayers (which would re-address it to the shooter's avatar).
+        /// </summary>
+        private static void OnFuelCanisterShot(long harvesterEntityId, long canisterEntityId)
+        {
+            Multiplayer.FuelHitOutcome outcome = FuelCanisters.Hit(canisterEntityId);
+            if (!outcome.Granted)
+            {
+                // The beam legitimately keeps resting on an emptied canister and
+                // publishing ShotEvents; nothing more to do.
+                return;
+            }
+
+            Console.WriteLine("[info] fuel canister " + canisterEntityId + " salvaged by entity "
+                + harvesterEntityId + ": shot " + outcome.ShotNumber + "/"
+                + Multiplayer.FuelCanisterYield.ShotsToDeplete + " -> " + outcome.FuelGranted
+                + " fuel (" + FuelCanisters.FuelPaidOut(canisterEntityId) + "/"
+                + Multiplayer.FuelCanisterYield.TotalFuel + " total)"
+                + (outcome.Depleted ? ", canister emptied." : "."));
+
+            // AWARD through the SAME seam as metal and wood, so the grant, the stacking
+            // and the native "Salvaged Fuel xN" toast all behave identically. The yield
+            // rule is registered when the canister spawns (AddWorldEntity), so this
+            // resolves; amountPerUnit is 1, so units == fuel granted.
+            Game.Gathering.HarvestReward.Award(
+                harvesterEntityId,
+                Multiplayer.FuelPods.ItemTypeId,
+                outcome.FuelGranted,
+                "fuel canister " + canisterEntityId + " shot " + outcome.ShotNumber);
+
+            // The emptying shot makes the husk visibly vanish, exactly like a spent
+            // nugget (WAReborn has no RemoveEntityOp, so a sink teleport is how a world
+            // gather source disappears). Fires once - Hit reports Depleted on exactly
+            // one shot.
+            if (outcome.Depleted)
+            {
+                BroadcastFuelCanisterDepleted(canisterEntityId);
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer that an emptied fuel canister is gone: its 190602 is sunk
+        /// under the terrain. A late joiner is instead seeded the sunk position by the
+        /// serializer, which reads the same <see cref="FuelCanisters"/> ledger, so the
+        /// two agree without storing a second coordinate. Mirrors
+        /// <see cref="BroadcastNodeDepletion"/>; carries ONE field (localPosition) so
+        /// nothing else on the transform is re-asserted.
+        /// </summary>
+        private static void BroadcastFuelCanisterDepleted(long canisterEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(canisterEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, canisterEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    continue;
+                }
+
+                Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                    new Improbable.Corelibrary.Transforms.TransformState.Update()
+                        .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                            new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                {
+                    sink.ApplyTo(storedTransform);
+                }
+                SendOPHelper.SendComponentUpdateOp(peer, canisterEntityId,
+                    new List<uint> { TransformStateComponentId },
+                    new List<object> { sink });
             }
         }
 
@@ -1681,7 +1790,9 @@ namespace WorldsAdriftRebornGameServer
                 SpawnDatabank,
                 Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"),
                 SpawnAtlasShard,
-                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"));
+                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"),
+                SpawnFuelPods,
+                Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"));
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1725,6 +1836,20 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         internal static readonly Multiplayer.AtlasShardRegistry AtlasShards =
             new Multiplayer.AtlasShardRegistry();
+
+        /// <summary>
+        /// The ledger of every FUEL CANISTER placed in the world and how far each has
+        /// been salvaged (shot count + emptied flag). The fuel analogue of
+        /// <see cref="MetalHarvest"/> - NOT of <see cref="AtlasShards"/>: a canister is
+        /// a SALVAGE TARGET worked with the gauntlet beam, not a pickup, so its shots
+        /// arrive on 2106 exactly like a metal node's and it grants on EVERY shot
+        /// (the recovered retail 8/8/9 curve). Internal because both the serializer
+        /// (seeds 1099/2102/190602 from it) and <see cref="OnSalvageShot"/> read it.
+        /// Populated in <see cref="AddWorldEntity"/> the moment a canister entity has
+        /// an id. See docs/research/findings-combustion-fuel.md.
+        /// </summary>
+        internal static readonly Multiplayer.FuelCanisterRegistry FuelCanisters =
+            new Multiplayer.FuelCanisterRegistry();
 
         /// <summary>
         /// Which entity ids are ship SURFACES, and which ship each belongs to. The
@@ -1840,6 +1965,17 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnAtlasShard =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_ATLAS") != "0";
+
+        /// <summary>
+        /// Whether to place the FUEL PODS - the gatherable "fuel" crafting material.
+        /// ON unless WAREBORN_SPAWN_FUELPODS=0. Independent of the deposit/atlas
+        /// spawns: a fuel pod is host-less (carries only 2102, no host core), so it
+        /// needs no deposit. AfterPlayer and it grants the real, already-shipping
+        /// "fuel" item, so it can neither delay a spawn nor mis-grant. See
+        /// docs/research/findings-combustion-fuel.md.
+        /// </summary>
+        private static bool SpawnFuelPods =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_FUELPODS") != "0";
 
         /// <summary>
         /// Whether to place the scannable DATABANK that feeds the KNOWLEDGE loop.
@@ -2160,6 +2296,36 @@ namespace WorldsAdriftRebornGameServer
                             + entity.Position + "; grants '" + Multiplayer.AtlasShardCatalogue.ItemTypeId
                             + "'" + (Multiplayer.AtlasShardCatalogue.IsItemIdPending
                                 ? " (PENDING refdata - see findings-atlas-shards.md §5)" : "") + ".");
+                    }
+                }
+
+                // A FUEL CANISTER becomes an entry in the FuelCanisters ledger the
+                // moment it has an entity id - the same spawn seam as the metal node
+                // above, and for the same reason: it is a salvage target, so it must be
+                // shootable from the instant it exists. Matched on the canister KEY
+                // prefix (its asset name "Egg" is generic), so only entities keyed
+                // fuel-pod-N register. Idempotent (Register returns false on
+                // re-registration) so a second joiner walking this identical step
+                // cannot refill a canister someone has already emptied.
+                if (Multiplayer.FuelPods.IsPodKey(entity.Key))
+                {
+                    if (FuelCanisters.Register(entityId))
+                    {
+                        // The yield rule the per-shot award resolves through, registered
+                        // from the same constant the canister is placed with so the two
+                        // cannot drift. amountPerUnit 1: the shot's fuel count IS the
+                        // unit count (8/8/9), so "Salvaged Fuel x8" matches the grant.
+                        Game.Gathering.HarvestReward.Register(
+                            Multiplayer.FuelPods.ItemTypeId,
+                            new Multiplayer.Gathering.YieldRule(
+                                Multiplayer.FuelPods.ItemTypeId, amountPerUnit: 1));
+
+                        Console.WriteLine("[info] placed FUEL CANISTER '" + entity.Key + "' as entity "
+                            + entityId + " at " + entity.Position + " ("
+                            + Multiplayer.FuelCanisterYield.ShotsToDeplete + " salvage shots -> "
+                            + string.Join("+", Multiplayer.FuelCanisterYield.Schedule) + " = "
+                            + Multiplayer.FuelCanisterYield.TotalFuel + "x '"
+                            + Multiplayer.FuelPods.ItemTypeId + "').");
                     }
                 }
 

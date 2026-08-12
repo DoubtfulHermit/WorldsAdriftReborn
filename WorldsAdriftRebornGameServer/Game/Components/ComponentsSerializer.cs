@@ -208,6 +208,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
 
+                        // An EMPTIED fuel canister is likewise gone: seed the late joiner
+                        // the same sunk position everyone present was teleported to on the
+                        // emptying salvage shot (BroadcastFuelCanisterDepleted). A
+                        // part-salvaged canister keeps its real position - it is still
+                        // there to shoot.
+                        if (WorldsAdriftRebornGameServer.FuelCanisters.IsDepleted(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
                         // A BOLTED SHIP PART is seeded hull-RELATIVE so it follows the
                         // moving hull instead of drifting. The localPosition becomes the
                         // part's offset FROM the hull and the parent names the hull with
@@ -602,6 +612,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // separate replay. See findings-atlas-shards §2 Phase C.
                         bool isAtlasShard = !isCraftStation && !isHelm
                             && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
+                        // NOTE: a FUEL CANISTER deliberately has NO 1210 branch. Retail
+                        // fuel is SALVAGED with the gauntlet beam, never picked up, so it
+                        // must not advertise an interaction prompt at all - its gate is
+                        // 1099 isSalvageable (see the 1099 branch below).
 
                         InteractionEntry entry;
                         string verbName;
@@ -2221,9 +2235,27 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // MaterialManager lookup as "birch" was.
                         Multiplayer.MetalNode? metalNode =
                             WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
-                        string salvageItemType = metalNode != null
-                            ? metalNode.MetalType
-                            : (isShipHull ? "" : Multiplayer.Trees.WoodType);
+
+                        // A FUEL CANISTER names "fuel" as its salvage item type. THIS
+                        // BRANCH IS THE WHOLE GATE for fuel gathering: the client's
+                        // Salvageable base class [Require]s 1099 and
+                        // PlayerMultitool.TryDeploySalvager refuses to raise a shot at all
+                        // unless componentInEntity.IsSalvageable() is true
+                        // (acs/PlayerMultitool.cs:296-300, acs/Salvageable.cs:8-9). So a
+                        // canister MUST get isSalvageable=true here or it is a canister
+                        // the beam will not touch - the exact failure the tree's comment
+                        // above warns about. An EMPTIED canister stops being salvageable,
+                        // so a late joiner cannot keep shooting a husk for more fuel.
+                        bool isFuelCanister =
+                            WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId);
+                        bool fuelSpent =
+                            WorldsAdriftRebornGameServer.FuelCanisters.IsDepleted(entityId);
+
+                        string salvageItemType = isFuelCanister
+                            ? Multiplayer.FuelPods.ItemTypeId
+                            : metalNode != null
+                                ? metalNode.MetalType
+                                : (isShipHull ? "" : Multiplayer.Trees.WoodType);
 
                         // THE DECK IS THE ONE ENTITY WHOSE 1099 MUST NOT BE EMPTY.
                         // ShipDeckVisualizer.OnEnable reads OriginalMaterials[0]
@@ -2263,7 +2295,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     isShipHull ? 1f : 0f,   // repairToSalvageRatio - no client reader
                                     1f,             // period                 - no client reader
                                     false,          // isRepairable: keeps IsDamaged() false
-                                    !isShipHull && !isDeck,    // isSalvageable: deck is not (no salvage flow)
+                                    // isSalvageable: deck/hull are not; a fuel canister IS
+                                    // until it has been emptied.
+                                    isFuelCanister
+                                        ? !fuelSpent
+                                        : (!isShipHull && !isDeck),
                                     "",             // isSalvageableStatus
                                     originalMaterials,
                                     false,          // destroyOnSalvageComplete
@@ -2418,6 +2454,33 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + ") rockCoreId=" + (shardHost?.ToString() ?? "INVALID") + " slot=" + shardSlot + ".");
 
                         obj = shardData;
+                    }
+                    else if (componentId == 2102
+                        && WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId))
+                    {
+                        // 2102 LodgeableState for a FUEL CANISTER. Free-standing, so
+                        // ownerId is invalid and slotName empty. isLodged is seeded TRUE =
+                        // KINEMATIC: the canister sits still on the ground rather than
+                        // rolling off the island. That is the component's ONLY job here -
+                        // FuelPodVisualiser_fsim [Require]s LodgeableState and pipes
+                        // IsLodged straight into FuelPod.IsLodged -> Rigidbody.isKinematic
+                        // (acs/FuelPodVisualiser_fsim.cs:47-50, acs/FuelPod.cs:48-51). It
+                        // is a PHYSICS flag, NOT an acquisition state: the canister is
+                        // salvaged with the beam, so nothing ever "dislodges" it. VERIFIED
+                        // ctor: LodgeableStateData(bool isLodged, EntityId ownerId, string
+                        // slotName) - gencode Bossa.Travellers.Materials/LodgeableStateData.cs.
+                        Bossa.Travellers.Materials.LodgeableState.Data podLodge =
+                            new Bossa.Travellers.Materials.LodgeableState.Data(
+                                new Bossa.Travellers.Materials.LodgeableStateData(
+                                    true,
+                                    EntityId.InvalidEntityId,
+                                    Multiplayer.FuelPods.SlotName));
+
+                        Console.WriteLine("[info] seeding 2102 for FUEL POD entity " + entityId
+                            + " (" + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") isLodged=true (kinematic).");
+
+                        obj = podLodge;
                     }
                     else if (componentId == 2102)
                     {

@@ -94,19 +94,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     {
                         continue;
                     }
-                    long shardTarget = pickup.target.Id;
-                    if (!WorldsAdriftRebornGameServer.AtlasShards.IsShard(shardTarget))
+                    long pickupTarget = pickup.target.Id;
+
+                    // An ATLAS SHARD: mine-loose-then-pick-up, grants the atlas shard.
+                    if (WorldsAdriftRebornGameServer.AtlasShards.IsShard(pickupTarget))
                     {
+                        Multiplayer.AtlasPickupOutcome outcome =
+                            WorldsAdriftRebornGameServer.TryCollectAtlasShard(
+                                entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
+                        if (outcome != Multiplayer.AtlasPickupOutcome.Grant)
+                        {
+                            Console.WriteLine("[info] atlas shard PickUp by entity " + entityId
+                                + " on " + pickupTarget + " not granted: " + outcome + ".");
+                        }
                         continue;
                     }
-                    Multiplayer.AtlasPickupOutcome outcome =
-                        WorldsAdriftRebornGameServer.TryCollectAtlasShard(
-                            entityId, shardTarget, ownsPlayer, verbIsPickUp: true);
-                    if (outcome != Multiplayer.AtlasPickupOutcome.Grant)
-                    {
-                        Console.WriteLine("[info] atlas shard PickUp by entity " + entityId
-                            + " on " + shardTarget + " not granted: " + outcome + ".");
-                    }
+
+                    // NOTE: a FUEL CANISTER is deliberately NOT handled here. Retail fuel
+                    // is SALVAGED with the gauntlet beam, not picked up, so its shots
+                    // arrive on 2106 (MultitoolSalvagerState_Handler -> OnSalvageShot ->
+                    // OnFuelCanisterShot) and it advertises no 1210 prompt at all.
                 }
             }
 
