@@ -18,8 +18,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>The server has no record of this player carrying a part (no pickup seen).</summary>
         NoCarriedPart,
 
-        /// <summary>The carried entity is not a mountable loose part, or is already mounted.</summary>
-        PartNotMountable,
+        /// <summary>
+        /// The carried entity is not a crafted LOOSE ship part this server spawned - e.g.
+        /// the player lifted a world prop, or (the common live cause) the loose-part ledger
+        /// no longer knows the id because it was crafted in a PRIOR server run (the ledger is
+        /// in-memory only this milestone). Split out from the old single PartNotMountable so a
+        /// live rejection says WHICH of the two mountability facts failed at a glance.
+        /// </summary>
+        CarriedNotALoosePart,
+
+        /// <summary>
+        /// The carried entity IS a loose part but is already mounted on a ship. In normal
+        /// play this is unreachable because lifting a mounted part off detaches it (the 1239
+        /// pickup handler un-mounts it); it remains as the anti-cheat guard against a replayed
+        /// or duplicated PlacePart trying to bolt the same part on twice.
+        /// </summary>
+        PartAlreadyMounted,
 
         /// <summary>The named ship root is not a built (docked) ship this server spawned.</summary>
         ShipNotBuilt,
@@ -51,21 +65,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <list type="bullet">
         ///   <item><paramref name="ownsPlayerEntity"/> - the event rode the sender's OWN player entity.</item>
         ///   <item><paramref name="hasCarriedPart"/> - the server saw this player pick a part up (1239 PickedUpEntityEvent) and has not seen it dropped.</item>
-        ///   <item><paramref name="partIsMountable"/> - the carried entity is a loose crafted part and is not already mounted.</item>
+        ///   <item><paramref name="carriedIsLoosePart"/> - the carried entity is a crafted loose part this server spawned (in the loose-part ledger).</item>
+        ///   <item><paramref name="carriedNotAlreadyMounted"/> - the carried part is not already recorded as mounted on a ship.</item>
         ///   <item><paramref name="shipIsBuilt"/> - the named <c>shipId</c> is a built ship hull this server spawned.</item>
-        ///   <item><paramref name="targetIsChildOfShip"/> - the named <c>parentId</c> surface resolves (built-deck-of-ship, or the hull itself) to <c>shipId</c>.</item>
+        ///   <item><paramref name="targetIsChildOfShip"/> - the named <c>parentId</c> surface resolves (the hull itself, a built-deck of it, or a part already mounted on it) to <c>shipId</c>. This is the server mirror of the client's per-attachmentType surface rule: the client only sends a PlacePart for a surface whose Unity layer+tag match the part's attachmentType (helm/lamp/sail -&gt; the "ShipDeck"-tagged deck, engine/wing -&gt; the ship side), and every such surface is a Unity CHILD of the ship root. The server cannot see Unity layers, so it re-checks the child-of-ship invariant those surfaces all share.</item>
         /// </list>
         /// </summary>
         public static PartMountReject EvaluatePlace(
             bool ownsPlayerEntity,
             bool hasCarriedPart,
-            bool partIsMountable,
+            bool carriedIsLoosePart,
+            bool carriedNotAlreadyMounted,
             bool shipIsBuilt,
             bool targetIsChildOfShip)
         {
             if (!ownsPlayerEntity) return PartMountReject.NotOwner;
             if (!hasCarriedPart) return PartMountReject.NoCarriedPart;
-            if (!partIsMountable) return PartMountReject.PartNotMountable;
+            if (!carriedIsLoosePart) return PartMountReject.CarriedNotALoosePart;
+            if (!carriedNotAlreadyMounted) return PartMountReject.PartAlreadyMounted;
             if (!shipIsBuilt) return PartMountReject.ShipNotBuilt;
             if (!targetIsChildOfShip) return PartMountReject.TargetNotChildOfShip;
             return PartMountReject.Accept;

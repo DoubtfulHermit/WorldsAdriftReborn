@@ -99,9 +99,26 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         public static TransformState.Update BuildWakeUpdate(FixedPointPosition localOffset, long hullEntityId, string key, float timestamp)
         {
+            return BuildWakeUpdate(localOffset, hullEntityId, key, timestamp, IdentityRotation);
+        }
+
+        /// <summary>
+        /// The 190602 WAKE UPDATE with an EXPLICIT hull-local rotation - the overload the
+        /// part-mount commit uses so a placed part sits at the orientation the player chose
+        /// rather than the identity SENTINEL. The <paramref name="localRotation"/> is the
+        /// packed hull-relative rotation (the client's <c>PlacePart.shipLocalRotation</c>,
+        /// which is already <c>Inverse(hull.rotation) * placedRotation</c>, run through
+        /// <see cref="Multiplayer.Placement.Quaternion32Packing"/>); a bad rotation is
+        /// encoded to the identity sentinel there, never a NaN, so this can pass a
+        /// client-supplied value straight through. Everything about a "~" position-follow
+        /// part is composed against the hull each frame, so the rotation is hull-relative,
+        /// which is exactly what shipLocalRotation already is.
+        /// </summary>
+        public static TransformState.Update BuildWakeUpdate(FixedPointPosition localOffset, long hullEntityId, string key, float timestamp, Quaternion32 localRotation)
+        {
             return new TransformState.Update()
                 .SetLocalPosition(LocalPosition(localOffset))
-                .SetLocalRotation(IdentityRotation)
+                .SetLocalRotation(localRotation)
                 .SetParent(RelativeParent(hullEntityId, key))
                 .SetPivot(new Vector3d(0f, 0f, 0f))
                 .SetVelocity(new Vector3f(0f, 0f, 0f))

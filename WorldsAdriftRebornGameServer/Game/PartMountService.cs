@@ -60,14 +60,16 @@ namespace WorldsAdriftRebornGameServer.Game
             long? carried = MountedParts.CarriedBy(playerEntityId);
 
             bool hasCarried = carried.HasValue;
-            bool partMountable = hasCarried
-                && Crafting.LooseParts.Is(carried.Value)
-                && !MountedParts.Is(carried.Value);
+            // Split the old single "mountable" fact into its two reasons so a live
+            // rejection names WHICH one failed (findings: PartNotMountable was ambiguous
+            // between "not a known loose part" and "already mounted").
+            bool carriedIsLoosePart = hasCarried && Crafting.LooseParts.Is(carried.Value);
+            bool carriedNotAlreadyMounted = hasCarried && !MountedParts.Is(carried.Value);
             bool shipIsBuilt = Crafting.BuiltShips.IsBuiltHull(shipId);
             bool targetChild = TargetIsChildOfShip(parentId, shipId);
 
             PartMountReject verdict = PartMount.EvaluatePlace(
-                ownsPlayerEntity, hasCarried, partMountable, shipIsBuilt, targetChild);
+                ownsPlayerEntity, hasCarried, carriedIsLoosePart, carriedNotAlreadyMounted, shipIsBuilt, targetChild);
 
             if (verdict != PartMountReject.Accept)
             {
@@ -98,14 +100,33 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>
         /// Whether the client's <c>parentId</c> surface resolves to the named
         /// <c>shipId</c> - the server mirror of the client's
-        /// <c>spatialOsEntity.HasParentEntity(shipEntity)</c> gate. Valid when the target
-        /// IS the hull root, or is a BUILT DECK whose sibling hull is that ship. The deck
-        /// is made a Unity child of its hull by the 190602 built-deck seed branch, which
-        /// is exactly what makes it a legal placement surface client-side.
+        /// <c>spatialOsEntity.HasParentEntity(shipEntity)</c> gate. Valid when the target:
+        /// <list type="bullet">
+        ///   <item>IS the hull root itself - the case for a part placed on the hull's own
+        ///     geometry (the frame sides/struts an engine or wing mounts on; the client's
+        ///     raycast on those surfaces resolves the owning entity up to the HULL, so it
+        ///     sends parentId == shipId);</item>
+        ///   <item>is a BUILT DECK whose sibling hull is that ship - the case a HELM/lamp/
+        ///     sail (attachmentType "deck", client PlacementLocationType.ShipDeck) mounts
+        ///     on. The deck is made a Unity child of its hull by the 190602 built-deck seed
+        ///     branch (Parent(hullId,"deck")), which is exactly what makes the client's
+        ///     HasParentEntity pass and turns the deck into a legal placement surface;</item>
+        ///   <item>is a part already MOUNTED on that ship - so a part can be stacked on an
+        ///     already-placed part (e.g. a lamp on the helm) the same way it rides the hull.</item>
+        /// </list>
+        /// The per-attachmentType surface CHOICE (which of these a given part is allowed on)
+        /// is enforced client-side by the raycast layer+tag (see PlacementPreview.GetMask/
+        /// GetTag in the decompile); the server only re-checks the child-of-ship invariant
+        /// every one of those surfaces shares, since it cannot see Unity layers.
         /// </summary>
         private static bool TargetIsChildOfShip(long parentId, long shipId)
         {
             if (parentId == shipId)
+            {
+                return true;
+            }
+            // A part already mounted on this same ship is itself a valid surface (stacking).
+            if (Crafting.MountedParts.MountFor(parentId)?.HullEntityId == shipId)
             {
                 return true;
             }
@@ -140,17 +161,25 @@ namespace WorldsAdriftRebornGameServer.Game
 
             // 190602 ride: a VALUE UPDATE (never a re-seed) carrying Parent(hullId, "~")
             // and the hull-local offset, with a fresh monotonic stamp - exactly the
-            // bolted-part wake shape, which fires the follow-visualizer's WakeUp.
+            // bolted-part wake shape, which fires the follow-visualizer's WakeUp. The
+            // localRotation is the player's PLACED hull-relative rotation (PlacePart
+            // .shipLocalRotation), packed to the client's 32-bit wire form. Quaternion32
+            // Packing.Encode substitutes the identity sentinel for a non-finite/degenerate
+            // value, so an unrotated or bogus placement is "facing north", never a NaN
+            // rejection of the whole transform.
+            uint packedShipLocalRotation = Multiplayer.Placement.Quaternion32Packing.Encode(
+                pp.shipLocalRotation.w, pp.shipLocalRotation.x, pp.shipLocalRotation.y, pp.shipLocalRotation.z);
             float stamp = ShipPartMotionPolicy.StampFor(++_sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var transformUpdate = ShipPartTransform.BuildWakeUpdate(
-                localOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp);
+                localOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp,
+                new Improbable.Corelibrary.Math.Quaternion32(packedShipLocalRotation));
             ShipPublisher.Broadcast(partEntityId, 190602u, transformUpdate);
 
             // 1120 logical attachment. attachedTo = the hull is the safe default (not
             // load-bearing for an inert non-panel part; capture-only for full fidelity).
-            // The 190602 localRotation stays the identity sentinel (the part's facing
-            // rides its "~" parent); the placed rotation is preserved only as 1120
-            // bookkeeping so a wrong guess cannot NaN-reject the whole transform.
+            // Both the 190602 localRotation (above) and the 1120 attach bookkeeping now
+            // carry the player's placed rotation, so the part sits at the orientation it
+            // was placed at rather than snapping to identity.
             ShipPartState.Update partUpdate = new ShipPartState.Update()
                 .SetAttached(true)
                 .SetHeld(false)

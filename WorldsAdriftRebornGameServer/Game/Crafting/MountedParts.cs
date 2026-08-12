@@ -90,6 +90,22 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             return ByEntityId.TryGetValue(partEntityId, out Mount mount) ? mount : (Mount?)null;
         }
 
+        /// <summary>
+        /// Removes a part's mount record - it has been LIFTED OFF the ship and is loose
+        /// again. Returns true if it was mounted. Called from the 1239 pickup handler so a
+        /// player can re-position a part they already placed: without this the re-lifted
+        /// part stays in the ledger and its next PlacePart is rejected
+        /// <see cref="Multiplayer.Ship.PartMountReject.PartAlreadyMounted"/>. The
+        /// authoritative component revert (1120 attached=false, 8066 no-ship, 190602 loose)
+        /// is a documented follow-on; clearing the ledger is what unblocks the re-mount and
+        /// is enough for the static-ship milestone (the part re-seeds loose on its next
+        /// checkout via the loose-part branches, which still know it).
+        /// </summary>
+        internal static bool Unmount(long partEntityId)
+        {
+            return ByEntityId.Remove(partEntityId);
+        }
+
         /// <summary>How many parts have been mounted this session.</summary>
         internal static int Count => ByEntityId.Count;
 

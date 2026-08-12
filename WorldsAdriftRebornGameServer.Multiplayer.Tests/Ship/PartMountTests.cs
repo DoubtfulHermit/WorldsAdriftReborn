@@ -1,4 +1,5 @@
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Placement;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using Xunit;
 
@@ -26,7 +27,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 PartMount.EvaluatePlace(
                     ownsPlayerEntity: true,
                     hasCarriedPart: true,
-                    partIsMountable: true,
+                    carriedIsLoosePart: true,
+                    carriedNotAlreadyMounted: true,
                     shipIsBuilt: true,
                     targetIsChildOfShip: true));
         }
@@ -38,7 +40,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // every other fact wrong, NotOwner is the reason reported.
             Assert.Equal(
                 PartMountReject.NotOwner,
-                PartMount.EvaluatePlace(false, false, false, false, false));
+                PartMount.EvaluatePlace(false, false, false, false, false, false));
         }
 
         [Fact]
@@ -51,19 +53,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 PartMount.EvaluatePlace(
                     ownsPlayerEntity: true,
                     hasCarriedPart: false,
-                    partIsMountable: false,
+                    carriedIsLoosePart: false,
+                    carriedNotAlreadyMounted: false,
                     shipIsBuilt: true,
                     targetIsChildOfShip: true));
         }
 
         [Fact]
-        public void A_carried_but_unmountable_part_is_rejected()
+        public void Carrying_something_that_is_not_a_loose_part_is_rejected_by_name()
         {
-            // Carrying something that is not a loose crafted part (or is already mounted)
+            // Lifting a world prop (or a part the ledger has forgotten after a restart)
             // must not attach - a replayed PlacePart cannot bolt an arbitrary entity on.
+            // Named distinctly from PartAlreadyMounted so a live log says which failed.
             Assert.Equal(
-                PartMountReject.PartNotMountable,
-                PartMount.EvaluatePlace(true, true, partIsMountable: false, shipIsBuilt: true, targetIsChildOfShip: true));
+                PartMountReject.CarriedNotALoosePart,
+                PartMount.EvaluatePlace(true, true, carriedIsLoosePart: false, carriedNotAlreadyMounted: true, shipIsBuilt: true, targetIsChildOfShip: true));
+        }
+
+        [Fact]
+        public void A_loose_part_that_is_already_mounted_is_rejected_by_name()
+        {
+            // The part is a known loose part but is already on a ship: only reachable by a
+            // replayed/duplicated place (a normal re-lift detaches it first). Distinct
+            // reason from CarriedNotALoosePart.
+            Assert.Equal(
+                PartMountReject.PartAlreadyMounted,
+                PartMount.EvaluatePlace(true, true, carriedIsLoosePart: true, carriedNotAlreadyMounted: false, shipIsBuilt: true, targetIsChildOfShip: true));
         }
 
         [Fact]
@@ -71,17 +86,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             Assert.Equal(
                 PartMountReject.ShipNotBuilt,
-                PartMount.EvaluatePlace(true, true, true, shipIsBuilt: false, targetIsChildOfShip: true));
+                PartMount.EvaluatePlace(true, true, true, true, shipIsBuilt: false, targetIsChildOfShip: true));
         }
 
         [Fact]
         public void A_target_that_is_not_a_child_of_the_ship_is_rejected_last()
         {
             // The client's HasParentEntity gate: the surface must be a Unity child of the
-            // ship. This is the deck-child make-or-break, re-checked server-side.
+            // ship (the hull, its deck, or a part already mounted on it). This is the
+            // deck-child make-or-break, re-checked server-side.
             Assert.Equal(
                 PartMountReject.TargetNotChildOfShip,
-                PartMount.EvaluatePlace(true, true, true, true, targetIsChildOfShip: false));
+                PartMount.EvaluatePlace(true, true, true, true, true, targetIsChildOfShip: false));
         }
 
         [Fact]
@@ -91,7 +107,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // and matches what the client itself would have refused on first.
             Assert.Equal(
                 PartMountReject.NoCarriedPart,
-                PartMount.EvaluatePlace(true, hasCarriedPart: false, partIsMountable: true, shipIsBuilt: false, targetIsChildOfShip: false));
+                PartMount.EvaluatePlace(true, hasCarriedPart: false, carriedIsLoosePart: true, carriedNotAlreadyMounted: true, shipIsBuilt: false, targetIsChildOfShip: false));
+        }
+
+        // ------------------------------------------------------------------
+        // Rotation is HONORED, not identity: the placed hull-relative rotation
+        // (PlacePart.shipLocalRotation) is what the mount commit packs into the
+        // 190602 localRotation via Quaternion32Packing.Encode. The commit itself
+        // is impure (game types), so the assertable slice is that a real placed
+        // rotation survives the encode as a NON-identity value, while an identity
+        // / degenerate placement collapses to the client's identity sentinel.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_placed_yaw_is_carried_into_the_mount_as_a_non_identity_rotation()
+        {
+            // A 90-degree yaw about +Y (the kind a player gets by pressing rotate/Z during
+            // placement) must NOT collapse to identity - that was the "rotation dropped" bug.
+            double half = 90.0 * System.Math.PI / 180.0 / 2.0;
+            float w = (float)System.Math.Cos(half);
+            float y = (float)System.Math.Sin(half);
+
+            uint packed = Quaternion32Packing.Encode(w, 0f, y, 0f);
+
+            Assert.NotEqual(Quaternion32Packing.Identity, packed);
+        }
+
+        [Fact]
+        public void An_unrotated_placement_still_packs_to_the_identity_sentinel()
+        {
+            // A part placed with no yaw feeds identity - the same value the old code always
+            // wrote, so an unrotated placement is unchanged and never a NaN on the wire.
+            Assert.Equal(Quaternion32Packing.Identity, Quaternion32Packing.Encode(1f, 0f, 0f, 0f));
         }
 
         // ------------------------------------------------------------------

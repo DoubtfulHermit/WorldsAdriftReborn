@@ -53,9 +53,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (PickedUpEvent pickup in clientComponentUpdate.pickedUpEntityEvent)
                 {
-                    MountedParts.SetCarried(entityId, pickup.entityId.Id);
+                    long liftedPartId = pickup.entityId.Id;
+                    MountedParts.SetCarried(entityId, liftedPartId);
+
+                    // Lifting a part that is currently MOUNTED detaches it: drop its mount
+                    // record so it reads as loose-and-mountable again and a subsequent
+                    // PlacePart can re-position it. Without this the re-lifted part stays
+                    // mounted in the ledger and its next place is refused PartAlreadyMounted -
+                    // exactly "I can't move a part I already placed".
+                    bool wasMounted = MountedParts.Unmount(liftedPartId);
+
                     Console.WriteLine("[info] 1239: player entity " + entityId
-                        + " picked up part " + pickup.entityId.Id + " (now carrying).");
+                        + " picked up part " + liftedPartId
+                        + (wasMounted ? " (was mounted; detached for re-placement)." : " (now carrying)."));
                 }
             }
 
