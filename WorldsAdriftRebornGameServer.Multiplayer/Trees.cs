@@ -153,10 +153,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const double Scale = 1.0;
 
         /// <summary>
-        /// Seeded into <c>1035 TreeState.respawnTime</c>. Zero, and it means
-        /// nothing: <c>respawn_time</c> has zero references in the entire client
-        /// decompile, not merely no readers - even its units are unknown. Nothing
-        /// respawns on this server.
+        /// Seeded into <c>1035 TreeState.respawnTime</c>. Left at zero, and on the
+        /// WIRE that still means nothing: <c>respawn_time</c> has zero references in
+        /// the entire client decompile, not merely no readers - even its units are
+        /// unknown, so no value here would change what any client does.
+        ///
+        /// Respawn is therefore not driven through this field - it CANNOT be. It is
+        /// driven server-side by resetting a chopped tree's <c>sectionMask</c> back
+        /// to whole, which is the one channel the client actually acts on
+        /// (<c>TreeVisualizer</c> reactivates the sections off the 1036 mask). The
+        /// real, tunable cadence lives with the timer that owns it,
+        /// <see cref="TreeHarvest.DefaultRespawnDelay"/> - reconstructed there,
+        /// because retail's value is unrecoverable. Trees DO respawn on this server
+        /// now; this constant is only the inert wire seed the component still needs
+        /// to be structurally complete.
         /// </summary>
         public const long RespawnTime = 0;
 
