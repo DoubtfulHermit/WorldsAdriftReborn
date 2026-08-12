@@ -469,31 +469,26 @@ namespace WorldsAdriftRebornGameServer
         /// chopped half of it must be told what is actually standing, not what the
         /// prefab was authored with.
         /// </summary>
-        internal static readonly TreeHarvest Harvest = new TreeHarvest(ServerClock);
+        /// <remarks>
+        /// The regrowth delay is tunable without a rebuild via
+        /// <c>WAREBORN_TREE_RESPAWN_SECONDS</c> (a bad value falls back to
+        /// <see cref="TreeHarvest.DefaultRespawnDelay"/> rather than refusing to
+        /// boot). Set it to <see cref="TreeHarvest.UnderstormCadence"/>'s 6300 to
+        /// approximate retail's ~1.75 h world reset - though see that field for why
+        /// a per-tree timer is a different shape from retail's global understorm.
+        /// </remarks>
+        internal static readonly TreeHarvest Harvest = new TreeHarvest(
+            ServerClock,
+            cutInterval: null,
+            respawnDelay: TreeHarvest.ParseRespawnDelay(
+                Environment.GetEnvironmentVariable("WAREBORN_TREE_RESPAWN_SECONDS")));
 
         /// <summary>
-        /// Applies every cut whose timer has elapsed and tells the clients.
-        ///
-        /// TWO RULES, both of which cost a debugging round elsewhere in this file
-        /// if broken:
-        ///
-        /// 1. The update is pushed to each peer DIRECTLY, never through
-        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
-        ///    player's update about THEMSELVES and substitutes the sender's own
-        ///    entity id for the address; routed through it, a tree's mask change
-        ///    would arrive addressed to whoever happened to be chopping, and the
-        ///    tree would never change on anyone's screen.
-        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
-        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
-        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
-        ///    audio loop on the true edge. Sending the whole component every 0.75 s
-        ///    would also re-assert sectionCount and massPerSection at the client
-        ///    for no reason. One field changed, one field sent.
-        ///
-        /// Peers that have not been served the tree's 1036 are skipped: an update
-        /// for a component a client does not hold is at best ignored, and the
-        /// ComponentMap lookup that establishes it is the same one the update path
-        /// uses, so this cannot disagree with reality.
+        /// Once per main-loop turn: applies every cut whose timer has elapsed
+        /// (telling the clients and granting the wood), then stands back up every
+        /// tree whose regrowth delay has elapsed. Both talk to the clients through
+        /// the one <see cref="PushTreeSectionMask"/> seam, whose doc carries the two
+        /// rules a tree mask push must never break.
         /// </summary>
         private static void TickTreeHarvest()
         {
@@ -501,30 +496,7 @@ namespace WorldsAdriftRebornGameServer
             {
                 Console.WriteLine("[info] " + change + ".");
 
-                foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
-                {
-                    if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
-                        || !byEntity.TryGetValue(change.TreeEntityId, out Dictionary<uint, ulong>? byComponent)
-                        || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
-                    {
-                        continue;
-                    }
-
-                    Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
-                        new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(change.SectionMask);
-
-                    // Keep this peer's stored component in step with what it has
-                    // just been told, so a later re-serve of 1036 from the stored
-                    // object cannot resurrect a felled section.
-                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
-                    {
-                        maskOnly.ApplyTo(stored);
-                    }
-
-                    SendOPHelper.SendComponentUpdateOp(peer, change.TreeEntityId,
-                        new List<uint> { TreeFSimStateComponentId },
-                        new List<object> { maskOnly });
-                }
+                PushTreeSectionMask(change.TreeEntityId, change.SectionMask);
 
                 // ------------------------------------------------------------------
                 // INVENTORY GRANT SEAM (Phase 5.4). The empty comment that used to
@@ -549,6 +521,75 @@ namespace WorldsAdriftRebornGameServer
                     change.WoodType,
                     change.SectionsFelled,
                     "tree " + change.TreeEntityId + " section " + change.SectionId);
+            }
+
+            // ----------------------------------------------------------------------
+            // REGROWTH (P1-9). A tree chopped and then left alone grows its sections
+            // back after Harvest's respawn delay, so the island stops deforesting
+            // permanently. This is the SAME wire move as a cut - a 1036 sectionMask
+            // push - only the mask climbs back to full instead of shrinking, so the
+            // client reactivates the sections (TreeVisualizer re-inits off the mask)
+            // and plays NOTHING (TreeClientVisualizer's break effect fires only on
+            // bits LEAVING the mask). No wood is granted: regrowth is not a harvest,
+            // so there is no CutterEntityId and no HarvestReward.Award here.
+            foreach (TreeRespawn respawn in Harvest.DueRespawns())
+            {
+                Console.WriteLine("[info] " + respawn + ".");
+                PushTreeSectionMask(respawn.TreeEntityId, respawn.SectionMask);
+            }
+        }
+
+        /// <summary>
+        /// Pushes one tree's new <c>1036 sectionMask</c> to every peer that holds
+        /// the tree's 1036 - the shared move behind both a cut (mask shrinks) and a
+        /// respawn (mask climbs back to full).
+        ///
+        /// TWO RULES, both of which cost a debugging round elsewhere in this file
+        /// if broken:
+        ///
+        /// 1. The update is pushed to each peer DIRECTLY, never through
+        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
+        ///    player's update about THEMSELVES and substitutes the sender's own
+        ///    entity id for the address; routed through it, a tree's mask change
+        ///    would arrive addressed to whoever happened to be chopping, and the
+        ///    tree would never change on anyone's screen.
+        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
+        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
+        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
+        ///    audio loop on the true edge. Sending the whole component would also
+        ///    re-assert sectionCount and massPerSection at the client for no reason.
+        ///    One field changed, one field sent.
+        ///
+        /// Peers that have not been served the tree's 1036 are skipped: an update
+        /// for a component a client does not hold is at best ignored, and the
+        /// ComponentMap lookup that establishes it is the same one the update path
+        /// uses, so this cannot disagree with reality.
+        /// </summary>
+        private static void PushTreeSectionMask(long treeEntityId, int newMask)
+        {
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                    || !byEntity.TryGetValue(treeEntityId, out Dictionary<uint, ulong>? byComponent)
+                    || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
+                {
+                    continue;
+                }
+
+                Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
+                    new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(newMask);
+
+                // Keep this peer's stored component in step with what it has just
+                // been told, so a later re-serve of 1036 from the stored object
+                // cannot resurrect a felled section (or drop a regrown one).
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
+                {
+                    maskOnly.ApplyTo(stored);
+                }
+
+                SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
+                    new List<uint> { TreeFSimStateComponentId },
+                    new List<object> { maskOnly });
             }
         }
 
@@ -1792,7 +1833,8 @@ namespace WorldsAdriftRebornGameServer
                 SpawnAtlasShard,
                 Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"),
                 SpawnFuelPods,
-                Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"),
+                VaryTreeSpecies);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1966,6 +2008,27 @@ namespace WorldsAdriftRebornGameServer
         private static bool SpawnDeposit =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1"
             && !Multiplayer.IslandResourceHandshake.Enabled();
+
+        /// <summary>
+        /// Whether the distributed trees cycle through the eight verified species
+        /// instead of all being birch. OFF unless WAREBORN_TREE_SPECIES=1.
+        ///
+        /// The reasoning for a default-off knob rather than just turning it on. The
+        /// desk evidence is strong: all eight species in
+        /// <see cref="Multiplayer.WorldEntities.VerifiedSpecies"/> have a recovered
+        /// and verified skeleton, a recovered wood that resolves to a real item, and
+        /// a MonoBehaviour set identical to `Tree`'s - so the ten component ids they
+        /// ask for are the ten already served. But NO non-`Tree` tree prefab has
+        /// ever been in front of a running client on this server, and the client's
+        /// component batch is <c>failOnComponentInitError: true</c>, so the failure
+        /// mode if some eleventh requirement was missed is a tree that comes up
+        /// broken rather than a log line. Off by default keeps today's proven
+        /// behaviour untouched; flipping it on is the next live test, and the
+        /// near-spawn tree stays birch either way so that test is never the first
+        /// thing a player meets.
+        /// </summary>
+        private static bool VaryTreeSpecies =>
+            Environment.GetEnvironmentVariable("WAREBORN_TREE_SPECIES") == "1";
 
         /// <summary>
         /// Whether to lodge an ATLAS SHARD in the proven deposit - the real retail
@@ -2198,13 +2261,42 @@ namespace WorldsAdriftRebornGameServer
                 // of the same prefab is planted too, and idempotent so the second
                 // player walking this same step does not stand the tree back up:
                 // every client walks the identical plan, but there is one tree.
-                if (entity.AssetName == Multiplayer.Trees.AssetName
-                    && Harvest.Plant(entityId, Multiplayer.Trees.Topology(), Multiplayer.Trees.WoodType))
+                // The SPECIES decides the wood, recovered per prefab from the shipped
+                // _unityworker exports (Multiplayer.TreeSpecies, 65/65 mapped). Retail
+                // gave each tree type its own wood with its own weight and strength,
+                // so the yield is looked up per tree rather than being one constant -
+                // `Tree` is birch, and a palm placed later pays palm without a code
+                // change. The TOPOLOGY is still `Tree`'s: only that prefab's TreeBase
+                // has been parsed, and cutting another skeleton with it would produce
+                // a mask the client disagrees with (see TreeSpecies remarks). That is
+                // why the world places `Tree` today.
+                string? treeWood = Multiplayer.TreeSpecies.WoodFor(entity.AssetName);
+                if (treeWood != null)
                 {
-                    Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
-                        + ": " + Multiplayer.Trees.SectionCount + " sections, mask "
-                        + Convert.ToString(Multiplayer.Trees.FullSectionMask, 2)
-                        + ", " + Multiplayer.Trees.WoodType + ".");
+                    // THE SKELETON MUST BE THE SPECIES' OWN. The mask is the
+                    // protocol: we compute which sections fall, the client renders
+                    // whatever it is handed. Cutting a palm with birch's arithmetic
+                    // is therefore not a loggable error, it is a tree that visibly
+                    // comes apart wrongly - and the skeletons really do differ
+                    // (section counts run 9..14 across the 65 prefabs). All 65 are
+                    // recovered in TreeTopologies; the `Tree` fallback survives only
+                    // so an unrecovered prefab degrades to today's behaviour instead
+                    // of refusing to spawn, and it says so out loud when it happens.
+                    Multiplayer.TreeTopology? ownTopology = Multiplayer.TreeTopologies.For(entity.AssetName);
+                    Multiplayer.TreeTopology topology = ownTopology ?? Multiplayer.Trees.Topology();
+
+                    if (Harvest.Plant(entityId, topology, treeWood))
+                    {
+                        Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
+                            + ": " + topology.SectionCount + " sections, mask "
+                            + Convert.ToString(topology.FullMask, 2)
+                            + ", " + treeWood
+                            + (ownTopology != null
+                                ? " (own skeleton)."
+                                : " (FALLBACK to Tree's skeleton - '" + entity.AssetName
+                                  + "' has no recovered topology, so it will come apart wrongly if its"
+                                  + " real skeleton differs)."));
+                    }
                 }
 
                 // A metal node becomes an entry in the harvest ledger the moment it

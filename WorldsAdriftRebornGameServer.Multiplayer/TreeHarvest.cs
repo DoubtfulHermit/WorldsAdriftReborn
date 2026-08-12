@@ -122,6 +122,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     }
 
     /// <summary>
+    /// One tree grew its sections back. Everything the wire fan-out needs to
+    /// stand it up on every client's screen: the tree, and the mask it is now.
+    ///
+    /// There is no cutter and no yield here on purpose - regrowth is not a
+    /// harvest, so nobody is paid for it. The <see cref="SectionMask"/> is always
+    /// the whole tree (<see cref="TreeTopology.FullMask"/>); it is a field rather
+    /// than implied so the same <c>SetSectionMask</c> fan-out that a cut uses can
+    /// consume a respawn without a second code path.
+    /// </summary>
+    public readonly struct TreeRespawn
+    {
+        public TreeRespawn(long treeEntityId, int sectionMask)
+        {
+            TreeEntityId = treeEntityId;
+            SectionMask = sectionMask;
+        }
+
+        /// <summary>The tree. This is the entity id the 1036 update must be addressed to.</summary>
+        public long TreeEntityId { get; }
+
+        /// <summary>The tree's NEW mask - the whole tree - to put on the wire as 1036 sectionMask.</summary>
+        public int SectionMask { get; }
+
+        public override string ToString()
+        {
+            return "tree " + TreeEntityId + " respawned, mask -> " + Convert.ToString(SectionMask, 2);
+        }
+    }
+
+    /// <summary>
     /// The state of every harvestable tree in the world, and WHEN a held beam
     /// takes the next chunk out of one.
     ///
@@ -165,6 +195,84 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static readonly TimeSpan DefaultCutInterval = TimeSpan.FromSeconds(0.75);
 
+        /// <summary>
+        /// How long a chopped tree stands as a diminished thing before it grows
+        /// its sections back. THIS is the knob that P1-9 asked for - the old
+        /// <c>Trees.RespawnTime</c> was a wire field the client never reads
+        /// (<c>respawn_time</c> has zero references in the entire decompile), so
+        /// "nothing respawns" was literally true; the regrowth this server drives
+        /// is authored HERE instead, by resetting the tree's <c>sectionMask</c>
+        /// back to whole, which is the only channel the client actually acts on.
+        ///
+        /// RECONSTRUCTED, not recovered. Retail's cadence lived in the GSim and is
+        /// unrecoverable - even the units of the shipped <c>respawnTime</c> field
+        /// are unknown. Five minutes is a deliberate, documented placeholder: long
+        /// enough that regrowth reads as the world healing rather than as a bug,
+        /// short enough that a session sees it happen. Tune it through the
+        /// constructor; it is asserted on in seconds off the injected clock, never
+        /// counted in main-loop turns (see <see cref="DefaultCutInterval"/> for why
+        /// that distinction has already cost this project a debugging round).
+        ///
+        /// DETERMINISTIC: a fixed delay, no random jitter, so two servers fed the
+        /// same cuts regrow every tree at the same instant.
+        /// </summary>
+        public static readonly TimeSpan DefaultRespawnDelay = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// HOW THIS RELATES TO RETAIL'S "UNDERSTORM". Retail did not regrow each
+        /// tree on its own clock: the world reset on a GLOBAL cadence of roughly
+        /// 1.5-2 hours, an understorm sweeping through and replacing resources
+        /// (worldsadrift.fandom.com/wiki/Resources). That is a different SHAPE from
+        /// what this class does, not merely a different number - one synchronized
+        /// world-wide event versus N independent per-tree timers - and the
+        /// difference is player-visible: retail let you strip an area bare and know
+        /// it stayed bare until the storm, where this heals each tree quietly on its
+        /// own schedule.
+        ///
+        /// The per-tree timer is what this server can honestly do today, because
+        /// there is no weather/world-event system to hang a global reset on (the
+        /// whole weather pillar is unserved). If an understorm is ever built, tree
+        /// regrowth should STOP using its own delay and ride that event instead:
+        /// the seam is exactly <see cref="DueRespawns"/>, which would become
+        /// "reset every stand" called by the storm rather than "reset the stands
+        /// whose timers elapsed". <see cref="UnderstormCadence"/> is that cadence,
+        /// recorded here so the eventual global system has the number and so the
+        /// operator can approximate it today by setting the delay to it.
+        /// </summary>
+        public static readonly TimeSpan UnderstormCadence = TimeSpan.FromMinutes(105);
+
+        /// <summary>
+        /// Reads a respawn delay from an operator-supplied string (the
+        /// <c>WAREBORN_TREE_RESPAWN_SECONDS</c> knob), or null to accept
+        /// <see cref="DefaultRespawnDelay"/>.
+        ///
+        /// Whole seconds, invariant culture, and anything unparseable or
+        /// non-positive returns null rather than throwing: a typo in an environment
+        /// variable must not stop a server booting, and the caller logs what it
+        /// settled on. Seconds rather than minutes because the useful range spans
+        /// "30 for testing the loop" to "6300 for retail's understorm cadence".
+        /// </summary>
+        public static TimeSpan? ParseRespawnDelay(string? raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return null;
+            }
+
+            if (!double.TryParse(raw.Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double seconds))
+            {
+                return null;
+            }
+
+            if (double.IsNaN(seconds) || double.IsInfinity(seconds) || seconds <= 0)
+            {
+                return null;
+            }
+
+            return TimeSpan.FromSeconds(seconds);
+        }
+
         private sealed class Stand
         {
             public Stand(TreeTopology topology, string woodType)
@@ -177,6 +285,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             public TreeTopology Topology { get; }
             public string WoodType { get; }
             public int SectionMask { get; set; }
+
+            /// <summary>
+            /// When this tree's sections grow back, or null while it has nothing to
+            /// regrow (it is whole, or has never been cut). (Re)armed on every cut
+            /// and cleared once the tree is whole again, so a tree only regrows
+            /// after a full <see cref="DefaultRespawnDelay"/> in which NOBODY took a
+            /// section out of it - an actively harvested tree never resets under the
+            /// player mid-chop.
+            /// </summary>
+            public TimeSpan? RespawnDueAt { get; set; }
         }
 
         private sealed class Latch
@@ -187,23 +305,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         private readonly IClock _clock;
         private readonly TimeSpan _interval;
+        private readonly TimeSpan _respawnDelay;
         private readonly Dictionary<long, Stand> _trees = new Dictionary<long, Stand>();
         private readonly Dictionary<long, Latch> _latches = new Dictionary<long, Latch>();
 
-        public TreeHarvest(IClock clock, TimeSpan? cutInterval = null)
+        public TreeHarvest(IClock clock, TimeSpan? cutInterval = null, TimeSpan? respawnDelay = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _interval = cutInterval ?? DefaultCutInterval;
+            _respawnDelay = respawnDelay ?? DefaultRespawnDelay;
 
             if (_interval <= TimeSpan.Zero)
             {
                 throw new ArgumentOutOfRangeException(nameof(cutInterval),
                     "a non-positive cut interval would fell a whole tree in one main-loop turn");
             }
+            if (_respawnDelay <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(respawnDelay),
+                    "a non-positive respawn delay would regrow a tree the instant it was chopped");
+            }
         }
 
         /// <summary>The cut cadence in force.</summary>
         public TimeSpan CutInterval => _interval;
+
+        /// <summary>The regrowth delay in force.</summary>
+        public TimeSpan RespawnDelay => _respawnDelay;
 
         /// <summary>
         /// Declares a spawned tree, whole. Called when the tree's AddEntityOp goes
@@ -348,6 +476,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int felled = stand.Topology.ActiveCount(cut.FallingMask);
                 stand.SectionMask = cut.RemainingMask;
 
+                // A cut always leaves the tree smaller than whole, so it now has
+                // sections to regrow. Arm (or push out) the regrowth timer: it
+                // fires a full delay after the LAST cut, so a beam still working the
+                // tree keeps it diminished and only an abandoned tree grows back.
+                stand.RespawnDueAt = stand.SectionMask == stand.Topology.FullMask
+                    ? (TimeSpan?)null
+                    : now + _respawnDelay;
+
                 changes.Add(new TreeSectionMaskChange(
                     latch.Signal.TreeEntityId,
                     entry.Key,
@@ -359,6 +495,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             return changes;
+        }
+
+        /// <summary>
+        /// Whether a tree has a regrowth pending - it has been chopped and is
+        /// waiting out its <see cref="RespawnDelay"/>. False for a whole tree, a
+        /// tree that just respawned, and anything that is not a tree. Exposed so a
+        /// test (and a diagnostic) can see the timer without reaching into state.
+        /// </summary>
+        public bool IsAwaitingRespawn(long treeEntityId)
+        {
+            return _trees.TryGetValue(treeEntityId, out Stand? stand) && stand.RespawnDueAt != null;
+        }
+
+        /// <summary>
+        /// Every tree whose regrowth timer has elapsed, reset to whole and reported
+        /// so the wire can stand it back up. Call it once per main-loop turn
+        /// alongside <see cref="Due()"/>; it is cheap when nothing is regrowing -
+        /// the common case walks the tree dictionary, finds every
+        /// <c>RespawnDueAt</c> null, and allocates nothing.
+        ///
+        /// WHY IT RESETS TO THE WHOLE TREE, not to what was standing before the
+        /// last cut: retail's respawn does the same - <c>TreeFsimVisualizer.Respawn</c>
+        /// (acs/TreeFsimVisualizer.cs:146-150) sets the mask back to every section
+        /// and calls <c>tree.ResetTree()</c>. The space-occupancy guard it runs
+        /// first (an <c>OverlapCapsule</c> sweep that refuses to regrow into a
+        /// player or a parked ship) is UnityWorker-only physics and cannot run on
+        /// this server, so regrowth here is unconditional once the delay is up. That
+        /// is called out honestly rather than faked: there is no collision authority
+        /// to consult.
+        ///
+        /// The client needs no new component to show this. It reactivates the
+        /// sections purely off the 1036 <c>sectionMask</c> climbing back to full
+        /// (<c>TreeVisualizer</c> re-inits the section GameObjects), and
+        /// <c>TreeClientVisualizer</c> plays a break effect ONLY on bits LEAVING the
+        /// mask - so a mask going UP is silent, which is exactly a tree quietly
+        /// standing whole again.
+        ///
+        /// DETERMINISTIC: fires exactly <see cref="RespawnDelay"/> after a tree's
+        /// last cut, measured on the injected clock. No random jitter.
+        /// </summary>
+        public IReadOnlyList<TreeRespawn> DueRespawns()
+        {
+            if (_trees.Count == 0)
+            {
+                return Array.Empty<TreeRespawn>();
+            }
+
+            TimeSpan now = _clock.Elapsed;
+            List<TreeRespawn>? respawns = null;
+
+            foreach (KeyValuePair<long, Stand> entry in _trees)
+            {
+                Stand stand = entry.Value;
+                if (stand.RespawnDueAt == null || now < stand.RespawnDueAt.Value)
+                {
+                    continue;
+                }
+
+                stand.SectionMask = stand.Topology.FullMask;
+                stand.RespawnDueAt = null;
+
+                (respawns ??= new List<TreeRespawn>()).Add(new TreeRespawn(entry.Key, stand.SectionMask));
+            }
+
+            return respawns ?? (IReadOnlyList<TreeRespawn>)Array.Empty<TreeRespawn>();
         }
     }
 }

@@ -46,10 +46,43 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             HarvestYield yields = new HarvestYield();
 
             // Trees. The wood species IS the itemTypeId ("birch" wood -> "birch"
-            // item, a real row in itemData.json), and one item per felled section
-            // is the natural rate. Registered from the same constant the tree
-            // spawner plants with, so the two cannot drift.
-            yields.Register(Trees.WoodType, new YieldRule(Trees.WoodType, amountPerUnit: 1));
+            // item), and one item per felled section is the natural rate.
+            //
+            // ALL EIGHT woods are registered, not just the one species the world
+            // plants today. Retail gave every tree type its own wood
+            // (worldsadrift.fandom.com/wiki/Wood), TreeSpecies has the recovered
+            // per-prefab map, and each of the eight is a real "Wood"-category row in
+            // itemData.json - so registering the whole set means a species placed
+            // later pays the right wood the first time, instead of tripping the
+            // "no harvest yield registered for source" warning in Award below.
+            foreach (string wood in TreeSpecies.Woods)
+            {
+                yields.Register(wood, new YieldRule(wood, amountPerUnit: 1));
+            }
+
+            // DACCAT BERRIES ARE DELIBERATELY NOT REGISTERED, and this is the note
+            // for whoever comes to add them. Retail's trees dropped edible daccat
+            // berries alongside the logs (worldsadrift.fandom.com/wiki/Trees), and
+            // "daccatBerries" is unquestionably a real retail item id - it survives
+            // in the client's own harvest-SFX table, mapped to the PlantsVegetation
+            // sound (acs/Travellers.UI.PlayerInventory/InventoryContents.cs:55).
+            //
+            // But it is NOT a row in itemData.json (395 items, zero matches), and
+            // that file is the catalogue this server serves as reference data - so
+            // registering the id today would resolve to an item the client's
+            // database has never heard of. Adding the row is possible, and it would
+            // not crash (InventoryIconManager falls back to placeholder_icon on an
+            // unknown icon), but every attribute of it - display name, description,
+            // grid size, icon, the health it restores - would be INVENTED, and
+            // nothing in the decompile constrains any of them. The only tree/food
+            // link that survives is FoodSourceVisualizer setting
+            // FoodSourceType.TreeFruit, and that is the CREATURE feeding system
+            // (namespace Bossa.Travellers.Creatures.Food), not the player's harvest.
+            //
+            // So this is left as a reported gap rather than a fabricated item. The
+            // wiring itself is one line once a real row exists: berries would be a
+            // SECOND yield off the same cut, which is a shape HarvestYield does not
+            // have yet (one source key resolves to one rule).
 
             return yields;
         }

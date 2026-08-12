@@ -13,6 +13,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
     /// in-progress value then flip" fidelity fixes: the shipyard fold-out, the crafted-part
     /// materialize dissolve, the timed station craft, and the scan-note text.
     /// </summary>
+    // Shares the static DatabankLedger with Knowledge/DatabanksTests. xUnit runs
+    // test CLASSES in parallel, so without a shared collection the two race on that
+    // global state: one class's Clear() lands in the middle of the other's
+    // Register/ScanDataFor pair and the assert fails for reasons that have nothing
+    // to do with either test. Latent since both classes existed - it surfaced when
+    // an unrelated new test class shifted the scheduling.
+    [Collection(DatabankLedgerCollection.Name)]
     public class FidelityCheapWinsTests
     {
         // ---- 3.1 Shipyard fold-out ------------------------------------------------

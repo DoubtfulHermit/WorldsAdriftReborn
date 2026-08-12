@@ -4,6 +4,10 @@ using Xunit;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
 {
     /// <summary>The databank prefab name, grant chunk, placement and server ledger.</summary>
+    // Shares the static DatabankLedger with FidelityCheapWinsTests; see the note
+    // there. The shared collection serialises the two classes so neither one's
+    // Clear() can land inside the other's assertions.
+    [Collection(Tests.DatabankLedgerCollection.Name)]
     public class DatabanksTests
     {
         [Fact]

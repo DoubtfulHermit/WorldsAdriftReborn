@@ -535,16 +535,68 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         };
 
         /// <summary>
-        /// The distributed trees as spawnable entities, keyed tree-0..N.
+        /// ONE VERIFIED PREFAB PER WOOD - the species the distributed trees cycle
+        /// through when species variety is switched on.
+        ///
+        /// Retail gave every tree type its own wood, and all eight woods are real
+        /// items; this is what makes seven of them gatherable instead of one. Each
+        /// entry cleared THREE gates before being listed, because a wrong pick is
+        /// not a log line, it is a visibly broken tree:
+        ///
+        /// 1. Its skeleton is recovered and verified (<see cref="TreeTopologies"/>),
+        ///    so the mask arithmetic is the species' own.
+        /// 2. Its wood is recovered (<see cref="TreeSpecies"/>), so the yield is
+        ///    Bossa's, and the eight cover every wood in the catalogue.
+        /// 3. Its MonoBehaviour set is IDENTICAL to `Tree`'s - same 23 classes, no
+        ///    extras - so its <c>[Require]</c> reader ids are exactly the ten this
+        ///    server already serves branches for. That gate is not cosmetic: the
+        ///    client's component batch is <c>failOnComponentInitError: true</c>, so
+        ///    one uncovered id aborts the batch and the tree comes up broken with
+        ///    its break VFX silent.
+        ///
+        /// 64 of the 65 shipped species pass gate 3. The one that does not is
+        /// <c>TreePalmBlue2</c>, which carries <c>LocalTransformTeleportBehaviour</c>
+        /// and therefore requires <c>TeleportRequestState (190607)</c> - a component
+        /// this server never serves. It is deliberately absent from this list, and
+        /// that is the reason.
+        ///
+        /// `Tree` itself stays first so the birch everyone has already chopped is
+        /// still the tree nearest spawn's neighbour.
         /// </summary>
-        public static IEnumerable<WorldEntity> DistributedTrees()
+        public static readonly IReadOnlyList<string> VerifiedSpecies = new[]
+        {
+            Trees.AssetName,          // birch
+            "TreePalm1",              // palm
+            "TreeStraightBlue",       // ash
+            "TreeStraightRed",        // chestnut
+            "TreeWonky1Leaf6",        // oak
+            "TreeWonky1Leaf3",        // elm
+            "TreeDessert2",           // hemlock
+            "TreeWonky1LongLeaf2",    // cedar
+        };
+
+        /// <summary>
+        /// The distributed trees as spawnable entities, keyed tree-0..N.
+        ///
+        /// With <paramref name="varySpecies"/> false (the default) every one is
+        /// `Tree`, exactly as before. With it true they cycle through
+        /// <see cref="VerifiedSpecies"/> so all eight woods are gatherable on one
+        /// island. The near-spawn <see cref="HavenTree"/> is birch either way - the
+        /// one tree every session walks up to does not change behaviour behind a
+        /// switch.
+        /// </summary>
+        public static IEnumerable<WorldEntity> DistributedTrees(bool varySpecies = false)
         {
             int i = 0;
             foreach ((double x, double y, double z) in DistributedTreeLocals)
             {
+                string asset = varySpecies
+                    ? VerifiedSpecies[i % VerifiedSpecies.Count]
+                    : Trees.AssetName;
+
                 yield return new WorldEntity(
                     "tree-" + i++,
-                    Trees.AssetName,
+                    asset,
                     DefaultAssetContext,
                     MetalNodes.IslandLocalToWorldFixed(MetalNodes.IslandOrigin, x, y, z),
                     seedComponents: null,
@@ -864,7 +916,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Clamped to [1, all placed]; index 0 is the nearest-spawn pod, so any count
         /// keeps it.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null)
+        /// <param name="varyTreeSpecies">
+        /// Whether to plant the eight verified per-species tree prefabs (one per
+        /// catalogue wood) instead of birch-only. OFF by default: every species has a
+        /// recovered skeleton and wood, but no non-birch prefab has been in front of a
+        /// live client yet, so the knob (WAREBORN_TREE_SPECIES=1) is the way to try it
+        /// without disturbing the proven birch behaviour.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -910,7 +969,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int treeTotal = SpawnCountPolicy.CountFrom(treeCountEnv, fullTrees);
 
                 registry.Register(HavenTree());
-                foreach (WorldEntity tree in DistributedTrees().Take(treeTotal - 1))
+                foreach (WorldEntity tree in DistributedTrees(varyTreeSpecies).Take(treeTotal - 1))
                 {
                     registry.Register(tree);
                 }
