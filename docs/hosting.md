@@ -266,3 +266,39 @@ native networking layer is simply absent. Diagnose it by the absence of
 A `DIAG.bat` exists for players: it reports which port the mod was told to use,
 which port the client actually dialled, the config, and whether the machine can
 reach both servers.
+
+## Resource placement knobs
+
+Metal deposits are placed by the **island resource handshake**: the server asks
+(component 1010 `SpawnResources`), the stock client surface-samples its own island
+mesh - physics-checked, so always on real ground - and replies (1011
+`IslandResourceSpawnerClientState`), and the server spawns a deposit at each
+position the client chose. This is the retail mechanic; it replaces the offline
+position generator, whose guesses put deposits in the air and inside trees.
+
+| Variable | Default | Effect |
+|---|---|---|
+| `WAREBORN_METAL_COUNT` | `40` | Deposits requested per island. Clamped to **0..200**; an unparseable value falls back to 40, so a fat-fingered knob cannot empty or flood the world. |
+| `WAREBORN_METAL_HANDSHAKE` | on | `0`/`false`/`off`/`no` disables the handshake entirely and restores the old boot-time hand-placed path (`WAREBORN_SPAWN_DEPOSIT=1`). |
+| `WAREBORN_METAL_FALLBACK` | on | `0` disables the safety net. **Only for deliberately testing the handshake alone** - with it off, a client that never replies means no ore at all. |
+| `WAREBORN_METAL_FALLBACK_SECONDS` | `90` | How long to wait for a usable 1011 reply before spawning the hand-placed table instead. Clamped to **10..600**. |
+| `WAREBORN_DEPOSIT_COUNT` | all | How many hand-placed deposits the *fallback* lays down. Clamped to `[1, table size]`. |
+| `WAREBORN_SPAWN_ATLAS` | on | `0` stops the fallback lodging atlas shards in its deposits. |
+
+`WAREBORN_SPAWN_DEPOSIT=1` is **ignored while the handshake is on**. Honouring it
+would put both sets in the world at once - forty client-placed deposits plus the
+twenty-odd hand-measured ones - with no way to tell from the log which is which.
+The hand-placed table is still used, at runtime, as the fallback.
+
+### Which path ran
+
+Exactly one marker line is written per island per run:
+
+- `resource-handshake: PATH=handshake` - the client replied and its positions were used.
+- `resource-handshake: PATH=fallback` - no usable reply arrived before the deadline;
+  the hand-placed table was spawned instead.
+
+A placement whose global coordinates fall outside Haven's measured AABB (plus a
+250 m margin) is refused and logged with its raw metres - the guard against a
+floating-origin or scale error scattering deposits across the sky. Nothing is
+ever spawned from a refused position.
