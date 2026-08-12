@@ -69,14 +69,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void TheShardSitsAtTheLodgedPositionAboveItsHostDeposit()
+        public void TheShardSitsOnItsHostDeposit()
         {
+            // The shard ENTITY is centred on its host rock - the visible embedding is the
+            // client-side alignment to the core's authored ScrapSlots, not a server-side
+            // offset. An invented offset here is what produced "a shard on the floor".
             WorldEntityRegistry r = Build(includeDeposit: true, includeAtlasShard: true);
             WorldEntity deposit = r.ByKey(MetalDeposits.KeyFor(0))!;
             WorldEntity shard = r.ByKey(AtlasShardCatalogue.KeyFor(0))!;
 
             Assert.Equal(AtlasShardCatalogue.LodgedPositionFor(deposit.Position), shard.Position);
-            Assert.True(shard.Position.Y > deposit.Position.Y);
+            Assert.Equal(deposit.Position, shard.Position);
+        }
+
+        [Fact]
+        public void AShardKeyNamesItsHostDepositSoAnySpawnerCanLodgeOne()
+        {
+            // The handshake spawner registers deposits the client ground-checked, keyed
+            // "handshake-deposit-<island>-N". The shard key must carry that host verbatim
+            // so registration can bind the rockCoreId without a table index.
+            const string handshakeHost = "handshake-deposit-1431299145-7";
+
+            string shardKey = AtlasShardCatalogue.KeyForHost(handshakeHost);
+            Assert.True(AtlasShardCatalogue.IsShardKey(shardKey));
+            Assert.Equal(handshakeHost, AtlasShardCatalogue.HostKeyOf(shardKey));
+            // It has no static placement index, and that is fine.
+            Assert.Null(AtlasShardCatalogue.IndexOf(shardKey));
+
+            // The static path is the same function with a "deposit-N" host.
+            Assert.Equal(MetalDeposits.KeyFor(3),
+                AtlasShardCatalogue.HostKeyOf(AtlasShardCatalogue.KeyFor(3)));
+            Assert.Equal(3, AtlasShardCatalogue.IndexOf(AtlasShardCatalogue.KeyFor(3)));
+        }
+
+        [Fact]
+        public void AShardEntityCanBeBuiltForAnyHostKey()
+        {
+            const string handshakeHost = "handshake-deposit-1431299145-2";
+            FixedPointPosition hostPos = FixedPointPosition.FromMetres(120.0, 8.0, -40.0);
+
+            WorldEntity shard = WorldEntities.AtlasShardEntity(handshakeHost, hostPos);
+
+            Assert.Equal(AtlasShardCatalogue.KeyForHost(handshakeHost), shard.Key);
+            Assert.Equal(AtlasShardCatalogue.AssetName, shard.AssetName);
+            Assert.Equal(hostPos, shard.Position);
+            Assert.Empty(shard.SeedComponents);
         }
 
         [Fact]

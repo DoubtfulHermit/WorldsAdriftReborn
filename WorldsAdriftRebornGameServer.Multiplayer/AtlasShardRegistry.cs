@@ -3,17 +3,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// <summary>
     /// The lifecycle of one atlas shard, server-authoritative.
     ///
-    /// LODGED -> RELEASED -> COLLECTED, each transition one-way. A shard starts
-    /// lodged in its host deposit's core (2102 isLodged=true, no pickup offered);
-    /// destroying that core RELEASES it (2102 isLodged=false + Dislodged, 1210
-    /// available=true, the PickUp prompt appears); a successful PickUp transaction
-    /// COLLECTS it (1210 unavailable, the world shard removed/sunk). See
-    /// docs/research/findings-atlas-shards.md §2.
+    /// LODGED -> EXPOSED -> RELEASED -> COLLECTED, each transition one-way, and the
+    /// middle two are BOTH pickable. This is the retail shape
+    /// (worldsadrift.fandom.com/wiki/Mining, /wiki/Atlas_Shard): a shard is a green
+    /// crystal in the CENTRE CORE of a metal node, hidden while the outer shell is
+    /// intact; breaking enough shell EXPOSES it, and it can be taken by interacting
+    /// (E) right there, still in the rock; only if you keep mining and DESTROY the
+    /// node does it fall loose - which is why players were told to grab shards before
+    /// finishing a node, since a loose one can roll off the island.
+    ///
+    ///   LODGED   - shell intact. 2102 isLodged=true, 1210 available=FALSE (no prompt).
+    ///   EXPOSED  - shell broken enough (<see cref="MetalDepositExposure"/>). STILL in
+    ///              the slot, so 2102 isLodged stays TRUE (the shard must not start
+    ///              falling), but 1210 available=TRUE: the PickUp prompt appears.
+    ///   RELEASED - the core was destroyed. 2102 isLodged=false + Dislodged (the
+    ///              client's own MetalDepositAtlasVisualiser core-Exploded chain lets
+    ///              the rigidbody go), 1210 still available.
+    ///   COLLECTED- a PickUp transaction took it. 1210 unavailable, world shard sunk.
+    ///
+    /// See docs/research/findings-atlas-shards.md §2. The EXPOSED step is the
+    /// correction to the original "released only on core destruction" reading, which
+    /// made shards unobtainable until the node was gone.
     /// </summary>
     public enum AtlasShardState
     {
-        /// <summary>In the core slot. Not pickable; 2102 isLodged, 1210 unavailable.</summary>
+        /// <summary>In the core slot, shell intact. Not pickable; 2102 isLodged, 1210 unavailable.</summary>
         Lodged,
+
+        /// <summary>
+        /// Shell broken enough that the shard shows in the core. STILL lodged (2102
+        /// isLodged stays true so it does not fall), but pickable: 1210 available.
+        /// </summary>
+        Exposed,
 
         /// <summary>Freed by core destruction. Pickable; 2102 dislodged, 1210 available.</summary>
         Released,
@@ -97,25 +118,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public AtlasShardState? StateOf(long shardEntityId) =>
             _byEntityId.TryGetValue(shardEntityId, out Shard? s) ? s.State : (AtlasShardState?)null;
 
-        /// <summary>Whether a shard is still lodged (2102 isLodged seed). False for a non-shard id.</summary>
+        /// <summary>
+        /// Whether a shard is still PHYSICALLY IN THE CORE SLOT - the 2102 isLodged
+        /// seed. True for both Lodged and EXPOSED: exposing a shard reveals it, it does
+        /// not knock it out of the rock (a player who does not take it must find it
+        /// still sitting there). Only core DESTRUCTION dislodges it. False for a
+        /// non-shard id.
+        /// </summary>
         public bool IsLodged(long shardEntityId) =>
-            _byEntityId.TryGetValue(shardEntityId, out Shard? s) && s.State == AtlasShardState.Lodged;
+            _byEntityId.TryGetValue(shardEntityId, out Shard? s)
+            && (s.State == AtlasShardState.Lodged || s.State == AtlasShardState.Exposed);
+
+        /// <summary>Whether a shard is exposed but still in the core (pickable in place).</summary>
+        public bool IsExposed(long shardEntityId) =>
+            _byEntityId.TryGetValue(shardEntityId, out Shard? s) && s.State == AtlasShardState.Exposed;
 
         /// <summary>Whether a shard has been released (dislodged, pickable). False for a non-shard id.</summary>
         public bool IsReleased(long shardEntityId) =>
             _byEntityId.TryGetValue(shardEntityId, out Shard? s) && s.State == AtlasShardState.Released;
+
+        /// <summary>
+        /// Whether a shard has been mined into reach - EXPOSED or RELEASED, i.e. taken
+        /// out of hiding but not yet collected. The single predicate the pickup path
+        /// and the 1210 seed both read, so "can I take it" has one definition.
+        /// </summary>
+        public bool IsTakeable(long shardEntityId) =>
+            _byEntityId.TryGetValue(shardEntityId, out Shard? s)
+            && (s.State == AtlasShardState.Exposed || s.State == AtlasShardState.Released);
 
         /// <summary>Whether a shard has been collected. False for a non-shard id.</summary>
         public bool IsCollected(long shardEntityId) =>
             _byEntityId.TryGetValue(shardEntityId, out Shard? s) && s.State == AtlasShardState.Collected;
 
         /// <summary>
-        /// Whether a shard's 1210 prompt should read AVAILABLE: released and not yet
-        /// collected. Reservation does NOT flip this - a reservation is the momentary
-        /// lock inside one pickup transaction, not a durable "in use by" state, and the
-        /// transaction resolves within the same poll drain. False for a non-shard id.
+        /// Whether a shard's 1210 prompt should read AVAILABLE: exposed or released,
+        /// and not yet collected. Reservation does NOT flip this - a reservation is the
+        /// momentary lock inside one pickup transaction, not a durable "in use by"
+        /// state, and the transaction resolves within the same poll drain. False for a
+        /// non-shard id.
         /// </summary>
-        public bool IsAvailable(long shardEntityId) => IsReleased(shardEntityId);
+        public bool IsAvailable(long shardEntityId) => IsTakeable(shardEntityId);
 
         /// <summary>
         /// Whether a shard is currently reserved by someone OTHER than
@@ -128,12 +170,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             && s.ReservedBy != playerEntityId;
 
         /// <summary>
-        /// Releases every shard lodged in <paramref name="hostDepositEntityId"/>'s
-        /// core, transitioning each Lodged -> Released exactly once. Called at the
-        /// moment the deposit's core is destroyed (the SAME once-only deplete
+        /// EXPOSES every still-hidden shard in <paramref name="hostDepositEntityId"/>'s
+        /// core, transitioning each Lodged -> Exposed exactly once. Called on the shot
+        /// that first breaks enough crust (<see cref="MetalDepositExposure.IsExposed"/>),
+        /// so the "the prompt appeared" broadcast fires ONCE however long the beam is
+        /// held afterwards.
+        ///
+        /// A shard already Exposed, Released or Collected is left untouched - this can
+        /// never walk a shard backwards or re-offer one somebody already took.
+        /// </summary>
+        /// <returns>The shard entity ids this call transitioned to Exposed, in id order.</returns>
+        public IReadOnlyList<long> ExposeByHost(long hostDepositEntityId)
+        {
+            List<long> exposed = new List<long>();
+            foreach (KeyValuePair<long, Shard> kv in _byEntityId)
+            {
+                if (kv.Value.HostDepositEntityId == hostDepositEntityId
+                    && kv.Value.State == AtlasShardState.Lodged)
+                {
+                    kv.Value.State = AtlasShardState.Exposed;
+                    exposed.Add(kv.Key);
+                }
+            }
+            exposed.Sort();
+            return exposed;
+        }
+
+        /// <summary>
+        /// Releases every shard still IN <paramref name="hostDepositEntityId"/>'s core -
+        /// Lodged or Exposed - transitioning each to Released exactly once. Called at
+        /// the moment the deposit's core is destroyed (the SAME once-only deplete
         /// transition <see cref="NodeRegistry.MarkDestroyed"/> reports), so the release
         /// broadcast fires once and a shard already released or collected is left
         /// untouched.
+        ///
+        /// Lodged is accepted as well as Exposed so a deposit mined faster than the
+        /// exposure threshold could ever fire - or one whose exposure knob is set to a
+        /// fraction the shot count skips over - still yields its shard rather than
+        /// stranding it inside a destroyed rock.
         /// </summary>
         /// <returns>The shard entity ids this call transitioned to Released, in id order.</returns>
         public IReadOnlyList<long> ReleaseByHost(long hostDepositEntityId)
@@ -142,7 +216,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             foreach (KeyValuePair<long, Shard> kv in _byEntityId)
             {
                 if (kv.Value.HostDepositEntityId == hostDepositEntityId
-                    && kv.Value.State == AtlasShardState.Lodged)
+                    && (kv.Value.State == AtlasShardState.Lodged
+                        || kv.Value.State == AtlasShardState.Exposed))
                 {
                     kv.Value.State = AtlasShardState.Released;
                     released.Add(kv.Key);
@@ -173,12 +248,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// Attempts to RESERVE a released shard for a player across a pickup
-        /// transaction. Succeeds only if the shard is Released and not already reserved
-        /// by someone else; a re-reserve by the SAME player is idempotent-true (a
-        /// retried event must not deadlock its own slot). This is the atomic guard that
-        /// makes the grant safe: reserve first, then grant, then <see cref="Collect"/>
-        /// or <see cref="Rollback"/>.
+        /// Attempts to RESERVE a takeable shard for a player across a pickup
+        /// transaction. Succeeds only if the shard is EXPOSED or Released and not
+        /// already reserved by someone else; a re-reserve by the SAME player is
+        /// idempotent-true (a retried event must not deadlock its own slot). This is
+        /// the atomic guard that makes the grant safe: reserve first, then grant, then
+        /// <see cref="Collect"/> or <see cref="Rollback"/>.
         /// </summary>
         /// <returns>True if the caller now holds the reservation.</returns>
         public bool Reserve(long shardEntityId, long playerEntityId)
@@ -188,7 +263,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 return false;
             }
             if (!_byEntityId.TryGetValue(shardEntityId, out Shard? s)
-                || s.State != AtlasShardState.Released)
+                || !IsTakeable(shardEntityId))
             {
                 return false;
             }
@@ -220,14 +295,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>
         /// Commits a collection: the grant landed, so the shard becomes Collected and
         /// its reservation is cleared. Only the reserving player can collect, and only
-        /// a Released shard - so a second event on an already-collected shard fails
-        /// rather than double-granting.
+        /// a TAKEABLE (exposed or released) shard - so a second event on an
+        /// already-collected shard fails rather than double-granting.
         /// </summary>
         /// <returns>True if this call collected the shard.</returns>
         public bool Collect(long shardEntityId, long playerEntityId)
         {
             if (!_byEntityId.TryGetValue(shardEntityId, out Shard? s)
-                || s.State != AtlasShardState.Released
+                || !IsTakeable(shardEntityId)
                 || s.ReservedBy != playerEntityId)
             {
                 return false;

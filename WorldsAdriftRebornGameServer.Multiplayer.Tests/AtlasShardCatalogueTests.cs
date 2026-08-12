@@ -57,17 +57,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_lodged_position_is_the_deposit_raised_by_the_offset()
+        public void The_lodged_entity_sits_on_the_deposit_itself_by_default()
+        {
+            // The shard ENTITY is centred on its host rock: the visible embedding is the
+            // client-side ScrapSlots alignment, not a server-invented offset. The old
+            // 1.5 m raise is exactly what the player saw as "a shard floating / on the
+            // floor next to nothing".
+            FixedPointPosition deposit = FixedPointPosition.FromMetres(100.0, 5.0, -20.0);
+            FixedPointPosition shard =
+                AtlasShardCatalogue.LodgedPositionFor(deposit, AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres);
+
+            Assert.Equal(deposit.X, shard.X);
+            Assert.Equal(deposit.Y, shard.Y);
+            Assert.Equal(deposit.Z, shard.Z);
+            Assert.Equal(0.0, AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres);
+        }
+
+        [Fact]
+        public void The_lodged_offset_knob_raises_only_Y()
         {
             FixedPointPosition deposit = FixedPointPosition.FromMetres(100.0, 5.0, -20.0);
-            FixedPointPosition shard = AtlasShardCatalogue.LodgedPositionFor(deposit);
+            FixedPointPosition shard = AtlasShardCatalogue.LodgedPositionFor(deposit, 1.5);
 
-            // Same X/Z, Y raised by exactly the offset in fixed-point units.
             Assert.Equal(deposit.X, shard.X);
             Assert.Equal(deposit.Z, shard.Z);
-            long expectedRaise = (long)(AtlasShardCatalogue.LodgedHeightOffsetMetres * FixedPointPosition.UnitsPerMetre);
-            Assert.Equal(deposit.Y + expectedRaise, shard.Y);
-            Assert.True(shard.Y > deposit.Y);
+            Assert.Equal(deposit.Y + (long)(1.5 * FixedPointPosition.UnitsPerMetre), shard.Y);
+        }
+
+        [Fact]
+        public void A_garbled_lodge_offset_falls_back_to_the_default()
+        {
+            Assert.Equal(AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres,
+                AtlasShardCatalogue.LodgedHeightOffsetMetres(null));
+            Assert.Equal(AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres,
+                AtlasShardCatalogue.LodgedHeightOffsetMetres("   "));
+            Assert.Equal(AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres,
+                AtlasShardCatalogue.LodgedHeightOffsetMetres("not-a-number"));
+            // A real value - including a negative one - is honoured.
+            Assert.Equal(-0.75, AtlasShardCatalogue.LodgedHeightOffsetMetres("-0.75"));
+            Assert.Equal(2.25, AtlasShardCatalogue.LodgedHeightOffsetMetres("2.25"));
         }
 
         [Fact]

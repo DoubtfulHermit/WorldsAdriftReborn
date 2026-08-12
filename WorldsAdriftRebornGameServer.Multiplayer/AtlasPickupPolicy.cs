@@ -19,7 +19,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The target entity is not a live atlas shard.</summary>
         NotAShard,
 
-        /// <summary>The shard is still lodged in its core (not released by mining).</summary>
+        /// <summary>
+        /// The shard is still BURIED - its host deposit's shell has not been broken
+        /// far enough to expose it, so there is nothing to take yet. (An EXPOSED shard
+        /// is takeable even though it is still physically lodged in the core; retail
+        /// let you grab it out of the rock. See <see cref="AtlasShardState"/>.)
+        /// </summary>
         StillLodged,
 
         /// <summary>The shard has already been collected by someone.</summary>
@@ -92,7 +97,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </param>
         /// <param name="verbIsPickUp">Whether the interaction verb was PickUp.</param>
         /// <param name="targetIsShard">Whether the target entity is a registered atlas shard.</param>
-        /// <param name="released">Whether the shard has been mined loose (released).</param>
+        /// <param name="takeable">
+        /// Whether the shard has been mined into reach - EXPOSED in its core by a
+        /// broken shell, or RELEASED by the core's destruction. Retail allowed the
+        /// pickup as soon as the shard was visible in the core, so this is NOT
+        /// "released" alone (<see cref="AtlasShardRegistry.IsTakeable"/>).
+        /// </param>
         /// <param name="collected">Whether the shard has already been collected.</param>
         /// <param name="reservedByOther">Whether another player holds the shard's reservation.</param>
         /// <param name="distanceMetres">
@@ -108,7 +118,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             bool peerOwnsPlayer,
             bool verbIsPickUp,
             bool targetIsShard,
-            bool released,
+            bool takeable,
             bool collected,
             bool reservedByOther,
             double? distanceMetres,
@@ -130,7 +140,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 return new AtlasPickupDecision(AtlasPickupOutcome.AlreadyCollected);
             }
-            if (!released)
+            if (!takeable)
             {
                 return new AtlasPickupDecision(AtlasPickupOutcome.StillLodged);
             }

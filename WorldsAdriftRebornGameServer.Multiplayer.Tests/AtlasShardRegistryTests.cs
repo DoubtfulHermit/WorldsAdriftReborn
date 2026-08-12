@@ -1,11 +1,12 @@
+using System.Collections.Generic;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 {
     /// <summary>
-    /// The shard lifecycle and the pickup reservation: LODGED -> RELEASED ->
-    /// COLLECTED, once-only release on core destruction, and the reservation that
+    /// The shard lifecycle and the pickup reservation: LODGED -> EXPOSED -> RELEASED
+    /// -> COLLECTED, once-only transitions, and the reservation that
     /// stops two players winning the same shard. Pure, so the state machine is pinned
     /// natively - the standing caveat bites hardest on exactly this kind of state.
     /// </summary>
@@ -200,5 +201,117 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.False(reg.Rollback(Shard, PlayerB));
             Assert.True(reg.IsReservedByOther(Shard, PlayerB)); // still A's
         }
+
+        // ==============================================================
+        // EXPOSED: the retail seam. Breaking enough of the node's shell makes the
+        // shard takeable WHILE IT IS STILL IN THE CORE - you do not have to
+        // destroy the node, and destroying it is how a shard gets lost.
+        // ==============================================================
+
+        [Fact]
+        public void Exposing_a_host_makes_its_shard_takeable_without_dislodging_it()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+
+            IReadOnlyList<long> exposed = reg.ExposeByHost(Host);
+
+            Assert.Equal(new[] { Shard }, exposed);
+            Assert.Equal(AtlasShardState.Exposed, reg.StateOf(Shard));
+            Assert.True(reg.IsExposed(Shard));
+            Assert.True(reg.IsTakeable(Shard));
+            Assert.True(reg.IsAvailable(Shard));   // the 1210 prompt appears
+            Assert.False(reg.IsReleased(Shard));
+            // It has NOT fallen out: 2102 isLodged must stay true or the client's
+            // rigidbody chain would drop it half-way through mining.
+            Assert.True(reg.IsLodged(Shard));
+        }
+
+        [Fact]
+        public void Exposure_is_once_only()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+
+            Assert.Single(reg.ExposeByHost(Host));
+            Assert.Empty(reg.ExposeByHost(Host));
+            Assert.Empty(reg.ExposeByHost(Host));
+            Assert.Equal(AtlasShardState.Exposed, reg.StateOf(Shard));
+        }
+
+        [Fact]
+        public void An_exposed_shard_can_be_picked_up_out_of_the_core()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+            reg.ExposeByHost(Host);
+
+            Assert.True(reg.Reserve(Shard, PlayerA));
+            Assert.True(reg.Collect(Shard, PlayerA));
+            Assert.True(reg.IsCollected(Shard));
+            Assert.False(reg.IsAvailable(Shard));
+            Assert.False(reg.IsLodged(Shard));
+        }
+
+        [Fact]
+        public void Destroying_the_core_releases_an_exposed_shard()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+            reg.ExposeByHost(Host);
+
+            IReadOnlyList<long> released = reg.ReleaseByHost(Host);
+
+            Assert.Equal(new[] { Shard }, released);
+            Assert.True(reg.IsReleased(Shard));
+            Assert.False(reg.IsLodged(Shard));   // now loose - 2102 dislodged
+            Assert.True(reg.IsAvailable(Shard));
+        }
+
+        [Fact]
+        public void Destroying_the_core_still_frees_a_shard_that_was_never_exposed()
+        {
+            // A deposit mined past its exposure threshold in a single burst, or an
+            // exposure knob the shot count skipped, must not strand its shard.
+            AtlasShardRegistry reg = WithLodgedShard();
+
+            Assert.Equal(new[] { Shard }, reg.ReleaseByHost(Host));
+            Assert.True(reg.IsReleased(Shard));
+        }
+
+        [Fact]
+        public void Exposing_after_release_or_collection_never_walks_a_shard_backwards()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+            reg.ReleaseByHost(Host);
+            Assert.Empty(reg.ExposeByHost(Host));
+            Assert.Equal(AtlasShardState.Released, reg.StateOf(Shard));
+
+            Assert.True(reg.Reserve(Shard, PlayerA));
+            Assert.True(reg.Collect(Shard, PlayerA));
+            Assert.Empty(reg.ExposeByHost(Host));
+            Assert.Empty(reg.ReleaseByHost(Host));
+            Assert.Equal(AtlasShardState.Collected, reg.StateOf(Shard));
+        }
+
+        [Fact]
+        public void A_buried_shard_is_not_takeable()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+
+            Assert.False(reg.IsTakeable(Shard));
+            Assert.False(reg.IsAvailable(Shard));
+            Assert.False(reg.Reserve(Shard, PlayerA));
+            Assert.False(reg.Collect(Shard, PlayerA));
+        }
+
+        [Fact]
+        public void Exposure_only_touches_the_named_hosts_shards()
+        {
+            AtlasShardRegistry reg = WithLodgedShard();
+            const long otherHost = 6000;
+            const long otherShard = 6001;
+            Assert.True(reg.Register(otherShard, otherHost, 0));
+
+            Assert.Equal(new[] { Shard }, reg.ExposeByHost(Host));
+            Assert.Equal(AtlasShardState.Lodged, reg.StateOf(otherShard));
+        }
+
     }
 }

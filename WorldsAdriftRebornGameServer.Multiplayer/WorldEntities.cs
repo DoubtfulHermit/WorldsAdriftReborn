@@ -611,9 +611,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// An ATLAS SHARD lodged in the deposit at placement <paramref name="index"/> -
         /// the real retail acquisition object, a SEPARATE <c>MetalDepositAtlas</c>
         /// entity from its host deposit. Keyed <c>atlas-shard-N</c> to pair with
-        /// <c>deposit-N</c>, positioned at the deposit raised by
-        /// <see cref="AtlasShardCatalogue.LodgedHeightOffsetMetres"/> so it reads as
-        /// sitting in the core.
+        /// <c>deposit-N</c>, and positioned ON its host deposit
+        /// (<see cref="AtlasShardCatalogue.LodgedPositionFor(FixedPointPosition)"/>,
+        /// offset 0 by default). The VISIBLE embedding in the core is done client-side
+        /// by aligning the shard's view to the core's authored ScrapSlots - the retail
+        /// alignment is UnityWorker-only, so no server position can stand in for it;
+        /// see the remarks on <see cref="AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres"/>.
         ///
         /// NO SEEDED COMPONENTS, exactly like the deposit and the nugget: the client
         /// checks the shard out and asks for its 1305/2102/1210/190602 over
@@ -625,10 +628,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// deposit's shared entity id is already bound when the shard's spawn step
         /// resolves its host (see <see cref="Default"/>).
         /// </summary>
-        public static WorldEntity AtlasShardEntity(int index, FixedPointPosition depositPosition)
+        public static WorldEntity AtlasShardEntity(int index, FixedPointPosition depositPosition) =>
+            AtlasShardEntity(MetalDeposits.KeyFor(index), depositPosition);
+
+        /// <summary>
+        /// An ATLAS SHARD lodged in the deposit registered under
+        /// <paramref name="hostDepositKey"/> - the SOURCE-AGNOSTIC factory.
+        ///
+        /// Use this for any deposit that is not part of the static Haven table: the
+        /// real resource-spawn handshake places deposits the client ground-checked and
+        /// keys them <c>handshake-deposit-&lt;island&gt;-&lt;i&gt;</c>, and before this overload
+        /// existed nothing could give one of those a shard (shard keys were built from a
+        /// bare table index, so only <c>deposit-N</c> could ever be a host). The shard's
+        /// key embeds the host's key, so <c>AtlasShardCatalogue.HostKeyOf</c> recovers
+        /// the host at registration time without any index arithmetic.
+        ///
+        /// THE CALLER MUST REGISTER THE HOST DEPOSIT FIRST. Registration resolves the
+        /// host by key through <c>BoundEntityIdFor</c>; a shard whose host is not yet
+        /// bound is refused (with a warning) rather than given an invalid 1305
+        /// rockCoreId, because an invalid host is a shard the client will not render and
+        /// nobody can pick up. For a runtime spawner that means: register the deposit
+        /// entity, then immediately register <c>AtlasShardEntity(hostKey, hostPosition)</c>.
+        /// </summary>
+        public static WorldEntity AtlasShardEntity(string hostDepositKey, FixedPointPosition depositPosition)
         {
             return new WorldEntity(
-                AtlasShardCatalogue.KeyFor(index),
+                AtlasShardCatalogue.KeyForHost(hostDepositKey),
                 AtlasShardCatalogue.AssetName,
                 DefaultAssetContext,
                 AtlasShardCatalogue.LodgedPositionFor(depositPosition),

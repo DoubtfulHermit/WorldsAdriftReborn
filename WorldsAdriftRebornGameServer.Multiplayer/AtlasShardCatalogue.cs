@@ -69,37 +69,72 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // Identity + deposit pairing.
         // ==================================================================
 
-        /// <summary>Registration-key prefix for a placed shard. See <see cref="KeyFor"/>.</summary>
+        /// <summary>Registration-key prefix for a placed shard. See <see cref="KeyForHost"/>.</summary>
         public const string KeyPrefix = "atlas-shard-";
 
-        /// <summary>The registration key for the shard lodged in deposit index N.</summary>
-        public static string KeyFor(int index) => KeyPrefix + index;
+        /// <summary>
+        /// The registration key for the shard lodged in the deposit registered under
+        /// <paramref name="hostDepositKey"/>: the prefix followed by THE HOST'S OWN KEY,
+        /// verbatim.
+        ///
+        /// WHY THE HOST KEY AND NOT AN INDEX. There is more than one source of deposits.
+        /// The static Haven table registers <c>deposit-0..N</c> at boot, but the real
+        /// resource-spawn handshake registers deposits the CLIENT ground-checked, keyed
+        /// <c>handshake-deposit-&lt;island&gt;-&lt;i&gt;</c>, at runtime. A shard key built from a
+        /// bare integer can only ever name the first kind, so handshake-spawned deposits
+        /// silently carried no shards at all. Embedding the host key makes
+        /// <see cref="HostKeyOf"/> its exact inverse, so ANY deposit - whatever names it
+        /// - can host a shard with no index arithmetic and no second lookup table.
+        /// </summary>
+        public static string KeyForHost(string hostDepositKey) => KeyPrefix + hostDepositKey;
+
+        /// <summary>
+        /// The registration key for the shard lodged in the STATIC Haven deposit at
+        /// placement <paramref name="index"/> - i.e. <see cref="KeyForHost"/> of
+        /// <c>deposit-N</c>. Convenience for the boot spawn plan only; the handshake
+        /// path calls <see cref="KeyForHost"/> directly.
+        /// </summary>
+        public static string KeyFor(int index) => KeyForHost(MetalDeposits.KeyFor(index));
 
         /// <summary>Whether a registration key names a placed atlas shard.</summary>
         public static bool IsShardKey(string? key) =>
-            key != null && key.StartsWith(KeyPrefix, System.StringComparison.Ordinal);
+            key != null && key.StartsWith(KeyPrefix, System.StringComparison.Ordinal)
+            && key.Length > KeyPrefix.Length;
 
         /// <summary>
-        /// The placement index for a shard key ("atlas-shard-N"), or null if the key
-        /// is not a shard's or carries no parseable index. Deterministic, so the spawn
-        /// seam can recover a shard's host deposit from its key alone.
+        /// The DEPOSIT registration key a shard key names as its host - the exact
+        /// inverse of <see cref="KeyForHost"/> - or null if the key is not a shard's.
+        ///
+        /// This is the ONE function the spawn seam needs to wire a shard to its rock:
+        /// it works for the static table and the handshake spawner alike, because it
+        /// never assumes the host is called <c>deposit-N</c>.
+        /// </summary>
+        public static string? HostKeyOf(string? key) =>
+            IsShardKey(key) ? key!.Substring(KeyPrefix.Length) : null;
+
+        /// <summary>
+        /// The STATIC placement index a shard key belongs to, or null when the key is
+        /// not a shard's or its host is not a <c>deposit-N</c> from the static table (a
+        /// handshake-spawned host has no index). Logging and tests only - the spawn seam
+        /// uses <see cref="HostKeyOf"/>.
         /// </summary>
         public static int? IndexOf(string? key)
         {
-            if (!IsShardKey(key))
+            string? host = HostKeyOf(key);
+            if (host == null || !MetalDeposits.IsDepositKey(host))
             {
                 return null;
             }
-            return int.TryParse(key!.Substring(KeyPrefix.Length), out int index) && index >= 0
+            return int.TryParse(host.Substring(MetalDeposits.KeyPrefix.Length), out int index)
+                   && index >= 0
                 ? index
                 : (int?)null;
         }
 
         /// <summary>
-        /// The DEPOSIT registration key a shard at a given index is lodged in. A shard
-        /// pairs one-to-one with the deposit of the SAME index (atlas-shard-0 lodges in
-        /// deposit-0), so the shard's 1305 rockCoreId and the deposit's 2103
-        /// attachedEntities can be wired from the key alone at spawn time.
+        /// The DEPOSIT registration key a shard at a STATIC placement index is lodged
+        /// in. Retained for the boot plan; prefer <see cref="HostKeyOf"/>, which is
+        /// source-agnostic.
         /// </summary>
         public static string HostDepositKeyFor(int index) => MetalDeposits.KeyFor(index);
 
@@ -126,28 +161,76 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const string SlotName = "";
 
         /// <summary>
-        /// Metres above the host deposit's own position to place the lodged shard, so
-        /// on the stock client (whose UnityClient visualiser renders the shard at its
-        /// 190602 position and does NOT run the UnityWorker slot-alignment fsim) the
-        /// shard reads as sitting in the core rather than buried inside it. An
-        /// APPROXIMATION: the retail slot transform is a prefab fact not in the
-        /// decompile (findings §5), so the exact lodged offset is a live-capture item.
+        /// Metres above the host deposit's own position to seed the lodged shard's
+        /// 190602. ZERO - the shard's ENTITY sits exactly where the deposit does.
+        ///
+        /// WHY ZERO, AND WHY THIS USED TO BE 1.5. A lodged shard's WORLD PLACEMENT is
+        /// not a number any server can compute. The retail alignment is
+        ///     MetalDepositAtlasVisualiser_fsim.AttachSlot(coreVisualiser.Visuals
+        ///         .ScrapSlots[_state.SlotId])  ->  transform.AlignTo(slot.transform)
+        /// (MetalDepositAtlasVisualiser_fsim.cs:78, 130-133), where ScrapSlots are
+        /// authored child transforms of the CORE PREFAB the client imports at runtime
+        /// (MetalDepositCoreVisuals.ScrapSlots, MetalDepositVisuals.Init ->
+        /// _coreSlot.Reference.Import(_corePrefab)). Their offsets exist only inside the
+        /// variant asset, and that class is [WorkerType(WorkerPlatform.UnityWorker)] -
+        /// the client build never gets it (MetalDepositAtlasPreprocessor.cs:9-16 adds
+        /// only MetalDepositAtlasVisualiser_client, which does NOT align anything).
+        ///
+        /// So the old 1.5 m guess was the bug the player reported as "a shard on the
+        /// floor / floating in the air": an invented offset that had no relation to the
+        /// rock's core. It is replaced by two things that ARE correct:
+        ///   - this ZERO, so the entity (and therefore the interaction range the 1210
+        ///     prompt measures) is centred on the rock the shard belongs to; and
+        ///   - a CLIENT-SIDE port of the retail AttachSlot in the WorldsAdriftReborn
+        ///     mod (Patching/Mining/AtlasShardLodging), which parents the shard's view
+        ///     to ScrapSlots[slotId] of the host core - the only place the slot
+        ///     transform actually exists.
+        ///
+        /// Overridable with <c>WAREBORN_ATLAS_LODGE_OFFSET</c> (metres, may be negative)
+        /// purely as a live-tuning escape hatch if a capture ever shows the entity wants
+        /// to sit off-centre.
         /// </summary>
-        public const double LodgedHeightOffsetMetres = 1.5;
+        public const double DefaultLodgedHeightOffsetMetres = 0.0;
+
+        /// <summary>
+        /// The lodged height offset from <c>WAREBORN_ATLAS_LODGE_OFFSET</c> or
+        /// <see cref="DefaultLodgedHeightOffsetMetres"/>. A garbled value falls back to
+        /// the default rather than throwing during spawn.
+        /// </summary>
+        public static double LodgedHeightOffsetMetres(string? env)
+        {
+            if (!string.IsNullOrWhiteSpace(env)
+                && double.TryParse(env.Trim(), System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture, out double m))
+            {
+                return m;
+            }
+            return DefaultLodgedHeightOffsetMetres;
+        }
 
         /// <summary>
         /// The 190602 position seed for a shard lodged in a deposit at
-        /// <paramref name="depositPosition"/>: the deposit's own position raised by
-        /// <see cref="LodgedHeightOffsetMetres"/>. Pure, so the registration and any
-        /// test compute the same coordinate.
+        /// <paramref name="depositPosition"/>: the deposit's own position, offset by
+        /// <see cref="LodgedHeightOffsetMetres(string)"/>. Pure, so the registration and
+        /// any test compute the same coordinate.
         /// </summary>
-        public static FixedPointPosition LodgedPositionFor(FixedPointPosition depositPosition)
+        public static FixedPointPosition LodgedPositionFor(
+            FixedPointPosition depositPosition, double offsetMetres)
         {
             return new FixedPointPosition(
                 depositPosition.X,
-                depositPosition.Y + (long)(LodgedHeightOffsetMetres * FixedPointPosition.UnitsPerMetre),
+                depositPosition.Y + (long)(offsetMetres * FixedPointPosition.UnitsPerMetre),
                 depositPosition.Z);
         }
+
+        /// <summary>
+        /// <see cref="LodgedPositionFor(FixedPointPosition,double)"/> at the configured
+        /// offset, read from the environment. The one call the spawn plan makes.
+        /// </summary>
+        public static FixedPointPosition LodgedPositionFor(FixedPointPosition depositPosition) =>
+            LodgedPositionFor(depositPosition,
+                LodgedHeightOffsetMetres(
+                    System.Environment.GetEnvironmentVariable("WAREBORN_ATLAS_LODGE_OFFSET")));
 
         // ==================================================================
         // Interaction prompt sizing (1210). Reuses the nugget's PickUp values -

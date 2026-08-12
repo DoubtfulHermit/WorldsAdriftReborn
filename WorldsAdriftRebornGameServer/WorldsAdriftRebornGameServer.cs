@@ -662,6 +662,47 @@ namespace WorldsAdriftRebornGameServer
                 + " shots, core health "
                 + Multiplayer.MetalDeposits.HealthAfter(MetalHarvest.HitsOn(nodeEntityId)) + ".");
 
+            // 2b. EXPOSURE. Retail: breaking enough of the outer shell reveals the
+            //     centre, and anything lodged in it becomes takeable RIGHT THERE - you
+            //     do not have to finish the node, and finishing it risks the shard
+            //     rolling away (worldsadrift.gamepedia.com/Getting_Started,
+            //     /Atlas_Shard). MetalDepositExposure decides when that is from the same
+            //     shot count the core health is derived from; the registry makes the
+            //     Lodged -> Exposed step once, so this broadcast fires on ONE shot
+            //     however long the beam is held.
+            ExposeAtlasShardsFor(nodeEntityId);
+
+            // 2c. THE METAL. The shell stage pays nothing; once the centre is open the
+            //     remaining shots free the core's scrap pieces one at a time, each
+            //     crediting its share straight to the inventory - which is what retail
+            //     did ("pieces of scrap metal sticking out of the rock in the center...
+            //     using the salvage tool on the scraps will give you 50 metal for each
+            //     piece"). MetalDepositYield owns the schedule; the last piece lands on
+            //     the shot BEFORE depletion, so all of a node's metal is obtainable
+            //     without breaking its core, and the depletion shot pays only whatever
+            //     is still owed. outcome.Units is deliberately unused for a deposit: the
+            //     nugget's single lump-on-depletion payout is the thing this replaces.
+            int hits = MetalHarvest.HitsOn(nodeEntityId);
+            int units = Multiplayer.MetalDepositYield.UnitsFor(
+                hits,
+                Multiplayer.MetalDepositExposure.ShotsToExpose(
+                    Multiplayer.MetalDeposits.ShotsToDeplete,
+                    Multiplayer.MetalDepositExposure.ExposureHealthFraction(
+                        Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_EXPOSE_AT"))),
+                Multiplayer.MetalDeposits.ShotsToDeplete,
+                Multiplayer.MetalDeposits.YieldUnits);
+
+            if (units > 0)
+            {
+                Console.WriteLine("[info] deposit " + nodeEntityId + " freed a scrap piece on shot "
+                    + hits + ": " + units + " x " + node.MetalType + " to entity " + harvesterEntityId + ".");
+                Game.Gathering.HarvestReward.Award(
+                    harvesterEntityId,
+                    node.MetalType,
+                    units,
+                    "metal deposit " + nodeEntityId + " scrap piece");
+            }
+
             if (!outcome.Depleted)
             {
                 return;
@@ -670,21 +711,13 @@ namespace WorldsAdriftRebornGameServer
             // 3. DEPLETION. Mark the ledger destroyed (it STAYS in the registry, rule
             //    1, so a late joiner is seeded isDestroyed=true - whose one-shot
             //    suppression gives the SILENT destroyed state, not a replayed
-            //    explosion), tell present clients the core is destroyed and the crust
-            //    exploded, then award (grant + the 8060 toast, which fires only if the
-            //    grant landed). ORDER matches the tree/nugget: award before the flag is
-            //    the wire's concern, not the ledger's.
+            //    explosion) and tell present clients the core is destroyed and the crust
+            //    exploded. The metal was already credited above, piece by piece.
             Nodes.MarkDestroyed(nodeEntityId);
             BroadcastDepositDestroyed(nodeEntityId);
 
-            Console.WriteLine("[info] metal DEPOSIT " + nodeEntityId + " depleted by entity "
-                + harvesterEntityId + ": " + outcome.Units + " x " + node.MetalType + ".");
-
-            Game.Gathering.HarvestReward.Award(
-                harvesterEntityId,
-                node.MetalType,
-                outcome.Units,
-                "metal deposit " + nodeEntityId);
+            Console.WriteLine("[info] metal DEPOSIT " + nodeEntityId + " core destroyed by entity "
+                + harvesterEntityId + " after " + hits + " shot(s) (" + node.MetalType + ").");
 
             // 4. RELEASE THE SHARD. Destroying the core is exactly the retail seam that
             //    frees a lodged atlas shard into the world (findings-atlas-shards §2
@@ -692,6 +725,68 @@ namespace WorldsAdriftRebornGameServer
             //    this fires on the SAME single deplete transition as the destroyed
             //    broadcast above - never on a held beam still resting on the dead core.
             ReleaseAtlasShardsFor(nodeEntityId);
+        }
+
+        /// <summary>
+        /// EXPOSES every still-hidden atlas shard in a deposit whose crust has now been
+        /// broken far enough (<see cref="Multiplayer.MetalDepositExposure"/>): the
+        /// shard becomes takeable while STILL SITTING IN THE CORE, which is how retail
+        /// worked - a green crystal in the exposed centre that you grab with an ordinary
+        /// interact, before the node is finished.
+        ///
+        /// Only the 1210 prompt flips. 2102 isLodged deliberately STAYS true: the shard
+        /// has not fallen out, and dislodging it here would hand the client's rigidbody
+        /// chain a shard to drop half-way through mining. Destruction is what dislodges
+        /// it (<see cref="ReleaseAtlasShardsFor"/>).
+        ///
+        /// RATE + RELAY: EVENT-driven and once-only - <c>ExposeByHost</c> makes the
+        /// Lodged -> Exposed step exactly once per shard, so a held beam cannot turn
+        /// this into a stream. Pushed to each peer DIRECTLY (never through
+        /// RelayToOtherPlayers, which would re-address it to the shooter's avatar).
+        /// </summary>
+        private static void ExposeAtlasShardsFor(long depositEntityId)
+        {
+            if (!Multiplayer.MetalDepositExposure.IsExposed(
+                    MetalHarvest.HitsOn(depositEntityId),
+                    Multiplayer.MetalDeposits.ShotsToDeplete))
+            {
+                return;
+            }
+
+            foreach (long shardId in AtlasShards.ExposeByHost(depositEntityId))
+            {
+                Console.WriteLine("[info] atlas shard " + shardId + " EXPOSED in deposit "
+                    + depositEntityId + " after " + MetalHarvest.HitsOn(depositEntityId)
+                    + " shot(s); it can now be picked up out of the core.");
+                BroadcastShardExposed(shardId);
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer of a newly exposed shard that its 1210 PickUp prompt is
+        /// available. ONLY 1210 - the shard is still lodged, so its 2102 is untouched.
+        /// Peers that have not checked the shard out are seeded the exposed state from
+        /// the ledger when they do (the serializer reads the same AtlasShards state).
+        /// </summary>
+        private static void BroadcastShardExposed(long shardEntityId)
+        {
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    continue;
+                }
+
+                Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                    new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                {
+                    availUpdate.ApplyTo(storedInteract);
+                }
+                SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                    new List<uint> { InteractiveStateComponentId },
+                    new List<object> { availUpdate });
+            }
         }
 
         /// <summary>
@@ -778,7 +873,9 @@ namespace WorldsAdriftRebornGameServer
                 peerOwnsPlayer: peerOwnsPlayer,
                 verbIsPickUp: verbIsPickUp,
                 targetIsShard: AtlasShards.IsShard(shardEntityId),
-                released: AtlasShards.IsReleased(shardEntityId),
+                // EXPOSED counts as takeable, not just RELEASED: retail let a player
+                // grab the shard out of the opened core before the node was finished.
+                takeable: AtlasShards.IsTakeable(shardEntityId),
                 collected: AtlasShards.IsCollected(shardEntityId),
                 reservedByOther: AtlasShards.IsReservedByOther(shardEntityId, playerEntityId),
                 // No server-authoritative player position is kept keyed by entity id, and
@@ -2037,17 +2134,22 @@ namespace WorldsAdriftRebornGameServer
                 // step cannot re-lodge a shard someone already mined loose or collected.
                 if (entity.AssetName == Multiplayer.AtlasShardCatalogue.AssetName)
                 {
-                    int? shardIndex = Multiplayer.AtlasShardCatalogue.IndexOf(entity.Key);
-                    long? hostDepositId = shardIndex == null
+                    // The host is recovered from the shard's KEY, which embeds it - NOT
+                    // from a table index. That is what lets a shard lodge in a deposit
+                    // the resource-spawn handshake placed ("handshake-deposit-<island>-N")
+                    // as readily as one from the static Haven table ("deposit-N"); the
+                    // old index-only mapping could name no host but the latter, so
+                    // handshake-spawned deposits silently carried no shards at all.
+                    string? hostKey = Multiplayer.AtlasShardCatalogue.HostKeyOf(entity.Key);
+                    long? hostDepositId = hostKey == null
                         ? (long?)null
-                        : WorldEntities.BoundEntityIdFor(
-                            Multiplayer.AtlasShardCatalogue.HostDepositKeyFor(shardIndex.Value));
+                        : WorldEntities.BoundEntityIdFor(hostKey);
 
                     if (hostDepositId == null)
                     {
                         Console.WriteLine("[warning] atlas shard '" + entity.Key + "' (entity " + entityId
                             + ") has no bound host deposit; its 1305 rockCoreId would be invalid, so it is "
-                            + "not registered. Register its deposit-" + shardIndex + " first.");
+                            + "not registered. Register its host '" + (hostKey ?? "?") + "' first.");
                     }
                     else if (AtlasShards.Register(entityId, hostDepositId.Value,
                                  Multiplayer.AtlasShardCatalogue.DefaultSlotId))

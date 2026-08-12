@@ -18,14 +18,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             bool peerOwnsPlayer = true,
             bool verbIsPickUp = true,
             bool targetIsShard = true,
-            bool released = true,
+            bool takeable = true,
             bool collected = false,
             bool reservedByOther = false,
             double? distance = null)
         {
             return AtlasPickupPolicy.Evaluate(
                 peerOwnsPlayer, verbIsPickUp, targetIsShard,
-                released, collected, reservedByOther, distance, Radius);
+                takeable, collected, reservedByOther, distance, Radius);
         }
 
         [Fact]
@@ -41,7 +41,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             // Ownership is the most fundamental check - even a lodged non-shard with a
             // wrong verb from a non-owner reports NotOwner.
-            AtlasPickupDecision d = Valid(peerOwnsPlayer: false, verbIsPickUp: false, targetIsShard: false, released: false);
+            AtlasPickupDecision d = Valid(peerOwnsPlayer: false, verbIsPickUp: false, targetIsShard: false, takeable: false);
             Assert.Equal(AtlasPickupOutcome.NotOwner, d.Outcome);
         }
 
@@ -60,7 +60,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Fact]
         public void A_shard_still_lodged_in_its_core_cannot_be_picked_up()
         {
-            Assert.Equal(AtlasPickupOutcome.StillLodged, Valid(released: false).Outcome);
+            Assert.Equal(AtlasPickupOutcome.StillLodged, Valid(takeable: false).Outcome);
         }
 
         [Fact]
@@ -68,7 +68,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             // Collected wins over StillLodged: a taken shard is neither lodged nor
             // released, and "already gone" is the more useful reason.
-            Assert.Equal(AtlasPickupOutcome.AlreadyCollected, Valid(released: false, collected: true).Outcome);
+            Assert.Equal(AtlasPickupOutcome.AlreadyCollected, Valid(takeable: false, collected: true).Outcome);
         }
 
         [Fact]
@@ -105,7 +105,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // verb wrong but owner ok -> WrongVerb (not NotAShard).
             Assert.Equal(AtlasPickupOutcome.WrongVerb, Valid(verbIsPickUp: false, targetIsShard: false).Outcome);
             // owner+verb ok, not a shard -> NotAShard (not StillLodged).
-            Assert.Equal(AtlasPickupOutcome.NotAShard, Valid(targetIsShard: false, released: false).Outcome);
+            Assert.Equal(AtlasPickupOutcome.NotAShard, Valid(targetIsShard: false, takeable: false).Outcome);
         }
     }
 }
