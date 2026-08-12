@@ -34,6 +34,22 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// the crash-safe idle shape). See StationCraftRouting.ShouldResetToIdleOnOpen.
         /// </summary>
         public long? StationEntityId;
+
+        /// <summary>
+        /// Fully return this context to idle: no recipe, no slot reservations, and no
+        /// station binding. Called when a craft COMPLETES (or is abandoned) so the next
+        /// SetSchematic starts clean AND a console re-open resets to the crash-safe idle
+        /// shape - StationCraftRouting.ShouldResetToIdleOnOpen sees an empty schematic AND
+        /// no bound station, so it always resets after a completed craft. Clearing
+        /// StationEntityId too (not just SchematicId) is what stops a COMPLETED craft from
+        /// leaving a stale (player, station) binding that could read as "still active here".
+        /// </summary>
+        public void ReturnToIdle()
+        {
+            SchematicId = null;
+            Slots = System.Array.Empty<SlotHold>();
+            StationEntityId = null;
+        }
     }
 
     /// <summary>

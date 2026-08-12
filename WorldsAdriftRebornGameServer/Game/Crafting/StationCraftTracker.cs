@@ -1,22 +1,30 @@
-using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer.Crafting;
 
 namespace WorldsAdriftRebornGameServer.Game.Crafting
 {
     /// <summary>
-    /// The at-most-one guard for a TIMED station craft (6.1): once a craft is accepted on a
-    /// (station, player) it holds the aperture open for the recipe's craft time before
-    /// completing, so a second StartCrafting arriving during that window must NOT consume
-    /// materials or spawn a second part again. One entry per in-flight craft; the deferred
-    /// completion clears it. Keyed by (station, player) so two players can craft at one bench
-    /// and one player can craft at two benches independently.
+    /// The process-wide at-most-one guard for a TIMED station craft (6.1): once a craft is
+    /// accepted on a (station, player) it holds the aperture open for the recipe's craft time
+    /// before completing, so a second StartCrafting arriving during that window must NOT
+    /// consume materials or spawn a second part again. Keyed by (station, player) so two
+    /// players can craft at one bench and one player can craft at two benches independently.
+    ///
+    /// This is now a THIN wrapper over the pure, dependency-free <see cref="StationCraftGuard"/>
+    /// in the Multiplayer assembly, so the whole begin -> reject-duplicate -> complete ->
+    /// begin-again state machine unit-tests natively (StationCraftGuardTests). The
+    /// process-wide guard is the single instance held here.
+    ///
+    /// LEAK = PERMANENT BLOCK. A held entry that is never released rejects every later craft at
+    /// that station ("craft one part, then all blocked"), so the caller MUST release on EVERY
+    /// exit - normal completion, consume failure, AND an exception thrown mid-completion. Both
+    /// release calls are idempotent to make a belt-and-braces (finally + catch) release safe.
     ///
     /// Single-loop only, like the other crafting ledgers: every writer runs on the poll loop
     /// (the 1003 handler drains there and the deferred completion fires there too).
     /// </summary>
     internal static class StationCraftTracker
     {
-        private static readonly HashSet<(long station, long player)> InProgress =
-            new HashSet<(long, long)>();
+        private static readonly StationCraftGuard Guard = new StationCraftGuard();
 
         /// <summary>
         /// Try to begin a craft on (<paramref name="stationEntityId"/>, <paramref name="playerEntityId"/>).
@@ -25,19 +33,28 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// </summary>
         internal static bool TryBegin(long stationEntityId, long playerEntityId)
         {
-            return InProgress.Add((stationEntityId, playerEntityId));
+            return Guard.TryBegin(stationEntityId, playerEntityId);
         }
 
-        /// <summary>Release a (station, player) when its craft completes (or is abandoned).</summary>
+        /// <summary>Whether a craft is currently in flight on this (station, player).</summary>
+        internal static bool IsInProgress(long stationEntityId, long playerEntityId)
+        {
+            return Guard.IsInProgress(stationEntityId, playerEntityId);
+        }
+
+        /// <summary>
+        /// Release a (station, player) when its craft completes (or is abandoned). Idempotent,
+        /// so the deferred completion's finally + catch can both fire without harm.
+        /// </summary>
         internal static void End(long stationEntityId, long playerEntityId)
         {
-            InProgress.Remove((stationEntityId, playerEntityId));
+            Guard.Complete(stationEntityId, playerEntityId);
         }
 
         /// <summary>Forget every in-flight craft a leaving player had, so a re-use of that id is clean.</summary>
         internal static void ForgetPlayer(long playerEntityId)
         {
-            InProgress.RemoveWhere(k => k.player == playerEntityId);
+            Guard.ForgetPlayer(playerEntityId);
         }
     }
 }
