@@ -74,8 +74,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// </summary>
         public string OwnerCharacterUid { get; set; } = "";
 
+        /// <summary>
+        /// The position of the SHIPYARD that built this ship, in Q52.12 fixed-point units.
+        /// The shipyard restores as its own deployable at this exact position, so on boot
+        /// the ship is re-DOCKED to the deployable found there. Without this link a
+        /// restored shipyard has no docked ship, and the client's
+        /// <c>PlayerScannerTool.IsShipyardActive()</c> (= <c>DockedShip != null</c>) reports
+        /// it INACTIVE - the "nearby shipyard is inactive" bug. Zero for a legacy record
+        /// written before the dock-link was persisted (that ship restores un-docked).
+        /// </summary>
+        public long ShipyardX { get; set; }
+
+        /// <summary>The shipyard-centre position, in Q52.12 fixed-point units.</summary>
+        public long ShipyardY { get; set; }
+
+        /// <summary>The shipyard-centre position, in Q52.12 fixed-point units.</summary>
+        public long ShipyardZ { get; set; }
+
         /// <summary>The hull position as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition HullPosition() => new FixedPointPosition(HullX, HullY, HullZ);
+
+        /// <summary>
+        /// The building shipyard's position as a <see cref="FixedPointPosition"/>, or null
+        /// for a legacy record with no persisted dock link (all-zero).
+        /// </summary>
+        public FixedPointPosition? ShipyardPosition() =>
+            (ShipyardX == 0 && ShipyardY == 0 && ShipyardZ == 0)
+                ? (FixedPointPosition?)null
+                : new FixedPointPosition(ShipyardX, ShipyardY, ShipyardZ);
     }
 
     /// <summary>

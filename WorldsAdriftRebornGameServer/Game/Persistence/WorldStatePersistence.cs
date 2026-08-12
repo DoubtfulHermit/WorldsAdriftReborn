@@ -105,7 +105,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// only ever appended and restored in that same order.
         /// </summary>
         internal static int RecordBuiltShip(FixedPointPosition hullPosition, byte[] hullBytes,
-            string? ownerCharacterUid = null)
+            string? ownerCharacterUid = null, FixedPointPosition? shipyardPosition = null)
         {
             WorldStateSnapshot snapshot = Snapshot();
 
@@ -121,6 +121,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 // grants the client build access; this keeps the ship's persisted record
                 // consistent and round-trips the owner across restart.
                 OwnerCharacterUid = ownerCharacterUid ?? "",
+                // The building shipyard's position, so restore can re-DOCK this ship to the
+                // deployable that reappears there - a docked ship is what makes the yard
+                // report ACTIVE (IsShipyardActive() == DockedShip != null). Zero when unknown.
+                ShipyardX = shipyardPosition?.X ?? 0,
+                ShipyardY = shipyardPosition?.Y ?? 0,
+                ShipyardZ = shipyardPosition?.Z ?? 0,
             });
 
             Save();
@@ -214,12 +220,19 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
 
             // 1. DEPLOYABLES (shipyards, stations) - each carries its owner, so its 1205
             //    serve seeds registeredCharacterUids and the placer is recognised as owner.
+            //    Map each restored deployable by its EXACT position so a built ship can be
+            //    re-docked to the shipyard it was built at (step 2) - position is a stable,
+            //    exact key across restart (two deployables never share one spot).
             int deployables = 0;
+            Dictionary<(long, long, long), long> deployableIdByPos = new Dictionary<(long, long, long), long>();
             foreach (PlacedDeployableRecord record in snapshot.PlacedDeployables)
             {
-                if (placement.RestorePlacedDeployable(record).HasValue)
+                long? entityId = placement.RestorePlacedDeployable(record);
+                if (entityId.HasValue)
                 {
                     deployables++;
+                    FixedPointPosition p = record.Position();
+                    deployableIdByPos[(p.X, p.Y, p.Z)] = entityId.Value;
                 }
             }
 
@@ -237,6 +250,26 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 {
                     BuiltShips.SetPersistentIndex(hullEntityId.Value, i);
                     ships++;
+
+                    // RE-DOCK: link this restored hull back to the shipyard it was built
+                    // at, so the yard's 1205 DockedShipId reports it and the client sees it
+                    // ACTIVE. Without this the restored yard has no docked ship and reports
+                    // "the nearby shipyard is inactive" (IsShipyardActive() == DockedShip
+                    // != null). Matched by the shipyard's exact persisted position.
+                    FixedPointPosition? yardPos = snapshot.BuiltShips[i].ShipyardPosition();
+                    if (yardPos.HasValue
+                        && deployableIdByPos.TryGetValue((yardPos.Value.X, yardPos.Value.Y, yardPos.Value.Z),
+                            out long shipyardEntityId))
+                    {
+                        BuiltShips.SetDocked(shipyardEntityId, hullEntityId.Value);
+                        Console.WriteLine("[info] world persistence: re-docked restored hull " + hullEntityId.Value
+                            + " to its shipyard entity " + shipyardEntityId + " (yard now reports ACTIVE).");
+                    }
+                    else
+                    {
+                        Console.WriteLine("[info] world persistence: restored hull " + hullEntityId.Value
+                            + " has no re-dockable shipyard (legacy record or yard gone); it stays UN-DOCKED.");
+                    }
                 }
             }
 

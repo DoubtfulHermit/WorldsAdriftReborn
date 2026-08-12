@@ -88,7 +88,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // OWNER = the shipyard's owner (the player who built this ship), threaded so
             // the ship's persisted record is owned like its yard and survives restart owned.
             string shipOwner = Placement.PlacedShipyards.SeedFor(shipyardEntityId).OwnerCharacterUid;
-            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner);
+            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner, shipyardPos);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
 
             // GATE B (ship ownership): record the built hull's owner so its 8062/4349
