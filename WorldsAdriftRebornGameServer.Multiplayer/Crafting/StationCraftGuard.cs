@@ -40,6 +40,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
             return _inProgress.Add((stationEntityId, playerEntityId));
         }
 
+        /// <summary>
+        /// Reserve (<paramref name="stationEntityId"/>, <paramref name="playerEntityId"/>) then run
+        /// <paramref name="craftStart"/> with the reservation HELD. This is the release-on-every-exit
+        /// doctrine expressed ONCE so no craft-start path can forget it: if <paramref name="craftStart"/>
+        /// THROWS, the reservation is released before the exception propagates, so a throwing craft-start
+        /// (a failed owner-uid resolve, a scheduling failure, anything between reserve and the deferred
+        /// completion) can never leak the guard - the "craft one part, then everything is blocked forever"
+        /// regression. Returns:
+        ///   * <c>false</c> when a craft is already in flight there - nothing is run, nothing reserved;
+        ///   * <c>true</c> when <paramref name="craftStart"/> ran to completion - the reservation is STILL
+        ///     HELD and the caller owns its release (normally the deferred completion's finally). On a
+        ///     synchronous rejection inside <paramref name="craftStart"/> (e.g. a consume failure that
+        ///     returns without throwing) the reservation is likewise still held, so the caller must
+        ///     release it on that path too.
+        /// A throw still propagates after the release, so the failure stays visible.
+        /// </summary>
+        public bool BeginGuarded(long stationEntityId, long playerEntityId, System.Action craftStart)
+        {
+            if (!TryBegin(stationEntityId, playerEntityId))
+            {
+                return false;
+            }
+
+            try
+            {
+                craftStart();
+            }
+            catch
+            {
+                Abandon(stationEntityId, playerEntityId);
+                throw;
+            }
+
+            return true;
+        }
+
         /// <summary>Whether a craft is currently in flight on this (station, player).</summary>
         public bool IsInProgress(long stationEntityId, long playerEntityId)
         {

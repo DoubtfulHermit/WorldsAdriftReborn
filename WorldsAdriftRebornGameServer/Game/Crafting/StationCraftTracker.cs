@@ -36,6 +36,18 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             return Guard.TryBegin(stationEntityId, playerEntityId);
         }
 
+        /// <summary>
+        /// Reserve (station, player) and run <paramref name="craftStart"/> with the reservation held,
+        /// releasing it automatically if <paramref name="craftStart"/> throws (release-on-every-exit).
+        /// Returns false when a craft is already in flight there (nothing run), true when
+        /// <paramref name="craftStart"/> completed with the reservation still held for the caller's
+        /// later completion. See <see cref="StationCraftGuard.BeginGuarded"/>.
+        /// </summary>
+        internal static bool BeginGuarded(long stationEntityId, long playerEntityId, System.Action craftStart)
+        {
+            return Guard.BeginGuarded(stationEntityId, playerEntityId, craftStart);
+        }
+
         /// <summary>Whether a craft is currently in flight on this (station, player).</summary>
         internal static bool IsInProgress(long stationEntityId, long playerEntityId)
         {

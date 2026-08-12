@@ -379,11 +379,155 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            // AT-MOST-ONE guard: a craft already running on this (station, player) must not
-            // consume again. Reserve BEFORE consuming; the deferred completion releases it.
-            // The DUPLICATE is rejected here WITHOUT re-consuming and without touching the
-            // in-progress 1005 (re-echoing would disturb the live countdown/aperture).
-            if (!StationCraftTracker.TryBegin(pushTarget, entityId))
+            // ONE plan drives both pushes so START and COMPLETE can never drift apart: same
+            // target (the station), and the SAME slot count + schematic id on both. requirementCount
+            // is the recipe's requirement count (== session.Slots.Length here), which is exactly the
+            // client's CraftingSlotData.Count; the COMPLETE push must carry that many slots or the
+            // client's SyncCraftingItems throws IndexOutOfRange and the station wedges mid-animation
+            // (StationCraftPushPlan / CraftingStatePush).
+            string schematicId = record.SchematicId;
+            int seconds = Multiplayer.Crafting.StationCraftTimePolicy.Seconds(record.TimeToCraft);
+            int requirementCount = record.CraftingRequirements.Count;
+            CraftingStatePush startPush = StationCraftPushPlan.Start(pushTarget, requirementCount, seconds, schematicId);
+            CraftingStatePush donePush = StationCraftPushPlan.Complete(pushTarget, requirementCount, schematicId);
+
+            // Flags the craft-start delegate raises so the outer code can finish the job WITHOUT
+            // early-returning out of the delegate: a synchronous consume rejection, and whether the
+            // START push already told the client CraftingInProgress=true (so a later throw must send
+            // a COMPLETE to clear it).
+            bool started = false;
+            bool consumeRejected = false;
+            string consumeReason = "";
+
+            // AT-MOST-ONE guard via BeginGuarded: reserving (station, player) and running the whole
+            // craft-start under ONE guard scope means a throw ANYWHERE between reserving the guard and
+            // scheduling the deferred completion - the owner-uid resolve, the consume, the START push,
+            // the scheduling itself - ALWAYS releases the reservation. A leaked reservation here IS the
+            // "craft one part, then every future craft at this station is blocked" regression, so the
+            // release-on-every-exit lives in one place (StationCraftGuard.BeginGuarded) rather than
+            // depending on each new line remembering to release. A DUPLICATE (a craft already running
+            // here) returns false and runs nothing - no re-consume, no touching the live 1005.
+            bool ran;
+            try
+            {
+                ran = StationCraftTracker.BeginGuarded(pushTarget, entityId, () =>
+                {
+                    // OWNER = the crafter's durable character uid, resolved NOW and - deliberately -
+                    // BEFORE the consume and the START push. Resolving it here means a throw is a clean
+                    // PRE-START abort: BeginGuarded releases the reservation, nothing has been consumed
+                    // and the client was never told CraftingInProgress=true, so there is nothing to
+                    // unwind. (It was previously resolved AFTER the START push and OUTSIDE the guard, so
+                    // a throw stranded the client mid-craft AND leaked the guard.) It is captured for the
+                    // deferred completion so a disconnect during the craft window cannot lose it, and
+                    // threaded into the spawn so the loose part is persisted owned by its crafter.
+                    string crafterUid = Game.CharacterOwnership.UidForEntity(entityId);
+
+                    InventoryModel model = InventoryService.ForEntity(entityId);
+                    if (!CraftingPolicy.TryConsumeOnly(record, model, InventoryWire.CategoryLookup, out string reason))
+                    {
+                        // A normal rejection, not a fault: report it after BeginGuarded returns (the
+                        // reservation is still held, so it is released on that path too). Nothing has
+                        // been consumed and the START push has not gone out.
+                        consumeRejected = true;
+                        consumeReason = reason;
+                        return;
+                    }
+
+                    InventoryPush.Push(entityId, "crafted " + record.ItemType);
+
+                    // START the craft: positive itemReadyInSeconds keeps the aperture OPEN and
+                    // CraftingStarted shoots the atomizer. Session slots/recipe are LEFT INTACT so a
+                    // console re-open during the craft preserves the in-progress display
+                    // (StationCraftRouting.ShouldResetToIdleOnOpen sees an active craft here). The part
+                    // is NOT spawned yet and CraftingCompleted is NOT sent - both wait for the timer.
+                    // From here the client shows CraftingInProgress=true, so any later throw MUST send a
+                    // COMPLETE to clear it (see the outer catch).
+                    PushCraftingState(player, startPush.Target, session,
+                        update => update.AddCraftingStarted(new CraftingStarted(seconds, schematicId)),
+                        itemReadyInSeconds: startPush.ItemReadyInSeconds,
+                        minSlotCount: startPush.SlotCount);
+                    started = true;
+
+                    Console.WriteLine("[info] entity " + entityId + " STARTED station craft of loose part '"
+                        + record.ItemType + "' at station " + stationEntityId + "; holding " + seconds
+                        + "s (aperture open, atomizer on) before spawning.");
+
+                    // COMPLETE after the craft time, on the main poll loop: spawn the part, then
+                    // GUARANTEE the return to idle - release the guard and fully idle the session -
+                    // and close the aperture (itemReadyInSeconds=-1 + CraftingCompleted). The release
+                    // is in a finally so that even if LoosePartSpawner.Spawn (or the push) throws, the
+                    // (station, player) guard is freed and the session reset: a leaked guard here IS
+                    // the "one craft then everything blocked" regression. DeferredActions.Tick wraps
+                    // this in its own try/catch, so a spawn failure is logged, not fatal.
+                    DeferredActions.After(seconds, () =>
+                    {
+                        long? spawned = null;
+                        try
+                        {
+                            spawned = LoosePartSpawner.Spawn(stationEntityId, part, crafterUid);
+                        }
+                        finally
+                        {
+                            // Fully return the (player, station) context to idle: no recipe, no slots,
+                            // no station binding -> the next SetSchematic starts clean and a console
+                            // re-open resets (ShouldResetToIdleOnOpen sees no active craft here).
+                            session.ReturnToIdle();
+                            // Release the at-most-one guard so the NEXT StartCrafting is accepted.
+                            StationCraftTracker.End(pushTarget, entityId);
+
+                            // THE FIX for "stuck in the crafting animation forever": the COMPLETE push
+                            // must serve itemReadyInSeconds=-1 + CraftingCompleted to the SAME target as
+                            // START (donePush.Target == startPush.Target == the station) AND still carry
+                            // one SlottedMaterial per requirement (minSlotCount: donePush.SlotCount).
+                            // ReturnToIdle above emptied session.Slots, so without the pad this list would
+                            // be empty - and an empty list throws IndexOutOfRange in the client's
+                            // CraftingStationData.SyncCraftingItems, aborting OnCraftingCompleted before
+                            // it closes the aperture, stops the atomizer and unlocks the station.
+                            //
+                            // THE FIX for "detail blank after one craft": the COMPLETE push must carry the
+                            // SAME crafted schematicId as START (clientSchematicIdOverride: donePush.SchematicId),
+                            // NOT the "" that ReturnToIdle would otherwise make PushCraftingState send. Keeping
+                            // it identical means the client's ClientSchematicIdUpdated never fires on completion,
+                            // so its loaded schematic can never be cleared mid-completion; SyncCraftingItems then
+                            // always recomputes AllSlotsAreEmptyRemotely=true and the schematic list's input
+                            // blocker lifts, so the next schematic click re-populates the recipe detail. The
+                            // server session is still fully idled above (ReturnToIdle) - only the wire keeps the
+                            // recipe selected, and a later open re-asserts idle (ShouldResetToIdleOnOpen).
+                            PushCraftingState(player, donePush.Target, session,
+                                update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)),
+                                itemReadyInSeconds: donePush.ItemReadyInSeconds,
+                                minSlotCount: donePush.SlotCount,
+                                clientSchematicIdOverride: donePush.SchematicId);
+                        }
+
+                        Console.WriteLine("[info] entity " + entityId + " COMPLETED station craft of loose part '"
+                            + record.ItemType + "' at station " + stationEntityId + " -> part entity "
+                            + (spawned?.ToString() ?? "none") + ".");
+                    });
+                });
+            }
+            catch
+            {
+                // BeginGuarded already released the reservation on the throwing path. If the START push
+                // had already gone out (started), the client still shows CraftingInProgress=true and its
+                // schematic list's input blocker is up - it would wedge exactly like the reported bug, so
+                // send a COMPLETE (same shape as the normal one) to clear the craft flag and hand the
+                // station back. If the throw was PRE-START (e.g. the owner-uid resolve) there is nothing
+                // client-visible to unwind. Either way idle the session and rethrow so the fault stays
+                // visible in the log.
+                session.ReturnToIdle();
+                if (started)
+                {
+                    PushCraftingState(player, donePush.Target, session,
+                        update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)),
+                        itemReadyInSeconds: donePush.ItemReadyInSeconds,
+                        minSlotCount: donePush.SlotCount,
+                        clientSchematicIdOverride: donePush.SchematicId);
+                }
+                throw;
+            }
+
+            if (!ran)
             {
                 Console.WriteLine("[info] station craft: entity " + entityId
                     + " sent StartCrafting while a craft is already running at station " + stationEntityId
@@ -391,120 +535,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            // From TryBegin onward the (station, player) guard is HELD. It MUST be released on
-            // every exit or the station wedges ("craft one part, then all blocked"): the
-            // consume-failure path releases it below, and any exception before the completion
-            // is scheduled releases it in this catch. Once the deferred completion is scheduled
-            // it owns the release (its own finally), and StationCraftTracker.End is idempotent.
-            string schematicId = record.SchematicId;
-            int seconds = Multiplayer.Crafting.StationCraftTimePolicy.Seconds(record.TimeToCraft);
-            // ONE plan drives both pushes so START and COMPLETE can never drift apart: same
-            // target (the station), and the SAME slot count on both. requirementCount is the
-            // recipe's requirement count (== session.Slots.Length here), which is exactly the
-            // client's CraftingSlotData.Count; the COMPLETE push must carry that many slots or
-            // the client's SyncCraftingItems throws IndexOutOfRange and the station wedges
-            // mid-animation (StationCraftPushPlan / CraftingStatePush).
-            int requirementCount = record.CraftingRequirements.Count;
-            CraftingStatePush startPush = StationCraftPushPlan.Start(pushTarget, requirementCount, seconds, schematicId);
-            CraftingStatePush donePush = StationCraftPushPlan.Complete(pushTarget, requirementCount, schematicId);
-            try
+            if (consumeRejected)
             {
-                InventoryModel model = InventoryService.ForEntity(entityId);
-
-                if (!CraftingPolicy.TryConsumeOnly(record, model, InventoryWire.CategoryLookup, out string reason))
-                {
-                    StationCraftTracker.End(pushTarget, entityId); // nothing consumed; free the slot
-                    Console.WriteLine("[info] station craft rejected (entity " + entityId + ", recipe "
-                        + record.SchematicId + "): " + reason);
-                    PushCraftingState(player, pushTarget, session,
-                        update => update.AddCraftingValidationFailed(new CraftingValidationFailed(reason)));
-                    InventoryPush.Push(entityId, "station craft rejected");
-                    return;
-                }
-
-                InventoryPush.Push(entityId, "crafted " + record.ItemType);
-
-                // START the craft: positive itemReadyInSeconds keeps the aperture OPEN and
-                // CraftingStarted shoots the atomizer. Session slots/recipe are LEFT INTACT so a
-                // console re-open during the craft preserves the in-progress display
-                // (StationCraftRouting.ShouldResetToIdleOnOpen sees an active craft here). The part
-                // is NOT spawned yet and CraftingCompleted is NOT sent - both wait for the timer.
-                PushCraftingState(player, startPush.Target, session,
-                    update => update.AddCraftingStarted(new CraftingStarted(seconds, schematicId)),
-                    itemReadyInSeconds: startPush.ItemReadyInSeconds,
-                    minSlotCount: startPush.SlotCount);
-            }
-            catch
-            {
-                // A throw before the completion is scheduled would otherwise leave the guard
-                // held forever, blocking every future craft at this station. Release it and
-                // rethrow so the failure is still visible.
+                // Nothing was consumed; free the reservation BeginGuarded is still holding for us and
+                // report the rejection on 1005 (+ a 1081 so the client's inventory wait flag clears).
                 StationCraftTracker.End(pushTarget, entityId);
-                throw;
+                Console.WriteLine("[info] station craft rejected (entity " + entityId + ", recipe "
+                    + record.SchematicId + "): " + consumeReason);
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingValidationFailed(new CraftingValidationFailed(consumeReason)));
+                InventoryPush.Push(entityId, "station craft rejected");
             }
-
-            Console.WriteLine("[info] entity " + entityId + " STARTED station craft of loose part '"
-                + record.ItemType + "' at station " + stationEntityId + "; holding " + seconds
-                + "s (aperture open, atomizer on) before spawning.");
-
-            // COMPLETE after the craft time, on the main poll loop: spawn the part, then
-            // GUARANTEE the return to idle - release the guard and fully idle the session -
-            // and close the aperture (itemReadyInSeconds=-1 + CraftingCompleted). The release
-            // is in a finally so that even if LoosePartSpawner.Spawn (or the push) throws, the
-            // (station, player) guard is freed and the session reset: a leaked guard here IS
-            // the "one craft then everything blocked" regression. DeferredActions.Tick wraps
-            // this in its own try/catch, so a spawn failure is logged, not fatal.
-            // OWNER = the crafter's durable character uid, resolved NOW (at craft start) so a
-            // disconnect during the craft window cannot lose it. Threaded into the spawn so
-            // the loose part is persisted owned by whoever crafted it - the same identity its
-            // crafter's inventory/knowledge key on.
-            string crafterUid = Game.CharacterOwnership.UidForEntity(entityId);
-
-            DeferredActions.After(seconds, () =>
-            {
-                long? spawned = null;
-                try
-                {
-                    spawned = LoosePartSpawner.Spawn(stationEntityId, part, crafterUid);
-                }
-                finally
-                {
-                    // Fully return the (player, station) context to idle: no recipe, no slots,
-                    // no station binding -> the next SetSchematic starts clean and a console
-                    // re-open resets (ShouldResetToIdleOnOpen sees no active craft here).
-                    session.ReturnToIdle();
-                    // Release the at-most-one guard so the NEXT StartCrafting is accepted.
-                    StationCraftTracker.End(pushTarget, entityId);
-
-                    // THE FIX for "stuck in the crafting animation forever": the COMPLETE push
-                    // must serve itemReadyInSeconds=-1 + CraftingCompleted to the SAME target as
-                    // START (donePush.Target == startPush.Target == the station) AND still carry
-                    // one SlottedMaterial per requirement (minSlotCount: donePush.SlotCount).
-                    // ReturnToIdle above emptied session.Slots, so without the pad this list would
-                    // be empty - and an empty list throws IndexOutOfRange in the client's
-                    // CraftingStationData.SyncCraftingItems, aborting OnCraftingCompleted before
-                    // it closes the aperture, stops the atomizer and unlocks the station.
-                    //
-                    // THE FIX for "detail blank after one craft": the COMPLETE push must carry the
-                    // SAME crafted schematicId as START (clientSchematicIdOverride: donePush.SchematicId),
-                    // NOT the "" that ReturnToIdle would otherwise make PushCraftingState send. Keeping
-                    // it identical means the client's ClientSchematicIdUpdated never fires on completion,
-                    // so its loaded schematic can never be cleared mid-completion; SyncCraftingItems then
-                    // always recomputes AllSlotsAreEmptyRemotely=true and the schematic list's input
-                    // blocker lifts, so the next schematic click re-populates the recipe detail. The
-                    // server session is still fully idled above (ReturnToIdle) - only the wire keeps the
-                    // recipe selected, and a later open re-asserts idle (ShouldResetToIdleOnOpen).
-                    PushCraftingState(player, donePush.Target, session,
-                        update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)),
-                        itemReadyInSeconds: donePush.ItemReadyInSeconds,
-                        minSlotCount: donePush.SlotCount,
-                        clientSchematicIdOverride: donePush.SchematicId);
-                }
-
-                Console.WriteLine("[info] entity " + entityId + " COMPLETED station craft of loose part '"
-                    + record.ItemType + "' at station " + stationEntityId + " -> part entity "
-                    + (spawned?.ToString() ?? "none") + ".");
-            });
         }
 
         private static void FailAdd( ENetPeerHandle player, long entityId, long pushTarget, CraftSession session, string reason )
