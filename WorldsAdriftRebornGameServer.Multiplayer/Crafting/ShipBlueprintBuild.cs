@@ -95,6 +95,53 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
             _loaded.Clear();
             return drained;
         }
+
+        /// <summary>
+        /// CRAFT CONSUME with OVERFILL RETURN. Consume up to
+        /// <paramref name="consumeAmount"/> units from this slot in load order and hand
+        /// back the OVERFILL - the units past the requirement - so the caller can return
+        /// them to the inventory before the slot is dropped. The slot is emptied either
+        /// way.
+        ///
+        /// This is the fix for the material-loss bug: a reserved stack of 30 dropped into
+        /// a slot needing 10 must consume 10 and RETURN 20, not burn the whole stack.
+        /// Items wholly inside the consume budget are dropped (consumed); the single item
+        /// that STRADDLES the boundary is split - its remainder is returned as a copy with
+        /// the SAME item id (safe: the consumed part is destroyed, so that id is free) and
+        /// every field but <see cref="InventoryItem.Amount"/> preserved, so it round-trips
+        /// to the exact grid cell it came from; items wholly past the budget are returned
+        /// whole. A negative budget is treated as zero (return everything).
+        /// </summary>
+        public List<InventoryItem> ConsumeUpTo(int consumeAmount)
+        {
+            List<InventoryItem> returned = new List<InventoryItem>();
+            int remaining = consumeAmount < 0 ? 0 : consumeAmount;
+
+            for (int i = 0; i < _loaded.Count; i++)
+            {
+                InventoryItem item = _loaded[i];
+                if (remaining >= item.Amount)
+                {
+                    // Wholly consumed by the requirement.
+                    remaining -= item.Amount;
+                }
+                else if (remaining > 0)
+                {
+                    // Straddles the boundary: consume `remaining`, return the rest under
+                    // the same id (the consumed portion is gone, so the id cannot collide).
+                    returned.Add(item with { Amount = item.Amount - remaining });
+                    remaining = 0;
+                }
+                else
+                {
+                    // Entirely past the requirement: overfill, returned whole.
+                    returned.Add(item);
+                }
+            }
+
+            _loaded.Clear();
+            return returned;
+        }
     }
 
     /// <summary>
@@ -271,6 +318,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
                 }
             }
             return all;
+        }
+
+        /// <summary>
+        /// CRAFT COMPLETION consume. Empty every slot, consuming EXACTLY each enabled
+        /// row's requirement and handing back the OVERFILL to return to the inventory.
+        /// A disabled row consumes nothing (its whole load is returned), and any slot
+        /// filled past its requirement returns the excess - so a completed craft can
+        /// never burn more material than the recipe demands. The build is left empty.
+        ///
+        /// This is what the timer's completion calls instead of a blanket
+        /// <see cref="DrainAllLoaded"/>-and-discard, which destroyed every overfilled or
+        /// disabled-row stack.
+        /// </summary>
+        public List<InventoryItem> ConsumeForCraftReturningOverfill()
+        {
+            List<InventoryItem> returned = new List<InventoryItem>();
+            for (int r = 0; r < _rows.Count; r++)
+            {
+                SchematicRowBuild row = _rows[r];
+                IReadOnlyList<MaterialSlot> slots = row.Slots;
+                for (int s = 0; s < slots.Count; s++)
+                {
+                    // Enabled rows consume their requirement; disabled rows consume 0
+                    // (they are not part of the craft, so their load is fully returned).
+                    int consume = row.IsEnabled ? slots[s].Required.Amount : 0;
+                    returned.AddRange(slots[s].ConsumeUpTo(consume));
+                }
+            }
+            return returned;
         }
     }
 }

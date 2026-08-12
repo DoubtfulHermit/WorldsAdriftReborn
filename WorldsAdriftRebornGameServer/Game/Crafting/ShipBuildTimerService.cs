@@ -110,9 +110,35 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // specific hull, so this is the best-available design.
             byte[] hullBytes = ResolveHullBytes(playerEntityId);
 
-            // Clear the consumed materials and stop crafting.
-            build.DrainAllLoaded();
+            // Consume EXACTLY each enabled row's requirement and RETURN the overfill, then
+            // stop crafting. The old code drained-and-discarded every loaded stack, so a
+            // 30-stack dropped into a slot needing 10 burned all 30 - 20 lost. Now only the
+            // requirement is consumed and the excess goes back to the player's bag.
+            System.Collections.Generic.List<Multiplayer.Inventory.InventoryItem> overfill =
+                build.ConsumeForCraftReturningOverfill();
             build.IsCrafting = false;
+
+            if (overfill.Count > 0)
+            {
+                Multiplayer.Inventory.InventoryModel inventory =
+                    Game.Inventory.InventoryService.ForEntity(playerEntityId);
+                int returnedCount = 0;
+                foreach (Multiplayer.Inventory.InventoryItem item in overfill)
+                {
+                    if (inventory.Add(item))
+                    {
+                        returnedCount++;
+                    }
+                    else
+                    {
+                        Console.WriteLine("[warning] ship build completion: could not return overfill item "
+                            + item.ItemId + " to entity " + playerEntityId
+                            + " (id already present); it is lost.");
+                    }
+                }
+                Game.Inventory.InventoryPush.Push(playerEntityId,
+                    "returned " + returnedCount + " ship-build overfill item(s) after craft completion");
+            }
 
             // Authoritative 1271 to the acting peer only: isCrafting=false (atomizer VFX
             // off) and the now-empty material bill.

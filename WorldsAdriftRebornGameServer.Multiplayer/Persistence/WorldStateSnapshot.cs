@@ -227,5 +227,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 
         /// <summary>Every crafted-but-unmounted LOOSE part to re-spawn at boot.</summary>
         public List<LoosePartRecord> LooseParts { get; set; } = new List<LoosePartRecord>();
+
+        /// <summary>
+        /// ATOMIC loose-&gt;mounted transition. In ONE in-memory mutation, drop any LOOSE
+        /// record with <paramref name="partUid"/> and upsert the mounted record (replacing
+        /// any prior mount for the same uid). The caller persists the document ONCE
+        /// afterwards, so no on-disk state ever holds the part in BOTH lists - which is
+        /// exactly the double-spawn the two-separate-saves version produced when a crash
+        /// landed between them. Returns whether a loose record was actually removed.
+        /// </summary>
+        public bool MoveLooseToMounted(string partUid, MountedPartRecord mounted)
+        {
+            bool removedLoose = false;
+            if (!string.IsNullOrEmpty(partUid))
+            {
+                removedLoose = LooseParts.RemoveAll(r => r.PartUid == partUid) > 0;
+                MountedParts.RemoveAll(r => r.PartUid == partUid);
+            }
+            MountedParts.Add(mounted);
+            return removedLoose;
+        }
+
+        /// <summary>
+        /// ATOMIC mounted-&gt;loose transition (a part LIFTED off a ship). In ONE in-memory
+        /// mutation, drop any MOUNTED record with <paramref name="partUid"/> and upsert the
+        /// loose record. The caller persists ONCE, so no on-disk state ever holds the part
+        /// in NEITHER list - the loss the two-separate-saves version produced when a crash
+        /// landed between the remove and the re-add. Returns whether a mounted record was
+        /// actually removed.
+        /// </summary>
+        public bool MoveMountedToLoose(string partUid, LoosePartRecord loose)
+        {
+            bool removedMounted = false;
+            if (!string.IsNullOrEmpty(partUid))
+            {
+                removedMounted = MountedParts.RemoveAll(r => r.PartUid == partUid) > 0;
+                LooseParts.RemoveAll(r => r.PartUid == partUid);
+            }
+            LooseParts.Add(loose);
+            return removedMounted;
+        }
+
+        /// <summary>
+        /// Belt-and-suspenders restore guard. Drop any LOOSE record whose PartUid is ALSO
+        /// present in <see cref="MountedParts"/>, so a document corrupted by a pre-fix
+        /// non-atomic write (the same part in both lists) restores ONCE - as mounted - not
+        /// as two entities. Mounted wins because a part mounted at crash time should come
+        /// back bolted on. Returns the number of duplicate loose records dropped.
+        /// </summary>
+        public int DeduplicateLooseAgainstMounted()
+        {
+            if (MountedParts.Count == 0 || LooseParts.Count == 0)
+            {
+                return 0;
+            }
+
+            HashSet<string> mountedUids = new HashSet<string>();
+            foreach (MountedPartRecord m in MountedParts)
+            {
+                if (!string.IsNullOrEmpty(m.PartUid))
+                {
+                    mountedUids.Add(m.PartUid);
+                }
+            }
+
+            return LooseParts.RemoveAll(r => !string.IsNullOrEmpty(r.PartUid) && mountedUids.Contains(r.PartUid));
+        }
     }
 }

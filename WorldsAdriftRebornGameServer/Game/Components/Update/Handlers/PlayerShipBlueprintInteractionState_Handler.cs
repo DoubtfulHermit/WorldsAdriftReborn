@@ -129,6 +129,34 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 foreach (SetShipBlueprint select in clientComponentUpdate.setBlueprintId)
                 {
                     long shipyardId = select.targetEntity.Id;
+
+                    // TEARDOWN GUARD (bug F3): re-selecting or clearing a blueprint drops
+                    // the current build. If that build had materials LOADED they were
+                    // physically removed from the bag at reserve time, so they must be
+                    // returned BEFORE the build is replaced/cleared or they are lost - the
+                    // server may not trust the client's own can't-switch guard (a modified
+                    // or desynced client bypasses it). A build MID-CRAFT is not switchable:
+                    // its materials are consumed for real and abandoning it would orphan the
+                    // running timer, so the switch is refused (mirrors the client).
+                    ShipBlueprintBuild? existing = ShipBlueprintBuildStore.Get(shipyardId, entityId);
+                    if (existing != null && existing.IsCrafting)
+                    {
+                        Console.WriteLine("[warning] 1270 SetBlueprintId on shipyard " + shipyardId
+                            + " while a build is CRAFTING; refusing the switch so the running craft"
+                            + " is not abandoned (entity " + entityId + ").");
+                        continue;
+                    }
+                    if (existing != null)
+                    {
+                        int drained = ShipBuildTeardown.DrainBuildBackToInventory(entityId, existing);
+                        if (drained > 0)
+                        {
+                            Console.WriteLine("[info] 1270 SetBlueprintId on shipyard " + shipyardId
+                                + ": returned " + drained + " loaded material(s) to entity " + entityId
+                                + " before switching/clearing the blueprint.");
+                        }
+                    }
+
                     if (select.blueprintId.HasValue)
                     {
                         // TEST recipe (ShipBlueprintRecipe.TestMakeshiftShip) - authored

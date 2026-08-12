@@ -199,8 +199,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             FixedPointPosition pos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(partEntityId)?.Position
                 ?? Multiplayer.WorldEntities.ShipFramePosition();
 
-            WorldStatePersistence.RemoveMountedPart(partUid!);
-            WorldStatePersistence.RecordLoosePart(new LoosePartRecord
+            // Drop the mounted record and add the loose record in ONE atomic move + a SINGLE
+            // Save, so no on-disk state ever holds the part in NEITHER list (which lost the
+            // part entirely on a mistimed restart between the two old separate Saves).
+            WorldStatePersistence.MoveMountedToLoose(partUid!, new LoosePartRecord
             {
                 PartUid = partUid!,
                 SchematicId = part.SchematicId,

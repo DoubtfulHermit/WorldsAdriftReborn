@@ -199,6 +199,31 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
+        /// ATOMIC loose-&gt;mounted transition: drop the loose record and add the mounted
+        /// record in ONE in-memory mutation, then write the document ONCE. Replaces the
+        /// old RecordMountedPart+Save / RemoveLoosePart+Save pair, whose window between the
+        /// two Saves let a crash leave the part in BOTH lists and restore it twice.
+        /// </summary>
+        internal static void MoveLooseToMounted(string partUid, MountedPartRecord mounted)
+        {
+            Snapshot().MoveLooseToMounted(partUid, mounted);
+            Save();
+        }
+
+        /// <summary>
+        /// ATOMIC mounted-&gt;loose transition (a part lifted off a ship): drop the mounted
+        /// record and add the loose record in ONE in-memory mutation, then write ONCE.
+        /// Replaces the old RemoveMountedPart+Save / RecordLoosePart+Save pair, whose
+        /// window between the two Saves let a crash leave the part in NEITHER list and lose
+        /// it on restart.
+        /// </summary>
+        internal static void MoveMountedToLoose(string partUid, LoosePartRecord loose)
+        {
+            Snapshot().MoveMountedToLoose(partUid, loose);
+            Save();
+        }
+
+        /// <summary>
         /// Re-creates every persisted deployable and built ship as a world entity,
         /// BEFORE the connect-time spawn plan is computed, so a joining client is served
         /// them exactly like the static world entities. Runs once at boot, on the poll
@@ -211,6 +236,17 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         internal static void RestoreOnBoot(PlacementService placement)
         {
             WorldStateSnapshot snapshot = Snapshot();
+
+            // 0. HEAL a document written by a pre-fix non-atomic transition: if a part is
+            //    in BOTH lists (a crash between the two old Saves), keep only the mounted
+            //    copy so it restores ONCE, bolted on, rather than as two entities.
+            int deduped = snapshot.DeduplicateLooseAgainstMounted();
+            if (deduped > 0)
+            {
+                Console.WriteLine("[warning] world persistence: dropped " + deduped
+                    + " loose part record(s) that were ALSO mounted (a pre-fix non-atomic save);"
+                    + " each such part restores once, as mounted.");
+            }
 
             // 1. DEPLOYABLES (shipyards, stations) - each carries its owner, so its 1205
             //    serve seeds registeredCharacterUids and the placer is recognised as owner.

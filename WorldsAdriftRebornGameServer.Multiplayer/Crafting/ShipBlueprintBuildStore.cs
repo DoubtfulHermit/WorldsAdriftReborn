@@ -60,6 +60,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
             Builds.Remove(new Key(shipyardEntityId, playerEntityId));
         }
 
+        /// <summary>
+        /// Every live build a player holds, paired with the shipyard it is on. Used by
+        /// the disconnect teardown to return each build's UNCRAFTED reserved materials to
+        /// the inventory BEFORE <see cref="ForgetPlayer"/> drops them (otherwise the
+        /// reserved-but-uncrafted stack is destroyed on disconnect). Snapshotted into a
+        /// list so the caller may mutate the store while iterating.
+        /// </summary>
+        public static IReadOnlyList<(long ShipyardEntityId, ShipBlueprintBuild Build)> BuildsOf(long playerEntityId)
+        {
+            List<(long, ShipBlueprintBuild)> result = new List<(long, ShipBlueprintBuild)>();
+            foreach (KeyValuePair<Key, ShipBlueprintBuild> entry in Builds)
+            {
+                if (entry.Key.PlayerEntityId == playerEntityId)
+                {
+                    result.Add((entry.Key.ShipyardEntityId, entry.Value));
+                }
+            }
+            return result;
+        }
+
         /// <summary>Drop every build a player holds, on any shipyard (they left).</summary>
         public static void ForgetPlayer(long playerEntityId)
         {

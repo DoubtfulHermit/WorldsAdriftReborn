@@ -334,6 +334,107 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
             Assert.False(build.IsCrafting);
         }
 
+        // ---- Overfill consume (material-loss fix F1) ----------------------
+
+        [Fact]
+        public void Craft_completion_consumes_only_the_requirement_and_returns_the_overfill()
+        {
+            // REPRO of the material-loss P1: a 30-stack dropped into a slot needing 3.
+            // FAIL-BEFORE: completion did build.DrainAllLoaded() and discarded ALL 30,
+            // losing 27. PASS-AFTER: ConsumeForCraftReturningOverfill consumes 3, returns 27.
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(7000, "birch", amount: 30, quality: 1, x: 0, y: 0)); // frame needs 3
+            inv.Add(Material(7001, "iron", amount: 2, quality: 1, x: 3, y: 0));   // deck needs 2 exactly
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 7000);
+            ShipBlueprintTransaction.AddItem(build, inv, Deck, Slot0, 7001);
+            ShipBlueprintTransaction.StartCraft(build);
+
+            List<InventoryItem> overfill = build.ConsumeForCraftReturningOverfill();
+
+            // Only the birch overfill comes back: 30 loaded - 3 required = 27, same id.
+            Assert.Single(overfill);
+            Assert.Equal(7000, overfill[0].ItemId);
+            Assert.Equal(27, overfill[0].Amount);
+            Assert.Equal(0, overfill[0].X);   // returns to the exact grid cell it left
+            Assert.Equal(0, overfill[0].Y);
+            // Slots are emptied; the exact requirement (3 birch + 2 iron) was consumed.
+            Assert.Equal(0, build.SlotAt(Frame, Slot0)!.EquivalentAmount);
+            Assert.Equal(0, build.SlotAt(Deck, Slot0)!.EquivalentAmount);
+        }
+
+        [Fact]
+        public void Craft_completion_of_an_exactly_filled_build_returns_nothing()
+        {
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(7100, "birch", amount: 3, quality: 1, x: 0, y: 0));
+            inv.Add(Material(7101, "iron", amount: 2, quality: 1, x: 3, y: 0));
+            ShipBlueprintTransaction.AutoFill(build, inv);
+            ShipBlueprintTransaction.StartCraft(build);
+
+            List<InventoryItem> overfill = build.ConsumeForCraftReturningOverfill();
+
+            Assert.Empty(overfill);   // nothing over the requirement, nothing lost
+        }
+
+        [Fact]
+        public void Craft_completion_returns_a_whole_extra_stack_kept_beyond_the_requirement()
+        {
+            // Frame needs 3 birch; two 2-stacks are loaded (4 total). Consume 3 (all of the
+            // first, 1 of the second), return 1 of the second - the straddling item split.
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(7200, "birch", amount: 2, quality: 1, x: 0, y: 0));
+            inv.Add(Material(7201, "birch", amount: 2, quality: 1, x: 2, y: 0));
+            inv.Add(Material(7202, "iron", amount: 2, quality: 1, x: 4, y: 0));
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 7200);
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 7201);
+            ShipBlueprintTransaction.AddItem(build, inv, Deck, Slot0, 7202);
+            ShipBlueprintTransaction.StartCraft(build);
+
+            List<InventoryItem> overfill = build.ConsumeForCraftReturningOverfill();
+
+            Assert.Single(overfill);
+            Assert.Equal(7201, overfill[0].ItemId);   // the straddling stack's remainder
+            Assert.Equal(1, overfill[0].Amount);
+        }
+
+        [Fact]
+        public void Slot_consume_up_to_zero_returns_everything_untouched()
+        {
+            // The disabled-row case: consume 0 -> the whole load is returned intact.
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(7300, "birch", amount: 5, quality: 1, x: 0, y: 0));
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 7300);
+
+            List<InventoryItem> returned = build.SlotAt(Frame, Slot0)!.ConsumeUpTo(0);
+
+            Assert.Single(returned);
+            Assert.Equal(5, returned[0].Amount);
+            Assert.Equal(0, build.SlotAt(Frame, Slot0)!.EquivalentAmount);
+        }
+
+        [Fact]
+        public void Teardown_returns_the_full_overfilled_stack_with_no_loss()
+        {
+            // The F2/F3 seam at the pure level: ReturnAll (what DrainBuildBackToInventory
+            // and the disconnect teardown call) gives back the WHOLE reserved stack,
+            // overfill included - a build torn down before craft loses nothing.
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(7400, "birch", amount: 30, quality: 1, x: 0, y: 0));
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 7400);
+            Assert.Null(inv.ById(7400));   // reserved out of the grid
+
+            int returned = ShipBlueprintTransaction.ReturnAll(build, inv);
+
+            Assert.Equal(1, returned);
+            Assert.NotNull(inv.ById(7400));
+            Assert.Equal(30, inv.ById(7400)!.Amount);   // all 30 back, none lost
+        }
+
         [Fact]
         public void No_material_transaction_is_accepted_while_crafting()
         {

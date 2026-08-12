@@ -217,33 +217,34 @@ namespace WorldsAdriftRebornGameServer.Game
                 + MountedParts.Count + " this session.");
 
             // PERSIST the mount so the part comes back ALREADY ATTACHED next boot. The ship is
-            // referenced by its durable PERSISTENT INDEX (not the volatile hull id), and the
-            // part's loose record is removed in the same breath so it is never both loose and
-            // mounted in the save. A mount on a non-persisted ship (the static test hull has no
-            // index) is session-only and simply not persisted.
+            // referenced by its durable PERSISTENT INDEX (not the volatile hull id). The loose
+            // record is dropped and the mounted record added in ONE atomic move + a SINGLE
+            // Save, so no on-disk state ever holds the part in BOTH lists (which restored it
+            // twice - once bolted, once loose - permanently). A mount on a non-persisted ship
+            // (the static test hull has no index) is session-only and simply not persisted.
             int? shipIndex = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
             string? partUid = Crafting.LooseParts.PartUidFor(partEntityId);
             if (shipIndex.HasValue && !string.IsNullOrEmpty(partUid))
             {
-                Persistence.WorldStatePersistence.RecordMountedPart(new Multiplayer.Persistence.MountedPartRecord
-                {
-                    PartUid = partUid!,
-                    BuiltShipIndex = shipIndex.Value,
-                    SchematicId = def?.SchematicId ?? "",
-                    ItemType = def?.ItemType ?? "",
-                    Title = def?.Title ?? "",
-                    PrefabName = def?.PrefabName ?? "",
-                    AttachmentType = def?.AttachmentType ?? "",
-                    PartSpecificComponents = def != null
-                        ? System.Linq.Enumerable.ToArray(def.PartSpecificComponents)
-                        : System.Array.Empty<uint>(),
-                    LocalX = localOffset.X,
-                    LocalY = localOffset.Y,
-                    LocalZ = localOffset.Z,
-                    PackedRotation = packedShipLocalRotation,
-                    OwnerCharacterUid = ownerCharacterUid ?? "",
-                });
-                Persistence.WorldStatePersistence.RemoveLoosePart(partUid!);
+                Persistence.WorldStatePersistence.MoveLooseToMounted(partUid!,
+                    new Multiplayer.Persistence.MountedPartRecord
+                    {
+                        PartUid = partUid!,
+                        BuiltShipIndex = shipIndex.Value,
+                        SchematicId = def?.SchematicId ?? "",
+                        ItemType = def?.ItemType ?? "",
+                        Title = def?.Title ?? "",
+                        PrefabName = def?.PrefabName ?? "",
+                        AttachmentType = def?.AttachmentType ?? "",
+                        PartSpecificComponents = def != null
+                            ? System.Linq.Enumerable.ToArray(def.PartSpecificComponents)
+                            : System.Array.Empty<uint>(),
+                        LocalX = localOffset.X,
+                        LocalY = localOffset.Y,
+                        LocalZ = localOffset.Z,
+                        PackedRotation = packedShipLocalRotation,
+                        OwnerCharacterUid = ownerCharacterUid ?? "",
+                    });
             }
             else
             {
