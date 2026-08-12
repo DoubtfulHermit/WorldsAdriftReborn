@@ -18,20 +18,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
     ///   0.01 - so an id here that fails either test is a frame-rate cliff, not
     ///   a missing hat.
     /// - an id in itemIds for an item the client cannot resolve to a rig
-    ///   UtilityItem is ALSO a KeyNotFoundException per frame. GearWearablesVisualizer
-    ///   .RegisterWearables only ever adds an id to its _utilityIdToUtility dict when
-    ///   one of CharacterCustomisationVisualizer.UtilityItems (the glider, held tools -
-    ///   things with an actual rig mesh) has a matching ItemTypeId. A DEPLOYABLE
-    ///   (shipyard, assemblyStation) is marked equippable/characterSlot="Utility" with a
-    ///   totalHealth meta in itemData.json - byte-identical in shape to the glider - so
-    ///   worn in the Utility slot it passes both tests above, but the client has NO
-    ///   UtilityItem for a placed structure, so its id is never registered and
-    ///   UpdateActiveWornItemsHealths throws _utilityIdToUtility[id] EVERY FRAME until
-    ///   the client dies. So a worn deployable must be excluded here (see the
-    ///   Deployables.IsDeployable guard in <see cref="For"/>). Root cause of the
-    ///   place-a-shipyard crash: the id was a real worn item present in 1081, so every
-    ///   1081/1280 co-push agreed - the mismatch is with the CLIENT'S rig, not the
-    ///   inventory, and only this exclusion closes it.
+    ///   UtilityItem is ALSO a KeyNotFoundException per frame, and this is the one that
+    ///   floods the load-in. GearWearablesVisualizer.RegisterWearables only ever adds an
+    ///   id to its _utilityIdToUtility dict when one of
+    ///   CharacterCustomisationVisualizer.UtilityItems has a matching ItemTypeId, and
+    ///   that array is populated by EXACTLY ONE path: AddCosmetic -> AddUtilityItem, run
+    ///   ONLY for the four character slots in _slotTypeToUtilityIds - Utility,
+    ///   UtilityHead, UtilityFeet, UtilityHand (VERIFIED CharacterCustomisationVisualizer
+    ///   .cs: the AddCosmetic switch at :701-706 and the _slotTypeToUtilityIds map at
+    ///   :63-81). So the ONLY worn item types the client can register are ones equipped
+    ///   in one of those four utility slots. Everything else worn with a totalHealth meta
+    ///   is a per-frame crash:
+    ///     * a TOOL-slot item (pistol, torch, guitar, horn, hipLamp, headTorch - all
+    ///       characterSlot="Tool"+totalHealth in itemData.json) - CharacterSlotType.Tool
+    ///       is NOT in _slotTypeToUtilityIds, so it never becomes a UtilityItem. This is
+    ///       the flood that survived the deployable-only fix.
+    ///     * a garment (Head/Body/Feet/Face) with a totalHealth meta - a cosmetic, never
+    ///       a UtilityItem either.
+    ///   AND a utility-slot item still crashes if the client builds no UtilityItem for it,
+    ///   which happens when CreateItem finds no customisation prefab (AddCosmetic returns
+    ///   early, :684-687) - exactly the case for a DEPLOYABLE/placeable (shipyard, barrel,
+    ///   campFire, containers...): all are characterSlot="Utility"+totalHealth so they
+    ///   PASS the slot test, but are placed structures with no rig prefab. Every one of
+    ///   them is in the Deployables table, so Deployables.IsDeployable is the exact
+    ///   "utility slot but no rig UtilityItem" discriminator.
+    ///
+    ///   Net include-rule (see <see cref="For"/>): worn AND in a utility slot AND not a
+    ///   deployable AND has totalHealth. For the shipped data that is the glider and any
+    ///   future genuine worn utility with a rig mesh - and nothing else. The 1081/1280
+    ///   co-push was never internally inconsistent; the mismatch is with the CLIENT'S rig,
+    ///   which only this rule can honour.
     ///
     /// The old equip handler wrote these arrays by hand with a single-element
     /// list, which is why equipping a second garment REPLACED the first. There
@@ -48,6 +64,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
 
         /// <summary>The smallest total health the client will accept.</summary>
         public const float MinimumTotalHealth = 0.01f;
+
+        /// <summary>
+        /// The four character slots the client turns into a rig UtilityItem - the
+        /// ONLY slots whose worn item GearWearablesVisualizer can register. These are
+        /// the keys of CharacterCustomisationVisualizer._slotTypeToUtilityIds
+        /// (CharacterSlotType.Utility / UtilityHead / UtilityFeet / UtilityHand); an
+        /// item worn in any other slot (Tool, Head, Body, Feet, Face, Pet) never gets a
+        /// UtilityItem and so must never appear active in 1280. Ordinal because the
+        /// client parses slotType with a case-sensitive Enum.Parse.
+        /// </summary>
+        private static readonly HashSet<string> RegisterableUtilitySlots =
+            new(StringComparer.Ordinal) { "Utility", "UtilityHead", "UtilityFeet", "UtilityHand" };
 
         /// <summary>
         /// The 1280 arrays for this inventory: one entry per worn item that the
@@ -71,14 +99,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
                     continue;
                 }
 
-                // A worn DEPLOYABLE (shipyard, assemblyStation) is never a rig
-                // UtilityItem on the client, so putting its id here is a
-                // KeyNotFoundException per frame (see the type doc). It is
-                // marked equippable/characterSlot="Utility"+totalHealth in
-                // itemData.json only so the placement flow can hold it; it is
-                // placed, not worn-and-drained, and has no durability visual to
-                // feed. Excluded before the totalHealth gate because it WOULD
-                // pass it.
+                // Only the four UTILITY character slots ever become a client
+                // UtilityItem (CharacterCustomisationVisualizer._slotTypeToUtilityIds).
+                // A Tool-slot item (pistol/torch/guitar/horn/lamp) or a garment
+                // (Head/Body/Feet/Face) is worn (slotType != "None") and may carry a
+                // totalHealth meta, but the client builds no UtilityItem for it, so its
+                // id in 1280 is a KeyNotFoundException every frame. This is the flood the
+                // deployable-only rule missed - Tool-slot held items.
+                if (!RegisterableUtilitySlots.Contains(item.SlotType))
+                {
+                    continue;
+                }
+
+                // A DEPLOYABLE/placeable in a utility slot (shipyard, barrel, campFire,
+                // containers, lamps - all characterSlot="Utility"+totalHealth) passes the
+                // slot test but has NO customisation prefab, so the client's CreateItem
+                // returns null and AddCosmetic never builds a UtilityItem for it. Every
+                // placeable is in the Deployables table, so this is the exact
+                // "utility slot but no rig item" discriminator. Excluded before the
+                // totalHealth gate because it WOULD pass it.
                 if (Deployables.IsDeployable(item.ItemTypeId))
                 {
                     continue;
