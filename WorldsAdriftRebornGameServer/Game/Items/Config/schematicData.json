@@ -63,7 +63,7 @@
       },
       {
         "id": 1,
-        "name": "birch",
+        "name": "fuel",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -473,7 +473,7 @@
       },
       {
         "id": 1,
-        "name": "birch",
+        "name": "fuel",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -522,7 +522,7 @@
       },
       {
         "id": 1,
-        "name": "birch",
+        "name": "fuel",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",
@@ -571,7 +571,7 @@
       },
       {
         "id": 1,
-        "name": "birch",
+        "name": "fuel",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Fuel",
         "description": "",
@@ -1626,7 +1626,7 @@
       },
       {
         "id": 2,
-        "name": "birch",
+        "name": "fuel",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Fuel",
         "description": "",
@@ -1675,7 +1675,7 @@
       },
       {
         "id": 1,
-        "name": "birch",
+        "name": "fuel",
         "iconId": "misc craft materials/2x2_Fuel_container",
         "component": "Incandescent",
         "description": "",

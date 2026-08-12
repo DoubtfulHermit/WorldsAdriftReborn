@@ -94,18 +94,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     {
                         continue;
                     }
-                    long shardTarget = pickup.target.Id;
-                    if (!WorldsAdriftRebornGameServer.AtlasShards.IsShard(shardTarget))
+                    long pickupTarget = pickup.target.Id;
+
+                    // An ATLAS SHARD: mine-loose-then-pick-up, grants the atlas shard.
+                    if (WorldsAdriftRebornGameServer.AtlasShards.IsShard(pickupTarget))
                     {
+                        Multiplayer.AtlasPickupOutcome outcome =
+                            WorldsAdriftRebornGameServer.TryCollectAtlasShard(
+                                entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
+                        if (outcome != Multiplayer.AtlasPickupOutcome.Grant)
+                        {
+                            Console.WriteLine("[info] atlas shard PickUp by entity " + entityId
+                                + " on " + pickupTarget + " not granted: " + outcome + ".");
+                        }
                         continue;
                     }
-                    Multiplayer.AtlasPickupOutcome outcome =
-                        WorldsAdriftRebornGameServer.TryCollectAtlasShard(
-                            entityId, shardTarget, ownsPlayer, verbIsPickUp: true);
-                    if (outcome != Multiplayer.AtlasPickupOutcome.Grant)
+
+                    // A FUEL POD: host-less, directly pickable, grants "fuel". Same
+                    // shared pickup core as the shard, a parallel transaction. NOT gated
+                    // behind WAREBORN_PLACEMENT for the same reason: the fuel gather loop
+                    // must work in a plain session (findings-combustion-fuel §5).
+                    if (WorldsAdriftRebornGameServer.FuelPodLedger.Contains(pickupTarget))
                     {
-                        Console.WriteLine("[info] atlas shard PickUp by entity " + entityId
-                            + " on " + shardTarget + " not granted: " + outcome + ".");
+                        Multiplayer.LodgeablePickupOutcome outcome =
+                            WorldsAdriftRebornGameServer.TryCollectFuelPod(
+                                entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
+                        if (outcome != Multiplayer.LodgeablePickupOutcome.Grant)
+                        {
+                            Console.WriteLine("[info] fuel pod PickUp by entity " + entityId
+                                + " on " + pickupTarget + " not granted: " + outcome + ".");
+                        }
+                        continue;
                     }
                 }
             }

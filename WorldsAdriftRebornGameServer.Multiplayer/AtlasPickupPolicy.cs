@@ -78,9 +78,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// exactly like every other policy in this assembly. The RESERVATION itself is a
     /// stateful mutation and lives in <see cref="AtlasShardRegistry"/>; this policy only
     /// decides whether to ATTEMPT it.
+    ///
+    /// The gate itself is the SHARED <see cref="LodgeablePickupPolicy"/> (an atlas
+    /// shard and a fuel pod decide a PickUp with identical rules); this type is the
+    /// atlas-flavoured face of it, mapping the shared outcome onto
+    /// <see cref="AtlasPickupOutcome"/> so the atlas callers and tests keep their own
+    /// vocabulary.
     /// </summary>
     public static class AtlasPickupPolicy
     {
+        /// <summary>Maps a shared pickup outcome onto the atlas-flavoured one (one-to-one).</summary>
+        private static AtlasPickupOutcome ToAtlas(LodgeablePickupOutcome outcome) => outcome switch
+        {
+            LodgeablePickupOutcome.Grant => AtlasPickupOutcome.Grant,
+            LodgeablePickupOutcome.NotOwner => AtlasPickupOutcome.NotOwner,
+            LodgeablePickupOutcome.WrongVerb => AtlasPickupOutcome.WrongVerb,
+            LodgeablePickupOutcome.NotAPickup => AtlasPickupOutcome.NotAShard,
+            LodgeablePickupOutcome.StillLodged => AtlasPickupOutcome.StillLodged,
+            LodgeablePickupOutcome.AlreadyCollected => AtlasPickupOutcome.AlreadyCollected,
+            LodgeablePickupOutcome.Reserved => AtlasPickupOutcome.Reserved,
+            LodgeablePickupOutcome.TooFar => AtlasPickupOutcome.TooFar,
+            LodgeablePickupOutcome.GrantFailed => AtlasPickupOutcome.GrantFailed,
+            _ => AtlasPickupOutcome.NotAShard,
+        };
+
         /// <summary>
         /// Evaluates a shard PickUp request. Checks are ordered cheapest/most
         /// fundamental first so the returned reason is the most basic thing wrong.
@@ -114,35 +135,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double? distanceMetres,
             double radiusMetres)
         {
-            if (!peerOwnsPlayer)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.NotOwner);
-            }
-            if (!verbIsPickUp)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.WrongVerb);
-            }
-            if (!targetIsShard)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.NotAShard);
-            }
-            if (collected)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.AlreadyCollected);
-            }
-            if (!released)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.StillLodged);
-            }
-            if (reservedByOther)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.Reserved);
-            }
-            if (distanceMetres.HasValue && distanceMetres.Value > radiusMetres)
-            {
-                return new AtlasPickupDecision(AtlasPickupOutcome.TooFar);
-            }
-            return new AtlasPickupDecision(AtlasPickupOutcome.Grant);
+            LodgeablePickupDecision shared = LodgeablePickupPolicy.Evaluate(
+                peerOwnsPlayer: peerOwnsPlayer,
+                verbIsPickUp: verbIsPickUp,
+                targetIsPickup: targetIsShard,
+                released: released,
+                collected: collected,
+                reservedByOther: reservedByOther,
+                distanceMetres: distanceMetres,
+                radiusMetres: radiusMetres);
+            return new AtlasPickupDecision(ToAtlas(shared.Outcome));
         }
     }
 }

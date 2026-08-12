@@ -802,6 +802,131 @@ namespace WorldsAdriftRebornGameServer
             }
         }
 
+        // ==================================================================
+        // FUEL PODS. The FUEL crafting-material acquisition vertical, built on the
+        // SHARED lodgeable-pickup core the atlas shard also uses
+        // (Multiplayer.LodgeablePickupRegistry + LodgeablePickupPolicy). A fuel pod
+        // is HOST-LESS - it carries only 2102 LodgeableState, no host core to mine -
+        // so it starts already RELEASED and a player collects it directly with a
+        // 1211 PickUp, whereupon the server grants the real "fuel" item. See
+        // docs/research/findings-combustion-fuel.md.
+        // ==================================================================
+
+        /// <summary>
+        /// The pickup TRANSACTION for a fuel pod: the authoritative side of a native
+        /// 1211 <c>InteractWithObject(pod, PickUp)</c>, called from
+        /// InteractAgentState_Handler once per PickUp interaction the client issues.
+        ///
+        /// The DECISION is the pure <see cref="Multiplayer.LodgeablePickupPolicy"/>;
+        /// this method is only the thin transaction around it: gather the facts,
+        /// decide, then RESERVE -> Grant -> Collect, rolling the reservation back if
+        /// the grant fails so a full inventory does not consume the pod. The exact
+        /// shape mirrors <see cref="TryCollectAtlasShard"/> - the two share the core
+        /// registry/policy - differing only in the ledger and the granted item.
+        /// </summary>
+        /// <returns>The outcome, for logging by the caller.</returns>
+        internal static Multiplayer.LodgeablePickupOutcome TryCollectFuelPod(
+            long playerEntityId, long podEntityId, bool peerOwnsPlayer, bool verbIsPickUp)
+        {
+            Multiplayer.LodgeablePickupDecision decision = Multiplayer.LodgeablePickupPolicy.Evaluate(
+                peerOwnsPlayer: peerOwnsPlayer,
+                verbIsPickUp: verbIsPickUp,
+                targetIsPickup: FuelPodLedger.Contains(podEntityId),
+                released: FuelPodLedger.IsReleased(podEntityId),
+                collected: FuelPodLedger.IsCollected(podEntityId),
+                reservedByOther: FuelPodLedger.IsReservedByOther(podEntityId, playerEntityId),
+                // No server-authoritative player position is kept keyed by entity id, and
+                // the client only issues the interaction after its OWN range check - the
+                // same trust the salvage path extends to the client raycast. The retail
+                // tolerance is not recoverable (findings-combustion-fuel §6).
+                distanceMetres: null,
+                radiusMetres: Multiplayer.FuelPods.PickUpRadius);
+
+            if (!decision.ShouldGrant)
+            {
+                return decision.Outcome;
+            }
+
+            // RESERVE first, so a second PickUp event in the same poll drain cannot
+            // also reach the grant. A failed reserve means someone beat us to it.
+            if (!FuelPodLedger.Reserve(podEntityId, playerEntityId))
+            {
+                return Multiplayer.LodgeablePickupOutcome.Reserved;
+            }
+
+            // GRANT the real "fuel" item. Returns the item id on success, null when the
+            // grid is full (the type is a real, shipping row, so "unknown type" cannot
+            // happen here - unlike the atlas shard's pending id).
+            int? grantedItemId = Game.Inventory.InventoryService.Grant(
+                playerEntityId, Multiplayer.FuelPods.ItemTypeId, Multiplayer.FuelPods.FuelPerPod);
+
+            if (grantedItemId == null)
+            {
+                // Roll the reservation back so the pod stays pickable - a full grid now
+                // might have room later. The pod is NOT consumed.
+                FuelPodLedger.Rollback(podEntityId, playerEntityId);
+                Console.WriteLine("[warning] fuel pod " + podEntityId + " pickup by entity "
+                    + playerEntityId + " did not grant '" + Multiplayer.FuelPods.ItemTypeId
+                    + "' (full inventory grid). Reservation rolled back; the pod stays available.");
+                return Multiplayer.LodgeablePickupOutcome.GrantFailed;
+            }
+
+            // COMMIT: the fuel is in the bag (Grant already pushed the 1081 update).
+            // Mark the pod collected and make the world entity vanish for everyone.
+            FuelPodLedger.Collect(podEntityId, playerEntityId);
+            Console.WriteLine("[info] fuel pod " + podEntityId + " collected by entity "
+                + playerEntityId + " -> " + Multiplayer.FuelPods.FuelPerPod + "x inventory item "
+                + grantedItemId + " ('" + Multiplayer.FuelPods.ItemTypeId + "').");
+            BroadcastFuelPodCollected(podEntityId);
+            return Multiplayer.LodgeablePickupOutcome.Grant;
+        }
+
+        /// <summary>
+        /// Tells every viewer that a collected fuel pod is gone: its 1210 prompt is no
+        /// longer available and its 190602 is sunk under the terrain (WAReborn has no
+        /// RemoveEntityOp, so the nugget's sink teleport is how a world pickup vanishes).
+        /// A late joiner is instead seeded the collected state (1210 unavailable + sunk
+        /// transform) by the serializer, which reads the same FuelPodLedger. Mirrors
+        /// <see cref="BroadcastShardCollected"/>.
+        /// </summary>
+        private static void BroadcastFuelPodCollected(long podEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(podEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, podEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                    {
+                        availUpdate.ApplyTo(storedInteract);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, podEntityId,
+                        new List<uint> { InteractiveStateComponentId },
+                        new List<object> { availUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, podEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                        new Improbable.Corelibrary.Transforms.TransformState.Update()
+                            .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                                new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                    {
+                        sink.ApplyTo(storedTransform);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, podEntityId,
+                        new List<uint> { TransformStateComponentId },
+                        new List<object> { sink });
+                }
+            }
+        }
+
         /// <summary>
         /// Tells every client that holds the node its depletion: the nugget has no
         /// damage feedback of its own, so "it's gone" is a 190602 teleport that sinks
@@ -1492,7 +1617,9 @@ namespace WorldsAdriftRebornGameServer
                 SpawnDatabank,
                 Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"),
                 SpawnAtlasShard,
-                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"));
+                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"),
+                SpawnFuelPods,
+                Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"));
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1536,6 +1663,21 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         internal static readonly Multiplayer.AtlasShardRegistry AtlasShards =
             new Multiplayer.AtlasShardRegistry();
+
+        /// <summary>
+        /// The ledger of every FUEL POD placed in the world and its acquisition state
+        /// (released -> collected, plus the pickup reservation). The fuel analogue of
+        /// <see cref="AtlasShards"/>, but the SHARED host-less core
+        /// (<see cref="Multiplayer.LodgeablePickupRegistry"/>) directly, because a fuel
+        /// pod carries only 2102 LodgeableState with no host deposit: it starts
+        /// released and a player collects it with a 1211 PickUp
+        /// (InteractAgentState_Handler -> <see cref="TryCollectFuelPod"/>). Internal
+        /// because both the serializer (seeds 2102/1210/190602 from it) and that glue
+        /// seam read it. Populated in <see cref="AddWorldEntity"/> the moment a pod
+        /// entity has an id. See docs/research/findings-combustion-fuel.md.
+        /// </summary>
+        internal static readonly Multiplayer.LodgeablePickupRegistry FuelPodLedger =
+            new Multiplayer.LodgeablePickupRegistry();
 
         /// <summary>
         /// Which entity ids are ship SURFACES, and which ship each belongs to. The
@@ -1651,6 +1793,17 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnAtlasShard =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_ATLAS") != "0";
+
+        /// <summary>
+        /// Whether to place the FUEL PODS - the gatherable "fuel" crafting material.
+        /// ON unless WAREBORN_SPAWN_FUELPODS=0. Independent of the deposit/atlas
+        /// spawns: a fuel pod is host-less (carries only 2102, no host core), so it
+        /// needs no deposit. AfterPlayer and it grants the real, already-shipping
+        /// "fuel" item, so it can neither delay a spawn nor mis-grant. See
+        /// docs/research/findings-combustion-fuel.md.
+        /// </summary>
+        private static bool SpawnFuelPods =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_FUELPODS") != "0";
 
         /// <summary>
         /// Whether to place the scannable DATABANK that feeds the KNOWLEDGE loop.
@@ -1944,6 +2097,25 @@ namespace WorldsAdriftRebornGameServer
                             + entity.Position + "; grants '" + Multiplayer.AtlasShardCatalogue.ItemTypeId
                             + "'" + (Multiplayer.AtlasShardCatalogue.IsItemIdPending
                                 ? " (PENDING refdata - see findings-atlas-shards.md §5)" : "") + ".");
+                    }
+                }
+
+                // A FUEL POD becomes an entry in the FuelPodLedger the moment it has an
+                // entity id - the same spawn seam as the shard above, but HOST-LESS: a
+                // pod carries only 2102 (no host core), so it is registered already
+                // RELEASED (startReleased:true) and is directly pickable, and it needs
+                // no host id to resolve first. Matched on the pod KEY prefix (its asset
+                // name "Egg" is generic), so only entities keyed fuel-pod-N register.
+                // Idempotent (Register returns false on re-registration) so a second
+                // joiner walking this identical step cannot revive a collected pod.
+                if (Multiplayer.FuelPods.IsPodKey(entity.Key))
+                {
+                    if (FuelPodLedger.Register(entityId, startReleased: true))
+                    {
+                        Console.WriteLine("[info] placed FUEL POD '" + entity.Key + "' as entity "
+                            + entityId + " at " + entity.Position + "; a 1211 PickUp grants "
+                            + Multiplayer.FuelPods.FuelPerPod + "x '" + Multiplayer.FuelPods.ItemTypeId
+                            + "'.");
                     }
                 }
 

@@ -195,6 +195,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
 
+                        // A COLLECTED fuel pod is likewise gone: seed the late joiner the
+                        // same sunk position everyone present was teleported to at
+                        // collection (BroadcastFuelPodCollected). An uncollected pod keeps
+                        // its real position.
+                        if (WorldsAdriftRebornGameServer.FuelPodLedger.IsCollected(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
                         // A BOLTED SHIP PART is seeded hull-RELATIVE so it follows the
                         // moving hull instead of drifting. The localPosition becomes the
                         // part's offset FROM the hull and the parent names the hull with
@@ -589,6 +598,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // separate replay. See findings-atlas-shards §2 Phase C.
                         bool isAtlasShard = !isCraftStation && !isHelm
                             && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
+                        // A FUEL POD bakes the SAME PickUp verb as the nugget/shard. It is
+                        // host-less and starts released, so available follows only its
+                        // collected state: true until picked up, false once collected
+                        // (BroadcastFuelPodCollected). See findings-combustion-fuel §5.
+                        bool isFuelPod = !isCraftStation && !isHelm && !isAtlasShard
+                            && WorldsAdriftRebornGameServer.FuelPodLedger.Contains(entityId);
 
                         InteractionEntry entry;
                         string verbName;
@@ -622,6 +637,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             // Gated: only offer the prompt once the shard is mined loose,
                             // and never again once collected.
                             available = WorldsAdriftRebornGameServer.AtlasShards.IsAvailable(entityId);
+                        }
+                        else if (isFuelPod)
+                        {
+                            entry = new InteractionEntry(
+                                InteractVerb.PickUp,
+                                Multiplayer.FuelPods.PickUpRadius,
+                                false, "", "", "", false,
+                                Multiplayer.FuelPods.PickUpTimeToUse);
+                            verbName = "PickUp";
+                            // Host-less: available from the start (released), false once
+                            // collected.
+                            available = WorldsAdriftRebornGameServer.FuelPodLedger.IsAvailable(entityId);
                         }
                         else
                         {
@@ -2362,6 +2389,31 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + ") rockCoreId=" + (shardHost?.ToString() ?? "INVALID") + " slot=" + shardSlot + ".");
 
                         obj = shardData;
+                    }
+                    else if (componentId == 2102
+                        && WorldsAdriftRebornGameServer.FuelPodLedger.Contains(entityId))
+                    {
+                        // 2102 LodgeableState for a FUEL POD. Host-less, so ownerId is
+                        // invalid and slotName empty. isLodged is seeded TRUE = kinematic:
+                        // the pod sits still on the ground (the EggPreprocessor sets
+                        // FuelPod.IsLodged=true on the worker, driving Rigidbody.isKinematic
+                        // = true). This physics flag is INDEPENDENT of the pickup lifecycle:
+                        // a fuel pod is "released"/pickable from the start (host-less), but
+                        // still kinematic so it does not roll off the island. VERIFIED
+                        // ctor: LodgeableStateData(bool isLodged, EntityId ownerId, string
+                        // slotName) - gencode Bossa.Travellers.Materials/LodgeableStateData.cs.
+                        Bossa.Travellers.Materials.LodgeableState.Data podLodge =
+                            new Bossa.Travellers.Materials.LodgeableState.Data(
+                                new Bossa.Travellers.Materials.LodgeableStateData(
+                                    true,
+                                    EntityId.InvalidEntityId,
+                                    Multiplayer.FuelPods.SlotName));
+
+                        Console.WriteLine("[info] seeding 2102 for FUEL POD entity " + entityId
+                            + " (" + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") isLodged=true (kinematic).");
+
+                        obj = podLodge;
                     }
                     else if (componentId == 2102)
                     {
