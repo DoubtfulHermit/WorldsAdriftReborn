@@ -145,16 +145,59 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public const uint RadialStormStateComponentId = 1269;
 
+        // ------------------------------------------------------------------
+        // LOOSE-SHIP-PART physics/cosmetic states this server never authors.
+        //
+        // A crafted ship part is a world entity carrying ShipPartVisualizer (which
+        // makes it render and LIFT). The ShipFrame/ship-part prefabs also bake a
+        // handful of OTHER visualizers whose readers the client dutifully requests
+        // over interest on every checkout of the part (and of a hull):
+        //   ParentingMassAdderVisualizer         -> 1257 ParentingMassAdderState
+        //   ShipPartShipyardInformationVisualizer -> 1121 OriginalMassState
+        //   LightningStrikableVisualizer          -> 1225 LightningStrikableState
+        //   Joint/DetachFromParentWhenUnderHealthThresholdVisualizer -> 1235
+        //     DetachFromParentWhenUnderHealthThresholdState
+        // (ids VERIFIED off the decompiled gencode; the requesters are baked by
+        // ShipPartPreprocessor.cs:18-38 and ShipPreprocessor.cs, ShipRecognition.cs:35
+        // already lists 1257/1121 among "components we do not seed").
+        //
+        // This server simulates none of that physics (mass aggregation, lightning,
+        // damage-detach), so it authors NO such state for ANY entity - there is not a
+        // single serve branch or seed for these four ids. Left unhandled, each logs a
+        // loud "[ToDo] unhandled component id ... (entity NN)" on every loose-part and
+        // hull checkout, and any that rides a client all-or-nothing interest batch
+        // risks dropping it. Declaring them KNOWN-ABSENT is the honest statement - our
+        // entities do not HAVE these functional states - and makes a part's checkout
+        // serialize cleanly while the corresponding visualizers simply stay disabled
+        // (none of them is on the lift path: ShipPartVisualizer's own [Require] set -
+        // 8066/1120/190602/190601/1016/1013 - is fully seeded).
+        // ------------------------------------------------------------------
+
+        /// <summary>1257 ParentingMassAdderState - ship-part mass aggregation this server does not simulate.</summary>
+        public const uint ParentingMassAdderStateComponentId = 1257;
+
+        /// <summary>1121 OriginalMassState - the shipyard-info visualizer's mass readout; no server mass model.</summary>
+        public const uint OriginalMassStateComponentId = 1121;
+
+        /// <summary>1225 LightningStrikableState - no weather/lightning simulation, so our parts are not strikable.</summary>
+        public const uint LightningStrikableStateComponentId = 1225;
+
+        /// <summary>1235 DetachFromParentWhenUnderHealthThresholdState - no damage/detach model on our parts.</summary>
+        public const uint DetachFromParentWhenUnderHealthThresholdStateComponentId = 1235;
+
         /// <summary>
         /// The whole set. Deliberately tiny, and every entry has to earn its
         /// place with a client-side reason why absence is SAFE - not merely
-        /// harmless-looking. Both entries here have one:
+        /// harmless-looking. Every entry here has one:
         ///
         /// * 1139 - <c>GlobalWeather.GetCellSampleAt</c> already returns a
         ///   default on a map miss, so a world with no weather cells is a
         ///   supported state of the shipped client.
         /// * 1269 - every consumer is gated behind a local flag component our
         ///   entities never receive.
+        /// * 1257 / 1121 / 1225 / 1235 - loose-ship-part physics/cosmetic states
+        ///   this server authors for no entity; the visualizers that read them are
+        ///   off the lift path and safe disabled (see the block above).
         ///
         /// An id belongs here only when the entity genuinely does not have the
         /// thing. It is NOT a place to park a component that is merely hard to
@@ -165,6 +208,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             WeatherCellStateComponentId,
             RadialStormStateComponentId,
+            ParentingMassAdderStateComponentId,
+            OriginalMassStateComponentId,
+            LightningStrikableStateComponentId,
+            DetachFromParentWhenUnderHealthThresholdStateComponentId,
         };
 
         /// <summary>
@@ -197,6 +244,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (componentId == RadialStormStateComponentId)
             {
                 return "RadialStormState";
+            }
+            if (componentId == ParentingMassAdderStateComponentId)
+            {
+                return "ParentingMassAdderState";
+            }
+            if (componentId == OriginalMassStateComponentId)
+            {
+                return "OriginalMassState";
+            }
+            if (componentId == LightningStrikableStateComponentId)
+            {
+                return "LightningStrikableState";
+            }
+            if (componentId == DetachFromParentWhenUnderHealthThresholdStateComponentId)
+            {
+                return "DetachFromParentWhenUnderHealthThresholdState";
             }
             return componentId.ToString();
         }

@@ -375,6 +375,34 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + entityId + " (deployed=" + shipyardSeed.Deployed + ", active=" + shipyardSeed.Active
                             + ", owner='" + shipyardSeed.OwnerCharacterUid + "', dockedShip=" + dockedShipId + ").");
                     }
+                    else if(componentId == 1114 && Game.Crafting.BuiltShips.IsBuiltHull(entityId))
+                    {
+                        // DockableState on a BUILT hull. The ShipFrame prefab bakes a
+                        // DockableVisualizer (ShipPreprocessor.cs:103) that [Require]s 1114;
+                        // without it that visualizer never enables, so the shipyard's
+                        // ShipyardVisualizer.OnDockedShipChanged (which resolves the docked
+                        // ship as GetComponent<DockableVisualizer>()) yields a DISABLED
+                        // dockable and PlayerScannerTool.IsShipyardActive (Shipyard.DockedShip
+                        // != null, plus its IsDocked/state reads) is unreliable. That check is
+                        // the crafted-part lift's "active shipyard with a docked ship"
+                        // precondition. Serve it docked=true with DockEntityId = the shipyard
+                        // this hull was built at, so the client sees a real docked ship to
+                        // place parts onto. The shipyard's own 1205 DockedShipId already points
+                        // back here (BuiltShipSpawner.PushDockedShipId + the 1205 branch), so
+                        // the two directions agree. Gated on IsBuiltHull so no other entity's
+                        // 1114 request is answered here (it falls through to the normal path).
+                        long dockShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
+                        var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Position;
+                        Coordinates dockLocation = hullPos.HasValue
+                            ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
+                            : new Coordinates(0, 0, 0);
+
+                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, true, false);
+
+                        Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
+                            + " (docked=true, dockShipyard=" + dockShipyardId + "); the shipyard now presents an"
+                            + " active docked ship for the crafted-part lift.");
+                    }
                     else if(componentId == 190601)
                     {
                         TransformHierarchyState.Data thData = new TransformHierarchyState.Data(new TransformHierarchyStateData(new Improbable.Collections.List<Child> { }));
@@ -988,7 +1016,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1219)
                     {
-                        ShipyardVisitorState.Data svData = new ShipyardVisitorState.Data(new ShipyardVisitorStateData(new EntityId(0), "abcdefg"));
+                        // ShipyardVisitorState on the PLAYER: the client's
+                        // ShipyardVisitorVisualizer resolves the player's shipyard PURELY
+                        // from this ShipyardId being a valid entity id
+                        // (ShipyardVisitorVisualizer.cs:130-133), and PlayerScannerTool
+                        // refuses the crafted-part lift ("Interact with shipyard to gain
+                        // access.") while its Shipyard is null. So report the yard this
+                        // player has been GRANTED build access to (set when they interact
+                        // with a shipyard console, PlacementService.OpenShipyardConsole);
+                        // 0 (an invalid EntityId) when they have none, i.e. no access yet.
+                        // Ledger-backed so a re-checkout of the player's own 1219 keeps the
+                        // grant, exactly like the 1205 branch reads BuiltShips.DockedShipFor.
+                        long grantedShipyard =
+                            Multiplayer.Placement.ShipyardBuildAccess.Shared.ShipyardFor(entityId);
+                        ShipyardVisitorState.Data svData = new ShipyardVisitorState.Data(
+                            new ShipyardVisitorStateData(new EntityId(grantedShipyard), "abcdefg"));
 
                         obj = svData;
                     }

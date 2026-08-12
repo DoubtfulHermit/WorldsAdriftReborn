@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Bossa.Travellers.Craftingstation;
 using Bossa.Travellers.Items;
+using Bossa.Travellers.Ship.Lock;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Crafting;
@@ -57,6 +58,9 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
         private const float TimeToPlace = 1.0f;
 
         private const uint ItemPlacementAgentStateComponentId = 1019;
+
+        /// <summary>1219 ShipyardVisitorState - the player's own "which shipyard do I have build access to".</summary>
+        private const uint ShipyardVisitorStateComponentId = 1219;
 
         private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);
         private const string DefaultTriggerFile = "/tmp/wareborn-place";
@@ -248,8 +252,58 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             // signal to rebuild the list. Single choke point for every console open.
             Multiplayer.Ship.ShipDesignStore.For(playerEntityId).NoteConsole(shipyardEntityId);
 
+            // GRANT SHIP-BUILD ACCESS. Interacting with a shipyard console is exactly the
+            // moment the client expects to "gain access": PlayerScannerTool.DeployItem
+            // refuses the crafted-part lift with "Interact with shipyard to gain access."
+            // whenever its Shipyard is null (PlayerScannerTool.cs:455-457), and that
+            // Shipyard resolves purely from the player's own 1219 ShipyardVisitorState
+            // .ShipyardId being a valid entity id (ShipyardVisitorVisualizer.cs:130-133).
+            // So record the grant (the 1219 serve branch reports it on every re-checkout)
+            // and PUSH a live 1219 update now so the player's client resolves the yard
+            // without waiting for a re-checkout. Per-player, event-driven, one field.
+            GrantShipyardBuildAccess(peer, playerEntityId, shipyardEntityId);
+
             return EmitPlayerStartCrafting(peer, playerEntityId, shipyardEntityId, "shipyard", "ship-build UI",
                 resetToIdle: false);
+        }
+
+        /// <summary>
+        /// Records the per-player build-access grant and pushes a live 1219
+        /// <c>ShipyardVisitorState</c> update carrying the shipyard's entity id to the
+        /// interacting player, so their client's <c>ShipyardVisitorVisualizer</c> resolves
+        /// the yard (<c>ShipyardVisitorVisualizer.cs:130-133</c>) and
+        /// <c>PlayerScannerTool.Shipyard</c> becomes non-null - clearing the "Interact
+        /// with shipyard to gain access." refusal on the crafted-part lift. The ledger
+        /// makes the grant survive a re-checkout of the player's own 1219 (the serve
+        /// branch reads it), and the push makes it take effect immediately.
+        ///
+        /// The 1219 component is already present on the player (served on request as an
+        /// <c>EntityId(0)</c> stub in ComponentsSerializer), so this update lands on a
+        /// component the client holds. Best-effort: a dropped push is corrected by the
+        /// ledger-backed serve on the next checkout.
+        /// </summary>
+        private void GrantShipyardBuildAccess(ENetPeerHandle peer, long playerEntityId, long shipyardEntityId)
+        {
+            Multiplayer.Placement.ShipyardBuildAccess.Shared.Grant(playerEntityId, shipyardEntityId);
+
+            ShipyardVisitorState.Update update = new ShipyardVisitorState.Update();
+            update.SetShipyardId(new EntityId(shipyardEntityId));
+
+            if (SendOPHelper.SendComponentUpdateOp(
+                    peer, playerEntityId,
+                    new List<uint> { ShipyardVisitorStateComponentId },
+                    new List<object> { update }))
+            {
+                Console.WriteLine("[info] placement: granted shipyard build access to player " + playerEntityId
+                    + " for shipyard " + shipyardEntityId + " (pushed 1219 ShipyardId); the crafted-part lift"
+                    + " no longer reports \"Interact with shipyard to gain access.\".");
+            }
+            else
+            {
+                Console.WriteLine("[warning] placement: recorded build-access grant for player " + playerEntityId
+                    + " -> shipyard " + shipyardEntityId + " but the live 1219 push failed; it will still apply"
+                    + " on the next checkout via the ledger-backed serve.");
+            }
         }
 
         /// <summary>
