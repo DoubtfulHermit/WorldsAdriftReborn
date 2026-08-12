@@ -2495,6 +2495,20 @@ namespace WorldsAdriftRebornGameServer
                             // given for this entity; component VALUE updates are
                             // unaffected because they travel on COMPONENT_UPDATE_OP, a
                             // different channel, not this AddComponent path.
+                            // ISLAND RESOURCE HANDSHAKE. When a peer checks the island
+                            // out, serve it 1010+1011, grant 1011 authority and raise the
+                            // SpawnResources request (one-time per peer, gated by
+                            // WAREBORN_METAL_HANDSHAKE). Done BEFORE the best-effort serve
+                            // below and marked served, so the client's own 1010/1011
+                            // interest is deduped rather than re-added. A no-op for any
+                            // non-island entity or when the handshake is off.
+                            IReadOnlyList<uint> handshakeServed =
+                                Game.Gathering.IslandResourceService.OnIslandInterest(keyValuePair.Key, entityId);
+                            if (handshakeServed.Count > 0)
+                            {
+                                ServedComponents.MarkServed(keyValuePair.Key, entityId, new List<uint>(handshakeServed));
+                            }
+
                             List<uint> requestedIds = new List<uint>((int)interestCount);
                             for (int ii = 0; ii < interestCount; ii++)
                             {

@@ -283,6 +283,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const uint PlacementToolPlayerStateComponentId = 1239;
 
         /// <summary>
+        /// 1011 IslandResourceSpawnerClientState: the client's resource-placement REPLY
+        /// writer. It is client-authoritative on the ISLAND (a shared world entity), so
+        /// a client's 1011 update reaches the raw relay path - and
+        /// RelayToOtherPlayers would re-address its SpawnResourcesReply to the SENDER's
+        /// own player entity, which neither seeds 1011 nor is the island. The reply is
+        /// realised by the SERVER (the 1011 handler spawns deposits as shared world
+        /// entities every peer sees), not by relaying it to another client's own island
+        /// writer, and it is a one-shot-per-batch, not a per-frame stream - so this is
+        /// correctness, not bandwidth. See <see cref="IslandResourceHandshake"/>.
+        /// </summary>
+        public const uint IslandResourceSpawnerClientStateComponentId = 1011;
+
+        /// <summary>
         /// The part-mount toolchain components a client is granted AUTHORITY over: the
         /// two client writers 1070 (the commit) + 1239 (carry notifications). 1071 is a
         /// server-owned reader and is NOT granted. Kept OUT of the always-on
@@ -541,7 +554,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 && componentId != ShipHullAgentClientStateComponentId
                 && componentId != PlayerShipBlueprintInteractionStateComponentId
                 && componentId != BuilderStateComponentId
-                && componentId != PlacementToolPlayerStateComponentId;
+                && componentId != PlacementToolPlayerStateComponentId
+                && componentId != IslandResourceSpawnerClientStateComponentId;
         }
 
         /// <summary>

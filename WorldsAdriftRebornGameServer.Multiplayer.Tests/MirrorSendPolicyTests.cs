@@ -383,7 +383,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_nine_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_ten_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
@@ -397,6 +397,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // 1239 PlacementToolPlayerState joined with part-mounting - both
             // client-authoritative, cross-entity (PlacePart / PickedUp name a THIRD
             // entity), realised server-side by writing the part's 8066/190602/1120.
+            // 1011 IslandResourceSpawnerClientState joined with the resource-placement
+            // handshake - client-authoritative on the shared ISLAND, its
+            // SpawnResourcesReply realised server-side by spawning deposits every peer
+            // sees, never relayed raw to another client's own island writer.
             List<uint> filtered = new List<uint>();
             for (uint id = 0; id < 200000; id++)
             {
@@ -406,7 +410,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1017, 1037, 1070, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
+            Assert.Equal(new uint[] { 1011, 1017, 1037, 1070, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
         }
 
         // ------------------------------------------------------------------
