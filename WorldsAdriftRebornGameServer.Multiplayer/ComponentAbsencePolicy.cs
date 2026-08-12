@@ -161,6 +161,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // ShipPartPreprocessor.cs:18-38 and ShipPreprocessor.cs, ShipRecognition.cs:35
         // already lists 1257/1121 among "components we do not seed").
         //
+        // Some loose parts additionally bake a PART-SPECIFIC control visualizer. The HELM
+        // (a pilot seat) carries HelmVisualizer, which [Require]s ShipControlInputReader ->
+        // 1111 ShipControlInput (HelmVisualizer.cs:10-11, confirmed on the wire as
+        // "1111 => Bossa.Travellers.Ship.ShipControlInput"). This server simulates no ship
+        // piloting input, so it authors no ShipControlInput for any entity; left unhandled it
+        // fails the helm's all-or-nothing interest batch ("failed to initialize component 1111
+        // of entity NN") so the helm never renders/lifts. It is off the lift path (not in
+        // ShipPartVisualizer's [Require] set) - the helm renders and lifts as a loose part with
+        // HelmVisualizer simply disabled - so it is KNOWN-ABSENT like the four above.
+        //
         // This server simulates none of that physics (mass aggregation, lightning,
         // damage-detach), so it authors NO such state for ANY entity - there is not a
         // single serve branch or seed for these four ids. Left unhandled, each logs a
@@ -185,6 +195,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>1235 DetachFromParentWhenUnderHealthThresholdState - no damage/detach model on our parts.</summary>
         public const uint DetachFromParentWhenUnderHealthThresholdStateComponentId = 1235;
 
+        /// <summary>1111 ShipControlInput - the helm/pilot-seat control-input reader (HelmVisualizer); this server simulates no ship piloting input.</summary>
+        public const uint ShipControlInputComponentId = 1111;
+
         /// <summary>
         /// The whole set. Deliberately tiny, and every entry has to earn its
         /// place with a client-side reason why absence is SAFE - not merely
@@ -198,6 +211,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// * 1257 / 1121 / 1225 / 1235 - loose-ship-part physics/cosmetic states
         ///   this server authors for no entity; the visualizers that read them are
         ///   off the lift path and safe disabled (see the block above).
+        /// * 1111 - the helm's ShipControlInput (pilot-seat control input); this
+        ///   server simulates no piloting, HelmVisualizer is off the lift path and
+        ///   safe disabled, so the helm still renders and lifts as a loose part.
         ///
         /// An id belongs here only when the entity genuinely does not have the
         /// thing. It is NOT a place to park a component that is merely hard to
@@ -212,6 +228,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             OriginalMassStateComponentId,
             LightningStrikableStateComponentId,
             DetachFromParentWhenUnderHealthThresholdStateComponentId,
+            ShipControlInputComponentId,
         };
 
         /// <summary>
@@ -260,6 +277,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (componentId == DetachFromParentWhenUnderHealthThresholdStateComponentId)
             {
                 return "DetachFromParentWhenUnderHealthThresholdState";
+            }
+            if (componentId == ShipControlInputComponentId)
+            {
+                return "ShipControlInput";
             }
             return componentId.ToString();
         }

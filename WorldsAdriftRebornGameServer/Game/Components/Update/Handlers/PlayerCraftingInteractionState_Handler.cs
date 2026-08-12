@@ -398,6 +398,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // it owns the release (its own finally), and StationCraftTracker.End is idempotent.
             string schematicId = record.SchematicId;
             int seconds = Multiplayer.Crafting.StationCraftTimePolicy.Seconds(record.TimeToCraft);
+            // ONE plan drives both pushes so START and COMPLETE can never drift apart: same
+            // target (the station), and the SAME slot count on both. requirementCount is the
+            // recipe's requirement count (== session.Slots.Length here), which is exactly the
+            // client's CraftingSlotData.Count; the COMPLETE push must carry that many slots or
+            // the client's SyncCraftingItems throws IndexOutOfRange and the station wedges
+            // mid-animation (StationCraftPushPlan / CraftingStatePush).
+            int requirementCount = record.CraftingRequirements.Count;
+            CraftingStatePush startPush = StationCraftPushPlan.Start(pushTarget, requirementCount, seconds);
+            CraftingStatePush donePush = StationCraftPushPlan.Complete(pushTarget, requirementCount);
             try
             {
                 InventoryModel model = InventoryService.ForEntity(entityId);
@@ -420,9 +429,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 // console re-open during the craft preserves the in-progress display
                 // (StationCraftRouting.ShouldResetToIdleOnOpen sees an active craft here). The part
                 // is NOT spawned yet and CraftingCompleted is NOT sent - both wait for the timer.
-                PushCraftingState(player, pushTarget, session,
+                PushCraftingState(player, startPush.Target, session,
                     update => update.AddCraftingStarted(new CraftingStarted(seconds, schematicId)),
-                    itemReadyInSeconds: seconds);
+                    itemReadyInSeconds: startPush.ItemReadyInSeconds,
+                    minSlotCount: startPush.SlotCount);
             }
             catch
             {
@@ -460,8 +470,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // Release the at-most-one guard so the NEXT StartCrafting is accepted.
                     StationCraftTracker.End(pushTarget, entityId);
 
-                    PushCraftingState(player, pushTarget, session,
-                        update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)));
+                    // THE FIX for "stuck in the crafting animation forever": the COMPLETE push
+                    // must serve itemReadyInSeconds=-1 + CraftingCompleted to the SAME target as
+                    // START (donePush.Target == startPush.Target == the station) AND still carry
+                    // one SlottedMaterial per requirement (minSlotCount: donePush.SlotCount).
+                    // ReturnToIdle above emptied session.Slots, so without the pad this list would
+                    // be empty - and an empty list throws IndexOutOfRange in the client's
+                    // CraftingStationData.SyncCraftingItems, aborting OnCraftingCompleted before
+                    // it closes the aperture, stops the atomizer and unlocks the station.
+                    PushCraftingState(player, donePush.Target, session,
+                        update => update.AddCraftingCompleted(new CraftingCompleted(schematicId)),
+                        itemReadyInSeconds: donePush.ItemReadyInSeconds,
+                        minSlotCount: donePush.SlotCount);
                 }
 
                 Console.WriteLine("[info] entity " + entityId + " COMPLETED station craft of loose part '"
@@ -493,13 +513,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         /// </summary>
         private static void PushCraftingState( ENetPeerHandle player, long pushTarget, CraftSession session,
             Action<CraftingStationClientState.Update>? addEvents = null,
-            int itemReadyInSeconds = -1 )
+            int itemReadyInSeconds = -1,
+            int minSlotCount = 0 )
         {
             Improbable.Collections.List<SlottedMaterial> slotted = new Improbable.Collections.List<SlottedMaterial>();
 
-            for (int i = 0; i < session.Slots.Length; i++)
+            // The wire slottedMaterials list must be at least as long as the client's
+            // CraftingSlotData (sized from the loaded schematic's requirements): the client
+            // indexes slottedMaterials[i] for i in [0, CraftingSlotData.Count) in
+            // CraftingStationData.SyncCraftingItems, and a SHORT list throws IndexOutOfRange
+            // there - which, on the COMPLETE push, aborts OnCraftingCompleted before it stops
+            // the aperture/atomizer and unlocks the station. Emit the session's own slots, then
+            // pad with empty entries up to minSlotCount so a completion whose session was already
+            // idled still serialises a full-length (all-empty) list.
+            int slotCount = session.Slots.Length > minSlotCount ? session.Slots.Length : minSlotCount;
+            for (int i = 0; i < slotCount; i++)
             {
-                SlotHold hold = session.Slots[i];
+                bool haveHold = i < session.Slots.Length;
+                SlotHold hold = haveHold ? session.Slots[i] : new SlotHold { Amount = 0, MaterialTypeId = "" };
                 RawMaterial rawMaterial = new RawMaterial(hold.MaterialTypeId ?? "", 0, "", new Map<string, string>());
                 slotted.Add(new SlottedMaterial(i, rawMaterial, hold.Amount, new Option<RawMaterial>()));
             }
