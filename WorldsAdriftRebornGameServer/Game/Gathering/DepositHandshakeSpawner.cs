@@ -61,7 +61,65 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 isDeposit: true,
                 variantId: admitted.Variant);
 
-            return SpawnDepositNode(node, "island " + islandEntityId);
+            long? depositId = SpawnDepositNode(node, "island " + islandEntityId);
+
+            // LODGE AN ATLAS SHARD, exactly as the fallback does for a hand-placed
+            // deposit. Without this a SUCCESSFUL handshake yields a world with no atlas
+            // shards at all: shard creation used to be index-paired to the static
+            // deposit-N table, so a client-placed deposit could never be a host. The
+            // shard's key embeds the HOST'S key (AtlasShardCatalogue.KeyForHost), so the
+            // registration resolves its 1305 rockCoreId from the deposit we just bound -
+            // which is why this runs AFTER SpawnDepositNode, never before.
+            if (depositId.HasValue && depositId.Value != 0)
+            {
+                LodgeShardIn(node, depositId.Value, admitted.Index);
+            }
+
+            return depositId;
+        }
+
+        /// <summary>
+        /// Registers the atlas shard lodged in a just-spawned handshake deposit, when the
+        /// spawn rate says this one carries a shard. Mirrors
+        /// <c>DepositFallbackSpawner.SpawnShards</c> call-for-call (same factory, same
+        /// ledger, same broadcast) so a handshake deposit and a fallback deposit are
+        /// indistinguishable to the shard code. Never throws out of the spawn path: a
+        /// shard that cannot be placed is logged and the deposit still stands.
+        /// </summary>
+        private static void LodgeShardIn(MetalNode node, long depositEntityId, int depositIndex)
+        {
+            try
+            {
+                int oneIn = AtlasSpawnPolicy.OneInDeposits(
+                    System.Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"));
+                if (!AtlasSpawnPolicy.DepositCarriesShard(depositIndex, oneIn))
+                {
+                    return;
+                }
+
+                WorldEntity shard = Multiplayer.WorldEntities.AtlasShardEntity(node.Key, node.Position);
+                if (WorldsAdriftRebornGameServer.WorldEntities.ByKey(shard.Key) != null)
+                {
+                    return; // already placed (a defensive second call)
+                }
+
+                WorldsAdriftRebornGameServer.WorldEntities.Register(shard);
+                long shardId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(shard);
+
+                WorldsAdriftRebornGameServer.AtlasShards.Register(
+                    shardId, depositEntityId, AtlasShardCatalogue.DefaultSlotId);
+
+                BroadcastToAll(shardId, shard);
+
+                System.Console.WriteLine("[info] resource-handshake: lodged ATLAS SHARD '" + shard.Key
+                    + "' as entity " + shardId + " in deposit entity " + depositEntityId
+                    + " (one shard per " + oneIn + " deposit(s)).");
+            }
+            catch (System.Exception e)
+            {
+                System.Console.WriteLine("[error] resource-handshake: atlas shard for '" + node.Key
+                    + "' failed to lodge: " + e.Message + ". The deposit itself is unaffected.");
+            }
         }
 
         /// <summary>
