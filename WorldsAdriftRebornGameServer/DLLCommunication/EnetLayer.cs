@@ -13,6 +13,42 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
             AUTHORITY_CHANGE_OP = 3,
             COMPONENT_UPDATE_OP = 4
         }
+
+        /// <summary>
+        /// The number of channels the ENet host opens, passed to
+        /// <see cref="ENet_Create_Host"/>. There is exactly one channel per
+        /// <see cref="ENetChannel"/> op-type (channels are indices), so this MUST
+        /// equal <see cref="ChannelCount"/>. That equality is not left to a reader's
+        /// vigilance: it is asserted at start-up by
+        /// <c>WorldsAdriftRebornGameServer.Multiplayer.EnetChannelContract.Validate</c>,
+        /// so adding a sixth op-type without bumping this fails loudly instead of
+        /// silently sending on a channel the negotiated connection caps away.
+        /// </summary>
+        public const int MaxChannels = 5;
+
+        /// <summary>The number of <see cref="ENetChannel"/> op-types (one channel each).</summary>
+        public static readonly int ChannelCount = System.Enum.GetValues(typeof(ENetChannel)).Length;
+
+        /// <summary>
+        /// The highest <see cref="ENetChannel"/> value. Together with
+        /// <see cref="ChannelCount"/> this proves the op-types are a contiguous
+        /// 0..N-1 block, which they must be because they are channel indices.
+        /// </summary>
+        public static readonly int HighestChannelValue = HighestOf(typeof(ENetChannel));
+
+        private static int HighestOf(System.Type enumType)
+        {
+            int highest = int.MinValue;
+            foreach (object value in System.Enum.GetValues(enumType))
+            {
+                int v = (int)value;
+                if (v > highest)
+                {
+                    highest = v;
+                }
+            }
+            return highest;
+        }
         public enum ENetPacketFlag
         {
             RELIABLE = 0,

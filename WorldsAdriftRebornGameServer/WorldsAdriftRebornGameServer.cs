@@ -2555,6 +2555,20 @@ namespace WorldsAdriftRebornGameServer
                 keepRunning = false;
             };
 
+            // Fail loudly at boot if the ENet host's channel cap has drifted from
+            // the ENetChannel op-type count (or the op-types stopped being a
+            // contiguous 0..N-1 block). Without this a sixth op-type added later
+            // would silently send on a channel the negotiated connection caps away.
+            Multiplayer.EnetChannelContract.Validate(
+                EnetLayer.MaxChannels, EnetLayer.ChannelCount, EnetLayer.HighestChannelValue);
+
+            // Start the shared, monotonic world clock at boot. Every 1131 WorldData
+            // checkout seeds from this ONE advancing timeline, so two clients that
+            // join minutes apart are handed the current shared time of day and land
+            // in phase (day/night, lighting) instead of both starting at the old
+            // constant seed.
+            Multiplayer.ServerWorldClock.Start();
+
             if (EnetLayer.ENet_Initialize() < 0)
             {
                 Console.WriteLine("[error] failed to initialize ENet.");
@@ -2573,7 +2587,7 @@ namespace WorldsAdriftRebornGameServer
             }
             Console.WriteLine("[info] game server listening on UDP " + gamePort + ".");
 
-            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, 5, 0, 0);
+            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, EnetLayer.MaxChannels, 0, 0);
 
             if (server.IsInvalid)
             {

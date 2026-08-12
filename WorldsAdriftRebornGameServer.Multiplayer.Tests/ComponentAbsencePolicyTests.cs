@@ -49,8 +49,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // does not simulate - plus a ship entity's UidState (1294) and
             // ShipAtlasPulseState (1306), both off any render/lift path so the ship
             // hull's interest batch serializes instead of dropping on them.
+            // 1222 LightningGeneratorState joins them: it was named in the hull's
+            // all-or-nothing batch yet neither seeded nor declared absent, so it
+            // dropped the whole hull batch as an UnhandledId. This server runs no
+            // weather/lightning sim, so the hull genuinely lacks it.
             Assert.Equal(
-                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111, 1294, 1306 },
+                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111, 1294, 1306, 1222 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
@@ -62,6 +66,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1111u)] // ShipControlInput (helm pilot seat)
         [InlineData(1294u)] // UidState (ship entity, information-only visualizer)
         [InlineData(1306u)] // ShipAtlasPulseState (ship entity, cosmetic core pulse)
+        [InlineData(1222u)] // LightningGeneratorState (hull, weather effect off lift path)
         public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
         {
             // The crafted loose part (and a built hull) bakes visualizers that request
@@ -83,6 +88,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(1111u, ComponentAbsencePolicy.ShipControlInputComponentId);
             Assert.Equal(1294u, ComponentAbsencePolicy.UidStateComponentId);
             Assert.Equal(1306u, ComponentAbsencePolicy.ShipAtlasPulseStateComponentId);
+            Assert.Equal(1222u, ComponentAbsencePolicy.LightningGeneratorStateComponentId);
 
             Assert.Equal("ParentingMassAdderState", ComponentAbsencePolicy.NameOf(1257));
             Assert.Equal("OriginalMassState", ComponentAbsencePolicy.NameOf(1121));
@@ -91,6 +97,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal("ShipControlInput", ComponentAbsencePolicy.NameOf(1111));
             Assert.Equal("UidState", ComponentAbsencePolicy.NameOf(1294));
             Assert.Equal("ShipAtlasPulseState", ComponentAbsencePolicy.NameOf(1306));
+            Assert.Equal("LightningGeneratorState", ComponentAbsencePolicy.NameOf(1222));
         }
 
         [Fact]

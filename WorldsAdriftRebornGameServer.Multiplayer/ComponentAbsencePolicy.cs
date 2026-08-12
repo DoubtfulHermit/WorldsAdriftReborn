@@ -226,6 +226,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const uint ShipAtlasPulseStateComponentId = 1306;
 
         /// <summary>
+        /// 1222 LightningGeneratorState - the hull's weather/lightning generator
+        /// (LightningGeneratorVisualizer, Bossa.Travellers.Weather).
+        ///
+        /// The ACTIVE version of the same latent trap 1139 was. 1222 is named in the
+        /// built-ship hull's own all-or-nothing interest batch (see the ship-entity
+        /// block above: 1114/1130/1111/1222/1225/1232/4333/1294/1306/4400/190604),
+        /// but it had no seed branch AND was not declared absent - so on that
+        /// all-or-nothing checkout it came back UnhandledId and dropped the WHOLE
+        /// hull batch, exactly the failure the other ship-entity ids (1111/1225/1294/
+        /// 1306) were added here to prevent. It belongs with them: this server runs
+        /// no weather or lightning simulation of any kind (that is the whole reason
+        /// 1139 WeatherCellState and 1269 RadialStormState and 1225 LightningStrikable
+        /// are absent), so a hull genuinely does not HAVE a lightning generator, and
+        /// its only reader - LightningGeneratorVisualizer - is a weather effect off
+        /// any render/lift path, safe DISABLED. Declaring it absent lets the hull's
+        /// batch serialize and load instead of dropping on this one id.
+        /// </summary>
+        public const uint LightningGeneratorStateComponentId = 1222;
+
+        /// <summary>
         /// The whole set. Deliberately tiny, and every entry has to earn its
         /// place with a client-side reason why absence is SAFE - not merely
         /// harmless-looking. Every entry here has one:
@@ -245,6 +265,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         ///   and ShipAtlasPulseState (cosmetic core-pulse ShipAtlasPulseVisualizer);
         ///   both readers are off any render/lift path and safe disabled, so the ship
         ///   hull loads instead of its whole 19-id batch dropping on these two.
+        /// * 1222 - the hull's LightningGeneratorState; this server runs no weather or
+        ///   lightning simulation (the same reason 1139/1269/1225 are absent), its
+        ///   LightningGeneratorVisualizer is a weather effect off any render/lift path,
+        ///   and 1222 is in the hull's all-or-nothing batch, so declaring it absent is
+        ///   what stops that batch dropping on it.
         ///
         /// An id belongs here only when the entity genuinely does not have the
         /// thing. It is NOT a place to park a component that is merely hard to
@@ -262,6 +287,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             ShipControlInputComponentId,
             UidStateComponentId,
             ShipAtlasPulseStateComponentId,
+            LightningGeneratorStateComponentId,
         };
 
         /// <summary>
@@ -322,6 +348,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (componentId == ShipAtlasPulseStateComponentId)
             {
                 return "ShipAtlasPulseState";
+            }
+            if (componentId == LightningGeneratorStateComponentId)
+            {
+                return "LightningGeneratorState";
             }
             return componentId.ToString();
         }
