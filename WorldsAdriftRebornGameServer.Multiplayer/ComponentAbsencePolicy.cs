@@ -198,6 +198,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>1111 ShipControlInput - the helm/pilot-seat control-input reader (HelmVisualizer); this server simulates no ship piloting input.</summary>
         public const uint ShipControlInputComponentId = 1111;
 
+        // ------------------------------------------------------------------
+        // SHIP-ENTITY cosmetic/identity states this server never authors.
+        //
+        // A ship-shaped world entity (a built/atlas ship hull) bakes two further
+        // visualizers whose readers the client requests over interest, but which this
+        // server produces no state for. Left unhandled, each is an UnhandledId that
+        // fails the ship's all-or-nothing interest batch - dropping the WHOLE 19-id
+        // batch (1114/1130/1111/1222/1225/1232/4333/1294/1306/4400/190604...) so the
+        // ship entity never loads on the client (VERIFIED live: "[ToDo] unhandled
+        // component id needs investigation: 1294 (entity 8). NOT known-absent" + 1306).
+        // Both readers are OFF any render/lift path and are safe DISABLED:
+        //   1294 UidState -> UidVisualizer (UidVisualizer.cs): a bare `long Uid`
+        //     accessor, no OnEnable behaviour; disabled = the uid is unavailable, an
+        //     information-only visualizer that touches nothing.
+        //   1306 ShipAtlasPulseState -> ShipAtlasPulseVisualizer (Assets.Visualizers):
+        //     the atlas-core PULSE cosmetic; OnEnable only subscribes to an event,
+        //     disabled = no pulse animation (grapple/climb simply stay permitted).
+        // So declaring them absent lets the ship's batch serialize and the hull load,
+        // with only a uid readout and a core-pulse effect dormant.
+        // ------------------------------------------------------------------
+
+        /// <summary>1294 UidState - the uid readout (UidVisualizer); this server authors no per-entity uid state, and the visualizer is information-only.</summary>
+        public const uint UidStateComponentId = 1294;
+
+        /// <summary>1306 ShipAtlasPulseState - the atlas-core pulse cosmetic (ShipAtlasPulseVisualizer); this server drives no atlas pulse.</summary>
+        public const uint ShipAtlasPulseStateComponentId = 1306;
+
         /// <summary>
         /// The whole set. Deliberately tiny, and every entry has to earn its
         /// place with a client-side reason why absence is SAFE - not merely
@@ -214,6 +241,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// * 1111 - the helm's ShipControlInput (pilot-seat control input); this
         ///   server simulates no piloting, HelmVisualizer is off the lift path and
         ///   safe disabled, so the helm still renders and lifts as a loose part.
+        /// * 1294 / 1306 - a ship entity's UidState (information-only UidVisualizer)
+        ///   and ShipAtlasPulseState (cosmetic core-pulse ShipAtlasPulseVisualizer);
+        ///   both readers are off any render/lift path and safe disabled, so the ship
+        ///   hull loads instead of its whole 19-id batch dropping on these two.
         ///
         /// An id belongs here only when the entity genuinely does not have the
         /// thing. It is NOT a place to park a component that is merely hard to
@@ -229,6 +260,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             LightningStrikableStateComponentId,
             DetachFromParentWhenUnderHealthThresholdStateComponentId,
             ShipControlInputComponentId,
+            UidStateComponentId,
+            ShipAtlasPulseStateComponentId,
         };
 
         /// <summary>
@@ -281,6 +314,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             if (componentId == ShipControlInputComponentId)
             {
                 return "ShipControlInput";
+            }
+            if (componentId == UidStateComponentId)
+            {
+                return "UidState";
+            }
+            if (componentId == ShipAtlasPulseStateComponentId)
+            {
+                return "ShipAtlasPulseState";
             }
             return componentId.ToString();
         }

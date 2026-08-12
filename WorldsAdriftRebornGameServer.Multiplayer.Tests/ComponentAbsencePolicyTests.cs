@@ -46,9 +46,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // weather ids (1139/1269) plus the four loose-ship-part physics/cosmetic
             // states this server authors for no entity (1257/1121/1225/1235), plus the
             // helm's ShipControlInput (1111) - the pilot-seat control input this server
-            // does not simulate.
+            // does not simulate - plus a ship entity's UidState (1294) and
+            // ShipAtlasPulseState (1306), both off any render/lift path so the ship
+            // hull's interest batch serializes instead of dropping on them.
             Assert.Equal(
-                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111 },
+                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111, 1294, 1306 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
@@ -58,6 +60,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1225u)] // LightningStrikableState
         [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
         [InlineData(1111u)] // ShipControlInput (helm pilot seat)
+        [InlineData(1294u)] // UidState (ship entity, information-only visualizer)
+        [InlineData(1306u)] // ShipAtlasPulseState (ship entity, cosmetic core pulse)
         public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
         {
             // The crafted loose part (and a built hull) bakes visualizers that request
@@ -77,12 +81,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(1225u, ComponentAbsencePolicy.LightningStrikableStateComponentId);
             Assert.Equal(1235u, ComponentAbsencePolicy.DetachFromParentWhenUnderHealthThresholdStateComponentId);
             Assert.Equal(1111u, ComponentAbsencePolicy.ShipControlInputComponentId);
+            Assert.Equal(1294u, ComponentAbsencePolicy.UidStateComponentId);
+            Assert.Equal(1306u, ComponentAbsencePolicy.ShipAtlasPulseStateComponentId);
 
             Assert.Equal("ParentingMassAdderState", ComponentAbsencePolicy.NameOf(1257));
             Assert.Equal("OriginalMassState", ComponentAbsencePolicy.NameOf(1121));
             Assert.Equal("LightningStrikableState", ComponentAbsencePolicy.NameOf(1225));
             Assert.Equal("DetachFromParentWhenUnderHealthThresholdState", ComponentAbsencePolicy.NameOf(1235));
             Assert.Equal("ShipControlInput", ComponentAbsencePolicy.NameOf(1111));
+            Assert.Equal("UidState", ComponentAbsencePolicy.NameOf(1294));
+            Assert.Equal("ShipAtlasPulseState", ComponentAbsencePolicy.NameOf(1306));
         }
 
         [Fact]

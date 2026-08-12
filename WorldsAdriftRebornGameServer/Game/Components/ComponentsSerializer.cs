@@ -1935,17 +1935,56 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if (componentId == 1099)
                     {
-                        // A LOOSE crafted part (lamp) served from the LooseParts ledger:
-                        // its OWN itemType, an EMPTY material list (an invented material id
-                        // NREs ComponentMaterialColors on the client, exactly as for the
-                        // hull; LampVisualizer guards its OriginalMaterials read so empty is
-                        // fine), and NOT salvageable - there is no loose-part salvage flow
-                        // yet, so the multitool offers nothing on it. LampVisualizer
-                        // [Require]s 1099 (LampVisualizer.cs:19), so this is on the essential
-                        // seed path, not cosmetic.
+                        // A LOOSE crafted part served from the LooseParts ledger: its OWN
+                        // itemType, a NON-EMPTY material list of one REAL material, and NOT
+                        // salvageable (no loose-part salvage flow yet, so the multitool offers
+                        // nothing on it). LampVisualizer [Require]s 1099 (LampVisualizer.cs:19),
+                        // so this is on the essential seed path, not cosmetic.
+                        //
+                        // WHY NON-EMPTY (the helm-freeze fix). The lamp guards its
+                        // OriginalMaterials read, so an EMPTY list was fine for it. But most
+                        // ship-part prefabs bake PartGraphicsVariationByMaterial, whose prefab
+                        // getter is an UNGUARDED index: state.OriginalMaterials[_materialIndex]
+                        // .rawMaterial (PartGraphicsVariationByMaterial.cs:24). On the HELM
+                        // (Helm01) that ran on an empty list every frame in the SDK's deferred
+                        // add-component queue -> ArgumentOutOfRangeException in
+                        // List<SlottedMaterial>.get_Item -> the exception loop pegged the
+                        // client main thread and the whole UI froze (VERIFIED from the client
+                        // log: PartGraphicsVariationByMaterial.get_prefab ->
+                        // PartGraphicsVariationManager.OnEnable). This is the SAME class the
+                        // deck already fixed (ShipDeckVisualizer.OnEnable reads [0]).
+                        //
+                        // The list must be non-empty AND every entry a REAL material: an
+                        // invented materialTypeId NREs ComponentMaterialColors (which resolves
+                        // each entry by name through MaterialManager and dereferences the
+                        // result). So we reuse the deck's proven-safe Wood material
+                        // (Deck.MaterialTypeId = Trees.WoodType, category "Wood") - it resolves
+                        // cleanly, and category "Wood" makes GetPrefabFromMaterial return the
+                        // part's baked _woodPrefab (a valid mesh; the helm's icon is literally
+                        // "helmwood"), so the part renders as a helm with its pilot visualizers
+                        // dormant. We seed SEED_MATERIAL_SLOTS entries so any _materialIndex a
+                        // loose part bakes is in range: the largest loose-part recipe has 4
+                        // material slots (proceduralEngineDefault), so _materialIndex is at
+                        // most 3; 8 covers that with headroom and is cheap (one small struct
+                        // each, all the same real material).
                         var loosePart1099 = Game.Crafting.LooseParts.DefFor(entityId);
                         if (loosePart1099 != null)
                         {
+                            const int SEED_MATERIAL_SLOTS = 8;
+                            var looseMaterials = new Improbable.Collections.List<SlottedMaterial>();
+                            for (int slot = 0; slot < SEED_MATERIAL_SLOTS; slot++)
+                            {
+                                looseMaterials.Add(new SlottedMaterial(
+                                    slot,
+                                    new Bossa.Travellers.Materials.RawMaterial(
+                                        Multiplayer.Deck.MaterialTypeId,   // Trees.WoodType, resolves in MaterialManager
+                                        1,                                  // quality
+                                        Multiplayer.Deck.MaterialCategory,  // "Wood" -> baked _woodPrefab, never throws
+                                        new Map<string, string> { }),
+                                    1,                                      // amount
+                                    new Option<Bossa.Travellers.Materials.RawMaterial> { }));
+                            }
+
                             obj = new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
                                 new Bossa.Travellers.Salvaging.SalvageAndRepairStateData(
                                     loosePart1099.ItemType,
@@ -1953,10 +1992,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     false,          // isRepairable
                                     false,          // isSalvageable (no loose-part salvage flow)
                                     "",
-                                    new Improbable.Collections.List<SlottedMaterial> { },
+                                    looseMaterials,
                                     false, 0f, new Option<float> { }));
                             Console.WriteLine("[info] seeding 1099 for LOOSE part " + entityId
-                                + " (itemType '" + loosePart1099.ItemType + "', empty materials).");
+                                + " (itemType '" + loosePart1099.ItemType + "', " + looseMaterials.Count
+                                + " Wood materials so PartGraphicsVariationByMaterial does not IndexOutOfRange).");
                         }
                         else
                         {
