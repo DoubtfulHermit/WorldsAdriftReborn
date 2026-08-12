@@ -1167,6 +1167,20 @@ namespace WorldsAdriftRebornGameServer
                     _ => true,
                 };
 
+                // F1/F2 fix (findings-bug-sweep-lifecycle): this mirror AddComponents is
+                // a PROACTIVE seed of the remote avatar's {190602,1073,...}, so it must
+                // claim those ids in the served-ledger exactly as the world-entity spawn
+                // path does (SetupState MarkServed). Without it, the joiner's later
+                // interest request on the remote reports every id UNSERVED, so the server
+                // RE-seeds 190602 (fixed spawn position = a documented teleport) and 1073
+                // onto the live, relay-moving remote -> the rig snaps to spawn / T-poses
+                // on join. Marked only on a successful send, and only for the ids this
+                // seed actually carried (RemoteSeed).
+                if (ok && intent.Op == MirrorOp.AddComponents)
+                {
+                    ServedComponents.MarkServed(target, intent.EntityId, RemoteSeed);
+                }
+
                 Console.WriteLine((ok ? "[success] " : "[error] failed: ") + "mirror(flush) " + intent);
             }
         }
@@ -2712,6 +2726,41 @@ namespace WorldsAdriftRebornGameServer
                     + pacedCount + " AfterPlayer entities drain as fast as the client acks.");
             }
 
+            // CONNECT-TIME SPATIAL INTEREST (WAREBORN_INTEREST_RADIUS_M). Which plan
+            // steps are GATEABLE - i.e. belong to an AfterPlayer world entity that is
+            // NOT in the barrier's load-bearing initial set (island, ship hull, bolted
+            // parts). Both of an entity's steps (RequestAsset + AddEntity) are marked,
+            // so a peer skips the entity as a unit and is never told to place an asset
+            // it never loaded. The player's own avatar (Entity == null), the ground,
+            // and the initial set are never gateable, so they always stream. Parallel
+            // to the WorldState list, like pacedStep, so the perform loop can index
+            // both by SyncStepPointer. gateEntityPos holds each gateable step's world
+            // position; the default (0,0,0) for non-gateable steps is never read (the
+            // gate is only consulted where gatedStep is true). See InterestPolicy.
+            bool[] gatedStep = plan
+                .Select(s => s.Entity != null
+                             && s.Entity.Order == SpawnOrder.AfterPlayer
+                             && !LoadBarrierPolicy.IsInitialKey(s.Entity.Key))
+                .ToArray();
+            Multiplayer.FixedPointPosition[] gateEntityPos = plan
+                .Select(s => s.Entity?.Position ?? default)
+                .ToArray();
+
+            int gateableCount = gatedStep.Count(g => g);
+            if (Game.Interest.Enabled)
+            {
+                Console.WriteLine("[info] spatial interest: ON (WAREBORN_INTEREST_RADIUS_M="
+                    + Game.Interest.RadiusMetres.ToString("0.#") + " m). A joining client is only sent the "
+                    + "AfterPlayer world entities within that radius of its spawn point; the world can hold "
+                    + "unlimited distant nodes it never has to load at connect. " + gateableCount
+                    + " step(s) are range-gated; island/ship/parts and the player always stream.");
+            }
+            else
+            {
+                Console.WriteLine("[info] spatial interest: OFF (set WAREBORN_INTEREST_RADIUS_M=<metres> to only "
+                    + "stream each client the world entities near it; unset = every entity is sent, as before).");
+            }
+
             while (keepRunning)
             {
                 // Fallback flush for parked mirror ops. The ack-driven flush only
@@ -2846,6 +2895,32 @@ namespace WorldsAdriftRebornGameServer
                 {
                     int currentChunkIndex = 0;
                     PlayerSyncStatus pStatus = keyValuePair.Value[currentChunkIndex];
+
+                    // CONNECT-TIME SPATIAL INTEREST. Before performing this peer's next
+                    // step, fast-forward its pointer past every gateable AfterPlayer
+                    // world entity outside its interest radius - in ONE turn, because
+                    // these steps send NOTHING (the entity stays in the world for peers
+                    // near it; this peer is simply never told about it, which is how a
+                    // resource-dense world stays cheap per client). Bounded by the last
+                    // index so the pointer can never run off the plan; the pointer
+                    // setter clears Performed, so the in-range step it lands on still
+                    // performs normally. Gated-out steps are never sent, so their acks
+                    // never arrive and can never double-advance the pointer. A no-op
+                    // when interest is off or the peer is already at an in-range /
+                    // initial-set / player step. See InterestPolicy / Game.Interest.
+                    if (Game.Interest.Enabled)
+                    {
+                        int lastStep = GameState.Instance.WorldState[currentChunkIndex].Count - 1;
+                        Multiplayer.FixedPointPosition center =
+                            Game.Interest.CenterFor(PeerIdentity.IdOf(keyValuePair.Key));
+                        while (pStatus.SyncStepPointer < lastStep
+                               && gatedStep[pStatus.SyncStepPointer]
+                               && !InterestPolicy.InRange(center, gateEntityPos[pStatus.SyncStepPointer], Game.Interest.RadiusMetres))
+                        {
+                            pStatus.SyncStepPointer++;
+                        }
+                    }
+
                     SyncStep step = GameState.Instance.WorldState[currentChunkIndex][pStatus.SyncStepPointer];
 
                     if (!pStatus.Performed)
