@@ -11,4 +11,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- The extracted, TRS-composed LOD0 surface samples for Haven (island
+         1431299145): island-local metres + normal, ~2,139 candidate points.
+         Embedded so SurfacePlacementGenerator can derive the deterministic
+         resource-deposit field from real terrain with no runtime path dependency,
+         keeping the assembly dependency-free. Reviewed DATA, diffable in git. -->
+    <EmbeddedResource Include="Resources\haven-surface-1431299145.txt" />
+  </ItemGroup>
+
 </Project>
