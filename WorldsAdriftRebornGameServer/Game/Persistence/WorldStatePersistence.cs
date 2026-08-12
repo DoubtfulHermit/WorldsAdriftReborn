@@ -104,7 +104,8 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// a mounted part references its ship by - stable across restart because ships are
         /// only ever appended and restored in that same order.
         /// </summary>
-        internal static int RecordBuiltShip(FixedPointPosition hullPosition, byte[] hullBytes)
+        internal static int RecordBuiltShip(FixedPointPosition hullPosition, byte[] hullBytes,
+            string? ownerCharacterUid = null)
         {
             WorldStateSnapshot snapshot = Snapshot();
 
@@ -114,6 +115,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 HullY = hullPosition.Y,
                 HullZ = hullPosition.Z,
                 HullBytes = hullBytes ?? Array.Empty<byte>(),
+                // The builder = the shipyard's owner, threaded so a built ship's record is
+                // OWNED like its yard and the deployables rather than left blank. The
+                // shipyard's own 1205 registration (from the yard owner) is what actually
+                // grants the client build access; this keeps the ship's persisted record
+                // consistent and round-trips the owner across restart.
+                OwnerCharacterUid = ownerCharacterUid ?? "",
             });
 
             Save();

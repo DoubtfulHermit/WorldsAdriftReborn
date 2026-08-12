@@ -66,6 +66,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>
         public byte[] HullBytes { get; set; } = System.Array.Empty<byte>();
 
+        /// <summary>
+        /// The character uid of the ship's owner - the shipyard owner who built it. The
+        /// yard's own 1205 registration grants build access; this keeps the ship's record
+        /// owned like the deployables and round-trips the owner across restart. Empty for
+        /// a legacy record written before ownership threading.
+        /// </summary>
+        public string OwnerCharacterUid { get; set; } = "";
+
         /// <summary>The hull position as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition HullPosition() => new FixedPointPosition(HullX, HullY, HullZ);
     }

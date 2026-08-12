@@ -85,7 +85,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // ship by; record it against this hull so a mount committed on it persists too.
             // Persist the EFFECTIVE bytes (the min-hull fallback if the design was bad), so
             // a restore regenerates the SAME panels and keys from the SAME geometry.
-            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes);
+            // OWNER = the shipyard's owner (the player who built this ship), threaded so
+            // the ship's persisted record is owned like its yard and survives restart owned.
+            string shipOwner = Placement.PlacedShipyards.SeedFor(shipyardEntityId).OwnerCharacterUid;
+            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
 
             // ONE SHIP PER SHIPYARD: record which yard produced this hull, so its 1205
