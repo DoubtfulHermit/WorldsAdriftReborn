@@ -38,12 +38,60 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_set_is_exactly_those_two()
+        public void The_set_is_exactly_the_declared_ids()
         {
             // A guard on growth. Adding an id here is a decision about what our
             // entities ARE, and it must not happen by drive-by edit - anything
-            // that is merely unseeded belongs in the loud path instead.
-            Assert.Equal(new uint[] { 1139, 1269 }, ComponentAbsencePolicy.KnownAbsentComponentIds);
+            // that is merely unseeded belongs in the loud path instead. The two
+            // weather ids (1139/1269) plus the four loose-ship-part physics/cosmetic
+            // states this server authors for no entity (1257/1121/1225/1235).
+            Assert.Equal(
+                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235 },
+                ComponentAbsencePolicy.KnownAbsentComponentIds);
+        }
+
+        [Theory]
+        [InlineData(1257u)] // ParentingMassAdderState
+        [InlineData(1121u)] // OriginalMassState
+        [InlineData(1225u)] // LightningStrikableState
+        [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
+        public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
+        {
+            // The crafted loose part (and a built hull) bakes visualizers that request
+            // these over interest, but this server simulates none of that physics and
+            // seeds them for no entity. Declaring them absent stops the "[ToDo] unhandled
+            // component id ... (entity NN)" on every part/hull checkout and removes any
+            // batch-drop risk; the reader visualizers just stay disabled, and none is on
+            // the lift path.
+            Assert.True(ComponentAbsencePolicy.IsKnownAbsent(componentId));
+        }
+
+        [Fact]
+        public void The_new_absent_ids_have_constants_and_names()
+        {
+            Assert.Equal(1257u, ComponentAbsencePolicy.ParentingMassAdderStateComponentId);
+            Assert.Equal(1121u, ComponentAbsencePolicy.OriginalMassStateComponentId);
+            Assert.Equal(1225u, ComponentAbsencePolicy.LightningStrikableStateComponentId);
+            Assert.Equal(1235u, ComponentAbsencePolicy.DetachFromParentWhenUnderHealthThresholdStateComponentId);
+
+            Assert.Equal("ParentingMassAdderState", ComponentAbsencePolicy.NameOf(1257));
+            Assert.Equal("OriginalMassState", ComponentAbsencePolicy.NameOf(1121));
+            Assert.Equal("LightningStrikableState", ComponentAbsencePolicy.NameOf(1225));
+            Assert.Equal("DetachFromParentWhenUnderHealthThresholdState", ComponentAbsencePolicy.NameOf(1235));
+        }
+
+        [Fact]
+        public void The_lift_path_components_are_never_absent()
+        {
+            // ShipPartVisualizer's own [Require] set - what actually makes a loose part
+            // render and liftable - must stay served. If any of these ever landed in the
+            // known-absent set the part would go inert, the exact silent failure the set
+            // is designed to avoid.
+            foreach (uint id in new uint[] { 8066, 1120, 190602, 190601, 1016, 1013 })
+            {
+                Assert.False(ComponentAbsencePolicy.IsKnownAbsent(id),
+                    "lift-path component " + id + " must never be declared known-absent");
+            }
         }
 
         [Theory]
