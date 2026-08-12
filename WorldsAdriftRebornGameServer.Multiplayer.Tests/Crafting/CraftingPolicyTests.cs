@@ -358,5 +358,49 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
             // transaction ran on a copy and never committed.
             Assert.Equal(1, model.ById(10)!.Amount);
         }
+
+        // --- Regression: over-consumption of a whole stack ("it uses it all instead
+        // of giving it back to me"). A craft must remove EXACTLY the recipe's required
+        // amount per material and LEAVE the remainder of the stack in the bag, never
+        // wipe the stack. Covered for BOTH the personal (TryCraft) and the station/
+        // loose-part (TryConsumeOnly) paths, and for a recipe that names the same
+        // material in several slots (helm = iron x1 x1 x1), where the running-copy
+        // draw must total the requirement amounts, not the stack size.
+
+        [Fact]
+        public void Regression_station_craft_consumes_only_the_required_amount_and_leaves_the_rest()
+        {
+            InventoryModel model = InventoryModel.DefaultGrid();
+            // ONE stack of 10 iron, as a player would hold. helm needs iron x1 in each
+            // of three slots -> exactly 3 iron, leaving 7. NOT the whole stack.
+            model.Add(Mat(10, "iron", 10, 0, 0));
+
+            SchematicRecord helm = Recipe("helm", "helm", 1,
+                Req(0, "iron", 1), Req(1, "iron", 1), Req(2, "iron", 1));
+
+            Assert.True(CraftingPolicy.TryConsumeOnly(helm, model, CategoryLookup, out string reason), reason);
+            InventoryItem? iron = model.ById(10);
+            Assert.NotNull(iron);
+            Assert.Equal(7, iron!.Amount);   // 10 - 3, the remainder is returned, stack not wiped
+        }
+
+        [Fact]
+        public void Regression_personal_craft_consumes_only_the_required_amount_and_leaves_the_rest()
+        {
+            InventoryModel model = InventoryModel.DefaultGrid();
+            model.Add(Mat(10, "iron", 10, 0, 0));   // Metal, a stack of 10
+
+            // Needs a single unit of iron; the other nine must stay in the bag.
+            SchematicRecord recipe = Recipe("rivet", "torch", 1, Req(0, "iron", 1));
+
+            CraftOutcome outcome = CraftingPolicy.TryCraft(
+                recipe, model, CategoryLookup, new IdSource(1).Next, 0, new Dictionary<string, string>(), 0, Footprints);
+
+            Assert.True(outcome.Ok, outcome.Reason);
+            Assert.Equal(9, model.ById(10)!.Amount);   // 10 - 1, remainder left
+            // and exactly one unit was accounted as consumed, not the stack of 10
+            Assert.Equal(1, outcome.Consumed.Count);
+            Assert.Equal(1, outcome.Consumed[0].Amount);
+        }
     }
 }
