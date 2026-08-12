@@ -140,6 +140,16 @@ namespace WorldsAdriftRebornGameServer
                     Console.WriteLine("[info] dropped the tree-cutting latch of entity " + ownEntity.Value + ".");
                 }
 
+                // DRAIN SHIP-BUILD RESERVATIONS FIRST (bug F2). A ship-blueprint build
+                // physically removes materials from the bag when they are reserved into a
+                // slot. If the player disconnects with materials loaded but the ship not yet
+                // crafted, those items must be returned to the inventory BEFORE it is saved
+                // and dropped below - otherwise the bag is persisted already depleted and the
+                // reserved materials are lost on relog. Ordering is load-bearing: this must
+                // precede InventoryService.Forget. (A mid-craft build keeps its materials -
+                // they are consumed for real - so this returns nothing for it.)
+                Game.Crafting.ShipBuildTeardown.DrainAllForPlayerOnDisconnect(ownEntity.Value);
+
                 // Save, then drop, the departed player's inventory. The save is
                 // the last chance a session gets: every mutation already wrote
                 // through the push seam, but a server-side grant that happened
