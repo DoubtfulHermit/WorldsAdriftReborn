@@ -81,6 +81,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 foreach (StartEditingSchematic ev in clientComponentUpdate.startEditingSchematic)
                 {
                     long shipyardId = ev.editorId.Id;
+                    if (!AuthorizedForYard(entityId, shipyardId))
+                    {
+                        continue; // StartEditing carries no ack; just refuse to enter the editor.
+                    }
                     designs.StartEditing(shipyardId);
                     // 1207 editorId tells ShipHullAgentVisualizer to enter editor input mode;
                     // 1206 editorId makes ShipHullEditorVisualizer.BeingEdited true (zoom in).
@@ -94,8 +98,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (LoadSchematic ev in clientComponentUpdate.loadSchematic)
                 {
-                    bool ok = designs.LoadSlot(ev.slot);
                     long shipyardId = ev.editorId.Id;
+                    if (!AuthorizedForYard(entityId, shipyardId))
+                    {
+                        Ack(player, entityId, ev.id, false);
+                        continue;
+                    }
+                    bool ok = designs.LoadSlot(ev.slot);
                     if (ok)
                     {
                         PushEditorState(player, shipyardId, designs);
@@ -110,9 +119,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (UpdateShip ev in clientComponentUpdate.updateShip)
                 {
+                    long shipyardId = ev.editorId.Id;
+                    if (!AuthorizedForYard(entityId, shipyardId))
+                    {
+                        Ack(player, entityId, ev.id, false);
+                        continue;
+                    }
                     int len = ev.data?.Length ?? 0;
                     bool ok = designs.ApplyEditedHull(ev.data);
-                    long shipyardId = ev.editorId.Id;
                     if (ok)
                     {
                         PushEditorState(player, shipyardId, designs);
@@ -127,8 +141,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (SaveSchematic ev in clientComponentUpdate.saveSchematic)
                 {
-                    bool ok = designs.Save(ev.slot);
                     long shipyardId = ev.editorId.Id;
+                    if (!AuthorizedForYard(entityId, shipyardId))
+                    {
+                        Ack(player, entityId, ev.id, false);
+                        continue;
+                    }
+                    bool ok = designs.Save(ev.slot);
                     if (ok)
                     {
                         // the saved slot's geometry changed -> re-serve the schematics list
@@ -145,8 +164,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (ResetSchematic ev in clientComponentUpdate.resetSchematic)
                 {
-                    bool ok = designs.Reset(ev.slot);
                     long shipyardId = ev.editorId.Id;
+                    if (!AuthorizedForYard(entityId, shipyardId))
+                    {
+                        Ack(player, entityId, ev.id, false);
+                        continue;
+                    }
+                    bool ok = designs.Reset(ev.slot);
                     if (ok)
                     {
                         PushEditorState(player, shipyardId, designs);
@@ -278,6 +302,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         }
 
         /// <summary>
+        /// SERVER-SIDE OWNERSHIP AUTHORIZATION. The client's SAVE/edit gate is only
+        /// GetOwnerId() == LocalPlayer.PlayerId and can be defeated (a global/stale identity,
+        /// a modified client), so the server must independently refuse an editor command for
+        /// a shipyard the sender does not own. The sender's durable character uid is resolved
+        /// from THEIR player entity (senderEntityId, already verified to be the sender's own
+        /// entity), the yard owner from the placed-shipyard ledger; an UNOWNED yard is
+        /// editable by anyone (no owner to protect, and the static/test flows depend on it).
+        /// Only enforced when per-player identity is on - see Multiplayer.PlayerIdentity for
+        /// why the check must not bite while the durable-uid round trip is unproven.
+        /// </summary>
+        private static bool AuthorizedForYard(long senderEntityId, long shipyardId)
+        {
+            if (!Multiplayer.PlayerIdentity.EnabledFromEnvironment())
+            {
+                return true;
+            }
+
+            string yardOwner = global::WorldsAdriftRebornGameServer.Game.Placement.PlacedShipyards
+                .SeedFor(shipyardId).OwnerCharacterUid;
+            string sender = global::WorldsAdriftRebornGameServer.Game.CharacterOwnership.UidForEntity(senderEntityId);
+            bool allowed = Multiplayer.Ship.OwnershipRegistrationPolicy.ServerAllowsYardEdit(sender, yardOwner);
+            if (!allowed)
+            {
+                Console.WriteLine("[warning] 1208: entity " + senderEntityId + " (uid='" + sender
+                    + "') tried to edit shipyard " + shipyardId + " owned by '" + yardOwner
+                    + "'; refusing.");
+            }
+            return allowed;
+        }
+
+        /// <summary>
         /// Push the full editor state onto the shipyard's 1206 for the acting peer:
         /// Active + the current working hull + slot + owner. This is what turns
         /// HasShipLoaded() true and feeds the mesh.
@@ -286,11 +341,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         {
             byte[] hull = designs.WorkingHull ?? new byte[0];
             // ownerPlayerId MUST equal the client's LocalPlayer.PlayerId (1086 PlayerName
-            // field2, served from LocalPlayerIdentity) or SAVE/RESET stay greyed
-            // (ShipCraftingUIHelper gates them on GetOwnerId() == LocalPlayer.PlayerId).
-            // The 1206 is pushed per-peer to the acting player, so treating the editing
-            // player as the owner is correct.
-            string ownerId = LocalPlayerIdentity.PlayerId;
+            // field2) or SAVE/RESET stay greyed (ShipCraftingUIHelper gates them on
+            // GetOwnerId() == LocalPlayer.PlayerId). Under per-player identity that is the
+            // SHIPYARD OWNER's PlayerId (== owner character uid): SAVE enables only on the
+            // owner's client, greyed for anyone else who opened the yard. Flag off keeps the
+            // legacy shared stub. This matches the 1206 seed in ComponentsSerializer.
+            string ownerId = Multiplayer.PlayerIdentity.EnabledFromEnvironment()
+                ? Multiplayer.PlayerIdentity.OwnerPlayerId(
+                    global::WorldsAdriftRebornGameServer.Game.Placement.PlacedShipyards.SeedFor(shipyardId).OwnerCharacterUid)
+                : LocalPlayerIdentity.PlayerId;
             int slot = designs.LoadedSlot < 0 ? 0 : designs.LoadedSlot;
             Send1206(player, shipyardId, u =>
             {
