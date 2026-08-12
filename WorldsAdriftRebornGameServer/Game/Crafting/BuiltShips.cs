@@ -53,6 +53,19 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         private static readonly Dictionary<long, int> PersistentIndexByHull = new Dictionary<long, int>();
 
         /// <summary>
+        /// A built hull's OWNER character uid, keyed by the hull's live entity id. This is
+        /// the identifier Gate B (ship ownership) compares against: the client's
+        /// <c>HostileItemPlacingPredicate</c> asks <c>ShipVisualizer.IsShipOwner(SelectedCharacterUid)</c>,
+        /// and <c>SelectedCharacterUid</c> is the character uid, so the 8062/4349 owner
+        /// serve branches seed THIS value for a built hull that has an owner and an empty
+        /// list otherwise. Populated by the runtime build (the shipyard's owner) and the
+        /// boot restore (the persisted <c>BuiltShipRecord.OwnerCharacterUid</c>), so an
+        /// owned ship stays owned across restart. In-memory only, like the rest of this
+        /// ledger; the durable copy lives in the persisted record.
+        /// </summary>
+        private static readonly Dictionary<long, string> OwnerByHull = new Dictionary<long, string>();
+
+        /// <summary>
         /// The shipyard&lt;-&gt;built-ship dock association, delegated to the PURE
         /// <see cref="Multiplayer.Ship.ShipDockRegistry"/> so the one-to-one, two-way
         /// bookkeeping (and, new for build-access, the hull-&gt;shipyard REVERSE lookup the
@@ -149,6 +162,27 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         internal static int? PersistentIndexFor(long hullEntityId)
         {
             return PersistentIndexByHull.TryGetValue(hullEntityId, out int index) ? index : (int?)null;
+        }
+
+        /// <summary>
+        /// Records a built hull's OWNER character uid (Gate B). Called by the runtime
+        /// build (owner = the shipyard's owner) and the boot restore (owner = the
+        /// persisted record's owner), so the 8062/4349 serve branches can seed ownership.
+        /// A null/empty uid is stored as empty (an unowned hull).
+        /// </summary>
+        internal static void SetOwner(long hullEntityId, string ownerCharacterUid)
+        {
+            OwnerByHull[hullEntityId] = ownerCharacterUid ?? "";
+        }
+
+        /// <summary>
+        /// The owner character uid of a built hull, or empty string when the hull is not a
+        /// built hull or has no recorded owner (the caller then seeds an UNOWNED, empty
+        /// owner list). Never null.
+        /// </summary>
+        internal static string OwnerFor(long hullEntityId)
+        {
+            return OwnerByHull.TryGetValue(hullEntityId, out string? uid) ? uid : "";
         }
 
         // ------------------------------------------------------------------

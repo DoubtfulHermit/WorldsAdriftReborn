@@ -91,6 +91,13 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
 
+            // GATE B (ship ownership): record the built hull's owner so its 8062/4349
+            // serve branches seed the owner's character uid and the client's
+            // HostileItemPlacingPredicate treats the ship as the builder's (green/placeable)
+            // rather than inaccessible. The owner is the shipyard's owner - the player who
+            // built it - the same value persisted above.
+            BuiltShips.SetOwner(hullEntityId, shipOwner);
+
             // ONE SHIP PER SHIPYARD: record which yard produced this hull, so its 1205
             // ShipyardState.DockedShipId reports it and a further CRAFT on that yard is
             // refused until it is cleared (see the 1270 StartCrafting gate + the undock
@@ -150,6 +157,13 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             FixedPointPosition hullPos = record.HullPosition();
 
             BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes);
+
+            // GATE B (ship ownership): re-establish the built hull's owner from the
+            // persisted record so a restored ship comes back OWNED by the same character,
+            // and the owner's client can place parts on it after relog (the regression
+            // this fixes). Empty for a legacy record written before ownership threading -
+            // that hull restores unowned, exactly as it was persisted.
+            BuiltShips.SetOwner(reg.HullEntityId, record.OwnerCharacterUid);
 
             Console.WriteLine("[info] built-ship spawn: RESTORED ship as hull entity " + reg.HullEntityId
                 + " + " + reg.Decks.Count + " deck panel entity(ies) at " + reg.Hull.Position + " ("

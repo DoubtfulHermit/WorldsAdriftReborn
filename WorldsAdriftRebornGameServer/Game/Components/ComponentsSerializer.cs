@@ -352,17 +352,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // legs/dome and calls Shipyard.Deploy()) rather than an inert
                         // prop. Owner/registration are read from the placed-structure
                         // ledger; docked ship is none, inactivity 0, initialised true.
-                        // registeredCharacterUids is left empty for this milestone -
-                        // per-owner dome visibility and interaction are the Phase B+
-                        // follow-on (findings-deployable-placement.md).
+                        //
+                        // GATE A (shipyard build-access). registeredCharacterUids is what
+                        // the client's ShipyardVisualizer.IsLocalPlayerRegistered checks
+                        // with Contains(LocalPlayer.PlayerId) (ShipyardVisualizer.cs:27) -
+                        // and LocalPlayer.PlayerId is the 1086 field2 stub
+                        // LocalPlayerIdentity.PlayerId, NOT the character uid. So an OWNED
+                        // yard registers that stub (per OwnershipRegistrationPolicy),
+                        // never OwnerCharacterUid, or the player sees "Interact with
+                        // shipyard to gain access" after relog. OwnerCharacterUid is still
+                        // stored below (field10) for persistence and the 1206 owner.
                         Placement.PlacedShipyards.Seed shipyardSeed =
                             Placement.PlacedShipyards.SeedFor(entityId);
 
                         Improbable.Collections.List<string> registered =
                             new Improbable.Collections.List<string>();
-                        if (!string.IsNullOrEmpty(shipyardSeed.OwnerCharacterUid))
+                        foreach (string uid in Multiplayer.Ship.OwnershipRegistrationPolicy.ShipyardRegisteredUids(
+                                     shipyardSeed.OwnerCharacterUid, Multiplayer.LocalPlayerIdentity.PlayerId))
                         {
-                            registered.Add(shipyardSeed.OwnerCharacterUid);
+                            registered.Add(uid);
                         }
 
                         // DockedShipId reports the built ship this shipyard produced (or
@@ -1698,24 +1706,40 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     else if (componentId == 8062)
                     {
                         // ShipOwnersDeprecatedState - one of ShipVisualizer's three
-                        // [Require] readers. EMPTY owners list: this is an UNOWNED
-                        // server-spawned hull, so IsShipOwned() (deprecated path:
-                        // OwnersDeprecated.Count > 0) is false and IsShipOwner(uid)
-                        // is false for everyone. Empty, never null - the list is
-                        // DeepCopied and Count-read. VERIFIED ctor (ilspycmd on
-                        // Generated.Code.dll): ShipOwnersDeprecatedState.Data(
-                        //   Improbable.Collections.List<DeprecatedPlayerData>).
+                        // [Require] readers, and the DEPRECATED path of Gate B (ship
+                        // ownership): when FeatureShipReviverBookeepingEnabled is OFF the
+                        // client's ShipVisualizer.IsShipOwner matches SelectedCharacterUid
+                        // against OwnersDeprecated (ShipVisualizer.cs:66-72). A BUILT hull
+                        // with a recorded owner seeds that owner's CHARACTER uid so the
+                        // owner's HostileItemPlacingPredicate treats the ship as placeable;
+                        // a non-built hull (the static test ship) or an owner-less built
+                        // hull stays UNOWNED (empty list), per OwnershipRegistrationPolicy.
+                        // Empty, never null - the list is DeepCopied and Count-read.
+                        // VERIFIED ctor (gencode ShipOwnersDeprecatedState.cs:309):
+                        //   ShipOwnersDeprecatedState.Data(
+                        //     Improbable.Collections.List<DeprecatedPlayerData>), and
+                        //   DeprecatedPlayerData(string playerName, string characterUid,
+                        //     EntityId playerEntityId) - only characterUid is read by
+                        //   IsShipOwner, so playerName/entityId are inert placeholders.
                         //
                         // Not entity-gated: only a hull carries ShipVisualizer, so
                         // only a hull ever requests 8062 (the parts carry
                         // ShipPartVisualizer instead). See Multiplayer.ShipRecognition.
+                        Improbable.Collections.List<DeprecatedPlayerData> deprecatedOwners =
+                            new Improbable.Collections.List<DeprecatedPlayerData>();
+                        foreach (string ownerUid in Multiplayer.Ship.OwnershipRegistrationPolicy.ShipOwnerUids(
+                                     Game.Crafting.BuiltShips.IsBuiltHull(entityId),
+                                     Game.Crafting.BuiltShips.OwnerFor(entityId)))
+                        {
+                            deprecatedOwners.Add(new DeprecatedPlayerData("", ownerUid, new EntityId(0)));
+                        }
+
                         ShipOwnersDeprecatedState.Data ownersData =
-                            new ShipOwnersDeprecatedState.Data(
-                                new Improbable.Collections.List<DeprecatedPlayerData> { });
+                            new ShipOwnersDeprecatedState.Data(deprecatedOwners);
 
                         Console.WriteLine("[info] seeding 8062 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") -> unowned ship (empty owners).");
+                            + ") -> " + deprecatedOwners.Count + " owner(s).");
 
                         obj = ownersData;
                     }
@@ -1756,19 +1780,40 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // EMPTY list, NOT null: ShipVisualizer.OnEnable subscribes to
                         // ReviverInfosCacheUpdated, whose add-accessor fires
                         // immediately with the current reviverInfosCache and reads
-                        // .Count - a null list would NRE the enable chain. No crew is
-                        // registered on a server-spawned ship; lastSyncTimestamp is
-                        // absent. VERIFIED ctor: ShipRegisteredCharactersState.Data(
-                        //   Improbable.Collections.List<ReviverInfo> reviverInfosCache,
-                        //   Option<long> lastSyncTimestamp).
+                        // .Count - a null list would NRE the enable chain.
+                        //
+                        // GATE B, the CURRENT path: when FeatureShipReviverBookeepingEnabled
+                        // is ON, ShipVisualizer.IsShipOwner matches SelectedCharacterUid
+                        // against reviverInfosCache[].characterUid (ShipVisualizer.cs:66-70).
+                        // We seed BOTH 8062 and 4349 with the owner so ownership passes
+                        // regardless of which feature-flag path the live client takes. A
+                        // BUILT owned hull registers a ReviverInfo carrying the owner's
+                        // CHARACTER uid; a non-built or owner-less hull registers none.
+                        // lastSyncTimestamp is absent. VERIFIED ctors (gencode):
+                        //   ShipRegisteredCharactersState.Data(
+                        //     Improbable.Collections.List<ReviverInfo> reviverInfosCache,
+                        //     Option<long> lastSyncTimestamp)  [ShipRegisteredCharactersState.cs:375]
+                        //   ReviverInfo(long reviverUid, Option<EntityId> currentReviverEntityId,
+                        //     string characterUid, Option<long> shipUid) [ReviverInfo.cs:17] -
+                        //   only characterUid is read by IsShipOwner, so reviverUid 0 and the
+                        //   absent Options are inert placeholders.
+                        Improbable.Collections.List<ReviverInfo> reviverInfos =
+                            new Improbable.Collections.List<ReviverInfo>();
+                        foreach (string ownerUid in Multiplayer.Ship.OwnershipRegistrationPolicy.ShipOwnerUids(
+                                     Game.Crafting.BuiltShips.IsBuiltHull(entityId),
+                                     Game.Crafting.BuiltShips.OwnerFor(entityId)))
+                        {
+                            reviverInfos.Add(new ReviverInfo(0L, new Option<EntityId>(), ownerUid, new Option<long>()));
+                        }
+
                         ShipRegisteredCharactersState.Data registeredData =
                             new ShipRegisteredCharactersState.Data(
-                                new Improbable.Collections.List<ReviverInfo> { },
+                                reviverInfos,
                                 new Option<long> { });
 
                         Console.WriteLine("[info] seeding 4349 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") -> no registered crew (empty).");
+                            + ") -> " + reviverInfos.Count + " registered owner(s).");
 
                         obj = registeredData;
                     }
