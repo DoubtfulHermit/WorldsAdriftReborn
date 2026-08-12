@@ -21,13 +21,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_item_type_id_is_still_the_pending_placeholder()
+        public void The_item_type_id_is_the_reconstructed_atlasShard_row()
         {
-            // The one value not in the decompile. Until the retail row is recovered and
-            // added to itemData.json, this must stay a placeholder that Grant will
-            // reject, so a pickup can never grant the WRONG item.
-            Assert.True(AtlasShardCatalogue.IsItemIdPending);
-            Assert.Contains("PENDING", AtlasShardCatalogue.ItemTypeId);
+            // The retail id is unrecoverable (findings-atlas-refdata #1), so the row was
+            // DEFINED for the revival: atlasShard is a real itemData.json row, so Grant
+            // accepts it and the pickup completes rather than rolling back.
+            Assert.Equal("atlasShard", AtlasShardCatalogue.ItemTypeId);
+            Assert.False(AtlasShardCatalogue.IsItemIdPending);
             // It must NOT be any of the near-miss ids the findings warn against.
             Assert.NotEqual("iron", AtlasShardCatalogue.ItemTypeId);
             Assert.NotEqual("scrapItem-atlashod", AtlasShardCatalogue.ItemTypeId);

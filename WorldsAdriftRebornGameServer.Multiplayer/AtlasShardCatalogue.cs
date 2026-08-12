@@ -39,30 +39,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>
         /// The inventory <c>itemTypeId</c> the player receives when a shard is
         /// collected - routed through <c>InventoryService.Grant</c> in the pickup
-        /// transaction.
+        /// transaction, and the material id the Atlas Sky Core / Enhancer / Lifter
+        /// recipes consume.
         ///
-        /// PENDING refdata recovery - fill with the real retail itemTypeId; see
-        /// docs/research/findings-atlas-shards.md §5. Component 1305 carries NO item
-        /// type (it is only rockCoreId + slotId), the current catalogue has no Atlas
-        /// Shard row, and "Atlas Hod" (<c>scrapItem-atlashod</c>) is an unrelated
-        /// salvage object - so there is nothing in the supplied ground truth to derive
-        /// this from. It must come from a preserved retail 1097 inventoryData capture
-        /// or the observed 1081 delta after a real collection.
-        ///
-        /// Deliberately a placeholder that is NOT a real itemData.json row:
-        /// <c>InventoryService.Grant</c> rejects an unknown type and returns null, so
-        /// with this value a pickup RESERVES, fails the grant, ROLLS BACK the
-        /// reservation and logs the pending-refdata hint - it never grants the wrong
-        /// item. To finish the vertical: add the recovered row to itemData.json and
-        /// set this constant to its id. That is the ONLY remaining step.
+        /// RECONSTRUCTED, not retail. The retail id is unrecoverable: component 1305
+        /// carries no item type (only rockCoreId + slotId), and the exhaustive refdata
+        /// hunt found no <c>atlasShard</c>/<c>scrapItem-atlas*</c> row anywhere on disk
+        /// (docs/research/findings-atlas-refdata.md #1) - WA served item/schematic
+        /// refdata from the now-dead servers, never in the client depot. Because the
+        /// servers are gone, the row was DEFINED for the revival rather than left
+        /// pending: <c>atlasShard</c> is a real <c>itemData.json</c> row (Metal,
+        /// stack 10, rarity 3), so <c>InventoryService.Grant</c> now accepts it and the
+        /// pickup COMPLETES. <c>scrapItem-atlashod</c> (Atlas Hod) is a deliberate
+        /// non-choice - it is an unrelated salvage tool the recipe dump used as a
+        /// placeholder (findings-atlas-refdata #3), never shipped as the shard.
         /// </summary>
-        public const string ItemTypeId = "atlasShard__PENDING_REFDATA";
+        public const string ItemTypeId = "atlasShard";
 
         /// <summary>
-        /// Whether <see cref="ItemTypeId"/> is still the pending placeholder rather
-        /// than a recovered retail id. Used by the pickup transaction to emit the
-        /// "recover the refdata" hint when a grant fails on it, so a live tester is
-        /// told exactly why the shard would not go into the bag.
+        /// Whether <see cref="ItemTypeId"/> is still a placeholder rather than a real
+        /// grantable <c>itemData.json</c> row. False now that the reconstructed
+        /// <c>atlasShard</c> row exists - kept so the pickup transaction can still emit
+        /// a "no row" hint if the id is ever pointed at a missing type again.
         /// </summary>
         public static bool IsItemIdPending =>
             ItemTypeId.EndsWith("PENDING_REFDATA", System.StringComparison.Ordinal);

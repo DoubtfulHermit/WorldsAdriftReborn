@@ -424,11 +424,11 @@
       },
       {
         "id": 2,
-        "name": "iron",
-        "iconId": "scrap items/2x3_Atlas_Hod",
+        "name": "atlasShard",
+        "iconId": "scrap items/2x2_Fountain_shards",
         "component": "Atlas Shards",
-        "description": "",
-        "amountRequired": 1,
+        "description": "A shard of atlas stone prised from a metal deposit core; the anti-gravity material at the heart of every sky core.",
+        "amountRequired": 2,
         "customizationCategory": ""
       }
     ],
@@ -2027,10 +2027,10 @@
       },
       {
         "id": 2,
-        "name": "iron",
-        "iconId": "scrap items/2x3_Atlas_Hod",
+        "name": "atlasShard",
+        "iconId": "scrap items/2x2_Fountain_shards",
         "component": "Atlas Shards",
-        "description": "",
+        "description": "A shard of atlas stone prised from a metal deposit core; the anti-gravity material at the heart of every sky core.",
         "amountRequired": 1,
         "customizationCategory": ""
       }
@@ -2085,11 +2085,11 @@
       },
       {
         "id": 2,
-        "name": "iron",
-        "iconId": "scrap items/2x3_Atlas_Hod",
+        "name": "atlasShard",
+        "iconId": "scrap items/2x2_Fountain_shards",
         "component": "Atlas Shards",
-        "description": "",
-        "amountRequired": 1,
+        "description": "A shard of atlas stone prised from a metal deposit core; the anti-gravity material at the heart of every sky core.",
+        "amountRequired": 3,
         "customizationCategory": ""
       }
     ],

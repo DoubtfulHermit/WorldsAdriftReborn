@@ -1491,7 +1491,8 @@ namespace WorldsAdriftRebornGameServer
                 Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_COUNT"),
                 SpawnDatabank,
                 Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"),
-                SpawnAtlasShard);
+                SpawnAtlasShard,
+                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"));
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's

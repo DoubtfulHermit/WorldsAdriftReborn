@@ -794,7 +794,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// spawn, and the grant is a no-op until the pending retail itemTypeId is
         /// recovered (AtlasShardCatalogue.ItemTypeId), so it cannot mis-grant.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true)
+        /// <param name="atlasRateEnv">
+        /// The raw WAREBORN_ATLAS_RATE value, or null for the default. "One shard per N
+        /// deposits" - the documented, deterministic <see cref="AtlasSpawnPolicy"/>
+        /// reconstruction of the lost retail rarity rule. Defaults to every deposit
+        /// (index 0, the proven deposit, always carries one).
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -883,15 +889,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     registry.Register(DepositEntity(node));
                 }
 
-                // The ATLAS SHARD lodged in the proven deposit (index 0), registered
-                // AFTER its deposit so the deposit's shared entity id is already bound
-                // when the shard's spawn step resolves its host (the shard's 1305
-                // rockCoreId and the deposit's 2103 attachedEntities are wired from it).
-                // One shard on one deposit is the retail acquisition case this vertical
-                // builds; more is a placement follow-on. Killable with WAREBORN_SPAWN_ATLAS=0.
-                if (includeAtlasShard && deposits.Count > 0)
+                // ATLAS SHARDS, one lodged in each deposit the spawn rule selects. ALL
+                // deposits are registered first (above), so every deposit's shared entity
+                // id is already bound when a shard's spawn step resolves its host (the
+                // shard's 1305 rockCoreId and the deposit's 2103 attachedEntities are
+                // wired from it). Which deposits carry a shard is the DOCUMENTED,
+                // deterministic AtlasSpawnPolicy knob (WAREBORN_ATLAS_RATE = one shard per
+                // N deposits, default every deposit) - the retail rarity rule is lost, so
+                // this is a reconstruction to tune, and index 0 (the proven deposit)
+                // always carries one so a tester reliably has a shard. Killable wholesale
+                // with WAREBORN_SPAWN_ATLAS=0.
+                if (includeAtlasShard)
                 {
-                    registry.Register(AtlasShardEntity(0, deposits[0].Position));
+                    int oneInDeposits = AtlasSpawnPolicy.OneInDeposits(atlasRateEnv);
+                    for (int i = 0; i < deposits.Count; i++)
+                    {
+                        if (AtlasSpawnPolicy.DepositCarriesShard(i, oneInDeposits))
+                        {
+                            registry.Register(AtlasShardEntity(i, deposits[i].Position));
+                        }
+                    }
                 }
             }
 

@@ -60,9 +60,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         // (WorldsAdriftRebornGameServer.cs registers HarvestReward for each MetalNode /
         // MetalDeposits.MetalType), and trees yield birch (Trees.WoodType). Keep this in
         // sync if a new gather source lands.
+        //
+        // atlasShard is the NEWEST gather source: it is not salvaged like a metal, but
+        // MINED loose from a deposit core and PICKED UP (the atlas-shard acquisition
+        // loop - AtlasShardCatalogue / AtlasShardRegistry, granted through
+        // WorldsAdriftRebornGameServer.TryCollectAtlasShard). So the Atlas Sky Core /
+        // Enhancer / Lifter recipes that consume it are craftable in the live world.
         private static readonly HashSet<string> GatherableMaterials = new()
         {
             "iron", "copper", "aluminium", "birch",
+            "atlasShard",
         };
 
         // The node types that actually learn a craftable schematic (mirror of
