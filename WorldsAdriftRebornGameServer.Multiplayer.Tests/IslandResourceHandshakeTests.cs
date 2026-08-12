@@ -61,5 +61,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             Assert.False(IslandResourceHandshake.Enabled(v));
         }
+
+        [Fact]
+        public void The_retry_schedule_is_non_empty_positive_and_increasing()
+        {
+            Assert.NotEmpty(IslandResourceHandshake.RequestRetrySeconds);
+            double previous = 0;
+            foreach (double s in IslandResourceHandshake.RequestRetrySeconds)
+            {
+                Assert.True(s > previous, "retry schedule must strictly increase from zero");
+                previous = s;
+            }
+        }
+
+        [Fact]
+        public void Every_retry_lands_before_the_default_fallback_deadline()
+        {
+            // Otherwise the static table would take the island while requests are still
+            // in flight, and the handshake would never get the chance it was given.
+            Assert.True(IslandResourceHandshake.LastRetrySecond() < IslandResourceFallback.DefaultSeconds);
+        }
+
+        [Fact]
+        public void The_retry_schedule_fits_inside_the_request_send_cap()
+        {
+            // The scheduled re-sends plus the initial send must not exhaust the cap on
+            // their own, or the interest-re-declaration retry would be dead on arrival.
+            Assert.True(IslandResourceHandshake.RequestRetrySeconds.Length + 1
+                < IslandResourceHandshake.MaxRequestSends);
+        }
     }
 }

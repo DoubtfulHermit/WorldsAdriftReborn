@@ -1729,8 +1729,21 @@ namespace WorldsAdriftRebornGameServer
         /// an invalid variantId is an invisible entity. It is AfterPlayer, so leaving it
         /// off or on cannot delay or break a player's own spawn either way.
         /// </summary>
+        /// <remarks>
+        /// SUPPRESSED BY THE HANDSHAKE. When the island resource handshake is on (the
+        /// default), the client decides where the deposits go and the hand-placed table
+        /// exists only as the deadline FALLBACK - which spawns it at runtime, once, if no
+        /// usable 1011 reply arrives (Game.Gathering.DepositFallbackSpawner). Registering
+        /// it at boot as well would put BOTH sets in the world: the forty client-placed
+        /// deposits AND the twenty-odd hand-measured ones the player already rejected,
+        /// with no way to tell from the log which is which. So an operator's existing
+        /// WAREBORN_SPAWN_DEPOSIT=1 is deliberately ignored while the handshake is
+        /// enabled; turn the handshake off (WAREBORN_METAL_HANDSHAKE=0) to get the old
+        /// boot-time behaviour back.
+        /// </remarks>
         private static bool SpawnDeposit =>
-            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1";
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1"
+            && !Multiplayer.IslandResourceHandshake.Enabled();
 
         /// <summary>
         /// Whether to lodge an ATLAS SHARD in the proven deposit - the real retail
@@ -2627,6 +2640,12 @@ namespace WorldsAdriftRebornGameServer
             // wrong thing.
             Game.Inventory.InventoryService.ReportPersistenceState();
             Game.Knowledge.ProgressionService.ReportPersistenceState();
+
+            // Said once, at start-up, because "where did the ore come from" is the
+            // question this deploy exists to answer and the operator reads the log to
+            // answer it. One line: which path is primary, how many, how wide the
+            // coordinate guard is, and when the fallback would take over.
+            Game.Gathering.IslandResourceService.ReportConfiguration();
 
             // Said once so the operator knows where the dashboard's live data
             // comes from and can point the login server at the same file if the

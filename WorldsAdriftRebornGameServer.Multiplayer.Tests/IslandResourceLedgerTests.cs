@@ -94,5 +94,92 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Empty(ledger.Admit(new[] { Metal(1, 0, 0) }));
             Assert.True(ledger.Satisfied);
         }
+
+        // ------------------------------------------------------------------
+        // The bounds-guarded ledger, the deadline latch and the fallback latch.
+        // ------------------------------------------------------------------
+
+        private static ResourceReplyItem OnHaven(double lx, double ly, double lz)
+        {
+            FixedPointPosition p = MetalNodes.IslandLocalToWorldFixed(SpawnPolicy.IslandPosition, lx, ly, lz);
+            return new ResourceReplyItem(p.MetresX, p.MetresY, p.MetresZ,
+                SpawnReplyPlan.MetalMetadata, MetalDeposits.DefaultVariantId);
+        }
+
+        private static IslandResourceLedger Guarded(int count)
+            => new IslandResourceLedger(count, IslandBounds.Haven());
+
+        [Fact]
+        public void A_guarded_ledger_admits_real_on_island_placements()
+        {
+            var ledger = Guarded(5);
+            var got = ledger.Admit(new[] { OnHaven(216, 4.57, 8), OnHaven(200, 4.27, 0) });
+            Assert.Equal(2, got.Count);
+            Assert.Equal(2, ledger.SpawnedCount);
+        }
+
+        [Fact]
+        public void A_guarded_ledger_admits_nothing_from_an_out_of_frame_reply()
+        {
+            var ledger = Guarded(5);
+            var admission = ledger.AdmitDetailed(new[] { Metal(216, 4.57, 8), Metal(0, 0, 0) });
+            Assert.Empty(admission.Admitted);
+            Assert.Equal(2, admission.Outcome.OutOfBounds);
+            Assert.Equal(0, ledger.SpawnedCount);
+            // ...which is exactly the state that must trigger the fallback.
+            Assert.True(IslandResourceFallback.ShouldFallBack(ledger.SpawnedCount, ledger.FallbackFired));
+        }
+
+        [Fact]
+        public void The_deadline_is_armed_only_once()
+        {
+            var ledger = Guarded(5);
+            Assert.True(ledger.MarkDeadlineArmed());
+            Assert.False(ledger.MarkDeadlineArmed());
+            Assert.False(ledger.MarkDeadlineArmed());
+        }
+
+        [Fact]
+        public void The_fallback_latch_fires_only_once()
+        {
+            var ledger = Guarded(5);
+            Assert.False(ledger.FallbackFired);
+            Assert.True(ledger.MarkFallbackFired());
+            Assert.True(ledger.FallbackFired);
+            Assert.False(ledger.MarkFallbackFired());
+        }
+
+        [Fact]
+        public void After_the_fallback_fires_no_client_reply_is_admitted()
+        {
+            // Otherwise a reply landing one second late would stack forty client-placed
+            // deposits on top of the twenty-odd hand-placed ones.
+            var ledger = Guarded(5);
+            ledger.MarkFallbackFired();
+
+            var admission = ledger.AdmitDetailed(new[] { OnHaven(216, 4.57, 8) });
+            Assert.Empty(admission.Admitted);
+            Assert.True(admission.RefusedBecauseFallbackFired);
+            Assert.Equal(0, ledger.SpawnedCount);
+        }
+
+        [Fact]
+        public void A_reply_before_the_fallback_stops_it_from_firing()
+        {
+            var ledger = Guarded(5);
+            Assert.Single(ledger.Admit(new[] { OnHaven(216, 4.57, 8) }));
+            Assert.False(IslandResourceFallback.ShouldFallBack(ledger.SpawnedCount, ledger.FallbackFired));
+        }
+
+        [Fact]
+        public void A_guarded_ledger_is_still_idempotent_across_replies()
+        {
+            var ledger = Guarded(10);
+            var first = ledger.Admit(new[] { OnHaven(216, 4.57, 8), OnHaven(200, 4.27, 0) });
+            var second = ledger.Admit(new[] { OnHaven(216, 4.57, 8), OnHaven(200, 4.27, 0) });
+            Assert.Equal(2, first.Count);
+            Assert.Empty(second);
+            Assert.Equal(2, ledger.SpawnedCount);
+        }
     }
 }

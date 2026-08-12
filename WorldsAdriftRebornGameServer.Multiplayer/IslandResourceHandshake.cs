@@ -142,5 +142,58 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             return Enabled(System.Environment.GetEnvironmentVariable(EnabledEnvVar));
         }
+
+        /// <summary>
+        /// WHEN to re-send the 1010 SpawnResources request to a peer that has not replied,
+        /// in seconds after the first send.
+        ///
+        /// WHY THIS EXISTS AT ALL. The first request can lose a cross-channel race: the
+        /// AddComponent that gives the client its 1010/1011 (and thus lets
+        /// IslandProxyVisualizer enable and subscribe to SpawnResources) travels on a
+        /// different ENet channel from the component UPDATE that carries the request
+        /// event. If the event lands first, the client is not yet listening and the
+        /// request is simply lost - and a lost request means NO ore, silently.
+        ///
+        /// The original design leaned on the client's periodic interest re-declaration for
+        /// a free, timer-free retry. That is a real retry, but it is not GUARANTEED: it
+        /// depends on the client choosing to re-declare, which nothing on this side
+        /// controls. Since the cost of no retry is an empty world, the retry is made
+        /// explicit here as well - the two mechanisms are complementary and the ledger
+        /// clamps and dedups whatever comes back, so extra requests can only ever be
+        /// redundant, never harmful.
+        ///
+        /// The schedule is front-loaded (the race resolves in milliseconds, not minutes)
+        /// and stops well inside the default fallback deadline, so a peer gets every
+        /// retry before the static table is considered. Re-sends are cancelled the moment
+        /// that peer replies.
+        /// </summary>
+        public static readonly double[] RequestRetrySeconds = { 3.0, 8.0, 20.0, 45.0 };
+
+        /// <summary>
+        /// The most times the SpawnResources request is sent to ONE peer for ONE island,
+        /// counting the first send and every retry from both mechanisms (the scheduled
+        /// re-sends and the client's interest re-declarations). A client that never replies
+        /// must not be asked forever.
+        /// </summary>
+        public const int MaxRequestSends = 10;
+
+        /// <summary>
+        /// The last moment a scheduled re-send can fire. Asserted against
+        /// <see cref="IslandResourceFallback.MinSeconds"/>-and-up deadlines so a retry
+        /// schedule can never be pointless (every send landing after the fallback has
+        /// already taken the island).
+        /// </summary>
+        public static double LastRetrySecond()
+        {
+            double last = 0;
+            foreach (double s in RequestRetrySeconds)
+            {
+                if (s > last)
+                {
+                    last = s;
+                }
+            }
+            return last;
+        }
     }
 }

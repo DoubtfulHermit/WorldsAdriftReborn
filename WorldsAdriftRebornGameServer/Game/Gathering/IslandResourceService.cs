@@ -49,15 +49,79 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         private static readonly Dictionary<(ulong Peer, long Island), int> RequestSends = new Dictionary<(ulong, long), int>();
 
         /// <summary>The most times the request is re-sent to one peer before giving up waiting for a reply.</summary>
-        internal const int MaxRequestSends = 10;
+        internal const int MaxRequestSends = IslandResourceHandshake.MaxRequestSends;
+
+        /// <summary>
+        /// The one start-up line that says how ore will be placed this run. Written before
+        /// any peer connects, so it is at the very top of the log the operator tails.
+        /// </summary>
+        internal static void ReportConfiguration()
+        {
+            if (!IslandResourceHandshake.Enabled())
+            {
+                System.Console.WriteLine("[warning] resource-handshake: DISABLED ("
+                    + IslandResourceHandshake.EnabledEnvVar
+                    + "=0). Ore comes from the hand-placed table only, via the boot-time"
+                    + " WAREBORN_SPAWN_DEPOSIT path.");
+                return;
+            }
+
+            System.Console.WriteLine("[info] resource-handshake: ENABLED - the CLIENT chooses every deposit"
+                + " position by surface-sampling its own island mesh (physics-checked), and this server"
+                + " spawns what it replies with. Requesting " + IslandResourceHandshake.MetalCount()
+                + " metal deposit(s) per island (" + IslandResourceHandshake.CountEnvVar + ", default "
+                + IslandResourceHandshake.DefaultMetalCount + ", clamped " + IslandResourceHandshake.MinMetalCount
+                + ".." + IslandResourceHandshake.MaxMetalCount + ").");
+
+            System.Console.WriteLine("[info] resource-handshake: accepting client placements inside "
+                + IslandBounds.Haven() + " (Haven's measured AABB + "
+                + IslandBounds.DefaultMarginMetres + " m); anything outside is refused and logged.");
+
+            if (IslandResourceFallback.Enabled())
+            {
+                System.Console.WriteLine("[info] resource-handshake: static fallback ARMED at "
+                    + IslandResourceFallback.Seconds() + "s (" + IslandResourceFallback.SecondsEnvVar
+                    + ") - if no usable 1011 placement arrives in that time the "
+                    + Multiplayer.MetalDeposits.HavenPlacements.Count
+                    + " hand-placed deposits are spawned instead, so the world is never left empty.");
+            }
+            else
+            {
+                System.Console.WriteLine("[warning] resource-handshake: static fallback DISABLED ("
+                    + IslandResourceFallback.EnabledEnvVar
+                    + "=0) - if the client never replies there will be NO ore at all.");
+            }
+
+            if (System.Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1")
+            {
+                System.Console.WriteLine("[warning] resource-handshake: WAREBORN_SPAWN_DEPOSIT=1 is IGNORED"
+                    + " while the handshake is on - the hand-placed table would otherwise appear ALONGSIDE"
+                    + " the client-placed deposits. It is still used, at runtime, as the fallback.");
+            }
+        }
 
         /// <summary>The per-island ledger, created on first use with the env-configured count.</summary>
         private static IslandResourceLedger LedgerFor(long islandEntityId)
         {
             if (!Ledgers.TryGetValue(islandEntityId, out IslandResourceLedger? ledger))
             {
-                ledger = new IslandResourceLedger(IslandResourceHandshake.MetalCount());
+                // The COORDINATE-FRAME GUARD travels with the ledger: every replied
+                // position is checked against Haven's own (generously widened) AABB
+                // before it can become an entity. See Multiplayer.IslandBounds.
+                ledger = new IslandResourceLedger(IslandResourceHandshake.MetalCount(), IslandBounds.Haven());
                 Ledgers.Add(islandEntityId, ledger);
+
+                System.Console.WriteLine("[info] resource-handshake: island " + islandEntityId
+                    + " configured for " + ledger.RequestedCount + " metal deposit(s) ("
+                    + IslandResourceHandshake.CountEnvVar + ", default "
+                    + IslandResourceHandshake.DefaultMetalCount + ", clamped to "
+                    + IslandResourceHandshake.MinMetalCount + ".." + IslandResourceHandshake.MaxMetalCount
+                    + "); accepting client placements inside " + IslandBounds.Haven() + "; static fallback "
+                    + (IslandResourceFallback.Enabled()
+                        ? "armed at " + IslandResourceFallback.Seconds() + "s ("
+                            + IslandResourceFallback.SecondsEnvVar + ")"
+                        : "DISABLED (" + IslandResourceFallback.EnabledEnvVar + ")")
+                    + ".");
             }
             return ledger;
         }
@@ -103,6 +167,15 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                     return served; // serve failed; try again on the next interest declaration
                 }
                 ServedAndGranted.Add(pk);
+
+                // ARM THE EXPLICIT RE-SENDS. The client's periodic interest
+                // re-declaration is a free retry, but nothing on this side GUARANTEES it
+                // happens - and if the very first request lost the cross-channel race with
+                // the AddComponent that enables the visualizer, no retry means no ore at
+                // all. So the re-sends are scheduled outright, on the main loop, and
+                // cancelled the moment this peer replies. See
+                // IslandResourceHandshake.RequestRetrySeconds.
+                ScheduleRetries(peer, entityId);
             }
 
             // (Re-)send the SpawnResources request until this peer replies or the cap is
@@ -123,10 +196,160 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                         + " request " + ledger.RequestedCount + " metal deposit(s) via 1010 SpawnResources"
                         + " to a peer (send #" + (sends + 1) + "/" + MaxRequestSends + "); awaiting its 1011 reply. ("
                         + ledger.SpawnedCount + "/" + ledger.RequestedCount + " spawned so far)");
+
+                    // ARM THE SAFE FAILURE MODE, once, on the FIRST request for this
+                    // island. If the deadline passes with nothing spawned from client
+                    // replies, the hand-placed table goes down instead - the world is
+                    // never left with no ore because a live unknown did not go our way.
+                    ArmFallback(entityId);
                 }
             }
 
             return served;
+        }
+
+        /// <summary>
+        /// Schedules the explicit SpawnResources re-sends for one (peer, island), on the
+        /// MAIN POLL LOOP via <see cref="DeferredActions"/>. Each fire re-checks that the
+        /// peer is still connected, has still not replied, and that the island has not
+        /// fallen back - so a disconnected or already-served peer is never written to.
+        /// Keyed on (peer, island) so <see cref="CancelRetries"/> can drop the rest the
+        /// instant a reply lands.
+        ///
+        /// MULTIPLAYER CLASSIFICATION: at most <c>RequestRetrySeconds.Length</c> one-shot
+        /// events per peer per island for the life of a session - not a stream, not a
+        /// per-frame relay, and self-cancelling on success.
+        /// </summary>
+        private static void ScheduleRetries(ENetPeerHandle peer, long islandEntityId)
+        {
+            ulong peerId = PeerIdentity.IdOf(peer);
+            (ulong, long) pk = (peerId, islandEntityId);
+
+            foreach (double seconds in IslandResourceHandshake.RequestRetrySeconds)
+            {
+                DeferredActions.AfterKeyed(RetryKey(pk), seconds, () => RetrySend(peer, pk, seconds));
+            }
+        }
+
+        /// <summary>The DeferredActions cancellation key for one (peer, island)'s pending re-sends.</summary>
+        private static string RetryKey((ulong Peer, long Island) pk)
+        {
+            return "resource-handshake-retry-" + pk.Peer + "-" + pk.Island;
+        }
+
+        /// <summary>Drops every pending re-send for a (peer, island) - called when it replies.</summary>
+        private static void CancelRetries((ulong Peer, long Island) pk)
+        {
+            DeferredActions.Cancel(RetryKey(pk));
+        }
+
+        /// <summary>
+        /// One scheduled re-send. Every reason NOT to send is re-checked here rather than
+        /// at schedule time, because all of them can become true in the seconds between.
+        /// </summary>
+        private static void RetrySend(ENetPeerHandle peer, (ulong Peer, long Island) pk, double seconds)
+        {
+            if (Replied.Contains(pk))
+            {
+                return; // it answered; nothing to chase
+            }
+            if (!PeerManager.Instance.playerState.ContainsKey(peer))
+            {
+                return; // gone
+            }
+            if (PeerIdentity.IdOf(peer) != pk.Peer)
+            {
+                return; // the handle was recycled for a different peer between schedule and fire
+            }
+
+            IslandResourceLedger ledger = LedgerFor(pk.Island);
+            if (ledger.FallbackFired || ledger.Satisfied || ledger.RequestedCount <= 0)
+            {
+                return;
+            }
+
+            RequestSends.TryGetValue(pk, out int sends);
+            if (sends >= MaxRequestSends)
+            {
+                return;
+            }
+
+            SendRequest(peer, pk.Island, ledger.RequestedCount);
+            RequestSends[pk] = sends + 1;
+
+            System.Console.WriteLine("[info] resource-handshake: island " + pk.Island
+                + " RE-SENT the 1010 SpawnResources request (+" + seconds + "s, send #" + (sends + 1)
+                + "/" + MaxRequestSends + ") - the peer has still not replied on 1011.");
+        }
+
+        /// <summary>
+        /// Schedules the one-shot fallback deadline for an island, the first time only.
+        /// Uses <see cref="DeferredActions"/>, so it fires on the MAIN POLL LOOP - the same
+        /// thread that owns the peer set and the world-entity registry - not a background
+        /// timer. A no-op when the fallback is disabled.
+        /// </summary>
+        private static void ArmFallback(long islandEntityId)
+        {
+            if (!IslandResourceFallback.Enabled())
+            {
+                return;
+            }
+            IslandResourceLedger ledger = LedgerFor(islandEntityId);
+            if (!ledger.MarkDeadlineArmed())
+            {
+                return;
+            }
+
+            double seconds = IslandResourceFallback.Seconds();
+            DeferredActions.After(seconds, () => ResolveDeadline(islandEntityId, seconds));
+
+            System.Console.WriteLine("[info] resource-handshake: island " + islandEntityId
+                + " fallback deadline armed - if no usable 1011 placement arrives within "
+                + seconds + "s the hand-placed deposits are spawned instead.");
+        }
+
+        /// <summary>
+        /// The deadline. Either the handshake produced deposits - in which case the
+        /// fallback stands down and one <see cref="IslandResourceFallback.HandshakeMarker"/>
+        /// line says so - or it did not, and the static table is placed under one
+        /// <see cref="IslandResourceFallback.FallbackMarker"/> line. Exactly one of the two
+        /// markers is written per island, which is what makes "which path is live" a
+        /// single grep rather than an inference.
+        /// </summary>
+        internal static void ResolveDeadline(long islandEntityId, double seconds)
+        {
+            IslandResourceLedger ledger = LedgerFor(islandEntityId);
+
+            // THE CLOCK ONLY RUNS WHILE SOMEONE IS PLAYING. If every peer has left, the
+            // handshake never got a fair chance - the client that would have replied is
+            // gone - and latching the hand-placed table into an EMPTY world would hand the
+            // next joiner the placements they already rejected. Re-arm instead. One
+            // deferred action per deadline on an idle server; it stops the moment someone
+            // connects and either path resolves.
+            if (PeerManager.Instance.playerState.Count == 0 && !ledger.FallbackFired)
+            {
+                DeferredActions.After(seconds, () => ResolveDeadline(islandEntityId, seconds));
+                System.Console.WriteLine("[info] resource-handshake: island " + islandEntityId
+                    + " fallback deadline reached with NO peers connected; re-armed for another "
+                    + seconds + "s rather than placing the static table into an empty world.");
+                return;
+            }
+
+            if (!IslandResourceFallback.ShouldFallBack(ledger.SpawnedCount, ledger.FallbackFired))
+            {
+                System.Console.WriteLine("[info] " + IslandResourceFallback.StoodDownLine(
+                    islandEntityId, ledger.SpawnedCount, ledger.RequestedCount));
+                return;
+            }
+
+            // Latch BEFORE spawning: from here on the ledger refuses client replies, so a
+            // reply that lands mid-spawn cannot stack a second set on top.
+            ledger.MarkFallbackFired();
+
+            int spawned = DepositFallbackSpawner.SpawnStaticPlacements();
+
+            System.Console.WriteLine("[warning] " + IslandResourceFallback.FallbackLine(
+                islandEntityId, seconds, spawned));
         }
 
         /// <summary>
@@ -203,6 +426,7 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             // re-sending the request to this peer (even if this particular batch admits
             // nothing - it is proof the request landed).
             Replied.Add((peerId, islandEntityId));
+            CancelRetries((peerId, islandEntityId));
 
             List<ResourceReplyItem> items = new List<ResourceReplyItem>();
             foreach (SpawnResourcesReply reply in update.spawnResourcesReply)
@@ -228,12 +452,43 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             }
 
             IslandResourceLedger ledger = LedgerFor(islandEntityId);
-            IReadOnlyList<AdmittedDeposit> admitted = ledger.Admit(items);
+            LedgerAdmission admission = ledger.AdmitDetailed(items);
+            IReadOnlyList<AdmittedDeposit> admitted = admission.Admitted;
+
+            if (admission.RefusedBecauseFallbackFired)
+            {
+                System.Console.WriteLine("[warning] resource-handshake: 1011 reply on island " + islandEntityId
+                    + " carried " + items.Count + " placement(s) but arrived AFTER the fallback deadline; "
+                    + "this island is already served by the hand-placed table (" + IslandResourceFallback.FallbackMarker
+                    + "). Raise " + IslandResourceFallback.SecondsEnvVar + " to give the client longer.");
+                return;
+            }
+
+            // THE COORDINATE-FRAME ALARM. A refused placement means the client's global
+            // frame is not the one we seed the island in - a floating-origin or scale
+            // error - which is exactly how deposits ended up in the sky before. Logged
+            // with the raw metres and the box, so one line identifies the bug.
+            if (admission.Outcome.OutOfBounds > 0)
+            {
+                ResourceReplyItem bad = admission.Outcome.FirstOutOfBounds!.Value;
+                System.Console.WriteLine("[warning] resource-handshake: REJECTED " + admission.Outcome.OutOfBounds
+                    + " of " + items.Count + " placement(s) on island " + islandEntityId
+                    + " as OUT OF BOUNDS - first was ("
+                    + bad.X.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ", "
+                    + bad.Y.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture) + ", "
+                    + bad.Z.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+                    + ") m, outside " + IslandBounds.Haven()
+                    + ". The client's RemapUnityVectorToGlobalCoordinates frame does not match the island's"
+                    + " 190602 seed; NOTHING was spawned there.");
+            }
 
             if (admitted.Count == 0)
             {
                 System.Console.WriteLine("[info] resource-handshake: 1011 reply on island " + islandEntityId
-                    + " carried " + items.Count + " placement(s), none admitted (duplicate/over-count/non-metal); "
+                    + " carried " + items.Count + " placement(s), none admitted ("
+                    + admission.Outcome.NonMetal + " non-metal, "
+                    + admission.Outcome.Duplicate + " duplicate, "
+                    + admission.Outcome.OutOfBounds + " out-of-bounds, rest over-count); "
                     + ledger.SpawnedCount + "/" + ledger.RequestedCount + " already spawned.");
                 return;
             }
@@ -247,6 +502,15 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 + " admitted " + admitted.Count + " of " + items.Count + " placement(s); now "
                 + ledger.SpawnedCount + "/" + ledger.RequestedCount + " deposit(s) spawned"
                 + (ledger.Satisfied ? " (island satisfied)." : "."));
+
+            // The success marker, paired with the fallback's. Written on the FIRST batch
+            // that actually spawns something (that is the moment the live unknown closed)
+            // and again when the island is satisfied, so a short grep finds it either way.
+            if (ledger.SpawnedCount == admitted.Count || ledger.Satisfied)
+            {
+                System.Console.WriteLine("[info] " + IslandResourceFallback.HandshakeLine(
+                    islandEntityId, ledger.SpawnedCount, ledger.RequestedCount));
+            }
         }
     }
 }

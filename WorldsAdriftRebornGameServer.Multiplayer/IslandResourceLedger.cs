@@ -21,6 +21,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     }
 
     /// <summary>
+    /// One reply batch as the ledger settled it: what to spawn, why the rest was dropped,
+    /// and whether the whole batch was refused because the island had already fallen back
+    /// to the static table.
+    /// </summary>
+    public readonly struct LedgerAdmission
+    {
+        public LedgerAdmission(
+            IReadOnlyList<AdmittedDeposit> admitted,
+            SpawnReplyOutcome outcome,
+            bool refusedBecauseFallbackFired)
+        {
+            Admitted = admitted;
+            Outcome = outcome;
+            RefusedBecauseFallbackFired = refusedBecauseFallbackFired;
+        }
+
+        /// <summary>The deposits the caller should spawn now.</summary>
+        public IReadOnlyList<AdmittedDeposit> Admitted { get; }
+
+        /// <summary>The per-reason drop counts and the first out-of-bounds sample.</summary>
+        public SpawnReplyOutcome Outcome { get; }
+
+        /// <summary>True when nothing was even considered: the static fallback owns this island.</summary>
+        public bool RefusedBecauseFallbackFired { get; }
+    }
+
+    /// <summary>
     /// The mutable, per-ISLAND bookkeeping of the resource handshake: how many deposits
     /// this island asked for, whether the request event has gone out, and every position
     /// already spawned - so the clamp, the dedup and the "ask once" idempotency all hold
@@ -37,8 +64,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     public sealed class IslandResourceLedger
     {
         private readonly int _requestedCount;
+        private readonly IslandBounds? _bounds;
         private readonly HashSet<FixedPointPosition> _positions = new HashSet<FixedPointPosition>();
         private bool _requestSent;
+        private bool _deadlineArmed;
+        private bool _fallbackFired;
         private int _spawned;
         private int _nextIndex;
 
@@ -46,8 +76,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const string KeyPrefix = "handshake-deposit-";
 
         public IslandResourceLedger(int requestedCount)
+            : this(requestedCount, bounds: null)
+        {
+        }
+
+        /// <summary>
+        /// A ledger that also refuses any replied position outside
+        /// <paramref name="bounds"/> - the coordinate-frame guard. Production passes
+        /// <see cref="IslandBounds.Haven"/>; null keeps the pre-guard behaviour.
+        /// </summary>
+        public IslandResourceLedger(int requestedCount, IslandBounds? bounds)
         {
             _requestedCount = IslandResourceHandshake.ClampCount(requestedCount);
+            _bounds = bounds;
         }
 
         /// <summary>The clamped number of deposits this island will ever spawn from the handshake.</summary>
@@ -85,17 +126,68 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public IReadOnlyList<AdmittedDeposit> Admit(IEnumerable<ResourceReplyItem>? items)
         {
-            IReadOnlyList<HandshakeDeposit> accepted =
-                SpawnReplyPlan.Accept(items, _spawned, _requestedCount, _positions);
+            return AdmitDetailed(items).Admitted;
+        }
 
-            List<AdmittedDeposit> result = new List<AdmittedDeposit>(accepted.Count);
-            foreach (HandshakeDeposit d in accepted)
+        /// <summary>
+        /// <see cref="Admit"/>, but returning the batch's DROP REASONS alongside the
+        /// winners so the caller can log a refused reply with the reason (out-of-bounds is
+        /// a coordinate-frame bug and must not be reported as "duplicate"). Once
+        /// <see cref="FallbackFired"/> the ledger admits nothing at all: the island's ore
+        /// has already been resolved by the static table, and mixing the two sets is the
+        /// one outcome that would be undiagnosable from the log.
+        /// </summary>
+        public LedgerAdmission AdmitDetailed(IEnumerable<ResourceReplyItem>? items)
+        {
+            if (_fallbackFired)
+            {
+                return new LedgerAdmission(
+                    System.Array.Empty<AdmittedDeposit>(),
+                    new SpawnReplyOutcome(System.Array.Empty<HandshakeDeposit>(), 0, 0, 0, null),
+                    refusedBecauseFallbackFired: true);
+            }
+
+            SpawnReplyOutcome outcome =
+                SpawnReplyPlan.Evaluate(items, _spawned, _requestedCount, _positions, _bounds);
+
+            List<AdmittedDeposit> result = new List<AdmittedDeposit>(outcome.Accepted.Count);
+            foreach (HandshakeDeposit d in outcome.Accepted)
             {
                 _positions.Add(d.Position);
                 _spawned++;
                 result.Add(new AdmittedDeposit(_nextIndex++, d.Position, d.Variant));
             }
-            return result;
+            return new LedgerAdmission(result, outcome, refusedBecauseFallbackFired: false);
+        }
+
+        /// <summary>Whether the fallback deadline has been armed for this island; true only the FIRST time.</summary>
+        public bool MarkDeadlineArmed()
+        {
+            if (_deadlineArmed)
+            {
+                return false;
+            }
+            _deadlineArmed = true;
+            return true;
+        }
+
+        /// <summary>Whether the static-table fallback has been used for this island.</summary>
+        public bool FallbackFired => _fallbackFired;
+
+        /// <summary>
+        /// Latches the island onto the static fallback, returning true only the FIRST
+        /// time. After this the ledger admits no further client replies, so a reply that
+        /// arrives after the deadline cannot stack a second set of deposits on top of the
+        /// hand-placed one.
+        /// </summary>
+        public bool MarkFallbackFired()
+        {
+            if (_fallbackFired)
+            {
+                return false;
+            }
+            _fallbackFired = true;
+            return true;
         }
     }
 }

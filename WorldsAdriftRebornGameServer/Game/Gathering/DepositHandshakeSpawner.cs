@@ -53,25 +53,40 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// </summary>
         internal static long? Spawn(long islandEntityId, AdmittedDeposit admitted)
         {
-            EnsureGlobalEntity();
-
-            string key = KeyFor(islandEntityId, admitted.Index);
-
-            // A re-run of the same (island, index) - should not happen, the ledger
-            // hands out monotonic indices - would collide on the registry key. Guard so
-            // a defensive double call is a no-op rather than a throw.
-            if (WorldsAdriftRebornGameServer.WorldEntities.ByKey(key) != null)
-            {
-                return WorldsAdriftRebornGameServer.WorldEntities.BoundEntityIdFor(key);
-            }
-
             MetalNode node = new MetalNode(
-                key,
+                KeyFor(islandEntityId, admitted.Index),
                 DefaultMetalType,
                 DefaultQuality,
                 admitted.Position,
                 isDeposit: true,
                 variantId: admitted.Variant);
+
+            return SpawnDepositNode(node, "island " + islandEntityId);
+        }
+
+        /// <summary>
+        /// Spawns ONE deposit node at runtime and returns its entity id, or null if the
+        /// AddEntity could not be built. The shared core of both live deposit paths - the
+        /// handshake's client-chosen placements and the static-table FALLBACK - so a
+        /// fallback deposit is registered, ledgered and broadcast through exactly the same
+        /// code as a handshake one, and neither can drift from the other.
+        ///
+        /// Idempotent on the node's registry key: a second call for the same key returns
+        /// the already-bound entity id and spawns nothing.
+        /// </summary>
+        internal static long? SpawnDepositNode(MetalNode node, string context)
+        {
+            EnsureGlobalEntity();
+
+            string key = node.Key;
+
+            // A re-run of the same key - should not happen, the ledger hands out
+            // monotonic indices and the fallback fires once - would collide on the
+            // registry key. Guard so a defensive double call is a no-op, not a throw.
+            if (WorldsAdriftRebornGameServer.WorldEntities.ByKey(key) != null)
+            {
+                return WorldsAdriftRebornGameServer.WorldEntities.BoundEntityIdFor(key);
+            }
 
             WorldEntity registration = Multiplayer.WorldEntities.DepositEntity(node);
             WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
@@ -104,12 +119,30 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             }
 
             System.Console.WriteLine("[info] resource-handshake: spawned DEPOSIT '" + key + "' as entity "
-                + entityId + " on island " + islandEntityId + " at " + node.Position
+                + entityId + " on " + context + " at " + node.Position
                 + " variant '" + node.VariantId + "' (" + Multiplayer.MetalDeposits.ShotsToDeplete
                 + " shots -> " + Multiplayer.MetalDeposits.YieldUnits + " units), broadcast to "
                 + reached + " peer(s). Late joiners get it via the connect-time spawn plan.");
 
             return entityId;
+        }
+
+        /// <summary>
+        /// Broadcasts an already-registered world entity to every connected peer - the
+        /// shared broadcast the fallback needs for the atlas shards it spawns beside its
+        /// deposits. Returns how many peers took it.
+        /// </summary>
+        internal static int BroadcastToAll(long entityId, WorldEntity registration)
+        {
+            int reached = 0;
+            foreach (ENetPeerHandle peer in ConnectedPeers())
+            {
+                if (BroadcastEntity(peer, entityId, registration))
+                {
+                    reached++;
+                }
+            }
+            return reached;
         }
 
         /// <summary>The registry key for a handshake deposit, namespaced by island so two islands never collide.</summary>

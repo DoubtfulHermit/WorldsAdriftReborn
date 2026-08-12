@@ -119,5 +119,99 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             Assert.Empty(SpawnReplyPlan.Accept(null, 0, 10, null));
         }
+
+        // ------------------------------------------------------------------
+        // Evaluate: the coordinate-frame guard and the drop-reason counters.
+        // ------------------------------------------------------------------
+
+        private static ResourceReplyItem OnHaven(double lx, double ly, double lz)
+        {
+            FixedPointPosition p = MetalNodes.IslandLocalToWorldFixed(SpawnPolicy.IslandPosition, lx, ly, lz);
+            return Metal(p.MetresX, p.MetresY, p.MetresZ);
+        }
+
+        [Fact]
+        public void Evaluate_without_bounds_behaves_exactly_like_Accept()
+        {
+            var items = new[] { Metal(1, 0, 0), Metal(2, 0, 0) };
+            Assert.Equal(
+                SpawnReplyPlan.Accept(items, 0, 10, null).Count,
+                SpawnReplyPlan.Evaluate(items, 0, 10, null, bounds: null).Accepted.Count);
+        }
+
+        [Fact]
+        public void Evaluate_accepts_real_on_island_placements()
+        {
+            var items = new[] { OnHaven(216.0, 4.57, 8.0), OnHaven(-100.0, 20.0, 60.0) };
+            var got = SpawnReplyPlan.Evaluate(items, 0, 10, null, IslandBounds.Haven());
+            Assert.Equal(2, got.Accepted.Count);
+            Assert.Equal(0, got.OutOfBounds);
+        }
+
+        [Fact]
+        public void Evaluate_refuses_an_unremapped_island_local_reply()
+        {
+            // The live failure mode: OffsetOrigin still zero, so the client replies in
+            // island-local metres. Nothing may be spawned from it.
+            var items = new[] { Metal(216.0, 4.57, 8.0), Metal(200.0, 4.27, 0.0) };
+            var got = SpawnReplyPlan.Evaluate(items, 0, 10, null, IslandBounds.Haven());
+            Assert.Empty(got.Accepted);
+            Assert.Equal(2, got.OutOfBounds);
+            Assert.Equal(0, got.Duplicate);
+            Assert.NotNull(got.FirstOutOfBounds);
+            Assert.Equal(216.0, got.FirstOutOfBounds!.Value.X);
+        }
+
+        [Fact]
+        public void Evaluate_refuses_a_scale_error_but_keeps_the_good_ones()
+        {
+            ResourceReplyItem good = OnHaven(216.0, 4.57, 8.0);
+            var items = new[] { good, Metal(good.X * 100.0, good.Y * 100.0, good.Z * 100.0) };
+            var got = SpawnReplyPlan.Evaluate(items, 0, 10, null, IslandBounds.Haven());
+            Assert.Single(got.Accepted);
+            Assert.Equal(1, got.OutOfBounds);
+        }
+
+        [Fact]
+        public void Evaluate_reports_out_of_bounds_rather_than_duplicate_for_a_repeated_bad_point()
+        {
+            // Bounds runs BEFORE dedup on purpose: a wall of identical out-of-frame points
+            // must read as a coordinate bug, not as harmless duplicates.
+            var items = new[] { Metal(0, 0, 0), Metal(0, 0, 0), Metal(0, 0, 0) };
+            var got = SpawnReplyPlan.Evaluate(items, 0, 10, null, IslandBounds.Haven());
+            Assert.Equal(3, got.OutOfBounds);
+            Assert.Equal(0, got.Duplicate);
+        }
+
+        [Fact]
+        public void Evaluate_counts_non_metal_separately()
+        {
+            var items = new[]
+            {
+                new ResourceReplyItem(0, 0, 0, "Egg", ""),
+                OnHaven(216.0, 4.57, 8.0),
+            };
+            var got = SpawnReplyPlan.Evaluate(items, 0, 10, null, IslandBounds.Haven());
+            Assert.Single(got.Accepted);
+            Assert.Equal(1, got.NonMetal);
+            Assert.Equal(0, got.OutOfBounds);
+        }
+
+        [Fact]
+        public void Evaluate_counts_duplicates_of_a_valid_point()
+        {
+            ResourceReplyItem good = OnHaven(216.0, 4.57, 8.0);
+            var got = SpawnReplyPlan.Evaluate(new[] { good, good }, 0, 10, null, IslandBounds.Haven());
+            Assert.Single(got.Accepted);
+            Assert.Equal(1, got.Duplicate);
+        }
+
+        [Fact]
+        public void Evaluate_over_budget_admits_nothing_more()
+        {
+            var items = new[] { OnHaven(216, 4.57, 8), OnHaven(200, 4.27, 0), OnHaven(184, 7.32, 0) };
+            var got = SpawnReplyPlan.Evaluate(items, alreadySpawned: 2, requestedCount: 3, null, IslandBounds.Haven());
+            Assert.Single(got.Accepted);
+        }
     }
 }

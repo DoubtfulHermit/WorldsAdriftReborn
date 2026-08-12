@@ -46,6 +46,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public string? Variant { get; }
     }
 
+    /// <summary>
+    /// What one reply batch amounted to: the placements to spawn, plus a count of each
+    /// reason an item was dropped and a sample of the first position REFUSED by the
+    /// island bounds. The counts exist so the server can log a reply that admitted
+    /// nothing with the reason rather than a shrug - a batch rejected wholesale for being
+    /// out of bounds is a coordinate-frame bug and must not read the same as a batch of
+    /// duplicates.
+    /// </summary>
+    public readonly struct SpawnReplyOutcome
+    {
+        public SpawnReplyOutcome(
+            IReadOnlyList<HandshakeDeposit> accepted,
+            int nonMetal,
+            int duplicate,
+            int outOfBounds,
+            ResourceReplyItem? firstOutOfBounds)
+        {
+            Accepted = accepted;
+            NonMetal = nonMetal;
+            Duplicate = duplicate;
+            OutOfBounds = outOfBounds;
+            FirstOutOfBounds = firstOutOfBounds;
+        }
+
+        /// <summary>The placements the caller should spawn now, in reply order.</summary>
+        public IReadOnlyList<HandshakeDeposit> Accepted { get; }
+
+        /// <summary>Items dropped for not being a MetalDeposit (eggs, mostly).</summary>
+        public int NonMetal { get; }
+
+        /// <summary>Items dropped because that exact position already carries a deposit.</summary>
+        public int Duplicate { get; }
+
+        /// <summary>Items REFUSED by <see cref="IslandBounds"/> - the coordinate-frame guard.</summary>
+        public int OutOfBounds { get; }
+
+        /// <summary>The first refused item, verbatim, so its raw metres can be logged.</summary>
+        public ResourceReplyItem? FirstOutOfBounds { get; }
+    }
+
     /// <summary>One accepted metal-deposit placement: where (world fixed point) and which visuals variant.</summary>
     public readonly struct HandshakeDeposit
     {
@@ -114,17 +154,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int requestedCount,
             ISet<FixedPointPosition>? existing)
         {
+            return Evaluate(items, alreadySpawned, requestedCount, existing, bounds: null).Accepted;
+        }
+
+        /// <summary>
+        /// <see cref="Accept"/> plus the COORDINATE-FRAME GUARD and the drop reasons.
+        ///
+        /// The extra rule, applied BEFORE the fixed-point conversion, is
+        /// <paramref name="bounds"/>: a placement whose global metres fall outside the
+        /// island's (generously widened) AABB is refused outright and counted, never
+        /// spawned. That is the guard that makes a floating-origin or scale error
+        /// impossible to turn into deposits scattered across the sky - see
+        /// <see cref="IslandBounds"/> for the failure modes it is aimed at. Passing null
+        /// disables it (the unit tests that predate the guard, and any caller with no
+        /// island to bound against).
+        ///
+        /// Order matters: metal-filter, then bounds, then dedup, then budget. Bounds runs
+        /// before dedup so a wall of identical out-of-frame points is reported as
+        /// out-of-bounds - the actionable reason - rather than as duplicates.
+        /// </summary>
+        public static SpawnReplyOutcome Evaluate(
+            IEnumerable<ResourceReplyItem>? items,
+            int alreadySpawned,
+            int requestedCount,
+            ISet<FixedPointPosition>? existing,
+            IslandBounds? bounds)
+        {
             List<HandshakeDeposit> accepted = new List<HandshakeDeposit>();
+            int nonMetal = 0;
+            int duplicate = 0;
+            int outOfBounds = 0;
+            ResourceReplyItem? firstOutOfBounds = null;
+
             if (items == null)
             {
-                return accepted;
+                return new SpawnReplyOutcome(accepted, 0, 0, 0, null);
             }
 
             int budget = IslandResourceHandshake.ClampCount(requestedCount) - alreadySpawned;
-            if (budget <= 0)
-            {
-                return accepted;
-            }
 
             HashSet<FixedPointPosition> seen = existing == null
                 ? new HashSet<FixedPointPosition>()
@@ -132,24 +199,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             foreach (ResourceReplyItem item in items)
             {
-                if (accepted.Count >= budget)
-                {
-                    break;
-                }
                 if (!IsMetal(item.Metadata))
                 {
+                    nonMetal++;
+                    continue;
+                }
+                if (bounds.HasValue && !bounds.Value.Contains(item.X, item.Y, item.Z))
+                {
+                    outOfBounds++;
+                    firstOutOfBounds ??= item;
+                    continue;
+                }
+                if (accepted.Count >= budget)
+                {
+                    // Over budget: keep counting the reasons above (they are diagnostic)
+                    // but admit nothing more. Not a "duplicate" - just full.
                     continue;
                 }
                 FixedPointPosition pos = FixedPointPosition.FromMetres(item.X, item.Y, item.Z);
                 if (!seen.Add(pos))
                 {
+                    duplicate++;
                     continue;
                 }
                 string variant = string.IsNullOrWhiteSpace(item.Variant) ? DefaultVariant : item.Variant.Trim();
                 accepted.Add(new HandshakeDeposit(pos, variant));
             }
 
-            return accepted;
+            return new SpawnReplyOutcome(accepted, nonMetal, duplicate, outOfBounds, firstOutOfBounds);
         }
     }
 }
