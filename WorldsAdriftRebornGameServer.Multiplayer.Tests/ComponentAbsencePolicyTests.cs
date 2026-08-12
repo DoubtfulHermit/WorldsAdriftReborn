@@ -44,9 +44,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // entities ARE, and it must not happen by drive-by edit - anything
             // that is merely unseeded belongs in the loud path instead. The two
             // weather ids (1139/1269) plus the four loose-ship-part physics/cosmetic
-            // states this server authors for no entity (1257/1121/1225/1235).
+            // states this server authors for no entity (1257/1121/1225/1235), plus the
+            // helm's ShipControlInput (1111) - the pilot-seat control input this server
+            // does not simulate.
             Assert.Equal(
-                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235 },
+                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
@@ -55,6 +57,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1121u)] // OriginalMassState
         [InlineData(1225u)] // LightningStrikableState
         [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
+        [InlineData(1111u)] // ShipControlInput (helm pilot seat)
         public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
         {
             // The crafted loose part (and a built hull) bakes visualizers that request
@@ -73,11 +76,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(1121u, ComponentAbsencePolicy.OriginalMassStateComponentId);
             Assert.Equal(1225u, ComponentAbsencePolicy.LightningStrikableStateComponentId);
             Assert.Equal(1235u, ComponentAbsencePolicy.DetachFromParentWhenUnderHealthThresholdStateComponentId);
+            Assert.Equal(1111u, ComponentAbsencePolicy.ShipControlInputComponentId);
 
             Assert.Equal("ParentingMassAdderState", ComponentAbsencePolicy.NameOf(1257));
             Assert.Equal("OriginalMassState", ComponentAbsencePolicy.NameOf(1121));
             Assert.Equal("LightningStrikableState", ComponentAbsencePolicy.NameOf(1225));
             Assert.Equal("DetachFromParentWhenUnderHealthThresholdState", ComponentAbsencePolicy.NameOf(1235));
+            Assert.Equal("ShipControlInput", ComponentAbsencePolicy.NameOf(1111));
         }
 
         [Fact]
