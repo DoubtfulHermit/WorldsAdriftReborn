@@ -319,6 +319,59 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(PartMountSurface.ShipDeck, PartMountSurfaces.ForAttachmentType(helm.AttachmentType));
         }
 
+        [Fact]
+        public void Sail_mounts_on_the_deck_surface()
+        {
+            // A sail is a deck-standing MAST (SailVisualizer is a yawing mast, not a hull-
+            // side/wing part), so it mounts on the ShipDeck surface exactly like the helm -
+            // placeable across the whole deck, not the one incidental Environment spot the
+            // former "shipSurfaces" best-guess landed on.
+            var sail = LoosePartCatalogue.ForSchematic("sail")!;
+            Assert.Equal("deck", sail.AttachmentType);
+            Assert.Equal(PartMountSurface.ShipDeck, PartMountSurfaces.ForAttachmentType(sail.AttachmentType));
+        }
+
+        [Fact]
+        public void Deck_mounted_parts_all_resolve_to_the_ship_deck_surface()
+        {
+            // Every part whose retail surface is the deck (the ONE usable placement surface
+            // our built ship exposes) must resolve to ShipDeck so it is placeable across the
+            // whole deck. Pinned as a set so a future catalogue edit that drops one off the
+            // deck fails here.
+            foreach (string id in new[]
+            {
+                "helm", "sail", "deck", "stairs", "railing", "railingCorner",
+                "trunk", "storageContainer", "shippingContainer",
+                "barrel", "cupboard", "personalReviver",
+            })
+            {
+                var part = LoosePartCatalogue.ForSchematic(id)!;
+                Assert.Equal(PartMountSurface.ShipDeck, PartMountSurfaces.ForAttachmentType(part.AttachmentType));
+            }
+        }
+
+        [Fact]
+        public void Parts_left_on_ship_surfaces_are_a_documented_deliberate_set()
+        {
+            // These stay "shipSurfaces" ON PURPOSE - their retail surface is either a
+            // vertical ship surface our built ship does not expose a usable collider for
+            // (mountedBox), or is NOT confirmable from the decompile (horn, instruments;
+            // the attachmentType strings are server refdata absent from the client). They
+            // are deliberately NOT guessed onto the deck. If this set changes, the decision
+            // above must be revisited with real refdata or a live check.
+            foreach (string id in new[]
+            {
+                "mountedBox", "horn",
+                "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
+                "lamp",
+            })
+            {
+                var part = LoosePartCatalogue.ForSchematic(id)!;
+                Assert.Equal("shipSurfaces", part.AttachmentType);
+                Assert.Equal(PartMountSurface.ShipSurfaces, PartMountSurfaces.ForAttachmentType(part.AttachmentType));
+            }
+        }
+
         // --- Placement -----------------------------------------------------------
 
         [Fact]
