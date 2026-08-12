@@ -655,6 +655,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>
+        /// A FUEL POD as a <see cref="WorldEntity"/>: the fuel-egg prefab at a measured
+        /// Haven surface vertex, keyed <c>fuel-pod-N</c>. The FUEL analogue of the
+        /// atlas shard, but HOST-LESS - a pod carries only 2102 LodgeableState (no 1305
+        /// rock-core link), so it needs no host deposit and is registered already
+        /// released (directly pickable). See <see cref="FuelPods"/>.
+        ///
+        /// NO SEEDED COMPONENTS, exactly like the nugget, the tree and the shard: the
+        /// client checks the pod out and asks for its 2102/190602/1210 over
+        /// SEND_COMPONENT_INTEREST, which ComponentsSerializer answers best-effort. Its
+        /// lodged/released/collected state and the PickUp availability are wired from
+        /// the fuel-pod ledger. AfterPlayer, so a misbehaving pod can never delay or
+        /// break a player's own spawn.
+        /// </summary>
+        public static WorldEntity FuelPodEntity(int index)
+        {
+            return new WorldEntity(
+                FuelPods.KeyFor(index),
+                FuelPods.AssetName,
+                DefaultAssetContext,
+                FuelPods.PositionAt(index),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>The global entity's registration key. See <see cref="GlobalEntity"/>.</summary>
         public const string GlobalEntityKey = "global";
 
@@ -800,7 +825,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// reconstruction of the lost retail rarity rule. Defaults to every deposit
         /// (index 0, the proven deposit, always carries one).
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null)
+        /// <param name="includeFuelPods">
+        /// Whether to place the <see cref="FuelPods.HavenPlacements"/> fuel pods - the
+        /// gatherable FUEL crafting material. ON by default with WAREBORN_SPAWN_FUELPODS=0
+        /// as the kill switch, on the same AfterPlayer footing as the tree and node: a
+        /// misbehaving pod cannot delay or break a player's spawn, and it grants the
+        /// real, already-shipping <c>"fuel"</c> item so it cannot mis-grant. Independent
+        /// of the deposit/atlas spawns - a fuel pod is host-less and needs no deposit.
+        /// </param>
+        /// <param name="fuelPodCountEnv">
+        /// The raw WAREBORN_FUELPOD_COUNT value, or null for the full starter set.
+        /// Clamped to [1, all placed]; index 0 is the nearest-spawn pod, so any count
+        /// keeps it.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -909,6 +947,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                             registry.Register(AtlasShardEntity(i, deposits[i].Position));
                         }
                     }
+                }
+            }
+
+            if (includeFuelPods)
+            {
+                // FUEL PODS - the gatherable fuel crafting material. Host-less (a pod
+                // carries only 2102, no host deposit), so this block is INDEPENDENT of
+                // the deposit/atlas spawn above and each pod is its own standalone
+                // pickable entity, registered like a tree or a nugget. AfterPlayer,
+                // so none can delay a spawn; index 0 (nearest spawn) is always kept.
+                int fuelPodCount = FuelPods.CountFrom(fuelPodCountEnv);
+                for (int i = 0; i < fuelPodCount; i++)
+                {
+                    registry.Register(FuelPodEntity(i));
                 }
             }
 

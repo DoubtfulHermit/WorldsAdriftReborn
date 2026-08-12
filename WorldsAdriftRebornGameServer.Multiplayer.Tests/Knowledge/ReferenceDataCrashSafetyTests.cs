@@ -66,10 +66,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         // loop - AtlasShardCatalogue / AtlasShardRegistry, granted through
         // WorldsAdriftRebornGameServer.TryCollectAtlasShard). So the Atlas Sky Core /
         // Enhancer / Lifter recipes that consume it are craftable in the live world.
+        //
+        // fuel is a gather source on the SAME footing as the atlas shard: a fuel POD
+        // ("fuel egg") is a host-less LodgeableState world entity a player PICKS UP
+        // with a 1211 PickUp (FuelPods / the shared LodgeablePickupRegistry, granted
+        // through WorldsAdriftRebornGameServer.TryCollectFuelPod). So the combustion/
+        // light recipes that consume it (torch, hipLamp, headTorch, campFire, stove,
+        // lamp - the slots that already carry the fuel-container icon) are craftable
+        // in the live world.
         private static readonly HashSet<string> GatherableMaterials = new()
         {
             "iron", "copper", "aluminium", "birch",
             "atlasShard",
+            "fuel",
         };
 
         // The node types that actually learn a craftable schematic (mirror of
