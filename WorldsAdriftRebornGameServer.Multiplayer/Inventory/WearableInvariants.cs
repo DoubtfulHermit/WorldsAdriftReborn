@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Placement;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
 {
     /// <summary>
@@ -15,6 +17,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
     ///   slotType != "None" AND a parseable meta["totalHealth"] of at least
     ///   0.01 - so an id here that fails either test is a frame-rate cliff, not
     ///   a missing hat.
+    /// - an id in itemIds for an item the client cannot resolve to a rig
+    ///   UtilityItem is ALSO a KeyNotFoundException per frame. GearWearablesVisualizer
+    ///   .RegisterWearables only ever adds an id to its _utilityIdToUtility dict when
+    ///   one of CharacterCustomisationVisualizer.UtilityItems (the glider, held tools -
+    ///   things with an actual rig mesh) has a matching ItemTypeId. A DEPLOYABLE
+    ///   (shipyard, assemblyStation) is marked equippable/characterSlot="Utility" with a
+    ///   totalHealth meta in itemData.json - byte-identical in shape to the glider - so
+    ///   worn in the Utility slot it passes both tests above, but the client has NO
+    ///   UtilityItem for a placed structure, so its id is never registered and
+    ///   UpdateActiveWornItemsHealths throws _utilityIdToUtility[id] EVERY FRAME until
+    ///   the client dies. So a worn deployable must be excluded here (see the
+    ///   Deployables.IsDeployable guard in <see cref="For"/>). Root cause of the
+    ///   place-a-shipyard crash: the id was a real worn item present in 1081, so every
+    ///   1081/1280 co-push agreed - the mismatch is with the CLIENT'S rig, not the
+    ///   inventory, and only this exclusion closes it.
     ///
     /// The old equip handler wrote these arrays by hand with a single-element
     /// list, which is why equipping a second garment REPLACED the first. There
@@ -50,6 +67,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             foreach (InventoryItem item in model.Items)
             {
                 if (!item.IsWorn)
+                {
+                    continue;
+                }
+
+                // A worn DEPLOYABLE (shipyard, assemblyStation) is never a rig
+                // UtilityItem on the client, so putting its id here is a
+                // KeyNotFoundException per frame (see the type doc). It is
+                // marked equippable/characterSlot="Utility"+totalHealth in
+                // itemData.json only so the placement flow can hold it; it is
+                // placed, not worn-and-drained, and has no durability visual to
+                // feed. Excluded before the totalHealth gate because it WOULD
+                // pass it.
+                if (Deployables.IsDeployable(item.ItemTypeId))
                 {
                     continue;
                 }
