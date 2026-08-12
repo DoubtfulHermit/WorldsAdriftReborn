@@ -11,11 +11,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
     /// <summary>
     /// The FUEL reference data as SHIPPED in the config files, read from disk exactly
     /// as the game server loads it. Proves the gather->craft loop can complete: the
-    /// granted item (<c>"fuel"</c>) is a real grantable Fuel-category row, and the
-    /// combustion/light recipes consume that same real id in the slot that already
-    /// carries the fuel-container icon (a placeholder correction, not an invention -
-    /// the same class of fix as the atlas shard slot; the retail fuel counts are lost,
-    /// see docs/research/findings-combustion-fuel.md §6).
+    /// item a SALVAGED fuel canister grants (<c>"fuel"</c>) is a real grantable
+    /// Fuel-category row, and the combustion/light recipes consume that same real id in
+    /// the slot that already carries the fuel-container icon (a placeholder correction,
+    /// not an invention - the same class of fix as the atlas shard slot).
+    ///
+    /// The per-canister yield is NOT lost: 3 shots of 8/8/9 = 25 fuel is a recovered
+    /// retail figure, pinned in <see cref="FuelCanisterYieldTests"/>. What remains
+    /// unknown is the per-recipe fuel COUNT (how much fuel a torch really costs), which
+    /// stays at the shipped amountRequired - see docs/research/findings-combustion-fuel.md §6.
     /// </summary>
     public class FuelRefdataIntegrityTests
     {

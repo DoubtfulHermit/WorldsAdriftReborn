@@ -110,22 +110,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         continue;
                     }
 
-                    // A FUEL POD: host-less, directly pickable, grants "fuel". Same
-                    // shared pickup core as the shard, a parallel transaction. NOT gated
-                    // behind WAREBORN_PLACEMENT for the same reason: the fuel gather loop
-                    // must work in a plain session (findings-combustion-fuel §5).
-                    if (WorldsAdriftRebornGameServer.FuelPodLedger.Contains(pickupTarget))
-                    {
-                        Multiplayer.LodgeablePickupOutcome outcome =
-                            WorldsAdriftRebornGameServer.TryCollectFuelPod(
-                                entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
-                        if (outcome != Multiplayer.LodgeablePickupOutcome.Grant)
-                        {
-                            Console.WriteLine("[info] fuel pod PickUp by entity " + entityId
-                                + " on " + pickupTarget + " not granted: " + outcome + ".");
-                        }
-                        continue;
-                    }
+                    // NOTE: a FUEL CANISTER is deliberately NOT handled here. Retail fuel
+                    // is SALVAGED with the gauntlet beam, not picked up, so its shots
+                    // arrive on 2106 (MultitoolSalvagerState_Handler -> OnSalvageShot ->
+                    // OnFuelCanisterShot) and it advertises no 1210 prompt at all.
                 }
             }
 
