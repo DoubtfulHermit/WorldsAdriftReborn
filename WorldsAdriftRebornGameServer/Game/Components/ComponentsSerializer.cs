@@ -766,20 +766,27 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1131)
                     {
-                        // timeRate stays at 1f, NOT the client's own default of 144f.
+                        // SHARED world-time epoch. This is a ONE-TIME checkout seed: the
+                        // client initialises its predicted clock from these fields and then
+                        // free-runs the day/night cycle from its own Time.deltaTime
+                        // (WorldStateVisualizer.Update). The bug this fixes is that the seed
+                        // used to be a CONSTANT (time=0.15, days=1), so two clients that
+                        // joined minutes apart both started at 0.15 and stayed that many
+                        // minutes out of phase forever - sun/lighting desynced, observed
+                        // directly in a two-player session (light through the rocks differed).
                         //
-                        // Each client is served this component at ITS OWN checkout moment and
-                        // runs the day/night cycle from there, so two clients that joined a
-                        // few minutes apart are a few minutes out of phase. At 1f that is a
-                        // few minutes of a 24-hour cycle - invisible. At 144f the same gap
-                        // becomes hours of game time, and the sun is visibly in a different
-                        // place on each screen. That was observed directly in a two-player
-                        // session: light coming through the rocks differed between clients.
-                        //
-                        // The real fix is a SHARED absolute epoch so both clients compute the
-                        // same time of day regardless of when they joined; until then a slow
-                        // cycle hides the divergence. Do not raise this without fixing that.
-                        WorldData.Data woData = new WorldData.Data(new WorldDataData(new EntityId(0), 0.15f, 1f, 1));
+                        // Now the seed is the CURRENT shared time: ServerWorldClock advances
+                        // the boot epoch by real server uptime at the same rate the client
+                        // integrates (timeRate/86400 per second), so a client checking out
+                        // late is handed the time a client present since boot would be
+                        // showing, and both then free-run in phase. timeRate stays 1f (a
+                        // real-time 24h cycle) - and because server advance and client
+                        // free-run now use the SAME rate from the SAME point, raising it no
+                        // longer desyncs the clocks. See Multiplayer.WorldClock (pure math,
+                        // tested) and Multiplayer.ServerWorldClock (the monotonic boot clock).
+                        Multiplayer.WorldTime now = Multiplayer.ServerWorldClock.Current();
+                        WorldData.Data woData = new WorldData.Data(
+                            new WorldDataData(new EntityId(0), now.DayTime, Multiplayer.WorldClock.TimeRate, now.Days));
 
                         obj = woData;
                     }
