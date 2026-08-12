@@ -1533,7 +1533,8 @@ namespace WorldsAdriftRebornGameServer
                 SpawnDatabank,
                 Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"),
                 SpawnAtlasShard,
-                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"));
+                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"),
+                VaryTreeSpecies);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1680,6 +1681,27 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnDeposit =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1";
+
+        /// <summary>
+        /// Whether the distributed trees cycle through the eight verified species
+        /// instead of all being birch. OFF unless WAREBORN_TREE_SPECIES=1.
+        ///
+        /// The reasoning for a default-off knob rather than just turning it on. The
+        /// desk evidence is strong: all eight species in
+        /// <see cref="Multiplayer.WorldEntities.VerifiedSpecies"/> have a recovered
+        /// and verified skeleton, a recovered wood that resolves to a real item, and
+        /// a MonoBehaviour set identical to `Tree`'s - so the ten component ids they
+        /// ask for are the ten already served. But NO non-`Tree` tree prefab has
+        /// ever been in front of a running client on this server, and the client's
+        /// component batch is <c>failOnComponentInitError: true</c>, so the failure
+        /// mode if some eleventh requirement was missed is a tree that comes up
+        /// broken rather than a log line. Off by default keeps today's proven
+        /// behaviour untouched; flipping it on is the next live test, and the
+        /// near-spawn tree stays birch either way so that test is never the first
+        /// thing a player meets.
+        /// </summary>
+        private static bool VaryTreeSpecies =>
+            Environment.GetEnvironmentVariable("WAREBORN_TREE_SPECIES") == "1";
 
         /// <summary>
         /// Whether to lodge an ATLAS SHARD in the proven deposit - the real retail
@@ -1889,13 +1911,32 @@ namespace WorldsAdriftRebornGameServer
                 // a mask the client disagrees with (see TreeSpecies remarks). That is
                 // why the world places `Tree` today.
                 string? treeWood = Multiplayer.TreeSpecies.WoodFor(entity.AssetName);
-                if (treeWood != null
-                    && Harvest.Plant(entityId, Multiplayer.Trees.Topology(), treeWood))
+                if (treeWood != null)
                 {
-                    Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
-                        + ": " + Multiplayer.Trees.SectionCount + " sections, mask "
-                        + Convert.ToString(Multiplayer.Trees.FullSectionMask, 2)
-                        + ", " + treeWood + ".");
+                    // THE SKELETON MUST BE THE SPECIES' OWN. The mask is the
+                    // protocol: we compute which sections fall, the client renders
+                    // whatever it is handed. Cutting a palm with birch's arithmetic
+                    // is therefore not a loggable error, it is a tree that visibly
+                    // comes apart wrongly - and the skeletons really do differ
+                    // (section counts run 9..14 across the 65 prefabs). All 65 are
+                    // recovered in TreeTopologies; the `Tree` fallback survives only
+                    // so an unrecovered prefab degrades to today's behaviour instead
+                    // of refusing to spawn, and it says so out loud when it happens.
+                    Multiplayer.TreeTopology? ownTopology = Multiplayer.TreeTopologies.For(entity.AssetName);
+                    Multiplayer.TreeTopology topology = ownTopology ?? Multiplayer.Trees.Topology();
+
+                    if (Harvest.Plant(entityId, topology, treeWood))
+                    {
+                        Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
+                            + ": " + topology.SectionCount + " sections, mask "
+                            + Convert.ToString(topology.FullMask, 2)
+                            + ", " + treeWood
+                            + (ownTopology != null
+                                ? " (own skeleton)."
+                                : " (FALLBACK to Tree's skeleton - '" + entity.AssetName
+                                  + "' has no recovered topology, so it will come apart wrongly if its"
+                                  + " real skeleton differs)."));
+                    }
                 }
 
                 // A metal node becomes an entry in the harvest ledger the moment it
