@@ -75,14 +75,17 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
 
             FixedPointPosition hullPos = BuiltShipPlacement.HullNextTo(shipyardPos);
 
-            (long hullEntityId, WorldEntity hull, WorldEntity deck, long deckEntityId) =
-                RegisterBuiltShip(hullPos, hullBytes);
+            BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes);
+            long hullEntityId = reg.HullEntityId;
+            WorldEntity hull = reg.Hull;
 
             // Persist the built ship so it reappears next boot - re-spawned as a world
             // entity in the connect-time spawn plan, exactly like this runtime spawn. The
             // returned persistent index is the durable handle a mounted part references its
             // ship by; record it against this hull so a mount committed on it persists too.
-            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, hullBytes);
+            // Persist the EFFECTIVE bytes (the min-hull fallback if the design was bad), so
+            // a restore regenerates the SAME panels and keys from the SAME geometry.
+            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
 
             // ONE SHIP PER SHIPYARD: record which yard produced this hull, so its 1205
@@ -95,8 +98,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
                 bool hullOk = BroadcastToPeer(peer, hullEntityId, hull);
-                bool deckOk = BroadcastToPeer(peer, deckEntityId, deck);
-                if (hullOk && deckOk)
+                bool decksOk = true;
+                foreach ((long deckId, WorldEntity deckEntity) in reg.Decks)
+                {
+                    decksOk &= BroadcastToPeer(peer, deckId, deckEntity);
+                }
+                if (hullOk && decksOk)
                 {
                     reached++;
                 }
@@ -110,10 +117,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             }
 
             Console.WriteLine("[info] built-ship spawn: BUILT ship for shipyard " + shipyardEntityId
-                + " as hull entity " + hullEntityId + " + deck entity " + deckEntityId
-                + " at " + hullPos + " (" + hullBytes.Length + "-byte hull, "
+                + " as hull entity " + hullEntityId + " + " + reg.Decks.Count + " deck panel entity(ies)"
+                + " at " + hullPos + " (" + reg.EffectiveHullBytes.Length + "-byte hull, "
                 + BuiltShipPlacement.HullSeedComponents.Count + " hull seeds + "
-                + BuiltShipPlacement.DeckSeedComponents.Count + " deck seeds), sent to "
+                + BuiltShipPlacement.DeckSeedComponents.Count + " deck seeds each), sent to "
                 + reached + " peer(s). This is build #" + BuiltShips.Count + " this session.");
 
             if (reached == 0)
@@ -139,14 +146,14 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             byte[] hullBytes = ResolveValidHullBytes(record.HullBytes);
             FixedPointPosition hullPos = record.HullPosition();
 
-            (long hullEntityId, WorldEntity hull, WorldEntity _, long deckEntityId) =
-                RegisterBuiltShip(hullPos, hullBytes);
+            BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes);
 
-            Console.WriteLine("[info] built-ship spawn: RESTORED ship as hull entity " + hullEntityId
-                + " + deck entity " + deckEntityId + " at " + hull.Position + " (" + hullBytes.Length
-                + "-byte hull); it will be served to every joining client via the spawn plan.");
+            Console.WriteLine("[info] built-ship spawn: RESTORED ship as hull entity " + reg.HullEntityId
+                + " + " + reg.Decks.Count + " deck panel entity(ies) at " + reg.Hull.Position + " ("
+                + reg.EffectiveHullBytes.Length + "-byte hull); it will be served to every joining client"
+                + " via the spawn plan.");
 
-            return hullEntityId;
+            return reg.HullEntityId;
         }
 
         /// <summary>
@@ -159,21 +166,106 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// The ledger is seeded BEFORE any peer can check the entities out: the hull's
         /// own bytes (1209) and that the deck is a deck (1099).
         /// </summary>
-        private static (long HullEntityId, WorldEntity Hull, WorldEntity Deck, long DeckEntityId)
-            RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes)
+        /// <summary>The result of registering a built ship: its hull, its deck panels, and the bytes actually served.</summary>
+        private readonly struct BuiltRegistration
         {
+            public BuiltRegistration(long hullEntityId, WorldEntity hull,
+                IReadOnlyList<(long Id, WorldEntity Entity)> decks, byte[] effectiveHullBytes)
+            {
+                HullEntityId = hullEntityId;
+                Hull = hull;
+                Decks = decks;
+                EffectiveHullBytes = effectiveHullBytes;
+            }
+
+            public long HullEntityId { get; }
+            public WorldEntity Hull { get; }
+            public IReadOnlyList<(long Id, WorldEntity Entity)> Decks { get; }
+
+            /// <summary>The hull bytes actually registered for 1209 and used to derive the decks (the fallback if the design was bad).</summary>
+            public byte[] EffectiveHullBytes { get; }
+        }
+
+        private static BuiltRegistration RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes)
+        {
+            // Derive the deck panels from the SAME validated bytes 1209 will serve, so the
+            // visible hull and its floors can never come from different geometry. If the
+            // design yields no panels, fall back to the minimum hull for BOTH 1209 and the
+            // decks; if even that yields none, last-resort the single static rectangle.
+            byte[] effectiveBytes = hullBytes;
+            IReadOnlyList<DeckPanel> panels = TryGeneratePanels(effectiveBytes, out string? firstError);
+            if (panels.Count == 0)
+            {
+                Console.WriteLine("[warn] built-ship spawn: deck derivation from the " + effectiveBytes.Length
+                    + "-byte hull yielded no panels" + (firstError == null ? "" : " (" + firstError + ")")
+                    + "; regenerating hull + decks from the minimum hull.");
+                effectiveBytes = ShipHull.MinimumHullData();
+                panels = TryGeneratePanels(effectiveBytes, out _);
+            }
+            if (panels.Count == 0)
+            {
+                Console.WriteLine("[warn] built-ship spawn: even the minimum hull derived no deck panels;"
+                    + " last-resort spawning the single static deck rectangle.");
+                panels = new[] { StaticFallbackPanel() };
+            }
+
             int sequence = BuiltShips.NextSequence();
-            BuiltShipSpawnPlan.HullAndDeck plan = BuiltShipSpawnPlan.For(sequence, hullPos);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence, hullPos, panels);
 
             WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Hull);
-            WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Deck);
-
             long hullEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Hull);
-            long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Deck);
-            BuiltShips.RegisterHull(hullEntityId, hullBytes);
-            BuiltShips.RegisterDeck(deckEntityId);
+            BuiltShips.RegisterHull(hullEntityId, effectiveBytes);
 
-            return (hullEntityId, plan.Hull, plan.Deck, deckEntityId);
+            var decks = new List<(long Id, WorldEntity Entity)>(plan.Decks.Count);
+            for (int i = 0; i < plan.Decks.Count; i++)
+            {
+                WorldEntity deckEntity = plan.Decks[i];
+                WorldsAdriftRebornGameServer.WorldEntities.Register(deckEntity);
+                long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(deckEntity);
+                BuiltShips.RegisterDeck(deckEntityId, panels[i].LocalVertices);
+                decks.Add((deckEntityId, deckEntity));
+            }
+
+            return new BuiltRegistration(hullEntityId, plan.Hull, decks, effectiveBytes);
+        }
+
+        /// <summary>
+        /// Decodes <paramref name="bytes"/> and derives the deck panels, never throwing:
+        /// a bad blob or a generation error returns an empty list (and the reason), which
+        /// the caller treats as a fallback trigger.
+        /// </summary>
+        private static IReadOnlyList<DeckPanel> TryGeneratePanels(byte[] bytes, out string? error)
+        {
+            if (!ShipPlanModel.TryDecode(bytes, out ShipPlanModel? model, out error) || model == null)
+            {
+                return System.Array.Empty<DeckPanel>();
+            }
+            try
+            {
+                return DeckGenerator.Generate(model);
+            }
+            catch (System.Exception e)
+            {
+                error = e.Message;
+                return System.Array.Empty<DeckPanel>();
+            }
+        }
+
+        /// <summary>
+        /// The last-resort single deck panel: the legacy static rectangle
+        /// (<see cref="Multiplayer.Deck.LocalVertices"/>) as a <see cref="DeckPanel"/>,
+        /// centred on the hull (its centroid is the origin, so no offset). Registered like
+        /// any other panel so it is a built deck (a placeable, hull-parented surface) and
+        /// its 1518 serves the rectangle.
+        /// </summary>
+        private static DeckPanel StaticFallbackPanel()
+        {
+            var verts = new List<ShipVector3>();
+            foreach ((double x, double y, double z) in Multiplayer.Deck.LocalVertices)
+            {
+                verts.Add(new ShipVector3((float)x, (float)y, (float)z));
+            }
+            return new DeckPanel(new ShipVector3(0f, 0f, 0f), verts, sourceDeckNumber: 0, sourceQuadIndex: 0);
         }
 
         private static byte[] ResolveValidHullBytes(byte[] savedHullBytes)

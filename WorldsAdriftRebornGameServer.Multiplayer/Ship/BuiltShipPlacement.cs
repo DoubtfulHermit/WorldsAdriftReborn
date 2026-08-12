@@ -52,17 +52,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             return KeyPrefix + ":" + sequence + ":hull";
         }
 
-        /// <summary>The walkable deck entity's registration key for build number <paramref name="sequence"/>.</summary>
+        /// <summary>
+        /// The walkable deck entity's registration key for build number <paramref name="sequence"/>.
+        /// Retained for the legacy single-deck path; dynamic decks use the indexed
+        /// <see cref="DeckKey(int,int)"/> overload, one key per derived panel.
+        /// </summary>
         public static string DeckKey(int sequence)
         {
             return KeyPrefix + ":" + sequence + ":deck";
         }
 
+        /// <summary>
+        /// The registration key of derived deck PANEL <paramref name="panelIndex"/> for
+        /// build number <paramref name="sequence"/>: <c>built-ship:{sequence}:deck:{panelIndex}</c>.
+        /// Every panel is its own world entity so the client builds one collider per
+        /// panel exactly as its own <c>ShipDeckSpawningVisualizer</c> would. The index is
+        /// the panel's position in <see cref="DeckGenerator.Generate"/>'s deterministic
+        /// output, so the same hull bytes regenerate the same keys on a restore.
+        /// </summary>
+        public static string DeckKey(int sequence, int panelIndex)
+        {
+            return KeyPrefix + ":" + sequence + ":deck:" + panelIndex;
+        }
+
         /// <summary>The suffix a built ship's HULL registration key ends with.</summary>
         private const string HullSuffix = ":hull";
 
-        /// <summary>The suffix a built ship's DECK registration key ends with.</summary>
+        /// <summary>The suffix a built ship's LEGACY single-deck registration key ends with.</summary>
         private const string DeckSuffix = ":deck";
+
+        /// <summary>The infix marking a built ship's INDEXED deck-panel registration key.</summary>
+        private const string DeckInfix = ":deck:";
 
         /// <summary>
         /// The HULL registration key sibling of a built ship's DECK key, or null if
@@ -87,12 +107,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public static string? HullKeyForDeckKey(string? deckKey)
         {
             if (deckKey == null
-                || !deckKey.StartsWith(KeyPrefix + ":", System.StringComparison.Ordinal)
-                || !deckKey.EndsWith(DeckSuffix, System.StringComparison.Ordinal))
+                || !deckKey.StartsWith(KeyPrefix + ":", System.StringComparison.Ordinal))
             {
                 return null;
             }
-            return deckKey.Substring(0, deckKey.Length - DeckSuffix.Length) + HullSuffix;
+
+            // An INDEXED panel key "built-ship:N:deck:M": the hull is the sibling before
+            // ":deck:", so strip everything from the infix on. Checked first because a
+            // ":deck:M" key also ends with a digit, not the legacy ":deck".
+            int infix = deckKey.IndexOf(DeckInfix, System.StringComparison.Ordinal);
+            if (infix >= 0)
+            {
+                return deckKey.Substring(0, infix) + HullSuffix;
+            }
+
+            // The legacy singular key "built-ship:N:deck".
+            if (deckKey.EndsWith(DeckSuffix, System.StringComparison.Ordinal))
+            {
+                return deckKey.Substring(0, deckKey.Length - DeckSuffix.Length) + HullSuffix;
+            }
+
+            return null;
         }
 
         /// <summary>

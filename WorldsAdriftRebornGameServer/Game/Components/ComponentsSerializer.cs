@@ -1767,16 +1767,30 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // SOLID BoxCollider a player can stand on. The one component
                         // that turns the beam skeleton into a ship you can walk on.
                         //
-                        // The vertices are the pure Multiplayer.Deck.LocalVertices so
-                        // the polygon is asserted natively; only the Vector3f/List
-                        // construction lives here because those are game types. They
-                        // are in the deck entity's own local space and pre-ShipScale;
-                        // the client applies scale 2 in MakeMesh.
+                        // A BUILT deck panel serves its OWN derived polygon (the panel
+                        // DeckGenerator produced for it, keyed by entity id in the built-ship
+                        // ledger); the legacy static test deck - and any last-resort fallback -
+                        // serves the pure Multiplayer.Deck.LocalVertices rectangle. Both are in
+                        // the deck entity's own local space and pre-ShipScale; the client applies
+                        // scale 2 in MakeMesh. Only the Vector3f/List construction lives here
+                        // because those are game types.
                         Improbable.Collections.List<Improbable.Math.Vector3f> deckVertices =
                             new Improbable.Collections.List<Improbable.Math.Vector3f>();
-                        foreach ((double vx, double vy, double vz) in Multiplayer.Deck.LocalVertices)
+                        System.Collections.Generic.IReadOnlyList<Multiplayer.Ship.ShipVector3>? builtVerts =
+                            Game.Crafting.BuiltShips.DeckVerticesFor(entityId);
+                        if (builtVerts != null)
                         {
-                            deckVertices.Add(new Improbable.Math.Vector3f((float)vx, (float)vy, (float)vz));
+                            foreach (Multiplayer.Ship.ShipVector3 v in builtVerts)
+                            {
+                                deckVertices.Add(new Improbable.Math.Vector3f(v.X, v.Y, v.Z));
+                            }
+                        }
+                        else
+                        {
+                            foreach ((double vx, double vy, double vz) in Multiplayer.Deck.LocalVertices)
+                            {
+                                deckVertices.Add(new Improbable.Math.Vector3f((float)vx, (float)vy, (float)vz));
+                            }
                         }
 
                         ShipDeckState.Data deckData = new ShipDeckState.Data(deckVertices);

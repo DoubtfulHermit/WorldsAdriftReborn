@@ -75,17 +75,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
         // Built ship (hull + deck)
         // -----------------------------------------------------------------
 
+        // A default one-cell hull yields the six-panel deck (three lateral strips for the
+        // lower floor + three for the exposed upper deck) both the runtime build and the
+        // restore derive from the same bytes.
+        private static System.Collections.Generic.IReadOnlyList<DeckPanel> DefaultPanels()
+            => DeckGenerator.Generate(ShipPlanModel.MakeDefaultStarterHull());
+
         [Fact]
         public void A_restored_built_ship_carries_the_proven_hull_and_deck_seed_sets()
         {
             FixedPointPosition hullPos = FixedPointPosition.FromMetres(50.0, 0.5, 50.0);
 
-            BuiltShipSpawnPlan.HullAndDeck plan = BuiltShipSpawnPlan.For(sequence: 3, hullPos);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence: 3, hullPos, DefaultPanels());
 
-            // The hull's set is the proven static test hull's (recognition on); the
-            // deck's is the proven deck readers. Id-for-id, or the ship renders nothing.
+            // The hull's set is the proven static test hull's (recognition on); every
+            // deck panel's is the proven deck readers. Id-for-id, or the ship renders nothing.
             Assert.Equal(BuiltShipPlacement.HullSeedComponents, plan.Hull.SeedComponents);
-            Assert.Equal(BuiltShipPlacement.DeckSeedComponents, plan.Deck.SeedComponents);
+            Assert.NotEmpty(plan.Decks);
+            foreach (WorldEntity deck in plan.Decks)
+            {
+                Assert.Equal(BuiltShipPlacement.DeckSeedComponents, deck.SeedComponents);
+            }
         }
 
         [Fact]
@@ -93,20 +103,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
         {
             FixedPointPosition hullPos = FixedPointPosition.FromMetres(50.0, 0.5, 50.0);
 
-            BuiltShipSpawnPlan.HullAndDeck plan = BuiltShipSpawnPlan.For(sequence: 3, hullPos);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence: 3, hullPos, DefaultPanels());
 
             Assert.Equal(hullPos, plan.Hull.Position);
-            // The deck is derived from the hull position exactly as at build time.
-            Assert.Equal(BuiltShipPlacement.DeckOn(hullPos), plan.Deck.Position);
-
             Assert.Equal(BuiltShipPlacement.HullKey(3), plan.Hull.Key);
-            Assert.Equal(BuiltShipPlacement.DeckKey(3), plan.Deck.Key);
-
             Assert.Equal(WorldEntities.ShipFrameAssetName, plan.Hull.AssetName);
-            Assert.Equal(Deck.AssetName, plan.Deck.AssetName);
-
             Assert.Equal(SpawnOrder.AfterPlayer, plan.Hull.Order);
-            Assert.Equal(SpawnOrder.AfterPlayer, plan.Deck.Order);
+
+            // Every deck panel is its own entity with an indexed key, the deck asset, and
+            // spawn order; and it sits at the hull plus the panel's hull-local offset.
+            for (int i = 0; i < plan.Decks.Count; i++)
+            {
+                WorldEntity deck = plan.Decks[i];
+                Assert.Equal(BuiltShipPlacement.DeckKey(3, i), deck.Key);
+                Assert.Equal(Deck.AssetName, deck.AssetName);
+                Assert.Equal(SpawnOrder.AfterPlayer, deck.Order);
+            }
         }
 
         // -----------------------------------------------------------------

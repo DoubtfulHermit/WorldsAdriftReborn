@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 
 namespace WorldsAdriftRebornGameServer.Game.Crafting
 {
@@ -27,7 +28,18 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     internal static class BuiltShips
     {
         private static readonly Dictionary<long, byte[]> HullBytesByEntityId = new Dictionary<long, byte[]>();
-        private static readonly HashSet<long> DeckEntityIds = new HashSet<long>();
+
+        /// <summary>
+        /// Every built deck panel's entity id mapped to its IMMUTABLE 1518 vertex loop -
+        /// the panel geometry <see cref="DeckGenerator"/> derived for it, in the deck
+        /// entity's own local space (centroid-relative, raw ShipPlan units, pre-scale).
+        /// This is static seed data for the life of the ship, not an update stream: the
+        /// 1518 serialize branch reads it once per checkout, keyed by the deck's id, so
+        /// each panel serves its OWN polygon instead of the one global static rectangle.
+        /// The presence of a key also answers <see cref="IsBuiltDeck"/>.
+        /// </summary>
+        private static readonly Dictionary<long, IReadOnlyList<ShipVector3>> DeckVerticesByEntityId =
+            new Dictionary<long, IReadOnlyList<ShipVector3>>();
 
         /// <summary>
         /// A built hull's PERSISTENT index - its position in the persisted
@@ -74,10 +86,25 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             HullBytesByEntityId[hullEntityId] = hullBytes;
         }
 
-        /// <summary>Records a newly built deck's entity id so the 1099 branch gives it the deck material.</summary>
-        internal static void RegisterDeck(long deckEntityId)
+        /// <summary>
+        /// Records a newly built deck PANEL's entity id and the 1518 vertex loop its
+        /// ShipDeckState must serve. The vertices come from <see cref="DeckGenerator"/>
+        /// (already centroid-relative and pre-scale, as the client expects), so both the
+        /// 1099 material branch (via <see cref="IsBuiltDeck"/>) and the 1518 polygon
+        /// branch (via <see cref="DeckVerticesFor"/>) are straight lookups.
+        /// </summary>
+        internal static void RegisterDeck(long deckEntityId, IReadOnlyList<ShipVector3> localVertices)
         {
-            DeckEntityIds.Add(deckEntityId);
+            DeckVerticesByEntityId[deckEntityId] = localVertices;
+        }
+
+        /// <summary>
+        /// The 1518 vertex loop a built deck panel must serve, or null if the id is not a
+        /// built deck (the caller then serves the global static <c>Deck.LocalVertices</c>).
+        /// </summary>
+        internal static IReadOnlyList<ShipVector3>? DeckVerticesFor(long entityId)
+        {
+            return DeckVerticesByEntityId.TryGetValue(entityId, out IReadOnlyList<ShipVector3>? v) ? v : null;
         }
 
         /// <summary>Whether this entity id is a built ship's hull.</summary>
@@ -86,10 +113,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             return HullBytesByEntityId.ContainsKey(entityId);
         }
 
-        /// <summary>Whether this entity id is a built ship's deck.</summary>
+        /// <summary>Whether this entity id is a built ship's deck panel.</summary>
         internal static bool IsBuiltDeck(long entityId)
         {
-            return DeckEntityIds.Contains(entityId);
+            return DeckVerticesByEntityId.ContainsKey(entityId);
         }
 
         /// <summary>
