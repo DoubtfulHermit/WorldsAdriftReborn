@@ -1361,6 +1361,60 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                            new Option<double>()));
                         obj = data;
                     }
+                    else if (componentId == 1010)
+                    {
+                        // 1010 IslandResourceSpawnerState - the SERVER's resource-request
+                        // component on the ISLAND. The stock client's IslandProxyVisualizer
+                        // [Require]s its READER (acs/IslandProxyVisualizer.cs:22) and, in
+                        // OnEnable, copies metalOnSurfaceProb off it (:60) and subscribes to
+                        // its SpawnResources event (:58). Seeding it here is what makes that
+                        // visualizer enable at all; the SpawnResources REQUEST itself is a
+                        // separate ComponentUpdate raised later (Game.Gathering.IslandResourceService),
+                        // once the client has had a chance to run OnEnable and subscribe.
+                        //
+                        // The data fields are the LOST server refdata (count/density/quality
+                        // maps); only metalOnSurfaceProb is read by the client, and it forces
+                        // it to 1 anyway (acs/IslandSurfaceData.cs:184), so a reconstructed
+                        // 0.3 is harmless. Everything else is a zero/empty seed - the client
+                        // reads none of it. See Multiplayer.IslandResourceHandshake.
+                        Bossa.Travellers.Islands.IslandResourceSpawnerState.Data resourceData =
+                            new Bossa.Travellers.Islands.IslandResourceSpawnerState.Data(
+                                new Bossa.Travellers.Islands.IslandResourceSpawnerStateData(
+                                    0,      // metalRocksRequiredToRespawn (unused by client)
+                                    0,      // initialMetalRockDeposits (server count; we use the env knob)
+                                    0f,     // metalDepositDensity
+                                    0f,     // minMetalRockDeposits
+                                    Multiplayer.IslandResourceHandshake.MetalOnSurfaceProb,
+                                    new Improbable.Collections.Map<string, int>(),   // metalDepositQuantities
+                                    new Improbable.Collections.Map<string, int>(),   // metalDepositQualities
+                                    0,      // eggsSpawned
+                                    new Improbable.Collections.List<EntityId>()));   // spawnedMetalDeposits
+                        obj = resourceData;
+                    }
+                    else if (componentId == 1011)
+                    {
+                        // 1011 IslandResourceSpawnerClientState - the CLIENT's resource-reply
+                        // WRITER on the island (IslandProxyVisualizer [Require]s it, :25). The
+                        // client reads batchSize + spawnInterval off this seed (:82-83) to pace
+                        // its reply batches, and OVERWRITES initialized + islandMeshCount itself
+                        // once its visualizer runs (:86). Seeded initialized=false so the
+                        // client's own OnEnable sends its Initialized(true).IslandMeshCount(...)
+                        // update, exactly as it does against a real deployment.
+                        //
+                        // Seeding it is NOT optional even though the client is the writer: the
+                        // 1011 update handler dispatches only for a component the server already
+                        // has in ComponentMap[peer][island][1011] (ComponentUpdateManager), so
+                        // no seed => no handler call. Its authority is granted separately by
+                        // the island-resource setup so the client's WRITER binds.
+                        Bossa.Travellers.Islands.IslandResourceSpawnerClientState.Data clientResourceData =
+                            new Bossa.Travellers.Islands.IslandResourceSpawnerClientState.Data(
+                                new Bossa.Travellers.Islands.IslandResourceSpawnerClientStateData(
+                                    false,                                                       // initialized (client sets true)
+                                    0,                                                           // islandMeshCount (client fills from its own mesh count)
+                                    Multiplayer.IslandResourceHandshake.BatchSize,
+                                    Multiplayer.IslandResourceHandshake.SpawnIntervalSeconds));
+                        obj = clientResourceData;
+                    }
                     else if(componentId == 190604)
                     {
                         GlobalTransformState.Data data = new GlobalTransformState.Data(new GlobalTransformStateData(new Coordinates(0, 0, 0),
