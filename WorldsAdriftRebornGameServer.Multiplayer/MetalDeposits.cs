@@ -150,48 +150,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The test deposit placements on Haven, island-local metres.
+        /// The deposit placements on Haven, island-local metres - a DENSE, reviewed
+        /// resource field generated deterministically from the real extracted Haven
+        /// LOD0 surface table, NOT a hand-measured handful.
         ///
-        /// Index 0 is the PROVEN-mode deposit: island-local (216.0, 4.57, 8.0) - the
-        /// same measured LOD0 surface vertex the nugget's proven node uses (8.9 m from
+        /// Index 0 is the PROVEN-mode deposit: island-local (216.0, 4.57, 8.0) - a
+        /// measured LOD0 surface vertex the nugget's proven node also uses (8.9 m from
         /// the spawn point, ny = 0.995, well inside the salvager's 10 m aim reach), so
-        /// a tester walks a few paces and aims. The remaining two are a small spread at
-        /// other measured near-spawn vertices so the area reads as more than one rock.
-        /// A deposit is bigger than a nugget; these are far enough apart (>= 14 m) not
-        /// to interpenetrate. Placement is a SEPARATE task - this is just enough to
-        /// prove the mining loop.
+        /// a tester walks a few paces and aims. Everything after it is emitted by
+        /// <see cref="Resources.SurfacePlacementGenerator"/> over
+        /// <see cref="Resources.HavenSurface.Samples"/> under
+        /// <see cref="Resources.HavenSurface.DepositConfig"/>: upward-facing ground
+        /// (ny &gt;= 0.92), reachable height (island-local y in [1.5, 12] - the camp
+        /// platforms at y ~ 40-57 are unreachable and excluded), Poisson-disk thinned
+        /// to an 8 m minimum spacing, and kept clear of the spawn, the ship and the
+        /// distributed trees. That yields ~120 deposits (vs the old hand-placed ~23).
+        ///
+        /// DETERMINISTIC AND STABLE: the generator uses no RNG and no clock, so the
+        /// same embedded surface and config produce the identical layout every
+        /// restart - mining/persistence state keyed on a deposit's index stays
+        /// consistent. Density and spread are tunable via the documented knobs on
+        /// <see cref="Resources.HavenSurface"/> (min spacing, height band, normal
+        /// threshold, target count, clearances).
+        ///
+        /// Metal TYPE and QUALITY are cosmetic for the harvest grant (see
+        /// <see cref="MetalNode.MetalType"/>); they are cycled deterministically per
+        /// index here so each deposit has a distinct-enough material name.
         /// </summary>
-        public static readonly IReadOnlyList<Placement> HavenPlacements = new[]
+        public static readonly IReadOnlyList<Placement> HavenPlacements = BuildHavenPlacements();
+
+        private static IReadOnlyList<Placement> BuildHavenPlacements()
         {
-            new Placement("iron",   6, 216.0, 4.57,   8.0), // PROVEN, 8.9 m from spawn (index 0)
-            // Generated from the extracted Haven LOD0 surface table
-            // (docs/research/world-data/island-surfaces/1431299145.json): flat ground
-            // (upward normal >= 0.92), reachable height y in [1.5,12], each >= 14 m
-            // apart and >= 9 m from the distributed trees, so ore and trees never
-            // overlap and none spawn buried. Metal/quality cycled for variety.
-            new Placement("iron",   5, 200.0, 4.27,   0.0),
-            new Placement("copper", 6, 184.0, 7.32,   0.0),
-            new Placement("iron",   7, 200.0, 4.98,  16.0),
-            new Placement("iron",   5, 184.0, 8.68, -16.0),
-            new Placement("copper", 6, 216.0, 5.51,  16.0),
-            new Placement("iron",   7, 184.0, 5.47,  24.0),
-            new Placement("copper", 5, 228.0, 3.32, -16.0),
-            new Placement("iron",   6, 208.0, 6.84,  32.0),
-            new Placement("iron",   7, 184.0, 3.10, -32.0),
-            new Placement("copper", 5, 168.0, 5.67, -16.0),
-            new Placement("iron",   6, 236.0, 3.07,   4.0),
-            new Placement("iron",   7, 152.0, 4.71,   0.0),
-            new Placement("copper", 5, 160.0, 5.33, -32.0),
-            new Placement("iron",   6, 192.0, 1.50,  56.0),
-            new Placement("copper", 7, 160.0, 4.08,  40.0),
-            new Placement("iron",   5, 136.0, 4.47,   0.0),
-            new Placement("iron",   6, 144.0, 3.91, -32.0),
-            new Placement("copper", 7, 136.0, 5.64,  32.0),
-            new Placement("iron",   5, 152.0, 3.95,  56.0),
-            new Placement("iron",   6, 116.0, 7.51,  12.0),
-            new Placement("copper", 7, 152.0, 2.36,  72.0),
-            new Placement("iron",   5, -32.0, 11.27,  72.0),
-        };
+            IReadOnlyList<Resources.GeneratedPlacement> locals = Resources.HavenSurface.DepositLocals();
+            List<Placement> placements = new List<Placement>(locals.Count);
+            for (int i = 0; i < locals.Count; i++)
+            {
+                Resources.GeneratedPlacement p = locals[i];
+                placements.Add(new Placement(MetalTypeFor(i), QualityFor(i), p.LocalX, p.LocalY, p.LocalZ));
+            }
+            return placements;
+        }
+
+        /// <summary>
+        /// The cosmetic metal name for the deposit at <paramref name="index"/>. Index
+        /// 0 is iron (the proven deposit); the rest are iron-weighted with copper
+        /// every third. Deterministic - the same index always names the same metal.
+        /// </summary>
+        private static string MetalTypeFor(int index) => (index != 0 && index % 3 == 0) ? "copper" : "iron";
+
+        /// <summary>The cosmetic quality (4..8) for the deposit at <paramref name="index"/>. Deterministic.</summary>
+        private static int QualityFor(int index) => index == 0 ? 6 : 4 + ((index * 3) % 5);
 
         /// <summary>
         /// The deposit for a registration key ("deposit-N"), or null if the key is not
