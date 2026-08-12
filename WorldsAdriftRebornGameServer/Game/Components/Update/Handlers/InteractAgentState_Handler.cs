@@ -60,11 +60,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         public override void HandleUpdate(ENetPeerHandle player, long entityId,
             InteractAgentState.Update clientComponentUpdate, InteractAgentState.Data serverComponentData)
         {
-            if (!WorldsAdriftRebornGameServer.Placement.Enabled)
-            {
-                return;
-            }
-
             // A DELTA: the vast majority of 1211 packets carry only look/slot data and
             // no event. Read both event lists straight off the update and get out fast
             // when there is nothing to act on - this runs at frame rate.
@@ -77,9 +72,52 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            // Only the sender's OWN entity: 1211 is the player's own interact state.
+            // Only the sender's OWN entity: 1211 is the player's own interact state
+            // (rule 6). This ownership fact is what the atlas pickup policy is handed and
+            // what the placement paths below require.
             ulong peerId = PeerIdentity.IdOf(player);
-            if (!WorldsAdriftRebornGameServer.Players.Owns(peerId, entityId))
+            bool ownsPlayer = WorldsAdriftRebornGameServer.Players.Owns(peerId, entityId);
+
+            // ATLAS SHARD PICKUP is ALWAYS active - NOT gated behind WAREBORN_PLACEMENT -
+            // because the acquisition loop must work in a plain deposit session. When the
+            // client completes a PickUp interaction on a released shard it fires
+            // TriggerInteractWithObject(shard, PickUp) here (findings-atlas-shards §2
+            // Phase C); the server validates + grants in the pure-policy transaction
+            // WorldsAdriftRebornGameServer.TryCollectAtlasShard. Ownership and verb are
+            // handed to that policy rather than short-circuited here, so the single gate
+            // is the policy. Other verbs/targets fall through to the placement paths.
+            if (!noInteract)
+            {
+                foreach (InteractWithObject pickup in interacts!)
+                {
+                    if (pickup.verb != InteractVerb.PickUp)
+                    {
+                        continue;
+                    }
+                    long shardTarget = pickup.target.Id;
+                    if (!WorldsAdriftRebornGameServer.AtlasShards.IsShard(shardTarget))
+                    {
+                        continue;
+                    }
+                    Multiplayer.AtlasPickupOutcome outcome =
+                        WorldsAdriftRebornGameServer.TryCollectAtlasShard(
+                            entityId, shardTarget, ownsPlayer, verbIsPickUp: true);
+                    if (outcome != Multiplayer.AtlasPickupOutcome.Grant)
+                    {
+                        Console.WriteLine("[info] atlas shard PickUp by entity " + entityId
+                            + " on " + shardTarget + " not granted: " + outcome + ".");
+                    }
+                }
+            }
+
+            // Everything below is placement-only and gated behind WAREBORN_PLACEMENT.
+            if (!WorldsAdriftRebornGameServer.Placement.Enabled)
+            {
+                return;
+            }
+
+            // The placement paths act only on the sender's OWN entity.
+            if (!ownsPlayer)
             {
                 return;
             }

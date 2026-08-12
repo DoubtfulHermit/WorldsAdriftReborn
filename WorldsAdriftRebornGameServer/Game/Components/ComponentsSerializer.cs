@@ -186,6 +186,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
 
+                        // A COLLECTED atlas shard is gone: it has no RemoveEntityOp, so a
+                        // late joiner is seeded the same sunk position everyone present was
+                        // teleported to at collection (BroadcastShardCollected). A lodged or
+                        // released (uncollected) shard keeps its real position.
+                        if (WorldsAdriftRebornGameServer.AtlasShards.IsCollected(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
                         // A BOLTED SHIP PART is seeded hull-RELATIVE so it follows the
                         // moving hull instead of drifting. The localPosition becomes the
                         // part's offset FROM the hull and the parent names the hull with
@@ -571,9 +580,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isHelm = !isCraftStation
                             && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                                 == Multiplayer.WorldEntities.HelmKey;
+                        // An ATLAS SHARD bakes the SAME PickUp verb as the nugget, but its
+                        // availability is SERVER-GATED on release: available=false while the
+                        // shard is lodged in its core (no prompt), flipped true when the core
+                        // is destroyed (WorldsAdriftRebornGameServer.BroadcastShardReleased),
+                        // and false again once collected. So a late joiner checking the shard
+                        // out sees exactly the prompt state everyone present sees, without a
+                        // separate replay. See findings-atlas-shards §2 Phase C.
+                        bool isAtlasShard = !isCraftStation && !isHelm
+                            && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
 
                         InteractionEntry entry;
                         string verbName;
+                        bool available = true;
                         if (isCraftStation)
                         {
                             entry = new InteractionEntry(
@@ -592,6 +611,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 Multiplayer.Helm.ManTimeToUse);
                             verbName = "Man";
                         }
+                        else if (isAtlasShard)
+                        {
+                            entry = new InteractionEntry(
+                                InteractVerb.PickUp,
+                                Multiplayer.AtlasShardCatalogue.PickUpRadius,
+                                false, "", "", "", false,
+                                Multiplayer.AtlasShardCatalogue.PickUpTimeToUse);
+                            verbName = "PickUp";
+                            // Gated: only offer the prompt once the shard is mined loose,
+                            // and never again once collected.
+                            available = WorldsAdriftRebornGameServer.AtlasShards.IsAvailable(entityId);
+                        }
                         else
                         {
                             entry = new InteractionEntry(
@@ -604,14 +635,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         InteractiveState.Data interactiveData = new InteractiveState.Data(
                             new InteractiveStateData(
-                                true,
+                                available,
                                 EntityId.InvalidEntityId,
                                 new Improbable.Collections.List<InteractionEntry> { entry },
                                 false));
 
                         Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with verb " + verbName + ".");
+                            + ") with verb " + verbName + ", available=" + available + ".");
 
                         obj = interactiveData;
                     }
@@ -2232,12 +2263,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // state, not a replayed explosion.
                         bool coreDestroyed = WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId);
 
+                        // attachedEntities lists the shard(s) lodged in this core - the
+                        // authoritative core->shard relationship (the shard's 1305
+                        // rockCoreId is the reverse link). Non-null always (DeepCopy reads
+                        // .Count); empty for a deposit with no shard, exactly as before.
+                        Improbable.Collections.List<EntityId> attachedShards =
+                            new Improbable.Collections.List<EntityId>();
+                        foreach (long shardId in WorldsAdriftRebornGameServer.AtlasShards.ShardsForHost(entityId))
+                        {
+                            attachedShards.Add(new EntityId(shardId));
+                        }
+
                         Bossa.Travellers.Materials.MetalRockCoreState.Data coreData =
                             new Bossa.Travellers.Materials.MetalRockCoreState.Data(
                                 new Bossa.Travellers.Materials.MetalRockCoreStateData(
-                                    new EntityId(entityId),                        // depositId (self)
-                                    new Improbable.Collections.List<EntityId> { }, // attachedEntities: non-null, empty
-                                    EntityId.InvalidEntityId,                      // islandId: dead field
+                                    new EntityId(entityId),    // depositId (self)
+                                    attachedShards,            // attachedEntities: the lodged shard(s)
+                                    EntityId.InvalidEntityId,  // islandId: dead field
                                     coreDestroyed));
 
                         Console.WriteLine("[info] seeding 2103 for entity " + entityId + " ("
@@ -2280,6 +2322,74 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + ") " + crustShotPoints.Count + " shot point(s), exploded=" + crustExploded + ".");
 
                         obj = crustData;
+                    }
+                    // ------------------------------------------------------------------
+                    // THE ATLAS SHARD. A SEPARATE entity from its host deposit, carrying
+                    // 1305 (identity/host link) + 2102 (lodged state) on top of the
+                    // 190602 (transform) + 1210 (PickUp prompt) served above. Its client
+                    // visualiser [Require]s ONLY 1305 and won't initialise until its
+                    // rockCoreId resolves to an initialised MetalDepositCoreVisualiser, so
+                    // the host id MUST be a live deposit; the InteractiveObjectVisualizer
+                    // it also carries [Require]s 1210. VERIFIED shapes: gencode
+                    // Bossa.Travellers.Materials/MetalDepositAtlasShardStateData.cs:6-16
+                    // and LodgeableStateData.cs (ctor bool,EntityId,string). See
+                    // findings-atlas-shards §2 + §4 step 3.
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1305)
+                    {
+                        // 1305 MetalDepositAtlasShardState - {rockCoreId, slotId}. rockCoreId
+                        // is the host DEPOSIT entity (which carries the core in this
+                        // one-entity-deposit build), stored in the AtlasShards ledger at
+                        // spawn. slotId indexes the core's ScrapSlots. A shard whose host is
+                        // not registered gets an invalid rockCoreId, which is the correct
+                        // "do not render" value (the client's DepositExists() gate returns
+                        // false), not a crash.
+                        long? shardHost = WorldsAdriftRebornGameServer.AtlasShards.HostOf(entityId);
+                        int shardSlot = WorldsAdriftRebornGameServer.AtlasShards.SlotOf(entityId)
+                            ?? Multiplayer.AtlasShardCatalogue.DefaultSlotId;
+                        EntityId rockCoreId = shardHost.HasValue
+                            ? new EntityId(shardHost.Value)
+                            : EntityId.InvalidEntityId;
+
+                        Bossa.Travellers.Materials.MetalDepositAtlasShardState.Data shardData =
+                            new Bossa.Travellers.Materials.MetalDepositAtlasShardState.Data(
+                                new Bossa.Travellers.Materials.MetalDepositAtlasShardStateData(
+                                    rockCoreId,
+                                    shardSlot));
+
+                        Console.WriteLine("[info] seeding 1305 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") rockCoreId=" + (shardHost?.ToString() ?? "INVALID") + " slot=" + shardSlot + ".");
+
+                        obj = shardData;
+                    }
+                    else if (componentId == 2102)
+                    {
+                        // 2102 LodgeableState - {isLodged, ownerId, slotName}. isLodged is
+                        // the live release flag: true while lodged (kinematic, in the slot),
+                        // flipped false + a Dislodged event when the core is destroyed
+                        // (BroadcastShardReleased). ownerId names the host deposit; slotName
+                        // is empty (the client indexes slots by the 1305 slotId int, not
+                        // this string). A late joiner checking out an already-mined deposit
+                        // is seeded isLodged=false, matching the released/collected world.
+                        bool lodged = WorldsAdriftRebornGameServer.AtlasShards.IsLodged(entityId);
+                        long? lodgeHost = WorldsAdriftRebornGameServer.AtlasShards.HostOf(entityId);
+                        EntityId ownerId = lodgeHost.HasValue
+                            ? new EntityId(lodgeHost.Value)
+                            : EntityId.InvalidEntityId;
+
+                        Bossa.Travellers.Materials.LodgeableState.Data lodgeData =
+                            new Bossa.Travellers.Materials.LodgeableState.Data(
+                                new Bossa.Travellers.Materials.LodgeableStateData(
+                                    lodged,
+                                    ownerId,
+                                    Multiplayer.AtlasShardCatalogue.SlotName));
+
+                        Console.WriteLine("[info] seeding 2102 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") isLodged=" + lodged + " ownerId=" + (lodgeHost?.ToString() ?? "INVALID") + ".");
+
+                        obj = lodgeData;
                     }
                     // ------------------------------------------------------------------
                     // THE GLOBAL BIOME TABLE. Served on the GLOBAL entity so the

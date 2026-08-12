@@ -607,6 +607,199 @@ namespace WorldsAdriftRebornGameServer
                 node.MetalType,
                 outcome.Units,
                 "metal deposit " + nodeEntityId);
+
+            // 4. RELEASE THE SHARD. Destroying the core is exactly the retail seam that
+            //    frees a lodged atlas shard into the world (findings-atlas-shards §2
+            //    Phase B). ReleaseByHost flips each lodged shard to RELEASED once, so
+            //    this fires on the SAME single deplete transition as the destroyed
+            //    broadcast above - never on a held beam still resting on the dead core.
+            ReleaseAtlasShardsFor(nodeEntityId);
+        }
+
+        /// <summary>
+        /// Releases every atlas shard lodged in a destroyed deposit's core: the
+        /// server's counterpart to the shipped client's "core Exploded -> shard
+        /// rigidbody goes non-kinematic" chain. For each shard the state ledger
+        /// transitions Lodged -> Released (once), and every viewer holding the shard is
+        /// told its 2102 is now dislodged and its 1210 PickUp prompt is available.
+        ///
+        /// RATE + RELAY: this is EVENT-driven - one 2102 + one 1210 update per shard,
+        /// on the single core-destruction transition, NOT a per-frame stream. Both are
+        /// pushed to each peer DIRECTLY (never through RelayToOtherPlayers, which would
+        /// re-address them to the shooter's own avatar). A shard is one-to-one with a
+        /// deposit today, so this is at most one shard per destroyed deposit.
+        /// </summary>
+        private static void ReleaseAtlasShardsFor(long depositEntityId)
+        {
+            foreach (long shardId in AtlasShards.ReleaseByHost(depositEntityId))
+            {
+                Console.WriteLine("[info] atlas shard " + shardId + " released from destroyed deposit "
+                    + depositEntityId + "; it can now be picked up.");
+                BroadcastShardReleased(shardId);
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer of a released shard its 2102 is dislodged (isLodged=false
+        /// + a transient Dislodged event) and its 1210 prompt is available. Pushed
+        /// directly and reliably, only to peers that already hold each component; peers
+        /// that have not checked the shard out are seeded the released state from the
+        /// ledger when they do (the serializer reads the same AtlasShards state).
+        /// </summary>
+        private static void BroadcastShardReleased(long shardEntityId)
+        {
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, shardEntityId, LodgeableStateComponentId, out ulong lodgeRef))
+                {
+                    Bossa.Travellers.Materials.LodgeableState.Update lodgeUpdate =
+                        new Bossa.Travellers.Materials.LodgeableState.Update()
+                            .SetIsLodged(false)
+                            .AddOnDislodged(new Bossa.Travellers.Materials.Dislodged());
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(lodgeRef) is Bossa.Travellers.Materials.LodgeableState.Data storedLodge)
+                    {
+                        lodgeUpdate.ApplyTo(storedLodge);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                        new List<uint> { LodgeableStateComponentId },
+                        new List<object> { lodgeUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                    {
+                        availUpdate.ApplyTo(storedInteract);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                        new List<uint> { InteractiveStateComponentId },
+                        new List<object> { availUpdate });
+                }
+            }
+        }
+
+        /// <summary>
+        /// The pickup TRANSACTION for an atlas shard: the authoritative side of a
+        /// native 1211 <c>InteractWithObject(shard, PickUp)</c>. Called from
+        /// InteractAgentState_Handler once per PickUp interaction the client issues.
+        ///
+        /// The DECISION is the pure <see cref="Multiplayer.AtlasPickupPolicy"/>; this
+        /// method is only the thin transaction around it: gather the facts, decide,
+        /// then RESERVE -> Grant -> Collect, rolling the reservation back if the grant
+        /// fails so a full inventory (or the still-pending item id) does not consume the
+        /// shard. Ownership and verb are passed in from the handler (which already knows
+        /// them) so the policy is the single gate.
+        /// </summary>
+        /// <returns>The outcome, for logging by the caller.</returns>
+        internal static Multiplayer.AtlasPickupOutcome TryCollectAtlasShard(
+            long playerEntityId, long shardEntityId, bool peerOwnsPlayer, bool verbIsPickUp)
+        {
+            Multiplayer.AtlasPickupDecision decision = Multiplayer.AtlasPickupPolicy.Evaluate(
+                peerOwnsPlayer: peerOwnsPlayer,
+                verbIsPickUp: verbIsPickUp,
+                targetIsShard: AtlasShards.IsShard(shardEntityId),
+                released: AtlasShards.IsReleased(shardEntityId),
+                collected: AtlasShards.IsCollected(shardEntityId),
+                reservedByOther: AtlasShards.IsReservedByOther(shardEntityId, playerEntityId),
+                // No server-authoritative player position is kept keyed by entity id, and
+                // the client only issues the interaction after its OWN range check - the
+                // same trust the salvage path already extends to the client raycast. The
+                // pure policy fully supports a distance when a position source lands; the
+                // retail tolerance itself is not recoverable (findings §5).
+                distanceMetres: null,
+                radiusMetres: Multiplayer.AtlasShardCatalogue.PickUpRadius);
+
+            if (!decision.ShouldGrant)
+            {
+                return decision.Outcome;
+            }
+
+            // RESERVE first, so a second PickUp event in the same poll drain cannot also
+            // reach the grant. A failed reserve means someone beat us to it this drain.
+            if (!AtlasShards.Reserve(shardEntityId, playerEntityId))
+            {
+                return Multiplayer.AtlasPickupOutcome.Reserved;
+            }
+
+            // GRANT. Returns the item id on success, null when the type is unknown (the
+            // pending placeholder id until refdata lands) or the grid is full.
+            int? grantedItemId = Game.Inventory.InventoryService.Grant(
+                playerEntityId, Multiplayer.AtlasShardCatalogue.ItemTypeId, 1);
+
+            if (grantedItemId == null)
+            {
+                // Roll the reservation back so the shard stays pickable - a full grid
+                // now might have room later, and the pending item id will resolve once
+                // the refdata row is added. The shard is NOT consumed.
+                AtlasShards.Rollback(shardEntityId, playerEntityId);
+                Console.WriteLine("[warning] atlas shard " + shardEntityId + " pickup by entity "
+                    + playerEntityId + " did not grant '" + Multiplayer.AtlasShardCatalogue.ItemTypeId + "'"
+                    + (Multiplayer.AtlasShardCatalogue.IsItemIdPending
+                        ? " - the retail itemTypeId is PENDING: add the row to itemData.json and set "
+                          + "AtlasShardCatalogue.ItemTypeId (findings-atlas-shards.md §5)."
+                        : " (unknown item type or full inventory grid).")
+                    + " Reservation rolled back; the shard stays available.");
+                return Multiplayer.AtlasPickupOutcome.GrantFailed;
+            }
+
+            // COMMIT: the item is in the bag (Grant already pushed the 1081 update). Mark
+            // the shard collected and make the world entity vanish for everyone.
+            AtlasShards.Collect(shardEntityId, playerEntityId);
+            Console.WriteLine("[info] atlas shard " + shardEntityId + " collected by entity "
+                + playerEntityId + " -> inventory item " + grantedItemId + " ('"
+                + Multiplayer.AtlasShardCatalogue.ItemTypeId + "').");
+            BroadcastShardCollected(shardEntityId);
+            return Multiplayer.AtlasPickupOutcome.Grant;
+        }
+
+        /// <summary>
+        /// Tells every viewer that a collected shard is gone: its 1210 prompt is no
+        /// longer available and its 190602 is sunk under the terrain (WAReborn has no
+        /// RemoveEntityOp, so the nugget's sink teleport is how a world pickup vanishes
+        /// - findings-metal-deposits, "SURFACE NUGGETS"). The collecting client already
+        /// cleared the model optimistically (MetalDepositAtlasVisualiser_client
+        /// OnInteractionAttempted); this makes the removal authoritative for everyone.
+        /// A late joiner is instead seeded the collected state (1210 unavailable +
+        /// sunk transform) by the serializer, which reads the same AtlasShards ledger.
+        /// </summary>
+        private static void BroadcastShardCollected(long shardEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(shardEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                    {
+                        availUpdate.ApplyTo(storedInteract);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                        new List<uint> { InteractiveStateComponentId },
+                        new List<object> { availUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, shardEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                        new Improbable.Corelibrary.Transforms.TransformState.Update()
+                            .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                                new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                    {
+                        sink.ApplyTo(storedTransform);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                        new List<uint> { TransformStateComponentId },
+                        new List<object> { sink });
+                }
+            }
         }
 
         /// <summary>
@@ -1081,6 +1274,20 @@ namespace WorldsAdriftRebornGameServer
         private const uint MetalRockCrustStateComponentId = 12283;
 
         /// <summary>
+        /// 2102 LodgeableState - an atlas shard's lodged/released state. isLodged is
+        /// flipped false (+ a Dislodged event) when the host deposit's core is
+        /// destroyed, which is the shard's "you can pick me up now" transition.
+        /// </summary>
+        private const uint LodgeableStateComponentId = 2102;
+
+        /// <summary>
+        /// 1210 InteractiveState - the interaction prompt. For an atlas shard the
+        /// server flips available false->true on release (the PickUp prompt appears)
+        /// and true->false on collection (it is gone).
+        /// </summary>
+        private const uint InteractiveStateComponentId = 1210;
+
+        /// <summary>
         /// Components seeded on a mirrored remote avatar: TransformState (position),
         /// 1086 PlayerName, the two [Require]s of CharacterCustomisationVisualizer
         /// (1081 InventoryState, 1088 PlayerPropertiesState) which builds the body,
@@ -1283,7 +1490,8 @@ namespace WorldsAdriftRebornGameServer
                 SpawnDeposit,
                 Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_COUNT"),
                 SpawnDatabank,
-                Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"),
+                SpawnAtlasShard);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1311,6 +1519,22 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         internal static readonly MetalHarvest MetalHarvest =
             new MetalHarvest(Multiplayer.MetalNodes.NuggetShotsToDeplete);
+
+        /// <summary>
+        /// The ledger of every ATLAS SHARD placed in the world and its acquisition
+        /// state (lodged -> released -> collected, plus the pickup reservation). The
+        /// atlas analogue of <see cref="Nodes"/>, kept separate because a shard is a
+        /// SECOND entity from its host deposit with its own lifecycle: destroying a
+        /// deposit's core RELEASES the shard (<see cref="OnDepositShot"/> calls
+        /// <see cref="Multiplayer.AtlasShardRegistry.ReleaseByHost"/>), and the shard
+        /// is then a free-standing pickup a player collects with a 1211 PickUp
+        /// (InteractAgentState_Handler -> <see cref="TryCollectAtlasShard"/>). Internal
+        /// because both the serializer (seeds 1305/2102/1210/2103 from it) and those
+        /// two glue seams read it. Populated in <see cref="AddWorldEntity"/> the moment
+        /// a shard entity has an id. See docs/research/findings-atlas-shards.md.
+        /// </summary>
+        internal static readonly Multiplayer.AtlasShardRegistry AtlasShards =
+            new Multiplayer.AtlasShardRegistry();
 
         /// <summary>
         /// Which entity ids are ship SURFACES, and which ship each belongs to. The
@@ -1414,6 +1638,18 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnDeposit =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1";
+
+        /// <summary>
+        /// Whether to lodge an ATLAS SHARD in the proven deposit - the real retail
+        /// acquisition object. ON unless WAREBORN_SPAWN_ATLAS=0, and only takes effect
+        /// when <see cref="SpawnDeposit"/> is on (a shard needs a live host core to
+        /// render and be mined loose). AfterPlayer and inert until its core is
+        /// destroyed, so it cannot delay or break a spawn; and its grant is a no-op
+        /// until the pending retail itemTypeId is recovered (AtlasShardCatalogue.
+        /// ItemTypeId), so it can never mis-grant. See findings-atlas-shards.md.
+        /// </summary>
+        private static bool SpawnAtlasShard =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_ATLAS") != "0";
 
         /// <summary>
         /// Whether to place the scannable DATABANK that feeds the KNOWLEDGE loop.
@@ -1672,6 +1908,41 @@ namespace WorldsAdriftRebornGameServer
                             + " variant '" + deposit.VariantId + "' at " + deposit.Position
                             + " (" + Multiplayer.MetalDeposits.ShotsToDeplete + " shots -> "
                             + Multiplayer.MetalDeposits.YieldUnits + " units).");
+                    }
+                }
+
+                // An ATLAS SHARD becomes an entry in the AtlasShards ledger the moment
+                // it has an entity id - the same spawn seam as the deposit above. It is
+                // registered AFTER its host deposit (WorldEntities.Default registers the
+                // deposit first), so the deposit's shared entity id is already allocated
+                // and BoundEntityIdFor resolves it without allocating. The shard's 1305
+                // rockCoreId and the deposit's 2103 attachedEntities are both wired from
+                // this stored host id at serialize time. Idempotent (Register returns
+                // false on re-registration) so a second joiner walking this identical
+                // step cannot re-lodge a shard someone already mined loose or collected.
+                if (entity.AssetName == Multiplayer.AtlasShardCatalogue.AssetName)
+                {
+                    int? shardIndex = Multiplayer.AtlasShardCatalogue.IndexOf(entity.Key);
+                    long? hostDepositId = shardIndex == null
+                        ? (long?)null
+                        : WorldEntities.BoundEntityIdFor(
+                            Multiplayer.AtlasShardCatalogue.HostDepositKeyFor(shardIndex.Value));
+
+                    if (hostDepositId == null)
+                    {
+                        Console.WriteLine("[warning] atlas shard '" + entity.Key + "' (entity " + entityId
+                            + ") has no bound host deposit; its 1305 rockCoreId would be invalid, so it is "
+                            + "not registered. Register its deposit-" + shardIndex + " first.");
+                    }
+                    else if (AtlasShards.Register(entityId, hostDepositId.Value,
+                                 Multiplayer.AtlasShardCatalogue.DefaultSlotId))
+                    {
+                        Console.WriteLine("[info] placed ATLAS SHARD '" + entity.Key + "' as entity "
+                            + entityId + " lodged in deposit entity " + hostDepositId.Value
+                            + " (slot " + Multiplayer.AtlasShardCatalogue.DefaultSlotId + ") at "
+                            + entity.Position + "; grants '" + Multiplayer.AtlasShardCatalogue.ItemTypeId
+                            + "'" + (Multiplayer.AtlasShardCatalogue.IsItemIdPending
+                                ? " (PENDING refdata - see findings-atlas-shards.md §5)" : "") + ".");
                     }
                 }
 

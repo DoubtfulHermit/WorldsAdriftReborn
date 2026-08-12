@@ -608,6 +608,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// An ATLAS SHARD lodged in the deposit at placement <paramref name="index"/> -
+        /// the real retail acquisition object, a SEPARATE <c>MetalDepositAtlas</c>
+        /// entity from its host deposit. Keyed <c>atlas-shard-N</c> to pair with
+        /// <c>deposit-N</c>, positioned at the deposit raised by
+        /// <see cref="AtlasShardCatalogue.LodgedHeightOffsetMetres"/> so it reads as
+        /// sitting in the core.
+        ///
+        /// NO SEEDED COMPONENTS, exactly like the deposit and the nugget: the client
+        /// checks the shard out and asks for its 1305/2102/1210/190602 over
+        /// SEND_COMPONENT_INTEREST, which ComponentsSerializer answers best-effort. Its
+        /// 1305 rockCoreId and lodged/released/collected state are wired from the
+        /// AtlasShards ledger (populated in AddWorldEntity from the host deposit's id).
+        ///
+        /// AfterPlayer, and it MUST be registered AFTER its host deposit so the
+        /// deposit's shared entity id is already bound when the shard's spawn step
+        /// resolves its host (see <see cref="Default"/>).
+        /// </summary>
+        public static WorldEntity AtlasShardEntity(int index, FixedPointPosition depositPosition)
+        {
+            return new WorldEntity(
+                AtlasShardCatalogue.KeyFor(index),
+                AtlasShardCatalogue.AssetName,
+                DefaultAssetContext,
+                AtlasShardCatalogue.LodgedPositionFor(depositPosition),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
         /// A scannable DATABANK world entity at a placement index - the KNOWLEDGE
         /// analogue of <see cref="DepositEntity"/>. Same shape: no seedComponents (its
         /// 190602 TransformState and 8073 ScannableRuinState are served best-effort
@@ -755,7 +784,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Clamped to [1, all placed]; index 0 is the proven deposit, so any count keeps
         /// it. Defaults to a single deposit - the cautious first-live count.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null)
+        /// <param name="includeAtlasShard">
+        /// Whether to lodge an ATLAS SHARD in the proven deposit (index 0) - the real
+        /// retail acquisition object. Only meaningful alongside
+        /// <paramref name="includeDeposit"/> (a shard needs a live host core to render
+        /// and be mined loose). ON by default when deposits are on, with
+        /// WAREBORN_SPAWN_ATLAS=0 as the kill switch: it is AfterPlayer and inert until
+        /// its core is destroyed, so a misbehaving shard can never delay or break a
+        /// spawn, and the grant is a no-op until the pending retail itemTypeId is
+        /// recovered (AtlasShardCatalogue.ItemTypeId), so it cannot mis-grant.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -838,9 +877,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int depositCount = depositCountEnv == null
                     ? 1
                     : SpawnCountPolicy.CountFrom(depositCountEnv, MetalDeposits.HavenPlacements.Count);
-                foreach (MetalNode node in MetalDeposits.Haven(depositCount))
+                IReadOnlyList<MetalNode> deposits = MetalDeposits.Haven(depositCount);
+                foreach (MetalNode node in deposits)
                 {
                     registry.Register(DepositEntity(node));
+                }
+
+                // The ATLAS SHARD lodged in the proven deposit (index 0), registered
+                // AFTER its deposit so the deposit's shared entity id is already bound
+                // when the shard's spawn step resolves its host (the shard's 1305
+                // rockCoreId and the deposit's 2103 attachedEntities are wired from it).
+                // One shard on one deposit is the retail acquisition case this vertical
+                // builds; more is a placement follow-on. Killable with WAREBORN_SPAWN_ATLAS=0.
+                if (includeAtlasShard && deposits.Count > 0)
+                {
+                    registry.Register(AtlasShardEntity(0, deposits[0].Position));
                 }
             }
 
