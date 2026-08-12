@@ -163,7 +163,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // Sail: 1303 SailState wakes SailVisualizer/SailBehaviour (unfurled=false,
             // no cloth force at rest); the ctor is a bool+float and OnEnable only
             // subscribes, so it is crash-safe. Served by a new 1303 branch.
-            new Row("sail",  "basics", "Sail", "Sail01", "shipSurfaces", new uint[] { SailState }),
+            //
+            // attachmentType "deck" (was the best-guess "shipSurfaces"): a sail is a MAST
+            // that stands on the deck - SailVisualizer is a yawing mast (YawJoint + a sail
+            // mesh, decompiled acs/SailVisualizer.cs:9-11), NOT a hull-side part (those are
+            // ShipWingPlacement / "wing"). So it mounts on the same ShipDeck surface the
+            // helm does (our built ship's Deck01 solid collider), placeable across the whole
+            // deck. The old "shipSurfaces" raycast Layers.Environment, which our built ship
+            // does not expose as a real surface (only one incidental collider - the "one
+            // spot" symptom), so a sail could not be freely placed. The RETAIL string may be
+            // the forward-locked "deckForward" (a sail is directional) rather than the
+            // free-rotating "deck"; both raycast the SAME ShipDeck surface, so both fix the
+            // placement, and "deck" is the safe choice while built ships do not yet fly (the
+            // yaw is runtime, so a placed orientation is cosmetic for now).
+            new Row("sail",  "basics", "Sail", "Sail01", "deck", new uint[] { SailState }),
             // Deck piece; "deck" attachment drives ShipPartPlacement's deck styling.
             new Row("deck",  "basics", "Deck", "Deck01", "deck",         new uint[] { }),
 
@@ -206,6 +219,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // props that do not yet OPEN - the inventory wiring is the follow-on. The
             // container prefab sizing (Small/Medium/Large) is a best guess.
             new Row("trunk",             "storage", "Trunk",             "ContainerSmall",  "deck",         new uint[] { }),
+            // mountedBox stays "shipSurfaces" ON PURPOSE (NOT nudged to "deck"): its very
+            // name is the WALL/surface-mounted box, distinct from the deck-standing trunk/
+            // containers beside it. Its retail surface is a vertical ship SURFACE, which our
+            // built ship does not expose a usable collider for yet (only the deck is a real
+            // surface). Faking it onto the deck would be wrong-but-placeable, so it is left
+            // as-is until the ship exposes a side/surface collider.
             new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "shipSurfaces", new uint[] { }),
             new Row("storageContainer",  "storage", "Storage Container", "ContainerMedium", "deck",         new uint[] { }),
             new Row("shippingContainer", "storage", "Shipping Container","ContainerLarge",  "deck",         new uint[] { }),
@@ -215,6 +234,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             new Row("cupboard", "decoration", "Cupboard", "Cupboard", "deck",         new uint[] { }),
             // Horn: 1107 HornState wakes HornVisualizer (charge=0; OnEnable reads a
             // plain float, no Option deref, crash-safe). Served by a new 1107 branch.
+            // Left "shipSurfaces": whether a ship's horn is deck-mounted or surface/rail-
+            // mounted in retail is NOT confirmable from the decompile (the attachmentType
+            // strings are server refdata, absent from the client), so it is not guessed onto
+            // the deck. Revisit with the real refdata or a live check.
             new Row("horn",     "decoration", "Horn",     "Horn01",   "shipSurfaces", new uint[] { HornState }),
             // THE LAMP - the one part already proven end-to-end. It MUST glow, so it
             // seeds 1108 LampState + 1236 IsTooDamagedToWorkState (both served
@@ -228,6 +251,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // the instrument to read local ship motion instead of sitting dead. No
             // NEW branch is needed - this is the one safe functional add beyond the
             // lamp, reusing the lamp's own 1236 serve.
+            //
+            // attachmentType left "shipSurfaces" for ALL FIVE: whether these gauges are
+            // deck-standing pedestals or console/panel-mounted in retail is NOT confirmable
+            // from the decompile (ShipInstrument only adds a generic PlacementRules,
+            // acs/ShipInstrument.cs:7-11; the surface string is server refdata absent from
+            // the client). They are NOT guessed onto the deck - if any are panel/surface
+            // parts, our built ship exposes no usable surface for them yet. Revisit with the
+            // real refdata or a live check.
             new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
             new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
             new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
