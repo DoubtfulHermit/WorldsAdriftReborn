@@ -83,6 +83,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_built_ships_hull_and_every_deck_panel_are_in_the_initial_set()
+        {
+            // The heaviest join work is the built hull's mesh and the client's
+            // per-panel MakeDeck collider generation; both must load BEHIND the
+            // loading screen, so every entity of a built ship is initial.
+            Assert.True(LoadBarrierPolicy.IsInitialKey(WorldsAdriftRebornGameServer.Multiplayer.Ship.BuiltShipPlacement.HullKey(0)));
+            Assert.True(LoadBarrierPolicy.IsInitialKey(WorldsAdriftRebornGameServer.Multiplayer.Ship.BuiltShipPlacement.HullKey(7)));
+            Assert.True(LoadBarrierPolicy.IsInitialKey(WorldsAdriftRebornGameServer.Multiplayer.Ship.BuiltShipPlacement.DeckKey(7)));
+            Assert.True(LoadBarrierPolicy.IsInitialKey(WorldsAdriftRebornGameServer.Multiplayer.Ship.BuiltShipPlacement.DeckKey(7, 0)));
+            Assert.True(LoadBarrierPolicy.IsInitialKey(WorldsAdriftRebornGameServer.Multiplayer.Ship.BuiltShipPlacement.DeckKey(7, 11)));
+
+            // A key that merely mentions the word is not a built-ship entity key.
+            Assert.False(LoadBarrierPolicy.IsInitialKey("shipwreck"));
+        }
+
+        [Fact]
         public void The_initial_and_distant_partition_covers_every_registration_once()
         {
             // The default registry has one island (BeforePlayer), a ship + parts,

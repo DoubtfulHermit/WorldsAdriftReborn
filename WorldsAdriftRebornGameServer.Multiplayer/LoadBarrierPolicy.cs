@@ -115,7 +115,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             return key == WorldEntities.IslandKey
                 || key == WorldEntities.ShipFrameKey
-                || WorldEntities.IsBoltedPartKey(key);
+                || WorldEntities.IsBoltedPartKey(key)
+                // Every entity of a BUILT ship - its hull and each derived deck panel.
+                // A built ship's hull mesh and the client's per-panel MakeDeck collider
+                // generation are the heaviest work a joiner does, so they belong behind
+                // the loading screen (frozen, out of view). Left out of the initial set
+                // they stream in-view after the barrier lifts and freeze/crash the
+                // second player - the observed regression. See BuiltShipPlacement.
+                || Ship.BuiltShipPlacement.IsBuiltShipEntityKey(key);
         }
 
         /// <summary>

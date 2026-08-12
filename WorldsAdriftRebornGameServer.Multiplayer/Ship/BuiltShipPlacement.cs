@@ -77,6 +77,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             return KeyPrefix + ":" + sequence + ":deck:" + panelIndex;
         }
 
+        /// <summary>
+        /// Whether <paramref name="key"/> names ANY entity of a built ship - its hull
+        /// or any of its derived deck panels. Every such key starts <c>built-ship:</c>
+        /// (<see cref="KeyPrefix"/>), so this one prefix test covers the hull and all
+        /// panels at once. Used to put a built ship in the loading-barrier initial set:
+        /// the hull mesh and the client's per-panel <c>MakeDeck</c> collider generation
+        /// are the heaviest instantiation on a join, so they must happen BEHIND the
+        /// loading screen (player frozen, out of view) rather than streaming in-view
+        /// after the screen lifts, which is the observed second-player freeze.
+        /// </summary>
+        public static bool IsBuiltShipEntityKey(string? key)
+        {
+            return key != null && key.StartsWith(KeyPrefix + ":", System.StringComparison.Ordinal);
+        }
+
         /// <summary>The suffix a built ship's HULL registration key ends with.</summary>
         private const string HullSuffix = ":hull";
 

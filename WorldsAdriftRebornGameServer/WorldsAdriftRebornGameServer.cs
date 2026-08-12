@@ -2722,25 +2722,38 @@ namespace WorldsAdriftRebornGameServer
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step)))
                 .ToList();
 
-            // Which plan steps are PACED: the RequestAsset that BEGINS each
-            // AfterPlayer world entity. Its AddEntity is not paced - it follows on
-            // the client's ack, unchanged. The player's own avatar (Entity == null)
-            // and every BeforePlayer entity (the ground) are never paced: they gate
-            // the loading screen and must go out immediately. Parallel to the
-            // WorldState list so the perform loop can index it by SyncStepPointer.
+            // Which plan steps are PACED: the AddEntity that INSTANTIATES each
+            // distant AfterPlayer world entity on the client's main thread - the op a
+            // joiner was measured receiving in a burst (17/s). Pacing AddEntity, not
+            // RequestAsset, is what actually throttles instantiation: a client with the
+            // bundle cached acks the asset load instantly, so the old RequestAsset pace
+            // never held the AddEntity back. The player's own avatar (Entity == null)
+            // and the BeforePlayer ground are never paced (they gate the loading
+            // screen); when the barrier holds the initial set (island, ship, and the
+            // built ships/decks now folded into it) that set streams at full speed
+            // BEHIND the loading screen and only the in-view distant scenery is paced.
+            // Parallel to the WorldState list so the perform loop can index it by
+            // SyncStepPointer. See SpawnPacePolicy.PacesInstantiation.
+            bool barrierHoldsInitialSet = Game.LoadBarrier.Enabled;
             bool[] pacedStep = plan
-                .Select(s => s.Op == SpawnOp.RequestAsset
-                             && s.Entity != null
-                             && s.Entity.Order == SpawnOrder.AfterPlayer)
+                .Select(s => s.Entity != null
+                             && SpawnPacePolicy.PacesInstantiation(
+                                    s.Op,
+                                    s.Entity.Order,
+                                    LoadBarrierPolicy.IsInitialKey(s.Entity.Key),
+                                    barrierHoldsInitialSet))
                 .ToArray();
 
             int pacedCount = pacedStep.Count(p => p);
             if (SpawnPacePolicy.IsEnabled(SpawnPaceInterval))
             {
                 Console.WriteLine("[info] spawn pacing: " + pacedCount
-                    + " AfterPlayer entities released " + SpawnPaceInterval.TotalMilliseconds.ToString("0")
+                    + " distant AfterPlayer entities INSTANTIATED " + SpawnPaceInterval.TotalMilliseconds.ToString("0")
                     + " ms apart (~" + SpawnPacePolicy.StreamDurationFor(pacedCount, SpawnPaceInterval).TotalSeconds.ToString("0.0")
-                    + " s to stream in); player + ground spawn immediately. WAREBORN_SPAWN_PACE_MS=0 disables.");
+                    + " s to stream in); player, ground, and the barrier's initial set (island/ship/built"
+                    + " ships/decks) are never paced - they load at full speed"
+                    + (barrierHoldsInitialSet ? " BEHIND the loading screen" : "")
+                    + ". WAREBORN_SPAWN_PACE_MS=0 disables.");
             }
             else
             {
@@ -2947,13 +2960,14 @@ namespace WorldsAdriftRebornGameServer
 
                     if (!pStatus.Performed)
                     {
-                        // Pace the step that BEGINS each AfterPlayer entity: if this
-                        // peer released one too recently, hold it for a later tick
-                        // (leave Performed false so it retries) instead of adding to
-                        // the first-load burst. The step is still ack-gated as
-                        // before - this only spaces the ready ones out in time.
-                        // Player + ground steps are never paced (pacedStep is false
-                        // for them) so they are never held back.
+                        // Pace the AddEntity that INSTANTIATES each distant entity: if
+                        // this peer instantiated one too recently, hold it for a later
+                        // tick (leave Performed false so it retries) instead of adding
+                        // to the connect-time burst. The step is still ack-gated as
+                        // before - this only spaces the ready ones out in time. Player,
+                        // ground, and the barrier's initial set (island/ship/built
+                        // ships/decks) are never paced (pacedStep is false for them) so
+                        // the loading screen is never lengthened.
                         if (SpawnPacePolicy.IsEnabled(SpawnPaceInterval)
                             && pStatus.SyncStepPointer < pacedStep.Length
                             && pacedStep[pStatus.SyncStepPointer]
