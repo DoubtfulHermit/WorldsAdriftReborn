@@ -66,6 +66,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     MountedParts.Mount? priorMount = MountedParts.MountFor(liftedPartId);
                     bool wasMounted = MountedParts.Unmount(liftedPartId);
 
+                    // Complete the DETACH on the wire (findings-mount-placement.md section 2):
+                    // clearing the ledger alone left the client still holding the mounted 8066/
+                    // 190602/1120 truth from the last checkout, so carry state contradicted the
+                    // server and a re-place was non-deterministic. Broadcast the authoritative
+                    // reverse - 8066 no-ship, 190602 loose global, 1120 attached=false - the
+                    // instant the part is lifted, using the record captured before it was removed.
+                    if (wasMounted && priorMount.HasValue)
+                    {
+                        PartMountService.BroadcastDetach(liftedPartId, priorMount.Value);
+                    }
+
                     // Keep the SAVE consistent: a lifted part is loose again, so move its
                     // persisted state from MountedParts[] back to LooseParts[] (same PartUid).
                     if (wasMounted)

@@ -146,6 +146,64 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
+        /// Completes the re-lift DETACH transaction the <see cref="MountedParts.Unmount"/>
+        /// ledger op used to defer (findings-mount-placement.md section 2). Called from the
+        /// 1239 pickup handler the instant a MOUNTED part is lifted, with the mount record
+        /// captured before it was removed, it broadcasts the authoritative reverse of the
+        /// three mount value-updates so carry state is consistent and the next place is
+        /// deterministic:
+        ///   * 8066 - ship membership CLEARED (shipRoot absent, isRoot=false), the loose seed;
+        ///   * 190602 - a GLOBAL (parentless) transform at the part's last world pose, so the
+        ///     <c>"~"</c> hull parent is dropped and the part no longer rides the hull;
+        ///   * 1120 - attached=false, attachment cleared, so it reads as liftable again (held
+        ///     is left to the client's own carry writer, which is lifting the part now).
+        /// Value-updates on the same reliable path the mount used; NOT re-seeds.
+        /// </summary>
+        internal static void BroadcastDetach(long partEntityId, MountedParts.Mount priorMount)
+        {
+            long hullEntityId = priorMount.HullEntityId;
+
+            // 8066: no ship. Exactly what the loose 8066 re-seed serves once the ledger
+            // entry is gone (ComponentsSerializer loose branch).
+            ShipRootState.Update rootClear = new ShipRootState.Update()
+                .SetShipRoot(new Option<EntityId>())
+                .SetIsRoot(false);
+            ShipPublisher.Broadcast(partEntityId, 8066u, rootClear);
+
+            // 190602: global, parent cleared, at the part's last world pose (hull position +
+            // the stored hull-local offset; a static hull's rotation is identity). Fresh
+            // monotonic stamp from the shared mount clock so it fires PropertyUpdated.
+            FixedPointPosition globalPos = priorMount.LocalOffset;
+            var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(hullEntityId)?.Position;
+            if (hullPos.HasValue)
+            {
+                globalPos = new FixedPointPosition(
+                    hullPos.Value.X + priorMount.LocalOffset.X,
+                    hullPos.Value.Y + priorMount.LocalOffset.Y,
+                    hullPos.Value.Z + priorMount.LocalOffset.Z);
+            }
+            float stamp = ShipPartMotionPolicy.StampFor(++_sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+            var looseTransform = ShipPartTransform.BuildParentlessWakeUpdate(
+                globalPos, new Improbable.Corelibrary.Math.Quaternion32(priorMount.PackedRotation), stamp);
+            ShipPublisher.Broadcast(partEntityId, 190602u, looseTransform);
+
+            // 1120: attached=false, attachment target cleared. The load-bearing flip back to
+            // liftable; matches the loose 1120 re-seed's attach fields.
+            ShipPartState.Update partClear = new ShipPartState.Update()
+                .SetAttached(false)
+                .SetAttachedTo(EntityId.InvalidEntityId)
+                .SetLastAttachment(new RelativeLocation(
+                    EntityId.InvalidEntityId,
+                    new Improbable.Math.Vector3f(0f, 0f, 0f),
+                    new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0)))
+                .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
+            ShipPublisher.Broadcast(partEntityId, 1120u, partClear);
+
+            Console.WriteLine("[info] part-mount: DETACHED part " + partEntityId + " from hull "
+                + hullEntityId + " for re-placement (8066 cleared, 1120 attached=false, 190602 loose global).");
+        }
+
+        /// <summary>
         /// Writes the mount as three component value-updates on the part entity and
         /// records it in the <see cref="MountedParts"/> ledger so a re-checkout re-seeds
         /// it already attached. Broadcast to every fully-loaded peer via the same
@@ -172,11 +230,36 @@ namespace WorldsAdriftRebornGameServer.Game
             // rejection of the whole transform.
             uint packedShipLocalRotation = Multiplayer.Placement.Quaternion32Packing.Encode(
                 pp.shipLocalRotation.w, pp.shipLocalRotation.x, pp.shipLocalRotation.y, pp.shipLocalRotation.z);
-            float stamp = ShipPartMotionPolicy.StampFor(++_sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+            long sample = ++_sample;
+            float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var transformUpdate = ShipPartTransform.BuildWakeUpdate(
                 localOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp,
                 new Improbable.Corelibrary.Math.Quaternion32(packedShipLocalRotation));
             ShipPublisher.Broadcast(partEntityId, 190602u, transformUpdate);
+
+            // PARENT TIMELINE (findings-mount-placement.md section 2). Advance the HULL's own
+            // 190602 to the SAME stamp the child just took, so the client's parent-sampling
+            // time REACHES this new child sample. Without it the hull sits frozen at its seed
+            // timestamp 0 (ShipPartTransform.BuildSeed) - its 1130 motion never touches the
+            // 190602 stamp - so the client keeps sampling the FIRST mount and a re-position or
+            // a rotation change on an already-placed part is a visible no-op. This is a
+            // value-UPDATE carrying the hull's own unchanged world pose/rotation (only the
+            // timestamp moves): NOT a re-seed (a re-seed re-fires the client OnDisable->Clear),
+            // NOT a per-frame stream. Event-driven: exactly one extra hull 190602 per accepted
+            // place. On a MOVING built hull (flight, deferred) this stamp is instead owned by
+            // the hull's motion clock; that path adds a wire cadence and would want a 2-player
+            // soak, but the per-mount bump here does not.
+            var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(hullEntityId)?.Position;
+            if (hullPos.HasValue)
+            {
+                float parentStamp = ShipPartMotionPolicy.ParentStampFor(
+                    sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+                var hullRotation = new Improbable.Corelibrary.Math.Quaternion32(
+                    WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId));
+                var hullTimelineUpdate = ShipPartTransform.BuildParentlessWakeUpdate(
+                    hullPos.Value, hullRotation, parentStamp);
+                ShipPublisher.Broadcast(hullEntityId, 190602u, hullTimelineUpdate);
+            }
 
             // 1120 logical attachment. attachedTo = the hull is the safe default (not
             // load-bearing for an inert non-panel part; capture-only for full fidelity).

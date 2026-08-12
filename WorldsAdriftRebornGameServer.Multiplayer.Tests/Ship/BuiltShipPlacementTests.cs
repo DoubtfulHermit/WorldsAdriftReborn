@@ -63,22 +63,82 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void Hull_seed_set_is_exactly_the_proven_test_hull_recognition_on()
+        public void Hull_seed_set_is_the_proven_set_plus_the_placement_prerequisites()
         {
-            // The client's interest batch on a ship hull is ALL-OR-NOTHING: one id off
-            // and the whole batch drops -> invisible ship. So the built hull must seed
-            // the same ids as the proven static test hull with recognition on, id-for-id.
+            // Fix 1 (findings-mount-placement.md section 1). The built hull carries the proven
+            // static test hull's set PLUS 190601 (TransformHierarchyState -> the hull's
+            // TransformParentHierarchyBehaviour, without which the deck's Parent(hull,"deck")
+            // never becomes a real Unity child) and 1114 (DockableState -> the hull's
+            // DockableVisualizer, without which Shipyard.DockedShip stays null). Both are
+            // needed for the deck to be a valid placement surface, and both must ride the
+            // hull's OWN all-or-nothing batch so they are present at checkout, not after a
+            // later interest request.
             Assert.Equal(
-                WorldEntities.HullSeedComponents(recogniseShip: true),
-                BuiltShipPlacement.HullSeedComponents);
-
-            // Concretely: geometry/placement/motion + the three recognition ids.
-            Assert.Equal(
-                new uint[] { 190602, 1209, 1099, 1130, 8062, 8071, 4349 },
+                new uint[] { 190602, 1209, 1099, 1130, 190601, 1114, 8062, 8071, 4349 },
                 BuiltShipPlacement.HullSeedComponents.ToArray());
 
-            // 190602 first: the position every other behaviour reads back.
+            // The two prerequisites are present...
+            Assert.Contains(190601u, BuiltShipPlacement.HullSeedComponents);
+            Assert.Contains(1114u, BuiltShipPlacement.HullSeedComponents);
+            Assert.Equal(BuiltShipPlacement.PlacementPrerequisiteComponents, new uint[] { 190601, 1114 });
+
+            // ...and they are exactly what the built hull adds OVER the static test hull, which
+            // deliberately carries neither (no shipyard docks it, and its 1114 serve is gated
+            // on IsBuiltHull, so seeding 1114 there would drop its batch -> invisible ship).
+            var staticSet = WorldEntities.HullSeedComponents(recogniseShip: true);
+            Assert.DoesNotContain(190601u, staticSet);
+            Assert.DoesNotContain(1114u, staticSet);
+            Assert.Equal(
+                new uint[] { 190601, 1114 },
+                BuiltShipPlacement.HullSeedComponents.Except(staticSet).ToArray());
+
+            // 190602 first (the position every other behaviour reads back); recognition last
+            // (a recognition serialize failure can never precede the geometry in the batch).
             Assert.Equal(190602u, BuiltShipPlacement.HullSeedComponents.First());
+            Assert.Equal(
+                new uint[] { 8062, 8071, 4349 },
+                BuiltShipPlacement.HullSeedComponents.Skip(BuiltShipPlacement.HullSeedComponents.Count - 3).ToArray());
+        }
+
+        [Fact]
+        public void Decks_are_never_spawned_before_their_hull()
+        {
+            // Fix 1: the deck's Parent(hull,"deck") only turns into a Unity child if the hull
+            // exists first. The spawner registers the hull then its deck panels, and the
+            // connect-time SpawnPlan preserves registration order within the AfterPlayer block,
+            // so a joining client always creates the hull before any deck panel it parents to.
+            var panels = DeckGenerator.Generate(ShipPlanModel.MakeDefaultStarterHull());
+            Assert.NotEmpty(panels);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(0, Shipyard, panels);
+
+            var registry = new WorldEntityRegistry(new EntityIdAllocator());
+            registry.Register(plan.Hull);
+            foreach (WorldEntity deck in plan.Decks)
+            {
+                registry.Register(deck);
+            }
+
+            var steps = SpawnPlan.For(registry);
+            int hullAt = AddEntityIndex(steps, plan.Hull.Key);
+            Assert.True(hullAt >= 0, "hull was never added in the plan");
+            foreach (WorldEntity deck in plan.Decks)
+            {
+                int deckAt = AddEntityIndex(steps, deck.Key);
+                Assert.True(deckAt > hullAt,
+                    "deck '" + deck.Key + "' was spawned before its hull (deck@" + deckAt + " <= hull@" + hullAt + ")");
+            }
+        }
+
+        private static int AddEntityIndex(System.Collections.Generic.IReadOnlyList<SpawnPlanStep> steps, string key)
+        {
+            for (int i = 0; i < steps.Count; i++)
+            {
+                if (steps[i].Op == SpawnOp.AddEntity && steps[i].Entity != null && steps[i].Entity!.Key == key)
+                {
+                    return i;
+                }
+            }
+            return -1;
         }
 
         [Fact]

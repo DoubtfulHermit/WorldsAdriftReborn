@@ -15,15 +15,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// connected peer, record the per-ship hull bytes - lives in
     /// <c>Game.Crafting.BuiltShipSpawner</c> in the server assembly.
     ///
-    /// THE SEED SETS ARE THE TEST SHIP'S, PARAMETERISED. A built hull carries EXACTLY
-    /// the component set the proven static test hull carries
-    /// (<see cref="WorldEntities.HullSeedComponents"/> with recognition on: 190602,
-    /// 1209, 1099, 1130, 8062, 8071, 4349) - the only difference is that its 1209
-    /// CustomShipHullState.hullData is the PLAYER'S saved design rather than the global
-    /// minimum hull, which the serializer resolves per-entity from the built-ship
-    /// ledger. The client's interest batch on a ship hull is ALL-OR-NOTHING, so the
-    /// set must match the proven one id-for-id or the whole batch drops and the ship
-    /// renders invisible. A built deck carries the proven deck's readers:
+    /// THE SEED SETS ARE THE TEST SHIP'S, PARAMETERISED - PLUS two placement
+    /// prerequisites. A built hull carries the proven static test hull's set (190602,
+    /// 1209, 1099, 1130 + recognition 8062, 8071, 4349) AND, unlike the test hull, the
+    /// two ids that make its deck a placeable surface: 190601 TransformHierarchyState and
+    /// 1114 DockableState (see <see cref="HullSeedComponents"/> for why they diverge). The
+    /// per-build difference in CONTENTS is that 1209 CustomShipHullState.hullData is the
+    /// PLAYER'S saved design rather than the global minimum hull, which the serializer
+    /// resolves per-entity from the built-ship ledger. The client's interest batch on a
+    /// ship hull is ALL-OR-NOTHING, so the set must be exactly right id-for-id or the whole
+    /// batch drops and the ship renders invisible. A built deck carries the proven deck's
+    /// readers:
     /// <see cref="DeckSeedComponents"/> (190602 position, 1518 polygon, 1099 material).
     ///
     /// STATIC THIS PHASE. The hull is seeded with ONE at-rest 1130 control point (by
@@ -221,12 +223,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         }
 
         /// <summary>
-        /// The hull's full proactive seed set - EXACTLY the proven static test hull's,
-        /// recognition included, so the all-or-nothing interest batch matches id-for-id.
-        /// The only per-build difference is the CONTENTS of 1209, resolved by the
-        /// serializer from the built-ship ledger; the id list is identical.
+        /// The BUILT hull's full proactive seed set: the proven static test hull's set
+        /// (190602, 1209, 1099, 1130 + recognition 8062, 8071, 4349) PLUS the two placement
+        /// prerequisites a built ship needs and the static test ship does not -
+        /// <c>190601 TransformHierarchyState</c> and <c>1114 DockableState</c>.
+        ///
+        /// WHY THEY DIVERGE (findings-mount-placement.md section 1). A player can only place a
+        /// part on a surface the client accepts, and the client accepts the deck only if it is
+        /// a real Unity CHILD of the hull that is <c>Shipyard.DockedShip</c>. The deck's 190602
+        /// <c>Parent(hull,"deck")</c> becomes a Unity re-parent ONLY when the hull runs its
+        /// <c>TransformParentHierarchyBehaviour</c>, which [Require]s 190601; and the shipyard's
+        /// <c>OnDockedShipChanged</c> resolves a real docked ship only when the hull's
+        /// <c>DockableVisualizer</c> enables, which [Require]s 1114. Seeding both in the hull's
+        /// OWN all-or-nothing batch makes the hull parent-capable and dockable at CHECKOUT
+        /// rather than after a later prefab-interest request that may never have run - the
+        /// difference between "solid deck you can never place on" and a valid green surface.
+        ///
+        /// The static test hull deliberately does NOT carry these: it has no shipyard to dock
+        /// it (nothing can satisfy <c>Shipyard.DockedShip</c>), and its 1114 serve branch is
+        /// gated on <c>IsBuiltHull</c>, which it is not - so adding 1114 there would drop its
+        /// all-or-nothing batch and turn the test ship invisible. Both ids DO have serializer
+        /// branches for a BUILT hull (190601 ungated; 1114 gated on IsBuiltHull, which this
+        /// hull satisfies), so this batch survives. 190602 stays first; recognition stays last.
+        /// The only per-build difference in CONTENTS is 1209, resolved per-entity by the
+        /// serializer from the built-ship ledger.
         /// </summary>
-        public static IReadOnlyList<uint> HullSeedComponents => WorldEntities.HullSeedComponents(recogniseShip: true);
+        /// <summary>The parent-capability and dockability ids a built hull adds over the static test hull's set.</summary>
+        public static readonly IReadOnlyList<uint> PlacementPrerequisiteComponents =
+            new uint[] { 190601, 1114 };
+
+        public static IReadOnlyList<uint> HullSeedComponents { get; } = BuildHullSeedComponents();
+
+        private static IReadOnlyList<uint> BuildHullSeedComponents()
+        {
+            // base geometry/placement/motion, then the placement prerequisites, then the
+            // recognition ids last (a recognition failure can never precede the geometry in
+            // the all-or-nothing batch).
+            List<uint> list = new List<uint>(WorldEntities.ShipFrameSeedComponents);
+            list.AddRange(PlacementPrerequisiteComponents);
+            list.AddRange(WorldEntities.ShipRecognitionSeedComponents);
+            return list;
+        }
 
         /// <summary>
         /// The deck's proactive seed set: 190602 TransformState (position), 1518

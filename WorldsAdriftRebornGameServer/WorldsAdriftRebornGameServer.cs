@@ -1925,6 +1925,28 @@ namespace WorldsAdriftRebornGameServer
                 Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
                     + entity.Key + "' (" + entityId + ").");
 
+                // A restored/served BUILT HULL that is docked to a shipyard: replay a LIVE 1205
+                // DockedShipId update to this peer now that the hull exists on its client
+                // (findings-mount-placement.md section 1). The shipyard's 1205 SEED already
+                // carries the right DockedShipId, but ShipyardVisualizer only fires
+                // OnDockedShipChanged on a FUTURE DockedShipIdUpdated event - never from the
+                // initial seed value - so without this live update Shipyard.DockedShip stays
+                // null after a reconnect/restart and the docked ship's deck is never a valid
+                // placement surface. The shipyard is registered before its ship (deployables
+                // precede built ships in both the restore and the spawn order), so it is
+                // already on this client; mirrors the runtime build path's PushDockedShipId.
+                if (Game.Crafting.BuiltShips.IsBuiltHull(entityId))
+                {
+                    long dockedShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
+                    if (dockedShipyardId != 0)
+                    {
+                        Game.Crafting.BuiltShipSpawner.PushDockedShipId(peer, dockedShipyardId, entityId);
+                        Console.WriteLine("[info] connect: replayed live 1205 DockedShipId=" + entityId
+                            + " to a peer for shipyard " + dockedShipyardId
+                            + " so OnDockedShipChanged fires and its deck becomes a placement surface.");
+                    }
+                }
+
                 // A tree becomes harvestable the moment it has an entity id, which
                 // is here and only here. Keyed on the ASSET so a second registration
                 // of the same prefab is planted too, and idempotent so the second

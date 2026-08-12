@@ -11,7 +11,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// both <c>Game.Crafting.BuiltShipSpawner.Spawn</c> (runtime) and the boot restore
     /// construct their hull + deck WorldEntities here, from the same
     /// <see cref="BuiltShipPlacement"/> constants, so the hull's all-or-nothing seed
-    /// set (190602/1209/1099/1130/8062/8071/4349) and each deck's (190602/1518/1099)
+    /// set (190602/1209/1099/1130/190601/1114/8062/8071/4349 - the proven set plus the
+    /// 190601/1114 placement prerequisites) and each deck's (190602/1518/1099)
     /// are identical id-for-id on both paths - the only per-ship difference being the
     /// hull bytes (which the serializer resolves per-entity from the built-ship ledger)
     /// and the DERIVED deck panels (which both paths regenerate deterministically from
