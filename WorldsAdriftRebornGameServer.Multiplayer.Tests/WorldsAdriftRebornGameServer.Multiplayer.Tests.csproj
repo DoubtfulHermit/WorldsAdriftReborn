@@ -19,6 +19,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The REAL client entity-prefab base names, extracted from the unmodified
+         client assets (entityprefabs/<name>_unityclient). Embedded so LoosePartTests
+         can assert every catalogue prefab name resolves against the real asset set,
+         with no runtime path dependency. -->
+    <EmbeddedResource Include="Ship\client-entity-prefabs.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />
   </ItemGroup>
 

@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Reflection;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using Xunit;
@@ -49,6 +52,83 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         // is visible.
         private static readonly FixedPointPosition Station =
             new FixedPointPosition(70502113, -1273730, -4580013);
+
+        // --- The REAL client entity-prefab set (the invisible-prefab footgun) ----
+        //
+        // Extracted from the UNMODIFIED client assets (the
+        // "entityprefabs/<name>_unityclient" bundle strings in
+        // resources.assets/sharedassets*/globalgamemanagers), embedded as
+        // Ship/client-entity-prefabs.txt (one lower-case base name per line). A crafted
+        // part is only VISIBLE if the client can load its prefab, and it loads by
+        // lower-casing the name and appending the worker suffix (LocalAssetBundleLoader
+        // does prefabName.ToLower()); so a catalogue prefab name resolves IFF its
+        // lower-cased form is in this set. If it is not, the entity spawns but no prefab
+        // instantiates and the part is invisible - exactly the bug this pins.
+        private static readonly HashSet<string> RealClientEntityPrefabs = LoadRealClientEntityPrefabs();
+
+        private static HashSet<string> LoadRealClientEntityPrefabs()
+        {
+            Assembly asm = typeof(LoosePartTests).Assembly;
+            string name = asm.GetManifestResourceNames()
+                .Single(n => n.EndsWith("client-entity-prefabs.txt", StringComparison.Ordinal));
+            using Stream stream = asm.GetManifestResourceStream(name)!;
+            using StreamReader reader = new StreamReader(stream);
+            var set = new HashSet<string>(StringComparer.Ordinal);
+            string? line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                string trimmed = line.Trim();
+                if (trimmed.Length > 0 && !trimmed.StartsWith("#", StringComparison.Ordinal))
+                {
+                    set.Add(trimmed.ToLowerInvariant());
+                }
+            }
+            return set;
+        }
+
+        // --- Prefab names resolve against the REAL client assets ----------------
+
+        [Fact]
+        public void The_extracted_real_client_prefab_set_loaded_and_contains_known_good_names()
+        {
+            // Guard the extraction itself: if the embedded resource failed to load, the
+            // membership test below would pass vacuously. Pin a handful of prefabs that
+            // are proven to render in the live game (the static ship parts + the lamp).
+            Assert.True(RealClientEntityPrefabs.Count > 100,
+                "The real client entity-prefab set failed to load (only " + RealClientEntityPrefabs.Count + " names).");
+            foreach (string known in new[] { "helm01", "deck01", "sail01", "modularengine", "lamp01" })
+            {
+                Assert.Contains(known, RealClientEntityPrefabs);
+            }
+            // And prove the OLD lamp guess is genuinely absent - the whole reason it was invisible.
+            Assert.DoesNotContain("lamp", RealClientEntityPrefabs);
+        }
+
+        [Fact]
+        public void Every_loose_part_prefab_name_is_a_real_client_entity_prefab()
+        {
+            // THE invisible-part footgun. A prefab name the client cannot load spawns the
+            // entity but instantiates nothing, so the crafted part is invisible. Every
+            // row must resolve against the real, extracted client entity-prefab set.
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                string key = part.PrefabName.ToLowerInvariant();
+                Assert.True(RealClientEntityPrefabs.Contains(key),
+                    "Loose part '" + part.SchematicId + "' has prefab '" + part.PrefabName
+                    + "' which is NOT a real client entity prefab (no entityprefabs/" + key
+                    + "_unityclient) - the crafted part would spawn invisible.");
+            }
+        }
+
+        [Fact]
+        public void The_lamp_prefab_is_corrected_to_the_real_asset_Lamp01()
+        {
+            // The regression this fix pins: "Lamp" does not resolve (only lamp01 exists),
+            // so the lamp default must be the real asset "Lamp01".
+            Assert.Equal("Lamp01", LoosePartCatalogue.LampDefaultPrefab);
+            Assert.Equal("Lamp01", LoosePartCatalogue.Lamp.PrefabName);
+            Assert.Contains("lamp01", RealClientEntityPrefabs);
+        }
 
         // --- The seed set (the invisible-part footgun) --------------------------
 

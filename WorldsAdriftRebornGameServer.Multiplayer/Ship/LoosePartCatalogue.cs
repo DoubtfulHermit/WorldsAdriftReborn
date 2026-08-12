@@ -29,12 +29,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// visuals are a documented follow-on, never a regression, because best-effort
     /// interest leaves one missing part inert, not the ship.
     ///
-    /// PREFAB NAMES ARE THE VERIFIED CLIENT-RESOLVABLE NAMES. Unlike the original
-    /// lamp guess, the prefab per row is the real client/worker-resolvable bundle name
-    /// from docs/research/loop/data/prefab-names.tsv (Helm01, Sail01, ModularEngine,
-    /// ModularWing, CoreMain, Panel01.., Altimeter, Respawner01, ...). They are still
-    /// overridable at spawn time (per-schematic env var, see LoosePartSpawner) so a
-    /// live mismatch is a config change, not a rebuild. attachmentType is a
+    /// PREFAB NAMES ARE THE VERIFIED CLIENT-RESOLVABLE NAMES. Every prefabName below was
+    /// cross-checked against the REAL client entity-prefab set extracted straight from
+    /// the unmodified client assets - the "entityprefabs/&lt;name&gt;_unityclient" bundle
+    /// strings in resources.assets/sharedassets*/globalgamemanagers, saved to
+    /// docs/research/loop/data/client-entity-prefabs.txt and pinned by LoosePartTests. A
+    /// name resolves IFF its lower-cased form is in that set (the client lower-cases and
+    /// appends the worker suffix; LocalAssetBundleLoader.cs). All 37 other rows matched
+    /// on the first pass (Helm01, Sail01, Deck01, ModularEngine, ModularWing, CoreMain,
+    /// Panel01.., Altimeter, Respawner01, ...); the ONE guess that did NOT resolve was
+    /// the lamp's "Lamp" (no lamp_unityclient bundle - only lamp01), now corrected to
+    /// "Lamp01" (see LampDefaultPrefab). They are still overridable at spawn time
+    /// (per-schematic env var, see LoosePartSpawner) so a live mismatch is a config
+    /// change, not a rebuild. attachmentType is a
     /// BuilderVisualizer.GetAttachmentType string; a wrong value only degrades
     /// placement snapping to None, never whether the part renders or lifts.
     /// </summary>
@@ -44,11 +51,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public const string LampSchematicId = "lamp";
 
         /// <summary>
-        /// The lamp's default prefab. The client demonstrably resolves this (the lamp
-        /// is the one part that already worked end-to-end), so it is left as-is for
-        /// back-compat rather than switched to the tsv's "Lamp01"; both are overridable.
+        /// The lamp's default prefab, CORRECTED to the real client asset "Lamp01".
+        /// The former value "Lamp" was a guess and does NOT resolve: the client loads a
+        /// ship part by lower-casing the name and appending the worker suffix
+        /// (WorkerSpecificPrefabName -> "lamp_unityclient"; LocalAssetBundleLoader does
+        /// prefabName.ToLower()), and there is NO "lamp_unityclient" bundle - the only
+        /// lamp entity prefab in the client assets is "entityprefabs/lamp01_unityclient"
+        /// (verified by string-scanning resources.assets/sharedassets*; the full list is
+        /// docs/research/loop/data/client-entity-prefabs.txt). "Lamp01" is the SAME rule
+        /// every proven-working part obeys (Helm01, Deck01, Sail01, ModularEngine all
+        /// match their entityprefabs bundle), and it still carries LampVisualizer so the
+        /// lamp glows exactly as before. Overridable via WAREBORN_LAMP_PREFAB.
         /// </summary>
-        public const string LampDefaultPrefab = "Lamp";
+        public const string LampDefaultPrefab = "Lamp01";
 
         /// <summary>The lamp's default attachmentType (a surface-mounted decoration).</summary>
         public const string LampDefaultAttachment = "shipSurfaces";
