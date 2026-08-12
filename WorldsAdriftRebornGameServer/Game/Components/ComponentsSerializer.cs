@@ -386,20 +386,30 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         //
                         // GATE A (shipyard build-access). registeredCharacterUids is what
                         // the client's ShipyardVisualizer.IsLocalPlayerRegistered checks
-                        // with Contains(LocalPlayer.PlayerId) (ShipyardVisualizer.cs:27) -
-                        // and LocalPlayer.PlayerId is the 1086 field2 stub
-                        // LocalPlayerIdentity.PlayerId, NOT the character uid. So an OWNED
-                        // yard registers that stub (per OwnershipRegistrationPolicy),
-                        // never OwnerCharacterUid, or the player sees "Interact with
-                        // shipyard to gain access" after relog. OwnerCharacterUid is still
-                        // stored below (field10) for persistence and the 1206 owner.
+                        // with Contains(LocalPlayer.PlayerId) (ShipyardVisualizer.cs:27).
+                        // Under PER-PLAYER identity LocalPlayer.PlayerId is that player's own
+                        // durable character uid (1086 field2 == field3, see PlayerIdentity),
+                        // so the yard registers the OWNER's PlayerId (== OwnerCharacterUid):
+                        // the owner passes, every other peer's distinct PlayerId fails - the
+                        // permission boundary the shared stub used to collapse. With the flag
+                        // off it registers the shared stub (LocalPlayerIdentity.PlayerId) and
+                        // all peers pass, the documented legacy behaviour. OwnerCharacterUid
+                        // is still stored (field10) for persistence and the 1206 owner.
                         Placement.PlacedShipyards.Seed shipyardSeed =
                             Placement.PlacedShipyards.SeedFor(entityId);
+
+                        // GATE A registration identifier. Under per-player identity the yard
+                        // registers the OWNER's PlayerId (== owner character uid), so only the
+                        // owner's client passes Contains(LocalPlayer.PlayerId) and every other
+                        // peer is denied. Flag off keeps the legacy shared stub (all peers pass).
+                        string registeredPlayerId = Multiplayer.PlayerIdentity.EnabledFromEnvironment()
+                            ? Multiplayer.PlayerIdentity.OwnerPlayerId(shipyardSeed.OwnerCharacterUid)
+                            : Multiplayer.LocalPlayerIdentity.PlayerId;
 
                         Improbable.Collections.List<string> registered =
                             new Improbable.Collections.List<string>();
                         foreach (string uid in Multiplayer.Ship.OwnershipRegistrationPolicy.ShipyardRegisteredUids(
-                                     shipyardSeed.OwnerCharacterUid, Multiplayer.LocalPlayerIdentity.PlayerId))
+                                     shipyardSeed.OwnerCharacterUid, registeredPlayerId))
                         {
                             registered.Add(uid);
                         }
@@ -501,14 +511,33 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 1086)
                     {
-                        // field2_player_id is what the client exposes as LocalPlayer.PlayerId;
-                        // sourced from the shared LocalPlayerIdentity so anything the server
-                        // writes that the client compares against PlayerId (e.g. the ship
-                        // editor's 1206 ownerPlayerId, gating SAVE) cannot drift from it.
-                        PlayerName.Data pData = new PlayerName.Data(new PlayerNameData(
-                            "sp00ktober", Multiplayer.LocalPlayerIdentity.PlayerId, "cUid", "bossaToken", "bossaId"));
+                        // PlayerName, served PER ENTITY (this is a per-entity SEED at
+                        // checkout, not per-frame). field2_player_id is what the client
+                        // exposes as LocalPlayer.PlayerId; field3_character_uid is the label
+                        // dedup + logout ownership key. Under per-player identity both are the
+                        // OWNER-OF-THIS-ENTITY's durable character uid, so every client
+                        // ownership gate resolves per player (see Multiplayer.PlayerIdentity).
+                        // With the flag off we serve the legacy shared stubs byte-identically.
+                        PlayerNameData nameData;
+                        if (Multiplayer.PlayerIdentity.EnabledFromEnvironment())
+                        {
+                            string durableUid = CharacterOwnership.UidForEntity(entityId);
+                            string id = Multiplayer.PlayerIdentity.IdFor(durableUid, entityId);
+                            nameData = new PlayerNameData(
+                                Multiplayer.PlayerIdentity.DisplayNameFor(durableUid, entityId),
+                                id,   // field2 playerId  == durable character uid (or session synthetic)
+                                id,   // field3 characterUid == field2, so IsShipOwner(PlayerId) works
+                                Multiplayer.PlayerIdentity.LegacyBossaToken,
+                                Multiplayer.PlayerIdentity.LegacyBossaId);
+                        }
+                        else
+                        {
+                            nameData = new PlayerNameData(
+                                "sp00ktober", Multiplayer.LocalPlayerIdentity.PlayerId,
+                                "cUid", "bossaToken", "bossaId");
+                        }
 
-                        obj = pData;
+                        obj = new PlayerName.Data(nameData);
                     }
                     else if (componentId == 1088)
                     {
@@ -853,6 +882,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // shipyard ledger's owner uid (a different string, which was the
                         // mismatch that greyed SAVE). hasDirectAccess=true; hullData empty
                         // (the mesh is rebuilt from the pushed working blob).
+                        // ownerPlayerId is the SHIPYARD OWNER's PlayerId under per-player
+                        // identity (== owner character uid), so SAVE/RESET enable only on the
+                        // owner's client (GetOwnerId() == its own LocalPlayer.PlayerId) and
+                        // stay greyed for anyone else who opened the yard. Flag off keeps the
+                        // legacy shared stub. The live editor pushes (PushEditorState in
+                        // ShipHullAgentClientState_Handler) use the same owner value.
+                        string editorOwnerId = Multiplayer.PlayerIdentity.EnabledFromEnvironment()
+                            ? Multiplayer.PlayerIdentity.OwnerPlayerId(
+                                Placement.PlacedShipyards.SeedFor(entityId).OwnerCharacterUid)
+                            : Multiplayer.LocalPlayerIdentity.PlayerId;
+
                         ShipHullEditorState.Data heData = new ShipHullEditorState.Data(
                             false,                                    // active
                             false,                                    // modified
@@ -862,7 +902,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             new byte[0],                              // hullData
                             0,                                        // slotId
                             true,                                     // hasDirectAccess
-                            Multiplayer.LocalPlayerIdentity.PlayerId); // ownerPlayerId
+                            editorOwnerId);                           // ownerPlayerId
                         obj = heData;
                     }
                     else if(componentId == 1207)
