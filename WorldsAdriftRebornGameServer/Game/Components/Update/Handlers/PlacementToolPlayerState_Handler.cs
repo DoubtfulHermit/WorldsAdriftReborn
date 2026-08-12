@@ -61,7 +61,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // PlacePart can re-position it. Without this the re-lifted part stays
                     // mounted in the ledger and its next place is refused PartAlreadyMounted -
                     // exactly "I can't move a part I already placed".
+                    // Capture the mount BEFORE removing it, so its owner survives into the
+                    // loose re-persist below.
+                    MountedParts.Mount? priorMount = MountedParts.MountFor(liftedPartId);
                     bool wasMounted = MountedParts.Unmount(liftedPartId);
+
+                    // Keep the SAVE consistent: a lifted part is loose again, so move its
+                    // persisted state from MountedParts[] back to LooseParts[] (same PartUid).
+                    if (wasMounted)
+                    {
+                        LoosePartSpawner.RepersistLiftedAsLoose(
+                            liftedPartId, priorMount?.OwnerCharacterUid ?? "");
+                    }
 
                     Console.WriteLine("[info] 1239: player entity " + entityId
                         + " picked up part " + liftedPartId

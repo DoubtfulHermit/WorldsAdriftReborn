@@ -202,6 +202,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         Multiplayer.FixedPointPosition localSeed = seed;
                         Improbable.Collections.Option<Parent> parent = default;
 
+                        // A mounted part carries the player's PLACED hull-local rotation; captured
+                        // here so the rotation seed below honors it (a "~"-parented part CAN carry a
+                        // non-identity local rotation - the 1070 commit's own wake proves it).
+                        uint? mountedPartRotation = null;
+
                         string? partKey =
                             WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key;
                         if (Multiplayer.WorldEntities.IsBoltedPartKey(partKey))
@@ -243,6 +248,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             if (mount.HasValue)
                             {
                                 localSeed = mount.Value.LocalOffset;
+                                mountedPartRotation = mount.Value.PackedRotation;
                                 parent = ShipPartTransform.RelativeParent(
                                     mount.Value.HullEntityId, Multiplayer.BoltedPartTransform.RelativeSlotKey);
                                 Console.WriteLine("[info] seeding 190602 for MOUNTED part " + entityId
@@ -294,9 +300,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // everything that never set a rotation, RotationSeedFor
                         // returns 1023 (identity), so this is byte-for-byte the old
                         // behaviour except for the one entity kind that opts in.
-                        Quaternion32 rotationSeed = parent.HasValue
-                            ? new Quaternion32(1023)
-                            : new Quaternion32(WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId));
+                        // A MOUNTED part honors its stored placed rotation (rides "~" but at the
+                        // facing the player chose); any other parented part (a bolted deck/helm)
+                        // keeps identity; a parentless registered entity (a placed shipyard) uses
+                        // its registration yaw.
+                        Quaternion32 rotationSeed = mountedPartRotation.HasValue
+                            ? new Quaternion32(mountedPartRotation.Value)
+                            : parent.HasValue
+                                ? new Quaternion32(1023)
+                                : new Quaternion32(WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId));
 
                         TransformState.Data tData = ShipPartTransform.BuildSeed(
                             ShipPartTransform.LocalPosition(localSeed),

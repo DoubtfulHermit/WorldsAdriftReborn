@@ -32,6 +32,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             new Dictionary<long, LoosePartDefinition>();
 
         /// <summary>
+        /// The stable, cross-restart <c>PartUid</c> each live part was spawned with, keyed
+        /// by entity id. It is what the persistence layer files a loose part's
+        /// <c>LoosePartRecord</c> / <c>MountedPartRecord</c> under, so a loose part that
+        /// later becomes mounted can have its loose record removed and re-expressed as a
+        /// mount record without guessing which record is which.
+        /// </summary>
+        private static readonly Dictionary<long, string> PartUidByEntityId =
+            new Dictionary<long, string>();
+
+        /// <summary>
         /// The 1013 CraftableSpawningState a loose part is currently served with, per entity.
         /// Absent = the settled <see cref="CraftableSpawnPolicy.Done"/> value (not spawning,
         /// liftable). A FRESH craft records a <see cref="CraftableSpawnPolicy.Materializing"/>
@@ -58,9 +68,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// serve branches read. Called by the spawner BEFORE it broadcasts, so the
         /// first peer to check the part out already sees per-entity truth.
         /// </summary>
-        internal static void Register(long entityId, LoosePartDefinition definition)
+        internal static void Register(long entityId, LoosePartDefinition definition, string partUid)
         {
             ByEntityId[entityId] = definition;
+            PartUidByEntityId[entityId] = partUid ?? "";
+        }
+
+        /// <summary>The stable PartUid this part was spawned with, or null if the id is not a loose part.</summary>
+        internal static string? PartUidFor(long entityId)
+        {
+            return PartUidByEntityId.TryGetValue(entityId, out string? uid) ? uid : null;
         }
 
         /// <summary>Whether this entity id is a crafted loose ship part.</summary>

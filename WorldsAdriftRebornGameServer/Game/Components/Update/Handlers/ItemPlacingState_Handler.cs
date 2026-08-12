@@ -153,9 +153,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 placement.globalRotation.y,
                 placement.globalRotation.z);
 
-            // Owner is left empty for this milestone (Phase A = visible + deployed for
-            // everyone). Per-owner dome/registration is the Phase B+ follow-on.
-            long? spawned = WorldsAdriftRebornGameServer.Placement.SpawnPlacedDeployable(def, position, packedRotation, "");
+            // OWNER = the placing player's durable character uid, resolved the SAME way
+            // inventory/knowledge key on it (the 1088 identity bind). The 1205 serve branch
+            // copies this into ShipyardState.registeredCharacterUids, which is the exact
+            // field the client's ShipyardVisualizer.IsLocalPlayerRegistered checks against
+            // LocalPlayer.PlayerId - so a non-empty owner is what clears the red "not yours"
+            // outline and grants the placer build access on relog. An un-bound player (no uid
+            // yet) still yields "", the old everyone-owns-it behaviour.
+            string ownerCharacterUid = Game.CharacterOwnership.UidForEntity(entityId);
+            long? spawned = WorldsAdriftRebornGameServer.Placement.SpawnPlacedDeployable(def, position, packedRotation, ownerCharacterUid);
 
             if (!spawned.HasValue)
             {

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 {
@@ -70,6 +71,130 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
     }
 
     /// <summary>
+    /// One crafted-but-unmounted (LOOSE) ship part that must reappear after a restart.
+    /// It is the durable form of a <c>Crafting.LooseParts</c> ledger entry plus the
+    /// spawn transform the in-memory ledger never kept, and it carries EXACTLY what
+    /// <c>LoosePartSpawner.Restore</c> needs to rebuild a byte-identical loose part: the
+    /// full <see cref="LoosePartDefinition"/> fields (so the restore is identical even
+    /// when a live env-override changed the prefab/attachment), the world-absolute
+    /// position and packed rotation it spawned at, the owner (the crafter's character
+    /// uid), and a stable <see cref="PartUid"/>.
+    ///
+    /// WHY A STABLE PartUid AND NOT THE ENTITY ID. Entity ids only agree within a
+    /// session; a restored part is allocated a fresh id at boot. The <see cref="PartUid"/>
+    /// is a durable, cross-restart identity so a loose part that later becomes MOUNTED
+    /// can have its <see cref="LoosePartRecord"/> removed and re-expressed as a
+    /// <see cref="MountedPartRecord"/> without guessing which record is which.
+    /// </summary>
+    public sealed class LoosePartRecord
+    {
+        /// <summary>Stable cross-restart identity, correlating a loose part with its mount transition.</summary>
+        public string PartUid { get; set; } = "";
+
+        /// <summary>The recipe/catalogue key this part was crafted from.</summary>
+        public string SchematicId { get; set; } = "";
+
+        /// <summary>The 1120 itemType / 1099 salvage itemTypeId (the EFFECTIVE value spawned).</summary>
+        public string ItemType { get; set; } = "";
+
+        /// <summary>The 1120 title shown to the player.</summary>
+        public string Title { get; set; } = "";
+
+        /// <summary>The EFFECTIVE prefab the client loads (post env-override), so restore is identical.</summary>
+        public string PrefabName { get; set; } = "";
+
+        /// <summary>The EFFECTIVE 1120 attachmentType string (post env-override).</summary>
+        public string AttachmentType { get; set; } = "";
+
+        /// <summary>The part-specific functional component ids (e.g. the lamp's 1108/1236).</summary>
+        public uint[] PartSpecificComponents { get; set; } = System.Array.Empty<uint>();
+
+        /// <summary>Spawn position, world-absolute, in Q52.12 fixed-point units (the 190602 seed).</summary>
+        public long X { get; set; }
+
+        /// <summary>Spawn position, world-absolute, in Q52.12 fixed-point units (the 190602 seed).</summary>
+        public long Y { get; set; }
+
+        /// <summary>Spawn position, world-absolute, in Q52.12 fixed-point units (the 190602 seed).</summary>
+        public long Z { get; set; }
+
+        /// <summary>The packed <c>Quaternion32</c> facing (identity for a loose part that chose none).</summary>
+        public uint PackedRotation { get; set; } = Placement.Quaternion32Packing.Identity;
+
+        /// <summary>The character uid of the player who crafted it.</summary>
+        public string OwnerCharacterUid { get; set; } = "";
+
+        /// <summary>The spawn position as a <see cref="FixedPointPosition"/>.</summary>
+        public FixedPointPosition Position() => new FixedPointPosition(X, Y, Z);
+
+        /// <summary>Rebuilds the exact <see cref="LoosePartDefinition"/> this part spawned from.</summary>
+        public LoosePartDefinition Definition() => new LoosePartDefinition(
+            SchematicId, ItemType, Title, PrefabName, AttachmentType, PartSpecificComponents);
+    }
+
+    /// <summary>
+    /// One loose part MOUNTED onto a built ship that must reappear after a restart,
+    /// ALREADY ATTACHED and in the same place on its ship. It is the durable form of a
+    /// <c>Crafting.MountedParts</c> ledger entry, tied to its ship by
+    /// <see cref="BuiltShipIndex"/> - the position of the owning ship in
+    /// <see cref="WorldStateSnapshot.BuiltShips"/>, which is stable because ships are
+    /// only ever appended and restored in that same order. Restore looks the index back
+    /// up to the ship's FRESH boot hull entity id and seeds the part riding it.
+    ///
+    /// It carries the full part definition (to re-spawn the part entity), the hull-local
+    /// mount transform (offset + packed rotation), the owner, and the same
+    /// <see cref="PartUid"/> the loose record had, so the two never double-spawn.
+    /// </summary>
+    public sealed class MountedPartRecord
+    {
+        /// <summary>Stable cross-restart identity (the same PartUid the loose record carried).</summary>
+        public string PartUid { get; set; } = "";
+
+        /// <summary>Index into <see cref="WorldStateSnapshot.BuiltShips"/> of the ship this rides.</summary>
+        public int BuiltShipIndex { get; set; }
+
+        /// <summary>The recipe/catalogue key this part was crafted from.</summary>
+        public string SchematicId { get; set; } = "";
+
+        /// <summary>The 1120 itemType / 1099 salvage itemTypeId.</summary>
+        public string ItemType { get; set; } = "";
+
+        /// <summary>The 1120 title.</summary>
+        public string Title { get; set; } = "";
+
+        /// <summary>The EFFECTIVE prefab the client loads.</summary>
+        public string PrefabName { get; set; } = "";
+
+        /// <summary>The EFFECTIVE 1120 attachmentType string.</summary>
+        public string AttachmentType { get; set; } = "";
+
+        /// <summary>The part-specific functional component ids.</summary>
+        public uint[] PartSpecificComponents { get; set; } = System.Array.Empty<uint>();
+
+        /// <summary>Hull-LOCAL mount offset, in Q52.12 fixed-point units (the 190602 Parent(hull,"~") offset).</summary>
+        public long LocalX { get; set; }
+
+        /// <summary>Hull-LOCAL mount offset, in Q52.12 fixed-point units.</summary>
+        public long LocalY { get; set; }
+
+        /// <summary>Hull-LOCAL mount offset, in Q52.12 fixed-point units.</summary>
+        public long LocalZ { get; set; }
+
+        /// <summary>The packed <c>Quaternion32</c> hull-local rotation the player placed the part at.</summary>
+        public uint PackedRotation { get; set; } = Placement.Quaternion32Packing.Identity;
+
+        /// <summary>The character uid of the player who mounted it.</summary>
+        public string OwnerCharacterUid { get; set; } = "";
+
+        /// <summary>The hull-local mount offset as a <see cref="FixedPointPosition"/>.</summary>
+        public FixedPointPosition LocalOffset() => new FixedPointPosition(LocalX, LocalY, LocalZ);
+
+        /// <summary>Rebuilds the exact <see cref="LoosePartDefinition"/> the mounted part spawned from.</summary>
+        public LoosePartDefinition Definition() => new LoosePartDefinition(
+            SchematicId, ItemType, Title, PrefabName, AttachmentType, PartSpecificComponents);
+    }
+
+    /// <summary>
     /// The whole of the shared, server-owned world state that survives a restart: the
     /// deployables players have placed and the ships they have built. Per-player state
     /// (inventory, designs, progression, position) is NOT here - it keys on character
@@ -88,5 +213,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 
         /// <summary>Every built ship to re-register and re-spawn at boot.</summary>
         public List<BuiltShipRecord> BuiltShips { get; set; } = new List<BuiltShipRecord>();
+
+        /// <summary>Every MOUNTED part to re-spawn already attached to its built ship at boot.</summary>
+        public List<MountedPartRecord> MountedParts { get; set; } = new List<MountedPartRecord>();
+
+        /// <summary>Every crafted-but-unmounted LOOSE part to re-spawn at boot.</summary>
+        public List<LoosePartRecord> LooseParts { get; set; } = new List<LoosePartRecord>();
     }
 }

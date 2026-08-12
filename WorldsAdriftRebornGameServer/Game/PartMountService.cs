@@ -79,7 +79,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
-            Commit(carried.Value, shipId, pp);
+            // OWNER = the mounting player's durable character uid, the same identity the
+            // crafted part was owned by. Persisted on the mount record.
+            string mounterUid = CharacterOwnership.UidForEntity(playerEntityId);
+            Commit(carried.Value, shipId, pp, mounterUid);
             MountedParts.ClearCarried(playerEntityId);
         }
 
@@ -148,7 +151,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// it already attached. Broadcast to every fully-loaded peer via the same
         /// reliable path the hull's 1130 and the bolted parts' 190602 wake use.
         /// </summary>
-        private static void Commit(long partEntityId, long hullEntityId, PlacePart pp)
+        private static void Commit(long partEntityId, long hullEntityId, PlacePart pp, string ownerCharacterUid)
         {
             FixedPointPosition localOffset = PartMount.ShipLocalOffset(
                 pp.shipLocalPosition.X, pp.shipLocalPosition.Y, pp.shipLocalPosition.Z);
@@ -193,9 +196,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
             ShipPublisher.Broadcast(partEntityId, 1120u, partUpdate);
 
-            // Record for re-checkout (and future restart-durable persistence + a moving-
-            // hull wake). Prefab/attach/title/itemType come from the loose-part ledger so
-            // the 1120 re-seed still loads the right prefab.
+            // Record for re-checkout (and restart-durable persistence + a moving-hull wake).
+            // Prefab/attach/title/itemType come from the loose-part ledger so the 1120 re-seed
+            // still loads the right prefab; the packed rotation makes the 190602 mount re-seed
+            // honor the placed facing, and the owner is carried for persistence.
             var def = Crafting.LooseParts.DefFor(partEntityId);
             MountedParts.Register(partEntityId, new MountedParts.Mount(
                 hullEntityId,
@@ -204,11 +208,48 @@ namespace WorldsAdriftRebornGameServer.Game
                 def?.PrefabName ?? "",
                 def?.AttachmentType ?? "",
                 def?.Title ?? "",
-                def?.ItemType ?? ""));
+                def?.ItemType ?? "",
+                packedShipLocalRotation,
+                ownerCharacterUid));
 
             Console.WriteLine("[info] part-mount: MOUNTED part " + partEntityId + " onto hull " + hullEntityId
                 + " at hull-local " + localOffset + " (attached=true, Parent(hull,\"~\")). Mount #"
                 + MountedParts.Count + " this session.");
+
+            // PERSIST the mount so the part comes back ALREADY ATTACHED next boot. The ship is
+            // referenced by its durable PERSISTENT INDEX (not the volatile hull id), and the
+            // part's loose record is removed in the same breath so it is never both loose and
+            // mounted in the save. A mount on a non-persisted ship (the static test hull has no
+            // index) is session-only and simply not persisted.
+            int? shipIndex = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
+            string? partUid = Crafting.LooseParts.PartUidFor(partEntityId);
+            if (shipIndex.HasValue && !string.IsNullOrEmpty(partUid))
+            {
+                Persistence.WorldStatePersistence.RecordMountedPart(new Multiplayer.Persistence.MountedPartRecord
+                {
+                    PartUid = partUid!,
+                    BuiltShipIndex = shipIndex.Value,
+                    SchematicId = def?.SchematicId ?? "",
+                    ItemType = def?.ItemType ?? "",
+                    Title = def?.Title ?? "",
+                    PrefabName = def?.PrefabName ?? "",
+                    AttachmentType = def?.AttachmentType ?? "",
+                    PartSpecificComponents = def != null
+                        ? System.Linq.Enumerable.ToArray(def.PartSpecificComponents)
+                        : System.Array.Empty<uint>(),
+                    LocalX = localOffset.X,
+                    LocalY = localOffset.Y,
+                    LocalZ = localOffset.Z,
+                    PackedRotation = packedShipLocalRotation,
+                    OwnerCharacterUid = ownerCharacterUid ?? "",
+                });
+                Persistence.WorldStatePersistence.RemoveLoosePart(partUid!);
+            }
+            else
+            {
+                Console.WriteLine("[info] part-mount: mount of part " + partEntityId + " onto hull " + hullEntityId
+                    + " is session-only (ship has no persistent index or the part has no PartUid); not persisted.");
+            }
         }
     }
 }

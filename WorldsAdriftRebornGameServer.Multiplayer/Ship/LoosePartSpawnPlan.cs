@@ -19,9 +19,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <paramref name="position"/>, keyed by <paramref name="sequence"/>. Asset
         /// name is the part's prefab; the seed set is the part's own
         /// <see cref="LoosePartDefinition.SeedComponents"/> (ShipPartVisualizer's
-        /// requires + the part-specific functional ids).
+        /// requires + the part-specific functional ids). <paramref name="packedRotation"/>
+        /// is the 190602 localRotation seed - identity for a freshly-crafted loose part
+        /// (it chose no facing), threaded through only so a RESTORED part reproduces the
+        /// exact rotation it was persisted with.
         /// </summary>
-        public static WorldEntity For(int sequence, FixedPointPosition position, LoosePartDefinition part)
+        public static WorldEntity For(int sequence, FixedPointPosition position, LoosePartDefinition part,
+            uint packedRotation = Placement.Quaternion32Packing.Identity)
         {
             return new WorldEntity(
                 LoosePartPlacement.Key(sequence, part.SchematicId),
@@ -29,7 +33,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 WorldEntities.DefaultAssetContext,
                 position,
                 seedComponents: part.SeedComponents,
-                order: SpawnOrder.AfterPlayer);
+                order: SpawnOrder.AfterPlayer,
+                packedRotation: packedRotation);
         }
     }
 }

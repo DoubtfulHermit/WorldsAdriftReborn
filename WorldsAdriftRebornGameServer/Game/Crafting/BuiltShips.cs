@@ -30,6 +30,17 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         private static readonly HashSet<long> DeckEntityIds = new HashSet<long>();
 
         /// <summary>
+        /// A built hull's PERSISTENT index - its position in the persisted
+        /// <c>WorldStateSnapshot.BuiltShips</c> list - keyed by the hull's live entity id.
+        /// This is the durable, cross-restart handle a MOUNTED part references its ship by:
+        /// the live hull entity id changes every boot, but the index into the append-only,
+        /// restore-in-order ship list does not. Populated by the runtime build (from the
+        /// index RecordBuiltShip returned) and by the boot restore (the iteration index),
+        /// so a mount committed on a restored ship persists against the right index too.
+        /// </summary>
+        private static readonly Dictionary<long, int> PersistentIndexByHull = new Dictionary<long, int>();
+
+        /// <summary>
         /// The shipyard&lt;-&gt;built-ship dock association, delegated to the PURE
         /// <see cref="Multiplayer.Ship.ShipDockRegistry"/> so the one-to-one, two-way
         /// bookkeeping (and, new for build-access, the hull-&gt;shipyard REVERSE lookup the
@@ -92,6 +103,26 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
 
         /// <summary>How many ships have been built this session.</summary>
         internal static int Count => HullBytesByEntityId.Count;
+
+        /// <summary>
+        /// Records a built hull's persistent index (its position in the persisted
+        /// <c>BuiltShips</c> list). Called by the runtime build and the boot restore so a
+        /// mount committed on this hull can be persisted against the ship's durable index.
+        /// </summary>
+        internal static void SetPersistentIndex(long hullEntityId, int index)
+        {
+            PersistentIndexByHull[hullEntityId] = index;
+        }
+
+        /// <summary>
+        /// The persistent index of the built ship whose live hull is <paramref name="hullEntityId"/>,
+        /// or null when the hull is not a persisted built ship (e.g. the static test ship) and
+        /// therefore has no durable mount target.
+        /// </summary>
+        internal static int? PersistentIndexFor(long hullEntityId)
+        {
+            return PersistentIndexByHull.TryGetValue(hullEntityId, out int index) ? index : (int?)null;
+        }
 
         // ------------------------------------------------------------------
         // ONE SHIP PER SHIPYARD (1205 ShipyardState.DockedShipId is singular).

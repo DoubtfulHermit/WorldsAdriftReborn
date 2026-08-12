@@ -108,5 +108,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal(SpawnOrder.AfterPlayer, plan.Hull.Order);
             Assert.Equal(SpawnOrder.AfterPlayer, plan.Deck.Order);
         }
+
+        // -----------------------------------------------------------------
+        // Loose part (crafted, unmounted)
+        // -----------------------------------------------------------------
+
+        [Fact]
+        public void A_restored_loose_part_carries_the_parts_own_all_or_nothing_seed_set()
+        {
+            LoosePartDefinition part = LoosePartCatalogue.Lamp;
+            FixedPointPosition pos = FixedPointPosition.FromMetres(10.0, 2.0, -5.0);
+
+            WorldEntity e = LoosePartSpawnPlan.For(sequence: 4, pos, part);
+
+            // Id-for-id the part's own seed set (base seven + the lamp's 1108/1236), or the
+            // client's all-or-nothing interest batch drops and the part renders inert.
+            Assert.Equal(part.SeedComponents, e.SeedComponents);
+            Assert.Equal(part.PrefabName, e.AssetName);
+            Assert.Equal(LoosePartPlacement.Key(4, part.SchematicId), e.Key);
+            Assert.Equal(pos, e.Position);
+            Assert.Equal(SpawnOrder.AfterPlayer, e.Order);
+        }
+
+        [Fact]
+        public void A_restored_loose_part_reproduces_its_persisted_rotation()
+        {
+            LoosePartDefinition part = LoosePartCatalogue.Lamp;
+            FixedPointPosition pos = FixedPointPosition.FromMetres(0, 0, 0);
+
+            // A freshly-crafted loose part chose no facing (identity); a restore threads
+            // whatever was persisted so the two are byte-identical.
+            Assert.Equal(WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity,
+                LoosePartSpawnPlan.For(0, pos, part).PackedRotation);
+            Assert.Equal(778899u,
+                LoosePartSpawnPlan.For(0, pos, part, packedRotation: 778899u).PackedRotation);
+        }
     }
 }

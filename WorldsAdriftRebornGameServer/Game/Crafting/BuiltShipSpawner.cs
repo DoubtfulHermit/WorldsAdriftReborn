@@ -79,8 +79,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 RegisterBuiltShip(hullPos, hullBytes);
 
             // Persist the built ship so it reappears next boot - re-spawned as a world
-            // entity in the connect-time spawn plan, exactly like this runtime spawn.
-            WorldStatePersistence.RecordBuiltShip(hullPos, hullBytes);
+            // entity in the connect-time spawn plan, exactly like this runtime spawn. The
+            // returned persistent index is the durable handle a mounted part references its
+            // ship by; record it against this hull so a mount committed on it persists too.
+            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, hullBytes);
+            BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
 
             // ONE SHIP PER SHIPYARD: record which yard produced this hull, so its 1205
             // ShipyardState.DockedShipId reports it and a further CRAFT on that yard is

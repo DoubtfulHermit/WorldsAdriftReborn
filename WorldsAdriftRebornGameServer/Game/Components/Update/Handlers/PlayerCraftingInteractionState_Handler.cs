@@ -454,12 +454,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // (station, player) guard is freed and the session reset: a leaked guard here IS
             // the "one craft then everything blocked" regression. DeferredActions.Tick wraps
             // this in its own try/catch, so a spawn failure is logged, not fatal.
+            // OWNER = the crafter's durable character uid, resolved NOW (at craft start) so a
+            // disconnect during the craft window cannot lose it. Threaded into the spawn so
+            // the loose part is persisted owned by whoever crafted it - the same identity its
+            // crafter's inventory/knowledge key on.
+            string crafterUid = Game.CharacterOwnership.UidForEntity(entityId);
+
             DeferredActions.After(seconds, () =>
             {
                 long? spawned = null;
                 try
                 {
-                    spawned = LoosePartSpawner.Spawn(stationEntityId, part);
+                    spawned = LoosePartSpawner.Spawn(stationEntityId, part, crafterUid);
                 }
                 finally
                 {

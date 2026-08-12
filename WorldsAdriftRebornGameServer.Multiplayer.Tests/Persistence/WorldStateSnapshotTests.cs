@@ -113,5 +113,103 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal(2, read.PlacedDeployables[2].X);
             Assert.Equal(new byte[] { 2 }, read.BuiltShips[2].HullBytes);
         }
+
+        [Fact]
+        public void A_loose_part_round_trips_every_field_and_rebuilds_its_definition()
+        {
+            FixedPointPosition pos = FixedPointPosition.FromMetres(1234.5, 67.25, -890.125);
+
+            WorldStateSnapshot snapshot = new WorldStateSnapshot();
+            snapshot.LooseParts.Add(new LoosePartRecord
+            {
+                PartUid = "abc123",
+                SchematicId = "lamp",
+                ItemType = "lamp",
+                Title = "Lamp",
+                PrefabName = "Lamp01",
+                AttachmentType = "shipSurfaces",
+                PartSpecificComponents = new uint[] { 1108u, 1236u },
+                X = pos.X,
+                Y = pos.Y,
+                Z = pos.Z,
+                PackedRotation = 424242u,
+                OwnerCharacterUid = "6f9619ff-8b86-d011-b42d-00c04fc964ff",
+            });
+
+            string path = Path.Combine(_dir, "world.json");
+            AtomicJsonFile.Write(path, snapshot);
+            WorldStateSnapshot read = AtomicJsonFile.Read<WorldStateSnapshot>(path)!;
+
+            LoosePartRecord r = Assert.Single(read.LooseParts);
+            Assert.Equal("abc123", r.PartUid);
+            Assert.Equal("lamp", r.SchematicId);
+            Assert.Equal(pos, r.Position());
+            Assert.Equal(424242u, r.PackedRotation);
+            Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
+            Assert.Equal(new uint[] { 1108u, 1236u }, r.PartSpecificComponents);
+
+            // The rebuilt definition is byte-identical to what the spawner would re-craft:
+            // same prefab/attach/itemType AND the same all-or-nothing seed set (base + specific).
+            WorldsAdriftRebornGameServer.Multiplayer.Ship.LoosePartDefinition def = r.Definition();
+            Assert.Equal("Lamp01", def.PrefabName);
+            Assert.Equal("shipSurfaces", def.AttachmentType);
+            Assert.Equal("lamp", def.ItemType);
+            Assert.Equal(new uint[] { 1108u, 1236u }, def.PartSpecificComponents);
+        }
+
+        [Fact]
+        public void A_mounted_part_round_trips_its_ship_link_transform_rotation_and_owner()
+        {
+            FixedPointPosition local = FixedPointPosition.FromMetres(0.5, 1.25, -2.75);
+
+            WorldStateSnapshot snapshot = new WorldStateSnapshot();
+            snapshot.MountedParts.Add(new MountedPartRecord
+            {
+                PartUid = "part-xyz",
+                BuiltShipIndex = 2,
+                SchematicId = "lamp",
+                ItemType = "lamp",
+                Title = "Lamp",
+                PrefabName = "Lamp01",
+                AttachmentType = "shipSurfaces",
+                PartSpecificComponents = new uint[] { 1108u, 1236u },
+                LocalX = local.X,
+                LocalY = local.Y,
+                LocalZ = local.Z,
+                PackedRotation = 55555u,
+                OwnerCharacterUid = "6f9619ff-8b86-d011-b42d-00c04fc964ff",
+            });
+
+            string path = Path.Combine(_dir, "world.json");
+            AtomicJsonFile.Write(path, snapshot);
+            WorldStateSnapshot read = AtomicJsonFile.Read<WorldStateSnapshot>(path)!;
+
+            MountedPartRecord r = Assert.Single(read.MountedParts);
+            Assert.Equal("part-xyz", r.PartUid);
+            Assert.Equal(2, r.BuiltShipIndex);
+            Assert.Equal(local, r.LocalOffset());
+            Assert.Equal(55555u, r.PackedRotation);
+            Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
+            Assert.Equal("Lamp01", r.Definition().PrefabName);
+        }
+
+        [Fact]
+        public void An_owner_uid_survives_the_round_trip_on_every_ownable_record()
+        {
+            const string uid = "11111111-2222-3333-4444-555555555555";
+
+            WorldStateSnapshot snapshot = new WorldStateSnapshot();
+            snapshot.PlacedDeployables.Add(new PlacedDeployableRecord { ItemTypeId = "shipyard", OwnerCharacterUid = uid });
+            snapshot.LooseParts.Add(new LoosePartRecord { PartUid = "p", OwnerCharacterUid = uid });
+            snapshot.MountedParts.Add(new MountedPartRecord { PartUid = "m", OwnerCharacterUid = uid });
+
+            string path = Path.Combine(_dir, "world.json");
+            AtomicJsonFile.Write(path, snapshot);
+            WorldStateSnapshot read = AtomicJsonFile.Read<WorldStateSnapshot>(path)!;
+
+            Assert.Equal(uid, read.PlacedDeployables[0].OwnerCharacterUid);
+            Assert.Equal(uid, read.LooseParts[0].OwnerCharacterUid);
+            Assert.Equal(uid, read.MountedParts[0].OwnerCharacterUid);
+        }
     }
 }

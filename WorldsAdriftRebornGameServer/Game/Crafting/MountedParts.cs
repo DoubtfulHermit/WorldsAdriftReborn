@@ -41,7 +41,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         internal readonly struct Mount
         {
             internal Mount(long hullEntityId, FixedPointPosition localOffset, long attachedToEntityId,
-                string prefabName, string attachmentType, string title, string itemType)
+                string prefabName, string attachmentType, string title, string itemType,
+                uint packedRotation, string ownerCharacterUid)
             {
                 HullEntityId = hullEntityId;
                 LocalOffset = localOffset;
@@ -50,6 +51,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 AttachmentType = attachmentType;
                 Title = title;
                 ItemType = itemType;
+                PackedRotation = packedRotation;
+                OwnerCharacterUid = ownerCharacterUid ?? "";
             }
 
             internal long HullEntityId { get; }
@@ -59,6 +62,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             internal string AttachmentType { get; }
             internal string Title { get; }
             internal string ItemType { get; }
+
+            /// <summary>
+            /// The packed <c>Quaternion32</c> hull-local rotation the player placed the part
+            /// at. Honored by the 190602 mount re-seed so a re-checkout (and a boot restore)
+            /// keeps the part at its placed facing rather than snapping to identity.
+            /// </summary>
+            internal uint PackedRotation { get; }
+
+            /// <summary>The character uid of the player who mounted the part.</summary>
+            internal string OwnerCharacterUid { get; }
         }
 
         private static readonly Dictionary<long, Mount> ByEntityId = new Dictionary<long, Mount>();
