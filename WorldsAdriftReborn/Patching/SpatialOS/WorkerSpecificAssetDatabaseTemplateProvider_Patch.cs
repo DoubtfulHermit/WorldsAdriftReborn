@@ -30,15 +30,32 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                                         });
         }
 
+        // Reflection handles resolved ONCE. This prefix runs for EVERY
+        // AddEntityOp the client processes - resolving the type by name (a scan
+        // of every loaded assembly) and the FieldInfos on each call was pure
+        // per-entity overhead concentrated exactly in the load-in window.
+        private static readonly FieldInfo AssetDatabaseField =
+            AccessTools.Field(AccessTools.TypeByName("WorkerSpecificAssetDatabaseTemplateProvider"), "AssetDatabase");
+        private static readonly FieldInfo CachedGameObjectsField =
+            AccessTools.Field(typeof(CachingAssetDatabase), "cachedGameObjects");
+
+        // Templates already run through PrefabCompiler, by instance id. The
+        // template is a SHARED cached object that MakeComponent clones per
+        // entity; compiling it again for every entity that uses the same prefab
+        // (every tree, every deposit, every ship part of a kind) redid the whole
+        // ExportProcess component pass per entity for zero change. If the cache
+        // entry is ever replaced, the new object has a new instance id and gets
+        // its own compile.
+        private static readonly HashSet<int> compiledTemplates = new HashSet<int>();
+
         [HarmonyPrefix]
         public static void GetEntityTemplate_Prefix( object __instance, string prefabName )
         {
             // The player seems to miss some components which cant be added through sdk calls that we know of, but they are added by the ExportProcess method which gets invoked when we compile the object
             // not sure if this will call the right one tho (there are multiple different ones) but it seems to produce different error messages when used compared to when not used.
-            object assetDatabase = AccessTools.Field(AccessTools.TypeByName("WorkerSpecificAssetDatabaseTemplateProvider"), "AssetDatabase").GetValue(__instance);
-            IDictionary<string, GameObject> dic = (IDictionary<string, GameObject>)AccessTools.Field(typeof(CachingAssetDatabase), "cachedGameObjects").GetValue(assetDatabase);
+            object assetDatabase = AssetDatabaseField.GetValue(__instance);
+            IDictionary<string, GameObject> dic = (IDictionary<string, GameObject>)CachedGameObjectsField.GetValue(assetDatabase);
             string key = prefabName + "_unityclient";
-            PrefabCompiler p = new PrefabCompiler(WorkerPlatform.UnityClient);
             GameObject gObject;
 
             // RESCUE-ON-MISS: a runtime-spawned entity (a crafted ship part) reaches
@@ -68,12 +85,19 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
 
             if (gObject != null)
             {
-                p.Compile(gObject);
-                Debug.LogWarning("COMPILED PLAYER GAMEOBJECT!!!");
+                if (compiledTemplates.Add(gObject.GetInstanceID()))
+                {
+                    PrefabCompiler p = new PrefabCompiler(WorkerPlatform.UnityClient);
+                    p.Compile(gObject);
+                    // Plain log (no stack trace), once per template - the old
+                    // unconditional LogWarning captured and formatted a full
+                    // stack trace per entity checkout.
+                    Debug.Log("[WAReborn] compiled entity template '" + key + "'");
+                }
             }
             else
             {
-                Debug.LogWarning("COMPILE FAILED " + key);
+                Debug.LogWarning("[WAReborn] entity template compile failed: no cached prefab for " + key);
             }
         }
     }

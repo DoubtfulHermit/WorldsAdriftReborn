@@ -96,6 +96,13 @@ namespace WorldsAdriftReborn.Patching.Mining
             Debug.Log("[WAR][deposit] entity " + entityId + " init at " + transform.position
                 + ": variantId='" + variantId + "', biome=" + biome + ".");
 
+            // Poll at 4 Hz, not every frame: GetComponentInChildren walks the
+            // child hierarchy, and this coroutine runs on EVERY deposit in the
+            // world for up to GraceSeconds - per-frame polling made the whole
+            // load-in window pay a hierarchy walk per deposit per frame. The
+            // watchdog only exists to LOG a missing rock; 250 ms of detection
+            // latency changes nothing it does.
+            WaitForSeconds pollDelay = new WaitForSeconds(0.25f);
             float deadline = Time.realtimeSinceStartup + GraceSeconds;
             while (Time.realtimeSinceStartup < deadline)
             {
@@ -109,7 +116,7 @@ namespace WorldsAdriftReborn.Patching.Mining
                         + " built its rock (variant '" + variantId + "').");
                     yield break;
                 }
-                yield return null;
+                yield return pollDelay;
             }
 
             BiomeType? still = null;
