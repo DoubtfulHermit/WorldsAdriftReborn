@@ -112,13 +112,17 @@ Output: `tools/patcher/WAPatch/bin/Release/net8.0-windows/win-x64/publish/WAPatc
   run never clobbers the original backup.
 - Writes via a temp file + move, so a crash mid-write can't leave a half DLL.
 - Never touches `steam_api64.dll` or `winhttp.dll`.
+- Creates or updates only the four public Wareborn connection keys in
+  `BepInEx/config/WorldsAdriftReborn.cfg`, preserving all unrelated settings and
+  a one-time `.pre-wareborn.bak` backup.
 - Shows current-vs-latest version so a player knows if they are behind.
 
 ### How a player uses it
 
 **First run:** double-click `WAPatch.exe` -> **Browse** to the Worlds Adrift
 folder (the one with `UnityClient@Windows.exe`) -> **Check for updates** ->
-**Patch**. Close the game first if it is running.
+**Patch**. Close the game first if it is running. The public server addresses
+are configured automatically.
 
 **Later:** double-click, **Check for updates**. If it says "up to date", done.
 Otherwise **Patch**. The folder is remembered between runs.

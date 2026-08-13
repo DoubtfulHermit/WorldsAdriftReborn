@@ -108,30 +108,13 @@ Windows may show an unknown-publisher warning because this community binary is
 not code-signed. Verify the SHA-256 shown on the GitHub release before running
 it if you want an independent integrity check.
 
-### 4. Point the client at Wareborn
+WAPatch also creates or updates `BepInEx\config\WorldsAdriftReborn.cfg` with the
+public game and login server addresses. It changes only those four connection
+values, preserves every other setting and comment, and keeps the original as
+`WorldsAdriftReborn.cfg.pre-wareborn.bak`. There is no manual configuration
+step.
 
-Launch the game once after patching, then close it. This creates:
-
-```text
-BepInEx\config\WorldsAdriftReborn.cfg
-```
-
-Open that file and set these values in their existing sections:
-
-```ini
-[GameServer]
-GameServer_Host = 62.171.161.19
-GameServer_Port = 7779
-
-[REST]
-REST_ServerUrl = http://62.171.161.19:8085
-REST_ServerDeploymentUrl = http://62.171.161.19:8085/deploymentStatus
-```
-
-Use a unique password for this test service. The browser signup is HTTPS, but
-the legacy game client's authentication request currently uses plain HTTP.
-
-### 5. Create an account and enter the world
+### 4. Create an account and enter the world
 
 1. Register at <https://wareborn.ratlabs.cc/signup>.
 2. Launch `UnityClient@Windows.exe`.
@@ -141,6 +124,9 @@ the legacy game client's authentication request currently uses plain HTTP.
 
 The browser login page at <https://wareborn.ratlabs.cc/login> also provides the
 current patcher download after sign-in.
+
+Use a unique password for this test service. The browser signup is HTTPS, but
+the legacy game client's authentication request currently uses plain HTTP.
 
 ### Useful controls
 

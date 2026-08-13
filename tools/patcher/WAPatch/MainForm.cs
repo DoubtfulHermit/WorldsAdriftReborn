@@ -105,8 +105,21 @@ public sealed class MainForm : Form
                     need++;
                 }
 
-            if (need == 0) { Log("You are up to date. Nothing to do."); _patch.Enabled = false; }
-            else { Log($"{need} file(s) will be updated. Click Patch."); _patch.Enabled = true; }
+            bool configNeedsUpdate = WarebornConnectionConfig.NeedsUpdate(_dirBox.Text);
+            if (configNeedsUpdate) Log("Your Wareborn server connection settings will be configured.");
+
+            if (need == 0 && !configNeedsUpdate)
+            {
+                Log("You are up to date. Nothing to do.");
+                _patch.Enabled = false;
+            }
+            else
+            {
+                Log(need > 0
+                    ? $"{need} file(s) will be updated. Click Patch."
+                    : "Connection settings will be updated. Click Patch.");
+                _patch.Enabled = true;
+            }
         }
         catch (Exception e) { Log("ERROR checking for updates: " + e.Message); }
         finally { SetBusy(false); }
@@ -124,6 +137,15 @@ public sealed class MainForm : Form
             var engine = new PatchEngine(_http, Log);
             var r = await engine.ApplyAsync(_dirBox.Text, _latest!);
 
+            WarebornConnectionConfig.Result? configured = null;
+            if (!r.AnyFailed)
+            {
+                configured = WarebornConnectionConfig.Ensure(_dirBox.Text);
+                Log(configured.Changed
+                    ? "Configured this client for the public Wareborn server."
+                    : "Wareborn server connection settings are current.");
+            }
+
             _cfg.InstallDir = _dirBox.Text;
             if (!r.AnyFailed)
             {
@@ -134,7 +156,7 @@ public sealed class MainForm : Form
 
             if (r.AnyFailed)
                 Log("Some files failed. Close the game if it is running and click Patch again.");
-            else if (r.AnyChanged)
+            else if (r.AnyChanged || configured?.Changed == true)
                 Log("Patched. You can close this and start the game.");
             else
                 Log("Already up to date.");
