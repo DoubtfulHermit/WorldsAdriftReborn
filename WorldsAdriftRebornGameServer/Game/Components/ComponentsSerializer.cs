@@ -623,9 +623,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isPlacedCraftingStation = !isPlacedShipyard
                             && Placement.PlacedCraftingStations.IsPlacedCraftingStation(entityId);
                         bool isCraftStation = isPlacedShipyard || isPlacedCraftingStation;
+                        // A helm is the STATIC test-ship helm OR a crafted helm part that is
+                        // currently MOUNTED on a built ship. The second case was missing,
+                        // and it is the one every real player has: the Helm01 prefab's
+                        // InteractiveObjectVisualizer has verb Man BAKED, and it caches
+                        // `Interactions.FirstOrDefault(i => i.verb == Verb)` at enable - so
+                        // when this branch served the mounted helm the generic PickUp entry
+                        // instead, that lookup found NOTHING and no E prompt could ever
+                        // appear (live report: "i dont get the option to press e next to
+                        // helm"). Lifting/re-mounting is untouched: parts are lifted with
+                        // the SCANNER (1239), never the E interact. An UNMOUNTED loose helm
+                        // stays on the generic branch - you cannot man a helm lying on the
+                        // ground.
                         bool isHelm = !isCraftStation
-                            && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
-                                == Multiplayer.WorldEntities.HelmKey;
+                            && (WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
+                                    == Multiplayer.WorldEntities.HelmKey
+                                || Game.Crafting.MountedParts.MountFor(entityId)?.ItemType == "helm");
                         // An ATLAS SHARD bakes the SAME PickUp verb as the nugget, but its
                         // availability is SERVER-GATED on release: available=false while the
                         // shard is lodged in its core (no prompt), flipped true when the core
