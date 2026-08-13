@@ -2695,14 +2695,36 @@ namespace WorldsAdriftRebornGameServer
                                 new Structs.Structs.InterestOverride(1207, 1)
                             };
 
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true))
+                            // Ledger-gated like every other AddComponent in this handler:
+                            // 1207 also rides in ShipBuildUiInjectedComponents below, and an
+                            // aborted setup retries this whole branch - both would re-ADD
+                            // these two without the mark. (duplicate-TransformState sweep)
+                            List<uint> earlyServed = new List<uint>();
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true, earlyServed))
                             {
                                 continue;
                             }
+                            ServedComponents.MarkServed(keyValuePair.Key, entityId, earlyServed);
 
-                            // then send what the game requested
+                            // then send what the game requested - filtered through the
+                            // ledger so a retried setup (any later send in this branch
+                            // 'continue's out and the client re-asks) does not re-ADD the
+                            // components that already hit the wire on the first attempt.
+                            List<uint> stageOneIds = new List<uint>((int)interestCount);
+                            for (int si = 0; si < interestCount; si++)
+                            {
+                                stageOneIds.Add(interests[si].ComponentId);
+                            }
+                            IReadOnlyList<uint> stageOneUnserved =
+                                ServedComponents.UnservedOf(keyValuePair.Key, entityId, stageOneIds);
+                            List<Structs.Structs.InterestOverride> stageOne =
+                                new List<Structs.Structs.InterestOverride>(stageOneUnserved.Count);
+                            foreach (uint stageOneId in stageOneUnserved)
+                            {
+                                stageOne.Add(new Structs.Structs.InterestOverride(stageOneId, 1));
+                            }
                             List<uint> setupServed = new List<uint>();
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true, setupServed))
+                            if (stageOne.Count > 0 && !SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, stageOne, true, setupServed))
                             {
                                 continue;
                             }
@@ -2767,29 +2789,38 @@ namespace WorldsAdriftRebornGameServer
                                 authNow = authoritativeComponents.Concat(new uint[] { 190001 }).ToList();
                             }
 
-                            List<Structs.Structs.InterestOverride> injected = injectedIds
-                                .Select(p => new Structs.Structs.InterestOverride(p, 1))
-                                .ToList();
+                            // DUPLICATE-TRANSFORMSTATE FIX. InjectedComponents includes the
+                            // authoritative set, and the authoritative set includes 190602
+                            // TransformState - which the client ALSO requests for every
+                            // entity it checks out, its own included. Sending this batch
+                            // unfiltered re-ADDs 190602 whenever stage 1 already served it;
+                            // and leaving it unmarked let the client's later re-declared
+                            // interest (the else branch below) re-ADD it AGAIN. Each re-add
+                            // is not just the "Component TransformState added to entity N,
+                            // but it already exists" line in the client log - the serializer
+                            // re-seeds TransformState from TransformSeedFor(), which for a
+                            // player entity is the SPAWN position, i.e. a silent yank back
+                            // to spawn. So: serve only what this peer has not been given,
+                            // and mark EVERYTHING that hit the wire - not the old 3-id
+                            // barrier subset. (The old comment's "the client never requests
+                            // them, so they are never re-added" was false for 190602.) The
+                            // barrier ids 190000/190001/190002 keep the exact protection the
+                            // old code gave them; they are simply no longer the only ones.
+                            IReadOnlyList<uint> injectedUnserved =
+                                ServedComponents.UnservedOf(keyValuePair.Key, entityId, injectedIds);
+                            List<Structs.Structs.InterestOverride> injected =
+                                new List<Structs.Structs.InterestOverride>(injectedUnserved.Count);
+                            foreach (uint injectedId in injectedUnserved)
+                            {
+                                injected.Add(new Structs.Structs.InterestOverride(injectedId, 1));
+                            }
 
                             List<uint> injectedServed = new List<uint>();
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true, injectedServed))
+                            if (injected.Count > 0 && !SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true, injectedServed))
                             {
                                 continue;
                             }
-
-                            // Mark ONLY the barrier components served, so the client's own
-                            // later interest request for 190000/190001/190002 is deduped by
-                            // the best-effort branch below instead of RE-adding them. A
-                            // re-add of 190000 would re-fire the client's EntitiesUpdated and
-                            // reset the barrier's entity list; a re-add of 190002 would drop
-                            // the client back to IsActive=false after we released it. The
-                            // other injected ids keep their existing (unmarked) behaviour -
-                            // the client never requests them, so they are never re-added.
-                            if (Game.LoadBarrier.Enabled)
-                            {
-                                ServedComponents.MarkServed(keyValuePair.Key, entityId,
-                                    injectedServed.Where(id => id == 190000 || id == 190001 || id == 190002).ToList());
-                            }
+                            ServedComponents.MarkServed(keyValuePair.Key, entityId, injectedServed);
 
                             // now send auth change
                             if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authNow))

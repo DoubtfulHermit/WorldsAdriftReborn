@@ -103,8 +103,14 @@ namespace WorldsAdriftRebornGameServer.Game
                 new Structs.Structs.InterestOverride(TeleportPolicy.TeleportRequestStateComponentId, 1),
             };
 
-            if (SendOPHelper.SendAddComponentOp(peer, entityId, teleport))
+            List<uint> teleportServed = new List<uint>();
+            if (SendOPHelper.SendAddComponentOp(peer, entityId, teleport, false, teleportServed))
             {
+                // Ledger the seed so the client's re-declared interest for its own
+                // entity does not re-ADD 190607 (same MarkServed-gap class as the
+                // 190602 duplicate; a re-add cycles TeleportTransformVisualizer's
+                // reader for no reason).
+                WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, teleportServed);
                 Console.WriteLine("[info] teleport: seeded 190607 on entity " + entityId
                     + " (request " + TeleportPolicy.SeedRequest + ", parent absent). It can now be moved.");
             }

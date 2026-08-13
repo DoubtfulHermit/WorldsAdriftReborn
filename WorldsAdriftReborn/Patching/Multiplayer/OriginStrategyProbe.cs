@@ -98,6 +98,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
         private bool haveLast;
         private string lastTypeName;
+        private Type lastStrategyType;
         private double lastX, lastY, lastZ;
 
         private void Awake()
@@ -136,17 +137,21 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 }
 
                 object strategy = GetStrategy();
-                string typeName = strategy == null ? "<null>" : strategy.GetType().FullName;
+                // Compare the Type REFERENCE, not FullName: Type.FullName builds
+                // a fresh string per call under Mono, which made this 4 Hz poll
+                // allocate all session for a value that never changes.
+                Type strategyType = strategy == null ? null : strategy.GetType();
                 double x = 0d, y = 0d, z = 0d;
                 bool haveOrigin = TryReadOffsetOrigin(strategy, ref x, ref y, ref z);
 
                 bool changed = !haveLast
-                    || typeName != lastTypeName
+                    || strategyType != lastStrategyType
                     || (haveOrigin && (x != lastX || y != lastY || z != lastZ));
 
                 if (changed)
                 {
-                    string why = !haveLast ? "first" : (typeName != lastTypeName ? "STRATEGY-CHANGED" : "ORIGIN-MOVED");
+                    string typeName = strategyType == null ? "<null>" : strategyType.FullName;
+                    string why = !haveLast ? "first" : (strategyType != lastStrategyType ? "STRATEGY-CHANGED" : "ORIGIN-MOVED");
                     if (haveLast && why == "ORIGIN-MOVED")
                     {
                         Say("ORIGIN moved by (" + Fmt(x - lastX) + ", " + Fmt(y - lastY) + ", " + Fmt(z - lastZ)
@@ -154,6 +159,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                     }
                     Report(why, true);
                     haveLast = true;
+                    lastStrategyType = strategyType;
                     lastTypeName = typeName;
                     lastX = x; lastY = y; lastZ = z;
                     nextHeartbeat = Time.unscaledTime + HeartbeatSeconds;
@@ -442,16 +448,30 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
          * fields X/Y/Z). Read it off the strategy instance; fall back to the static
          * CoordinateRemappingBehaviour.OffsetOrigin.
          */
+        // Reflection caches for the 4 Hz poll: the OffsetOrigin PropertyInfo per
+        // strategy type and the X/Y/Z FieldInfos per vector type used to be
+        // re-looked-up on every call, all session long. The boxed struct read
+        // itself is unavoidable at this seam and stays.
+        private Type cachedStrategyType;
+        private PropertyInfo cachedOffsetOriginProperty;
+        private Type cachedVectorType;
+        private FieldInfo cachedFx, cachedFy, cachedFz;
+
         private bool TryReadOffsetOrigin(object strategy, ref double x, ref double y, ref double z)
         {
             object boxed = null;
             if (strategy != null)
             {
-                PropertyInfo p = strategy.GetType().GetProperty("OffsetOrigin",
-                    BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                if (p != null)
+                Type st = strategy.GetType();
+                if (st != cachedStrategyType)
                 {
-                    try { boxed = p.GetValue(strategy, null); } catch { boxed = null; }
+                    cachedStrategyType = st;
+                    cachedOffsetOriginProperty = st.GetProperty("OffsetOrigin",
+                        BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+                }
+                if (cachedOffsetOriginProperty != null)
+                {
+                    try { boxed = cachedOffsetOriginProperty.GetValue(strategy, null); } catch { boxed = null; }
                 }
             }
             if (boxed == null)
@@ -468,9 +488,16 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             }
 
             Type vt = boxed.GetType();
-            FieldInfo fx = vt.GetField("X", BindingFlags.Public | BindingFlags.Instance);
-            FieldInfo fy = vt.GetField("Y", BindingFlags.Public | BindingFlags.Instance);
-            FieldInfo fz = vt.GetField("Z", BindingFlags.Public | BindingFlags.Instance);
+            if (vt != cachedVectorType)
+            {
+                cachedVectorType = vt;
+                cachedFx = vt.GetField("X", BindingFlags.Public | BindingFlags.Instance);
+                cachedFy = vt.GetField("Y", BindingFlags.Public | BindingFlags.Instance);
+                cachedFz = vt.GetField("Z", BindingFlags.Public | BindingFlags.Instance);
+            }
+            FieldInfo fx = cachedFx;
+            FieldInfo fy = cachedFy;
+            FieldInfo fz = cachedFz;
             if (fx == null || fy == null || fz == null)
             {
                 Warn("ORIGIN probe: " + vt.FullName + " has no public X/Y/Z fields; raw value = " + boxed);

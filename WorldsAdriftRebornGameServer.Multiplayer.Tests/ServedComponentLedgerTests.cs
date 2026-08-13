@@ -137,5 +137,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(ledger.HasServed(1, Deck, 1099));
             Assert.Empty(ledger.UnservedOf(1, Deck, new uint[] { 1518, 1099 }));
         }
+
+        [Fact]
+        public void The_players_own_setup_never_adds_TransformState_twice()
+        {
+            // The duplicate-190602 bug, exactly as the client log showed it:
+            // "InvalidOperationException: Component TransformState added to
+            // entity 21, but it already exists". First-time setup sends three
+            // AddComponent batches to the player's own entity - the early
+            // {1109,1207} injection, the client's stage-1 request (which always
+            // contains 190602), then MirrorSendPolicy.InjectedComponents (whose
+            // authoritative tail ALSO contains 190602). Unfiltered, that batch
+            // re-added 190602 within setup; unmarked, the client's later
+            // re-declared interest re-added it AGAIN - and every re-add re-seeds
+            // TransformState to the spawn position. This test walks the fixed
+            // sequence against the real InjectedComponents list, so adding a new
+            // injected id without ledger-gating it breaks here first.
+            const long OwnPlayer = 21;
+            var ledger = new ServedComponentLedger<int>();
+
+            // 1. Early injection {1109, 1207}, sent and marked.
+            var early = ledger.UnservedOf(1, OwnPlayer, new uint[] { 1109, 1207 });
+            ledger.MarkServed(1, OwnPlayer, early);
+
+            // 2. Stage-1: the client's own request always includes 190602 (and,
+            // depending on the prefab, ids that overlap the early injection).
+            uint[] stageOneRequest = { 190602, 1086, 1080, 1109 };
+            var stageOne = ledger.UnservedOf(1, OwnPlayer, stageOneRequest);
+            Assert.DoesNotContain(1109u, stageOne); // early injection deduped
+            Assert.Contains(190602u, stageOne);     // first serve of TransformState
+            ledger.MarkServed(1, OwnPlayer, stageOne);
+
+            // 3. The injected batch, filtered through the ledger: 190602 must
+            // NOT go out a second time.
+            var injected = ledger.UnservedOf(1, OwnPlayer, MirrorSendPolicy.InjectedComponents);
+            Assert.DoesNotContain(190602u, injected);
+            ledger.MarkServed(1, OwnPlayer, injected);
+
+            // 4. The client re-declares its whole interest set for its own
+            // entity (SpatialCommunicator clears and resends). Nothing already
+            // delivered - 190602 above all - may be re-added.
+            var redeclared = ledger.UnservedOf(1, OwnPlayer, stageOneRequest);
+            Assert.Empty(redeclared);
+            var redeclaredInjected = ledger.UnservedOf(1, OwnPlayer, MirrorSendPolicy.InjectedComponents);
+            Assert.Empty(redeclaredInjected);
+        }
     }
 }

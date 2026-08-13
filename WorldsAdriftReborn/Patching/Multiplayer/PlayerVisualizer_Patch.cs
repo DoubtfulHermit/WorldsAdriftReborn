@@ -41,6 +41,15 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             return AccessTools.Method(AccessTools.TypeByName("PlayerVisualizer"), "FixedUpdate");
         }
 
+        // Classification cache by root instance id. The local/remote decision
+        // reads component PRESENCE on the prefab, which never changes for a
+        // living root - but the uncached check walked every child MonoBehaviour
+        // (GetComponentsInChildren + GetType().Name per component, through an
+        // iterator) for EVERY remote player EVERY physics step. Unity instance
+        // ids are session-unique, so a stale entry cannot alias a new rig.
+        private static readonly System.Collections.Generic.Dictionary<int, bool> classifiedLocal =
+            new System.Collections.Generic.Dictionary<int, bool>();
+
         [HarmonyPrefix]
         public static bool FixedUpdate_Prefix( MonoBehaviour __instance )
         {
@@ -54,9 +63,16 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             // named "Traveller N", never "Traveller@Player"), but it is a
             // landmine. ClientRigPolicyTests carries a skipped test that pins the
             // intended behaviour - dropping the name clause is the fix.
-            if (ClientRigPolicy.TreatAsLocalForPlayerVisualizer(
-                    __instance.transform.root.name,
-                    RemoteRigSweeper.ComponentTypeNames(__instance.transform.root)))
+            Transform root = __instance.transform.root;
+            bool isLocal;
+            if (!classifiedLocal.TryGetValue(root.GetInstanceID(), out isLocal))
+            {
+                isLocal = ClientRigPolicy.TreatAsLocalForPlayerVisualizer(
+                    root.name,
+                    RemoteRigSweeper.ComponentTypeNames(root));
+                classifiedLocal[root.GetInstanceID()] = isLocal;
+            }
+            if (isLocal)
             {
                 return true;
             }
