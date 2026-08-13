@@ -95,6 +95,8 @@
              Link="Patching\Multiplayer\SkyCoreSockets.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Placement\StationPickupVisibilityPolicy.cs"
              Link="Patching\Interactions\StationPickupVisibilityPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\ShipInteractionHoldPolicy.cs"
+             Link="Patching\Flight\ShipInteractionHoldPolicy.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->

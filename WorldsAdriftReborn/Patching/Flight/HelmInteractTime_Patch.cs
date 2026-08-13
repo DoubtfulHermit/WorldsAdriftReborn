@@ -7,8 +7,8 @@ using UnityEngine;
 namespace WorldsAdriftReborn.Patching.Flight
 {
     /// <summary>
-    /// Makes grabbing the helm actually fast: holding E on a mounted helm must
-    /// seat the pilot in ~0.15 s.
+    /// Makes grabbing the helm AND operating a mounted sail actually fast: both
+    /// immediate ship controls complete their E hold in at most 0.15 s.
     ///
     /// THE REAL TIMING PATH (traced in the decompile; the previous fix's
     /// premise was WRONG). The E-hold duration is fed to
@@ -42,30 +42,29 @@ namespace WorldsAdriftReborn.Patching.Flight
     ///      observer added 10 on top, which is exactly a "still long" hold.
     ///
     /// THE FIX therefore clamps at BOTH seams:
-    ///   - GetInteractTime postfix: clamps the resolved time for verb Man
-    ///     (resolved via the PUBLIC GetVerb(collider), which consults the
-    ///     overrider first and the serialized Verb otherwise - no reflection),
-    ///     and stamps the frame so the second seam knows this frame resolved a
-    ///     Man interaction.
+    ///   - GetInteractTime postfix: clamps Man, plus Activate only when the
+    ///     visualizer actually belongs to a SailVisualizer (lamps, horns and
+    ///     unrelated switches stay untouched), and stamps the frame.
     ///   - StartInteraction prefix: on the SAME frame (same call stack - :397 to
     ///     :400 is synchronous), clamps the FINAL time. This is the last write
     ///     before the timer runs, so nothing upstream - the +10 penalty included -
     ///     can lengthen the hold. Other StartInteraction callers (food, crafting)
-    ///     are untouched: no Man resolve this frame, no clamp.
+    ///     are untouched: no eligible control resolved this frame, no clamp.
     ///
-    /// Every action is logged once (armed at patch time, grep "[WAR][helm]") and
+    /// Every action is logged once (armed at patch time, grep "[WAR][ship-control]") and
     /// rate-limited when it fires, so the next live session proves the seam from
     /// the log alone.
     /// </summary>
-    internal static class HelmManHoldPolicy
+    internal static class ShipControlHoldState
     {
-        internal const float MaxManHoldSeconds = 0.15f;
-
-        /// <summary>Frame stamp of the last GetInteractTime that resolved verb Man.</summary>
-        internal static int LastManResolveFrame = -1;
+        /// <summary>Frame stamp of the last eligible helm/sail GetInteractTime.</summary>
+        internal static int LastResolveFrame = -1;
 
         /// <summary>What GetInteractTime returned that frame (post-clamp), for the penalty diagnosis log.</summary>
-        internal static float LastManInteractTime = -1f;
+        internal static float LastInteractTime = -1f;
+
+        /// <summary>Human-readable control kind for the rate-limited proof line.</summary>
+        internal static string LastControl = "ship control";
 
         private static float _nextLogTime;
 
@@ -92,7 +91,8 @@ namespace WorldsAdriftReborn.Patching.Flight
             if (!_armedLogged)
             {
                 _armedLogged = true;
-                Debug.Log("[WAR][helm] Man-hold clamp ARMED: InteractiveObjectVisualizer.GetInteractTime postfix.");
+                Debug.Log("[WAR][ship-control] helm/sail hold clamp ARMED: "
+                    + "InteractiveObjectVisualizer.GetInteractTime postfix.");
             }
             return true;
         }
@@ -101,19 +101,33 @@ namespace WorldsAdriftReborn.Patching.Flight
         {
             try
             {
-                if (__instance == null || __instance.GetVerb(collider) != InteractVerb.Man)
+                if (__instance == null)
                 {
                     return;
                 }
-                HelmManHoldPolicy.LastManResolveFrame = Time.frameCount;
-                if (__result > HelmManHoldPolicy.MaxManHoldSeconds)
+
+                InteractVerb verb = __instance.GetVerb(collider);
+                bool isHelm = verb == InteractVerb.Man;
+                bool isSail = verb == InteractVerb.Activate
+                    && __instance.GetComponent<SailVisualizer>() != null;
+                if (!isHelm && !isSail)
                 {
-                    HelmManHoldPolicy.Log("[WAR][helm] Man interact-time clamped at the visualizer: "
-                        + __result.ToString("F2") + "s -> " + HelmManHoldPolicy.MaxManHoldSeconds.ToString("F2")
-                        + "s (1210/overrider fed a long time).");
-                    __result = HelmManHoldPolicy.MaxManHoldSeconds;
+                    return;
                 }
-                HelmManHoldPolicy.LastManInteractTime = __result;
+
+                ShipControlHoldState.LastResolveFrame = Time.frameCount;
+                ShipControlHoldState.LastControl = isHelm ? "helm Man" : "sail Activate";
+                float clamped = WorldsAdriftRebornGameServer.Multiplayer.Ship.ShipInteractionHoldPolicy
+                    .Clamp(true, __result);
+                if (clamped != __result)
+                {
+                    ShipControlHoldState.Log("[WAR][ship-control] " + ShipControlHoldState.LastControl
+                        + " interact-time clamped at the visualizer: "
+                        + __result.ToString("F2") + "s -> " + clamped.ToString("F2")
+                        + "s (1210/overrider fed a long time).");
+                    __result = clamped;
+                }
+                ShipControlHoldState.LastInteractTime = __result;
             }
             catch (Exception)
             {
@@ -132,7 +146,8 @@ namespace WorldsAdriftReborn.Patching.Flight
             if (!_armedLogged)
             {
                 _armedLogged = true;
-                Debug.Log("[WAR][helm] Man-hold clamp ARMED: TimedInteractionController.StartInteraction prefix.");
+                Debug.Log("[WAR][ship-control] helm/sail hold clamp ARMED: "
+                    + "TimedInteractionController.StartInteraction prefix.");
             }
             return true;
         }
@@ -141,22 +156,28 @@ namespace WorldsAdriftReborn.Patching.Flight
         {
             try
             {
-                // Only the StartInteraction issued by the SAME frame's Man resolve
+                // Only the StartInteraction issued by the SAME frame's helm/sail resolve
                 // (InteractAgentObserver.CheckInteraction is synchronous between the
                 // two calls). Food/crafting/placement holds never see a clamp.
-                if (HelmManHoldPolicy.LastManResolveFrame != Time.frameCount
-                    || time <= HelmManHoldPolicy.MaxManHoldSeconds)
+                if (ShipControlHoldState.LastResolveFrame != Time.frameCount)
                 {
                     return;
                 }
-                float resolved = HelmManHoldPolicy.LastManInteractTime;
+                float clamped = WorldsAdriftRebornGameServer.Multiplayer.Ship.ShipInteractionHoldPolicy
+                    .Clamp(true, time);
+                if (clamped == time)
+                {
+                    return;
+                }
+                float resolved = ShipControlHoldState.LastInteractTime;
                 bool penalty = resolved >= 0f && time >= resolved + 9.5f;
-                HelmManHoldPolicy.Log("[WAR][helm] Man E-hold clamped at the timer: "
-                    + time.ToString("F2") + "s -> " + HelmManHoldPolicy.MaxManHoldSeconds.ToString("F2")
+                ShipControlHoldState.Log("[WAR][ship-control] " + ShipControlHoldState.LastControl
+                    + " E-hold clamped at the timer: "
+                    + time.ToString("F2") + "s -> " + clamped.ToString("F2")
                     + "s (interact-time was " + (resolved >= 0f ? resolved.ToString("F2") : "?")
                     + "s; the +10s non-friendly penalty was "
                     + (penalty ? "PRESENT - ship ownership did not resolve to this player" : "not present") + ").");
-                time = HelmManHoldPolicy.MaxManHoldSeconds;
+                time = clamped;
             }
             catch (Exception)
             {

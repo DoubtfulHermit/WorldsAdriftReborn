@@ -44,5 +44,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
             }
         }
+
+        /// <summary>
+        /// Atomically removes one checked-out entity from a live peer slice and
+        /// returns exactly the native refs that became unreachable. A repeated call
+        /// returns empty, so the caller cannot double-destroy refs; sibling entities
+        /// remain intact and continue to receive broadcasts.
+        /// </summary>
+        public static IReadOnlyList<ulong> TakeRefsForRemovedEntity(
+            Dictionary<long, Dictionary<uint, ulong>>? peerSlice,
+            long entityId)
+        {
+            if (peerSlice == null
+                || !peerSlice.TryGetValue(entityId, out Dictionary<uint, ulong>? byComponent))
+            {
+                return System.Array.Empty<ulong>();
+            }
+
+            List<ulong> refs = new List<ulong>(byComponent.Values);
+            peerSlice.Remove(entityId);
+            return refs;
+        }
     }
 }

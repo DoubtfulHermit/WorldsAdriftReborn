@@ -92,6 +92,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             _served.Remove(peer);
         }
 
+        /// <summary>Drop one entity after it was removed from this peer's checkout.</summary>
+        public void ForgetEntity(TPeer peer, long entityId)
+        {
+            if (_served.TryGetValue(peer, out Dictionary<long, HashSet<uint>>? byEntity))
+            {
+                byEntity.Remove(entityId);
+                if (byEntity.Count == 0) _served.Remove(peer);
+            }
+        }
+
         private HashSet<uint>? SetFor(TPeer peer, long entityId, bool create)
         {
             if (!_served.TryGetValue(peer, out Dictionary<long, HashSet<uint>>? byEntity))

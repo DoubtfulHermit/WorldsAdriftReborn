@@ -136,6 +136,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public const double DefaultRollTurnFactor = 0.7;
 
+        /// <summary>
+        /// WAREBORN_FLIGHT_SAIL_BONUS - forward propulsion added by EACH
+        /// unfurled sail, as a fraction of the configured base maximum speed
+        /// and acceleration. Retail applied one wind force per unfurled sail,
+        /// linear in SailState.power; the reconstructed kinematic flight model
+        /// has no rigidbody force accumulator, so the equivalent hook is a
+        /// linear propulsion-capacity contribution. Four sails count at most,
+        /// preventing a sail carpet from exceeding the safe point-stream speed.
+        /// </summary>
+        public const double DefaultSailBonusPerUnfurled = 0.25;
+
+        public const int MaxContributingSails = 4;
+
         public double MaxSpeedMps { get; }
         public double AccelMps2 { get; }
         public double YawRateRadPerSec { get; }
@@ -150,6 +163,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public double IdleBobMetres { get; }
         public double PitchRateMps { get; }
         public double RollTurnFactor { get; }
+        public double SailBonusPerUnfurled { get; }
 
         /// <summary>
         /// WAREBORN_FLIGHT_INVERT_PITCH=1 flips mouse pitch (mouse up = climb
@@ -185,7 +199,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double pitchRateMps = DefaultPitchRateMps,
             double rollTurnFactor = DefaultRollTurnFactor,
             bool invertPitch = false,
-            bool invertRoll = false)
+            bool invertRoll = false,
+            double sailBonusPerUnfurled = DefaultSailBonusPerUnfurled)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -207,6 +222,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             RollTurnFactor = Clamp(rollTurnFactor, 0.0, 2.0, DefaultRollTurnFactor);
             InvertPitch = invertPitch;
             InvertRoll = invertRoll;
+            SailBonusPerUnfurled = Clamp(
+                sailBonusPerUnfurled, 0.0, 1.0, DefaultSailBonusPerUnfurled);
+        }
+
+        /// <summary>
+        /// Linear retail-shaped contribution of the currently rigged canvas.
+        /// Zero/negative means no sail contribution; a bounded count makes this
+        /// safe even if a malformed save mounts hundreds of sails.
+        /// </summary>
+        public double SailPropulsionScale(int unfurledSails)
+        {
+            int contributing = unfurledSails < 0 ? 0
+                : (unfurledSails > MaxContributingSails ? MaxContributingSails : unfurledSails);
+            return 1.0 + (contributing * SailBonusPerUnfurled);
         }
 
         /// <summary>
@@ -234,7 +263,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Parse(getenv("WAREBORN_FLIGHT_PITCH_RATE"), DefaultPitchRateMps),
                 Parse(getenv("WAREBORN_FLIGHT_ROLL_TURN_FACTOR"), DefaultRollTurnFactor),
                 getenv("WAREBORN_FLIGHT_INVERT_PITCH") == "1",
-                getenv("WAREBORN_FLIGHT_INVERT_ROLL") == "1");
+                getenv("WAREBORN_FLIGHT_INVERT_ROLL") == "1",
+                Parse(getenv("WAREBORN_FLIGHT_SAIL_BONUS"), DefaultSailBonusPerUnfurled));
         }
 
         private static double Parse(string? env, double fallback)
@@ -264,6 +294,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             + " deg/s climb=" + ClimbRateMps.ToString("0.#", CultureInfo.InvariantCulture)
             + " m/s pitchRate=" + PitchRateMps.ToString("0.#", CultureInfo.InvariantCulture)
             + " m/s rollTurn=" + RollTurnFactor.ToString("0.##", CultureInfo.InvariantCulture)
+            + " sailBonus=" + SailBonusPerUnfurled.ToString("0.##", CultureInfo.InvariantCulture) + "/sail"
             + " reverse=" + ReverseFactor.ToString("0.##", CultureInfo.InvariantCulture)
             + " keepalive=" + RestKeepaliveSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s"
             + (InvertYaw ? " (yaw inverted)" : "")

@@ -48,6 +48,9 @@ void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpda
 bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count) {
     return PB_ComponentUpdateOp_Deserialize(data, len, entityId, componentUpdateOp, componentUpdateOp_count);
 }
+void* __cdecl PB_EXP_RemoveEntityOp_Serialize(long entityId, int* len) {
+    return PB_RemoveEntityOp_Serialize(entityId, len);
+}
 void __cdecl PB_EXP_Free(void* handle) {
     PB_Free(handle);
 }
@@ -240,6 +243,35 @@ static void* PB_TakeOwnership(const std::string& serialized, int* len) {
     memcpy(out, serialized.data(), n);
     *len = static_cast<int>(n);
     return out;
+}
+
+void* PB_RemoveEntityOp_Serialize(long entityId, int* len) {
+    if (len == NULL) return NULL;
+    std::string serialized;
+    serialized.push_back(static_cast<char>(0x08)); // field 1, int64 varint
+    unsigned long long value = static_cast<unsigned long long>(entityId);
+    do {
+        unsigned char b = static_cast<unsigned char>(value & 0x7f);
+        value >>= 7;
+        serialized.push_back(static_cast<char>(value ? (b | 0x80) : b));
+    } while (value);
+    return PB_TakeOwnership(serialized, len);
+}
+
+bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op) {
+    if (data == NULL || op == NULL || len < 2) return false;
+    const unsigned char* bytes = static_cast<const unsigned char*>(data);
+    if (bytes[0] != 0x08) return false;
+    unsigned long long value = 0;
+    int shift = 0;
+    for (int i = 1; i < len && shift < 64; ++i, shift += 7) {
+        value |= static_cast<unsigned long long>(bytes[i] & 0x7f) << shift;
+        if ((bytes[i] & 0x80) == 0) {
+            op->EntityId = static_cast<long>(value);
+            return true;
+        }
+    }
+    return false;
 }
 
 void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {

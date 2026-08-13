@@ -54,6 +54,22 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             }
         }
 
+        public static unsafe bool SendRemoveEntityOP(ENetPeerHandle destination, long entityId)
+        {
+            int len = 0;
+            void* ptr = EnetLayer.PB_RemoveEntityOp_Serialize(entityId, &len);
+            bool sent = false;
+            if (ptr != null && len > 0)
+            {
+                EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP,
+                    ptr, len, (int)ENetPacketFlag.RELIABLE);
+                CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP));
+                sent = true;
+            }
+            EnetLayer.PB_Free(ptr);
+            return sent;
+        }
+
         public static unsafe bool SendAssetLoadRequestOP(ENetPeerHandle destination, string assetType, string assetName, string assetContext)
         {
             Structs.Structs.AssetLoadRequestOp assetLoadRequestOp;

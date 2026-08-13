@@ -214,6 +214,7 @@ namespace WorldsAdriftRebornGameServer
             // inherit a stale "already delivered" set and wrongly skip seeding the
             // next joiner's entities.
             ServedComponents.ForgetPeer(peer);
+            ResourceInterest.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
@@ -2101,6 +2102,9 @@ namespace WorldsAdriftRebornGameServer
                 VaryTreeSpecies,
                 SpawnStaticShip);
 
+        internal static readonly Game.ResourceInterestService ResourceInterest =
+            new Game.ResourceInterestService(ServerClock, WorldEntities);
+
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
         /// live harvest state lives (depletion, and the accumulated crust damage a
@@ -2538,6 +2542,7 @@ namespace WorldsAdriftRebornGameServer
 
                 Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
                     + entity.Key + "' (" + entityId + ").");
+                ResourceInterest.NoteLoaded(peer, entityId);
 
                 // A restored/served BUILT HULL that is docked to a shipyard: replay a LIVE 1205
                 // DockedShipId update to this peer now that the hull exists on its client
@@ -3167,6 +3172,20 @@ namespace WorldsAdriftRebornGameServer
                         }
                         else
                         {
+                            // Cross-channel lifecycle guard. RemoveEntity travels on
+                            // channel 5 while interest requests arrive on channel 2, so
+                            // an already-in-flight request may reach us after unload.
+                            // Never re-seed a streamed resource unless this peer's
+                            // authoritative checkout still says it is loaded. Essential
+                            // entities and interest-disabled mode fail open.
+                            if (!ResourceInterest.MayServe(keyValuePair.Key, entityId))
+                            {
+                                Console.WriteLine("[interest] ignored late component request for unloaded streamed"
+                                    + " resource entity " + entityId + " from "
+                                    + Describe(keyValuePair.Key.DangerousGetHandle()) + ".");
+                                continue;
+                            }
+
                             // BEST EFFORT, DELIBERATELY - this is the only interest
                             // send that is not first-time setup, and it is the one a
                             // client makes when it asks about ANOTHER entity.
@@ -3327,7 +3346,7 @@ namespace WorldsAdriftRebornGameServer
             }
             Console.WriteLine("[info] game server listening on UDP " + gamePort + ".");
 
-            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, 5, 0, 0);
+            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, 6, 0, 0);
 
             if (server.IsInvalid)
             {
@@ -3435,8 +3454,16 @@ namespace WorldsAdriftRebornGameServer
             IReadOnlyList<SpawnPlanStep> plan;
             if (Game.LoadBarrier.Enabled)
             {
-                Game.LoadBarrier.Prime(WorldEntities);
-                plan = SpawnPlan.For(WorldEntities, LoadBarrierPolicy.IsInitialKey);
+                bool BarrierInitial(WorldEntity entity) =>
+                    ResourceInterestPolicy.IsStreamedResourceKey(entity.Key)
+                        ? InterestPolicy.InRange(SpawnPolicy.PlayerSpawnPosition, entity.Position, Game.Interest.RadiusMetres)
+                        : LoadBarrierPolicy.IsInitialKey(entity.Key);
+                Game.LoadBarrier.Prime(WorldEntities, BarrierInitial);
+                plan = SpawnPlan.For(WorldEntities, key =>
+                {
+                    WorldEntity? entity = WorldEntities.ByKey(key);
+                    return entity != null && BarrierInitial(entity);
+                });
 
                 Console.WriteLine("[load-barrier] ON (WAREBORN_LOAD_BARRIER=1). Loading screen is held via"
                     + " 190000/190001/190002 until the initial set is ready, timeout "
@@ -3532,7 +3559,7 @@ namespace WorldsAdriftRebornGameServer
             bool[] gatedStep = plan
                 .Select(s => s.Entity != null
                              && s.Entity.Order == SpawnOrder.AfterPlayer
-                             && !LoadBarrierPolicy.IsInitialKey(s.Entity.Key))
+                             && ResourceInterestPolicy.IsStreamedResourceKey(s.Entity.Key))
                 .ToArray();
             Multiplayer.FixedPointPosition[] gateEntityPos = plan
                 .Select(s => s.Entity?.Position ?? default)
@@ -3618,6 +3645,7 @@ namespace WorldsAdriftRebornGameServer
                 // on the loading screen. No-op when nothing is pending (barrier off,
                 // or every joiner already activated). See TickLoadBarrierTimeouts.
                 TickLoadBarrierTimeouts();
+                ResourceInterest.Tick();
                 Relay.Tick(); // fixed-cadence movement emit + 5 s relay stats; cheap when idle (two Stopwatch compares). See Networking.RelayEmitter.
 
                 // Report each connected peer's 5 s wire-rate line (with ENet peer

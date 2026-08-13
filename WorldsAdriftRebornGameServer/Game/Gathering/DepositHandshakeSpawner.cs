@@ -19,7 +19,8 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
     /// <see cref="WorldEntity"/>, allocate its shared entity id once, seed the SAME
     /// ledgers the connect-time deposit path seeds (<c>Nodes</c> +
     /// <c>MetalHarvest</c> + <c>HarvestReward</c>, mirroring AddWorldEntity's deposit
-    /// branch), then broadcast AssetLoadRequest -> AddEntity to every connected peer.
+    /// branch), then registers it with per-peer spatial interest (or preserves the
+    /// old broadcast when spatial interest is disabled).
     /// A deposit carries NO seed components (its 1255/2103/12283/1016/190602 are
     /// served best-effort over interest, exactly like the static deposit), so there
     /// is no all-or-nothing batch to drop.
@@ -168,19 +169,23 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             }
 
             int reached = 0;
-            foreach (ENetPeerHandle peer in ConnectedPeers())
+            bool spatiallyStreamed = WorldsAdriftRebornGameServer.ResourceInterest.RegisterRuntime(entityId, registration);
+            if (!spatiallyStreamed)
             {
-                if (BroadcastEntity(peer, entityId, registration))
+                foreach (ENetPeerHandle peer in ConnectedPeers())
                 {
-                    reached++;
+                    if (BroadcastEntity(peer, entityId, registration)) reached++;
                 }
             }
 
             System.Console.WriteLine("[info] resource-handshake: spawned DEPOSIT '" + key + "' as entity "
                 + entityId + " on " + context + " at " + node.Position
                 + " variant '" + node.VariantId + "' (" + Multiplayer.MetalDeposits.ShotsToDeplete
-                + " shots -> " + Multiplayer.MetalDeposits.YieldUnits + " units), broadcast to "
-                + reached + " peer(s). Late joiners get it via the connect-time spawn plan.");
+                + " shots -> " + Multiplayer.MetalDeposits.YieldUnits + " units), "
+                + (spatiallyStreamed
+                    ? "registered with per-peer spatial interest."
+                    : "broadcast to " + reached + " peer(s).")
+                + " Late joiners get it from continuous spatial interest.");
 
             return entityId;
         }
@@ -192,6 +197,10 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// </summary>
         internal static int BroadcastToAll(long entityId, WorldEntity registration)
         {
+            if (WorldsAdriftRebornGameServer.ResourceInterest.RegisterRuntime(entityId, registration))
+            {
+                return 0;
+            }
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {

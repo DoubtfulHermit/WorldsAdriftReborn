@@ -4,12 +4,13 @@
 class OpList
 {
 public:
-    AddEntityOp* addEntityOp;
-    AssetLoadRequestOp* assetLoadRequestOp;
-    AddComponentOp* addComponentOp;
-    AuthorityChangeOp* authorityChangeOp;
-    ComponentUpdateOp* componentUpdateOp;
-    int addComponentLen;
-    int authorityChangeOpLen;
-    int componentUpdateOpLen;
+    AddEntityOp* addEntityOp = nullptr;
+    RemoveEntityOp* removeEntityOp = nullptr;
+    AssetLoadRequestOp* assetLoadRequestOp = nullptr;
+    AddComponentOp* addComponentOp = nullptr;
+    AuthorityChangeOp* authorityChangeOp = nullptr;
+    ComponentUpdateOp* componentUpdateOp = nullptr;
+    int addComponentLen = 0;
+    int authorityChangeOpLen = 0;
+    int componentUpdateOpLen = 0;
 };

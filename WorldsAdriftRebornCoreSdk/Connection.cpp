@@ -7,7 +7,7 @@ Connection::Connection(char* hostname, unsigned short port, ConnectionParameters
 
     if (this->client != NULL && this->hostname != NULL && this->port != 0) {
         Logger::Debug("Trying to connect to game server at " + std::string(this->hostname));
-        this->peer = ENet_Connect(this->hostname, this->port, this->client, 5);
+        this->peer = ENet_Connect(this->hostname, this->port, this->client, 6);
         if (this->peer != NULL) {
             Logger::Debug("SUCCESS!");
         }
@@ -129,6 +129,14 @@ OpList* Connection::GetOpList() {
                             op_list->componentUpdateOp[i].Update.Object = object;
                         }
                     }
+                }
+            }
+            else if (packet->channel == CH_RemoveEntityOp) {
+                op_list->removeEntityOp = new RemoveEntityOp();
+                if (!PB_RemoveEntityOp_Deserialize(packet->data, packet->dataLength, op_list->removeEntityOp)) {
+                    delete op_list->removeEntityOp;
+                    op_list->removeEntityOp = NULL;
+                    Logger::Debug("FAILED TO DESERIALIZE RemoveEntityOp");
                 }
             }
 

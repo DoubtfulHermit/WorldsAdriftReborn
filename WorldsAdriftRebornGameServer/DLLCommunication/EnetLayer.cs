@@ -11,7 +11,8 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
             ADD_ENTITY_OP = 1,
             SEND_COMPONENT_INTEREST = 2,
             AUTHORITY_CHANGE_OP = 3,
-            COMPONENT_UPDATE_OP = 4
+            COMPONENT_UPDATE_OP = 4,
+            REMOVE_ENTITY_OP = 5
         }
         public enum ENetPacketFlag
         {
@@ -74,6 +75,9 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
 
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_AddEntityOp_Serialize")]
         public static unsafe extern void* PB_AddEntityOp_Serialize( AddEntityOp* op, int* len, long entityId );
+
+        [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_RemoveEntityOp_Serialize")]
+        public static unsafe extern void* PB_RemoveEntityOp_Serialize(long entityId, int* len);
 
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_SendComponentInterest_Deserialize")]
         public static unsafe extern bool PB_EXP_SendComponentInterest_Deserialize(void* data, int len, long* entityId, InterestOverride** interest_override, uint* interest_override_count);

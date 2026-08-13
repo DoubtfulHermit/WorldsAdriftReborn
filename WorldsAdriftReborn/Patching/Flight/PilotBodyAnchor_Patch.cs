@@ -8,26 +8,27 @@ using UnityEngine;
 namespace WorldsAdriftReborn.Patching.Flight
 {
     /// <summary>
-    /// Faces the pilot's BODY at the wheel when they take the helm - the
-    /// "seated facing to the right of the helm" live symptom.
+    /// Places the local pilot at the helm's authored standing point when they
+    /// take control, independent of which side they approached from.
     ///
-    /// WHY THE BODY FACES ANYWHERE. Nothing in the retail client turns the
+    /// WHY THE BODY/CAMERA START ANYWHERE. Nothing in the retail client moves the
     /// player on man: the driving state only zeroes locomotion
     /// (PlayerCharacterAnimation.cs:263-267) and binds hand/look IK effectors
     /// (IKOrder.SetupIKTargets) - the body ROOT simply keeps whatever facing the
-    /// player approached the helm with. Retail got away with it because the
-    /// FBIK pull plus the interact camera made players face the wheel naturally;
-    /// on our first flights the mismatch reads as broken.
+    /// player approached the helm with. PilotCameraController then uses the
+    /// player's CameraTargetPilot as its positional target, so entering from the
+    /// left or right permanently offsets the whole pilot camera by that amount.
     ///
-    /// THE FIX: a ONE-SHOT yaw snap on the transition into driving, aligning the
-    /// player to the helm's forward (fallback: the driven hull's forward). Yaw
-    /// only - position is deliberately NOT touched: a position snap risks
-    /// intersecting the helm collider and letting physics shove the pilot
-    /// through the deck, and the player is already within the 3 m Man radius.
-    /// The local player is client-authoritative over its own transform, so the
-    /// snap propagates through the normal movement stream with no server fight.
-    /// Both the root transform and (when reachable) the movement rigidbody are
-    /// rotated, so the physics step does not immediately unwind the snap.
+    /// THE FAITHFUL ANCHOR. The shipped Helm01_unityclient prefab contains an
+    /// explicit child named <c>#PilotPosition</c> at helm-local
+    /// (0, 0.074, -1.4070084), identity rotation. It is the safe, authored spot
+    /// behind and dead-centre on the wheel - not a guessed camera/body offset.
+    /// The modular-cannon retail path uses the same #PilotPosition convention.
+    /// On the transition into driving this patch resolves that child from the
+    /// server-provided ControlEntityId (the helm), snaps the client-authoritative
+    /// player root and rigidbody to its exact world pose, clears stale ground-
+    /// relative movement caches, and zeroes locomotion. The ordinary player
+    /// transform stream remains authoritative afterwards.
     /// </summary>
     [HarmonyPatch]
     internal static class PilotBodyAnchor_Patch
@@ -36,7 +37,10 @@ namespace WorldsAdriftReborn.Patching.Flight
         private static readonly FieldInfo PilotReaderField =
             PilotVisualizerType == null ? null : AccessTools.Field(PilotVisualizerType, "_pilot");
 
+        private const string PilotAnchorName = "#PilotPosition";
+
         private static bool _loggedError;
+        private static bool _loggedMissingAnchor;
 
         private static bool Prepare()
         {
@@ -65,8 +69,9 @@ namespace WorldsAdriftReborn.Patching.Flight
 
                 var pilot = PilotReaderField.GetValue(__instance) as Bossa.Travellers.Controls.PilotStateReader;
 
-                // Prefer the helm's own facing (our 1109 ControlEntityId), fall
-                // back to the driven hull's.
+                // Prefer the helm entity named by our 1109 ControlEntityId. The
+                // hull fallback preserves compatibility with a retail-style Unity
+                // hierarchy where the helm (and its anchor) is a hull child.
                 Transform reference = null;
                 if (pilot != null && !EntityId.IsInvalidEntityId(pilot.ControlEntityId))
                 {
@@ -86,43 +91,65 @@ namespace WorldsAdriftReborn.Patching.Flight
                     reference = vehicle.UnderlyingGameObject.transform;
                 }
 
-                Vector3 forward = reference.forward;
-                forward.y = 0f;
-                if (forward.sqrMagnitude < 1e-4f)
+                Transform anchor = FindDescendant(reference, PilotAnchorName);
+                if (anchor == null)
                 {
-                    return; // a degenerate facing is not worth a snap
+                    if (!_loggedMissingAnchor)
+                    {
+                        _loggedMissingAnchor = true;
+                        Debug.LogWarning("[WAR][flight] helm has no authored " + PilotAnchorName
+                            + " child; refusing to invent a pilot/camera offset.");
+                    }
+                    return;
                 }
-
-                Quaternion facing = Quaternion.LookRotation(forward.normalized, Vector3.up);
 
                 Transform root = LocalPlayer.Transform;
-                if (root != null)
+                if (root == null)
                 {
-                    root.rotation = facing;
+                    return;
                 }
 
-                // The movement rigidbody, via reflection (RigidbodyBehaviour is
-                // a custom wrapper): best-effort, the transform snap above is
-                // the load-bearing one.
-                try
+                Vector3 prior = root.position;
+                Vector3 position = anchor.position;
+                Quaternion rotation = anchor.rotation;
+
+                // Clear the two relative-ground ledgers which otherwise remember
+                // the approach-side deck position and can restore it on a later
+                // physics correction/dismount.
+                ClientAuthoritativePlayerMovement clientMovement =
+                    LocalPlayer.Instance.ClientAuthoritativePlayerMovement;
+                if (clientMovement != null)
                 {
-                    object playerMove = Traverse.Create(LocalPlayer.Instance).Property("playerMove").GetValue()
-                        ?? Traverse.Create(LocalPlayer.Instance).Field("playerMove").GetValue();
-                    if (playerMove is MonoBehaviour moveBehaviour)
-                    {
-                        Rigidbody body = moveBehaviour.GetComponent<Rigidbody>();
-                        if (body != null)
-                        {
-                            body.MoveRotation(facing);
-                        }
-                    }
+                    clientMovement.PlayerWasRepositioned();
                 }
-                catch (Exception)
+                PlayerMove playerMove = LocalPlayer.Instance.playerMove;
+                if (playerMove != null)
                 {
-                    // best-effort only
+                    playerMove.PlayerWasRespositioned(); // retail spelling
                 }
 
-                Debug.Log("[WAR][flight] pilot body faced to the wheel (yaw snap on man).");
+                // The Rigidbody and transform are the same physical root in the
+                // shipped Traveller prefab. Set both so the current render frame
+                // and the next physics frame agree; no delayed MovePosition that
+                // leaves the camera one frame on the approach side.
+                Rigidbody body = root.GetComponent<Rigidbody>();
+                root.position = position;
+                root.rotation = rotation;
+                if (body != null)
+                {
+                    body.position = position;
+                    body.rotation = rotation;
+                    body.velocity = Vector3.zero;
+                    body.angularVelocity = Vector3.zero;
+                }
+                if (playerMove != null)
+                {
+                    playerMove.ZeroOut(Vector3.zero, Vector3.zero);
+                }
+
+                Debug.Log("[WAR][flight] pilot snapped to helm's authored " + PilotAnchorName
+                    + " anchor (approach offset " + Vector3.Distance(prior, position).ToString("0.###")
+                    + " m cleared).");
             }
             catch (Exception e)
             {
@@ -132,6 +159,23 @@ namespace WorldsAdriftReborn.Patching.Flight
                     Debug.LogWarning("[WAR][flight] PilotBodyAnchor_Patch failed (once): " + e.Message);
                 }
             }
+        }
+
+        private static Transform FindDescendant(Transform root, string exactName)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+            Transform[] descendants = root.GetComponentsInChildren<Transform>(true);
+            for (int i = 0; i < descendants.Length; i++)
+            {
+                if (string.Equals(descendants[i].name, exactName, StringComparison.Ordinal))
+                {
+                    return descendants[i];
+                }
+            }
+            return null;
         }
     }
 }

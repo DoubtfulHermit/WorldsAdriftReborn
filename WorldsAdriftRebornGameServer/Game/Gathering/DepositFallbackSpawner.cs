@@ -15,9 +15,10 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
     /// nobody has connected, so nothing has been asked and nothing has replied. Spawning
     /// them here, through the SAME <see cref="DepositHandshakeSpawner.SpawnDepositNode"/>
     /// the handshake uses, means:
-    ///   - a live session gets them broadcast immediately (AssetLoadRequest -> AddEntity);
-    ///   - they enter the live <c>WorldEntityRegistry</c>, so LATE joiners get them from
-    ///     the connect-time spawn plan for free, exactly like a handshake deposit;
+    ///   - a live session gets them through continuous per-peer spatial interest
+    ///     (or the legacy broadcast when interest is disabled);
+    ///   - they enter both the live <c>WorldEntityRegistry</c> and resource-interest
+    ///     registry, so late joiners see them when they enter range;
     ///   - they land in the same Nodes / HarvestReward / MetalHarvest ledgers, so the
     ///     crust-core mining loop is identical on both paths;
     ///   - and the boot registry stays clean, so the two sets can never both appear.

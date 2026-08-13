@@ -8,6 +8,7 @@ void Dispatcher::RegisterAssetLoadRequestCallback(AssetLoadRequestCallback callb
 void Dispatcher::RegisterAddComponentCallback(AddComponentCallback callback, void* GCHandle) { this->addComponentCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterAuthorityChangeCallback(AuthorityChangeCallback callback, void* GCHandle) { this->authorityChangeCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterComponentUpdateCallback(ComponentUpdateCallback callback, void* GCHandle) { this->componentUpdateCallback = callback; this->GCHandle = GCHandle; }
+void Dispatcher::RegisterRemoveEntityCallback(RemoveEntityCallback callback, void* GCHandle) { this->removeEntityCallback = callback; this->GCHandle = GCHandle; }
 
 void Dispatcher::Process(OpList* op_list) {
     if (op_list != nullptr && op_list->addEntityOp != nullptr) {
@@ -57,5 +58,10 @@ void Dispatcher::Process(OpList* op_list) {
 
             delete op;
         }
+    }
+    if (op_list != nullptr && op_list->removeEntityOp != nullptr && this->removeEntityCallback != nullptr) {
+        this->removeEntityCallback(this->GCHandle, op_list->removeEntityOp);
+        delete op_list->removeEntityOp;
+        op_list->removeEntityOp = nullptr;
     }
 }

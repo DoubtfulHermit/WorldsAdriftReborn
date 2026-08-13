@@ -96,6 +96,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 Console.WriteLine("[info] player entity " + entityId + " " + aboard + ".");
             }
 
+            if (clientComponentUpdate.positionRelative.HasValue)
+            {
+                Improbable.Math.Vector3f p = clientComponentUpdate.positionRelative.Value;
+                long? ship = WorldsAdriftRebornGameServer.Aboard.ShipOf(PeerIdentity.IdOf(player));
+                if (ship.HasValue)
+                {
+                    Multiplayer.FixedPointPosition basePos;
+                    if (!WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(ship.Value, out basePos, out _))
+                    {
+                        basePos = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(ship.Value);
+                    }
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveIslandLocalPosition(player,
+                        (float)(basePos.MetresX - Multiplayer.SpawnPolicy.IslandPosition.MetresX + p.X),
+                        (float)(basePos.MetresY - Multiplayer.SpawnPolicy.IslandPosition.MetresY + p.Y),
+                        (float)(basePos.MetresZ - Multiplayer.SpawnPolicy.IslandPosition.MetresZ + p.Z));
+                }
+                else
+                {
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveIslandLocalPosition(player, p.X, p.Y, p.Z);
+                }
+            }
+
             // Carry echo. The client-side ship carry
             // (ClientAuthoritativePlayerMovement.RepositionRelativeToGroundedObject)
             // arms only when RelativePathFollower != null, which is set ONLY by

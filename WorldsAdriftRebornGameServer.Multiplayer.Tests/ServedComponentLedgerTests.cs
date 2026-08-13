@@ -127,6 +127,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Removing_one_streamed_entity_makes_only_its_components_servable_again()
+        {
+            var ledger = new ServedComponentLedger<int>();
+            ledger.MarkServed(1, 10, new uint[] { 1036, 190602 });
+            ledger.MarkServed(1, 11, new uint[] { 1036 });
+
+            ledger.ForgetEntity(1, 10);
+
+            Assert.Equal(new uint[] { 1036, 190602 }, ledger.UnservedOf(1, 10, new uint[] { 1036, 190602 }));
+            Assert.Empty(ledger.UnservedOf(1, 11, new uint[] { 1036 }));
+        }
+
+        [Fact]
         public void Marking_served_is_additive_across_calls()
         {
             var ledger = new ServedComponentLedger<int>();

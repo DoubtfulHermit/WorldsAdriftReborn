@@ -51,6 +51,53 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void Each_unfurled_sail_linearly_increases_forward_acceleration_and_top_speed()
+        {
+            FlightState noSail = FlightIntegrator.Step(
+                FlightState.AtRestAt(0, 100, 0), Input(throttle: 1f), Step, Tuning, unfurledSails: 0);
+            FlightState oneSail = FlightIntegrator.Step(
+                FlightState.AtRestAt(0, 100, 0), Input(throttle: 1f), Step, Tuning, unfurledSails: 1);
+
+            double scale = 1.0 + FlightTuning.DefaultSailBonusPerUnfurled;
+            Assert.Equal(noSail.SpeedCmdMps * scale, oneSail.SpeedCmdMps, 9);
+
+            noSail = FlightState.AtRestAt(0, 100, 0);
+            oneSail = FlightState.AtRestAt(0, 100, 0);
+            for (int i = 0; i < 200; i++)
+            {
+                noSail = FlightIntegrator.Step(noSail, Input(throttle: 1f), Step, Tuning, 0);
+                oneSail = FlightIntegrator.Step(oneSail, Input(throttle: 1f), Step, Tuning, 1);
+            }
+
+            Assert.Equal(Tuning.MaxSpeedMps, noSail.SpeedCmdMps, 9);
+            Assert.Equal(Tuning.MaxSpeedMps * scale, oneSail.SpeedCmdMps, 9);
+        }
+
+        [Fact]
+        public void Sails_do_not_amplify_reverse_and_can_never_break_the_wire_speed_cap()
+        {
+            FlightState reverse = Run(
+                FlightState.AtRestAt(0, 100, 0), Input(throttle: -1f), 200);
+            FlightState reverseWithSails = FlightState.AtRestAt(0, 100, 0);
+            for (int i = 0; i < 200; i++)
+            {
+                reverseWithSails = FlightIntegrator.Step(
+                    reverseWithSails, Input(throttle: -1f), Step, Tuning, 99);
+            }
+            Assert.Equal(reverse.SpeedCmdMps, reverseWithSails.SpeedCmdMps, 9);
+
+            FlightTuning atCap = new FlightTuning(
+                maxSpeedMps: ShipMotionPolicy.MaxSpeedMetresPerSecond,
+                sailBonusPerUnfurled: 1.0);
+            FlightState forward = FlightState.AtRestAt(0, 100, 0);
+            for (int i = 0; i < 300; i++)
+            {
+                forward = FlightIntegrator.Step(forward, Input(throttle: 1f), Step, atCap, 99);
+            }
+            Assert.Equal(ShipMotionPolicy.MaxSpeedMetresPerSecond, forward.SpeedCmdMps, 9);
+        }
+
+        [Fact]
         public void The_velocity_lags_the_command_by_the_smoothing_constant()
         {
             // The inertia feel: one step in, the actual velocity is only the
@@ -555,6 +602,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.False(tuning.InvertYaw);
             Assert.Equal(FlightTuning.DefaultPitchRateMps, tuning.PitchRateMps);
             Assert.Equal(FlightTuning.DefaultRollTurnFactor, tuning.RollTurnFactor);
+            Assert.Equal(FlightTuning.DefaultSailBonusPerUnfurled, tuning.SailBonusPerUnfurled);
             Assert.False(tuning.InvertPitch);
             Assert.False(tuning.InvertRoll);
         }
@@ -581,6 +629,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 ["WAREBORN_FLIGHT_ROLL_TURN_FACTOR"] = "1.0",
                 ["WAREBORN_FLIGHT_INVERT_PITCH"] = "1",
                 ["WAREBORN_FLIGHT_INVERT_ROLL"] = "1",
+                ["WAREBORN_FLIGHT_SAIL_BONUS"] = "0.4",
             };
             FlightTuning tuning = FlightTuning.FromEnvironment(k => env.TryGetValue(k, out string? v) ? v : null);
 
@@ -601,6 +650,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(1.0, tuning.RollTurnFactor);
             Assert.True(tuning.InvertPitch);
             Assert.True(tuning.InvertRoll);
+            Assert.Equal(0.4, tuning.SailBonusPerUnfurled);
+        }
+
+        [Fact]
+        public void Sail_scale_is_linear_bounded_and_ignores_invalid_negative_counts()
+        {
+            FlightTuning tuning = new FlightTuning(sailBonusPerUnfurled: 0.25);
+
+            Assert.Equal(1.0, tuning.SailPropulsionScale(-1));
+            Assert.Equal(1.0, tuning.SailPropulsionScale(0));
+            Assert.Equal(1.25, tuning.SailPropulsionScale(1));
+            Assert.Equal(2.0, tuning.SailPropulsionScale(4));
+            Assert.Equal(2.0, tuning.SailPropulsionScale(100));
         }
 
         [Fact]

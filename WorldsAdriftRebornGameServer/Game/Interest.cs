@@ -22,15 +22,10 @@ namespace WorldsAdriftRebornGameServer.Game
     /// barrier's initial set (island, ship hull, bolted parts) and the player's own
     /// avatar/ground are never gated.
     ///
-    /// CONNECT-TIME ONLY, FOR NOW. <see cref="CenterFor"/> returns the fixed player
-    /// spawn point, so the gate is evaluated once, at join, against where the player
-    /// lands. The movement-driven follow-on (reveal entities as a player roams into
-    /// range) is add-only - the client has NO wire path to REMOVE an entity
-    /// (RegisterRemoveEntityCallback / RemoveEntityOp are unimplemented; see
-    /// OnClientDisconnected) - and would swap this method's body for the peer's live
-    /// position from <c>RelayEmitter</c> (which already tracks LastPosition per
-    /// sender) plus a throttled per-peer rescan of the entities it has not yet been
-    /// sent. That is scoped, not shipped here.
+    /// The spawn-plan gate uses <see cref="CenterFor"/> once at join. After that,
+    /// <see cref="ResourceInterestService"/> follows the peer's live 1073 position,
+    /// adding resources inside the load radius and removing them only beyond a larger
+    /// unload radius. Essential/global/player-made entities remain outside this gate.
     /// </summary>
     internal static class Interest
     {
@@ -42,7 +37,7 @@ namespace WorldsAdriftRebornGameServer.Game
         public static double RadiusMetres { get; } =
             InterestPolicy.RadiusMetresFrom(Environment.GetEnvironmentVariable(InterestPolicy.RadiusEnvVar));
 
-        /// <summary>Whether connect-time interest gating is armed (a positive radius was configured).</summary>
+        /// <summary>Whether spatial interest is armed (a positive radius was configured).</summary>
         public static bool Enabled => InterestPolicy.IsEnabled(RadiusMetres);
 
         /// <summary>

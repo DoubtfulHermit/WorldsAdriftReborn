@@ -54,7 +54,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// when the barrier is off (it only reads the registry), but the server only
         /// calls it when <see cref="Enabled"/>.
         /// </summary>
-        public static void Prime(WorldEntityRegistry registry)
+        public static void Prime(WorldEntityRegistry registry, Func<WorldEntity, bool>? isInitial = null)
         {
             if (registry == null)
             {
@@ -71,7 +71,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 // AddEntity runs. Ids are process-constant once handed out.
                 long id = registry.EntityIdFor(entity);
 
-                if (LoadBarrierPolicy.IsInitialKey(entity.Key))
+                if ((isInitial ?? (e => LoadBarrierPolicy.IsInitialKey(e.Key)))(entity))
                 {
                     InitialIds.Add(new EntityId(id));
                     initialKeys.Add(entity.Key);

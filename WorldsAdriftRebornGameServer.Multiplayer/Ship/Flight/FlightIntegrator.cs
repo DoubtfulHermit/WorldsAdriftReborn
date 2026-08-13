@@ -136,7 +136,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         private const double AttitudeSnapEpsilon = 0.001;
 
         /// <summary>One fixed step at the control-point cadence.</summary>
-        public static FlightState Step(FlightState state, FlightControlInput input, double dtSeconds, FlightTuning tuning)
+        public static FlightState Step(FlightState state, FlightControlInput input, double dtSeconds,
+            FlightTuning tuning, int unfurledSails = 0)
         {
             if (dtSeconds <= 0.0 || double.IsNaN(dtSeconds) || double.IsInfinity(dtSeconds))
             {
@@ -165,11 +166,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double yaw = WrapAngle(state.YawRadians + yawRate * dtSeconds);
 
             // 2. Commanded speed under the accel limit (exact-zero snap).
+            // Retail's SailBehaviour added one wind force per UNFURLED sail,
+            // linear in SailState.power. This server's reconstructed flight is
+            // kinematic (no rigidbody force accumulator or weather worker), so
+            // mounted canvas contributes linearly to FORWARD propulsion while
+            // the helm asks for forward drive. Reverse is engine/control power,
+            // not something a sail should amplify. The result is capped at the
+            // shared legal control-point speed.
+            double sailScale = tuning.SailPropulsionScale(unfurledSails);
+            double forwardMax = Math.Min(
+                ShipMotionPolicy.MaxSpeedMetresPerSecond,
+                tuning.MaxSpeedMps * sailScale);
             double speedTarget = input.Throttle >= 0f
-                ? input.Throttle * tuning.MaxSpeedMps
+                ? input.Throttle * forwardMax
                 : input.Throttle * tuning.MaxSpeedMps * tuning.ReverseFactor;
+            // Sail force increases the acceleration toward a higher FORWARD
+            // target. Furling/removing canvas or pulling the lever back uses the
+            // ordinary deceleration, rather than sails somehow braking harder.
+            double acceleration = tuning.AccelMps2;
+            if (speedTarget > state.SpeedCmdMps && speedTarget > 0.0)
+            {
+                acceleration *= sailScale;
+            }
             double speedCmd = ApproachWithSnap(
-                state.SpeedCmdMps, speedTarget, tuning.AccelMps2 * dtSeconds, SnapEpsilon);
+                state.SpeedCmdMps, speedTarget, acceleration * dtSeconds, SnapEpsilon);
 
             // 3. Velocity vector chases the commanded velocity. Time-constant
             // form: a fraction dt/tau of the gap per step (capped at 1 = the

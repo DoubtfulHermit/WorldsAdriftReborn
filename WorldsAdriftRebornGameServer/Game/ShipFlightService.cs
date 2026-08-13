@@ -334,7 +334,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 // animates the helm of a parked ship.
                 EchoHelmFeedback(hullEntityId, session);
 
-                FlightEmit emit = session.Advance(nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning);
+                int unfurledSails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId);
+                FlightEmit emit = session.Advance(
+                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails);
                 if (!emit.Emit)
                 {
                     continue;
@@ -368,7 +370,12 @@ namespace WorldsAdriftRebornGameServer.Game
                                 : (session.Input.Throttle != 0f
                                     ? " cruising unmanned on latched throttle " + session.Input.Throttle.ToString("0.##")
                                     : " settling"))
-                            + "; 1111 rx " + _inputPacketsSinceStats + " in last "
+                            + ", unfurled sails "
+                            + WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId)
+                            + " (propulsion x"
+                            + _tuning.SailPropulsionScale(
+                                WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId)).ToString("0.##")
+                            + "); 1111 rx " + _inputPacketsSinceStats + " in last "
                             + StatsInterval.TotalSeconds.ToString("0") + " s.");
                         _inputPacketsSinceStats = 0;
                     }
