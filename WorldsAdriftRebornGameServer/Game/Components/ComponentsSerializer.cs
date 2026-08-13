@@ -2324,6 +2324,34 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // before any material is resolved anyway. Every OTHER entity
                         // keeps the EMPTY list the hull needs (an invented id WOULD NRE
                         // ComponentMaterialColors on the paths that dereference it).
+                        // A SALVAGEABLE RESOURCE MUST NOT HAVE AN EMPTY LIST EITHER, and an
+                        // empty one is why the salvage beam did nothing at all. When the
+                        // player shoots a salvageable, PlayerMultitool.ImpactSalvage calls
+                        // MaterialsEffectsData.GetOrDefaultFromMaterialList(OriginalMaterials)
+                        // (acs/PlayerMultitool.cs:347), which sums the amounts, walks the
+                        // list, and on falling through the loop indexes mat[0] - on an EMPTY
+                        // list that is an ArgumentOutOfRangeException thrown INSIDE the shot
+                        // callback, so the whole salvage attempt aborts and the player sees
+                        // nothing happen (VERIFIED live: "[MaterialsTypes] Unable to select an
+                        // effect from material select" + ArgumentOutOfRangeException in
+                        // ImpactSalvage). RawMaterialBreakOnImpactVisualizer.OnBreak calls the
+                        // same helper (acs/RawMaterialBreakOnImpactVisualizer.cs:26).
+                        //
+                        // The empty list was chosen because ComponentMaterialColors
+                        // .SetMaterialColors dereferences a MaterialManager lookup, so an
+                        // INVENTED id NREs. That hazard does not apply here: we name the
+                        // resource's OWN REAL material (the same id the salvage grant uses -
+                        // "fuel", the node's metal, the wood), never an invented one, and a
+                        // fuel canister / metal deposit prefab does not carry
+                        // ComponentMaterialColors at all (checked in the decompile). The ship
+                        // HULL keeps the empty list it needs.
+                        bool isSalvageableResource = !isShipHull && !isDeck
+                            && (isFuelCanister || metalNode != null || !string.IsNullOrEmpty(salvageItemType));
+
+                        string salvageMaterialCategory = isFuelCanister
+                            ? "Fuel"
+                            : metalNode != null ? "Metal" : "Wood";
+
                         Improbable.Collections.List<SlottedMaterial> originalMaterials =
                             isDeck
                                 ? new Improbable.Collections.List<SlottedMaterial>
@@ -2338,7 +2366,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                         1,                                      // amount
                                         new Option<Bossa.Travellers.Materials.RawMaterial> { }),
                                 }
-                                : new Improbable.Collections.List<SlottedMaterial> { };
+                                : isSalvageableResource
+                                    ? new Improbable.Collections.List<SlottedMaterial>
+                                    {
+                                        new SlottedMaterial(
+                                            0,
+                                            new Bossa.Travellers.Materials.RawMaterial(
+                                                salvageItemType,                // the REAL material id
+                                                metalNode?.Quality ?? 1,        // quality
+                                                salvageMaterialCategory,
+                                                new Map<string, string> { }),
+                                            1,                                  // amount (>0: the sum must be non-zero)
+                                            new Option<Bossa.Travellers.Materials.RawMaterial> { }),
+                                    }
+                                    : new Improbable.Collections.List<SlottedMaterial> { };
 
                         Bossa.Travellers.Salvaging.SalvageAndRepairState.Data salvageData =
                             new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
