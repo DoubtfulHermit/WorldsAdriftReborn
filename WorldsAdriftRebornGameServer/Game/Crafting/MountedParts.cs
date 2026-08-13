@@ -123,6 +123,23 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// <summary>How many parts have been mounted this session.</summary>
         internal static int Count => ByEntityId.Count;
 
+        /// <summary>
+        /// Every part mounted on one hull, as (part entity id, mount). A linear
+        /// scan over a per-ship handful of parts, called at the flight wake
+        /// cadence (~4 Hz while a ship is moving) - not worth an index until a
+        /// ship has hundreds of parts. Allocation-light: yields, no list.
+        /// </summary>
+        internal static IEnumerable<KeyValuePair<long, Mount>> OnHull(long hullEntityId)
+        {
+            foreach (KeyValuePair<long, Mount> entry in ByEntityId)
+            {
+                if (entry.Value.HullEntityId == hullEntityId)
+                {
+                    yield return entry;
+                }
+            }
+        }
+
         // ------------------------------------------------------------------
         // CARRY tracking (client-driven lift; PlacePart carries no part id).
         // ------------------------------------------------------------------

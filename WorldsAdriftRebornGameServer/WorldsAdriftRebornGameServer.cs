@@ -168,6 +168,13 @@ namespace WorldsAdriftRebornGameServer
 
                 Teleports.Forget(ownEntity.Value);
 
+                // The pilot seat, if this entity held one. The seat frees (the next
+                // player can Man the helm) and the flight session settles the ship
+                // to rest instead of flying on with a ghost's held throttle - the
+                // exact "invisible per-life state" class of leak this contract
+                // exists to prevent.
+                Flight.OnPlayerGone(ownEntity.Value);
+
                 // The fall watch keyed by the same entity. Left behind, the record
                 // would still be counting rescue attempts for somebody who has
                 // logged out - harmless in itself, but ForgetPeer's contract is
@@ -1551,6 +1558,17 @@ namespace WorldsAdriftRebornGameServer
                 // [Require]; 1071 stays a server-owned reader (injected, not granted).
                 list.AddRange(MirrorSendPolicy.PartMountAuthoritativeComponents);
             }
+            if (Game.ShipFlightService.Enabled)
+            {
+                // HELM FLIGHT (WAREBORN_HELM_FLIGHT=1, its own flag): the two writers
+                // of ShipControlsBehaviour - 1111 ShipControlInput + 1112
+                // TurretControlInput. The behaviour [Require]s BOTH writers plus the
+                // 1109 reader (already injected early for every player), and a writer
+                // binds only for a granted component - so without this the helm can be
+                // Manned but the ship never receives input. 1109 itself is NEVER
+                // granted: the server owns who is driving.
+                list.AddRange(MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+            }
             return list;
         }
 
@@ -1807,6 +1825,16 @@ namespace WorldsAdriftRebornGameServer
         /// as Falls/Relay/ShipFerry. See Game.ShipPartMotionService.
         /// </summary>
         internal static readonly Game.ShipPartMotionService ShipPartMotion = new Game.ShipPartMotionService(ServerClock);
+
+        /// <summary>
+        /// PILOTED SHIP FLIGHT (WAREBORN_HELM_FLIGHT=1): Man a mounted helm, and the
+        /// pilot's own 1111 ShipControlInput drives the built hull's 1130 control
+        /// points through a pure integrator. The 1211 handler dispatches Man/Release
+        /// into it, ShipControlInput_Handler feeds it input, the main loop ticks its
+        /// publisher, and ForgetPeer dismounts a vanished pilot. Takes ServerClock
+        /// for the same textual-order reason as Falls/Relay/ShipFerry.
+        /// </summary>
+        internal static readonly Game.ShipFlightService Flight = new Game.ShipFlightService(ServerClock);
 
         /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
@@ -2765,6 +2793,15 @@ namespace WorldsAdriftRebornGameServer
                                 // component map for their handlers. 1070+1239 are also granted.
                                 injectedIds.AddRange(MirrorSendPolicy.PartMountInjectedComponents);
                             }
+                            if (Game.ShipFlightService.Enabled)
+                            {
+                                // Helm flight: 1111 + 1112 (both also granted above) so
+                                // ShipControlsBehaviour's [Require] writers bind and the
+                                // player's inbound 1111 updates are in the ComponentMap for
+                                // ShipControlInput_Handler to receive. See MirrorSendPolicy
+                                // .ShipFlightInjectedComponents.
+                                injectedIds.AddRange(MirrorSendPolicy.ShipFlightInjectedComponents);
+                            }
 
                             // LOADING BARRIER (WAREBORN_LOAD_BARRIER=1). Inject the three
                             // barrier components with the rest of the atomic setup batch so
@@ -3270,6 +3307,12 @@ namespace WorldsAdriftRebornGameServer
                 // a no-op until a ship and a loaded client both exist. See
                 // Game.ShipPartMotionService.
                 ShipPartMotion.Tick();
+                // PILOTED FLIGHT: the pilot's 1111 input, integrated into the built
+                // hull's 1130 control points at the ferry's proven 0.24 s cadence,
+                // plus the mounted parts' 190602 wakes. Off unless
+                // WAREBORN_HELM_FLIGHT=1; cheap when off (an env check) or when no
+                // helm was ever manned (an empty dictionary). See Game.ShipFlightService.
+                Flight.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a
                 // section, one when it leaves - so "hold the beam and the tree

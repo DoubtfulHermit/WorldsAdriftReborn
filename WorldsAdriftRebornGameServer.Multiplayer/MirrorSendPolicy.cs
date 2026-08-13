@@ -319,6 +319,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             new uint[] { BuilderStateComponentId, BuilderServerStateComponentId, PlacementToolPlayerStateComponentId };
 
         /// <summary>
+        /// ShipControlInput (1111): the pilot's throttle/vertical/axes writer on
+        /// the PLAYER. <c>ShipControlsBehaviour</c> [Require]s this WRITER (plus
+        /// the 1112 writer and the 1109 reader, ShipControlsBehaviour.cs:20-29),
+        /// and a writer exists only for a granted component - so piloting is dead
+        /// unless 1111 is granted. While driving the client sends it every 0.05 s
+        /// AT MOST: the generated FinishAndSend diff-suppresses unchanged frames,
+        /// so a held stick costs nothing. CONSUME-ONLY on the server (the flight
+        /// integrator eats it); NEVER relayed - see IsRelayedToOtherPlayers.
+        /// </summary>
+        public const uint ShipControlInputComponentId = 1111;
+
+        /// <summary>
+        /// TurretControlInput (1112): <c>ShipControlsBehaviour</c>'s OTHER
+        /// [Require] writer. Ship piloting never sets its fields (LookAt is only
+        /// written under ControlType.Turret and the empty per-frame FinishAndSend
+        /// is diff-suppressed), but without the grant the behaviour never enables
+        /// and the ship cannot be driven. Granted purely to satisfy the require
+        /// set; no handler consumes it; filtered from relay like 1111.
+        /// </summary>
+        public const uint TurretControlInputComponentId = 1112;
+
+        /// <summary>
+        /// The helm-flight components a client is granted AUTHORITY over: the two
+        /// writers of ShipControlsBehaviour. Kept OUT of the always-on
+        /// <see cref="AuthoritativeComponents"/> and appended at the setup site
+        /// only when WAREBORN_HELM_FLIGHT=1, exactly like the placement lists.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipFlightAuthoritativeComponents =
+            new uint[] { ShipControlInputComponentId, TurretControlInputComponentId };
+
+        /// <summary>
+        /// The helm-flight components injected onto the player: the same two -
+        /// a component must be seeded before its updates can be handled (inbound
+        /// updates look it up in the component map or are dropped), and seeding
+        /// is also what lets the [Require] writers bind once the grant lands.
+        /// 1109 PilotState is NOT here: it is already injected early for every
+        /// player (the PlayerExternalDataVisualizer NRE fix).
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipFlightInjectedComponents =
+            new uint[] { ShipControlInputComponentId, TurretControlInputComponentId };
+
+        /// <summary>
         /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
         /// (2105), MultitoolSalvagerState (2106), MultitoolRepairerState (2002).
         ///
@@ -544,6 +586,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// part entity's 8066/190602/1120, which every peer already sees as a shared
         /// world entity), not by relaying the client's event, and it is an event on
         /// pickup/place, not a per-frame stream - so this is correctness, not bandwidth.
+        /// 1111 ShipControlInput and 1112 TurretControlInput are filtered OUT for
+        /// BOTH standing reasons at once. Cross-entity: RelayToOtherPlayers would
+        /// re-address the pilot's input to the SENDER's own entity on every other
+        /// client, where the remote Traveller@Default rig runs no
+        /// ShipControlsBehaviour and reads neither component - the input is
+        /// realised by the SERVER (the flight integrator turns it into the hull's
+        /// 1130 control points, which every peer already receives). Rate: 1111 is
+        /// the up-to-20 Hz piloting stream, exactly the class of relayed reliable
+        /// per-frame traffic that produced the measured congestion spiral
+        /// (RTT 24 ms -> 5 s) before 6910 was tamed. Consume-only, never relayed.
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
@@ -555,7 +607,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 && componentId != PlayerShipBlueprintInteractionStateComponentId
                 && componentId != BuilderStateComponentId
                 && componentId != PlacementToolPlayerStateComponentId
-                && componentId != IslandResourceSpawnerClientStateComponentId;
+                && componentId != IslandResourceSpawnerClientStateComponentId
+                && componentId != ShipControlInputComponentId
+                && componentId != TurretControlInputComponentId;
         }
 
         /// <summary>

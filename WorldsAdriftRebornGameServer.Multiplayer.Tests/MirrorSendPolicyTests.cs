@@ -383,7 +383,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_ten_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_twelve_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
@@ -410,7 +410,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1011, 1017, 1037, 1070, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
+            // 1111 ShipControlInput and 1112 TurretControlInput joined with helm
+            // flight - the pilot's up-to-20 Hz input stream, consumed by the
+            // server's flight integrator and realised as the hull's 1130 control
+            // points every peer already receives; relaying it raw would be both
+            // the cross-entity misdelivery AND the per-frame reliable-relay rate
+            // spiral at once.
+            Assert.Equal(new uint[] { 1011, 1017, 1037, 1070, 1111, 1112, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
+        }
+
+        // ------------------------------------------------------------------
+        // Helm flight (kept out of the always-on sets; env-gated)
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Helm_flight_grants_and_injects_exactly_the_two_pilot_writers()
+        {
+            // ShipControlsBehaviour [Require]s the 1111 AND 1112 writers plus the
+            // 1109 reader; a behaviour enables only when EVERY require resolves,
+            // so granting one without the other is worth exactly as much as
+            // granting neither. 1109 is not here - it is already injected early
+            // for every player (the PlayerExternalDataVisualizer NRE fix) and
+            // must never be granted (the server owns who is driving).
+            Assert.Equal(new uint[] { 1111, 1112 }, MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+            Assert.Equal(new uint[] { 1111, 1112 }, MirrorSendPolicy.ShipFlightInjectedComponents);
+            Assert.DoesNotContain(1109u, MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+        }
+
+        [Fact]
+        public void Helm_flight_components_are_not_in_the_always_on_sets_so_the_feature_can_be_gated()
+        {
+            foreach (uint id in new uint[] { 1111, 1112 })
+            {
+                Assert.DoesNotContain(id, MirrorSendPolicy.AuthoritativeComponents);
+                Assert.DoesNotContain(id, MirrorSendPolicy.InjectedComponents);
+            }
+        }
+
+        [Fact]
+        public void The_pilot_input_stream_is_never_relayed()
+        {
+            // The one wire-safety rule of the whole feature: 1111 is a legit
+            // high-rate stream from ONE piloting player, consumed server-side,
+            // and must never reach a second client raw.
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(MirrorSendPolicy.ShipControlInputComponentId));
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(MirrorSendPolicy.TurretControlInputComponentId));
         }
 
         // ------------------------------------------------------------------

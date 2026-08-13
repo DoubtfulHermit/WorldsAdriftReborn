@@ -61,13 +61,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             InteractAgentState.Update clientComponentUpdate, InteractAgentState.Data serverComponentData)
         {
             // A DELTA: the vast majority of 1211 packets carry only look/slot data and
-            // no event. Read both event lists straight off the update and get out fast
+            // no event. Read the event lists straight off the update and get out fast
             // when there is nothing to act on - this runs at frame rate.
             Improbable.Collections.List<UseItemKeyPressed>? presses = clientComponentUpdate.useItemKeyPressed;
             Improbable.Collections.List<InteractWithObject>? interacts = clientComponentUpdate.interactWithObject;
+            Improbable.Collections.List<ReleaseInteraction>? releases = clientComponentUpdate.releaseInteraction;
             bool noPress = presses == null || presses.Count == 0;
             bool noInteract = interacts == null || interacts.Count == 0;
-            if (noPress && noInteract)
+            bool noRelease = releases == null || releases.Count == 0;
+            if (noPress && noInteract && noRelease)
             {
                 return;
             }
@@ -114,6 +116,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // is SALVAGED with the gauntlet beam, not picked up, so its shots
                     // arrive on 2106 (MultitoolSalvagerState_Handler -> OnSalvageShot ->
                     // OnFuelCanisterShot) and it advertises no 1210 prompt at all.
+                }
+
+                // HELM FLIGHT (verb Man): the pilot takes - or, re-manning, leaves -
+                // the helm of their built ship. ALWAYS-ON like the atlas pickup, NOT
+                // behind WAREBORN_PLACEMENT: the flight service carries its own
+                // WAREBORN_HELM_FLIGHT gate and answers false for any target that is
+                // not a mounted helm, so this dispatch costs one ledger miss for
+                // every other Man. Ownership is handed to the service, not
+                // short-circuited here, so the single gate is the service.
+                foreach (InteractWithObject man in interacts!)
+                {
+                    if (man.verb == InteractVerb.Man)
+                    {
+                        WorldsAdriftRebornGameServer.Flight.OnManInteraction(
+                            player, entityId, man.target.Id, ownsPlayer);
+                    }
+                }
+            }
+
+            // The client's OWN dismount signal: TriggerReleaseInteraction from
+            // InteractAgentObserver.ReleaseInteractiveObject. Belt-and-braces beside
+            // the re-Man toggle - whichever the live client sends, the pilot gets
+            // off. Events only, a handful per session; ignored for non-pilots.
+            if (!noRelease && ownsPlayer)
+            {
+                foreach (ReleaseInteraction release in releases!)
+                {
+                    WorldsAdriftRebornGameServer.Flight.OnReleaseInteraction(
+                        player, entityId, release.interactEntityId.Id);
                 }
             }
 

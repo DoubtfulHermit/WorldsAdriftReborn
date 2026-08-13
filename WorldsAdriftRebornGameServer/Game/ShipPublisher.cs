@@ -74,10 +74,25 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         public static object BuildUpdate(ShipControlPointSpec spec)
         {
+            return BuildUpdate(spec, 1023u);
+        }
+
+        /// <summary>
+        /// The 1130 update with an EXPLICIT packed rotation - the overload piloted
+        /// flight uses so the hull BANKS onto its heading (PathFollower slerps and
+        /// MoveRotation()s the rotation between points, VERIFIED at
+        /// acs/PathFollower.cs:332-354). The value must already be a valid packed
+        /// Quaternion32 - 1023 for identity, or the output of
+        /// Quaternion32Packing.Encode / FlightIntegrator.PackedRotation; a raw 0 or 1
+        /// decodes to NaN and ControlPoint.ValidateControlPoint rejects the point
+        /// silently. Everything else matches the identity overload above.
+        /// </summary>
+        public static object BuildUpdate(ShipControlPointSpec spec, uint packedRotation)
+        {
             ShipControlPoint controlPoint = new ShipControlPoint(
                 spec.TimestampMs,
                 new Coordinates(spec.X, spec.Y, spec.Z),
-                new Quaternion32(1023),
+                new Quaternion32(packedRotation),
                 new Vector3f((float)spec.Vx, (float)spec.Vy, (float)spec.Vz),
                 ShipHull.FsimIdHash);
 

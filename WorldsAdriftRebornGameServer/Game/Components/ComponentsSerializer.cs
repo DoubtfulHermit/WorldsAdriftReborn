@@ -455,6 +455,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + " (docked=true, dockShipyard=" + dockShipyardId + "); the shipyard now presents an"
                             + " active docked ship for the crafted-part lift.");
                     }
+                    else if(componentId == 1258 && Game.Crafting.BuiltShips.IsBuiltHull(entityId))
+                    {
+                        // ShipLiftState on a BUILT hull: the sky core's lift capacity.
+                        // The one live consumer on the pilot path is
+                        // ShipControlsBehaviour.UpdateVertical -> ShipLiftVisualizer
+                        // .IsOverloaded (totalMass > TotalLift * AtlasMultiplier): if it
+                        // reads overloaded, VERTICAL INPUT IS BLOCKED with the "Ship
+                        // weighs more than its atlas sky core can lift" OSD. With 1258
+                        // absent the visualizer's reader is null and TotalLift returns 0
+                        // (null-guarded), leaving the check to whatever
+                        // ParentingMassAdderVisualizer.totalMass happens to be - so a
+                        // generous seed is the belt-and-braces that keeps climb working.
+                        // No server mass model exists (1257 is known-absent), so the
+                        // honest seed is "lift is not the limiting factor": a large
+                        // totalLift, zero torque, reliable=true. VERIFIED ctor
+                        // (gencode ShipLiftStateData: totalLift, totalTorque, reliable).
+                        // Gated on IsBuiltHull so no other entity's 1258 is answered here.
+                        obj = new ShipLiftState.Data(new ShipLiftStateData(
+                            1000000f, new Improbable.Math.Vector3f(0f, 0f, 0f), true));
+
+                        Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
+                            + " (totalLift=1e6): the sky core lifts, vertical input stays unblocked.");
+                    }
                     else if(componentId == 190601)
                     {
                         TransformHierarchyState.Data thData = new TransformHierarchyState.Data(new TransformHierarchyStateData(new Improbable.Collections.List<Child> { }));
@@ -774,6 +797,43 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         PilotState.Data psData = new PilotState.Data(new PilotStateData(new EntityId(0), new EntityId(0), ControlVehicleType.None));
 
                         obj = psData;
+                    }
+                    else if(componentId == 1111)
+                    {
+                        // ShipControlInput: neutral zero input, for EVERY entity that
+                        // asks - the same unconditional shape as 1109 above, because the
+                        // same component id lives on three different entities:
+                        //   * the PLAYER - the pilot's writer twin. Must be seeded (an
+                        //     inbound update is dropped unless the component is in the
+                        //     ComponentMap) and is granted under WAREBORN_HELM_FLIGHT so
+                        //     ShipControlsBehaviour's [Require] 1111 WRITER binds.
+                        //   * the HULL - ShipControlInputVisualizer's reader. LOAD-BEARING
+                        //     even though it looks cosmetic: PilotVisualizer's
+                        //     OnChangeLinkedEntity does GetComponentInParent<ShipControl
+                        //     InputVisualizer>() on the driven hull and calls
+                        //     ShipControlsBehaviour.SetInitialInput, which dereferences
+                        //     that visualizer's reader - GetComponentInParent finds the
+                        //     component whether or not it is enabled, so serving 1111 here
+                        //     is what makes that call safe the moment piloting starts.
+                        //   * the HELM - HelmVisualizer's reader (the wheel visuals).
+                        // This id spent its life in ComponentAbsencePolicy.KnownAbsent
+                        // ("this server simulates no piloting"); helm flight made that
+                        // false, so it moved here. Zeros = stick centred, throttle off.
+                        obj = new ShipControlInput.Data(new ShipControlInputData(
+                            new Improbable.Math.Vector3f(0f, 0f, 0f), 0f, 0f));
+                    }
+                    else if(componentId == 1112)
+                    {
+                        // TurretControlInput: ShipControlsBehaviour's OTHER [Require]d
+                        // writer (alongside 1111 and the 1109 reader) - the behaviour
+                        // enables only when every require resolves, so the player must
+                        // have 1112 checked out too. Ship piloting never sets its one
+                        // field (LookAt is only written under ControlType.Turret, and the
+                        // per-frame empty FinishAndSend is diff-suppressed client-side),
+                        // so a zero LookAt is the honest idle seed. No handler consumes
+                        // it; it is filtered from relay beside 1111.
+                        obj = new TurretControlInput.Data(new TurretControlInputData(
+                            new Coordinates(0, 0, 0)));
                     }
                     else if(componentId == 1071)
                     {
