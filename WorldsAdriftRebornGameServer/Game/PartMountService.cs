@@ -254,8 +254,19 @@ namespace WorldsAdriftRebornGameServer.Game
             // Packing.Encode substitutes the identity sentinel for a non-finite/degenerate
             // value, so an unrotated or bogus placement is "facing north", never a NaN
             // rejection of the whole transform.
-            uint packedShipLocalRotation = Multiplayer.Placement.Quaternion32Packing.Encode(
-                pp.shipLocalRotation.w, pp.shipLocalRotation.x, pp.shipLocalRotation.y, pp.shipLocalRotation.z);
+            // RETAIL ROTATION LOCK: a HELM always mounts facing the ship's BOW. The
+            // Helm01 prefab blocks both placement-rotation modes (ShipHelmPlacement
+            // .Awake, decompile) precisely because retail helms could only ever face
+            // forward - the pilot camera aligns to the SHIP's rotation on man, so a
+            // helm mounted at an angle leaves the pilot steering while looking off the
+            // side of the ship (measured live: "places me in this direction and forward
+            // goes THAT way"). Force hull-local identity for helms; every other part
+            // keeps the player's placed rotation.
+            bool isHelmMount = Crafting.LooseParts.DefFor(partEntityId)?.ItemType == "helm";
+            uint packedShipLocalRotation = isHelmMount
+                ? Multiplayer.Placement.Quaternion32Packing.Identity
+                : Multiplayer.Placement.Quaternion32Packing.Encode(
+                    pp.shipLocalRotation.w, pp.shipLocalRotation.x, pp.shipLocalRotation.y, pp.shipLocalRotation.z);
             long sample = NextTimelineSample();
             float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var transformUpdate = ShipPartTransform.BuildWakeUpdate(
@@ -308,9 +319,13 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetHeldByTool(EntityId.InvalidEntityId)
                 .SetAttachedTo(new EntityId(hullEntityId))
                 .SetAttachPos(pp.shipLocalPosition)
-                .SetAttachRot(pp.shipLocalRotation)
+                // The same helm rotation lock as the 190602 packing above: 1120 and the
+                // last-attachment record must agree with the served transform, or a
+                // re-checkout would restore the tilted facing.
+                .SetAttachRot(isHelmMount ? Improbable.Corelib.Math.Quaternion.Identity : pp.shipLocalRotation)
                 .SetLastAttachment(new RelativeLocation(
-                    new EntityId(hullEntityId), pp.shipLocalPosition, pp.shipLocalRotation))
+                    new EntityId(hullEntityId), pp.shipLocalPosition,
+                    isHelmMount ? Improbable.Corelib.Math.Quaternion.Identity : pp.shipLocalRotation))
                 .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
             ShipPublisher.Broadcast(partEntityId, 1120u, partUpdate);
 
