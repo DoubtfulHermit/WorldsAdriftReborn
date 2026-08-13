@@ -186,6 +186,50 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
+        /// Updates ONE mounted sail's persisted furl state in place, keyed by its stable
+        /// <c>PartUid</c> - called on every furl/unfurl toggle so a restart restores the
+        /// rigging a player left. A no-op when no such record exists (a sail mounted on
+        /// the non-persisted static hull is session-only, same rule as its mount).
+        /// </summary>
+        internal static void UpdateMountedSailState(string? partUid, bool unfurled)
+        {
+            if (string.IsNullOrEmpty(partUid))
+            {
+                return;
+            }
+
+            WorldStateSnapshot snapshot = Snapshot();
+            MountedPartRecord? record = snapshot.MountedParts.Find(r => r.PartUid == partUid);
+            if (record != null && record.SailUnfurled != unfurled)
+            {
+                record.SailUnfurled = unfurled;
+                Save();
+            }
+        }
+
+        /// <summary>
+        /// Updates ONE mounted lamp's persisted switch in place, keyed by its stable
+        /// <c>PartUid</c> - the lamp twin of <see cref="UpdateMountedSailState"/>. The
+        /// record stores the INVERTED bit (LampOff) so a legacy record defaults to ON;
+        /// this takes the natural "is it on" and flips it once, here.
+        /// </summary>
+        internal static void UpdateMountedLampState(string? partUid, bool on)
+        {
+            if (string.IsNullOrEmpty(partUid))
+            {
+                return;
+            }
+
+            WorldStateSnapshot snapshot = Snapshot();
+            MountedPartRecord? record = snapshot.MountedParts.Find(r => r.PartUid == partUid);
+            if (record != null && record.LampOff != !on)
+            {
+                record.LampOff = !on;
+                Save();
+            }
+        }
+
+        /// <summary>
         /// Drops a mounted part's record by its stable <c>PartUid</c> - called when it is
         /// LIFTED OFF a ship and becomes loose again (re-expressed as a
         /// <see cref="LoosePartRecord"/>). A no-op when no such record exists.

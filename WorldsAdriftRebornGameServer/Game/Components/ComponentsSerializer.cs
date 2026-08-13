@@ -648,6 +648,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // separate replay. See findings-atlas-shards §2 Phase C.
                         bool isAtlasShard = !isCraftStation && !isHelm
                             && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
+                        // A MOUNTED INTERACTABLE PART (sail / lamp / horn): the part
+                        // prefab's own InteractiveObjectVisualizer carries verb
+                        // Activate SERIALIZED (decompile: GetTutorialStep maps
+                        // Activate + Sail/Lamp/HornVisualizer to the per-part
+                        // tutorial prompt), and OnEnable caches
+                        // Interactions.FirstOrDefault(i => i.verb == Verb) - so
+                        // without an Activate entry here the prompt can never
+                        // appear, the exact trap the mounted helm's Man fix above
+                        // documents. Keyed off the mount ledger's itemType through
+                        // the pure PartInteractionPolicy (tested), which answers
+                        // None for every part retail did not make interactable and
+                        // for the parts whose interaction we cannot honestly serve
+                        // yet (storage needs 1081, the reviver needs 1094) - so a
+                        // prompt is never a lie. An UNMOUNTED loose sail/lamp/horn
+                        // stays on the generic branch: you cannot rig a sail lying
+                        // on the ground, exactly like the unmounted helm.
+                        Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
+                        if (!isCraftStation && !isHelm && !isAtlasShard)
+                        {
+                            mountedPartVerb = Multiplayer.Ship.PartInteractionPolicy.VerbFor(
+                                Game.Crafting.MountedParts.MountFor(entityId)?.ItemType);
+                        }
                         // NOTE: a FUEL CANISTER deliberately has NO 1210 branch. Retail
                         // fuel is SALVAGED with the gauntlet beam, never picked up, so it
                         // must not advertise an interaction prompt at all - its gate is
@@ -685,6 +707,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             // Gated: only offer the prompt once the shard is mined loose,
                             // and never again once collected.
                             available = WorldsAdriftRebornGameServer.AtlasShards.IsAvailable(entityId);
+                        }
+                        else if (mountedPartVerb != Multiplayer.Ship.PartVerb.None)
+                        {
+                            // The mounted sail/lamp/horn Activate entry. radius 5 m
+                            // (non-zero or no prompt, the ManRadius trap), timeToUse 0
+                            // (instant - a light switch, not a hold). The E press comes
+                            // back as a 1211 InteractWithObject(Activate) and is
+                            // dispatched to PartInteractionService.
+                            entry = new InteractionEntry(
+                                (InteractVerb)(int)mountedPartVerb,
+                                Multiplayer.Ship.PartInteractionPolicy.ActivateRadius,
+                                false, "", "", "", false,
+                                Multiplayer.Ship.PartInteractionPolicy.ActivateTimeToUse);
+                            verbName = ((InteractVerb)(int)mountedPartVerb).ToString();
                         }
                         else
                         {
@@ -1898,9 +1934,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The light is on only when enabled AND IsFunctional (1236) are
                         // both true (LampVisualizer.cs:87), so a working lamp seeds
                         // enabled=true. VERIFIED ctor (gencode LampState.cs:309).
+                        //
+                        // A MOUNTED lamp serves its SWITCH ledger instead, so a relog /
+                        // late joiner sees the on/off a player set (the 1211 Activate
+                        // toggle, PartInteractionService). Lamps.IsOn returns true for
+                        // any untracked id, so a LOOSE lamp keeps the proven always-on
+                        // serve unchanged.
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new LampState.Data(true);
+                            obj = new LampState.Data(WorldsAdriftRebornGameServer.Lamps.IsOn(entityId));
                         }
                     }
                     else if (componentId == 1236)
@@ -1926,9 +1968,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // this idle Data is crash-safe. Only a sail seeds 1303, so only a
                         // sail ever requests it. VERIFIED ctor (gencode SailState.cs:375,
                         // SailStateData fields unfurled/power).
+                        //
+                        // A MOUNTED sail serves its FURL ledger instead, so a relog /
+                        // late joiner sees the rigging a player set (the 1211 Activate
+                        // toggle, PartInteractionService) - SailControlVisuals.Init
+                        // starts every sail visually furled and the LateUpdate poll
+                        // fires UnfurlSail off this served bit. Power rides the same
+                        // bit (1 rigged / 0 furled), matching the toggle's push. An
+                        // untracked (loose) sail reads false from the ledger, i.e. the
+                        // furled idle it always had.
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new SailState.Data(false, 0f);
+                            bool unfurled = WorldsAdriftRebornGameServer.Sails.IsUnfurled(entityId);
+                            obj = new SailState.Data(unfurled, unfurled ? 1f : 0f);
                         }
                     }
                     else if (componentId == 1107)
@@ -1938,9 +1990,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // _state.Charge (a plain float, no Option), so idle Data cannot
                         // NRE. Only a horn seeds 1107, so only a horn requests it. VERIFIED
                         // ctor (gencode HornState.cs:362, HornStateData field charge).
+                        //
+                        // A MOUNTED horn serves its cooldown ledger's charge instead
+                        // (1 ready, ramping 0..1 after a honk) so the needle a relog /
+                        // late joiner sees matches what the 1211 Activate honk gate
+                        // will actually allow. ChargeFor returns null for an untracked
+                        // (loose) horn, which keeps the idle charge=0 serve unchanged.
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new HornState.Data(0f);
+                            obj = new HornState.Data(
+                                WorldsAdriftRebornGameServer.HornChargeNow(entityId) ?? 0f);
                         }
                     }
                     else if (componentId == 8062)

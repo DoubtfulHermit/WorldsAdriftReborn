@@ -1929,6 +1929,47 @@ namespace WorldsAdriftRebornGameServer
             new Multiplayer.FuelCanisterRegistry();
 
         /// <summary>
+        /// The furl state of every MOUNTED sail (registered on mount / boot restore,
+        /// cleared on lift). Read by the 1303 serve branch so a re-checkout shows the
+        /// rigging as set, toggled by <see cref="PartInteractions"/> on an Activate
+        /// interact, and exposed to the flight integrator via
+        /// <c>Sails.UnfurledCountFor(hullId)</c> - this ledger never reaches into the
+        /// flight service itself.
+        /// </summary>
+        internal static readonly Multiplayer.Sails Sails = new Multiplayer.Sails();
+
+        /// <summary>
+        /// The on/off switch of every MOUNTED lamp - the sail's pattern applied to
+        /// 1108 enabled. Untracked (loose) lamps keep the proven always-on serve.
+        /// </summary>
+        internal static readonly Multiplayer.Lamps Lamps = new Multiplayer.Lamps();
+
+        /// <summary>
+        /// The honk cooldown of every MOUNTED horn - gates 1107 SoundHorn events to
+        /// one per 30 s recharge window (the client's own needle animation length).
+        /// </summary>
+        internal static readonly Multiplayer.Horns Horns = new Multiplayer.Horns();
+
+        /// <summary>
+        /// The Activate-verb interact dispatcher for mounted parts (sail furl, lamp
+        /// switch, horn honk). Fed by InteractAgentState_Handler exactly like the
+        /// flight service's Man dispatch; each part's ledger is its single gate.
+        /// </summary>
+        internal static readonly Game.PartInteractionService PartInteractions =
+            new Game.PartInteractionService(ServerClock);
+
+        /// <summary>
+        /// A mounted horn's 1107 charge RIGHT NOW (1 ready, ramping after a honk), or
+        /// null when the id is not a mounted horn. Exists because the serializer's
+        /// 1107 branch needs the ledger read AT the server clock, and the clock is
+        /// private to this class.
+        /// </summary>
+        internal static float? HornChargeNow(long hornEntityId)
+        {
+            return Horns.ChargeFor(hornEntityId, ServerClock.Elapsed.TotalSeconds);
+        }
+
+        /// <summary>
         /// Which entity ids are ship SURFACES, and which ship each belongs to. The
         /// server fills this from its own spawn decisions (a hull registers itself
         /// as its own surface in <see cref="AddWorldEntity"/>), so aboard-detection

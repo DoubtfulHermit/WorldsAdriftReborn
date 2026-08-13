@@ -194,6 +194,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
         }
 
         [Fact]
+        public void Part_interaction_state_round_trips_and_legacy_records_default_safely()
+        {
+            WorldStateSnapshot snapshot = new WorldStateSnapshot();
+            snapshot.MountedParts.Add(new MountedPartRecord
+            {
+                PartUid = "sail-1",
+                ItemType = "sail",
+                SailUnfurled = true,
+            });
+            snapshot.MountedParts.Add(new MountedPartRecord
+            {
+                PartUid = "lamp-1",
+                ItemType = "lamp",
+                LampOff = true,
+            });
+
+            string path = Path.Combine(_dir, "world.json");
+            AtomicJsonFile.Write(path, snapshot);
+            WorldStateSnapshot read = AtomicJsonFile.Read<WorldStateSnapshot>(path)!;
+
+            Assert.True(read.MountedParts[0].SailUnfurled);
+            Assert.True(read.MountedParts[1].LampOff);
+
+            // LEGACY SAFETY: a record written before these fields existed must load
+            // as the fresh-mount state - sail furled, lamp ON. LampOff is stored
+            // INVERTED precisely so the JSON default (false) means ON.
+            MountedPartRecord legacy = new MountedPartRecord();
+            Assert.False(legacy.SailUnfurled);
+            Assert.False(legacy.LampOff); // false = the lamp is ON
+        }
+
+        [Fact]
         public void An_owner_uid_survives_the_round_trip_on_every_ownable_record()
         {
             const string uid = "11111111-2222-3333-4444-555555555555";

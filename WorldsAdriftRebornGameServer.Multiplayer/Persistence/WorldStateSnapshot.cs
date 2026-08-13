@@ -220,6 +220,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// <summary>The character uid of the player who mounted it.</summary>
         public string OwnerCharacterUid { get; set; } = "";
 
+        /// <summary>
+        /// SAIL ONLY: whether the sail's canvas is out (1303 unfurled), so a relog /
+        /// restart restores the rigging a player set. False for every other part type
+        /// and for legacy records (JSON default), which is exactly the fresh-mount
+        /// state - so an old save loads unchanged.
+        /// </summary>
+        public bool SailUnfurled { get; set; }
+
+        /// <summary>
+        /// LAMP ONLY: whether the lamp is switched OFF (1108 enabled=false). Stored
+        /// INVERTED on purpose: the JSON default (false) must mean the fresh-mount /
+        /// legacy-record state, and a lamp's proven default is ON - so absence of the
+        /// field restores an old save's lamps exactly as they always were.
+        /// </summary>
+        public bool LampOff { get; set; }
+
         /// <summary>The hull-local mount offset as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition LocalOffset() => new FixedPointPosition(LocalX, LocalY, LocalZ);
 
