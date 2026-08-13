@@ -62,6 +62,8 @@ namespace WorldsAdriftReborn.Patching.Mining
         private MetalDepositCoreVisuals _core;
         private Action _onCoreExploded;
         private Coroutine _routine;
+        private Transform _slotTransform;
+        private bool _following;
 
         private long _shardEntityId;
         private long _rockCoreId;
@@ -177,12 +179,21 @@ namespace WorldsAdriftReborn.Patching.Mining
                 yield break;
             }
 
-            _view.SetParent(target.transform, worldPositionStays: false);
-            _view.localPosition = _originalLocalPosition;
-            _view.localRotation = _originalLocalRotation;
+            // FOLLOW the slot's pose - do NOT reparent. Reparenting the view (and its
+            // collider) into the CORE's hierarchy broke pickup entirely: the interact
+            // raycast resolves the hit collider upward to the entity that owns it, and
+            // under the core's transform that is the DEPOSIT, not the shard - so the
+            // shard's InteractiveObjectVisualizer was never consulted, no prompt could
+            // appear, and E produced no 1211 (VERIFIED live: server pushed
+            // available=true to the peer, zero PickUp attempts ever arrived). Keeping
+            // the view under the shard's own entity root preserves raycast->shard
+            // resolution; LateUpdate keeps the pose glued to the slot.
+            _slotTransform = target.transform;
+            _following = true;
+            FollowSlot();
 
             Debug.Log("[WAR][atlas] shard " + _shardEntityId + " lodged in core " + _rockCoreId
-                + " slot " + slot + " (" + slots.Length + " slot(s) on this variant).");
+                + " slot " + slot + " (" + slots.Length + " slot(s) on this variant, follow-pose).");
 
             // 3. When the core blows, the shard is no longer held by the rock - retail let
             //    its rigidbody go (MetalDepositAtlasVisualiser_fsim.OnCoreExploded). This
@@ -216,6 +227,36 @@ namespace WorldsAdriftReborn.Patching.Mining
             }
         }
 
+        /// <summary>
+        /// Copies the slot's pose onto the view - the world pose parenting would have
+        /// produced (slot * originalLocal), without the parenting. Runs every LateUpdate
+        /// while lodged so the crystal stays glued even if the core's visuals settle late.
+        /// </summary>
+        private void FollowSlot()
+        {
+            if (_view == null || _slotTransform == null)
+            {
+                return;
+            }
+            _view.position = _slotTransform.TransformPoint(_originalLocalPosition);
+            _view.rotation = _slotTransform.rotation * _originalLocalRotation;
+        }
+
+        private void LateUpdate()
+        {
+            if (_following)
+            {
+                if (_slotTransform == null)
+                {
+                    // The core's visuals were destroyed under us (explosion path raced the
+                    // event) - fall back to the entity's own pose.
+                    Detach();
+                    return;
+                }
+                FollowSlot();
+            }
+        }
+
         private void OnCoreExploded()
         {
             Debug.Log("[WAR][atlas] shard " + _shardEntityId + ": host core " + _rockCoreId
@@ -231,6 +272,9 @@ namespace WorldsAdriftReborn.Patching.Mining
         /// </summary>
         private void Detach()
         {
+            _following = false;
+            _slotTransform = null;
+
             if (_core != null && _onCoreExploded != null)
             {
                 _core.Exploded -= _onCoreExploded;
@@ -243,7 +287,9 @@ namespace WorldsAdriftReborn.Patching.Mining
                 return;
             }
 
-            _view.SetParent(_originalParent, worldPositionStays: false);
+            // The view never left the entity root (follow-pose, not reparent) - just
+            // restore its authored local pose so the freed shard sits at the entity's
+            // own served position again.
             _view.localPosition = _originalLocalPosition;
             _view.localRotation = _originalLocalRotation;
         }
