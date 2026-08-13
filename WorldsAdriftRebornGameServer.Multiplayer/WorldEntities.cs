@@ -923,7 +923,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// live client yet, so the knob (WAREBORN_TREE_SPECIES=1) is the way to try it
         /// without disturbing the proven birch behaviour.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
 
@@ -934,30 +934,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 registry.Register(ProofIsland());
             }
 
-            registry.Register(ShipFrame(recogniseShip));
-            // The helm goes in right after the hull so the hull's shared entity id
-            // is allocated first: the helm's 8066 seed names the hull by that id,
-            // and ByEntityId/BoundEntityIdFor must be able to find it without
-            // allocating. Gated by the same WAREBORN_SPAWN_SHIP-adjacent tree/metal
-            // philosophy - AfterPlayer, so a misbehaving helm cannot delay a spawn -
-            // but always on: it is inert scenery until the client asks for its 1210,
-            // and the whole point is to have it there to walk up to.
-            registry.Register(Helm());
+            // The STATIC test ship (hull + helm + deck + optional cosmetic parts) -
+            // the pre-shipbuilding development rig. Now that players build and fly
+            // their own ships it is scenery that confuses the world (a second
+            // hull+helm standing 50 m from the shipyard), so it is gated as a
+            // whole. Every server-side consumer looks it up via nullable
+            // ByKey/BoundEntityIdFor, so its absence serves nothing rather than
+            // faulting.
+            if (includeStaticShip)
+            {
+                registry.Register(ShipFrame(recogniseShip));
+                // The helm goes in right after the hull so the hull's shared entity id
+                // is allocated first: the helm's 8066 seed names the hull by that id,
+                // and ByEntityId/BoundEntityIdFor must be able to find it without
+                // allocating. AfterPlayer, so a misbehaving helm cannot delay a spawn -
+                // it is inert scenery until the client asks for its 1210.
+                registry.Register(Helm());
 
-            // The walkable floor, then the cosmetic parts - all AFTER the hull so
-            // its shared entity id is allocated first: each part's 8066 seed and (for
-            // the deck) its ship-surface membership name the hull by that id. Same
-            // always-on-with-a-kill-switch philosophy as the helm; the deck defaults
-            // on because it is the deliverable, the engine/sail off because they are
-            // unverified. AfterPlayer throughout, so none can delay a spawn.
-            if (includeDeck)
-            {
-                registry.Register(Deck01());
-            }
-            if (includeExtraParts)
-            {
-                registry.Register(ModularEngine());
-                registry.Register(Sail01());
+                // The walkable floor, then the cosmetic parts - all AFTER the hull so
+                // its shared entity id is allocated first: each part's 8066 seed and (for
+                // the deck) its ship-surface membership name the hull by that id.
+                // AfterPlayer throughout, so none can delay a spawn.
+                if (includeDeck)
+                {
+                    registry.Register(Deck01());
+                }
+                if (includeExtraParts)
+                {
+                    registry.Register(ModularEngine());
+                    registry.Register(Sail01());
+                }
             }
 
             if (includeTree)

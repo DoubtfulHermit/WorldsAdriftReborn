@@ -1869,7 +1869,8 @@ namespace WorldsAdriftRebornGameServer
                 Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"),
                 SpawnFuelPods,
                 Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"),
-                VaryTreeSpecies);
+                VaryTreeSpecies,
+                SpawnStaticShip);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -2177,6 +2178,17 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool RecogniseShip =>
             Environment.GetEnvironmentVariable("WAREBORN_SHIP_RECOGNISE") != "0";
+
+        /// <summary>
+        /// Whether to spawn the STATIC test ship (hull + helm + deck) near the
+        /// shipyard - the pre-shipbuilding development rig. OFF unless
+        /// WAREBORN_STATIC_SHIP=1: players now build and fly their own ships, and
+        /// a second helm-bearing hull 50 m from the shipyard reads as a bug (it
+        /// confused the ship-orientation investigation as "hull 22"). Opt-IN to
+        /// bring it back for A/B tests against a known-good static rig.
+        /// </summary>
+        private static bool SpawnStaticShip =>
+            Environment.GetEnvironmentVariable("WAREBORN_STATIC_SHIP") == "1";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.
