@@ -658,6 +658,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 false, "", "", "", false,
                                 Multiplayer.MetalNodes.PickUpTimeToUse);
                             verbName = "PickUp";
+                            // A FUEL CANISTER must never offer an interact prompt: retail
+                            // fuel is SALVAGED with the gauntlet (8/8/9 per canister), not
+                            // picked up. This generic branch used to catch the canister and
+                            // advertise "Pick Up" - a prompt whose E press the server
+                            // rightly ignores, which reads as "E does nothing" to the
+                            // player. available=false keeps the 1210 checkout intact (no
+                            // batch risk) while suppressing the lie; the real gate is 1099
+                            // isSalvageable.
+                            if (WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId))
+                            {
+                                available = false;
+                            }
                         }
 
                         InteractiveState.Data interactiveData = new InteractiveState.Data(

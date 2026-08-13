@@ -822,23 +822,31 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void BroadcastShardExposed(long shardEntityId)
         {
+            int told = 0;
             foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
             {
-                if (!TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef))
-                {
-                    continue;
-                }
-
+                // Push to EVERY connected peer, stored-ref or not. The old gate skipped
+                // any peer without a stored 1210 bookkeeping ref - silently, so a player
+                // standing at the opened core simply never learned the shard was takeable
+                // ("it's sticking out but there is no way to take it"). A 1210 update for
+                // an entity the client has not checked out is harmlessly dropped client-
+                // side, so unconditional is safe; the stored ref is only used to keep the
+                // server-side copy coherent WHEN it exists.
                 Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
                     new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
-                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef)
+                    && Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
                 {
                     availUpdate.ApplyTo(storedInteract);
                 }
                 SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
                     new List<uint> { InteractiveStateComponentId },
                     new List<object> { availUpdate });
+                told++;
             }
+
+            Console.WriteLine("[info] atlas shard " + shardEntityId + ": 1210 available=true pushed to "
+                + told + " peer(s) (unconditional).");
         }
 
         /// <summary>
@@ -875,33 +883,32 @@ namespace WorldsAdriftRebornGameServer
         {
             foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
             {
-                if (TryGetStoredComponentRef(peer, shardEntityId, LodgeableStateComponentId, out ulong lodgeRef))
+                // Unconditional, like BroadcastShardExposed: the stored-ref gate silently
+                // skipped peers, which left a player at the broken rock with no way to
+                // grab the freed shard. ApplyTo runs only when a stored copy exists.
+                Bossa.Travellers.Materials.LodgeableState.Update lodgeUpdate =
+                    new Bossa.Travellers.Materials.LodgeableState.Update()
+                        .SetIsLodged(false)
+                        .AddOnDislodged(new Bossa.Travellers.Materials.Dislodged());
+                if (TryGetStoredComponentRef(peer, shardEntityId, LodgeableStateComponentId, out ulong lodgeRef)
+                    && Improbable.Worker.Internal.ClientObjects.Instance.Dereference(lodgeRef) is Bossa.Travellers.Materials.LodgeableState.Data storedLodge)
                 {
-                    Bossa.Travellers.Materials.LodgeableState.Update lodgeUpdate =
-                        new Bossa.Travellers.Materials.LodgeableState.Update()
-                            .SetIsLodged(false)
-                            .AddOnDislodged(new Bossa.Travellers.Materials.Dislodged());
-                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(lodgeRef) is Bossa.Travellers.Materials.LodgeableState.Data storedLodge)
-                    {
-                        lodgeUpdate.ApplyTo(storedLodge);
-                    }
-                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
-                        new List<uint> { LodgeableStateComponentId },
-                        new List<object> { lodgeUpdate });
+                    lodgeUpdate.ApplyTo(storedLodge);
                 }
+                SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                    new List<uint> { LodgeableStateComponentId },
+                    new List<object> { lodgeUpdate });
 
-                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef))
+                Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                    new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef)
+                    && Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
                 {
-                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
-                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
-                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
-                    {
-                        availUpdate.ApplyTo(storedInteract);
-                    }
-                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
-                        new List<uint> { InteractiveStateComponentId },
-                        new List<object> { availUpdate });
+                    availUpdate.ApplyTo(storedInteract);
                 }
+                SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                    new List<uint> { InteractiveStateComponentId },
+                    new List<object> { availUpdate });
             }
         }
 
