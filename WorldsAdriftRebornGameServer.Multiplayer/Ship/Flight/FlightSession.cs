@@ -122,8 +122,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 }
                 else if (_state.IsAtRest && _manned)
                 {
-                    // Manned but idle: emit through the rest repeats, then hold
-                    // the keepalive cadence. A parked pilot does not need 4 Hz.
+                    // Manned but idle. With the OPTIONAL idle bob armed, the ship
+                    // breathes: a slow sine on Y, emitted every tick - the point
+                    // stream stays at the flying cadence for the whole manned-idle
+                    // time, which is exactly why the knob defaults OFF. The bob is
+                    // an OUTPUT offset only: the state's base Y never moves, so
+                    // dismounting settles back to the true altitude (a <=amplitude
+                    // step, invisible at the default 0).
+                    if (tuning.IdleBobMetres > 0.0)
+                    {
+                        return EmitBobbedAt(nowMs, stepSeconds, tuning);
+                    }
+
+                    // Otherwise: emit through the rest repeats, then hold the
+                    // keepalive cadence. A parked pilot does not need 4 Hz.
                     _restEmitted++;
                     if (_restEmitted > RestRepeats && !KeepaliveDue(nowMs, tuning))
                     {
@@ -160,15 +172,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         private FlightEmit EmitAt(long nowMs, double stepSeconds)
         {
-            long stepMs = (long)System.Math.Round(stepSeconds * 1000.0);
-            long stamp = _everEmitted && nowMs < _lastStampMs + stepMs ? _lastStampMs + stepMs : nowMs;
-            _lastStampMs = stamp;
-            _everEmitted = true;
-
+            long stamp = NextStamp(nowMs, stepSeconds);
             return new FlightEmit(
                 true,
                 FlightIntegrator.ToControlPoint(_state, stamp),
                 FlightIntegrator.PackedRotation(_state));
+        }
+
+        /// <summary>
+        /// The idle-bob point: the resting pose with a wall-clock sine on Y and
+        /// its true derivative as the vertical velocity, so the client's hermite
+        /// tangents follow the bob instead of fighting it. Not Arrived - an
+        /// arrived point claims zero velocity, and this one is honestly moving.
+        /// </summary>
+        private FlightEmit EmitBobbedAt(long nowMs, double stepSeconds, FlightTuning tuning)
+        {
+            long stamp = NextStamp(nowMs, stepSeconds);
+            double omega = 2.0 * System.Math.PI / FlightTuning.IdleBobPeriodSeconds;
+            double phase = (nowMs / 1000.0) * omega;
+            double bobY = tuning.IdleBobMetres * System.Math.Sin(phase);
+            double bobVy = tuning.IdleBobMetres * omega * System.Math.Cos(phase);
+
+            return new FlightEmit(
+                true,
+                new ShipControlPointSpec(
+                    stamp, _state.X, _state.Y + bobY, _state.Z,
+                    0.0, bobVy, 0.0, arrived: false),
+                FlightIntegrator.PackedRotation(_state));
+        }
+
+        private long NextStamp(long nowMs, double stepSeconds)
+        {
+            long stepMs = (long)System.Math.Round(stepSeconds * 1000.0);
+            long stamp = _everEmitted && nowMs < _lastStampMs + stepMs ? _lastStampMs + stepMs : nowMs;
+            _lastStampMs = stamp;
+            _everEmitted = true;
+            return stamp;
         }
     }
 }

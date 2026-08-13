@@ -62,7 +62,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             long now = 1_000_000;
             Drive(session, ref now, 5);
 
-            Assert.Equal(0.0, session.State.SpeedMps);
+            Assert.Equal(0.0, session.State.SpeedCmdMps);
+            Assert.True(session.State.IsAtRest);
         }
 
         [Fact]
@@ -175,6 +176,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             session.Man();
             Drive(session, ref now, 2);
             Assert.True(session.State.Z >= flownZ, "re-manning must not reset the pose");
+        }
+
+        [Fact]
+        public void The_idle_bob_keeps_a_manned_resting_ship_breathing()
+        {
+            // Opt-in only: with WAREBORN_FLIGHT_IDLE_BOB set, a manned idle ship
+            // emits every tick (the 4 Hz cost the default avoids), the Y value
+            // moves around the base altitude, and the points are honestly
+            // not-arrived (they carry a real vertical velocity).
+            FlightTuning bob = new FlightTuning(idleBobMetres: 0.3);
+            FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+
+            long now = 1_000_000;
+            List<FlightEmit> emitted = new List<FlightEmit>();
+            List<long> stamps = new List<long>();
+            for (int i = 0; i < 30; i++)
+            {
+                now += StepMs;
+                FlightEmit emit = session.Advance(now, Step, bob);
+                if (emit.Emit)
+                {
+                    emitted.Add(emit);
+                    stamps.Add(emit.Spec.TimestampMs);
+                }
+            }
+
+            Assert.Equal(30, emitted.Count);
+            Assert.Contains(emitted, e => e.Spec.Y > 100.0 + 0.05);
+            Assert.Contains(emitted, e => e.Spec.Y < 100.0 - 0.05);
+            Assert.All(emitted, e => Assert.False(e.Spec.Arrived));
+            Assert.All(emitted, e => Assert.InRange(e.Spec.Y, 100.0 - 0.3 - 1e-9, 100.0 + 0.3 + 1e-9));
+            for (int i = 1; i < stamps.Count; i++)
+            {
+                Assert.True(ShipMotionPolicy.IsLegalSeparation(stamps[i - 1], stamps[i]));
+            }
+
+            // The base altitude itself never moved: dismounting settles back to it.
+            Assert.Equal(100.0, session.State.Y, 9);
         }
 
         [Fact]

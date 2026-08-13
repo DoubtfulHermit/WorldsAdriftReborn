@@ -20,7 +20,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// pitch and roll are carried but not yet integrated (documented in
     /// <see cref="FlightIntegrator"/>).
     /// </summary>
-    public readonly struct FlightControlInput
+    public readonly struct FlightControlInput : System.IEquatable<FlightControlInput>
     {
         public FlightControlInput(float throttle, float vertical, float axisPitch, float axisYaw, float axisRoll)
         {
@@ -81,6 +81,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             }
             return value < -1f ? -1f : (value > 1f ? 1f : value);
         }
+
+        /// <summary>
+        /// Field equality - what the helm-feedback echo dedupes on: an unchanged
+        /// input must cost zero packets, so "changed" has to be exact.
+        /// </summary>
+        public bool Equals(FlightControlInput other) =>
+            Throttle == other.Throttle && Vertical == other.Vertical
+            && AxisPitch == other.AxisPitch && AxisYaw == other.AxisYaw && AxisRoll == other.AxisRoll;
+
+        public override bool Equals(object? obj) => obj is FlightControlInput other && Equals(other);
+
+        public override int GetHashCode() =>
+            System.HashCode.Combine(Throttle, Vertical, AxisPitch, AxisYaw, AxisRoll);
+
+        public static bool operator ==(FlightControlInput a, FlightControlInput b) => a.Equals(b);
+        public static bool operator !=(FlightControlInput a, FlightControlInput b) => !a.Equals(b);
 
         public override string ToString() =>
             "throttle=" + Throttle.ToString("0.##") + " vertical=" + Vertical.ToString("0.##")

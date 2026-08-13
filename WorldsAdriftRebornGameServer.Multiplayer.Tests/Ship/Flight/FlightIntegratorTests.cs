@@ -7,10 +7,10 @@ using Xunit;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 {
     /// <summary>
-    /// The flight math, pinned. Every rule here fails SILENTLY on a live client
-    /// (a wrong sign is a ship that turns the wrong way, a residual speed is a
-    /// publisher that never sleeps, a NaN is a control point the client rejects
-    /// without a word), so the tests are the only place they are visible.
+    /// The v2 flight math, pinned. Every rule fails SILENTLY on a live client (a
+    /// wrong sign banks OUT of turns, a residual rate keeps the publisher awake
+    /// forever, a bad quaternion composition reads as a ship flying sideways),
+    /// so the tests are where they are visible.
     /// </summary>
     public class FlightIntegratorTests
     {
@@ -23,87 +23,115 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             return new FlightControlInput(throttle, vertical, pitch, yaw, roll);
         }
 
+        private static FlightState Run(FlightState state, FlightControlInput input, int steps,
+            FlightTuning? tuning = null)
+        {
+            FlightTuning t = tuning ?? Tuning;
+            for (int i = 0; i < steps; i++)
+            {
+                state = FlightIntegrator.Step(state, input, Step, t);
+            }
+            return state;
+        }
+
         // ------------------------------------------------------------------
-        // Throttle -> speed
+        // Throttle -> commanded speed -> velocity
         // ------------------------------------------------------------------
 
         [Fact]
-        public void Full_throttle_ramps_at_the_accel_limit_and_caps_at_max_speed()
+        public void Full_throttle_ramps_the_command_at_the_accel_limit_and_caps_at_max()
         {
             FlightState state = FlightState.AtRestAt(0, 100, 0);
-            FlightControlInput full = Input(throttle: 1f);
+            state = FlightIntegrator.Step(state, Input(throttle: 1f), Step, Tuning);
+            Assert.Equal(Tuning.AccelMps2 * Step, state.SpeedCmdMps, 9);
 
-            state = FlightIntegrator.Step(state, full, Step, Tuning);
-            Assert.Equal(Tuning.AccelMps2 * Step, state.SpeedMps, 9);
+            state = Run(state, Input(throttle: 1f), 200);
+            Assert.Equal(Tuning.MaxSpeedMps, state.SpeedCmdMps, 9);
+            Assert.Equal(Tuning.MaxSpeedMps, state.GroundSpeedMps, 6);
+        }
 
-            for (int i = 0; i < 200; i++)
-            {
-                state = FlightIntegrator.Step(state, full, Step, Tuning);
-                Assert.True(state.SpeedMps <= Tuning.MaxSpeedMps + 1e-9);
-            }
-            Assert.Equal(Tuning.MaxSpeedMps, state.SpeedMps, 9);
+        [Fact]
+        public void The_velocity_lags_the_command_by_the_smoothing_constant()
+        {
+            // The inertia feel: one step in, the actual velocity is only the
+            // dt/tau fraction of the command - the ship LEANS into motion
+            // rather than snapping.
+            FlightState state = FlightState.AtRestAt(0, 100, 0);
+            state = FlightIntegrator.Step(state, Input(throttle: 1f), Step, Tuning);
+
+            double expectedBlend = Step / Tuning.VelocitySmoothingSeconds;
+            Assert.Equal(state.SpeedCmdMps * expectedBlend, state.VzMps, 9);
+            Assert.True(state.VzMps < state.SpeedCmdMps);
+        }
+
+        [Fact]
+        public void Zero_smoothing_restores_the_v1_instant_velocity()
+        {
+            FlightTuning instant = new FlightTuning(velocitySmoothingSeconds: 0.0);
+            FlightState state = FlightState.AtRestAt(0, 100, 0);
+            state = FlightIntegrator.Step(state, Input(throttle: 1f), Step, instant);
+
+            Assert.Equal(state.SpeedCmdMps, state.VzMps, 9);
         }
 
         [Fact]
         public void Reverse_is_slower_than_forward_by_the_reverse_factor()
         {
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(throttle: -1f), 200);
+            Assert.Equal(-Tuning.MaxSpeedMps * Tuning.ReverseFactor, state.SpeedCmdMps, 9);
+        }
+
+        [Fact]
+        public void Released_throttle_settles_to_EXACT_rest_not_an_epsilon()
+        {
+            // The snap rule, now across command AND velocity AND attitude: any
+            // 1e-9 residual keeps IsAtRest false and the publisher awake forever.
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(throttle: 1f, yaw: 1f, vertical: 1f), 50);
+            state = Run(state, FlightControlInput.Neutral, 200);
+
+            Assert.True(state.IsAtRest,
+                "not at rest: " + state + " yawRate=" + state.YawRateRadPerSec);
+            Assert.Equal(0.0, state.VxMps);
+            Assert.Equal(0.0, state.VzMps);
+            Assert.Equal(0.0, state.RollRadians);
+            Assert.Equal(0.0, state.PitchRadians);
+        }
+
+        // ------------------------------------------------------------------
+        // Heading: ease-in / ease-out
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void The_turn_rate_ramps_instead_of_stepping()
+        {
             FlightState state = FlightState.AtRestAt(0, 100, 0);
-            FlightControlInput reverse = Input(throttle: -1f);
+            state = FlightIntegrator.Step(state, Input(yaw: 1f), Step, Tuning);
 
-            for (int i = 0; i < 200; i++)
-            {
-                state = FlightIntegrator.Step(state, reverse, Step, Tuning);
-            }
+            Assert.Equal(Tuning.YawAccelRadPerSec2 * Step, state.YawRateRadPerSec, 9);
+            Assert.True(state.YawRateRadPerSec < Tuning.YawRateRadPerSec,
+                "one step must not reach the full turn rate");
 
-            Assert.Equal(-Tuning.MaxSpeedMps * Tuning.ReverseFactor, state.SpeedMps, 9);
+            state = Run(state, Input(yaw: 1f), 30);
+            Assert.Equal(Tuning.YawRateRadPerSec, state.YawRateRadPerSec, 9);
         }
 
         [Fact]
-        public void Released_throttle_decays_to_EXACTLY_zero_not_an_epsilon()
+        public void A_released_stick_unwinds_the_turn_to_exactly_zero_rate()
         {
-            // The snap rule. A 1e-9 residual keeps IsAtRest false forever, which
-            // keeps the publisher emitting forever.
-            FlightState state = new FlightState(0, 100, 0, 0, Tuning.MaxSpeedMps, 0);
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(yaw: 1f), 30);
+            state = Run(state, FlightControlInput.Neutral, 30);
 
-            for (int i = 0; i < 200; i++)
-            {
-                state = FlightIntegrator.Step(state, FlightControlInput.Neutral, Step, Tuning);
-            }
-
-            Assert.Equal(0.0, state.SpeedMps);
-            Assert.True(state.IsAtRest);
-        }
-
-        // ------------------------------------------------------------------
-        // Heading
-        // ------------------------------------------------------------------
-
-        [Fact]
-        public void Yaw_zero_flies_due_north_plus_z()
-        {
-            // The hull spawns facing the identity rotation; yaw 0 must move it
-            // along +Z (the same axis the ferry's "north hop" uses), or the ship
-            // visibly flies sideways relative to its bow.
-            FlightState state = new FlightState(0, 100, 0, 0, 10.0, 0);
-            state = FlightIntegrator.Step(state, Input(throttle: 1f), Step, Tuning);
-
-            Assert.Equal(0.0, state.X, 9);
-            Assert.True(state.Z > 0);
+            Assert.Equal(0.0, state.YawRateRadPerSec);
+            double heading = state.YawRadians;
+            state = Run(state, FlightControlInput.Neutral, 10);
+            Assert.Equal(heading, state.YawRadians, 12); // the heading HOLDS
         }
 
         [Fact]
         public void Positive_yaw_input_turns_toward_plus_x()
         {
-            // Unity's left-handed +Y rotation: positive yaw swings the nose from
-            // +Z toward +X. If live play shows the opposite, that is what
-            // WAREBORN_FLIGHT_INVERT_YAW exists for - not a code edit.
-            FlightState state = new FlightState(0, 100, 0, 0, 10.0, 0);
-            FlightControlInput right = Input(throttle: 1f, yaw: 1f);
-
-            for (int i = 0; i < 10; i++)
-            {
-                state = FlightIntegrator.Step(state, right, Step, Tuning);
-            }
+            FlightState state = Run(
+                new FlightState(0, 100, 0, 0, 0, 0, 0, 10, 0, 0, 10), Input(throttle: 1f, yaw: 1f), 12);
 
             Assert.True(state.YawRadians > 0);
             Assert.True(state.X > 0);
@@ -113,10 +141,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         public void Invert_yaw_flips_the_turn_direction()
         {
             FlightTuning inverted = new FlightTuning(invertYaw: true);
-            FlightState state = new FlightState(0, 100, 0, 0, 10.0, 0);
-            state = FlightIntegrator.Step(state, Input(yaw: 1f), Step, inverted);
+            FlightState state = FlightIntegrator.Step(
+                FlightState.AtRestAt(0, 100, 0), Input(yaw: 1f), Step, inverted);
 
-            Assert.True(state.YawRadians < 0);
+            Assert.True(state.YawRateRadPerSec < 0);
         }
 
         [Fact]
@@ -124,8 +152,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         {
             FlightState state = FlightState.AtRestAt(0, 100, 0);
             FlightControlInput spin = Input(yaw: 1f);
-
-            // An hour of full-stick spinning at 0.24 s steps.
             for (int i = 0; i < 15000; i++)
             {
                 state = FlightIntegrator.Step(state, spin, Step, Tuning);
@@ -133,21 +159,115 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             }
         }
 
+        [Fact]
+        public void A_turn_carves_the_velocity_lags_the_heading()
+        {
+            // Cruise north, then hold full right lock: the velocity direction
+            // must trail BEHIND the nose (momentum drifting through the turn),
+            // never snap to it - that lag is the carve.
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(throttle: 1f), 60);
+            state = Run(state, Input(throttle: 1f, yaw: 1f), 8);
+
+            double velocityHeading = Math.Atan2(state.VxMps, state.VzMps);
+            Assert.True(state.YawRadians > 0.05, "the nose must have turned");
+            Assert.True(velocityHeading < state.YawRadians - 1e-6,
+                "velocity heading " + velocityHeading + " must trail the nose " + state.YawRadians);
+        }
+
+        // ------------------------------------------------------------------
+        // Attitude: banking + pitch
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_right_turn_banks_right_and_levels_out_after()
+        {
+            // Negative roll = right side dips (rotation about +Z lifts +X, so
+            // banking INTO a right turn needs the negative angle).
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(yaw: 1f), 40);
+
+            Assert.True(state.RollRadians < 0, "right turn must bank right (negative roll)");
+            Assert.Equal(-Tuning.BankMaxRadians, state.RollRadians, 3);
+
+            state = Run(state, FlightControlInput.Neutral, 60);
+            Assert.Equal(0.0, state.RollRadians);
+        }
+
+        [Fact]
+        public void A_left_turn_banks_left()
+        {
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(yaw: -1f), 40);
+            Assert.True(state.RollRadians > 0);
+        }
+
+        [Fact]
+        public void The_bank_never_exceeds_the_configured_maximum()
+        {
+            FlightState state = FlightState.AtRestAt(0, 100, 0);
+            for (int i = 0; i < 100; i++)
+            {
+                state = FlightIntegrator.Step(state, Input(yaw: 1f), Step, Tuning);
+                Assert.True(Math.Abs(state.RollRadians) <= Tuning.BankMaxRadians + 1e-9);
+            }
+        }
+
+        [Fact]
+        public void Bank_angle_zero_disables_banking_entirely()
+        {
+            FlightTuning flat = new FlightTuning(bankAngleDeg: 0.0);
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(yaw: 1f), 40, flat);
+            Assert.Equal(0.0, state.RollRadians);
+        }
+
+        [Fact]
+        public void Climbing_noses_up_and_descending_noses_down()
+        {
+            // Negative pitch = nose up (positive X-rotation noses down).
+            FlightState climb = Run(FlightState.AtRestAt(0, 100, 0), Input(vertical: 1f), 40);
+            Assert.True(climb.PitchRadians < 0, "climb must nose up (negative pitch)");
+            Assert.Equal(-Tuning.PitchMaxRadians, climb.PitchRadians, 3);
+
+            FlightState dive = Run(FlightState.AtRestAt(0, 100, 0), Input(vertical: -1f), 40);
+            Assert.True(dive.PitchRadians > 0, "descent must nose down (positive pitch)");
+
+            FlightState level = Run(climb, FlightControlInput.Neutral, 60);
+            Assert.Equal(0.0, level.PitchRadians);
+        }
+
+        [Fact]
+        public void Attitude_is_cosmetic_it_never_steers_the_path()
+        {
+            // Banked or not, the position must advance along the YAW heading
+            // only - roll/pitch are attitude, not aerodynamics. Same inputs,
+            // banking on vs off, identical path.
+            FlightTuning flat = new FlightTuning(bankAngleDeg: 0.0, pitchAngleDeg: 0.0);
+            FlightControlInput input = Input(throttle: 1f, yaw: 0.5f, vertical: 0.5f);
+
+            FlightState banked = Run(FlightState.AtRestAt(0, 100, 0), input, 50);
+            FlightState unbanked = Run(FlightState.AtRestAt(0, 100, 0), input, 50, flat);
+
+            Assert.Equal(unbanked.X, banked.X, 9);
+            Assert.Equal(unbanked.Y, banked.Y, 9);
+            Assert.Equal(unbanked.Z, banked.Z, 9);
+        }
+
         // ------------------------------------------------------------------
         // Vertical
         // ------------------------------------------------------------------
 
         [Fact]
-        public void Vertical_input_climbs_and_centred_stick_stops_the_climb_exactly()
+        public void Vertical_input_climbs_with_inertia_and_settles_exactly()
         {
-            FlightState state = FlightState.AtRestAt(0, 100, 0);
-            state = FlightIntegrator.Step(state, Input(vertical: 1f), Step, Tuning);
+            FlightState state = FlightIntegrator.Step(
+                FlightState.AtRestAt(0, 100, 0), Input(vertical: 1f), Step, Tuning);
 
-            Assert.Equal(Tuning.ClimbRateMps, state.VerticalMps, 9);
-            Assert.Equal(100 + Tuning.ClimbRateMps * Step, state.Y, 9);
+            double blend = Step / Tuning.VelocitySmoothingSeconds;
+            Assert.Equal(Tuning.ClimbRateMps * blend, state.VyMps, 9);
 
-            state = FlightIntegrator.Step(state, FlightControlInput.Neutral, Step, Tuning);
-            Assert.Equal(0.0, state.VerticalMps);
+            state = Run(state, Input(vertical: 1f), 40);
+            Assert.Equal(Tuning.ClimbRateMps, state.VyMps, 9);
+
+            state = Run(state, FlightControlInput.Neutral, 60);
+            Assert.Equal(0.0, state.VyMps);
         }
 
         // ------------------------------------------------------------------
@@ -157,17 +277,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void The_control_point_velocity_is_the_exact_path_derivative()
         {
-            // PathFollower extrapolates along the reported velocity between
-            // points; a velocity that disagrees with the position steps reads as
-            // rubber-banding.
-            FlightState state = new FlightState(10, 100, 20, Math.PI / 4, 8.0, 2.0);
-            ShipControlPointSpec spec = FlightIntegrator.ToControlPoint(state, 1000);
+            // Position advances by the SMOOTHED vector, so the reported velocity
+            // must equal (nextPos - pos) / dt exactly - that is what makes the
+            // client's hermite tangents match the path.
+            FlightState state = Run(FlightState.AtRestAt(5, 100, 7), Input(throttle: 1f, yaw: 0.6f), 9);
+            FlightState next = FlightIntegrator.Step(state, Input(throttle: 1f, yaw: 0.6f), Step, Tuning);
 
-            Assert.Equal(Math.Sin(Math.PI / 4) * 8.0, spec.Vx, 9);
-            Assert.Equal(2.0, spec.Vy, 9);
-            Assert.Equal(Math.Cos(Math.PI / 4) * 8.0, spec.Vz, 9);
-            Assert.Equal(10, spec.X, 9);
-            Assert.False(spec.Arrived);
+            ShipControlPointSpec spec = FlightIntegrator.ToControlPoint(next, 1000);
+            Assert.Equal((next.X - state.X) / Step, spec.Vx, 9);
+            Assert.Equal((next.Y - state.Y) / Step, spec.Vy, 9);
+            Assert.Equal((next.Z - state.Z) / Step, spec.Vz, 9);
         }
 
         [Fact]
@@ -183,26 +302,65 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Yaw_zero_packs_to_the_identity_sentinel()
+        public void A_level_north_facing_state_packs_to_the_identity_sentinel()
         {
-            // The encoder special-cases |w| == 1 to 1023 - so an unflown hull's
-            // points stay byte-identical to the at-rest seed every client
-            // already accepts.
             Assert.Equal(Quaternion32Packing.Identity,
                 FlightIntegrator.PackedRotation(FlightState.AtRestAt(0, 0, 0, 0)));
         }
 
         [Fact]
-        public void A_quarter_turn_packs_to_a_decodable_y_rotation()
+        public void A_level_quarter_turn_packs_to_a_pure_y_rotation()
         {
-            uint packed = FlightIntegrator.PackedRotation(
-                FlightState.AtRestAt(0, 0, 0, Math.PI / 2));
+            uint packed = FlightIntegrator.PackedRotation(FlightState.AtRestAt(0, 0, 0, Math.PI / 2));
             (float w, float x, float y, float z) = Quaternion32Packing.Decode(packed);
 
             Assert.Equal(Math.Cos(Math.PI / 4), w, 2);
             Assert.Equal(0f, x, 2);
             Assert.Equal(Math.Sin(Math.PI / 4), y, 2);
             Assert.Equal(0f, z, 2);
+        }
+
+        [Fact]
+        public void A_pure_roll_composes_to_a_z_axis_quaternion()
+        {
+            FlightState banked = new FlightState(0, 0, 0, 0, 0, -0.2, 0, 0, 0, 0, 0);
+            (double w, double x, double y, double z) = FlightIntegrator.AttitudeQuaternion(banked);
+
+            Assert.Equal(Math.Cos(-0.1), w, 9);
+            Assert.Equal(0.0, x, 9);
+            Assert.Equal(0.0, y, 9);
+            Assert.Equal(Math.Sin(-0.1), z, 9);
+        }
+
+        [Fact]
+        public void A_pure_pitch_composes_to_an_x_axis_quaternion()
+        {
+            FlightState nosed = new FlightState(0, 0, 0, 0, 0, 0, -0.15, 0, 0, 0, 0);
+            (double w, double x, double y, double z) = FlightIntegrator.AttitudeQuaternion(nosed);
+
+            Assert.Equal(Math.Cos(-0.075), w, 9);
+            Assert.Equal(Math.Sin(-0.075), x, 9);
+            Assert.Equal(0.0, y, 9);
+            Assert.Equal(0.0, z, 9);
+        }
+
+        [Fact]
+        public void The_composition_order_is_unitys_yaw_pitch_roll()
+        {
+            // q = qY * qX * qZ, the same order Quaternion.Euler uses. Computed
+            // by hand for yaw=90deg, roll=-10deg and asserted component-wise;
+            // a wrong order shows up here as swapped/signed components.
+            double yaw = Math.PI / 2, roll = -Math.PI / 18;
+            FlightState state = new FlightState(0, 0, 0, yaw, 0, roll, 0, 0, 0, 0, 0);
+            (double w, double x, double y, double z) = FlightIntegrator.AttitudeQuaternion(state);
+
+            double cy = Math.Cos(yaw / 2), sy = Math.Sin(yaw / 2);
+            double cr = Math.Cos(roll / 2), sr = Math.Sin(roll / 2);
+            // qY*qZ = (cy*cr, sy*sr, sy*cr, cy*sr)
+            Assert.Equal(cy * cr, w, 9);
+            Assert.Equal(sy * sr, x, 9);
+            Assert.Equal(sy * cr, y, 9);
+            Assert.Equal(cy * sr, z, 9);
         }
 
         // ------------------------------------------------------------------
@@ -225,7 +383,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void A_bad_dt_is_a_no_op_not_a_corruption()
         {
-            FlightState state = new FlightState(1, 2, 3, 0.4, 5, 6);
+            FlightState state = new FlightState(1, 2, 3, 0.4, 0.1, -0.05, 0.02, 5, 1, 0, 5);
             Assert.Equal(state.X, FlightIntegrator.Step(state, Input(throttle: 1f), 0.0, Tuning).X);
             Assert.Equal(state.X, FlightIntegrator.Step(state, Input(throttle: 1f), double.NaN, Tuning).X);
         }
@@ -233,13 +391,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Delta_merge_keeps_unsent_fields()
         {
-            // The 1111 update is a DIFF: a packet that only says "throttle now 1"
-            // must not zero the held yaw.
             FlightControlInput held = Input(throttle: 0.5f, yaw: 0.7f);
             FlightControlInput merged = held.Merge(1f, null, null, null, null);
 
             Assert.Equal(1f, merged.Throttle);
             Assert.Equal(0.7f, merged.AxisYaw, 5);
+        }
+
+        [Fact]
+        public void Input_equality_is_field_exact_for_the_echo_dedupe()
+        {
+            Assert.True(Input(throttle: 0.5f, yaw: 0.2f) == Input(throttle: 0.5f, yaw: 0.2f));
+            Assert.True(Input(throttle: 0.5f) != Input(throttle: 0.50001f));
+            Assert.True(FlightControlInput.Neutral == default);
         }
     }
 
@@ -255,6 +419,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(FlightTuning.DefaultClimbRateMps, tuning.ClimbRateMps);
             Assert.Equal(FlightTuning.DefaultReverseFactor, tuning.ReverseFactor);
             Assert.Equal(FlightTuning.DefaultRestKeepaliveSeconds, tuning.RestKeepaliveSeconds);
+            Assert.Equal(FlightTuning.DefaultBankAngleDeg * Math.PI / 180.0, tuning.BankMaxRadians, 9);
+            Assert.Equal(FlightTuning.DefaultPitchAngleDeg * Math.PI / 180.0, tuning.PitchMaxRadians, 9);
+            Assert.Equal(FlightTuning.DefaultVelocitySmoothingSeconds, tuning.VelocitySmoothingSeconds);
+            Assert.Equal(0.0, tuning.IdleBobMetres); // the bob DEFAULTS OFF
             Assert.False(tuning.InvertYaw);
         }
 
@@ -270,6 +438,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 ["WAREBORN_FLIGHT_REVERSE_FACTOR"] = "0.5",
                 ["WAREBORN_FLIGHT_REST_KEEPALIVE"] = "10",
                 ["WAREBORN_FLIGHT_INVERT_YAW"] = "1",
+                ["WAREBORN_FLIGHT_YAW_ACCEL"] = "50",
+                ["WAREBORN_FLIGHT_BANK_ANGLE"] = "12",
+                ["WAREBORN_FLIGHT_PITCH_ANGLE"] = "7",
+                ["WAREBORN_FLIGHT_ATTITUDE_SMOOTHING"] = "0.3",
+                ["WAREBORN_FLIGHT_VELOCITY_SMOOTHING"] = "1.2",
+                ["WAREBORN_FLIGHT_IDLE_BOB"] = "0.2",
             };
             FlightTuning tuning = FlightTuning.FromEnvironment(k => env.TryGetValue(k, out string? v) ? v : null);
 
@@ -280,14 +454,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0.5, tuning.ReverseFactor);
             Assert.Equal(10.0, tuning.RestKeepaliveSeconds);
             Assert.True(tuning.InvertYaw);
+            Assert.Equal(50.0 * Math.PI / 180.0, tuning.YawAccelRadPerSec2, 9);
+            Assert.Equal(12.0 * Math.PI / 180.0, tuning.BankMaxRadians, 9);
+            Assert.Equal(7.0 * Math.PI / 180.0, tuning.PitchMaxRadians, 9);
+            Assert.Equal(0.3, tuning.AttitudeSmoothingSeconds);
+            Assert.Equal(1.2, tuning.VelocitySmoothingSeconds);
+            Assert.Equal(0.2, tuning.IdleBobMetres);
         }
 
         [Fact]
         public void The_speed_ceiling_is_the_shared_control_point_safety_cap()
         {
-            // Above ShipMotionPolicy.MaxSpeedMetresPerSecond the 0.24 s spacing
-            // starts to read as teleporting; the flight knob must not be able to
-            // exceed what the ferry knob already refuses.
             FlightTuning tuning = FlightTuning.FromEnvironment(
                 k => k == "WAREBORN_FLIGHT_MAX_SPEED" ? "5000" : null);
 

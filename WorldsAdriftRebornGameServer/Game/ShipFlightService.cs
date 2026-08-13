@@ -1,4 +1,5 @@
 using Bossa.Travellers.Controls;
+using Bossa.Travellers.Ship;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
@@ -85,6 +86,34 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>Latest merged 1111 input per PILOT entity (the update is a delta).</summary>
         private readonly Dictionary<long, FlightControlInput> _inputs = new Dictionary<long, FlightControlInput>();
+
+        /// <summary>
+        /// The helm each hull was last manned through, kept after dismount: the
+        /// helm-feedback echo (wheel/levers) targets the helm entity too, and a
+        /// dismounted helm still needs its one "wheel centres" echo.
+        /// </summary>
+        private readonly Dictionary<long, long> _helmByHull = new Dictionary<long, long>();
+
+        /// <summary>
+        /// The last input state ECHOED onto each hull/helm's ship-side 1111, so
+        /// an unchanged input costs zero packets (the whole echo is
+        /// event-on-change, capped by the tick cadence).
+        /// </summary>
+        private readonly Dictionary<long, FlightControlInput> _lastEchoed = new Dictionary<long, FlightControlInput>();
+
+        /// <summary>When each hull's mounted parts were last woken (the 0.5 s sub-cadence).</summary>
+        private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
+
+        /// <summary>
+        /// The wake sub-cadence, slightly under the policy's 0.5 s heartbeat so
+        /// the 0.24 s tick grid lands a wake every OTHER tick (0.48 s spacing) -
+        /// comfortably below the client's 1 s follow-visualizer sleep. v1 woke on
+        /// EVERY point (4.2 Hz); halving it is free because a "~" follower
+        /// composes against the hull's live interpolated transform every frame
+        /// while awake - the wake only needs to keep it awake, not move it.
+        /// </summary>
+        private static readonly TimeSpan WakeInterval =
+            TimeSpan.FromSeconds(ShipPartMotionPolicy.HeartbeatIntervalSeconds * 0.9);
 
         /// <summary>1111 packets consumed since the last stats line, for the rx-rate readout.</summary>
         private long _inputPacketsSinceStats;
@@ -291,6 +320,12 @@ namespace WorldsAdriftRebornGameServer.Game
             long nowMs = ShipHull.NowMillisecondsSinceEpoch();
             foreach ((long hullEntityId, FlightSession session) in _sessions)
             {
+                // HELM FEEDBACK first, motion second: the echo is a pure
+                // input-changed compare (usually a no-op) and runs even on
+                // no-emit ticks, so a wheel wiggle inside the deadzone still
+                // animates the helm of a parked ship.
+                EchoHelmFeedback(hullEntityId, session);
+
                 FlightEmit emit = session.Advance(nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning);
                 if (!emit.Emit)
                 {
@@ -298,7 +333,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
 
                 ShipPublisher.Broadcast(hullEntityId, ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation));
-                PublishHullAndPartWakes(hullEntityId, emit);
+
+                // Mounted-part wakes ride a 0.5 s SUB-cadence, not every point:
+                // an awake "~" follower composes against the hull's live
+                // interpolated transform every frame, so more wakes add reliable
+                // packets without adding smoothness (see WakeInterval).
+                if (!_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
+                    || _clock.Elapsed - lastWake >= WakeInterval)
+                {
+                    _lastWakeAt[hullEntityId] = _clock.Elapsed;
+                    PublishHullAndPartWakes(hullEntityId, emit);
+                }
             }
 
             if (_clock.Elapsed >= _nextStatsAt)
@@ -339,6 +384,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             session.Man();
             _inputs[playerEntityId] = FlightControlInput.Neutral;
+            _helmByHull[hullEntityId] = helmEntityId;
 
             long driveTarget = DriveTargetIsHelm ? helmEntityId : hullEntityId;
             PilotState.Update update = new PilotState.Update()
@@ -390,7 +436,50 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// The per-emit wake bundle: the hull's own 190602 timeline advance (the
+        /// ITEM 1 OF THE FEEL PASS - the missing 1111 echo. The research doc
+        /// named it: "the missing original server/worker behaviour is the relay
+        /// or copy from the pilot's 1111 to the ship's 1111". Two readers exist
+        /// (VERIFIED in the decompile) and both are served their own 1111:
+        /// <list type="bullet">
+        /// <item>the HELM's HelmVisualizer lerps its wheel/lever displays toward
+        ///   _input.Throttle/Vertical/ShipAxes every Update and drives the
+        ///   lever/winch SOUNDS off the deltas (HelmVisualizer.cs:59-104) - this
+        ///   is the dead-wheel fix, and remote players see/hear it too;</item>
+        /// <item>the HULL's ShipControlInputVisualizer is what
+        ///   ShipControlsBehaviour.SetInitialInput reads on man - echoing the
+        ///   held state here means a RE-manned helm resumes at the ship's actual
+        ///   controls instead of snapping to zero.</item>
+        /// </list>
+        /// RATE, the safety argument: event-on-change ONLY (the exact-equality
+        /// compare), evaluated at the 0.24 s tick - so the worst case is ~4.2
+        /// updates/s per entity while the pilot is actively moving the stick,
+        /// zero while held or parked, never the client's raw 20 Hz. Unmanned
+        /// sessions echo one final NEUTRAL so the wheel centres after dismount.
+        /// </summary>
+        private void EchoHelmFeedback(long hullEntityId, FlightSession session)
+        {
+            FlightControlInput current = session.IsManned ? session.Input : FlightControlInput.Neutral;
+            if (_lastEchoed.TryGetValue(hullEntityId, out FlightControlInput previous) && previous == current)
+            {
+                return;
+            }
+            _lastEchoed[hullEntityId] = current;
+
+            ShipControlInput.Update update = new ShipControlInput.Update()
+                .SetThrottle(current.Throttle)
+                .SetVertical(current.Vertical)
+                .SetShipAxes(new Improbable.Math.Vector3f(current.AxisPitch, current.AxisYaw, current.AxisRoll));
+
+            ShipPublisher.Broadcast(hullEntityId, MirrorSendPolicy.ShipControlInputComponentId, update);
+            if (_helmByHull.TryGetValue(hullEntityId, out long helmEntityId))
+            {
+                ShipPublisher.Broadcast(helmEntityId, MirrorSendPolicy.ShipControlInputComponentId, update);
+            }
+        }
+
+        /// <summary>
+        /// The wake bundle, on the 0.5 s sub-cadence (<see cref="WakeInterval"/>,
+        /// v1 sent it per point): the hull's own 190602 timeline advance (the
         /// moving pose + the next shared stamp) and one 190602 wake per mounted
         /// "~" part carrying its UNCHANGED hull-local offset/rotation at the same
         /// stamp. Deck panels are real Unity children - never woken (waking them

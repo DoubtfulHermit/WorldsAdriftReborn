@@ -48,12 +48,75 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public const double DefaultRestKeepaliveSeconds = 5.0;
 
+        // ------------------------------------------------------------------
+        // The v2 FEEL knobs. All reconstructions; the live verdict on v1 was
+        // "feels like faking the flying" - constant yaw rate, instant stops,
+        // dead-level turns. These add inertia and attitude. Zero disables the
+        // attitude ones.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_YAW_ACCEL - how fast the TURN RATE itself ramps,
+        /// deg/s^2. The ease-in/ease-out of a turn: at 25 with the default
+        /// 20 deg/s rate, full lock takes ~0.8 s to reach and ~0.8 s to unwind,
+        /// so turns start and end soft instead of stepping.
+        /// </summary>
+        public const double DefaultYawAccelDegPerSec2 = 25.0;
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_BANK_ANGLE - maximum ROLL into a full-rate turn,
+        /// degrees. The control point carries full rotation and the client
+        /// SlerpUnclamps it between points, so banked points render as smooth
+        /// visible banking. 0 = flat turns (the v1 look).
+        /// </summary>
+        public const double DefaultBankAngleDeg = 8.0;
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_PITCH_ANGLE - maximum nose PITCH at full climb or
+        /// descent rate, degrees. 0 = level climbs (the v1 look).
+        /// </summary>
+        public const double DefaultPitchAngleDeg = 5.0;
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_ATTITUDE_SMOOTHING - the time constant, seconds, roll
+        /// and pitch ease toward their targets with (and back to level).
+        /// </summary>
+        public const double DefaultAttitudeSmoothingSeconds = 0.5;
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_VELOCITY_SMOOTHING - the time constant, seconds, the
+        /// VELOCITY VECTOR chases the commanded heading*speed with. This is what
+        /// makes a turn CARVE - the ship keeps some of its old momentum and
+        /// drifts through the turn - instead of pivoting on the spot with its
+        /// velocity snapped to the new heading every step. 0 = the v1 pivot.
+        /// </summary>
+        public const double DefaultVelocitySmoothingSeconds = 0.6;
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_IDLE_BOB - amplitude, metres, of a slow vertical bob
+        /// while a pilot is at the helm of a resting ship. DEFAULT OFF (0): it
+        /// keeps the 4 Hz point stream alive for the whole manned-idle time
+        /// (which the idle emitter otherwise drops to the keepalive), and a
+        /// moving "resting" ship is a taste call the operator should opt into.
+        /// The period is fixed at <see cref="IdleBobPeriodSeconds"/>.
+        /// </summary>
+        public const double DefaultIdleBobMetres = 0.0;
+
+        /// <summary>The idle bob's fixed period, seconds.</summary>
+        public const double IdleBobPeriodSeconds = 6.0;
+
         public double MaxSpeedMps { get; }
         public double AccelMps2 { get; }
         public double YawRateRadPerSec { get; }
         public double ClimbRateMps { get; }
         public double ReverseFactor { get; }
         public double RestKeepaliveSeconds { get; }
+        public double YawAccelRadPerSec2 { get; }
+        public double BankMaxRadians { get; }
+        public double PitchMaxRadians { get; }
+        public double AttitudeSmoothingSeconds { get; }
+        public double VelocitySmoothingSeconds { get; }
+        public double IdleBobMetres { get; }
 
         /// <summary>
         /// WAREBORN_FLIGHT_INVERT_YAW=1 flips the yaw direction. Insurance: the
@@ -69,7 +132,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double climbRateMps = DefaultClimbRateMps,
             double reverseFactor = DefaultReverseFactor,
             double restKeepaliveSeconds = DefaultRestKeepaliveSeconds,
-            bool invertYaw = false)
+            bool invertYaw = false,
+            double yawAccelDegPerSec2 = DefaultYawAccelDegPerSec2,
+            double bankAngleDeg = DefaultBankAngleDeg,
+            double pitchAngleDeg = DefaultPitchAngleDeg,
+            double attitudeSmoothingSeconds = DefaultAttitudeSmoothingSeconds,
+            double velocitySmoothingSeconds = DefaultVelocitySmoothingSeconds,
+            double idleBobMetres = DefaultIdleBobMetres)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -78,6 +147,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             ReverseFactor = Clamp(reverseFactor, 0.0, 1.0, DefaultReverseFactor);
             RestKeepaliveSeconds = Clamp(restKeepaliveSeconds, 1.0, 60.0, DefaultRestKeepaliveSeconds);
             InvertYaw = invertYaw;
+            YawAccelRadPerSec2 = Clamp(yawAccelDegPerSec2, 5.0, 360.0, DefaultYawAccelDegPerSec2) * System.Math.PI / 180.0;
+            // 0 legitimately DISABLES banking/pitch, so the floor is 0, not "a bit".
+            BankMaxRadians = Clamp(bankAngleDeg, 0.0, 30.0, DefaultBankAngleDeg) * System.Math.PI / 180.0;
+            PitchMaxRadians = Clamp(pitchAngleDeg, 0.0, 30.0, DefaultPitchAngleDeg) * System.Math.PI / 180.0;
+            AttitudeSmoothingSeconds = Clamp(attitudeSmoothingSeconds, 0.05, 5.0, DefaultAttitudeSmoothingSeconds);
+            // 0 disables velocity smoothing (the v1 pivot behaviour, kept reachable).
+            VelocitySmoothingSeconds = Clamp(velocitySmoothingSeconds, 0.0, 5.0, DefaultVelocitySmoothingSeconds);
+            IdleBobMetres = Clamp(idleBobMetres, 0.0, 2.0, DefaultIdleBobMetres);
         }
 
         /// <summary>
@@ -95,7 +172,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Parse(getenv("WAREBORN_FLIGHT_CLIMB_RATE"), DefaultClimbRateMps),
                 Parse(getenv("WAREBORN_FLIGHT_REVERSE_FACTOR"), DefaultReverseFactor),
                 Parse(getenv("WAREBORN_FLIGHT_REST_KEEPALIVE"), DefaultRestKeepaliveSeconds),
-                getenv("WAREBORN_FLIGHT_INVERT_YAW") == "1");
+                getenv("WAREBORN_FLIGHT_INVERT_YAW") == "1",
+                Parse(getenv("WAREBORN_FLIGHT_YAW_ACCEL"), DefaultYawAccelDegPerSec2),
+                Parse(getenv("WAREBORN_FLIGHT_BANK_ANGLE"), DefaultBankAngleDeg),
+                Parse(getenv("WAREBORN_FLIGHT_PITCH_ANGLE"), DefaultPitchAngleDeg),
+                Parse(getenv("WAREBORN_FLIGHT_ATTITUDE_SMOOTHING"), DefaultAttitudeSmoothingSeconds),
+                Parse(getenv("WAREBORN_FLIGHT_VELOCITY_SMOOTHING"), DefaultVelocitySmoothingSeconds),
+                Parse(getenv("WAREBORN_FLIGHT_IDLE_BOB"), DefaultIdleBobMetres));
         }
 
         private static double Parse(string? env, double fallback)
