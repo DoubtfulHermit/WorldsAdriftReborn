@@ -11,4 +11,14 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    The REAL client entity-prefab census (the same file the tests embed), so the
+    RUNTIME server can refuse a station craft whose output prefab the client
+    could never load - instead of eating the materials and spawning an entity
+    that renders nothing. See ClientEntityPrefabs.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Ship\client-entity-prefabs.txt" />
+  </ItemGroup>
+
 </Project>
