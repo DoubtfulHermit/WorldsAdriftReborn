@@ -68,7 +68,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// worker writing 1109 PilotState) is step 6 and downstream of the ship
         /// agent; this value only shapes the prompt's fill animation.
         /// </summary>
-        public const float ManTimeToUse = 0.5f;
+        // 0.15 s: the live report called even 0.5 s "wildly long" for grabbing the
+        // wheel. Retail's exact value is lost; near-instant matches the feel of
+        // taking a helm you are standing at.
+        public const float ManTimeToUse = 0.15f;
 
         // ------------------------------------------------------------------
         // Where the helm sits, relative to the hull's own registration.
