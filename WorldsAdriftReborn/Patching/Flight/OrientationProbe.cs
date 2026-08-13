@@ -27,6 +27,7 @@ namespace WorldsAdriftReborn.Patching.Flight
     internal sealed class OrientationProbe : MonoBehaviour
     {
         private float _nextAt;
+        private readonly HashSet<long> _detailed = new HashSet<long>();
 
         private void Awake()
         {
@@ -132,6 +133,47 @@ namespace WorldsAdriftReborn.Patching.Flight
                 {
                     line += " localSpan X=" + (max.x - min.x).ToString("F1")
                           + "m Z=" + (max.z - min.z).ToString("F1") + "m";
+                }
+
+                // ONE-TIME per-renderer breakdown: the 26x34m spans are still
+                // polluted (the ShipFrame entity also carries fixed scaffold
+                // graphics), so name every mesh with its hull-local box once and
+                // let the generated hull skin identify itself.
+                if (_detailed.Add(h.Key))
+                {
+                    int printed = 0;
+                    var walk = new Stack<Transform>();
+                    walk.Push(hull.transform);
+                    while (walk.Count > 0 && printed < 28)
+                    {
+                        Transform t = walk.Pop();
+                        if (t != hull.transform && entityRoots.Contains(t)) continue;
+                        var mr = t.GetComponent<MeshRenderer>();
+                        if (mr != null)
+                        {
+                            Bounds wb = mr.bounds;
+                            Vector3 lmin = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
+                            Vector3 lmax = new Vector3(float.MinValue, float.MinValue, float.MinValue);
+                            for (int i = 0; i < 8; i++)
+                            {
+                                Vector3 c = new Vector3(
+                                    (i & 1) == 0 ? wb.min.x : wb.max.x,
+                                    (i & 2) == 0 ? wb.min.y : wb.max.y,
+                                    (i & 4) == 0 ? wb.min.z : wb.max.z);
+                                Vector3 l = hull.transform.InverseTransformPoint(c);
+                                lmin = Vector3.Min(lmin, l); lmax = Vector3.Max(lmax, l);
+                            }
+                            Vector3 ctr = (lmin + lmax) * 0.5f, sz = lmax - lmin;
+                            string flag = t.GetComponent<ShipPanel>() != null || t.GetComponentInParent<ShipPanel>() != null
+                                ? " PANEL" : "";
+                            Debug.Log("[WAR][orient][detail] hull " + h.Key + " mesh '" + t.name
+                                + "' ctr=(" + ctr.x.ToString("F1") + "," + ctr.y.ToString("F1") + "," + ctr.z.ToString("F1")
+                                + ") size=(" + sz.x.ToString("F1") + "," + sz.y.ToString("F1") + "," + sz.z.ToString("F1") + ")" + flag);
+                            printed++;
+                        }
+                        for (int i = 0; i < t.childCount; i++) walk.Push(t.GetChild(i));
+                    }
+                    Debug.Log("[WAR][orient][detail] hull " + h.Key + " breakdown complete (" + printed + " meshes shown)");
                 }
             }
             foreach (var h in helms)
