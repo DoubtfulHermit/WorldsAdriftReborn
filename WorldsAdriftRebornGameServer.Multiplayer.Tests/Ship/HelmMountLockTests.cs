@@ -82,11 +82,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             }
         }
 
+        /// <summary>
+        /// THE ORIENTATION FIX. The default is ZERO, not the 90 an early live report
+        /// produced: the editor's ShipDir.Forward, the hull's section axis, the
+        /// Helm01 prefab's authored forward and the flight integrator's yaw-0 heading
+        /// are all hull-local +Z, so hull-local identity already aims the wheel at
+        /// the bow. Pinned as a test because a non-zero default is what put a live
+        /// player's wheel across their ship.
+        /// </summary>
         [Fact]
-        public void The_default_offset_is_the_live_reported_90()
+        public void The_default_offset_is_zero_because_identity_already_faces_the_bow()
         {
-            Assert.Equal(90.0, HelmMountLock.DefaultYawDegrees);
+            Assert.Equal(0.0, HelmMountLock.DefaultYawDegrees);
             Assert.Equal(HelmMountLock.DefaultYawDegrees, HelmMountLock.ParseYawDegrees(null));
+        }
+
+        /// <summary>
+        /// The default lock is byte-identical on the wire to an unrotated part: zero
+        /// degrees packs to the identity sentinel, so a helm mounted under the fixed
+        /// default carries exactly the value a never-rotated placement would.
+        /// </summary>
+        [Fact]
+        public void The_default_lock_packs_to_the_identity_sentinel()
+        {
+            Assert.Equal(
+                Quaternion32Packing.Identity,
+                HelmMountLock.PackedLockRotation(HelmMountLock.DefaultYawDegrees));
         }
 
         [Theory]

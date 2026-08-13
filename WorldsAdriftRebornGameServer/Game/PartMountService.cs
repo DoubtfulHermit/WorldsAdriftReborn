@@ -259,13 +259,16 @@ namespace WorldsAdriftRebornGameServer.Game
             // .Awake, decompile) precisely because retail helms could only ever face
             // forward - the pilot camera aligns to the SHIP's rotation on man, so a
             // helm mounted at an angle leaves the pilot steering while looking off the
-            // side of the ship (measured live: "places me in this direction and forward
-            // goes THAT way"). The lock is hull-local identity COMPOSED with the
-            // WAREBORN_HELM_MOUNT_YAW offset (default 90 - the raw-identity lock left
-            // the wheel measured 90 degrees off live); every other part keeps the
-            // player's placed rotation. HelmMountLock is the ONE definition all three
-            // commit sites below (190602, 1120 attach fields, ledger/persistence)
-            // draw from, so they cannot disagree.
+            // side of the ship. The lock is hull-local identity COMPOSED with the
+            // WAREBORN_HELM_MOUNT_YAW offset, which DEFAULTS TO 0: the orientation
+            // audit proved the editor's Forward, the hull's fore-aft axis, the Helm01
+            // prefab's authored forward and the flight integrator's heading are all
+            // hull-local +Z, so identity already faces the bow. See HelmMountLock for
+            // the citations and for why this knob can never fix a "the ship flies
+            // sideways" report. Every other part keeps the player's placed rotation.
+            // HelmMountLock is the ONE definition all three commit sites below
+            // (190602, 1120 attach fields, ledger/persistence) draw from, so they
+            // cannot disagree.
             bool isHelmMount = Crafting.LooseParts.DefFor(partEntityId)?.ItemType == "helm";
             double helmYawDegrees = Multiplayer.Ship.HelmMountLock.YawDegrees();
             (float W, float X, float Y, float Z) helmLock = Multiplayer.Ship.HelmMountLock.LockRotation(helmYawDegrees);

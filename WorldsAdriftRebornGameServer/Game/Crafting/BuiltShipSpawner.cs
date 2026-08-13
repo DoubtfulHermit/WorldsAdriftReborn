@@ -226,6 +226,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 panels = new[] { StaticFallbackPanel() };
             }
 
+            LogHullOrientation(effectiveBytes, panels.Count);
+
             int sequence = BuiltShips.NextSequence();
             BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence, hullPos, panels);
 
@@ -244,6 +246,32 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             }
 
             return new BuiltRegistration(hullEntityId, plan.Hull, decks, effectiveBytes);
+        }
+
+        /// <summary>
+        /// Logs the hull's real dimensions and its bow axis at spawn. Cheap, once per
+        /// ship, and it is the line that answers a "my ship is rotated / it flies
+        /// sideways" report without another round of yaw guessing: a stock cell is 12 m
+        /// of BEAM by 4 m of KEEL, so a short hull is genuinely wider than it is long
+        /// and its bow (+Z, where the pilot camera looks and where the ship flies) is
+        /// its SHORT axis. Never throws - a metrics failure must not cost a spawn.
+        /// </summary>
+        private static void LogHullOrientation(byte[] effectiveBytes, int panelCount)
+        {
+            try
+            {
+                if (!ShipPlanModel.TryDecode(effectiveBytes, out ShipPlanModel? model, out _) || model == null)
+                {
+                    return;
+                }
+                Console.WriteLine("[info] built-ship spawn: hull geometry - "
+                    + ShipHullMetrics.Measure(model).Describe()
+                    + " " + panelCount + " deck panel(s).");
+            }
+            catch (System.Exception e)
+            {
+                Console.WriteLine("[warn] built-ship spawn: could not measure hull geometry: " + e.Message);
+            }
         }
 
         /// <summary>
