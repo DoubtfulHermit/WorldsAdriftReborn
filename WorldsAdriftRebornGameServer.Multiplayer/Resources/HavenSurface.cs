@@ -9,7 +9,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
     /// The Haven-specific glue between the extracted surface data and the pure
     /// <see cref="SurfacePlacementGenerator"/>: it loads the embedded LOD0 surface
     /// samples for island 1431299145, holds the reviewed placement CONFIG for that
-    /// island, and produces the deterministic deposit layout the world spawner uses.
+    /// island, and produces deterministic tree and deposit layouts over the WHOLE
+    /// landmass.
     ///
     /// This is the ONLY place that touches an embedded file. The generator and its
     /// config stay pure (no I/O) so they unit-test natively; this class is the thin
@@ -33,29 +34,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         /// <summary>Flatness gate: dot(up, normal) &gt;= this. 0.92 = a stable, near-flat rock seat.</summary>
         public const double DepositMinUpwardNormal = 0.92;
 
-        /// <summary>Reachable band, lower bound (island-local metres).</summary>
-        public const double DepositMinHeight = 1.5;
+        /// <summary>
+        /// Lower safety bound, deliberately wider than Haven's complete extracted
+        /// surface (-52.37..96 m). Retail did not impose an altitude band when
+        /// surface-sampling resources; the old 1.5..12 m filter is what emptied the
+        /// ridges and western half of the island.
+        /// </summary>
+        public const double ResourceMinHeight = -100.0;
 
         /// <summary>
-        /// Reachable band, upper bound (island-local metres). Excludes the metal
-        /// camp's elevated platforms (local y ~ 40-57 m) a player cannot walk to.
+        /// Upper safety bound, deliberately wider than Haven's complete extracted
+        /// surface. High samples are island terrain, not a reason to discard an
+        /// entire biome region.
         /// </summary>
-        public const double DepositMaxHeight = 12.0;
+        public const double ResourceMaxHeight = 150.0;
 
         /// <summary>
         /// Min 3-D distance between deposits, metres - the primary DENSITY knob.
-        /// 8 m is deliberately tight (the old hand-placed set used 14 m and got ~23):
-        /// Haven's reachable flat surface is on an ~8 m sample grid, so 8 m keeps a
-        /// dense-but-non-overlapping field of ~120 deposits. Raise it to thin out.
+        /// 22 m keeps the large deposit meshes from forming a rock carpet while a
+        /// forty-node quota still covers the island's full ~560 x 290 m extent.
         /// </summary>
-        public const double DepositMinSpacing = 8.0;
+        public const double DepositMinSpacing = 22.0;
 
         /// <summary>
-        /// Cap on the number of deposits (including the proven anchor). Set well
-        /// above what the reachable, spaced surface yields (~120) so spacing, not the
-        /// cap, is what bounds the field; lower it to force a smaller world.
+        /// Forty deposits: retail's recovered server default for the resource
+        /// request, now placed offline because the shipped player client does not
+        /// contain the UnityWorker sampler that answered that request.
         /// </summary>
-        public const int DepositTargetCount = 220;
+        public const int DepositTargetCount = 40;
+
+        /// <summary>Trees need flatter ground than deposits so trunks stand naturally.</summary>
+        public const double TreeMinUpwardNormal = 0.94;
+
+        /// <summary>Minimum distance between tree trunks, metres.</summary>
+        public const double TreeMinSpacing = 15.0;
+
+        /// <summary>
+        /// A resource-rich but bounded Haven canopy. Eighty trees across the full
+        /// surface is enough that no large walkable region is barren without making
+        /// the loading barrier or tree simulation pathological.
+        /// </summary>
+        public const int TreeTargetCount = 80;
 
         /// <summary>Keep-out radius around the player spawn, metres.</summary>
         public const double SpawnClearance = 6.0;
@@ -81,6 +100,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
 
         private static IReadOnlyList<SurfaceSample>? _samples;
         private static IReadOnlyList<GeneratedPlacement>? _depositLocals;
+        private static IReadOnlyList<GeneratedPlacement>? _treeLocals;
 
         /// <summary>
         /// The extracted LOD0 surface samples for Haven, loaded once from the
@@ -103,11 +123,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         {
             return new SurfacePlacementConfig(
                 minUpwardNormal: DepositMinUpwardNormal,
-                minReachableHeightMetres: DepositMinHeight,
-                maxReachableHeightMetres: DepositMaxHeight,
+                minReachableHeightMetres: ResourceMinHeight,
+                maxReachableHeightMetres: ResourceMaxHeight,
                 minSpacingMetres: DepositMinSpacing,
                 targetCount: DepositTargetCount,
                 exclusions: DepositExclusions());
+        }
+
+        /// <summary>The reviewed whole-island tree placement config for Haven.</summary>
+        public static SurfacePlacementConfig TreeConfig()
+        {
+            return new SurfacePlacementConfig(
+                minUpwardNormal: TreeMinUpwardNormal,
+                minReachableHeightMetres: ResourceMinHeight,
+                maxReachableHeightMetres: ResourceMaxHeight,
+                minSpacingMetres: TreeMinSpacing,
+                targetCount: TreeTargetCount,
+                exclusions: TreeExclusions());
         }
 
         /// <summary>
@@ -135,12 +167,53 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 ship.MetresZ - island.MetresZ,
                 ShipClearance));
 
-            foreach ((double x, double _, double z) in WorldEntities.DistributedTreeLocals)
+            foreach (GeneratedPlacement tree in TreeLocals())
             {
-                ex.Add(new PlacementExclusion(x, z, TreeClearance));
+                ex.Add(new PlacementExclusion(tree.LocalX, tree.LocalZ, TreeClearance));
             }
 
             return ex;
+        }
+
+        /// <summary>
+        /// Tree keep-outs: the spawn/camp, ship footprint, and the proven deposit.
+        /// The spawn disc also protects the separately registered near-spawn birch.
+        /// </summary>
+        public static IReadOnlyList<PlacementExclusion> TreeExclusions()
+        {
+            List<PlacementExclusion> ex = new List<PlacementExclusion>();
+            FixedPointPosition island = SpawnPolicy.IslandPosition;
+
+            FixedPointPosition spawn = SpawnPolicy.PlayerSpawnPosition;
+            ex.Add(new PlacementExclusion(
+                spawn.MetresX - island.MetresX,
+                spawn.MetresZ - island.MetresZ,
+                SpawnClearance + 6.0));
+
+            FixedPointPosition ship = WorldEntities.ShipFrameDefaultPosition;
+            ex.Add(new PlacementExclusion(
+                ship.MetresX - island.MetresX,
+                ship.MetresZ - island.MetresZ,
+                ShipClearance));
+
+            ex.Add(new PlacementExclusion(
+                ProvenDepositLocal.LocalX,
+                ProvenDepositLocal.LocalZ,
+                TreeClearance));
+            return ex;
+        }
+
+        /// <summary>
+        /// Deterministic tree seats across Haven's complete surface. Species are a
+        /// separate biome-profile decision; this method only answers WHERE.
+        /// </summary>
+        public static IReadOnlyList<GeneratedPlacement> TreeLocals()
+        {
+            if (_treeLocals == null)
+            {
+                _treeLocals = SurfacePlacementGenerator.Generate(Samples, TreeConfig());
+            }
+            return _treeLocals;
         }
 
         /// <summary>

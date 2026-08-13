@@ -24,11 +24,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Resources
         }
 
         [Fact]
-        public void The_field_is_dense_far_beyond_the_old_hand_placed_handful()
+        public void The_field_uses_the_recovered_retail_count_across_the_whole_island()
         {
-            // The user asked for a resource-RICH world: well over 100 deposits, not 23.
             IReadOnlyList<GeneratedPlacement> locals = HavenSurface.DepositLocals();
-            Assert.True(locals.Count > 100, $"expected a dense field, got {locals.Count}");
+            Assert.Equal(HavenSurface.DepositTargetCount, locals.Count);
             Assert.Equal(locals.Count, MetalDeposits.HavenPlacements.Count);
         }
 
@@ -42,14 +41,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Resources
         }
 
         [Fact]
-        public void Every_deposit_sits_on_reachable_upward_facing_ground()
+        public void Every_deposit_sits_on_upward_facing_ground_without_an_altitude_band()
         {
             foreach (GeneratedPlacement p in HavenSurface.DepositLocals())
             {
-                Assert.InRange(p.LocalY, HavenSurface.DepositMinHeight, HavenSurface.DepositMaxHeight);
+                Assert.InRange(p.LocalY, HavenSurface.ResourceMinHeight, HavenSurface.ResourceMaxHeight);
                 Assert.True(p.Ny >= HavenSurface.DepositMinUpwardNormal - 1e-9,
                     $"deposit at ({p.LocalX},{p.LocalY},{p.LocalZ}) has ny {p.Ny}");
             }
+
+            // Regression for the barren-ridge bug: the old y<=12 filter could not
+            // put a single rock on the high terrain visible from the player's shot.
+            Assert.Contains(HavenSurface.DepositLocals(), p => p.LocalY > 20.0);
+        }
+
+        [Fact]
+        public void Deposits_span_the_full_walkable_width_and_depth()
+        {
+            IReadOnlyList<GeneratedPlacement> p = HavenSurface.DepositLocals();
+            Assert.True(p.Max(x => x.LocalX) - p.Min(x => x.LocalX) > 400.0);
+            Assert.True(p.Max(x => x.LocalZ) - p.Min(x => x.LocalZ) > 200.0);
+            Assert.Contains(p, x => x.LocalX < 0.0);
+            Assert.Contains(p, x => x.LocalX > 150.0);
+        }
+
+        [Fact]
+        public void Haven_deposits_are_the_starter_biomes_iron_not_an_assortment()
+        {
+            Assert.All(MetalDeposits.HavenPlacements, p =>
+            {
+                Assert.Equal("iron", p.MetalType);
+                Assert.Equal(6, p.Quality);
+            });
         }
 
         [Fact]

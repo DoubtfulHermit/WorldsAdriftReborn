@@ -282,7 +282,9 @@ position generator, whose guesses put deposits in the air and inside trees.
 | `WAREBORN_METAL_HANDSHAKE` | on | `0`/`false`/`off`/`no` disables the handshake entirely and restores the old boot-time hand-placed path (`WAREBORN_SPAWN_DEPOSIT=1`). |
 | `WAREBORN_METAL_FALLBACK` | on | `0` disables the safety net. **Only for deliberately testing the handshake alone** - with it off, a client that never replies means no ore at all. |
 | `WAREBORN_METAL_FALLBACK_SECONDS` | `90` | How long to wait for a usable 1011 reply before spawning the hand-placed table instead. Clamped to **10..600**. |
-| `WAREBORN_DEPOSIT_COUNT` | all | How many hand-placed deposits the *fallback* lays down. Clamped to `[1, table size]`. |
+| `WAREBORN_DEPOSIT_COUNT` | all | How many deterministic whole-island Haven deposits to spawn. The table contains 40 biome-profiled iron deposits across the full terrain; clamped to `[1, 40]`. |
+| `WAREBORN_TREE_COUNT` | all | Total Haven trees, including the proven near-spawn birch. The full deterministic layout is 81 birches (one anchor + 80 whole-island seats); clamped to `[1, 81]`. |
+| `WAREBORN_TREE_SPECIES` | ignored on Haven | Legacy experiment that cycled every recovered wood species on one island. Haven now has an explicit birch starter-biome profile, so this cannot turn it into a random assortment. |
 | `WAREBORN_SPAWN_ATLAS` | on | `0` stops the fallback lodging atlas shards in its deposits. |
 
 `WAREBORN_SPAWN_DEPOSIT=1` is **ignored while the handshake is on**. Honouring it

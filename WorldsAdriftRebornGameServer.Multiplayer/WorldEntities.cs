@@ -516,23 +516,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// Trees distributed across the whole island (island-local metres),
-        /// farthest-point sampled from the 1431299145 surface table (ny&gt;0.90),
-        /// so harvesting can be tested away from spawn too. Each spawns as its own
-        /// choppable Tree entity (unique key), planted by AssetName exactly like
-        /// <see cref="HavenTree"/>. AfterPlayer, so none can delay a player spawn.
+        /// Trees distributed across the whole island (island-local metres), generated
+        /// deterministically from the complete 1431299145 terrain surface with no
+        /// altitude band. The former hand table mostly occupied Haven's low eastern
+        /// shelf; ridges and the western half were therefore barren. Each seat is
+        /// flat, spaced and clear of spawn/ship/deposits by
+        /// <see cref="Resources.HavenSurface"/>.
         /// </summary>
         public static readonly IReadOnlyList<(double X, double Y, double Z)> DistributedTreeLocals =
-            new (double, double, double)[]
+            BuildDistributedTreeLocals();
+
+        private static IReadOnlyList<(double X, double Y, double Z)> BuildDistributedTreeLocals()
         {
-            (-59.7, 12.00, 88.0), (116.0, 7.65, 24.0),  (168.0, 4.43, -40.0),
-            (142.1, 4.00, 68.0),  (224.0, 2.87, 32.0),  (168.0, 4.46, 32.0),
-            (216.0, 2.69, -8.0),  (144.0, 4.35, 24.0),  (168.0, 3.74, 56.0),
-            (208.0, 2.06, 48.0),  (152.0, 3.96, -20.0), (32.0, 11.11, -112.0),
-            (184.0, 2.80, 48.0),  (160.0, 4.72, 16.0),  (240.0, 3.58, 16.0),
-            (224.0, 8.83, 8.0),   (136.0, 3.86, -16.0), (168.0, 5.06, 0.0),
-            (176.0, 4.90, 16.0),  (128.0, 4.80, 16.0),
-        };
+            List<(double X, double Y, double Z)> result = new List<(double, double, double)>();
+            foreach (Resources.GeneratedPlacement p in Resources.HavenSurface.TreeLocals())
+            {
+                result.Add((p.LocalX, p.LocalY, p.LocalZ));
+            }
+            return result;
+        }
 
         /// <summary>
         /// ONE VERIFIED PREFAB PER WOOD - the species the distributed trees cycle
@@ -917,11 +919,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// keeps it.
         /// </param>
         /// <param name="varyTreeSpecies">
-        /// Whether to plant the eight verified per-species tree prefabs (one per
-        /// catalogue wood) instead of birch-only. OFF by default: every species has a
-        /// recovered skeleton and wood, but no non-birch prefab has been in front of a
-        /// live client yet, so the knob (WAREBORN_TREE_SPECIES=1) is the way to try it
-        /// without disturbing the proven birch behaviour.
+        /// Generic support for cycling the eight verified per-species tree prefabs.
+        /// Production Haven deliberately passes false because its explicit starter
+        /// biome profile is birch; this remains available for a future island whose
+        /// recovered per-island data actually names several woods.
         /// </param>
         public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true)
         {

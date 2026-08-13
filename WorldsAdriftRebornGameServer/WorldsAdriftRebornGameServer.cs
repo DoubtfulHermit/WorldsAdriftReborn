@@ -2314,25 +2314,13 @@ namespace WorldsAdriftRebornGameServer
             && !Multiplayer.IslandResourceHandshake.Enabled();
 
         /// <summary>
-        /// Whether the distributed trees cycle through the eight verified species
-        /// instead of all being birch. OFF unless WAREBORN_TREE_SPECIES=1.
-        ///
-        /// The reasoning for a default-off knob rather than just turning it on. The
-        /// desk evidence is strong: all eight species in
-        /// <see cref="Multiplayer.WorldEntities.VerifiedSpecies"/> have a recovered
-        /// and verified skeleton, a recovered wood that resolves to a real item, and
-        /// a MonoBehaviour set identical to `Tree`'s - so the ten component ids they
-        /// ask for are the ten already served. But NO non-`Tree` tree prefab has
-        /// ever been in front of a running client on this server, and the client's
-        /// component batch is <c>failOnComponentInitError: true</c>, so the failure
-        /// mode if some eleventh requirement was missed is a tree that comes up
-        /// broken rather than a log line. Off by default keeps today's proven
-        /// behaviour untouched; flipping it on is the next live test, and the
-        /// near-spawn tree stays birch either way so that test is never the first
-        /// thing a player meets.
+        /// Haven's explicit biome profile is birch-only. The old
+        /// WAREBORN_TREE_SPECIES=1 experiment cycled every known wood across one
+        /// starter island, producing the random assortment the biome should not have.
+        /// Keep the generic variation machinery available to tests/future islands,
+        /// but never apply it to Haven's production registry.
         /// </summary>
-        private static bool VaryTreeSpecies =>
-            Environment.GetEnvironmentVariable("WAREBORN_TREE_SPECIES") == "1";
+        private static bool VaryTreeSpecies => false;
 
         /// <summary>
         /// Whether to lodge an ATLAS SHARD in the proven deposit - the real retail

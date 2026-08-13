@@ -161,10 +161,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <see cref="Resources.SurfacePlacementGenerator"/> over
         /// <see cref="Resources.HavenSurface.Samples"/> under
         /// <see cref="Resources.HavenSurface.DepositConfig"/>: upward-facing ground
-        /// (ny &gt;= 0.92), reachable height (island-local y in [1.5, 12] - the camp
-        /// platforms at y ~ 40-57 are unreachable and excluded), Poisson-disk thinned
-        /// to an 8 m minimum spacing, and kept clear of the spawn, the ship and the
-        /// distributed trees. That yields ~120 deposits (vs the old hand-placed ~23).
+        /// (ny &gt;= 0.92), the FULL extracted altitude range, Poisson-disk thinned
+        /// to a 22 m minimum spacing, and kept clear of the spawn, the ship and the
+        /// distributed trees. Forty deposits cover the complete ~560 x 290 m terrain
+        /// instead of concentrating on the old 1.5..12 m eastern shelf.
         ///
         /// DETERMINISTIC AND STABLE: the generator uses no RNG and no clock, so the
         /// same embedded surface and config produce the identical layout every
@@ -173,9 +173,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <see cref="Resources.HavenSurface"/> (min spacing, height band, normal
         /// threshold, target count, clearances).
         ///
-        /// Metal TYPE and QUALITY are cosmetic for the harvest grant (see
-        /// <see cref="MetalNode.MetalType"/>); they are cycled deterministically per
-        /// index here so each deposit has a distinct-enough material name.
+        /// Haven has no surviving per-island community resource row because it was
+        /// Bossa-authored, not a Workshop island. Its explicit starter-biome profile
+        /// is therefore conservative: IRON only, the metal required by Haven's first
+        /// crafting loop, rather than an invented rotating assortment.
         /// </summary>
         public static readonly IReadOnlyList<Placement> HavenPlacements = BuildHavenPlacements();
 
@@ -192,14 +193,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The cosmetic metal name for the deposit at <paramref name="index"/>. Index
-        /// 0 is iron (the proven deposit); the rest are iron-weighted with copper
-        /// every third. Deterministic - the same index always names the same metal.
+        /// The Haven starter-biome metal. Deliberately iron-only: there is no recovered
+        /// Bossa Haven metal table, so cycling arbitrary metals would manufacture lore
+        /// and make the starter material needlessly scarce.
         /// </summary>
-        private static string MetalTypeFor(int index) => (index != 0 && index % 3 == 0) ? "copper" : "iron";
+        private static string MetalTypeFor(int index) => "iron";
 
-        /// <summary>The cosmetic quality (4..8) for the deposit at <paramref name="index"/>. Deterministic.</summary>
-        private static int QualityFor(int index) => index == 0 ? 6 : 4 + ((index * 3) % 5);
+        /// <summary>Stable mid-low starter quality; no invented per-node quality lottery.</summary>
+        private static int QualityFor(int index) => 6;
 
         /// <summary>
         /// The deposit for a registration key ("deposit-N"), or null if the key is not
