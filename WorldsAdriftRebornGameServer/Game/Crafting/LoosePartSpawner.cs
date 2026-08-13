@@ -314,8 +314,14 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// additionally honours its original <c>WAREBORN_LAMP_PREFAB</c> /
         /// <c>WAREBORN_LAMP_ATTACH</c> names for back-compat. A blank/unset variable
         /// keeps the catalogue default.
+        ///
+        /// INTERNAL (not private): the station-craft handler resolves the SAME
+        /// effective definition BEFORE consuming materials, so the up-front
+        /// realizability gate (StationCraftOutputGate) judges exactly the prefab
+        /// this spawner would broadcast - including a typo'd live override, which is
+        /// the one case the catalogue's compile-time pins cannot see.
         /// </summary>
-        private static LoosePartDefinition ApplyEnvOverrides(LoosePartDefinition definition)
+        internal static LoosePartDefinition ApplyEnvOverrides(LoosePartDefinition definition)
         {
             string? prefab = Environment.GetEnvironmentVariable("WAREBORN_PART_PREFAB__" + definition.SchematicId);
             string? attach = Environment.GetEnvironmentVariable("WAREBORN_PART_ATTACH__" + definition.SchematicId);

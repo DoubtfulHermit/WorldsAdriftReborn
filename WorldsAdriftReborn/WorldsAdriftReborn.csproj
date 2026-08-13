@@ -89,6 +89,8 @@
   <ItemGroup>
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\ClientRigPolicy.cs"
              Link="Patching\Multiplayer\ClientRigPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\ShipPartClientPrecache.cs"
+             Link="Patching\Multiplayer\ShipPartClientPrecache.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->
