@@ -89,6 +89,14 @@ namespace WorldsAdriftReborn.Patching.Interactions
             AccessTools.Field(typeof(CraftingStationData), "_loadedSchematic");
         internal static readonly MethodInfo CraftingInProgressSetter =
             AccessTools.PropertySetter(typeof(CraftingStationData), "CraftingInProgress");
+        internal static readonly FieldInfo SchematicDataTemplateField =
+            AccessTools.Field(typeof(SchematicList), "_craftingDataTemplate");
+        internal static readonly FieldInfo SchematicLocalSlotsEmptyField =
+            AccessTools.Field(typeof(SchematicList), "_allSlotsAreEmptyLocally");
+        internal static readonly FieldInfo SchematicCurrentStateField =
+            AccessTools.Field(typeof(SchematicList), "_currentState");
+        internal static readonly FieldInfo SchematicInputBlockerField =
+            AccessTools.Field(typeof(SchematicList), "_inputBlocker");
 
         private static bool _disabled;
 
@@ -187,6 +195,72 @@ namespace WorldsAdriftReborn.Patching.Interactions
                 }
             }
             return true;
+        }
+
+        /// <summary>
+        /// Reconciles the state which ACTUALLY eats schematic-list clicks. The
+        /// list keeps its own cached local-slot flag, current-state enum and
+        /// blocker GameObject; none of those are represented by
+        /// CraftingStationData. In particular SchematicList.ChangeState is a
+        /// no-op when the enum already equals FreeToUse, so a blocker left
+        /// active by an earlier callback can survive even though every model
+        /// predicate is clean. Run only after the wire proves the craft idle.
+        /// </summary>
+        internal static void ReconcileIdleSchematicList(CraftingStationData data)
+        {
+            if (SchematicDataTemplateField == null
+                || SchematicLocalSlotsEmptyField == null
+                || SchematicCurrentStateField == null
+                || SchematicInputBlockerField == null)
+            {
+                DisableMissingMember("SchematicList UI state fields");
+                return;
+            }
+
+            CraftingStationSchematicList[] lists =
+                Resources.FindObjectsOfTypeAll<CraftingStationSchematicList>();
+            int matches = 0;
+            for (int i = 0; i < lists.Length; i++)
+            {
+                CraftingStationSchematicList list = lists[i];
+                if (list == null
+                    || !object.ReferenceEquals(SchematicDataTemplateField.GetValue(list), data))
+                {
+                    continue;
+                }
+
+                matches++;
+                bool cachedLocalEmpty = (bool)SchematicLocalSlotsEmptyField.GetValue(list);
+                CraftingState state = (CraftingState)SchematicCurrentStateField.GetValue(list);
+                GameObject blocker = SchematicInputBlockerField.GetValue(list) as GameObject;
+                bool blockerActive = blocker != null && blocker.activeSelf;
+
+                Debug.Log("[WAR][craft] schematic-list actual state: cachedLocalSlotsEmpty="
+                    + cachedLocalEmpty + " currentState=" + state
+                    + " inputBlockerActive=" + (blocker != null ? blockerActive.ToString() : "null"));
+
+                // The wire and CraftingStationData are idle at the only call
+                // site. Make the list's hidden copy agree, then ask retail to
+                // derive FreeToUse. ChangeState may deliberately do nothing
+                // when its enum is already FreeToUse, so enforce the resulting
+                // presentation too: an idle station must not have a click
+                // shield, regardless of how the enum and GameObject diverged.
+                if (!cachedLocalEmpty)
+                {
+                    SchematicLocalSlotsEmptyField.SetValue(list, true);
+                }
+                list.UpdateCraftingState();
+                if (blocker != null && blocker.activeSelf)
+                {
+                    blocker.SetActive(false);
+                    Debug.Log("[WAR][craft] SELF-HEAL: disabled stale schematic input blocker on idle UI open");
+                }
+            }
+
+            if (matches == 0)
+            {
+                Debug.LogWarning("[WAR][craft] no CraftingStationSchematicList was bound to the opened station data");
+            }
         }
     }
 
@@ -425,6 +499,19 @@ namespace WorldsAdriftReborn.Patching.Interactions
                     // SchematicList.UpdateCraftingState) + CheckCraftButtonState.
                     Singleton<WAEventSystem>.Instance.TriggerEvent(
                         WAUICraftingEvents.SlottedMaterialsUpdated, data);
+                }
+
+                // The first live self-heal build proved these model values can
+                // all be clean while the screen still eats clicks. The actual
+                // shield is owned by CraftingStationSchematicList and has its
+                // own cached local-empty flag/state enum. Only reconcile when
+                // BOTH model and wire prove the craft fully idle.
+                if (CraftUiSelfHeal.AllLocalSlotsEmpty(data)
+                    && data.AllSlotsAreEmptyRemotely
+                    && !data.CraftingInProgress
+                    && CraftUiSelfHeal.WireSlotsAllEmpty(wireSlots))
+                {
+                    CraftUiSelfHeal.ReconcileIdleSchematicList(data);
                 }
             }
             catch (Exception e)
