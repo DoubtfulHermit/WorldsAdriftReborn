@@ -260,5 +260,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
         /// <summary>Drop a player's designs when their entity leaves.</summary>
         public static void Forget(long entityId) => ByEntity.Remove(entityId);
+
+        /// <summary>
+        /// Whether ANY player is currently inside the frame-design mesh editor on
+        /// this shipyard (<c>TriggerStartEditingSchematic</c> without its matching
+        /// stop). The station-pickup busy gate: packing the yard mid-edit would
+        /// pull the editor's shipyard out from under the editing client. Design
+        /// contexts are per-player and few, so a scan per pickup EVENT is nothing.
+        /// </summary>
+        public static bool AnyEditingAt(long shipyardEntityId)
+        {
+            foreach (PlayerShipDesigns designs in ByEntity.Values)
+            {
+                if (designs.EditingShipyardEntityId == shipyardEntityId && shipyardEntityId != 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 }

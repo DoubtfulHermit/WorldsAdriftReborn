@@ -99,6 +99,30 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
+        /// Drops a placed deployable's record - it was PACKED back into inventory
+        /// (station pickup) - so the next boot never respawns it. Matched by item
+        /// type + the EXACT placed position, the same stable key the boot restore
+        /// uses to re-dock ships to their yard (two deployables never share one
+        /// spot). A no-op when no such record exists; returns whether one was
+        /// removed, so the caller can log a mismatch loudly.
+        /// </summary>
+        internal static bool RemovePlacedDeployable(string itemTypeId, FixedPointPosition position)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+
+            int removed = snapshot.PlacedDeployables.RemoveAll(r =>
+                r.ItemTypeId == itemTypeId
+                && r.X == position.X && r.Y == position.Y && r.Z == position.Z);
+
+            if (removed > 0)
+            {
+                Save();
+            }
+
+            return removed > 0;
+        }
+
+        /// <summary>
         /// Records a newly built ship and writes the document atomically. Returns the
         /// ship's PERSISTENT INDEX (its position in the append-only BuiltShips list), which
         /// a mounted part references its ship by - stable across restart because ships are

@@ -1044,6 +1044,233 @@ namespace WorldsAdriftRebornGameServer
         }
 
         // ==================================================================
+        // STATION PICKUP. Packing a PLACED shipyard / Assembly Station back into
+        // the owner's inventory - a deliberate NON-RETAIL extension (retail had no
+        // deployable pickup at all; codex-verified against the decompile). The
+        // request arrives as the SAME native 1211 InteractWithObject(target,
+        // PickUp) the atlas shard uses, issued by the client mod's dedicated
+        // hold-to-pack key (StationPickup_Patch), and the whole flow mirrors the
+        // shard transaction: pure policy -> reserve -> grant -> broadcast
+        // disappearance -> remove state. See Multiplayer.StationPickupPolicy.
+        // ==================================================================
+
+        /// <summary>
+        /// The pickup TRANSACTION for a placed station: the authoritative side of a
+        /// 1211 <c>InteractWithObject(station, PickUp)</c>. Called from
+        /// InteractAgentState_Handler once per PickUp interaction on a placed
+        /// shipyard / Assembly Station (or its tombstone).
+        ///
+        /// The DECISION is the pure <see cref="Multiplayer.StationPickupPolicy"/>;
+        /// this method is the thin transaction around it: gather the facts from the
+        /// placement/dock/build/craft ledgers, decide, then RESERVE -> Grant ->
+        /// Commit, rolling the reservation back if the grant fails so a full
+        /// inventory does not consume the station. The wire-visible success order
+        /// is: reserve -> inventory mutate (+1081 push, inside Grant) -> 1210
+        /// available=false -> 190602 sink -> persisted-record removal.
+        /// </summary>
+        /// <returns>The outcome, for the caller's one [pickup] log line.</returns>
+        internal static Multiplayer.StationPickupOutcome TryPickUpPlacedStation(
+            ENetPeerHandle player, long playerEntityId, long stationEntityId, bool peerOwnsPlayer, bool verbIsPickUp)
+        {
+            // WHICH KIND of placed station the ledgers say this is. After a pickup
+            // both memberships are gone and only the tombstone answers, which the
+            // policy reports as AlreadyPickedUp (checked before the kind).
+            bool isShipyard = Game.Placement.PlacedShipyards.IsPlacedShipyard(stationEntityId);
+            bool isAssemblyStation = !isShipyard
+                && Game.Placement.PlacedCraftingStations.IsPlacedCraftingStation(stationEntityId);
+            Multiplayer.PickupStationKind kind =
+                isShipyard ? Multiplayer.PickupStationKind.Shipyard
+                : isAssemblyStation ? Multiplayer.PickupStationKind.AssemblyStation
+                : Multiplayer.PickupStationKind.None;
+
+            // OWNER: the uid stamped at placement time; REQUESTER: resolved by the
+            // SAME mechanism the placement stamp used (CharacterOwnership reads the
+            // durable character uid the 1088 identity bind filed the player under),
+            // so the two compare like for like. An UNOWNED station ("" owner - the
+            // placer had no durable identity) is pickable by anyone, the same
+            // "empty owner means nobody owns it" convention the ship/shipyard
+            // ownership gates already follow (OwnershipRegistrationPolicy).
+            string ownerUid = isShipyard
+                ? Game.Placement.PlacedShipyards.SeedFor(stationEntityId).OwnerCharacterUid
+                : Game.Placement.PlacedCraftingStations.OwnerFor(stationEntityId);
+            string requesterUid = Game.CharacterOwnership.UidForEntity(playerEntityId);
+
+            // BUSY STATES, from the actual ledgers: a docked hull, a live blueprint
+            // build or frame-design edit (shipyard), a bound craft session and its
+            // slotted materials (assembly station; checked for both kinds - it is
+            // keyed by station id, so a shipyard simply never matches).
+            bool shipDocked = isShipyard && Game.Crafting.BuiltShips.DockedShipFor(stationEntityId) > 0;
+            bool buildInProgress = isShipyard
+                && (Multiplayer.Crafting.ShipBlueprintBuildStore.AnyAtShipyard(stationEntityId)
+                    || Multiplayer.Ship.ShipDesignStore.AnyEditingAt(stationEntityId));
+            bool craftInProgress = Game.Crafting.CraftSessions.AnyBoundTo(stationEntityId, out bool materialsLoaded);
+
+            // AUTHORITATIVE DISTANCE, when we honestly have one: the relay's last
+            // accepted world position for this peer. Skipped (null) when the relay
+            // holds none (v2 off / no movement yet) or the player is ABOARD a ship
+            // - their 190602 is ship-local then and a straight-line distance would
+            // be garbage that falsely rejects. A null trusts the client's own
+            // two-stage range check, exactly like the atlas pickup.
+            double? distanceMetres = null;
+            ulong peerId = PeerIdentity.IdOf(player);
+            if (!Aboard.IsAboardAnything(peerId)
+                && Relay.TryLastPosition(peerId, out Multiplayer.FixedPointPosition playerPos))
+            {
+                Multiplayer.FixedPointPosition stationPos = WorldEntities.TransformSeedFor(stationEntityId);
+                double dx = playerPos.MetresX - stationPos.MetresX;
+                double dy = playerPos.MetresY - stationPos.MetresY;
+                double dz = playerPos.MetresZ - stationPos.MetresZ;
+                distanceMetres = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            }
+
+            Multiplayer.StationPickupDecision decision = Multiplayer.StationPickupPolicy.Evaluate(
+                peerOwnsPlayer: peerOwnsPlayer,
+                verbIsPickUp: verbIsPickUp,
+                alreadyPickedUp: Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(stationEntityId),
+                kind: kind,
+                ownerCharacterUid: ownerUid,
+                requesterCharacterUid: requesterUid,
+                shipDocked: shipDocked,
+                buildInProgress: buildInProgress,
+                craftInProgress: craftInProgress,
+                materialsLoaded: materialsLoaded,
+                reservedByOther: Multiplayer.Placement.StationPickupLedger.Shared
+                    .IsReservedByOther(stationEntityId, playerEntityId),
+                distanceMetres: distanceMetres,
+                radiusMetres: Multiplayer.Placement.ShipyardInteraction.CraftRadius);
+
+            if (!decision.ShouldGrant)
+            {
+                return decision.Outcome;
+            }
+
+            // RESERVE first, so a second PickUp event in the same poll drain cannot
+            // also reach the grant. A failed reserve means someone beat us to it.
+            if (!Multiplayer.Placement.StationPickupLedger.Shared.Reserve(stationEntityId, playerEntityId))
+            {
+                return Multiplayer.StationPickupOutcome.ReservedByOther;
+            }
+
+            // GRANT the deployable item back ("shipyard" / "assemblyStation" - the
+            // same crafted item type that placed it). Grant pushes the full 1081
+            // inventory list itself, so the item appears in the bag before the
+            // world entity visibly vanishes. Null = unknown type or full grid.
+            string itemTypeId = isShipyard
+                ? Multiplayer.Placement.Deployables.ShipyardItemType
+                : "assemblyStation";
+            int? grantedItemId = Game.Inventory.InventoryService.Grant(playerEntityId, itemTypeId, 1);
+
+            if (grantedItemId == null)
+            {
+                // Roll the reservation back so the station stays placed and
+                // pickable - a full grid now might have room later. NOTHING else
+                // was touched: the station is left exactly as it stood.
+                Multiplayer.Placement.StationPickupLedger.Shared.Rollback(stationEntityId, playerEntityId);
+                Console.WriteLine("[pickup] station " + stationEntityId + " ('" + itemTypeId + "') pickup by entity "
+                    + playerEntityId + " did NOT grant (unknown item type or full inventory grid);"
+                    + " reservation rolled back, the station stays placed.");
+                return Multiplayer.StationPickupOutcome.GrantFailed;
+            }
+
+            // COMMIT: the item is in the bag. Tombstone the entity (late joiners are
+            // seeded the disappeared state off this), make it vanish live for every
+            // peer, then strip the server state and the persisted record.
+            Multiplayer.Placement.StationPickupLedger.Shared.Commit(stationEntityId, playerEntityId);
+
+            // The placed position, captured for the persisted-record removal BEFORE
+            // any ledger is dropped (the registry entry itself stays - no
+            // RemoveEntityOp exists to retire it - so this also matches what the
+            // sink broadcast reads).
+            Multiplayer.FixedPointPosition placedPos = WorldEntities.TransformSeedFor(stationEntityId);
+
+            BroadcastStationPickedUp(stationEntityId);
+
+            if (isShipyard)
+            {
+                Game.Placement.PlacedShipyards.Remove(stationEntityId);
+
+                // No dock to clear (the policy rejected a docked yard), but 1219
+                // build-access grants may still name the yard - revoke them all so
+                // no player's next 1219 checkout resolves a packed shipyard.
+                IReadOnlyList<long> revoked =
+                    Multiplayer.Placement.ShipyardBuildAccess.Shared.RevokeAllFor(stationEntityId);
+                if (revoked.Count > 0)
+                {
+                    Console.WriteLine("[pickup] revoked shipyard build access for " + revoked.Count
+                        + " player(s) that pointed at packed shipyard " + stationEntityId + ".");
+                }
+            }
+            else
+            {
+                Game.Placement.PlacedCraftingStations.Remove(stationEntityId);
+            }
+
+            // PERSISTED RECORD last (the recipe's wire-visible order): the next boot
+            // simply never restores it. A miss is loud - it would mean the record
+            // key drifted from the placement seam's.
+            if (!Game.Persistence.WorldStatePersistence.RemovePlacedDeployable(itemTypeId, placedPos))
+            {
+                Console.WriteLine("[warning] [pickup] no persisted placed-deployable record matched '"
+                    + itemTypeId + "' at " + placedPos + " for packed station " + stationEntityId
+                    + " - if this session did not place it, the boot restore may respawn it next boot.");
+            }
+
+            Console.WriteLine("[pickup] station " + stationEntityId + " ('" + itemTypeId + "') packed by entity "
+                + playerEntityId + " -> inventory item " + grantedItemId
+                + (distanceMetres.HasValue
+                    ? " (range check " + distanceMetres.Value.ToString("0.0") + " m)"
+                    : " (range check skipped - no world-space position)")
+                + "; entity sunk + 1210 unavailable, ledgers + persisted record removed.");
+            return Multiplayer.StationPickupOutcome.Grant;
+        }
+
+        /// <summary>
+        /// Tells every viewer that a packed station is gone: its 1210 prompt is no
+        /// longer available and its 190602 is sunk under the terrain - the exact
+        /// atlas-shard disappearance pattern (<see cref="BroadcastShardCollected"/>),
+        /// because WAReborn has no RemoveEntityOp. A late joiner is instead seeded
+        /// the same state by the serializer, which reads the pickup tombstone
+        /// (StationPickupLedger) in its 190602 and 1210 branches.
+        /// </summary>
+        private static void BroadcastStationPickedUp(long stationEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(stationEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, stationEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                    {
+                        availUpdate.ApplyTo(storedInteract);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, stationEntityId,
+                        new List<uint> { InteractiveStateComponentId },
+                        new List<object> { availUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, stationEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                        new Improbable.Corelibrary.Transforms.TransformState.Update()
+                            .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                                new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                    {
+                        sink.ApplyTo(storedTransform);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, stationEntityId,
+                        new List<uint> { TransformStateComponentId },
+                        new List<object> { sink });
+                }
+            }
+        }
+
+        // ==================================================================
         // FUEL CANISTERS. The FUEL crafting-material gather loop. A canister is a
         // SALVAGE TARGET, not a pickup: retail fuel is obtained by salvaging fuel
         // canisters with the gauntlet salvage tool, the same tool and flow as metal

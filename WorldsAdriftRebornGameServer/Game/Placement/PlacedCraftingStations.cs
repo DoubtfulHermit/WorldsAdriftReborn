@@ -48,6 +48,17 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             return ByEntityId.TryGetValue(entityId, out string? owner) ? owner : "";
         }
 
+        /// <summary>
+        /// Drops a station that was PACKED back into inventory (station pickup).
+        /// The pickup tombstone (StationPickupLedger) is what keeps the ghost
+        /// entity sunk and unavailable for late joiners. A no-op for an unknown
+        /// id; returns whether anything was removed.
+        /// </summary>
+        internal static bool Remove(long entityId)
+        {
+            return ByEntityId.Remove(entityId);
+        }
+
         /// <summary>How many crafting stations have been deployed this session.</summary>
         internal static int Count => ByEntityId.Count;
     }

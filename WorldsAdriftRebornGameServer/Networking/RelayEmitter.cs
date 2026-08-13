@@ -335,6 +335,34 @@ namespace WorldsAdriftRebornGameServer.Networking
             return state;
         }
 
+        /// <summary>
+        /// The last accepted 190602 position this peer published about its own
+        /// avatar, in the game's fixed-point wire units, or false when none is
+        /// held (relay v2 off - the raw path never stores it - or the peer has
+        /// not moved yet). CAVEAT for callers doing distance checks: this is the
+        /// position in whatever SPACE the client publishes in - world space on
+        /// foot, but SHIP-LOCAL while parented to a moving hull - so gate on the
+        /// aboard tracker before treating it as a world coordinate. Used by the
+        /// station-pickup transaction's authoritative range check.
+        /// </summary>
+        internal bool TryLastPosition(ulong senderPeerId, out FixedPointPosition position)
+        {
+            position = default;
+            if (!_senders.TryGetValue(senderPeerId, out SenderState? state) || !state.HasPosition)
+            {
+                return false;
+            }
+
+            Improbable.Collections.List<long> fp = state.LastPosition.fixedPointValues;
+            if (fp == null || fp.Count < 3)
+            {
+                return false;
+            }
+
+            position = new FixedPointPosition(fp[0], fp[1], fp[2]);
+            return true;
+        }
+
         // ------------------------------------------------------------------
         // EMIT - driven by ONE call per main-loop turn.
         // ------------------------------------------------------------------

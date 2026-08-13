@@ -95,6 +95,41 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             return session;
         }
 
+        /// <summary>
+        /// Whether ANY player's craft session is bound to this placed station - a
+        /// recipe selected there (<c>SchematicId</c> non-empty) - and whether any of
+        /// those sessions holds slotted materials. The station-pickup busy gate:
+        /// packing a station out from under a live craft would blank the crafting
+        /// player's UI and (with materials slotted) eat their slot reservations.
+        /// Sessions are event-count small (one per player per context), so a scan
+        /// per pickup EVENT is nothing.
+        /// </summary>
+        public static bool AnyBoundTo(long stationEntityId, out bool anyMaterialsSlotted)
+        {
+            bool anyCraft = false;
+            anyMaterialsSlotted = false;
+            foreach (CraftSession session in Sessions.Values)
+            {
+                if (session.StationEntityId != stationEntityId)
+                {
+                    continue;
+                }
+                if (!string.IsNullOrEmpty(session.SchematicId))
+                {
+                    anyCraft = true;
+                }
+                foreach (SlotHold hold in session.Slots)
+                {
+                    if (hold.Amount > 0)
+                    {
+                        anyMaterialsSlotted = true;
+                        break;
+                    }
+                }
+            }
+            return anyCraft;
+        }
+
         /// <summary>Drops every session belonging to this player (personal and any station targets).</summary>
         public static void Forget(long playerEntityId)
         {

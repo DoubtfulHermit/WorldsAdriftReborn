@@ -112,6 +112,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         continue;
                     }
 
+                    // A PLACED STATION (shipyard / Assembly Station): the non-retail
+                    // "pack it back into inventory" extension. The client mod's
+                    // dedicated hold-to-pack key (StationPickup_Patch) issues the SAME
+                    // native TriggerInteractWithObject(station, PickUp) the shard path
+                    // uses; the server validates + grants in the pure-policy
+                    // transaction TryPickUpPlacedStation (StationPickupPolicy is the
+                    // single gate - ownership and verb are handed to it, exactly like
+                    // the shard dispatch above). The tombstone clause routes a
+                    // duplicate event on a just-packed station to the same transaction
+                    // so it is REJECTED with a named reason instead of falling through
+                    // silently. Every decision gets one greppable [pickup] line.
+                    if (Placement.PlacedShipyards.IsPlacedShipyard(pickupTarget)
+                        || Placement.PlacedCraftingStations.IsPlacedCraftingStation(pickupTarget)
+                        || Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(pickupTarget))
+                    {
+                        Multiplayer.StationPickupOutcome outcome =
+                            WorldsAdriftRebornGameServer.TryPickUpPlacedStation(
+                                player, entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
+                        Console.WriteLine("[pickup] station PickUp by entity " + entityId
+                            + " on " + pickupTarget + " -> " + outcome + ".");
+                        continue;
+                    }
+
                     // NOTE: a FUEL CANISTER is deliberately NOT handled here. Retail fuel
                     // is SALVAGED with the gauntlet beam, not picked up, so its shots
                     // arrive on 2106 (MultitoolSalvagerState_Handler -> OnSalvageShot ->

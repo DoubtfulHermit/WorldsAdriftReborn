@@ -84,6 +84,18 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             return ByEntityId.ContainsKey(entityId);
         }
 
+        /// <summary>
+        /// Drops a shipyard that was PACKED back into inventory (station pickup).
+        /// After this the 1205/1210 serve branches stop treating the entity as a
+        /// placed yard; the pickup tombstone (StationPickupLedger) is what keeps
+        /// the ghost entity sunk and unavailable for late joiners. A no-op for an
+        /// unknown id; returns whether anything was removed.
+        /// </summary>
+        internal static bool Remove(long entityId)
+        {
+            return ByEntityId.Remove(entityId);
+        }
+
         /// <summary>How many shipyards have been deployed this session.</summary>
         internal static int Count => ByEntityId.Count;
     }

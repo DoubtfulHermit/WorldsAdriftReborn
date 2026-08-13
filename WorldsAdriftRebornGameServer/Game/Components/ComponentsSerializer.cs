@@ -218,6 +218,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
 
+                        // A PACKED station (shipyard / Assembly Station picked back up
+                        // into inventory) is likewise gone: seed the late joiner the
+                        // same sunk position everyone present was teleported to at
+                        // pickup (BroadcastStationPickedUp). Its membership ledgers are
+                        // removed at pickup, so the tombstone is the only thing that
+                        // still knows the entity - the registry entry itself must stay
+                        // (no RemoveEntityOp exists to retire it).
+                        if (Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
                         // A BOLTED SHIP PART is seeded hull-RELATIVE so it follows the
                         // moving hull instead of drifting. The localPosition becomes the
                         // part's offset FROM the hull and the parent names the hull with
@@ -739,6 +751,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             // batch risk) while suppressing the lie; the real gate is 1099
                             // isSalvageable.
                             if (WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId))
+                            {
+                                available = false;
+                            }
+                            // A PACKED station lands on this generic branch too (its
+                            // membership ledgers were removed at pickup, so the
+                            // isCraftStation check above no longer claims it). It is
+                            // sunk under the terrain, but never advertise a prompt on
+                            // the ghost either - the same "a prompt is never a lie"
+                            // rule the canister above follows.
+                            if (Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId))
                             {
                                 available = false;
                             }

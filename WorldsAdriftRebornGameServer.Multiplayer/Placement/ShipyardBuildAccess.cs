@@ -87,5 +87,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
             }
             return 0;
         }
+
+        /// <summary>
+        /// Revokes EVERY player's grant that points at <paramref name="shipyardEntityId"/> -
+        /// the yard was packed back into inventory (station pickup), so no 1219 may keep
+        /// naming it. Returns the players whose grant was dropped, so the caller can push
+        /// each a cleared 1219 if it wants to. Grants at other yards are untouched.
+        /// </summary>
+        public IReadOnlyList<long> RevokeAllFor(long shipyardEntityId)
+        {
+            List<long> revoked = new List<long>();
+            foreach (KeyValuePair<long, long> grant in _shipyardByPlayer)
+            {
+                if (grant.Value == shipyardEntityId)
+                {
+                    revoked.Add(grant.Key);
+                }
+            }
+            foreach (long playerEntityId in revoked)
+            {
+                _shipyardByPlayer.Remove(playerEntityId);
+            }
+            return revoked;
+        }
     }
 }

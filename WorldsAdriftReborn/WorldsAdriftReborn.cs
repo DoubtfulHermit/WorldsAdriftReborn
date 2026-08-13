@@ -86,6 +86,12 @@ namespace WorldsAdriftReborn
             // whether the loading barrier held. Allocation-free between spikes.
             gameObject.AddComponent<Patching.Performance.StutterProbe>();
 
+            // Hold X (configurable: [Interact] Interact_StationPickupKey) while
+            // looking at a placed Shipyard / Assembly Station to send the server a
+            // 1211 PickUp and pack it back into inventory - the client half of the
+            // non-retail station-pickup extension. The E/Craft flow is untouched.
+            gameObject.AddComponent<Patching.Interactions.StationPickupSender>();
+
             // Ground-truth orientation probe: logs the RENDERED hull/helm/deck
             // world rotations every 5 s ("[WAR][orient]"). Exists because every
             // server-side orientation check ran against our own reimplementation
