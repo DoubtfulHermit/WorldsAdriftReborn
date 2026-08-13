@@ -38,12 +38,53 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [Fact]
         public void Every_precache_name_is_a_real_client_prefab()
         {
-            foreach (string name in ShipPartClientPrecache.PrefabNames)
+            foreach (string name in ShipPartClientPrecache.PrefabNames
+                         .Concat(ShipPartClientPrecache.WorldPrefabNames))
             {
                 Assert.True(ClientEntityPrefabs.CanResolve(name),
                     "Precache entry '" + name + "' is not a loadable client prefab -"
                     + " the boot precache would log a load error every start.");
             }
+        }
+
+        [Fact]
+        public void Every_resolvable_deployable_asset_is_on_the_client_precache_list()
+        {
+            // A deployable the census can resolve WILL be broadcast
+            // AssetLoadRequest+AddEntity back-to-back on placement, and can be
+            // timeout-advanced past its request at connect - both lose the async
+            // load race unless the prefab is already warm. Rows the census cannot
+            // resolve (Trunk, MountedBox: assetVerified false) are exempt: they
+            // cannot be precached without a boot error, and they cannot render
+            // anyway until a real prefab name is found for them.
+            HashSet<string> precached = new(
+                ShipPartClientPrecache.PrefabNames.Concat(ShipPartClientPrecache.WorldPrefabNames),
+                StringComparer.Ordinal);
+
+            foreach (Multiplayer.Placement.DeployableDef def in Multiplayer.Placement.Deployables.All)
+            {
+                if (!ClientEntityPrefabs.CanResolve(def.AssetName))
+                {
+                    continue;
+                }
+
+                Assert.True(precached.Contains(def.AssetName),
+                    "Deployable '" + def.ItemTypeId + "' asset '" + def.AssetName
+                    + "' is missing from the client precache - its placement broadcast"
+                    + " would race the async prefab load. Add it to"
+                    + " ShipPartClientPrecache.WorldPrefabNames.");
+            }
+        }
+
+        [Fact]
+        public void The_global_entity_and_the_stations_are_precached()
+        {
+            // The exact prefabs the 2026-08-12 spawn-chain stall left invisible:
+            // the streamed-after tail. Pinned by name so a list refactor cannot
+            // silently drop them.
+            Assert.Contains("GlobalEntity", ShipPartClientPrecache.WorldPrefabNames);
+            Assert.Contains("Shipyard", ShipPartClientPrecache.WorldPrefabNames);
+            Assert.Contains("CraftingStation", ShipPartClientPrecache.WorldPrefabNames);
         }
 
         [Fact]
@@ -66,10 +107,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void Append_to_null_yields_the_full_part_list()
+        public void Append_to_null_yields_the_full_deduplicated_list()
         {
+            // Parts + world prefabs, each exactly once (the two arrays share
+            // ContainerMedium/ContainerLarge so the union is smaller than the sum).
+            int distinct = ShipPartClientPrecache.PrefabNames
+                .Concat(ShipPartClientPrecache.WorldPrefabNames)
+                .Distinct(StringComparer.Ordinal)
+                .Count();
+
             List<string> merged = ShipPartClientPrecache.AppendTo(null!);
-            Assert.Equal(ShipPartClientPrecache.PrefabNames.Length, merged.Count);
+            Assert.Equal(distinct, merged.Count);
+            Assert.Contains("GlobalEntity", merged);
         }
 
         [Fact]

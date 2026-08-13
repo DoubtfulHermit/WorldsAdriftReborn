@@ -136,7 +136,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 || KeyHasPrefix(key, "fuel-pod-")
                 || KeyHasPrefix(key, "tree-")
                 || KeyHasPrefix(key, "databank-")
-                || KeyHasPrefix(key, "metal-");
+                || KeyHasPrefix(key, "metal-")
+                // THE GLOBAL ENTITY. It is world-wide DATA, not scenery: the biome
+                // Voronoi table every deposit's GlobalBiomeDataVisualizer waits on.
+                // Its registered position is a parking spot (the island origin), not
+                // a location - leaving it distant let the connect-time interest gate
+                // range-test that parking spot against the spawn point and silently
+                // skip the entity, and with it every deposit's rock. Data entities
+                // must never be range-gated, so it is initial by key.
+                || key == WorldEntities.GlobalEntityKey
+                // PLACED DEPLOYABLES (shipyard, assembly station, storage...) and
+                // crafted LOOSE PARTS. These are the player's own load-bearing
+                // structures, placed at or near the spawn island - but they are
+                // registered with the position the CLIENT reported at placement,
+                // which is in the client's island-LOCAL space, while the interest
+                // gate's center is the WORLD-space spawn point ~17 km away in raw
+                // coordinates. Left distant, the gate skipped them SILENTLY on every
+                // connect ("requesting the game to load Shipyard": 0 hits for a whole
+                // boot; live sessions 2026-08-12/13) and the restored stations were
+                // invisible to every joining player. Until registration positions are
+                // in one coordinate space, player-made structures are initial by key:
+                // never range-gated, streamed behind the loading screen they belong
+                // behind anyway.
+                || KeyHasPrefix(key, "placed-")
+                || KeyHasPrefix(key, Ship.LoosePartPlacement.KeyPrefix);
         }
 
         private static bool KeyHasPrefix(string? key, string prefix)

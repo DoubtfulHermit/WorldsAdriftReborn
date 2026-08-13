@@ -80,6 +80,17 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                     Debug.LogWarning("[WAReborn] RESCUED prefab '" + key + "' with a synchronous"
                         + " Resources load; the async precache had not finished before AddEntity."
                         + " The entity will render normally.");
+
+                    // The prefab is loaded NOW, so if its AssetLoadRequestOp is
+                    // still unanswered (the async prepared-callback that normally
+                    // replies has not run - and may never run), send the server the
+                    // SAME asset-loaded reply the normal path sends. Without it the
+                    // server's spawn chain sat waiting on this step forever and
+                    // every world entity behind it was never delivered (the
+                    // 2026-08-12 stall). AssetLoadAck guarantees one reply per
+                    // request: if the async callback fires later anyway, its
+                    // duplicate send is skipped.
+                    AssetLoadAck.TryAckNow(prefabName);
                 }
             }
 
