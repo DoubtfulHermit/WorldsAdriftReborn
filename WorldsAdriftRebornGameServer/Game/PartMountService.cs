@@ -260,13 +260,26 @@ namespace WorldsAdriftRebornGameServer.Game
             // forward - the pilot camera aligns to the SHIP's rotation on man, so a
             // helm mounted at an angle leaves the pilot steering while looking off the
             // side of the ship (measured live: "places me in this direction and forward
-            // goes THAT way"). Force hull-local identity for helms; every other part
-            // keeps the player's placed rotation.
+            // goes THAT way"). The lock is hull-local identity COMPOSED with the
+            // WAREBORN_HELM_MOUNT_YAW offset (default 90 - the raw-identity lock left
+            // the wheel measured 90 degrees off live); every other part keeps the
+            // player's placed rotation. HelmMountLock is the ONE definition all three
+            // commit sites below (190602, 1120 attach fields, ledger/persistence)
+            // draw from, so they cannot disagree.
             bool isHelmMount = Crafting.LooseParts.DefFor(partEntityId)?.ItemType == "helm";
+            double helmYawDegrees = Multiplayer.Ship.HelmMountLock.YawDegrees();
+            (float W, float X, float Y, float Z) helmLock = Multiplayer.Ship.HelmMountLock.LockRotation(helmYawDegrees);
             uint packedShipLocalRotation = isHelmMount
-                ? Multiplayer.Placement.Quaternion32Packing.Identity
+                ? Multiplayer.Ship.HelmMountLock.PackedLockRotation(helmYawDegrees)
                 : Multiplayer.Placement.Quaternion32Packing.Encode(
                     pp.shipLocalRotation.w, pp.shipLocalRotation.x, pp.shipLocalRotation.y, pp.shipLocalRotation.z);
+            if (isHelmMount)
+            {
+                Console.WriteLine("[info] part-mount: HELM lock -> hull-local yaw "
+                    + helmYawDegrees.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    + " deg (packed " + packedShipLocalRotation + ", knob "
+                    + Multiplayer.Ship.HelmMountLock.YawEnvVar + ").");
+            }
             long sample = NextTimelineSample();
             float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var transformUpdate = ShipPartTransform.BuildWakeUpdate(
@@ -312,6 +325,14 @@ namespace WorldsAdriftRebornGameServer.Game
             // Both the 190602 localRotation (above) and the 1120 attach bookkeeping now
             // carry the player's placed rotation, so the part sits at the orientation it
             // was placed at rather than snapping to identity.
+            // The same helm rotation lock as the 190602 packing above: 1120 and the
+            // last-attachment record must agree with the served transform, or a
+            // re-checkout would restore the tilted facing. Full-precision quaternion
+            // here (the 1120 fields are not packed); (w,x,y,z) ctor order - the
+            // identity used elsewhere in this file is new Quaternion(1, 0, 0, 0).
+            Improbable.Corelib.Math.Quaternion attachRotation = isHelmMount
+                ? new Improbable.Corelib.Math.Quaternion(helmLock.W, helmLock.X, helmLock.Y, helmLock.Z)
+                : pp.shipLocalRotation;
             ShipPartState.Update partUpdate = new ShipPartState.Update()
                 .SetAttached(true)
                 .SetHeld(false)
@@ -319,13 +340,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetHeldByTool(EntityId.InvalidEntityId)
                 .SetAttachedTo(new EntityId(hullEntityId))
                 .SetAttachPos(pp.shipLocalPosition)
-                // The same helm rotation lock as the 190602 packing above: 1120 and the
-                // last-attachment record must agree with the served transform, or a
-                // re-checkout would restore the tilted facing.
-                .SetAttachRot(isHelmMount ? Improbable.Corelib.Math.Quaternion.Identity : pp.shipLocalRotation)
+                .SetAttachRot(attachRotation)
                 .SetLastAttachment(new RelativeLocation(
-                    new EntityId(hullEntityId), pp.shipLocalPosition,
-                    isHelmMount ? Improbable.Corelib.Math.Quaternion.Identity : pp.shipLocalRotation))
+                    new EntityId(hullEntityId), pp.shipLocalPosition, attachRotation))
                 .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
             ShipPublisher.Broadcast(partEntityId, 1120u, partUpdate);
 
