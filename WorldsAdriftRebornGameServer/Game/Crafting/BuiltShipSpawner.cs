@@ -264,8 +264,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 {
                     return;
                 }
-                Console.WriteLine("[info] built-ship spawn: hull geometry - "
-                    + ShipHullMetrics.Measure(model).Describe()
+                ShipHullMetrics metrics = ShipHullMetrics.Measure(model);
+                // A beam-dominant hull is logged at WARN, not INFO: it is the single
+                // most-reported live confusion ("my ship flies sideways"), the answer
+                // is a hull change and not a server change, and a line buried at info
+                // level among the spawn chatter has twice now failed to be the thing
+                // anyone found. WideHullAdvice() is the shared wording - the man-the-
+                // helm log (ShipFlightService.StartPiloting) prints the same sentence.
+                string level = metrics.KeelIsLongestAxis ? "[info]" : "[warn]";
+                Console.WriteLine(level + " built-ship spawn: hull geometry - "
+                    + metrics.Describe()
                     + " " + panelCount + " deck panel(s).");
             }
             catch (System.Exception e)

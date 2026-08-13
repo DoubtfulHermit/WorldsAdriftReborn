@@ -397,6 +397,54 @@ namespace WorldsAdriftRebornGameServer.Game
             Console.WriteLine("[flight] entity " + playerEntityId + " MANNED helm " + helmEntityId + " of hull "
                 + hullEntityId + " at " + session.State + "; 1109 driving=" + driveTarget
                 + (DriveTargetIsHelm ? " (helm)" : " (hull)") + (pushed ? " pushed." : " PUSH FAILED."));
+
+            LogHullShapeOnMan(hullEntityId);
+        }
+
+        /// <summary>
+        /// Prints the hull's measured shape THE MOMENT A PILOT TAKES THE HELM, and
+        /// escalates to a warning when the hull's beam exceeds its keel.
+        ///
+        /// WHY HERE AS WELL AS AT SPAWN. The spawn line is emitted once, at build or
+        /// at boot restore, and by the time the player says "it goes sideways" it is
+        /// thousands of lines back - or in a previous boot's log entirely, because a
+        /// restored ship is spawned before anyone connects. Manning the helm is the
+        /// exact instant the complaint is generated, so the explanation belongs on
+        /// the same timestamp. Same sentence as the spawn line
+        /// (<see cref="ShipHullMetrics.WideHullAdvice"/>), so two logs cannot tell
+        /// two stories.
+        ///
+        /// Never throws and never blocks the man: a hull with no registered bytes
+        /// (the static test hull) simply says nothing.
+        /// </summary>
+        private static void LogHullShapeOnMan(long hullEntityId)
+        {
+            try
+            {
+                byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
+                if (hullBytes == null
+                    || !Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out var model, out _)
+                    || model == null)
+                {
+                    return;
+                }
+
+                var metrics = Multiplayer.Ship.ShipHullMetrics.Measure(model);
+                string? advice = metrics.WideHullAdvice();
+                if (advice == null)
+                {
+                    Console.WriteLine("[flight] hull " + hullEntityId + " geometry - " + metrics.Describe());
+                    return;
+                }
+
+                Console.WriteLine("[warn] flight: hull " + hullEntityId + " geometry - " + metrics.Describe());
+                Console.WriteLine("[warn] flight: " + advice);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[warn] flight: could not measure hull " + hullEntityId
+                    + " geometry on man: " + e.Message);
+            }
         }
 
         private void StopPiloting(ENetPeerHandle player, long playerEntityId, long helmEntityId, long hullEntityId, string why)

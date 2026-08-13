@@ -140,6 +140,63 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         }
 
         /// <summary>
+        /// How many cells long the hull is FORE-AND-AFT, i.e. how many distinct cell
+        /// numbers it spans. This is NOT <see cref="CellCount"/>: a multi-deck ship
+        /// has several cells at the same cell number stacked in y, and only the
+        /// along-ship run governs the keel. Zero for an empty plan.
+        /// </summary>
+        public int CellsAlongKeel => CellCount == 0 ? 0 : (ForemostCellNumber - AftmostCellNumber + 1);
+
+        /// <summary>
+        /// How many MORE cells the player must extrude forward or astern before the
+        /// keel is at least the beam, or 0 when the hull is already long enough.
+        /// The actionable number: <see cref="CellsForKeelToMatchBeam"/> less what
+        /// they have.
+        /// </summary>
+        public int CellsToAddForKeelToMatchBeam
+        {
+            get
+            {
+                int needed = CellsForKeelToMatchBeam - CellsAlongKeel;
+                return needed > 0 ? needed : 0;
+            }
+        }
+
+        /// <summary>
+        /// THE PLAYER-FACING SENTENCE for a hull whose beam exceeds its keel, or
+        /// null when the hull is a normal long ship and there is nothing to say.
+        ///
+        /// This is the wording every channel that ever tells a player about hull
+        /// shape must reuse - the spawn log and the man-the-helm log today - so a
+        /// player who reads two of them cannot get two different stories. It names
+        /// the symptom in the words the player used ("it flies sideways"), the
+        /// cause, and the exact fix in editor operations rather than metres, because
+        /// "extrude two more cells" is something you can do and "your keel is 8 m"
+        /// is not.
+        ///
+        /// The dimensions themselves are NOT repeated here: <see cref="Describe"/>
+        /// prints those immediately before this on the same line.
+        /// </summary>
+        public string? WideHullAdvice()
+        {
+            if (CellCount == 0 || KeelIsLongestAxis)
+            {
+                return null;
+            }
+
+            CultureInfo c = CultureInfo.InvariantCulture;
+            int add = CellsToAddForKeelToMatchBeam;
+            return "BEAM EXCEEDS KEEL - THIS HULL IS WIDER THAN IT IS LONG, so its bow (+Z, where the pilot camera"
+                + " looks and where W drives the ship) runs across its SHORT side and the ship"
+                + " reads as flying sideways. This is the DESIGN, not a rotation bug: a stock"
+                + " cell is 12 m of beam to only 4 m of keel, so a hull needs "
+                + CellsForKeelToMatchBeam.ToString(c) + " cells at this width to be as long as"
+                + " it is wide, and this one has " + CellsAlongKeel.ToString(c) + ". THE FIX IS"
+                + " IN THE SHIPYARD: extrude " + add.ToString(c) + " more cell(s) fore or aft"
+                + " (or narrow the sections) and the bow becomes the long axis.";
+        }
+
+        /// <summary>
         /// Measure a decoded plan. Never throws for a well-formed plan; an EMPTY plan
         /// measures as all-zero rather than blowing up a spawn path.
         /// </summary>
@@ -256,10 +313,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public string Describe()
         {
             CultureInfo c = CultureInfo.InvariantCulture;
-            string shape = KeelIsLongestAxis
-                ? "keel is the long axis"
-                : "BEAM EXCEEDS KEEL - this hull is wider than it is long, so its bow is its SHORT axis"
-                  + " (needs " + CellsForKeelToMatchBeam.ToString(c) + " cells at this width to match)";
+            string shape = WideHullAdvice() ?? "keel is the long axis - a normal ship, nothing to flag";
 
             return CellCount.ToString(c) + " cell(s) on " + DeckCount.ToString(c) + " deck(s), cells "
                 + AftmostCellNumber.ToString(c) + ".." + ForemostCellNumber.ToString(c)
@@ -267,7 +321,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 + KeelMetres.ToString("0.##", c) + " m (Z); bow at local +Z z="
                 + BowLocalZMetres.ToString("0.##", c) + " m, stern z="
                 + SternLocalZMetres.ToString("0.##", c) + " m; deck plane y="
-                + DeckPlaneMetres.ToString("0.##", c) + " m; " + shape + ".";
+                // WideHullAdvice() is a full sentence and punctuates itself; the
+                // normal-ship phrase does not.
+                + DeckPlaneMetres.ToString("0.##", c) + " m; " + shape
+                + (shape.EndsWith(".", StringComparison.Ordinal) ? "" : ".");
         }
     }
 }
