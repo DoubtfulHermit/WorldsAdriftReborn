@@ -132,6 +132,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         WorldsAdriftRebornGameServer.Flight.OnManInteraction(
                             player, entityId, man.target.Id, ownsPlayer);
                     }
+                    else if (man.verb == InteractVerb.Default && man.target.Id <= 0 && ownsPlayer)
+                    {
+                        // THE PILOT'S ACTUAL EXIT, measured live: a seated pilot pressing
+                        // the interact key produced `verb Default on target -1` events -
+                        // NOT the ReleaseInteraction the design expected and NOT a re-Man
+                        // (while driving, the player is not aiming at the helm's collider,
+                        // so the client has no target and sends the default verb with an
+                        // invalid id). Route it to the release path, which dismounts a
+                        // seated pilot and is a no-op for everyone else - so "E gets me
+                        // off the helm" finally holds.
+                        WorldsAdriftRebornGameServer.Flight.OnReleaseInteraction(
+                            player, entityId, man.target.Id);
+                    }
                 }
             }
 

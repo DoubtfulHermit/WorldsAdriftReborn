@@ -55,13 +55,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 // zero input) and GRANTED on the player, because ShipControlsBehaviour
                 // needs the writer and PilotVisualizer dereferences the HULL's reader
                 // (SetInitialInput) the moment 1109 DrivingEntityId goes valid.
-                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1306 },
+                // 1257/1121 (the mass chain) left this set: the pilot's own
+                // ShipControlsBehaviour.UpdateVertical reads them every frame while
+                // driving regardless of visualizer enablement, so absence NRE-flooded
+                // (12,077/session measured). They are SERVED now.
+                new uint[] { 1139, 1269, 1225, 1235, 1306 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
         [Theory]
-        [InlineData(1257u)] // ParentingMassAdderState
-        [InlineData(1121u)] // OriginalMassState
         [InlineData(1225u)] // LightningStrikableState
         [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
         [InlineData(1306u)] // ShipAtlasPulseState (ship entity, cosmetic core pulse)

@@ -184,7 +184,15 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
             PilotSeats.Seat? seat = _seats.SeatOf(playerEntityId);
-            if (seat == null || (targetEntityId != seat.Value.HelmEntityId && targetEntityId != seat.Value.HullEntityId))
+            // An INVALID target releases whatever seat the player holds: the measured
+            // live exit is `verb Default on target -1` (a driving pilot is not aiming
+            // at the helm, so the client has no target to name). A VALID target still
+            // has to match the seat, so a release aimed at some other object cannot
+            // eject a pilot.
+            if (seat == null
+                || (targetEntityId > 0
+                    && targetEntityId != seat.Value.HelmEntityId
+                    && targetEntityId != seat.Value.HullEntityId))
             {
                 return;
             }

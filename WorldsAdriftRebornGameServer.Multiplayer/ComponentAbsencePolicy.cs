@@ -266,8 +266,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             WeatherCellStateComponentId,
             RadialStormStateComponentId,
-            ParentingMassAdderStateComponentId,
-            OriginalMassStateComponentId,
+            // 1257 ParentingMassAdderState and 1121 OriginalMassState left this set:
+            // absence was NOT safe. The hull's ParentingMassAdderVisualizer.totalMass
+            // is read by ShipLiftVisualizer.Load/IsOverloaded, which the PILOT'S OWN
+            // ShipControlsBehaviour.UpdateVertical calls every frame while driving -
+            // a never-injected mass reader NRE'd 12,077 times in one measured session
+            // and killed the flight input loop outright (and the sky-core glow before
+            // it). Both are now SERVED with modest reconstructed masses.
             LightningStrikableStateComponentId,
             DetachFromParentWhenUnderHealthThresholdStateComponentId,
             // 1111 ShipControlInput is NO LONGER absent - it is SERVED (neutral

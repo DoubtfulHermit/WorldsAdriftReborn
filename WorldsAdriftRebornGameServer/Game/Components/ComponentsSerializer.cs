@@ -2607,6 +2607,34 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     // and LodgeableStateData.cs (ctor bool,EntityId,string). See
                     // findings-atlas-shards §2 + §4 step 3.
                     // ------------------------------------------------------------------
+                    else if (componentId == 1257)
+                    {
+                        // 1257 ParentingMassAdderState - {float mass, bool reliable}
+                        // (VERIFIED ctor gencode Bossa.Travellers.Ship/ParentingMassAdderState.cs:375).
+                        // The hull's mass, read by ShipLiftVisualizer.Load/IsOverloaded and,
+                        // through it, the pilot's ShipControlsBehaviour.UpdateVertical EVERY
+                        // FRAME while driving - absence NRE'd the whole flight input loop
+                        // (12,077/session measured). Mass is a RECONSTRUCTION (retail values
+                        // lost): modest enough that the flight-agent's generous 1258 lift
+                        // seed keeps Load < 1 (not overloaded), tunable without rebuild.
+                        float shipMass = 800f;
+                        string? massEnv = Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS");
+                        if (!string.IsNullOrEmpty(massEnv) && float.TryParse(massEnv,
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out float parsedMass)
+                            && parsedMass > 0f && parsedMass < 1000000f)
+                        {
+                            shipMass = parsedMass;
+                        }
+                        obj = new Bossa.Travellers.Ship.ParentingMassAdderState.Data(shipMass, false);
+                    }
+                    else if (componentId == 1121)
+                    {
+                        // 1121 OriginalMassState - {float mass} (VERIFIED ctor gencode
+                        // Bossa.Travellers.Ship/OriginalMassState.cs:309). A part's own
+                        // authored mass; served modest so parented parts add sane weight.
+                        obj = new Bossa.Travellers.Ship.OriginalMassState.Data(50f);
+                    }
                     else if (componentId == 1294)
                     {
                         // 1294 UidState - a single long uid (VERIFIED ctor: UidState.Data(long),
