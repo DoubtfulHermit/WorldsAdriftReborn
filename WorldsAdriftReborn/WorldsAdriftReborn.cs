@@ -85,6 +85,13 @@ namespace WorldsAdriftReborn
             // slice), a 30 s heartbeat, and the activation timestamp that proves
             // whether the loading barrier held. Allocation-free between spikes.
             gameObject.AddComponent<Patching.Performance.StutterProbe>();
+
+            // Ground-truth orientation probe: logs the RENDERED hull/helm/deck
+            // world rotations every 5 s ("[WAR][orient]"). Exists because every
+            // server-side orientation check ran against our own reimplementation
+            // of the hull mesh - if that decode is axis-swapped relative to what
+            // the client actually draws, only the rendered numbers can show it.
+            gameObject.AddComponent<Patching.Flight.OrientationProbe>();
         }
 
         /// <summary>
