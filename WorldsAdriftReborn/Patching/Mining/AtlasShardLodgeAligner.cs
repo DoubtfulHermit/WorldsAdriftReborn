@@ -1,5 +1,7 @@
 using System;
 using System.Collections;
+using Assets.Visualizers;
+using Bossa.Travellers.Interact;
 using UnityEngine;
 
 namespace WorldsAdriftReborn.Patching.Mining
@@ -64,6 +66,11 @@ namespace WorldsAdriftReborn.Patching.Mining
         private Coroutine _routine;
         private Transform _slotTransform;
         private bool _following;
+        private Renderer[] _renderers;
+        private InteractiveObjectVisualizer _interactVis;
+        private static readonly System.Reflection.FieldInfo InteractiveField =
+            HarmonyLib.AccessTools.Field(typeof(InteractiveObjectVisualizer), "_interactive");
+        private bool _hidden;
 
         private long _shardEntityId;
         private long _rockCoreId;
@@ -190,7 +197,10 @@ namespace WorldsAdriftReborn.Patching.Mining
             // resolution; LateUpdate keeps the pose glued to the slot.
             _slotTransform = target.transform;
             _following = true;
+            _renderers = _view != null ? _view.GetComponentsInChildren<Renderer>(true) : null;
+            _interactVis = GetComponent<InteractiveObjectVisualizer>();
             FollowSlot();
+            UpdateVisibility();
 
             Debug.Log("[WAR][atlas] shard " + _shardEntityId + " lodged in core " + _rockCoreId
                 + " slot " + slot + " (" + slots.Length + " slot(s) on this variant, follow-pose).");
@@ -271,6 +281,54 @@ namespace WorldsAdriftReborn.Patching.Mining
                 }
 
                 FollowSlot();
+                UpdateVisibility();
+            }
+        }
+
+        /// <summary>
+        /// Retail hides the shard inside the closed rock: the crystal is only seen once
+        /// the crust is broken open. Our slot pose can poke through an intact shell, so
+        /// while LODGED the crystal renders only when the server says it is takeable
+        /// (1210 available flips true on crust-break exposure). Released/collected
+        /// shards are always visible. Reflection is null-safe: if anything is missing,
+        /// the shard stays VISIBLE - a poking crystal is a cosmetic bug, an invisible
+        /// grabbable one is a gameplay bug.
+        /// </summary>
+        private void UpdateVisibility()
+        {
+            if (_renderers == null || _renderers.Length == 0)
+            {
+                return;
+            }
+
+            bool visible = true;
+            try
+            {
+                if (_following && _interactVis != null && InteractiveField != null)
+                {
+                    var reader = InteractiveField.GetValue(_interactVis) as InteractiveStateReader;
+                    if (reader != null)
+                    {
+                        visible = reader.Available;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                visible = true;
+            }
+
+            if (visible == !_hidden)
+            {
+                return;
+            }
+            _hidden = !visible;
+            for (int i = 0; i < _renderers.Length; i++)
+            {
+                if (_renderers[i] != null)
+                {
+                    _renderers[i].enabled = visible;
+                }
             }
         }
 
@@ -291,6 +349,8 @@ namespace WorldsAdriftReborn.Patching.Mining
         {
             _following = false;
             _slotTransform = null;
+            // A freed (or sunk) shard must never stay hidden.
+            UpdateVisibility();
 
             if (_core != null && _onCoreExploded != null)
             {

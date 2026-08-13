@@ -74,11 +74,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(LoadBarrierPolicy.IsInitialKey(WorldEntities.HelmKey));
             Assert.True(LoadBarrierPolicy.IsInitialKey(WorldEntities.DeckKey));
 
-            // Trees, ore, and the diagnostic proof island are distant scenery: they
-            // stream in but must not gate the loading screen.
-            Assert.False(LoadBarrierPolicy.IsInitialKey("tree"));
-            Assert.False(LoadBarrierPolicy.IsInitialKey("metal-node-3"));
+            // THE WHOLE STATIC WORLD is initial now: this client instantiates
+            // entities synchronously on the main thread, so anything streaming in
+            // AFTER the screen lifts is a visible hitch on any OS - the observed
+            // "stutters when the game starts rendering". A small island's statics
+            // cost a few extra seconds of loading screen instead.
+            Assert.True(LoadBarrierPolicy.IsInitialKey("tree-7"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("metal-node-3"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("deposit-4"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("atlas-shard-deposit-4"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("fuel-pod-1"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("databank-0"));
+
+            // Truly non-world keys still stream late and never gate the screen.
             Assert.False(LoadBarrierPolicy.IsInitialKey(WorldEntities.ProofIslandKey));
+            Assert.False(LoadBarrierPolicy.IsInitialKey("shipwreck"));
             Assert.False(LoadBarrierPolicy.IsInitialKey(null));
         }
 
@@ -118,26 +128,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Contains(WorldEntities.IslandKey, initialKeys);
             Assert.Contains(WorldEntities.ShipFrameKey, initialKeys);
 
-            // The distant set is the bulk of the registry - the scenery that used to
-            // sit on the join critical path.
-            Assert.True(distant.Count > initial.Count,
-                "the whole point is that most entities are distant and no longer block activation");
+            // DESIGN CHANGE: the static world moved INTO the initial set (synchronous
+            // client instantiation makes anything streaming after activation a visible
+            // hitch), so the initial set is now the bulk of the registry and the
+            // distant set holds only the leftovers (proof island, diagnostics).
+            Assert.True(initial.Count > distant.Count,
+                "the static world loads behind the screen now - initial should dominate");
         }
 
         [Fact]
-        public void The_initial_set_is_bounded_and_does_not_grow_with_the_tree_and_ore_counts()
+        public void The_initial_set_grows_with_the_static_world_so_it_all_loads_behind_the_screen()
         {
-            // A world with ten times the scenery still has the same small initial
-            // set: island + ship + parts. This is why join cost stops being
-            // proportional to total world size.
+            // DESIGN CHANGE: the static world is IN the initial set now, so a
+            // bigger world means a longer loading screen - never more in-view
+            // stutter. The initial count must therefore grow with the scenery.
             WorldEntityRegistry small = WorldEntities.Default(new EntityIdAllocator(),
                 treeCountEnv: "3", oreCountEnv: "3");
             WorldEntityRegistry big = WorldEntities.Default(new EntityIdAllocator(),
                 treeCountEnv: "40", oreCountEnv: "40");
 
-            Assert.Equal(
-                LoadBarrierPolicy.InitialEntities(small).Count,
-                LoadBarrierPolicy.InitialEntities(big).Count);
+            Assert.True(
+                LoadBarrierPolicy.InitialEntities(big).Count
+                    > LoadBarrierPolicy.InitialEntities(small).Count);
         }
     }
 }

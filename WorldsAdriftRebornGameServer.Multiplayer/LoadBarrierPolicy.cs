@@ -122,7 +122,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 // the loading screen (frozen, out of view). Left out of the initial set
                 // they stream in-view after the barrier lifts and freeze/crash the
                 // second player - the observed regression. See BuiltShipPlacement.
-                || Ship.BuiltShipPlacement.IsBuiltShipEntityKey(key);
+                || Ship.BuiltShipPlacement.IsBuiltShipEntityKey(key)
+                // THE WHOLE STATIC WORLD. This client instantiates entities
+                // SYNCHRONOUSLY on the main thread (~100 ms/frame budget), so every
+                // deposit/tree/shard/canister that streams in AFTER the screen lifts is
+                // a visible hitch - the "game stutters when it starts rendering" both
+                // players reported, on Windows and Linux alike (platform-independent,
+                // so not a wine problem). Retail hid exactly this behind its loading
+                // screen. A single small island's statics are a few seconds of extra
+                // loading screen instead of half a minute of in-view stutter.
+                || KeyHasPrefix(key, "deposit-")
+                || KeyHasPrefix(key, "atlas-shard-")
+                || KeyHasPrefix(key, "fuel-pod-")
+                || KeyHasPrefix(key, "tree-")
+                || KeyHasPrefix(key, "databank-")
+                || KeyHasPrefix(key, "metal-");
+        }
+
+        private static bool KeyHasPrefix(string? key, string prefix)
+        {
+            return key != null && key.StartsWith(prefix, StringComparison.Ordinal);
         }
 
         /// <summary>
