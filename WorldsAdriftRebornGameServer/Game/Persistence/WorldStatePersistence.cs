@@ -158,6 +158,31 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
+        /// Makes a built ship's departure from its original shipyard restart-durable.
+        /// The ship stays at the same persistent index because mounted-part records use
+        /// that index; only the obsolete build-time dock link is cleared.
+        /// </summary>
+        internal static void ClearBuiltShipDock(int persistentIndex)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count)
+            {
+                Console.WriteLine("[warning] world persistence: cannot clear dock link for invalid built-ship index "
+                    + persistentIndex + ".");
+                return;
+            }
+
+            BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            if (!record.ShipyardPosition().HasValue)
+            {
+                return;
+            }
+
+            record.ClearShipyardDock();
+            Save();
+        }
+
+        /// <summary>
         /// Records a LOOSE part and writes the document atomically. UPSERT by <c>PartUid</c>:
         /// a part re-persisted as loose (e.g. lifted off a ship) replaces its prior loose
         /// record rather than adding a second, so the part can never restore twice.

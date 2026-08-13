@@ -232,7 +232,8 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>
         /// The pilot's peer is gone (ForgetPeer). No 1109 to push - there is nobody
         /// to push it to - but the seat frees and the ship settles to a stop instead
-        /// of flying on with a ghost's throttle.
+        /// of flying on with a ghost's throttle. This deliberately differs from a
+        /// clean ReleaseInteraction, which leaves the physical throttle lever latched.
         /// </summary>
         public void OnPlayerGone(long playerEntityId)
         {
@@ -240,7 +241,7 @@ namespace WorldsAdriftRebornGameServer.Game
             PilotSeats.Seat? seat = _seats.Release(playerEntityId);
             if (seat != null && _sessions.TryGetValue(seat.Value.HullEntityId, out FlightSession? session))
             {
-                session.Dismount();
+                session.Abandon();
                 Console.WriteLine("[flight] pilot entity " + playerEntityId + " disconnected while piloting hull "
                     + seat.Value.HullEntityId + "; ship settles to rest at " + session.State + ".");
             }
@@ -273,6 +274,13 @@ namespace WorldsAdriftRebornGameServer.Game
             if (seat != null && _sessions.TryGetValue(seat.Value.HullEntityId, out FlightSession? session))
             {
                 session.SetInput(merged);
+                // A real control input is the first authoritative evidence that the
+                // newly-built ship has LEFT its construction dock. Zero/neutral packets
+                // while taking the wheel do not undock it; the first motion command does.
+                if (!merged.IsNeutral)
+                {
+                    Crafting.BuiltShipSpawner.UndockDepartingHull(seat.Value.HullEntityId);
+                }
             }
         }
 
@@ -357,7 +365,9 @@ namespace WorldsAdriftRebornGameServer.Game
                             + (session.IsManned
                                 ? " piloted by entity " + _seats.PilotOf(hullEntityId)!.Value.PlayerEntityId
                                     + ", input " + session.Input
-                                : " settling")
+                                : (session.Input.Throttle != 0f
+                                    ? " cruising unmanned on latched throttle " + session.Input.Throttle.ToString("0.##")
+                                    : " settling"))
                             + "; 1111 rx " + _inputPacketsSinceStats + " in last "
                             + StatsInterval.TotalSeconds.ToString("0") + " s.");
                         _inputPacketsSinceStats = 0;
@@ -383,7 +393,12 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             session.Man();
-            _inputs[playerEntityId] = FlightControlInput.Neutral;
+            // Seed the delta-merge ledger from the ship's actual lever state.
+            // ShipControlInput updates omit unchanged fields; a re-manning client
+            // initialized from the hull's echoed 1111 may therefore send no
+            // throttle field at all. Starting this ledger at neutral would turn an
+            // unrelated steering delta into an accidental throttle reset.
+            _inputs[playerEntityId] = session.Input;
             _helmByHull[hullEntityId] = helmEntityId;
 
             long driveTarget = DriveTargetIsHelm ? helmEntityId : hullEntityId;
@@ -452,6 +467,11 @@ namespace WorldsAdriftRebornGameServer.Game
             if (_sessions.TryGetValue(hullEntityId, out FlightSession? session))
             {
                 session.Dismount();
+                // Publish the released transient axes and retained physical lever
+                // immediately. Waiting for the next 0.24 s flight tick leaves a
+                // small window where a quick re-man reads the old full control
+                // state (including steering) from the hull visualizer.
+                EchoHelmFeedback(hullEntityId, session);
             }
             _inputs.Remove(playerEntityId);
 
@@ -496,17 +516,18 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <item>the HULL's ShipControlInputVisualizer is what
         ///   ShipControlsBehaviour.SetInitialInput reads on man - echoing the
         ///   held state here means a RE-manned helm resumes at the ship's actual
-        ///   controls instead of snapping to zero.</item>
+        ///   latched throttle instead of snapping to zero.</item>
         /// </list>
         /// RATE, the safety argument: event-on-change ONLY (the exact-equality
         /// compare), evaluated at the 0.24 s tick - so the worst case is ~4.2
         /// updates/s per entity while the pilot is actively moving the stick,
         /// zero while held or parked, never the client's raw 20 Hz. Unmanned
-        /// sessions echo one final NEUTRAL so the wheel centres after dismount.
+        /// sessions keep echoing the latched throttle but zero the wheel, climb and
+        /// attitude controls after dismount. A disconnect echoes full neutral.
         /// </summary>
         private void EchoHelmFeedback(long hullEntityId, FlightSession session)
         {
-            FlightControlInput current = session.IsManned ? session.Input : FlightControlInput.Neutral;
+            FlightControlInput current = session.Input;
             if (_lastEchoed.TryGetValue(hullEntityId, out FlightControlInput previous) && previous == current)
             {
                 return;

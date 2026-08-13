@@ -170,7 +170,9 @@ namespace WorldsAdriftRebornGameServer
 
                 // The pilot seat, if this entity held one. The seat frees (the next
                 // player can Man the helm) and the flight session settles the ship
-                // to rest instead of flying on with a ghost's held throttle - the
+                // to rest instead of flying on with a disconnected ghost's held
+                // throttle. A clean in-game release is different: its physical
+                // forward/reverse lever deliberately remains latched - the
                 // exact "invisible per-life state" class of leak this contract
                 // exists to prevent.
                 Flight.OnPlayerGone(ownEntity.Value);

@@ -461,11 +461,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
                             : new Coordinates(0, 0, 0);
 
-                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, true, false);
+                        bool isDocked = dockShipyardId != 0;
+                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, isDocked, false);
 
                         Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
-                            + " (docked=true, dockShipyard=" + dockShipyardId + "); the shipyard now presents an"
-                            + " active docked ship for the crafted-part lift.");
+                            + " (docked=" + isDocked + ", dockShipyard=" + dockShipyardId + ").");
                     }
                     else if(componentId == 1258 && Game.Crafting.BuiltShips.IsBuiltHull(entityId))
                     {

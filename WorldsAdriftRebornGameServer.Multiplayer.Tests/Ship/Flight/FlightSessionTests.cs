@@ -67,7 +67,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Dismount_settles_to_rest_then_repeats_then_goes_quiet()
+        public void Explicit_stop_then_dismount_settles_to_rest_then_repeats_then_goes_quiet()
         {
             FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
             session.Man();
@@ -75,6 +75,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
             long now = 1_000_000;
             Drive(session, ref now, 20); // up to speed
+            session.SetInput(Throttle(0f)); // pilot deliberately parks the lever
             session.Dismount();
 
             // Settling: max speed / accel = 3 s = ~13 ticks of deceleration, then
@@ -98,6 +99,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             session.SetInput(Throttle(1f));
             long now = 1_000_000;
             Drive(session, ref now, 10);
+            session.SetInput(Throttle(0f));
             session.Dismount();
             Drive(session, ref now, 60); // settle + repeats + quiet
 
@@ -142,6 +144,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             session.Man();
             session.SetInput(Throttle(1f));
             Collect(20);
+            session.SetInput(Throttle(0f));
             session.Dismount();
             Collect(40);            // settle + rest + quiet
             now += 30_000;          // half a minute of silence
@@ -167,6 +170,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             session.SetInput(Throttle(1f));
             long now = 1_000_000;
             Drive(session, ref now, 20);
+            session.SetInput(Throttle(0f));
             session.Dismount();
             Drive(session, ref now, 40);
 
@@ -218,16 +222,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Manning_clears_stale_input_from_the_previous_pilot()
+        public void A_clean_dismount_latches_forward_throttle_and_releases_steering_and_climb()
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            session.SetInput(new FlightControlInput(0.75f, 0.8f, -0.4f, 0.6f, -0.7f));
+            session.Dismount();
+
+            Assert.Equal(0.75f, session.Input.Throttle);
+            Assert.Equal(0f, session.Input.Vertical);
+            Assert.Equal(0f, session.Input.AxisPitch);
+            Assert.Equal(0f, session.Input.AxisYaw);
+            Assert.Equal(0f, session.Input.AxisRoll);
+        }
+
+        [Theory]
+        [InlineData(1f, 1)]
+        [InlineData(-1f, -1)]
+        public void A_released_helm_keeps_its_latched_forward_or_reverse_command(float throttle, int expectedDirection)
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            session.SetInput(Throttle(throttle));
+            session.Dismount(); // before even one integration tick: exercises the race boundary
+
+            long now = 1_000_000;
+            List<FlightEmit> emitted = Drive(session, ref now, 20);
+
+            Assert.False(session.IsManned);
+            Assert.Equal(throttle, session.Input.Throttle);
+            Assert.Equal(expectedDirection, Math.Sign(session.State.Z));
+            Assert.Equal(20, emitted.Count);
+            Assert.False(session.State.IsAtRest);
+        }
+
+        [Fact]
+        public void The_next_pilot_inherits_the_latched_lever_for_delta_merging()
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            session.SetInput(Throttle(0.6f));
+            session.Dismount();
+
+            session.Man();
+
+            Assert.Equal(0.6f, session.Input.Throttle);
+        }
+
+        [Fact]
+        public void A_disconnect_abandons_stale_throttle_and_settles_safely()
         {
             FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
             session.Man();
             session.SetInput(Throttle(1f));
-            session.Dismount();
-            session.Man();
+            long now = 1_000_000;
+            Drive(session, ref now, 20);
 
+            session.Abandon();
+            Drive(session, ref now, 40);
+
+            Assert.True(session.Input.IsNeutral);
+            Assert.True(session.State.IsAtRest);
+
+            session.Man();
             Assert.True(session.Input.IsNeutral,
-                "a fresh pilot must not inherit the previous pilot's throttle");
+                "a reconnect after an unclean disconnect must not inherit ghost throttle");
         }
     }
 

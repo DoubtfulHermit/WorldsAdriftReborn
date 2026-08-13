@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Bossa.Travellers.Items;
+using Bossa.Travellers.Ship;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Persistence;
@@ -402,6 +403,44 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             {
                 PushDockedShipId(peer, shipyardEntityId, 0);
             }
+        }
+
+        /// <summary>
+        /// Clears both sides of the dock relationship when a built hull first receives
+        /// flight input. This is the real gameplay counterpart of the old debug-file
+        /// undock trigger: it frees the shipyard's build/reclaim state, updates both the
+        /// yard (1205) and hull (1114) on every client, and removes the saved build-time
+        /// dock link so a restart cannot silently re-dock a ship that flew away.
+        /// </summary>
+        internal static bool UndockDepartingHull(long hullEntityId)
+        {
+            long shipyardEntityId = BuiltShips.ShipyardForHull(hullEntityId);
+            if (shipyardEntityId == 0 || BuiltShips.ClearDocked(shipyardEntityId) != hullEntityId)
+            {
+                return false;
+            }
+
+            int? persistentIndex = BuiltShips.PersistentIndexFor(hullEntityId);
+            if (persistentIndex.HasValue)
+            {
+                WorldStatePersistence.ClearBuiltShipDock(persistentIndex.Value);
+            }
+
+            DockableState.Update hullUpdate = new DockableState.Update()
+                .SetDockEntityId(new EntityId(0))
+                .SetDocked(false)
+                .SetApproachingDock(false);
+
+            foreach (ENetPeerHandle peer in ConnectedPeers())
+            {
+                PushDockedShipId(peer, shipyardEntityId, 0);
+                SendOPHelper.SendComponentUpdateOp(peer, hullEntityId,
+                    new List<uint> { 1114 }, new List<object> { hullUpdate });
+            }
+
+            Console.WriteLine("[flight] hull " + hullEntityId + " departed shipyard " + shipyardEntityId
+                + "; cleared runtime and persisted dock links and pushed 1205/1114 undocked state.");
+            return true;
         }
     }
 }

@@ -23,7 +23,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
     /// <summary>
     /// One hull's flight, as a pure state machine the service ticks: manned
-    /// (integrate pilot input), settling (pilot left, integrate to a stop),
+    /// (integrate pilot input), cruising on the helm's latched throttle after a
+    /// voluntary release, settling after an explicit stop or abandoned connection,
     /// resting repeats (belt-and-braces re-sends of the final zero-velocity
     /// point, the ferry's own trick against a dropped last packet), then a slow
     /// KEEPALIVE forever - because a client that joins after the flight seeds
@@ -69,27 +70,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         public bool IsManned => _manned;
 
-        /// <summary>The pilot took the helm: fresh input, live cadence.</summary>
+        /// <summary>
+        /// The pilot took the helm. The ship's latched throttle remains where the
+        /// previous pilot left its physical lever; transient axes were already
+        /// released by <see cref="Dismount"/>. The incoming client's initial 1111
+        /// state can then replace individual fields without an artificial idle snap.
+        /// </summary>
         public void Man()
         {
             _manned = true;
-            _input = FlightControlInput.Neutral;
             _restEmitted = 0;
         }
 
         /// <summary>
-        /// The pilot left the helm. Input goes neutral and the session SETTLES:
-        /// it keeps integrating until the ship stands still rather than freezing
-        /// mid-air with stale velocity on the wire.
+        /// The pilot voluntarily left the helm. The forward/reverse throttle is a
+        /// latched lever and stays where they left it; steering, pitch and vertical
+        /// controls release to zero. Setting the lever to zero before dismount is
+        /// therefore the explicit stop command and naturally settles the ship.
         /// </summary>
         public void Dismount()
+        {
+            _manned = false;
+            _input = _input.LatchedThrottleOnly();
+            _restEmitted = 0;
+        }
+
+        /// <summary>
+        /// The pilot vanished without a clean release. Unlike a deliberate
+        /// dismount, a disconnect must not leave an unattended ship powered by a
+        /// possibly stale client command. Neutralize everything and settle safely.
+        /// </summary>
+        public void Abandon()
         {
             _manned = false;
             _input = FlightControlInput.Neutral;
             _restEmitted = 0;
         }
 
-        /// <summary>Latest 1111-derived input. Ignored (kept neutral) when unmanned.</summary>
+        /// <summary>Latest 1111-derived input. Ignored (kept unchanged) when unmanned.</summary>
         public void SetInput(FlightControlInput input)
         {
             if (_manned)
@@ -108,7 +126,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public FlightEmit Advance(long nowMs, double stepSeconds, FlightTuning tuning)
         {
-            bool live = _manned || !_state.IsAtRest;
+            // A latched non-zero throttle is live even if the pilot released the
+            // helm before the first integration tick, while the hull is technically
+            // still at rest. Without this term that perfectly valid command would
+            // be parked forever merely because release won a scheduling race.
+            bool live = _manned || !_state.IsAtRest || _input.Throttle != 0f;
 
             if (live)
             {

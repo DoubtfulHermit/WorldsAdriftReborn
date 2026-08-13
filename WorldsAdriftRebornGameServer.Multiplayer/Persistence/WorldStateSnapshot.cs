@@ -102,6 +102,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
             (ShipyardX == 0 && ShipyardY == 0 && ShipyardZ == 0)
                 ? (FixedPointPosition?)null
                 : new FixedPointPosition(ShipyardX, ShipyardY, ShipyardZ);
+
+        /// <summary>
+        /// Permanently removes the build-time dock link after the ship leaves its
+        /// shipyard. The record itself remains at the same stable list index (mounted
+        /// parts reference that index), but a later boot must not infer that a flown-away
+        /// ship is still docked merely because this is the yard that originally built it.
+        /// </summary>
+        public void ClearShipyardDock()
+        {
+            ShipyardX = 0;
+            ShipyardY = 0;
+            ShipyardZ = 0;
+        }
     }
 
     /// <summary>

@@ -9,8 +9,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// FinishAndSend_ResolveDiff, VERIFIED in the decompiled gencode): while the
     /// pilot HOLDS full throttle the client sends NOTHING, because nothing
     /// changed. So "no packet" means "input unchanged", never "input released" -
-    /// the server must keep the last value until a new one arrives or the pilot
-    /// dismounts. A staleness timeout here would stop a ship mid-flight while
+    /// the server must keep the last value until a new one arrives. A staleness
+    /// timeout here would stop a ship mid-flight while
     /// its pilot is happily holding W.
     ///
     /// FIELD MEANING, off ShipControlsBehaviour.SendData
@@ -76,6 +76,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 axisYaw ?? AxisYaw,
                 axisRoll ?? AxisRoll);
         }
+
+        /// <summary>
+        /// The helm's latched propulsion lever after nobody is holding the wheel.
+        /// Throttle is a persistent lever (including explicit stop and reverse),
+        /// while climb and the three steering axes are active piloting controls and
+        /// must be released to zero so an empty helm cannot keep turning or climbing.
+        /// </summary>
+        public FlightControlInput LatchedThrottleOnly() =>
+            new FlightControlInput(Throttle, 0f, 0f, 0f, 0f);
 
         /// <summary>
         /// A client-supplied axis, made safe: NaN/Infinity become 0 (a broken

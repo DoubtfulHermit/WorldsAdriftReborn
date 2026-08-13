@@ -56,6 +56,16 @@ namespace WorldsAdriftReborn.Patching.Interactions
         private float _held;
         private bool _sentThisHold;
 
+        // A PickUp packet is only a request. Keep the exact station we requested
+        // until its server-owned 1210 reader changes to available=false. The
+        // server sends a 190602 sink at the same time, but these prefabs use
+        // StaticLocalTransformBehaviour, whose retail OnEnable reads 190602 once
+        // and deliberately never observes later updates. Therefore the 1210
+        // transition is the authoritative live-removal signal.
+        private long _pendingTarget;
+        private InteractiveObjectVisualizer _pendingVisualizer;
+        private GameObject _pendingStationObject;
+
         private void Update()
         {
             try
@@ -73,6 +83,8 @@ namespace WorldsAdriftReborn.Patching.Interactions
 
         private void Tick()
         {
+            CompleteAuthoritativeRemoval();
+
             if (LookingAtInstanceProp == null || LookingAtInteractiveProp == null)
             {
                 Debug.LogWarning("[WAR][pickup] PlayerLookingAt not resolvable via reflection; station pickup is off.");
@@ -134,7 +146,20 @@ namespace WorldsAdriftReborn.Patching.Interactions
                 if (!_sentThisHold && _held >= HoldSeconds)
                 {
                     _sentThisHold = true; // once per hold; release re-arms
-                    Send(lookingAt, target, station.IsShipyard);
+                    if (Send(lookingAt, target, station.IsShipyard))
+                    {
+                        _pendingTarget = target.Id;
+                        _pendingVisualizer = visualizer;
+                        // The behaviour can live below the entity root. Disable
+                        // SpatialOS's whole underlying prefab, not merely the
+                        // console child, so renderers, collision and UI bindings
+                        // all leave together.
+                        Improbable.Unity.Internal.EntityObject entity =
+                            station.gameObject.GetSpatialOsEntity();
+                        _pendingStationObject = entity != null
+                            ? entity.UnderlyingGameObject
+                            : station.gameObject;
+                    }
                 }
             }
             else
@@ -149,19 +174,59 @@ namespace WorldsAdriftReborn.Patching.Interactions
         /// TriggerInteractWithObject(target, PickUp) on the player's own 1211 -
         /// through the game's own public InteractAgentObserver.IssueInteraction.
         /// </summary>
-        private static void Send(Component lookingAt, EntityId target, bool isShipyard)
+        private static bool Send(Component lookingAt, EntityId target, bool isShipyard)
         {
             InteractAgentObserver observer = lookingAt.GetComponent<InteractAgentObserver>();
             if (observer == null)
             {
                 Debug.LogWarning("[WAR][pickup] no InteractAgentObserver on the player rig; cannot send PickUp.");
-                return;
+                return false;
             }
 
             observer.IssueInteraction(target, InteractVerb.PickUp);
             Debug.Log("[WAR][pickup] sent PickUp (1211 InteractWithObject) for "
                 + (isShipyard ? "shipyard" : "assembly station") + " entity " + target.Id
                 + "; the server decides (watch its [pickup] log lines).");
+            return true;
+        }
+
+        /// <summary>
+        /// Hides a packed station only after the server accepts the transaction.
+        /// InteractiveState.available=false is safe as the acknowledgement because
+        /// the target was available when PlayerLookingAt let us arm on it, and the
+        /// pickup transaction is the only station path that flips it false. A
+        /// rejection leaves it true, so the station remains visible and usable.
+        /// </summary>
+        private void CompleteAuthoritativeRemoval()
+        {
+            if (_pendingTarget <= 0 || _pendingVisualizer == null)
+            {
+                return;
+            }
+
+            long observedTarget = _pendingVisualizer.EntityId.Id;
+            if (!WorldsAdriftRebornGameServer.Multiplayer.Placement.StationPickupVisibilityPolicy.ShouldHide(
+                    _pendingTarget, observedTarget, _pendingVisualizer.InteractionEnabled))
+            {
+                return;
+            }
+
+            Debug.Log("[WAR][pickup] server accepted pickup for station entity "
+                + _pendingTarget + "; hiding its static prefab locally.");
+
+            // Disable rather than Destroy: SpatialOS still owns this entity because
+            // this transport has no RemoveEntityOp. Disabling runs the prefab's
+            // normal OnDisable cleanup (crafting UI registration, looking-at cache,
+            // audio/VFX) while the server tombstone and removed persistence record
+            // keep it absent for late joiners and future boots.
+            if (_pendingStationObject != null)
+            {
+                _pendingStationObject.SetActive(false);
+            }
+
+            _pendingTarget = 0;
+            _pendingVisualizer = null;
+            _pendingStationObject = null;
         }
 
         private void Disarm()

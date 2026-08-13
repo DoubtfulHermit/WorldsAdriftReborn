@@ -94,6 +94,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
         }
 
         [Fact]
+        public void Clearing_a_built_ships_dock_link_keeps_the_ship_but_prevents_redock_on_restart()
+        {
+            FixedPointPosition yard = FixedPointPosition.FromMetres(17200, -310, -1100);
+            var record = new BuiltShipRecord
+            {
+                HullX = 1,
+                HullBytes = new byte[] { 4, 2 },
+                ShipyardX = yard.X,
+                ShipyardY = yard.Y,
+                ShipyardZ = yard.Z,
+            };
+            Assert.Equal(yard, record.ShipyardPosition());
+
+            record.ClearShipyardDock();
+
+            Assert.Null(record.ShipyardPosition());
+            Assert.Equal(1, record.HullX);
+            Assert.Equal(new byte[] { 4, 2 }, record.HullBytes);
+        }
+
+        [Fact]
         public void Multiple_records_of_each_kind_all_survive_in_order()
         {
             WorldStateSnapshot snapshot = new WorldStateSnapshot();

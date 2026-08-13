@@ -510,6 +510,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0.7f, merged.AxisYaw, 5);
         }
 
+        [Theory]
+        [InlineData(1f)]
+        [InlineData(0f)]
+        [InlineData(-0.65f)]
+        public void Latched_helm_state_keeps_forward_stop_or_reverse_but_releases_transient_controls(float throttle)
+        {
+            FlightControlInput active = new FlightControlInput(throttle, 0.8f, -0.4f, 0.6f, -0.7f);
+
+            FlightControlInput latched = active.LatchedThrottleOnly();
+
+            Assert.Equal(throttle, latched.Throttle);
+            Assert.Equal(0f, latched.Vertical);
+            Assert.Equal(0f, latched.AxisPitch);
+            Assert.Equal(0f, latched.AxisYaw);
+            Assert.Equal(0f, latched.AxisRoll);
+        }
+
         [Fact]
         public void Input_equality_is_field_exact_for_the_echo_dedupe()
         {
