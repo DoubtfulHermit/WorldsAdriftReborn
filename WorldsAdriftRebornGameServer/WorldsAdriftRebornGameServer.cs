@@ -3321,8 +3321,41 @@ namespace WorldsAdriftRebornGameServer
             EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
         }
 
+        // Native-library resolvers for running the game server directly on Linux
+        // .NET. Under Windows/Wine the stock CoreSdkDll.dll and msvcrt resolve in
+        // the normal way, so this is deliberately inert there. The legacy Worker
+        // SDK imports msvcrt.dll!memcpy and CoreSdkDll from its own assembly; on
+        // Linux those map to glibc and the native shim staged beside this server.
+        // Install before ENet or generated-component serialization touches either.
+        private static bool nativeResolverInstalled;
+        private static void InstallNativeLibraryResolvers()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || nativeResolverInstalled)
+            {
+                return;
+            }
+            nativeResolverInstalled = true;
+
+            NativeLibrary.SetDllImportResolver(typeof(ComponentProtocol).Assembly,
+                (name, assembly, searchPath) =>
+                {
+                    if (name.StartsWith("msvcrt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return NativeLibrary.Load("libc.so.6");
+                    }
+                    if (name == "CoreSdkDll")
+                    {
+                        return NativeLibrary.Load("libCoreSdkDll.so",
+                            typeof(EnetLayer).Assembly, DllImportSearchPath.AssemblyDirectory);
+                    }
+                    return IntPtr.Zero;
+                });
+        }
+
         static unsafe void Main( string[] args )
         {
+            InstallNativeLibraryResolvers();
+
             Console.CancelKeyPress += delegate ( object? sender, ConsoleCancelEventArgs e )
             {
                 keepRunning = false;
