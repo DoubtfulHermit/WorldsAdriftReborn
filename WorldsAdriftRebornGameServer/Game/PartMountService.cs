@@ -345,6 +345,24 @@ namespace WorldsAdriftRebornGameServer.Game
                 packedShipLocalRotation,
                 ownerCharacterUid));
 
+            // INTERACTABLE-PART LEDGERS: a mounted sail/lamp/horn becomes operable
+            // (1211 Activate via PartInteractionService). Fresh-mount defaults are the
+            // states the parts have always served: sail furled, lamp on, horn charged.
+            // Register is idempotent, so a re-mount after a lift starts fresh (the
+            // lift's Unregister cleared the old state).
+            switch (def?.ItemType)
+            {
+                case "sail":
+                    WorldsAdriftRebornGameServer.Sails.Register(partEntityId, hullEntityId);
+                    break;
+                case "lamp":
+                    WorldsAdriftRebornGameServer.Lamps.Register(partEntityId, hullEntityId);
+                    break;
+                case "horn":
+                    WorldsAdriftRebornGameServer.Horns.Register(partEntityId, hullEntityId);
+                    break;
+            }
+
             Console.WriteLine("[info] part-mount: MOUNTED part " + partEntityId + " onto hull " + hullEntityId
                 + " at hull-local " + localOffset + " (attached=true, Parent(hull,\"~\")). Mount #"
                 + MountedParts.Count + " this session.");

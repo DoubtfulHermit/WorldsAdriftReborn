@@ -132,6 +132,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         WorldsAdriftRebornGameServer.Flight.OnManInteraction(
                             player, entityId, man.target.Id, ownsPlayer);
                     }
+                    else if (man.verb == InteractVerb.Activate)
+                    {
+                        // MOUNTED PART ACTIVATE (sail furl/unfurl, lamp switch, horn
+                        // honk): ALWAYS-ON like the Man dispatch above - the service's
+                        // per-part ledgers are the single gate, so an Activate on
+                        // anything else costs three dictionary misses. The Activate
+                        // verb is baked into the Sail01/Lamp01/Horn01 prefabs' own
+                        // InteractiveObjectVisualizer (decompile-verified), and the
+                        // prompt only appears once the 1210 mounted-part branch
+                        // advertises a matching entry, so an unhandled Activate here
+                        // is a client poking at something not interactable yet.
+                        bool handled = WorldsAdriftRebornGameServer.PartInteractions
+                            .OnActivateInteraction(entityId, man.target.Id, ownsPlayer);
+                        if (!handled)
+                        {
+                            Console.WriteLine("[info] 1211 Activate on target " + man.target.Id
+                                + " matched no mounted sail/lamp/horn ledger; ignored.");
+                        }
+                    }
                     else if (man.verb == InteractVerb.Default && man.target.Id <= 0 && ownsPlayer)
                     {
                         // THE PILOT'S ACTUAL EXIT, measured live: a seated pilot pressing

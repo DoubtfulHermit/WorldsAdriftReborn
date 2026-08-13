@@ -66,6 +66,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     MountedParts.Mount? priorMount = MountedParts.MountFor(liftedPartId);
                     bool wasMounted = MountedParts.Unmount(liftedPartId);
 
+                    // A lifted part stops being operable: clear its interactable-part
+                    // ledger so its 1210 Activate prompt disappears on the next
+                    // checkout and a re-mount starts from the fresh defaults. No-ops
+                    // for every part that is not a mounted sail/lamp/horn.
+                    WorldsAdriftRebornGameServer.Sails.Unregister(liftedPartId);
+                    WorldsAdriftRebornGameServer.Lamps.Unregister(liftedPartId);
+                    WorldsAdriftRebornGameServer.Horns.Unregister(liftedPartId);
+
                     // Complete the DETACH on the wire (findings-mount-placement.md section 2):
                     // clearing the ledger alone left the client still holding the mounted 8066/
                     // 190602/1120 truth from the last checkout, so carry state contradicted the

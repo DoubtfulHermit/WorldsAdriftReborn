@@ -256,6 +256,23 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 record.PackedRotation,
                 record.OwnerCharacterUid));
 
+            // INTERACTABLE-PART LEDGERS: restore the operable state the save carries -
+            // the sail's furl and the lamp's switch come back exactly as left (LampOff
+            // is stored inverted so a legacy record restores ON); a horn restores
+            // fully charged (a honk is transient, never persisted).
+            switch (part.ItemType)
+            {
+                case "sail":
+                    WorldsAdriftRebornGameServer.Sails.Register(partEntityId, hullEntityId, record.SailUnfurled);
+                    break;
+                case "lamp":
+                    WorldsAdriftRebornGameServer.Lamps.Register(partEntityId, hullEntityId, !record.LampOff);
+                    break;
+                case "horn":
+                    WorldsAdriftRebornGameServer.Horns.Register(partEntityId, hullEntityId);
+                    break;
+            }
+
             Console.WriteLine("[info] loose-part spawn: RESTORED MOUNTED '" + part.ItemType + "' (prefab '"
                 + part.PrefabName + "') as part entity " + partEntityId + " attached to hull " + hullEntityId
                 + " at hull-local " + record.LocalOffset() + " (owner '" + record.OwnerCharacterUid
