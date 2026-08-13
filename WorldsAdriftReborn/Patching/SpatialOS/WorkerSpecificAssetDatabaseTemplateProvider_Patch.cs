@@ -68,6 +68,13 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
 
             if (gObject != null)
             {
+                // Restore the orphaned sky-core socket components (ShipCoreVisualizer /
+                // ShipCoreModuleLocator / ShipCoreModuleVisualizer) to the core templates
+                // - the modern stand-in for the retail ShipCorePreprocessor, which ran at
+                // exactly this stage (prefab compile) but is attached to nothing in this
+                // build. Idempotent, fail-open, and a no-op for every other prefab.
+                SkyCoreSocketRestore.Apply(prefabName, gObject);
+
                 p.Compile(gObject);
                 Debug.LogWarning("COMPILED PLAYER GAMEOBJECT!!!");
             }

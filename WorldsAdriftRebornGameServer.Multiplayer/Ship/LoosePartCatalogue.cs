@@ -187,22 +187,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             new Row("proceduralEngineDefault", "engine",         "Procedural Engine", "ModularEngine", "engine", new uint[] { }),
             new Row("proceduralWingDefault",   "proceduralWing", "Procedural Wing",   "ModularWing",   "wing",   new uint[] { }),
 
-            // --- Sky cores: the main atlas core + its 8 module variants ----------
-            // coreModule attachment routes to ShipCoreAttachmentPlacement.
+            // --- Sky cores: the main atlas core (the BASE) + its 8 modules -------
+            //
+            // THE BASE IS CoreMain, settled by the shipped assets themselves: the
+            // CoreMain_unityclient prefab's LOD0 carries EIGHT authored socket
+            // transforms, one per module, named after the module prefabs -
+            // CoreGeneratorLocator, CoreComputerLocator, CoreAirfilterLocator,
+            // coreCoolantSystemLocator, CoreAtlasEnhancerLocator,
+            // CoreCircuitryNetworkLocator, CoreEfficiencyModuleLocator and
+            // CoreStabiliserLoacotor (the typo ships in the asset) - exactly what
+            // ShipCoreVisualizer.GetTransformForModule reads. No other prefab has
+            // sockets (full UnityPy census over resources.assets + sharedassets0/1 +
+            // globalgamemanagers). So the retail chain is: the CORE stands on the
+            // DECK, and every module - INCLUDING the generator (enum value
+            // AdvancedGenerator) - snaps onto the core. The placement text's "A Sky
+            // core generator" is the retail name of the CoreMain base, not of the
+            // skyCoreGenerator part; the earlier reconstruction that made the
+            // generator the deck base had the chain backwards (live-confirmed: the
+            // core refused to place on the generator - the generator has no sockets).
+            //
+            // The socket components themselves (ShipCoreVisualizer on the base,
+            // ShipCoreModuleVisualizer on the modules, ShipCoreModuleLocator on the
+            // sockets) are STRIPPED from every prefab in this build; the client mod
+            // restores them at template-compile time from SkyCoreSockets, the shared
+            // per-module map (prefab -> ShipCoreModuleTypes -> locator child).
+            //
             // ShipCoreVisualizer [Require]s ONLY 1236 + transform (NOT 1115), and 1236
             // is served crash-safe, so seeding it wakes the core's own visualizer
             // safely; its lift accounting (1258) only matters on a ship, dormant here.
-            new Row("atlasSkyCore",             "skyCore", "Atlas Sky Core",              "CoreMain",             "coreModule", new uint[] { IsTooDamagedToWorkState }),
+            new Row("atlasSkyCore",             "skyCore", "Atlas Sky Core",              "CoreMain",             "deck",       new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreAtlasEnhancer",     "skyCore", "Sky Core Atlas Enhancer",     "CoreAtlasEnhancer",    "coreModule", new uint[] { IsTooDamagedToWorkState }),
-            // THE GENERATOR IS THE BASE OF THE CHAIN, NOT A MODULE. The client maps
-            // "coreModule" -> PlacementLocationType.CoreModule, whose invalid text is
-            // "can only be placed on: A Sky core generator" (PlacementPreview.cs:226-229)
-            // - so with "coreModule" here the generator demanded ITSELF and the whole
-            // core chain was unplaceable (live-confirmed). The generator stands on the
-            // DECK (the proven ShipDeck surface); the core and the other modules then
-            // mount ON it via their own "coreModule". Retail's exact string is lost
-            // refdata - "deck" is the reconstruction that makes the retail chain work.
-            new Row("skyCoreGenerator",         "skyCore", "Sky Core Generator",          "CoreGenerator",        "deck",       new uint[] { IsTooDamagedToWorkState }),
+            new Row("skyCoreGenerator",         "skyCore", "Sky Core Generator",          "CoreGenerator",        "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreAirFilter",         "skyCore", "Sky Core Air Filter",         "CoreAirfilter",        "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreCoolantSystem",     "skyCore", "Sky Core Coolant System",     "CoreCoolantSystem",    "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreStabiliser",        "skyCore", "Sky Core Stabiliser",         "CoreStabiliser",       "coreModule", new uint[] { IsTooDamagedToWorkState }),

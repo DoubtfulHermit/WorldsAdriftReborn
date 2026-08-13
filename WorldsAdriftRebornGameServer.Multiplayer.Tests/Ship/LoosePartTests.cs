@@ -343,6 +343,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 "helm", "sail", "deck", "stairs", "railing", "railingCorner",
                 "trunk", "storageContainer", "shippingContainer",
                 "barrel", "cupboard", "personalReviver",
+                // The sky-core BASE: the only prefab with authored module sockets
+                // (see SkyCoreSocketsTests), so IT stands on the deck and the eight
+                // modules snap onto it.
+                "atlasSkyCore",
             })
             {
                 var part = LoosePartCatalogue.ForSchematic(id)!;
