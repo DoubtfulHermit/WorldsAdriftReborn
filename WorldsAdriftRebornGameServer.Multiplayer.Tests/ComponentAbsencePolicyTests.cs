@@ -50,7 +50,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // ShipAtlasPulseState (1306), both off any render/lift path so the ship
             // hull's interest batch serializes instead of dropping on them.
             Assert.Equal(
-                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111, 1294, 1306 },
+                // 1294 UidState left this set on purpose: it is SERVED now (uid = entity
+                // id), because the player's own movement path reads UidVisualizer.Uid
+                // every tick regardless of enablement and NRE'd when never injected.
+                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111, 1306 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
@@ -60,7 +63,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1225u)] // LightningStrikableState
         [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
         [InlineData(1111u)] // ShipControlInput (helm pilot seat)
-        [InlineData(1294u)] // UidState (ship entity, information-only visualizer)
         [InlineData(1306u)] // ShipAtlasPulseState (ship entity, cosmetic core pulse)
         public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
         {

@@ -2534,6 +2534,18 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     // and LodgeableStateData.cs (ctor bool,EntityId,string). See
                     // findings-atlas-shards §2 + §4 step 3.
                     // ------------------------------------------------------------------
+                    else if (componentId == 1294)
+                    {
+                        // 1294 UidState - a single long uid (VERIFIED ctor: UidState.Data(long),
+                        // gencode Bossa.Travellers.Misc/UidState.cs:309). Served for ANY entity
+                        // that requests it, uid = the entity id (stable and unique per session).
+                        // This id used to be KnownAbsent, which was NOT safe: the player's own
+                        // ClientAuthoritativePlayerMovement.CollectDataHighFrequency reads
+                        // UidVisualizer.Uid every movement tick regardless of visualizer
+                        // enablement, so a never-injected reader threw an NRE per tick
+                        // (3,290 in one measured session - a stutter contributor).
+                        obj = new Bossa.Travellers.Misc.UidState.Data(entityId);
+                    }
                     else if (componentId == 1305)
                     {
                         // 1305 MetalDepositAtlasShardState - {rockCoreId, slotId}. rockCoreId

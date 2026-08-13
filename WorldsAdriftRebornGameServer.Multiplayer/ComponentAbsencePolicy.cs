@@ -260,7 +260,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             LightningStrikableStateComponentId,
             DetachFromParentWhenUnderHealthThresholdStateComponentId,
             ShipControlInputComponentId,
-            UidStateComponentId,
+            // 1294 UidState is NO LONGER absent - it is SERVED (uid = entity id).
+            // Absence was not actually safe: the PLAYER's own
+            // ClientAuthoritativePlayerMovement.CollectDataHighFrequency calls
+            // UidVisualizer.get_Uid every movement tick regardless of visualizer
+            // enablement, and a never-injected reader NRE'd 3,290 times in one
+            // measured session. Serving a real uid fixes the flood at the source.
             ShipAtlasPulseStateComponentId,
         };
 

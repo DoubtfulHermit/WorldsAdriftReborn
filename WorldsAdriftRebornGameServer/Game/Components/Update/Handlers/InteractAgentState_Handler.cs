@@ -136,6 +136,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (InteractWithObject interact in interacts!)
                 {
+                    // DIAGNOSTIC (events only - a handful per session, never per-frame):
+                    // the live "press E on the station, nothing happens" report needs the
+                    // failure NAMED. One line per completed interaction event: verb,
+                    // target, and ownership - so a silent both-ledgers-miss below is
+                    // visible instead of a mystery.
+                    Console.WriteLine("[info] 1211 interact: entity " + entityId + " -> verb "
+                        + interact.verb + " on target " + interact.target.Id
+                        + " (ownsPlayer=" + ownsPlayer + ").");
+
                     if (interact.verb == InteractVerb.Craft)
                     {
                         // Both a placed shipyard and a placed Assembly Station bake the
@@ -148,10 +157,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         long target = interact.target.Id;
                         bool opened = WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
                             player, entityId, target);
+                        bool openedStation = false;
                         if (!opened)
                         {
-                            WorldsAdriftRebornGameServer.Placement.OpenCraftingStationConsole(
+                            openedStation = WorldsAdriftRebornGameServer.Placement.OpenCraftingStationConsole(
                                 player, entityId, target);
+                        }
+                        if (!opened && !openedStation)
+                        {
+                            // Both ledgers missed - previously a SILENT no-op, which reads
+                            // to the player as "I press E and nothing happens". Name it.
+                            Console.WriteLine("[warning] 1211 Craft on target " + target
+                                + " matched NEITHER the placed-shipyard nor the crafting-station"
+                                + " ledger - the console cannot open. Check the target id against"
+                                + " the placement RESTORE lines for this boot.");
                         }
                     }
                 }
