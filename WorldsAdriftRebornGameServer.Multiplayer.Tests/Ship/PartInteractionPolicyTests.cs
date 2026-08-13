@@ -125,11 +125,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(0f, PartInteractionPolicy.ActivateTimeToUse);
         }
 
+        [Theory]
+        [InlineData("helm", PartVerb.Man)]
+        [InlineData("sail", PartVerb.Activate)]
+        [InlineData("lamp", PartVerb.Activate)]
+        [InlineData("horn", PartVerb.Activate)]
+        [InlineData("deck", PartVerb.PickUp)]
+        public void InitialCheckoutSeedsThePrefabBakedVerb(string itemType, PartVerb expected)
+        {
+            // The retail visualizer resolves and caches this entry only in OnEnable.
+            // A loose helm/sail must therefore receive its eventual operational verb
+            // before it mounts; availability, not an interaction-list replacement,
+            // gates the transition.
+            Assert.Equal(expected, PartInteractionPolicy.SeedVerbFor(itemType));
+        }
+
+        [Theory]
+        [InlineData("helm")]
+        [InlineData("sail")]
+        [InlineData("lamp")]
+        [InlineData("horn")]
+        public void OperationalPartsBecomeAvailableOnlyAfterMount(string itemType)
+        {
+            Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, false));
+            Assert.True(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, true));
+        }
+
+        [Fact]
+        public void OrdinaryPartsArePickupAvailableOnlyWhileLoose()
+        {
+            Assert.True(PartInteractionPolicy.IsSeededInteractionAvailable("deck", false));
+            Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable("deck", true));
+        }
+
         /// <summary>The wire values mirrored from the decompiled InteractVerb enum.</summary>
         [Fact]
         public void VerbWireValuesMatchTheClientEnum()
         {
             Assert.Equal(1, (int)PartVerb.Activate);
+            Assert.Equal(2, (int)PartVerb.PickUp);
             Assert.Equal(3, (int)PartVerb.Man);
             Assert.Equal(4, (int)PartVerb.Inventory);
         }

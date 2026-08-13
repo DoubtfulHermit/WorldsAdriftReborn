@@ -14,6 +14,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>InteractVerb.Activate = 1 (sail furl, lamp switch, horn honk).</summary>
         Activate = 1,
 
+        /// <summary>InteractVerb.PickUp = 2 (ordinary loose crafted parts).</summary>
+        PickUp = 2,
+
         /// <summary>InteractVerb.Man = 3 (helm - served by the serializer's own isHelm branch).</summary>
         Man = 3,
 
@@ -110,6 +113,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 default:
                     return PartVerb.None;
             }
+        }
+
+        /// <summary>
+        /// The verb that must be present when a crafted part is FIRST checked out.
+        /// InteractiveObjectVisualizer caches the entry matching its prefab-baked verb
+        /// only in OnEnable; changing the list after mounting does not refresh that cache.
+        /// Therefore future-interactable parts carry their baked verb even while loose,
+        /// with availability gating whether it can actually be used.
+        /// </summary>
+        public static PartVerb SeedVerbFor(string? itemType)
+        {
+            if (itemType == "helm")
+            {
+                return PartVerb.Man;
+            }
+
+            PartVerb mountedVerb = VerbFor(itemType);
+            return mountedVerb != PartVerb.None ? mountedVerb : PartVerb.PickUp;
+        }
+
+        /// <summary>
+        /// Whether the seeded interaction is usable in the part's current attachment
+        /// state. Helms/sails/lamps/horns operate only when mounted; ordinary parts can
+        /// be picked up only while loose.
+        /// </summary>
+        public static bool IsSeededInteractionAvailable(string? itemType, bool isMounted)
+        {
+            PartVerb verb = SeedVerbFor(itemType);
+            return verb == PartVerb.Man || verb == PartVerb.Activate
+                ? isMounted
+                : !isMounted;
         }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using Bossa.Travellers.Motion;
 using Bossa.Travellers.Player;
 using Bossa.Travellers.Ship;
+using Bossa.Travellers.Interact;
 using Improbable;
 using Improbable.Collections;
 using Improbable.Math;
@@ -225,6 +226,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
             ShipPublisher.Broadcast(partEntityId, 1120u, partClear);
 
+            // Helm/sail/lamp/horn keep their prefab-baked interaction entry from
+            // initial checkout, but it is usable only while mounted. The client caches
+            // that entry at OnEnable, so change availability rather than replacing the
+            // interaction list after the fact.
+            if (PartInteractionPolicy.SeedVerbFor(priorMount.ItemType) == PartVerb.Man
+                || PartInteractionPolicy.SeedVerbFor(priorMount.ItemType) == PartVerb.Activate)
+            {
+                ShipPublisher.Broadcast(partEntityId, 1210u,
+                    new InteractiveState.Update().SetAvailable(false));
+            }
+
             Console.WriteLine("[info] part-mount: DETACHED part " + partEntityId + " from hull "
                 + hullEntityId + " for re-placement (8066 cleared, 1120 attached=false, 190602 loose global).");
         }
@@ -381,6 +393,18 @@ namespace WorldsAdriftRebornGameServer.Game
                 case "horn":
                     WorldsAdriftRebornGameServer.Horns.Register(partEntityId, hullEntityId);
                     break;
+            }
+
+            // The correct Man/Activate entry was seeded while loose (unavailable),
+            // because InteractiveObjectVisualizer only caches it in OnEnable. Mounting
+            // now needs exactly one value flip to make the already-cached verb usable.
+            PartVerb seededInteraction = PartInteractionPolicy.SeedVerbFor(def?.ItemType);
+            if (seededInteraction == PartVerb.Man || seededInteraction == PartVerb.Activate)
+            {
+                ShipPublisher.Broadcast(partEntityId, 1210u,
+                    new InteractiveState.Update().SetAvailable(true));
+                Console.WriteLine("[info] part-mount: enabled " + seededInteraction
+                    + " interaction for mounted part " + partEntityId + ".");
             }
 
             Console.WriteLine("[info] part-mount: MOUNTED part " + partEntityId + " onto hull " + hullEntityId

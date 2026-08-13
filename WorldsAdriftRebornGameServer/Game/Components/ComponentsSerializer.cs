@@ -635,22 +635,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isPlacedCraftingStation = !isPlacedShipyard
                             && Placement.PlacedCraftingStations.IsPlacedCraftingStation(entityId);
                         bool isCraftStation = isPlacedShipyard || isPlacedCraftingStation;
-                        // A helm is the STATIC test-ship helm OR a crafted helm part that is
-                        // currently MOUNTED on a built ship. The second case was missing,
-                        // and it is the one every real player has: the Helm01 prefab's
+                        // A helm is the STATIC test-ship helm OR any crafted helm part. The
+                        // latter must receive Man even while still loose because
+                        // InteractiveObjectVisualizer caches the matching entry only once,
+                        // in OnEnable. Availability stays false until it is mounted.
+                        // This is the one every real player has: the Helm01 prefab's
                         // InteractiveObjectVisualizer has verb Man BAKED, and it caches
                         // `Interactions.FirstOrDefault(i => i.verb == Verb)` at enable - so
                         // when this branch served the mounted helm the generic PickUp entry
                         // instead, that lookup found NOTHING and no E prompt could ever
                         // appear (live report: "i dont get the option to press e next to
                         // helm"). Lifting/re-mounting is untouched: parts are lifted with
-                        // the SCANNER (1239), never the E interact. An UNMOUNTED loose helm
-                        // stays on the generic branch - you cannot man a helm lying on the
-                        // ground.
+                        // the SCANNER (1239), never the E interact.
+                        bool isStaticHelm = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
+                            == Multiplayer.WorldEntities.HelmKey;
+                        string? craftedPartItemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
                         bool isHelm = !isCraftStation
-                            && (WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
-                                    == Multiplayer.WorldEntities.HelmKey
-                                || Game.Crafting.MountedParts.MountFor(entityId)?.ItemType == "helm");
+                            && (isStaticHelm || craftedPartItemType == "helm");
                         // An ATLAS SHARD bakes the SAME PickUp verb as the nugget, but its
                         // availability is SERVER-GATED on release: available=false while the
                         // shard is lodged in its core (no prompt), flipped true when the core
@@ -660,7 +661,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // separate replay. See findings-atlas-shards §2 Phase C.
                         bool isAtlasShard = !isCraftStation && !isHelm
                             && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
-                        // A MOUNTED INTERACTABLE PART (sail / lamp / horn): the part
+                        // An INTERACTABLE PART (sail / lamp / horn): the part
                         // prefab's own InteractiveObjectVisualizer carries verb
                         // Activate SERIALIZED (decompile: GetTutorialStep maps
                         // Activate + Sail/Lamp/HornVisualizer to the per-part
@@ -673,14 +674,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // None for every part retail did not make interactable and
                         // for the parts whose interaction we cannot honestly serve
                         // yet (storage needs 1081, the reviver needs 1094) - so a
-                        // prompt is never a lie. An UNMOUNTED loose sail/lamp/horn
-                        // stays on the generic branch: you cannot rig a sail lying
-                        // on the ground, exactly like the unmounted helm.
+                        // prompt is never a lie. The correct Activate entry exists while
+                        // loose but remains unavailable until the mount commit.
                         Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
                         if (!isCraftStation && !isHelm && !isAtlasShard)
                         {
-                            mountedPartVerb = Multiplayer.Ship.PartInteractionPolicy.VerbFor(
-                                Game.Crafting.MountedParts.MountFor(entityId)?.ItemType);
+                            Multiplayer.Ship.PartVerb seededVerb =
+                                Multiplayer.Ship.PartInteractionPolicy.SeedVerbFor(craftedPartItemType);
+                            if (seededVerb == Multiplayer.Ship.PartVerb.Activate)
+                            {
+                                mountedPartVerb = seededVerb;
+                            }
                         }
                         // NOTE: a FUEL CANISTER deliberately has NO 1210 branch. Retail
                         // fuel is SALVAGED with the gauntlet beam, never picked up, so it
@@ -707,6 +711,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 false, "", "", "", false,
                                 Multiplayer.Helm.ManTimeToUse);
                             verbName = "Man";
+                            // The prefab caches its Man entry at OnEnable, while the
+                            // part is still loose. Keep that correct entry but gate it
+                            // until the mount commit flips availability live.
+                            available = isStaticHelm
+                                || Multiplayer.Ship.PartInteractionPolicy.IsSeededInteractionAvailable(
+                                    craftedPartItemType, Game.Crafting.MountedParts.Is(entityId));
                         }
                         else if (isAtlasShard)
                         {
@@ -733,6 +743,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 false, "", "", "", false,
                                 Multiplayer.Ship.PartInteractionPolicy.ActivateTimeToUse);
                             verbName = ((InteractVerb)(int)mountedPartVerb).ToString();
+                            available = Multiplayer.Ship.PartInteractionPolicy.IsSeededInteractionAvailable(
+                                craftedPartItemType, Game.Crafting.MountedParts.Is(entityId));
                         }
                         else
                         {
