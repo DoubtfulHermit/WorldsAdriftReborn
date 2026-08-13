@@ -253,6 +253,23 @@ namespace WorldsAdriftReborn.Patching.Mining
                     Detach();
                     return;
                 }
+
+                // COLLECTED detection: when a player takes the shard, the server SINKS the
+                // shard entity (moves its 190602 far away) - but this follow was gluing the
+                // crystal to the slot regardless, leaving a GHOST shard visibly stuck in the
+                // rock after collection. If the entity root has moved well away from the
+                // slot, the shard is gone - stop following and snap the view back to the
+                // entity's own (sunk, out-of-sight) pose.
+                Transform root = _view != null ? _view.parent : null;
+                if (root != null
+                    && (root.position - _slotTransform.position).sqrMagnitude > 400f)
+                {
+                    Debug.Log("[WAR][atlas] shard " + _shardEntityId
+                        + " entity moved far from its slot (collected/sunk) - releasing the view.");
+                    Detach();
+                    return;
+                }
+
                 FollowSlot();
             }
         }
