@@ -194,7 +194,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // safely; its lift accounting (1258) only matters on a ship, dormant here.
             new Row("atlasSkyCore",             "skyCore", "Atlas Sky Core",              "CoreMain",             "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreAtlasEnhancer",     "skyCore", "Sky Core Atlas Enhancer",     "CoreAtlasEnhancer",    "coreModule", new uint[] { IsTooDamagedToWorkState }),
-            new Row("skyCoreGenerator",         "skyCore", "Sky Core Generator",          "CoreGenerator",        "coreModule", new uint[] { IsTooDamagedToWorkState }),
+            // THE GENERATOR IS THE BASE OF THE CHAIN, NOT A MODULE. The client maps
+            // "coreModule" -> PlacementLocationType.CoreModule, whose invalid text is
+            // "can only be placed on: A Sky core generator" (PlacementPreview.cs:226-229)
+            // - so with "coreModule" here the generator demanded ITSELF and the whole
+            // core chain was unplaceable (live-confirmed). The generator stands on the
+            // DECK (the proven ShipDeck surface); the core and the other modules then
+            // mount ON it via their own "coreModule". Retail's exact string is lost
+            // refdata - "deck" is the reconstruction that makes the retail chain work.
+            new Row("skyCoreGenerator",         "skyCore", "Sky Core Generator",          "CoreGenerator",        "deck",       new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreAirFilter",         "skyCore", "Sky Core Air Filter",         "CoreAirfilter",        "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreCoolantSystem",     "skyCore", "Sky Core Coolant System",     "CoreCoolantSystem",    "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreStabiliser",        "skyCore", "Sky Core Stabiliser",         "CoreStabiliser",       "coreModule", new uint[] { IsTooDamagedToWorkState }),
