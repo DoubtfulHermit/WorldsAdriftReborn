@@ -55,55 +55,77 @@ namespace WorldsAdriftReborn.Patching.Flight
 
         private void Report()
         {
-            GameObject hull = null;
-            GameObject helm = null;
-            long hullId = 0, helmId = 0;
+            var hulls = new List<KeyValuePair<long, GameObject>>();
+            var helms = new List<KeyValuePair<long, GameObject>>();
+            var entityRoots = new HashSet<Transform>();
 
             Improbable.Unity.Core.SpatialOS.Universe.IterateOverAllEntityObjects((id, ent) =>
             {
                 GameObject go = ent?.UnderlyingGameObject;
                 if (go == null) return;
+                entityRoots.Add(go.transform);
                 string n = go.name;
-                if (hull == null && n.StartsWith("ShipFrame", StringComparison.OrdinalIgnoreCase))
+                if (hulls.Count < 4 && n.StartsWith("ShipFrame", StringComparison.OrdinalIgnoreCase))
                 {
-                    hull = go; hullId = id.Id;
+                    hulls.Add(new KeyValuePair<long, GameObject>(id.Id, go));
                 }
-                else if (helm == null && n.StartsWith("Helm", StringComparison.OrdinalIgnoreCase))
+                else if (helms.Count < 4 && n.StartsWith("Helm", StringComparison.OrdinalIgnoreCase))
                 {
-                    helm = go; helmId = id.Id;
+                    helms.Add(new KeyValuePair<long, GameObject>(id.Id, go));
                 }
             });
 
-            if (hull == null && helm == null)
+            if (hulls.Count == 0 && helms.Count == 0)
             {
                 return; // nothing relevant in the world yet
             }
 
             string line = "[WAR][orient]";
-            if (hull != null)
+            foreach (var h in hulls)
             {
-                line += " hull " + hullId + " yaw=" + Yaw(hull.transform.rotation).ToString("F1");
+                GameObject hull = h.Value;
+                Vector3 p = hull.transform.position;
+                line += " | hull " + h.Key + " pos=(" + p.x.ToString("F0") + "," + p.z.ToString("F0")
+                      + ") yaw=" + Yaw(hull.transform.rotation).ToString("F1");
 
                 // Rendered hull footprint in HULL-LOCAL space (world bounds would
-                // rotate with the ship's heading). This is the number our server
-                // decode claims is X=12.09 x Z=8.00 - if the client draws it
+                // rotate with the ship's heading). Our server decode claims the
+                // player's hull is X=12.09 x Z=8.00 - if the client draws it
                 // Z-long instead, our decode is axis-swapped and every
-                // "orientation is correct" conclusion inverts.
+                // "orientation is correct" conclusion inverts. Mounted parts are
+                // Unity children of the hull but separate entities (the helm's
+                // VfxNode alone reaches 37 m and poisoned the first measurement),
+                // so any subtree rooted at another entity is skipped.
                 Vector3 min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
                 Vector3 max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
                 bool any = false;
-                foreach (Renderer r in hull.GetComponentsInChildren<Renderer>())
+                var stack = new Stack<Transform>();
+                stack.Push(hull.transform);
+                while (stack.Count > 0)
                 {
-                    Bounds wb = r.bounds;
-                    for (int i = 0; i < 8; i++)
+                    Transform t = stack.Pop();
+                    if (t != hull.transform && entityRoots.Contains(t))
                     {
-                        Vector3 c = new Vector3(
-                            (i & 1) == 0 ? wb.min.x : wb.max.x,
-                            (i & 2) == 0 ? wb.min.y : wb.max.y,
-                            (i & 4) == 0 ? wb.min.z : wb.max.z);
-                        Vector3 l = hull.transform.InverseTransformPoint(c);
-                        min = Vector3.Min(min, l); max = Vector3.Max(max, l);
-                        any = true;
+                        continue; // another entity riding the hull - not hull geometry
+                    }
+                    var r = t.GetComponent<MeshRenderer>();
+                    if (r != null)
+                    {
+                        Bounds wb = r.bounds;
+                        for (int i = 0; i < 8; i++)
+                        {
+                            Vector3 c = new Vector3(
+                                (i & 1) == 0 ? wb.min.x : wb.max.x,
+                                (i & 2) == 0 ? wb.min.y : wb.max.y,
+                                (i & 4) == 0 ? wb.min.z : wb.max.z);
+                            Vector3 l = hull.transform.InverseTransformPoint(c);
+                            min = Vector3.Min(min, l); max = Vector3.Max(max, l);
+                            any = true;
+                        }
+                    }
+                    for (int i = 0; i < t.childCount; i++)
+                    {
+                        stack.Push(t.GetChild(i));
                     }
                 }
                 if (any)
@@ -112,12 +134,25 @@ namespace WorldsAdriftReborn.Patching.Flight
                           + "m Z=" + (max.z - min.z).ToString("F1") + "m";
                 }
             }
-            if (helm != null)
+            foreach (var h in helms)
             {
-                line += " | helm " + helmId + " yaw=" + Yaw(helm.transform.rotation).ToString("F1");
-                if (hull != null)
+                GameObject helm = h.Value;
+                Vector3 p = helm.transform.position;
+                line += " | helm " + h.Key + " (" + helm.name + ") pos=(" + p.x.ToString("F0") + "," + p.z.ToString("F0")
+                      + ") yaw=" + Yaw(helm.transform.rotation).ToString("F1");
+                if (hulls.Count > 0)
                 {
-                    line += " (rel " + Mathf.DeltaAngle(Yaw(hull.transform.rotation), Yaw(helm.transform.rotation)).ToString("F1") + ")";
+                    // relative to the NEAREST hull - the one it is mounted on
+                    GameObject nearest = null; float best = float.MaxValue;
+                    foreach (var hh in hulls)
+                    {
+                        float d = (hh.Value.transform.position - p).sqrMagnitude;
+                        if (d < best) { best = d; nearest = hh.Value; }
+                    }
+                    if (nearest != null)
+                    {
+                        line += " (rel " + Mathf.DeltaAngle(Yaw(nearest.transform.rotation), Yaw(helm.transform.rotation)).ToString("F1") + ")";
+                    }
                 }
                 Transform gfx = helm.transform.Find("Graphics");
                 if (gfx != null)
@@ -129,7 +164,9 @@ namespace WorldsAdriftReborn.Patching.Flight
             var lp = LocalPlayer.Instance;
             if (lp != null && lp.playerGameObject != null)
             {
-                line += " | player yaw=" + Yaw(lp.playerGameObject.transform.rotation).ToString("F1");
+                Vector3 pp = lp.playerGameObject.transform.position;
+                line += " | player pos=(" + pp.x.ToString("F0") + "," + pp.z.ToString("F0")
+                      + ") yaw=" + Yaw(lp.playerGameObject.transform.rotation).ToString("F1");
             }
 
             Debug.Log(line);
