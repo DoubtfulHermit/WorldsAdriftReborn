@@ -105,6 +105,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>The idle bob's fixed period, seconds.</summary>
         public const double IdleBobPeriodSeconds = 6.0;
 
+        // ------------------------------------------------------------------
+        // The v3 MOUSE-STEERING knobs. The client's helm sends THREE axes in
+        // 1111 ShipAxes: yaw from A/D, and pitch/roll accumulated from the
+        // MOUSE (MouseInputProvider: ShipRoll = "Mouse X", ShipPitch =
+        // "Mouse Y"; ShipControlsBehaviour.UpdateAxes). v1/v2 consumed only
+        // yaw, so the mouse moved the (echoed) helm and not the ship. These
+        // map the other two axes to motion, with retail's own SIGNS - the FSIM
+        // torque map was right*x + up*y + forward*(-z) (ShipControlVisualizer
+        /// .UpdateTorques), i.e. +pitch = nose DOWN, +roll = bank RIGHT.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_PITCH_RATE - vertical speed, m/s, at full mouse-pitch
+        /// deflection. Retail pitched the hull and let the wings translate
+        /// attitude into climb; the reconstruction drives the climb directly and
+        /// lets the existing attitude display nose the ship to match. BLENDS
+        /// with (never replaces) the LShift/LCtrl Vertical axis. 0 disables
+        /// mouse pitch.
+        /// </summary>
+        public const double DefaultPitchRateMps = 4.0;
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_ROLL_TURN_FACTOR - how much of the full yaw rate a
+        /// full mouse-roll deflection contributes: the BANKED TURN (a rolled
+        /// ship turns). Sums with A/D and the total is clamped to the yaw-rate
+        /// cap, so mouse+keys together never out-turn the tuning. The existing
+        /// bank attitude follows the TOTAL turn rate, so a mouse-rolled ship
+        /// visibly banks into its turn. 0 disables mouse roll.
+        /// </summary>
+        public const double DefaultRollTurnFactor = 0.7;
+
         public double MaxSpeedMps { get; }
         public double AccelMps2 { get; }
         public double YawRateRadPerSec { get; }
@@ -117,6 +148,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public double AttitudeSmoothingSeconds { get; }
         public double VelocitySmoothingSeconds { get; }
         public double IdleBobMetres { get; }
+        public double PitchRateMps { get; }
+        public double RollTurnFactor { get; }
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_INVERT_PITCH=1 flips mouse pitch (mouse up = climb
+        /// instead of retail's nose-down). Same insurance class as InvertYaw:
+        /// the live mouse sign is a config flip, not a rebuild.
+        /// </summary>
+        public bool InvertPitch { get; }
+
+        /// <summary>WAREBORN_FLIGHT_INVERT_ROLL=1 flips mouse roll.</summary>
+        public bool InvertRoll { get; }
 
         /// <summary>
         /// WAREBORN_FLIGHT_INVERT_YAW=1 flips the yaw direction. Insurance: the
@@ -138,7 +181,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double pitchAngleDeg = DefaultPitchAngleDeg,
             double attitudeSmoothingSeconds = DefaultAttitudeSmoothingSeconds,
             double velocitySmoothingSeconds = DefaultVelocitySmoothingSeconds,
-            double idleBobMetres = DefaultIdleBobMetres)
+            double idleBobMetres = DefaultIdleBobMetres,
+            double pitchRateMps = DefaultPitchRateMps,
+            double rollTurnFactor = DefaultRollTurnFactor,
+            bool invertPitch = false,
+            bool invertRoll = false)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -155,6 +202,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // 0 disables velocity smoothing (the v1 pivot behaviour, kept reachable).
             VelocitySmoothingSeconds = Clamp(velocitySmoothingSeconds, 0.0, 5.0, DefaultVelocitySmoothingSeconds);
             IdleBobMetres = Clamp(idleBobMetres, 0.0, 2.0, DefaultIdleBobMetres);
+            // 0 legitimately DISABLES each mouse axis, so both floors are 0.
+            PitchRateMps = Clamp(pitchRateMps, 0.0, 30.0, DefaultPitchRateMps);
+            RollTurnFactor = Clamp(rollTurnFactor, 0.0, 2.0, DefaultRollTurnFactor);
+            InvertPitch = invertPitch;
+            InvertRoll = invertRoll;
         }
 
         /// <summary>
@@ -178,7 +230,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Parse(getenv("WAREBORN_FLIGHT_PITCH_ANGLE"), DefaultPitchAngleDeg),
                 Parse(getenv("WAREBORN_FLIGHT_ATTITUDE_SMOOTHING"), DefaultAttitudeSmoothingSeconds),
                 Parse(getenv("WAREBORN_FLIGHT_VELOCITY_SMOOTHING"), DefaultVelocitySmoothingSeconds),
-                Parse(getenv("WAREBORN_FLIGHT_IDLE_BOB"), DefaultIdleBobMetres));
+                Parse(getenv("WAREBORN_FLIGHT_IDLE_BOB"), DefaultIdleBobMetres),
+                Parse(getenv("WAREBORN_FLIGHT_PITCH_RATE"), DefaultPitchRateMps),
+                Parse(getenv("WAREBORN_FLIGHT_ROLL_TURN_FACTOR"), DefaultRollTurnFactor),
+                getenv("WAREBORN_FLIGHT_INVERT_PITCH") == "1",
+                getenv("WAREBORN_FLIGHT_INVERT_ROLL") == "1");
         }
 
         private static double Parse(string? env, double fallback)
@@ -206,8 +262,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             + " m/s accel=" + AccelMps2.ToString("0.#", CultureInfo.InvariantCulture)
             + " m/s^2 yawRate=" + (YawRateRadPerSec * 180.0 / System.Math.PI).ToString("0.#", CultureInfo.InvariantCulture)
             + " deg/s climb=" + ClimbRateMps.ToString("0.#", CultureInfo.InvariantCulture)
-            + " m/s reverse=" + ReverseFactor.ToString("0.##", CultureInfo.InvariantCulture)
+            + " m/s pitchRate=" + PitchRateMps.ToString("0.#", CultureInfo.InvariantCulture)
+            + " m/s rollTurn=" + RollTurnFactor.ToString("0.##", CultureInfo.InvariantCulture)
+            + " reverse=" + ReverseFactor.ToString("0.##", CultureInfo.InvariantCulture)
             + " keepalive=" + RestKeepaliveSeconds.ToString("0.#", CultureInfo.InvariantCulture) + " s"
-            + (InvertYaw ? " (yaw inverted)" : "");
+            + (InvertYaw ? " (yaw inverted)" : "")
+            + (InvertPitch ? " (pitch inverted)" : "")
+            + (InvertRoll ? " (roll inverted)" : "");
     }
 }

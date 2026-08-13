@@ -143,9 +143,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 return state;
             }
 
-            // 1. Turn rate eases toward the stick's target, heading integrates it.
+            // 1. Turn rate eases toward the combined stick target, heading
+            // integrates it. TWO inputs turn the ship: A/D (AxisYaw) and the
+            // MOUSE's roll axis (AxisRoll) - the banked turn. Retail's FSIM
+            // torque map is right*x + up*y + forward*(-z)
+            // (ShipControlVisualizer.UpdateTorques): a POSITIVE roll input is a
+            // NEGATIVE Z torque = right side dips = the ship banks RIGHT and a
+            // banked-right ship turns RIGHT - hence roll ADDS to the turn with
+            // the same sign as yaw. The sum is clamped to +-1 before scaling so
+            // keys + mouse together can never exceed the tuned rate cap, and the
+            // bank attitude below follows the TOTAL rate, so a mouse-rolled ship
+            // visibly banks into its turn.
             double yawSign = tuning.InvertYaw ? -1.0 : 1.0;
-            double yawRateTarget = yawSign * input.AxisYaw * tuning.YawRateRadPerSec;
+            double rollSign = tuning.InvertRoll ? -1.0 : 1.0;
+            double turnInput = Math.Clamp(
+                (yawSign * input.AxisYaw) + (rollSign * input.AxisRoll * tuning.RollTurnFactor),
+                -1.0, 1.0);
+            double yawRateTarget = turnInput * tuning.YawRateRadPerSec;
             double yawRate = ApproachWithSnap(
                 state.YawRateRadPerSec, yawRateTarget, tuning.YawAccelRadPerSec2 * dtSeconds, 0.0005);
             double yaw = WrapAngle(state.YawRadians + yawRate * dtSeconds);
@@ -162,7 +176,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // v1 instant behaviour when smoothing is 0).
             double targetVx = Math.Sin(yaw) * speedCmd;
             double targetVz = Math.Cos(yaw) * speedCmd;
-            double targetVy = input.Vertical * tuning.ClimbRateMps;
+            // Vertical BLENDS two inputs: the LShift/LCtrl Vertical axis (the
+            // v1 behaviour, unchanged when the mouse is centred) and the
+            // MOUSE's pitch axis. Retail sign: a POSITIVE pitch input is a
+            // POSITIVE X torque = nose DOWN = dive, hence the minus. Both are
+            // <=1, so the sum is naturally bounded by climbRate + pitchRate.
+            double pitchSign = tuning.InvertPitch ? -1.0 : 1.0;
+            double targetVy = (input.Vertical * tuning.ClimbRateMps)
+                - (pitchSign * input.AxisPitch * tuning.PitchRateMps);
             double blend = tuning.VelocitySmoothingSeconds <= 0.0
                 ? 1.0
                 : Math.Min(1.0, dtSeconds / tuning.VelocitySmoothingSeconds);

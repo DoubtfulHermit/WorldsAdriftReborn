@@ -16,8 +16,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// FIELD MEANING, off ShipControlsBehaviour.SendData
     /// (acs/ShipControlsBehaviour.cs:174-188): Throttle and Vertical are the
     /// deadzone-applied -1..1 axes; ShipAxes is (pitch, yaw, roll), each -1..1.
-    /// This server's phase-1 integrator consumes Throttle, Vertical and AxisYaw;
-    /// pitch and roll are carried but not yet integrated (documented in
+    /// All five are integrated since v3: yaw steers, mouse-pitch dives/climbs
+    /// (blended with Vertical), mouse-roll is the banked turn (see
     /// <see cref="FlightIntegrator"/>).
     /// </summary>
     public readonly struct FlightControlInput : System.IEquatable<FlightControlInput>
@@ -37,13 +37,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>Climb/descend, -1..1.</summary>
         public float Vertical { get; }
 
-        /// <summary>ShipAxes.x - pitch. Carried, not yet integrated (phase 1).</summary>
+        /// <summary>
+        /// ShipAxes.x - pitch, -1..1, accumulated from MOUSE Y
+        /// (MouseInputProvider: ShipPitch = "Mouse Y"). Drives climb/dive,
+        /// blended with <see cref="Vertical"/>; retail sign: positive = nose
+        /// DOWN (the FSIM torque map's +X).
+        /// </summary>
         public float AxisPitch { get; }
 
-        /// <summary>ShipAxes.y - yaw, -1..1. Steers the heading.</summary>
+        /// <summary>ShipAxes.y - yaw, -1..1, from A/D. Steers the heading.</summary>
         public float AxisYaw { get; }
 
-        /// <summary>ShipAxes.z - roll. Carried, not yet integrated (phase 1).</summary>
+        /// <summary>
+        /// ShipAxes.z - roll, -1..1, accumulated from MOUSE X
+        /// (MouseInputProvider: ShipRoll = "Mouse X"). The banked turn: adds to
+        /// the yaw rate; retail sign: positive = bank RIGHT (the torque map's
+        /// forward*(-z)).
+        /// </summary>
         public float AxisRoll { get; }
 
         /// <summary>All axes at zero: the input of an empty helm.</summary>

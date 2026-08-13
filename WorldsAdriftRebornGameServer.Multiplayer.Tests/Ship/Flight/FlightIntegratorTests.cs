@@ -251,6 +251,118 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         // ------------------------------------------------------------------
+        // v3: MOUSE STEERING - ShipAxes.x (pitch) and .z (roll) fly the ship.
+        // Signs mirror the retail FSIM torque map (ShipControlVisualizer
+        // .UpdateTorques: right*x + up*y + forward*(-z)): +pitch = nose down,
+        // +roll = bank right.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Mouse_roll_turns_the_ship_the_banked_turn()
+        {
+            // Mouse right (+roll) must turn the ship RIGHT (+yaw, toward +X) -
+            // this is the whole "the mouse moves the helm but not the ship" fix.
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(throttle: 1f, roll: 1f), 40);
+
+            Assert.True(state.YawRateRadPerSec > 0, "mouse roll right must produce a right turn");
+            Assert.True(state.YawRadians > 0);
+            Assert.True(state.X > 0);
+            Assert.Equal(Tuning.RollTurnFactor * Tuning.YawRateRadPerSec, state.YawRateRadPerSec, 9);
+        }
+
+        [Fact]
+        public void A_mouse_rolled_ship_visibly_banks_into_its_turn()
+        {
+            // The bank attitude follows the TOTAL turn rate, so a mouse turn
+            // shows the same right-side-dips roll a key turn does.
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(roll: 1f), 40);
+            Assert.True(state.RollRadians < 0, "a right banked turn must dip the right side");
+        }
+
+        [Fact]
+        public void Keys_plus_mouse_together_never_exceed_the_turn_rate_cap()
+        {
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(yaw: 1f, roll: 1f), 60);
+            Assert.Equal(Tuning.YawRateRadPerSec, state.YawRateRadPerSec, 9);
+        }
+
+        [Fact]
+        public void Opposite_roll_counters_a_key_turn()
+        {
+            // A/D right + mouse hard left at the default 0.7 factor = a slower
+            // right turn (1 - 0.7), not a fight that oscillates.
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(yaw: 1f, roll: -1f), 60);
+            Assert.Equal((1.0 - Tuning.RollTurnFactor) * Tuning.YawRateRadPerSec, state.YawRateRadPerSec, 9);
+        }
+
+        [Fact]
+        public void Mouse_pitch_dives_the_ship_with_the_retail_sign()
+        {
+            // +pitch input = +X torque = nose DOWN in retail; our vy must go
+            // negative and the nose attitude must dip (positive pitch angle).
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(pitch: 1f), 40);
+
+            Assert.True(state.VyMps < 0, "positive pitch input must dive");
+            Assert.Equal(-Tuning.PitchRateMps, state.VyMps, 6);
+            Assert.True(state.PitchRadians > 0, "a dive must nose down (positive pitch attitude)");
+            Assert.True(state.Y < 100.0);
+        }
+
+        [Fact]
+        public void Mouse_pitch_up_climbs()
+        {
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(pitch: -1f), 40);
+            Assert.Equal(Tuning.PitchRateMps, state.VyMps, 6);
+            Assert.True(state.PitchRadians < 0, "a climb must nose up");
+        }
+
+        [Fact]
+        public void Mouse_pitch_BLENDS_with_the_vertical_axis_it_does_not_replace_it()
+        {
+            // LShift climb + mouse dive = the sum, so neither input is broken:
+            // full Vertical (climbRate) minus full pitch (pitchRate).
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(vertical: 1f, pitch: 1f), 60);
+            Assert.Equal(Tuning.ClimbRateMps - Tuning.PitchRateMps, state.VyMps, 6);
+
+            // And the v1 keys-only behaviour is untouched with the mouse centred.
+            FlightState keysOnly = Run(FlightState.AtRestAt(0, 100, 0), Input(vertical: 1f), 40);
+            Assert.Equal(Tuning.ClimbRateMps, keysOnly.VyMps, 9);
+        }
+
+        [Fact]
+        public void Invert_knobs_flip_each_mouse_axis_independently()
+        {
+            FlightTuning invPitch = new FlightTuning(invertPitch: true);
+            FlightState climb = Run(FlightState.AtRestAt(0, 100, 0), Input(pitch: 1f), 20, invPitch);
+            Assert.True(climb.VyMps > 0, "inverted pitch must climb on +input");
+
+            FlightTuning invRoll = new FlightTuning(invertRoll: true);
+            FlightState left = Run(FlightState.AtRestAt(0, 100, 0), Input(roll: 1f), 20, invRoll);
+            Assert.True(left.YawRateRadPerSec < 0, "inverted roll must turn left on +input");
+        }
+
+        [Fact]
+        public void Zeroed_knobs_disable_each_mouse_axis()
+        {
+            FlightTuning dead = new FlightTuning(pitchRateMps: 0.0, rollTurnFactor: 0.0);
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(pitch: 1f, roll: 1f), 40, dead);
+
+            Assert.Equal(0.0, state.VyMps);
+            Assert.Equal(0.0, state.YawRateRadPerSec);
+            Assert.True(state.IsAtRest);
+        }
+
+        [Fact]
+        public void Mouse_axes_settle_to_exact_rest_when_released()
+        {
+            // The centre-recentre: mouse input released mid-manoeuvre must
+            // still reach the exact at-rest state the publisher sleeps on.
+            FlightState state = Run(FlightState.AtRestAt(0, 100, 0), Input(throttle: 1f, pitch: 0.8f, roll: 0.6f), 50);
+            state = Run(state, FlightControlInput.Neutral, 200);
+            Assert.True(state.IsAtRest, "not at rest: " + state);
+        }
+
+        // ------------------------------------------------------------------
         // Vertical
         // ------------------------------------------------------------------
 
@@ -424,6 +536,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(FlightTuning.DefaultVelocitySmoothingSeconds, tuning.VelocitySmoothingSeconds);
             Assert.Equal(0.0, tuning.IdleBobMetres); // the bob DEFAULTS OFF
             Assert.False(tuning.InvertYaw);
+            Assert.Equal(FlightTuning.DefaultPitchRateMps, tuning.PitchRateMps);
+            Assert.Equal(FlightTuning.DefaultRollTurnFactor, tuning.RollTurnFactor);
+            Assert.False(tuning.InvertPitch);
+            Assert.False(tuning.InvertRoll);
         }
 
         [Fact]
@@ -444,6 +560,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
                 ["WAREBORN_FLIGHT_ATTITUDE_SMOOTHING"] = "0.3",
                 ["WAREBORN_FLIGHT_VELOCITY_SMOOTHING"] = "1.2",
                 ["WAREBORN_FLIGHT_IDLE_BOB"] = "0.2",
+                ["WAREBORN_FLIGHT_PITCH_RATE"] = "6",
+                ["WAREBORN_FLIGHT_ROLL_TURN_FACTOR"] = "1.0",
+                ["WAREBORN_FLIGHT_INVERT_PITCH"] = "1",
+                ["WAREBORN_FLIGHT_INVERT_ROLL"] = "1",
             };
             FlightTuning tuning = FlightTuning.FromEnvironment(k => env.TryGetValue(k, out string? v) ? v : null);
 
@@ -460,6 +580,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0.3, tuning.AttitudeSmoothingSeconds);
             Assert.Equal(1.2, tuning.VelocitySmoothingSeconds);
             Assert.Equal(0.2, tuning.IdleBobMetres);
+            Assert.Equal(6.0, tuning.PitchRateMps);
+            Assert.Equal(1.0, tuning.RollTurnFactor);
+            Assert.True(tuning.InvertPitch);
+            Assert.True(tuning.InvertRoll);
         }
 
         [Fact]
