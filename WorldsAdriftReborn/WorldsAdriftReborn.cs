@@ -79,6 +79,12 @@ namespace WorldsAdriftReborn
             // world origin - so this must be read BEFORE the island moves to 17 km.
             // Read-only; F10 forces a report, but it also reports by itself.
             gameObject.AddComponent<Patching.Multiplayer.OriginStrategyProbe>();
+
+            // Always-on stutter attribution: one grep-able "[WAR][perf] spike"
+            // line per frame hitch naming its cause (entity adds, GC, SpatialOS
+            // slice), a 30 s heartbeat, and the activation timestamp that proves
+            // whether the loading barrier held. Allocation-free between spikes.
+            gameObject.AddComponent<Patching.Performance.StutterProbe>();
         }
 
         /// <summary>
