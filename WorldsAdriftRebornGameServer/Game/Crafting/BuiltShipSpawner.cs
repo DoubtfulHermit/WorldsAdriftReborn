@@ -318,12 +318,19 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))
                 .ToList();
 
-            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+            List<uint> seedServed = new List<uint>();
+            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true, seedServed))
             {
                 Console.WriteLine("[error] built-ship spawn: entity " + entityId
                     + " was created on a peer but its seed components were dropped; it will render inert.");
                 return false;
             }
+
+            // Ledger the seeds (same pattern as PlacementService): without the
+            // mark, the client's later re-declared interest for this entity
+            // re-ADDs everything - including 1518/1099 (deck collider reset,
+            // player falls through the deck) and 190602 (TransformState re-seed).
+            WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, seedServed);
 
             return true;
         }

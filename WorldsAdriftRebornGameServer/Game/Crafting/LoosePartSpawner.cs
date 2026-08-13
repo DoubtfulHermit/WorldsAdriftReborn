@@ -377,12 +377,18 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))
                 .ToList();
 
-            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+            List<uint> seedServed = new List<uint>();
+            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true, seedServed))
             {
                 Console.WriteLine("[error] loose-part spawn: entity " + entityId
                     + " was created on a peer but its seed components were dropped; it will render inert.");
                 return false;
             }
+
+            // Ledger the seeds (same pattern as PlacementService): without the
+            // mark, the client's later re-declared interest for this entity
+            // re-ADDs everything the seed already delivered, 190602 included.
+            WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, seedServed);
 
             return true;
         }

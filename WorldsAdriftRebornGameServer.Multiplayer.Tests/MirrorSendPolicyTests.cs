@@ -608,5 +608,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1070u));
             Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1239u));
         }
+
+        [Fact]
+        public void The_injected_setup_batch_contains_TransformState_so_it_must_be_ledger_gated()
+        {
+            // InjectedComponents rides the authoritative tail, and the
+            // authoritative set contains 190602 TransformState - a component the
+            // client ALSO requests for every entity it checks out. Any send of
+            // this list that is not filtered through ServedComponentLedger and
+            // fully MarkServed afterwards re-ADDs 190602 ("Component
+            // TransformState added to entity N, but it already exists") and
+            // silently re-seeds the player's transform to spawn. This pins the
+            // fact that makes the gating mandatory; if it ever fails, the
+            // interest handler's injected batch may no longer need the ledger -
+            // but until then it does.
+            Assert.Contains(MirrorSendPolicy.TransformStateComponentId, MirrorSendPolicy.InjectedComponents);
+        }
     }
 }
