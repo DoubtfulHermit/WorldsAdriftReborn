@@ -62,11 +62,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         };
 
         /// <summary>
-        /// Appends every ship-part prefab not already present to
+        /// Every OTHER world prefab the server can name in a connect-time or
+        /// broadcast AddEntityOp: the global (biome-data) entity and every
+        /// placeable deployable's world prefab (Deployables' AssetNames). These hit
+        /// the exact same race as the ship parts - the server sends
+        /// AssetLoadRequest + AddEntity back-to-back on the placement broadcast,
+        /// and a timeout-advanced spawn chain can send AddEntity with no request at
+        /// all - so a cold prefab loses and survives only via the synchronous
+        /// rescue's frame hitch. Warming them at boot makes the rescue the rare
+        /// path it was meant to be. Live case 2026-08-13: 'GlobalEntity' rescued at
+        /// AddEntity because nothing had ever precached it.
+        ///
+        /// Deliberately EXCLUDED: "Trunk" and "MountedBox" - their Deployables rows
+        /// are assetVerified:false and the names are NOT in the client census, so
+        /// precaching them would log a load error at every boot (and the census
+        /// test would fail the build). DeployablePrecacheTests pins this list
+        /// against Deployables so a new resolvable deployable cannot be added
+        /// without being precached here.
+        /// </summary>
+        public static readonly string[] WorldPrefabNames = new string[]
+        {
+            // World-wide data entity (biome table the deposits wait on).
+            "GlobalEntity",
+            // Stations
+            "Shipyard", "CraftingStation",
+            // Storage (Cupboard/Barrel01 already covered by the part list)
+            "MakeshiftStorage", "ContainerMedium", "ContainerLarge",
+            // Utility & lights (Lamp01/PowerGenerator01/Lifter-family overlap is
+            // deduplicated by AppendTo)
+            "Campfire", "Stove01", "Loom01", "Lifter",
+            "KiokiRevivalChamberA", "TerritoryControlBeacon",
+        };
+
+        /// <summary>
+        /// Appends every ship-part and world prefab not already present to
         /// <paramref name="baseList"/> (case-sensitive match, the same equality
         /// the client's asset DB key uses after suffixing). Returns the same
         /// list instance for the Harmony postfix to hand back. A null base list
-        /// yields a fresh list of just the ship parts.
+        /// yields a fresh list of just our prefabs.
         /// </summary>
         public static List<string> AppendTo(List<string> baseList)
         {
@@ -76,6 +109,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 if (!result.Contains(PrefabNames[i]))
                 {
                     result.Add(PrefabNames[i]);
+                }
+            }
+            for (int i = 0; i < WorldPrefabNames.Length; i++)
+            {
+                if (!result.Contains(WorldPrefabNames[i]))
+                {
+                    result.Add(WorldPrefabNames[i]);
                 }
             }
             return result;

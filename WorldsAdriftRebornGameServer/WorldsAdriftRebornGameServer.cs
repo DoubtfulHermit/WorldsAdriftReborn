@@ -3470,6 +3470,25 @@ namespace WorldsAdriftRebornGameServer
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step)))
                 .ToList();
 
+            // Human-readable step names, parallel to the WorldState list, so the
+            // ack-timeout and interest logs can say WHICH entity they acted on
+            // instead of a bare index.
+            string[] stepDesc = plan.Select(s => s.ToString()).ToArray();
+
+            // SPAWN-CHAIN ACK TIMEOUT (WAREBORN_SPAWN_ACK_TIMEOUT_MS, clamped,
+            // never off). The chain advances on client acks; before this net, ONE
+            // ack that never arrived parked a joining peer's chain forever and
+            // every entity behind the stuck step was silently never delivered
+            // (live 2026-08-12: chain parked at 'global', the restored stations
+            // never reached the client). Advancing past a dead RequestAsset is
+            // safe because the client mod's synchronous rescue loads the prefab at
+            // AddEntity time; see SpawnAckTimeoutPolicy for the full argument.
+            TimeSpan spawnAckTimeout = SpawnAckTimeoutPolicy.TimeoutFrom(
+                Environment.GetEnvironmentVariable(SpawnAckTimeoutPolicy.TimeoutEnvVar));
+            Console.WriteLine("[spawn-chain] ack timeout: " + spawnAckTimeout.TotalMilliseconds.ToString("0")
+                + " ms per step (" + SpawnAckTimeoutPolicy.TimeoutEnvVar + " to tune; it cannot be disabled -"
+                + " a lost ack costs one pause, never the rest of the plan).");
+
             // Which plan steps are PACED: the AddEntity that INSTANTIATES each
             // distant AfterPlayer world entity on the client's main thread - the op a
             // joiner was measured receiving in a burst (17/s). Pacing AddEntity, not
@@ -3708,6 +3727,50 @@ namespace WorldsAdriftRebornGameServer
                         {
                             pStatus.SyncStepPointer++;
                         }
+
+                        // BOUNDARY FIX. The while above is bounded by the LAST index so
+                        // the pointer can never run off the plan - but that bound also
+                        // meant a skip run reaching the END of the plan stopped ON the
+                        // last step and then PERFORMED it, even though it was just
+                        // range-tested out. Live 2026-08-13: the final gated step's bare
+                        // AddEntity went out with no RequestAsset ever sent, and only the
+                        // client mod's synchronous rescue put the prefab on screen
+                        // ("RESCUED prefab 'GlobalEntity_unityclient'"). A gated-out
+                        // last step must PARK the chain complete instead: mark it
+                        // performed without sending anything (the last step is the
+                        // plan's normal "done" sentinel; neither the ack path nor the
+                        // timeout ever advances past it).
+                        if (pStatus.SyncStepPointer == lastStep
+                            && !pStatus.Performed
+                            && gatedStep[lastStep]
+                            && !InterestPolicy.InRange(center, gateEntityPos[lastStep], Game.Interest.RadiusMetres))
+                        {
+                            Console.WriteLine("[interest] final plan step '" + stepDesc[lastStep]
+                                + "' is outside this peer's interest radius; completing its spawn chain"
+                                + " without sending it.");
+                            pStatus.Performed = true;
+                            pStatus.PerformedAtElapsed = ServerClock.Elapsed;
+                        }
+                    }
+
+                    // SPAWN-CHAIN ACK TIMEOUT. A performed step whose ack never comes
+                    // must not park the chain forever - advance with a loud line and
+                    // let the next step run this same turn. The last step is exempt
+                    // (parking there is the normal end-of-plan state), and a step the
+                    // pacer is still holding (Performed false) has not asked for an
+                    // ack yet, so it cannot time out. See SpawnAckTimeoutPolicy for
+                    // why AddEntity-after-timeout is safe for the client.
+                    if (SpawnAckTimeoutPolicy.ShouldAdvance(
+                            pStatus.Performed,
+                            pStatus.SyncStepPointer == GameState.Instance.WorldState[currentChunkIndex].Count - 1,
+                            pStatus.PerformedAtElapsed,
+                            ServerClock.Elapsed,
+                            spawnAckTimeout))
+                    {
+                        Console.WriteLine("[spawn-chain] ack timeout for '" + stepDesc[pStatus.SyncStepPointer]
+                            + "' after " + spawnAckTimeout.TotalMilliseconds.ToString("0")
+                            + " ms, advancing anyway.");
+                        pStatus.SyncStepPointer++;
                     }
 
                     SyncStep step = GameState.Instance.WorldState[currentChunkIndex][pStatus.SyncStepPointer];
@@ -3732,6 +3795,10 @@ namespace WorldsAdriftRebornGameServer
 
                         step.Step(keyValuePair.Key);
                         pStatus.Performed = true;
+                        // Start the ack-timeout clock only now, when the op has
+                        // actually been sent - a pacer-held turn must not eat into
+                        // the client's time to reply.
+                        pStatus.PerformedAtElapsed = ServerClock.Elapsed;
                     }
                 }
             }

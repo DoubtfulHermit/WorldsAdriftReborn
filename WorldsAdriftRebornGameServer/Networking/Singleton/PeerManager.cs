@@ -18,6 +18,16 @@ namespace WorldsAdriftRebornGameServer.Networking.Singleton
             }
         }
         public bool Performed { get; set; }
+
+        /// <summary>
+        /// When (ServerClock.Elapsed) the current step's op was actually sent -
+        /// meaningful only while <see cref="Performed"/> is true. Read by the
+        /// spawn-chain ack timeout (SpawnAckTimeoutPolicy) so one lost ack can
+        /// never park the chain forever; the pointer setter clearing Performed
+        /// is what invalidates it on advance.
+        /// </summary>
+        public TimeSpan PerformedAtElapsed { get; set; }
+
         public PlayerSyncStatus()
         {
             SyncStepPointer = 0;

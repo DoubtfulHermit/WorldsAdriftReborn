@@ -93,6 +93,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void The_global_entity_and_player_made_structures_are_initial()
+        {
+            // The 2026-08-12 regression: these were the entire streamed-after tail,
+            // and the connect-time interest gate silently range-skipped them (the
+            // global entity's position is a parking spot; the placed stations are
+            // registered in the client's island-local space while the gate's center
+            // is world-space). As initial keys they are never range-gated and load
+            // behind the loading screen where they belong.
+            Assert.True(LoadBarrierPolicy.IsInitialKey(WorldEntities.GlobalEntityKey));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("placed-shipyard:0"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("placed-assemblyStation:1"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("placed-campFire:4"));
+            Assert.True(LoadBarrierPolicy.IsInitialKey("loose-part:0:atlasSkyCore"));
+        }
+
+        [Fact]
         public void A_built_ships_hull_and_every_deck_panel_are_in_the_initial_set()
         {
             // The heaviest join work is the built hull's mesh and the client's
