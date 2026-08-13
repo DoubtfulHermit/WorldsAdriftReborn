@@ -1,113 +1,209 @@
-# WorldsAdriftReborn
+# Worlds Adrift Reborn — Wareborn
 
-# About
-Worlds Adrift Reborn is a community made mod in an attempt to revive the Worlds Adrift game with a Dedicated server option.
-This means anyone would be able to host his/her own server and let other people join in.
+An experimental, community-run revival of **Worlds Adrift**. This fork replaces
+the retired online services with a custom login service, ENet game server,
+SpatialOS compatibility layer, and a BepInEx client mod.
 
-# Current state
-As you might guessed this is a very ambitious project. The game heavily relies on proprietary code for its networking (SpatialOS) and we need to replace it with our own implementation.
-We can't say for sure if this project will succeed but we will do our best for it.
+> This is an unofficial fan project. It is not affiliated with, endorsed by, or
+> supported by Bossa Studios. No Worlds Adrift game assets are distributed here.
 
+## Project lineage and credits
 
+Wareborn is a continuation of the community
+[WAReborn/WorldsAdriftReborn](https://github.com/WAReborn/WorldsAdriftReborn)
+project and retains its architecture: the BepInEx/Harmony client mod, C++
+SpatialOS replacement, HTTP login server, and ENet game server. That foundation
+was created by the original WAReborn contributors, including the earlier work
+published by
+[sp00ktober/WorldsAdriftReborn](https://github.com/sp00ktober/WorldsAdriftReborn).
+Their reverse-engineering work made this continuation possible.
 
-## Boot the game
-The Game cannot be purchased anymore so we patched out the need to have steam running (for now) as well as a few other checks made when the game starts.
-This way we can reach the main menu.
+Worlds Adrift itself, its client, art, audio, and game data remain the work and
+property of Bossa Studios and their contributors. This repository contains only
+original compatibility, server, tooling, and research code.
 
-We use [BepInEx](https://github.com/BepInEx/BepInEx) and [Harmony](https://github.com/pardeike/Harmony) to patch the game at runtime, you can find the mod project [here](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftReborn)
+## Current state
 
-## Main Menu
-The game communicates with a HTTP REST server when you perform actions in the main menu. This is the "WorldsAdriftServer" project that you can find [here](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftServer)
-So far you can get to the character creation screen and choose one of the hardcoded characters to enter the game.
+The public Wareborn test server is playable, but this is still an experimental
+revival—not a complete recreation of the retail MMO.
 
-## In Game
-After the intro video the game usually bootstraps its SpatialOs networking. To replace it with our own implementation we made a C++ project that you can find [here](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftRebornCoreSdk).
-This will compile into a .dll which you use to replace the original one.
+Implemented and running as of **August 2026**:
 
-Our implementation offers the same methods as SpatialOs does. This means the game still thinks its talking to the SpatialOs dll while it is in fact calling our own methods. This will allow us to implement our own networking.
+- account registration, login, character creation, and per-player identity;
+- persistent inventories, knowledge/progression, placed stations, built ships,
+  loose parts, and mounted ship components;
+- a whole-island Haven starter-biome population: birch trees, iron deposits,
+  fuel pods, atlas shards, and databanks placed on extracted terrain surfaces;
+- per-player resource-interest streaming, so distant island resources are added
+  and removed as the player travels instead of all loading at login;
+- gathering, salvage, fuel and atlas-shard acquisition, tree respawn, crafting,
+  schematics, shipyard and assembly-station workflows;
+- ship blueprint construction, deck generation, loose-part placement and
+  mounting, station pickup, docking and undocking;
+- controllable ships with persistent helm throttle, centred helm entry,
+  functional sails, climb, pitch, roll, and yaw;
+- loading barriers, spawn pacing, acknowledgement timeouts, prefab precaching,
+  and client-side recovery paths for more reliable joins;
+- a native Linux x64 game server. The client remains Windows x64.
 
-At the moment we can instruct the game to load and spawn entities this way, the next thing will be to add and update their components to get a similar result as the one you see in the last video found [here](https://www.youtube.com/watch?v=IWKu2Olw0rc)
+The authoritative server is a reconstruction. Ship flight currently uses a
+documented kinematic model rather than retail's unavailable weather/Rigidbody
+simulation, and only the currently reconstructed world content is available.
+Expect bugs and occasional resets while development continues.
 
-## Installation and launching the game using the precompiled binaries
-First you will need the correct version of the game. Get a copy of [DepotDownloader](https://github.com/SteamRE/DepotDownloader) and run `DepotDownloader.exe -app 322780 -depot 322783 -manifest 4624240741051053915 -username <yourusername> -password <yourpassword>`
-Which will download the correct game files. Copy the files over to the gameroot folder.  
-⚠ Note that the most up to date steam version of the game is **Not** supported! 
-This is due to the game having been stripped of most of its contents in and update just before the game's shutdown.
+## Join the public test server
 
-Next download the latest 5.x [BepInEx Release](https://github.com/BepInEx/BepInEx/releases) and unzip those files into gameroot (detailed installation instructions can be found [here](https://docs.bepinex.dev/articles/user_guide/installation/index.html)).
+### What you need
 
-Also create a `steam_appid.txt` file in the gameroot which contains a single line `322780` (this is the appid and is required to start the game, else you get a steam required error).
+- Windows x64;
+- a legitimate Steam account entitled to Worlds Adrift;
+- the supported archived client build listed below;
+- [BepInEx 5.x x64](https://github.com/BepInEx/BepInEx/releases);
+- [WAPatch.exe from the latest Wareborn release](https://github.com/DoubtfulHermit/WorldsAdriftReborn/releases/latest/download/WAPatch.exe).
 
-Next download the latest bleeding-edge release, you can find this on the [releases](https://github.com/sp00ktober/WorldsAdriftReborn/releases) page of the repo.
-Download the WorldsAdriftReborn-Release.zip and extract its content to a folder of your choosing.
+The patcher contains no game assets. It only installs and updates the Wareborn
+mod, native compatibility DLL, and their runtime dependencies.
 
-Inside the folder you extracted the zip into you will find 3 folders:
-- WorldsAdriftReborn
-- WorldsAdriftRebornGameServer
-- WorldsAdriftRebornServer
+### 1. Install the supported Worlds Adrift client
 
-Copy or move the WorldsAdriftReborn directory into you `<game root>\BepInEx\plugins` folder.
+The final Steam build is not usable because content was removed before the
+official shutdown. Use
+[DepotDownloader](https://github.com/SteamRE/DepotDownloader) with your own
+Steam account to obtain the supported depot:
 
-To launch the game follow the following steps:
-Go into the WorldsAdriftRebornGameServer folder and launch the `WorldsAdriftRebornGameServer.exe`
-Go into the WorldsAdriftRebornServer folder and launch the `WorldsAdriftRebornServer.exe`
-⚠ Temporarily you will also need to replace the `Improbable.WorkerSdkCsharp.dll`, `Improbable.WorkerSdkCsharp.Framework.dll`, `Generated.Code.dll` and `protobuf-net.dll` in the WorldsAdriftRebornGameServer folder with the ones found in the `<game root>\UnityClient@Windows_Data\Managed` folder!
-This will be fixed in future releases.
-Launch the game from the gameroot
+```text
+DepotDownloader.exe -app 322780 -depot 322783 -manifest 4624240741051053915 -username <your Steam username> -password <your Steam password>
+```
 
-## Build Instructions
-First you will need the correct version of the game. Get a copy of [DepotDownloader](https://github.com/SteamRE/DepotDownloader) and run `DepotDownloader.exe -app 322780 -depot 322783 -manifest 4624240741051053915 -username <yourusername> -password <yourpassword>`
-Which will download the correct game files. Copy the files over to the gameroot folder.  
-⚠ Note that the most up to date steam version of the game is **Not** supported! 
-This is due to the game having been stripped of most of its contents in and update just before the game's shutdown.
+Copy the downloaded depot into a dedicated Worlds Adrift game folder. Do not
+post or redistribute those files.
 
-Clone the repository including submodules using `git clone --recurse-submodules <repository>`
-or (if you already cloned the repository normally) cd to your repository and run `git submodule update --init --recursive`
+### 2. Install BepInEx
 
-Next download the latest 5.x [BepInEx Release](https://github.com/BepInEx/BepInEx/releases) and unzip those files into gameroot (detailed installation instructions can be found [here](https://docs.bepinex.dev/articles/user_guide/installation/index.html)).
+Extract **BepInEx 5.x x64** into the game folder. The folder containing
+`UnityClient@Windows.exe` should now also contain a `BepInEx` directory.
 
-Also create a `steam_appid.txt` file in the gameroot which contains a single line `322780` (this is the appid and is required to start the game, else you get a steam required error).
+Create `steam_appid.txt` in the same game folder with exactly this content:
 
-Now open up the project sln with Visual Studio 2022 (⚠ Lower versions of Visual Studio are not supported due to this project requiring dotnet 6.0).  
-⚠ Also note that at this moment ony the `Any CPU` (default) and `x64` solution platforms are supported.
+```text
+322780
+```
 
-Rider (JetBrains C# IDE) can open and build the solution as well. You just need to create an empty `LocalPackages` subdirectory inside the solution folder.
+### 3. Install the Wareborn client patch
 
-If your game installation is not at the default location (`C:\Program Files (x86)\Steam\steamapps\common\WorldsAdrift`) visual studio will report an error and a DevEnv.targets file should have been generated at the root of your copy of the WorldsAdriftReborn repo. 
-You can change the path to your game installation location, save and reopen the project sln with visual studio.
+1. Close Worlds Adrift completely.
+2. Download and run
+   [WAPatch.exe](https://github.com/DoubtfulHermit/WorldsAdriftReborn/releases/latest/download/WAPatch.exe).
+3. Browse to the folder containing `UnityClient@Windows.exe`.
+4. Select **Check for updates**, then **Patch**.
+5. Wait for the verified install to finish before launching the game.
 
-Building the [WorldsAdriftReborn](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftReborn) mod will automatically build the required [WorldsAdriftRebornCoreSdk](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftRebornCoreSdk) CoreSdkDll.dll and copies this and the built BepInEx WorldsAdriftReborn plugin to the BepInEx plugins directory of your game. 
-It will also give an error if you try to build WorldsAdriftReborn for an an incompatible version of the game.
+The patcher downloads the current signed-by-hash manifest from
+`https://wareborn.ratlabs.cc/patch/manifest.json`, verifies every file with
+SHA-256, backs up an existing file before its first replacement, and performs
+atomic writes. Re-run it whenever a new client version is announced. If the
+game was open during an update, close it fully and patch again before joining.
 
-Running the game locally requires you to build all projects in the solution, and subsequently starting the required servers and game:
-- Start the [WorldsAdriftGameServer](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftGameServer) 
-- Start the [WorldsAdriftServer](https://github.com/sp00ktober/WorldsAdriftReborn/tree/main/WorldsAdriftServer).
-- And then start the game.
+Windows may show an unknown-publisher warning because this community binary is
+not code-signed. Verify the SHA-256 shown on the GitHub release before running
+it if you want an independent integrity check.
 
-The projects also includes launch configurations for the WorldsAdriftReborn, WorldsAdriftGameServer and WorldsAdriftServer the projects. 
-The launch configuration for WorldsAdriftReborn will launch the game itself (⚠ when launching worlds adrift through visual studio you have to make sure you launch the game without debugging).
-You can launch everything at once by configuring the solution for Multiple Startup projects.
+### 4. Point the client at Wareborn
 
-## Updating protobuf
-At the moment the WorldsAdriftRebornCoreSdk is dependant on protobuf, in order to keep the project portable and not require and external package managers (vcpkg) we opted to include a build and publish nuget package.
+Launch the game once after patching, then close it. This creates:
 
-This nuget package was exported by vcpkg using the `vcpkg export protobuf:x64-windows-static-md --nuget --nuget-id=WorldsAdriftReborn-protobuf-x64-windows-static-md` option of vcpkg ( see https://devblogs.microsoft.com/cppblog/vcpkg-introducing-export-command/ for more info).
-And released on nuget as https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows-static-md/ .
+```text
+BepInEx\config\WorldsAdriftReborn.cfg
+```
 
-The package can be updated by going to your locally installed vcpkg installation folder, removing any installed version of protobuf using the `vcpkg remove protobuf:x64-windows protobuf:x64-windows-static protobuf:x64-windows-static-md` command,
-reinstall them using the `vcpkg install protobuf:x64-windows protobuf:x64-windows-static protobuf:x64-windows-static-md` and subsequently running the aforementioned the export command again.
-This will generate a new package for you, which you can then upload to nuget, and update through the nuget package manager.
+Open that file and set these values in their existing sections:
 
-For testing purposes, you can also (instead of uploading the package to nuget) locally load an exported nuget package by placing the exported .nupkg in the LocalPackages folder of the repo, 
-this will make it appear in the LocalPackages package source in the nuget package manager.
+```ini
+[GameServer]
+GameServer_Host = 62.171.161.19
+GameServer_Port = 7779
 
-Aside from https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows-static-md/ we also provide the https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows-static/ and https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows/ variants.  
-⚠ Do note that if you choose to switch a variant (or to a local package) that has a different package name you will need update the proto.targets with the changed package path in order for auto compiling of the .proto files to work and be mindful of the required compilation settings changes below.
+[REST]
+REST_ServerUrl = http://62.171.161.19:8085
+REST_ServerDeploymentUrl = http://62.171.161.19:8085/deploymentStatus
+```
 
-You can switch linking modes by going to the WorldsAdriftRebornCoreSdk project properties and switching various settings:
-- vcpkg > Use static libraries > No / C/C++ > Code Generation > Runtime Library: MDd (default): This will dynamic link everything, which will also result in separate protobuf DLLS in the output (works with all versions of the package, however you might want to switch to https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows/ for a leaner package)
-- vcpkg > Use static libraries > Yes / vcpkg > Use Use Dynamic CRT > No / C/C++ > Code Generation > Runtime Library: MTd: This will static link everything, resulting in a single output DLL. (requires https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows-static/ )
-- (Current default) vcpkg > Use static libraries > Yes / vcpkg > Use Use Dynamic CRT > Yes / C/C++ > Code Generation > Runtime Library: MDd (default): This will static link everything, resulting in a single output DLL. (requires https://www.nuget.org/packages/WorldsAdriftReborn-protobuf-x64-windows-static-md/ )
+Use a unique password for this test service. The browser signup is HTTPS, but
+the legacy game client's authentication request currently uses plain HTTP.
 
-# Contact us
-Any support is welcome! You can find us on [Discord](https://discord.gg/pSrfna7NDx)
+### 5. Create an account and enter the world
+
+1. Register at <https://wareborn.ratlabs.cc/signup>.
+2. Launch `UnityClient@Windows.exe`.
+3. Enter the registered username in the game's **Email Address** field and the
+   same passphrase in **Password**.
+4. Create or select a character and join.
+
+The browser login page at <https://wareborn.ratlabs.cc/login> also provides the
+current patcher download after sign-in.
+
+### Useful controls
+
+- **E** — normal interaction; man the helm or furl/unfurl a sail.
+- **X** (hold while looking at it) — pack a placed Shipyard or Assembly Station
+  back into your inventory.
+- **F10** — manual recovery if your character falls through the world.
+
+If joining fails, keep `BepInEx/LogOutput.log` and `CoreSdk_OutputLog.txt` from
+the game folder. Include both when reporting the problem, along with the patch
+version displayed by WAPatch.
+
+## Run your own server
+
+The repository contains four main pieces:
+
+| Project | Purpose |
+|---|---|
+| `WorldsAdriftReborn` | BepInEx/Harmony Windows client mod |
+| `WorldsAdriftRebornCoreSdk` | replacement native SpatialOS/ENet client SDK |
+| `WorldsAdriftServer` | account, login, character, patch, and admin HTTP service |
+| `WorldsAdriftRebornGameServer` | authoritative multiplayer game server |
+
+Clone with submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/DoubtfulHermit/WorldsAdriftReborn.git
+```
+
+The projects require the compatible game assemblies and local paths described
+by `DevEnv.targets`. The managed projects target modern .NET SDKs; the client
+mod additionally requires the Windows game installation and native client SDK
+toolchain. Start with:
+
+- [server deployment and configuration](docs/hosting.md);
+- [patcher build and release process](tools/patcher/README.md);
+- [research index](docs/research/README.md).
+
+Common validation commands:
+
+```bash
+dotnet test WorldsAdriftRebornGameServer.Multiplayer.Tests -c Release
+dotnet test WorldsAdriftServer.Tests -c Release
+dotnet build WorldsAdriftRebornGameServer -c Release
+```
+
+The production game server now runs as a self-contained Linux x64 executable
+with `libCoreSdkDll.so`; the systemd unit template is
+[`deploy/wareborn-game-native.service`](deploy/wareborn-game-native.service).
+The player-facing client and patcher remain Windows x64.
+
+## Contributing and support
+
+Bug reports with reproducible steps and logs are especially useful. Please keep
+changes evidence-driven: much of the protocol and game behavior must be
+reconstructed from shipped client code and live packet traces.
+
+See the upstream
+[contribution guide](https://github.com/WAReborn/WorldsAdriftReborn/blob/main/CONTRIBUTING.md)
+and the original WAReborn community Discord: <https://discord.gg/pSrfna7NDx>.
+
+## Legal
+
+This project does not provide the Worlds Adrift client or any proprietary game
+assets. You must obtain the game through an account that is legitimately
+entitled to it. Names and trademarks belong to their respective owners.

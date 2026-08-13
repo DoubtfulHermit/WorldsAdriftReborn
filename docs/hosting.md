@@ -30,19 +30,17 @@ Ports are configurable rather than hardcoded:
 ```
 /opt/wareborn/
 ├── WorldsAdriftServer-linux/      login/REST server - NATIVE, self-contained
-├── WorldsAdriftServer/            the old Wine deploy, kept only for rollback
-├── WorldsAdriftRebornGameServer/  ENet game server (+ CoreSdkDll + game DLLs)
-├── wineprefix/                    Wine prefix, portable .NET 6 at C:\dotnet6
-└── run-game.sh                    wrapper (sets WINEPREFIX + port, execs wine)
+├── WorldsAdriftRebornGameServer-native/  game server - NATIVE, self-contained
+├── WorldsAdriftRebornGameServer/  old Windows/Wine game deploy, rollback only
+└── wineprefix/                    retained only for emergency rollback
 
 /etc/wareborn/login.env            WAREBORN_DB - root-only, chmod 600
 ```
 
-Wine 9.0 from the Ubuntu repos; no X needed for console apps.
-
-**Only the game server runs under Wine.** It has to: it loads the game's own
-assemblies and `CoreSdkDll.dll`. The login server is plain cross-platform C# and
-runs natively — see the crypto gotcha below for why that is not merely tidier.
+Both services run directly on Linux. The game server maps the legacy Worker SDK's
+`msvcrt.dll!memcpy` import to glibc and loads the Linux compatibility shim
+`libCoreSdkDll.so` beside the self-contained executable. The previous Wine unit
+is retained as an exact rollback, but is not part of the live path.
 
 ## Accounts and the database
 
@@ -269,38 +267,24 @@ reach both servers.
 
 ## Resource placement knobs
 
-Metal deposits are placed by the **island resource handshake**: the server asks
-(component 1010 `SpawnResources`), the stock client surface-samples its own island
-mesh - physics-checked, so always on real ground - and replies (1011
-`IslandResourceSpawnerClientState`), and the server spawns a deposit at each
-position the client chose. This is the retail mechanic; it replaces the offline
-position generator, whose guesses put deposits in the air and inside trees.
+The live Haven population is generated offline from its extracted collision
+surface. The original server-worker resource sampler is not present in the
+shipped player client, so waiting for a 1010/1011 response from a player can
+never populate the island. The deterministic generator covers the entire
+terrain using surface, spacing, exclusion, and starter-biome rules.
 
 | Variable | Default | Effect |
 |---|---|---|
-| `WAREBORN_METAL_COUNT` | `40` | Deposits requested per island. Clamped to **0..200**; an unparseable value falls back to 40, so a fat-fingered knob cannot empty or flood the world. |
-| `WAREBORN_METAL_HANDSHAKE` | on | `0`/`false`/`off`/`no` disables the handshake entirely and restores the old boot-time hand-placed path (`WAREBORN_SPAWN_DEPOSIT=1`). |
-| `WAREBORN_METAL_FALLBACK` | on | `0` disables the safety net. **Only for deliberately testing the handshake alone** - with it off, a client that never replies means no ore at all. |
-| `WAREBORN_METAL_FALLBACK_SECONDS` | `90` | How long to wait for a usable 1011 reply before spawning the hand-placed table instead. Clamped to **10..600**. |
+| `WAREBORN_METAL_HANDSHAKE` | off in production | Keep disabled for player clients; the necessary retail server-worker visualizer is not shipped in them. |
 | `WAREBORN_DEPOSIT_COUNT` | all | How many deterministic whole-island Haven deposits to spawn. The table contains 40 biome-profiled iron deposits across the full terrain; clamped to `[1, 40]`. |
 | `WAREBORN_TREE_COUNT` | all | Total Haven trees, including the proven near-spawn birch. The full deterministic layout is 81 birches (one anchor + 80 whole-island seats); clamped to `[1, 81]`. |
 | `WAREBORN_TREE_SPECIES` | ignored on Haven | Legacy experiment that cycled every recovered wood species on one island. Haven now has an explicit birch starter-biome profile, so this cannot turn it into a random assortment. |
 | `WAREBORN_SPAWN_ATLAS` | on | `0` stops the fallback lodging atlas shards in its deposits. |
+| `WAREBORN_INTEREST_RADIUS_M` | deployment-specific | Per-player resource load radius. Distant resources remain registered but are not sent to that client. |
+| `WAREBORN_INTEREST_UNLOAD_RADIUS_M` | load radius + hysteresis | Larger unload radius that prevents churn at the boundary. |
 
-`WAREBORN_SPAWN_DEPOSIT=1` is **ignored while the handshake is on**. Honouring it
-would put both sets in the world at once - forty client-placed deposits plus the
-twenty-odd hand-measured ones - with no way to tell from the log which is which.
-The hand-placed table is still used, at runtime, as the fallback.
-
-### Which path ran
-
-Exactly one marker line is written per island per run:
-
-- `resource-handshake: PATH=handshake` - the client replied and its positions were used.
-- `resource-handshake: PATH=fallback` - no usable reply arrived before the deadline;
-  the hand-placed table was spawned instead.
-
-A placement whose global coordinates fall outside Haven's measured AABB (plus a
-250 m margin) is refused and logged with its raw metres - the guard against a
-floating-origin or scale error scattering deposits across the sky. Nothing is
-ever spawned from a refused position.
+Resource entities remain authoritative in the world registry. At connect, only
+nearby resources join the loading barrier; subsequent player-position updates
+reconcile additions and removals through a paced queue. Essential entities,
+player-built structures, ships, and the world-global biome entity are never
+distance-gated.
