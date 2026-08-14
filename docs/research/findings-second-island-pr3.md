@@ -60,4 +60,16 @@ Enable `WAREBORN_SPAWN_SECOND_ISLAND=1` on a test server, then verify:
 4. Disconnect/reconnect does not duplicate or move either island.
 5. A second peer sees the same entity id and transform.
 
+The operator travel command is:
+
+```text
+trades-challenge [playerEntityId]
+```
+
+It uses local surface point `(-64, 0.45, -64)` plus the standard two-metre
+stand-off. The point is on the extracted upper terrain layer with `ny = 1.0`; its
+surrounding eight-metre samples remain within 0.45 m. `TeleportService` refuses the
+command unless `island-the-trades-challenge` is registered, so leaving the boot flag
+off cannot turn the dashboard button into an endless fall.
+
 Do not enable it by default or populate it until those checks pass.

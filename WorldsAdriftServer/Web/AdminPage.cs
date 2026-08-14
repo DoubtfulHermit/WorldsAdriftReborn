@@ -55,10 +55,11 @@ h2{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink
 .stat .n{font-size:1.6rem;font-weight:600;letter-spacing:.02em;}
 .stat .l{font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);}
 label{display:block;font-size:.64rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);text-shadow:var(--halo);margin:0 0 .35rem;}
-input{width:100%;font:inherit;color:var(--field-ink);background:var(--field);border:1px solid var(--field-edge);border-radius:0;padding:.6rem .7rem;
+input,select{width:100%;font:inherit;color:var(--field-ink);background:var(--field);border:1px solid var(--field-edge);border-radius:0;padding:.6rem .7rem;
   -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
 input::placeholder{color:var(--field-hint);}
-input:focus-visible,button:focus-visible{outline:2px solid var(--timber-hi);outline-offset:3px;}
+select option{color:#202936;background:#e9eef0;}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--timber-hi);outline-offset:3px;}
 .field{margin-bottom:.85rem;text-align:left;}
 button,.btn{position:relative;display:inline-block;width:100%;margin:.4rem 0 .2rem;padding:.72rem 1.4rem;font:inherit;font-size:.78rem;font-weight:600;
   letter-spacing:.16em;text-transform:uppercase;color:var(--timber-ink);border:1px solid #a4744a;border-radius:1px;cursor:pointer;text-align:center;text-decoration:none;
@@ -88,6 +89,14 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .banner strong{display:block;letter-spacing:.06em;margin-bottom:.15rem;}
 .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem;}
 .asof{font-size:.72rem;color:var(--ink-faint);}
+.tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem;margin-top:1rem;}
+.tool{border:1px solid var(--panel-edge);padding:1rem;}
+.tool h3{font-size:.82rem;letter-spacing:.08em;margin:0 0 .35rem;}
+.tool p{font-size:.78rem;color:var(--ink-faint);margin:.2rem 0 .7rem;}
+.button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;}
+.button-row button{padding:.58rem .5rem;margin:0;font-size:.67rem;}
+.feedback{display:none;margin-top:1rem;padding:.7rem .8rem;border-left:3px solid var(--good);background:var(--panel);font-size:.82rem;}
+.feedback.show{display:block}.feedback.bad{border-left-color:var(--rust);}
 footer{margin-top:1.5rem;font-size:.7rem;color:var(--ink-faint);text-shadow:var(--halo);}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;}}
 </style>";
@@ -175,6 +184,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     <div class=""stat""><div class=""n"" id=""disconnects"">&mdash;</div><div class=""l"">Total disconnects</div></div>
     <div class=""stat""><div class=""n"" id=""uptime"">&mdash;</div><div class=""l"">Uptime</div></div>
     <div class=""stat""><div class=""n"" id=""relay"">&mdash;</div><div class=""l"">Relay mode</div></div>
+    <div class=""stat""><div class=""n"" id=""testIsland"">&mdash;</div><div class=""l"">Test island</div></div>
   </div>
   <div style=""overflow-x:auto;margin-top:1rem"">
   <table id=""playersTable"">
@@ -186,6 +196,49 @@ variable to <code>username:hash</code> and restart the login server to enable th
   </table>
   </div>
   <p class=""muted"" id=""noPlayers"" style=""display:none;font-size:.85rem"">Nobody in world.</p>
+</div>
+
+<div class=""card"">
+  <div class=""row"">
+    <div class=""grow""><h2>Operator tools</h2></div>
+    <div class=""fit""><button class=""btn ghost"" type=""button"" id=""refreshNow"">Refresh now</button></div>
+  </div>
+  <p class=""lede"" style=""margin-top:0"">Allowlisted game actions only. Every accepted or rejected request is recorded below; no shell commands or raw file paths are exposed.</p>
+  <div class=""field"">
+    <label for=""targetPlayer"">Selected live player</label>
+    <select id=""targetPlayer""><option value="""">No connected player</option></select>
+  </div>
+  <div class=""tool-grid"">
+    <div class=""tool"">
+      <h3>Player travel</h3>
+      <p>Return the selected player to safe Haven, or send them to the PR3 test island when its terrain is registered.</p>
+      <div class=""button-row"">
+        <button type=""button"" data-command=""teleport"" data-argument=""haven"">Return to Haven</button>
+        <button type=""button"" id=""tradesTravel"" data-command=""teleport"" data-argument=""trades-challenge"">Trades Challenge</button>
+      </div>
+      <p id=""islandRequirement"">Trades Challenge requires <code>WAREBORN_SPAWN_SECOND_ISLAND=1</code>.</p>
+    </div>
+    <div class=""tool"">
+      <h3>Placement recovery</h3>
+      <p>Starts native placement preview for the selected player's first hotbar or bag deployable. Nothing is consumed unless the player confirms in-game.</p>
+      <button type=""button"" data-command=""placement"" data-argument=""first"">Start deployable preview</button>
+    </div>
+    <div class=""tool"">
+      <h3>Ship carry diagnostic</h3>
+      <p>Moves the active test ship by exactly one metre. This is shared-world motion and asks for confirmation.</p>
+      <div class=""button-row"">
+        <button type=""button"" data-command=""ship-nudge"" data-argument=""north"">North +1 m</button>
+        <button type=""button"" data-command=""ship-nudge"" data-argument=""south"">South -1 m</button>
+        <button type=""button"" data-command=""ship-nudge"" data-argument=""west"">West -1 m</button>
+        <button type=""button"" data-command=""ship-nudge"" data-argument=""east"">East +1 m</button>
+      </div>
+    </div>
+  </div>
+  <div class=""feedback"" id=""commandFeedback"" role=""status"" aria-live=""polite""></div>
+  <div style=""overflow-x:auto;margin-top:1rem"">
+    <table><thead><tr><th>When</th><th>Action</th><th>Target</th><th>Detail</th><th>Result</th></tr></thead><tbody id=""commandLog""></tbody></table>
+  </div>
+  <p class=""muted"" id=""noCommands"" style=""font-size:.85rem"">No operator actions since this login-server boot.</p>
 </div>
 
 <div class=""card"">
@@ -223,6 +276,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
 (function(){
   'use strict';
   var REFRESH_MS = 4000;
+  var gameReporting = false;
+  var secondIslandRegistered = false;
   function $(id){return document.getElementById(id);}
   function text(id,v){var e=$(id);if(e)e.textContent=v;}
 
@@ -273,6 +328,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
     text('disconnects', reporting?String(g.totalDisconnects):'—');
     text('uptime', reporting?fmtDur(g.uptimeSeconds):'—');
     text('relay', reporting?(g.relayMode||'—'):'—');
+    gameReporting=reporting && !g.stale;
+    secondIslandRegistered=gameReporting && g.secondIslandRegistered===true;
+    text('testIsland',reporting?(secondIslandRegistered?'ready':'off'):'—');
 
     var spiral=$('spiralBanner');
     if(reporting && g.wireHealthWarning){
@@ -305,6 +363,31 @@ variable to <code>username:hash</code> and restart the login server to enable th
         cell(tr,'unreadable','muted');
       }
       tbody.appendChild(tr);
+    });
+
+    var playerSelect=$('targetPlayer');
+    var selected=playerSelect.value;
+    clear(playerSelect);
+    var none=document.createElement('option');none.value='';none.textContent=players.length?'Select a player':'No connected player';playerSelect.appendChild(none);
+    players.forEach(function(p){var o=document.createElement('option');o.value=String(p.entityId);o.textContent='Entity '+p.entityId+' · peer '+p.peerId;playerSelect.appendChild(o);});
+    if(players.some(function(p){return String(p.entityId)===selected;})){playerSelect.value=selected;}
+    else if(players.length===1){playerSelect.value=String(players[0].entityId);}
+
+    var trades=$('tradesTravel');
+    trades.disabled=!secondIslandRegistered;
+    text('islandRequirement',secondIslandRegistered
+      ? 'Terrain registration is confirmed by the live game server.'
+      : 'Unavailable: requires WAREBORN_SPAWN_SECOND_ISLAND=1 and a fresh game-server report.');
+
+    var recent=((data.commands||{}).recent)||[];
+    var log=$('commandLog');clear(log);
+    $('noCommands').style.display=recent.length?'none':'block';
+    recent.forEach(function(c){
+      var tr=document.createElement('tr');
+      cell(tr,fmtWhen(c.atUnixMs),'muted');cell(tr,c.action);cell(tr,c.targetEntityId||'—','num');cell(tr,c.detail||'—');
+      var td=cell(tr,c.message||'',c.accepted?'':'muted');
+      var pill=document.createElement('span');pill.className='pill '+(c.accepted?'ok':'bad');pill.textContent=c.accepted?'queued':'rejected';
+      td.insertBefore(pill,td.firstChild);td.insertBefore(document.createTextNode(' '),pill.nextSibling);log.appendChild(tr);
     });
 
     var a=data.accounts||{};
@@ -340,6 +423,22 @@ variable to <code>username:hash</code> and restart the login server to enable th
       .then(function(d){if(d)render(d);})
       .catch(function(){});
   }
+  function sendCommand(action,argument,button){
+    var target=$('targetPlayer').value;
+    if((action==='teleport'||action==='placement')&&!target){showFeedback(false,'Select a connected player first.');return;}
+    if(!gameReporting&&action!=='ship-nudge'){showFeedback(false,'The game server is not reporting fresh status.');return;}
+    if(action==='ship-nudge'&&!window.confirm('Move the active shared ship exactly one metre '+argument+'?'))return;
+    var body='action='+encodeURIComponent(action)+'&target='+encodeURIComponent(target)+'&argument='+encodeURIComponent(argument||'');
+    button.disabled=true;
+    fetch('/admin/api/command',{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded','X-Wareborn-Admin':'1'},body:body})
+      .then(function(r){if(r.status===401){location.href='/admin';return null;}return r.json().then(function(j){return {ok:r.ok,data:j};});})
+      .then(function(result){if(result){showFeedback(result.ok,result.data.message||'Command request finished.');refresh();}})
+      .catch(function(){showFeedback(false,'The admin command request could not reach the login server.');})
+      .then(function(){button.disabled=false;if(button.id==='tradesTravel'&&!secondIslandRegistered)button.disabled=true;});
+  }
+  function showFeedback(ok,message){var e=$('commandFeedback');e.className='feedback show'+(ok?'':' bad');e.textContent=message;}
+  Array.prototype.forEach.call(document.querySelectorAll('[data-command]'),function(button){button.addEventListener('click',function(){sendCommand(button.dataset.command,button.dataset.argument,button);});});
+  $('refreshNow').addEventListener('click',refresh);
   boot();
   refresh();
   setInterval(refresh,REFRESH_MS);

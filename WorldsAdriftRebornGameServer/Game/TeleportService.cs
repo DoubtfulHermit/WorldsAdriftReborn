@@ -172,6 +172,16 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Carries out one parsed command.</summary>
         private void Execute(TeleportCommand command)
         {
+            if (!TeleportPolicy.RequiredTerrainIsRegistered(
+                    command.Destination,
+                    key => WorldsAdriftRebornGameServer.WorldEntities.ByKey(key) != null))
+            {
+                Console.WriteLine("[warning] teleport: refusing '" + command.Destination.Name
+                    + "' because required terrain '" + command.Destination.RequiredWorldEntityKey
+                    + "' is not registered. Enable WAREBORN_SPAWN_SECOND_ISLAND=1 and restart first.");
+                return;
+            }
+
             if (!command.Destination.LandsOnLoadedGround)
             {
                 // Not a refusal - going somewhere with no ground is the whole

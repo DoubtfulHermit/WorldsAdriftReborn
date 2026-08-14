@@ -28,6 +28,7 @@ namespace WorldsAdriftServer.Tests
           ""currentOnline"":2,
           ""peakOnline"":4,
           ""wireHealthWarning"":true,
+          ""secondIslandRegistered"":true,
           ""players"":[
             {""entityId"":3,""peerId"":""0x2f00"",""connectedAtUnixMs"":1723200100000,
              ""health"":{""rttMs"":640,""rttVarianceMs"":30,""packetsLost"":9,""packetsSent"":1290,""inFlightBytes"":4096,""spiral"":true}},
@@ -62,6 +63,7 @@ namespace WorldsAdriftServer.Tests
                 Assert.Equal(2, s.CurrentOnline);
                 Assert.Equal(4, s.PeakOnline);
                 Assert.True(s.WireHealthWarning);
+                Assert.True(s.SecondIslandRegistered);
                 Assert.Equal(2, s.Players.Count);
 
                 // Age is now - generatedAt = 3s, which is not yet stale.

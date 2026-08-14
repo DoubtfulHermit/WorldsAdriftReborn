@@ -92,6 +92,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public int CurrentOnline { get; }
         public int PeakOnline { get; }
 
+        /// <summary>
+        /// Actual boot-registry readiness for the first distinct production
+        /// island. The admin page uses this fact instead of guessing from an
+        /// environment variable owned by another process.
+        /// </summary>
+        public bool SecondIslandRegistered { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
 
         public StatsSnapshot(
@@ -105,7 +112,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             long totalDisconnects,
             int currentOnline,
             int peakOnline,
-            IReadOnlyList<PlayerStat> players)
+            IReadOnlyList<PlayerStat> players,
+            bool secondIslandRegistered = false)
         {
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
@@ -118,6 +126,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             CurrentOnline = currentOnline;
             PeakOnline = peakOnline;
             Players = players ?? Array.Empty<PlayerStat>();
+            SecondIslandRegistered = secondIslandRegistered;
         }
 
         /// <summary>
@@ -162,6 +171,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "currentOnline", CurrentOnline); b.Append(',');
             Num(b, "peakOnline", PeakOnline); b.Append(',');
             Bool(b, "wireHealthWarning", WireHealthWarning); b.Append(',');
+            Bool(b, "secondIslandRegistered", SecondIslandRegistered); b.Append(',');
 
             Key(b, "players");
             b.Append('[');

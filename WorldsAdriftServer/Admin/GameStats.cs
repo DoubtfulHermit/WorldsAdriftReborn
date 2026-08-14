@@ -145,6 +145,7 @@ namespace WorldsAdriftServer.Admin
         public int CurrentOnline { get; private init; }
         public int PeakOnline { get; private init; }
         public bool WireHealthWarning { get; private init; }
+        public bool SecondIslandRegistered { get; private init; }
         public IReadOnlyList<GamePlayerStat> Players { get; private init; } = Array.Empty<GamePlayerStat>();
 
         public static GameStatsSnapshot Parse(JObject o)
@@ -175,6 +176,7 @@ namespace WorldsAdriftServer.Admin
                 CurrentOnline = (int?)o["currentOnline"] ?? 0,
                 PeakOnline = (int?)o["peakOnline"] ?? 0,
                 WireHealthWarning = (bool?)o["wireHealthWarning"] ?? false,
+                SecondIslandRegistered = (bool?)o["secondIslandRegistered"] ?? false,
                 Players = players,
             };
         }

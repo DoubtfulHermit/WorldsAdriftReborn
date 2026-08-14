@@ -5,12 +5,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// </summary>
     public readonly struct TeleportDestination : IEquatable<TeleportDestination>
     {
-        public TeleportDestination(string name, FixedPointPosition position, bool landsOnLoadedGround, string description)
+        public TeleportDestination(
+            string name,
+            FixedPointPosition position,
+            bool landsOnLoadedGround,
+            string description,
+            string? requiredWorldEntityKey = null)
         {
             Name = name;
             Position = position;
             LandsOnLoadedGround = landsOnLoadedGround;
             Description = description;
+            RequiredWorldEntityKey = requiredWorldEntityKey;
         }
 
         /// <summary>The lookup key. Lower-case ASCII; see <see cref="TeleportPolicy.TryResolve"/>.</summary>
@@ -28,18 +34,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Whether there is, TODAY, collidable geometry at this position on a
         /// connected client.
         ///
-        /// False for every destination that is not Haven instance #5, and that
-        /// is not pedantry: this server spawns exactly ONE island entity. A
-        /// player teleported to any other island's coordinates arrives in empty
-        /// air over an island that was never streamed in, and this server writes
-        /// no fall damage and no world bounds - so the fall does not end. Those
-        /// destinations become real only once entity spawning is generalised
-        /// past {island, player} (findings-first-ship.md, build order step 1).
+        /// True only for an evidenced surface point. A destination whose terrain
+        /// is optional also names <see cref="RequiredWorldEntityKey"/>; runtime
+        /// refuses it unless that entity is registered for this boot.
         /// </summary>
         public bool LandsOnLoadedGround { get; }
 
         /// <summary>Human-readable provenance, for the log line and for whoever reads this next.</summary>
         public string Description { get; }
+
+        /// <summary>
+        /// Optional terrain registration that must exist before an operator may
+        /// use this destination. This keeps an evidenced surface point from
+        /// becoming an endless fall when its opt-in island is disabled.
+        /// </summary>
+        public string? RequiredWorldEntityKey { get; }
 
         public bool Equals(TeleportDestination other) => Name == other.Name && Position == other.Position;
 
@@ -163,6 +172,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>949069116 "Shattered Mausoleum" - a genuinely different island.</summary>
         public const string MausoleumName = "mausoleum";
 
+        /// <summary>1206286558 "The Trades Challenge", the first distinct PR3 island.</summary>
+        public const string TradesChallengeName = "trades-challenge";
+
         /// <summary>
         /// The keyword that introduces an AD-HOC world coordinate, for reaching an
         /// island this menu does not name - e.g. a ship ferry's destination while
@@ -199,7 +211,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static readonly IReadOnlyList<TeleportDestination> Destinations = new[]
         {
             // The get-me-unstuck destination, and the only one that is real
-            // today. Shares its value with SpawnPolicy so a test can assert the
+            // by default. Shares its value with SpawnPolicy so a test can assert the
             // two never drift apart - if they ever did, "teleport me home" would
             // put you somewhere you have never spawned.
             new TeleportDestination(
@@ -245,6 +257,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 landsOnLoadedGround: false,
                 "Shattered Mausoleum (949069116), 4425 m away - the island this server "
                 + "used before Haven. Flat top-surface cell; NO entity is spawned there yet."),
+
+            // The first DISTINCT production terrain registered by the island
+            // pipeline. Bossa's release MapFile places 1206286558 at
+            // (13253.5547, -193.321426, -1972.03845). Local (-64, 0.45, -64)
+            // is a flat upper-surface point (ny 1.0); its surrounding 8 m samples
+            // stay within 0.45 m. Add the standard 2 m player stand-off.
+            new TeleportDestination(
+                TradesChallengeName,
+                FixedPointPosition.FromMetres(
+                    13253.5547 + -64.0,
+                    -193.321426 + 0.45 + 2.00,
+                    -1972.03845 + -64.0),
+                landsOnLoadedGround: true,
+                "The Trades Challenge (1206286558), first distinct PR3 production island. "
+                + "Flat extracted upper-surface point; available only when its terrain entity is registered.",
+                Islands.IslandCatalog.TradesChallenge.WorldEntityKey),
         };
 
         /// <summary>Destination names, in menu order. For the log banner and error messages.</summary>
@@ -303,6 +331,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// Whether every terrain registration required by a destination exists.
+        /// Haven and diagnostic air coordinates require nothing; opt-in production
+        /// islands fail closed until their exact world entity is present.
+        /// </summary>
+        public static bool RequiredTerrainIsRegistered(
+            TeleportDestination destination,
+            Func<string, bool> isRegistered)
+        {
+            if (isRegistered == null)
+            {
+                throw new ArgumentNullException(nameof(isRegistered));
+            }
+
+            return destination.RequiredWorldEntityKey == null
+                || isRegistered(destination.RequiredWorldEntityKey);
         }
 
         /// <summary>

@@ -94,6 +94,18 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            if (path == "/admin/api/command" && method == "POST")
+            {
+                if (!authed)
+                {
+                    Json(session, 401, "{\"error\":\"unauthenticated\"}");
+                    return true;
+                }
+
+                HandleAdminCommand(session, request);
+                return true;
+            }
+
             if (path == "/admin/server-name" && method == "POST")
             {
                 if (!authed)
@@ -179,6 +191,113 @@ namespace WorldsAdriftServer.Handlers.Admin
             Redirect(session, "/admin");
         }
 
+        private static void HandleAdminCommand(HttpSession session, HttpRequest request)
+        {
+            // This non-simple request header forces a cross-origin browser to
+            // preflight. We expose no CORS permission, so another site cannot
+            // use an operator's session to fire a game command.
+            if (HeaderValue(request, "X-Wareborn-Admin") != "1")
+            {
+                CommandError(session, 403, "request", null, "Admin command confirmation header is missing.");
+                return;
+            }
+
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("action", out string? action);
+            form.TryGetValue("target", out string? target);
+            form.TryGetValue("argument", out string? argument);
+
+            if (!AdminCommandBridge.TryBuild(action, target, argument, out AdminCommandRequest command, out string error))
+            {
+                CommandError(session, 400, KnownAction(action), null, error);
+                return;
+            }
+
+            if (!TryReadFreshGame(out GameStatsSnapshot snapshot, out error))
+            {
+                CommandError(session, 503, command.Action, command.TargetEntityId, error);
+                return;
+            }
+
+            if (command.Action == "teleport" && command.Detail == "trades-challenge"
+                && !snapshot.SecondIslandRegistered)
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId,
+                    "The test island is not registered on the live game server.");
+                return;
+            }
+
+            if (command.TargetEntityId.HasValue
+                && !IsConnectedPlayer(snapshot, command.TargetEntityId.Value, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+
+            if (!AdminCommandBridge.TryQueue(command, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+
+            string targetText = command.TargetEntityId.HasValue
+                ? " for player entity " + command.TargetEntityId.Value
+                : string.Empty;
+            string message = "Queued " + command.Action + targetText
+                + ". The game server normally consumes it within half a second.";
+            AdminCommandEntry entry = AdminCommandJournal.Record(
+                DateTimeOffset.UtcNow, command.Action, command.TargetEntityId,
+                command.Detail, accepted: true, message);
+            Console.WriteLine("[info] admin command accepted: " + command.Action + targetText
+                + " (" + command.Detail + ").");
+            Json(session, 202, entry.ToJson().ToString(Formatting.None));
+        }
+
+        private static bool TryReadFreshGame(out GameStatsSnapshot snapshot, out string error)
+        {
+            GameStatsResult stats = GameStats.Read(DateTimeOffset.UtcNow);
+            if (stats.State != GameStatsState.Ok || stats.Snapshot == null || stats.Stale)
+            {
+                snapshot = null!;
+                error = "Live game status is unavailable or stale; no command was queued.";
+                return false;
+            }
+
+            snapshot = stats.Snapshot;
+            error = string.Empty;
+            return true;
+        }
+
+        private static bool IsConnectedPlayer(GameStatsSnapshot snapshot, long entityId, out string error)
+        {
+            foreach (GamePlayerStat player in snapshot.Players)
+            {
+                if (player.EntityId == entityId)
+                {
+                    error = string.Empty;
+                    return true;
+                }
+            }
+
+            error = "That player is no longer connected; refresh the player list and choose again.";
+            return false;
+        }
+
+        private static string KnownAction(string? action)
+        {
+            return action == "teleport" || action == "placement" || action == "ship-nudge"
+                ? action
+                : "invalid";
+        }
+
+        private static void CommandError(HttpSession session, int status, string action, long? target, string message)
+        {
+            AdminCommandEntry entry = AdminCommandJournal.Record(
+                DateTimeOffset.UtcNow, action, target, string.Empty, accepted: false, message);
+            Console.WriteLine("[warning] admin command rejected: " + action + ": " + message);
+            Json(session, status, entry.ToJson().ToString(Formatting.None));
+        }
+
         // ---- stats payload -------------------------------------------------
 
         /// <summary>
@@ -198,6 +317,10 @@ namespace WorldsAdriftServer.Handlers.Admin
                 ["serverName"] = ReadServerName(),
                 ["game"] = BuildGameJson(now),
                 ["accounts"] = BuildAccountsJson(now),
+                ["commands"] = new JObject
+                {
+                    ["recent"] = AdminCommandJournal.ToJson(),
+                },
             };
 
             // EscapeHtml so the SAME payload is safe both as the /admin/api/stats
@@ -254,6 +377,7 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["currentOnline"] = s.CurrentOnline;
             game["peakOnline"] = s.PeakOnline;
             game["wireHealthWarning"] = s.WireHealthWarning;
+            game["secondIslandRegistered"] = s.SecondIslandRegistered;
 
             JArray players = new JArray();
             foreach (GamePlayerStat p in s.Players)

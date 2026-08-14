@@ -53,7 +53,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(0, (int)o["currentOnline"]!);
             Assert.Equal(4, (int)o["peakOnline"]!);
             Assert.False((bool)o["wireHealthWarning"]!);
+            Assert.False((bool)o["secondIslandRegistered"]!);
             Assert.Empty((JArray)o["players"]!);
+        }
+
+        [Fact]
+        public void Snapshot_reports_actual_second_island_registry_readiness()
+        {
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), secondIslandRegistered: true);
+
+            Assert.True(snapshot.SecondIslandRegistered);
+            Assert.True((bool)JObject.Parse(snapshot.ToJson())["secondIslandRegistered"]!);
         }
 
         [Fact]

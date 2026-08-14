@@ -1961,7 +1961,9 @@ namespace WorldsAdriftRebornGameServer
                 totalDisconnects: Stats.TotalDisconnects,
                 currentOnline: Stats.CurrentOnline,
                 peakOnline: Stats.PeakOnline,
-                players: players);
+                players: players,
+                secondIslandRegistered: WorldEntities.ByKey(
+                    Multiplayer.Islands.IslandCatalog.TradesChallenge.WorldEntityKey) != null);
         }
 
         /// <summary>Published appearance per player entity; read by the 1088

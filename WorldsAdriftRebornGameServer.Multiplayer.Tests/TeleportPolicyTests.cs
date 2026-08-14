@@ -83,7 +83,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_one_destination_claims_to_have_ground_under_it()
+        public void Only_Haven_and_the_guarded_PR3_island_claim_ground()
         {
             // This server spawns ONE island entity. Any second destination
             // claiming solid ground would be a lie that ends in an endless fall,
@@ -97,8 +97,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(1, landable);
+            Assert.Equal(2, landable);
             Assert.Equal(TeleportPolicy.HavenName, TeleportPolicy.SafeDestination.Name);
+        }
+
+        [Fact]
+        public void Trades_challenge_uses_a_flat_extracted_surface_and_requires_its_registered_terrain()
+        {
+            Assert.True(TeleportPolicy.TryResolve(
+                TeleportPolicy.TradesChallengeName, out TeleportDestination destination));
+
+            Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Islands
+                    .IslandCatalog.TradesChallenge.WorldEntityKey,
+                destination.RequiredWorldEntityKey);
+            Assert.True(destination.LandsOnLoadedGround);
+            AssertMetres(13253.5547 - 64.0, destination.Position.MetresX);
+            AssertMetres(-193.321426 + 0.45 + 2.0, destination.Position.MetresY);
+            AssertMetres(-1972.03845 - 64.0, destination.Position.MetresZ);
+
+            Assert.False(TeleportPolicy.RequiredTerrainIsRegistered(destination, _ => false));
+            Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(destination,
+                key => key == destination.RequiredWorldEntityKey));
+
+            Assert.True(TeleportPolicy.TryResolve(
+                TeleportPolicy.HavenName, out TeleportDestination haven));
+            Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(haven, _ => false));
         }
 
         [Fact]
