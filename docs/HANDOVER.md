@@ -113,8 +113,12 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `1af716c` (`Add multi-island resource interest`), deployed
-  and restarted at 2026-08-14 16:44 CEST.
+- **Game server:** `a6de2cf` (`Prevent duplicate resource checkout during
+  login`), deployed and restarted at 2026-08-14 17:45 CEST. Continuous resource
+  lifecycle is suspended until the immutable connect plan reaches its final
+  step, and queued lifecycle work is revalidated immediately before its wire
+  send. This fixes the observed connect crash where the two producers sent
+  duplicate `AddEntity` operations for the same resource ids.
 - **Public client manifest:** `2026.08.14-8`, build label
   `island + ship/resource lifecycle merge (d67f205)`.
 - **Client DLL SHA-256:**
