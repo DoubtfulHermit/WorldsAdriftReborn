@@ -108,9 +108,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         basePos = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(ship.Value);
                     }
                     WorldsAdriftRebornGameServer.ResourceInterest.ObserveIslandLocalPosition(player,
-                        (float)(basePos.MetresX - Multiplayer.SpawnPolicy.IslandPosition.MetresX + p.X),
-                        (float)(basePos.MetresY - Multiplayer.SpawnPolicy.IslandPosition.MetresY + p.Y),
-                        (float)(basePos.MetresZ - Multiplayer.SpawnPolicy.IslandPosition.MetresZ + p.Z));
+                        (float)(basePos.MetresX - Multiplayer.Islands.IslandCatalog.Haven.GlobalOrigin.MetresX + p.X),
+                        (float)(basePos.MetresY - Multiplayer.Islands.IslandCatalog.Haven.GlobalOrigin.MetresY + p.Y),
+                        (float)(basePos.MetresZ - Multiplayer.Islands.IslandCatalog.Haven.GlobalOrigin.MetresZ + p.Z));
                 }
                 else
                 {

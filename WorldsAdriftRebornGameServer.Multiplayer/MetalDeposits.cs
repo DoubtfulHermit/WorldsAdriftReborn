@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -125,7 +127,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>The island every player spawns on; deposits are placed island-local against it.</summary>
-        public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
+        public static readonly FixedPointPosition IslandOrigin = IslandCatalog.Haven.GlobalOrigin;
 
         /// <summary>
         /// One island-local deposit placement on Haven: a metal type, a quality, and a
@@ -230,7 +232,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 KeyFor(index),
                 p.MetalType,
                 p.Quality,
-                MetalNodes.IslandLocalToWorldFixed(IslandOrigin, p.LocalX, p.LocalY, p.LocalZ),
+                IslandCatalog.Haven.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ),
                 isDeposit: true,
                 variantId: VariantId());
         }

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
@@ -59,7 +60,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             "A cache of pre-Collapse knowledge. Scanning it adds to your understanding of the world.";
 
         /// <summary>The island every player spawns on; databanks are placed island-local against it.</summary>
-        public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
+        public static readonly FixedPointPosition IslandOrigin = IslandCatalog.Haven.GlobalOrigin;
 
         /// <summary>One island-local databank placement on Haven (island-local metres).</summary>
         public readonly struct Placement
@@ -102,7 +103,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static FixedPointPosition PositionAt(int index)
         {
             Placement p = HavenPlacements[index];
-            return MetalNodes.IslandLocalToWorldFixed(IslandOrigin, p.LocalX, p.LocalY, p.LocalZ);
+            return IslandCatalog.Haven.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ);
         }
 
         /// <summary>The number of databanks to place, clamped to [1, full table].</summary>

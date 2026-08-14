@@ -2100,7 +2100,8 @@ namespace WorldsAdriftRebornGameServer
                 SpawnFuelPods,
                 Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"),
                 VaryTreeSpecies,
-                SpawnStaticShip);
+                SpawnStaticShip,
+                SpawnProductionSecondIsland);
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(ServerClock, WorldEntities);
@@ -2261,6 +2262,15 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnProofIsland =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_PROOF_ISLAND") == "1";
+
+        /// <summary>
+        /// Opt-in PR3 visual acceptance island. Unlike the old duplicate-Haven
+        /// proof, this is a distinct shipped production island at its exact Bossa
+        /// MapFile position. It stays off until a client confirms load, placement,
+        /// collision and reconnect behavior.
+        /// </summary>
+        private static bool SpawnProductionSecondIsland =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_SECOND_ISLAND") == "1";
 
         /// <summary>
         /// Whether to spawn the choppable tree (see Multiplayer.WorldEntities.HavenTree).

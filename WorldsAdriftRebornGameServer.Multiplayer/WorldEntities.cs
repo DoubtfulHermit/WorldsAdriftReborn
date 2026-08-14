@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -26,7 +28,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// later, it is what the client's dispatch expects when there is nothing
         /// to disambiguate.
         /// </summary>
-        public const string DefaultAssetContext = "notNeeded?";
+        public const string DefaultAssetContext = IslandCatalog.DefaultTerrainAssetContext;
 
         /// <summary>The island's registration key. See <see cref="EntityIdAllocator.IslandKey"/>.</summary>
         public const string IslandKey = EntityIdAllocator.IslandKey;
@@ -45,13 +47,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static WorldEntity Island()
         {
+            return Island(IslandRegistry.CreateDefault().Require(IslandCatalog.HavenId));
+        }
+
+        /// <summary>Creates a terrain entity from one registered island definition.</summary>
+        public static WorldEntity Island(IslandDefinition island)
+        {
+            if (island == null)
+            {
+                throw new ArgumentNullException(nameof(island));
+            }
+
             return new WorldEntity(
-                IslandKey,
-                SpawnPolicy.IslandAssetName,
-                DefaultAssetContext,
-                SpawnPolicy.IslandPosition,
+                island.WorldEntityKey,
+                island.TerrainAssetName,
+                island.TerrainAssetContext,
+                island.GlobalOrigin,
                 seedComponents: null,
-                order: SpawnOrder.BeforePlayer);
+                order: island.SpawnOrder);
         }
 
         /// <summary>The proof entity's registration key. See <see cref="ProofIsland"/>.</summary>
@@ -461,7 +474,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// flat, clear, and well inside the 40 m the aim raycast reaches.
         /// </summary>
         public static readonly FixedPointPosition HavenTreePosition =
-            new FixedPointPosition(70502113, -1284830, -4612781);
+            IslandCatalog.Haven.LocalToGlobal(208.0, 4.99, 8.0);
 
         /// <summary>
         /// ONE CHOPPABLE TREE, four metres from where the player wakes up.
@@ -600,7 +613,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     "tree-" + i++,
                     asset,
                     DefaultAssetContext,
-                    MetalNodes.IslandLocalToWorldFixed(MetalNodes.IslandOrigin, x, y, z),
+                    IslandCatalog.Haven.LocalToGlobal(x, y, z),
                     seedComponents: null,
                     order: SpawnOrder.AfterPlayer);
             }
@@ -804,7 +817,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 GlobalEntityKey,
                 GlobalEntityAssetName,
                 DefaultAssetContext,
-                SpawnPolicy.IslandPosition,
+                IslandCatalog.Haven.GlobalOrigin,
                 seedComponents: null,
                 order: SpawnOrder.AfterPlayer);
         }
@@ -924,11 +937,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// biome profile is birch; this remains available for a future island whose
         /// recovered per-island data actually names several woods.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
+            IslandRegistry islands = IslandRegistry.CreateDefault();
 
-            registry.Register(Island());
+            registry.Register(Island(islands.Require(IslandCatalog.HavenId)));
+
+            if (includeProductionSecondIsland)
+            {
+                registry.Register(Island(islands.Require(IslandCatalog.TradesChallengeId)));
+            }
 
             if (includeProofIsland)
             {

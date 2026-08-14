@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
@@ -89,7 +90,7 @@ namespace WorldsAdriftRebornGameServer.Game
         public void ObserveIslandLocalPosition(ENetPeerHandle peer, float x, float y, float z)
         {
             if (!Enabled) return;
-            FixedPointPosition island = SpawnPolicy.IslandPosition;
+            FixedPointPosition island = IslandCatalog.Haven.GlobalOrigin;
             StateFor(peer).Center = FixedPointPosition.FromMetres(
                 island.MetresX + x, island.MetresY + y, island.MetresZ + z);
         }

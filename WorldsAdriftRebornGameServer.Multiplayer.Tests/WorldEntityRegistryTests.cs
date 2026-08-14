@@ -245,6 +245,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void The_production_second_island_is_off_unless_asked_for_and_is_classified_as_terrain()
+        {
+            string key = global::WorldsAdriftRebornGameServer.Multiplayer.Islands
+                .IslandCatalog.TradesChallenge.WorldEntityKey;
+            WorldEntityRegistry off = WorldEntities.Default(new EntityIdAllocator());
+            Assert.Null(off.ByKey(key));
+
+            WorldEntityRegistry on = WorldEntities.Default(
+                new EntityIdAllocator(), includeProductionSecondIsland: true);
+            WorldEntity island = on.ByKey(key)!;
+            long entityId = on.EntityIdFor(island);
+
+            Assert.Equal("1206286558@Island", island.AssetName);
+            Assert.Equal(SeededEntityKind.Island, on.KindOf(entityId));
+            Assert.Equal(SpawnOrder.AfterPlayer, island.Order);
+        }
+
+        [Fact]
         public void The_proof_island_is_Haven_instance_six_from_the_studios_own_world_map()
         {
             // Entry 6 of the twelve 1431299145.json placements in

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
@@ -125,7 +126,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const string SlotName = "";
 
         /// <summary>The island every player spawns on; canisters are placed island-local against it.</summary>
-        public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
+        public static readonly FixedPointPosition IslandOrigin = IslandCatalog.Haven.GlobalOrigin;
 
         /// <summary>One island-local fuel-canister placement on Haven (island-local metres).</summary>
         public readonly struct Placement

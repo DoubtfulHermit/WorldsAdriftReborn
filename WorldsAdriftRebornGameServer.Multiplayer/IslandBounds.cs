@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -101,7 +103,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static IslandBounds Haven()
         {
-            return Around(SpawnPolicy.IslandPosition, HavenLocalMin, HavenLocalMax, DefaultMarginMetres);
+            return Around(IslandCatalog.Haven.GlobalOrigin, HavenLocalMin, HavenLocalMax, DefaultMarginMetres);
         }
 
         /// <summary>Whether a global-metres position is inside the box (inclusive on every face).</summary>

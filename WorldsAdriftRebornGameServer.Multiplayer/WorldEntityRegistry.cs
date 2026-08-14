@@ -221,7 +221,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 return SeededEntityKind.Player;
             }
-            return entity.Key == WorldEntities.IslandKey
+            return entity.AssetName.EndsWith("@Island", StringComparison.Ordinal)
                 ? SeededEntityKind.Island
                 : SeededEntityKind.World;
         }
