@@ -124,12 +124,16 @@ changes.
   inside a 45 m starter bubble, waits 5 s after plan completion, then expands
   through the paced 120 m continuous-interest stream. Terrain, ships, stations,
   mounted/loose parts and global biome data remain barrier-protected.
-- **Public client manifest:** `2026.08.14-9`, build label
-  `NTP-independent world entry (2627810)`. Retail's mandatory public-UDP NTP
-  gate is bypassed in favour of operating-system UTC, so networks blocking
-  UDP/123 cannot strand a client before the spawn plan begins.
-- **Client DLL SHA-256:**
+- **Public client manifest:** `2026.08.14-10`, build label
+  `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
+  UTC fallback from `2627810` and fixes six native protobuf string allocations
+  that wrote their terminator one byte past the allocated block during
+  AssetLoad/AddEntity decoding. Windows reported the resulting loading crash as
+  `c0000374` / `StackHash` heap corruption.
+- **Managed client DLL SHA-256:**
   `b231b41ceeede651debefa75009dcb9c245cc4cfb59e4e0100430e1a7030ccaa`.
+- **Windows CoreSDK DLL SHA-256:**
+  `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
 - **Server state:** active at the time this handover was written.
 
 Do not put database passwords, session tokens, account records, or private
@@ -443,9 +447,10 @@ the existing resource-interest candidate query through the directory.
 - **Panel placement:** WAPatch `2026.08.14-7` is awaiting visual acceptance.
 - **Resource unload:** capability is implemented in transport, but runtime is
   load-near/retain-visited compatibility mode as described above.
-- **Loading/crash scalability:** one remote friend crashed during loading and
-  earlier lagged/crashed after spawn; only one log was available and no final
-  machine-specific cause was proven.
+- **Loading/crash validation:** Colin's remote loading crash was identified as
+  native heap corruption (`c0000374`) and fixed in `3a7cd31` / manifest
+  `2026.08.14-10`. It still needs a clean remote join to validate on the machine
+  that reliably reproduced it.
 - **Sail fidelity:** functional scalar propulsion, not retail wind physics.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
