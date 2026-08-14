@@ -24,6 +24,9 @@ void __cdecl ENet_EXP_Destroy_Packet(ENetPacket_Wrapper* packet) {
 void __cdecl ENet_EXP_Send(ENetPeer* peer, int channel, const void* data, long len, int flag) {
     ENet_Send(peer, channel, data, len, flag);
 }
+int __cdecl ENet_EXP_PeerChannelCount(ENetPeer* peer) {
+    return peer == NULL ? 0 : static_cast<int>(peer->channelCount);
+}
 void __cdecl ENet_EXP_Flush(ENetHost* client) {
     ENet_Flush(client);
 }

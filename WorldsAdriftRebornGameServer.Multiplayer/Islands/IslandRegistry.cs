@@ -19,6 +19,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public IslandDefinition? ById(IslandId id) =>
             _byId.TryGetValue(id, out IslandDefinition? island) ? island : null;
 
+        /// <summary>
+        /// Resolves the stable registration key carried by a terrain
+        /// <see cref="WorldEntity"/> back to its island definition. This is the
+        /// bridge from a client's 1073 <c>relativeTo</c> entity id (resolved by the
+        /// world registry) to island identity; no boot-time entity id is persisted.
+        /// </summary>
+        public IslandDefinition? ByWorldEntityKey(string? worldEntityKey)
+        {
+            if (worldEntityKey == null) return null;
+            foreach (IslandDefinition island in _byId.Values)
+            {
+                if (string.Equals(island.WorldEntityKey, worldEntityKey, StringComparison.Ordinal))
+                {
+                    return island;
+                }
+            }
+            return null;
+        }
+
         public IslandDefinition Require(IslandId id) =>
             ById(id) ?? throw new KeyNotFoundException("no island is registered under id '" + id + "'");
 

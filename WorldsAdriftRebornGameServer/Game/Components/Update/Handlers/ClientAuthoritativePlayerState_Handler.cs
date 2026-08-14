@@ -96,6 +96,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 Console.WriteLine("[info] player entity " + entityId + " " + aboard + ".");
             }
 
+            // A terrain relativeTo is the authoritative coordinate-frame label for
+            // positionRelative. The field is sparse (only sent when it changes), so
+            // ResourceInterest remembers the last island until another terrain id is
+            // observed. Ship/deck ids are ignored here and handled as global poses below.
+            if (clientComponentUpdate.relativeTo.HasValue)
+            {
+                WorldsAdriftRebornGameServer.ResourceInterest.ObserveRelativeTo(
+                    player, clientComponentUpdate.relativeTo.Value.Id);
+            }
+
             if (clientComponentUpdate.positionRelative.HasValue)
             {
                 Improbable.Math.Vector3f p = clientComponentUpdate.positionRelative.Value;
@@ -107,10 +117,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     {
                         basePos = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(ship.Value);
                     }
-                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveIslandLocalPosition(player,
-                        (float)(basePos.MetresX - Multiplayer.Islands.IslandCatalog.Haven.GlobalOrigin.MetresX + p.X),
-                        (float)(basePos.MetresY - Multiplayer.Islands.IslandCatalog.Haven.GlobalOrigin.MetresY + p.Y),
-                        (float)(basePos.MetresZ - Multiplayer.Islands.IslandCatalog.Haven.GlobalOrigin.MetresZ + p.Z));
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                        player,
+                        Multiplayer.FixedPointPosition.FromMetres(
+                            basePos.MetresX + p.X,
+                            basePos.MetresY + p.Y,
+                            basePos.MetresZ + p.Z),
+                        "aboard ship " + ship.Value);
                 }
                 else
                 {
@@ -163,7 +176,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            WorldsAdriftRebornGameServer.Teleports.OnAck(entityId, clientComponentUpdate.lastExecutedRequest.Value);
+            WorldsAdriftRebornGameServer.Teleports.OnAck(
+                player, entityId, clientComponentUpdate.lastExecutedRequest.Value);
         }
     }
 }

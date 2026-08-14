@@ -25,6 +25,7 @@
          resource-deposit field from real terrain with no runtime path dependency,
          keeping the assembly dependency-free. Reviewed DATA, diffable in git. -->
     <EmbeddedResource Include="Resources\haven-surface-1431299145.txt" />
+    <EmbeddedResource Include="Resources\trades-challenge-surface-1206286558.txt" />
   </ItemGroup>
 
 </Project>

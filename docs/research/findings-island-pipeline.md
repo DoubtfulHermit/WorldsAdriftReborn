@@ -90,8 +90,10 @@ world-entity key and spawn-chain order; and capture how the client reports activ
 coordinates during a crossing. Spawn, fall rescue, teleport, placed-object persistence and
 resource interest then need explicit island selection. The terrain identity/asset/position,
 surface bounds, key and spawn order are now pinned for The Trades Challenge in
-`findings-second-island-pr3.md`. Population, player island selection, rescue and interest
-remain intentionally deferred until after visual terrain acceptance.
+`findings-second-island-pr3.md`. Visual terrain acceptance passed, and PR4 subsequently
+implemented population, player island selection and resource interest; see
+`findings-multi-island-resource-interest-pr4.md`. Spawn/rescue policy beyond the existing
+named teleport destinations remains a later world-expansion concern.
 
 ## Manual acceptance status
 

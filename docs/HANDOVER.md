@@ -202,14 +202,18 @@ client-only panel iterations through `7c3e6c4`.
   visible but yielded nothing.
 - Native channel 5 carries `RemoveEntity`; the Windows x64 `long`/`int64_t` ABI
   mismatch was fixed in `fc4efec`.
-
-**Current compatibility limitation:** `ResourceInterestService.PeerState`
-initializes `RemoveSupported` false. Therefore production currently loads
-nearby resources and retains every resource that peer has visited; it does not
-actively unload them. This was deliberate after legacy-client uncertainty, but
-it means memory/entity load grows as a player explores. Before enabling removal,
-add a real protocol/client capability signal or prove all supported clients run
-the channel-5 ABI-fixed shim; do not merely flip the default and hope.
+- PR4 makes the 1073 coordinate frame island-aware. A terrain `relativeTo`
+  selects the peer's stable `IslandId`; aboard-ship and teleport positions use
+  global coordinates directly.
+- Resources are assigned to an owning island. Reconciliation includes the
+  active island plus old loaded entries long enough for hysteresis removal;
+  never-visited distant-island resources remain unloaded.
+- Remove capability is now explicit: the native shim exposes the peer's
+  negotiated ENet channel count. Six-channel peers unload through channel 5;
+  older peers retain visited resources without risking inert re-adds.
+- The Trades Challenge carries only its recovered profile: five Aluminium Q4
+  deposits and five databanks, with no invented trees, fuel or ore assortment.
+  See `docs/research/findings-multi-island-resource-interest-pr4.md`.
 
 This matters to the earlier report that one friend crashed during loading while
 the host only lagged: initial radius gating reduces the boot burst, but retained

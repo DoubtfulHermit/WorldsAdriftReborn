@@ -212,6 +212,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static MetalNode? ByKey(string key)
         {
+            MetalNode? tradesChallenge = Resources.TradesChallengeResources.DepositByKey(key);
+            if (tradesChallenge != null)
+            {
+                return tradesChallenge;
+            }
             if (!IsDepositKey(key))
             {
                 return null;

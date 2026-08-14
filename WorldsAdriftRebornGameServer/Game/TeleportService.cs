@@ -67,6 +67,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// the ack; entries are dropped with the entity in <see cref="Forget"/>.
         /// </summary>
         private readonly Dictionary<long, string> _reasonByEntity = new Dictionary<long, string>();
+        private readonly Dictionary<long, TeleportDestination> _destinationByEntity = new();
 
         private readonly Stopwatch _sinceLastPoll = Stopwatch.StartNew();
         private readonly string _triggerFile;
@@ -311,6 +312,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 return false;
             }
 
+            _destinationByEntity[entityId] = destination;
+
             Console.WriteLine("[info] " + reason + ": entity " + entityId + " -> " + destination.Name
                 + " " + destination.Position + ", request " + request + ", awaiting 1073 ack.");
             return true;
@@ -328,7 +331,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// constantly; the counter decides what is news so the log carries one
         /// line per landing rather than one per frame.
         /// </summary>
-        public void OnAck(long entityId, int lastExecutedRequest)
+        public void OnAck(ENetPeerHandle peer, long entityId, int lastExecutedRequest)
         {
             int? outstandingBefore = _requests.Outstanding(entityId);
 
@@ -347,6 +350,11 @@ namespace WorldsAdriftRebornGameServer.Game
 
             if (outstandingBefore.HasValue && lastExecutedRequest >= outstandingBefore.Value)
             {
+                if (_destinationByEntity.Remove(entityId, out TeleportDestination landed))
+                {
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                        peer, landed.Position, "teleport landing '" + landed.Name + "'");
+                }
                 Console.WriteLine("[success] " + reason + ": entity " + entityId
                     + " executed request " + lastExecutedRequest + ". It landed"
                     + (reason == FallRescueReason ? " - it is back on solid ground." : "."));
@@ -368,6 +376,7 @@ namespace WorldsAdriftRebornGameServer.Game
         {
             _requests.Forget(entityId);
             _reasonByEntity.Remove(entityId);
+            _destinationByEntity.Remove(entityId);
         }
     }
 }

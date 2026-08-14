@@ -738,11 +738,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static WorldEntity DatabankEntity(int index)
         {
+            return DatabankEntity(Databanks.KeyFor(index), Databanks.PositionAt(index));
+        }
+
+        /// <summary>A scannable databank with an island-specific stable key and pose.</summary>
+        public static WorldEntity DatabankEntity(string key, FixedPointPosition position)
+        {
             return new WorldEntity(
-                Databanks.KeyFor(index),
+                key,
                 Databanks.AssetName,
                 DefaultAssetContext,
-                Databanks.PositionAt(index),
+                position,
                 seedComponents: null,
                 order: SpawnOrder.AfterPlayer);
         }
@@ -1015,15 +1021,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
             }
 
+            // The biome lookup table is world-wide and required by deposits on
+            // either island. Register it exactly once, before every deposit.
+            if (includeDeposit || includeProductionSecondIsland)
+            {
+                registry.Register(GlobalEntity());
+            }
+
             if (includeDeposit)
             {
-                // The GLOBAL entity FIRST: it carries the biome table the deposit's
-                // visualiser blocks on (GetBiomeAt), so without it the rock never draws.
-                // Registered before the deposits so its AddEntity - and its 1253/8064 -
-                // are in flight first. Only spawned alongside deposits: nothing else in
-                // a session needs it, so existing tree/nugget/ship sessions are unchanged.
-                registry.Register(GlobalEntity());
-
                 // Default to ONE (the proven deposit) - the coordinate and the
                 // runtime-imported variant have never been validated live, so a single
                 // anchored rock before the whole table. A WAREBORN_DEPOSIT_COUNT is
@@ -1058,6 +1064,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                             registry.Register(AtlasShardEntity(i, deposits[i].Position));
                         }
                     }
+                }
+            }
+
+            if (includeProductionSecondIsland)
+            {
+                // The Trades Challenge's recovered community row is unusually exact:
+                // Aluminium quality 4, five deposits (98 cells * retail 0.05 density),
+                // five databanks, and NO trees. Populate only that evidence-backed
+                // profile; do not copy Haven's birch/iron/fuel starter biome across.
+                IReadOnlyList<Resources.GeneratedPlacement> tradesDeposits =
+                    Resources.TradesChallengeResources.DepositLocals();
+                for (int i = 0; i < tradesDeposits.Count; i++)
+                {
+                    MetalNode node = Resources.TradesChallengeResources.DepositByKey(
+                        Resources.TradesChallengeResources.DepositKeyFor(i))!;
+                    registry.Register(DepositEntity(node));
+                    if (includeAtlasShard)
+                    {
+                        registry.Register(AtlasShardEntity(node.Key, node.Position));
+                    }
+                }
+
+                for (int i = 0; i < Resources.TradesChallengeResources.DatabankCount; i++)
+                {
+                    registry.Register(DatabankEntity(
+                        Resources.TradesChallengeResources.DatabankKeyFor(i),
+                        Resources.TradesChallengeResources.DatabankPositionAt(i)));
                 }
             }
 

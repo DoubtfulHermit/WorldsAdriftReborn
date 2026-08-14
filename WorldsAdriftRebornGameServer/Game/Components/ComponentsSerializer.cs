@@ -1187,8 +1187,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // against it); we point it at the registered island entity when we
                         // know its id, else an empty option. Only databank entities request
                         // 8073, so this branch is databank-only in practice.
+                        Multiplayer.WorldEntity? databank =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId);
+                        Multiplayer.Islands.IslandRegistry islands =
+                            Multiplayer.Islands.IslandRegistry.CreateDefault();
+                        Multiplayer.Islands.IslandId owner = databank == null
+                            ? Multiplayer.Islands.IslandCatalog.HavenId
+                            : Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(
+                                databank.Position, islands.All);
+                        string islandKey = islands.Require(owner).WorldEntityKey;
                         long? islandId = WorldsAdriftRebornGameServer.WorldEntities
-                            .BoundEntityIdFor(Multiplayer.WorldEntities.IslandKey);
+                            .BoundEntityIdFor(islandKey);
                         Option<EntityId> relativeToIsland = islandId.HasValue
                             ? new Option<EntityId>(new EntityId(islandId.Value))
                             : new Option<EntityId>();

@@ -20,19 +20,19 @@ namespace WorldsAdriftRebornGameServer.Game
             public readonly HashSet<long> Loaded = new();
             public readonly Queue<ResourceStreamAction> Pending = new();
             public FixedPointPosition Center = SpawnPolicy.PlayerSpawnPosition;
+            public IslandId ActiveIsland = IslandCatalog.HavenId;
             public TimeSpan NextReconcile;
             public TimeSpan NextSend;
             public long AssetRequestedFor;
-            // Kept false until RemoveEntity delivery is proven against the
-            // released native client shim. Nearby resources load normally, but
-            // visited ones remain checked out instead of risking inert re-adds.
             public bool RemoveSupported;
         }
 
         private readonly IClock _clock;
         private readonly WorldEntityRegistry _registry;
+        private readonly IslandRegistry _islands = IslandRegistry.CreateDefault();
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
         private readonly Dictionary<long, WorldEntity> _resources = new();
+        private readonly Dictionary<long, IslandId> _resourceIslands = new();
 
         public ResourceInterestService(IClock clock, WorldEntityRegistry registry)
         {
@@ -43,7 +43,10 @@ namespace WorldsAdriftRebornGameServer.Game
             if (!Interest.Enabled) return;
             foreach (WorldEntity entity in registry.Registrations.Where(e => ResourceInterestPolicy.IsStreamedResourceKey(e.Key)))
             {
-                _resources[registry.EntityIdFor(entity)] = entity;
+                long entityId = registry.EntityIdFor(entity);
+                _resources[entityId] = entity;
+                _resourceIslands[entityId] = IslandResourceInterestPolicy.ClosestIsland(
+                    entity.Position, _islands.All);
             }
         }
 
@@ -67,6 +70,8 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             _resources[entityId] = entity;
+            _resourceIslands[entityId] = IslandResourceInterestPolicy.ClosestIsland(
+                entity.Position, _islands.All);
             // Force every known peer to reconcile on the next Tick, without
             // manufacturing a position for peers whose first 1073 has not arrived.
             foreach (PeerState state in _peers.Values) state.NextReconcile = TimeSpan.Zero;
@@ -91,12 +96,43 @@ namespace WorldsAdriftRebornGameServer.Game
             return ResourceInterestPolicy.MayServeComponents(Interest.Enabled, streamed, loaded);
         }
 
+        /// <summary>
+        /// Observes the ground entity named by the client's 1073 relativeTo. Terrain
+        /// ids are resolved through the world registry to a stable IslandId; ship and
+        /// invalid ids deliberately leave the last terrain frame unchanged.
+        /// </summary>
+        public void ObserveRelativeTo(ENetPeerHandle peer, long relativeTo)
+        {
+            if (!Enabled) return;
+            WorldEntity? ground = _registry.ByEntityId(relativeTo);
+            IslandDefinition? island = _islands.ByWorldEntityKey(ground?.Key);
+            if (island != null)
+            {
+                SetActiveIsland(peer, island.Id, "1073 relativeTo " + relativeTo);
+            }
+        }
+
         public void ObserveIslandLocalPosition(ENetPeerHandle peer, float x, float y, float z)
         {
             if (!Enabled) return;
-            FixedPointPosition island = IslandCatalog.Haven.GlobalOrigin;
-            StateFor(peer).Center = FixedPointPosition.FromMetres(
-                island.MetresX + x, island.MetresY + y, island.MetresZ + z);
+            PeerState state = StateFor(peer);
+            FixedPointPosition origin = _islands.Require(state.ActiveIsland).GlobalOrigin;
+            state.Center = FixedPointPosition.FromMetres(
+                origin.MetresX + x, origin.MetresY + y, origin.MetresZ + z);
+        }
+
+        /// <summary>
+        /// Observes a position already expressed in global metres (a flown ship pose
+        /// or an authoritative teleport destination). No island-local conversion is
+        /// applied; the nearest island becomes the resource frame for reconciliation.
+        /// </summary>
+        public void ObserveGlobalPosition(ENetPeerHandle peer, FixedPointPosition position, string source)
+        {
+            if (!Enabled) return;
+            PeerState state = StateFor(peer);
+            state.Center = position;
+            SetActiveIsland(peer,
+                IslandResourceInterestPolicy.ClosestIsland(position, _islands.All), source);
         }
 
         public void Tick()
@@ -112,7 +148,13 @@ namespace WorldsAdriftRebornGameServer.Game
                     ResourceInterestPolicy.ReplacePending(
                         state.Pending,
                         ResourceInterestPolicy.Reconcile(
-                            state.Center, _resources.Select(x => (x.Key, x.Value.Position)), state.Loaded,
+                            state.Center,
+                            IslandResourceInterestPolicy.ReconcileSet(
+                                state.ActiveIsland,
+                                _resources.Select(x => new IslandResource(
+                                    x.Key, x.Value.Position, _resourceIslands[x.Key])),
+                                state.Loaded),
+                            state.Loaded,
                             Interest.RadiusMetres,
                             state.RemoveSupported ? UnloadRadiusMetres : double.PositiveInfinity),
                         MaxQueuedPerPeer);
@@ -174,7 +216,36 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         public void Forget(ENetPeerHandle peer) => _peers.Remove(peer);
-        private PeerState StateFor(ENetPeerHandle peer) =>
-            _peers.TryGetValue(peer, out PeerState? state) ? state : (_peers[peer] = new PeerState());
+
+        private void SetActiveIsland(ENetPeerHandle peer, IslandId islandId, string source)
+        {
+            PeerState state = StateFor(peer);
+            if (state.ActiveIsland == islandId) return;
+            IslandId previous = state.ActiveIsland;
+            state.ActiveIsland = islandId;
+            state.NextReconcile = TimeSpan.Zero;
+            Console.WriteLine("[resource-interest] peer " + peer.DangerousGetHandle()
+                + " changed island frame " + previous + " -> " + islandId
+                + " (" + source + ").");
+        }
+
+        private PeerState StateFor(ENetPeerHandle peer)
+        {
+            if (_peers.TryGetValue(peer, out PeerState? state)) return state;
+
+            int channelCount = EnetLayer.ENet_PeerChannelCount(peer);
+            state = new PeerState
+            {
+                // RemoveEntity is channel 5. ENet's negotiated channel count is the
+                // protocol capability signal: never send it merely because the server
+                // binary happens to support serialization.
+                RemoveSupported = channelCount > (int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP,
+            };
+            _peers[peer] = state;
+            Console.WriteLine("[resource-interest] peer " + peer.DangerousGetHandle()
+                + " negotiated " + channelCount + " ENet channels; resource unload "
+                + (state.RemoveSupported ? "enabled" : "disabled (retain-visited compatibility mode)") + ".");
+            return state;
+        }
     }
 }

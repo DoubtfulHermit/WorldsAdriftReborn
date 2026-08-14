@@ -61,6 +61,9 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "ENet_EXP_Send")]
         public static unsafe extern void ENet_Send( ENetPeerHandle peer, int channel, void* data, long len, int flag );
 
+        [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "ENet_EXP_PeerChannelCount")]
+        public static extern int ENet_PeerChannelCount(ENetPeerHandle peer);
+
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "ENet_EXP_Disconnect")]
         public static extern void ENet_Disconnect( IntPtr peer, ENetHostHandle client );
 
