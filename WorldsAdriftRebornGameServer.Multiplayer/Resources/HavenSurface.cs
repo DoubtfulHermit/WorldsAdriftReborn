@@ -76,6 +76,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         /// </summary>
         public const int TreeTargetCount = 80;
 
+        public const double FuelMinUpwardNormal = 0.92;
+        public const double FuelMinSpacing = 35.0;
+        public const int FuelTargetCount = 24;
+
         /// <summary>Keep-out radius around the player spawn, metres.</summary>
         public const double SpawnClearance = 6.0;
 
@@ -101,6 +105,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         private static IReadOnlyList<SurfaceSample>? _samples;
         private static IReadOnlyList<GeneratedPlacement>? _depositLocals;
         private static IReadOnlyList<GeneratedPlacement>? _treeLocals;
+        private static IReadOnlyList<GeneratedPlacement>? _fuelLocals;
+
+        /// <summary>The five legacy seats retained at stable indices 0..4.</summary>
+        public static readonly IReadOnlyList<GeneratedPlacement> LegacyFuelLocals = new[]
+        {
+            new GeneratedPlacement(192.0, 7.13,   8.0, 0.99),
+            new GeneratedPlacement(152.0, 4.71,   0.0, 0.99),
+            new GeneratedPlacement(176.0, 6.39, -16.0, 0.99),
+            new GeneratedPlacement(128.0, 6.12,   0.0, 0.99),
+            new GeneratedPlacement(184.0, 3.10, -32.0, 0.99),
+        };
 
         /// <summary>
         /// The extracted LOD0 surface samples for Haven, loaded once from the
@@ -140,6 +155,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 minSpacingMetres: TreeMinSpacing,
                 targetCount: TreeTargetCount,
                 exclusions: TreeExclusions());
+        }
+
+        public static SurfacePlacementConfig FuelConfig()
+        {
+            return new SurfacePlacementConfig(
+                minUpwardNormal: FuelMinUpwardNormal,
+                minReachableHeightMetres: ResourceMinHeight,
+                maxReachableHeightMetres: ResourceMaxHeight,
+                minSpacingMetres: FuelMinSpacing,
+                targetCount: FuelTargetCount,
+                exclusions: FuelExclusions());
+        }
+
+        private static IReadOnlyList<PlacementExclusion> FuelExclusions()
+        {
+            List<PlacementExclusion> ex = new List<PlacementExclusion>();
+            FixedPointPosition island = SpawnPolicy.IslandPosition;
+            FixedPointPosition spawn = SpawnPolicy.PlayerSpawnPosition;
+            ex.Add(new PlacementExclusion(
+                spawn.MetresX - island.MetresX,
+                spawn.MetresZ - island.MetresZ,
+                SpawnClearance));
+            FixedPointPosition ship = WorldEntities.ShipFrameDefaultPosition;
+            ex.Add(new PlacementExclusion(
+                ship.MetresX - island.MetresX,
+                ship.MetresZ - island.MetresZ,
+                ShipClearance));
+            return ex;
         }
 
         /// <summary>
@@ -235,6 +278,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 _depositLocals = all;
             }
             return _depositLocals;
+        }
+
+        /// <summary>
+        /// Whole-island fuel layout. Legacy ids/positions stay first; deterministic
+        /// surface seats fill the remaining quota.
+        /// </summary>
+        public static IReadOnlyList<GeneratedPlacement> FuelLocals()
+        {
+            if (_fuelLocals == null)
+            {
+                IReadOnlyList<GeneratedPlacement> generated =
+                    SurfacePlacementGenerator.Generate(Samples, FuelConfig(), LegacyFuelLocals);
+                List<GeneratedPlacement> all = new List<GeneratedPlacement>(FuelTargetCount);
+                all.AddRange(LegacyFuelLocals);
+                all.AddRange(generated);
+                _fuelLocals = all;
+            }
+            return _fuelLocals;
         }
 
         // ------------------------------------------------------------------

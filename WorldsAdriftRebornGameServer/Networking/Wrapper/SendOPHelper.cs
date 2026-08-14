@@ -61,10 +61,14 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             bool sent = false;
             if (ptr != null && len > 0)
             {
-                EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP,
-                    ptr, len, (int)ENetPacketFlag.RELIABLE);
-                CountSend(destination, Multiplayer.PeerRates.ChannelKey((int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP));
-                sent = true;
+                sent = EnetLayer.ENet_TrySend(destination,
+                    (int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP,
+                    ptr, len, (int)ENetPacketFlag.RELIABLE) != 0;
+                if (sent)
+                {
+                    CountSend(destination, Multiplayer.PeerRates.ChannelKey(
+                        (int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP));
+                }
             }
             EnetLayer.PB_Free(ptr);
             return sent;

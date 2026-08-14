@@ -577,6 +577,7 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void PushTreeSectionMask(long treeEntityId, int newMask)
         {
+            int recipients = 0;
             foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
             {
                 if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
@@ -597,10 +598,15 @@ namespace WorldsAdriftRebornGameServer
                     maskOnly.ApplyTo(stored);
                 }
 
-                SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
-                    new List<uint> { TreeFSimStateComponentId },
-                    new List<object> { maskOnly });
+                if (SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
+                        new List<uint> { TreeFSimStateComponentId },
+                        new List<object> { maskOnly }))
+                {
+                    recipients++;
+                }
             }
+            Console.WriteLine("[tree-visual] pushed sectionMask=" + newMask + " for entity "
+                + treeEntityId + " to " + recipients + " checked-out peer(s).");
         }
 
         /// <summary>
@@ -2162,6 +2168,11 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly Multiplayer.FuelCanisterRegistry FuelCanisters =
             new Multiplayer.FuelCanisterRegistry();
 
+        /// <summary>Authoritative resource state, independent of peer visibility.</summary>
+        private static readonly Game.Gathering.WorldResourceActivation WorldResources =
+            new Game.Gathering.WorldResourceActivation(
+                WorldEntities, Harvest, Nodes, MetalHarvest, AtlasShards, FuelCanisters);
+
         /// <summary>
         /// The furl state of every MOUNTED sail (registered on mount / boot restore,
         /// cleared on lift). Read by the 1303 serve branch so a re-checkout shows the
@@ -2543,6 +2554,7 @@ namespace WorldsAdriftRebornGameServer
                 Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
                     + entity.Key + "' (" + entityId + ").");
                 ResourceInterest.NoteLoaded(peer, entityId);
+                WorldResources.Activate(entity, entityId); // idempotent compatibility seam
 
                 // A restored/served BUILT HULL that is docked to a shipyard: replay a LIVE 1205
                 // DockedShipId update to this peer now that the hull exists on its client
@@ -3457,6 +3469,13 @@ namespace WorldsAdriftRebornGameServer
             // still standing after a restart without anyone re-placing it. Must run
             // before SpawnPlan.For, and does: this is the last thing before it.
             Game.Persistence.WorldStatePersistence.RestoreOnBoot(Placement);
+
+            if (ResourceInterest.Enabled)
+            {
+                int activatedResources = WorldResources.ActivateBoundResources();
+                Console.WriteLine("[world-resource] activated " + activatedResources
+                    + " boot resource entities independently of per-peer visibility.");
+            }
 
             // define initial world state for first chunk
             //

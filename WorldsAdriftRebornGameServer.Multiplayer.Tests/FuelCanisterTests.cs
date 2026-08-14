@@ -294,6 +294,55 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Fuel_keeps_the_five_legacy_ids_then_spans_the_whole_island()
+        {
+            Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.FuelTargetCount,
+                FuelPods.HavenPlacements.Count);
+
+            double[] legacyX = { 192.0, 152.0, 176.0, 128.0, 184.0 };
+            double[] legacyY = { 7.13, 4.71, 6.39, 6.12, 3.10 };
+            double[] legacyZ = { 8.0, 0.0, -16.0, 0.0, -32.0 };
+            for (int i = 0; i < legacyX.Length; i++)
+            {
+                Assert.Equal(legacyX[i], FuelPods.HavenPlacements[i].LocalX);
+                Assert.Equal(legacyY[i], FuelPods.HavenPlacements[i].LocalY);
+                Assert.Equal(legacyZ[i], FuelPods.HavenPlacements[i].LocalZ);
+            }
+
+            double spanX = FuelPods.HavenPlacements.Max(p => p.LocalX)
+                - FuelPods.HavenPlacements.Min(p => p.LocalX);
+            double spanZ = FuelPods.HavenPlacements.Max(p => p.LocalZ)
+                - FuelPods.HavenPlacements.Min(p => p.LocalZ);
+            Assert.True(spanX > 400.0, "fuel X span was only " + spanX);
+            Assert.True(spanZ > 200.0, "fuel Z span was only " + spanZ);
+            Assert.Contains(FuelPods.HavenPlacements, p => p.LocalY > 20.0);
+        }
+
+        [Fact]
+        public void Generated_fuel_seats_are_flat_spaced_and_deterministic()
+        {
+            IReadOnlyList<global::WorldsAdriftRebornGameServer.Multiplayer.Resources.GeneratedPlacement> locals =
+                global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.FuelLocals();
+            Assert.Equal(locals,
+                global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.FuelLocals());
+
+            for (int i = global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.LegacyFuelLocals.Count;
+                 i < locals.Count; i++)
+            {
+                Assert.True(locals[i].Ny
+                    >= global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.FuelMinUpwardNormal);
+                for (int j = 0; j < i; j++)
+                {
+                    double dx = locals[i].LocalX - locals[j].LocalX;
+                    double dy = locals[i].LocalY - locals[j].LocalY;
+                    double dz = locals[i].LocalZ - locals[j].LocalZ;
+                    Assert.True(Math.Sqrt(dx * dx + dy * dy + dz * dz)
+                        >= global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.FuelMinSpacing - 1e-9);
+                }
+            }
+        }
+
+        [Fact]
         public void The_count_knob_clamps_to_the_table_and_never_drops_the_first_canister()
         {
             int full = FuelPods.HavenPlacements.Count;

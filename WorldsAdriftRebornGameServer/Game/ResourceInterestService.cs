@@ -22,6 +22,7 @@ namespace WorldsAdriftRebornGameServer.Game
             public TimeSpan NextReconcile;
             public TimeSpan NextSend;
             public long AssetRequestedFor;
+            public bool RemoveSupported = true;
         }
 
         private readonly IClock _clock;
@@ -108,7 +109,8 @@ namespace WorldsAdriftRebornGameServer.Game
                         state.Pending,
                         ResourceInterestPolicy.Reconcile(
                             state.Center, _resources.Select(x => (x.Key, x.Value.Position)), state.Loaded,
-                            Interest.RadiusMetres, UnloadRadiusMetres),
+                            Interest.RadiusMetres,
+                            state.RemoveSupported ? UnloadRadiusMetres : double.PositiveInfinity),
                         MaxQueuedPerPeer);
                     // Carry an in-flight asset only when it is still the new queue's
                     // head. Otherwise its eventual callback is harmless and no stale
@@ -125,11 +127,26 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (action.Kind == ResourceStreamActionKind.Remove)
                 {
                     state.Pending.Dequeue();
-                    if (state.Loaded.Contains(action.EntityId)
-                        && SendOPHelper.SendRemoveEntityOP(peer, action.EntityId))
+                    if (!state.Loaded.Contains(action.EntityId)) continue;
+                    if (SendOPHelper.SendRemoveEntityOP(peer, action.EntityId))
                     {
                         state.Loaded.Remove(action.EntityId);
                         PeerCheckoutCleanup.RemoveEntity(peer, action.EntityId);
+                        Console.WriteLine("[resource-interest] removed '"
+                            + _resources[action.EntityId].Key + "' (" + action.EntityId
+                            + ") from " + peer.DangerousGetHandle() + ".");
+                    }
+                    else
+                    {
+                        // A pre-streaming client negotiated only channels 0..4, so
+                        // ENet rejects channel 5. Keep its checkout and component
+                        // references authoritative: the visible entity remains fully
+                        // harvestable, and future reconciles become load-only for
+                        // this peer instead of creating inert visual ghosts.
+                        state.RemoveSupported = false;
+                        Console.WriteLine("[resource-interest] peer "
+                            + peer.DangerousGetHandle() + " cannot receive RemoveEntity;"
+                            + " retaining visited resources for compatibility.");
                     }
                     continue;
                 }
@@ -147,6 +164,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (SendOPHelper.SendAddEntityOP(peer, action.EntityId, entity.AssetName, entity.AssetContext))
                 {
                     state.Loaded.Add(action.EntityId);
+                    Console.WriteLine("[resource-interest] added '" + entity.Key + "' ("
+                        + action.EntityId + ") to " + peer.DangerousGetHandle() + ".");
                 }
             }
         }

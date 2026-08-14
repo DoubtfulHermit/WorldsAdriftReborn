@@ -143,15 +143,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The fuel-canister placements on Haven, island-local metres - a modest
-        /// starter set so fuel is gatherable across the island ("canisters protrude all
-        /// over islands").
+        /// Haven fuel placements. The original five near-spawn ids remain first and
+        /// unchanged; deterministic surface seats extend fuel across the island.
         ///
         /// Each is a MEASURED LOD0 surface vertex from the same Haven surface table the
         /// trees and metal nodes draw from (ny&gt;0.90, flat, clear ground), so a
         /// canister rests on real terrain rather than an invented coordinate that could
         /// land underground (this island's pre-TRS tables were once wrong by a mean of
-        /// 47.7 m). They spread from ~30 m to ~85 m of the spawn point.
+        /// 47.7 m). The appended seats cover low shelves, high ground and the far side.
         ///
         /// STATIC, and honestly so: retail canister locations CHANGE on every island
         /// resource reset (the ~1.5-2 h "understorm" that also replaces ore nodes and
@@ -159,14 +158,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// the same world-wide respawn system the ore nodes will need, and is flagged
         /// as follow-up rather than built here.
         /// </summary>
-        public static readonly IReadOnlyList<Placement> HavenPlacements = new[]
+        public static readonly IReadOnlyList<Placement> HavenPlacements = BuildHavenPlacements();
+
+        private static IReadOnlyList<Placement> BuildHavenPlacements()
         {
-            new Placement(192.0, 7.13,   8.0), // ~30 m NE of spawn, flat
-            new Placement(152.0, 4.71,   0.0), // ~60 m, flat shelf
-            new Placement(176.0, 6.39, -16.0), // ~50 m, flat
-            new Placement(128.0, 6.12,   0.0), // ~85 m, flat
-            new Placement(184.0, 3.10, -32.0), // ~45 m S of spawn, flat
-        };
+            List<Placement> placements = new List<Placement>();
+            foreach (Resources.GeneratedPlacement p in Resources.HavenSurface.FuelLocals())
+            {
+                placements.Add(new Placement(p.LocalX, p.LocalY, p.LocalZ));
+            }
+            return placements;
+        }
 
         /// <summary>The world position of the fuel canister at a placement index.</summary>
         public static FixedPointPosition PositionAt(int index)

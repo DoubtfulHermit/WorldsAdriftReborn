@@ -24,6 +24,9 @@ void __cdecl ENet_EXP_Destroy_Packet(ENetPacket_Wrapper* packet) {
 void __cdecl ENet_EXP_Send(ENetPeer* peer, int channel, const void* data, long len, int flag) {
     ENet_Send(peer, channel, data, len, flag);
 }
+int __cdecl ENet_EXP_TrySend(ENetPeer* peer, int channel, const void* data, long len, int flag) {
+    return ENet_TrySend(peer, channel, data, len, flag) ? 1 : 0;
+}
 void __cdecl ENet_EXP_Flush(ENetHost* client) {
     ENet_Flush(client);
 }
@@ -191,8 +194,12 @@ void ENet_Destroy_Packet(ENetPacket_Wrapper* packet) {
 }
 
 void ENet_Send(ENetPeer* peer, int channel, const void* data, long len, int flag) {
+    ENet_TrySend(peer, channel, data, len, flag);
+}
+
+bool ENet_TrySend(ENetPeer* peer, int channel, const void* data, long len, int flag) {
     if (peer == NULL || data == NULL || len == 0) {
-        return;
+        return false;
     }
 
     // `flag` is a WarPacketFlag (see enetLayer.h), NOT an ENET_PACKET_FLAG_*.
@@ -215,7 +222,9 @@ void ENet_Send(ENetPeer* peer, int channel, const void* data, long len, int flag
     if (enet_peer_send(peer, channel, packet) < 0) {
         Logger::Debug("[error] enet_peer_send failed (channel out of range, or peer not connected); packet dropped.");
         enet_packet_destroy(packet);
+        return false;
     }
+    return true;
 }
 
 void ENet_Flush(ENetHost* client) {
