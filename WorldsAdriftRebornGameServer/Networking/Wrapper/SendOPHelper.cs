@@ -318,7 +318,8 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                     bool sent = false;
                     if (ptr != null && len > 0)
                     {
-                        // High-rate streams (190602 transform, 1073 bone/animation)
+                        // Superseding streams (190602 transform, 1073 bone/animation,
+                        // 1130 ship control points, and 6910 active-this-frame)
                         // go UNRELIABLE: they are superseded every tick, so a lost
                         // packet is irrelevant, while reliable-ordered delivery
                         // causes head-of-line stalls on any loss - very visible as
@@ -413,6 +414,7 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
             }
 
             List<Structs.Structs.ComponentUpdateOp> cupdates = new List<Structs.Structs.ComponentUpdateOp>();
+            List<IntPtr> serializedBuffers = new List<IntPtr>();
 
             for(int i = 0; i < updates.Count; i++)
             {
@@ -429,13 +431,19 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                 if(len > 0)
                 {
-                    Console.WriteLine("[success] serialized stored component after update. " + componentId[i] + ")");
-
                     cupdate.ComponentId = componentId[i];
                     cupdate.ComponentData = cbuffer;
                     cupdate.DataLength = (int)len;
 
                     cupdates.Add(cupdate);
+                }
+                if (cbuffer != null)
+                {
+                    // The generated serializer transfers ownership of this
+                    // AllocHGlobal buffer. Keep it alive through the outer protobuf
+                    // copy, then release it below. The old typed path leaked every
+                    // ship point and mounted-part wake.
+                    serializedBuffers.Add(new IntPtr(cbuffer));
                 }
 
                 ClientObjects.Instance.DestroyReference(cobj->Reference);
@@ -457,9 +465,16 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 bool didSend = false;
                 if(ptr != null && len > 0)
                 {
-                    Console.WriteLine("[success] serialized ComponentUpdateOp message for client.");
-
-                    EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP, ptr, len, (int)ENetPacketFlag.RELIABLE);
+                    // A typed update used to bypass RelayReliabilityFor and hard-code
+                    // RELIABLE. That put the 4.2 Hz absolute 1130 ship points behind
+                    // retransmits forever: with two moving ships the live 2026-08-14
+                    // session reached 49 KB outstanding and 6.8 s RTT. A batch may
+                    // be unreliable only when EVERY member is a superseding stream;
+                    // one one-shot keeps the whole packet reliable.
+                    bool superseded = Multiplayer.MirrorSendPolicy.BatchReliabilityFor(
+                        cupdates.Select(update => update.ComponentId)) == Multiplayer.RelayReliability.Unreliable;
+                    EnetLayer.ENet_Send(destination, (int)EnetLayer.ENetChannel.COMPONENT_UPDATE_OP,
+                        ptr, len, (int)(superseded ? ENetPacketFlag.UNRELIABLE : ENetPacketFlag.RELIABLE));
                     foreach (Structs.Structs.ComponentUpdateOp sent in cupdates)
                     {
                         CountSend(destination, sent.ComponentId);
@@ -469,6 +484,10 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
                 }
                 // Release the serialize buffer (FIX 2 ownership contract); NULL-safe.
                 EnetLayer.PB_Free(ptr);
+                foreach (IntPtr serializedBuffer in serializedBuffers)
+                {
+                    ClientObjects.BufferFree((byte*)serializedBuffer);
+                }
                 if (didSend)
                 {
                     return true;

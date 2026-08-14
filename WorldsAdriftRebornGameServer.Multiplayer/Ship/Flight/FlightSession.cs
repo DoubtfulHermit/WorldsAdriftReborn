@@ -27,8 +27,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// voluntary release, settling after an explicit stop or abandoned connection,
     /// resting repeats (belt-and-braces re-sends of the final zero-velocity
     /// point, the ferry's own trick against a dropped last packet), then a slow
-    /// KEEPALIVE forever - because a client that joins after the flight seeds
-    /// this hull at its SPAWN position and only a live control point corrects it.
+    /// KEEPALIVE forever for peers that still have the ship checked out. The
+    /// server also advances the hull's registry seed as poses are persisted, so a
+    /// later checkout starts at the latest authoritative pose rather than the old
+    /// build location; the keepalive then maintains the client's motion timeline.
     ///
     /// TIMESTAMPS. Each emitted point is stamped
     /// <c>max(now, lastStamp + step)</c>: monotonic by construction, never

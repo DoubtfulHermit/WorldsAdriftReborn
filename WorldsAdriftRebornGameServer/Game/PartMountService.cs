@@ -262,7 +262,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// Writes the mount as three component value-updates on the part entity and
         /// records it in the <see cref="MountedParts"/> ledger so a re-checkout re-seeds
         /// it already attached. Broadcast to every fully-loaded peer via the same
-        /// reliable path the hull's 1130 and the bolted parts' 190602 wake use.
+        /// component-update path the hull's 1130 and the bolted parts' 190602 wake use.
         /// </summary>
         private static void Commit(long partEntityId, long hullEntityId, PlacePart pp, string ownerCharacterUid)
         {

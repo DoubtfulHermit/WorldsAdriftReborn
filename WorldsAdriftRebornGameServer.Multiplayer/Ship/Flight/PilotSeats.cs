@@ -9,14 +9,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         StartPiloting,
 
         /// <summary>
-        /// The player was already at THIS helm and manned it again - the toggle
-        /// dismount. Push 1109 cleared, settle the flight. This is the primary
-        /// dismount path: while driving, the ship-controls InputSink deliberately
-        /// leaves the Interact button free (ShipControlsBehaviour.Awake excludes
-        /// InputButtons.Interact), so the helm right in front of the pilot can be
-        /// interacted with again.
+        /// The player is already at this helm. Duplicate Man deltas are
+        /// idempotent: the client can retransmit/publish the interaction more than
+        /// once while entering helm mode, especially after network congestion.
+        /// Dismount is driven by the explicit ReleaseInteraction event.
         /// </summary>
-        StopPiloting,
+        AlreadyPiloting,
 
         /// <summary>Someone else is at this helm. Nothing changes.</summary>
         RejectedOccupied,
@@ -55,9 +53,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         private readonly Dictionary<long, Seat> _byPlayer = new Dictionary<long, Seat>();
 
         /// <summary>
-        /// A Man interaction: seats the player, toggles them off their own helm,
-        /// or rejects. On StartPiloting/StopPiloting the ledgers are already
-        /// updated when this returns.
+        /// A Man interaction: seats the player, treats a duplicate for their own
+        /// helm as an idempotent success, or rejects. On StartPiloting the ledgers
+        /// are already updated when this returns.
         /// </summary>
         public ManOutcome TryMan(long playerEntityId, long helmEntityId, long hullEntityId)
         {
@@ -65,9 +63,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             {
                 if (current.HullEntityId == hullEntityId)
                 {
-                    // Their own helm again: the toggle dismount.
-                    RemoveSeat(current);
-                    return ManOutcome.StopPiloting;
+                    return ManOutcome.AlreadyPiloting;
                 }
                 return ManOutcome.RejectedAlreadyPiloting;
             }

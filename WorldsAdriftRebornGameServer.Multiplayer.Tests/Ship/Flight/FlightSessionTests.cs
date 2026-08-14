@@ -321,14 +321,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void Manning_your_own_helm_again_is_the_dismount_toggle()
+        public void Duplicate_man_on_your_own_helm_is_idempotent()
         {
             PilotSeats seats = new PilotSeats();
             seats.TryMan(5, 20, 10);
 
-            Assert.Equal(ManOutcome.StopPiloting, seats.TryMan(5, 20, 10));
-            Assert.Null(seats.PilotOf(10));
-            Assert.Null(seats.SeatOf(5));
+            Assert.Equal(ManOutcome.AlreadyPiloting, seats.TryMan(5, 20, 10));
+            Assert.Equal(5, seats.PilotOf(10)!.Value.PlayerEntityId);
+            Assert.Equal(10, seats.SeatOf(5)!.Value.HullEntityId);
         }
 
         [Fact]

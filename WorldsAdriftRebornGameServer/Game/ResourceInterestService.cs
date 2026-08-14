@@ -158,6 +158,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 IslandResourceInterestPolicy.ClosestIsland(position, _islands.All), source);
         }
 
+        /// <summary>
+        /// The latest authoritative world-space centre observed for a peer. Ship
+        /// replication shares this position rather than maintaining a second,
+        /// eventually-divergent movement ledger. Before the first movement sample,
+        /// the connect spawn point is the conservative answer.
+        /// </summary>
+        public FixedPointPosition CenterFor(ENetPeerHandle peer) =>
+            _peers.TryGetValue(peer, out PeerState? state)
+                ? state.Center
+                : SpawnPolicy.PlayerSpawnPosition;
+
         public void Tick()
         {
             if (!Enabled) return;

@@ -214,6 +214,7 @@ namespace WorldsAdriftRebornGameServer
             // inherit a stale "already delivered" set and wrongly skip seeding the
             // next joiner's entities.
             ServedComponents.ForgetPeer(peer);
+            SentEntities.ForgetPeer(peer);
             ResourceInterest.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
@@ -461,6 +462,21 @@ namespace WorldsAdriftRebornGameServer
         /// collider). Forgotten on disconnect alongside the other per-peer state.
         /// </summary>
         internal static readonly Multiplayer.ServedComponentLedger<ENetPeerHandle> ServedComponents = new();
+
+        /// <summary>
+        /// Which entity creations have actually been queued to each peer. Runtime
+        /// placement can happen while a peer is still walking its boot plan, before
+        /// component interest exists, so component delivery is not a safe proxy for
+        /// whether repeating AddEntity would be a duplicate.
+        /// </summary>
+        internal static readonly Multiplayer.EntitySendLedger<ENetPeerHandle> SentEntities = new();
+
+        /// <summary>
+        /// Runtime catch-up pace. Player-made entities are prefab-heavy (especially
+        /// generated ship decks), so a late joiner receives one at a time instead of
+        /// the entire post-boot history in a single client frame.
+        /// </summary>
+        private static readonly TimeSpan RuntimeCatchupInterval = TimeSpan.FromMilliseconds(100);
 
         /// <summary>
         /// Rate-limiter for the per-packet crash-isolation catch below. A modified
@@ -2578,6 +2594,7 @@ namespace WorldsAdriftRebornGameServer
 
                 Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
                     + entity.Key + "' (" + entityId + ").");
+                SentEntities.MarkSent(peer, entityId);
                 ResourceInterest.NoteLoaded(peer, entityId);
 
                 // Visibility and authority are deliberately independent. With
@@ -2666,6 +2683,101 @@ namespace WorldsAdriftRebornGameServer
                 }
                 ServedComponents.MarkServed(peer, entityId, seedServed);
             };
+        }
+
+        /// <summary>
+        /// Snapshot player-made entities registered after the process-wide boot plan
+        /// was built. Runtime placement/build broadcasts reach peers which are already
+        /// present, but without this pass a later joiner can only see entities restored
+        /// before boot. The AddEntity send ledger is the duplicate guard: a placement
+        /// broadcast while this peer was still loading is recorded immediately, even
+        /// before the client asks for components, and therefore is not sent twice.
+        /// </summary>
+        private static void PrepareRuntimeEntityCatchup(ENetPeerHandle peer, PlayerSyncStatus status)
+        {
+            if (status.RuntimeCatchupInitialized)
+            {
+                return;
+            }
+
+            Queue<WorldEntity> pending = new Queue<WorldEntity>();
+            foreach (WorldEntity entity in WorldEntities.Registrations)
+            {
+                long? entityId = WorldEntities.BoundEntityIdFor(entity.Key);
+                bool retired = entityId.HasValue
+                    && entity.Key.StartsWith("placed-", StringComparison.Ordinal)
+                    && Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId.Value);
+                if (!RuntimeEntityCatchupPolicy.ShouldQueue(
+                        entity.Key,
+                        isBound: WorldEntities.IsBound(entity),
+                        addEntityAlreadySent: entityId.HasValue && SentEntities.WasSent(peer, entityId.Value),
+                        retired: retired))
+                {
+                    continue;
+                }
+
+                if (entityId.HasValue)
+                {
+                    pending.Enqueue(entity);
+                }
+            }
+
+            status.RuntimeCatchupQueue = pending;
+            // Leave one frame budget after the boot plan's final entity before
+            // beginning the post-boot tail; the final AddEntity is sent, not yet
+            // known to have finished instantiating, when this method is called.
+            status.RuntimeCatchupNextAt = ServerClock.Elapsed + RuntimeCatchupInterval;
+            status.RuntimeCatchupInitialized = true;
+
+            Console.WriteLine("[runtime-catchup] late joiner has " + pending.Count
+                + " post-boot player-made entit" + (pending.Count == 1 ? "y" : "ies")
+                + " to receive (paced at one every " + RuntimeCatchupInterval.TotalMilliseconds.ToString("0") + " ms).");
+        }
+
+        /// <summary>Send at most one queued runtime entity on this loop turn.</summary>
+        private static void DrainRuntimeEntityCatchup(ENetPeerHandle peer, PlayerSyncStatus status)
+        {
+            Queue<WorldEntity>? pending = status.RuntimeCatchupQueue;
+            if (pending == null || pending.Count == 0 || ServerClock.Elapsed < status.RuntimeCatchupNextAt)
+            {
+                return;
+            }
+
+            while (pending.Count > 0)
+            {
+                WorldEntity queued = pending.Dequeue();
+                // It may have been salvaged or relocated after the snapshot was
+                // prepared. Resolve by key again so a moving ship is seeded at its
+                // latest authoritative pose, never the position captured seconds ago.
+                WorldEntity? entity = WorldEntities.ByKey(queued.Key);
+                if (entity == null)
+                {
+                    continue;
+                }
+
+                long? entityId = WorldEntities.BoundEntityIdFor(entity.Key);
+                bool retired = entityId.HasValue
+                    && entity.Key.StartsWith("placed-", StringComparison.Ordinal)
+                    && Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId.Value);
+                if (!entityId.HasValue
+                    || !RuntimeEntityCatchupPolicy.ShouldQueue(
+                        entity.Key, isBound: true,
+                        addEntityAlreadySent: SentEntities.WasSent(peer, entityId.Value),
+                        retired: retired))
+                {
+                    continue;
+                }
+
+                // The runtime spawn path uses this same proven sequence. Client boot
+                // precache covers these prefabs; pacing prevents generated deck work
+                // from landing in one frame.
+                RequestWorldEntityAsset(entity)(peer);
+                AddWorldEntity(entity)(peer);
+                status.RuntimeCatchupNextAt = ServerClock.Elapsed + RuntimeCatchupInterval;
+                Console.WriteLine("[runtime-catchup] sent '" + entity.Key + "' (" + entityId.Value
+                    + ") to late joiner; " + pending.Count + " remaining.");
+                return;
+            }
         }
 
         private static Action<object> AddPlayerEntity()
@@ -3747,6 +3859,8 @@ namespace WorldsAdriftRebornGameServer
                         && pStatus.Performed)
                     {
                         ResourceInterest.NoteConnectPlanComplete(keyValuePair.Key);
+                        PrepareRuntimeEntityCatchup(keyValuePair.Key, pStatus);
+                        DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }
                 }
             }

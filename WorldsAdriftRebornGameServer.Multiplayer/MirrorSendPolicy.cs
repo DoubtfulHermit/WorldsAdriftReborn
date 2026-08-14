@@ -53,6 +53,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// other clients for them to see anyone move.
         /// </summary>
         public const uint TransformStateComponentId = 190602;
+        public const uint ShipPredictedMotionStateComponentId = 1130;
 
         /// <summary>
         /// ClientAuthoritativePlayerState: the player's bone/animation bytes.
@@ -649,14 +650,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// beam is on" is invisible; a reliable backlog is fatal. The other
         /// trigger-based multitool components (2105/2106/2002 - on/off/mode) stay
         /// reliable: they are one-shots, and a dropped state change never returns.
+        ///
+        /// 1130 SSPPredictedMotionState is likewise a full absolute latest ship
+        /// control point, not a delta. Losing one widens the next legal timestamp
+        /// gap from 0.24 s to 0.48 s; it does not violate the client's 0.228 s
+        /// minimum, and the next point corrects the extrapolated pose. Keeping the
+        /// obsolete point reliable instead created multi-second ordered backlogs.
         /// </summary>
         public static RelayReliability RelayReliabilityFor(uint componentId)
         {
             return componentId == TransformStateComponentId
                 || componentId == ClientAuthoritativePlayerStateComponentId
                 || componentId == UtilitySlotActivatedStateComponentId
+                // A moving hull publishes a complete latest control point every
+                // 240 ms. The next point supersedes a lost one just like 190602;
+                // making this reliable only builds an ordered retransmit queue
+                // during loss. With two moving ships the live 2026-08-14 session
+                // reached 49 KB in flight and 6.8 s RTT, delaying helm traffic.
+                || componentId == ShipPredictedMotionStateComponentId
                 ? RelayReliability.Unreliable
                 : RelayReliability.Reliable;
+        }
+
+        /// <summary>
+        /// Delivery for one wire packet containing several component updates.
+        /// It is safe to drop only when every member is independently superseded;
+        /// an empty batch or one one-shot component makes the packet reliable.
+        /// </summary>
+        public static RelayReliability BatchReliabilityFor(
+            System.Collections.Generic.IEnumerable<uint> componentIds)
+        {
+            bool any = false;
+            foreach (uint componentId in componentIds)
+            {
+                any = true;
+                if (RelayReliabilityFor(componentId) == RelayReliability.Reliable)
+                {
+                    return RelayReliability.Reliable;
+                }
+            }
+            return any ? RelayReliability.Unreliable : RelayReliability.Reliable;
         }
     }
 }

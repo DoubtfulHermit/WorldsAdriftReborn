@@ -607,6 +607,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 Console.WriteLine("[error] placement: failed to send AddEntityOp for deployable " + entityId + " to a peer.");
                 return false;
             }
+            WorldsAdriftRebornGameServer.SentEntities.MarkSent(peer, entityId);
 
             List<Structs.Structs.InterestOverride> seeds = registration.SeedComponents
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))

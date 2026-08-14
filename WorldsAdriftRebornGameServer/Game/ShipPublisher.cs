@@ -4,6 +4,7 @@ using Improbable.Corelibrary.Math;
 using Improbable.Math;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
@@ -12,7 +13,7 @@ namespace WorldsAdriftRebornGameServer.Game
     /// <summary>
     /// The one ENet-shaped thing the two ship-motion features share: turn a pure
     /// <see cref="ShipControlPointSpec"/> into a 1130 SSPPredictedMotionState
-    /// update and RELIABLY send it to every client that has the hull.
+    /// update and send it to every client that has the hull.
     ///
     /// Both callers - the step-3 carry probe (<see cref="ShipMoveService"/>) and
     /// the step-4 ferry (<see cref="ShipFerryService"/>) - address the SAME
@@ -21,13 +22,13 @@ namespace WorldsAdriftRebornGameServer.Game
     /// world-entity registry (<c>WorldEntities.EntityIdFor</c>), the same number
     /// the spawn plan already handed out.
     ///
-    /// RELIABLE, not the movement relay's unreliable path: a ship control point is
-    /// NOT superseded every tick the way a player's 190602 is - each one is a
-    /// distinct step of the flight, and <c>ValidateControlPoints</c> rejects a
-    /// point that arrives out of order, so a dropped or reordered one is a visible
-    /// stutter that never self-heals. <c>SendComponentUpdateOp</c> sends on the
-    /// COMPONENT_UPDATE_OP channel with <c>ENetPacketFlag.RELIABLE</c>, which is
-    /// exactly what we want here.
+    /// Each update contains one complete absolute latest control point: timestamp,
+    /// global position, rotation and velocity. A later point therefore supersedes
+    /// a lost one. <c>ValidateControlPoints</c> only rejects regression or a gap
+    /// smaller than 0.228 s; skipping a 0.24 s point widens the next gap to 0.48 s,
+    /// which is valid, and <c>PathFollower</c> corrects from its extrapolated pose.
+    /// Delivery is consequently UNRELIABLE through <see cref="MirrorSendPolicy"/>,
+    /// avoiding reliable-channel head-of-line delay during loss.
     /// </summary>
     internal static class ShipPublisher
     {
@@ -122,7 +123,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// Sends one already-built component update on a GIVEN component id to every
         /// fully-loaded peer, keeping count. The hull's 1130 SSPPredictedMotionState
         /// and each bolted part's 190602 TransformState wake both ride this same
-        /// reliable path (see <see cref="ShipPartMotionService"/>); only the id and the
+        /// superseding-update path (see <see cref="ShipPartMotionService"/>); only the id and the
         /// target entity differ.
         /// </summary>
         public static int Broadcast(long entityId, uint componentId, object update)
@@ -139,6 +140,53 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (SendOPHelper.SendComponentUpdateOp(
                         peer,
                         entityId,
+                        new System.Collections.Generic.List<uint> { componentId },
+                        new System.Collections.Generic.List<object> { update }))
+                {
+                    sent++;
+                }
+            }
+            return sent;
+        }
+
+        /// <summary>
+        /// Publishes high-frequency motion only to peers that both hold the target
+        /// entity and are near the ship (or piloting/aboard it). Event updates keep
+        /// using <see cref="Broadcast(long,uint,object)"/>; this gate is specifically
+        /// for the 1130/190602 stream. Without it, one abandoned ship cruising tens
+        /// of kilometres away sent its hull and every mounted-part wake to every
+        /// player forever.
+        /// </summary>
+        public static int BroadcastMotion(long targetEntityId, long hullEntityId,
+            FixedPointPosition hullPosition, uint componentId, object update)
+        {
+            int sent = 0;
+            foreach ((ulong peerId, long playerEntityId) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peer == null || !PeerManager.Instance.clientSetupState.Contains(peer))
+                {
+                    continue;
+                }
+
+                bool checkedOut = WorldsAdriftRebornGameServer.SentEntities
+                    .WasSent(peer, targetEntityId)
+                    && WorldsAdriftRebornGameServer.ServedComponents
+                        .HasServed(peer, targetEntityId, componentId);
+                bool pilot = WorldsAdriftRebornGameServer.Flight
+                    .IsPilotOf(playerEntityId, hullEntityId);
+                bool aboard = WorldsAdriftRebornGameServer.Aboard.ShipOf(peerId) == hullEntityId;
+                FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
+
+                if (!ShipUpdateVisibilityPolicy.ShouldPublish(
+                        checkedOut, pilot, aboard, center, hullPosition, Interest.RadiusMetres))
+                {
+                    continue;
+                }
+
+                if (SendOPHelper.SendComponentUpdateOp(
+                        peer,
+                        targetEntityId,
                         new System.Collections.Generic.List<uint> { componentId },
                         new System.Collections.Generic.List<object> { update }))
                 {

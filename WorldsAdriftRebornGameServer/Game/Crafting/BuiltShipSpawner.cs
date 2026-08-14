@@ -351,6 +351,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 Console.WriteLine("[error] built-ship spawn: failed to send AddEntityOp for entity " + entityId + " to a peer.");
                 return false;
             }
+            WorldsAdriftRebornGameServer.SentEntities.MarkSent(peer, entityId);
 
             List<Structs.Structs.InterestOverride> seeds = registration.SeedComponents
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))

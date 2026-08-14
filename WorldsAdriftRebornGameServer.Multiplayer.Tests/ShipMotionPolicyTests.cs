@@ -80,6 +80,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_lost_control_point_self_heals_at_the_next_absolute_point()
+        {
+            long anchor = 100000;
+            long first = ShipMotionPolicy.TimestampMsFor(anchor, 0, ShipMotionPolicy.SendIntervalSeconds);
+            long afterOneLost = ShipMotionPolicy.TimestampMsFor(anchor, 2, ShipMotionPolicy.SendIntervalSeconds);
+
+            // ValidateControlPoints rejects gaps below the floor, not gaps above
+            // it. The receiver can legally accept the next complete absolute
+            // point after one unreliable packet is lost.
+            Assert.True(ShipMotionPolicy.IsLegalSeparation(first, afterOneLost));
+            Assert.Equal(480, afterOneLost - first);
+        }
+
+        [Fact]
         public void A_regressing_or_too_close_pair_is_illegal()
         {
             Assert.False(ShipMotionPolicy.IsLegalSeparation(1000, 900));   // regression

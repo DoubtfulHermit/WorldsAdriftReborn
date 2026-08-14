@@ -576,6 +576,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(RelayReliability.Unreliable, MirrorSendPolicy.RelayReliabilityFor(6910));
         }
 
+        [Fact]
+        public void Ship_motion_control_points_are_unreliable_because_each_new_point_supersedes_the_last()
+        {
+            Assert.Equal(RelayReliability.Unreliable, MirrorSendPolicy.RelayReliabilityFor(1130));
+        }
+
+        [Fact]
+        public void A_typed_batch_is_unreliable_only_when_every_update_is_superseded()
+        {
+            Assert.Equal(RelayReliability.Unreliable,
+                MirrorSendPolicy.BatchReliabilityFor(new uint[] { 1130u, 190602u }));
+            Assert.Equal(RelayReliability.Reliable,
+                MirrorSendPolicy.BatchReliabilityFor(new uint[] { 1130u, 1109u }));
+            Assert.Equal(RelayReliability.Reliable,
+                MirrorSendPolicy.BatchReliabilityFor(Array.Empty<uint>()));
+        }
+
         [Theory]
         [InlineData(1088u)] // PlayerPropertiesState: appearance, published ONCE at spawn
         [InlineData(1098u)] // RopeControlPoints: grapple line
@@ -588,12 +605,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Only_the_three_known_high_rate_streams_are_ever_unreliable()
+        public void Only_the_four_known_superseding_streams_are_ever_unreliable()
         {
             // Sweep a wide id range rather than trusting a hand-picked list: a
             // future "this one is chatty too" edit has to come here first.
-            // The three high-rate streams: 1073, 190602, 6910.
-            var unreliable = new HashSet<uint> { 1073u, 190602u, 6910u };
+            // The four superseding streams: 1073, 1130, 190602, 6910.
+            var unreliable = new HashSet<uint> { 1073u, 1130u, 190602u, 6910u };
             for (uint id = 0; id < 200000; id++)
             {
                 if (MirrorSendPolicy.RelayReliabilityFor(id) == RelayReliability.Unreliable)

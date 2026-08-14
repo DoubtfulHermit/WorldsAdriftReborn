@@ -189,8 +189,15 @@ namespace WorldsAdriftRebornGameServer.Game
                     StartPiloting(player, playerEntityId, targetEntityId, hullEntityId);
                     break;
 
-                case ManOutcome.StopPiloting:
-                    StopPiloting(player, playerEntityId, targetEntityId, hullEntityId, "re-manned the helm");
+                case ManOutcome.AlreadyPiloting:
+                    // Live clients can publish duplicate Man deltas while the
+                    // interaction transition is draining through a congested
+                    // channel. Treating the second copy as a toggle produced four
+                    // MANNED/DISMOUNTED cycles in one second on 2026-08-14 and made
+                    // the helm appear impossible to enter. ReleaseInteraction is
+                    // the unambiguous dismount operation.
+                    Console.WriteLine("[flight] duplicate Man on helm " + targetEntityId + " by entity "
+                        + playerEntityId + " ignored: already piloting hull " + hullEntityId + ".");
                     break;
 
                 case ManOutcome.RejectedOccupied:
@@ -322,6 +329,12 @@ namespace WorldsAdriftRebornGameServer.Game
 
         internal bool IsPiloted(long hullEntityId) => _seats.PilotOf(hullEntityId).HasValue;
 
+        internal bool IsPilotOf(long playerEntityId, long hullEntityId)
+        {
+            PilotSeats.Seat? seat = _seats.SeatOf(playerEntityId);
+            return seat.HasValue && seat.Value.HullEntityId == hullEntityId;
+        }
+
         /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
         internal void RetireHull(long hullEntityId)
         {
@@ -380,7 +393,12 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
 
-                ShipPublisher.Broadcast(hullEntityId, ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation));
+                FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
+                    emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
+                ShipPublisher.BroadcastMotion(
+                    hullEntityId, hullEntityId, hullPosition,
+                    ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation));
 
                 // Mounted-part wakes ride a 0.5 s SUB-cadence, not every point:
                 // an awake "~" follower composes against the hull's live
@@ -390,7 +408,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     || _clock.Elapsed - lastWake >= WakeInterval)
                 {
                     _lastWakeAt[hullEntityId] = _clock.Elapsed;
-                    PublishHullAndPartWakes(hullEntityId, emit);
+                    PublishHullAndPartWakes(hullEntityId, emit, hullPosition);
                 }
             }
 
@@ -604,7 +622,8 @@ namespace WorldsAdriftRebornGameServer.Game
         /// would re-fire ParentUpdated and churn a destroy/re-add, the exact trap
         /// ShipPartMotionService documents).
         /// </summary>
-        private static void PublishHullAndPartWakes(long hullEntityId, FlightEmit emit)
+        private static void PublishHullAndPartWakes(
+            long hullEntityId, FlightEmit emit, FixedPointPosition hullPosition)
         {
             long sample = PartMountService.NextTimelineSample();
             float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
@@ -614,14 +633,18 @@ namespace WorldsAdriftRebornGameServer.Game
                 hullPos,
                 new Improbable.Corelibrary.Math.Quaternion32(emit.PackedRotation),
                 ShipPartMotionPolicy.ParentStampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds));
-            ShipPublisher.Broadcast(hullEntityId, ShipPartMotionPolicy.TransformStateComponentId, hullUpdate);
+            ShipPublisher.BroadcastMotion(
+                hullEntityId, hullEntityId, hullPosition,
+                ShipPartMotionPolicy.TransformStateComponentId, hullUpdate);
 
             foreach ((long partEntityId, Crafting.MountedParts.Mount mount) in Crafting.MountedParts.OnHull(hullEntityId))
             {
                 var wake = ShipPartTransform.BuildWakeUpdate(
                     mount.LocalOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp,
                     new Improbable.Corelibrary.Math.Quaternion32(mount.PackedRotation));
-                ShipPublisher.Broadcast(partEntityId, ShipPartMotionPolicy.TransformStateComponentId, wake);
+                ShipPublisher.BroadcastMotion(
+                    partEntityId, hullEntityId, hullPosition,
+                    ShipPartMotionPolicy.TransformStateComponentId, wake);
             }
         }
 
@@ -634,10 +657,19 @@ namespace WorldsAdriftRebornGameServer.Game
 
         private static void PersistPoseNow(long hullEntityId, FlightState state)
         {
+            FixedPointPosition position = FixedPointPosition.FromMetres(state.X, state.Y, state.Z);
+            uint packedRotation = FlightIntegrator.PackedRotation(state);
+            // WorldEntity.Position is also the seed used for a same-process late
+            // join/rejoin. Keeping only the JSON record current made a newly
+            // checked-out ship appear back at its build spot until a later motion
+            // keepalive happened to correct it.
+            WorldsAdriftRebornGameServer.WorldEntities.Relocate(
+                hullEntityId, position, packedRotation);
+
             int? index = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
             if (!index.HasValue) return;
             WorldStatePersistence.UpdateBuiltShipPose(index.Value,
-                FixedPointPosition.FromMetres(state.X, state.Y, state.Z), state.YawRadians);
+                position, state.YawRadians);
         }
 
         /// <summary>
