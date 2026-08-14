@@ -136,6 +136,22 @@ changes.
   `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
 - **Server state:** active at the time this handover was written.
 
+### Tested locally, not yet deployed
+
+- **Server candidate:** `ba5987a` (`Fix late-join entities and ship replication
+  stalls`). The 2026-08-14 two-player session proved three related failures:
+  runtime-created yards/ships were absent from the boot-frozen plan on relog;
+  distant ships and mounted parts broadcast motion globally; and absolute ship
+  control points bypassed the unreliable-stream policy, building a reliable
+  retransmit queue (observed peak 49 KB in flight and 6.8 s RTT).
+- The candidate adds paced runtime-entity catch-up, a per-peer AddEntity ledger,
+  distance/checkout-gated ship motion with pilot/passenger overrides, current-pose
+  registry relocation, superseding/unreliable 1130 delivery, idempotent duplicate
+  helm Man events, serializer-buffer cleanup, and removal of per-update log spam.
+- Validation: Multiplayer tests `2264/2264`; Release game-server build succeeded;
+  `git diff --check` clean. It still requires deployment after all players disconnect,
+  followed by a two-player relog/ship-flight acceptance test.
+
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted
 into chat, or issue reports. In particular, avoid printing the full systemd
@@ -449,13 +465,15 @@ the existing resource-interest candidate query through the directory.
   load-near/retain-visited compatibility mode as described above.
 - **Loading/crash validation:** Colin's remote loading crash was identified as
   native heap corruption (`c0000374`) and fixed in `3a7cd31` / manifest
-  `2026.08.14-10`. It still needs a clean remote join to validate on the machine
-  that reliably reproduced it.
+  `2026.08.14-10`; his subsequent join passed the former crash point. Extended
+  play then exposed the separate server replication congestion addressed by the
+  not-yet-deployed `ba5987a` candidate above.
 - **Sail fidelity:** functional scalar propulsion, not retail wind physics.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
-- **Multiple players:** major paths are N-way by design, but most live gameplay
-  validation used one or two players.
+- **Multiple players:** the first sustained two-player flight test exposed the
+  late-join and replication defects fixed by `ba5987a`; repeat that exact test
+  after deployment before treating the fix as accepted.
 - **Server restart reconnect:** still session-ending; separate gateway/worker
   architecture is not required to fix the existing shim reconnect path.
 - **Hosting docs:** native runtime description is current, game deploy command
