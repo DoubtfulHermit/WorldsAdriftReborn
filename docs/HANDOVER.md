@@ -10,7 +10,7 @@
 
 **Active branch at this snapshot:** `fix/resource-stream-authority`
 
-**HEAD at this snapshot:** `7c3e6c4` (`Project roof panels above the hull envelope`)
+**Code baseline at this snapshot:** `355d842` (`Offset ship panels beyond the exterior skin`)
 
 This file is the current operational and architectural handover. Start here,
 then follow the narrower documents it links. Do not treat old roadmap entries,
@@ -115,10 +115,10 @@ changes.
 
 - **Game server:** deployed/restarted from `f837c5a` at 2026-08-14 12:31 CEST.
   Commits after it in this handover are client-only panel-preview work.
-- **Public client manifest:** `2026.08.14-6`, build label
-  `roof panels project above hull envelope (7c3e6c4)`.
+- **Public client manifest:** `2026.08.14-7`, build label
+  `panel exterior half-thickness + geometry trace (355d842)`.
 - **Client DLL SHA-256:**
-  `d8a1f4234aa5d48cec3133d734fe0fbae86d51c3ce8fbd573b287b8b2523d22d`.
+  `99ebb821bf165cf36f51dbf6c9c114c31ad9f28828f5c1a939abe6e9e57970bc`.
 - **Server state:** active at the time this handover was written.
 
 Do not put database passwords, session tokens, account records, or private
@@ -306,7 +306,13 @@ History:
 - `7c3e6c4`: for a vertically struck rail, measures live rendered hull bounds,
   places the panel 6 cm above the hull envelope, forces ship-up normal, and logs
   successful projection or fallback.
-- Public client containing the last change: WAPatch `2026.08.14-6`.
+- Live traces from that build proved the general side path still applied a
+  `0.00 m` correction: the exterior recast found the same beam skin and left
+  the pivot there, embedding the inner half of the 0.10 m panel thickness.
+- `355d842`: moves the pivot 0.06 m along the sign-corrected sloped exterior
+  normal (5 cm half-thickness plus 1 cm clearance), and logs actual rendered
+  and collider projection ranges relative to the selected hull skin.
+- Public client containing the last change: WAPatch `2026.08.14-7`.
 
 Next acceptance steps:
 
@@ -321,9 +327,13 @@ Next acceptance steps:
      /home/ttanurhan/Games/WorldsAdrift/BepInEx/LogOutput.log | tail -30
    ```
 
-5. Expected trace contains `roof envelope moved preview ... on face (0, 1, 0)`.
+5. For the pictured side rail, the expected trace contains
+   `SRC exterior ... pivot clearance 0.06 m`, followed by a `[geometry]` line
+   with `pivotFromSkin 0.060 m`. Renderer/collider minima should be zero or
+   positive; a negative minimum is measured penetration.
 6. If visually correct, place it, reconnect, and verify the persisted pose.
-7. If wrong, use the logged original local point/normal and result; do not add
+7. If wrong, use the logged skin, pivot, renderer/collider ranges, original
+   local point/normal and result; do not add
    another blind constant.
 
 ## 8. Persistence model and safety
@@ -412,7 +422,7 @@ After PR1, follow the world expansion sequence:
 
 ## 10. Known risks and unfinished work
 
-- **Panel placement:** WAPatch `2026.08.14-6` is awaiting visual acceptance.
+- **Panel placement:** WAPatch `2026.08.14-7` is awaiting visual acceptance.
 - **Resource unload:** capability is implemented in transport, but runtime is
   load-near/retain-visited compatibility mode as described above.
 - **Loading/crash scalability:** one remote friend crashed during loading and
