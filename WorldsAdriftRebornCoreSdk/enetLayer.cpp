@@ -327,36 +327,43 @@ bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadReque
     
     if (!pb_op->ParseFromString(*str)) {
         delete pb_op;
+        delete str;
 
         return false;
     }
 
+    // Every field crosses the Worker SDK ABI as a C string. Reserve the byte
+    // written by the terminator: allocating exactly payload.size() and then
+    // writing field[len] poisoned the Windows heap once per field. With the
+    // larger Wareborn spawn plan, Windows eventually reported c0000374 while
+    // activating a later prefab even though the damage happened here.
     if (pb_op->has_assettype()) {
         std::size_t len = pb_op->assettype().size();
-        op->AssetType = new char[len];
+        op->AssetType = new char[len + 1];
         memcpy(op->AssetType, pb_op->assettype().data(), len);
         op->AssetType[len] = '\0';
     }
     if (pb_op->has_name()) {
         std::size_t len = pb_op->name().size();
-        op->Name = new char[len];
+        op->Name = new char[len + 1];
         memcpy(op->Name, pb_op->name().data(), len);
         op->Name[len] = '\0';
     }
     if (pb_op->has_context()) {
         std::size_t len = pb_op->context().size();
-        op->Context = new char[len];
+        op->Context = new char[len + 1];
         memcpy(op->Context, pb_op->context().data(), len);
         op->Context[len] = '\0';
     }
     if (pb_op->has_url()) {
         std::size_t len = pb_op->url().size();
-        op->Url = new char[len];
+        op->Url = new char[len + 1];
         memcpy(op->Url, pb_op->url().data(), len);
         op->Url[len] = '\0';
     }
 
     delete pb_op;
+    delete str;
 
     return true;
 }
@@ -405,6 +412,7 @@ bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op) {
 
     if (!pb_op->ParseFromString(*str)) {
         delete pb_op;
+        delete str;
 
         return false;
     }
@@ -414,18 +422,19 @@ bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op) {
     }
     if (pb_op->has_prefabcontext()) {
         std::size_t len = pb_op->prefabcontext().size();
-        op->PrefabContext = new char[len];
+        op->PrefabContext = new char[len + 1];
         memcpy(op->PrefabContext, pb_op->prefabcontext().data(), len);
         op->PrefabContext[len] = '\0';
     }
     if (pb_op->has_prefabname()) {
         std::size_t len = pb_op->prefabname().size();
-        op->PrefabName = new char[len];
+        op->PrefabName = new char[len + 1];
         memcpy(op->PrefabName, pb_op->prefabname().data(), len);
         op->PrefabName[len] = '\0';
     }
 
     delete pb_op;
+    delete str;
 
     return true;
 }
