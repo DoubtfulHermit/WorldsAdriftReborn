@@ -22,9 +22,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>Full queue decision, split out so loading-race and tombstone rules are pinned.</summary>
-        public static bool ShouldQueue(string? key, bool isBound, bool addEntityAlreadySent, bool retired)
+        public static bool ShouldQueue(string? key, bool isBound,
+            bool addEntityAlreadySent, bool retired, bool shipDomainManaged)
         {
-            return NeedsLateJoinCatchup(key) && isBound && !addEntityAlreadySent && !retired;
+            // A built hull/deck or currently-mounted loose part has exactly one
+            // visibility owner: ShipDomainInterestService. Generic catch-up must
+            // not re-send a domain the connect gate deliberately skipped, or the
+            // live service has to unload the same large domain immediately after
+            // login. Free loose parts still need generic late-join catch-up.
+            return NeedsLateJoinCatchup(key)
+                && !shipDomainManaged
+                && isBound
+                && !addEntityAlreadySent
+                && !retired;
         }
 
         private static bool HasPrefix(string? value, string prefix)

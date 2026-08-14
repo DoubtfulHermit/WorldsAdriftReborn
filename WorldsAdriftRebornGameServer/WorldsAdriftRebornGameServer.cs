@@ -2724,7 +2724,9 @@ namespace WorldsAdriftRebornGameServer
                         entity.Key,
                         isBound: WorldEntities.IsBound(entity),
                         addEntityAlreadySent: entityId.HasValue && SentEntities.WasSent(peer, entityId.Value),
-                        retired: retired))
+                        retired: retired,
+                        shipDomainManaged: Multiplayer.Ship.BuiltShipPlacement.IsBuiltShipEntityKey(entity.Key)
+                            || (entityId.HasValue && Game.Crafting.MountedParts.Is(entityId.Value))))
                 {
                     continue;
                 }
@@ -2776,7 +2778,9 @@ namespace WorldsAdriftRebornGameServer
                     || !RuntimeEntityCatchupPolicy.ShouldQueue(
                         entity.Key, isBound: true,
                         addEntityAlreadySent: SentEntities.WasSent(peer, entityId.Value),
-                        retired: retired))
+                        retired: retired,
+                        shipDomainManaged: Multiplayer.Ship.BuiltShipPlacement.IsBuiltShipEntityKey(entity.Key)
+                            || Game.Crafting.MountedParts.Is(entityId.Value)))
                 {
                     continue;
                 }

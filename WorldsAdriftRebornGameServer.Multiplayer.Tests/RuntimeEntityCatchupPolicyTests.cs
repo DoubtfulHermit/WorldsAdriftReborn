@@ -32,14 +32,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         public void Placement_broadcast_while_peer_is_loading_is_not_queued_again()
         {
             Assert.False(RuntimeEntityCatchupPolicy.ShouldQueue(
-                "placed-shipyard:2", isBound: true, addEntityAlreadySent: true, retired: false));
+                "placed-shipyard:2", isBound: true, addEntityAlreadySent: true,
+                retired: false, shipDomainManaged: false));
         }
 
         [Fact]
         public void Picked_up_or_salvaged_entity_is_not_queued()
         {
             Assert.False(RuntimeEntityCatchupPolicy.ShouldQueue(
-                "placed-shipyard:2", isBound: true, addEntityAlreadySent: false, retired: true));
+                "placed-shipyard:2", isBound: true, addEntityAlreadySent: false,
+                retired: true, shipDomainManaged: false));
+        }
+
+        [Theory]
+        [InlineData("built-ship:2:hull")]
+        [InlineData("built-ship:2:deck:5")]
+        [InlineData("loose-part:12:sail")]
+        public void Ship_domain_owned_entities_never_use_generic_catchup(string key)
+        {
+            Assert.False(RuntimeEntityCatchupPolicy.ShouldQueue(
+                key, isBound: true, addEntityAlreadySent: false,
+                retired: false, shipDomainManaged: true));
+        }
+
+        [Fact]
+        public void Free_loose_part_still_uses_generic_catchup()
+        {
+            Assert.True(RuntimeEntityCatchupPolicy.ShouldQueue(
+                "loose-part:12:sail", isBound: true, addEntityAlreadySent: false,
+                retired: false, shipDomainManaged: false));
         }
     }
 }
