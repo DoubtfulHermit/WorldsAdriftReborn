@@ -147,5 +147,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal("iron", registry.NodeOf(11)!.MetalType);
             Assert.Contains(11L, registry.EntityIds);
         }
+
+        [Fact]
+        public void Operator_reset_restores_destroyed_state_and_clears_crust_history()
+        {
+            NodeRegistry registry = new NodeRegistry();
+            registry.Register(11, Node());
+            registry.AddShotPoint(11, new ShotPoint(1, 2, 3));
+            registry.MarkDestroyed(11);
+
+            Assert.Equal(1, registry.ResetAll());
+            Assert.False(registry.IsDestroyed(11));
+            Assert.True(registry.ShouldSpawnIntact(11));
+            Assert.Empty(registry.ShotPointsOf(11));
+            Assert.Equal(0, registry.ResetAll());
+        }
     }
 }

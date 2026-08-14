@@ -139,5 +139,16 @@ namespace WorldsAdriftServer.Tests
         {
             Assert.Contains("Max-Age=0", AdminAuthPolicy.BuildClearCookie());
         }
+
+        [Fact]
+        public void Csrf_token_is_session_bound_and_exact()
+        {
+            string csrf = AdminAuthPolicy.CsrfTokenForSession("session-a");
+            Assert.Equal(64, csrf.Length);
+            Assert.True(AdminAuthPolicy.VerifyCsrf("session-a", csrf));
+            Assert.False(AdminAuthPolicy.VerifyCsrf("session-b", csrf));
+            Assert.False(AdminAuthPolicy.VerifyCsrf("session-a", csrf + "0"));
+            Assert.False(AdminAuthPolicy.VerifyCsrf(null, csrf));
+        }
     }
 }

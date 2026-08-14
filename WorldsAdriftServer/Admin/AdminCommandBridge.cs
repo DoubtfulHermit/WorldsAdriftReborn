@@ -13,6 +13,7 @@ namespace WorldsAdriftServer.Admin
         private const string DefaultTeleportFile = "/tmp/wareborn-teleport";
         private const string DefaultPlacementFile = "/tmp/wareborn-place";
         private const string DefaultShipFile = "/tmp/wareborn-ship";
+        private const string DefaultWorldAdminFile = "/tmp/wareborn-world-admin";
 
         private static readonly object WriteGate = new object();
 
@@ -81,6 +82,41 @@ namespace WorldsAdriftServer.Admin
                 return true;
             }
 
+            if (action == "resources-reset")
+            {
+                if (argument != "all")
+                {
+                    error = "Resource reset is restricted to the explicit 'all' operation.";
+                    return false;
+                }
+                command = new AdminCommandRequest(
+                    "resources-reset", null, "all resource nodes", "reset-resources all",
+                    TriggerPath("WAREBORN_WORLD_ADMIN_FILE", DefaultWorldAdminFile));
+                return true;
+            }
+
+            if (action == "ship-recall" || action == "ship-delete")
+            {
+                if (!TryPositiveId(target, "Select an exact ship domain.", out long hullId, out error))
+                    return false;
+                if (action == "ship-recall")
+                {
+                    if (!TryPositiveId(argument, "Select the connected player who should receive the recalled ship.",
+                            out long playerId, out error))
+                        return false;
+                    command = new AdminCommandRequest(
+                        action, hullId, "hull " + hullId + " to player " + playerId,
+                        "recall-ship " + hullId + " " + playerId,
+                        TriggerPath("WAREBORN_WORLD_ADMIN_FILE", DefaultWorldAdminFile),
+                        relatedPlayerEntityId: playerId);
+                    return true;
+                }
+                command = new AdminCommandRequest(
+                    action, hullId, "hull " + hullId, "delete-ship " + hullId + " DELETE",
+                    TriggerPath("WAREBORN_WORLD_ADMIN_FILE", DefaultWorldAdminFile));
+                return true;
+            }
+
             error = "Unknown or unsupported admin action.";
             return false;
         }
@@ -138,12 +174,17 @@ namespace WorldsAdriftServer.Admin
 
         private static bool TryEntity(string? raw, out long entityId, out string error)
         {
+            return TryPositiveId(raw, "Select a connected player.", out entityId, out error);
+        }
+
+        private static bool TryPositiveId(string? raw, string invalidMessage,
+            out long entityId, out string error)
+        {
             if (!long.TryParse(raw, out entityId) || entityId <= 0)
             {
-                error = "Select a connected player.";
+                error = invalidMessage;
                 return false;
             }
-
             error = string.Empty;
             return true;
         }
@@ -157,13 +198,15 @@ namespace WorldsAdriftServer.Admin
 
     internal readonly struct AdminCommandRequest
     {
-        public AdminCommandRequest(string action, long? targetEntityId, string detail, string payload, string triggerPath)
+        public AdminCommandRequest(string action, long? targetEntityId, string detail, string payload,
+            string triggerPath, long? relatedPlayerEntityId = null)
         {
             Action = action;
             TargetEntityId = targetEntityId;
             Detail = detail;
             Payload = payload;
             TriggerPath = triggerPath;
+            RelatedPlayerEntityId = relatedPlayerEntityId;
         }
 
         public string Action { get; }
@@ -171,6 +214,7 @@ namespace WorldsAdriftServer.Admin
         public string Detail { get; }
         public string Payload { get; }
         public string TriggerPath { get; }
+        public long? RelatedPlayerEntityId { get; }
     }
 
     /// <summary>A bounded, thread-safe audit trail rendered in the dashboard.</summary>

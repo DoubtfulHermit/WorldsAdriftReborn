@@ -128,6 +128,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Operator_reset_restores_partial_and_depleted_canisters()
+        {
+            FuelCanisterRegistry reg = Registered();
+            reg.Register(Other);
+            reg.Hit(Canister);
+            reg.Hit(Other); reg.Hit(Other); reg.Hit(Other);
+
+            Assert.Equal(2, reg.ResetAll());
+            Assert.Equal(0, reg.ShotsOn(Canister));
+            Assert.Equal(0, reg.ShotsOn(Other));
+            Assert.False(reg.IsDepleted(Other));
+            Assert.Equal(0, reg.ResetAll());
+        }
+
+        [Fact]
         public void The_running_total_across_the_three_shots_is_exactly_twenty_five()
         {
             FuelCanisterRegistry reg = Registered();

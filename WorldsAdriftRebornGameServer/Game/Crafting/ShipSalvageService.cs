@@ -14,6 +14,75 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     /// <summary>Authoritative docked-frame salvage transaction behind the retail UI verb.</summary>
     internal static class ShipSalvageService
     {
+        /// <summary>
+        /// Permanently deletes an exact uncrewed built ship for the authenticated
+        /// operator console. Unlike player salvage, mounted parts are deleted with
+        /// the hull instead of becoming loose drops.
+        /// </summary>
+        internal static bool AdminDelete(long hullId, out string error)
+        {
+            error = string.Empty;
+            if (!BuiltShips.IsBuiltHull(hullId))
+            {
+                error = "Hull " + hullId + " is not a live built ship.";
+                return false;
+            }
+            if (WorldsAdriftRebornGameServer.Flight.IsPiloted(hullId)
+                || WorldsAdriftRebornGameServer.Aboard.AnyoneAboard(hullId))
+            {
+                error = "Hull " + hullId + " is piloted or occupied; delete refused.";
+                return false;
+            }
+            int? persistentIndex = BuiltShips.PersistentIndexFor(hullId);
+            if (!persistentIndex.HasValue
+                || !WorldStatePersistence.SalvageBuiltShip(
+                    persistentIndex.Value, Array.Empty<LoosePartRecord>()))
+            {
+                error = "Could not durably tombstone hull " + hullId + ".";
+                return false;
+            }
+
+            List<long> mountedIds = MountedParts.OnHull(hullId).Select(x => x.Key).ToList();
+            foreach (long partId in mountedIds)
+            {
+                MountedParts.Unmount(partId);
+                WorldsAdriftRebornGameServer.Sails.Unregister(partId);
+                WorldsAdriftRebornGameServer.Lamps.Unregister(partId);
+                WorldsAdriftRebornGameServer.Horns.Unregister(partId);
+                WorldsAdriftRebornGameServer.ShipMembership.Unregister(partId, hullId);
+                WorldsAdriftRebornGameServer.WorldEntities.Unregister(partId);
+            }
+
+            long yardId = BuiltShips.ShipyardForHull(hullId);
+            if (yardId != 0)
+            {
+                BuiltShips.ClearDocked(yardId);
+                BuiltShipSpawner.PushUndocked(yardId);
+            }
+            WorldsAdriftRebornGameServer.Flight.RetireHull(hullId);
+            IReadOnlyList<long> deckIds = BuiltShips.UnregisterShip(hullId);
+            foreach (long deckId in deckIds)
+            {
+                WorldsAdriftRebornGameServer.ShipMembership.Unregister(deckId, hullId);
+                WorldsAdriftRebornGameServer.WorldEntities.Unregister(deckId);
+            }
+            WorldsAdriftRebornGameServer.ShipMembership.Unregister(hullId, hullId);
+            WorldsAdriftRebornGameServer.WorldEntities.Unregister(hullId);
+
+            List<long> removed = mountedIds.Concat(deckIds).Concat(new[] { hullId }).ToList();
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                foreach (long entityId in removed)
+                {
+                    if (SendOPHelper.SendRemoveEntityOP(peer, entityId))
+                        PeerCheckoutCleanup.RemoveEntity(peer, entityId);
+                }
+            }
+            error = "Permanently deleted hull " + hullId + " with " + deckIds.Count
+                + " deck(s) and " + mountedIds.Count + " mounted part(s).";
+            return true;
+        }
+
         internal static ShipSalvageReject Reclaim(long playerEntityId, long shipyardEntityId,
             bool ownsPlayerEntity)
         {

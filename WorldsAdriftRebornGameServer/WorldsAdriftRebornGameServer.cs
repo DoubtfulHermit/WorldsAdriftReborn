@@ -1456,6 +1456,104 @@ namespace WorldsAdriftRebornGameServer
         }
 
         /// <summary>
+        /// Authenticated operator understorm: restore every damaged tree, metal
+        /// node and fuel canister, then push the intact state only to peers that
+        /// currently have each entity checked out.
+        /// </summary>
+        internal static string ResetHarvestResources()
+        {
+            IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll();
+            foreach (TreeRespawn tree in trees)
+                PushTreeSectionMask(tree.TreeEntityId, tree.SectionMask);
+
+            List<long> metal = Nodes.EntityIds
+                .Where(id => Nodes.IsDestroyed(id) || Nodes.ShotPointsOf(id).Count > 0
+                    || MetalHarvest.HitsOn(id) > 0).ToList();
+            Nodes.ResetAll();
+            MetalHarvest.ResetAll();
+            foreach (long nodeId in metal) BroadcastNodeReset(nodeId);
+
+            List<long> fuel = FuelCanisters.EntityIds
+                .Where(id => FuelCanisters.ShotsOn(id) > 0).ToList();
+            FuelCanisters.ResetAll();
+            foreach (long canisterId in fuel) BroadcastFuelCanisterReset(canisterId);
+
+            return "Reset " + trees.Count + " tree(s), " + metal.Count
+                + " metal node(s), and " + fuel.Count + " fuel canister(s).";
+        }
+
+        private static void BroadcastFuelCanisterReset(long entityId)
+        {
+            Multiplayer.FixedPointPosition intact = WorldEntities.TransformSeedFor(entityId);
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, entityId, TransformStateComponentId,
+                        out ulong transformRef)) continue;
+                var update = new Improbable.Corelibrary.Transforms.TransformState.Update()
+                    .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                        new Improbable.Collections.List<long> { intact.X, intact.Y, intact.Z }));
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef)
+                    is Improbable.Corelibrary.Transforms.TransformState.Data stored)
+                    update.ApplyTo(stored);
+                SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                    new List<uint> { TransformStateComponentId }, new List<object> { update });
+            }
+        }
+
+        private static void BroadcastNodeReset(long entityId)
+        {
+            Multiplayer.MetalNode? node = Nodes.NodeOf(entityId);
+            if (node == null) return;
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, entityId, TransformStateComponentId,
+                        out ulong transformRef))
+                {
+                    var transform = new Improbable.Corelibrary.Transforms.TransformState.Update()
+                        .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                            new Improbable.Collections.List<long>
+                                { node.Position.X, node.Position.Y, node.Position.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef)
+                        is Improbable.Corelibrary.Transforms.TransformState.Data stored)
+                        transform.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { TransformStateComponentId }, new List<object> { transform });
+                }
+                if (TryGetStoredComponentRef(peer, entityId, ItemHealthStateComponentId,
+                        out ulong healthRef))
+                {
+                    var health = new Bossa.Travellers.Items.ItemHealthState.Update()
+                        .SetHealth(Multiplayer.MetalDeposits.MaxHealth);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(healthRef)
+                        is Bossa.Travellers.Items.ItemHealthState.Data stored) health.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { ItemHealthStateComponentId }, new List<object> { health });
+                }
+                if (TryGetStoredComponentRef(peer, entityId, MetalRockCoreStateComponentId,
+                        out ulong coreRef))
+                {
+                    var core = new Bossa.Travellers.Materials.MetalRockCoreState.Update()
+                        .SetIsDestroyed(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(coreRef)
+                        is Bossa.Travellers.Materials.MetalRockCoreState.Data stored) core.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { MetalRockCoreStateComponentId }, new List<object> { core });
+                }
+                if (TryGetStoredComponentRef(peer, entityId, MetalRockCrustStateComponentId,
+                        out ulong crustRef))
+                {
+                    var crust = new Bossa.Travellers.Materials.MetalRockCrustState.Update()
+                        .SetShotPoints(new Improbable.Collections.List<Improbable.Math.Vector3f>())
+                        .SetExploded(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(crustRef)
+                        is Bossa.Travellers.Materials.MetalRockCrustState.Data stored) crust.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { MetalRockCrustStateComponentId }, new List<object> { crust });
+                }
+            }
+        }
+
+        /// <summary>
         /// The stored native reference for one (peer, entity, component), or false if
         /// that peer has not been served the component. The precondition every deposit
         /// broadcast shares: a live update is only pushed to a peer that already holds
@@ -2144,6 +2242,10 @@ namespace WorldsAdriftRebornGameServer
 
         internal static readonly Game.ShipFlightService Flight =
             new Game.ShipFlightService(ServerClock, ShipDomains);
+
+        /// <summary>Authenticated, allowlisted web-console world operations.</summary>
+        internal static readonly Game.AdminWorldCommandService WorldAdmin =
+            new Game.AdminWorldCommandService(ServerClock);
 
         /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
@@ -3754,6 +3856,9 @@ namespace WorldsAdriftRebornGameServer
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
                 // Cheap when idle (one UtcNow compare over an empty list). See Game.DeferredActions.
                 Game.DeferredActions.Tick();
+                // Authenticated operator commands are consumed on this same
+                // authoritative loop, so resets/recalls/deletes cannot race game state.
+                WorldAdmin.Tick();
                 // Loading-barrier safety net: release any joiner whose readiness
                 // deadline passed, so a client that never signals ready is not stuck
                 // on the loading screen. No-op when nothing is pending (barrier off,

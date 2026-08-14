@@ -220,5 +220,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>How many canisters are placed. For logs and tests.</summary>
         public int Count => _byEntityId.Count;
+
+        /// <summary>Restores every partially used or depleted canister.</summary>
+        public int ResetAll()
+        {
+            int changed = 0;
+            foreach (Canister canister in _byEntityId.Values)
+            {
+                if (canister.Shots != 0 || canister.Depleted) changed++;
+                canister.Shots = 0;
+                canister.Depleted = false;
+            }
+            return changed;
+        }
     }
 }

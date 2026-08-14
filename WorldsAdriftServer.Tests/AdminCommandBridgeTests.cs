@@ -68,5 +68,34 @@ namespace WorldsAdriftServer.Tests
                 }
             }
         }
+
+        [Fact]
+        public void World_operations_have_exact_allowlisted_payload_contracts()
+        {
+            Assert.True(AdminCommandBridge.TryBuild(
+                "resources-reset", null, "all", out AdminCommandRequest reset, out string error), error);
+            Assert.Equal("reset-resources all", reset.Payload);
+
+            Assert.True(AdminCommandBridge.TryBuild(
+                "ship-recall", "83", "12", out AdminCommandRequest recall, out error), error);
+            Assert.Equal("recall-ship 83 12", recall.Payload);
+            Assert.Equal(83, recall.TargetEntityId);
+            Assert.Equal(12, recall.RelatedPlayerEntityId);
+
+            Assert.True(AdminCommandBridge.TryBuild(
+                "ship-delete", "83", null, out AdminCommandRequest delete, out error), error);
+            Assert.Equal("delete-ship 83 DELETE", delete.Payload);
+        }
+
+        [Theory]
+        [InlineData("resources-reset", null, "nearby")]
+        [InlineData("ship-recall", "83", null)]
+        [InlineData("ship-recall", "all", "12")]
+        [InlineData("ship-delete", "all", null)]
+        public void World_operations_refuse_ambiguous_targets(string action, string? target,
+            string? argument)
+        {
+            Assert.False(AdminCommandBridge.TryBuild(action, target, argument, out _, out _));
+        }
     }
 }

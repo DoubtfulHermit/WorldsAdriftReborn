@@ -88,6 +88,9 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .banner.spiral{border-left-color:var(--rust);}
 .banner strong{display:block;letter-spacing:.06em;margin-bottom:.15rem;}
 .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem;}
+.nav{display:flex;gap:.45rem;margin:1rem 0 1.4rem;flex-wrap:wrap;}
+.nav a{padding:.4rem .75rem;border:1px solid var(--panel-edge);text-decoration:none;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;background:var(--panel);}
+.section-head{font-size:.66rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-faint);margin:1.8rem 0 .55rem;scroll-margin-top:1rem;}
 .asof{font-size:.72rem;color:var(--ink-faint);}
 .tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem;margin-top:1rem;}
 .tool{border:1px solid var(--panel-edge);padding:1rem;}
@@ -162,7 +165,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
         /// everything below the header is rendered by the inline script from it
         /// and then re-rendered every few seconds from a fresh fetch.
         /// </summary>
-        internal static string Dashboard(string bootstrapJson)
+        internal static string Dashboard(string bootstrapJson, string csrfToken)
         {
             return @"<!DOCTYPE html><html lang=""en""><head>
 <meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1"">
@@ -175,12 +178,14 @@ variable to <code>username:hash</code> and restart the login server to enable th
     <h1 id=""serverName"">&hellip;</h1>
     <div class=""asof"" id=""asof"">Loading&hellip;</div>
   </div>
-  <form method=""post"" action=""/admin/logout""><button class=""btn ghost"" type=""submit"">Sign out</button></form>
+  <form method=""post"" action=""/admin/logout""><input type=""hidden"" name=""csrf"" value=""" + HtmlEncode(csrfToken) + @"""><button class=""btn ghost"" type=""submit"">Sign out</button></form>
 </div>
+<nav class=""nav"" aria-label=""Control panel sections""><a href=""#world"">World</a><a href=""#simulation"">Simulation</a><a href=""#operations"">Operations</a><a href=""#system"">System</a></nav>
 
 <div class=""banner"" id=""spiralBanner""><strong>Wire-health warning</strong><span id=""spiralText""></span></div>
 <div class=""banner"" id=""downBanner""><strong>Game server not reporting</strong><span id=""downText""></span></div>
 
+<div class=""section-head"" id=""world"">World</div>
 <div class=""card"">
   <h2>Live game</h2>
   <div class=""grid"">
@@ -204,24 +209,31 @@ variable to <code>username:hash</code> and restart the login server to enable th
   <p class=""muted"" id=""noPlayers"" style=""display:none;font-size:.85rem"">Nobody in world.</p>
 </div>
 
+<div class=""section-head"" id=""simulation"">Simulation</div>
 <div class=""card"">
   <div class=""row""><div class=""grow""><h2>World inspector</h2></div><div class=""fit""><span class=""pill ok"" id=""hostMode"">local single-process</span></div></div>
   <p class=""lede"" style=""margin-top:0"">Read-only ship-domain state from the authoritative game loop. There are no remote workers or migrations in this runtime.</p>
+  <div class=""grid"" style=""margin-bottom:1rem""><div class=""stat""><div class=""n"" id=""domainCount"">&mdash;</div><div class=""l"">Ship domains</div></div><div class=""stat""><div class=""n"" id=""activeDomains"">&mdash;</div><div class=""l"">Active simulation</div></div><div class=""stat""><div class=""n"" id=""aboardCount"">&mdash;</div><div class=""l"">Players aboard</div></div></div>
   <div class=""banner"" id=""domainWarning""><strong>Domain delivery warning</strong><span id=""domainWarningText""></span></div>
   <div class=""domain-grid"" id=""shipDomains""></div>
   <p class=""muted"" id=""noDomains"" style=""display:none;font-size:.85rem"">No ship domains are registered.</p>
   <p class=""muted"" style=""font-size:.72rem;margin-bottom:0"">Frame alignment: hull and members are emitted root-first under one generation/sequence. Client-rendered player-to-ship offset is not yet measured by this bridge, so the panel does not claim a player presentation tick.</p>
 </div>
 
+<div class=""section-head"" id=""operations"">Operations</div>
 <div class=""card"">
   <div class=""row"">
-    <div class=""grow""><h2>Operator tools</h2></div>
+    <div class=""grow""><h2>Recovery and control</h2></div>
     <div class=""fit""><button class=""btn ghost"" type=""button"" id=""refreshNow"">Refresh now</button></div>
   </div>
   <p class=""lede"" style=""margin-top:0"">Allowlisted game actions only. Every accepted or rejected request is recorded below; no shell commands or raw file paths are exposed.</p>
   <div class=""field"">
     <label for=""targetPlayer"">Selected live player</label>
     <select id=""targetPlayer""><option value="""">No connected player</option></select>
+  </div>
+  <div class=""field"">
+    <label for=""targetShip"">Selected exact ship domain</label>
+    <select id=""targetShip""><option value="""">No registered ship domain</option></select>
   </div>
   <div class=""tool-grid"">
     <div class=""tool"">
@@ -248,14 +260,32 @@ variable to <code>username:hash</code> and restart the login server to enable th
         <button type=""button"" data-command=""ship-nudge"" data-argument=""east"">East +1 m</button>
       </div>
     </div>
+    <div class=""tool"">
+      <h3>World resources</h3>
+      <p>Requests a reset of all gatherable resource nodes. This is global shared-world state.</p>
+      <button type=""button"" data-command=""resources-reset"" data-argument=""all"">Reset all resource nodes</button>
+    </div>
+    <div class=""tool"">
+      <h3>Exact ship recovery</h3>
+      <p>Recall only an uncrewed selected hull beside the selected live player. The game uses the latest authoritative player position with a fixed 8 m east / 4 m upward clearance offset.</p>
+      <button type=""button"" data-command=""ship-recall"" data-target=""ship"">Recall selected ship</button>
+    </div>
+    <div class=""tool"">
+      <h3>Permanent ship deletion</h3>
+      <p>Deletes the selected hull domain and its persistent structure. This cannot be undone.</p>
+      <div class=""field""><label for=""deleteConfirmation"">Type DELETE</label><input id=""deleteConfirmation"" autocomplete=""off"" spellcheck=""false"" placeholder=""DELETE""></div>
+      <button type=""button"" data-command=""ship-delete"" data-target=""ship"">Delete selected ship permanently</button>
+    </div>
   </div>
   <div class=""feedback"" id=""commandFeedback"" role=""status"" aria-live=""polite""></div>
+  <div class=""tool"" style=""margin-top:1rem""><h3>Latest game-server completion</h3><p id=""completionEmpty"">No completed world operation has been reported yet.</p><div id=""completionReceipt"" style=""display:none""><span class=""pill"" id=""completionStatus""></span> <strong id=""completionAction""></strong><p id=""completionMessage""></p><p class=""muted"" id=""completionWhen""></p></div></div>
   <div style=""overflow-x:auto;margin-top:1rem"">
     <table><thead><tr><th>When</th><th>Action</th><th>Target</th><th>Detail</th><th>Result</th></tr></thead><tbody id=""commandLog""></tbody></table>
   </div>
   <p class=""muted"" id=""noCommands"" style=""font-size:.85rem"">No operator actions since this login-server boot.</p>
 </div>
 
+<div class=""section-head"" id=""system"">System</div>
 <div class=""card"">
   <h2>Accounts</h2>
   <div class=""grid"">
@@ -275,7 +305,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
 <div class=""card"">
   <h2>Server name</h2>
   <p class=""lede"" style=""margin-top:0"">The name the in-game server browser shows for this deployment.</p>
-  <form method=""post"" action=""/admin/server-name"" class=""row"">
+  <form method=""post"" action=""/admin/server-name"" class=""row""><input type=""hidden"" name=""csrf"" value=""" + HtmlEncode(csrfToken) + @""">
     <div class=""field grow"">
       <label for=""server-name-input"">Display name</label>
       <input id=""server-name-input"" name=""serverName"" type=""text"" maxlength=""64"" value="""">
@@ -291,6 +321,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
 (function(){
   'use strict';
   var REFRESH_MS = 4000;
+  var CSRF = '" + csrfToken + @"';
   var gameReporting = false;
   var secondIslandRegistered = false;
   function $(id){return document.getElementById(id);}
@@ -383,6 +414,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
     var runtime=g.runtime||{};
     text('hostMode',runtime.hostMode==='local-single-process'?'local single-process':(runtime.hostMode||'unknown host'));
     var domains=runtime.shipDomains||[];
+    text('domainCount',reporting?String(domains.length):'—');
+    text('activeDomains',reporting?String(domains.filter(function(d){return d.active;}).length):'—');
+    text('aboardCount',reporting?String(domains.reduce(function(n,d){return n+(d.aboardPlayerEntityIds||[]).length;},0)):'—');
     var domainGrid=$('shipDomains');clear(domainGrid);
     $('noDomains').style.display=domains.length?'none':'block';
     var warnings=[];
@@ -415,6 +449,14 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(warnings.length){domainWarning.classList.add('show','spiral');text('domainWarningText',warnings.join('; ')+'.');}
     else{domainWarning.classList.remove('show','spiral');}
 
+    var shipSelect=$('targetShip');
+    var selectedShip=shipSelect.value;clear(shipSelect);
+    var noShip=document.createElement('option');noShip.value='';noShip.textContent=domains.length?'Select an exact ship':'No registered ship domain';shipSelect.appendChild(noShip);
+    domains.forEach(function(d){var o=document.createElement('option');o.value=String(d.hullEntityId);o.textContent=(d.domainId||'ship')+' · hull '+d.hullEntityId+' · '+(d.piloted?'piloted':'unpiloted');shipSelect.appendChild(o);});
+    if(domains.some(function(d){return String(d.hullEntityId)===selectedShip;}))shipSelect.value=selectedShip;
+    var confirmation=$('deleteConfirmation');
+    if(confirmation && confirmation.dataset.ship!==shipSelect.value){confirmation.value='';confirmation.dataset.ship=shipSelect.value;confirmation.placeholder=shipSelect.value?'DELETE':'Select a ship first';}
+
     var playerSelect=$('targetPlayer');
     var selected=playerSelect.value;
     clear(playerSelect);
@@ -430,6 +472,19 @@ variable to <code>username:hash</code> and restart the login server to enable th
       : 'Unavailable: requires WAREBORN_SPAWN_SECOND_ISLAND=1 and a fresh game-server report.');
 
     var recent=((data.commands||{}).recent)||[];
+    var completion=(data.commands||{}).latestCompletion;
+    $('completionEmpty').style.display=completion?'none':'block';
+    $('completionReceipt').style.display=completion?'block':'none';
+    if(completion){
+      var completionStatus=$('completionStatus');completionStatus.className='pill '+(completion.success?'ok':'bad');completionStatus.textContent=completion.success?'completed':'failed';
+      text('completionAction',completion.action+(completion.targetEntityId?' · entity '+completion.targetEntityId:''));
+      text('completionMessage',completion.message||'The game server supplied no detail.');
+      text('completionWhen','Completed '+fmtWhen(completion.completedAtUnixMs)+'. This is gameplay completion, not merely queue acceptance.');
+    } else if((data.commands||{}).completionState==='unreadable') {
+      text('completionEmpty','The game-server result file is malformed or unreadable; check the server log.');
+    } else {
+      text('completionEmpty','No completed world operation has been reported yet.');
+    }
     var log=$('commandLog');clear(log);
     $('noCommands').style.display=recent.length?'none':'block';
     recent.forEach(function(c){
@@ -474,13 +529,26 @@ variable to <code>username:hash</code> and restart the login server to enable th
       .catch(function(){});
   }
   function sendCommand(action,argument,button){
-    var target=$('targetPlayer').value;
+    var target=button.dataset.target==='ship'?$('targetShip').value:$('targetPlayer').value;
     if((action==='teleport'||action==='placement')&&!target){showFeedback(false,'Select a connected player first.');return;}
+    if((action==='ship-recall'||action==='ship-delete')&&!target){showFeedback(false,'Select an exact ship domain first.');return;}
+    if(action==='ship-recall'&&!$('targetPlayer').value){showFeedback(false,'Select the connected player who should receive the ship.');return;}
     if(!gameReporting&&action!=='ship-nudge'){showFeedback(false,'The game server is not reporting fresh status.');return;}
     if(action==='ship-nudge'&&!window.confirm('Move the active shared ship exactly one metre '+argument+'?'))return;
-    var body='action='+encodeURIComponent(action)+'&target='+encodeURIComponent(target)+'&argument='+encodeURIComponent(argument||'');
+    if(action==='resources-reset'&&!window.confirm('Reset every shared-world resource node?'))return;
+    if(action==='ship-recall'){
+      argument=$('targetPlayer').value;
+      if(!window.confirm('Recall exact hull '+target+' to player entity '+argument+'?'))return;
+    }
+    var confirmation='';
+    if(action==='ship-delete'){
+      confirmation=$('deleteConfirmation').value;
+      if(confirmation!=='DELETE'){showFeedback(false,'Type DELETE exactly before deleting hull '+target+'.');return;}
+      if(!window.confirm('Permanently delete exact hull '+target+' and its persisted structure? This cannot be undone.'))return;
+    }
+    var body='action='+encodeURIComponent(action)+'&target='+encodeURIComponent(target)+'&argument='+encodeURIComponent(argument||'')+'&confirmation='+encodeURIComponent(confirmation);
     button.disabled=true;
-    fetch('/admin/api/command',{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded','X-Wareborn-Admin':'1'},body:body})
+    fetch('/admin/api/command',{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','Content-Type':'application/x-www-form-urlencoded','X-Wareborn-Admin':'1','X-Wareborn-CSRF':CSRF},body:body})
       .then(function(r){if(r.status===401){location.href='/admin';return null;}return r.json().then(function(j){return {ok:r.ok,data:j};});})
       .then(function(result){if(result){showFeedback(result.ok,result.data.message||'Command request finished.');refresh();}})
       .catch(function(){showFeedback(false,'The admin command request could not reach the login server.');})

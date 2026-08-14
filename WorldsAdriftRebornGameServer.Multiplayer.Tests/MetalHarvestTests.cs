@@ -171,5 +171,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             harvest.Place(OtherNode, unitsYield: 5);
             Assert.Equal(2, harvest.Count);
         }
+
+        [Fact]
+        public void Operator_reset_restores_hits_and_depletion_without_reregistering()
+        {
+            MetalHarvest harvest = new MetalHarvest(defaultShotsToDeplete: 2);
+            harvest.Place(Node, unitsYield: 5);
+            harvest.Hit(Node);
+            harvest.Hit(Node);
+
+            Assert.Equal(1, harvest.ResetAll());
+            Assert.False(harvest.IsDepleted(Node));
+            Assert.Equal(0, harvest.HitsOn(Node));
+            Assert.Equal(2, harvest.ShotsRemaining(Node));
+            Assert.Equal(0, harvest.ResetAll());
+        }
     }
 }

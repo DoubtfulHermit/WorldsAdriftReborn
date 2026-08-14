@@ -193,5 +193,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>How many nodes are placed. For logs and tests.</summary>
         public int Count => _nodes.Count;
+
+        /// <summary>Restores every tracked node's hit/depletion state.</summary>
+        public int ResetAll()
+        {
+            int changed = 0;
+            foreach (Deposit node in _nodes.Values)
+            {
+                if (node.Hits != 0 || node.Depleted) changed++;
+                node.Hits = 0;
+                node.Depleted = false;
+            }
+            return changed;
+        }
     }
 }

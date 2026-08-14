@@ -107,6 +107,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Operator_reset_immediately_restores_only_damaged_trees()
+        {
+            FakeClock clock = new FakeClock();
+            TreeHarvest harvest = Planted(clock, TreeEntity, OtherTree);
+            ChopOnce(harvest, clock, TreeEntity);
+
+            IReadOnlyList<TreeRespawn> reset = harvest.ResetAll();
+
+            Assert.Single(reset);
+            Assert.Equal(TreeEntity, reset[0].TreeEntityId);
+            Assert.Equal(Trees.FullSectionMask, harvest.MaskOf(TreeEntity));
+            Assert.False(harvest.IsAwaitingRespawn(TreeEntity));
+            Assert.Empty(harvest.ResetAll());
+        }
+
+        [Fact]
         public void The_regrowth_waits_the_full_delay_after_the_cut()
         {
             FakeClock clock = new FakeClock();

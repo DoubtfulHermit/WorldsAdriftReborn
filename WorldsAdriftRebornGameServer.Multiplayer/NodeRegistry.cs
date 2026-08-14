@@ -199,5 +199,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>Every placed node, in registration order. For fan-out and logs.</summary>
         public IReadOnlyList<long> EntityIds => _byEntityId.Keys.ToArray();
+
+        /// <summary>Restores every depleted/damaged node and clears crust history.</summary>
+        public int ResetAll()
+        {
+            int changed = 0;
+            foreach (NodeState state in _byEntityId.Values)
+            {
+                if (state.IsDestroyed || state.ShotPoints.Count > 0) changed++;
+                state.IsDestroyed = false;
+                state.ShotPoints.Clear();
+            }
+            return changed;
+        }
     }
 }

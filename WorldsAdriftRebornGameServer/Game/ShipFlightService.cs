@@ -358,6 +358,54 @@ namespace WorldsAdriftRebornGameServer.Game
             return seat.HasValue && seat.Value.HullEntityId == hullEntityId;
         }
 
+        /// <summary>
+        /// Safely recalls an uncrewed built hull to an operator-selected player's
+        /// current world position. The whole domain moves as one frame and the new
+        /// pose is persisted before the command reports success.
+        /// </summary>
+        internal bool TryAdminRecall(long hullEntityId, FixedPointPosition destination,
+            out string error)
+        {
+            error = string.Empty;
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                error = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            if (IsPiloted(hullEntityId) || WorldsAdriftRebornGameServer.Aboard.AnyoneAboard(hullEntityId))
+            {
+                error = "Hull " + hullEntityId + " is piloted or occupied; recall refused.";
+                return false;
+            }
+
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                error = "Hull " + hullEntityId + " has no simulation domain.";
+                return false;
+            }
+
+            Crafting.BuiltShipSpawner.UndockDepartingHull(hullEntityId);
+            RefreshDomainMembership(domain);
+            double yaw = domain.Flight.State.YawRadians;
+            domain.Flight.DockAt(destination.MetresX, destination.MetresY,
+                destination.MetresZ, yaw);
+            _activeHullIds.Add(hullEntityId);
+
+            FlightEmit point = domain.Flight.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            uint rotation = point.PackedRotation;
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(
+                hullEntityId, destination, rotation);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, destination, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(point.Spec, rotation)),
+                wakes.Root, wakes.Members);
+            PersistPoseNow(hullEntityId, domain.Flight.State);
+            return true;
+        }
+
         internal bool TryGetDomainGeneration(long hullEntityId, out long generation)
         {
             ShipDomain? domain = _domains.ByHull(hullEntityId);

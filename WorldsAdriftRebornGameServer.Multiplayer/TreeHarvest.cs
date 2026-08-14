@@ -561,5 +561,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             return respawns ?? (IReadOnlyList<TreeRespawn>)Array.Empty<TreeRespawn>();
         }
+
+        /// <summary>
+        /// Operator-triggered understorm approximation: restore every damaged tree
+        /// immediately and cancel its pending per-tree timer. Whole trees are not
+        /// returned because no client update is needed for them.
+        /// </summary>
+        public IReadOnlyList<TreeRespawn> ResetAll()
+        {
+            List<TreeRespawn>? respawns = null;
+            foreach (KeyValuePair<long, Stand> entry in _trees)
+            {
+                Stand stand = entry.Value;
+                if (stand.SectionMask == stand.Topology.FullMask) continue;
+                stand.SectionMask = stand.Topology.FullMask;
+                stand.RespawnDueAt = null;
+                (respawns ??= new List<TreeRespawn>()).Add(
+                    new TreeRespawn(entry.Key, stand.SectionMask));
+            }
+            return respawns ?? (IReadOnlyList<TreeRespawn>)Array.Empty<TreeRespawn>();
+        }
     }
 }

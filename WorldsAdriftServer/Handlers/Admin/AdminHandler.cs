@@ -61,19 +61,26 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            string? sessionToken = SessionToken(request);
+            bool authed = AdminConfig.Sessions.IsValid(sessionToken, DateTimeOffset.UtcNow);
+
             if (path == "/admin/logout" && method == "POST")
             {
+                if (!authed || !VerifyFormCsrf(request, sessionToken))
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
                 HandleLogout(session, request);
                 return true;
             }
-
-            bool authed = IsAuthenticated(request);
 
             if (path == "/admin" && method == "GET")
             {
                 if (authed)
                 {
-                    Html(session, 200, AdminPage.Dashboard(BuildStatsJson()));
+                    Html(session, 200, AdminPage.Dashboard(BuildStatsJson(),
+                        AdminAuthPolicy.CsrfTokenForSession(sessionToken!)));
                 }
                 else
                 {
@@ -102,13 +109,19 @@ namespace WorldsAdriftServer.Handlers.Admin
                     return true;
                 }
 
-                HandleAdminCommand(session, request);
+                HandleAdminCommand(session, request, sessionToken!);
                 return true;
             }
 
             if (path == "/admin/server-name" && method == "POST")
             {
                 if (!authed)
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
+
+                if (!VerifyFormCsrf(request, sessionToken))
                 {
                     Redirect(session, "/admin");
                     return true;
@@ -133,11 +146,14 @@ namespace WorldsAdriftServer.Handlers.Admin
 
         // ---- auth ----------------------------------------------------------
 
-        private static bool IsAuthenticated(HttpRequest request)
+        private static string? SessionToken(HttpRequest request) =>
+            AdminAuthPolicy.TokenFromCookieHeader(HeaderValue(request, "Cookie"));
+
+        private static bool VerifyFormCsrf(HttpRequest request, string? sessionToken)
         {
-            string? cookie = HeaderValue(request, "Cookie");
-            string? token = AdminAuthPolicy.TokenFromCookieHeader(cookie);
-            return AdminConfig.Sessions.IsValid(token, DateTimeOffset.UtcNow);
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("csrf", out string? csrf);
+            return AdminAuthPolicy.VerifyCsrf(sessionToken, csrf);
         }
 
         private static void HandleLogin(HttpSession session, HttpRequest request)
@@ -191,7 +207,8 @@ namespace WorldsAdriftServer.Handlers.Admin
             Redirect(session, "/admin");
         }
 
-        private static void HandleAdminCommand(HttpSession session, HttpRequest request)
+        private static void HandleAdminCommand(HttpSession session, HttpRequest request,
+            string sessionToken)
         {
             // This non-simple request header forces a cross-origin browser to
             // preflight. We expose no CORS permission, so another site cannot
@@ -201,11 +218,19 @@ namespace WorldsAdriftServer.Handlers.Admin
                 CommandError(session, 403, "request", null, "Admin command confirmation header is missing.");
                 return;
             }
+            if (!AdminAuthPolicy.VerifyCsrf(sessionToken,
+                    HeaderValue(request, AdminAuthPolicy.CsrfHeader)))
+            {
+                CommandError(session, 403, "request", null,
+                    "The session-bound CSRF token is missing or invalid.");
+                return;
+            }
 
             Dictionary<string, string> form = ParseForm(request.Body);
             form.TryGetValue("action", out string? action);
             form.TryGetValue("target", out string? target);
             form.TryGetValue("argument", out string? argument);
+            form.TryGetValue("confirmation", out string? confirmation);
 
             if (!AdminCommandBridge.TryBuild(action, target, argument, out AdminCommandRequest command, out string error))
             {
@@ -219,6 +244,15 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return;
             }
 
+            if (command.Action == "ship-delete"
+                && confirmation != "DELETE")
+            {
+                CommandError(session, 400, command.Action, command.TargetEntityId,
+                    "Type DELETE exactly to confirm permanent deletion of hull "
+                    + command.TargetEntityId + ".");
+                return;
+            }
+
             if (command.Action == "teleport" && command.Detail == "trades-challenge"
                 && !snapshot.SecondIslandRegistered)
             {
@@ -227,8 +261,23 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return;
             }
 
-            if (command.TargetEntityId.HasValue
+            if ((command.Action == "teleport" || command.Action == "placement")
+                && command.TargetEntityId.HasValue
                 && !IsConnectedPlayer(snapshot, command.TargetEntityId.Value, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+            if ((command.Action == "ship-recall" || command.Action == "ship-delete")
+                && command.TargetEntityId.HasValue
+                && !IsShipDomain(snapshot, command.TargetEntityId.Value, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+            if (command.Action == "ship-recall"
+                && command.RelatedPlayerEntityId.HasValue
+                && !IsConnectedPlayer(snapshot, command.RelatedPlayerEntityId.Value, out error))
             {
                 CommandError(session, 409, command.Action, command.TargetEntityId, error);
                 return;
@@ -241,7 +290,8 @@ namespace WorldsAdriftServer.Handlers.Admin
             }
 
             string targetText = command.TargetEntityId.HasValue
-                ? " for player entity " + command.TargetEntityId.Value
+                ? (command.Action.StartsWith("ship-", StringComparison.Ordinal)
+                    ? " for hull entity " : " for player entity ") + command.TargetEntityId.Value
                 : string.Empty;
             string message = "Accepted " + command.Action + targetText
                 + " and handed it to the game server. This records dispatch, not gameplay completion.";
@@ -283,9 +333,25 @@ namespace WorldsAdriftServer.Handlers.Admin
             return false;
         }
 
+        private static bool IsShipDomain(GameStatsSnapshot snapshot, long hullEntityId,
+            out string error)
+        {
+            foreach (GameShipDomainStat ship in snapshot.ShipDomains)
+            {
+                if ((long?)ship.Json["hullEntityId"] == hullEntityId)
+                {
+                    error = string.Empty;
+                    return true;
+                }
+            }
+            error = "That ship domain no longer exists; refresh the world inspector and choose again.";
+            return false;
+        }
+
         private static string KnownAction(string? action)
         {
             return action == "teleport" || action == "placement" || action == "ship-nudge"
+                || action == "resources-reset" || action == "ship-recall" || action == "ship-delete"
                 ? action
                 : "invalid";
         }
@@ -311,6 +377,8 @@ namespace WorldsAdriftServer.Handlers.Admin
         private static string BuildStatsJson()
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
+            (WorldAdminResultState resultState, WorldAdminResult? latestResult) =
+                WorldAdminResult.Read();
 
             JObject root = new JObject
             {
@@ -320,6 +388,8 @@ namespace WorldsAdriftServer.Handlers.Admin
                 ["commands"] = new JObject
                 {
                     ["recent"] = AdminCommandJournal.ToJson(),
+                    ["completionState"] = resultState.ToString().ToLowerInvariant(),
+                    ["latestCompletion"] = latestResult?.ToJson(),
                 },
             };
 
