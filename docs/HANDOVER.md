@@ -124,10 +124,12 @@ changes.
   inside a 45 m starter bubble, waits 5 s after plan completion, then expands
   through the paced 120 m continuous-interest stream. Terrain, ships, stations,
   mounted/loose parts and global biome data remain barrier-protected.
-- **Public client manifest:** `2026.08.14-8`, build label
-  `island + ship/resource lifecycle merge (d67f205)`.
+- **Public client manifest:** `2026.08.14-9`, build label
+  `NTP-independent world entry (2627810)`. Retail's mandatory public-UDP NTP
+  gate is bypassed in favour of operating-system UTC, so networks blocking
+  UDP/123 cannot strand a client before the spawn plan begins.
 - **Client DLL SHA-256:**
-  `c1225306b82f3627e3a259bab3dc3041b3253de3955e2e6d4d4620b96a92aad8`.
+  `b231b41ceeede651debefa75009dcb9c245cc4cfb59e4e0100430e1a7030ccaa`.
 - **Server state:** active at the time this handover was written.
 
 Do not put database passwords, session tokens, account records, or private
