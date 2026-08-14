@@ -20,7 +20,11 @@ namespace WorldsAdriftRebornGameServer.Game
         int RootDeliveries,
         int AuxiliaryFailures,
         int MemberDeliveries,
-        int SkippedMembers);
+        int SkippedMembers,
+        IReadOnlyList<ulong> RootDeliveredPeerIds);
+
+    internal readonly record struct ShipDomainReplicationTelemetry(
+        long AuthorityGeneration, long Sequence, long DeliveryAgeMs);
 
     /// <summary>
     /// The one ENet-shaped thing the two ship-motion features share: turn a pure
@@ -59,7 +63,18 @@ namespace WorldsAdriftRebornGameServer.Game
             public long AuxiliaryFailures;
             public long MemberDeliveries;
             public long SkippedMembers;
+            public TimeSpan LastDeliveryAt;
             public TimeSpan NextLogAt;
+        }
+
+        public static ShipDomainReplicationTelemetry TelemetryFor(long hullEntityId)
+        {
+            if (!DomainWindows.TryGetValue(hullEntityId, out DomainDeliveryWindow? window))
+                return new ShipDomainReplicationTelemetry(0, 0, -1);
+            long ageMs = (long)Math.Max(0,
+                (DomainStatsClock.Elapsed - window.LastDeliveryAt).TotalMilliseconds);
+            return new ShipDomainReplicationTelemetry(
+                window.Generation, window.LastSequence, ageMs);
         }
 
         /// <summary>
@@ -269,13 +284,15 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 Console.WriteLine("[ship-domain] rejected frame whose root does not target hull "
                     + hullEntityId + ".");
-                return new ShipDomainDeliveryResult(default, 0, 0, 0, 0, members.Count);
+                return new ShipDomainDeliveryResult(default, 0, 0, 0, 0, members.Count,
+                    Array.Empty<ulong>());
             }
             if (!DomainSequence.TryNext(hullEntityId, authorityGeneration, out ShipReplicationStamp stamp))
             {
                 Console.WriteLine("[ship-domain] rejected stale replication frame for hull " + hullEntityId
                     + " generation " + authorityGeneration + ".");
-                return new ShipDomainDeliveryResult(default, 0, 0, 0, 0, members.Count);
+                return new ShipDomainDeliveryResult(default, 0, 0, 0, 0, members.Count,
+                    Array.Empty<ulong>());
             }
 
             int relevantPeers = 0;
@@ -283,6 +300,7 @@ namespace WorldsAdriftRebornGameServer.Game
             int auxiliaryFailures = 0;
             int memberDeliveries = 0;
             int skippedMembers = 0;
+            System.Collections.Generic.List<ulong>? rootDeliveredPeerIds = null;
 
             foreach ((ulong peerId, long playerEntityId) in WorldsAdriftRebornGameServer.Players.All())
             {
@@ -317,6 +335,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
                 rootDeliveries++;
+                (rootDeliveredPeerIds ??= new System.Collections.Generic.List<ulong>()).Add(peerId);
 
                 bool auxiliaryDelivered = !rootAuxiliary.HasValue;
                 if (rootAuxiliary.HasValue)
@@ -359,7 +378,8 @@ namespace WorldsAdriftRebornGameServer.Game
 
             ShipDomainDeliveryResult result = new ShipDomainDeliveryResult(
                 stamp, relevantPeers, rootDeliveries, auxiliaryFailures,
-                memberDeliveries, skippedMembers);
+                memberDeliveries, skippedMembers,
+                (IReadOnlyList<ulong>?)rootDeliveredPeerIds ?? Array.Empty<ulong>());
             RecordDomainDelivery(result);
             return result;
         }
@@ -388,6 +408,7 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             window.LastSequence = result.Stamp.Sequence;
+            window.LastDeliveryAt = DomainStatsClock.Elapsed;
             window.Ticks++;
             window.RelevantPeers += result.RelevantPeers;
             window.RootDeliveries += result.RootDeliveries;

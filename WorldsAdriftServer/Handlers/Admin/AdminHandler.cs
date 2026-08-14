@@ -378,6 +378,11 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["peakOnline"] = s.PeakOnline;
             game["wireHealthWarning"] = s.WireHealthWarning;
             game["secondIslandRegistered"] = s.SecondIslandRegistered;
+            game["runtime"] = new JObject
+            {
+                ["hostMode"] = s.RuntimeHostMode,
+                ["shipDomains"] = new JArray(s.ShipDomains.Select(x => x.Json)),
+            };
 
             JArray players = new JArray();
             foreach (GamePlayerStat p in s.Players)

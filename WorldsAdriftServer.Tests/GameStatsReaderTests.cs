@@ -127,6 +127,41 @@ namespace WorldsAdriftServer.Tests
             Assert.Null(r.Snapshot);
         }
 
+        [Fact]
+        public void Runtime_ship_domains_are_allowlist_parsed_and_old_snapshots_still_work()
+        {
+            string path = TempFile();
+            string json = ValidJson.TrimEnd().TrimEnd('}') + @",
+              ""runtime"":{""hostMode"":""local-single-process"",""shipDomains"":[{
+                ""domainId"":""ship:83"",""hullEntityId"":83,""authorityGeneration"":4,
+                ""replicationSequence"":91,""cadenceMs"":240,""deliveryAgeMs"":35,
+                ""x"":1.5,""y"":2.5,""z"":3.5,""active"":true,""piloted"":true,
+                ""liveCadenceExpected"":true,""pilotPlayerEntityId"":3,
+                ""aboardPlayerEntityIds"":[3,7],""deckCount"":8,""mountedPartCount"":3,
+                ""subscriberCount"":2,""staleDelivery"":false,""aboardCheckoutWarning"":false,
+                ""fictionalWorker"":""must-not-pass""}]}}";
+            File.WriteAllText(path, json);
+            try
+            {
+                GameStatsSnapshot s = GameStats.ReadFrom(path, Now).Snapshot!;
+                Assert.Equal("local-single-process", s.RuntimeHostMode);
+                Assert.Single(s.ShipDomains);
+                Assert.Equal(83, (long)s.ShipDomains[0].Json["hullEntityId"]!);
+                Assert.Null(s.ShipDomains[0].Json["fictionalWorker"]);
+            }
+            finally { File.Delete(path); }
+
+            // Compatibility is intentional: the existing v1 fixture has no runtime.
+            path = TempFile(); File.WriteAllText(path, ValidJson);
+            try
+            {
+                GameStatsSnapshot old = GameStats.ReadFrom(path, Now).Snapshot!;
+                Assert.Equal("unknown", old.RuntimeHostMode);
+                Assert.Empty(old.ShipDomains);
+            }
+            finally { File.Delete(path); }
+        }
+
         [Theory]
         [InlineData("not json at all")]
         [InlineData("")]

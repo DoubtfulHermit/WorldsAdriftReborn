@@ -85,6 +85,20 @@ namespace WorldsAdriftRebornGameServer.Game
         public bool MustRetainMotion(ENetPeerHandle peer) =>
             _peers.TryGetValue(peer, out PeerState? state) && !state.RemoveSupported;
 
+        /// <summary>Peers whose checkout ledger currently contains this hull.</summary>
+        public int SubscriberCountFor(long hullEntityId)
+        {
+            int count = 0;
+            foreach ((ulong peerId, _) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peer != null
+                    && WorldsAdriftRebornGameServer.SentEntities.WasSent(peer, hullEntityId))
+                    count++;
+            }
+            return count;
+        }
+
         public bool MayServe(ENetPeerHandle peer, long entityId)
         {
             bool managed = _domains.ByHull(entityId) != null

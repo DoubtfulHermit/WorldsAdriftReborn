@@ -1976,6 +1976,42 @@ namespace WorldsAdriftRebornGameServer
                 players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health));
             }
 
+            List<ShipDomainStat> shipDomains = new List<ShipDomainStat>();
+            foreach (Multiplayer.Ship.Domains.ShipDomain domain in
+                ShipDomains.All.OrderBy(x => x.HullEntityId))
+            {
+                Multiplayer.Ship.Flight.FlightState pose = domain.Flight.State;
+                ShipDomainReplicationTelemetry replication =
+                    Game.ShipPublisher.TelemetryFor(domain.HullEntityId);
+                List<long> aboardPlayers = new List<long>();
+                foreach (ulong peerId in Aboard.AboardShip(domain.HullEntityId))
+                {
+                    long? playerEntityId = Players.EntityOf(peerId);
+                    if (playerEntityId.HasValue) aboardPlayers.Add(playerEntityId.Value);
+                }
+                aboardPlayers.Sort();
+
+                bool piloted = Flight.IsPiloted(domain.HullEntityId);
+                bool liveCadenceExpected = piloted || !pose.IsAtRest
+                    || domain.Flight.Input.Throttle != 0f;
+                shipDomains.Add(new ShipDomainStat(
+                    domain.Id.ToString(),
+                    domain.HullEntityId,
+                    domain.Generation.Value,
+                    replication.Sequence,
+                    (int)Math.Round(Multiplayer.ShipMotionPolicy.SendIntervalSeconds * 1000),
+                    replication.DeliveryAgeMs,
+                    pose.X, pose.Y, pose.Z,
+                    Flight.IsActive(domain.HullEntityId),
+                    piloted,
+                    liveCadenceExpected,
+                    Flight.PilotEntityOf(domain.HullEntityId),
+                    aboardPlayers,
+                    Game.Crafting.BuiltShips.DecksForHull(domain.HullEntityId).Count,
+                    Game.Crafting.MountedParts.OnHull(domain.HullEntityId).Count(),
+                    ShipInterest.SubscriberCountFor(domain.HullEntityId)));
+            }
+
             string build = Environment.GetEnvironmentVariable("WAREBORN_BUILD");
             if (string.IsNullOrWhiteSpace(build))
             {
@@ -1995,7 +2031,8 @@ namespace WorldsAdriftRebornGameServer
                 peakOnline: Stats.PeakOnline,
                 players: players,
                 secondIslandRegistered: WorldEntities.ByKey(
-                    Multiplayer.Islands.IslandCatalog.TradesChallenge.WorldEntityKey) != null);
+                    Multiplayer.Islands.IslandCatalog.TradesChallenge.WorldEntityKey) != null,
+                shipDomains: shipDomains);
         }
 
         /// <summary>Published appearance per player entity; read by the 1088
@@ -3704,7 +3741,7 @@ namespace WorldsAdriftRebornGameServer
                 // plus the mounted parts' 190602 wakes. Off unless
                 // WAREBORN_HELM_FLIGHT=1; cheap when off (an env check) or when no
                 // helm was ever manned (an empty dictionary). See Game.ShipFlightService.
-                Flight.Tick();
+                IReadOnlySet<ulong> domainFrameSenders = Flight.Tick();
                 ShipInterest.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a
@@ -3723,7 +3760,11 @@ namespace WorldsAdriftRebornGameServer
                 // or every joiner already activated). See TickLoadBarrierTimeouts.
                 TickLoadBarrierTimeouts();
                 ResourceInterest.Tick();
-                Relay.Tick(); // fixed-cadence movement emit + 5 s relay stats; cheap when idle (two Stopwatch compares). See Networking.RelayEmitter.
+                // Avatar relay remains 20 Hz, but any authoritative ship frame
+                // forces its aboard players to emit immediately after the hull on
+                // this same loop turn. This is ordered coherence, not fictional
+                // cross-entity wire atomicity. See DomainAlignedRelayPolicy.
+                Relay.Tick(domainFrameSenders);
 
                 // Report each connected peer's 5 s wire-rate line (with ENet peer
                 // health appended when readable). Runs with the other timers so a

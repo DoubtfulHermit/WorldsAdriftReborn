@@ -27,6 +27,76 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
     }
 
+    /// <summary>Pure warning rules for the read-only local simulation inspector.</summary>
+    public static class ShipDomainStatPolicy
+    {
+        public static bool IsDeliveryStale(bool liveCadenceExpected, long deliveryAgeMs,
+            int cadenceMs)
+        {
+            if (!liveCadenceExpected) return false;
+            if (deliveryAgeMs < 0) return true;
+            return deliveryAgeMs > Math.Max(1000, cadenceMs * 4);
+        }
+
+        public static bool HasAboardCheckoutGap(int aboardPlayers, int subscribers) =>
+            aboardPlayers > subscribers;
+    }
+
+    /// <summary>
+    /// One truthful in-process whole-ship domain as exported to the operator UI.
+    /// This is observation only: no worker, migration or authority-control fields
+    /// are implied beyond the local domain generation the runtime already owns.
+    /// </summary>
+    public readonly struct ShipDomainStat
+    {
+        public string DomainId { get; }
+        public long HullEntityId { get; }
+        public long AuthorityGeneration { get; }
+        public long ReplicationSequence { get; }
+        public int CadenceMs { get; }
+        public long DeliveryAgeMs { get; }
+        public double X { get; }
+        public double Y { get; }
+        public double Z { get; }
+        public bool Active { get; }
+        public bool Piloted { get; }
+        public bool LiveCadenceExpected { get; }
+        public long? PilotPlayerEntityId { get; }
+        public IReadOnlyList<long> AboardPlayerEntityIds { get; }
+        public int DeckCount { get; }
+        public int MountedPartCount { get; }
+        public int SubscriberCount { get; }
+
+        public ShipDomainStat(string domainId, long hullEntityId, long authorityGeneration,
+            long replicationSequence, int cadenceMs, long deliveryAgeMs,
+            double x, double y, double z, bool active, bool piloted,
+            bool liveCadenceExpected, long? pilotPlayerEntityId,
+            IReadOnlyList<long> aboardPlayerEntityIds, int deckCount,
+            int mountedPartCount, int subscriberCount)
+        {
+            DomainId = domainId ?? string.Empty;
+            HullEntityId = hullEntityId;
+            AuthorityGeneration = authorityGeneration;
+            ReplicationSequence = replicationSequence;
+            CadenceMs = cadenceMs;
+            DeliveryAgeMs = deliveryAgeMs;
+            X = x; Y = y; Z = z;
+            Active = active;
+            Piloted = piloted;
+            LiveCadenceExpected = liveCadenceExpected;
+            PilotPlayerEntityId = pilotPlayerEntityId;
+            AboardPlayerEntityIds = aboardPlayerEntityIds ?? Array.Empty<long>();
+            DeckCount = deckCount;
+            MountedPartCount = mountedPartCount;
+            SubscriberCount = subscriberCount;
+        }
+
+        public bool StaleDelivery => ShipDomainStatPolicy.IsDeliveryStale(
+            LiveCadenceExpected, DeliveryAgeMs, CadenceMs);
+        public bool AboardCheckoutWarning => ShipDomainStatPolicy.HasAboardCheckoutGap(
+            AboardPlayerEntityIds.Count, SubscriberCount);
+    }
+
     /// <summary>
     /// One live player as the dashboard sees them: the entity they control, the
     /// peer they are, when they connected, and - when ENet's counters are
@@ -74,7 +144,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 1;
+        public const int SchemaVersion = 2;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -100,6 +170,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public bool SecondIslandRegistered { get; }
 
         public IReadOnlyList<PlayerStat> Players { get; }
+        public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
 
         public StatsSnapshot(
             long bootTimeUnixMs,
@@ -113,7 +184,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int currentOnline,
             int peakOnline,
             IReadOnlyList<PlayerStat> players,
-            bool secondIslandRegistered = false)
+            bool secondIslandRegistered = false,
+            IReadOnlyList<ShipDomainStat>? shipDomains = null)
         {
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
@@ -127,6 +199,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             PeakOnline = peakOnline;
             Players = players ?? Array.Empty<PlayerStat>();
             SecondIslandRegistered = secondIslandRegistered;
+            ShipDomains = shipDomains ?? Array.Empty<ShipDomainStat>();
         }
 
         /// <summary>
@@ -183,10 +256,53 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
                 AppendPlayer(b, Players[i]);
             }
+            b.Append(']'); b.Append(',');
+
+            Key(b, "runtime");
+            b.Append('{');
+            Str(b, "hostMode", "local-single-process"); b.Append(',');
+            Key(b, "shipDomains"); b.Append('[');
+            for (int i = 0; i < ShipDomains.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                AppendShipDomain(b, ShipDomains[i]);
+            }
             b.Append(']');
+            b.Append('}');
 
             b.Append('}');
             return b.ToString();
+        }
+
+        private static void AppendShipDomain(StringBuilder b, ShipDomainStat d)
+        {
+            b.Append('{');
+            Str(b, "domainId", d.DomainId); b.Append(',');
+            Num(b, "hullEntityId", d.HullEntityId); b.Append(',');
+            Num(b, "authorityGeneration", d.AuthorityGeneration); b.Append(',');
+            Num(b, "replicationSequence", d.ReplicationSequence); b.Append(',');
+            Num(b, "cadenceMs", d.CadenceMs); b.Append(',');
+            Num(b, "deliveryAgeMs", d.DeliveryAgeMs); b.Append(',');
+            Num(b, "x", d.X); b.Append(','); Num(b, "y", d.Y); b.Append(','); Num(b, "z", d.Z); b.Append(',');
+            Bool(b, "active", d.Active); b.Append(','); Bool(b, "piloted", d.Piloted); b.Append(',');
+            Bool(b, "liveCadenceExpected", d.LiveCadenceExpected); b.Append(',');
+            Key(b, "pilotPlayerEntityId");
+            if (d.PilotPlayerEntityId.HasValue) b.Append(d.PilotPlayerEntityId.Value.ToString(CultureInfo.InvariantCulture));
+            else b.Append("null");
+            b.Append(',');
+            Key(b, "aboardPlayerEntityIds"); b.Append('[');
+            for (int i = 0; i < d.AboardPlayerEntityIds.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                b.Append(d.AboardPlayerEntityIds[i].ToString(CultureInfo.InvariantCulture));
+            }
+            b.Append(']'); b.Append(',');
+            Num(b, "deckCount", d.DeckCount); b.Append(',');
+            Num(b, "mountedPartCount", d.MountedPartCount); b.Append(',');
+            Num(b, "subscriberCount", d.SubscriberCount); b.Append(',');
+            Bool(b, "staleDelivery", d.StaleDelivery); b.Append(',');
+            Bool(b, "aboardCheckoutWarning", d.AboardCheckoutWarning);
+            b.Append('}');
         }
 
         private static void AppendPlayer(StringBuilder b, PlayerStat p)
@@ -230,6 +346,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             Key(b, name);
             b.Append(value.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static void Num(StringBuilder b, string name, double value)
+        {
+            Key(b, name);
+            b.Append(value.ToString("R", CultureInfo.InvariantCulture));
         }
 
         private static void Bool(StringBuilder b, string name, bool value)

@@ -147,6 +147,8 @@ namespace WorldsAdriftServer.Admin
         public bool WireHealthWarning { get; private init; }
         public bool SecondIslandRegistered { get; private init; }
         public IReadOnlyList<GamePlayerStat> Players { get; private init; } = Array.Empty<GamePlayerStat>();
+        public string RuntimeHostMode { get; private init; } = "unknown";
+        public IReadOnlyList<GameShipDomainStat> ShipDomains { get; private init; } = Array.Empty<GameShipDomainStat>();
 
         public static GameStatsSnapshot Parse(JObject o)
         {
@@ -160,6 +162,13 @@ namespace WorldsAdriftServer.Admin
                         players.Add(GamePlayerStat.Parse(p));
                     }
                 }
+            }
+            List<GameShipDomainStat> domains = new List<GameShipDomainStat>();
+            JObject? runtime = o["runtime"] as JObject;
+            if (runtime?["shipDomains"] is JArray domainArray)
+            {
+                foreach (JToken t in domainArray)
+                    if (t is JObject d) domains.Add(GameShipDomainStat.Parse(d));
             }
 
             return new GameStatsSnapshot
@@ -178,11 +187,49 @@ namespace WorldsAdriftServer.Admin
                 WireHealthWarning = (bool?)o["wireHealthWarning"] ?? false,
                 SecondIslandRegistered = (bool?)o["secondIslandRegistered"] ?? false,
                 Players = players,
+                RuntimeHostMode = (string?)(runtime?["hostMode"]) ?? "unknown",
+                ShipDomains = domains,
             };
         }
 
         internal static DateTimeOffset FromUnixMs(long ms) =>
             DateTimeOffset.FromUnixTimeMilliseconds(ms);
+    }
+
+    internal sealed class GameShipDomainStat
+    {
+        public JObject Json { get; private init; } = new JObject();
+
+        public static GameShipDomainStat Parse(JObject d)
+        {
+            // Rebuild an allowlisted object: the API never blindly forwards a file
+            // object into authenticated HTML/JSON output.
+            JArray aboard = new JArray();
+            if (d["aboardPlayerEntityIds"] is JArray ids)
+                foreach (JToken id in ids) aboard.Add((long?)id ?? 0);
+            return new GameShipDomainStat { Json = new JObject
+            {
+                ["domainId"] = (string?)d["domainId"] ?? "",
+                ["hullEntityId"] = (long?)d["hullEntityId"] ?? 0,
+                ["authorityGeneration"] = (long?)d["authorityGeneration"] ?? 0,
+                ["replicationSequence"] = (long?)d["replicationSequence"] ?? 0,
+                ["cadenceMs"] = (int?)d["cadenceMs"] ?? 0,
+                ["deliveryAgeMs"] = (long?)d["deliveryAgeMs"] ?? -1,
+                ["x"] = (double?)d["x"] ?? 0, ["y"] = (double?)d["y"] ?? 0,
+                ["z"] = (double?)d["z"] ?? 0,
+                ["active"] = (bool?)d["active"] ?? false,
+                ["piloted"] = (bool?)d["piloted"] ?? false,
+                ["liveCadenceExpected"] = (bool?)d["liveCadenceExpected"] ?? false,
+                ["pilotPlayerEntityId"] = d["pilotPlayerEntityId"]?.Type == JTokenType.Integer
+                    ? (long?)d["pilotPlayerEntityId"] : null,
+                ["aboardPlayerEntityIds"] = aboard,
+                ["deckCount"] = (int?)d["deckCount"] ?? 0,
+                ["mountedPartCount"] = (int?)d["mountedPartCount"] ?? 0,
+                ["subscriberCount"] = (int?)d["subscriberCount"] ?? 0,
+                ["staleDelivery"] = (bool?)d["staleDelivery"] ?? false,
+                ["aboardCheckoutWarning"] = (bool?)d["aboardCheckoutWarning"] ?? false,
+            }};
+        }
     }
 
     internal sealed class GamePlayerStat

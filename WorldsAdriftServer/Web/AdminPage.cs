@@ -97,6 +97,12 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .button-row button{padding:.58rem .5rem;margin:0;font-size:.67rem;}
 .feedback{display:none;margin-top:1rem;padding:.7rem .8rem;border-left:3px solid var(--good);background:var(--panel);font-size:.82rem;}
 .feedback.show{display:block}.feedback.bad{border-left-color:var(--rust);}
+.domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.8rem;}
+.domain{border:1px solid var(--panel-edge);padding:.9rem;min-width:0;}
+.domain-head{display:flex;justify-content:space-between;gap:.6rem;align-items:center;margin-bottom:.6rem;}
+.domain h3{font-size:.82rem;letter-spacing:.06em;margin:0;overflow-wrap:anywhere;}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .8rem;font-size:.76rem;}
+.kv div{min-width:0}.kv b{display:block;color:var(--ink-faint);font-size:.57rem;letter-spacing:.1em;text-transform:uppercase;}
 footer{margin-top:1.5rem;font-size:.7rem;color:var(--ink-faint);text-shadow:var(--halo);}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;}}
 </style>";
@@ -196,6 +202,15 @@ variable to <code>username:hash</code> and restart the login server to enable th
   </table>
   </div>
   <p class=""muted"" id=""noPlayers"" style=""display:none;font-size:.85rem"">Nobody in world.</p>
+</div>
+
+<div class=""card"">
+  <div class=""row""><div class=""grow""><h2>World inspector</h2></div><div class=""fit""><span class=""pill ok"" id=""hostMode"">local single-process</span></div></div>
+  <p class=""lede"" style=""margin-top:0"">Read-only ship-domain state from the authoritative game loop. There are no remote workers or migrations in this runtime.</p>
+  <div class=""banner"" id=""domainWarning""><strong>Domain delivery warning</strong><span id=""domainWarningText""></span></div>
+  <div class=""domain-grid"" id=""shipDomains""></div>
+  <p class=""muted"" id=""noDomains"" style=""display:none;font-size:.85rem"">No ship domains are registered.</p>
+  <p class=""muted"" style=""font-size:.72rem;margin-bottom:0"">Frame alignment: hull and members are emitted root-first under one generation/sequence. Client-rendered player-to-ship offset is not yet measured by this bridge, so the panel does not claim a player presentation tick.</p>
 </div>
 
 <div class=""card"">
@@ -364,6 +379,41 @@ variable to <code>username:hash</code> and restart the login server to enable th
       }
       tbody.appendChild(tr);
     });
+
+    var runtime=g.runtime||{};
+    text('hostMode',runtime.hostMode==='local-single-process'?'local single-process':(runtime.hostMode||'unknown host'));
+    var domains=runtime.shipDomains||[];
+    var domainGrid=$('shipDomains');clear(domainGrid);
+    $('noDomains').style.display=domains.length?'none':'block';
+    var warnings=[];
+    domains.forEach(function(d){
+      var box=document.createElement('div');box.className='domain';
+      var head=document.createElement('div');head.className='domain-head';
+      var title=document.createElement('h3');title.textContent=d.domainId||('ship:'+d.hullEntityId);head.appendChild(title);
+      var status=document.createElement('span');
+      var bad=d.staleDelivery||d.aboardCheckoutWarning;
+      status.className='pill '+(bad?'bad':(d.active?'ok':'warn'));
+      status.textContent=bad?'warning':(d.piloted?'piloted':(d.active?'active':'resting'));
+      head.appendChild(status);box.appendChild(head);
+      var kv=document.createElement('div');kv.className='kv';
+      function item(label,value){var e=document.createElement('div');var b=document.createElement('b');b.textContent=label;e.appendChild(b);e.appendChild(document.createTextNode(value));kv.appendChild(e);}
+      item('Hull',String(d.hullEntityId));
+      item('Authority','local · gen '+d.authorityGeneration);
+      item('Replication','seq '+d.replicationSequence+' · '+d.cadenceMs+'ms target');
+      item('Last delivery',d.deliveryAgeMs<0?'never':d.deliveryAgeMs+'ms ago');
+      item('Pose',Number(d.x).toFixed(1)+', '+Number(d.y).toFixed(1)+', '+Number(d.z).toFixed(1));
+      item('Pilot',d.pilotPlayerEntityId==null?'none':'entity '+d.pilotPlayerEntityId);
+      item('Aboard',(d.aboardPlayerEntityIds||[]).length?(d.aboardPlayerEntityIds||[]).join(', '):'none');
+      item('Members',d.deckCount+' decks · '+d.mountedPartCount+' mounted');
+      item('Subscribers',String(d.subscriberCount));
+      item('Cadence expected',d.liveCadenceExpected?'live':'rest keepalive');
+      box.appendChild(kv);domainGrid.appendChild(box);
+      if(d.staleDelivery)warnings.push((d.domainId||d.hullEntityId)+' has stale/no replication while live cadence is expected');
+      if(d.aboardCheckoutWarning)warnings.push((d.domainId||d.hullEntityId)+' has more aboard players than checked-out subscribers');
+    });
+    var domainWarning=$('domainWarning');
+    if(warnings.length){domainWarning.classList.add('show','spiral');text('domainWarningText',warnings.join('; ')+'.');}
+    else{domainWarning.classList.remove('show','spiral');}
 
     var playerSelect=$('targetPlayer');
     var selected=playerSelect.value;

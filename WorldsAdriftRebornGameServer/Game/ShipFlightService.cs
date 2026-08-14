@@ -86,6 +86,8 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly PilotSeats _seats = new PilotSeats();
         private readonly ShipDomainRegistry _domains;
         private readonly HashSet<long> _activeHullIds = new();
+        private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
+            new HashSet<ulong>();
 
         /// <summary>The authority token issued at the player's current helm handoff.</summary>
         private readonly Dictionary<long, ShipAuthorityToken> _authorityByPlayer = new();
@@ -345,6 +347,11 @@ namespace WorldsAdriftRebornGameServer.Game
 
         internal bool IsPiloted(long hullEntityId) => _seats.PilotOf(hullEntityId).HasValue;
 
+        internal bool IsActive(long hullEntityId) => _activeHullIds.Contains(hullEntityId);
+
+        internal long? PilotEntityOf(long hullEntityId) =>
+            _seats.PilotOf(hullEntityId)?.PlayerEntityId;
+
         internal bool IsPilotOf(long playerEntityId, long hullEntityId)
         {
             PilotSeats.Seat? seat = _seats.SeatOf(playerEntityId);
@@ -406,17 +413,18 @@ namespace WorldsAdriftRebornGameServer.Game
         /// Stopwatch compare); when due, advances every session and publishes what
         /// they decided to emit.
         /// </summary>
-        public void Tick()
+        public IReadOnlySet<ulong> Tick()
         {
             if (!Enabled || _activeHullIds.Count == 0)
             {
-                return;
+                return NoDomainFrameSenders;
             }
             if (!_cadence.Due(_clock.Elapsed))
             {
-                return;
+                return NoDomainFrameSenders;
             }
 
+            var domainFrameSenders = new HashSet<ulong>();
             long nowMs = ShipHull.NowMillisecondsSinceEpoch();
             foreach (long hullEntityId in _activeHullIds.ToArray())
             {
@@ -464,13 +472,25 @@ namespace WorldsAdriftRebornGameServer.Game
                 // hull 1130 -> hull 190602 -> member 190602; between wakes it is the
                 // same root stream with an empty member set. Relevance is evaluated
                 // once for the whole ship by ShipPublisher.
-                ShipPublisher.BroadcastDomainMotion(
+                ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
                     hullEntityId, hullPosition, (long)domain.Generation.Value,
                     new ShipDomainComponentUpdate(
                         hullEntityId, ShipMotionPolicy.ComponentId,
                         ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)),
                     hullWake,
                     memberWakes);
+                if (delivery.Stamp.HullEntityId == hullEntityId
+                    && delivery.RootDeliveredPeerIds.Count > 0)
+                {
+                    // The normal avatar relay remains 20 Hz. This set only forces
+                    // the latest aboard sample to follow the hull frame on THIS
+                    // loop turn when the independent 20 Hz cadence is not due.
+                    foreach (ulong aboardPeerId in domain.AboardPeerIds)
+                    {
+                        if (delivery.RootDeliveredPeerIds.Contains(aboardPeerId))
+                            domainFrameSenders.Add(aboardPeerId);
+                    }
+                }
             }
 
             if (_clock.Elapsed >= _nextStatsAt)
@@ -501,6 +521,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     }
                 }
             }
+            return domainFrameSenders;
         }
 
         // ------------------------------------------------------------------

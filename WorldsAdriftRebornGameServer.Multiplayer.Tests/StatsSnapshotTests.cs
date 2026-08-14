@@ -149,5 +149,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal("raw\"mode\\\n", (string)o["relayMode"]!);
             Assert.Equal("tag with \"quotes\" and \\slash", (string)o["build"]!);
         }
+
+        [Fact]
+        public void Ship_domain_snapshot_reports_only_real_local_runtime_state()
+        {
+            var domain = new ShipDomainStat(
+                "ship:83", 83, 4, 91, 240, 35,
+                17200.5, -310.25, -1100.75,
+                active: true, piloted: true, liveCadenceExpected: true,
+                pilotPlayerEntityId: 12, aboardPlayerEntityIds: new long[] { 12, 18 },
+                deckCount: 8, mountedPartCount: 3, subscriberCount: 2);
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain });
+
+            JObject root = JObject.Parse(snapshot.ToJson());
+            JObject runtime = (JObject)root["runtime"]!;
+            Assert.Equal("local-single-process", (string)runtime["hostMode"]!);
+            JObject d = (JObject)((JArray)runtime["shipDomains"]!)[0];
+            Assert.Equal(83, (long)d["hullEntityId"]!);
+            Assert.Equal(4, (long)d["authorityGeneration"]!);
+            Assert.Equal(91, (long)d["replicationSequence"]!);
+            Assert.Equal(12, (long)d["pilotPlayerEntityId"]!);
+            Assert.Equal(2, ((JArray)d["aboardPlayerEntityIds"]!).Count);
+            Assert.False((bool)d["staleDelivery"]!);
+            Assert.False((bool)d["aboardCheckoutWarning"]!);
+            Assert.Null(runtime["worker"]);
+            Assert.Null(runtime["migrations"]);
+        }
+
+        [Fact]
+        public void Domain_warning_policy_flags_only_live_staleness_and_checkout_gaps()
+        {
+            Assert.False(ShipDomainStatPolicy.IsDeliveryStale(false, -1, 240));
+            Assert.False(ShipDomainStatPolicy.IsDeliveryStale(true, 960, 240));
+            Assert.True(ShipDomainStatPolicy.IsDeliveryStale(true, 1001, 240));
+            Assert.True(ShipDomainStatPolicy.IsDeliveryStale(true, -1, 240));
+            Assert.False(ShipDomainStatPolicy.HasAboardCheckoutGap(1, 1));
+            Assert.True(ShipDomainStatPolicy.HasAboardCheckoutGap(2, 1));
+        }
     }
 }

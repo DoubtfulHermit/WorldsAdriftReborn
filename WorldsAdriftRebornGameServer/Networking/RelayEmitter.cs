@@ -94,6 +94,7 @@ namespace WorldsAdriftRebornGameServer.Networking
             public long EmittedTransform;
             public long EmittedPlayerState;
             public long HeldShipDetachEdges;
+            public long DomainAlignedEmits;
         }
 
         private readonly Dictionary<ulong, SenderState> _senders = new();
@@ -395,13 +396,15 @@ namespace WorldsAdriftRebornGameServer.Networking
         /// other player when the cadence says so, and the statistics every
         /// 5 s. Cheap when idle - two Stopwatch comparisons.
         /// </summary>
-        public void Tick()
+        public void Tick(IReadOnlySet<ulong>? domainFrameSenders = null)
         {
             TimeSpan now = _clock.Elapsed;
 
-            if (V2Enabled && _cadence.Due(now))
+            bool regularCadenceDue = V2Enabled && _cadence.Due(now);
+            if (regularCadenceDue
+                || (V2Enabled && domainFrameSenders != null && domainFrameSenders.Count > 0))
             {
-                EmitAll();
+                EmitAll(regularCadenceDue, domainFrameSenders);
             }
 
             if (_stats.Due(now))
@@ -410,12 +413,23 @@ namespace WorldsAdriftRebornGameServer.Networking
             }
         }
 
-        private void EmitAll()
+        private void EmitAll(bool regularCadenceDue, IReadOnlySet<ulong>? domainFrameSenders)
         {
             foreach (KeyValuePair<ulong, SenderState> entry in _senders)
             {
                 ulong senderId = entry.Key;
                 SenderState state = entry.Value;
+
+                bool aboardDomainFrame = domainFrameSenders?.Contains(senderId) == true;
+                if (!DomainAlignedRelayPolicy.ShouldEmitSender(
+                        regularCadenceDue, aboardDomainFrame))
+                {
+                    continue;
+                }
+                if (!regularCadenceDue && aboardDomainFrame)
+                {
+                    state.DomainAlignedEmits++;
+                }
 
                 // Nothing worth animating until a first position exists.
                 if (!state.HasPosition)
@@ -575,6 +589,7 @@ namespace WorldsAdriftRebornGameServer.Networking
                 long emittedTransform = 0;
                 long emittedPlayerState = 0;
                 long heldShipDetachEdges = 0;
+                long domainAlignedEmits = 0;
                 if (_senders.TryGetValue(peerId, out SenderState? state))
                 {
                     emittedTransform = state.EmittedTransform;
@@ -583,6 +598,8 @@ namespace WorldsAdriftRebornGameServer.Networking
                     state.EmittedPlayerState = 0;
                     heldShipDetachEdges = state.HeldShipDetachEdges;
                     state.HeldShipDetachEdges = 0;
+                    domainAlignedEmits = state.DomainAlignedEmits;
+                    state.DomainAlignedEmits = 0;
                 }
 
                 if (window.IsEmpty && emittedTransform == 0 && emittedPlayerState == 0)
@@ -619,6 +636,7 @@ namespace WorldsAdriftRebornGameServer.Networking
                     + Math.Abs(window.StalenessSeconds).ToString("0.000") + "s"
                     + " emitted(190602=" + emittedTransform + ",1073=" + emittedPlayerState + ")"
                     + " heldShipDetach=" + heldShipDetachEdges
+                    + " domainAligned=" + domainAlignedEmits
                     + " badTsPairs=" + badPairs
                     + " mode=" + (V2Enabled ? "v2@" + _hz + "Hz" : "raw"));
             }
