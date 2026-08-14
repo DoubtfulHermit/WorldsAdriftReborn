@@ -37,12 +37,19 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly WorldEntityRegistry _registry;
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
 
+        private double LoadRadiusMetres { get; } = ShipDomainInterestPolicy.LoadRadiusFrom(
+            Environment.GetEnvironmentVariable(ShipDomainInterestPolicy.LoadRadiusEnvVar));
+        private double UnloadRadiusMetres { get; }
+
         public ShipDomainInterestService(IClock clock, ShipDomainRegistry domains,
             WorldEntityRegistry registry)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _domains = domains ?? throw new ArgumentNullException(nameof(domains));
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+            UnloadRadiusMetres = ShipDomainInterestPolicy.UnloadRadiusFrom(
+                Environment.GetEnvironmentVariable(ShipDomainInterestPolicy.UnloadRadiusEnvVar),
+                LoadRadiusMetres);
         }
 
         public void NoteConnectPlanComplete(ENetPeerHandle peer)
@@ -129,7 +136,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 bool shouldLoad = !state.RemoveSupported
                     || ShipDomainInterestPolicy.ShouldBeLoaded(rootLoaded,
                         protectedByInteraction, hasAnyCrew, center, hullPosition,
-                        Interest.RadiusMetres, WorldsAdriftRebornGameServer.ResourceInterest.UnloadRadiusMetres);
+                        LoadRadiusMetres, UnloadRadiusMetres);
                 // Read the live ledgers, not the domain's last flight-tick snapshot:
                 // restored and newly mounted parts can change while a ship has never
                 // been piloted, and therefore before Flight.RefreshDomainMembership.

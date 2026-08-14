@@ -20,6 +20,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
+        public void Ship_radii_default_to_island_scale_and_remain_hysteretic()
+        {
+            Assert.Equal(800d, ShipDomainInterestPolicy.LoadRadiusFrom(null));
+            Assert.Equal(1000d, ShipDomainInterestPolicy.UnloadRadiusFrom(null, 800d));
+            Assert.Equal(1200d, ShipDomainInterestPolicy.LoadRadiusFrom("1200"));
+            Assert.Equal(1300d, ShipDomainInterestPolicy.UnloadRadiusFrom(null, 1200d));
+            Assert.Equal(1200d, ShipDomainInterestPolicy.UnloadRadiusFrom("900", 1200d));
+        }
+
+        [Fact]
         public void Pilot_or_passenger_protection_always_keeps_domain_loaded()
         {
             Assert.True(ShipDomainInterestPolicy.ShouldBeLoaded(false, true, false,

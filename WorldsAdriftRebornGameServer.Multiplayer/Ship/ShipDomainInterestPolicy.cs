@@ -7,6 +7,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// <summary>Pure hysteresis and root/member lifecycle ordering for whole ships.</summary>
     public static class ShipDomainInterestPolicy
     {
+        public const string LoadRadiusEnvVar = "WAREBORN_SHIP_INTEREST_RADIUS_M";
+        public const string UnloadRadiusEnvVar = "WAREBORN_SHIP_INTEREST_UNLOAD_RADIUS_M";
+        public const double DefaultLoadRadiusMetres = 800d;
+        public const double DefaultUnloadRadiusMetres = 1000d;
+
+        public static double LoadRadiusFrom(string? raw) =>
+            RadiusFrom(raw, DefaultLoadRadiusMetres, 100d, 10000d);
+
+        public static double UnloadRadiusFrom(string? raw, double loadRadiusMetres)
+        {
+            double fallback = Math.Max(DefaultUnloadRadiusMetres, loadRadiusMetres + 100d);
+            return Math.Max(loadRadiusMetres,
+                RadiusFrom(raw, fallback, 100d, 12000d));
+        }
+
         public static IReadOnlyList<long> Members(IEnumerable<long> decks,
             IEnumerable<long> mountedParts) =>
             (decks ?? throw new ArgumentNullException(nameof(decks)))
@@ -37,5 +52,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             (members ?? throw new ArgumentNullException(nameof(members)))
                 .Where(x => x != hullEntityId).Distinct().OrderByDescending(x => x)
                 .Concat(new[] { hullEntityId }).ToArray();
+
+        private static double RadiusFrom(string? raw, double fallback,
+            double minimum, double maximum) =>
+            double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out double parsed)
+                ? Math.Clamp(parsed, minimum, maximum)
+                : fallback;
     }
 }
