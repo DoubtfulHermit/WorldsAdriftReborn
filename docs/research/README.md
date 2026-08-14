@@ -12,8 +12,9 @@ predictions about runtime behaviour are predictions. Where a report says
 "unverified", it means a competent reader could not settle it from source alone,
 and that item is where the risk lives.
 
-They corrected several statements in `docs/roadmap.md` and `docs/hosting.md`,
-and added rules 13-16 to `docs/multiplayer.md`. Corrections are dated in place.
+They corrected several statements in the archived
+`docs/archive/2026-08/roadmap-2026-08-08.md` and in `docs/hosting.md`, and added
+rules 13-16 to `docs/multiplayer.md`. Corrections are dated in place.
 
 | report | what it settles | confidence |
 |---|---|---|

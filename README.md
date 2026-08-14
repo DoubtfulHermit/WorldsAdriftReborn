@@ -162,6 +162,8 @@ mod additionally requires the Windows game installation and native client SDK
 toolchain. Start with:
 
 - [server deployment and configuration](docs/hosting.md);
+- [current roadmap](docs/roadmap.md);
+- [elastic runtime phases](docs/architecture/elastic-runtime-phases.md);
 - [patcher build and release process](tools/patcher/README.md);
 - [research index](docs/research/README.md).
 

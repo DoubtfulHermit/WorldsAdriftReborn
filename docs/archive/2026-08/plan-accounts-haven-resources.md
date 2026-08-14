@@ -165,3 +165,8 @@ The largest: **the extracted coordinate chain has never been validated against a
 client** — rigorous where measured, inferred where not, which is precisely the shape of the
 error it was correcting. Phase 2.2 is where that gets tested, and it should be tested with one
 hardcoded coordinate before anything depends on it.
+
+---
+
+Archived on 2026-08-14 after accounts, Haven and deterministic resources were
+implemented. This is planning history, not current status.

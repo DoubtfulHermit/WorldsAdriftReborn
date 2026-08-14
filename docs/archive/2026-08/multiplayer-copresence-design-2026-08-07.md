@@ -2,7 +2,8 @@
 
 **Date:** 2026-08-07
 **Status:** ACHIEVED (same day). All gates met except Gate 4 (despawn), which is
-blocked on a wire message that does not exist — see docs/roadmap.md.
+blocked on a wire message that did not exist at that baseline — see the archived
+`docs/archive/2026-08/roadmap-2026-08-08.md`.
 **Outcome notes:** the design survived contact with reality except in one place:
 the client-side "risky unknown" (Gate 2) was bigger than anticipated — mirroring
 with prefab context "Player" duplicated the full local rig and required an
@@ -230,3 +231,8 @@ strictly better than the current state.
    transform is unmapped.
 2. **Whether the client will render a non-authoritative player entity** at all.
    See Gate 2.
+
+---
+
+Archived on 2026-08-14. The co-presence design was completed and superseded by
+`docs/multiplayer.md` and the current engineering handover.

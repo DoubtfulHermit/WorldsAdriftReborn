@@ -6,11 +6,12 @@
 
 **Repository:** `DoubtfulHermit/WorldsAdriftReborn`
 
-**Active integration worktree:** `/home/ttanurhan/Games/wareborn-resource-hotfix`
+**Active integration worktree:** `/home/ttanurhan/Games/wareborn-loading`
 
-**Active branch at this snapshot:** `fix/resource-stream-authority`
+**Active branch at this snapshot:** `feat/island-identity`
 
-**Code baseline at this snapshot:** `355d842` (`Offset ship panels beyond the exterior skin`)
+**Code baseline at this snapshot:** `5dd6c49` (`Document staged resource login rollout`),
+plus the uncommitted Phase 1 region-topology slice described below.
 
 This file is the current operational and architectural handover. Start here,
 then follow the narrower documents it links. Do not treat old roadmap entries,
@@ -19,7 +20,7 @@ implemented.
 
 ## 1. First 15 minutes
 
-1. Work in `/home/ttanurhan/Games/wareborn-resource-hotfix` unless the user
+1. Work in `/home/ttanurhan/Games/wareborn-loading` unless the user
    explicitly selects another worktree.
 2. Run `git status --short`, `git branch --show-current`, and
    `git log -10 --oneline` before editing. There are many historical worktrees;
@@ -36,7 +37,7 @@ implemented.
    dotnet build WorldsAdriftReborn -c Release
    ```
 
-   At this snapshot the Multiplayer suite passes **2201/2201**, and both server
+   At this snapshot the Multiplayer suite passes **2232/2232**, and both server
    and client builds succeed. Existing nullable/obsolete/net6-EOL warnings are
    known. Do not run the test and server builds concurrently: both write the
    Multiplayer output and can cause a harmless file-lock retry.
@@ -64,12 +65,16 @@ When sources disagree, use this order:
 6. `README.md`, `docs/hosting.md`, and `docs/roadmap.md`;
 7. downloaded handover/roadmap proposals and old chat summaries.
 
-`docs/roadmap.md` contains valuable historical research but is materially stale:
-it still describes entity removal, inventory, ships, resources, and other work
-as absent even though later commits implemented them. Update it before using it
-as a planning board.
+Superseded planning documents live under `docs/archive/`. They remain useful for
+historical citations but must not override the current roadmap or handover.
 
 ## 3. Repository and runtime map
+
+The worktree cleanup on 2026-08-14 removed 94 clean historical checkouts while
+retaining every branch and commit. Thirteen worktrees remain: this integration
+tree, `wareborn-main`, the original dirty checkout, and dirty research/diagnostic
+trees. Do not remove those remaining trees until their uncommitted files are
+reconciled explicitly.
 
 | Area | Purpose | Primary entry points |
 | --- | --- | --- |
@@ -77,7 +82,7 @@ as a planning board.
 | `WorldsAdriftRebornCoreSdk/` | Native client/server protocol shim and ENet transport | `Connection.cpp`, `Dispatcher.cpp`, `enetLayer.cpp`, `OpList.h` |
 | `WorldsAdriftRebornGameServer/` | Authoritative game server and main poll loop | `WorldsAdriftRebornGameServer.cs`, `Game/`, `Networking/` |
 | `WorldsAdriftRebornGameServer.Multiplayer/` | Engine-free policies, ledgers, catalogues, geometry | resource, inventory, placement, ship and flight types |
-| `WorldsAdriftRebornGameServer.Multiplayer.Tests/` | Fast native regression suite | 2201 tests at this snapshot |
+| `WorldsAdriftRebornGameServer.Multiplayer.Tests/` | Fast native regression suite | 2232 tests at this snapshot |
 | `WorldsAdriftServer/` | Login, accounts, roster and patch-file HTTP service | request handlers, storage integration |
 | `WorldsAdriftReborn.Storage/` | PostgreSQL models/repositories/migrations | storage tests require `WAREBORN_DB` for integration cases |
 | `tools/patcher/` | WAPatch and manifest release pipeline | `README.md`, `build-manifest.sh` |
@@ -132,11 +137,11 @@ into chat, or issue reports. In particular, avoid printing the full systemd
 a systemd drop-in; rotate it and move it to a root-only `EnvironmentFile` when
 doing the next security/operations pass.
 
-### Deployment warning
+### Deployment discipline
 
-The top of `docs/hosting.md` correctly describes the native Linux game server,
-but its game-server deployment command still shows the former Wine/win-x64
-recipe. Do not copy that stale block for production. The safe native flow is:
+`docs/hosting.md` now contains only the current native Linux deployment flow;
+the mixed Wine/native instructions are preserved under `docs/archive/` for
+rollback history. The safe native flow is:
 
 1. build/test the selected commit;
 2. publish the game server for `linux-x64` self-contained into a fresh staging
@@ -395,10 +400,13 @@ They are **design inputs, not implementation status**. At this snapshot:
 - there is no `SimulationCore` project;
 - there is no `SimulationEntityId`, `SimulationDomainId`, domain scheduler,
   authority generation, gateway/worker split, or migration protocol;
-- there is no implemented `IslandId`, `IslandDefinition`, or `IslandRegistry`;
-- branch/worktree `feat/island-identity` at
-  `/home/ttanurhan/Games/wareborn-loading` still points to base `e2e88bf` and
-  contains no PR1 implementation.
+- PR1 stable `IslandId`, `IslandDefinition` and `IslandRegistry` are implemented;
+- the preserved WAMap importer, production Trades Challenge terrain and
+  island-aware resource interest are implemented and deployed through the
+  staged resource-login server revision;
+- Phase 1 region topology now exists as dependency-free `RegionId`,
+  `RegionDefinition` and `RegionRegistry`. It maps both proven islands exactly
+  once but is deliberately not connected to runtime behavior yet.
 
 ### Agreed strategic direction
 
@@ -415,34 +423,15 @@ They are **design inputs, not implementation status**. At this snapshot:
 - A ship capture/destroy/restore/resume experiment is the best later proof of
   domain snapshot completeness.
 
-### Correct next architecture PR
+### Current architecture sequence
 
-Do **PR1 island identity**, not `SimulationCore`:
-
-1. audit every one-island assumption into
-   `docs/research/findings-island-pipeline.md`;
-2. add stable `IslandId`;
-3. add minimal evidenced `IslandDefinition` and deterministic `IslandRegistry`;
-4. represent Haven through it;
-5. add narrow island-local/global coordinate conversion;
-6. prove every current Haven global resource position and origin is unchanged;
-7. manually verify login, spawn, terrain, streaming, harvest, structures,
-   ships, flight and reconnect behavior.
-
-Non-goals for PR1: second island, WAMap import, regions, Wind Walls,
-`SimulationCore`, workers, domains, migration, generic interest, Postgres world
-state, and protocol changes.
-
-After PR1, follow the world expansion sequence:
-
-1. research-only WAMap importer with provenance and proven coordinates;
-2. one second island with proven asset/context/transform;
-3. multi-island resource interest preserving current semantics;
-4. concrete region topology;
-5. deterministic Wind Wall geometry;
-6. deterministic Wind Wall flight disturbance;
-7. only then extract generic runtime concepts demonstrated by both islands and
-   ships.
+The accepted phased plan is
+[`architecture/elastic-runtime-phases.md`](architecture/elastic-runtime-phases.md).
+Phase 1 (stable region topology) is implemented as a behavior-preserving pure
+library slice. The next testable chunk is Phase 2: a read-only world directory
+that classifies existing world entities into region, ship or explicit global
+scope. It must first run as diagnostics and prove complete classification; it
+must not replace spawning, interest or persistence in the same change.
 
 ## 10. Known risks and unfinished work
 
