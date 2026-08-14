@@ -178,6 +178,12 @@ with `libCoreSdkDll.so`; the systemd unit template is
 [`deploy/wareborn-game-native.service`](deploy/wareborn-game-native.service).
 The player-facing client and patcher remain Windows x64.
 
+For maintainers and coding agents, start with the canonical
+[Wareborn engineering handover](docs/HANDOVER.md). It records the current live
+revision, architecture, deployment state, completed gameplay systems, known
+regressions, and the boundary between implemented Wareborn code and the proposed
+Elastic Simulation Runtime/world-expansion work.
+
 ## Contributing and support
 
 Bug reports with reproducible steps and logs are especially useful. Please keep
