@@ -143,7 +143,9 @@ changes.
   locally but must not be deployed until all players disconnect. The next tested
   local stack is `a5bed13`: it also aligns aboard avatar relay samples behind
   each successfully delivered authoritative ship frame and exposes the first
-  read-only local World Inspector slice. It is not deployed at this snapshot.
+  read-only local World Inspector slice. Local follow-up `18d89b3` turns that
+  slice into an authenticated functional control panel. Neither is deployed at
+  this snapshot.
 
 ### Latest multiplayer incident
 
@@ -171,6 +173,19 @@ changes.
   explicitly labelled local single-process and exposes no fictional workers,
   migrations or authority controls. Validation: Multiplayer `2322/2322`,
   admin/login `155/155`, both Release builds zero errors.
+- `18d89b3` expands `/admin` into World / Simulation / Operations / System.
+  Existing player recovery tools remain, and three exact allowlisted world
+  operations now complete on the game-server poll loop: reset all damaged
+  trees/metal/fuel, recall an uncrewed hull beside a selected connected player,
+  and permanently delete an uncrewed exact hull plus its persisted structure.
+  Recall/delete reject a piloted or occupied hull. Delete durably tombstones the
+  ship before runtime removal and requires typed `DELETE` plus browser
+  confirmation. Session-derived CSRF now protects commands, logout and server
+  naming. The UI separately renders login-server queue acceptance and the game
+  server's atomic completion receipt; it never calls dispatch a successful
+  gameplay action. Validation: Multiplayer `2336/2336`, admin/login `168/168`,
+  both Release builds zero errors. This is server/admin-only, needs no patcher
+  manifest change, and is not deployed at this snapshot.
 
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted

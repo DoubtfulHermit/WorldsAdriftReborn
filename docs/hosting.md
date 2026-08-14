@@ -130,6 +130,8 @@ Important game-server variables include:
 | `WAREBORN_SHIP_INTEREST_RADIUS_M` | built-ship domain load radius; default `800` m and also used at connect |
 | `WAREBORN_SHIP_INTEREST_UNLOAD_RADIUS_M` | built-ship unload hysteresis radius; default `1000` m |
 | `WAREBORN_SPAWN_ACK_TIMEOUT_MS` | bounded per-step spawn acknowledgement timeout |
+| `WAREBORN_WORLD_ADMIN_FILE` | authenticated admin command bridge; default `/tmp/wareborn-world-admin` |
+| `WAREBORN_WORLD_ADMIN_RESULT_FILE` | atomic game-completion receipt consumed by `/admin`; default `/tmp/wareborn-world-admin.result` |
 
 Resources remain authoritative in the world registry. The loading barrier gets
 only the initial nearby resource bubble; after client activation, movement-driven
@@ -138,6 +140,16 @@ data and player-made structures are governed by their explicit policies. Built
 ships use whole-domain interest: a joining peer receives only ships within the
 ship load radius, and later checkout adds the hull before its deck and mounted
 members.
+
+The authenticated `/admin` console has four sections: World, Simulation,
+Operations and System. Mutating operations are a strict allowlist, never a shell
+or arbitrary-coordinate interface. It can reset all harvest nodes, recall an
+exact uncrewed hull beside an exact connected player, and permanently delete an
+exact uncrewed hull. Delete requires both typed `DELETE` confirmation and a
+browser confirmation. The login server revalidates fresh player/domain IDs and
+writes a one-shot command; the game server consumes it on its authoritative poll
+loop and atomically writes a separate completion receipt. Queue acceptance and
+gameplay completion are deliberately shown as different events.
 
 ## Operational cautions
 
