@@ -120,11 +120,13 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `ba5987a` (`Fix late-join entities and ship replication
-  stalls`), deployed and restarted at 2026-08-14 22:30 CEST. It includes the
-  staged resource streaming from `203b132`, paced runtime-entity reconnect
-  catch-up, per-peer ship-motion visibility, unreliable superseding 1130 ship
-  points, idempotent helm entry, and the typed-update allocation/logging fixes.
+- **Game server:** `718d926` (`Gate remote ship domains during connect`),
+  deployed and restarted at 2026-08-15 00:06 CEST. It includes the coherent
+  ship-domain/steering/passenger/re-entry work through `489517f` and prevents
+  remote hulls, decks and mounted parts from being instantiated during login.
+  Production boot classified 74 ship registrations across five hull roots: the
+  three domains inside 800 m joined the initial barrier and the two remote
+  domains were placed in the gated tail for live root-first checkout.
 - **Public client manifest:** `2026.08.14-10`, build label
   `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
   UTC fallback from `2627810` and fixes six native protobuf string allocations
@@ -135,12 +137,14 @@ changes.
   `b231b41ceeede651debefa75009dcb9c245cc4cfb59e4e0100430e1a7030ccaa`.
 - **Windows CoreSDK DLL SHA-256:**
   `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
-- **Server state:** active at the time this handover was written.
+- **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
+  deployables, 5/7 ships (two tombstones), 16/16 mounted parts and 3/3 loose
+  parts; 2,311/2,311 Multiplayer tests and the Release server build passed.
 
 ### Latest multiplayer incident
 
-- **Server revision:** `ba5987a` (`Fix late-join entities and ship replication
-  stalls`). The 2026-08-14 two-player session proved three related failures:
+- **Server revision:** `718d926`, building on the replication corrections in
+  `489517f`. The 2026-08-14 two-player session proved three related failures:
   runtime-created yards/ships were absent from the boot-frozen plan on relog;
   distant ships and mounted parts broadcast motion globally; and absolute ship
   control points bypassed the unreliable-stream policy, building a reliable
@@ -149,10 +153,9 @@ changes.
   distance/checkout-gated ship motion with pilot/passenger overrides, current-pose
   registry relocation, superseding/unreliable 1130 delivery, idempotent duplicate
   helm Man events, serializer-buffer cleanup, and removal of per-update log spam.
-- Validation: Multiplayer tests `2264/2264`; Release game-server build succeeded;
-  `git diff --check` clean. Production restored 4/4 deployables, 3/5 ships (two
-  records are intentional salvaged tombstones), 13/13 mounted parts and 2/2 loose
-  parts. A two-player relog/ship-flight acceptance test remains required.
+- Validation: Multiplayer tests `2311/2311`; Release game-server build succeeded;
+  deployed managed binary hashes matched the local publish exactly. A two-player
+  relog/ship-flight/re-entry acceptance test remains required.
 
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted
@@ -510,13 +513,15 @@ generations, but no in-process gateway seam yet.
 - **Loading/crash validation:** Colin's remote loading crash was identified as
   native heap corruption (`c0000374`) and fixed in `3a7cd31` / manifest
   `2026.08.14-10`; his subsequent join passed the former crash point. Extended
-  play then exposed the separate server replication congestion now addressed by
-  deployed revision `ba5987a`.
+  play then exposed the separate server replication congestion and connect-time
+  whole-fleet loading now addressed through deployed revision `718d926`.
 - **Sail fidelity:** functional scalar propulsion, not retail wind physics.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
-- **Multiple players / moving ships:** `ba5987a` fixed late-join delivery and the
-  reliable congestion spiral. `6a2273f` deployed canonical carry and coherent
+- **Multiple players / moving ships:** `489517f` fixed late-join delivery,
+  steering wake-up, passenger-frame coherence and the reliable congestion
+  spiral. `718d926` prevents remote domains from burdening login. `6a2273f`
+  introduced canonical carry and coherent
   ShipDomain replication, but its first two-player visual pass exposed the
   timeline/re-checkout failures listed above. Do not claim local domains are a
   completed dynamic handoff system: all domains still run in one process and
