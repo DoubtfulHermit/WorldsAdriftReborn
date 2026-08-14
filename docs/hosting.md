@@ -42,6 +42,14 @@ Both services run directly on Linux. The game server maps the legacy Worker SDK'
 `libCoreSdkDll.so` beside the self-contained executable. The previous Wine unit
 is retained as an exact rollback, but is not part of the live path.
 
+Build the native shim against the production ABI. The current development host
+links protobuf 35, while the Ubuntu 24.04 VPS provides protobuf 3.21
+(`libprotobuf.so.32`); copying the development-host `.so` therefore fails at
+startup with `DllNotFoundException`. The proven flow is to copy the current
+`WorldsAdriftRebornCoreSdk` sources and `tools/relaybot/build-coresdk-native.sh`
+to an isolated directory on the VPS, build there, then run `ldd` and verify all
+required `ENet_EXP_*` exports before replacing the live shim.
+
 ## Accounts and the database
 
 Accounts, sessions and character rosters live in Postgres 16 in its own docker

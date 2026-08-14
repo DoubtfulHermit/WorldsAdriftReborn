@@ -113,12 +113,12 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** deployed/restarted from `f837c5a` at 2026-08-14 12:31 CEST.
-  Commits after it in this handover are client-only panel-preview work.
-- **Public client manifest:** `2026.08.14-7`, build label
-  `panel exterior half-thickness + geometry trace (355d842)`.
+- **Game server:** `1af716c` (`Add multi-island resource interest`), deployed
+  and restarted at 2026-08-14 16:44 CEST.
+- **Public client manifest:** `2026.08.14-8`, build label
+  `island + ship/resource lifecycle merge (d67f205)`.
 - **Client DLL SHA-256:**
-  `99ebb821bf165cf36f51dbf6c9c114c31ad9f28828f5c1a939abe6e9e57970bc`.
+  `c1225306b82f3627e3a259bab3dc3041b3253de3955e2e6d4d4620b96a92aad8`.
 - **Server state:** active at the time this handover was written.
 
 Do not put database passwords, session tokens, account records, or private
@@ -143,6 +143,13 @@ recipe. Do not copy that stale block for production. The safe native flow is:
 6. restart only after the user confirms every player is disconnected;
 7. inspect boot restore counts, resource-interest banner, hull metrics, and
    first connection logs.
+
+The production VPS is Ubuntu 24.04 with protobuf 3.21 (`libprotobuf.so.32`).
+Do not deploy a native shim built on the Arch/CachyOS development host: that
+currently links protobuf 35 plus its newer Abseil libraries and will fail to
+load on production. The proven PR4 rollout copied the shim sources to an
+isolated VPS build directory and ran `tools/relaybot/build-coresdk-native.sh`
+there, then verified `ldd` and `ENet_EXP_PeerChannelCount` before installation.
 
 Update `docs/hosting.md` with the exact proven command during the next server
 deployment rather than guessing it here.
