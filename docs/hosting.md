@@ -127,13 +127,17 @@ Important game-server variables include:
 | `WAREBORN_INTEREST_INITIAL_RADIUS_M` | bounded connect-time resource bubble; live default `45` m |
 | `WAREBORN_INTEREST_SETTLE_MS` | delay before continuous additions; live default `5000` ms |
 | `WAREBORN_INTEREST_UNLOAD_RADIUS_M` | unload hysteresis radius |
+| `WAREBORN_SHIP_INTEREST_RADIUS_M` | built-ship domain load radius; default `800` m and also used at connect |
+| `WAREBORN_SHIP_INTEREST_UNLOAD_RADIUS_M` | built-ship unload hysteresis radius; default `1000` m |
 | `WAREBORN_SPAWN_ACK_TIMEOUT_MS` | bounded per-step spawn acknowledgement timeout |
 
 Resources remain authoritative in the world registry. The loading barrier gets
 only the initial nearby resource bubble; after client activation, movement-driven
 interest expands through the paced live radius. Terrain, players, global biome
-data, ships and player-made structures are governed by their explicit policies,
-not resource distance gating.
+data and player-made structures are governed by their explicit policies. Built
+ships use whole-domain interest: a joining peer receives only ships within the
+ship load radius, and later checkout adds the hull before its deck and mounted
+members.
 
 ## Operational cautions
 

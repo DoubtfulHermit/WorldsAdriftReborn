@@ -37,7 +37,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly WorldEntityRegistry _registry;
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
 
-        private double LoadRadiusMetres { get; } = ShipDomainInterestPolicy.LoadRadiusFrom(
+        internal double LoadRadiusMetres { get; } = ShipDomainInterestPolicy.LoadRadiusFrom(
             Environment.GetEnvironmentVariable(ShipDomainInterestPolicy.LoadRadiusEnvVar));
         private double UnloadRadiusMetres { get; }
 

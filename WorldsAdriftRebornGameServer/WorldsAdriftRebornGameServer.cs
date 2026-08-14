@@ -3470,13 +3470,44 @@ namespace WorldsAdriftRebornGameServer
             // (island + ship + parts) streams BEFORE the distant scenery, so the
             // barrier is not stuck behind every tree in the pacer. When off, this is
             // exactly the registration-order plan the server has always produced.
+            bool IsMountedShipPart(WorldEntity entity) =>
+                Game.Crafting.MountedParts.Is(WorldEntities.EntityIdFor(entity));
+
+            long? ShipHullFor(WorldEntity entity)
+            {
+                long entityId = WorldEntities.EntityIdFor(entity);
+                Game.Crafting.MountedParts.Mount? mount =
+                    Game.Crafting.MountedParts.MountFor(entityId);
+                if (mount != null) return mount.Value.HullEntityId;
+                if (Game.Crafting.BuiltShips.IsBuiltHull(entityId)) return entityId;
+                return Game.Crafting.BuiltShips.HullForDeck(entityId);
+            }
+
+            // Every member of one ship domain is range-tested against the ROOT's
+            // current persisted transform. Testing child seed positions separately
+            // could split a hull from a deck exactly at the radius boundary.
+            Multiplayer.FixedPointPosition ConnectGatePosition(WorldEntity entity)
+            {
+                long? hullEntityId = ShipHullFor(entity);
+                return hullEntityId != null
+                    ? WorldEntities.TransformSeedFor(hullEntityId.Value)
+                    : entity.Position;
+            }
+
+            bool BarrierInitial(WorldEntity entity) =>
+                ConnectInterestPolicy.IsInitial(
+                    entity.Key,
+                    IsMountedShipPart(entity),
+                    LoadBarrierPolicy.IsInitialKey(entity.Key),
+                    ResourceInterest.Enabled,
+                    SpawnPolicy.PlayerSpawnPosition,
+                    ConnectGatePosition(entity),
+                    Game.Interest.InitialRadiusMetres,
+                    ShipInterest.LoadRadiusMetres);
+
             IReadOnlyList<SpawnPlanStep> plan;
             if (Game.LoadBarrier.Enabled)
             {
-                bool BarrierInitial(WorldEntity entity) =>
-                    ResourceInterestPolicy.IsStreamedResourceKey(entity.Key)
-                        ? InterestPolicy.InRange(SpawnPolicy.PlayerSpawnPosition, entity.Position, Game.Interest.InitialRadiusMetres)
-                        : LoadBarrierPolicy.IsInitialKey(entity.Key);
                 Game.LoadBarrier.Prime(WorldEntities, BarrierInitial);
                 plan = SpawnPlan.For(WorldEntities, key =>
                 {
@@ -3541,8 +3572,9 @@ namespace WorldsAdriftRebornGameServer
             // never held the AddEntity back. The player's own avatar (Entity == null)
             // and the BeforePlayer ground are never paced (they gate the loading
             // screen); when the barrier holds the initial set (island, ship, and the
-            // built ships/decks now folded into it) that set streams at full speed
-            // BEHIND the loading screen and only the in-view distant scenery is paced.
+            // nearby built-ship domains folded into it) that set streams at full speed
+            // BEHIND the loading screen. Remote ships are skipped completely and the
+            // live whole-domain interest service checks them out only on approach.
             // Parallel to the WorldState list so the perform loop can index it by
             // SyncStepPointer. See SpawnPacePolicy.PacesInstantiation.
             bool barrierHoldsInitialSet = Game.LoadBarrier.Enabled;
@@ -3551,7 +3583,7 @@ namespace WorldsAdriftRebornGameServer
                              && SpawnPacePolicy.PacesInstantiation(
                                     s.Op,
                                     s.Entity.Order,
-                                    LoadBarrierPolicy.IsInitialKey(s.Entity.Key),
+                                    BarrierInitial(s.Entity),
                                     barrierHoldsInitialSet))
                 .ToArray();
 
@@ -3561,8 +3593,8 @@ namespace WorldsAdriftRebornGameServer
                 Console.WriteLine("[info] spawn pacing: " + pacedCount
                     + " distant AfterPlayer entities INSTANTIATED " + SpawnPaceInterval.TotalMilliseconds.ToString("0")
                     + " ms apart (~" + SpawnPacePolicy.StreamDurationFor(pacedCount, SpawnPaceInterval).TotalSeconds.ToString("0.0")
-                    + " s to stream in); player, ground, and the barrier's initial set (island/ship/built"
-                    + " ships/decks) are never paced - they load at full speed"
+                    + " s to stream in); player, ground, and the barrier's nearby initial set are never"
+                    + " paced - they load at full speed"
                     + (barrierHoldsInitialSet ? " BEHIND the loading screen" : "")
                     + ". WAREBORN_SPAWN_PACE_MS=0 disables.");
             }
@@ -3572,13 +3604,12 @@ namespace WorldsAdriftRebornGameServer
                     + pacedCount + " AfterPlayer entities drain as fast as the client acks.");
             }
 
-            // CONNECT-TIME SPATIAL INTEREST (WAREBORN_INTEREST_RADIUS_M). Which plan
-            // steps are GATEABLE - i.e. belong to an AfterPlayer world entity that is
-            // NOT in the barrier's load-bearing initial set (island, ship hull, bolted
-            // parts). Both of an entity's steps (RequestAsset + AddEntity) are marked,
+            // CONNECT-TIME SPATIAL INTEREST. Resources use WAREBORN_INTEREST_RADIUS_M;
+            // complete built-ship domains use WAREBORN_SHIP_INTEREST_RADIUS_M. Both of
+            // an entity's steps (RequestAsset + AddEntity) are marked,
             // so a peer skips the entity as a unit and is never told to place an asset
             // it never loaded. The player's own avatar (Entity == null), the ground,
-            // and the initial set are never gateable, so they always stream. Parallel
+            // and essential non-spatial entities are never gateable, so they always stream. Parallel
             // to the WorldState list, like pacedStep, so the perform loop can index
             // both by SyncStepPointer. gateEntityPos holds each gateable step's world
             // position; the default (0,0,0) for non-gateable steps is never read (the
@@ -3586,22 +3617,34 @@ namespace WorldsAdriftRebornGameServer
             bool[] gatedStep = plan
                 .Select(s => s.Entity != null
                              && s.Entity.Order == SpawnOrder.AfterPlayer
-                             && ResourceInterestPolicy.IsStreamedResourceKey(s.Entity.Key))
+                             && ConnectInterestPolicy.IsGateable(
+                                 s.Entity.Key,
+                                 IsMountedShipPart(s.Entity),
+                                 ResourceInterest.Enabled))
                 .ToArray();
             Multiplayer.FixedPointPosition[] gateEntityPos = plan
-                .Select(s => s.Entity?.Position ?? default)
+                .Select(s => s.Entity != null ? ConnectGatePosition(s.Entity) : default)
+                .ToArray();
+            double[] gateRadius = plan
+                .Select(s => s.Entity != null
+                    ? ConnectInterestPolicy.RadiusFor(
+                        s.Entity.Key,
+                        IsMountedShipPart(s.Entity),
+                        Game.Interest.InitialRadiusMetres,
+                        ShipInterest.LoadRadiusMetres)
+                    : 0d)
                 .ToArray();
 
             int gateableCount = gatedStep.Count(g => g);
-            if (Game.Interest.Enabled)
+            if (gateableCount > 0)
             {
-                Console.WriteLine("[info] spatial interest: ON (WAREBORN_INTEREST_RADIUS_M="
-                    + Game.Interest.RadiusMetres.ToString("0.#") + " m). A joining client is only sent the "
-                    + "AfterPlayer world entities within the " + Game.Interest.InitialRadiusMetres.ToString("0.#")
-                    + " m connect bubble; after a " + ResourceInterest.SettleDelay.TotalMilliseconds.ToString("0")
-                    + " ms settle window the paced live stream expands to the configured radius. The world can hold "
-                    + "unlimited distant nodes it never has to load at connect. " + gateableCount
-                    + " step(s) are range-gated; island/ship/parts and the player always stream.");
+                Console.WriteLine("[info] connect spatial interest: " + gateableCount
+                    + " step(s) range-gated. Resources use "
+                    + Game.Interest.InitialRadiusMetres.ToString("0.#")
+                    + " m at connect; whole built-ship domains use "
+                    + ShipInterest.LoadRadiusMetres.ToString("0.#")
+                    + " m. Remote ships are not instantiated during login and return root-first through"
+                    + " live ship interest when approached.");
             }
             else
             {
@@ -3781,14 +3824,14 @@ namespace WorldsAdriftRebornGameServer
                     // never arrive and can never double-advance the pointer. A no-op
                     // when interest is off or the peer is already at an in-range /
                     // initial-set / player step. See InterestPolicy / Game.Interest.
-                    if (Game.Interest.Enabled)
+                    if (gateableCount > 0)
                     {
                         int lastStep = GameState.Instance.WorldState[currentChunkIndex].Count - 1;
                         Multiplayer.FixedPointPosition center =
                             Game.Interest.CenterFor(PeerIdentity.IdOf(keyValuePair.Key));
                         while (pStatus.SyncStepPointer < lastStep
                                && gatedStep[pStatus.SyncStepPointer]
-                               && !InterestPolicy.InRange(center, gateEntityPos[pStatus.SyncStepPointer], Game.Interest.InitialRadiusMetres))
+                               && !InterestPolicy.InRange(center, gateEntityPos[pStatus.SyncStepPointer], gateRadius[pStatus.SyncStepPointer]))
                         {
                             pStatus.SyncStepPointer++;
                         }
@@ -3808,7 +3851,7 @@ namespace WorldsAdriftRebornGameServer
                         if (pStatus.SyncStepPointer == lastStep
                             && !pStatus.Performed
                             && gatedStep[lastStep]
-                            && !InterestPolicy.InRange(center, gateEntityPos[lastStep], Game.Interest.InitialRadiusMetres))
+                            && !InterestPolicy.InRange(center, gateEntityPos[lastStep], gateRadius[lastStep]))
                         {
                             Console.WriteLine("[interest] final plan step '" + stepDesc[lastStep]
                                 + "' is outside this peer's interest radius; completing its spawn chain"

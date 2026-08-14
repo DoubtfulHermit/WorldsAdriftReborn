@@ -95,7 +95,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// Whether a registered world entity belongs to the INITIAL set: the things
+        /// Whether a registered world entity is a CANDIDATE for the INITIAL set: the things
         /// that must exist on the client before the loading screen is allowed to
         /// fade. That is the ground the player stands on and the player's own ship -
         /// the island, the ship hull, and every bolted part (deck, helm, engine,
@@ -104,24 +104,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// activation, so 21 trees and 21 ore no longer sit on the critical path of
         /// a join.
         ///
-        /// Deliberately key-based rather than radius-based. A radius around the
-        /// spawn point is the more general rule (findings Rank 1 suggests ~120 m),
-        /// but it needs validating against the real Haven placements and it makes
-        /// the initial set depend on positions that can move; "the island and the
-        /// player's ship" is the load-bearing subset by construction and is stable.
-        /// Radius refinement is a follow-up tuning, not a correctness prerequisite.
+        /// Deliberately key-based. The server's connect composition refines resource
+        /// candidates with the resource radius and built-ship candidates with the
+        /// whole-domain ship radius; this base rule remains stable and reusable by
+        /// tests and by configurations where spatial interest is disabled.
         /// </summary>
         public static bool IsInitialKey(string? key)
         {
             return key == WorldEntities.IslandKey
                 || key == WorldEntities.ShipFrameKey
                 || WorldEntities.IsBoltedPartKey(key)
-                // Every entity of a BUILT ship - its hull and each derived deck panel.
-                // A built ship's hull mesh and the client's per-panel MakeDeck collider
-                // generation are the heaviest work a joiner does, so they belong behind
-                // the loading screen (frozen, out of view). Left out of the initial set
-                // they stream in-view after the barrier lifts and freeze/crash the
-                // second player - the observed regression. See BuiltShipPlacement.
+                // Every entity of a BUILT ship is an initial-set CANDIDATE. Connect
+                // interest keeps only nearby whole domains behind the loading screen;
+                // remote hulls/decks are skipped and return through live ship interest.
                 || Ship.BuiltShipPlacement.IsBuiltShipEntityKey(key)
                 // THE WHOLE STATIC WORLD. This client instantiates entities
                 // SYNCHRONOUSLY on the main thread (~100 ms/frame budget), so every

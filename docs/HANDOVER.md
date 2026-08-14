@@ -232,6 +232,11 @@ client-only panel iterations through `7c3e6c4`.
 
 - Nearby resources join the loading barrier; distant resources are not sent at
   login.
+- Connect-time ship interest now applies the ship domain's 800 m load radius to
+  the hull root and makes one decision for its hull, deck panels and mounted
+  parts. Remote ships are not instantiated and immediately removed during login;
+  live ship interest adds them root-first when approached. Free loose parts stay
+  outside this rule so they cannot become unreachable.
 - Movement component 1073 drives a 500 ms per-peer reconciliation.
 - Adds are nearest-first and paced at 120 ms with asset request then AddEntity.
 - Runtime deposits/shards enter interest through explicit `RegisterRuntime`.

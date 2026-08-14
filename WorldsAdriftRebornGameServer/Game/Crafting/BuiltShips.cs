@@ -125,6 +125,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 ? new List<long>(decks)
                 : System.Array.Empty<long>();
 
+        /// <summary>The built hull which owns a deck panel, or null for a non-deck entity.</summary>
+        internal static long? HullForDeck(long deckEntityId) =>
+            HullByDeck.TryGetValue(deckEntityId, out long hullEntityId)
+                ? hullEntityId
+                : null;
+
         /// <summary>Retires one salvaged hull and every deck ledger entry beneath it.</summary>
         internal static IReadOnlyList<long> UnregisterShip(long hullEntityId)
         {

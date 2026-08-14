@@ -107,7 +107,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// paced - they gate the loading screen and must go out at once.
         ///
         /// When the loading barrier holds the initial set (<paramref name="barrierHoldsInitialSet"/>),
-        /// that set - island, ship, and the built ships/decks now folded into it -
+        /// that set - island, static ship, and nearby built-ship domains -
         /// instantiates while the player is FROZEN behind the loading screen, out of
         /// view, so pacing it would only lengthen the loading screen for no visible
         /// benefit. It streams at full speed and only the DISTANT scenery that appears
