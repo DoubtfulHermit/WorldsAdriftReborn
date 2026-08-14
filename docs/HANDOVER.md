@@ -10,10 +10,10 @@
 
 **Active branch at this snapshot:** `feat/island-identity`
 
-**Code baseline at this snapshot:** `7a69e48` (`Use island-scale visibility for
-ship domains`), plus the uncommitted fixes described below. Production is still
-running `6a2273f`; do not confuse the checked-out revision with the deployed
-revision.
+**Deployed code baseline at this snapshot:** `489517f` (`Fix ship steering,
+passenger coherence, and re-entry`). Production and the checked-out gameplay
+code match at this revision; later documentation-only commits do not imply a
+different production binary.
 
 This file is the current operational and architectural handover. Start here,
 then follow the narrower documents it links. Do not treat old roadmap entries,
