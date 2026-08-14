@@ -10,7 +10,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     public static class ResourceInterestPolicy
     {
         public const string UnloadRadiusEnvVar = "WAREBORN_INTEREST_UNLOAD_RADIUS_M";
+        public const string SettleDelayEnvVar = "WAREBORN_INTEREST_SETTLE_MS";
         public const double DefaultUnloadMarginMetres = 35.0;
+        public const int DefaultSettleDelayMs = 5000;
+        public const int MinSettleDelayMs = 1000;
+        public const int MaxSettleDelayMs = 30000;
+
+        /// <summary>
+        /// Post-connect quiet period before continuous resource checkout starts.
+        /// The retail client creates entities synchronously on its main thread; this
+        /// lets activation, movement and visualizer initialization settle before the
+        /// paced roaming stream begins. It cannot be disabled accidentally.
+        /// </summary>
+        public static TimeSpan SettleDelayFrom(string? env)
+        {
+            if (!int.TryParse(env, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+            {
+                value = DefaultSettleDelayMs;
+            }
+            value = System.Math.Clamp(value, MinSettleDelayMs, MaxSettleDelayMs);
+            return TimeSpan.FromMilliseconds(value);
+        }
 
         public static bool IsStreamedResourceKey(string? key) =>
             HasPrefix(key, "deposit-") || HasPrefix(key, "atlas-shard-")

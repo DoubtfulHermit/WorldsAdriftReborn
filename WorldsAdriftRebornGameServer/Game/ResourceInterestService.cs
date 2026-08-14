@@ -26,6 +26,7 @@ namespace WorldsAdriftRebornGameServer.Game
             public long AssetRequestedFor;
             public bool RemoveSupported;
             public bool ConnectPlanComplete;
+            public TimeSpan ContinuousAfter;
         }
 
         private readonly IClock _clock;
@@ -54,6 +55,8 @@ namespace WorldsAdriftRebornGameServer.Game
         public bool Enabled => Interest.Enabled && _resources.Count > 0;
         public double UnloadRadiusMetres { get; } = ResourceInterestPolicy.UnloadRadiusFrom(
             Environment.GetEnvironmentVariable(ResourceInterestPolicy.UnloadRadiusEnvVar), Interest.RadiusMetres);
+        public TimeSpan SettleDelay { get; } = ResourceInterestPolicy.SettleDelayFrom(
+            Environment.GetEnvironmentVariable(ResourceInterestPolicy.SettleDelayEnvVar));
 
         /// <summary>
         /// Adds a resource registered after the boot snapshot (handshake/fallback
@@ -96,9 +99,11 @@ namespace WorldsAdriftRebornGameServer.Game
             PeerState state = StateFor(peer);
             if (state.ConnectPlanComplete) return;
             state.ConnectPlanComplete = true;
-            state.NextReconcile = TimeSpan.Zero;
+            state.ContinuousAfter = _clock.Elapsed + SettleDelay;
+            state.NextReconcile = state.ContinuousAfter;
             Console.WriteLine("[resource-interest] connect plan complete for "
-                + peer.DangerousGetHandle() + "; continuous lifecycle enabled.");
+                + peer.DangerousGetHandle() + "; continuous lifecycle begins after "
+                + SettleDelay.TotalMilliseconds.ToString("0") + " ms client-settle window.");
         }
 
         /// <summary>
@@ -162,7 +167,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 // The connect plan owns initial checkout. Running both producers at
                 // once lets dynamic interest Add an entity that the plan later Adds
                 // again, which corrupts the retail client's entity dictionary.
-                if (!state.ConnectPlanComplete) continue;
+                if (!state.ConnectPlanComplete || now < state.ContinuousAfter) continue;
                 if (now >= state.NextReconcile)
                 {
                     state.NextReconcile = now + ReconcileInterval;

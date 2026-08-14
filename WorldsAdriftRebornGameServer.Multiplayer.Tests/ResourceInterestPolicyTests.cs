@@ -3,6 +3,15 @@ using Xunit;
 
 public class ResourceInterestPolicyTests
 {
+    [Fact]
+    public void Client_settle_delay_defaults_and_is_bounded()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(5), ResourceInterestPolicy.SettleDelayFrom(null));
+        Assert.Equal(TimeSpan.FromSeconds(1), ResourceInterestPolicy.SettleDelayFrom("0"));
+        Assert.Equal(TimeSpan.FromSeconds(12), ResourceInterestPolicy.SettleDelayFrom("12000"));
+        Assert.Equal(TimeSpan.FromSeconds(30), ResourceInterestPolicy.SettleDelayFrom("999999"));
+    }
+
     [Theory]
     [InlineData("tree-7")]
     [InlineData("deposit-iron-2")]

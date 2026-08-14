@@ -3349,7 +3349,7 @@ namespace WorldsAdriftRebornGameServer
             {
                 bool BarrierInitial(WorldEntity entity) =>
                     ResourceInterestPolicy.IsStreamedResourceKey(entity.Key)
-                        ? InterestPolicy.InRange(SpawnPolicy.PlayerSpawnPosition, entity.Position, Game.Interest.RadiusMetres)
+                        ? InterestPolicy.InRange(SpawnPolicy.PlayerSpawnPosition, entity.Position, Game.Interest.InitialRadiusMetres)
                         : LoadBarrierPolicy.IsInitialKey(entity.Key);
                 Game.LoadBarrier.Prime(WorldEntities, BarrierInitial);
                 plan = SpawnPlan.For(WorldEntities, key =>
@@ -3464,7 +3464,9 @@ namespace WorldsAdriftRebornGameServer
             {
                 Console.WriteLine("[info] spatial interest: ON (WAREBORN_INTEREST_RADIUS_M="
                     + Game.Interest.RadiusMetres.ToString("0.#") + " m). A joining client is only sent the "
-                    + "AfterPlayer world entities within that radius of its spawn point; the world can hold "
+                    + "AfterPlayer world entities within the " + Game.Interest.InitialRadiusMetres.ToString("0.#")
+                    + " m connect bubble; after a " + ResourceInterest.SettleDelay.TotalMilliseconds.ToString("0")
+                    + " ms settle window the paced live stream expands to the configured radius. The world can hold "
                     + "unlimited distant nodes it never has to load at connect. " + gateableCount
                     + " step(s) are range-gated; island/ship/parts and the player always stream.");
             }
@@ -3652,7 +3654,7 @@ namespace WorldsAdriftRebornGameServer
                             Game.Interest.CenterFor(PeerIdentity.IdOf(keyValuePair.Key));
                         while (pStatus.SyncStepPointer < lastStep
                                && gatedStep[pStatus.SyncStepPointer]
-                               && !InterestPolicy.InRange(center, gateEntityPos[pStatus.SyncStepPointer], Game.Interest.RadiusMetres))
+                               && !InterestPolicy.InRange(center, gateEntityPos[pStatus.SyncStepPointer], Game.Interest.InitialRadiusMetres))
                         {
                             pStatus.SyncStepPointer++;
                         }
@@ -3672,7 +3674,7 @@ namespace WorldsAdriftRebornGameServer
                         if (pStatus.SyncStepPointer == lastStep
                             && !pStatus.Performed
                             && gatedStep[lastStep]
-                            && !InterestPolicy.InRange(center, gateEntityPos[lastStep], Game.Interest.RadiusMetres))
+                            && !InterestPolicy.InRange(center, gateEntityPos[lastStep], Game.Interest.InitialRadiusMetres))
                         {
                             Console.WriteLine("[interest] final plan step '" + stepDesc[lastStep]
                                 + "' is outside this peer's interest radius; completing its spawn chain"

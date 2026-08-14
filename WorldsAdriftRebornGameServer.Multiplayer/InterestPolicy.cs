@@ -46,6 +46,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const string RadiusEnvVar = "WAREBORN_INTEREST_RADIUS_M";
 
         /// <summary>
+        /// Optional connect-time resource bubble. The live radius is intentionally
+        /// separate: making the loading barrier instantiate a full roaming radius
+        /// synchronously recreates the allocation spike spatial interest exists to
+        /// prevent. Unset/invalid values use a conservative starter bubble.
+        /// </summary>
+        public const string InitialRadiusEnvVar = "WAREBORN_INTEREST_INITIAL_RADIUS_M";
+        public const double DefaultInitialRadiusMetres = 45.0;
+
+        /// <summary>
         /// Upper clamp on the radius. A radius this large already covers any WA
         /// island cluster, so a typo of a colossal value is pinned here rather than
         /// risking a squared-distance product that leaves double's exact range. A
@@ -70,6 +79,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             return r > MaxRadiusMetres ? MaxRadiusMetres : r;
+        }
+
+        /// <summary>
+        /// Radius used only by the connect plan. Interest disabled remains fail-open
+        /// (zero means send everything); when enabled, the initial bubble is always
+        /// positive and never larger than the live roaming radius.
+        /// </summary>
+        public static double InitialRadiusMetresFrom(string? env, double liveRadiusMetres)
+        {
+            if (!IsEnabled(liveRadiusMetres))
+            {
+                return 0.0;
+            }
+
+            double initial = RadiusMetresFrom(env);
+            if (!IsEnabled(initial))
+            {
+                initial = DefaultInitialRadiusMetres;
+            }
+            return System.Math.Min(initial, liveRadiusMetres);
         }
 
         /// <summary>

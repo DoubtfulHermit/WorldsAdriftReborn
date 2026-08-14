@@ -57,6 +57,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(InterestPolicy.IsEnabled(300.0));
         }
 
+        [Fact]
+        public void Connect_radius_defaults_small_and_never_exceeds_live_radius()
+        {
+            Assert.Equal(0, InterestPolicy.InitialRadiusMetresFrom(null, 0));
+            Assert.Equal(45, InterestPolicy.InitialRadiusMetresFrom(null, 120));
+            Assert.Equal(30, InterestPolicy.InitialRadiusMetresFrom("30", 120));
+            Assert.Equal(80, InterestPolicy.InitialRadiusMetresFrom("500", 80));
+            Assert.Equal(45, InterestPolicy.InitialRadiusMetresFrom("nonsense", 120));
+        }
+
         // ------------------------------------------------------------------
         // In-range - fail open when disabled
         // ------------------------------------------------------------------

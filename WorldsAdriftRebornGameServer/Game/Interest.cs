@@ -37,6 +37,16 @@ namespace WorldsAdriftRebornGameServer.Game
         public static double RadiusMetres { get; } =
             InterestPolicy.RadiusMetresFrom(Environment.GetEnvironmentVariable(InterestPolicy.RadiusEnvVar));
 
+        /// <summary>
+        /// Smaller resource bubble instantiated during connect. Everything between
+        /// this and <see cref="RadiusMetres"/> arrives through the paced continuous
+        /// service after activation instead of bursting behind the loading screen.
+        /// </summary>
+        public static double InitialRadiusMetres { get; } =
+            InterestPolicy.InitialRadiusMetresFrom(
+                Environment.GetEnvironmentVariable(InterestPolicy.InitialRadiusEnvVar),
+                RadiusMetres);
+
         /// <summary>Whether spatial interest is armed (a positive radius was configured).</summary>
         public static bool Enabled => InterestPolicy.IsEnabled(RadiusMetres);
 
