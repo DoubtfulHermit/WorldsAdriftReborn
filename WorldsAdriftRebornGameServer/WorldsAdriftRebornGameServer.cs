@@ -627,6 +627,15 @@ namespace WorldsAdriftRebornGameServer
         internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId,
             Improbable.Math.Coordinates shotCoordinate)
         {
+            // A mounted ship part is dismantled only while its hull is genuinely docked
+            // in the shooter's own shipyard. The service consumes the target even for a
+            // rejected part shot, so a ship component can never fall through into the
+            // natural-resource harvest paths below.
+            if (Game.Crafting.MountedPartSalvageService.HandleShot(harvesterEntityId, nodeEntityId))
+            {
+                return;
+            }
+
             // A FUEL CANISTER is salvaged with the SAME gauntlet beam as metal and
             // wood, so its shots arrive here on the same 2106 path - it is simply a
             // different kind of target with its own per-shot yield curve. Checked
@@ -3368,7 +3377,8 @@ namespace WorldsAdriftRebornGameServer
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
 
             GameState.Instance.WorldState[0] = plan
-                .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step)))
+                .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step), () =>
+                    step.Entity != null && WorldEntities.ByKey(step.Entity.Key) == null))
                 .ToList();
 
             // Human-readable step names, parallel to the WorldState list, so the
@@ -3605,6 +3615,23 @@ namespace WorldsAdriftRebornGameServer
                 {
                     int currentChunkIndex = 0;
                     PlayerSyncStatus pStatus = keyValuePair.Value[currentChunkIndex];
+
+                    // A runtime lifecycle operation (currently ship-frame salvage) can
+                    // retire registrations captured by this boot's immutable plan. Skip
+                    // those request/add pairs without waiting for impossible acks; if the
+                    // retired entity occupied the final slot, park normally at completion.
+                    int planLastStep = GameState.Instance.WorldState[currentChunkIndex].Count - 1;
+                    while (pStatus.SyncStepPointer < planLastStep
+                           && GameState.Instance.WorldState[currentChunkIndex][pStatus.SyncStepPointer].IsObsolete())
+                    {
+                        pStatus.SyncStepPointer++;
+                    }
+                    if (pStatus.SyncStepPointer == planLastStep
+                        && GameState.Instance.WorldState[currentChunkIndex][planLastStep].IsObsolete())
+                    {
+                        pStatus.Performed = true;
+                        pStatus.PerformedAtElapsed = ServerClock.Elapsed;
+                    }
 
                     // CONNECT-TIME SPATIAL INTEREST. Before performing this peer's next
                     // step, fast-forward its pointer past every gateable AfterPlayer

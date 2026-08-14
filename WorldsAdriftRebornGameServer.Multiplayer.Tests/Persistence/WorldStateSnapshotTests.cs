@@ -82,6 +82,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
                 HullY = hull.Y,
                 HullZ = hull.Z,
                 HullBytes = bytes,
+                Salvaged = true,
             });
 
             string path = Path.Combine(_dir, "world.json");
@@ -91,6 +92,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             BuiltShipRecord r = Assert.Single(read.BuiltShips);
             Assert.Equal(hull, r.HullPosition());
             Assert.Equal(bytes, r.HullBytes);
+            Assert.True(r.Salvaged);
         }
 
         [Fact]
@@ -112,6 +114,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Null(record.ShipyardPosition());
             Assert.Equal(1, record.HullX);
             Assert.Equal(new byte[] { 4, 2 }, record.HullBytes);
+        }
+
+        [Fact]
+        public void Flight_pose_and_a_new_shipyard_dock_round_trip_on_the_same_record()
+        {
+            var record = new BuiltShipRecord { HullBytes = new byte[] { 1 } };
+            FixedPointPosition flown = FixedPointPosition.FromMetres(25, 80, -140);
+            FixedPointPosition yard = FixedPointPosition.FromMetres(30, 74, -140);
+
+            record.UpdatePose(flown, 1.25);
+            record.DockTo(yard);
+
+            Assert.Equal(flown, record.HullPosition());
+            Assert.Equal(1.25, record.HullYawRadians);
+            Assert.Equal(yard, record.ShipyardPosition());
         }
 
         [Fact]
@@ -169,11 +186,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
             Assert.Equal(new uint[] { 1108u, 1236u }, r.PartSpecificComponents);
 
-            // The rebuilt definition is byte-identical to what the spawner would re-craft:
-            // same prefab/attach/itemType AND the same all-or-nothing seed set (base + specific).
+            // The prefab/item state remains exact, while the obsolete generic surface is
+            // migrated to the usable deck so old saves do not retain frame-only placement.
             WorldsAdriftRebornGameServer.Multiplayer.Ship.LoosePartDefinition def = r.Definition();
             Assert.Equal("Lamp01", def.PrefabName);
-            Assert.Equal("shipSurfaces", def.AttachmentType);
+            Assert.Equal("deck", def.AttachmentType);
             Assert.Equal("lamp", def.ItemType);
             Assert.Equal(new uint[] { 1108u, 1236u }, def.PartSpecificComponents);
         }
@@ -212,6 +229,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal(55555u, r.PackedRotation);
             Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
             Assert.Equal("Lamp01", r.Definition().PrefabName);
+            Assert.Equal("deck", r.Definition().AttachmentType);
         }
 
         [Fact]

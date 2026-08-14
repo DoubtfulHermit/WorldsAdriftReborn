@@ -386,7 +386,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       var tr=document.createElement('tr');
       cell(tr,fmtWhen(c.atUnixMs),'muted');cell(tr,c.action);cell(tr,c.targetEntityId||'—','num');cell(tr,c.detail||'—');
       var td=cell(tr,c.message||'',c.accepted?'':'muted');
-      var pill=document.createElement('span');pill.className='pill '+(c.accepted?'ok':'bad');pill.textContent=c.accepted?'queued':'rejected';
+      var pill=document.createElement('span');pill.className='pill '+(c.accepted?'ok':'bad');pill.textContent=c.accepted?'accepted':'rejected';
       td.insertBefore(pill,td.firstChild);td.insertBefore(document.createTextNode(' '),pill.nextSibling);log.appendChild(tr);
     });
 

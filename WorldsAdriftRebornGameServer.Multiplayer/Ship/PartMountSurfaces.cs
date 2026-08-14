@@ -51,6 +51,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     public static class PartMountSurfaces
     {
         /// <summary>
+        /// Converts legacy generic-surface metadata into a surface the reconstructed
+        /// built ship actually exposes. Retail's <c>shipSurfaces</c> path raycasts the
+        /// Environment layer; our generated hull/deck presents its usable placement
+        /// area as <c>ShipAttachmentSolid</c>. Keeping the legacy value therefore makes
+        /// decorations land only on incidental frame colliders. Normalize it to the
+        /// deck for both newly crafted definitions and persisted pre-fix records.
+        /// Specialized side, grid, engine, wing, and core-module attachments retain
+        /// their authored placement mechanics.
+        /// </summary>
+        public static string NormalizeForBuiltShip(string? attachmentType)
+        {
+            return attachmentType == "shipSurfaces" ? "deck" : attachmentType ?? "none";
+        }
+
+        /// <summary>
         /// The surface a part with this <c>1120 attachmentType</c> mounts on, mirroring
         /// <c>BuilderVisualizer.GetAttachmentType</c> + <c>ShipPartPlacement
         /// .DeterminePlacementType</c>. An unrecognised string is

@@ -1,5 +1,6 @@
 using System;
 using HarmonyLib;
+using Assets.Scripts.Visualisers.Ship;
 using Assets.Visualizers;
 using Bossa.Travellers.Interact;
 using UnityEngine;
@@ -7,8 +8,8 @@ using UnityEngine;
 namespace WorldsAdriftReborn.Patching.Flight
 {
     /// <summary>
-    /// Makes grabbing the helm AND operating a mounted sail actually fast: both
-    /// immediate ship controls complete their E hold in at most 0.15 s.
+    /// Makes every ship-part interaction fast. Helm, sail, lamp, horn, and any
+    /// subsequently enabled ship-part verb complete their E hold in at most 0.15 s.
     ///
     /// THE REAL TIMING PATH (traced in the decompile; the previous fix's
     /// premise was WRONG). The E-hold duration is fed to
@@ -42,9 +43,8 @@ namespace WorldsAdriftReborn.Patching.Flight
     ///      observer added 10 on top, which is exactly a "still long" hold.
     ///
     /// THE FIX therefore clamps at BOTH seams:
-    ///   - GetInteractTime postfix: clamps Man, plus Activate only when the
-    ///     visualizer actually belongs to a SailVisualizer (lamps, horns and
-    ///     unrelated switches stay untouched), and stamps the frame.
+    ///   - GetInteractTime postfix: recognizes the shared ShipPartVisualizer rather
+    ///     than maintaining a fragile verb/prefab allow-list, then stamps the frame.
     ///   - StartInteraction prefix: on the SAME frame (same call stack - :397 to
     ///     :400 is synchronous), clamps the FINAL time. This is the last write
     ///     before the timer runs, so nothing upstream - the +10 penalty included -
@@ -57,7 +57,7 @@ namespace WorldsAdriftReborn.Patching.Flight
     /// </summary>
     internal static class ShipControlHoldState
     {
-        /// <summary>Frame stamp of the last eligible helm/sail GetInteractTime.</summary>
+        /// <summary>Frame stamp of the last eligible ship-part GetInteractTime.</summary>
         internal static int LastResolveFrame = -1;
 
         /// <summary>What GetInteractTime returned that frame (post-clamp), for the penalty diagnosis log.</summary>
@@ -91,7 +91,7 @@ namespace WorldsAdriftReborn.Patching.Flight
             if (!_armedLogged)
             {
                 _armedLogged = true;
-                Debug.Log("[WAR][ship-control] helm/sail hold clamp ARMED: "
+                Debug.Log("[WAR][ship-control] all ship-part hold clamp ARMED: "
                     + "InteractiveObjectVisualizer.GetInteractTime postfix.");
             }
             return true;
@@ -106,17 +106,16 @@ namespace WorldsAdriftReborn.Patching.Flight
                     return;
                 }
 
-                InteractVerb verb = __instance.GetVerb(collider);
-                bool isHelm = verb == InteractVerb.Man;
-                bool isSail = verb == InteractVerb.Activate
-                    && __instance.GetComponent<SailVisualizer>() != null;
-                if (!isHelm && !isSail)
+                ShipPartVisualizer shipPart = __instance.GetComponent<ShipPartVisualizer>()
+                    ?? __instance.GetComponentInParent<ShipPartVisualizer>();
+                if (shipPart == null)
                 {
                     return;
                 }
 
+                InteractVerb verb = __instance.GetVerb(collider);
                 ShipControlHoldState.LastResolveFrame = Time.frameCount;
-                ShipControlHoldState.LastControl = isHelm ? "helm Man" : "sail Activate";
+                ShipControlHoldState.LastControl = "ship part " + verb;
                 float clamped = WorldsAdriftRebornGameServer.Multiplayer.Ship.ShipInteractionHoldPolicy
                     .Clamp(true, __result);
                 if (clamped != __result)
@@ -146,7 +145,7 @@ namespace WorldsAdriftReborn.Patching.Flight
             if (!_armedLogged)
             {
                 _armedLogged = true;
-                Debug.Log("[WAR][ship-control] helm/sail hold clamp ARMED: "
+                Debug.Log("[WAR][ship-control] all ship-part hold clamp ARMED: "
                     + "TimedInteractionController.StartInteraction prefix.");
             }
             return true;
@@ -156,7 +155,7 @@ namespace WorldsAdriftReborn.Patching.Flight
         {
             try
             {
-                // Only the StartInteraction issued by the SAME frame's helm/sail resolve
+                // Only the StartInteraction issued by the SAME frame's ship-part resolve
                 // (InteractAgentObserver.CheckInteraction is synchronous between the
                 // two calls). Food/crafting/placement holds never see a clamp.
                 if (ShipControlHoldState.LastResolveFrame != Time.frameCount)

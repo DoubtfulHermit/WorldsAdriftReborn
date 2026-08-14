@@ -3,6 +3,7 @@ using Bossa.Travellers.Motion;
 using Bossa.Travellers.Player;
 using Bossa.Travellers.Ship;
 using Bossa.Travellers.Interact;
+using Bossa.Travellers.Salvaging;
 using Improbable;
 using Improbable.Collections;
 using Improbable.Math;
@@ -190,28 +191,38 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetIsRoot(false);
             ShipPublisher.Broadcast(partEntityId, 8066u, rootClear);
 
-            // 190602: global, parent cleared, at the part's last world pose (hull position +
-            // the stored hull-local offset; a static hull's rotation is identity). Fresh
+            // 190602: global, parent cleared, at the part's last world pose. Fresh
             // monotonic stamp from the shared mount clock so it fires PropertyUpdated.
-            FixedPointPosition globalPos = priorMount.LocalOffset;
+            FixedPointPosition hullWorldPos = default;
+            uint hullWorldRotation = Multiplayer.Placement.Quaternion32Packing.Identity;
             var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(hullEntityId)?.Position;
             // A FLOWN hull's real pose lives in its flight session, not the registry
             // (which still says "spawn") - detaching a part from a ship parked away
             // from spawn must drop it where the ship IS, not where it was built.
-            if (WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(hullEntityId, out FixedPointPosition detachHullPos, out _))
+            if (WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(hullEntityId,
+                    out FixedPointPosition detachHullPos, out uint detachHullRotation))
             {
                 hullPos = detachHullPos;
+                hullWorldRotation = detachHullRotation;
             }
+            else
+            {
+                hullWorldRotation = WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId);
+            }
+            FixedPointPosition globalPos = priorMount.LocalOffset;
+            uint globalRotation = priorMount.PackedRotation;
             if (hullPos.HasValue)
             {
-                globalPos = new FixedPointPosition(
-                    hullPos.Value.X + priorMount.LocalOffset.X,
-                    hullPos.Value.Y + priorMount.LocalOffset.Y,
-                    hullPos.Value.Z + priorMount.LocalOffset.Z);
+                hullWorldPos = hullPos.Value;
+                (globalPos, globalRotation) = ShipSalvagePolicy.DropPose(
+                    hullWorldPos, hullWorldRotation, priorMount.LocalOffset, priorMount.PackedRotation);
             }
+            // A reconnect in this same boot must seed the detached world pose, not the
+            // part's old craft/hull parking position.
+            WorldsAdriftRebornGameServer.WorldEntities.Relocate(partEntityId, globalPos, globalRotation);
             float stamp = ShipPartMotionPolicy.StampFor(NextTimelineSample(), ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var looseTransform = ShipPartTransform.BuildParentlessWakeUpdate(
-                globalPos, new Improbable.Corelibrary.Math.Quaternion32(priorMount.PackedRotation), stamp);
+                globalPos, new Improbable.Corelibrary.Math.Quaternion32(globalRotation), stamp);
             ShipPublisher.Broadcast(partEntityId, 190602u, looseTransform);
 
             // 1120: attached=false, attachment target cleared. The load-bearing flip back to
@@ -225,6 +236,12 @@ namespace WorldsAdriftRebornGameServer.Game
                     new Improbable.Corelib.Math.Quaternion(1, 0, 0, 0)))
                 .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
             ShipPublisher.Broadcast(partEntityId, 1120u, partClear);
+
+            // 1099 client raycast capability remains enabled while loose: a frame salvage
+            // drops its attachments into the yard and those loose parts must still emit
+            // 2106 hits. The server enforces the owned-yard radius.
+            ShipPublisher.Broadcast(partEntityId, 1099u,
+                new SalvageAndRepairState.Update().SetIsSalvageable(true));
 
             // Helm/sail/lamp/horn keep their prefab-baked interaction entry from
             // initial checkout, but it is usable only while mounted. The client caches
@@ -376,6 +393,13 @@ namespace WorldsAdriftRebornGameServer.Game
                 def?.ItemType ?? "",
                 packedShipLocalRotation,
                 ownerCharacterUid));
+
+            // 1099 client raycast gate. The old seed hardcoded false, which meant
+            // PlayerMultitool.TryDeploySalvager never emitted a ShotEvent for any ship
+            // component and the shipyard-only server policy was unreachable. This is
+            // only the client capability; exact position + owner checks remain server-side.
+            ShipPublisher.Broadcast(partEntityId, 1099u,
+                new SalvageAndRepairState.Update().SetIsSalvageable(true));
 
             // INTERACTABLE-PART LEDGERS: a mounted sail/lamp/horn becomes operable
             // (1211 Activate via PartInteractionService). Fresh-mount defaults are the

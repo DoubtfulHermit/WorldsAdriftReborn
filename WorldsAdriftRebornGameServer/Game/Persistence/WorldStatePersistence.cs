@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using WorldsAdriftRebornGameServer.Game.Crafting;
 using WorldsAdriftRebornGameServer.Game.Placement;
@@ -158,7 +159,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
-        /// Makes a built ship's departure from its original shipyard restart-durable.
+        /// Makes a built ship's departure from its current shipyard restart-durable.
         /// The ship stays at the same persistent index because mounted-part records use
         /// that index; only the obsolete build-time dock link is cleared.
         /// </summary>
@@ -179,6 +180,31 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             }
 
             record.ClearShipyardDock();
+            Save();
+        }
+
+        /// <summary>Persists the flight session's authoritative pose at a stable ship index.</summary>
+        internal static void UpdateBuiltShipPose(int persistentIndex,
+            FixedPointPosition position, double yawRadians)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
+            BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            if (record.HullPosition() == position
+                && System.Math.Abs(record.HullYawRadians - yawRadians) < 0.000001) return;
+            record.UpdatePose(position, yawRadians);
+            Save();
+        }
+
+        /// <summary>Atomically persists a captured pose and its empty-yard dock link.</summary>
+        internal static void DockBuiltShip(int persistentIndex, FixedPointPosition hullPosition,
+            double yawRadians, FixedPointPosition shipyardPosition)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
+            BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            record.UpdatePose(hullPosition, yawRadians);
+            record.DockTo(shipyardPosition);
             Save();
         }
 
@@ -203,18 +229,25 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// MOUNTED (it is re-expressed as a <see cref="MountedPartRecord"/>) so the same part
         /// is never both loose and mounted in the save. A no-op when no such record exists.
         /// </summary>
-        internal static void RemoveLoosePart(string partUid)
+        internal static bool RemoveLoosePart(string partUid)
         {
             if (string.IsNullOrEmpty(partUid))
             {
-                return;
+                return true;
             }
 
             WorldStateSnapshot snapshot = Snapshot();
-            if (snapshot.LooseParts.RemoveAll(r => r.PartUid == partUid) > 0)
+            LoosePartRecord? removed = snapshot.LooseParts.Find(r => r.PartUid == partUid);
+            if (removed != null)
             {
-                Save();
+                snapshot.LooseParts.Remove(removed);
+                if (!Save())
+                {
+                    snapshot.LooseParts.Add(removed);
+                    return false;
+                }
             }
+            return true;
         }
 
         /// <summary>
@@ -283,18 +316,69 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// LIFTED OFF a ship and becomes loose again (re-expressed as a
         /// <see cref="LoosePartRecord"/>). A no-op when no such record exists.
         /// </summary>
-        internal static void RemoveMountedPart(string partUid)
+        internal static bool RemoveMountedPart(string partUid)
         {
             if (string.IsNullOrEmpty(partUid))
             {
-                return;
+                return true;
             }
 
             WorldStateSnapshot snapshot = Snapshot();
-            if (snapshot.MountedParts.RemoveAll(r => r.PartUid == partUid) > 0)
+            MountedPartRecord? removed = snapshot.MountedParts.Find(r => r.PartUid == partUid);
+            if (removed != null)
             {
-                Save();
+                snapshot.MountedParts.Remove(removed);
+                if (!Save())
+                {
+                    // Keep the in-memory snapshot consistent with the unchanged file.
+                    // A later successful save must never accidentally make a failed
+                    // dismantle durable.
+                    snapshot.MountedParts.Add(removed);
+                    return false;
+                }
             }
+            return true;
+        }
+
+        /// <summary>
+        /// Commits the durable half of frame salvage in one atomic JSON write: retain a
+        /// stable-index ship tombstone, remove every mount on it, and upsert those same
+        /// parts as loose. A crash can therefore never restore both the hull and its drops,
+        /// or lose the parts between several independent saves.
+        /// </summary>
+        internal static bool SalvageBuiltShip(int persistentIndex, IReadOnlyList<LoosePartRecord> droppedParts)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count
+                || snapshot.BuiltShips[persistentIndex].Salvaged)
+            {
+                return false;
+            }
+
+            BuiltShipRecord ship = snapshot.BuiltShips[persistentIndex];
+            FixedPointPosition? oldDock = ship.ShipyardPosition();
+            var oldMounted = new List<MountedPartRecord>(snapshot.MountedParts);
+            var oldLoose = new List<LoosePartRecord>(snapshot.LooseParts);
+            ship.Salvaged = true;
+            ship.ClearShipyardDock();
+            snapshot.MountedParts.RemoveAll(r => r.BuiltShipIndex == persistentIndex);
+            foreach (LoosePartRecord part in droppedParts)
+            {
+                if (!string.IsNullOrEmpty(part.PartUid))
+                {
+                    snapshot.LooseParts.RemoveAll(r => r.PartUid == part.PartUid);
+                }
+                snapshot.LooseParts.Add(part);
+            }
+            if (!Save())
+            {
+                ship.Salvaged = false;
+                if (oldDock.HasValue) ship.DockTo(oldDock.Value);
+                snapshot.MountedParts = oldMounted;
+                snapshot.LooseParts = oldLoose;
+                return false;
+            }
+            return true;
         }
 
         /// <summary>
@@ -337,6 +421,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             long?[] hullByIndex = new long?[snapshot.BuiltShips.Count];
             for (int i = 0; i < snapshot.BuiltShips.Count; i++)
             {
+                if (snapshot.BuiltShips[i].Salvaged)
+                {
+                    Console.WriteLine("[info] world persistence: built-ship index " + i
+                        + " is a salvaged tombstone; skipping its restore.");
+                    continue;
+                }
                 long? hullEntityId = BuiltShipSpawner.Restore(snapshot.BuiltShips[i]);
                 hullByIndex[i] = hullEntityId;
                 if (hullEntityId.HasValue)
@@ -396,6 +486,34 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
 
             // 4. LOOSE PARTS - crafted-but-unmounted parts, re-spawned at their world-
             //    absolute spawn spot. Last, so the plan serves ship structure first.
+            //
+            // Older builds materialised every output at one fixed point. Preserve the
+            // paid-for records but fan exact coordinate collisions into deterministic
+            // neighbouring slots before registration. Save the migrated coordinates so
+            // this is one-time repair, not motion on every reboot.
+            var occupiedLoosePositions = new List<FixedPointPosition>();
+            int separatedLooseParts = 0;
+            foreach (LoosePartRecord record in snapshot.LooseParts)
+            {
+                FixedPointPosition original = record.Position();
+                FixedPointPosition separated = Multiplayer.Ship.LoosePartPlacement.FirstAvailableFrom(
+                    original, occupiedLoosePositions);
+                if (!separated.Equals(original))
+                {
+                    record.X = separated.X;
+                    record.Y = separated.Y;
+                    record.Z = separated.Z;
+                    separatedLooseParts++;
+                }
+                occupiedLoosePositions.Add(separated);
+            }
+            if (separatedLooseParts > 0)
+            {
+                Save();
+                Console.WriteLine("[info] world persistence: separated " + separatedLooseParts
+                    + " coincident loose crafted output(s); no records or materials were discarded.");
+            }
+
             int looseParts = 0;
             foreach (LoosePartRecord record in snapshot.LooseParts)
             {
@@ -413,9 +531,9 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 + " (they will be served to every joining client via the spawn plan).");
         }
 
-        private static void Save()
+        private static bool Save()
         {
-            AtomicJsonFile.Write(FilePath, Snapshot());
+            return AtomicJsonFile.Write(FilePath, Snapshot());
         }
     }
 }

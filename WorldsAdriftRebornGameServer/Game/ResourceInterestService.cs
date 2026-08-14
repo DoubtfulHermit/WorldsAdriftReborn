@@ -23,6 +23,10 @@ namespace WorldsAdriftRebornGameServer.Game
             public TimeSpan NextReconcile;
             public TimeSpan NextSend;
             public long AssetRequestedFor;
+            // Kept false until RemoveEntity delivery is proven against the
+            // released native client shim. Nearby resources load normally, but
+            // visited ones remain checked out instead of risking inert re-adds.
+            public bool RemoveSupported;
         }
 
         private readonly IClock _clock;
@@ -109,7 +113,8 @@ namespace WorldsAdriftRebornGameServer.Game
                         state.Pending,
                         ResourceInterestPolicy.Reconcile(
                             state.Center, _resources.Select(x => (x.Key, x.Value.Position)), state.Loaded,
-                            Interest.RadiusMetres, UnloadRadiusMetres),
+                            Interest.RadiusMetres,
+                            state.RemoveSupported ? UnloadRadiusMetres : double.PositiveInfinity),
                         MaxQueuedPerPeer);
                     // Carry an in-flight asset only when it is still the new queue's
                     // head. Otherwise its eventual callback is harmless and no stale
@@ -134,6 +139,17 @@ namespace WorldsAdriftRebornGameServer.Game
                         Console.WriteLine("[resource-interest] removed '"
                             + _resources[action.EntityId].Key + "' (" + action.EntityId
                             + ") from " + peer.DangerousGetHandle() + ".");
+                    }
+                    else if (state.Loaded.Contains(action.EntityId))
+                    {
+                        // Older clients negotiated only channels 0..4, so channel 5
+                        // RemoveEntity is unavailable. Retain the checkout and its
+                        // component references; otherwise a later re-add would create
+                        // a visible but inert resource ghost for that peer.
+                        state.RemoveSupported = false;
+                        Console.WriteLine("[resource-interest] peer "
+                            + peer.DangerousGetHandle() + " cannot receive RemoveEntity;"
+                            + " retaining visited resources for compatibility.");
                     }
                     continue;
                 }

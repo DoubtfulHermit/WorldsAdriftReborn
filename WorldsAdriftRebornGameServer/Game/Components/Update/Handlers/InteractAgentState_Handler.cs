@@ -259,6 +259,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                                 + " the placement RESTORE lines for this boot.");
                         }
                     }
+                    else if (interact.verb == InteractVerb.ReclaimShip)
+                    {
+                        Multiplayer.Ship.ShipSalvageReject outcome =
+                            Game.Crafting.ShipSalvageService.Reclaim(
+                                entityId, interact.target.Id, ownsPlayer);
+                        Console.WriteLine("[salvage] ReclaimShip by entity " + entityId
+                            + " on shipyard " + interact.target.Id + " -> " + outcome + ".");
+                    }
                 }
             }
 

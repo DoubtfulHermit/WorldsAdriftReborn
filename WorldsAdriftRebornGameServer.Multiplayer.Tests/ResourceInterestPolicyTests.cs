@@ -48,6 +48,17 @@ public class ResourceInterestPolicyTests
     }
 
     [Fact]
+    public void Infinite_unload_radius_keeps_visited_resources_for_legacy_clients()
+    {
+        FixedPointPosition c = FixedPointPosition.FromMetres(0, 0, 0);
+        var resources = new[] { (1L, FixedPointPosition.FromMetres(10000, 0, 0)) };
+        var loaded = new HashSet<long> { 1 };
+
+        Assert.Empty(ResourceInterestPolicy.Reconcile(
+            c, resources, loaded, 50, double.PositiveInfinity));
+    }
+
+    [Fact]
     public void Reconcile_removes_far_loaded_then_adds_nearest_unloaded()
     {
         FixedPointPosition c = FixedPointPosition.FromMetres(0, 0, 0);

@@ -243,8 +243,8 @@ namespace WorldsAdriftServer.Handlers.Admin
             string targetText = command.TargetEntityId.HasValue
                 ? " for player entity " + command.TargetEntityId.Value
                 : string.Empty;
-            string message = "Queued " + command.Action + targetText
-                + ". The game server normally consumes it within half a second.";
+            string message = "Accepted " + command.Action + targetText
+                + " and handed it to the game server. This records dispatch, not gameplay completion.";
             AdminCommandEntry entry = AdminCommandJournal.Record(
                 DateTimeOffset.UtcNow, command.Action, command.TargetEntityId,
                 command.Detail, accepted: true, message);

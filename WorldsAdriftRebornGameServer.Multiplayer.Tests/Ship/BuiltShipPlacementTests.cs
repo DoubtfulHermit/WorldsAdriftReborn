@@ -129,6 +129,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             }
         }
 
+        [Fact]
+        public void Restored_heading_leaves_deck_seed_as_an_unrotated_parent_local_offset()
+        {
+            var panel = new DeckPanel(
+                new ShipVector3(2f, 0f, 0f),
+                new[] { new ShipVector3(0f, 0f, 0f) }, 0, 0);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(
+                7, Shipyard, new[] { panel }, System.Math.PI / 2.0);
+
+            // The hull carries the persisted world yaw. The deck is served as a real
+            // Unity child with identity local rotation, so its registration delta must
+            // remain the panel's raw hull-local offset. Unity rotates that child once.
+            // If this delta were pre-rotated here, parenting would rotate it twice and
+            // produce the live "boards shifted away from frame" regression.
+            Assert.NotEqual(global::WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity,
+                plan.Hull.PackedRotation);
+            Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity,
+                plan.Decks[0].PackedRotation);
+            Assert.InRange(plan.Decks[0].Position.MetresX - Shipyard.MetresX, 1.999, 2.001);
+            Assert.InRange(plan.Decks[0].Position.MetresZ - Shipyard.MetresZ, -0.001, 0.001);
+        }
+
         private static int AddEntityIndex(System.Collections.Generic.IReadOnlyList<SpawnPlanStep> steps, string key)
         {
             for (int i = 0; i < steps.Count; i++)

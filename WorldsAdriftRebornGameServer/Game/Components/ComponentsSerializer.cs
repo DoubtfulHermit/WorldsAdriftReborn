@@ -2036,6 +2036,65 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 WorldsAdriftRebornGameServer.HornChargeNow(entityId) ?? 0f);
                         }
                     }
+                    else if (componentId == 1246)
+                    {
+                        // ShipPartVariationsSeedState. Structural panel geometry derives
+                        // its stable art/material variation from this reader. Entity id is
+                        // stable for the entity lifetime and therefore gives every peer the
+                        // same appearance without storing another mutable field.
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new ShipPartVariationsSeedState.Data(unchecked((int)entityId));
+                        }
+                    }
+                    else if (componentId == 1118)
+                    {
+                        // ShipPanelState. A loose panel has not yet been bent against a
+                        // hull, so its collider target list is empty and bending is off.
+                        // ShipPanelVisualizer still uses the prefab's authored PanelsX/Y
+                        // to create the straight panel; after mounting, the normal panel
+                        // request path can supply a shaped target in a future physics pass.
+                        var panel = Game.Crafting.LooseParts.DefFor(entityId);
+                        if (panel != null && (panel.ItemType == "smallPanel"
+                            || panel.ItemType == "mediumPanel"
+                            || panel.ItemType == "largePanel"
+                            || panel.ItemType == "window"))
+                        {
+                            obj = new ShipPanelState.Data(
+                                0, 0,
+                                new Improbable.Collections.List<PanelCollider>(),
+                                0,
+                                false);
+                        }
+                    }
+                    else if (componentId == 12281)
+                    {
+                        // ModularShipPartState. ModularEngine/ModularWing are shells;
+                        // their visualizer calls ShipPartGenerator with this exact map.
+                        // Values are Resources prefab BASENAMES (GetModulePrefab adds
+                        // ModularShipComponents/<type>/<slot>/ itself). Every selected
+                        // name is present in the shipped client's resources.assets.
+                        string? itemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
+                        if (itemType == "proceduralEngineDefault")
+                        {
+                            obj = new ModularShipPartState.Data(new Map<string, string>
+                            {
+                                { "Body", "Engine_Body_001" },
+                                { "Head", "Engine_Head_001" },
+                                { "Prop", "Engine_Propeller_001" },
+                            });
+                        }
+                        else if (itemType == "proceduralWingDefault")
+                        {
+                            obj = new ModularShipPartState.Data(new Map<string, string>
+                            {
+                                { "Aileron", "Wing_Airleon_003" },
+                                { "Body", "Wing_Body_003" },
+                                { "Connector", "Wing_Connector_002" },
+                                { "Tip", "Wing_Tip_002" },
+                            });
+                        }
+                    }
                     else if (componentId == 8062)
                     {
                         // ShipOwnersDeprecatedState - one of ShipVisualizer's three
@@ -2355,11 +2414,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if (componentId == 1099)
                     {
-                        // A LOOSE crafted part served from the LooseParts ledger: its OWN
-                        // itemType, a NON-EMPTY material list of one REAL material, and NOT
-                        // salvageable (no loose-part salvage flow yet, so the multitool offers
-                        // nothing on it). LampVisualizer [Require]s 1099 (LampVisualizer.cs:19),
-                        // so this is on the essential seed path, not cosmetic.
+                        // A crafted part served from the LooseParts ledger: its OWN itemType
+                        // and a NON-EMPTY material list. A genuinely MOUNTED part is
+                        // salvageable so PlayerMultitool emits the 2106 ShotEvent that the
+                        // server's owned-shipyard-radius transaction validates. This is a
+                        // client CAPABILITY bit, not authorization: loose and mounted parts
+                        // both need to name hits, while the server rejects anything outside
+                        // the owner's yard. LampVisualizer [Require]s
+                        // 1099, so this is on the essential seed path, not cosmetic.
                         //
                         // WHY NON-EMPTY (the helm-freeze fix). The lamp guards its
                         // OriginalMaterials read, so an EMPTY list was fine for it. But most
@@ -2410,7 +2472,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     loosePart1099.ItemType,
                                     0f, 0f, 0f, 1f,
                                     false,          // isRepairable
-                                    false,          // isSalvageable (no loose-part salvage flow)
+                                    true,           // report part hits; server enforces owned shipyard radius
                                     "",
                                     looseMaterials,
                                     false, 0f, new Option<float> { }));

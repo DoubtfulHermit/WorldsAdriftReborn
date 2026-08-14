@@ -167,8 +167,13 @@ struct stripped_AddEntityOp {
 };
 
 struct RemoveEntityOp {
-    long EntityId;
+    // WorkerSdkCsharp's interop struct is an Int64. Windows uses LLP64, where
+    // C++ long is only 32 bits; declaring this as long made the managed thunk
+    // read four bytes of heap padding as the high half of the entity id.
+    std::int64_t EntityId;
 };
+static_assert(sizeof(RemoveEntityOp) == sizeof(std::int64_t),
+    "RemoveEntityOp ABI must match WorkerSdkCsharp's single Int64 field");
 
 struct ReserveEntityIdResponseOp {
     unsigned int RequestId;

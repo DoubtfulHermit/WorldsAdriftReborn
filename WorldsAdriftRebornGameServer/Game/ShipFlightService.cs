@@ -1,10 +1,14 @@
 using Bossa.Travellers.Controls;
 using Bossa.Travellers.Ship;
 using Improbable;
+using Improbable.Corelibrary.Math;
+using Improbable.Math;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
+using WorldsAdriftRebornGameServer.Networking.Singleton;
+using WorldsAdriftRebornGameServer.Game.Persistence;
 
 namespace WorldsAdriftRebornGameServer.Game
 {
@@ -103,6 +107,10 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>When each hull's mounted parts were last woken (the 0.5 s sub-cadence).</summary>
         private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
+
+        private static readonly TimeSpan PoseSaveInterval = TimeSpan.FromSeconds(2);
+        private readonly Dictionary<long, TimeSpan> _nextPoseSaveAt = new Dictionary<long, TimeSpan>();
+        private readonly Dictionary<long, long> _departingYardByHull = new Dictionary<long, long>();
 
         /// <summary>
         /// The wake sub-cadence, slightly under the policy's 0.5 s heartbeat so
@@ -274,12 +282,19 @@ namespace WorldsAdriftRebornGameServer.Game
             if (seat != null && _sessions.TryGetValue(seat.Value.HullEntityId, out FlightSession? session))
             {
                 session.SetInput(merged);
-                // A real control input is the first authoritative evidence that the
-                // newly-built ship has LEFT its construction dock. Zero/neutral packets
-                // while taking the wheel do not undock it; the first motion command does.
+                // A real control input begins departure. Zero/neutral packets while
+                // taking the wheel do nothing, and the dock remains occupied until the
+                // integrated hull actually clears the release volume.
                 if (!merged.IsNeutral)
                 {
-                    Crafting.BuiltShipSpawner.UndockDepartingHull(seat.Value.HullEntityId);
+                    long yard = Crafting.BuiltShips.ShipyardForHull(seat.Value.HullEntityId);
+                    if (yard != 0)
+                    {
+                        // Motion begins the departure, but the yard stays occupied
+                        // until the hull actually clears its wider release volume.
+                        // That is the real "shipyard must be empty" build gate.
+                        _departingYardByHull[seat.Value.HullEntityId] = yard;
+                    }
                 }
             }
         }
@@ -305,6 +320,25 @@ namespace WorldsAdriftRebornGameServer.Game
             return false;
         }
 
+        internal bool IsPiloted(long hullEntityId) => _seats.PilotOf(hullEntityId).HasValue;
+
+        /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
+        internal void RetireHull(long hullEntityId)
+        {
+            PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
+            if (seat.HasValue)
+            {
+                _seats.Release(seat.Value.PlayerEntityId);
+                _inputs.Remove(seat.Value.PlayerEntityId);
+            }
+            _sessions.Remove(hullEntityId);
+            _helmByHull.Remove(hullEntityId);
+            _lastEchoed.Remove(hullEntityId);
+            _lastWakeAt.Remove(hullEntityId);
+            _nextPoseSaveAt.Remove(hullEntityId);
+            _departingYardByHull.Remove(hullEntityId);
+        }
+
         // ------------------------------------------------------------------
         // The publisher heartbeat
         // ------------------------------------------------------------------
@@ -328,6 +362,8 @@ namespace WorldsAdriftRebornGameServer.Game
             long nowMs = ShipHull.NowMillisecondsSinceEpoch();
             foreach ((long hullEntityId, FlightSession session) in _sessions)
             {
+                TryCaptureAtEmptyShipyard(hullEntityId, session);
+
                 // HELM FEEDBACK first, motion second: the echo is a pure
                 // input-changed compare (usually a no-op) and runs even on
                 // no-emit ticks, so a wheel wiggle inside the deadzone still
@@ -337,6 +373,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 int unfurledSails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId);
                 FlightEmit emit = session.Advance(
                     nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails);
+                CompleteDepartureIfOutside(hullEntityId, session.State);
+                PersistPoseWhenDue(hullEntityId, session.State);
                 if (!emit.Emit)
                 {
                     continue;
@@ -395,7 +433,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 // registered seed pose. WorldEntity.Position is immutable, so from
                 // here on the SESSION is the authority on where this hull is.
                 FixedPointPosition seed = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(hullEntityId);
-                session = new FlightSession(FlightState.AtRestAt(seed.MetresX, seed.MetresY, seed.MetresZ));
+                uint seedRotation = WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId);
+                double seedYaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(seedRotation);
+                session = new FlightSession(FlightState.AtRestAt(
+                    seed.MetresX, seed.MetresY, seed.MetresZ, seedYaw));
                 _sessions[hullEntityId] = session;
             }
 
@@ -474,6 +515,7 @@ namespace WorldsAdriftRebornGameServer.Game
             if (_sessions.TryGetValue(hullEntityId, out FlightSession? session))
             {
                 session.Dismount();
+                PersistPoseNow(hullEntityId, session.State);
                 // Publish the released transient axes and retained physical lever
                 // immediately. Waiting for the next 0.24 s flight tick leaves a
                 // small window where a quick re-man reads the old full control
@@ -581,6 +623,99 @@ namespace WorldsAdriftRebornGameServer.Game
                     new Improbable.Corelibrary.Math.Quaternion32(mount.PackedRotation));
                 ShipPublisher.Broadcast(partEntityId, ShipPartMotionPolicy.TransformStateComponentId, wake);
             }
+        }
+
+        private void PersistPoseWhenDue(long hullEntityId, FlightState state)
+        {
+            if (_nextPoseSaveAt.TryGetValue(hullEntityId, out TimeSpan due) && _clock.Elapsed < due) return;
+            _nextPoseSaveAt[hullEntityId] = _clock.Elapsed + PoseSaveInterval;
+            PersistPoseNow(hullEntityId, state);
+        }
+
+        private static void PersistPoseNow(long hullEntityId, FlightState state)
+        {
+            int? index = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
+            if (!index.HasValue) return;
+            WorldStatePersistence.UpdateBuiltShipPose(index.Value,
+                FixedPointPosition.FromMetres(state.X, state.Y, state.Z), state.YawRadians);
+        }
+
+        /// <summary>
+        /// Captures a settled owned hull at an EMPTY shipyard. Departing docked hulls
+        /// remain linked until they clear the wider release radius, so they cannot
+        /// churn here. Restored legacy hulls physically sitting in a yard are eligible,
+        /// which repairs the live overlap case.
+        /// </summary>
+        private void TryCaptureAtEmptyShipyard(long hullEntityId, FlightSession session)
+        {
+            if (Crafting.BuiltShips.IsHullDocked(hullEntityId)) return;
+
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
+                session.State.X, session.State.Y, session.State.Z);
+            string hullOwner = Crafting.BuiltShips.OwnerFor(hullEntityId);
+            foreach (long yardEntityId in Placement.PlacedShipyards.EntityIds.OrderBy(id => id))
+            {
+                FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
+                    .TransformSeedFor(yardEntityId);
+                Placement.PlacedShipyards.Seed yard = Placement.PlacedShipyards.SeedFor(yardEntityId);
+                if (!Multiplayer.Ship.ShipyardDockingPolicy.CanDock(
+                        captureArmed: true,
+                        hullAtRest: session.State.IsAtRest,
+                        inputNeutral: session.Input.IsNeutral,
+                        yardOccupied: Crafting.BuiltShips.IsShipyardOccupied(yardEntityId),
+                        hullOwner: hullOwner,
+                        yardOwner: yard.OwnerCharacterUid,
+                        hullPosition: hullPosition,
+                        shipyardPosition: yardPosition))
+                {
+                    continue;
+                }
+
+                FixedPointPosition target = Multiplayer.Ship.ShipyardDockingPolicy.DockPose(yardPosition);
+                double yaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(
+                    WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(yardEntityId));
+                session.DockAt(target.MetresX, target.MetresY, target.MetresZ, yaw);
+                Crafting.BuiltShips.SetDocked(yardEntityId, hullEntityId);
+
+                int? persistentIndex = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
+                if (persistentIndex.HasValue)
+                {
+                    WorldStatePersistence.DockBuiltShip(
+                        persistentIndex.Value, target, yaw, yardPosition);
+                }
+
+                PilotSeats.Seat? pilot = _seats.PilotOf(hullEntityId);
+                if (pilot.HasValue) _inputs[pilot.Value.PlayerEntityId] = FlightControlInput.Neutral;
+
+                var hullUpdate = new DockableState.Update()
+                    .SetDockEntityId(new EntityId(yardEntityId))
+                    .SetDockLocation(new Coordinates(target.MetresX, target.MetresY, target.MetresZ))
+                    .SetDocked(true)
+                    .SetApproachingDock(false);
+                foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+                {
+                    Crafting.BuiltShipSpawner.PushDockedShipId(peer, yardEntityId, hullEntityId);
+                    SendOPHelper.SendComponentUpdateOp(peer, hullEntityId,
+                        new List<uint> { 1114 }, new List<object> { hullUpdate });
+                }
+
+                Console.WriteLine("[flight] hull " + hullEntityId + " captured by empty shipyard "
+                    + yardEntityId + "; editing restored and dock link persisted.");
+                return;
+            }
+        }
+
+        private void CompleteDepartureIfOutside(long hullEntityId, FlightState state)
+        {
+            if (!_departingYardByHull.TryGetValue(hullEntityId, out long yardEntityId)) return;
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(state.X, state.Y, state.Z);
+            FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
+                .TransformSeedFor(yardEntityId);
+            if (Multiplayer.Ship.ShipyardDockingPolicy.IsWithin(hullPosition,
+                    yardPosition, Multiplayer.Ship.ShipyardDockingPolicy.RearmRadiusMetres)) return;
+
+            _departingYardByHull.Remove(hullEntityId);
+            Crafting.BuiltShipSpawner.UndockDepartingHull(hullEntityId);
         }
     }
 }
