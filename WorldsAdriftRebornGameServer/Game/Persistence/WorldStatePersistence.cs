@@ -309,18 +309,28 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// LIFTED OFF a ship and becomes loose again (re-expressed as a
         /// <see cref="LoosePartRecord"/>). A no-op when no such record exists.
         /// </summary>
-        internal static void RemoveMountedPart(string partUid)
+        internal static bool RemoveMountedPart(string partUid)
         {
             if (string.IsNullOrEmpty(partUid))
             {
-                return;
+                return true;
             }
 
             WorldStateSnapshot snapshot = Snapshot();
-            if (snapshot.MountedParts.RemoveAll(r => r.PartUid == partUid) > 0)
+            MountedPartRecord? removed = snapshot.MountedParts.Find(r => r.PartUid == partUid);
+            if (removed != null)
             {
-                Save();
+                snapshot.MountedParts.Remove(removed);
+                if (!Save())
+                {
+                    // Keep the in-memory snapshot consistent with the unchanged file.
+                    // A later successful save must never accidentally make a failed
+                    // dismantle durable.
+                    snapshot.MountedParts.Add(removed);
+                    return false;
+                }
             }
+            return true;
         }
 
         /// <summary>

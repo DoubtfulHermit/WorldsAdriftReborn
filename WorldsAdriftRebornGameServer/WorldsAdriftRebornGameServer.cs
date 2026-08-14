@@ -627,6 +627,15 @@ namespace WorldsAdriftRebornGameServer
         internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId,
             Improbable.Math.Coordinates shotCoordinate)
         {
+            // A mounted ship part is dismantled only while its hull is genuinely docked
+            // in the shooter's own shipyard. The service consumes the target even for a
+            // rejected part shot, so a ship component can never fall through into the
+            // natural-resource harvest paths below.
+            if (Game.Crafting.MountedPartSalvageService.HandleShot(harvesterEntityId, nodeEntityId))
+            {
+                return;
+            }
+
             // A FUEL CANISTER is salvaged with the SAME gauntlet beam as metal and
             // wood, so its shots arrive here on the same 2106 path - it is simply a
             // different kind of target with its own per-shot yield curve. Checked
