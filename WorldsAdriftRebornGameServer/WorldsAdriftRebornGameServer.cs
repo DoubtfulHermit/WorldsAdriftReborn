@@ -577,6 +577,7 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void PushTreeSectionMask(long treeEntityId, int newMask)
         {
+            int recipients = 0;
             foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
             {
                 if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
@@ -597,10 +598,15 @@ namespace WorldsAdriftRebornGameServer
                     maskOnly.ApplyTo(stored);
                 }
 
-                SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
-                    new List<uint> { TreeFSimStateComponentId },
-                    new List<object> { maskOnly });
+                if (SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
+                        new List<uint> { TreeFSimStateComponentId },
+                        new List<object> { maskOnly }))
+                {
+                    recipients++;
+                }
             }
+            Console.WriteLine("[tree-visual] pushed sectionMask=" + newMask + " for entity "
+                + treeEntityId + " to " + recipients + " checked-out peer(s).");
         }
 
         /// <summary>
@@ -2166,6 +2172,15 @@ namespace WorldsAdriftRebornGameServer
             new Multiplayer.FuelCanisterRegistry();
 
         /// <summary>
+        /// Authoritative activation for boot-registered resources. A resource is
+        /// harvestable because it exists in the world, not because a nearby peer
+        /// happened to execute its connect-time AddEntity callback.
+        /// </summary>
+        private static readonly Game.Gathering.WorldResourceActivation WorldResources =
+            new Game.Gathering.WorldResourceActivation(
+                WorldEntities, Harvest, Nodes, MetalHarvest, AtlasShards, FuelCanisters);
+
+        /// <summary>
         /// The furl state of every MOUNTED sail (registered on mount / boot restore,
         /// cleared on lift). Read by the 1303 serve branch so a re-checkout shows the
         /// rigging as set, toggled by <see cref="PartInteractions"/> on an Activate
@@ -2556,6 +2571,12 @@ namespace WorldsAdriftRebornGameServer
                     + entity.Key + "' (" + entityId + ").");
                 ResourceInterest.NoteLoaded(peer, entityId);
 
+                // Visibility and authority are deliberately independent. With
+                // spatial interest disabled this is the legacy first-activation
+                // seam; with it enabled startup has already activated every bound
+                // resource and this idempotent call is a no-op.
+                WorldResources.Activate(entity, entityId);
+
                 // A restored/served BUILT HULL that is docked to a shipyard: replay a LIVE 1205
                 // DockedShipId update to this peer now that the hull exists on its client
                 // (findings-mount-placement.md section 1). The shipyard's 1205 SEED already
@@ -2575,200 +2596,6 @@ namespace WorldsAdriftRebornGameServer
                         Console.WriteLine("[info] connect: replayed live 1205 DockedShipId=" + entityId
                             + " to a peer for shipyard " + dockedShipyardId
                             + " so OnDockedShipChanged fires and its deck becomes a placement surface.");
-                    }
-                }
-
-                // A tree becomes harvestable the moment it has an entity id, which
-                // is here and only here. Keyed on the ASSET so a second registration
-                // of the same prefab is planted too, and idempotent so the second
-                // player walking this same step does not stand the tree back up:
-                // every client walks the identical plan, but there is one tree.
-                // The SPECIES decides the wood, recovered per prefab from the shipped
-                // _unityworker exports (Multiplayer.TreeSpecies, 65/65 mapped). Retail
-                // gave each tree type its own wood with its own weight and strength,
-                // so the yield is looked up per tree rather than being one constant -
-                // `Tree` is birch, and a palm placed later pays palm without a code
-                // change. The TOPOLOGY is still `Tree`'s: only that prefab's TreeBase
-                // has been parsed, and cutting another skeleton with it would produce
-                // a mask the client disagrees with (see TreeSpecies remarks). That is
-                // why the world places `Tree` today.
-                string? treeWood = Multiplayer.TreeSpecies.WoodFor(entity.AssetName);
-                if (treeWood != null)
-                {
-                    // THE SKELETON MUST BE THE SPECIES' OWN. The mask is the
-                    // protocol: we compute which sections fall, the client renders
-                    // whatever it is handed. Cutting a palm with birch's arithmetic
-                    // is therefore not a loggable error, it is a tree that visibly
-                    // comes apart wrongly - and the skeletons really do differ
-                    // (section counts run 9..14 across the 65 prefabs). All 65 are
-                    // recovered in TreeTopologies; the `Tree` fallback survives only
-                    // so an unrecovered prefab degrades to today's behaviour instead
-                    // of refusing to spawn, and it says so out loud when it happens.
-                    Multiplayer.TreeTopology? ownTopology = Multiplayer.TreeTopologies.For(entity.AssetName);
-                    Multiplayer.TreeTopology topology = ownTopology ?? Multiplayer.Trees.Topology();
-
-                    if (Harvest.Plant(entityId, topology, treeWood))
-                    {
-                        Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
-                            + ": " + topology.SectionCount + " sections, mask "
-                            + Convert.ToString(topology.FullMask, 2)
-                            + ", " + treeWood
-                            + (ownTopology != null
-                                ? " (own skeleton)."
-                                : " (FALLBACK to Tree's skeleton - '" + entity.AssetName
-                                  + "' has no recovered topology, so it will come apart wrongly if its"
-                                  + " real skeleton differs)."));
-                    }
-                }
-
-                // A metal node becomes an entry in the harvest ledger the moment it
-                // has an entity id - the same seam as the tree above. Keyed on the
-                // registration key so its metal type and future depletion state ride
-                // with it, and idempotent (Register returns false on re-registration)
-                // so the second joiner walking this identical step does not stand a
-                // depleted node back up: every client walks the same plan, but there
-                // is one node.
-                if (entity.AssetName == Multiplayer.MetalNodes.AssetName)
-                {
-                    Multiplayer.MetalNode? metalNode = Multiplayer.MetalNodes.ByKey(entity.Key);
-                    if (metalNode != null && Nodes.Register(entityId, metalNode))
-                    {
-                        // Teach the yield table what this metal grants, exactly as
-                        // wood is pre-registered from Trees.WoodType. The metal type
-                        // string is the source key AND the itemTypeId (a real row in
-                        // itemData.json - iron, aluminium, copper... - so the client
-                        // can look it up); one item per unit, and MetalHarvest below
-                        // decides the unit count. Register is idempotent, so the many
-                        // "iron" nodes all resolving to the same rule is harmless.
-                        Game.Gathering.HarvestReward.Register(
-                            metalNode.MetalType,
-                            new Multiplayer.Gathering.YieldRule(metalNode.MetalType, amountPerUnit: 1));
-
-                        // And make it shootable: the same spawn seam as the ledger
-                        // above, idempotent for the same reason (one node, every
-                        // joiner walks this step).
-                        MetalHarvest.Place(entityId, Multiplayer.MetalNodes.NuggetYieldUnits);
-
-                        Console.WriteLine("[info] placed metal node '" + entity.Key + "' as entity "
-                            + entityId + ": " + metalNode.MetalType + " q" + metalNode.Quality
-                            + " at " + metalNode.Position + " (" + Multiplayer.MetalNodes.NuggetShotsToDeplete
-                            + " shots -> " + Multiplayer.MetalNodes.NuggetYieldUnits + " units).");
-                    }
-                }
-
-                // An anchored metal DEPOSIT becomes an entry in the SAME ledgers the
-                // moment it has an entity id - the identical seam as the nugget above,
-                // and it shares the NodeRegistry (which carries the crust shotPoints)
-                // and the MetalHarvest shot counter. What differs is the DEPLETION
-                // SIZING (ten shots, richer yield) and the fact that it is a DEPOSIT
-                // (MetalNode.IsDeposit true), which OnSalvageShot and ComponentsSerializer
-                // branch on to run the crust/core loop instead of the nugget sink.
-                // Idempotent (Register/Place return false on re-registration) so the
-                // second joiner walking this same step cannot refill a mined-out core.
-                if (entity.AssetName == Multiplayer.MetalDeposits.AssetName)
-                {
-                    Multiplayer.MetalNode? deposit = Multiplayer.MetalDeposits.ByKey(entity.Key);
-                    if (deposit != null && Nodes.Register(entityId, deposit))
-                    {
-                        Game.Gathering.HarvestReward.Register(
-                            deposit.MetalType,
-                            new Multiplayer.Gathering.YieldRule(deposit.MetalType, amountPerUnit: 1));
-
-                        MetalHarvest.Place(entityId,
-                            Multiplayer.MetalDeposits.YieldUnits,
-                            shotsToDeplete: Multiplayer.MetalDeposits.ShotsToDeplete);
-
-                        Console.WriteLine("[info] placed metal DEPOSIT '" + entity.Key + "' as entity "
-                            + entityId + ": " + deposit.MetalType + " q" + deposit.Quality
-                            + " variant '" + deposit.VariantId + "' at " + deposit.Position
-                            + " (" + Multiplayer.MetalDeposits.ShotsToDeplete + " shots -> "
-                            + Multiplayer.MetalDeposits.YieldUnits + " units).");
-                    }
-                }
-
-                // An ATLAS SHARD becomes an entry in the AtlasShards ledger the moment
-                // it has an entity id - the same spawn seam as the deposit above. It is
-                // registered AFTER its host deposit (WorldEntities.Default registers the
-                // deposit first), so the deposit's shared entity id is already allocated
-                // and BoundEntityIdFor resolves it without allocating. The shard's 1305
-                // rockCoreId and the deposit's 2103 attachedEntities are both wired from
-                // this stored host id at serialize time. Idempotent (Register returns
-                // false on re-registration) so a second joiner walking this identical
-                // step cannot re-lodge a shard someone already mined loose or collected.
-                if (entity.AssetName == Multiplayer.AtlasShardCatalogue.AssetName)
-                {
-                    // The host is recovered from the shard's KEY, which embeds it - NOT
-                    // from a table index. That is what lets a shard lodge in a deposit
-                    // the resource-spawn handshake placed ("handshake-deposit-<island>-N")
-                    // as readily as one from the static Haven table ("deposit-N"); the
-                    // old index-only mapping could name no host but the latter, so
-                    // handshake-spawned deposits silently carried no shards at all.
-                    string? hostKey = Multiplayer.AtlasShardCatalogue.HostKeyOf(entity.Key);
-                    long? hostDepositId = hostKey == null
-                        ? (long?)null
-                        : WorldEntities.BoundEntityIdFor(hostKey);
-
-                    if (hostDepositId == null)
-                    {
-                        Console.WriteLine("[warning] atlas shard '" + entity.Key + "' (entity " + entityId
-                            + ") has no bound host deposit; its 1305 rockCoreId would be invalid, so it is "
-                            + "not registered. Register its host '" + (hostKey ?? "?") + "' first.");
-                    }
-                    else if (AtlasShards.Register(entityId, hostDepositId.Value,
-                                 Multiplayer.AtlasShardCatalogue.DefaultSlotId))
-                    {
-                        Console.WriteLine("[info] placed ATLAS SHARD '" + entity.Key + "' as entity "
-                            + entityId + " lodged in deposit entity " + hostDepositId.Value
-                            + " (slot " + Multiplayer.AtlasShardCatalogue.DefaultSlotId + ") at "
-                            + entity.Position + "; grants '" + Multiplayer.AtlasShardCatalogue.ItemTypeId
-                            + "'" + (Multiplayer.AtlasShardCatalogue.IsItemIdPending
-                                ? " (PENDING refdata - see findings-atlas-shards.md §5)" : "") + ".");
-                    }
-                }
-
-                // A FUEL CANISTER becomes an entry in the FuelCanisters ledger the
-                // moment it has an entity id - the same spawn seam as the metal node
-                // above, and for the same reason: it is a salvage target, so it must be
-                // shootable from the instant it exists. Matched on the canister KEY
-                // prefix (its asset name "Egg" is generic), so only entities keyed
-                // fuel-pod-N register. Idempotent (Register returns false on
-                // re-registration) so a second joiner walking this identical step
-                // cannot refill a canister someone has already emptied.
-                if (Multiplayer.FuelPods.IsPodKey(entity.Key))
-                {
-                    if (FuelCanisters.Register(entityId))
-                    {
-                        // The yield rule the per-shot award resolves through, registered
-                        // from the same constant the canister is placed with so the two
-                        // cannot drift. amountPerUnit 1: the shot's fuel count IS the
-                        // unit count (8/8/9), so "Salvaged Fuel x8" matches the grant.
-                        Game.Gathering.HarvestReward.Register(
-                            Multiplayer.FuelPods.ItemTypeId,
-                            new Multiplayer.Gathering.YieldRule(
-                                Multiplayer.FuelPods.ItemTypeId, amountPerUnit: 1));
-
-                        Console.WriteLine("[info] placed FUEL CANISTER '" + entity.Key + "' as entity "
-                            + entityId + " at " + entity.Position + " ("
-                            + Multiplayer.FuelCanisterYield.ShotsToDeplete + " salvage shots -> "
-                            + string.Join("+", Multiplayer.FuelCanisterYield.Schedule) + " = "
-                            + Multiplayer.FuelCanisterYield.TotalFuel + "x '"
-                            + Multiplayer.FuelPods.ItemTypeId + "').");
-                    }
-                }
-
-                // A scannable DATABANK becomes an entry in the DatabankLedger the moment
-                // it has an entity id - the same spawn seam as the deposit above. The
-                // 2107 scan handler consults the ledger to decide a ScanEntityEvent
-                // target is worth knowledge and how much. Idempotent, so a second joiner
-                // walking this same step cannot double-register it.
-                if (entity.AssetName == Multiplayer.Databanks.AssetName)
-                {
-                    if (Multiplayer.DatabankLedger.Register(entityId, Multiplayer.Databanks.GrantAmount,
-                            Multiplayer.Databanks.NoteTitle, Multiplayer.Databanks.NoteDescription))
-                    {
-                        Console.WriteLine("[info] placed scannable DATABANK '" + entity.Key + "' as entity "
-                            + entityId + " at " + entity.Position + " (scan grants "
-                            + Multiplayer.Databanks.GrantAmount + " knowledge).");
                     }
                 }
 
@@ -3469,6 +3296,18 @@ namespace WorldsAdriftRebornGameServer
             // still standing after a restart without anyone re-placing it. Must run
             // before SpawnPlan.For, and does: this is the last thing before it.
             Game.Persistence.WorldStatePersistence.RestoreOnBoot(Placement);
+
+            // Spatial interest binds static resource ids before any peer connects,
+            // then may skip their connect-time plan steps when they are out of
+            // range. Activate their WORLD gameplay now: later AddEntity/RemoveEntity
+            // operations change visibility only. Registration order keeps deposits
+            // before their lodged atlas shards.
+            if (ResourceInterest.Enabled)
+            {
+                int activatedResources = WorldResources.ActivateBoundResources();
+                Console.WriteLine("[world-resource] activated " + activatedResources
+                    + " boot resource entities independently of per-peer visibility.");
+            }
 
             // define initial world state for first chunk
             //

@@ -131,6 +131,9 @@ namespace WorldsAdriftRebornGameServer.Game
                     {
                         state.Loaded.Remove(action.EntityId);
                         PeerCheckoutCleanup.RemoveEntity(peer, action.EntityId);
+                        Console.WriteLine("[resource-interest] removed '"
+                            + _resources[action.EntityId].Key + "' (" + action.EntityId
+                            + ") from " + peer.DangerousGetHandle() + ".");
                     }
                     continue;
                 }
@@ -148,6 +151,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (SendOPHelper.SendAddEntityOP(peer, action.EntityId, entity.AssetName, entity.AssetContext))
                 {
                     state.Loaded.Add(action.EntityId);
+                    Console.WriteLine("[resource-interest] added '" + entity.Key + "' ("
+                        + action.EntityId + ") to " + peer.DangerousGetHandle() + ".");
                 }
             }
         }
