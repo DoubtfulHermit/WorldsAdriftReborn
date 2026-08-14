@@ -22,6 +22,7 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             WorldsAdriftRebornGameServer.ServedComponents.ForgetEntity(peer, entityId);
+            WorldsAdriftRebornGameServer.SentEntities.ForgetEntity(peer, entityId);
         }
     }
 }

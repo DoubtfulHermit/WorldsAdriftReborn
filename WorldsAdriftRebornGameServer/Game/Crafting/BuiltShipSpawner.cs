@@ -91,6 +91,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             string shipOwner = Placement.PlacedShipyards.SeedFor(shipyardEntityId).OwnerCharacterUid;
             int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner, shipyardPos);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
+            WorldsAdriftRebornGameServer.Flight.RegisterHull(
+                hullEntityId, persistentIndex, hullPos, yawRadians: 0.0);
 
             // GATE B (ship ownership): record the built hull's owner so its 8062/4349
             // serve branches seed the owner's character uid and the client's
@@ -236,6 +238,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Hull);
             long hullEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Hull);
             BuiltShips.RegisterHull(hullEntityId, effectiveBytes);
+            WorldsAdriftRebornGameServer.ShipMembership.Register(hullEntityId, hullEntityId);
 
             var decks = new List<(long Id, WorldEntity Entity)>(plan.Decks.Count);
             for (int i = 0; i < plan.Decks.Count; i++)
@@ -244,6 +247,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 WorldsAdriftRebornGameServer.WorldEntities.Register(deckEntity);
                 long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(deckEntity);
                 BuiltShips.RegisterDeck(hullEntityId, deckEntityId, panels[i].LocalVertices);
+                WorldsAdriftRebornGameServer.ShipMembership.Register(deckEntityId, hullEntityId);
                 decks.Add((deckEntityId, deckEntity));
             }
 
@@ -342,9 +346,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// push with failOnComponentInitError TRUE. Mirrors
         /// <c>PlacementService.BroadcastToPeer</c>, fanned out to the live peer set.
         /// </summary>
-        private static bool BroadcastToPeer(ENetPeerHandle peer, long entityId, WorldEntity registration)
+        internal static bool CheckoutToPeer(ENetPeerHandle peer, long entityId,
+            WorldEntity registration, bool requestAsset = true)
         {
-            SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", registration.AssetName, registration.AssetContext);
+            if (requestAsset)
+                SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", registration.AssetName, registration.AssetContext);
 
             if (!SendOPHelper.SendAddEntityOP(peer, entityId, registration.AssetName, registration.AssetContext))
             {
@@ -373,6 +379,9 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
 
             return true;
         }
+
+        private static bool BroadcastToPeer(ENetPeerHandle peer, long entityId, WorldEntity registration) =>
+            CheckoutToPeer(peer, entityId, registration);
 
         private static IEnumerable<ENetPeerHandle> ConnectedPeers()
         {

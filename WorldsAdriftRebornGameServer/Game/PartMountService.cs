@@ -183,6 +183,7 @@ namespace WorldsAdriftRebornGameServer.Game
         internal static void BroadcastDetach(long partEntityId, MountedParts.Mount priorMount)
         {
             long hullEntityId = priorMount.HullEntityId;
+            WorldsAdriftRebornGameServer.ShipMembership.Unregister(partEntityId, hullEntityId);
 
             // 8066: no ship. Exactly what the loose 8066 re-seed serves once the ledger
             // entry is gone (ComponentsSerializer loose branch).
@@ -393,6 +394,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 def?.ItemType ?? "",
                 packedShipLocalRotation,
                 ownerCharacterUid));
+            WorldsAdriftRebornGameServer.ShipMembership.Register(partEntityId, hullEntityId);
 
             // 1099 client raycast gate. The old seed hardcoded false, which meant
             // PlayerMultitool.TryDeploySalvager never emitted a ShotEvent for any ship

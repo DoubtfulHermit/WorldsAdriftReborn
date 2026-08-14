@@ -86,7 +86,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             BuiltShipSpawner.PushUndocked(shipyardEntityId);
             WorldsAdriftRebornGameServer.Flight.RetireHull(hullId);
             IReadOnlyList<long> deckIds = BuiltShips.UnregisterShip(hullId);
-            foreach (long deckId in deckIds) WorldsAdriftRebornGameServer.WorldEntities.Unregister(deckId);
+            foreach (long deckId in deckIds)
+            {
+                WorldsAdriftRebornGameServer.ShipMembership.Unregister(deckId, hullId);
+                WorldsAdriftRebornGameServer.WorldEntities.Unregister(deckId);
+            }
+            WorldsAdriftRebornGameServer.ShipMembership.Unregister(hullId, hullId);
             WorldsAdriftRebornGameServer.WorldEntities.Unregister(hullId);
 
             // Parts remain as loose entities. Retire only deck panels and hull from every

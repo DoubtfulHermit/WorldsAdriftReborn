@@ -55,7 +55,7 @@ Acceptance: Haven/Trades transitions add and remove the same resources as the
 current implementation; distant terrain/entity visibility is explicitly
 defined; login packet and frame-time budgets do not regress.
 
-## Phase 4 — local simulation domains
+## Phase 4 — local simulation domains (whole-ship slice implemented locally)
 
 Introduce `SimulationDomainId`, a domain registry and a local domain host. All
 domains still tick sequentially in the existing poll loop. Begin with island
@@ -64,7 +64,18 @@ domains; add whole-ship domains without moving game logic between processes.
 Acceptance: domain ownership is complete and unique, global services are
 explicit, and disabling the abstraction produces no gameplay difference.
 
-## Phase 5 — snapshot proof with one ship
+Current status: one `ShipDomainRegistry` hosts whole-ship domains on the existing
+poll loop. A ship domain owns flight/control state, pilot authority, structural
+membership and aboard affinity. Runtime and restored built hulls register into
+it, while ferry/nudge/static probes use the same replication-generation seam.
+Unmanned/uncrewed domains now have paced whole-domain checkout hysteresis:
+members unload before the root and reload after it, with late-interest guards.
+Crewed/piloted ships remain globally checked out as a compatibility bridge while
+remote player entities are still globally relayed outside domain lifecycle.
+Island domains and complete world-domain ownership remain outstanding, so the
+phase as a whole is not complete.
+
+## Phase 5 — snapshot proof with one ship (pure proof implemented locally)
 
 Define a versioned ship-domain snapshot and prove capture, destroy, restore and
 resume flight in the same process. Include hull pose, control state, mounted and
@@ -73,7 +84,13 @@ loose parts, sails, dock state, aboard relationships and persistence identity.
 Acceptance: a test ship resumes without entity duplication, lost attachments,
 control reset or client-visible teleport beyond the normal update tolerance.
 
-## Phase 6 — authority generations and in-process gateway seam
+Current status: the versioned pure snapshot preserves pose, input, flight
+timeline, pilot binding, authority generation, persistence identity, decks,
+mounted members and aboard peers, and resumes the flight state machine in tests.
+The destructive live capture/destroy/restore acceptance test, sails/dock/loose-
+object completeness audit and visual no-teleport proof remain outstanding.
+
+## Phase 6 — authority generations and in-process gateway seam (started)
 
 Attach monotonically increasing authority generations to internal commands and
 state writes. Route client input through an in-process gateway interface and
@@ -81,6 +98,12 @@ reject stale-generation work. The real ENet socket remains where it is.
 
 Acceptance: forced handoff tests prove old-authority writes cannot overwrite the
 new owner, while the client remains connected to the same endpoint.
+
+Current status: helm acquire/release/disconnect increments a ship's generation;
+input carries a generation-stamped token and stale pilot input is rejected. The
+replication cursor also rejects stale-generation ship frames. Client commands do
+not yet pass through a general in-process gateway interface, so Phase 6 is not
+complete.
 
 ## Phase 7 — experimental second worker process
 

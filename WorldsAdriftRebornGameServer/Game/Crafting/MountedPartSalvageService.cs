@@ -57,7 +57,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 return true;
             }
 
-            if (mount.HasValue) MountedParts.Unmount(partEntityId);
+            if (mount.HasValue)
+            {
+                MountedParts.Unmount(partEntityId);
+                WorldsAdriftRebornGameServer.ShipMembership.Unregister(partEntityId, mount.Value.HullEntityId);
+            }
             WorldsAdriftRebornGameServer.Sails.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Lamps.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Horns.Unregister(partEntityId);

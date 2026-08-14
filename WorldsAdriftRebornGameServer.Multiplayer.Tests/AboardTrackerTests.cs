@@ -12,6 +12,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
     /// </summary>
     public class AboardTrackerTests
     {
+        private sealed class FakeClock : IClock
+        {
+            public TimeSpan Elapsed { get; set; }
+            public void Advance(TimeSpan by) => Elapsed += by;
+        }
+
         private const long Hull = 100;
         private const long Island = 5;
         private const ulong Player = 1;
@@ -85,21 +91,66 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         public void Jumping_off_into_free_fall_is_a_disembark()
         {
             // Free: relativeTo -> InvalidEntityId, bias -> 0. Both change.
-            AboardTracker t = new AboardTracker(OneShip());
+            FakeClock clock = new FakeClock();
+            AboardTracker t = new AboardTracker(OneShip(), clock);
             t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
 
-            AboardTransition tr = t.Observe(Player, StepOnto(-1, 0f, isShip: false));
+            // One invalid physics frame is held as a possible collider seam.
+            Assert.Equal(AboardChange.None,
+                t.Observe(Player, StepOnto(-1, 0f, isShip: false)).Change);
+            Assert.Equal(Hull, t.ShipOf(Player));
+
+            clock.Advance(AboardTracker.ContactGapGrace);
+            AboardTransition tr = t.Observe(Player, PositionOnly());
 
             Assert.Equal(AboardChange.Disembarked, tr.Change);
             Assert.Equal(Hull, tr.PreviousShipRootEntityId);
         }
 
         [Fact]
+        public void Positive_non_ship_surface_is_an_immediate_leave_even_with_zero_bias()
+        {
+            FakeClock clock = new FakeClock();
+            AboardTracker t = new AboardTracker(OneShip(), clock);
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+
+            AboardTransition tr = t.Observe(Player, StepOnto(Island, 0f, isShip: false));
+
+            Assert.Equal(AboardChange.Disembarked, tr.Change);
+            Assert.Equal(Hull, tr.PreviousShipRootEntityId);
+            Assert.Null(t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void Brief_hull_deck_contact_gap_does_not_emit_leave_or_reboard()
+        {
+            FakeClock clock = new FakeClock();
+            ShipMembership membership = OneShip();
+            membership.Register(101, Hull); // deck
+            membership.Register(102, Hull); // mounted part collider
+            AboardTracker t = new AboardTracker(membership, clock);
+
+            Assert.Equal(AboardChange.Boarded,
+                t.Observe(Player, StepOnto(Hull, 1f, isShip: true)).Change);
+            Assert.Equal(AboardChange.None,
+                t.Observe(Player, StepOnto(-1, 0f, isShip: false)).Change);
+            clock.Advance(TimeSpan.FromMilliseconds(100));
+            Assert.Equal(AboardChange.None,
+                t.Observe(Player, StepOnto(101, 1f, isShip: true)).Change);
+            Assert.Equal(AboardChange.None,
+                t.Observe(Player, RelativeToOnly(102, isShip: true)).Change);
+            Assert.Equal(Hull, t.ShipOf(Player));
+        }
+
+        [Fact]
         public void Re_boarding_after_leaving_boards_again()
         {
-            AboardTracker t = new AboardTracker(OneShip());
+            FakeClock clock = new FakeClock();
+            AboardTracker t = new AboardTracker(OneShip(), clock);
             t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
             t.Observe(Player, StepOnto(-1, 0f, isShip: false));
+            clock.Advance(AboardTracker.ContactGapGrace);
+            Assert.Equal(AboardChange.Disembarked, t.Observe(Player, PositionOnly()).Change);
 
             AboardTransition tr = t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
             Assert.Equal(AboardChange.Boarded, tr.Change);

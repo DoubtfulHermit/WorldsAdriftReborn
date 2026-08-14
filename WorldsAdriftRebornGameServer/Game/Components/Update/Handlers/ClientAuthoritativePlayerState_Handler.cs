@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Bossa.Travellers.Player;
+using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
@@ -138,7 +139,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // relativeTo. The client's own Send() never fires it locally, and this
             // custom server otherwise never echoes a worker its own authoritative
             // update, so the owner never receives its own relativeTo and the carry
-            // never arms. Echo it back on the board/leave EDGE only.
+            // never arms. Echo it back when the exact contact object changes, and
+            // disarm only when the canonical aboard tracker confirms a real leave.
             //
             // MINIMAL ON PURPOSE: only relativeTo, and only when it CHANGES. The
             // player is authoritative over 1073's position/bone fields and
@@ -153,13 +155,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 Multiplayer.CarryEchoDecision echo = WorldsAdriftRebornGameServer.CarryEcho.Observe(
                     PeerIdentity.IdOf(player),
+                    aboard,
                     clientComponentUpdate.relativeTo.HasValue,
-                    clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L);
+                    clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L,
+                    WorldsAdriftRebornGameServer.Aboard.ShipOf(PeerIdentity.IdOf(player)).HasValue);
 
                 if (echo.ShouldEcho)
                 {
                     ClientAuthoritativePlayerState.Update carryEcho = new ClientAuthoritativePlayerState.Update();
-                    carryEcho.SetRelativeTo(clientComponentUpdate.relativeTo.Value);
+                    carryEcho.SetRelativeTo(new EntityId(echo.RelativeTo));
 
                     SendOPHelper.SendComponentUpdateOp(
                         player, entityId,
@@ -167,7 +171,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         new List<object> { carryEcho });
 
                     Console.WriteLine("[info] carry-echo: sent owner entity " + entityId
-                        + " its own relativeTo " + echo.RelativeTo + " back to arm the ship carry.");
+                        + " its own relativeTo " + echo.RelativeTo
+                        + " back to update the moving-ground carry.");
                 }
             }
 

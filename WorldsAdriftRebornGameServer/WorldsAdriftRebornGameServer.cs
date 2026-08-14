@@ -216,6 +216,7 @@ namespace WorldsAdriftRebornGameServer
             ServedComponents.ForgetPeer(peer);
             SentEntities.ForgetPeer(peer);
             ResourceInterest.Forget(peer);
+            ShipInterest.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
@@ -2097,7 +2098,15 @@ namespace WorldsAdriftRebornGameServer
         /// publisher, and ForgetPeer dismounts a vanished pilot. Takes ServerClock
         /// for the same textual-order reason as Falls/Relay/ShipFerry.
         /// </summary>
-        internal static readonly Game.ShipFlightService Flight = new Game.ShipFlightService(ServerClock);
+        /// <summary>
+        /// Local whole-ship authority host. Domains still tick on this process's
+        /// single poll loop; this explicit directory is the seam a future local
+        /// snapshot/handoff and, later, remote worker host will share.
+        /// </summary>
+        internal static readonly Multiplayer.Ship.Domains.ShipDomainRegistry ShipDomains = new();
+
+        internal static readonly Game.ShipFlightService Flight =
+            new Game.ShipFlightService(ServerClock, ShipDomains);
 
         /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
@@ -2138,6 +2147,10 @@ namespace WorldsAdriftRebornGameServer
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(ServerClock, WorldEntities);
+
+        /// <summary>Whole-ship per-peer checkout with load/unload hysteresis.</summary>
+        internal static readonly Game.ShipDomainInterestService ShipInterest =
+            new Game.ShipDomainInterestService(ServerClock, ShipDomains, WorldEntities);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -2267,7 +2280,7 @@ namespace WorldsAdriftRebornGameServer
         /// Internal because ClientAuthoritativePlayerState_Handler feeds it every
         /// 1073 and ForgetPeer clears a departed peer from it.
         /// </summary>
-        internal static readonly AboardTracker Aboard = new AboardTracker(ShipMembership);
+        internal static readonly AboardTracker Aboard = new AboardTracker(ShipMembership, ServerClock);
 
         /// <summary>
         /// Whether the carry echo is armed. ON by default; set
@@ -3138,7 +3151,8 @@ namespace WorldsAdriftRebornGameServer
                             // Never re-seed a streamed resource unless this peer's
                             // authoritative checkout still says it is loaded. Essential
                             // entities and interest-disabled mode fail open.
-                            if (!ResourceInterest.MayServe(keyValuePair.Key, entityId))
+                            if (!ResourceInterest.MayServe(keyValuePair.Key, entityId)
+                                || !ShipInterest.MayServe(keyValuePair.Key, entityId))
                             {
                                 Console.WriteLine("[interest] ignored late component request for unloaded streamed"
                                     + " resource entity " + entityId + " from "
@@ -3644,6 +3658,7 @@ namespace WorldsAdriftRebornGameServer
                 // WAREBORN_HELM_FLIGHT=1; cheap when off (an env check) or when no
                 // helm was ever manned (an empty dictionary). See Game.ShipFlightService.
                 Flight.Tick();
+                ShipInterest.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a
                 // section, one when it leaves - so "hold the beam and the tree
@@ -3859,6 +3874,7 @@ namespace WorldsAdriftRebornGameServer
                         && pStatus.Performed)
                     {
                         ResourceInterest.NoteConnectPlanComplete(keyValuePair.Key);
+                        ShipInterest.NoteConnectPlanComplete(keyValuePair.Key);
                         PrepareRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                         DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }

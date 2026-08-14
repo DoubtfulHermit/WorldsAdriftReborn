@@ -432,6 +432,9 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 if (hullEntityId.HasValue)
                 {
                     BuiltShips.SetPersistentIndex(hullEntityId.Value, i);
+                    WorldsAdriftRebornGameServer.Flight.RegisterHull(
+                        hullEntityId.Value, i, snapshot.BuiltShips[i].HullPosition(),
+                        snapshot.BuiltShips[i].HullYawRadians);
                     ships++;
 
                     // RE-DOCK: link this restored hull back to the shipyard it was built

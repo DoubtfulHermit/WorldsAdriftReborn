@@ -130,11 +130,16 @@ namespace WorldsAdriftRebornGameServer.Game
                 0.0, 0.0, 0.0,
                 arrived: true);
 
-            int sent = ShipPublisher.Broadcast(entityId, ShipPublisher.BuildUpdate(spec));
-            // Wake the bolted parts in the same breath as the hull move so the deck
-            // and helm follow this nudge immediately rather than waiting up to half a
-            // heartbeat; the standalone heartbeat then keeps them awake for the glide.
-            ShipPartMotionService.PublishWake(entityId);
+            uint packedRotation = WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId);
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(entityId, to, packedRotation);
+            ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
+                entityId, to, WorldsAdriftRebornGameServer.Flight.DomainGenerationFor(entityId),
+                new ShipDomainComponentUpdate(entityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(spec)),
+                wakes.Root,
+                wakes.Members);
+            int sent = delivery.RootDeliveries;
+            WorldsAdriftRebornGameServer.WorldEntities.Relocate(entityId, to, packedRotation);
             _current = to;
 
             if (sent == 0)

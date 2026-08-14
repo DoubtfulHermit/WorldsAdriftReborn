@@ -10,8 +10,9 @@
 
 **Active branch at this snapshot:** `feat/island-identity`
 
-**Code baseline at this snapshot:** `af565a5` (`Add region topology and clean
-project history`), plus the uncommitted Phase 2 read-only world-directory slice.
+**Code baseline at this snapshot:** `d27e9f2` (`Record multiplayer server
+deployment`), plus the uncommitted local ShipDomain/canonical-carry slice
+described below. That slice is not deployed yet.
 
 This file is the current operational and architectural handover. Start here,
 then follow the narrower documents it links. Do not treat old roadmap entries,
@@ -37,7 +38,7 @@ implemented.
    dotnet build WorldsAdriftReborn -c Release
    ```
 
-   At this snapshot the Multiplayer suite passes **2240/2240**, and both server
+   At this snapshot the Multiplayer suite passes **2295/2295**, and both server
    and client builds succeed. Existing nullable/obsolete/net6-EOL warnings are
    known. Do not run the test and server builds concurrently: both write the
    Multiplayer output and can cause a harmless file-lock retry.
@@ -82,7 +83,7 @@ reconciled explicitly.
 | `WorldsAdriftRebornCoreSdk/` | Native client/server protocol shim and ENet transport | `Connection.cpp`, `Dispatcher.cpp`, `enetLayer.cpp`, `OpList.h` |
 | `WorldsAdriftRebornGameServer/` | Authoritative game server and main poll loop | `WorldsAdriftRebornGameServer.cs`, `Game/`, `Networking/` |
 | `WorldsAdriftRebornGameServer.Multiplayer/` | Engine-free policies, ledgers, catalogues, geometry | resource, inventory, placement, ship and flight types |
-| `WorldsAdriftRebornGameServer.Multiplayer.Tests/` | Fast native regression suite | 2240 tests at this snapshot |
+| `WorldsAdriftRebornGameServer.Multiplayer.Tests/` | Fast native regression suite | 2295 tests at this snapshot |
 | `WorldsAdriftServer/` | Login, accounts, roster and patch-file HTTP service | request handlers, storage integration |
 | `WorldsAdriftReborn.Storage/` | PostgreSQL models/repositories/migrations | storage tests require `WAREBORN_DB` for integration cases |
 | `tools/patcher/` | WAPatch and manifest release pipeline | `README.md`, `build-manifest.sh` |
@@ -450,13 +451,34 @@ They are **design inputs, not implementation status**. At this snapshot:
 The accepted phased plan is
 [`architecture/elastic-runtime-phases.md`](architecture/elastic-runtime-phases.md).
 Phase 1 stable region topology and Phase 2's read-only world directory are
-implemented. After restore and spawn-plan binding, the server classifies every
-registration into explicit global, region or whole-ship ownership and emits one
-`[world-directory] READ-ONLY` summary. Mounted parts use the existing mount
-ledger only to describe their hull owner. No spawning, interest, persistence or
-networking path reads the directory. The next gate is one production boot whose
-summary covers the complete restored world; only then may Phase 3 begin routing
-the existing resource-interest candidate query through the directory.
+implemented. The first whole-ship portion of Phase 4 is now implemented locally:
+`ShipDomain` owns a hull's flight session, pilot authority, generation, deck and
+mounted membership, aboard peers and a versioned resumable snapshot. Live helm
+input carries an authority token and stale-generation input is rejected.
+
+Replication now evaluates interest once for the whole ship and emits each
+flight frame in root-first order: hull 1130, optional hull 190602 wake, then the
+mounted-member 190602 wakes. The legacy ENet operations remain ordered rather
+than atomic, because the shipped client protocol has no multi-entity update op.
+The server logs sampled `[ship-domain]` generation/sequence/delivery counters.
+
+Whole-ship checkout uses the existing load/unload radii and channel-5
+RemoveEntity capability. Unmanned/uncrewed ships leave member-first/root-last
+and return root-first/member-last on a 120 ms cadence. Pilot/aboard protection is
+revalidated at send time. Because remote player entities are still globally
+relayed, any crew or active pilot temporarily pins the complete ship globally;
+otherwise a far observer could retain a floating avatar after its ship unloaded.
+Older clients without RemoveEntity retain both the ship and its motion rather
+than freezing a ghost. Late component-interest is rejected after unload.
+
+Passenger carry keeps the exact raw contact entity required by the legacy
+client while canonicalizing hull/deck/part membership to one ship root. A 250 ms
+grace absorbs collider-seam `relativeTo=-1` flicker; real island/non-ship leaves
+remain immediate. This entire slice is green locally but requires deployment
+and a two-player visual acceptance pass before Phase 4 can be called accepted.
+Phase 5 has a pure capture/restore/resume proof, but not yet the full live
+destroy/recreate/no-visible-teleport acceptance test. Phase 6 has ship authority
+generations, but no in-process gateway seam yet.
 
 ## 10. Known risks and unfinished work
 
@@ -471,9 +493,12 @@ the existing resource-interest candidate query through the directory.
 - **Sail fidelity:** functional scalar propulsion, not retail wind physics.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
-- **Multiple players:** the first sustained two-player flight test exposed the
-  late-join and replication defects fixed by `ba5987a`; repeat that exact test
-  after deployment before treating the fix as accepted.
+- **Multiple players / moving ships:** `ba5987a` fixed late-join delivery and the
+  reliable congestion spiral. The next live test exposed a different compound-
+  entity split: raw ground contact flapped among hull/parts/invalid, passengers
+  detached, and independently published member wakes could visually lag the
+  root. The uncommitted ShipDomain/canonical-carry/whole-ship-interest slice
+  addresses those causes, but it is not deployed or visually accepted yet.
 - **Server restart reconnect:** still session-ending; separate gateway/worker
   architecture is not required to fix the existing shim reconnect path.
 - **Hosting docs:** native runtime description is current, game deploy command

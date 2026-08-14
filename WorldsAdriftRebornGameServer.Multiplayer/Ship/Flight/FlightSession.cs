@@ -67,6 +67,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             _input = FlightControlInput.Neutral;
         }
 
+        private FlightSession(FlightSessionSnapshot snapshot)
+        {
+            _state = snapshot.State;
+            _input = snapshot.Input;
+            _manned = snapshot.Manned;
+            _restEmitted = snapshot.RestEmitted;
+            _lastStampMs = snapshot.LastStampMs;
+            _everEmitted = snapshot.EverEmitted;
+        }
+
         /// <summary>The current simulated pose, for logs and for re-man resume.</summary>
         public FlightState State => _state;
 
@@ -120,6 +130,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         /// <summary>The current held input, for the periodic stats line.</summary>
         public FlightControlInput Input => _input;
+
+        public FlightSessionSnapshot Capture() => new FlightSessionSnapshot(
+            _state, _input, _manned, _restEmitted, _lastStampMs, _everEmitted);
+
+        public static FlightSession Restore(FlightSessionSnapshot snapshot) =>
+            new FlightSession(snapshot ?? throw new System.ArgumentNullException(nameof(snapshot)));
 
         /// <summary>Snaps a settled ship into a yard's authored dock pose.</summary>
         public void DockAt(double x, double y, double z, double yawRadians)

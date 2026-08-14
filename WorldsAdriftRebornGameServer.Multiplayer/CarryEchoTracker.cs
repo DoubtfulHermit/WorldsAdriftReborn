@@ -59,16 +59,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// id - the repositioner recomputes the relative OFFSET locally from live
     /// transforms, so a bare <c>relativeTo</c> echo carries no position to snap to.
     /// And it only needs to CHANGE hands on a board / leave / ship-change, not every
-    /// frame, so this echoes only when <c>relativeTo</c> differs from the last value
-    /// echoed to that peer. A player standing still on a deck re-sends the same
-    /// <c>relativeTo</c> (or none at all); either way this stays silent.
+    /// frame, so this echoes only when the exact ground surface changes or the
+    /// semantic aboard tracker confirms a leave. A player standing still on a deck
+    /// re-sends the same <c>relativeTo</c> (or none at all); either way this stays silent.
     ///
-    /// Deliberately NOT coupled to <see cref="AboardTracker"/> / ship membership:
-    /// the echo must carry the exact id the client reported and must fire even for a
-    /// ground object the server's membership map does not know, so arming does not
-    /// depend on ship registration being correct. Stepping onto a non-ship ground
-    /// object (e.g. a drifting island) simply arms against whatever PathFollower
-    /// that object has, which is the stock behaviour.
+    /// The wire id remains the exact surface id: the client rejects a hull id while
+    /// its local ground object is a deck. Semantic board/leave timing comes from
+    /// <see cref="AboardTracker"/>, however, so a one-frame Invalid contact gap is
+    /// not echoed as disarm/re-arm churn.
     ///
     /// Pure and allocation-light on the hot path (one dictionary lookup; an
     /// allocation only for a peer's first observation). NOT thread-safe, in the mold
@@ -90,7 +88,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         private readonly Dictionary<ulong, PeerEchoState> _peers = new Dictionary<ulong, PeerEchoState>();
 
         /// <summary>
-        /// Folds one inbound 1073 into <paramref name="playerId"/>'s echo state.
+        /// Folds one inbound 1073 and its canonical aboard transition into
+        /// <paramref name="playerId"/>'s echo state.
         /// </summary>
         /// <param name="playerId">The peer that sent the update (its own entity).</param>
         /// <param name="relativeToPresent">
@@ -99,17 +98,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// no <c>relativeTo</c> cannot be a board/leave edge and is a no-op here.
         /// </param>
         /// <param name="relativeTo">The carried <c>relativeTo</c> id. Meaningful only when <paramref name="relativeToPresent"/>.</param>
-        public CarryEchoDecision Observe(ulong playerId, bool relativeToPresent, long relativeTo)
+        public CarryEchoDecision Observe(ulong playerId, in AboardTransition aboard,
+            bool relativeToPresent, long relativeTo, bool deferInvalidForShipContactGap)
         {
+            if (!_peers.TryGetValue(playerId, out PeerEchoState? state))
+            {
+                state = new PeerEchoState();
+                _peers[playerId] = state;
+            }
+
+            // A confirmed leave can mature on a later position-only tick after
+            // AboardTracker's contact-gap grace. There is no raw field on that tick,
+            // so synthesize InvalidEntityId to finally disarm the client.
+            if (aboard.Change == AboardChange.Disembarked && !relativeToPresent)
+            {
+                const long invalidEntityId = -1;
+                state.HasEchoed = true;
+                state.LastEchoed = invalidEntityId;
+                return CarryEchoDecision.Echo(invalidEntityId);
+            }
+
             if (!relativeToPresent)
             {
                 return CarryEchoDecision.None;
             }
 
-            if (!_peers.TryGetValue(playerId, out PeerEchoState? state))
+            // Invalid during the grace window is intentionally silent. If it is a
+            // real leave, AboardTracker emits Disembarked after the deadline and the
+            // branch above sends one semantic disarm.
+            if (relativeTo <= 0
+                && aboard.Change != AboardChange.Disembarked
+                && deferInvalidForShipContactGap)
             {
-                state = new PeerEchoState();
-                _peers[playerId] = state;
+                return CarryEchoDecision.None;
             }
 
             if (state.HasEchoed && state.LastEchoed == relativeTo)

@@ -273,6 +273,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 part.ItemType,
                 record.PackedRotation,
                 record.OwnerCharacterUid));
+            WorldsAdriftRebornGameServer.ShipMembership.Register(partEntityId, hullEntityId);
 
             // INTERACTABLE-PART LEDGERS: restore the operable state the save carries -
             // the sail's furl and the lamp's switch come back exactly as left (LampOff
