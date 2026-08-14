@@ -53,9 +53,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// The hull and deck registrations for a ship built at <paramref name="hullPos"/>,
         /// keyed by <paramref name="sequence"/>, with one deck entity per derived
         /// <paramref name="panels"/> entry. Each deck is placed at the hull position plus
-        /// the panel's hull-local offset (the client re-parents it under the hull and the
-        /// 190602 branch converts that to a local offset), so a restore from the same hull
-        /// bytes reproduces the same standable floors.
+        /// the panel's UNROTATED hull-local offset. The 190602 serializer subtracts the
+        /// hull seed and sends that offset with Parent(hull,"deck"); Unity then applies
+        /// the hull's rotation exactly once through the real parent transform. Pre-rotating
+        /// the registration here would rotate it a second time and shift every board away
+        /// from its frame after a non-zero-yaw restore.
         /// </summary>
         public static HullAndDecks For(int sequence, FixedPointPosition hullPos, IReadOnlyList<DeckPanel> panels,
             double yawRadians = 0.0)
@@ -74,14 +76,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             for (int i = 0; i < panels.Count; i++)
             {
                 ShipVector3 offset = panels[i].HullLocalPositionMetres;
-                double cos = System.Math.Cos(yawRadians);
-                double sin = System.Math.Sin(yawRadians);
-                double worldOffsetX = (cos * offset.X) + (sin * offset.Z);
-                double worldOffsetZ = (-sin * offset.X) + (cos * offset.Z);
                 FixedPointPosition deckPos = new FixedPointPosition(
-                    hullPos.X + (long)(worldOffsetX * FixedPointPosition.UnitsPerMetre),
+                    hullPos.X + (long)(offset.X * FixedPointPosition.UnitsPerMetre),
                     hullPos.Y + (long)(offset.Y * FixedPointPosition.UnitsPerMetre),
-                    hullPos.Z + (long)(worldOffsetZ * FixedPointPosition.UnitsPerMetre));
+                    hullPos.Z + (long)(offset.Z * FixedPointPosition.UnitsPerMetre));
 
                 decks.Add(new WorldEntity(
                     BuiltShipPlacement.DeckKey(sequence, i),
@@ -89,8 +87,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                     WorldEntities.DefaultAssetContext,
                     deckPos,
                     seedComponents: BuiltShipPlacement.DeckSeedComponents.ToArray(),
-                    order: SpawnOrder.AfterPlayer,
-                    packedRotation: packedRotation));
+                    order: SpawnOrder.AfterPlayer));
             }
 
             return new HullAndDecks(hull, decks);
