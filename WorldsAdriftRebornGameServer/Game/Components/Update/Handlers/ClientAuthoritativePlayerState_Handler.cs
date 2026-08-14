@@ -65,13 +65,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            // The relay's ingest: timestamp/position judged (drops, staleness
-            // metric), accepted state merged for the cadence emitter. This is
-            // the deserialization the manager already did, used a second time
-            // rather than done a second time - RelayToOtherPlayers no longer
-            // touches 1073 under relay v2.
-            WorldsAdriftRebornGameServer.Relay.ObservePlayerState(PeerIdentity.IdOf(player), clientComponentUpdate);
-
             // Aboard-detection. A player on a deck is not parented; the client
             // reports which entity they stand on via 1073 relativeTo (VERIFIED:
             // ClientAuthoritativePlayerMovement.CollectDataHighFrequency sets
@@ -96,6 +89,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 Console.WriteLine("[info] player entity " + entityId + " " + aboard + ".");
             }
+
+            // Relay only AFTER accumulating the canonical aboard state. The raw
+            // client stream flickers Invalid/bias=0 between moving-hull colliders;
+            // forwarding that edge immediately makes remote PlayerVisualizer blend
+            // toward a stale world pose even though AboardTracker is intentionally
+            // holding the same ship through its contact-gap grace period.
+            bool holdRelativeFrame = Multiplayer.AboardRelayPolicy.HoldRelativeFrame(
+                WorldsAdriftRebornGameServer.Aboard.IsAboardAnything(PeerIdentity.IdOf(player)),
+                clientComponentUpdate.relativeTo.HasValue,
+                clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L,
+                clientComponentUpdate.relativeBias.HasValue,
+                clientComponentUpdate.relativeBias.HasValue ? clientComponentUpdate.relativeBias.Value : 0f);
+            bool synthesizeRelativeDetach = Multiplayer.AboardRelayPolicy.SynthesizeConfirmedDetach(
+                aboard.Change, clientComponentUpdate.relativeTo.HasValue);
+            WorldsAdriftRebornGameServer.Relay.ObservePlayerState(
+                PeerIdentity.IdOf(player), clientComponentUpdate,
+                holdRelativeFrame, synthesizeRelativeDetach);
 
             // A terrain relativeTo is the authoritative coordinate-frame label for
             // positionRelative. The field is sparse (only sent when it changes), so

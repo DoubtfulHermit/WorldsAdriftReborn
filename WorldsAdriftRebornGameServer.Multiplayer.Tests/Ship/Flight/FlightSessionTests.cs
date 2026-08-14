@@ -112,18 +112,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void A_manned_idle_session_drops_to_the_keepalive_cadence()
+        public void A_manned_idle_session_keeps_the_client_playback_buffer_alive()
         {
-            // A pilot standing at the helm without touching anything must not
-            // cost 4 Hz forever.
+            // PathFollower starts its halting/spline-correction path as soon as
+            // the buffer drains. The slow correction is five seconds for a small
+            // yaw, so a held helm must keep publishing even before input begins.
             FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
             session.Man();
 
             long now = 1_000_000;
             List<FlightEmit> first = Drive(session, ref now, 60);
 
-            Assert.True(first.Count <= FlightSession.RestRepeats + 2,
-                "an idle manned helm emitted " + first.Count + " points in 60 ticks");
+            Assert.Equal(60, first.Count);
+            for (int i = 1; i < first.Count; i++)
+                Assert.Equal(StepMs, first[i].Spec.TimestampMs - first[i - 1].Spec.TimestampMs);
+        }
+
+        [Fact]
+        public void Helm_prime_wakes_playback_without_moving_and_next_point_is_legal()
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(10, 20, 30, 0.5));
+            session.Man();
+
+            FlightEmit prime = session.PrimePlayback(1_000_000, Step);
+            FlightEmit next = session.Advance(1_000_240, Step, Tuning);
+
+            Assert.True(prime.Emit);
+            Assert.Equal(10, prime.Spec.X);
+            Assert.Equal(20, prime.Spec.Y);
+            Assert.Equal(30, prime.Spec.Z);
+            Assert.Equal(0.5, session.State.YawRadians);
+            Assert.True(ShipMotionPolicy.IsLegalSeparation(
+                prime.Spec.TimestampMs, next.Spec.TimestampMs));
         }
 
         [Fact]

@@ -29,7 +29,7 @@ Acceptance:
   global origins;
 - the full Multiplayer test suite and server build pass.
 
-## Phase 2 — read-only world directory (implemented locally; live log pending)
+## Phase 2 — read-only world directory (implemented and live-verified)
 
 Add a single-process directory that classifies registered world entities by
 island, region, ship or global scope. Existing services may query it for
@@ -55,7 +55,7 @@ Acceptance: Haven/Trades transitions add and remove the same resources as the
 current implementation; distant terrain/entity visibility is explicitly
 defined; login packet and frame-time budgets do not regress.
 
-## Phase 4 — local simulation domains (whole-ship slice implemented locally)
+## Phase 4 — local simulation domains (whole-ship slice deployed; acceptance failed)
 
 Introduce `SimulationDomainId`, a domain registry and a local domain host. All
 domains still tick sequentially in the existing poll loop. Begin with island
@@ -68,12 +68,26 @@ Current status: one `ShipDomainRegistry` hosts whole-ship domains on the existin
 poll loop. A ship domain owns flight/control state, pilot authority, structural
 membership and aboard affinity. Runtime and restored built hulls register into
 it, while ferry/nudge/static probes use the same replication-generation seam.
-Unmanned/uncrewed domains now have paced whole-domain checkout hysteresis:
-members unload before the root and reload after it, with late-interest guards.
+Unmanned/uncrewed domains now have paced, per-viewer whole-domain checkout
+hysteresis: members unload before the root and reload after it, with
+late-interest guards. Checkout controls only what one peer sees. It must not
+park the simulation, affect another nearby peer, migrate authority or delete
+the domain: the local `ShipFlightService` ticks its active-domain set independently
+of every peer's checkout ledger, and replication evaluates each recipient after
+the authoritative step. Ship visibility uses separate island-scale radii rather
+than the resource radii.
 Crewed/piloted ships remain globally checked out as a compatibility bridge while
 remote player entities are still globally relayed outside domain lifecycle.
-Island domains and complete world-domain ownership remain outstanding, so the
-phase as a whole is not complete.
+Island domains and complete world-domain ownership remain outstanding. The
+first live two-player pass also exposed remote-avatar/ship coordinate-frame
+divergence, a five-second client spline wake after manned-idle stream starvation,
+and a failed return checkout. All three now have local fixes: the relay holds raw
+Invalid/bias-zero collider gaps while canonical aboard state remains on the ship;
+idle flight continues a legal root stream; and reconciliation preserves a valid
+in-flight asset request while send-time guards suppress stale Add/Remove actions.
+Successful removal also clears only that peer's AddEntity/component ledgers.
+They still require a two-client visual acceptance pass. The phase as a whole is
+not complete until that pass succeeds.
 
 ## Phase 5 — snapshot proof with one ship (pure proof implemented locally)
 

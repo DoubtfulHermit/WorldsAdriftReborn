@@ -134,12 +134,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 t.Observe(Player, StepOnto(Hull, 1f, isShip: true)).Change);
             Assert.Equal(AboardChange.None,
                 t.Observe(Player, StepOnto(-1, 0f, isShip: false)).Change);
-            clock.Advance(TimeSpan.FromMilliseconds(100));
+            // The production trace's longest seam that returned to the same hull
+            // was 0.79 s. It must remain one continuous aboard interval.
+            clock.Advance(TimeSpan.FromMilliseconds(790));
             Assert.Equal(AboardChange.None,
                 t.Observe(Player, StepOnto(101, 1f, isShip: true)).Change);
             Assert.Equal(AboardChange.None,
                 t.Observe(Player, RelativeToOnly(102, isShip: true)).Change);
             Assert.Equal(Hull, t.ShipOf(Player));
+        }
+
+        [Fact]
+        public void Moving_ship_contact_grace_is_one_second_but_a_real_leave_still_matures()
+        {
+            Assert.Equal(TimeSpan.FromSeconds(1), AboardTracker.ContactGapGrace);
+
+            FakeClock clock = new FakeClock();
+            AboardTracker t = new AboardTracker(OneShip(), clock);
+            t.Observe(Player, StepOnto(Hull, 1f, isShip: true));
+            t.Observe(Player, StepOnto(-1, 0f, isShip: false));
+            clock.Advance(TimeSpan.FromMilliseconds(999));
+            Assert.Equal(AboardChange.None, t.Observe(Player, PositionOnly()).Change);
+            clock.Advance(TimeSpan.FromMilliseconds(1));
+            Assert.Equal(AboardChange.Disembarked, t.Observe(Player, PositionOnly()).Change);
         }
 
         [Fact]

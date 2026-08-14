@@ -44,6 +44,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public static bool MayServeComponents(bool domainManaged, bool checkedOut) =>
             !domainManaged || checkedOut;
 
+        /// <summary>
+        /// An asset request spans two scheduler turns. Reconciliation may run between
+        /// those turns (especially after a long poll-loop stall), so retain the request
+        /// only when the same Add is still at the head of the rebuilt queue.
+        /// </summary>
+        public static long AssetRequestAfterReconcile(long requestedEntityId,
+            long? nextAddEntityId) =>
+            requestedEntityId != 0 && nextAddEntityId == requestedEntityId
+                ? requestedEntityId
+                : 0;
+
+        /// <summary>Last-boundary stale-action guard for a per-peer checkout ledger.</summary>
+        public static bool ShouldExecute(bool add, bool checkedOut) =>
+            add ? !checkedOut : checkedOut;
+
         public static IReadOnlyList<long> AddOrder(long hullEntityId, IEnumerable<long> members) =>
             new[] { hullEntityId }.Concat((members ?? throw new ArgumentNullException(nameof(members)))
                 .Where(x => x != hullEntityId).Distinct().OrderBy(x => x)).ToArray();

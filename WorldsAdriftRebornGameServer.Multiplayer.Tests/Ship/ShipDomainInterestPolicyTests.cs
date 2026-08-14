@@ -1,3 +1,4 @@
+using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using Xunit;
 
@@ -71,6 +72,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             Assert.Equal(expected,
                 ShipDomainInterestPolicy.MayServeComponents(managed, checkedOut));
+        }
+
+        [Fact]
+        public void Reconcile_preserves_an_in_flight_asset_for_the_same_head_add()
+        {
+            Assert.Equal(181,
+                ShipDomainInterestPolicy.AssetRequestAfterReconcile(181, 181));
+            Assert.Equal(0,
+                ShipDomainInterestPolicy.AssetRequestAfterReconcile(181, 182));
+            Assert.Equal(0,
+                ShipDomainInterestPolicy.AssetRequestAfterReconcile(181, null));
+        }
+
+        [Fact]
+        public void Readd_executes_after_remove_but_duplicate_lifecycle_actions_do_not()
+        {
+            Assert.True(ShipDomainInterestPolicy.ShouldExecute(add: false, checkedOut: true));
+            Assert.False(ShipDomainInterestPolicy.ShouldExecute(add: false, checkedOut: false));
+            Assert.True(ShipDomainInterestPolicy.ShouldExecute(add: true, checkedOut: false));
+            Assert.False(ShipDomainInterestPolicy.ShouldExecute(add: true, checkedOut: true));
+        }
+
+        [Fact]
+        public void Two_peers_have_independent_checkout_and_returning_owner_readds()
+        {
+            var sent = new EntitySendLedger<int>();
+            const int ownerPeer = 1;
+            const int observerPeer = 2;
+            const long hullEntityId = 181;
+            sent.MarkSent(ownerPeer, hullEntityId);
+            sent.MarkSent(observerPeer, hullEntityId);
+
+            FixedPointPosition hull = Origin;
+            FixedPointPosition ownerFar = FixedPointPosition.FromMetres(250, 0, 0);
+            FixedPointPosition observerNear = FixedPointPosition.FromMetres(25, 0, 0);
+
+            bool unloadOwner = !ShipDomainInterestPolicy.ShouldBeLoaded(
+                rootLoaded: true, protectedByLocalInteraction: false, hasAnyCrew: false,
+                ownerFar, hull, loadRadiusMetres: 100, unloadRadiusMetres: 200);
+            bool retainObserver = ShipDomainInterestPolicy.ShouldBeLoaded(
+                rootLoaded: true, protectedByLocalInteraction: false, hasAnyCrew: false,
+                observerNear, hull, loadRadiusMetres: 100, unloadRadiusMetres: 200);
+
+            Assert.True(unloadOwner);
+            Assert.True(retainObserver);
+            Assert.True(ShipDomainInterestPolicy.ShouldExecute(add: false,
+                checkedOut: sent.WasSent(ownerPeer, hullEntityId)));
+            sent.ForgetEntity(ownerPeer, hullEntityId);
+            Assert.False(sent.WasSent(ownerPeer, hullEntityId));
+            Assert.True(sent.WasSent(observerPeer, hullEntityId));
+
+            // Cleanup changes only the owner's peer-keyed ledger. On return the
+            // owner is absent and inside load radius, while the observer remains
+            // continuously checked out and eligible for motion throughout.
+            bool returningOwnerLoads = ShipDomainInterestPolicy.ShouldBeLoaded(
+                rootLoaded: false, protectedByLocalInteraction: false, hasAnyCrew: false,
+                observerNear, hull, loadRadiusMetres: 100, unloadRadiusMetres: 200);
+            Assert.True(returningOwnerLoads);
+            Assert.True(ShipDomainInterestPolicy.ShouldExecute(add: true,
+                checkedOut: sent.WasSent(ownerPeer, hullEntityId)));
+            Assert.False(ShipDomainInterestPolicy.ShouldExecute(add: true,
+                checkedOut: sent.WasSent(observerPeer, hullEntityId)));
+            Assert.True(ShipUpdateVisibilityPolicy.ShouldPublish(
+                targetCheckedOut: true, isPilot: false, isAboard: false,
+                observerNear, hull, radiusMetres: 100));
         }
     }
 }

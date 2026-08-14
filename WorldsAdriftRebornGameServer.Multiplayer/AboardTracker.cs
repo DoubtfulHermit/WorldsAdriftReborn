@@ -86,7 +86,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             public TimeSpan? PendingDisembarkAt;
         }
 
-        public static readonly TimeSpan ContactGapGrace = TimeSpan.FromMilliseconds(250);
+        // Live 2026-08-14 traces measured moving-hull collider gaps of 0.09-0.79 s
+        // which always returned to the same hull. One second bridges those seams
+        // without indefinitely claiming a player who genuinely jumped overboard.
+        public static readonly TimeSpan ContactGapGrace = TimeSpan.FromSeconds(1);
         private readonly ShipMembership _membership;
         private readonly IClock _clock;
         private readonly Dictionary<ulong, PlayerRelativeState> _players = new Dictionary<ulong, PlayerRelativeState>();

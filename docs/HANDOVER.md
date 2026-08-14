@@ -10,9 +10,10 @@
 
 **Active branch at this snapshot:** `feat/island-identity`
 
-**Code baseline at this snapshot:** `d27e9f2` (`Record multiplayer server
-deployment`), plus the uncommitted local ShipDomain/canonical-carry slice
-described below. That slice is not deployed yet.
+**Code baseline at this snapshot:** `7a69e48` (`Use island-scale visibility for
+ship domains`), plus the uncommitted fixes described below. Production is still
+running `6a2273f`; do not confuse the checked-out revision with the deployed
+revision.
 
 This file is the current operational and architectural handover. Start here,
 then follow the narrower documents it links. Do not treat old roadmap entries,
@@ -38,7 +39,7 @@ implemented.
    dotnet build WorldsAdriftReborn -c Release
    ```
 
-   At this snapshot the Multiplayer suite passes **2295/2295**, and both server
+   At this snapshot the Multiplayer suite passes **2305/2305**, and both server
    and client builds succeed. Existing nullable/obsolete/net6-EOL warnings are
    known. Do not run the test and server builds concurrently: both write the
    Multiplayer output and can cause a harmless file-lock retry.
@@ -462,8 +463,12 @@ mounted-member 190602 wakes. The legacy ENet operations remain ordered rather
 than atomic, because the shipped client protocol has no multi-entity update op.
 The server logs sampled `[ship-domain]` generation/sequence/delivery counters.
 
-Whole-ship checkout uses the existing load/unload radii and channel-5
-RemoveEntity capability. Unmanned/uncrewed ships leave member-first/root-last
+Whole-ship checkout is per viewing peer and uses ship-specific island-scale
+radii (800 m load / 1,000 m unload by default) plus channel-5 RemoveEntity.
+These are deliberately separate from the much tighter resource radii. An empty
+ship may unload for Colin while remaining checked out and moving for a nearby
+observer; checkout never parks, freezes, migrates or deletes its `ShipDomain`.
+Unmanned/uncrewed ships leave member-first/root-last
 and return root-first/member-last on a 120 ms cadence. Pilot/aboard protection is
 revalidated at send time. Because remote player entities are still globally
 relayed, any crew or active pilot temporarily pins the complete ship globally;
@@ -472,10 +477,22 @@ Older clients without RemoveEntity retain both the ship and its motion rather
 than freezing a ghost. Late component-interest is rejected after unload.
 
 Passenger carry keeps the exact raw contact entity required by the legacy
-client while canonicalizing hull/deck/part membership to one ship root. A 250 ms
+client while canonicalizing hull/deck/part membership to one ship root. A one-second
 grace absorbs collider-seam `relativeTo=-1` flicker; real island/non-ship leaves
-remain immediate. This entire slice is green locally but requires deployment
-and a two-player visual acceptance pass before Phase 4 can be called accepted.
+remain immediate. The first two-player production acceptance on `6a2273f`
+failed in three bounded ways: remote avatars ran ahead of/behind their moving
+ship, a small helm turn after an idle period took exactly five seconds to become
+visible, and a removed ship did not reliably re-checkout on return. The exact
+five-second delay is now proven to be the retail client's slow spline correction
+after our manned-idle 1130 stream went quiet; the local fix keeps a 240 ms stream
+while manned and primes it before enabling controls. The avatar divergence was
+raw `relativeTo=-1`/bias-zero collider-seam churn being relayed before canonical
+aboard state; the local fix holds only those coordinate-frame edges while the
+canonical ship survives its measured grace. The re-checkout loop discarded an
+in-flight asset request every 500 ms reconcile; the local fix carries a still-
+valid head request and revalidates every Add/Remove at send time. All three fixes
+pass locally but are not deployed or visually accepted. Phase 4 is therefore
+deployed as a foundation but is **not visually accepted**.
 Phase 5 has a pure capture/restore/resume proof, but not yet the full live
 destroy/recreate/no-visible-teleport acceptance test. Phase 6 has ship authority
 generations, but no in-process gateway seam yet.
@@ -494,11 +511,12 @@ generations, but no in-process gateway seam yet.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
 - **Multiple players / moving ships:** `ba5987a` fixed late-join delivery and the
-  reliable congestion spiral. The next live test exposed a different compound-
-  entity split: raw ground contact flapped among hull/parts/invalid, passengers
-  detached, and independently published member wakes could visually lag the
-  root. The uncommitted ShipDomain/canonical-carry/whole-ship-interest slice
-  addresses those causes, but it is not deployed or visually accepted yet.
+  reliable congestion spiral. `6a2273f` deployed canonical carry and coherent
+  ShipDomain replication, but its first two-player visual pass exposed the
+  timeline/re-checkout failures listed above. Do not claim local domains are a
+  completed dynamic handoff system: all domains still run in one process and
+  there is no gateway host, remote worker, authority transfer, or live snapshot
+  restore seam yet.
 - **Server restart reconnect:** still session-ending; separate gateway/worker
   architecture is not required to fix the existing shim reconnect path.
 - **Hosting docs:** native runtime description is current, game deploy command

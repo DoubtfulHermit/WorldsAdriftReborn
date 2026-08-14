@@ -99,8 +99,8 @@ namespace WorldsAdriftRebornGameServer.Game
 
         private void Reconcile(ENetPeerHandle peer, PeerState state)
         {
+            long requestedBeforeReconcile = state.AssetRequestedFor;
             state.Pending.Clear();
-            state.AssetRequestedFor = 0;
             ulong peerId = PeerIdentity.IdOf(peer);
             long playerEntityId = WorldsAdriftRebornGameServer.Players.EntityOf(peerId) ?? 0;
             FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
@@ -158,11 +158,37 @@ namespace WorldsAdriftRebornGameServer.Game
                             WasMountedMember: mounted.Contains(entityId)));
                 }
             }
+
+            long? nextAdd = state.Pending.Count > 0 && state.Pending.Peek().Kind == Kind.Add
+                ? state.Pending.Peek().EntityId
+                : null;
+            state.AssetRequestedFor = ShipDomainInterestPolicy.AssetRequestAfterReconcile(
+                requestedBeforeReconcile, nextAdd);
         }
 
         private void Execute(ENetPeerHandle peer, PeerState state)
         {
             Action action = state.Pending.Peek();
+
+            // Reconciliation and runtime broadcasts share the per-peer ledger. A
+            // broadcast can satisfy an Add (or salvage can satisfy a Remove) after
+            // this action was queued. Revalidate immediately before the wire send:
+            // duplicate AddEntity corrupts the retail client's entity dictionary.
+            bool checkedOut = WorldsAdriftRebornGameServer.SentEntities
+                .WasSent(peer, action.EntityId);
+            if (!ShipDomainInterestPolicy.ShouldExecute(
+                    action.Kind == Kind.Add, checkedOut))
+            {
+                state.Pending.Dequeue();
+                if (state.AssetRequestedFor == action.EntityId)
+                    state.AssetRequestedFor = 0;
+                state.NextReconcile = TimeSpan.Zero;
+                Console.WriteLine("[ship-interest] suppressed stale " + action.Kind
+                    + " for entity " + action.EntityId + " of hull "
+                    + action.HullEntityId + "; peer checkout already satisfies it.");
+                return;
+            }
+
             ulong peerId = PeerIdentity.IdOf(peer);
             long playerEntityId = WorldsAdriftRebornGameServer.Players.EntityOf(peerId) ?? 0;
             bool protectedNow = WorldsAdriftRebornGameServer.Flight.IsPilotOf(playerEntityId, action.HullEntityId)
@@ -230,8 +256,17 @@ namespace WorldsAdriftRebornGameServer.Game
             }
             if (state.AssetRequestedFor != action.EntityId)
             {
-                SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", entity.AssetName, entity.AssetContext);
-                state.AssetRequestedFor = action.EntityId;
+                if (SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?",
+                        entity.AssetName, entity.AssetContext))
+                {
+                    state.AssetRequestedFor = action.EntityId;
+                }
+                else
+                {
+                    Console.WriteLine("[ship-interest] failed to queue asset request for entity "
+                        + action.EntityId + " of hull " + action.HullEntityId
+                        + "; retaining Add for retry.");
+                }
                 return;
             }
 
@@ -243,6 +278,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 Console.WriteLine("[ship-interest] added entity " + action.EntityId
                     + (action.HullEntityId > 0 ? " of hull " + action.HullEntityId : " as loose world entity")
                     + " to peer " + peer.DangerousGetHandle() + ".");
+            }
+            else
+            {
+                // The ledger remains authoritative. If AddEntity was not queued it
+                // stays absent and the next reconcile retries; if AddEntity queued
+                // but component seeding failed, the existing component-interest path
+                // can repair missing seeds without duplicating AddEntity.
+                state.NextReconcile = TimeSpan.Zero;
+                Console.WriteLine("[ship-interest] checkout failed for entity "
+                    + action.EntityId + " of hull " + action.HullEntityId
+                    + "; scheduling reconciliation.");
             }
         }
 

@@ -25,9 +25,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// One hull's flight, as a pure state machine the service ticks: manned
     /// (integrate pilot input), cruising on the helm's latched throttle after a
     /// voluntary release, settling after an explicit stop or abandoned connection,
-    /// resting repeats (belt-and-braces re-sends of the final zero-velocity
-    /// point, the ferry's own trick against a dropped last packet), then a slow
-    /// KEEPALIVE forever for peers that still have the ship checked out. The
+    /// resting repeats after an unmanned stop (belt-and-braces re-sends of the
+    /// final zero-velocity point), then a slow KEEPALIVE forever for peers that
+    /// still have the ship checked out. A manned session always keeps the normal
+    /// cadence, including at rest, so the client's playback buffer cannot halt. The
     /// server also advances the hull's registry seed as poses are persisted, so a
     /// later checkout starts at the latest authoritative pose rather than the old
     /// build location; the keepalive then maintains the client's motion timeline.
@@ -131,6 +132,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>The current held input, for the periodic stats line.</summary>
         public FlightControlInput Input => _input;
 
+        /// <summary>
+        /// Emits the current absolute pose without integrating. Used when a pilot
+        /// takes the helm to wake a halted client PathFollower before 1109 enables
+        /// input, preventing the first steering point from entering a 5 s spline.
+        /// </summary>
+        public FlightEmit PrimePlayback(long nowMs, double stepSeconds) =>
+            EmitAt(nowMs, stepSeconds);
+
         public FlightSessionSnapshot Capture() => new FlightSessionSnapshot(
             _state, _input, _manned, _restEmitted, _lastStampMs, _everEmitted);
 
@@ -184,13 +193,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                         return EmitBobbedAt(nowMs, stepSeconds, tuning);
                     }
 
-                    // Otherwise: emit through the rest repeats, then hold the
-                    // keepalive cadence. A parked pilot does not need 4 Hz.
-                    _restEmitted++;
-                    if (_restEmitted > RestRepeats && !KeepaliveDue(nowMs, tuning))
-                    {
-                        return FlightEmit.Nothing;
-                    }
+                    // Keep the 1130 playback buffer continuously populated while
+                    // somebody holds the helm. If this stream goes quiet, the
+                    // client's PathFollower enters its halting branch; the first
+                    // small yaw correction after that is deliberately blended over
+                    // ShipConfiguration.SlowSplineCorrectionTime (5 seconds).
+                    // That was the measured "helm moves now, hull turns 5 s later"
+                    // defect. A live pilot costs the normal 4.2 Hz root stream so
+                    // steering begins on the next 240 ms point instead.
+                    _restEmitted = 0;
                 }
                 else
                 {

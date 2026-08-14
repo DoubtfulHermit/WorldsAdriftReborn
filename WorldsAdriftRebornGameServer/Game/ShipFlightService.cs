@@ -535,6 +535,21 @@ namespace WorldsAdriftRebornGameServer.Game
             _inputs[playerEntityId] = session.Input;
             _helmByHull[hullEntityId] = helmEntityId;
 
+            // Wake the hull's halted PathFollower at the unchanged authoritative
+            // pose BEFORE 1109 lets the client send steering. Otherwise a fast
+            // first input can be the wake point, and its small yaw delta takes the
+            // client's five-second slow spline-correction path.
+            FlightEmit prime = session.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            FixedPointPosition primePosition = FixedPointPosition.FromMetres(
+                prime.Spec.X, prime.Spec.Y, prime.Spec.Z);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, primePosition, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(prime.Spec, prime.PackedRotation)),
+                rootAuxiliary: null,
+                members: Array.Empty<ShipDomainComponentUpdate>());
+
             long driveTarget = DriveTargetIsHelm ? helmEntityId : hullEntityId;
             PilotState.Update update = new PilotState.Update()
                 .SetDrivingEntityId(new EntityId(driveTarget))
