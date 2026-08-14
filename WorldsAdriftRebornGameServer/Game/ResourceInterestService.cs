@@ -25,6 +25,7 @@ namespace WorldsAdriftRebornGameServer.Game
             public TimeSpan NextSend;
             public long AssetRequestedFor;
             public bool RemoveSupported;
+            public bool ConnectPlanComplete;
         }
 
         private readonly IClock _clock;
@@ -81,6 +82,23 @@ namespace WorldsAdriftRebornGameServer.Game
         public void NoteLoaded(ENetPeerHandle peer, long entityId)
         {
             if (Enabled && _resources.ContainsKey(entityId)) StateFor(peer).Loaded.Add(entityId);
+        }
+
+        /// <summary>
+        /// Hands resource lifecycle ownership from the immutable connect plan to
+        /// continuous movement interest. Until this seam fires, Tick deliberately
+        /// sends no dynamic AddEntity operations; NoteLoaded still records every
+        /// resource the plan checks out so the first reconcile starts from truth.
+        /// </summary>
+        public void NoteConnectPlanComplete(ENetPeerHandle peer)
+        {
+            if (!Enabled) return;
+            PeerState state = StateFor(peer);
+            if (state.ConnectPlanComplete) return;
+            state.ConnectPlanComplete = true;
+            state.NextReconcile = TimeSpan.Zero;
+            Console.WriteLine("[resource-interest] connect plan complete for "
+                + peer.DangerousGetHandle() + "; continuous lifecycle enabled.");
         }
 
         /// <summary>
@@ -141,6 +159,10 @@ namespace WorldsAdriftRebornGameServer.Game
             TimeSpan now = _clock.Elapsed;
             foreach ((ENetPeerHandle peer, PeerState state) in _peers.ToArray())
             {
+                // The connect plan owns initial checkout. Running both producers at
+                // once lets dynamic interest Add an entity that the plan later Adds
+                // again, which corrupts the retail client's entity dictionary.
+                if (!state.ConnectPlanComplete) continue;
                 if (now >= state.NextReconcile)
                 {
                     state.NextReconcile = now + ReconcileInterval;
@@ -170,6 +192,23 @@ namespace WorldsAdriftRebornGameServer.Game
                 state.NextSend = now + SendInterval;
 
                 ResourceStreamAction action = state.Pending.Peek();
+                // The spawn plan can complete this checkout after reconciliation
+                // queued the same Add (most often while its asset request is in
+                // flight). Revalidate at the last possible boundary: the client
+                // cannot tolerate duplicate AddEntity for one id.
+                if (!ResourceInterestPolicy.ShouldExecute(
+                        state.ConnectPlanComplete, action, state.Loaded))
+                {
+                    state.Pending.Dequeue();
+                    if (state.AssetRequestedFor == action.EntityId)
+                    {
+                        state.AssetRequestedFor = 0;
+                    }
+                    Console.WriteLine("[resource-interest] suppressed stale "
+                        + action.Kind + " for entity " + action.EntityId
+                        + "; current checkout state already satisfies it.");
+                    continue;
+                }
                 if (action.Kind == ResourceStreamActionKind.Remove)
                 {
                     state.Pending.Dequeue();

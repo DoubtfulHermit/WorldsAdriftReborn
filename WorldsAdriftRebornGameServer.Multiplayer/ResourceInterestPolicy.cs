@@ -34,6 +34,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static bool MayServeComponents(bool interestEnabled, bool isStreamedResource, bool loadedForPeer) =>
             !interestEnabled || !isStreamedResource || loadedForPeer;
 
+        /// <summary>
+        /// Revalidates queued lifecycle work at the final send boundary. The
+        /// connect-time spawn plan and the roaming-interest queue share the same
+        /// loaded set but advance independently: while an Add waits behind its asset
+        /// request, the spawn plan may add that entity first. Sending the stale Add
+        /// corrupts the retail client's entity map, so queued work is never trusted
+        /// without checking the current checkout state again.
+        /// </summary>
+        public static bool ShouldExecute(
+            bool connectPlanComplete,
+            ResourceStreamAction action,
+            ISet<long> loaded) =>
+            connectPlanComplete && (action.Kind == ResourceStreamActionKind.Add
+                ? !loaded.Contains(action.EntityId)
+                : loaded.Contains(action.EntityId));
+
         public static double UnloadRadiusFrom(string? env, double loadRadius)
         {
             if (loadRadius <= 0) return 0;

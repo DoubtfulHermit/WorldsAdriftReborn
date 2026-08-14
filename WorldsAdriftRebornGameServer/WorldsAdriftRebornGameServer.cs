@@ -3729,6 +3729,16 @@ namespace WorldsAdriftRebornGameServer
                         // the client's time to reply.
                         pStatus.PerformedAtElapsed = ServerClock.Elapsed;
                     }
+
+                    // Initial resource checkout belongs exclusively to the spawn
+                    // plan. Only after its final step has been sent/parked may the
+                    // movement-driven service begin adding and removing resources.
+                    if (pStatus.SyncStepPointer
+                            == GameState.Instance.WorldState[currentChunkIndex].Count - 1
+                        && pStatus.Performed)
+                    {
+                        ResourceInterest.NoteConnectPlanComplete(keyValuePair.Key);
+                    }
                 }
             }
 

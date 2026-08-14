@@ -39,6 +39,41 @@ public class ResourceInterestPolicyTests
     }
 
     [Fact]
+    public void Spawn_plan_winning_while_dynamic_add_is_queued_suppresses_the_duplicate()
+    {
+        const long entityId = 82;
+        ResourceStreamAction queued = new(ResourceStreamActionKind.Add, entityId);
+        HashSet<long> loaded = new();
+
+        // Continuous interest cannot race the connect plan at all.
+        Assert.False(ResourceInterestPolicy.ShouldExecute(
+            connectPlanComplete: false, queued, loaded));
+        Assert.True(ResourceInterestPolicy.ShouldExecute(
+            connectPlanComplete: true, queued, loaded));
+
+        // The connect-time spawn plan sends AddEntity while the interest service's
+        // asset request is in flight, then NoteLoaded updates the shared peer state.
+        loaded.Add(entityId);
+
+        Assert.False(ResourceInterestPolicy.ShouldExecute(
+            connectPlanComplete: true, queued, loaded));
+    }
+
+    [Fact]
+    public void Stale_remove_is_also_suppressed_after_another_path_unloads_the_entity()
+    {
+        const long entityId = 82;
+        ResourceStreamAction queued = new(ResourceStreamActionKind.Remove, entityId);
+        HashSet<long> loaded = new() { entityId };
+
+        Assert.True(ResourceInterestPolicy.ShouldExecute(
+            connectPlanComplete: true, queued, loaded));
+        loaded.Remove(entityId);
+        Assert.False(ResourceInterestPolicy.ShouldExecute(
+            connectPlanComplete: true, queued, loaded));
+    }
+
+    [Fact]
     public void Hysteresis_does_not_churn_between_load_and_unload_radii()
     {
         FixedPointPosition c = FixedPointPosition.FromMetres(0, 0, 0);
