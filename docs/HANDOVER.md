@@ -139,7 +139,8 @@ changes.
   `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
   deployables, 5/7 ships (two tombstones), 16/16 mounted parts and 3/3 loose
-  parts; 2,311/2,311 Multiplayer tests and the Release server build passed.
+  parts. The deployed revision remains `718d926`; follow-up `9143c5a` is tested
+  locally but must not be deployed until all players disconnect.
 
 ### Latest multiplayer incident
 
@@ -240,6 +241,12 @@ client-only panel iterations through `7c3e6c4`.
   parts. Remote ships are not instantiated and immediately removed during login;
   live ship interest adds them root-first when approached. Free loose parts stay
   outside this rule so they cannot become unreachable.
+- First live acceptance of `718d926` exposed a second visibility owner: generic
+  runtime catch-up re-sent the remote built ships/mounted parts after the plan
+  had correctly skipped them, producing a large send/remove burst. `9143c5a`
+  excludes ship-managed entities from generic catch-up and adds a headless
+  connect -> catch-up -> approach test. Validation is 2,316/2,316 tests and a
+  zero-error Release server build; it is not deployed at this snapshot.
 - Movement component 1073 drives a 500 ms per-peer reconciliation.
 - Adds are nearest-first and paced at 120 ms with asset request then AddEntity.
 - Runtime deposits/shards enter interest through explicit `RegisterRuntime`.
