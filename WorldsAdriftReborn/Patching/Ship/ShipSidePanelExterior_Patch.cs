@@ -27,7 +27,19 @@ namespace WorldsAdriftReborn.Patching.Ship
         // short, deterministic ray.
         private const float OutsideDistanceMetres = 24f;
         private const float RayLengthMetres = 48f;
+        // ShipPanel.CreatePanels creates a 0.10 m-thick, pivot-centred collider.
+        // The attachment point is therefore not the visible inner face: leaving the
+        // pivot on the hull surface embeds half of every panel in the frame. Move the
+        // pivot out by 5 cm plus 1 cm of visual clearance.
+        private const float PanelSkinClearanceMetres = 0.06f;
         private static float _nextLogAt;
+        private static float _nextGeometryLogAt;
+        private static Assets.Scripts.PartPlacement.PhantomPart _diagnosticPhantom;
+        private static GameObject _diagnosticShip;
+        private static Vector3 _diagnosticSkinPoint;
+        private static Vector3 _diagnosticOutward;
+        private static Vector3 _diagnosticFace;
+        private static string _diagnosticMethod;
 
         private static void Prefix(
             PlacementPreview __instance,
@@ -71,6 +83,9 @@ namespace WorldsAdriftReborn.Patching.Ship
                     hitPoint = roofPoint;
                     hitNormal = ship.transform.up;
                     hitTransform = sideHull.transform;
+                    SetDiagnostic(__instance.Phantom, ship,
+                        roofPoint - ship.transform.up * PanelSkinClearanceMetres,
+                        ship.transform.up, Vector3.up, "roof envelope");
                     LogSnap(ship, localHit, localNormal, hitPoint, Vector3.up,
                         roofCorrection, "roof envelope");
                     return;
@@ -143,10 +158,22 @@ namespace WorldsAdriftReborn.Patching.Ship
                     return;
                 }
 
-                float correction = Vector3.Distance(hitPoint, exteriorHit.hitPoint);
-                hitPoint = exteriorHit.hitPoint;
-                hitNormal = exteriorHit.hitNormal;
+                Vector3 surfaceOutward = exteriorHit.hitNormal.normalized;
+                Vector3 worldChosenOutward = ship.transform.TransformDirection(chosenOutward);
+                if (Vector3.Dot(surfaceOutward, worldChosenOutward) < 0f)
+                {
+                    surfaceOutward = -surfaceOutward;
+                }
+
+                Vector3 skinPoint = exteriorHit.hitPoint;
+                Vector3 clearedPoint = skinPoint
+                    + surfaceOutward * PanelSkinClearanceMetres;
+                float correction = Vector3.Distance(hitPoint, clearedPoint);
+                hitPoint = clearedPoint;
+                hitNormal = surfaceOutward;
                 hitTransform = sideHull.transform;
+                SetDiagnostic(__instance.Phantom, ship, skinPoint, surfaceOutward,
+                    chosenOutward, "SRC exterior");
 
                 LogSnap(ship, localHit, localNormal, hitPoint, chosenOutward,
                     correction, "SRC exterior");
@@ -195,11 +222,9 @@ namespace WorldsAdriftReborn.Patching.Ship
                 return false;
             }
 
-            // Panel collider thickness is 0.1 m (ShipPanel.CreatePanels). Its pivot
-            // is central, hence half-thickness plus 1 cm avoids z-fighting/beam bleed.
-            const float skinClearance = 0.06f;
             float currentProjection = Vector3.Dot(hitPoint, shipUp);
-            roofPoint = hitPoint + shipUp * (topProjection - currentProjection + skinClearance);
+            roofPoint = hitPoint + shipUp
+                * (topProjection - currentProjection + PanelSkinClearanceMetres);
             return true;
         }
 
@@ -230,7 +255,149 @@ namespace WorldsAdriftReborn.Patching.Ship
                 + correction.ToString("F2") + " m from hull-local "
                 + localHit.ToString("F2") + " normal " + localNormal.ToString("F2")
                 + " to " + ship.transform.InverseTransformPoint(result).ToString("F2")
-                + " on face " + face.ToString("F0") + ".");
+                + " on face " + face.ToString("F0")
+                + "; pivot clearance "
+                + PanelSkinClearanceMetres.ToString("F2") + " m.");
+        }
+
+        private static void SetDiagnostic(
+            Assets.Scripts.PartPlacement.PhantomPart phantom,
+            GameObject ship,
+            Vector3 skinPoint,
+            Vector3 outward,
+            Vector3 face,
+            string method)
+        {
+            _diagnosticPhantom = phantom;
+            _diagnosticShip = ship;
+            _diagnosticSkinPoint = skinPoint;
+            _diagnosticOutward = outward.normalized;
+            _diagnosticFace = face;
+            _diagnosticMethod = method;
+        }
+
+        /// <summary>
+        /// Logs the geometry AFTER PhantomPart.Update has applied the placement pose.
+        /// This makes the next visual report actionable: negative inner-face values
+        /// prove that rendered/collision geometry still penetrates the selected hull
+        /// skin, while zero or positive values prove the whole panel is outside it.
+        /// </summary>
+        [HarmonyPatch(typeof(Assets.Scripts.PartPlacement.PhantomPart), "Update")]
+        private static class PhantomGeometryDiagnostics
+        {
+            private static void Postfix(Assets.Scripts.PartPlacement.PhantomPart __instance)
+            {
+                if (__instance == null || __instance != _diagnosticPhantom
+                    || _diagnosticShip == null
+                    || Time.realtimeSinceStartup < _nextGeometryLogAt)
+                {
+                    return;
+                }
+
+                _nextGeometryLogAt = Time.realtimeSinceStartup + 2f;
+                float skinProjection = Vector3.Dot(_diagnosticSkinPoint,
+                    _diagnosticOutward);
+                float pivotFromSkin = Vector3.Dot(__instance.transform.position,
+                    _diagnosticOutward) - skinProjection;
+
+                ShipPanel panel = __instance.GetComponentInChildren<ShipPanel>(true);
+                string rendererRange = RangeFromSkin(
+                    panel == null ? null : panel.GetComponentsInChildren<Renderer>(true),
+                    skinProjection, _diagnosticOutward);
+                string colliderRange = RangeFromSkin(
+                    panel == null ? null : panel.GetComponentsInChildren<Collider>(true),
+                    skinProjection, _diagnosticOutward);
+
+                Debug.Log("[WAR][ship-panel][geometry] " + _diagnosticMethod
+                    + " face " + _diagnosticFace.ToString("F0")
+                    + " skinLocal "
+                    + _diagnosticShip.transform.InverseTransformPoint(
+                        _diagnosticSkinPoint).ToString("F3")
+                    + " pivotLocal "
+                    + _diagnosticShip.transform.InverseTransformPoint(
+                        __instance.transform.position).ToString("F3")
+                    + " pivotFromSkin " + pivotFromSkin.ToString("F3") + " m"
+                    + " rendererFromSkin " + rendererRange
+                    + " colliderFromSkin " + colliderRange
+                    + ". Negative minima mean penetration.");
+            }
+        }
+
+        private static string RangeFromSkin(
+            Renderer[] components,
+            float skinProjection,
+            Vector3 outward)
+        {
+            if (components == null || components.Length == 0)
+            {
+                return "n/a";
+            }
+
+            float minimum = float.PositiveInfinity;
+            float maximum = float.NegativeInfinity;
+            for (int i = 0; i < components.Length; i++)
+            {
+                if (components[i] == null)
+                {
+                    continue;
+                }
+                ProjectBounds(components[i].bounds, outward,
+                    ref minimum, ref maximum);
+            }
+            return FormatRange(minimum, maximum, skinProjection);
+        }
+
+        private static string RangeFromSkin(
+            Collider[] components,
+            float skinProjection,
+            Vector3 outward)
+        {
+            if (components == null || components.Length == 0)
+            {
+                return "n/a";
+            }
+
+            float minimum = float.PositiveInfinity;
+            float maximum = float.NegativeInfinity;
+            for (int i = 0; i < components.Length; i++)
+            {
+                if (components[i] == null)
+                {
+                    continue;
+                }
+                ProjectBounds(components[i].bounds, outward,
+                    ref minimum, ref maximum);
+            }
+            return FormatRange(minimum, maximum, skinProjection);
+        }
+
+        private static void ProjectBounds(
+            Bounds bounds,
+            Vector3 axis,
+            ref float minimum,
+            ref float maximum)
+        {
+            float centre = Vector3.Dot(bounds.center, axis);
+            Vector3 extents = bounds.extents;
+            float radius = Math.Abs(axis.x) * extents.x
+                + Math.Abs(axis.y) * extents.y
+                + Math.Abs(axis.z) * extents.z;
+            minimum = Math.Min(minimum, centre - radius);
+            maximum = Math.Max(maximum, centre + radius);
+        }
+
+        private static string FormatRange(
+            float minimum,
+            float maximum,
+            float skinProjection)
+        {
+            if (float.IsPositiveInfinity(minimum)
+                || float.IsNegativeInfinity(maximum))
+            {
+                return "n/a";
+            }
+            return "[" + (minimum - skinProjection).ToString("F3")
+                + "," + (maximum - skinProjection).ToString("F3") + "]m";
         }
 
         private static bool IsPanel(Assets.Scripts.PartPlacement.PhantomPart phantom)
