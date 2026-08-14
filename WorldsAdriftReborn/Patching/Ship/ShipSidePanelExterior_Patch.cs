@@ -53,31 +53,63 @@ namespace WorldsAdriftReborn.Patching.Ship
                 }
 
                 Vector3 localHit = ship.transform.InverseTransformPoint(hitPoint);
-                float side = Math.Abs(localHit.x) > 0.05f ? Math.Sign(localHit.x) : 0f;
-                if (side == 0f && CameraManager.MainCamera != null)
+                Vector3 localNormal = ship.transform.InverseTransformDirection(hitNormal).normalized;
+                Vector3[] outwardAxes =
                 {
-                    side = Math.Sign(ship.transform.InverseTransformPoint(
-                        CameraManager.MainCamera.transform.position).x);
-                }
-                if (side == 0f)
+                    Vector3.up, Vector3.down,
+                    Vector3.right, Vector3.left,
+                    Vector3.forward, Vector3.back
+                };
+
+                DRCHitInfo exteriorHit = null;
+                Vector3 chosenOutward = Vector3.zero;
+                float bestScore = float.NegativeInfinity;
+                for (int i = 0; i < outwardAxes.Length; i++)
                 {
-                    side = Math.Sign(ship.transform.InverseTransformDirection(hitNormal).x);
-                }
-                if (side == 0f)
-                {
-                    side = 1f;
+                    Vector3 outward = outwardAxes[i];
+                    Vector3 outsideLocal = localHit + outward * OutsideDistanceMetres;
+                    Ray exteriorRay = new Ray(
+                        ship.transform.TransformPoint(outsideLocal),
+                        ship.transform.TransformDirection(-outward));
+
+                    DRCHitInfo candidate = new DRCHitInfo();
+                    if (!sideMesh.RayCast(new DRCRay(exteriorRay), ref candidate)
+                        || candidate.hitDistance > RayLengthMetres)
+                    {
+                        continue;
+                    }
+
+                    // Pick the exterior FACE represented by the beam the player aimed
+                    // at, not merely the nearest triangle. Absolute normal alignment
+                    // chooses top/side/end independent of whether the camera struck the
+                    // inside or outside face. For a horizontal beam both +/-Y align;
+                    // +Y deliberately wins because a hull covering belongs ABOVE the
+                    // frame, never hanging underneath it. Lateral/end ties choose the
+                    // port/starboard or bow/stern half containing the aimed point.
+                    float alignment = Math.Abs(Vector3.Dot(localNormal, outward));
+                    float outwardPreference = 0f;
+                    if (outward == Vector3.up)
+                    {
+                        outwardPreference = 12f;
+                    }
+                    else if (outward == Vector3.right && localHit.x >= 0f
+                        || outward == Vector3.left && localHit.x < 0f
+                        || outward == Vector3.forward && localHit.z >= 0f
+                        || outward == Vector3.back && localHit.z < 0f)
+                    {
+                        outwardPreference = 8f;
+                    }
+                    float distance = Vector3.Distance(hitPoint, candidate.hitPoint);
+                    float score = alignment * 100f + outwardPreference - distance * 0.1f;
+                    if (score > bestScore)
+                    {
+                        bestScore = score;
+                        exteriorHit = candidate;
+                        chosenOutward = outward;
+                    }
                 }
 
-                Vector3 outsideLocal = new Vector3(
-                    side * OutsideDistanceMetres, localHit.y, localHit.z);
-                Vector3 inwardLocal = new Vector3(-side, 0f, 0f);
-                Ray exteriorRay = new Ray(
-                    ship.transform.TransformPoint(outsideLocal),
-                    ship.transform.TransformDirection(inwardLocal));
-
-                DRCHitInfo exteriorHit = new DRCHitInfo();
-                if (!sideMesh.RayCast(new DRCRay(exteriorRay), ref exteriorHit)
-                    || exteriorHit.hitDistance > RayLengthMetres)
+                if (exteriorHit == null)
                 {
                     return;
                 }
@@ -94,7 +126,7 @@ namespace WorldsAdriftReborn.Patching.Ship
                         + correction.ToString("F2")
                         + " m from hull-local " + localHit.ToString("F2")
                         + " to " + ship.transform.InverseTransformPoint(hitPoint).ToString("F2")
-                        + " on the exterior hull skin.");
+                        + " on exterior face " + chosenOutward.ToString("F0") + ".");
                 }
             }
             catch (Exception exception)
