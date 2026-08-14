@@ -4,6 +4,7 @@ using System.Linq;
 using WorldsAdriftRebornGameServer.Game.Inventory;
 using WorldsAdriftRebornGameServer.Game.Items;
 using WorldsAdriftRebornGameServer.Game.Persistence;
+using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Crafting;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
@@ -14,27 +15,23 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
     /// <summary>Authoritative salvage-beam dismantle transaction for mounted ship parts.</summary>
     internal static class MountedPartSalvageService
     {
-        /// <summary>Returns false only when the target is not a mounted part.</summary>
+        /// <summary>Returns false only when the target is not a crafted ship part.</summary>
         internal static bool HandleShot(long playerEntityId, long partEntityId)
         {
             MountedParts.Mount? found = MountedParts.MountFor(partEntityId);
-            if (!found.HasValue) return false;
-            MountedParts.Mount mount = found.Value;
-            long yardId = BuiltShips.ShipyardForHull(mount.HullEntityId);
+            LoosePartDefinition? definition = LooseParts.DefFor(partEntityId);
+            if (definition == null) return false;
+            MountedParts.Mount? mount = found;
             string requester = CharacterOwnership.UidForEntity(playerEntityId);
-            string yardOwner = yardId > 0 && Placement.PlacedShipyards.IsPlacedShipyard(yardId)
-                ? Placement.PlacedShipyards.SeedFor(yardId).OwnerCharacterUid
-                : "";
-            SchematicRecord? recipe = SchematicHelper.Get(
-                LooseParts.DefFor(partEntityId)?.SchematicId ?? mount.ItemType);
+            FixedPointPosition targetPosition = TargetPosition(partEntityId, mount);
+            long yardId = OwnedYardContaining(requester, targetPosition);
+            SchematicRecord? recipe = SchematicHelper.Get(definition.SchematicId);
             IReadOnlyList<ShipPartSalvageRefund> refunds = recipe == null
                 ? Array.Empty<ShipPartSalvageRefund>()
                 : ShipPartSalvagePolicy.Refunds(recipe);
             ShipPartSalvageReject verdict = ShipPartSalvagePolicy.Evaluate(
-                true, mount.HullEntityId, yardId,
-                yardId > 0 ? BuiltShips.DockedShipFor(yardId) : 0,
-                !string.IsNullOrEmpty(requester) && requester == yardOwner,
-                recipe != null && refunds.Count > 0);
+                craftedPart: true, insideOwnedShipyard: yardId > 0,
+                recipeKnown: recipe != null && refunds.Count > 0);
             if (verdict != ShipPartSalvageReject.Accept)
             {
                 Console.WriteLine("[part-salvage] ignored shot on part " + partEntityId
@@ -50,14 +47,17 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             }
 
             string? uid = LooseParts.PartUidFor(partEntityId);
-            if (!WorldStatePersistence.RemoveMountedPart(uid ?? ""))
+            bool durableRemoved = mount.HasValue
+                ? WorldStatePersistence.RemoveMountedPart(uid ?? "")
+                : WorldStatePersistence.RemoveLoosePart(uid ?? "");
+            if (!durableRemoved)
             {
                 Console.WriteLine("[part-salvage] persistence failed for part " + partEntityId
                     + "; leaving it intact.");
                 return true;
             }
 
-            MountedParts.Unmount(partEntityId);
+            if (mount.HasValue) MountedParts.Unmount(partEntityId);
             WorldsAdriftRebornGameServer.Sails.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Lamps.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Horns.Unregister(partEntityId);
@@ -74,13 +74,41 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             {
                 if (InventoryService.Grant(playerEntityId, refund.ItemTypeId, refund.Amount) != null)
                     SalvageFeedback.Send(playerEntityId, refund.ItemTypeId, refund.Amount,
-                        "dismantled mounted " + mount.ItemType);
+                        "dismantled " + definition.ItemType);
             }
-            Console.WriteLine("[part-salvage] player " + playerEntityId + " dismantled mounted '"
-                + mount.ItemType + "' entity " + partEntityId + " on docked hull "
-                + mount.HullEntityId + "; refunded " + string.Join(", ", refunds.Select(
+            Console.WriteLine("[part-salvage] player " + playerEntityId + " dismantled "
+                + (mount.HasValue ? "mounted" : "loose") + " '" + definition.ItemType
+                + "' entity " + partEntityId + " inside owned shipyard " + yardId
+                + "; refunded " + string.Join(", ", refunds.Select(
                     x => x.Amount + "x " + x.ItemTypeId)) + ".");
             return true;
+        }
+
+        private static FixedPointPosition TargetPosition(long partEntityId, MountedParts.Mount? mount)
+        {
+            if (mount.HasValue)
+            {
+                long hullId = mount.Value.HullEntityId;
+                if (WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(
+                        hullId, out FixedPointPosition flown, out _)) return flown;
+                WorldEntity? hull = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(hullId);
+                if (hull != null) return hull.Position;
+            }
+            return WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(partEntityId)?.Position
+                ?? default;
+        }
+
+        private static long OwnedYardContaining(string requester, FixedPointPosition position)
+        {
+            if (string.IsNullOrEmpty(requester)) return 0;
+            foreach (long yardId in Placement.PlacedShipyards.EntityIds)
+            {
+                if (Placement.PlacedShipyards.SeedFor(yardId).OwnerCharacterUid != requester) continue;
+                WorldEntity? yard = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(yardId);
+                if (yard != null && ShipyardDockingPolicy.IsWithin(
+                        position, yard.Position, ShipPartSalvagePolicy.WorkRadiusMetres)) return yardId;
+            }
+            return 0;
         }
 
         private static bool CanFitRefund(long playerEntityId, IReadOnlyList<ShipPartSalvageRefund> refunds)

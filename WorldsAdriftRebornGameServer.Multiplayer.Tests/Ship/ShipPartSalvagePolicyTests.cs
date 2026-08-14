@@ -7,16 +7,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
     public sealed class ShipPartSalvagePolicyTests
     {
         [Fact]
-        public void Only_an_owned_part_on_the_ship_actually_docked_in_the_yard_is_salvageable()
+        public void Only_a_crafted_part_inside_the_players_shipyard_is_salvageable()
         {
             Assert.Equal(ShipPartSalvageReject.Accept,
-                ShipPartSalvagePolicy.Evaluate(true, 20, 30, 20, true, true));
-            Assert.Equal(ShipPartSalvageReject.ShipNotDocked,
-                ShipPartSalvagePolicy.Evaluate(true, 20, 0, 0, true, true));
-            Assert.Equal(ShipPartSalvageReject.DockMismatch,
-                ShipPartSalvagePolicy.Evaluate(true, 20, 30, 21, true, true));
-            Assert.Equal(ShipPartSalvageReject.NotShipyardOwner,
-                ShipPartSalvagePolicy.Evaluate(true, 20, 30, 20, false, true));
+                ShipPartSalvagePolicy.Evaluate(true, true, true));
+            Assert.Equal(ShipPartSalvageReject.NotCraftedPart,
+                ShipPartSalvagePolicy.Evaluate(false, true, true));
+            Assert.Equal(ShipPartSalvageReject.OutsideOwnedShipyard,
+                ShipPartSalvagePolicy.Evaluate(true, false, true));
+            Assert.Equal(ShipPartSalvageReject.UnknownRecipe,
+                ShipPartSalvagePolicy.Evaluate(true, true, false));
         }
 
         [Fact]

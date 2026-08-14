@@ -5,10 +5,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     public enum ShipPartSalvageReject
     {
         Accept,
-        NotMounted,
-        ShipNotDocked,
-        DockMismatch,
-        NotShipyardOwner,
+        NotCraftedPart,
+        OutsideOwnedShipyard,
         UnknownRecipe,
     }
 
@@ -17,14 +15,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// <summary>Pure rules for dismantling one mounted part with the salvage beam.</summary>
     public static class ShipPartSalvagePolicy
     {
-        public static ShipPartSalvageReject Evaluate(bool mounted, long hullEntityId,
-            long shipyardEntityId, long yardDockedHullEntityId, bool ownsShipyard,
-            bool recipeKnown)
+        /// <summary>Radius around an owned shipyard in which part dismantling is allowed.</summary>
+        public const double WorkRadiusMetres = 15.0;
+
+        public static ShipPartSalvageReject Evaluate(bool craftedPart,
+            bool insideOwnedShipyard, bool recipeKnown)
         {
-            if (!mounted || hullEntityId <= 0) return ShipPartSalvageReject.NotMounted;
-            if (shipyardEntityId <= 0) return ShipPartSalvageReject.ShipNotDocked;
-            if (yardDockedHullEntityId != hullEntityId) return ShipPartSalvageReject.DockMismatch;
-            if (!ownsShipyard) return ShipPartSalvageReject.NotShipyardOwner;
+            if (!craftedPart) return ShipPartSalvageReject.NotCraftedPart;
+            if (!insideOwnedShipyard) return ShipPartSalvageReject.OutsideOwnedShipyard;
             if (!recipeKnown) return ShipPartSalvageReject.UnknownRecipe;
             return ShipPartSalvageReject.Accept;
         }

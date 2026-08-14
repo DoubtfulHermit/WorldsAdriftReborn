@@ -229,18 +229,25 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// MOUNTED (it is re-expressed as a <see cref="MountedPartRecord"/>) so the same part
         /// is never both loose and mounted in the save. A no-op when no such record exists.
         /// </summary>
-        internal static void RemoveLoosePart(string partUid)
+        internal static bool RemoveLoosePart(string partUid)
         {
             if (string.IsNullOrEmpty(partUid))
             {
-                return;
+                return true;
             }
 
             WorldStateSnapshot snapshot = Snapshot();
-            if (snapshot.LooseParts.RemoveAll(r => r.PartUid == partUid) > 0)
+            LoosePartRecord? removed = snapshot.LooseParts.Find(r => r.PartUid == partUid);
+            if (removed != null)
             {
-                Save();
+                snapshot.LooseParts.Remove(removed);
+                if (!Save())
+                {
+                    snapshot.LooseParts.Add(removed);
+                    return false;
+                }
             }
+            return true;
         }
 
         /// <summary>

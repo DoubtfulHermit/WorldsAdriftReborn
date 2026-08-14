@@ -3,6 +3,7 @@ using Bossa.Travellers.Motion;
 using Bossa.Travellers.Player;
 using Bossa.Travellers.Ship;
 using Bossa.Travellers.Interact;
+using Bossa.Travellers.Salvaging;
 using Improbable;
 using Improbable.Collections;
 using Improbable.Math;
@@ -236,6 +237,12 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetPlayersPlacingPart(new Improbable.Collections.List<EntityId>());
             ShipPublisher.Broadcast(partEntityId, 1120u, partClear);
 
+            // 1099 client raycast capability remains enabled while loose: a frame salvage
+            // drops its attachments into the yard and those loose parts must still emit
+            // 2106 hits. The server enforces the owned-yard radius.
+            ShipPublisher.Broadcast(partEntityId, 1099u,
+                new SalvageAndRepairState.Update().SetIsSalvageable(true));
+
             // Helm/sail/lamp/horn keep their prefab-baked interaction entry from
             // initial checkout, but it is usable only while mounted. The client caches
             // that entry at OnEnable, so change availability rather than replacing the
@@ -386,6 +393,13 @@ namespace WorldsAdriftRebornGameServer.Game
                 def?.ItemType ?? "",
                 packedShipLocalRotation,
                 ownerCharacterUid));
+
+            // 1099 client raycast gate. The old seed hardcoded false, which meant
+            // PlayerMultitool.TryDeploySalvager never emitted a ShotEvent for any ship
+            // component and the shipyard-only server policy was unreachable. This is
+            // only the client capability; exact position + owner checks remain server-side.
+            ShipPublisher.Broadcast(partEntityId, 1099u,
+                new SalvageAndRepairState.Update().SetIsSalvageable(true));
 
             // INTERACTABLE-PART LEDGERS: a mounted sail/lamp/horn becomes operable
             // (1211 Activate via PartInteractionService). Fresh-mount defaults are the

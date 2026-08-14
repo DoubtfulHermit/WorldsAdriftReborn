@@ -2355,11 +2355,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if (componentId == 1099)
                     {
-                        // A LOOSE crafted part served from the LooseParts ledger: its OWN
-                        // itemType, a NON-EMPTY material list of one REAL material, and NOT
-                        // salvageable (no loose-part salvage flow yet, so the multitool offers
-                        // nothing on it). LampVisualizer [Require]s 1099 (LampVisualizer.cs:19),
-                        // so this is on the essential seed path, not cosmetic.
+                        // A crafted part served from the LooseParts ledger: its OWN itemType
+                        // and a NON-EMPTY material list. A genuinely MOUNTED part is
+                        // salvageable so PlayerMultitool emits the 2106 ShotEvent that the
+                        // server's owned-shipyard-radius transaction validates. This is a
+                        // client CAPABILITY bit, not authorization: loose and mounted parts
+                        // both need to name hits, while the server rejects anything outside
+                        // the owner's yard. LampVisualizer [Require]s
+                        // 1099, so this is on the essential seed path, not cosmetic.
                         //
                         // WHY NON-EMPTY (the helm-freeze fix). The lamp guards its
                         // OriginalMaterials read, so an EMPTY list was fine for it. But most
@@ -2410,7 +2413,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     loosePart1099.ItemType,
                                     0f, 0f, 0f, 1f,
                                     false,          // isRepairable
-                                    false,          // isSalvageable (no loose-part salvage flow)
+                                    true,           // report part hits; server enforces owned shipyard radius
                                     "",
                                     looseMaterials,
                                     false, 0f, new Option<float> { }));
