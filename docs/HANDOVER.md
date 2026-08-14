@@ -118,12 +118,11 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `203b132` (`Stage resource streaming after client
-  activation`), deployed and restarted at 2026-08-14 18:47 CEST. The duplicate
-  AddEntity guard from `a6de2cf` remains. Connect now instantiates resources only
-  inside a 45 m starter bubble, waits 5 s after plan completion, then expands
-  through the paced 120 m continuous-interest stream. Terrain, ships, stations,
-  mounted/loose parts and global biome data remain barrier-protected.
+- **Game server:** `ba5987a` (`Fix late-join entities and ship replication
+  stalls`), deployed and restarted at 2026-08-14 22:30 CEST. It includes the
+  staged resource streaming from `203b132`, paced runtime-entity reconnect
+  catch-up, per-peer ship-motion visibility, unreliable superseding 1130 ship
+  points, idempotent helm entry, and the typed-update allocation/logging fixes.
 - **Public client manifest:** `2026.08.14-10`, build label
   `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
   UTC fallback from `2627810` and fixes six native protobuf string allocations
@@ -136,21 +135,22 @@ changes.
   `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
 - **Server state:** active at the time this handover was written.
 
-### Tested locally, not yet deployed
+### Latest multiplayer incident
 
-- **Server candidate:** `ba5987a` (`Fix late-join entities and ship replication
+- **Server revision:** `ba5987a` (`Fix late-join entities and ship replication
   stalls`). The 2026-08-14 two-player session proved three related failures:
   runtime-created yards/ships were absent from the boot-frozen plan on relog;
   distant ships and mounted parts broadcast motion globally; and absolute ship
   control points bypassed the unreliable-stream policy, building a reliable
   retransmit queue (observed peak 49 KB in flight and 6.8 s RTT).
-- The candidate adds paced runtime-entity catch-up, a per-peer AddEntity ledger,
+- The revision adds paced runtime-entity catch-up, a per-peer AddEntity ledger,
   distance/checkout-gated ship motion with pilot/passenger overrides, current-pose
   registry relocation, superseding/unreliable 1130 delivery, idempotent duplicate
   helm Man events, serializer-buffer cleanup, and removal of per-update log spam.
 - Validation: Multiplayer tests `2264/2264`; Release game-server build succeeded;
-  `git diff --check` clean. It still requires deployment after all players disconnect,
-  followed by a two-player relog/ship-flight acceptance test.
+  `git diff --check` clean. Production restored 4/4 deployables, 3/5 ships (two
+  records are intentional salvaged tombstones), 13/13 mounted parts and 2/2 loose
+  parts. A two-player relog/ship-flight acceptance test remains required.
 
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted
@@ -466,8 +466,8 @@ the existing resource-interest candidate query through the directory.
 - **Loading/crash validation:** Colin's remote loading crash was identified as
   native heap corruption (`c0000374`) and fixed in `3a7cd31` / manifest
   `2026.08.14-10`; his subsequent join passed the former crash point. Extended
-  play then exposed the separate server replication congestion addressed by the
-  not-yet-deployed `ba5987a` candidate above.
+  play then exposed the separate server replication congestion now addressed by
+  deployed revision `ba5987a`.
 - **Sail fidelity:** functional scalar propulsion, not retail wind physics.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
