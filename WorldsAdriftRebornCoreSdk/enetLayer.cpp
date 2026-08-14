@@ -48,7 +48,7 @@ void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpda
 bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count) {
     return PB_ComponentUpdateOp_Deserialize(data, len, entityId, componentUpdateOp, componentUpdateOp_count);
 }
-void* __cdecl PB_EXP_RemoveEntityOp_Serialize(long entityId, int* len) {
+void* __cdecl PB_EXP_RemoveEntityOp_Serialize(std::int64_t entityId, int* len) {
     return PB_RemoveEntityOp_Serialize(entityId, len);
 }
 void __cdecl PB_EXP_Free(void* handle) {
@@ -245,7 +245,7 @@ static void* PB_TakeOwnership(const std::string& serialized, int* len) {
     return out;
 }
 
-void* PB_RemoveEntityOp_Serialize(long entityId, int* len) {
+void* PB_RemoveEntityOp_Serialize(std::int64_t entityId, int* len) {
     if (len == NULL) return NULL;
     std::string serialized;
     serialized.push_back(static_cast<char>(0x08)); // field 1, int64 varint
@@ -267,7 +267,7 @@ bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op
     for (int i = 1; i < len && shift < 64; ++i, shift += 7) {
         value |= static_cast<unsigned long long>(bytes[i] & 0x7f) << shift;
         if ((bytes[i] & 0x80) == 0) {
-            op->EntityId = static_cast<long>(value);
+            op->EntityId = static_cast<std::int64_t>(value);
             return true;
         }
     }
