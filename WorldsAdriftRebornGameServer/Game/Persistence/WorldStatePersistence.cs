@@ -486,6 +486,34 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
 
             // 4. LOOSE PARTS - crafted-but-unmounted parts, re-spawned at their world-
             //    absolute spawn spot. Last, so the plan serves ship structure first.
+            //
+            // Older builds materialised every output at one fixed point. Preserve the
+            // paid-for records but fan exact coordinate collisions into deterministic
+            // neighbouring slots before registration. Save the migrated coordinates so
+            // this is one-time repair, not motion on every reboot.
+            var occupiedLoosePositions = new List<FixedPointPosition>();
+            int separatedLooseParts = 0;
+            foreach (LoosePartRecord record in snapshot.LooseParts)
+            {
+                FixedPointPosition original = record.Position();
+                FixedPointPosition separated = Multiplayer.Ship.LoosePartPlacement.FirstAvailableFrom(
+                    original, occupiedLoosePositions);
+                if (!separated.Equals(original))
+                {
+                    record.X = separated.X;
+                    record.Y = separated.Y;
+                    record.Z = separated.Z;
+                    separatedLooseParts++;
+                }
+                occupiedLoosePositions.Add(separated);
+            }
+            if (separatedLooseParts > 0)
+            {
+                Save();
+                Console.WriteLine("[info] world persistence: separated " + separatedLooseParts
+                    + " coincident loose crafted output(s); no records or materials were discarded.");
+            }
+
             int looseParts = 0;
             foreach (LoosePartRecord record in snapshot.LooseParts)
             {

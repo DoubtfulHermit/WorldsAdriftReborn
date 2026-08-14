@@ -71,9 +71,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     + " ship spot " + stationPos + " instead.");
             }
 
-            FixedPointPosition partPos = LoosePartPlacement.NextTo(stationPos);
-
             int sequence = LooseParts.NextSequence();
+            FixedPointPosition partPos = LoosePartPlacement.NextAvailable(
+                stationPos,
+                WorldsAdriftRebornGameServer.WorldEntities.Registrations
+                    .Where(e => LoosePartPlacement.IsLoosePartKey(e.Key))
+                    .Select(e => e.Position));
             WorldEntity registration = LoosePartSpawnPlan.For(sequence, partPos, part);
             WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
             long partEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
@@ -156,7 +159,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// Unlike a fresh craft it does NOT play the materialize dissolve (a restored part
         /// is already settled/liftable), does NOT broadcast (there are no peers at boot) and
         /// does NOT re-persist (the record it came from is already on disk). It seeds the
-        /// SAME crash-safe base set (190602/190601/1016/1099/1013/1120/8066 + part-specific)
+        /// SAME crash-safe common set (190602/190601/1016/1099/1013/1120/8066/1246 + part-specific)
         /// as a live craft, so the client renders and lifts it identically.
         /// </summary>
         internal static long? Restore(LoosePartRecord record)

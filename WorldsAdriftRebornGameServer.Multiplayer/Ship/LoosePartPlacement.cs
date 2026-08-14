@@ -48,6 +48,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public const double AboveMetres = 1.0;
 
         /// <summary>
+        /// Separation between materialisation slots. The largest ordinary crafted
+        /// output (a deck panel) must not share a rigidbody origin with the next
+        /// output; 2.5 m gives the client physics enough room to settle them without
+        /// one hiding inside another.
+        /// </summary>
+        public const double SlotSpacingMetres = 2.5;
+
+        /// <summary>
         /// Where a part crafted at <paramref name="station"/> materialises: a short
         /// step to +X and <see cref="AboveMetres"/> up, so it sits beside the station
         /// at hand height. A pure function of the station position so the spawn and
@@ -59,6 +67,49 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 station.X + (long)(BesideMetres * FixedPointPosition.UnitsPerMetre),
                 station.Y + (long)(AboveMetres * FixedPointPosition.UnitsPerMetre),
                 station.Z);
+        }
+
+        /// <summary>
+        /// Finds the first unoccupied output slot beside a station. Slots form three
+        /// lanes (centre, +Z, -Z) and then extend away from the station along +X.
+        /// This is deterministic and unbounded: repeated crafts never reuse the same
+        /// world origin, while the first craft remains byte-for-byte at
+        /// <see cref="NextTo(FixedPointPosition)"/>.
+        /// </summary>
+        public static FixedPointPosition NextAvailable(
+            FixedPointPosition station,
+            System.Collections.Generic.IEnumerable<FixedPointPosition> occupied)
+        {
+            FixedPointPosition first = NextTo(station);
+            return FirstAvailableFrom(first, occupied);
+        }
+
+        /// <summary>
+        /// Separates records that were already persisted at one coincident origin.
+        /// The supplied point is slot zero; callers use this during the one-time
+        /// restore migration so materials already spent produce recoverable objects.
+        /// </summary>
+        public static FixedPointPosition FirstAvailableFrom(
+            FixedPointPosition first,
+            System.Collections.Generic.IEnumerable<FixedPointPosition> occupied)
+        {
+            var used = new System.Collections.Generic.HashSet<FixedPointPosition>(occupied);
+            long spacing = (long)(SlotSpacingMetres * FixedPointPosition.UnitsPerMetre);
+
+            for (int slot = 0; ; slot++)
+            {
+                int column = slot / 3;
+                int lane = slot % 3;
+                long zOffset = lane == 1 ? spacing : lane == 2 ? -spacing : 0;
+                FixedPointPosition candidate = new FixedPointPosition(
+                    first.X + column * spacing,
+                    first.Y,
+                    first.Z + zOffset);
+                if (!used.Contains(candidate))
+                {
+                    return candidate;
+                }
+            }
         }
     }
 }

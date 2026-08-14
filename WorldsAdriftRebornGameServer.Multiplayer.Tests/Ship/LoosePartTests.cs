@@ -42,11 +42,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             "powerGenerator", "powerGenerator01", "personalReviver",
         };
 
-        // The ONLY functional component ids a row may seed on top of the base 7:
+        // The ONLY part-specific component ids a row may seed on top of the common base:
         // ids that ComponentsSerializer serves crash-safe. Seeding any other id would
         // drop the whole all-or-nothing interest batch and render the part invisible.
         private static readonly HashSet<uint> ServedFunctionalIds =
-            new HashSet<uint> { 1108, 1236, 1303, 1107 };
+            new HashSet<uint> { 1108, 1236, 1303, 1107, 1518, 1118, 1246, 12281 };
 
         // A stand-in station position, off the origin so a bug that keeps the origin
         // is visible.
@@ -139,7 +139,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
             // ShipPartVisualizer [Require]s (renders + liftable): 8066, 1120, 190602,
             // 190601, 1016, 1013. LampVisualizer [Require]s (glows): 1108, 1236, 1099.
-            uint[] expected = { 190602, 190601, 1016, 1099, 1013, 1120, 8066, 1108, 1236 };
+            uint[] expected = { 190602, 190601, 1016, 1099, 1013, 1120, 8066, 1246, 1108, 1236 };
             Assert.Equal(expected.OrderBy(x => x), seeds.OrderBy(x => x));
         }
 
@@ -261,17 +261,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             // The lamp glows (1108 + 1236); instruments and sky cores wake their
             // damage-gated visualizer (1236); the sail (1303) and horn (1107) wake
-            // their own state. Everything else renders inert on the base 7 alone.
+            // their own state. Everything else renders inert on the common base alone.
             Assert.Equal(new uint[] { 1108, 1236 }, LoosePartCatalogue.ForSchematic("lamp")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1303 }, LoosePartCatalogue.ForSchematic("sail")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1107 }, LoosePartCatalogue.ForSchematic("horn")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1236 }, LoosePartCatalogue.ForSchematic("altimeter")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1236 }, LoosePartCatalogue.ForSchematic("atlasSkyCore")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1518 }, LoosePartCatalogue.ForSchematic("deck")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1118 }, LoosePartCatalogue.ForSchematic("mediumPanel")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 1118 }, LoosePartCatalogue.ForSchematic("window")!.PartSpecificComponents);
 
             // Parts left dormant carry NO functional id (render + lift only).
             Assert.Empty(LoosePartCatalogue.ForSchematic("helm")!.PartSpecificComponents);
-            Assert.Empty(LoosePartCatalogue.ForSchematic("proceduralEngineDefault")!.PartSpecificComponents);
-            Assert.Empty(LoosePartCatalogue.ForSchematic("proceduralWingDefault")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 12281 }, LoosePartCatalogue.ForSchematic("proceduralEngineDefault")!.PartSpecificComponents);
+            Assert.Equal(new uint[] { 12281 }, LoosePartCatalogue.ForSchematic("proceduralWingDefault")!.PartSpecificComponents);
             Assert.Empty(LoosePartCatalogue.ForSchematic("storageContainer")!.PartSpecificComponents);
         }
 
@@ -394,6 +397,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // It really is offset - not sitting exactly on the station origin.
             Assert.NotEqual(Station.X, part.X);
             Assert.True(part.Y > Station.Y);
+        }
+
+        [Fact]
+        public void Repeated_crafts_get_distinct_nearby_output_slots()
+        {
+            var occupied = new List<FixedPointPosition>();
+            FixedPointPosition first = LoosePartPlacement.NextAvailable(Station, occupied);
+            occupied.Add(first);
+            FixedPointPosition second = LoosePartPlacement.NextAvailable(Station, occupied);
+            occupied.Add(second);
+            FixedPointPosition third = LoosePartPlacement.NextAvailable(Station, occupied);
+            occupied.Add(third);
+            FixedPointPosition fourth = LoosePartPlacement.NextAvailable(Station, occupied);
+
+            Assert.Equal(LoosePartPlacement.NextTo(Station), first);
+            Assert.Equal(4, new[] { first, second, third, fourth }.Distinct().Count());
+            Assert.Equal(first.X, second.X);
+            Assert.True(second.Z > first.Z);
+            Assert.True(third.Z < first.Z);
+            Assert.True(fourth.X > first.X);
+        }
+
+        [Fact]
+        public void Persisted_coincident_outputs_are_separated_without_moving_the_first()
+        {
+            FixedPointPosition first = LoosePartPlacement.NextTo(Station);
+            FixedPointPosition repaired = LoosePartPlacement.FirstAvailableFrom(
+                first, new[] { first });
+
+            Assert.NotEqual(first, repaired);
+            Assert.Equal(first.X, repaired.X);
+            Assert.Equal(first.Y, repaired.Y);
         }
 
         [Fact]

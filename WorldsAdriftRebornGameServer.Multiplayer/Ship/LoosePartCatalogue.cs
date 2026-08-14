@@ -11,23 +11,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// one row in <see cref="Rows"/>; adding or adjusting a part is a single row, not
     /// new machinery (the shipyard Deployables table is the shape this mirrors).
     ///
-    /// WHY BASE-7 IS THE WHOLE STORY FOR RENDERING. A ship-part prefab renders from
-    /// its BAKED geometry the instant the client loads it (AssetLoadRequest +
-    /// AddEntity); the seed set does NOT make it visible, it makes it LIFTABLE and
-    /// (for a lamp) FUNCTIONAL. This is the same finding <see cref="ShipParts"/>
-    /// records for the static engine/sail ("they render from their BAKED prefab
-    /// geometry ... the server seeds NONE of their special-visualizer components ...
-    /// those visualizers stay dormant ... but the parts still appear"). So every part
-    /// here carries <see cref="LoosePartDefinition.BaseShipPartComponents"/> - the
-    /// ShipPartVisualizer [Require] union that makes it render-and-liftable - and adds
-    /// a functional component ONLY when that component is served with crash-safe idle
-    /// data AND its absence would make the part visibly broken rather than merely
-    /// dormant. The lamp adds 1108/1236 (it must glow); the motion-driven instruments
-    /// add 1236 (their needle visualizers are damage-gated and 1236 is already served
-    /// crash-safe). Everything else renders as an inert-but-correct prop, exactly as
-    /// the codebase already ships the static engine and sail - dormant functional
-    /// visuals are a documented follow-on, never a regression, because best-effort
-    /// interest leaves one missing part inert, not the ship.
+    /// RENDERING CONTRACT. Every row carries the common ShipPartVisualizer/lift/
+    /// material/variation closure from <see cref="LoosePartDefinition.BaseShipPartComponents"/>.
+    /// Prefabs whose visible geometry is generated rather than baked add their
+    /// mandatory state here: decks add 1518, panels/windows add 1118, and modular
+    /// engines/wings add 12281. Functional visuals are added only where the server
+    /// has crash-safe truthful state (lamp, sail, horn and passive instruments).
+    /// This distinction matters: the former "baked geometry is enough" assumption
+    /// consumed materials while producing invisible Deck01/Panel02 entities.
     ///
     /// PREFAB NAMES ARE THE VERIFIED CLIENT-RESOLVABLE NAMES. Every prefabName below was
     /// cross-checked against the REAL client entity-prefab set extracted straight from
@@ -76,7 +67,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         // is verified crash-safe (SailVisualizer/HornVisualizer only subscribe on
         // enable, no Option deref). The riskier functional states (engine 1116+1251,
         // wing 1124, core 1115/1258, storage 1081+1210, respawn 1094) are left dormant
-        // - the part still renders from baked geometry and lifts on the base 7, exactly
+        // - the part still renders from its visual contract and lifts on the common base, exactly
         // as ShipParts leaves the static engine/sail dormant; waking them is a
         // documented follow-on, never a regression (best-effort interest leaves one
         // part inert, never the ship).
@@ -84,6 +75,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         private const uint IsTooDamagedToWorkState = 1236;
         private const uint SailState = 1303;
         private const uint HornState = 1107;
+        private const uint ShipDeckState = 1518;
+        private const uint ShipPanelState = 1118;
+        private const uint ModularShipPartState = 12281;
 
         /// <summary>
         /// One row of the catalogue: the recipe key plus everything
@@ -129,13 +123,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         // THE TABLE. One row per CraftingStation-category ship part the bench
         // shows. prefabName = the verified client-resolvable name; attachmentType
         // = the best-guess GetAttachmentType string (config-overridable); the last
-        // column = functional components seeded ON TOP of the base 7, and ONLY ids
+        // column = prefab-specific components seeded ON TOP of the common base, and ONLY ids
         // that are served crash-safe (1108/1236) may appear there.
         // ------------------------------------------------------------------
         private static readonly Row[] Rows =
         {
             // --- Basics: helm / sail / deck -------------------------------------
-            // Helm renders + lifts on base 7; HelmVisualizer needs the ship's 1111,
+            // Helm renders + lifts on the common base; HelmVisualizer needs the ship's 1111,
             // not a loose-part component, so no functional id here.
             //
             // attachmentType "deck" (NOT the former best-guess "shipSurfaces"): a helm
@@ -178,14 +172,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // yaw is runtime, so a placed orientation is cosmetic for now).
             new Row("sail",  "basics", "Sail", "Sail01", "deck", new uint[] { SailState }),
             // Deck piece; "deck" attachment drives ShipPartPlacement's deck styling.
-            new Row("deck",  "basics", "Deck", "Deck01", "deck",         new uint[] { }),
+            // 1518 is not optional decoration: ShipDeckVisualizer builds the actual
+            // visible mesh and solid collider from it. Without it a craft consumes
+            // materials and creates an entity whose deck never materialises.
+            new Row("deck",  "basics", "Deck", "Deck01", "deck", new uint[] { ShipDeckState }),
 
             // --- Engine / wing (procedural modular parts) -----------------------
             // Engine/wing render from baked geometry; their EngineVisualizer/
             // WingVisualizer functional state (1116/1251/1124) stays dormant, the
             // same call ShipParts makes for the static engine.
-            new Row("proceduralEngineDefault", "engine",         "Procedural Engine", "ModularEngine", "engine", new uint[] { }),
-            new Row("proceduralWingDefault",   "proceduralWing", "Procedural Wing",   "ModularWing",   "wing",   new uint[] { }),
+            // Modular prefabs are empty shells until 12281 names their component
+            // meshes. Without it the recipe succeeds but ShipPartGenerator never
+            // builds an engine/wing that the player can see or attach.
+            new Row("proceduralEngineDefault", "engine",         "Procedural Engine", "ModularEngine", "engine", new uint[] { ModularShipPartState }),
+            new Row("proceduralWingDefault",   "proceduralWing", "Procedural Wing",   "ModularWing",   "wing",   new uint[] { ModularShipPartState }),
 
             // --- Sky cores: the main atlas core (the BASE) + its 8 modules -------
             //
@@ -227,10 +227,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
             // --- Structural: hull panels / window / stairs / railings -----------
             // "side" panels attach to the hull sides; stairs/railings to the deck.
-            new Row("smallPanel",   "structural", "Small Panel",   "Panel01",       "side", new uint[] { }),
-            new Row("mediumPanel",  "structural", "Medium Panel",  "Panel02",       "side", new uint[] { }),
-            new Row("largePanel",   "structural", "Large Panel",   "Panel03",       "side", new uint[] { }),
-            new Row("window",       "structural", "Window",        "Window01",      "side", new uint[] { }),
+            // Panels are generated geometry, not baked props. ShipPanelVisualizer
+            // [Require]s 1118 and its ShipPanelVariationVisualizer base [Require]s
+            // 1246. The live Panel02 request proved both were absent.
+            new Row("smallPanel",   "structural", "Small Panel",   "Panel01",  "side", new uint[] { ShipPanelState }),
+            new Row("mediumPanel",  "structural", "Medium Panel",  "Panel02",  "side", new uint[] { ShipPanelState }),
+            new Row("largePanel",   "structural", "Large Panel",   "Panel03",  "side", new uint[] { ShipPanelState }),
+            new Row("window",       "structural", "Window",        "Window01", "side", new uint[] { ShipPanelState }),
             new Row("stairs",       "structural", "Stairs",        "Stairs1",       "deck", new uint[] { }),
             new Row("railing",      "structural", "Railing",       "RailingStraight","deck", new uint[] { }),
             new Row("railingCorner","structural", "Railing Corner","RailingCorner", "deck", new uint[] { }),

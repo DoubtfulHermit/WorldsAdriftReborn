@@ -2036,6 +2036,65 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 WorldsAdriftRebornGameServer.HornChargeNow(entityId) ?? 0f);
                         }
                     }
+                    else if (componentId == 1246)
+                    {
+                        // ShipPartVariationsSeedState. Structural panel geometry derives
+                        // its stable art/material variation from this reader. Entity id is
+                        // stable for the entity lifetime and therefore gives every peer the
+                        // same appearance without storing another mutable field.
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new ShipPartVariationsSeedState.Data(unchecked((int)entityId));
+                        }
+                    }
+                    else if (componentId == 1118)
+                    {
+                        // ShipPanelState. A loose panel has not yet been bent against a
+                        // hull, so its collider target list is empty and bending is off.
+                        // ShipPanelVisualizer still uses the prefab's authored PanelsX/Y
+                        // to create the straight panel; after mounting, the normal panel
+                        // request path can supply a shaped target in a future physics pass.
+                        var panel = Game.Crafting.LooseParts.DefFor(entityId);
+                        if (panel != null && (panel.ItemType == "smallPanel"
+                            || panel.ItemType == "mediumPanel"
+                            || panel.ItemType == "largePanel"
+                            || panel.ItemType == "window"))
+                        {
+                            obj = new ShipPanelState.Data(
+                                0, 0,
+                                new Improbable.Collections.List<PanelCollider>(),
+                                0,
+                                false);
+                        }
+                    }
+                    else if (componentId == 12281)
+                    {
+                        // ModularShipPartState. ModularEngine/ModularWing are shells;
+                        // their visualizer calls ShipPartGenerator with this exact map.
+                        // Values are Resources prefab BASENAMES (GetModulePrefab adds
+                        // ModularShipComponents/<type>/<slot>/ itself). Every selected
+                        // name is present in the shipped client's resources.assets.
+                        string? itemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
+                        if (itemType == "proceduralEngineDefault")
+                        {
+                            obj = new ModularShipPartState.Data(new Map<string, string>
+                            {
+                                { "Body", "Engine_Body_001" },
+                                { "Head", "Engine_Head_001" },
+                                { "Prop", "Engine_Propeller_001" },
+                            });
+                        }
+                        else if (itemType == "proceduralWingDefault")
+                        {
+                            obj = new ModularShipPartState.Data(new Map<string, string>
+                            {
+                                { "Aileron", "Wing_Airleon_003" },
+                                { "Body", "Wing_Body_003" },
+                                { "Connector", "Wing_Connector_002" },
+                                { "Tip", "Wing_Tip_002" },
+                            });
+                        }
+                    }
                     else if (componentId == 8062)
                     {
                         // ShipOwnersDeprecatedState - one of ShipVisualizer's three
