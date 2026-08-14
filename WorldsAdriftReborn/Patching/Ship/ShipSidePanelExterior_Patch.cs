@@ -40,12 +40,12 @@ namespace WorldsAdriftReborn.Patching.Ship
             {
                 if (__instance == null || ship == null || __instance.Phantom == null
                     || __instance.ValidSurfaceTypes != PlacementLocationType.ShipSide
-                    || __instance.Phantom.GetComponentInChildren<ShipPanel>() == null)
+                    || !IsPanel(__instance.Phantom))
                 {
                     return;
                 }
 
-                ShipSideHull sideHull = ship.GetComponentInChildren<ShipSideHull>();
+                ShipSideHull sideHull = ship.GetComponentInChildren<ShipSideHull>(true);
                 SRCMesh sideMesh = sideHull == null ? null : sideHull.GetComponent<SRCMesh>();
                 if (sideMesh == null)
                 {
@@ -92,7 +92,9 @@ namespace WorldsAdriftReborn.Patching.Ship
                     _nextLogAt = Time.realtimeSinceStartup + 2f;
                     Debug.Log("[WAR][ship-panel] snapped ShipSide preview "
                         + correction.ToString("F2")
-                        + " m from an internal frame member to the exterior hull skin.");
+                        + " m from hull-local " + localHit.ToString("F2")
+                        + " to " + ship.transform.InverseTransformPoint(hitPoint).ToString("F2")
+                        + " on the exterior hull skin.");
                 }
             }
             catch (Exception exception)
@@ -106,6 +108,22 @@ namespace WorldsAdriftReborn.Patching.Ship
                         + exception.Message);
                 }
             }
+        }
+
+        private static bool IsPanel(Assets.Scripts.PartPlacement.PhantomPart phantom)
+        {
+            // PhantomPart.Create notifies PhantomVisualizers before its delayed Init.
+            // During that window the generated ShipPanel child is inactive, which is
+            // precisely when PositionOnShip begins running. The ordinary no-argument
+            // GetComponentInChildren silently misses it. Check inactive children and
+            // the authoritative original carried entity as a second exact signal.
+            if (phantom.GetComponentInChildren<ShipPanel>(true) != null)
+            {
+                return true;
+            }
+            return phantom.OriginalPart.HasValue
+                && phantom.OriginalPart.Value != null
+                && phantom.OriginalPart.Value.GetComponentInChildren<ShipPanel>(true) != null;
         }
     }
 }
