@@ -14,7 +14,7 @@ and poll loop before a process boundary is introduced.
 - No phase is complete from unit tests alone: runtime-facing phases require a
   live acceptance pass and useful diagnostics.
 
-## Phase 1 — stable region topology
+## Phase 1 — stable region topology (implemented)
 
 Introduce dependency-free `RegionId`, `RegionDefinition` and `RegionRegistry`.
 Map every evidenced island to exactly one stable region. Do not change spawning,
@@ -29,11 +29,17 @@ Acceptance:
   global origins;
 - the full Multiplayer test suite and server build pass.
 
-## Phase 2 — read-only world directory
+## Phase 2 — read-only world directory (implemented locally; live log pending)
 
 Add a single-process directory that classifies registered world entities by
 island, region, ship or global scope. Existing services may query it for
 diagnostics, but their current behavior remains authoritative.
+
+Implementation: `WorldDirectory` classifies explicit global data, region-owned
+terrain/resources/structures and static or built whole-ship membership. The
+server supplies mounted loose-part-to-hull overrides from its existing ledger
+after restore and spawn-plan binding, then prints one `[world-directory]
+READ-ONLY` summary. No gameplay path consumes the result.
 
 Acceptance: every boot entity is classified once, classifications are stable
 across registration order, and production logs show zero unclassified entities

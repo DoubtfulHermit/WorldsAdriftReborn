@@ -3376,6 +3376,13 @@ namespace WorldsAdriftRebornGameServer
             Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
 
+            // PHASE 2 ELASTIC-RUNTIME FOUNDATION. Build a read-only ownership
+            // directory only after restore + SpawnPlan have bound every boot entity
+            // id, so mounted loose parts can be associated with their hull roots.
+            // Nothing consumes the result yet: this diagnostic must prove complete
+            // classification before a later change is allowed to route through it.
+            Game.WorldDirectoryDiagnostics.BuildAndLog(WorldEntities);
+
             GameState.Instance.WorldState[0] = plan
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step), () =>
                     step.Entity != null && WorldEntities.ByKey(step.Entity.Key) == null))

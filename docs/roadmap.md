@@ -30,11 +30,12 @@ The long-term goal is one legacy-client gateway backed eventually by movable
 island and whole-ship simulation domains. Multi-process meshing is deliberately
 deferred until the boundaries work in one process.
 
-1. **Stable region topology — implemented locally.** Dependency-free
+1. **Stable region topology — implemented.** Dependency-free
    `RegionId`, `RegionDefinition` and `RegionRegistry`; no runtime behavior yet.
-2. **Read-only world directory — next.** Classify every world entity as region,
-   ship or explicit global scope and prove complete coverage diagnostically.
-3. **Region-backed interest routing.** Preserve current resource semantics,
+2. **Read-only world directory — implemented locally, live boot log pending.**
+   Every current registration is classified as region, whole ship or explicit
+   global scope. The server logs a summary; no gameplay path reads it.
+3. **Region-backed interest routing — next after acceptance.** Preserve current resource semantics,
    then extend visibility one entity family at a time with measured budgets.
 4. **Local simulation domains.** Island and whole-ship domains scheduled in the
    existing poll loop.

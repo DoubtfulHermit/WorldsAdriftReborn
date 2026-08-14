@@ -10,8 +10,8 @@
 
 **Active branch at this snapshot:** `feat/island-identity`
 
-**Code baseline at this snapshot:** `5dd6c49` (`Document staged resource login rollout`),
-plus the uncommitted Phase 1 region-topology slice described below.
+**Code baseline at this snapshot:** `af565a5` (`Add region topology and clean
+project history`), plus the uncommitted Phase 2 read-only world-directory slice.
 
 This file is the current operational and architectural handover. Start here,
 then follow the narrower documents it links. Do not treat old roadmap entries,
@@ -37,7 +37,7 @@ implemented.
    dotnet build WorldsAdriftReborn -c Release
    ```
 
-   At this snapshot the Multiplayer suite passes **2232/2232**, and both server
+   At this snapshot the Multiplayer suite passes **2240/2240**, and both server
    and client builds succeed. Existing nullable/obsolete/net6-EOL warnings are
    known. Do not run the test and server builds concurrently: both write the
    Multiplayer output and can cause a harmless file-lock retry.
@@ -82,7 +82,7 @@ reconciled explicitly.
 | `WorldsAdriftRebornCoreSdk/` | Native client/server protocol shim and ENet transport | `Connection.cpp`, `Dispatcher.cpp`, `enetLayer.cpp`, `OpList.h` |
 | `WorldsAdriftRebornGameServer/` | Authoritative game server and main poll loop | `WorldsAdriftRebornGameServer.cs`, `Game/`, `Networking/` |
 | `WorldsAdriftRebornGameServer.Multiplayer/` | Engine-free policies, ledgers, catalogues, geometry | resource, inventory, placement, ship and flight types |
-| `WorldsAdriftRebornGameServer.Multiplayer.Tests/` | Fast native regression suite | 2232 tests at this snapshot |
+| `WorldsAdriftRebornGameServer.Multiplayer.Tests/` | Fast native regression suite | 2240 tests at this snapshot |
 | `WorldsAdriftServer/` | Login, accounts, roster and patch-file HTTP service | request handlers, storage integration |
 | `WorldsAdriftReborn.Storage/` | PostgreSQL models/repositories/migrations | storage tests require `WAREBORN_DB` for integration cases |
 | `tools/patcher/` | WAPatch and manifest release pipeline | `README.md`, `build-manifest.sh` |
@@ -427,11 +427,14 @@ They are **design inputs, not implementation status**. At this snapshot:
 
 The accepted phased plan is
 [`architecture/elastic-runtime-phases.md`](architecture/elastic-runtime-phases.md).
-Phase 1 (stable region topology) is implemented as a behavior-preserving pure
-library slice. The next testable chunk is Phase 2: a read-only world directory
-that classifies existing world entities into region, ship or explicit global
-scope. It must first run as diagnostics and prove complete classification; it
-must not replace spawning, interest or persistence in the same change.
+Phase 1 stable region topology and Phase 2's read-only world directory are
+implemented. After restore and spawn-plan binding, the server classifies every
+registration into explicit global, region or whole-ship ownership and emits one
+`[world-directory] READ-ONLY` summary. Mounted parts use the existing mount
+ledger only to describe their hull owner. No spawning, interest, persistence or
+networking path reads the directory. The next gate is one production boot whose
+summary covers the complete restored world; only then may Phase 3 begin routing
+the existing resource-interest candidate query through the directory.
 
 ## 10. Known risks and unfinished work
 
