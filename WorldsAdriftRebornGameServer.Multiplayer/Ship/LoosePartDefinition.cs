@@ -55,8 +55,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// The 1120 attachmentType string, mapped by BuilderVisualizer.GetAttachmentType
         /// (one of none/side/deck/wing/deckGrid/deckForward/engine/shipSurfaces/coreModule;
         /// anything else degrades safely to None). Also server refdata, not in the
-        /// decompile; a decorative lamp is a surface part, so "shipSurfaces" is the
-        /// best guess. Only affects placement snapping, not whether the part renders.
+        /// decompile. Legacy "shipSurfaces" values are normalized to "deck" because
+        /// reconstructed ships do not expose retail's Environment-layer skin; this
+        /// affects placement snapping, not whether the part renders.
         /// </param>
         /// <param name="partSpecificComponents">
         /// The functional component ids unique to this part type (the lamp's
@@ -75,7 +76,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             ItemType = itemType;
             Title = title;
             PrefabName = prefabName;
-            AttachmentType = attachmentType;
+            // The current built ship has a real ShipDeck placement collider but no
+            // retail Environment-layer ShipSurfaces skin. Normalize here (rather than
+            // only in the catalogue) so old loose/mounted records and live env
+            // overrides cannot resurrect the one-incidental-frame placement bug.
+            AttachmentType = PartMountSurfaces.NormalizeForBuiltShip(attachmentType);
             PartSpecificComponents = partSpecificComponents;
         }
 

@@ -304,7 +304,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.False(string.IsNullOrWhiteSpace(lamp.PrefabName));
             // A valid BuilderVisualizer.GetAttachmentType string (anything else safely
             // degrades to None on the client, but a plausible one is worth pinning).
-            Assert.Equal("shipSurfaces", lamp.AttachmentType);
+            Assert.Equal("deck", lamp.AttachmentType);
         }
 
         [Fact]
@@ -341,8 +341,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             foreach (string id in new[]
             {
                 "helm", "sail", "deck", "stairs", "railing", "railingCorner",
-                "trunk", "storageContainer", "shippingContainer",
-                "barrel", "cupboard", "personalReviver",
+                "trunk", "mountedBox", "storageContainer", "shippingContainer",
+                "barrel", "cupboard", "horn", "lamp", "personalReviver",
+                "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
+                "powerGenerator", "powerGenerator01",
                 // The sky-core BASE: the only prefab with authored module sockets
                 // (see SkyCoreSocketsTests), so IT stands on the deck and the eight
                 // modules snap onto it.
@@ -355,25 +357,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void Parts_left_on_ship_surfaces_are_a_documented_deliberate_set()
+        public void No_catalogue_part_uses_the_broken_generic_ship_surface()
         {
-            // These stay "shipSurfaces" ON PURPOSE - their retail surface is either a
-            // vertical ship surface our built ship does not expose a usable collider for
-            // (mountedBox), or is NOT confirmable from the decompile (horn, instruments;
-            // the attachmentType strings are server refdata absent from the client). They
-            // are deliberately NOT guessed onto the deck. If this set changes, the decision
-            // above must be revisited with real refdata or a live check.
-            foreach (string id in new[]
+            // Generated ships have no Environment-layer ShipSurfaces skin. Any row
+            // authored with that value would regress to incidental frame-only placement.
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
             {
-                "mountedBox", "horn",
-                "altimeter", "fuelGauge", "headingIndicator", "artificialHorizon", "airspeedIndicator",
-                "lamp",
-            })
-            {
-                var part = LoosePartCatalogue.ForSchematic(id)!;
-                Assert.Equal("shipSurfaces", part.AttachmentType);
-                Assert.Equal(PartMountSurface.ShipSurfaces, PartMountSurfaces.ForAttachmentType(part.AttachmentType));
+                Assert.NotEqual("shipSurfaces", part.AttachmentType);
+                Assert.NotEqual(PartMountSurface.ShipSurfaces,
+                    PartMountSurfaces.ForAttachmentType(part.AttachmentType));
             }
+        }
+
+        [Fact]
+        public void Legacy_generic_surface_metadata_migrates_to_the_deck()
+        {
+            var restored = new LoosePartDefinition(
+                "lamp", "lamp", "Lamp", "Lamp01", "shipSurfaces", new uint[] { 1108, 1236 });
+
+            Assert.Equal("deck", restored.AttachmentType);
+            Assert.Equal(PartMountSurface.ShipDeck,
+                PartMountSurfaces.ForAttachmentType(restored.AttachmentType));
         }
 
         // --- Placement -----------------------------------------------------------

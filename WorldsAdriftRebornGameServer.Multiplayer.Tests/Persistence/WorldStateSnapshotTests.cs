@@ -184,11 +184,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
             Assert.Equal(new uint[] { 1108u, 1236u }, r.PartSpecificComponents);
 
-            // The rebuilt definition is byte-identical to what the spawner would re-craft:
-            // same prefab/attach/itemType AND the same all-or-nothing seed set (base + specific).
+            // The prefab/item state remains exact, while the obsolete generic surface is
+            // migrated to the usable deck so old saves do not retain frame-only placement.
             WorldsAdriftRebornGameServer.Multiplayer.Ship.LoosePartDefinition def = r.Definition();
             Assert.Equal("Lamp01", def.PrefabName);
-            Assert.Equal("shipSurfaces", def.AttachmentType);
+            Assert.Equal("deck", def.AttachmentType);
             Assert.Equal("lamp", def.ItemType);
             Assert.Equal(new uint[] { 1108u, 1236u }, def.PartSpecificComponents);
         }
@@ -227,6 +227,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.Equal(55555u, r.PackedRotation);
             Assert.Equal("6f9619ff-8b86-d011-b42d-00c04fc964ff", r.OwnerCharacterUid);
             Assert.Equal("Lamp01", r.Definition().PrefabName);
+            Assert.Equal("deck", r.Definition().AttachmentType);
         }
 
         [Fact]

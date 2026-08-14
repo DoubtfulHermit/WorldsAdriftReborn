@@ -66,7 +66,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public const string LampDefaultPrefab = "Lamp01";
 
         /// <summary>The lamp's default attachmentType (a surface-mounted decoration).</summary>
-        public const string LampDefaultAttachment = "shipSurfaces";
+        public const string LampDefaultAttachment = "deck";
 
         // Functional component ids that are SERVED crash-safe today (ComponentsSerializer):
         //   1108 LampState, 1236 IsTooDamagedToWorkState, 1303 SailState, 1107 HornState.
@@ -242,13 +242,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // props that do not yet OPEN - the inventory wiring is the follow-on. The
             // container prefab sizing (Small/Medium/Large) is a best guess.
             new Row("trunk",             "storage", "Trunk",             "ContainerSmall",  "deck",         new uint[] { }),
-            // mountedBox stays "shipSurfaces" ON PURPOSE (NOT nudged to "deck"): its very
-            // name is the WALL/surface-mounted box, distinct from the deck-standing trunk/
-            // containers beside it. Its retail surface is a vertical ship SURFACE, which our
-            // built ship does not expose a usable collider for yet (only the deck is a real
-            // surface). Faking it onto the deck would be wrong-but-placeable, so it is left
-            // as-is until the ship exposes a side/surface collider.
-            new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "shipSurfaces", new uint[] { }),
+            // The reconstructed hull has no retail Environment-layer generic skin.
+            // Until that geometry exists, the mounted box uses the real deck placement
+            // surface so it is usable instead of hitting one incidental frame collider.
+            new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "deck", new uint[] { }),
             new Row("storageContainer",  "storage", "Storage Container", "ContainerMedium", "deck",         new uint[] { }),
             new Row("shippingContainer", "storage", "Shipping Container","ContainerLarge",  "deck",         new uint[] { }),
 
@@ -257,11 +254,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             new Row("cupboard", "decoration", "Cupboard", "Cupboard", "deck",         new uint[] { }),
             // Horn: 1107 HornState wakes HornVisualizer (charge=0; OnEnable reads a
             // plain float, no Option deref, crash-safe). Served by a new 1107 branch.
-            // Left "shipSurfaces": whether a ship's horn is deck-mounted or surface/rail-
-            // mounted in retail is NOT confirmable from the decompile (the attachmentType
-            // strings are server refdata, absent from the client), so it is not guessed onto
-            // the deck. Revisit with the real refdata or a live check.
-            new Row("horn",     "decoration", "Horn",     "Horn01",   "shipSurfaces", new uint[] { HornState }),
+            // Use the real deck collider; generic ShipSurfaces cannot hit it on generated
+            // ships and produced the same single-frame placement failure as the lamp.
+            new Row("horn",     "decoration", "Horn",     "Horn01",   "deck", new uint[] { HornState }),
             // THE LAMP - the one part already proven end-to-end. It MUST glow, so it
             // seeds 1108 LampState + 1236 IsTooDamagedToWorkState (both served
             // crash-safe). Prefab/attach are its verified-working defaults.
@@ -275,24 +270,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // NEW branch is needed - this is the one safe functional add beyond the
             // lamp, reusing the lamp's own 1236 serve.
             //
-            // attachmentType left "shipSurfaces" for ALL FIVE: whether these gauges are
-            // deck-standing pedestals or console/panel-mounted in retail is NOT confirmable
-            // from the decompile (ShipInstrument only adds a generic PlacementRules,
-            // acs/ShipInstrument.cs:7-11; the surface string is server refdata absent from
-            // the client). They are NOT guessed onto the deck - if any are panel/surface
-            // parts, our built ship exposes no usable surface for them yet. Revisit with the
-            // real refdata or a live check.
-            new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("artificialHorizon",  "instruments", "Artificial Horizon",  "ArtificialHorizon", "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("airspeedIndicator",  "instruments", "Airspeed Indicator",  "AirspeedIndicator", "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
+            // Their exact retail server-refdata strings are unavailable, but generated
+            // ships expose one broad usable mounting surface: ShipDeck. Author all five
+            // there rather than retaining the known-broken generic Environment raycast.
+            new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("artificialHorizon",  "instruments", "Artificial Horizon",  "ArtificialHorizon", "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("airspeedIndicator",  "instruments", "Airspeed Indicator",  "AirspeedIndicator", "deck", new uint[] { IsTooDamagedToWorkState }),
 
             // --- Power generators -----------------------------------------------
             // Two schematic keys, one prefab. Render from baked geometry; any
             // generator functional state is dormant.
-            new Row("powerGenerator",   "power", "Power Generator", "PowerGenerator01", "shipSurfaces", new uint[] { }),
-            new Row("powerGenerator01", "power", "Power Generator", "PowerGenerator01", "shipSurfaces", new uint[] { }),
+            new Row("powerGenerator",   "power", "Power Generator", "PowerGenerator01", "deck", new uint[] { }),
+            new Row("powerGenerator01", "power", "Power Generator", "PowerGenerator01", "deck", new uint[] { }),
 
             // --- Personal reviver (ship respawn point) --------------------------
             // A ship-mounted respawn point. RespawnerVisualizer [Require]s 1094 +

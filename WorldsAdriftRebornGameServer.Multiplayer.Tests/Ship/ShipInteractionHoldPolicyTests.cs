@@ -8,7 +8,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [Theory]
         [InlineData(2.0f)]
         [InlineData(10.15f)]
-        public void Helm_or_sail_hold_is_clamped_even_after_the_retail_penalty(float input)
+        public void Every_ship_part_hold_is_clamped_even_after_the_retail_penalty(float input)
         {
             Assert.Equal(ShipInteractionHoldPolicy.MaxImmediateHoldSeconds,
                 ShipInteractionHoldPolicy.Clamp(true, input));
