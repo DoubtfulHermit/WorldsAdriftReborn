@@ -40,6 +40,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// </summary>
         private static readonly Dictionary<long, IReadOnlyList<ShipVector3>> DeckVerticesByEntityId =
             new Dictionary<long, IReadOnlyList<ShipVector3>>();
+        private static readonly Dictionary<long, long> HullByDeck = new Dictionary<long, long>();
+        private static readonly Dictionary<long, List<long>> DecksByHull = new Dictionary<long, List<long>>();
 
         /// <summary>
         /// A built hull's PERSISTENT index - its position in the persisted
@@ -106,9 +108,37 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// 1099 material branch (via <see cref="IsBuiltDeck"/>) and the 1518 polygon
         /// branch (via <see cref="DeckVerticesFor"/>) are straight lookups.
         /// </summary>
-        internal static void RegisterDeck(long deckEntityId, IReadOnlyList<ShipVector3> localVertices)
+        internal static void RegisterDeck(long hullEntityId, long deckEntityId, IReadOnlyList<ShipVector3> localVertices)
         {
             DeckVerticesByEntityId[deckEntityId] = localVertices;
+            HullByDeck[deckEntityId] = hullEntityId;
+            if (!DecksByHull.TryGetValue(hullEntityId, out List<long>? decks))
+            {
+                decks = new List<long>();
+                DecksByHull[hullEntityId] = decks;
+            }
+            decks.Add(deckEntityId);
+        }
+
+        internal static IReadOnlyList<long> DecksForHull(long hullEntityId) =>
+            DecksByHull.TryGetValue(hullEntityId, out List<long>? decks)
+                ? new List<long>(decks)
+                : System.Array.Empty<long>();
+
+        /// <summary>Retires one salvaged hull and every deck ledger entry beneath it.</summary>
+        internal static IReadOnlyList<long> UnregisterShip(long hullEntityId)
+        {
+            IReadOnlyList<long> decks = DecksForHull(hullEntityId);
+            foreach (long deckId in decks)
+            {
+                DeckVerticesByEntityId.Remove(deckId);
+                HullByDeck.Remove(deckId);
+            }
+            DecksByHull.Remove(hullEntityId);
+            HullBytesByEntityId.Remove(hullEntityId);
+            PersistentIndexByHull.Remove(hullEntityId);
+            OwnerByHull.Remove(hullEntityId);
+            return decks;
         }
 
         /// <summary>

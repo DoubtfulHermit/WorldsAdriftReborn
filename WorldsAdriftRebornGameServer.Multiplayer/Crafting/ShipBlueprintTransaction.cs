@@ -247,6 +247,44 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         }
 
         /// <summary>
+        /// After a successful StartCraft, trim every reserved slot to exactly its recipe
+        /// requirement and return the excess to inventory. Whole stacks were reserved so
+        /// their item ids/metadata could round-trip; this is the point where a partial
+        /// stack is split authoritatively. Disabled rows consume nothing and are returned
+        /// in full. Returns the total material AMOUNT refunded (not stack count).
+        /// </summary>
+        public static int RefundExcess(ShipBlueprintBuild build, InventoryModel inventory)
+        {
+            if (!build.IsCrafting) return 0;
+
+            int refunded = 0;
+            foreach (SchematicRowBuild row in build.Rows)
+            {
+                foreach (MaterialSlot slot in row.Slots)
+                {
+                    int remaining = row.IsEnabled ? slot.Required.Amount : 0;
+                    List<InventoryItem> reserved = slot.DrainLoaded();
+                    foreach (InventoryItem item in reserved)
+                    {
+                        int consumed = System.Math.Min(remaining, item.Amount);
+                        if (consumed > 0)
+                        {
+                            slot.Load(item with { Amount = consumed });
+                            remaining -= consumed;
+                        }
+                        int excess = item.Amount - consumed;
+                        if (excess > 0)
+                        {
+                            inventory.Add(item with { Amount = excess });
+                            refunded += excess;
+                        }
+                    }
+                }
+            }
+            return refunded;
+        }
+
+        /// <summary>
         /// The first inventory item that matches a requirement and is free to reserve
         /// (not worn, not stashed), or null.
         /// </summary>

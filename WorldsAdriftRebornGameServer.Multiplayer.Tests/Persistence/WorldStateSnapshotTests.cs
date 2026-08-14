@@ -82,6 +82,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
                 HullY = hull.Y,
                 HullZ = hull.Z,
                 HullBytes = bytes,
+                Salvaged = true,
             });
 
             string path = Path.Combine(_dir, "world.json");
@@ -91,6 +92,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             BuiltShipRecord r = Assert.Single(read.BuiltShips);
             Assert.Equal(hull, r.HullPosition());
             Assert.Equal(bytes, r.HullBytes);
+            Assert.True(r.Salvaged);
         }
 
         [Fact]

@@ -189,18 +189,33 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// </summary>
         internal static void RepersistLiftedAsLoose(long partEntityId, string ownerCharacterUid)
         {
-            string? partUid = LooseParts.PartUidFor(partEntityId);
-            LoosePartDefinition? part = LooseParts.DefFor(partEntityId);
-            if (string.IsNullOrEmpty(partUid) || part == null)
+            LoosePartRecord? record = LooseRecordForCurrentPose(partEntityId, ownerCharacterUid);
+            if (record == null)
             {
                 return;
             }
+            WorldStatePersistence.RemoveMountedPart(record.PartUid);
+            WorldStatePersistence.RecordLoosePart(record);
+        }
 
-            FixedPointPosition pos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(partEntityId)?.Position
-                ?? Multiplayer.WorldEntities.ShipFramePosition();
+        /// <summary>Builds the durable loose record after BroadcastDetach relocated the registration.</summary>
+        internal static LoosePartRecord? LooseRecordForCurrentPose(long partEntityId, string ownerCharacterUid)
+        {
+            string? partUid = LooseParts.PartUidFor(partEntityId);
+            LoosePartDefinition? part = LooseParts.DefFor(partEntityId);
+            WorldEntity? registration = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(partEntityId);
+            if (string.IsNullOrEmpty(partUid) || part == null || registration == null) return null;
+            return LooseRecord(partEntityId, ownerCharacterUid,
+                registration.Position, registration.PackedRotation);
+        }
 
-            WorldStatePersistence.RemoveMountedPart(partUid!);
-            WorldStatePersistence.RecordLoosePart(new LoosePartRecord
+        internal static LoosePartRecord? LooseRecord(long partEntityId, string ownerCharacterUid,
+            FixedPointPosition position, uint packedRotation)
+        {
+            string? partUid = LooseParts.PartUidFor(partEntityId);
+            LoosePartDefinition? part = LooseParts.DefFor(partEntityId);
+            if (string.IsNullOrEmpty(partUid) || part == null) return null;
+            return new LoosePartRecord
             {
                 PartUid = partUid!,
                 SchematicId = part.SchematicId,
@@ -209,12 +224,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 PrefabName = part.PrefabName,
                 AttachmentType = part.AttachmentType,
                 PartSpecificComponents = part.PartSpecificComponents.ToArray(),
-                X = pos.X,
-                Y = pos.Y,
-                Z = pos.Z,
-                PackedRotation = Multiplayer.Placement.Quaternion32Packing.Identity,
+                X = position.X,
+                Y = position.Y,
+                Z = position.Z,
+                PackedRotation = packedRotation,
                 OwnerCharacterUid = ownerCharacterUid ?? "",
-            });
+            };
         }
 
         /// <summary>

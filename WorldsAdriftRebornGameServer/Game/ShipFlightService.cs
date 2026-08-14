@@ -320,6 +320,25 @@ namespace WorldsAdriftRebornGameServer.Game
             return false;
         }
 
+        internal bool IsPiloted(long hullEntityId) => _seats.PilotOf(hullEntityId).HasValue;
+
+        /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
+        internal void RetireHull(long hullEntityId)
+        {
+            PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
+            if (seat.HasValue)
+            {
+                _seats.Release(seat.Value.PlayerEntityId);
+                _inputs.Remove(seat.Value.PlayerEntityId);
+            }
+            _sessions.Remove(hullEntityId);
+            _helmByHull.Remove(hullEntityId);
+            _lastEchoed.Remove(hullEntityId);
+            _lastWakeAt.Remove(hullEntityId);
+            _nextPoseSaveAt.Remove(hullEntityId);
+            _departingYardByHull.Remove(hullEntityId);
+        }
+
         // ------------------------------------------------------------------
         // The publisher heartbeat
         // ------------------------------------------------------------------

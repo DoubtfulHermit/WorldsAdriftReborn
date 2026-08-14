@@ -243,7 +243,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 WorldEntity deckEntity = plan.Decks[i];
                 WorldsAdriftRebornGameServer.WorldEntities.Register(deckEntity);
                 long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(deckEntity);
-                BuiltShips.RegisterDeck(deckEntityId, panels[i].LocalVertices);
+                BuiltShips.RegisterDeck(hullEntityId, deckEntityId, panels[i].LocalVertices);
                 decks.Add((deckEntityId, deckEntity));
             }
 

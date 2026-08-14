@@ -190,28 +190,38 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetIsRoot(false);
             ShipPublisher.Broadcast(partEntityId, 8066u, rootClear);
 
-            // 190602: global, parent cleared, at the part's last world pose (hull position +
-            // the stored hull-local offset; a static hull's rotation is identity). Fresh
+            // 190602: global, parent cleared, at the part's last world pose. Fresh
             // monotonic stamp from the shared mount clock so it fires PropertyUpdated.
-            FixedPointPosition globalPos = priorMount.LocalOffset;
+            FixedPointPosition hullWorldPos = default;
+            uint hullWorldRotation = Multiplayer.Placement.Quaternion32Packing.Identity;
             var hullPos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(hullEntityId)?.Position;
             // A FLOWN hull's real pose lives in its flight session, not the registry
             // (which still says "spawn") - detaching a part from a ship parked away
             // from spawn must drop it where the ship IS, not where it was built.
-            if (WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(hullEntityId, out FixedPointPosition detachHullPos, out _))
+            if (WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(hullEntityId,
+                    out FixedPointPosition detachHullPos, out uint detachHullRotation))
             {
                 hullPos = detachHullPos;
+                hullWorldRotation = detachHullRotation;
             }
+            else
+            {
+                hullWorldRotation = WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId);
+            }
+            FixedPointPosition globalPos = priorMount.LocalOffset;
+            uint globalRotation = priorMount.PackedRotation;
             if (hullPos.HasValue)
             {
-                globalPos = new FixedPointPosition(
-                    hullPos.Value.X + priorMount.LocalOffset.X,
-                    hullPos.Value.Y + priorMount.LocalOffset.Y,
-                    hullPos.Value.Z + priorMount.LocalOffset.Z);
+                hullWorldPos = hullPos.Value;
+                (globalPos, globalRotation) = ShipSalvagePolicy.DropPose(
+                    hullWorldPos, hullWorldRotation, priorMount.LocalOffset, priorMount.PackedRotation);
             }
+            // A reconnect in this same boot must seed the detached world pose, not the
+            // part's old craft/hull parking position.
+            WorldsAdriftRebornGameServer.WorldEntities.Relocate(partEntityId, globalPos, globalRotation);
             float stamp = ShipPartMotionPolicy.StampFor(NextTimelineSample(), ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var looseTransform = ShipPartTransform.BuildParentlessWakeUpdate(
-                globalPos, new Improbable.Corelibrary.Math.Quaternion32(priorMount.PackedRotation), stamp);
+                globalPos, new Improbable.Corelibrary.Math.Quaternion32(globalRotation), stamp);
             ShipPublisher.Broadcast(partEntityId, 190602u, looseTransform);
 
             // 1120: attached=false, attachment target cleared. The load-bearing flip back to

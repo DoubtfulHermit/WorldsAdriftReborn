@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using WorldsAdriftRebornGameServer.Game.Crafting;
 using WorldsAdriftRebornGameServer.Game.Placement;
@@ -323,6 +324,47 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
+        /// Commits the durable half of frame salvage in one atomic JSON write: retain a
+        /// stable-index ship tombstone, remove every mount on it, and upsert those same
+        /// parts as loose. A crash can therefore never restore both the hull and its drops,
+        /// or lose the parts between several independent saves.
+        /// </summary>
+        internal static bool SalvageBuiltShip(int persistentIndex, IReadOnlyList<LoosePartRecord> droppedParts)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count
+                || snapshot.BuiltShips[persistentIndex].Salvaged)
+            {
+                return false;
+            }
+
+            BuiltShipRecord ship = snapshot.BuiltShips[persistentIndex];
+            FixedPointPosition? oldDock = ship.ShipyardPosition();
+            var oldMounted = new List<MountedPartRecord>(snapshot.MountedParts);
+            var oldLoose = new List<LoosePartRecord>(snapshot.LooseParts);
+            ship.Salvaged = true;
+            ship.ClearShipyardDock();
+            snapshot.MountedParts.RemoveAll(r => r.BuiltShipIndex == persistentIndex);
+            foreach (LoosePartRecord part in droppedParts)
+            {
+                if (!string.IsNullOrEmpty(part.PartUid))
+                {
+                    snapshot.LooseParts.RemoveAll(r => r.PartUid == part.PartUid);
+                }
+                snapshot.LooseParts.Add(part);
+            }
+            if (!Save())
+            {
+                ship.Salvaged = false;
+                if (oldDock.HasValue) ship.DockTo(oldDock.Value);
+                snapshot.MountedParts = oldMounted;
+                snapshot.LooseParts = oldLoose;
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// Re-creates every persisted deployable and built ship as a world entity,
         /// BEFORE the connect-time spawn plan is computed, so a joining client is served
         /// them exactly like the static world entities. Runs once at boot, on the poll
@@ -362,6 +404,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             long?[] hullByIndex = new long?[snapshot.BuiltShips.Count];
             for (int i = 0; i < snapshot.BuiltShips.Count; i++)
             {
+                if (snapshot.BuiltShips[i].Salvaged)
+                {
+                    Console.WriteLine("[info] world persistence: built-ship index " + i
+                        + " is a salvaged tombstone; skipping its restore.");
+                    continue;
+                }
                 long? hullEntityId = BuiltShipSpawner.Restore(snapshot.BuiltShips[i]);
                 hullByIndex[i] = hullEntityId;
                 if (hullEntityId.HasValue)
@@ -438,9 +486,9 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 + " (they will be served to every joining client via the spawn plan).");
         }
 
-        private static void Save()
+        private static bool Save()
         {
-            AtomicJsonFile.Write(FilePath, Snapshot());
+            return AtomicJsonFile.Write(FilePath, Snapshot());
         }
     }
 }

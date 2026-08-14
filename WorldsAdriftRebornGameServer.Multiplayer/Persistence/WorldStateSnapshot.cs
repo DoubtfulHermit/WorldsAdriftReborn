@@ -54,6 +54,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
     /// </summary>
     public sealed class BuiltShipRecord
     {
+        /// <summary>
+        /// Stable-index tombstone. Mounted parts refer to this list index, so salvaging
+        /// cannot compact the list; restore skips this record and new ships append.
+        /// </summary>
+        public bool Salvaged { get; set; }
+
         /// <summary>Hull-centre position, in Q52.12 fixed-point units.</summary>
         public long HullX { get; set; }
 

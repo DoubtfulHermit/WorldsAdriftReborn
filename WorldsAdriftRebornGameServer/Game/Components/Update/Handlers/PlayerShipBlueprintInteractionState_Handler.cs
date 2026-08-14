@@ -323,11 +323,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     StartCraftOutcome outcome = ShipBlueprintTransaction.StartCraft(build, shipyardOccupied);
                     if (outcome == StartCraftOutcome.Started)
                     {
+                        // Slots reserve whole stacks so cancel can return the exact item.
+                        // At commitment charge only the bill and immediately restore the
+                        // excess stack amount to the authoritative inventory.
+                        InventoryModel inventory = InventoryService.ForEntity(entityId);
+                        int refunded = ShipBlueprintTransaction.RefundExcess(build, inventory);
+                        if (refunded > 0)
+                        {
+                            InventoryPush.Push(entityId, "returned " + refunded
+                                + " excess ship-blueprint material(s)");
+                        }
                         // isCrafting=true -> atomizer VFX on; start the server timer.
                         PushCrafting(player, shipyardId, build);
                         ShipBuildTimerService.Start(player, shipyardId, entityId, build);
                         Console.WriteLine("[info] 1270 StartCrafting on shipyard " + shipyardId
-                            + " -> STARTED (" + build.CraftingTime + "s).");
+                            + " -> STARTED (" + build.CraftingTime + "s, refunded "
+                            + refunded + " excess material(s)).");
                     }
                     else
                     {

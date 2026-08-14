@@ -66,6 +66,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Retiring_an_entity_removes_it_from_future_plans_without_reusing_its_id()
+        {
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            WorldEntity tree = registry.Register(Tree());
+            long id = registry.EntityIdFor(tree);
+
+            Assert.True(registry.Unregister(id));
+            Assert.Null(registry.ByEntityId(id));
+            Assert.Null(registry.ByKey(tree.Key));
+            Assert.DoesNotContain(tree, registry.Registrations);
+            Assert.False(registry.Unregister(id));
+        }
+
+        [Fact]
+        public void Relocating_a_surviving_entity_updates_its_recheckout_pose_and_keeps_its_id()
+        {
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            WorldEntity tree = registry.Register(Tree());
+            long id = registry.EntityIdFor(tree);
+            FixedPointPosition moved = FixedPointPosition.FromMetres(1, 2, 3);
+
+            Assert.True(registry.Relocate(id, moved,
+                WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity));
+            Assert.Equal(id, registry.BoundEntityIdFor(tree.Key));
+            Assert.Equal(moved, registry.TransformSeedFor(id));
+        }
+
+        [Fact]
         public void An_unregistered_entity_cannot_be_given_an_id()
         {
             // Otherwise its id would exist but nothing could look it up by id,
