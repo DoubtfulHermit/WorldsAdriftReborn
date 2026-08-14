@@ -63,6 +63,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// <summary>Hull-centre position, in Q52.12 fixed-point units.</summary>
         public long HullZ { get; set; }
 
+        /// <summary>Level heading at the last authoritative flight save, radians.</summary>
+        public double HullYawRadians { get; set; }
+
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>
         public byte[] HullBytes { get; set; } = System.Array.Empty<byte>();
 
@@ -94,6 +97,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// <summary>The hull position as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition HullPosition() => new FixedPointPosition(HullX, HullY, HullZ);
 
+        public void UpdatePose(FixedPointPosition position, double yawRadians)
+        {
+            HullX = position.X;
+            HullY = position.Y;
+            HullZ = position.Z;
+            HullYawRadians = double.IsFinite(yawRadians) ? yawRadians : 0.0;
+        }
+
+        public void DockTo(FixedPointPosition shipyardPosition)
+        {
+            ShipyardX = shipyardPosition.X;
+            ShipyardY = shipyardPosition.Y;
+            ShipyardZ = shipyardPosition.Z;
+        }
+
         /// <summary>
         /// The building shipyard's position as a <see cref="FixedPointPosition"/>, or null
         /// for a legacy record with no persisted dock link (all-zero).
@@ -104,10 +122,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
                 : new FixedPointPosition(ShipyardX, ShipyardY, ShipyardZ);
 
         /// <summary>
-        /// Permanently removes the build-time dock link after the ship leaves its
-        /// shipyard. The record itself remains at the same stable list index (mounted
-        /// parts reference that index), but a later boot must not infer that a flown-away
-        /// ship is still docked merely because this is the yard that originally built it.
+        /// Removes the current dock link after the ship leaves its shipyard. The record
+        /// itself remains at the same stable list index (mounted parts reference that
+        /// index); a later successful capture may set a new dock link with DockTo.
         /// </summary>
         public void ClearShipyardDock()
         {

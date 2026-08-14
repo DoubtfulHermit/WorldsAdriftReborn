@@ -157,7 +157,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             byte[] hullBytes = ResolveValidHullBytes(record.HullBytes);
             FixedPointPosition hullPos = record.HullPosition();
 
-            BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes);
+            BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes, record.HullYawRadians);
 
             // GATE B (ship ownership): re-establish the built hull's owner from the
             // persisted record so a restored ship comes back OWNED by the same character,
@@ -204,7 +204,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             public byte[] EffectiveHullBytes { get; }
         }
 
-        private static BuiltRegistration RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes)
+        private static BuiltRegistration RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes,
+            double yawRadians = 0.0)
         {
             // Derive the deck panels from the SAME validated bytes 1209 will serve, so the
             // visible hull and its floors can never come from different geometry. If the
@@ -230,7 +231,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             LogHullOrientation(effectiveBytes, panels.Count);
 
             int sequence = BuiltShips.NextSequence();
-            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence, hullPos, panels);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence, hullPos, panels, yawRadians);
 
             WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Hull);
             long hullEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Hull);

@@ -84,6 +84,8 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
             return ByEntityId.ContainsKey(entityId);
         }
 
+        internal static IReadOnlyCollection<long> EntityIds => new List<long>(ByEntityId.Keys);
+
         /// <summary>
         /// Drops a shipyard that was PACKED back into inventory (station pickup).
         /// After this the 1205/1210 serve branches stop treating the entity as a

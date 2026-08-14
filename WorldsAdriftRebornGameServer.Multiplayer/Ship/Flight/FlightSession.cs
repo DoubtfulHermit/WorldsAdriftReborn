@@ -119,6 +119,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>The current held input, for the periodic stats line.</summary>
         public FlightControlInput Input => _input;
 
+        /// <summary>Snaps a settled ship into a yard's authored dock pose.</summary>
+        public void DockAt(double x, double y, double z, double yawRadians)
+        {
+            _state = FlightState.AtRestAt(x, y, z, yawRadians);
+            _input = FlightControlInput.Neutral;
+            _restEmitted = 0;
+        }
+
         /// <summary>
         /// One cadence tick: integrate if moving or manned, and decide whether a
         /// control point goes out. Call at the control-point cadence

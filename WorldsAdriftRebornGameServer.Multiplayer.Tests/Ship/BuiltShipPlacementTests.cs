@@ -129,6 +129,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             }
         }
 
+        [Fact]
+        public void Restored_heading_rotates_hull_and_deck_world_seeds_together()
+        {
+            var panel = new DeckPanel(
+                new ShipVector3(2f, 0f, 0f),
+                new[] { new ShipVector3(0f, 0f, 0f) }, 0, 0);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(
+                7, Shipyard, new[] { panel }, System.Math.PI / 2.0);
+
+            Assert.Equal(plan.Hull.PackedRotation, plan.Decks[0].PackedRotation);
+            Assert.InRange(plan.Decks[0].Position.MetresX - Shipyard.MetresX, -0.001, 0.001);
+            Assert.InRange(plan.Decks[0].Position.MetresZ - Shipyard.MetresZ, -2.001, -1.999);
+        }
+
         private static int AddEntityIndex(System.Collections.Generic.IReadOnlyList<SpawnPlanStep> steps, string key)
         {
             for (int i = 0; i < steps.Count; i++)

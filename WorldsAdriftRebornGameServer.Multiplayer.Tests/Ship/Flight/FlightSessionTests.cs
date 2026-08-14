@@ -288,6 +288,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.True(session.Input.IsNeutral,
                 "a reconnect after an unclean disconnect must not inherit ghost throttle");
         }
+
+        [Fact]
+        public void Dock_capture_snaps_pose_and_neutralizes_the_helm()
+        {
+            var session = new FlightSession(FlightState.AtRestAt(1, 2, 3));
+            session.Man();
+            session.SetInput(Throttle(1f));
+
+            session.DockAt(10, 20, 30, 0.75);
+
+            Assert.Equal(10, session.State.X);
+            Assert.Equal(20, session.State.Y);
+            Assert.Equal(30, session.State.Z);
+            Assert.Equal(0.75, session.State.YawRadians);
+            Assert.True(session.State.IsAtRest);
+            Assert.True(session.Input.IsNeutral);
+        }
     }
 
     public class PilotSeatsTests

@@ -158,7 +158,7 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         }
 
         /// <summary>
-        /// Makes a built ship's departure from its original shipyard restart-durable.
+        /// Makes a built ship's departure from its current shipyard restart-durable.
         /// The ship stays at the same persistent index because mounted-part records use
         /// that index; only the obsolete build-time dock link is cleared.
         /// </summary>
@@ -179,6 +179,31 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             }
 
             record.ClearShipyardDock();
+            Save();
+        }
+
+        /// <summary>Persists the flight session's authoritative pose at a stable ship index.</summary>
+        internal static void UpdateBuiltShipPose(int persistentIndex,
+            FixedPointPosition position, double yawRadians)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
+            BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            if (record.HullPosition() == position
+                && System.Math.Abs(record.HullYawRadians - yawRadians) < 0.000001) return;
+            record.UpdatePose(position, yawRadians);
+            Save();
+        }
+
+        /// <summary>Atomically persists a captured pose and its empty-yard dock link.</summary>
+        internal static void DockBuiltShip(int persistentIndex, FixedPointPosition hullPosition,
+            double yawRadians, FixedPointPosition shipyardPosition)
+        {
+            WorldStateSnapshot snapshot = Snapshot();
+            if (persistentIndex < 0 || persistentIndex >= snapshot.BuiltShips.Count) return;
+            BuiltShipRecord record = snapshot.BuiltShips[persistentIndex];
+            record.UpdatePose(hullPosition, yawRadians);
+            record.DockTo(shipyardPosition);
             Save();
         }
 

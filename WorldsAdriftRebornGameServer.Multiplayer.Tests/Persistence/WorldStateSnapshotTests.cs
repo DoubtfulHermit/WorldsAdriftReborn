@@ -115,6 +115,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
         }
 
         [Fact]
+        public void Flight_pose_and_a_new_shipyard_dock_round_trip_on_the_same_record()
+        {
+            var record = new BuiltShipRecord { HullBytes = new byte[] { 1 } };
+            FixedPointPosition flown = FixedPointPosition.FromMetres(25, 80, -140);
+            FixedPointPosition yard = FixedPointPosition.FromMetres(30, 74, -140);
+
+            record.UpdatePose(flown, 1.25);
+            record.DockTo(yard);
+
+            Assert.Equal(flown, record.HullPosition());
+            Assert.Equal(1.25, record.HullYawRadians);
+            Assert.Equal(yard, record.ShipyardPosition());
+        }
+
+        [Fact]
         public void Multiple_records_of_each_kind_all_survive_in_order()
         {
             WorldStateSnapshot snapshot = new WorldStateSnapshot();
