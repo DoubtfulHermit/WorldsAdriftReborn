@@ -22,7 +22,10 @@ namespace WorldsAdriftRebornGameServer.Game
             public TimeSpan NextReconcile;
             public TimeSpan NextSend;
             public long AssetRequestedFor;
-            public bool RemoveSupported = true;
+            // RemoveEntity delivery cannot yet be confirmed against every released
+            // native client shim. Load nearby, then retain visited resources so a
+            // failed removal can never leave an inert visual ghost.
+            public bool RemoveSupported;
         }
 
         private readonly IClock _clock;
@@ -41,6 +44,8 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 _resources[registry.EntityIdFor(entity)] = entity;
             }
+            Console.WriteLine("[resource-interest] compatibility mode: load nearby resources"
+                + " and retain visited resources; distant resources are not loaded at login.");
         }
 
         public bool Enabled => Interest.Enabled && _resources.Count > 0;

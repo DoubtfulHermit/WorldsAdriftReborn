@@ -44,7 +44,6 @@ DLL_EXPORT void __cdecl ENet_EXP_Deinitialize(ENetHost* client);
 DLL_EXPORT ENetPacket_Wrapper* __cdecl ENet_EXP_Poll(ENetHost* client, int waitTime, OnNewClientConnected* callbackC, OnClientDisconnected* callbackD);
 DLL_EXPORT void __cdecl ENet_EXP_Destroy_Packet(ENetPacket_Wrapper* packet);
 DLL_EXPORT void __cdecl ENet_EXP_Send(ENetPeer* peer, int channel, const void* data, long len, int flag);
-DLL_EXPORT int __cdecl ENet_EXP_TrySend(ENetPeer* peer, int channel, const void* data, long len, int flag);
 DLL_EXPORT void __cdecl ENet_EXP_Flush(ENetHost* client);
 
 DLL_EXPORT void* __cdecl PB_EXP_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len);
@@ -85,7 +84,6 @@ enum WarPacketFlag {
 };
 
 void ENet_Send(ENetPeer* peer, int channel, const void* data, long len, int flag);
-bool ENet_TrySend(ENetPeer* peer, int channel, const void* data, long len, int flag);
 void ENet_Flush(ENetHost* client);
 
 void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len);
