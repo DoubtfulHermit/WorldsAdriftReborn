@@ -78,6 +78,16 @@ the authoritative step. Ship visibility uses separate island-scale radii rather
 than the resource radii.
 Crewed/piloted ships remain globally checked out as a compatibility bridge while
 remote player entities are still globally relayed outside domain lifecycle.
+The local runtime now provides one bounded coherence bridge for that legacy
+split: avatars retain their independent 20 Hz stream, while a successfully
+delivered authoritative ship frame forces the latest aboard avatar sample to
+follow its hull on the same poll-loop turn for that recipient. This is ordered
+same-frame delivery, not cross-entity packet atomicity and not multi-host
+handoff. A schema-v2 read-only World Inspector exposes the domain generation,
+replication sequence/frame age, authoritative pose, crew, structural membership
+and per-peer checkout count. It deliberately labels the host as
+`local-single-process` and does not invent workers, migration history, compute
+scores or client-rendered offsets that the runtime cannot yet observe.
 Island domains and complete world-domain ownership remain outstanding. The
 first live two-player pass also exposed remote-avatar/ship coordinate-frame
 divergence, a five-second client spline wake after manned-idle stream starvation,

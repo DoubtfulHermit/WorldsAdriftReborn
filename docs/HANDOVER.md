@@ -140,7 +140,10 @@ changes.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
   deployables, 5/7 ships (two tombstones), 16/16 mounted parts and 3/3 loose
   parts. The deployed revision remains `718d926`; follow-up `9143c5a` is tested
-  locally but must not be deployed until all players disconnect.
+  locally but must not be deployed until all players disconnect. The next tested
+  local stack is `a5bed13`: it also aligns aboard avatar relay samples behind
+  each successfully delivered authoritative ship frame and exposes the first
+  read-only local World Inspector slice. It is not deployed at this snapshot.
 
 ### Latest multiplayer incident
 
@@ -157,6 +160,17 @@ changes.
 - Validation: Multiplayer tests `2311/2311`; Release game-server build succeeded;
   deployed managed binary hashes matched the local publish exactly. A two-player
   relog/ship-flight/re-entry acceptance test remains required.
+- Local follow-up `a5bed13` keeps the normal 20 Hz avatar relay but, after every
+  accepted 240 ms ship-domain root frame, immediately relays the latest aboard
+  avatar sample to each peer that actually received that root. This gives the
+  legacy protocol hull-first ordering on the same server-loop turn without
+  pretending cross-entity packets are atomic or reducing avatar movement to
+  4.17 Hz. The admin page now reads schema-v2 runtime telemetry for real local
+  ship domains: authority generation, replication sequence/frame age, pose,
+  pilot/aboard membership, structural counts and checkout subscribers. It is
+  explicitly labelled local single-process and exposes no fictional workers,
+  migrations or authority controls. Validation: Multiplayer `2322/2322`,
+  admin/login `155/155`, both Release builds zero errors.
 
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted
