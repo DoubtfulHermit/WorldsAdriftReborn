@@ -289,10 +289,13 @@ terrain using surface, spacing, exclusion, and starter-biome rules.
 | `WAREBORN_TREE_SPECIES` | ignored on Haven | Legacy experiment that cycled every recovered wood species on one island. Haven now has an explicit birch starter-biome profile, so this cannot turn it into a random assortment. |
 | `WAREBORN_SPAWN_ATLAS` | on | `0` stops the fallback lodging atlas shards in its deposits. |
 | `WAREBORN_INTEREST_RADIUS_M` | deployment-specific | Per-player resource load radius. Distant resources remain registered but are not sent to that client. |
+| `WAREBORN_INTEREST_INITIAL_RADIUS_M` | 45 m (bounded by live radius) | Smaller connect-time resource bubble. It keeps the synchronous loading barrier from instantiating the full roaming radius at once. |
+| `WAREBORN_INTEREST_SETTLE_MS` | 5000 ms (clamped 1000–30000) | Quiet period after spawn-plan completion before continuous resource additions begin. |
 | `WAREBORN_INTEREST_UNLOAD_RADIUS_M` | load radius + hysteresis | Larger unload radius that prevents churn at the boundary. |
 
 Resource entities remain authoritative in the world registry. At connect, only
-nearby resources join the loading barrier; subsequent player-position updates
-reconcile additions and removals through a paced queue. Essential entities,
+the smaller initial resource bubble joins the loading barrier; after the settle
+window, player-position updates reconcile the full live radius through a paced
+queue. Essential entities,
 player-built structures, ships, and the world-global biome entity are never
 distance-gated.

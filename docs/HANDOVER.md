@@ -113,12 +113,12 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `a6de2cf` (`Prevent duplicate resource checkout during
-  login`), deployed and restarted at 2026-08-14 17:45 CEST. Continuous resource
-  lifecycle is suspended until the immutable connect plan reaches its final
-  step, and queued lifecycle work is revalidated immediately before its wire
-  send. This fixes the observed connect crash where the two producers sent
-  duplicate `AddEntity` operations for the same resource ids.
+- **Game server:** `203b132` (`Stage resource streaming after client
+  activation`), deployed and restarted at 2026-08-14 18:47 CEST. The duplicate
+  AddEntity guard from `a6de2cf` remains. Connect now instantiates resources only
+  inside a 45 m starter bubble, waits 5 s after plan completion, then expands
+  through the paced 120 m continuous-interest stream. Terrain, ships, stations,
+  mounted/loose parts and global biome data remain barrier-protected.
 - **Public client manifest:** `2026.08.14-8`, build label
   `island + ship/resource lifecycle merge (d67f205)`.
 - **Client DLL SHA-256:**
@@ -243,6 +243,15 @@ was established from the one available log.
   request.
 - See `LoadBarrierPolicy`, `SpawnAckTimeoutPolicy`, `SpawnPlan`, and
   `Patching/SpatialOS/AssetLoadAck_Patch.cs`.
+- The 2026-08-14 post-PR4 crash audit found no duplicate AddEntity, no
+  RemoveEntity and no post-activation server packet burst in the second failed
+  run. The installed client DLL was byte-identical to the one used by an
+  82-minute known-good run. The actual server-side regression was the coupling
+  of the 120 m roaming radius to the unpaced loading-barrier initial set: after
+  fixing the old producer race, more in-radius resources correctly moved into
+  synchronous connect-time instantiation. Keep connect radius, live radius and
+  the settle window separate; do not "fix" this by re-enabling concurrent spawn
+  producers. Runtime stability still requires a live client confirmation.
 
 ### Stations and placement
 
