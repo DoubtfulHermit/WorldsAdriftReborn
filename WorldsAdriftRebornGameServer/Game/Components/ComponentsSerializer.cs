@@ -1430,7 +1430,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                                                             Multiplayer.RelayTimestampPolicy.SeedTimestampSeconds,
                                                                                                                                             new byte[] { },
                                                                                                                                             false,
-                                                                                                                                            2,
+                                                                                                                                            // TeleportRequestState seeds request 0 and the
+                                                                                                                                            // first live request is 1. Seeding this ack above
+                                                                                                                                            // zero makes retail's visualizer reject request 1
+                                                                                                                                            // as already executed, so it neither moves nor acks.
+                                                                                                                                            Multiplayer.TeleportPolicy.SeedRequest,
                                                                                                                                             false,
                                                                                                                                             false,
                                                                                                                                             100));
