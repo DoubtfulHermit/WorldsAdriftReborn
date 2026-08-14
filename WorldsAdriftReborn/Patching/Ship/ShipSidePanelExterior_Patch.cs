@@ -54,6 +54,28 @@ namespace WorldsAdriftReborn.Patching.Ship
 
                 Vector3 localHit = ship.transform.InverseTransformPoint(hitPoint);
                 Vector3 localNormal = ship.transform.InverseTransformDirection(hitNormal).normalized;
+
+                // ShipSideHull's SRC contains the lateral skin but has holes where a
+                // deck/roof panel belongs. A ray from above through one of those holes
+                // returns no triangle and the old code fell back to the beam underneath.
+                // A vertically struck rail is unambiguous: this is a covering panel, so
+                // put its plane just ABOVE the rendered hull envelope and make ship-up
+                // its normal. Bounds are measured live from this authored hull rather
+                // than guessed from a particular blueprint's dimensions.
+                if (Math.Abs(localNormal.y) >= Math.Abs(localNormal.x)
+                    && Math.Abs(localNormal.y) >= Math.Abs(localNormal.z)
+                    && TryProjectAboveHull(sideHull, ship.transform.up, hitPoint,
+                        out Vector3 roofPoint))
+                {
+                    float roofCorrection = Vector3.Distance(hitPoint, roofPoint);
+                    hitPoint = roofPoint;
+                    hitNormal = ship.transform.up;
+                    hitTransform = sideHull.transform;
+                    LogSnap(ship, localHit, localNormal, hitPoint, Vector3.up,
+                        roofCorrection, "roof envelope");
+                    return;
+                }
+
                 Vector3[] outwardAxes =
                 {
                     Vector3.up, Vector3.down,
@@ -111,6 +133,13 @@ namespace WorldsAdriftReborn.Patching.Ship
 
                 if (exteriorHit == null)
                 {
+                    if (Time.realtimeSinceStartup >= _nextLogAt)
+                    {
+                        _nextLogAt = Time.realtimeSinceStartup + 2f;
+                        Debug.LogWarning("[WAR][ship-panel] no exterior SRC hit for hull-local "
+                            + localHit.ToString("F2") + " normal " + localNormal.ToString("F2")
+                            + "; retaining the retail preview.");
+                    }
                     return;
                 }
 
@@ -119,15 +148,8 @@ namespace WorldsAdriftReborn.Patching.Ship
                 hitNormal = exteriorHit.hitNormal;
                 hitTransform = sideHull.transform;
 
-                if (correction > 0.25f && Time.realtimeSinceStartup >= _nextLogAt)
-                {
-                    _nextLogAt = Time.realtimeSinceStartup + 2f;
-                    Debug.Log("[WAR][ship-panel] snapped ShipSide preview "
-                        + correction.ToString("F2")
-                        + " m from hull-local " + localHit.ToString("F2")
-                        + " to " + ship.transform.InverseTransformPoint(hitPoint).ToString("F2")
-                        + " on exterior face " + chosenOutward.ToString("F0") + ".");
-                }
+                LogSnap(ship, localHit, localNormal, hitPoint, chosenOutward,
+                    correction, "SRC exterior");
             }
             catch (Exception exception)
             {
@@ -140,6 +162,75 @@ namespace WorldsAdriftReborn.Patching.Ship
                         + exception.Message);
                 }
             }
+        }
+
+        private static bool TryProjectAboveHull(
+            ShipSideHull sideHull,
+            Vector3 shipUp,
+            Vector3 hitPoint,
+            out Vector3 roofPoint)
+        {
+            float topProjection = float.NegativeInfinity;
+            Renderer[] renderers = sideHull.GetComponentsInChildren<Renderer>(true);
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                if (renderers[i] != null)
+                {
+                    topProjection = Math.Max(topProjection,
+                        MaxProjection(renderers[i].bounds, shipUp));
+                }
+            }
+            Collider[] colliders = sideHull.GetComponentsInChildren<Collider>(true);
+            for (int i = 0; i < colliders.Length; i++)
+            {
+                if (colliders[i] != null)
+                {
+                    topProjection = Math.Max(topProjection,
+                        MaxProjection(colliders[i].bounds, shipUp));
+                }
+            }
+            if (float.IsNegativeInfinity(topProjection))
+            {
+                roofPoint = hitPoint;
+                return false;
+            }
+
+            // Panel collider thickness is 0.1 m (ShipPanel.CreatePanels). Its pivot
+            // is central, hence half-thickness plus 1 cm avoids z-fighting/beam bleed.
+            const float skinClearance = 0.06f;
+            float currentProjection = Vector3.Dot(hitPoint, shipUp);
+            roofPoint = hitPoint + shipUp * (topProjection - currentProjection + skinClearance);
+            return true;
+        }
+
+        private static float MaxProjection(Bounds bounds, Vector3 axis)
+        {
+            Vector3 extents = bounds.extents;
+            return Vector3.Dot(bounds.center, axis)
+                + Math.Abs(axis.x) * extents.x
+                + Math.Abs(axis.y) * extents.y
+                + Math.Abs(axis.z) * extents.z;
+        }
+
+        private static void LogSnap(
+            GameObject ship,
+            Vector3 localHit,
+            Vector3 localNormal,
+            Vector3 result,
+            Vector3 face,
+            float correction,
+            string method)
+        {
+            if (Time.realtimeSinceStartup < _nextLogAt)
+            {
+                return;
+            }
+            _nextLogAt = Time.realtimeSinceStartup + 2f;
+            Debug.Log("[WAR][ship-panel] " + method + " moved preview "
+                + correction.ToString("F2") + " m from hull-local "
+                + localHit.ToString("F2") + " normal " + localNormal.ToString("F2")
+                + " to " + ship.transform.InverseTransformPoint(result).ToString("F2")
+                + " on face " + face.ToString("F0") + ".");
         }
 
         private static bool IsPanel(Assets.Scripts.PartPlacement.PhantomPart phantom)
