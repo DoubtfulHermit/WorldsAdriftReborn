@@ -36,6 +36,49 @@ dotnet build WorldsAdriftReborn -c Release -p:PluginOutputDirectory=/tmp/modout/
 Neither multiplayer project is in `WorldsAdriftReborn.sln`; name them
 explicitly as above.
 
+## Multiplayer ship acceptance ladder
+
+The Colin-session failures are no longer represented only by small, unrelated
+unit tests. `Ship/TwoPeerShipAcceptanceTests.cs` runs their complete sequence as
+one deterministic headless scenario:
+
+1. two independent peers check out the same hull, deck, helm and sail;
+2. the first player pilots for 120 authoritative 240 ms frames;
+3. every frame has one authority generation/sequence and every member is gated
+   behind the hull timeline;
+4. a raw `relativeTo=-1`, bias-zero collider seam is held while the canonical
+   aboard relationship survives, preventing the remote avatar from switching
+   to stale world coordinates and trailing or leading the ship;
+5. helm authority transfers to the second player, the new generation restarts
+   at sequence one, and delayed input from the old generation is rejected;
+6. one peer unloads without changing the other peer's checkout; and
+7. the returning peer receives root first and all current members afterwards.
+
+Run that gate and its supporting policies with:
+
+```sh
+dotnet test WorldsAdriftRebornGameServer.Multiplayer.Tests -c Release \
+  --filter 'FullyQualifiedName~TwoPeerShipAcceptanceTests|FullyQualifiedName~ShipDomainTests|FullyQualifiedName~AboardRelayPolicyTests|FullyQualifiedName~ShipDomainInterestPolicyTests|FullyQualifiedName~FlightSessionTests'
+```
+
+This is tier 1: deterministic authority, timeline, membership and checkout
+acceptance. It catches the server regressions that produced a split hull,
+stale pilot input, a floating passenger, five-second steering wake-up and a
+peer-specific missing ship.
+
+`tools/relaybot` is tier 2 today: two real ENet peers, the production protobuf
+framing, generated component codecs, join/ack/authority flow and continuous
+player movement. It proves transport staleness and congestion but it does **not
+yet** drive a built helm or emulate Unity's ship/player visualizers. Do not call
+the ship work wire-accepted until relaybot has a disposable built-ship fixture
+and exercises Man -> 1111 -> 1130, handoff, member wakes, and channel-5
+remove/re-add on an isolated local server.
+
+Tier 3 is deliberately small and visual: two Unity clients confirm camera/IK,
+animation and interpolation presentation. Once tiers 1 and 2 pass, a session
+with Colin should be confirmation, not the first time the state machine is
+exercised.
+
 ## The storage suite
 
 ```sh
@@ -190,10 +233,12 @@ Consequence, stated plainly: **the ENet-side per-peer maps are not covered by
 `PeerCleanupTests`.** That test proves the *multiplayer library* forgets a
 departed peer. It proves nothing about the main loop's dictionaries.
 
-## Still needs two humans and two clients
+## Still needs Unity clients
 
-No test in this repo can tell you any of the following. If you changed anything
-near them, you launch two clients and look.
+No pure test in this repo can tell you any of the following. If you changed
+anything near them, launch two clients (one person may operate both local
+clients) and look. The tier-2 ship extension above should remove protocol and
+state-machine discovery from this list, but it cannot remove visual acceptance.
 
 1. **That a remote avatar is actually visible** — spawned, skinned, on a layer
    the camera draws, not culled, not at the default seed position 90km away.
