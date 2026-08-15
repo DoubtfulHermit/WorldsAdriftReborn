@@ -41,3 +41,7 @@ unlikely.
   Jerodar/WAMap parser, exact source revision/schema, integrity results,
   coordinate evidence, anomalies, and the boundary with Bossa's release-era
   production placement MapFile.
+- [findings-island-fauna.md](findings-island-fauna.md) records the surviving
+  jellyfish/manta assets and components, the original GSim/UnityWorker authority
+  split, evidenced movement and interaction behavior, and a staged
+  island-domain implementation path without inventing retail population rules.

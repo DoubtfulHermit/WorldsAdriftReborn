@@ -6,14 +6,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
     /// <summary>One immutable, read-only classification of a world registration.</summary>
     public sealed class WorldDirectoryEntry
     {
-        internal WorldDirectoryEntry(WorldEntity entity, WorldOwner owner)
+        internal WorldDirectoryEntry(WorldEntity entity, WorldOwner owner, IslandId? islandId)
         {
             Entity = entity;
             Owner = owner;
+            IslandId = islandId;
         }
 
         public WorldEntity Entity { get; }
         public WorldOwner Owner { get; }
+        /// <summary>
+        /// Stable resolved island affinity for region-owned static world state.
+        /// Terrain keys are explicit evidence; other entries resolve to the nearest
+        /// known island origin. Global and moving ships have no fixed affinity.
+        /// </summary>
+        public IslandId? IslandId { get; }
     }
 
     /// <summary>
@@ -71,13 +78,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
 
             foreach (WorldEntity entity in entities.Registrations)
             {
-                WorldOwner owner = Classify(entity, islands, regions, overrides);
+                (WorldOwner owner, IslandId? islandId) = Classify(entity, islands, regions, overrides);
                 if (owner.Kind == WorldOwnerKind.Ship && entities.ByKey(owner.Id) == null)
                 {
                     throw new InvalidOperationException(
                         "ship member '" + entity.Key + "' names missing hull root '" + owner.Id + "'");
                 }
-                var entry = new WorldDirectoryEntry(entity, owner);
+                var entry = new WorldDirectoryEntry(entity, owner, islandId);
                 byKey.Add(entity.Key, entry);
                 entries.Add(entry);
             }
@@ -87,28 +94,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
             return new WorldDirectory(byKey, entries.AsReadOnly());
         }
 
-        private static WorldOwner Classify(
+        private static (WorldOwner Owner, IslandId? IslandId) Classify(
             WorldEntity entity,
             IslandRegistry islands,
             RegionRegistry regions,
             IReadOnlyDictionary<string, string> overrides)
         {
             if (string.Equals(entity.Key, WorldEntities.GlobalEntityKey, StringComparison.Ordinal))
-                return WorldOwner.Global;
+                return (WorldOwner.Global, null);
 
             if (overrides.TryGetValue(entity.Key, out string? overrideRoot))
-                return WorldOwner.ForShip(overrideRoot);
+                return (WorldOwner.ForShip(overrideRoot), null);
 
             string? derivedRoot = ShipRootKeyFor(entity.Key);
             if (derivedRoot != null)
-                return WorldOwner.ForShip(derivedRoot);
+                return (WorldOwner.ForShip(derivedRoot), null);
 
             IslandDefinition? terrainIsland = islands.ByWorldEntityKey(entity.Key);
             IslandDefinition island = terrainIsland ?? NearestIsland(entity.Position, islands);
             RegionDefinition region = regions.ByIsland(island.Id)
                 ?? throw new InvalidOperationException(
                     "island '" + island.Id + "' has no registered region owner");
-            return WorldOwner.ForRegion(region.Id);
+            return (WorldOwner.ForRegion(region.Id), island.Id);
         }
 
         internal static string? ShipRootKeyFor(string? entityKey)

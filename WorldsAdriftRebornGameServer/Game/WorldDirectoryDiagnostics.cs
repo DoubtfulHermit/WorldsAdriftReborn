@@ -5,7 +5,7 @@ using WorldsAdriftRebornGameServer.Multiplayer.Regions;
 
 namespace WorldsAdriftRebornGameServer.Game
 {
-    /// <summary>Read-only Phase 2 glue. It logs topology and changes no routing.</summary>
+    /// <summary>Builds the canonical post-restore directory and logs its topology.</summary>
     internal static class WorldDirectoryDiagnostics
     {
         internal static WorldDirectory BuildAndLog(WorldEntityRegistry entities)
@@ -37,10 +37,11 @@ namespace WorldsAdriftRebornGameServer.Game
                 .Distinct(StringComparer.Ordinal)
                 .Count();
 
-            Console.WriteLine("[world-directory] READ-ONLY classified " + directory.Entries.Count
+            Console.WriteLine("[world-directory] classified " + directory.Entries.Count
                 + " registrations: global=" + globals + ", region=" + regionOwned
                 + " (" + regionSummary + "), ship=" + shipOwned + " across " + shipDomains
-                + " hull root(s). No spawn/interest/persistence/networking path reads this directory.");
+                + " hull root(s). Region resource interest is directory-backed;"
+                + " spawn, persistence and authority remain unchanged.");
             return directory;
         }
     }

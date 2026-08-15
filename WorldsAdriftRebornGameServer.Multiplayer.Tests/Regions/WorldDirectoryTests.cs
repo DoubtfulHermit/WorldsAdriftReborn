@@ -35,6 +35,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
                 directory.ByEntityKey(TradesChallengeResources.DepositKeyFor(0))!.Owner);
             Assert.Equal(trades,
                 directory.ByEntityKey(TradesChallengeResources.DatabankKeyFor(0))!.Owner);
+            Assert.Equal(IslandCatalog.HavenId,
+                directory.ByEntityKey(MetalDeposits.KeyFor(0))!.IslandId);
+            Assert.Equal(IslandCatalog.TradesChallengeId,
+                directory.ByEntityKey(TradesChallengeResources.DepositKeyFor(0))!.IslandId);
         }
 
         [Fact]
@@ -44,6 +48,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
 
             Assert.Equal(WorldOwner.Global,
                 directory.ByEntityKey(WorldEntities.GlobalEntityKey)!.Owner);
+            Assert.Null(directory.ByEntityKey(WorldEntities.GlobalEntityKey)!.IslandId);
         }
 
         [Fact]
@@ -62,6 +67,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
                 directory.ByEntityKey(WorldEntities.HelmKey)!.Owner);
             Assert.Equal(WorldOwner.ForShip(builtHull.Key), directory.ByEntityKey(builtHull.Key)!.Owner);
             Assert.Equal(WorldOwner.ForShip(builtHull.Key), directory.ByEntityKey(builtDeck.Key)!.Owner);
+            Assert.Null(directory.ByEntityKey(builtHull.Key)!.IslandId);
+            Assert.Null(directory.ByEntityKey(builtDeck.Key)!.IslandId);
         }
 
         [Fact]
@@ -121,6 +128,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
             entities.Register(b);
 
             Assert.Equal(new[] { b.Key, a.Key }, Build(entities).Entries.Select(e => e.Entity.Key));
+        }
+
+        [Fact]
+        public void Resolved_island_affinity_survives_when_two_islands_share_one_region()
+        {
+            IslandDefinition west = new(new IslandId("west"), "West", "terrain-west",
+                FixedPointPosition.FromMetres(0, 0, 0), "west-asset", "ctx", SpawnOrder.BeforePlayer);
+            IslandDefinition east = new(new IslandId("east"), "East", "terrain-east",
+                FixedPointPosition.FromMetres(10_000, 0, 0), "east-asset", "ctx", SpawnOrder.BeforePlayer);
+            var islands = new IslandRegistry();
+            islands.Register(west);
+            islands.Register(east);
+            var regions = new RegionRegistry(islands);
+            RegionId shared = new("shared");
+            regions.Register(new RegionDefinition(shared, "Shared", new[] { west.Id, east.Id }));
+            var entities = new WorldEntityRegistry(new EntityIdAllocator());
+            entities.Register(Entity("resource-west", FixedPointPosition.FromMetres(5, 0, 0)));
+            entities.Register(Entity("resource-east", FixedPointPosition.FromMetres(9_995, 0, 0)));
+
+            WorldDirectory directory = WorldDirectory.Build(entities, islands, regions);
+
+            Assert.Equal(WorldOwner.ForRegion(shared), directory.ByEntityKey("resource-west")!.Owner);
+            Assert.Equal(WorldOwner.ForRegion(shared), directory.ByEntityKey("resource-east")!.Owner);
+            Assert.Equal(west.Id, directory.ByEntityKey("resource-west")!.IslandId);
+            Assert.Equal(east.Id, directory.ByEntityKey("resource-east")!.IslandId);
         }
 
         private static WorldDirectory Build(

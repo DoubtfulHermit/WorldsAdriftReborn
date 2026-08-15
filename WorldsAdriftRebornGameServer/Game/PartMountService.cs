@@ -221,6 +221,9 @@ namespace WorldsAdriftRebornGameServer.Game
             // A reconnect in this same boot must seed the detached world pose, not the
             // part's old craft/hull parking position.
             WorldsAdriftRebornGameServer.WorldEntities.Relocate(partEntityId, globalPos, globalRotation);
+            LocalDomainOwnership.MoveToIsland(
+                WorldsAdriftRebornGameServer.DomainHost, partEntityId, globalPos);
+            WorldsAdriftRebornGameServer.Flight.RefreshDomainOwnership(hullEntityId);
             float stamp = ShipPartMotionPolicy.StampFor(NextTimelineSample(), ShipPartMotionPolicy.HeartbeatIntervalSeconds);
             var looseTransform = ShipPartTransform.BuildParentlessWakeUpdate(
                 globalPos, new Improbable.Corelibrary.Math.Quaternion32(globalRotation), stamp);
@@ -395,6 +398,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 packedShipLocalRotation,
                 ownerCharacterUid));
             WorldsAdriftRebornGameServer.ShipMembership.Register(partEntityId, hullEntityId);
+            LocalDomainOwnership.MoveToShip(
+                WorldsAdriftRebornGameServer.DomainHost, partEntityId, hullEntityId);
+            WorldsAdriftRebornGameServer.Flight.RefreshDomainOwnership(hullEntityId);
 
             // 1099 client raycast gate. The old seed hardcoded false, which meant
             // PlayerMultitool.TryDeploySalvager never emitted a ShotEvent for any ship

@@ -39,7 +39,8 @@ Implementation: `WorldDirectory` classifies explicit global data, region-owned
 terrain/resources/structures and static or built whole-ship membership. The
 server supplies mounted loose-part-to-hull overrides from its existing ledger
 after restore and spawn-plan binding, then prints one `[world-directory]
-READ-ONLY` summary. No gameplay path consumes the result.
+summary. At Phase 2 completion no gameplay path consumed the result; Phase 3 now
+uses its region ownership for resource candidate selection only.
 
 Acceptance: every boot entity is classified once, classifications are stable
 across registration order, and production logs show zero unclassified entities
@@ -55,6 +56,14 @@ Acceptance: Haven/Trades transitions add and remove the same resources as the
 current implementation; distant terrain/entity visibility is explicitly
 defined; login packet and frame-time budgets do not regress.
 
+Current status: resource candidate selection now passes through a pure,
+directory-backed region query. The existing island-frame selection, spatial
+radii, hysteresis, queue ordering, pacing and unload compatibility behavior are
+unchanged. Previously loaded resources from another region remain candidates
+for one final reconciliation so they can be removed. Runtime resource
+registrations extend the query explicitly. Terrain, structures, loose parts and
+ships have not been moved onto this route.
+
 ## Phase 4 — local simulation domains (whole-ship slice deployed; acceptance failed)
 
 Introduce `SimulationDomainId`, a domain registry and a local domain host. All
@@ -64,8 +73,16 @@ domains; add whole-ship domains without moving game logic between processes.
 Acceptance: domain ownership is complete and unique, global services are
 explicit, and disabling the abstraction produces no gameplay difference.
 
-Current status: one `ShipDomainRegistry` hosts whole-ship domains on the existing
-poll loop. A ship domain owns flight/control state, pilot authority, structural
+Current status: an ownership-only `LocalDomainHost` now contains one domain per
+known island and every whole-ship domain. Region-owned static entities carry a
+stable island affinity resolved from explicit terrain identity or nearest known
+island origin. The host assigns each bound boot entity to
+exactly one domain or to the explicit global set, fails startup on incomplete or
+duplicate ownership, and logs a truthful `local-single-process` summary. The
+host intentionally has no `Tick`: gameplay services retain their proven poll-loop
+order. Runtime resource/deployable/loose-part creation, ship creation/retirement,
+and part mount/detach update the same ownership index transactionally. A ship
+domain owns flight/control state, pilot authority, structural
 membership and aboard affinity. Runtime and restored built hulls register into
 it, while ferry/nudge/static probes use the same replication-generation seam.
 Unmanned/uncrewed domains now have paced, per-viewer whole-domain checkout
@@ -88,8 +105,8 @@ replication sequence/frame age, authoritative pose, crew, structural membership
 and per-peer checkout count. It deliberately labels the host as
 `local-single-process` and does not invent workers, migration history, compute
 scores or client-rendered offsets that the runtime cannot yet observe.
-Island domains and complete world-domain ownership remain outstanding. The
-first live two-player pass also exposed remote-avatar/ship coordinate-frame
+Moving actual simulation services behind the host and a live acceptance pass
+remain outstanding. The first live two-player pass also exposed remote-avatar/ship coordinate-frame
 divergence, a five-second client spline wake after manned-idle stream starvation,
 and a failed return checkout. All three now have local fixes: the relay holds raw
 Invalid/bias-zero collider gaps while canonical aboard state remains on the ship;

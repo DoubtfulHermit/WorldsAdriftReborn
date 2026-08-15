@@ -1,4 +1,5 @@
 using System;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains
 {
@@ -17,6 +18,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains
         {
             if (hullEntityId <= 0) throw new ArgumentOutOfRangeException(nameof(hullEntityId));
             return new SimulationDomainId("ship:" + hullEntityId);
+        }
+
+        public static SimulationDomainId ForIsland(IslandId islandId)
+        {
+            if (string.IsNullOrWhiteSpace(islandId.Value))
+                throw new ArgumentException("island id is required", nameof(islandId));
+            return new SimulationDomainId("island:" + islandId.Value);
         }
 
         public bool Equals(SimulationDomainId other) =>

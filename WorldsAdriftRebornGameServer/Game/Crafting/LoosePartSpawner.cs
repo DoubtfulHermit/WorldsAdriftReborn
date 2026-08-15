@@ -80,6 +80,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             WorldEntity registration = LoosePartSpawnPlan.For(sequence, partPos, part);
             WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
             long partEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
+            LocalDomainOwnership.MoveToIsland(
+                WorldsAdriftRebornGameServer.DomainHost, partEntityId, registration.Position);
 
             // A stable, cross-restart identity for this part, so its persisted loose record
             // can be found and removed the instant it becomes mounted (and re-added if it is

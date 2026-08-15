@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
+using WorldsAdriftRebornGameServer.Multiplayer.Domains;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains
 {
@@ -10,7 +11,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains
     /// pilot authority, structural membership and aboard affinity while still
     /// running synchronously in the existing process and poll loop.
     /// </summary>
-    public sealed class ShipDomain
+    public sealed class ShipDomain : ILocalSimulationDomain
     {
         private readonly HashSet<long> _decks = new();
         private readonly HashSet<long> _mountedParts = new();
@@ -43,6 +44,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains
         public IReadOnlyList<long> DeckEntityIds => _decks.OrderBy(x => x).ToArray();
         public IReadOnlyList<long> MountedPartEntityIds => _mountedParts.OrderBy(x => x).ToArray();
         public IReadOnlyList<ulong> AboardPeerIds => _aboardPeers.OrderBy(x => x).ToArray();
+        public SimulationDomainKind Kind => SimulationDomainKind.Ship;
+        public IReadOnlyList<long> EntityIds => new[] { HullEntityId }
+            .Concat(_decks).Concat(_mountedParts).Distinct().OrderBy(x => x).ToArray();
+
+        internal bool AddOwnedEntity(long entityId)
+        {
+            if (entityId <= 0) throw new ArgumentOutOfRangeException(nameof(entityId));
+            if (entityId == HullEntityId || _decks.Contains(entityId)) return false;
+            return _mountedParts.Add(entityId);
+        }
+
+        internal bool RemoveOwnedEntity(long entityId)
+        {
+            if (entityId == HullEntityId) return false;
+            return _mountedParts.Remove(entityId) || _decks.Remove(entityId);
+        }
 
         public ShipAuthorityToken AcquirePilot(long playerEntityId, long helmEntityId)
         {

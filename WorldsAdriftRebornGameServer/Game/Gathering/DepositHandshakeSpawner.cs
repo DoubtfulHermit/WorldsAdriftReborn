@@ -240,6 +240,7 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             WorldEntity global = Multiplayer.WorldEntities.GlobalEntity();
             WorldsAdriftRebornGameServer.WorldEntities.Register(global);
             long globalId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(global);
+            WorldsAdriftRebornGameServer.DomainHost.MarkGlobal(globalId);
 
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())

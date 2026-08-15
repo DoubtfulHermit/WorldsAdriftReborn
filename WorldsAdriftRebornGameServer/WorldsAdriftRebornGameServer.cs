@@ -2256,8 +2256,14 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         internal static readonly Multiplayer.Ship.Domains.ShipDomainRegistry ShipDomains = new();
 
+        /// <summary>
+        /// Ownership-only Phase 4A host. It has no Tick and cannot reorder the
+        /// existing authoritative services; it proves where every world entity lives.
+        /// </summary>
+        internal static readonly Multiplayer.Domains.LocalDomainHost DomainHost = new();
+
         internal static readonly Game.ShipFlightService Flight =
-            new Game.ShipFlightService(ServerClock, ShipDomains);
+            new Game.ShipFlightService(ServerClock, ShipDomains, DomainHost);
 
         /// <summary>Authenticated, allowlisted web-console world operations.</summary>
         internal static readonly Game.AdminWorldCommandService WorldAdmin =
@@ -3692,12 +3698,16 @@ namespace WorldsAdriftRebornGameServer
             Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
 
-            // PHASE 2 ELASTIC-RUNTIME FOUNDATION. Build a read-only ownership
-            // directory only after restore + SpawnPlan have bound every boot entity
-            // id, so mounted loose parts can be associated with their hull roots.
-            // Nothing consumes the result yet: this diagnostic must prove complete
-            // classification before a later change is allowed to route through it.
-            Game.WorldDirectoryDiagnostics.BuildAndLog(WorldEntities);
+            // ELASTIC-RUNTIME FOUNDATION. Build the canonical ownership directory
+            // only after restore + SpawnPlan have bound every boot entity id, so
+            // mounted loose parts can be associated with their hull roots. Phase 3
+            // lets resource candidate selection consume region ownership; spawn,
+            // persistence and ship authority remain on their existing paths.
+            Multiplayer.Regions.WorldDirectory worldDirectory =
+                Game.WorldDirectoryDiagnostics.BuildAndLog(WorldEntities);
+            ResourceInterest.AttachDirectory(worldDirectory);
+            Game.LocalDomainOwnership.Bootstrap(
+                DomainHost, worldDirectory, WorldEntities, ShipDomains);
 
             GameState.Instance.WorldState[0] = plan
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step), () =>

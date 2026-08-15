@@ -3,6 +3,7 @@ using System.Linq;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+using WorldsAdriftRebornGameServer.Multiplayer.Regions;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
@@ -32,8 +33,11 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly IClock _clock;
         private readonly WorldEntityRegistry _registry;
         private readonly IslandRegistry _islands = IslandRegistry.CreateDefault();
+        private readonly RegionRegistry? _regions;
+        private RegionInterestQuery? _interestQuery;
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
         private readonly Dictionary<long, WorldEntity> _resources = new();
+        private readonly Dictionary<string, long> _resourceIdsByKey = new(StringComparer.Ordinal);
         private readonly Dictionary<long, IslandId> _resourceIslands = new();
 
         public ResourceInterestService(IClock clock, WorldEntityRegistry registry)
@@ -41,12 +45,17 @@ namespace WorldsAdriftRebornGameServer.Game
             _clock = clock;
             _registry = registry;
             // Fail-open compatibility: with interest disabled, do not even bind
-            // resource ids early; the old spawn plan retains its allocation order.
+            // resource ids or construct routing topology early; the old spawn plan
+            // retains both its allocation order and its previous failure boundary.
             if (!Interest.Enabled) return;
+            _regions = RegionRegistry.CreateDefault(_islands);
+            _interestQuery = new RegionInterestQuery(
+                WorldDirectory.Build(registry, _islands, _regions));
             foreach (WorldEntity entity in registry.Registrations.Where(e => ResourceInterestPolicy.IsStreamedResourceKey(e.Key)))
             {
                 long entityId = registry.EntityIdFor(entity);
                 _resources[entityId] = entity;
+                _resourceIdsByKey[entity.Key] = entityId;
                 _resourceIslands[entityId] = IslandResourceInterestPolicy.ClosestIsland(
                     entity.Position, _islands.All);
             }
@@ -68,18 +77,42 @@ namespace WorldsAdriftRebornGameServer.Game
         public bool RegisterRuntime(long entityId, WorldEntity entity)
         {
             if (entity == null) throw new ArgumentNullException(nameof(entity));
+            if (ResourceInterestPolicy.IsStreamedResourceKey(entity.Key))
+            {
+                LocalDomainOwnership.MoveToIsland(
+                    WorldsAdriftRebornGameServer.DomainHost, entityId, entity.Position);
+            }
             if (!ResourceInterestPolicy.StreamsRuntimeRegistration(entity.Key, Interest.Enabled))
             {
                 return false;
             }
 
             _resources[entityId] = entity;
+            _resourceIdsByKey[entity.Key] = entityId;
             _resourceIslands[entityId] = IslandResourceInterestPolicy.ClosestIsland(
                 entity.Position, _islands.All);
+            RegionDefinition region = _regions!.ByIsland(_resourceIslands[entityId])
+                ?? throw new InvalidOperationException(
+                    "runtime resource island '" + _resourceIslands[entityId]
+                    + "' has no region owner");
+            _interestQuery!.Register(entity, region.Id);
             // Force every known peer to reconcile on the next Tick, without
             // manufacturing a position for peers whose first 1073 has not arrived.
             foreach (PeerState state in _peers.Values) state.NextReconcile = TimeSpan.Zero;
             return true;
+        }
+
+        /// <summary>
+        /// Replaces the constructor-time topology snapshot with the canonical
+        /// post-restore directory. This is called before peers can connect, after
+        /// mounted parts and restored registrations have their final ownership.
+        /// Runtime registrations made later extend the query through RegisterRuntime.
+        /// </summary>
+        public void AttachDirectory(WorldDirectory directory)
+        {
+            if (!Interest.Enabled) return;
+            _interestQuery = new RegionInterestQuery(
+                directory ?? throw new ArgumentNullException(nameof(directory)));
         }
 
         public void NoteLoaded(ENetPeerHandle peer, long entityId)
@@ -183,14 +216,32 @@ namespace WorldsAdriftRebornGameServer.Game
                 {
                     state.NextReconcile = now + ReconcileInterval;
                     long requestedBeforeReconcile = state.AssetRequestedFor;
+                    RegionDefinition activeRegion = _regions!.ByIsland(state.ActiveIsland)
+                        ?? throw new InvalidOperationException(
+                            "active island '" + state.ActiveIsland + "' has no region owner");
+                    HashSet<string> retainedKeys = state.Loaded
+                        .Select(id => _resources.TryGetValue(id, out WorldEntity? loaded)
+                            ? loaded.Key : null)
+                        .Where(key => key != null)
+                        .Select(key => key!)
+                        .ToHashSet(StringComparer.Ordinal);
+                    IReadOnlyList<WorldEntity> candidates = _interestQuery!.Candidates(
+                        activeRegion.Id, _resources.Values, retainedKeys);
                     ResourceInterestPolicy.ReplacePending(
                         state.Pending,
                         ResourceInterestPolicy.Reconcile(
                             state.Center,
                             IslandResourceInterestPolicy.ReconcileSet(
                                 state.ActiveIsland,
-                                _resources.Select(x => new IslandResource(
-                                    x.Key, x.Value.Position, _resourceIslands[x.Key])),
+                                candidates.Select(entity =>
+                                {
+                                    if (!_resourceIdsByKey.TryGetValue(entity.Key, out long entityId))
+                                        throw new InvalidOperationException(
+                                            "resource interest candidate '" + entity.Key
+                                            + "' has no resource entity id");
+                                    return new IslandResource(
+                                        entityId, entity.Position, _resourceIslands[entityId]);
+                                }),
                                 state.Loaded),
                             state.Loaded,
                             Interest.RadiusMetres,

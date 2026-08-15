@@ -66,6 +66,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             WorldsAdriftRebornGameServer.Lamps.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Horns.Unregister(partEntityId);
             LooseParts.Unregister(partEntityId);
+            LocalDomainOwnership.RemoveEntity(
+                WorldsAdriftRebornGameServer.DomainHost, partEntityId);
+            if (mount.HasValue)
+                WorldsAdriftRebornGameServer.Flight.RefreshDomainOwnership(mount.Value.HullEntityId);
             WorldsAdriftRebornGameServer.WorldEntities.Unregister(partEntityId);
 
             foreach (var peer in PeerManager.Instance.playerState.Keys.ToList())

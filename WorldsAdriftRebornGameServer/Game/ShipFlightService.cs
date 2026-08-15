@@ -7,6 +7,7 @@ using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
+using WorldsAdriftRebornGameServer.Multiplayer.Domains;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Game.Persistence;
@@ -85,6 +86,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly FlightTuning _tuning;
         private readonly PilotSeats _seats = new PilotSeats();
         private readonly ShipDomainRegistry _domains;
+        private readonly LocalDomainHost? _domainHost;
         private readonly HashSet<long> _activeHullIds = new();
         private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
             new HashSet<ulong>();
@@ -144,10 +146,12 @@ namespace WorldsAdriftRebornGameServer.Game
         private long _nextLatencyTraceSequence;
         private readonly Dictionary<long, FlightLatencyTrace> _pendingLatencyByHull = new();
 
-        public ShipFlightService(IClock clock, ShipDomainRegistry domains)
+        public ShipFlightService(IClock clock, ShipDomainRegistry domains,
+            LocalDomainHost? domainHost = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _domains = domains ?? throw new ArgumentNullException(nameof(domains));
+            _domainHost = domainHost;
             _cadence = new CadenceTimer(TimeSpan.FromSeconds(ShipMotionPolicy.SendIntervalSeconds));
             _tuning = FlightTuning.FromEnvironment(Environment.GetEnvironmentVariable);
 
@@ -561,6 +565,17 @@ namespace WorldsAdriftRebornGameServer.Game
                     new FlightSession(FlightState.AtRestAt(
                         position.MetresX, position.MetresY, position.MetresZ, yawRadians))));
             RefreshDomainMembership(domain);
+            if (_domainHost != null && _domainHost.ById(domain.Id) == null)
+                _domainHost.Register(domain);
+            else if (_domainHost != null)
+                _domainHost.Synchronize(domain);
+        }
+
+        /// <summary>Refreshes host ownership after a mount or detach outside the flight tick.</summary>
+        internal void RefreshDomainOwnership(long hullEntityId)
+        {
+            if (_domains.ByHull(hullEntityId) is ShipDomain domain)
+                RefreshDomainMembership(domain);
         }
 
         /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
@@ -573,6 +588,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 _inputs.Remove(seat.Value.PlayerEntityId);
                 _authorityByPlayer.Remove(seat.Value.PlayerEntityId);
             }
+            if (_domainHost != null)
+                _domainHost.RemoveDomain(SimulationDomainId.ForShip(hullEntityId));
             _domains.Remove(hullEntityId);
             _activeHullIds.Remove(hullEntityId);
             _helmByHull.Remove(hullEntityId);
@@ -871,12 +888,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 + "; 1109 cleared" + (pushed ? "." : " - PUSH FAILED."));
         }
 
-        private static void RefreshDomainMembership(ShipDomain domain)
+        private void RefreshDomainMembership(ShipDomain domain)
         {
             domain.ReplaceMembers(
                 Crafting.BuiltShips.DecksForHull(domain.HullEntityId),
                 Crafting.MountedParts.OnHull(domain.HullEntityId).Select(x => x.Key));
             domain.ReplaceAboard(WorldsAdriftRebornGameServer.Aboard.AboardShip(domain.HullEntityId));
+            if (_domainHost != null)
+            {
+                if (_domainHost.ById(domain.Id) == null) _domainHost.Register(domain);
+                else _domainHost.Synchronize(domain);
+            }
         }
 
         /// <summary>
