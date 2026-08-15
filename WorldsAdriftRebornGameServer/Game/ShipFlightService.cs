@@ -131,6 +131,19 @@ namespace WorldsAdriftRebornGameServer.Game
         private long _inputPacketsSinceStats;
         private TimeSpan _nextStatsAt;
 
+        private sealed class FlightLatencyTrace
+        {
+            public long Sequence { get; init; }
+            public long PlayerEntityId { get; init; }
+            public long HullEntityId { get; init; }
+            public float AxisYaw { get; init; }
+            public TimeSpan ReceivedAt { get; init; }
+            public DateTime ReceivedUtc { get; init; }
+        }
+
+        private long _nextLatencyTraceSequence;
+        private readonly Dictionary<long, FlightLatencyTrace> _pendingLatencyByHull = new();
+
         public ShipFlightService(IClock clock, ShipDomainRegistry domains)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
@@ -298,6 +311,30 @@ namespace WorldsAdriftRebornGameServer.Game
             if (seat != null && _domains.ByHull(seat.Value.HullEntityId) is ShipDomain domain
                 && _authorityByPlayer.TryGetValue(playerEntityId, out ShipAuthorityToken authority))
             {
+                bool yawEdge = System.Math.Abs(held.AxisYaw) <= 0.001f
+                    && System.Math.Abs(merged.AxisYaw) > 0.001f;
+                bool yawReversed = System.Math.Sign(held.AxisYaw) != System.Math.Sign(merged.AxisYaw)
+                    && System.Math.Abs(held.AxisYaw) > 0.001f
+                    && System.Math.Abs(merged.AxisYaw) > 0.001f;
+                if (yawEdge || yawReversed)
+                {
+                    var trace = new FlightLatencyTrace
+                    {
+                        Sequence = ++_nextLatencyTraceSequence,
+                        PlayerEntityId = playerEntityId,
+                        HullEntityId = seat.Value.HullEntityId,
+                        AxisYaw = merged.AxisYaw,
+                        ReceivedAt = _clock.Elapsed,
+                        ReceivedUtc = DateTime.UtcNow
+                    };
+                    _pendingLatencyByHull[trace.HullEntityId] = trace;
+                    Console.WriteLine("[flight-latency] event=S" + trace.Sequence
+                        + " phase=1111-receive utc=" + trace.ReceivedUtc.ToString("O")
+                        + " elapsedMs=0 player=" + playerEntityId
+                        + " hull=" + trace.HullEntityId
+                        + " axisYaw=" + trace.AxisYaw.ToString("0.###",
+                            System.Globalization.CultureInfo.InvariantCulture));
+                }
                 if (!domain.TrySetInput(authority, merged))
                 {
                     Console.WriteLine("[flight] rejected stale control authority for entity " + playerEntityId
@@ -592,6 +629,21 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
 
+                _pendingLatencyByHull.TryGetValue(hullEntityId, out FlightLatencyTrace? latencyTrace);
+                if (latencyTrace != null)
+                {
+                    Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
+                        + " phase=1130-emit utc=" + DateTime.UtcNow.ToString("O")
+                        + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        + " player=" + latencyTrace.PlayerEntityId
+                        + " hull=" + hullEntityId
+                        + " inputAxisYaw=" + latencyTrace.AxisYaw.ToString("0.###",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        + " stateYawRad=" + session.State.YawRadians.ToString("0.######",
+                            System.Globalization.CultureInfo.InvariantCulture));
+                }
+
                 FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
                     emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
                 // Mounted-part wakes ride a 0.5 s SUB-cadence, not every point:
@@ -621,6 +673,17 @@ namespace WorldsAdriftRebornGameServer.Game
                         ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)),
                     hullWake,
                     memberWakes);
+                if (latencyTrace != null)
+                {
+                    Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
+                        + " phase=1130-send utc=" + DateTime.UtcNow.ToString("O")
+                        + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        + " player=" + latencyTrace.PlayerEntityId
+                        + " hull=" + hullEntityId
+                        + " recipients=" + delivery.RootDeliveredPeerIds.Count);
+                    _pendingLatencyByHull.Remove(hullEntityId);
+                }
                 if (delivery.Stamp.HullEntityId == hullEntityId
                     && delivery.RootDeliveredPeerIds.Count > 0)
                 {
