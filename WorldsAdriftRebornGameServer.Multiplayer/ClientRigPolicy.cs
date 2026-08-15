@@ -3,6 +3,12 @@ using System.Collections.Generic;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
+    public enum RemotePlayerPositionBranch
+    {
+        Global,
+        ShipRelative,
+    }
+
     /// <summary>
     /// Client-side rules that decide which Traveller rig is MINE and who is
     /// allowed to claim a prefab singleton.
@@ -70,7 +76,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>
         /// Whether PlayerVisualizer_Patch lets the game's own FixedUpdate run
-        /// (local rig) instead of forcing the remote global-position branch.
+        /// (local rig) instead of running the safe remote global/ship-relative
+        /// reconstruction.
         ///
         /// Components only, never the root name - rule 11. A name check used to
         /// be OR'd in here. It was unreachable, because mirrored remotes spawn
@@ -84,6 +91,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static bool TreatAsLocalForPlayerVisualizer(string rootName, IEnumerable<string> componentTypeNames)
         {
             return IsLocalRig(componentTypeNames);
+        }
+
+        /// <summary>
+        /// Selects the safe remote position branch. A positive relative bias
+        /// with a resolved relative object means the 1073 position is expressed
+        /// in that object's coordinate frame. Rendering only its global 190602
+        /// position makes an aboard avatar trail a moving ship by roughly
+        /// ship-speed times interpolation latency.
+        ///
+        /// This deliberately does not expose retail's TransformState.Parent
+        /// branch; unresolved parent state previously placed remote rigs tens of
+        /// kilometres away. Only the proven ship-relative frame is restored.
+        /// </summary>
+        public static RemotePlayerPositionBranch PositionBranchForRemote(
+            bool hasRelativeObject,
+            float relativeBias)
+        {
+            return hasRelativeObject && relativeBias > 0f
+                ? RemotePlayerPositionBranch.ShipRelative
+                : RemotePlayerPositionBranch.Global;
         }
 
         /// <summary>
