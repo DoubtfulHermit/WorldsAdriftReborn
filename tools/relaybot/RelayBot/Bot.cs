@@ -601,7 +601,7 @@ namespace RelayBot
                     new PbComponentData { ComponentId = componentId, Data = inner, DataLength = inner.Length }
                 }
             });
-            Enet.Send(_peer, Enet.ChComponentUpdateOp, outer, Enet.FlagReliable);
+            Enet.Send(_peer, Enet.ChComponentUpdateOp, outer, PacketFlagFor(componentId));
             Enet.Flush(_clientHost);
         }
 
@@ -700,9 +700,9 @@ namespace RelayBot
                 }
             });
 
-            // One update per packet, RELIABLE - exactly what the real client's
-            // Connection::SendComponentUpdate does. The send instant is recorded
-            // as late as possible, immediately before handing to the transport.
+            // One update per packet, using the same superseding-stream policy as
+            // the native client's Connection::SendComponentUpdate. The send
+            // instant is recorded immediately before handing to the transport.
             //
             // Under relay v2 a published 1073's timestamp never comes back (the
             // server rewrites it), so it enters neither the send log nor the
@@ -714,8 +714,13 @@ namespace RelayBot
                 _sendLog[(Index, componentId, BitConverter.SingleToInt32Bits(timestamp))] = nowNs;
                 _metrics.RecordSend(Index, nowNs);
             }
-            Enet.Send(_peer, Enet.ChComponentUpdateOp, outer, Enet.FlagReliable);
+            Enet.Send(_peer, Enet.ChComponentUpdateOp, outer, PacketFlagFor(componentId));
         }
+
+        private static int PacketFlagFor(uint componentId) =>
+            componentId == TransformStateId || componentId == ClientAuthoritativePlayerStateId
+                ? Enet.FlagUnreliable
+                : Enet.FlagReliable;
 
         private void MaybeReportGap()
         {

@@ -1,5 +1,22 @@
 #include "Connection.h"
 
+namespace {
+    // These are continuous absolute/snapshot streams. A newer sample completely
+    // supersedes an older one, so reliable retransmission creates head-of-line
+    // latency instead of correctness when a Unity client stalls. The server's
+    // downstream relay has used the same classification for months; this closes
+    // the previously overlooked client -> server half of the path.
+    constexpr unsigned int TransformStateComponentId = 190602;
+    constexpr unsigned int ClientAuthoritativePlayerStateComponentId = 1073;
+
+    int ComponentUpdatePacketFlag(unsigned int componentId) {
+        return componentId == TransformStateComponentId
+            || componentId == ClientAuthoritativePlayerStateComponentId
+                ? WAR_PACKET_UNRELIABLE
+                : WAR_PACKET_RELIABLE;
+    }
+}
+
 Connection::Connection(char* hostname, unsigned short port, ConnectionParameters* parameters, ENetHost* client) {
     this->hostname = hostname;
     this->port = port;
@@ -198,7 +215,8 @@ void Connection::SendComponentUpdate(long entityId, ComponentObject* component_u
     }
 
     if (this->peer != nullptr) {
-        ENet_Send(this->peer, CH_ComponentUpdateOp, ptr, pb_len, WAR_PACKET_RELIABLE);
+        ENet_Send(this->peer, CH_ComponentUpdateOp, ptr, pb_len,
+            ComponentUpdatePacketFlag(component_update->ComponentId));
     }
 
     delete update;
