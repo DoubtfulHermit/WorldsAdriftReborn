@@ -84,6 +84,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             var replacement = new WorldEntity(old.Key, old.AssetName, old.AssetContext, position,
                 old.SeedComponents, old.Order, packedRotation);
             int index = _registrations.IndexOf(old);
+            if (index < 0)
+            {
+                // Recover by stable identity if an older caller ever poisoned
+                // the ID map with a superseded object. The key is unique by
+                // registration contract; failing closed avoids an index -1
+                // process crash if the registration was genuinely retired.
+                index = _registrations.FindIndex(candidate => candidate.Key == old.Key);
+                if (index < 0) return false;
+            }
             _registrations[index] = replacement;
             _byKey[old.Key] = replacement;
             _byEntityId[entityId] = replacement;
@@ -146,14 +155,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 throw new ArgumentNullException(nameof(entity));
             }
-            if (!_byKey.ContainsKey(entity.Key))
+            if (!_byKey.TryGetValue(entity.Key, out WorldEntity? current))
             {
                 throw new ArgumentException(
                     "world entity '" + entity.Key + "' was never registered", nameof(entity));
             }
 
             long id = _ids.SharedEntityId(entity.Key);
-            _byEntityId[id] = entity;
+            // SpawnPlan is a boot-time snapshot and therefore may retain the
+            // original WorldEntity object after Relocate has replaced the
+            // canonical registration. A late join must bind the ID to the
+            // current object, not put that stale snapshot back into the ID map.
+            // Otherwise the next Relocate finds an object that is no longer in
+            // _registrations and indexes the list at -1, crashing the server.
+            _byEntityId[id] = current;
             return id;
         }
 

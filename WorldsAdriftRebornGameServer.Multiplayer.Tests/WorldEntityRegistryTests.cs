@@ -94,6 +94,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_frozen_spawn_plan_cannot_restore_a_stale_registration_after_relocation()
+        {
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            WorldEntity frozenPlanEntity = registry.Register(Tree());
+            long id = registry.EntityIdFor(frozenPlanEntity);
+            FixedPointPosition firstMove = FixedPointPosition.FromMetres(1, 2, 3);
+            FixedPointPosition secondMove = FixedPointPosition.FromMetres(4, 5, 6);
+
+            Assert.True(registry.Relocate(id, firstMove,
+                WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity));
+
+            // A later peer executes the boot-time plan, which still holds the
+            // pre-relocation object. Binding it must keep the canonical moved
+            // registration rather than poisoning the entity-id lookup.
+            Assert.Equal(id, registry.EntityIdFor(frozenPlanEntity));
+            Assert.Equal(firstMove, registry.TransformSeedFor(id));
+            Assert.True(registry.Relocate(id, secondMove,
+                WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity));
+            Assert.Equal(secondMove, registry.TransformSeedFor(id));
+        }
+
+        [Fact]
         public void An_unregistered_entity_cannot_be_given_an_id()
         {
             // Otherwise its id would exist but nothing could look it up by id,
