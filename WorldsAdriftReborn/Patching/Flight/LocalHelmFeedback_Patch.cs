@@ -8,6 +8,7 @@ using HarmonyLib;
 using Improbable;
 using Improbable.Unity.Core;
 using UnityEngine;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
 
 namespace WorldsAdriftReborn.Patching.Flight
 {
@@ -282,6 +283,35 @@ namespace WorldsAdriftReborn.Patching.Flight
                 + " elapsedMs=" + elapsedMs.ToString("0.0", CultureInfo.InvariantCulture)
                 + " frame=" + Time.frameCount + " inputFrame=" + _inputFrame
                 + " hull=" + _hullEntityId + " " + detail);
+        }
+    }
+
+    [HarmonyPatch(typeof(ShipControlsBehaviour), "UpdateAxes")]
+    internal static class HelmYawReversal_Patch
+    {
+        internal struct YawState
+        {
+            public float Before;
+            public float Raw;
+        }
+
+        private static void Prefix(ShipControlsBehaviour __instance, out YawState __state)
+        {
+            Vector3 axes = (Vector3)LocalHelmFeedback_Patch.AxesField.GetValue(__instance);
+            var input = LocalHelmFeedback_Patch.InputField.GetValue(__instance) as InputSink;
+            __state = new YawState
+            {
+                Before = axes.y,
+                Raw = input == null ? 0f : input.GetAxis(InputAxes.ShipYaw)
+            };
+        }
+
+        private static void Postfix(ShipControlsBehaviour __instance, YawState __state)
+        {
+            Vector3 axes = (Vector3)LocalHelmFeedback_Patch.AxesField.GetValue(__instance);
+            axes.y = HelmYawResponsePolicy.ApplyReversal(
+                __state.Before, axes.y, __state.Raw, Time.deltaTime);
+            LocalHelmFeedback_Patch.AxesField.SetValue(__instance, axes);
         }
     }
 

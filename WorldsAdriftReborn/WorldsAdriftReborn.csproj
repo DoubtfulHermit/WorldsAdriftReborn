@@ -99,6 +99,8 @@
              Link="Patching\Flight\ShipInteractionHoldPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\HierarchyLifecyclePolicy.cs"
              Link="Patching\Multiplayer\HierarchyLifecyclePolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\HelmYawResponsePolicy.cs"
+             Link="Patching\Flight\HelmYawResponsePolicy.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->
