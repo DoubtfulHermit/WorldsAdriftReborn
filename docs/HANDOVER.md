@@ -120,13 +120,10 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `718d926` (`Gate remote ship domains during connect`),
-  deployed and restarted at 2026-08-15 00:06 CEST. It includes the coherent
-  ship-domain/steering/passenger/re-entry work through `489517f` and prevents
-  remote hulls, decks and mounted parts from being instantiated during login.
-  Production boot classified 74 ship registrations across five hull roots: the
-  three domains inside 800 m joined the initial barrier and the two remote
-  domains were placed in the gated tail for live root-first checkout.
+- **Game and login/admin servers:** `ab9bc94`, deployed and restarted at
+  2026-08-15 08:27 CEST. This includes the generic-catchup exclusion in
+  `9143c5a`, domain-aligned aboard relay and schema-v2 inspector in `a5bed13`,
+  and the authenticated functional control panel in `18d89b3`.
 - **Public client manifest:** `2026.08.14-10`, build label
   `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
   UTC fallback from `2627810` and fixes six native protobuf string allocations
@@ -139,17 +136,14 @@ changes.
   `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
   deployables, 5/7 ships (two tombstones), 16/16 mounted parts and 3/3 loose
-  parts. The deployed revision remains `718d926`; follow-up `9143c5a` is tested
-  locally but must not be deployed until all players disconnect. The next tested
-  local stack is `a5bed13`: it also aligns aboard avatar relay samples behind
-  each successfully delivered authoritative ship frame and exposes the first
-  read-only local World Inspector slice. Local follow-up `18d89b3` turns that
-  slice into an authenticated functional control panel. Neither is deployed at
-  this snapshot.
+  parts. Stats report schema 2, build `ab9bc94`, host mode
+  `local-single-process`, and five ship domains. Staged/live managed DLL hashes
+  matched exactly. Rollback binaries and state are under
+  `/opt/wareborn/backups/pre-ab9bc94-20260815`.
 
 ### Latest multiplayer incident
 
-- **Server revision:** `718d926`, building on the replication corrections in
+- **Server revision:** `ab9bc94`, building on the replication corrections in
   `489517f`. The 2026-08-14 two-player session proved three related failures:
   runtime-created yards/ships were absent from the boot-frozen plan on relog;
   distant ships and mounted parts broadcast motion globally; and absolute ship
@@ -185,7 +179,7 @@ changes.
   server's atomic completion receipt; it never calls dispatch a successful
   gameplay action. Validation: Multiplayer `2336/2336`, admin/login `168/168`,
   both Release builds zero errors. This is server/admin-only, needs no patcher
-  manifest change, and is not deployed at this snapshot.
+  manifest change, and is deployed in `ab9bc94`.
 
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted
@@ -275,7 +269,7 @@ client-only panel iterations through `7c3e6c4`.
   had correctly skipped them, producing a large send/remove burst. `9143c5a`
   excludes ship-managed entities from generic catch-up and adds a headless
   connect -> catch-up -> approach test. Validation is 2,316/2,316 tests and a
-  zero-error Release server build; it is not deployed at this snapshot.
+  zero-error Release server build; it is deployed as part of `ab9bc94`.
 - Movement component 1073 drives a 500 ms per-peer reconciliation.
 - Adds are nearest-first and paced at 120 ms with asset request then AddEntity.
 - Runtime deposits/shards enter interest through explicit `RegisterRuntime`.
@@ -535,7 +529,7 @@ aboard state; the local fix holds only those coordinate-frame edges while the
 canonical ship survives its measured grace. The re-checkout loop discarded an
 in-flight asset request every 500 ms reconcile; the local fix carries a still-
 valid head request and revalidates every Add/Remove at send time. All three fixes
-pass locally but are not deployed or visually accepted. Phase 4 is therefore
+are deployed in `ab9bc94` but are not yet visually accepted. Phase 4 is therefore
 deployed as a foundation but is **not visually accepted**.
 Phase 5 has a pure capture/restore/resume proof, but not yet the full live
 destroy/recreate/no-visible-teleport acceptance test. Phase 6 has ship authority
@@ -550,13 +544,13 @@ generations, but no in-process gateway seam yet.
   native heap corruption (`c0000374`) and fixed in `3a7cd31` / manifest
   `2026.08.14-10`; his subsequent join passed the former crash point. Extended
   play then exposed the separate server replication congestion and connect-time
-  whole-fleet loading now addressed through deployed revision `718d926`.
+  whole-fleet loading now addressed through deployed revision `ab9bc94`.
 - **Sail fidelity:** functional scalar propulsion, not retail wind physics.
 - **Crafted-part sweep:** catalogue contracts are tested, but every visual,
   attach surface and functional interaction has not been manually exercised.
 - **Multiple players / moving ships:** `489517f` fixed late-join delivery,
   steering wake-up, passenger-frame coherence and the reliable congestion
-  spiral. `718d926` prevents remote domains from burdening login. `6a2273f`
+  spiral. `ab9bc94` prevents remote domains from burdening login. `6a2273f`
   introduced canonical carry and coherent
   ShipDomain replication, but its first two-player visual pass exposed the
   timeline/re-checkout failures listed above. Do not claim local domains are a
