@@ -454,6 +454,12 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,
+                ["hostId"] = s.RuntimeHostId,
+                ["ownedEntityCount"] = s.RuntimeOwnedEntityCount,
+                ["globalEntityCount"] = s.RuntimeGlobalEntityCount,
+                ["unownedEntityCount"] = s.RuntimeUnownedEntityCount,
+                ["ownershipIssueCount"] = s.RuntimeOwnershipIssueCount,
+                ["domains"] = new JArray(s.RuntimeDomains.Select(x => x.Json)),
                 ["shipDomains"] = new JArray(s.ShipDomains.Select(x => x.Json)),
             };
 

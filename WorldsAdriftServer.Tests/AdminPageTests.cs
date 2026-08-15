@@ -22,6 +22,17 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("name=\"csrf\" value=\"" + csrf + "\"", html);
             Assert.Contains("'X-Wareborn-CSRF':CSRF", html);
             Assert.Contains("Latest game-server completion", html);
+            Assert.Contains("Simulation fabric", html);
+            Assert.Contains("id=\"topologyCanvas\"", html);
+            Assert.Contains("id=\"domainInventory\"", html);
+            Assert.Contains("id=\"runtimeHostTotal\"", html);
+            Assert.Contains("id=\"domainDetail\"", html);
+            Assert.Contains("data-domain-filter=\"issues\"", html);
+            Assert.Contains("renderTopology", html);
+            Assert.Contains("renderDomainInventory", html);
+            Assert.Contains("related.slice(0,8)", html);
+            Assert.Contains("rows.slice(0,250)", html);
+            Assert.DoesNotContain("class=\"domain-grid\"", html);
             Assert.DoesNotContain("Worker A", html);
             Assert.DoesNotContain("migrate", html, StringComparison.OrdinalIgnoreCase);
         }
@@ -45,6 +56,13 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("class=\"receipt\"", html);
             Assert.Contains("@media(max-width:760px)", html);
             Assert.Contains("prefers-reduced-motion", html);
+            Assert.Contains(".runtime-overview", html);
+            Assert.Contains(".topology-canvas", html);
+            Assert.Contains(".host-cluster", html);
+            Assert.Contains(".host-domain-grid", html);
+            Assert.Contains(".domain-workbench", html);
+            Assert.Contains(".domain-detail", html);
+            Assert.Contains("@media(max-width:980px)", html);
             Assert.Contains("button:focus-visible", html);
             Assert.Contains("--accent:#74c9cf", html);
             Assert.DoesNotContain("--timber", html);

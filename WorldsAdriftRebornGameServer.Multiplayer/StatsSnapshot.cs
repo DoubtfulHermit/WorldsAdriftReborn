@@ -98,6 +98,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     }
 
     /// <summary>
+    /// One node in the operator-facing local runtime topology. This is deliberately
+    /// smaller than a gameplay snapshot: it describes ownership, placement and
+    /// health without inventing remote workers or migration state.
+    /// </summary>
+    public readonly struct RuntimeDomainStat
+    {
+        public string DomainId { get; }
+        public string Kind { get; }
+        public string Label { get; }
+        public string HostId { get; }
+        public string? AffinityDomainId { get; }
+        public int EntityCount { get; }
+        public bool Active { get; }
+        public int WarningCount { get; }
+        public double X { get; }
+        public double Y { get; }
+        public double Z { get; }
+
+        public RuntimeDomainStat(string domainId, string kind, string label,
+            string hostId, string? affinityDomainId, int entityCount, bool active,
+            int warningCount, double x, double y, double z)
+        {
+            DomainId = domainId ?? string.Empty;
+            Kind = kind ?? string.Empty;
+            Label = label ?? string.Empty;
+            HostId = hostId ?? string.Empty;
+            AffinityDomainId = affinityDomainId;
+            EntityCount = entityCount;
+            Active = active;
+            WarningCount = warningCount;
+            X = x;
+            Y = y;
+            Z = z;
+        }
+    }
+
+    /// <summary>
     /// One live player as the dashboard sees them: the entity they control, the
     /// peer they are, when they connected, and - when ENet's counters are
     /// readable - their wire health. Health is optional because
@@ -144,7 +181,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 2;
+        public const int SchemaVersion = 3;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -171,6 +208,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
+        public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
+        public int RuntimeOwnedEntityCount { get; }
+        public int RuntimeGlobalEntityCount { get; }
+        public int RuntimeUnownedEntityCount { get; }
+        public int RuntimeOwnershipIssueCount { get; }
 
         public StatsSnapshot(
             long bootTimeUnixMs,
@@ -185,7 +227,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int peakOnline,
             IReadOnlyList<PlayerStat> players,
             bool secondIslandRegistered = false,
-            IReadOnlyList<ShipDomainStat>? shipDomains = null)
+            IReadOnlyList<ShipDomainStat>? shipDomains = null,
+            IReadOnlyList<RuntimeDomainStat>? runtimeDomains = null,
+            int runtimeOwnedEntityCount = 0,
+            int runtimeGlobalEntityCount = 0,
+            int runtimeUnownedEntityCount = 0,
+            int runtimeOwnershipIssueCount = 0)
         {
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
@@ -200,6 +247,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Players = players ?? Array.Empty<PlayerStat>();
             SecondIslandRegistered = secondIslandRegistered;
             ShipDomains = shipDomains ?? Array.Empty<ShipDomainStat>();
+            RuntimeDomains = runtimeDomains ?? Array.Empty<RuntimeDomainStat>();
+            RuntimeOwnedEntityCount = runtimeOwnedEntityCount;
+            RuntimeGlobalEntityCount = runtimeGlobalEntityCount;
+            RuntimeUnownedEntityCount = runtimeUnownedEntityCount;
+            RuntimeOwnershipIssueCount = runtimeOwnershipIssueCount;
         }
 
         /// <summary>
@@ -261,6 +313,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Key(b, "runtime");
             b.Append('{');
             Str(b, "hostMode", "local-single-process"); b.Append(',');
+            Str(b, "hostId", "local:primary"); b.Append(',');
+            Num(b, "ownedEntityCount", RuntimeOwnedEntityCount); b.Append(',');
+            Num(b, "globalEntityCount", RuntimeGlobalEntityCount); b.Append(',');
+            Num(b, "unownedEntityCount", RuntimeUnownedEntityCount); b.Append(',');
+            Num(b, "ownershipIssueCount", RuntimeOwnershipIssueCount); b.Append(',');
+            Key(b, "domains"); b.Append('[');
+            for (int i = 0; i < RuntimeDomains.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                AppendRuntimeDomain(b, RuntimeDomains[i]);
+            }
+            b.Append(']'); b.Append(',');
             Key(b, "shipDomains"); b.Append('[');
             for (int i = 0; i < ShipDomains.Count; i++)
             {
@@ -272,6 +336,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             b.Append('}');
             return b.ToString();
+        }
+
+        private static void AppendRuntimeDomain(StringBuilder b, RuntimeDomainStat d)
+        {
+            b.Append('{');
+            Str(b, "domainId", d.DomainId); b.Append(',');
+            Str(b, "kind", d.Kind); b.Append(',');
+            Str(b, "label", d.Label); b.Append(',');
+            Str(b, "hostId", d.HostId); b.Append(',');
+            Key(b, "affinityDomainId");
+            if (d.AffinityDomainId == null) b.Append("null");
+            else AppendJsonString(b, d.AffinityDomainId);
+            b.Append(',');
+            Num(b, "entityCount", d.EntityCount); b.Append(',');
+            Bool(b, "active", d.Active); b.Append(',');
+            Num(b, "warningCount", d.WarningCount); b.Append(',');
+            Num(b, "x", d.X); b.Append(',');
+            Num(b, "y", d.Y); b.Append(',');
+            Num(b, "z", d.Z);
+            b.Append('}');
         }
 
         private static void AppendShipDomain(StringBuilder b, ShipDomainStat d)

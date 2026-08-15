@@ -36,7 +36,7 @@ body{margin:0;min-height:100vh;padding:0 1.5rem 4rem;color:var(--text);backgroun
   font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;
   font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
 a{color:inherit;}
-.wrap{max-width:74rem;margin:0 auto;}
+.wrap{max-width:92rem;margin:0 auto;}
 .mark{font-size:.67rem;font-weight:650;letter-spacing:.26em;text-transform:uppercase;color:var(--accent);margin:0 0 .55rem;}
 h1{font-size:clamp(1.6rem,4vw,2.25rem);font-weight:540;letter-spacing:-.025em;margin:0 0 .25rem;}
 h2{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-soft);margin:0 0 1rem;}
@@ -102,16 +102,24 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .receipt{margin-top:1rem;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:8px;background:#0c151c;}
 .receipt h3{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin:0 0 .55rem;}
 .receipt p{font-size:.78rem;margin:.35rem 0;}
-.domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:.7rem;}
-.domain{position:relative;border:1px solid var(--line);border-radius:9px;padding:1rem 1.05rem;min-width:0;background:#0c151c;overflow:hidden;}
-.domain:before{content:'';position:absolute;inset:0 auto 0 0;width:2px;background:var(--accent);opacity:.6;}
-.domain.has-warning:before{background:var(--danger);opacity:1}.domain.is-resting:before{background:var(--text-faint);opacity:.45;}
-.domain-head{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-bottom:.85rem;}
-.domain h3{font-size:.86rem;font-weight:640;letter-spacing:.01em;margin:0;overflow-wrap:anywhere;}
-.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.72rem;font-size:.74rem;color:var(--text-soft);}
-.kv div{min-width:0;overflow-wrap:anywhere}.kv b{display:block;color:var(--text-faint);font-size:.54rem;font-weight:680;letter-spacing:.09em;text-transform:uppercase;margin-bottom:.12rem;}
+.runtime-overview{display:grid;grid-template-columns:minmax(15rem,1.25fr) repeat(6,minmax(6.5rem,.62fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1rem;}
+.host-summary{position:relative;padding:1.05rem 1.15rem;background:linear-gradient(135deg,#142631,#101b23);min-height:6rem;overflow:hidden;}
+.host-summary:after{content:'';position:absolute;width:9rem;height:9rem;border:1px solid rgba(116,201,207,.12);border-radius:50%;right:-3.5rem;top:-4.5rem;box-shadow:0 0 0 1.6rem rgba(116,201,207,.025),0 0 0 3.2rem rgba(116,201,207,.018);}
+.host-kicker{font-size:.56rem;font-weight:720;letter-spacing:.13em;text-transform:uppercase;color:var(--accent);}.host-name{font-size:1rem;font-weight:630;margin:.24rem 0 .12rem;}.host-meta{font-size:.68rem;color:var(--text-faint);}
+.runtime-metric{padding:1rem;background:var(--surface);min-height:6rem;}.runtime-metric .n{font-size:1.35rem;font-weight:610;}.runtime-metric .l{font-size:.56rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);margin-top:.18rem;}
+.topology{border:1px solid var(--line);border-radius:10px;background:#0a131a;overflow:hidden;margin-bottom:1rem;}
+.topology-bar{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.55);}.topology-bar strong{font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;}.topology-legend{display:flex;flex-wrap:wrap;gap:.7rem;color:var(--text-faint);font-size:.61rem;}.legend-dot{display:inline-block;width:.45rem;height:.45rem;border-radius:50%;margin-right:.3rem;background:var(--accent)}.legend-dot.ship{background:#8aa6ff}.legend-dot.warn{background:var(--danger)}
+.topology-canvas{position:relative;display:flex;flex-direction:column;gap:1rem;padding:2rem 1.25rem 1.25rem;min-height:13rem;background-image:linear-gradient(rgba(70,96,111,.075) 1px,transparent 1px),linear-gradient(90deg,rgba(70,96,111,.075) 1px,transparent 1px);background-size:24px 24px;}
+.topology-canvas:before{content:'AUTHORITY DIRECTORY';position:absolute;top:.55rem;left:1.25rem;right:1.25rem;height:1px;background:linear-gradient(90deg,var(--accent),rgba(116,201,207,.08));color:var(--accent);font-size:.5rem;font-weight:750;letter-spacing:.16em;padding-top:.18rem;}
+.host-cluster{position:relative;border:1px solid rgba(116,201,207,.18);border-radius:12px;padding:.85rem;background:rgba(7,15,20,.6)}.host-cluster-head{display:flex;justify-content:space-between;gap:1rem;align-items:center;padding:.15rem .25rem .75rem}.host-cluster-name{font:650 .66rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--accent)}.host-cluster-meta{font-size:.58rem;color:var(--text-faint)}.host-domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(17rem,1fr));gap:.75rem}
+.island-node{position:relative;min-width:0;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(145deg,rgba(18,34,43,.98),rgba(11,21,28,.98));padding:1rem;box-shadow:0 14px 34px rgba(0,0,0,.18);}.island-node:before{content:'';position:absolute;left:1.2rem;top:-1.45rem;width:1px;height:1.45rem;background:var(--accent);}.island-head{display:flex;align-items:flex-start;justify-content:space-between;gap:.75rem;padding-bottom:.75rem;border-bottom:1px solid var(--line);}.island-title{font-size:.88rem;font-weight:660;}.island-id{font:500 .6rem/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text-faint);}.island-counts{font-size:.62rem;color:var(--text-soft);text-align:right;white-space:nowrap;}
+.ship-lane{display:flex;flex-wrap:wrap;gap:.42rem;padding-top:.8rem;min-height:2.2rem;}.ship-node{position:relative;display:inline-flex;align-items:center;gap:.38rem;max-width:100%;padding:.38rem .52rem;border:1px solid #33495a;border-radius:6px;background:#101d27;color:var(--text-soft);font-size:.62rem;cursor:pointer;}.ship-node:hover{border-color:#698897;color:var(--text)}.ship-node:before{content:'';width:.38rem;height:.38rem;border-radius:50%;background:#8aa6ff;box-shadow:0 0 0 3px rgba(138,166,255,.08)}.ship-node.active:before{background:var(--good)}.ship-node.warning{border-color:rgba(240,128,128,.5);color:#ffd2d2}.ship-node.warning:before{background:var(--danger)}.ship-more{padding:.4rem .25rem;color:var(--text-faint);font-size:.6rem;}
+.domain-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,25rem);gap:1rem;align-items:start;}.domain-browser{min-width:0;border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;}.domain-toolbar{display:grid;grid-template-columns:minmax(12rem,1fr) auto;gap:.75rem;padding:.8rem;border-bottom:1px solid var(--line);}.domain-toolbar input{min-height:2.3rem}.segmented{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#091219}.segmented button{min-height:1.9rem;padding:.35rem .55rem;border:0;background:transparent;box-shadow:none;color:var(--text-faint);font-size:.6rem}.segmented button.active{color:var(--text);background:var(--surface-2)}
+.domain-table-wrap{overflow:auto;max-height:32rem}.domain-table{font-size:.72rem}.domain-table tbody tr{cursor:pointer}.domain-table tbody tr:focus-visible,.island-node:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.domain-table tbody tr.selected{background:var(--accent-soft)}.domain-table .domain-name{font-weight:620;color:var(--text)}.kind-mark{display:inline-block;width:.42rem;height:.42rem;border-radius:2px;margin-right:.42rem;background:var(--accent)}.kind-mark.ship{border-radius:50%;background:#8aa6ff}.domain-footer{display:flex;justify-content:space-between;gap:1rem;padding:.62rem .8rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.61rem;}
+.domain-detail{position:sticky;top:5rem;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(155deg,#14242e,#0d171f);overflow:hidden;min-height:18rem;}.detail-empty{display:grid;place-items:center;min-height:18rem;padding:2rem;text-align:center;color:var(--text-faint);font-size:.73rem}.detail-content{display:none}.detail-content.show{display:block}.detail-head{padding:1rem 1.05rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.035)}.detail-head-top{display:flex;justify-content:space-between;gap:.6rem}.detail-head h3{font-size:1rem;margin:0 0 .18rem}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.detail-item{padding:.78rem .9rem;background:#0e1921;min-width:0;overflow-wrap:anywhere}.detail-item b{display:block;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin-bottom:.16rem}.detail-item span{font-size:.72rem;color:var(--text-soft)}.detail-note{padding:.85rem .95rem;color:var(--text-faint);font-size:.65rem;line-height:1.55;border-top:1px solid var(--line)}
 footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);font-size:.68rem;color:var(--text-faint);}
-@media(max-width:760px){body{padding:0 .8rem 3rem}.card{padding:1.15rem}.topbar{padding-top:1.35rem}.nav{overflow-x:auto;justify-content:flex-start}.nav a{flex:0 0 auto}.tool{grid-column:1/-1}.selectors{grid-template-columns:1fr}.kv{grid-template-columns:repeat(2,minmax(0,1fr))}.domain-grid{grid-template-columns:1fr}.row .fit{width:100%}.row .fit button{width:100%}}
+@media(max-width:980px){.runtime-overview{grid-template-columns:repeat(3,1fr)}.host-summary{grid-column:1/-1}.domain-workbench{grid-template-columns:1fr}.domain-detail{position:relative;top:auto}.host-domain-grid{grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}}
+@media(max-width:760px){body{padding:0 .8rem 3rem}.card{padding:1.15rem}.topbar{padding-top:1.35rem}.nav{overflow-x:auto;justify-content:flex-start}.nav a{flex:0 0 auto}.tool{grid-column:1/-1}.selectors{grid-template-columns:1fr}.row .fit{width:100%}.row .fit button{width:100%}.domain-toolbar{grid-template-columns:1fr}.segmented{overflow-x:auto}.host-domain-grid{grid-template-columns:1fr}.runtime-overview{grid-template-columns:1fr 1fr}}
 @media(max-width:430px){.stat{min-height:4.7rem;padding:.8rem}.kv{grid-template-columns:1fr 1fr}th,td{padding:.58rem .45rem}.button-row button{width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;}}
 </style>";
@@ -217,13 +225,31 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
 <div class=""section-head"" id=""simulation"">Simulation</div>
 <div class=""card"">
-  <div class=""row""><div class=""grow""><h2>World inspector</h2></div><div class=""fit""><span class=""pill ok"" id=""hostMode"">local single-process</span></div></div>
-  <p class=""lede"" style=""margin-top:0"">Read-only ship-domain state from the authoritative game loop. There are no remote workers or migrations in this runtime.</p>
-  <div class=""grid"" style=""margin-bottom:1rem""><div class=""stat""><div class=""n"" id=""domainCount"">&mdash;</div><div class=""l"">Ship domains</div></div><div class=""stat""><div class=""n"" id=""activeDomains"">&mdash;</div><div class=""l"">Active simulation</div></div><div class=""stat""><div class=""n"" id=""aboardCount"">&mdash;</div><div class=""l"">Players aboard</div></div></div>
+  <div class=""row""><div class=""grow""><h2>Simulation fabric</h2></div><div class=""fit""><span class=""pill ok"" id=""hostMode"">local single-process</span></div></div>
+  <p class=""lede"" style=""margin-top:0"">Live ownership topology from the authoritative game loop. Start with the shape of the world, filter the inventory, then inspect one domain. Future workers fit this model without turning the page into one card per process.</p>
+  <div class=""runtime-overview"">
+    <div class=""host-summary""><div class=""host-kicker"">Authority host</div><div class=""host-name"" id=""hostIdentity"">Local primary</div><div class=""host-meta"" id=""hostSummary"">Waiting for runtime topology&hellip;</div></div>
+    <div class=""runtime-metric""><div class=""n"" id=""runtimeDomainTotal"">&mdash;</div><div class=""l"">Domains</div></div>
+    <div class=""runtime-metric""><div class=""n"" id=""runtimeHostTotal"">&mdash;</div><div class=""l"">Authority hosts</div></div>
+    <div class=""runtime-metric""><div class=""n"" id=""runtimeIslandTotal"">&mdash;</div><div class=""l"">Islands</div></div>
+    <div class=""runtime-metric""><div class=""n"" id=""runtimeShipTotal"">&mdash;</div><div class=""l"">Ships</div></div>
+    <div class=""runtime-metric""><div class=""n"" id=""runtimeEntityTotal"">&mdash;</div><div class=""l"">Owned entities</div></div>
+    <div class=""runtime-metric""><div class=""n"" id=""runtimeWarningTotal"">&mdash;</div><div class=""l"">Warnings</div></div>
+  </div>
   <div class=""banner"" id=""domainWarning""><strong>Domain delivery warning</strong><span id=""domainWarningText""></span></div>
-  <div class=""domain-grid"" id=""shipDomains""></div>
-  <p class=""muted"" id=""noDomains"" style=""display:none;font-size:.85rem"">No ship domains are registered.</p>
-  <p class=""muted"" style=""font-size:.72rem;margin-bottom:0"">Frame alignment: hull and members are emitted root-first under one generation/sequence. Client-rendered player-to-ship offset is not yet measured by this bridge, so the panel does not claim a player presentation tick.</p>
+  <div class=""topology"">
+    <div class=""topology-bar""><strong>Authority topology</strong><div class=""topology-legend""><span><i class=""legend-dot""></i>Island</span><span><i class=""legend-dot ship""></i>Ship affinity</span><span><i class=""legend-dot warn""></i>Warning</span></div></div>
+    <div class=""topology-canvas"" id=""topologyCanvas""></div>
+  </div>
+  <div class=""domain-workbench"">
+    <div class=""domain-browser"">
+      <div class=""domain-toolbar""><input id=""domainSearch"" type=""search"" placeholder=""Search domain, entity or host&hellip;"" aria-label=""Search simulation domains""><div class=""segmented"" role=""group"" aria-label=""Filter simulation domains""><button type=""button"" class=""active"" data-domain-filter=""all"">All</button><button type=""button"" data-domain-filter=""island"">Islands</button><button type=""button"" data-domain-filter=""ship"">Ships</button><button type=""button"" data-domain-filter=""issues"">Issues</button></div></div>
+      <div class=""domain-table-wrap""><table class=""domain-table""><thead><tr><th>Domain</th><th>Kind</th><th>Host</th><th class=""num"">Entities</th><th>State</th></tr></thead><tbody id=""domainInventory""></tbody></table></div>
+      <div class=""domain-footer""><span id=""domainResultCount"">0 domains</span><span>Click a row to inspect</span></div>
+    </div>
+    <aside class=""domain-detail"" aria-live=""polite""><div class=""detail-empty"" id=""domainDetailEmpty"">Select a domain from the topology or inventory to inspect authority, affinity, replication and membership.</div><div class=""detail-content"" id=""domainDetail""><div class=""detail-head""><div class=""detail-head-top""><div><h3 id=""detailTitle"">Domain</h3><div class=""island-id"" id=""detailId""></div></div><span class=""pill"" id=""detailStatus""></span></div></div><div class=""detail-grid"" id=""detailGrid""></div><div class=""detail-note"" id=""detailNote""></div></div></aside>
+  </div>
+  <p class=""muted"" id=""noDomains"" style=""display:none;font-size:.78rem"">No runtime topology is available. An older game server may still be writing schema-v2 ship telemetry.</p>
 </div>
 
 <div class=""section-head"" id=""operations"">Operations</div>
@@ -329,6 +355,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var gameReporting = false;
   var secondIslandRegistered = false;
   var latestDomains = [];
+  var latestRuntimeDomains = [];
+  var domainFilter = 'all';
+  var selectedRuntimeDomainId = '';
   function $(id){return document.getElementById(id);}
   function text(id,v){var e=$(id);if(e)e.textContent=v;}
 
@@ -363,6 +392,98 @@ variable to <code>username:hash</code> and restart the login server to enable th
     $('releaseHelm').disabled=!gameReporting||!d||!d.piloted;
     $('recallShip').disabled=!gameReporting||!d||d.piloted||occupied||!hasPlayer;
     $('copyShipDiagnostics').disabled=!d;
+  }
+
+  function shipTelemetryFor(domainId){
+    for(var i=0;i<latestDomains.length;i++)if(latestDomains[i].domainId===domainId)return latestDomains[i];
+    return null;
+  }
+  function domainState(d){
+    if((d.warningCount||0)>0)return 'warning';
+    if(d.kind==='island')return 'resident';
+    return d.active?'active':'resting';
+  }
+  function addDetailItem(grid,label,value){
+    var item=document.createElement('div');item.className='detail-item';
+    var b=document.createElement('b');b.textContent=label;item.appendChild(b);
+    var span=document.createElement('span');span.textContent=value;item.appendChild(span);grid.appendChild(item);
+  }
+  function selectRuntimeDomain(domainId){
+    selectedRuntimeDomainId=domainId||'';
+    var d=null;for(var i=0;i<latestRuntimeDomains.length;i++)if(latestRuntimeDomains[i].domainId===selectedRuntimeDomainId)d=latestRuntimeDomains[i];
+    $('domainDetailEmpty').style.display=d?'none':'grid';
+    $('domainDetail').className='detail-content'+(d?' show':'');
+    if(!d){renderDomainInventory();return;}
+    text('detailTitle',d.label||d.domainId);text('detailId',d.domainId);
+    var status=$('detailStatus');var state=domainState(d);status.className='pill '+(state==='warning'?'bad':(state==='active'||state==='resident'?'ok':'warn'));status.textContent=state;
+    var grid=$('detailGrid');clear(grid);
+    addDetailItem(grid,'Host',d.hostId||'unknown');addDetailItem(grid,'Kind',d.kind||'unknown');
+    addDetailItem(grid,'Owned entities',String(d.entityCount||0));addDetailItem(grid,'Island affinity',d.affinityDomainId||'none');
+    addDetailItem(grid,'World position',Number(d.x).toFixed(1)+', '+Number(d.y).toFixed(1)+', '+Number(d.z).toFixed(1));
+    addDetailItem(grid,'Warnings',String(d.warningCount||0));
+    var ship=shipTelemetryFor(d.domainId);
+    if(ship){
+      addDetailItem(grid,'Authority generation',String(ship.authorityGeneration));
+      addDetailItem(grid,'Replication','seq '+ship.replicationSequence+' · '+ship.cadenceMs+'ms');
+      addDetailItem(grid,'Last delivery',ship.deliveryAgeMs<0?'never':ship.deliveryAgeMs+'ms ago');
+      addDetailItem(grid,'Pilot',ship.pilotPlayerEntityId==null?'none':'entity '+ship.pilotPlayerEntityId);
+      addDetailItem(grid,'Crew',(ship.aboardPlayerEntityIds||[]).length?(ship.aboardPlayerEntityIds||[]).join(', '):'none');
+      addDetailItem(grid,'Checkout subscribers',String(ship.subscriberCount));
+      addDetailItem(grid,'Structure',ship.deckCount+' decks · '+ship.mountedPartCount+' mounted');
+    }
+    text('detailNote',ship
+      ? 'Ship motion is emitted hull-first under one authority generation and replication sequence. Affinity is spatial context, not authority ownership.'
+      : (d.kind==='island'?'Island ownership is resident on this host. Scheduling and remote migration are not enabled yet.':'Ownership-only static structure; excluded from live ship flight and checkout scheduling.'));
+    renderDomainInventory();
+  }
+  function renderTopology(){
+    var canvas=$('topologyCanvas');clear(canvas);
+    var islands=latestRuntimeDomains.filter(function(d){return d.kind==='island';});
+    var ships=latestRuntimeDomains.filter(function(d){return d.kind==='ship'||d.kind==='static-ship';});
+    var runtimeHosts=[];latestRuntimeDomains.forEach(function(d){var host=d.hostId||'unknown';if(runtimeHosts.indexOf(host)<0)runtimeHosts.push(host);});
+    function islandCard(island,relatedOverride){
+      var card=document.createElement('section');card.className='island-node';
+      var inspectable=latestRuntimeDomains.some(function(d){return d.domainId===island.domainId;});
+      if(inspectable){card.tabIndex=0;card.setAttribute('role','button');card.setAttribute('aria-label','Inspect '+island.label);card.addEventListener('click',function(){selectRuntimeDomain(island.domainId);});card.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectRuntimeDomain(island.domainId);}});}
+      var head=document.createElement('div');head.className='island-head';
+      var left=document.createElement('div');var title=document.createElement('div');title.className='island-title';title.textContent=island.label;left.appendChild(title);var id=document.createElement('div');id.className='island-id';id.textContent=island.domainId;left.appendChild(id);head.appendChild(left);
+      var related=relatedOverride||ships.filter(function(s){return s.affinityDomainId===island.domainId;});
+      var counts=document.createElement('div');counts.className='island-counts';counts.textContent=island.entityCount+' entities\n'+related.length+' nearby ships';head.appendChild(counts);card.appendChild(head);
+      var lane=document.createElement('div');lane.className='ship-lane';
+      related.slice(0,8).forEach(function(ship){var node=document.createElement('button');node.type='button';node.className='ship-node '+(ship.warningCount?'warning':(ship.active?'active':''));node.textContent=ship.label;node.addEventListener('click',function(e){e.stopPropagation();selectRuntimeDomain(ship.domainId);});lane.appendChild(node);});
+      if(related.length>8){var more=document.createElement('span');more.className='ship-more';more.textContent='+'+(related.length-8)+' more in inventory';lane.appendChild(more);}
+      if(!related.length){var empty=document.createElement('span');empty.className='ship-more';empty.textContent='No ship affinity';lane.appendChild(empty);}
+      card.appendChild(lane);return card;
+    }
+    var hostIds=[];latestRuntimeDomains.forEach(function(d){var id=d.hostId||'unknown';if(hostIds.indexOf(id)<0)hostIds.push(id);});hostIds.sort();
+    hostIds.forEach(function(hostId){
+      var hosted=latestRuntimeDomains.filter(function(d){return (d.hostId||'unknown')===hostId;});
+      var hostIslands=hosted.filter(function(d){return d.kind==='island';});
+      var hostShips=hosted.filter(function(d){return d.kind==='ship'||d.kind==='static-ship';});
+      var cluster=document.createElement('section');cluster.className='host-cluster';
+      var clusterHead=document.createElement('div');clusterHead.className='host-cluster-head';var clusterName=document.createElement('div');clusterName.className='host-cluster-name';clusterName.textContent=hostId;clusterHead.appendChild(clusterName);var clusterMeta=document.createElement('div');clusterMeta.className='host-cluster-meta';clusterMeta.textContent=hosted.length+' domains · '+hostShips.length+' ships';clusterHead.appendChild(clusterMeta);cluster.appendChild(clusterHead);
+      var grid=document.createElement('div');grid.className='host-domain-grid';
+      hostIslands.forEach(function(island){grid.appendChild(islandCard(island,hostShips.filter(function(ship){return ship.affinityDomainId===island.domainId;})));});
+      var remote=hostShips.filter(function(ship){return !hostIslands.some(function(island){return island.domainId===ship.affinityDomainId;});});
+      if(remote.length)grid.appendChild(islandCard({domainId:'host-context:'+hostId,label:'Transit / remote affinity',entityCount:0,kind:'island'},remote));
+      cluster.appendChild(grid);canvas.appendChild(cluster);
+    });
+    if(!latestRuntimeDomains.length){var empty=document.createElement('div');empty.className='detail-empty';empty.textContent='No schema-v3 topology received.';canvas.appendChild(empty);}
+  }
+  function renderDomainInventory(){
+    var query=($('domainSearch').value||'').toLowerCase().trim();
+    var rows=latestRuntimeDomains.filter(function(d){
+      var filterOk=domainFilter==='all'||(domainFilter==='issues'?(d.warningCount||0)>0:(domainFilter==='ship'?(d.kind==='ship'||d.kind==='static-ship'):d.kind===domainFilter));
+      var hay=(d.domainId+' '+d.label+' '+d.kind+' '+d.hostId+' '+(d.affinityDomainId||'')).toLowerCase();return filterOk&&(!query||hay.indexOf(query)>=0);
+    });
+    var body=$('domainInventory');clear(body);
+    rows.slice(0,250).forEach(function(d){
+      var tr=document.createElement('tr');if(d.domainId===selectedRuntimeDomainId)tr.className='selected';tr.tabIndex=0;tr.addEventListener('click',function(){selectRuntimeDomain(d.domainId);});tr.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();selectRuntimeDomain(d.domainId);}});
+      var name=cell(tr,'','');name.className='domain-name';var mark=document.createElement('i');mark.className='kind-mark '+((d.kind==='ship'||d.kind==='static-ship')?'ship':'');name.appendChild(mark);name.appendChild(document.createTextNode(d.label||d.domainId));
+      cell(tr,d.kind);cell(tr,d.hostId||'unknown','muted');cell(tr,String(d.entityCount||0),'num');
+      var state=domainState(d);var stateCell=cell(tr,'');var pill=document.createElement('span');pill.className='pill '+(state==='warning'?'bad':(state==='active'||state==='resident'?'ok':'warn'));pill.textContent=state;stateCell.appendChild(pill);body.appendChild(tr);
+    });
+    text('domainResultCount',rows.length+' domain'+(rows.length===1?'':'s')+(rows.length>250?' · first 250 shown':''));
   }
 
   function render(data){
@@ -437,41 +558,38 @@ variable to <code>username:hash</code> and restart the login server to enable th
     text('hostMode',runtime.hostMode==='local-single-process'?'local single-process':(runtime.hostMode||'unknown host'));
     var domains=runtime.shipDomains||[];
     latestDomains=domains;
-    text('domainCount',reporting?String(domains.length):'—');
-    text('activeDomains',reporting?String(domains.filter(function(d){return d.active;}).length):'—');
-    text('aboardCount',reporting?String(domains.reduce(function(n,d){return n+(d.aboardPlayerEntityIds||[]).length;},0)):'—');
-    var domainGrid=$('shipDomains');clear(domainGrid);
-    $('noDomains').style.display=domains.length?'none':'block';
+    latestRuntimeDomains=runtime.domains||[];
+    if(!latestRuntimeDomains.length&&domains.length){
+      latestRuntimeDomains=domains.map(function(d){return {domainId:d.domainId||('ship:'+d.hullEntityId),kind:'ship',label:'Ship '+d.hullEntityId,hostId:runtime.hostId||'local:primary',affinityDomainId:null,entityCount:1+(d.deckCount||0)+(d.mountedPartCount||0),active:d.active===true,warningCount:(d.staleDelivery?1:0)+(d.aboardCheckoutWarning?1:0),x:d.x,y:d.y,z:d.z};});
+    }
+    text('hostIdentity',runtime.hostId&&runtime.hostId!=='unknown'?runtime.hostId:'Local primary');
+    var islands=latestRuntimeDomains.filter(function(d){return d.kind==='island';});
+    var ships=latestRuntimeDomains.filter(function(d){return d.kind==='ship'||d.kind==='static-ship';});
+    var runtimeHosts=[];latestRuntimeDomains.forEach(function(d){var host=d.hostId||'unknown';if(runtimeHosts.indexOf(host)<0)runtimeHosts.push(host);});
+    var warningTotal=latestRuntimeDomains.reduce(function(n,d){return n+(d.warningCount||0);},0)+(runtime.unownedEntityCount||0)+(runtime.ownershipIssueCount||0);
+    text('runtimeDomainTotal',reporting?String(latestRuntimeDomains.length):'—');
+    text('runtimeHostTotal',reporting?String(runtimeHosts.length):'—');
+    text('runtimeIslandTotal',reporting?String(islands.length):'—');
+    text('runtimeShipTotal',reporting?String(ships.length):'—');
+    text('runtimeEntityTotal',reporting?String(runtime.ownedEntityCount||0):'—');
+    text('runtimeWarningTotal',reporting?String(warningTotal):'—');
+    text('hostSummary',reporting
+      ? ((runtime.hostMode||'unknown')+' · '+(runtime.globalEntityCount||0)+' global · '+(runtime.unownedEntityCount||0)+' unowned · '+(runtime.ownershipIssueCount||0)+' ownership issues')
+      : 'Waiting for runtime topology…');
+    $('noDomains').style.display=latestRuntimeDomains.length?'none':'block';
     var warnings=[];
     domains.forEach(function(d){
-      var box=document.createElement('div');
-      var head=document.createElement('div');head.className='domain-head';
-      var title=document.createElement('h3');title.textContent=d.domainId||('ship:'+d.hullEntityId);head.appendChild(title);
-      var status=document.createElement('span');
-      var bad=d.staleDelivery||d.aboardCheckoutWarning;
-      box.className='domain '+(bad?'has-warning':(d.active?'is-active':'is-resting'));
-      status.className='pill '+(bad?'bad':(d.active?'ok':'warn'));
-      status.textContent=bad?'warning':(d.piloted?'piloted':(d.active?'active':'resting'));
-      head.appendChild(status);box.appendChild(head);
-      var kv=document.createElement('div');kv.className='kv';
-      function item(label,value){var e=document.createElement('div');var b=document.createElement('b');b.textContent=label;e.appendChild(b);e.appendChild(document.createTextNode(value));kv.appendChild(e);}
-      item('Hull',String(d.hullEntityId));
-      item('Authority','local · gen '+d.authorityGeneration);
-      item('Replication','seq '+d.replicationSequence+' · '+d.cadenceMs+'ms target');
-      item('Last delivery',d.deliveryAgeMs<0?'never':d.deliveryAgeMs+'ms ago');
-      item('Pose',Number(d.x).toFixed(1)+', '+Number(d.y).toFixed(1)+', '+Number(d.z).toFixed(1));
-      item('Pilot',d.pilotPlayerEntityId==null?'none':'entity '+d.pilotPlayerEntityId);
-      item('Aboard',(d.aboardPlayerEntityIds||[]).length?(d.aboardPlayerEntityIds||[]).join(', '):'none');
-      item('Members',d.deckCount+' decks · '+d.mountedPartCount+' mounted');
-      item('Subscribers',String(d.subscriberCount));
-      item('Cadence expected',d.liveCadenceExpected?'live':'rest keepalive');
-      box.appendChild(kv);domainGrid.appendChild(box);
       if(d.staleDelivery)warnings.push((d.domainId||d.hullEntityId)+' has stale/no replication while live cadence is expected');
       if(d.aboardCheckoutWarning)warnings.push((d.domainId||d.hullEntityId)+' has more aboard players than checked-out subscribers');
     });
+    if((runtime.unownedEntityCount||0)>0)warnings.push(runtime.unownedEntityCount+' world entities have no domain owner');
+    if((runtime.ownershipIssueCount||0)>0)warnings.push(runtime.ownershipIssueCount+' domain ownership invariants are inconsistent');
     var domainWarning=$('domainWarning');
     if(warnings.length){domainWarning.classList.add('show','spiral');text('domainWarningText',warnings.join('; ')+'.');}
     else{domainWarning.classList.remove('show','spiral');}
+    renderTopology();
+    if(selectedRuntimeDomainId&&latestRuntimeDomains.some(function(d){return d.domainId===selectedRuntimeDomainId;}))selectRuntimeDomain(selectedRuntimeDomainId);
+    else{if(selectedRuntimeDomainId)selectedRuntimeDomainId='';renderDomainInventory();}
 
     var shipSelect=$('targetShip');
     var selectedShip=shipSelect.value;clear(shipSelect);
@@ -596,6 +714,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
   $('targetPlayer').addEventListener('change',updateRecoveryActions);
   $('copyShipDiagnostics').addEventListener('click',copyIncident);
   $('refreshNow').addEventListener('click',refresh);
+  $('domainSearch').addEventListener('input',renderDomainInventory);
+  Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
   boot();
   refresh();
   setInterval(refresh,REFRESH_MS);

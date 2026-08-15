@@ -148,6 +148,12 @@ namespace WorldsAdriftServer.Admin
         public bool SecondIslandRegistered { get; private init; }
         public IReadOnlyList<GamePlayerStat> Players { get; private init; } = Array.Empty<GamePlayerStat>();
         public string RuntimeHostMode { get; private init; } = "unknown";
+        public string RuntimeHostId { get; private init; } = "unknown";
+        public int RuntimeOwnedEntityCount { get; private init; }
+        public int RuntimeGlobalEntityCount { get; private init; }
+        public int RuntimeUnownedEntityCount { get; private init; }
+        public int RuntimeOwnershipIssueCount { get; private init; }
+        public IReadOnlyList<GameRuntimeDomainStat> RuntimeDomains { get; private init; } = Array.Empty<GameRuntimeDomainStat>();
         public IReadOnlyList<GameShipDomainStat> ShipDomains { get; private init; } = Array.Empty<GameShipDomainStat>();
 
         public static GameStatsSnapshot Parse(JObject o)
@@ -170,6 +176,12 @@ namespace WorldsAdriftServer.Admin
                 foreach (JToken t in domainArray)
                     if (t is JObject d) domains.Add(GameShipDomainStat.Parse(d));
             }
+            List<GameRuntimeDomainStat> runtimeDomains = new List<GameRuntimeDomainStat>();
+            if (runtime?["domains"] is JArray runtimeDomainArray)
+            {
+                foreach (JToken t in runtimeDomainArray)
+                    if (t is JObject d) runtimeDomains.Add(GameRuntimeDomainStat.Parse(d));
+            }
 
             return new GameStatsSnapshot
             {
@@ -188,12 +200,42 @@ namespace WorldsAdriftServer.Admin
                 SecondIslandRegistered = (bool?)o["secondIslandRegistered"] ?? false,
                 Players = players,
                 RuntimeHostMode = (string?)(runtime?["hostMode"]) ?? "unknown",
+                RuntimeHostId = (string?)(runtime?["hostId"]) ?? "unknown",
+                RuntimeOwnedEntityCount = (int?)(runtime?["ownedEntityCount"]) ?? 0,
+                RuntimeGlobalEntityCount = (int?)(runtime?["globalEntityCount"]) ?? 0,
+                RuntimeUnownedEntityCount = (int?)(runtime?["unownedEntityCount"]) ?? 0,
+                RuntimeOwnershipIssueCount = (int?)(runtime?["ownershipIssueCount"]) ?? 0,
+                RuntimeDomains = runtimeDomains,
                 ShipDomains = domains,
             };
         }
 
         internal static DateTimeOffset FromUnixMs(long ms) =>
             DateTimeOffset.FromUnixTimeMilliseconds(ms);
+    }
+
+    internal sealed class GameRuntimeDomainStat
+    {
+        public JObject Json { get; private init; } = new JObject();
+
+        public static GameRuntimeDomainStat Parse(JObject d) => new GameRuntimeDomainStat
+        {
+            Json = new JObject
+            {
+                ["domainId"] = (string?)d["domainId"] ?? "",
+                ["kind"] = (string?)d["kind"] ?? "unknown",
+                ["label"] = (string?)d["label"] ?? "Unnamed domain",
+                ["hostId"] = (string?)d["hostId"] ?? "unknown",
+                ["affinityDomainId"] = d["affinityDomainId"]?.Type == JTokenType.String
+                    ? (string?)d["affinityDomainId"] : null,
+                ["entityCount"] = (int?)d["entityCount"] ?? 0,
+                ["active"] = (bool?)d["active"] ?? false,
+                ["warningCount"] = (int?)d["warningCount"] ?? 0,
+                ["x"] = (double?)d["x"] ?? 0,
+                ["y"] = (double?)d["y"] ?? 0,
+                ["z"] = (double?)d["z"] ?? 0,
+            }
+        };
     }
 
     internal sealed class GameShipDomainStat

@@ -132,7 +132,12 @@ namespace WorldsAdriftServer.Tests
         {
             string path = TempFile();
             string json = ValidJson.TrimEnd().TrimEnd('}') + @",
-              ""runtime"":{""hostMode"":""local-single-process"",""shipDomains"":[{
+              ""runtime"":{""hostMode"":""local-single-process"",""hostId"":""local:primary"",
+                ""ownedEntityCount"":72,""globalEntityCount"":1,""unownedEntityCount"":0,""ownershipIssueCount"":0,
+                ""domains"":[{""domainId"":""island:haven"",""kind"":""island"",""label"":""Haven"",
+                  ""hostId"":""local:primary"",""affinityDomainId"":null,""entityCount"":60,
+                  ""active"":true,""warningCount"":0,""x"":1,""y"":2,""z"":3,
+                  ""fictionalLease"":""must-not-pass""}],""shipDomains"":[{
                 ""domainId"":""ship:83"",""hullEntityId"":83,""authorityGeneration"":4,
                 ""replicationSequence"":91,""cadenceMs"":240,""deliveryAgeMs"":35,
                 ""x"":1.5,""y"":2.5,""z"":3.5,""active"":true,""piloted"":true,
@@ -145,6 +150,11 @@ namespace WorldsAdriftServer.Tests
             {
                 GameStatsSnapshot s = GameStats.ReadFrom(path, Now).Snapshot!;
                 Assert.Equal("local-single-process", s.RuntimeHostMode);
+                Assert.Equal("local:primary", s.RuntimeHostId);
+                Assert.Equal(72, s.RuntimeOwnedEntityCount);
+                Assert.Single(s.RuntimeDomains);
+                Assert.Equal("island", (string)s.RuntimeDomains[0].Json["kind"]!);
+                Assert.Null(s.RuntimeDomains[0].Json["fictionalLease"]);
                 Assert.Single(s.ShipDomains);
                 Assert.Equal(83, (long)s.ShipDomains[0].Json["hullEntityId"]!);
                 Assert.Null(s.ShipDomains[0].Json["fictionalWorker"]);

@@ -100,11 +100,15 @@ split: avatars retain their independent 20 Hz stream, while a successfully
 delivered authoritative ship frame forces the latest aboard avatar sample to
 follow its hull on the same poll-loop turn for that recipient. This is ordered
 same-frame delivery, not cross-entity packet atomicity and not multi-host
-handoff. A schema-v2 read-only World Inspector exposes the domain generation,
-replication sequence/frame age, authoritative pose, crew, structural membership
-and per-peer checkout count. It deliberately labels the host as
-`local-single-process` and does not invent workers, migration history, compute
-scores or client-rendered offsets that the runtime cannot yet observe.
+handoff. Schema-v3 runtime telemetry exposes the complete hosted domain inventory,
+host identity, ownership totals, island anchors and ship-to-island spatial
+affinity, while retaining ship generation, replication sequence/frame age,
+authoritative pose, crew, structural membership and per-peer checkout count.
+The admin Simulation Fabric renders this as host clusters, island topology,
+capped ship nodes, a searchable/filterable inventory and one-domain drill-down;
+the shape scales to later hosts without claiming workers or migrations that do
+not exist. It still labels the current host `local-single-process` and does not
+invent compute scores or client-rendered offsets the runtime cannot observe.
 Moving actual simulation services behind the host and a live acceptance pass
 remain outstanding. The first live two-player pass also exposed remote-avatar/ship coordinate-frame
 divergence, a five-second client spline wake after manned-idle stream starvation,

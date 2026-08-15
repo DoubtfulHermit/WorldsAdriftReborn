@@ -2126,6 +2126,73 @@ namespace WorldsAdriftRebornGameServer
                     ShipInterest.SubscriberCountFor(domain.HullEntityId)));
             }
 
+            // Operator topology: the ownership-only host is the source of truth for
+            // domain inventory. ShipDomainStat remains the richer control/replication
+            // view; these compact nodes let the admin UI scale across islands, ships
+            // and future hosts without flattening everything into ship cards.
+            Multiplayer.Islands.IslandRegistry topologyIslands =
+                Multiplayer.Islands.IslandRegistry.CreateDefault();
+            Dictionary<long, ShipDomainStat> shipStatsByHull = shipDomains
+                .ToDictionary(domain => domain.HullEntityId);
+            List<RuntimeDomainStat> runtimeDomains = new List<RuntimeDomainStat>();
+            foreach (Multiplayer.Domains.ILocalSimulationDomain domain in DomainHost.Domains)
+            {
+                if (domain is Multiplayer.Domains.IslandDomain islandDomain)
+                {
+                    Multiplayer.Islands.IslandDefinition island =
+                        topologyIslands.Require(islandDomain.IslandId);
+                    runtimeDomains.Add(new RuntimeDomainStat(
+                        domain.Id.ToString(), "island", island.DisplayName,
+                        "local:primary", null, domain.EntityIds.Count,
+                        active: true, warningCount: 0,
+                        island.GlobalOrigin.MetresX, island.GlobalOrigin.MetresY,
+                        island.GlobalOrigin.MetresZ));
+                    continue;
+                }
+
+                long hullEntityId;
+                if (domain is Multiplayer.Ship.Domains.ShipDomain liveShip)
+                    hullEntityId = liveShip.HullEntityId;
+                else if (domain is Multiplayer.Domains.StaticShipDomain staticShip)
+                    hullEntityId = staticShip.HullEntityId;
+                else
+                {
+                    runtimeDomains.Add(new RuntimeDomainStat(
+                        domain.Id.ToString(), domain.Kind.ToString().ToLowerInvariant(),
+                        domain.Id.ToString(), "local:primary", null,
+                        domain.EntityIds.Count, active: false, warningCount: 0,
+                        0, 0, 0));
+                    continue;
+                }
+                bool hasLiveStats = shipStatsByHull.TryGetValue(hullEntityId,
+                    out ShipDomainStat shipStat);
+                FixedPointPosition shipPosition = hasLiveStats
+                    ? FixedPointPosition.FromMetres(shipStat.X, shipStat.Y, shipStat.Z)
+                    : WorldEntities.TransformSeedFor(hullEntityId);
+                Multiplayer.Islands.IslandId affinity =
+                    Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(
+                        shipPosition, topologyIslands.All);
+                int warnings = hasLiveStats
+                    ? (shipStat.StaleDelivery ? 1 : 0)
+                        + (shipStat.AboardCheckoutWarning ? 1 : 0)
+                    : 0;
+                runtimeDomains.Add(new RuntimeDomainStat(
+                    domain.Id.ToString(), hasLiveStats ? "ship" : "static-ship",
+                    hasLiveStats ? "Ship " + hullEntityId : "Static ship " + hullEntityId,
+                    "local:primary", Multiplayer.Ship.Domains.SimulationDomainId
+                        .ForIsland(affinity).ToString(),
+                    domain.EntityIds.Count, hasLiveStats && shipStat.Active, warnings,
+                    shipPosition.MetresX, shipPosition.MetresY, shipPosition.MetresZ));
+            }
+
+            List<long> expectedOwnedEntities = WorldEntities.Registrations
+                .Select(entity => WorldEntities.BoundEntityIdFor(entity.Key))
+                .Where(entityId => entityId.HasValue)
+                .Select(entityId => entityId!.Value)
+                .ToList();
+            Multiplayer.Domains.DomainOwnershipSummary ownership =
+                DomainHost.Inspect(expectedOwnedEntities);
+
             string build = Environment.GetEnvironmentVariable("WAREBORN_BUILD");
             if (string.IsNullOrWhiteSpace(build))
             {
@@ -2146,7 +2213,12 @@ namespace WorldsAdriftRebornGameServer
                 players: players,
                 secondIslandRegistered: WorldEntities.ByKey(
                     Multiplayer.Islands.IslandCatalog.TradesChallenge.WorldEntityKey) != null,
-                shipDomains: shipDomains);
+                shipDomains: shipDomains,
+                runtimeDomains: runtimeDomains,
+                runtimeOwnedEntityCount: ownership.OwnedEntityCount,
+                runtimeGlobalEntityCount: ownership.GlobalEntityCount,
+                runtimeUnownedEntityCount: ownership.UnownedEntityIds.Count,
+                runtimeOwnershipIssueCount: ownership.Inconsistencies.Count);
         }
 
         /// <summary>Published appearance per player entity; read by the 1088

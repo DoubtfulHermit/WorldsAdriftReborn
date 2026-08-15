@@ -159,9 +159,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 active: true, piloted: true, liveCadenceExpected: true,
                 pilotPlayerEntityId: 12, aboardPlayerEntityIds: new long[] { 12, 18 },
                 deckCount: 8, mountedPartCount: 3, subscriberCount: 2);
+            var topology = new RuntimeDomainStat(
+                "ship:83", "ship", "Ship 83", "local:primary", "island:haven",
+                entityCount: 12, active: true, warningCount: 0,
+                17200.5, -310.25, -1100.75);
             StatsSnapshot snapshot = new StatsSnapshot(
                 0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
-                Array.Empty<PlayerStat>(), shipDomains: new[] { domain });
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain },
+                runtimeDomains: new[] { topology }, runtimeOwnedEntityCount: 72,
+                runtimeGlobalEntityCount: 1, runtimeUnownedEntityCount: 0,
+                runtimeOwnershipIssueCount: 0);
 
             JObject root = JObject.Parse(snapshot.ToJson());
             JObject runtime = (JObject)root["runtime"]!;
@@ -174,6 +181,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(2, ((JArray)d["aboardPlayerEntityIds"]!).Count);
             Assert.False((bool)d["staleDelivery"]!);
             Assert.False((bool)d["aboardCheckoutWarning"]!);
+            Assert.Equal("local:primary", (string)runtime["hostId"]!);
+            Assert.Equal(72, (int)runtime["ownedEntityCount"]!);
+            Assert.Equal(1, (int)runtime["globalEntityCount"]!);
+            Assert.Equal(0, (int)runtime["ownershipIssueCount"]!);
+            JObject topologyNode = (JObject)((JArray)runtime["domains"]!)[0];
+            Assert.Equal("ship", (string)topologyNode["kind"]!);
+            Assert.Equal("island:haven", (string)topologyNode["affinityDomainId"]!);
+            Assert.Equal(12, (int)topologyNode["entityCount"]!);
             Assert.Null(runtime["worker"]);
             Assert.Null(runtime["migrations"]);
         }
