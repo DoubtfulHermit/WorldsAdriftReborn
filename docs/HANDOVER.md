@@ -120,10 +120,16 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game and login/admin servers:** `ab9bc94`, deployed and restarted at
-  2026-08-15 08:27 CEST. This includes the generic-catchup exclusion in
+- **Game server:** `ab9bc94`, deployed and restarted at 2026-08-15 08:27 CEST.
+  This includes the generic-catchup exclusion in
   `9143c5a`, domain-aligned aboard relay and schema-v2 inspector in `a5bed13`,
   and the authenticated functional control panel in `18d89b3`.
+- **Login/admin server:** `48b381d`, deployed at 2026-08-15 08:48 CEST without
+  restarting the game process. This is a presentation-only redesign of the
+  authenticated control panel into a responsive dark simulation console; all
+  allowlisted commands, CSRF checks, confirmation gates and result receipts are
+  unchanged. The deployment backup is
+  `/opt/wareborn/backups/pre-admin-ui-48b381d-20260815`.
 - **Public client manifest:** `2026.08.14-10`, build label
   `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
   UTC fallback from `2627810` and fixes six native protobuf string allocations
