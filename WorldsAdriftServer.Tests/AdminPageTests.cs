@@ -23,5 +23,25 @@ namespace WorldsAdriftServer.Tests
             Assert.DoesNotContain("Worker A", html);
             Assert.DoesNotContain("migrate", html, StringComparison.OrdinalIgnoreCase);
         }
+
+        [Fact]
+        public void Dashboard_uses_one_responsive_console_system_and_compact_safe_controls()
+        {
+            string html = AdminPage.Dashboard("{}", new string('b', 64));
+
+            Assert.Contains("class=\"selectors\"", html);
+            Assert.Contains("class=\"nudge-pad\"", html);
+            Assert.Contains("aria-label=\"Nudge ship north one metre\"", html);
+            Assert.Contains("class=\"tool danger-zone\"", html);
+            Assert.Contains("class=\"danger-button\"", html);
+            Assert.Contains("class=\"receipt\"", html);
+            Assert.Contains("@media(max-width:760px)", html);
+            Assert.Contains("prefers-reduced-motion", html);
+            Assert.Contains("button:focus-visible", html);
+            Assert.Contains("--accent:#74c9cf", html);
+            Assert.DoesNotContain("--timber", html);
+            Assert.DoesNotContain("#eebd8e", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("cdn", html, StringComparison.OrdinalIgnoreCase);
+        }
     }
 }

@@ -4,9 +4,9 @@ namespace WorldsAdriftServer.Web
 {
     /// <summary>
     /// The operator dashboard's HTML, served verbatim like <see cref="SignupPage"/>
-    /// and sharing its airship aesthetic: flat slate fields, a timber-plank
-    /// button, a soft veil over a sky gradient, and full light/dark support - all
-    /// self-contained, no external CSS, fonts, scripts or images.
+    /// as a restrained simulation operations console. Its typography, neutral
+    /// controls, telemetry surfaces and danger treatment are all self-contained:
+    /// no external CSS, fonts, scripts or images.
     ///
     /// Two pages live here. The login page is what an unauthenticated visitor
     /// sees at /admin; the dashboard is what a signed-in operator sees. The
@@ -19,94 +19,103 @@ namespace WorldsAdriftServer.Web
     {
         internal const string ContentType = "text/html; charset=utf-8";
 
-        /// <summary>Shared look, kept identical in spirit to the sign-up page.</summary>
+        /// <summary>Self-contained, high-density simulation-console design system.</summary>
         private const string Style = @"<style>
 :root{
-  --ink:#26313d;--ink-soft:#43525f;--ink-faint:#5d6b76;
-  --field:rgba(74,80,96,.60);--field-edge:rgba(30,36,48,.30);--field-ink:#f0ece2;--field-hint:#c2c6cf;
-  --timber-lo:#c68d60;--timber-mid:#d9a074;--timber-hi:#eebd8e;--timber-ink:#4a2c14;
-  --batten:#a97244;--batten-lo:#8e5d36;--batten-edge:#7d4d2a;
-  --rust:#a8321f;--good:#2c6b52;--warn:#b46b16;
-  --panel:rgba(255,255,255,.40);--panel-edge:rgba(30,36,48,.16);
-  --veil:rgba(255,255,255,.40);--halo:0 1px 0 rgba(255,255,255,.55);
+  color-scheme:dark;
+  --bg:#091016;--bg-raised:#0e171f;--surface:#111c25;--surface-2:#16232d;
+  --line:#263641;--line-strong:#38505d;--text:#edf3f5;--text-soft:#aab9c0;--text-faint:#71838d;
+  --accent:#74c9cf;--accent-soft:rgba(116,201,207,.12);--good:#71d0a5;--warn:#d9b36b;--danger:#f08080;
+  --danger-soft:rgba(240,128,128,.09);--shadow:0 22px 60px rgba(0,0,0,.24);
 }
-@media (prefers-color-scheme:dark){:root{
-  --ink:#e4e9ec;--ink-soft:#b3c0c8;--ink-faint:#8b99a3;
-  --field:rgba(96,106,124,.40);--field-edge:rgba(180,200,215,.16);--field-ink:#eef1f3;--field-hint:#9aa6b2;
-  --rust:#ef8a6b;--good:#7fd2b3;--warn:#e5a95c;
-  --panel:rgba(12,20,28,.46);--panel-edge:rgba(180,200,215,.12);
-  --veil:rgba(6,12,20,.50);--halo:0 1px 3px rgba(0,0,0,.65);
-}}
 *{box-sizing:border-box;}
-body{margin:0;min-height:100vh;padding:2rem 1.25rem 3rem;color:var(--ink);
-  background:linear-gradient(180deg,#93b7c8,#bed2d8 55%,#dde7e2 100%);background-attachment:fixed;
-  font-family:'Inter','Segoe UI',Roboto,'Helvetica Neue','DejaVu Sans',Arial,sans-serif;font-size:16px;line-height:1.55;}
-@media (prefers-color-scheme:dark){body{background:linear-gradient(180deg,#070d14,#101c26 55%,#1b2c35 100%);background-attachment:fixed;}}
+html{scroll-behavior:smooth;}
+body{margin:0;min-height:100vh;padding:0 1.5rem 4rem;color:var(--text);background:
+  radial-gradient(70rem 32rem at 15% -12%,rgba(54,111,126,.24),transparent 60%),
+  radial-gradient(45rem 28rem at 100% 8%,rgba(47,76,97,.18),transparent 65%),var(--bg);
+  font-family:Inter,ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
 a{color:inherit;}
-.wrap{max-width:60rem;margin:0 auto;}
-.mark{font-size:.66rem;letter-spacing:.38em;text-transform:uppercase;color:var(--ink-soft);text-shadow:var(--halo);margin:0 0 .5rem;}
-h1{font-size:clamp(1.4rem,5vw,1.9rem);font-weight:300;letter-spacing:.04em;margin:0 0 .3rem;text-shadow:var(--halo);}
-h2{font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 .8rem;text-shadow:var(--halo);}
-.lede{margin:.2rem 0 1.6rem;color:var(--ink-soft);font-size:.9rem;text-shadow:var(--halo);}
-.card{position:relative;background:var(--panel);border:1px solid var(--panel-edge);border-radius:2px;
-  padding:1.3rem 1.4rem;margin:0 0 1.4rem;-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.8rem;}
-.stat{padding:.5rem .2rem;}
-.stat .n{font-size:1.6rem;font-weight:600;letter-spacing:.02em;}
-.stat .l{font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);}
-label{display:block;font-size:.64rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);text-shadow:var(--halo);margin:0 0 .35rem;}
-input,select{width:100%;font:inherit;color:var(--field-ink);background:var(--field);border:1px solid var(--field-edge);border-radius:0;padding:.6rem .7rem;
-  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
-input::placeholder{color:var(--field-hint);}
-select option{color:#202936;background:#e9eef0;}
-input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--timber-hi);outline-offset:3px;}
-.field{margin-bottom:.85rem;text-align:left;}
-button,.btn{position:relative;display:inline-block;width:100%;margin:.4rem 0 .2rem;padding:.72rem 1.4rem;font:inherit;font-size:.78rem;font-weight:600;
-  letter-spacing:.16em;text-transform:uppercase;color:var(--timber-ink);border:1px solid #a4744a;border-radius:1px;cursor:pointer;text-align:center;text-decoration:none;
-  background-image:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0) 44%),linear-gradient(180deg,var(--timber-hi),var(--timber-mid) 46%,var(--timber-lo));
-  box-shadow:0 2px 0 rgba(112,72,40,.42),0 12px 26px -14px rgba(38,24,10,.85);transition:filter .12s ease;}
-button:hover:not(:disabled),.btn:hover{filter:brightness(1.06);}
-button:disabled{filter:saturate(.45) brightness(.94);cursor:progress;}
-.btn.ghost{background:none;box-shadow:none;color:var(--ink-soft);border-color:var(--panel-edge);width:auto;padding:.5rem 1rem;}
-.err{display:block;margin:.4rem 0 0;color:var(--rust);font-weight:500;font-size:.82rem;}
-.row{display:flex;flex-wrap:wrap;gap:.6rem;align-items:flex-end;}
+.wrap{max-width:74rem;margin:0 auto;}
+.mark{font-size:.67rem;font-weight:650;letter-spacing:.26em;text-transform:uppercase;color:var(--accent);margin:0 0 .55rem;}
+h1{font-size:clamp(1.6rem,4vw,2.25rem);font-weight:540;letter-spacing:-.025em;margin:0 0 .25rem;}
+h2{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--text-soft);margin:0 0 1rem;}
+.lede{max-width:52rem;margin:.15rem 0 1.5rem;color:var(--text-soft);font-size:.87rem;}
+.card{position:relative;background:linear-gradient(145deg,rgba(19,31,40,.96),rgba(13,23,31,.96));border:1px solid var(--line);
+  border-radius:12px;padding:1.55rem 1.65rem;margin:0 0 1.25rem;box-shadow:var(--shadow);}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;}
+.stat{padding:1rem 1.05rem;background:var(--surface);min-height:5.35rem;}
+.stat .n{font-size:1.5rem;font-weight:590;letter-spacing:-.025em;color:var(--text);}
+.stat .l{margin-top:.18rem;font-size:.61rem;font-weight:650;letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);}
+label{display:block;font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-soft);margin:0 0 .45rem;}
+input,select{width:100%;min-height:2.65rem;font:inherit;color:var(--text);background:#0b141b;border:1px solid var(--line-strong);border-radius:7px;padding:.58rem .72rem;}
+input::placeholder{color:var(--text-faint);}select option{color:var(--text);background:var(--surface);}
+input:hover,select:hover{border-color:#4c6876;}input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.field{margin-bottom:1rem;text-align:left;}
+button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;width:auto;min-height:2.55rem;margin:0;padding:.6rem .95rem;
+  font:inherit;font-size:.72rem;font-weight:680;letter-spacing:.045em;color:var(--text);border:1px solid var(--line-strong);border-radius:7px;
+  cursor:pointer;text-align:center;text-decoration:none;background:linear-gradient(180deg,#20313d,#172630);box-shadow:0 1px 0 rgba(255,255,255,.04);transition:border-color .14s,background .14s,transform .14s;}
+button:hover:not(:disabled),.btn:hover{border-color:#567583;background:linear-gradient(180deg,#293d49,#1c2e38);}
+button:active:not(:disabled){transform:translateY(1px);}button:disabled{opacity:.45;cursor:not-allowed;}
+.btn.ghost{background:transparent;color:var(--text-soft);border-color:var(--line);padding:.48rem .8rem;}
+.btn.ghost:hover{color:var(--text);background:var(--surface-2);}
+.danger-button{color:#ffd9d9;border-color:rgba(240,128,128,.5);background:rgba(115,37,42,.34);}
+.danger-button:hover:not(:disabled){border-color:var(--danger);background:rgba(139,43,49,.48);}
+.err{display:block;margin:.65rem 0;color:var(--danger);font-weight:550;font-size:.82rem;}
+.row{display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end;}
 .row .field{flex:1 1 18rem;margin-bottom:0;}
 .row .grow{flex:1 1 18rem;}
 .row .fit{flex:0 0 auto;}
-table{width:100%;border-collapse:collapse;font-size:.84rem;}
-th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid var(--panel-edge);}
-th{font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);}
+table{width:100%;border-collapse:collapse;font-size:.79rem;}
+th,td{text-align:left;padding:.68rem .6rem;border-bottom:1px solid var(--line);}
+th{font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint);}
+tbody tr:hover{background:rgba(116,201,207,.035);}
 td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
-.muted{color:var(--ink-faint);}
-.pill{display:inline-block;padding:.08rem .5rem;border-radius:1rem;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;border:1px solid transparent;}
-.pill.ok{color:var(--good);border-color:var(--good);}
-.pill.bad{color:var(--rust);border-color:var(--rust);}
-.pill.warn{color:var(--warn);border-color:var(--warn);}
-.banner{display:none;margin:0 0 1.4rem;padding:.9rem 1.1rem;border-left:4px solid var(--warn);background:var(--panel);border-radius:2px;
-  -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px);font-size:.9rem;}
+.muted{color:var(--text-faint);}
+.pill{display:inline-flex;align-items:center;gap:.3rem;padding:.18rem .52rem;border-radius:999px;font-size:.59rem;font-weight:720;letter-spacing:.075em;text-transform:uppercase;border:1px solid var(--line-strong);background:rgba(255,255,255,.025);}
+.pill.ok{color:var(--good);border-color:rgba(113,208,165,.42);background:rgba(113,208,165,.06);}
+.pill.bad{color:var(--danger);border-color:rgba(240,128,128,.5);background:var(--danger-soft);}
+.pill.warn{color:var(--warn);border-color:rgba(217,179,107,.4);background:rgba(217,179,107,.06);}
+.banner{display:none;margin:0 0 1.2rem;padding:.9rem 1rem;border:1px solid rgba(217,179,107,.32);background:rgba(93,71,29,.14);border-radius:8px;font-size:.84rem;}
 .banner.show{display:block;}
-.banner.spiral{border-left-color:var(--rust);}
-.banner strong{display:block;letter-spacing:.06em;margin-bottom:.15rem;}
-.topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:.4rem;}
-.nav{display:flex;gap:.45rem;margin:1rem 0 1.4rem;flex-wrap:wrap;}
-.nav a{padding:.4rem .75rem;border:1px solid var(--panel-edge);text-decoration:none;font-size:.65rem;letter-spacing:.14em;text-transform:uppercase;background:var(--panel);}
-.section-head{font-size:.66rem;letter-spacing:.28em;text-transform:uppercase;color:var(--ink-faint);margin:1.8rem 0 .55rem;scroll-margin-top:1rem;}
-.asof{font-size:.72rem;color:var(--ink-faint);}
-.tool-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem;margin-top:1rem;}
-.tool{border:1px solid var(--panel-edge);padding:1rem;}
-.tool h3{font-size:.82rem;letter-spacing:.08em;margin:0 0 .35rem;}
-.tool p{font-size:.78rem;color:var(--ink-faint);margin:.2rem 0 .7rem;}
-.button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;}
-.button-row button{padding:.58rem .5rem;margin:0;font-size:.67rem;}
-.feedback{display:none;margin-top:1rem;padding:.7rem .8rem;border-left:3px solid var(--good);background:var(--panel);font-size:.82rem;}
-.feedback.show{display:block}.feedback.bad{border-left-color:var(--rust);}
-.domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(18rem,1fr));gap:.8rem;}
-.domain{border:1px solid var(--panel-edge);padding:.9rem;min-width:0;}
-.domain-head{display:flex;justify-content:space-between;gap:.6rem;align-items:center;margin-bottom:.6rem;}
-.domain h3{font-size:.82rem;letter-spacing:.06em;margin:0;overflow-wrap:anywhere;}
-.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.35rem .8rem;font-size:.76rem;}
-.kv div{min-width:0}.kv b{display:block;color:var(--ink-faint);font-size:.57rem;letter-spacing:.1em;text-transform:uppercase;}
-footer{margin-top:1.5rem;font-size:.7rem;color:var(--ink-faint);text-shadow:var(--halo);}
+.banner.spiral{border-color:rgba(240,128,128,.38);background:var(--danger-soft);}
+.banner strong{display:block;font-weight:680;margin-bottom:.15rem;}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;padding:2.2rem 0 1.25rem;}
+.asof{font-size:.72rem;color:var(--text-faint);}
+.nav{position:sticky;z-index:10;top:0;display:flex;gap:.25rem;margin:0 0 2.2rem;padding:.55rem;background:rgba(9,16,22,.88);border:1px solid var(--line);border-radius:10px;backdrop-filter:blur(16px);}
+.nav a{flex:0 1 9rem;padding:.58rem .85rem;border-radius:6px;text-decoration:none;text-align:center;font-size:.62rem;font-weight:680;letter-spacing:.1em;text-transform:uppercase;color:var(--text-soft);}
+.nav a:hover{color:var(--text);background:var(--surface-2);}
+.section-head{display:flex;align-items:center;gap:.7rem;font-size:.64rem;font-weight:750;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin:2.6rem 0 .75rem;scroll-margin-top:5rem;}
+.section-head:after{content:'';height:1px;flex:1;background:linear-gradient(90deg,var(--line-strong),transparent);}
+.selectors{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;padding:1rem;background:#0c151c;border:1px solid var(--line);border-radius:8px;margin-bottom:1rem;}
+.selectors .field{margin:0;}
+.tool-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-top:1rem;}
+.tool{grid-column:span 6;background:var(--surface);padding:1.2rem 1.25rem;min-width:0;}
+.tool h3{font-size:.8rem;font-weight:680;letter-spacing:.02em;margin:0 0 .3rem;}
+.tool p{font-size:.76rem;color:var(--text-faint);margin:.2rem 0 .85rem;max-width:42rem;}
+.tool .field{margin:.8rem 0;}.tool.danger-zone{grid-column:1/-1;background:linear-gradient(90deg,var(--danger-soft),var(--surface) 55%);border-top:1px solid rgba(240,128,128,.25);}
+.button-row{display:flex;flex-wrap:wrap;gap:.5rem;}.button-row button{font-size:.68rem;}
+.nudge-pad{display:grid;grid-template:repeat(3,2.5rem)/repeat(3,2.5rem);gap:.3rem;width:max-content;margin-top:.7rem;}
+.nudge-pad button{width:2.5rem;min-height:2.5rem;padding:0;font-size:0;}
+.nudge-pad button:after{font-size:1rem;line-height:1;}.nudge-pad [data-argument=north]{grid-area:1/2}.nudge-pad [data-argument=south]{grid-area:3/2}.nudge-pad [data-argument=west]{grid-area:2/1}.nudge-pad [data-argument=east]{grid-area:2/3}
+.nudge-pad [data-argument=north]:after{content:'\2191'}.nudge-pad [data-argument=south]:after{content:'\2193'}.nudge-pad [data-argument=west]:after{content:'\2190'}.nudge-pad [data-argument=east]:after{content:'\2192'}
+.nudge-origin{grid-area:2/2;border:1px solid var(--line);border-radius:50%;margin:.72rem;background:var(--accent);box-shadow:0 0 12px rgba(116,201,207,.5);}
+.feedback{display:none;margin-top:1rem;padding:.8rem .9rem;border:1px solid rgba(113,208,165,.35);border-radius:7px;background:rgba(113,208,165,.07);font-size:.8rem;}
+.feedback.show{display:block}.feedback.bad{border-color:rgba(240,128,128,.4);background:var(--danger-soft);}
+.receipt{margin-top:1rem;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:8px;background:#0c151c;}
+.receipt h3{font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin:0 0 .55rem;}
+.receipt p{font-size:.78rem;margin:.35rem 0;}
+.domain-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr));gap:.7rem;}
+.domain{position:relative;border:1px solid var(--line);border-radius:9px;padding:1rem 1.05rem;min-width:0;background:#0c151c;overflow:hidden;}
+.domain:before{content:'';position:absolute;inset:0 auto 0 0;width:2px;background:var(--accent);opacity:.6;}
+.domain.has-warning:before{background:var(--danger);opacity:1}.domain.is-resting:before{background:var(--text-faint);opacity:.45;}
+.domain-head{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-bottom:.85rem;}
+.domain h3{font-size:.86rem;font-weight:640;letter-spacing:.01em;margin:0;overflow-wrap:anywhere;}
+.kv{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.72rem;font-size:.74rem;color:var(--text-soft);}
+.kv div{min-width:0;overflow-wrap:anywhere}.kv b{display:block;color:var(--text-faint);font-size:.54rem;font-weight:680;letter-spacing:.09em;text-transform:uppercase;margin-bottom:.12rem;}
+footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);font-size:.68rem;color:var(--text-faint);}
+@media(max-width:760px){body{padding:0 .8rem 3rem}.card{padding:1.15rem}.topbar{padding-top:1.35rem}.nav{overflow-x:auto;justify-content:flex-start}.nav a{flex:0 0 auto}.tool{grid-column:1/-1}.selectors{grid-template-columns:1fr}.kv{grid-template-columns:repeat(2,minmax(0,1fr))}.domain-grid{grid-template-columns:1fr}.row .fit{width:100%}.row .fit button{width:100%}}
+@media(max-width:430px){.stat{min-height:4.7rem;padding:.8rem}.kv{grid-template-columns:1fr 1fr}th,td{padding:.58rem .45rem}.button-row button{width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;}}
 </style>";
 
@@ -226,7 +235,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
     <div class=""grow""><h2>Recovery and control</h2></div>
     <div class=""fit""><button class=""btn ghost"" type=""button"" id=""refreshNow"">Refresh now</button></div>
   </div>
-  <p class=""lede"" style=""margin-top:0"">Allowlisted game actions only. Every accepted or rejected request is recorded below; no shell commands or raw file paths are exposed.</p>
+  <p class=""lede"" style=""margin-top:0"">Targeted, allowlisted recovery actions. Dispatch and game completion are recorded independently.</p>
+  <div class=""selectors"">
   <div class=""field"">
     <label for=""targetPlayer"">Selected live player</label>
     <select id=""targetPlayer""><option value="""">No connected player</option></select>
@@ -235,10 +245,11 @@ variable to <code>username:hash</code> and restart the login server to enable th
     <label for=""targetShip"">Selected exact ship domain</label>
     <select id=""targetShip""><option value="""">No registered ship domain</option></select>
   </div>
+  </div>
   <div class=""tool-grid"">
     <div class=""tool"">
       <h3>Player travel</h3>
-      <p>Return the selected player to safe Haven, or send them to the PR3 test island when its terrain is registered.</p>
+      <p>Move the selected player to an authored safe destination.</p>
       <div class=""button-row"">
         <button type=""button"" data-command=""teleport"" data-argument=""haven"">Return to Haven</button>
         <button type=""button"" id=""tradesTravel"" data-command=""teleport"" data-argument=""trades-challenge"">Trades Challenge</button>
@@ -247,38 +258,38 @@ variable to <code>username:hash</code> and restart the login server to enable th
     </div>
     <div class=""tool"">
       <h3>Placement recovery</h3>
-      <p>Starts native placement preview for the selected player's first hotbar or bag deployable. Nothing is consumed unless the player confirms in-game.</p>
+      <p>Reopen native placement for the first available deployable. Inventory is consumed only on in-game confirmation.</p>
       <button type=""button"" data-command=""placement"" data-argument=""first"">Start deployable preview</button>
     </div>
     <div class=""tool"">
-      <h3>Ship carry diagnostic</h3>
-      <p>Moves the active test ship by exactly one metre. This is shared-world motion and asks for confirmation.</p>
-      <div class=""button-row"">
-        <button type=""button"" data-command=""ship-nudge"" data-argument=""north"">North +1 m</button>
-        <button type=""button"" data-command=""ship-nudge"" data-argument=""south"">South -1 m</button>
-        <button type=""button"" data-command=""ship-nudge"" data-argument=""west"">West -1 m</button>
-        <button type=""button"" data-command=""ship-nudge"" data-argument=""east"">East +1 m</button>
+      <h3>Ship position trim</h3>
+      <p>Nudge the active diagnostic ship one metre on the world plane.</p>
+      <div class=""nudge-pad"" role=""group"" aria-label=""Ship position trim, one metre""><span class=""nudge-origin"" aria-hidden=""true""></span>
+        <button type=""button"" title=""North, one metre"" aria-label=""Nudge ship north one metre"" data-command=""ship-nudge"" data-argument=""north"">North +1 m</button>
+        <button type=""button"" title=""South, one metre"" aria-label=""Nudge ship south one metre"" data-command=""ship-nudge"" data-argument=""south"">South -1 m</button>
+        <button type=""button"" title=""West, one metre"" aria-label=""Nudge ship west one metre"" data-command=""ship-nudge"" data-argument=""west"">West -1 m</button>
+        <button type=""button"" title=""East, one metre"" aria-label=""Nudge ship east one metre"" data-command=""ship-nudge"" data-argument=""east"">East +1 m</button>
       </div>
     </div>
     <div class=""tool"">
       <h3>World resources</h3>
-      <p>Requests a reset of all gatherable resource nodes. This is global shared-world state.</p>
+      <p>Restore all gatherable nodes to their authored state across the shared world.</p>
       <button type=""button"" data-command=""resources-reset"" data-argument=""all"">Reset all resource nodes</button>
     </div>
     <div class=""tool"">
       <h3>Exact ship recovery</h3>
-      <p>Recall only an uncrewed selected hull beside the selected live player. The game uses the latest authoritative player position with a fixed 8 m east / 4 m upward clearance offset.</p>
+      <p>Place the selected uncrewed hull at a safe clearance beside the selected player.</p>
       <button type=""button"" data-command=""ship-recall"" data-target=""ship"">Recall selected ship</button>
     </div>
-    <div class=""tool"">
+    <div class=""tool danger-zone"">
       <h3>Permanent ship deletion</h3>
-      <p>Deletes the selected hull domain and its persistent structure. This cannot be undone.</p>
+      <p>Remove the selected hull and its persistent structure. Irreversible.</p>
       <div class=""field""><label for=""deleteConfirmation"">Type DELETE</label><input id=""deleteConfirmation"" autocomplete=""off"" spellcheck=""false"" placeholder=""DELETE""></div>
-      <button type=""button"" data-command=""ship-delete"" data-target=""ship"">Delete selected ship permanently</button>
+      <button class=""danger-button"" type=""button"" data-command=""ship-delete"" data-target=""ship"">Delete selected ship permanently</button>
     </div>
   </div>
   <div class=""feedback"" id=""commandFeedback"" role=""status"" aria-live=""polite""></div>
-  <div class=""tool"" style=""margin-top:1rem""><h3>Latest game-server completion</h3><p id=""completionEmpty"">No completed world operation has been reported yet.</p><div id=""completionReceipt"" style=""display:none""><span class=""pill"" id=""completionStatus""></span> <strong id=""completionAction""></strong><p id=""completionMessage""></p><p class=""muted"" id=""completionWhen""></p></div></div>
+  <div class=""receipt""><h3>Latest game-server completion</h3><p id=""completionEmpty"">No completed world operation has been reported yet.</p><div id=""completionReceipt"" style=""display:none""><span class=""pill"" id=""completionStatus""></span> <strong id=""completionAction""></strong><p id=""completionMessage""></p><p class=""muted"" id=""completionWhen""></p></div></div>
   <div style=""overflow-x:auto;margin-top:1rem"">
     <table><thead><tr><th>When</th><th>Action</th><th>Target</th><th>Detail</th><th>Result</th></tr></thead><tbody id=""commandLog""></tbody></table>
   </div>
@@ -421,11 +432,12 @@ variable to <code>username:hash</code> and restart the login server to enable th
     $('noDomains').style.display=domains.length?'none':'block';
     var warnings=[];
     domains.forEach(function(d){
-      var box=document.createElement('div');box.className='domain';
+      var box=document.createElement('div');
       var head=document.createElement('div');head.className='domain-head';
       var title=document.createElement('h3');title.textContent=d.domainId||('ship:'+d.hullEntityId);head.appendChild(title);
       var status=document.createElement('span');
       var bad=d.staleDelivery||d.aboardCheckoutWarning;
+      box.className='domain '+(bad?'has-warning':(d.active?'is-active':'is-resting'));
       status.className='pill '+(bad?'bad':(d.active?'ok':'warn'));
       status.textContent=bad?'warning':(d.piloted?'piloted':(d.active?'active':'resting'));
       head.appendChild(status);box.appendChild(head);
