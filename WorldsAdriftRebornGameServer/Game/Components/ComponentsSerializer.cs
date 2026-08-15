@@ -319,7 +319,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 : WorldsAdriftRebornGameServer.WorldEntities.ByKey(hullKey)?.Position;
                             if (builtHullId.HasValue && builtHullSeed.HasValue)
                             {
-                                localSeed = Multiplayer.BoltedPartTransform.LocalOffset(seed, builtHullSeed.Value);
+                                // The hull registry seed moves with live flight and
+                                // operator recall; the deck registration does not.
+                                // Use the authored offset captured at registration,
+                                // never subtraction against the relocated root.
+                                localSeed = Game.Crafting.BuiltShips.LocalOffsetForDeck(entityId)
+                                    ?? Multiplayer.BoltedPartTransform.LocalOffset(seed, builtHullSeed.Value);
                                 parent = ShipPartTransform.RelativeParent(builtHullId.Value, Multiplayer.Deck.HierarchyKey);
                                 Console.WriteLine("[info] seeding 190602 for BUILT DECK " + entityId
                                     + " parent=" + Multiplayer.Deck.HierarchyKey + " (Unity child) of built hull "

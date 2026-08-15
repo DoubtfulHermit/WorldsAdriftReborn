@@ -91,6 +91,7 @@ namespace RelayBot
         public double LastHullY { get; private set; }
         public double LastHullZ { get; private set; }
         public long LastHullTimestamp { get; private set; }
+        public long TimelineViolationsObserved { get; private set; }
 
         private bool _shipAcceptanceMode;
         private double _acceptanceLocalX = 208.0;
@@ -483,6 +484,7 @@ namespace RelayBot
                     if (_lastRemote1073Stamp.TryGetValue(senderBot, out float previous) && timestamp.Value <= previous)
                     {
                         _metrics.RecordTimelineViolation();
+                        TimelineViolationsObserved++;
                         Log($"1073 TIMELINE VIOLATION from bot {senderBot}: stamp {timestamp.Value} after {previous}.");
                     }
                     _lastRemote1073Stamp[senderBot] = timestamp.Value;

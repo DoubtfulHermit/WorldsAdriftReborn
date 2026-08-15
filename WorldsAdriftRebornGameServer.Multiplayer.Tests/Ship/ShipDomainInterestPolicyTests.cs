@@ -106,6 +106,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                     refreshRequested, rootCheckedOut));
         }
 
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        public void Recall_is_retained_for_every_capable_peer_holding_the_old_hull(
+            bool removeSupported, bool rootCheckedOut, bool expected)
+        {
+            Assert.Equal(expected,
+                ShipDomainInterestPolicy.ShouldQueueRecallRefresh(
+                    removeSupported, rootCheckedOut));
+        }
+
         [Fact]
         public void Two_peers_have_independent_checkout_and_returning_owner_readds()
         {

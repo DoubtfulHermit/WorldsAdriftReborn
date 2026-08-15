@@ -256,6 +256,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0f, session.Input.AxisRoll);
         }
 
+        [Fact]
+        public void A_nearly_centred_lever_settles_after_dismount_instead_of_cruising_forever()
+        {
+            FlightSession session = new FlightSession(FlightState.AtRestAt(0, 100, 0));
+            session.Man();
+            session.SetInput(Throttle(-0.001f));
+            session.Dismount();
+
+            Assert.True(session.Input.IsNeutral);
+            Assert.True(session.State.IsAtRest);
+            Assert.Equal(0f, session.Input.Throttle);
+        }
+
         [Theory]
         [InlineData(1f, 1)]
         [InlineData(-1f, -1)]

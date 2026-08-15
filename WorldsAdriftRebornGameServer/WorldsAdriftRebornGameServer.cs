@@ -32,6 +32,7 @@ namespace WorldsAdriftRebornGameServer
                 {
                     PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
                 }
+                ShipInterest.NotePeerConnected(ePeer);
 
                 // Live-session bookkeeping for the operator dashboard. Keyed by
                 // the same peer id every later lookup uses, and stamped with wall
@@ -77,21 +78,29 @@ namespace WorldsAdriftRebornGameServer
             ulong peerId = PeerIdentity.IdOf(peer);
             long? ownEntity = Players.EntityOf(peerId);
 
-            // Unregister first: this is what actually matters, because it stops
-            // relaying updates to and from a peer that is gone.
-            //
-            // The despawn intents cannot be sent yet. There is no wire message for
-            // entity removal: ENetChannel has no such channel, no RemoveEntityOp
-            // proto exists, and the SDK's RegisterRemoveEntityCallback is still an
-            // unimplemented TODO in Exports.cpp. Until that exists a departed
-            // player leaves a stale avatar behind, which is cosmetic rather than
-            // blocking.
+            // Unregister first to stop new relays, then remove the departed
+            // avatar from every capable observer. Channel 5 is implemented now;
+            // retaining the old no-removal fallback left ghost rigs on reconnect.
             IReadOnlyList<MirrorIntent> despawns = Mirror.OnLeave(peerId);
-            if (despawns.Count > 0)
+            foreach (MirrorIntent despawn in despawns)
             {
-                Console.WriteLine("[warning] " + despawns.Count + " avatar(s) of entity "
-                    + (ownEntity.HasValue ? ownEntity.Value.ToString() : "?")
-                    + " cannot be despawned: entity removal is not implemented on the wire. Stale avatar(s) will remain.");
+                ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)despawn.TargetPeer));
+                if (target == null)
+                {
+                    continue;
+                }
+                if (EnetLayer.ENet_PeerChannelCount(target) >= 6
+                    && SendOPHelper.SendRemoveEntityOP(target, despawn.EntityId))
+                {
+                    PeerCheckoutCleanup.RemoveEntity(target, despawn.EntityId);
+                    Console.WriteLine("[info] mirror: removed departed player entity "
+                        + despawn.EntityId + " from " + Describe(despawn.TargetPeer) + ".");
+                }
+                else
+                {
+                    Console.WriteLine("[warning] mirror: observer " + Describe(despawn.TargetPeer)
+                        + " cannot receive RemoveEntity; its departed avatar may remain until reconnect.");
+                }
             }
 
             // Parked and pending-resend mirror ops for a peer that is gone: there
@@ -1787,6 +1796,11 @@ namespace WorldsAdriftRebornGameServer
                     MirrorOp.AddComponents => SendOPHelper.SendAddComponentOp(target, intent.EntityId, remoteComponents),
                     _ => true,
                 };
+
+                if (ok && intent.Op == MirrorOp.AddEntity)
+                {
+                    SentEntities.MarkSent(target, intent.EntityId);
+                }
 
                 // F1/F2 fix (findings-bug-sweep-lifecycle): this mirror AddComponents is
                 // a PROACTIVE seed of the remote avatar's {190602,1073,...}, so it must
@@ -3805,13 +3819,8 @@ namespace WorldsAdriftRebornGameServer
                 // mirror of a newly joined player never spawned. After a short
                 // delay (the asset request has had time to load) flush anyway.
                 FlushStaleMirrors();
-                // Resend ONLY AddEntity (never AddComponents). A peer that was
-                // still loading the prefab drops the AddEntity and never spawns the
-                // other player - the one-way visibility bug. Resending AddComponents
-                // was what caused the sky-teleport: it re-applied the DEFAULT seeded
-                // TransformState (0,100,0) to a live player. AddEntity alone carries
-                // no component data, so it cannot move anyone.
-                ResendMirrors();
+                // Mirror creation is single-shot after asset acknowledgement.
+                // Duplicate AddEntity can create a second remote rig.
                 // The only way a human can currently ask for anything: a file.
                 // There is no command channel (SendCommandRequest is a TODO stub
                 // in the SDK), so a client cannot request a teleport at all. Self-

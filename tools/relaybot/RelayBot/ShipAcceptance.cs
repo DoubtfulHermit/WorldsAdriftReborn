@@ -28,6 +28,19 @@ namespace RelayBot
             a.DrainRemovedEntities(); b.DrainRemovedEntities();
             a.DrainReaddedEntities(); b.DrainReaddedEntities();
 
+            // The old mirror workaround resent each remote AddEntity three
+            // times. That can recreate the Unity rig and reset its movement
+            // epoch, so prove a quiet mirror remains single-shot beyond the old
+            // first retry boundary before touching ship-interest re-entry.
+            Thread.Sleep(3500);
+            long[] earlyDuplicatesA = a.DrainReaddedEntities();
+            long[] earlyDuplicatesB = b.DrainReaddedEntities();
+            if (earlyDuplicatesA.Contains(b.MyEntityId)
+                || earlyDuplicatesB.Contains(a.MyEntityId))
+                return Fail("remote player AddEntity was delivered more than once");
+            if (a.TimelineViolationsObserved != 0 || b.TimelineViolationsObserved != 0)
+                return Fail("remote player 1073 timeline regressed during mirror startup");
+
             // Pilot A: aboard label, Man event, then real 1111 control input.
             a.SetAboard(true);
             long aMotion0 = a.HullMotionUpdates;
@@ -134,6 +147,9 @@ namespace RelayBot
             long[] shipAdded = readdedA.Where(id => id == hull || id == helm).ToArray();
             if (shipAdded.Length < 2 || shipAdded[0] != hull)
                 return Fail("returning peer re-add was not root-first: " + string.Join(",", shipAdded));
+
+            if (a.TimelineViolationsObserved != 0 || b.TimelineViolationsObserved != 0)
+                return Fail("remote player 1073 timeline regressed during ship-domain journey");
 
             Console.WriteLine("[ship-wire] PASS: two pilots, coherent hull/member frames, aboard seam hold,"
                 + " independent checkout and legal re-entry over real ENet/generated component bytes.");

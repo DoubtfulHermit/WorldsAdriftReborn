@@ -41,9 +41,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         // ------------------------------------------------------------------
 
         [Fact]
-        public void AddEntity_may_be_resent_because_a_client_still_loading_the_prefab_drops_it()
+        public void AddEntity_is_never_resent_because_duplicate_creation_can_split_a_live_rig()
         {
-            Assert.True(MirrorSendPolicy.MayResend(MirrorOp.AddEntity));
+            Assert.False(MirrorSendPolicy.MayResend(MirrorOp.AddEntity));
         }
 
         [Fact]
@@ -62,19 +62,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Every_resendable_op_carries_no_component_data()
+        public void No_mirror_op_is_resendable()
         {
-            // The safety argument for resending at all: AddEntity carries no
-            // component payload, so repeating it cannot move anyone. If a new
-            // op type is ever added to the resend set, this test forces whoever
-            // adds it to re-derive that argument.
             foreach (MirrorOp op in Enum.GetValues<MirrorOp>())
             {
-                if (MirrorSendPolicy.MayResend(op))
-                {
-                    Assert.Equal(MirrorOp.AddEntity, op);
-                }
+                Assert.False(MirrorSendPolicy.MayResend(op));
             }
+        }
+
+        [Theory]
+        [InlineData(true, true, true, true)]
+        [InlineData(false, true, true, false)]
+        [InlineData(true, false, true, false)]
+        [InlineData(true, true, false, false)]
+        public void Movement_waits_for_the_complete_remote_seed(bool addSent,
+            bool playerStateServed, bool transformServed, bool expected)
+        {
+            Assert.Equal(expected, MirrorSendPolicy.MayRelayMovement(
+                addSent, playerStateServed, transformServed));
         }
 
         // ------------------------------------------------------------------

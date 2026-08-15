@@ -79,8 +79,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>Gap between resends of the flushed ops.</summary>
         public static readonly TimeSpan DefaultResendInterval = TimeSpan.FromSeconds(3);
 
-        /// <summary>How many times the flushed ops are resent.</summary>
-        public const int DefaultResendAttempts = 3;
+        /// <summary>
+        /// Live default: never duplicate-create a mirrored entity. The resend
+        /// machine remains injectable only for historical pure-policy tests.
+        /// </summary>
+        public const int DefaultResendAttempts = 0;
 
         private sealed class ParkedBatch
         {

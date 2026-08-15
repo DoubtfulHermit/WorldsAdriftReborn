@@ -64,6 +64,67 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static double StepSecondsFor(double hz) => 1.0 / hz;
     }
 
+    /// <summary>Recipient-side movement pressure; healthy peers remain byte-for-byte normal.</summary>
+    public enum RecipientRelayPressure
+    {
+        Normal,
+        Degraded,
+        Severe,
+    }
+
+    /// <summary>
+    /// Hysteretic protection for a peer whose reliable RTT proves its client is
+    /// no longer servicing ENet promptly. Movement snapshots supersede older
+    /// snapshots, so reducing only that recipient's cadence gives its Unity main
+    /// thread room to recover without slowing healthy players or reliable game
+    /// commands. Live local evidence: one peer reached 3 seconds while its peer
+    /// on the same route remained at 36 ms.
+    /// </summary>
+    public static class RelayBackpressurePolicy
+    {
+        public const uint DegradedEnterRttMs = 500;
+        public const uint SevereEnterRttMs = 1500;
+        public const uint DegradedRecoverRttMs = 250;
+        public const uint SevereRecoverRttMs = 1000;
+
+        public static RecipientRelayPressure Next(
+            RecipientRelayPressure current, uint rttMs) => current switch
+        {
+            RecipientRelayPressure.Normal => rttMs > SevereEnterRttMs
+                ? RecipientRelayPressure.Severe
+                : rttMs > DegradedEnterRttMs
+                    ? RecipientRelayPressure.Degraded
+                    : RecipientRelayPressure.Normal,
+            RecipientRelayPressure.Degraded => rttMs > SevereEnterRttMs
+                ? RecipientRelayPressure.Severe
+                : rttMs < DegradedRecoverRttMs
+                    ? RecipientRelayPressure.Normal
+                    : RecipientRelayPressure.Degraded,
+            RecipientRelayPressure.Severe => rttMs < DegradedRecoverRttMs
+                ? RecipientRelayPressure.Normal
+                : rttMs < SevereRecoverRttMs
+                    ? RecipientRelayPressure.Degraded
+                    : RecipientRelayPressure.Severe,
+            _ => RecipientRelayPressure.Normal,
+        };
+
+        public static TimeSpan MinimumInterval(RecipientRelayPressure pressure) =>
+            pressure switch
+            {
+                RecipientRelayPressure.Degraded => TimeSpan.FromMilliseconds(100), // 10 Hz
+                RecipientRelayPressure.Severe => TimeSpan.FromMilliseconds(200),   // 5 Hz
+                _ => TimeSpan.Zero,
+            };
+
+        public static bool IsDue(TimeSpan now, TimeSpan? lastSent,
+            RecipientRelayPressure pressure)
+        {
+            TimeSpan minimum = MinimumInterval(pressure);
+            return minimum == TimeSpan.Zero || !lastSent.HasValue
+                || now - lastSent.Value >= minimum;
+        }
+    }
+
     /// <summary>
     /// A metronome fed a monotonic time. Says "tick now" at most once per
     /// interval, schedules on the IDEAL grid (nextDue += interval, not

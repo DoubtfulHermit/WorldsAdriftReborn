@@ -95,12 +95,15 @@ namespace WorldsAdriftRebornGameServer.Networking
             public long EmittedPlayerState;
             public long HeldShipDetachEdges;
             public long DomainAlignedEmits;
+            public long BackpressureSkips;
         }
 
         private readonly Dictionary<ulong, SenderState> _senders = new();
 
         /// <summary>One synthetic 1073 timeline per (recipient, sender) pair.</summary>
         private readonly Dictionary<(ulong Recipient, ulong Sender), SyntheticTimeline> _timelines = new();
+        private readonly Dictionary<ulong, RecipientRelayPressure> _pressureByRecipient = new();
+        private readonly Dictionary<(ulong Recipient, ulong Sender), TimeSpan> _lastEmitByPair = new();
 
         private readonly MovementIngest _ingest;
         private readonly CadenceTimer _cadence;
@@ -486,7 +489,36 @@ namespace WorldsAdriftRebornGameServer.Networking
                         continue;
                     }
 
+                    // The mirror seed establishes this recipient's synthetic
+                    // timestamp epoch. Do not race live movement ahead of the
+                    // entity or either seed component: .25 -> seed .20 -> .25
+                    // is a real delivered regression that splits the avatar.
+                    if (!MirrorSendPolicy.MayRelayMovement(
+                            WorldsAdriftRebornGameServer.SentEntities.WasSent(target, entityId.Value),
+                            WorldsAdriftRebornGameServer.ServedComponents.HasServed(target, entityId.Value,
+                                MirrorSendPolicy.ClientAuthoritativePlayerStateComponentId),
+                            WorldsAdriftRebornGameServer.ServedComponents.HasServed(target, entityId.Value,
+                                MirrorSendPolicy.TransformStateComponentId)))
+                    {
+                        continue;
+                    }
+
+                    // Advance the synthetic clock even when this recipient is
+                    // pressure-limited, so a later delivered sample describes
+                    // elapsed emit time rather than playing the avatar in slow
+                    // motion. Healthy recipients take this path every time.
                     playerState.SetTimestamp(TimelineFor(targetId, senderId).Next(_stepSeconds));
+                    RecipientRelayPressure pressure = PressureFor(targetId, target);
+                    (ulong Recipient, ulong Sender) pair = (targetId, senderId);
+                    TimeSpan? lastSent = _lastEmitByPair.TryGetValue(pair, out TimeSpan last)
+                        ? last
+                        : null;
+                    if (!RelayBackpressurePolicy.IsDue(_clock.Elapsed, lastSent, pressure))
+                    {
+                        state.BackpressureSkips++;
+                        continue;
+                    }
+                    _lastEmitByPair[pair] = _clock.Elapsed;
                     byte[]? playerStatePayload = SendOPHelper.SerializeComponentUpdatePayload(
                         MirrorSendPolicy.ClientAuthoritativePlayerStateComponentId, playerState);
 
@@ -517,6 +549,20 @@ namespace WorldsAdriftRebornGameServer.Networking
                 _timelines[key] = timeline;
             }
             return timeline;
+        }
+
+        private RecipientRelayPressure PressureFor(ulong recipientId, ENetPeerHandle peer)
+        {
+            RecipientRelayPressure current = _pressureByRecipient.TryGetValue(
+                recipientId, out RecipientRelayPressure known)
+                ? known
+                : RecipientRelayPressure.Normal;
+            if (EnetPeerProbe.TryRead(peer.DangerousGetHandle(), out EnetPeerHealth health))
+            {
+                current = RelayBackpressurePolicy.Next(current, health.RoundTripTimeMs);
+                _pressureByRecipient[recipientId] = current;
+            }
+            return current;
         }
 
         // ------------------------------------------------------------------
@@ -573,7 +619,9 @@ namespace WorldsAdriftRebornGameServer.Networking
             foreach ((ulong, ulong) key in dead)
             {
                 _timelines.Remove(key);
+                _lastEmitByPair.Remove(key);
             }
+            _pressureByRecipient.Remove(peerId);
         }
 
         // ------------------------------------------------------------------
@@ -590,6 +638,7 @@ namespace WorldsAdriftRebornGameServer.Networking
                 long emittedPlayerState = 0;
                 long heldShipDetachEdges = 0;
                 long domainAlignedEmits = 0;
+                long backpressureSkips = 0;
                 if (_senders.TryGetValue(peerId, out SenderState? state))
                 {
                     emittedTransform = state.EmittedTransform;
@@ -600,6 +649,8 @@ namespace WorldsAdriftRebornGameServer.Networking
                     state.HeldShipDetachEdges = 0;
                     domainAlignedEmits = state.DomainAlignedEmits;
                     state.DomainAlignedEmits = 0;
+                    backpressureSkips = state.BackpressureSkips;
+                    state.BackpressureSkips = 0;
                 }
 
                 if (window.IsEmpty && emittedTransform == 0 && emittedPlayerState == 0)
@@ -637,6 +688,7 @@ namespace WorldsAdriftRebornGameServer.Networking
                     + " emitted(190602=" + emittedTransform + ",1073=" + emittedPlayerState + ")"
                     + " heldShipDetach=" + heldShipDetachEdges
                     + " domainAligned=" + domainAlignedEmits
+                    + " pressureSkips=" + backpressureSkips
                     + " badTsPairs=" + badPairs
                     + " mode=" + (V2Enabled ? "v2@" + _hz + "Hz" : "raw"));
             }

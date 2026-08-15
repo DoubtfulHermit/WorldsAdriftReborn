@@ -67,6 +67,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public static bool RecallRefreshForcesUnload(bool refreshRequested,
             bool rootCheckedOut) => refreshRequested && rootCheckedOut;
 
+        /// <summary>
+        /// A peer which already received the old hull must rebuild it after a
+        /// discontinuous recall even when its connect plan has not completed yet.
+        /// The service retains this request until continuous checkout begins.
+        /// A peer which has not received the hull needs no removal: its eventual
+        /// AddEntity will serialize directly from the recalled pose.
+        /// </summary>
+        public static bool ShouldQueueRecallRefresh(bool removeSupported,
+            bool rootCheckedOut) => removeSupported && rootCheckedOut;
+
         public static IReadOnlyList<long> AddOrder(long hullEntityId, IEnumerable<long> members) =>
             new[] { hullEntityId }.Concat((members ?? throw new ArgumentNullException(nameof(members)))
                 .Where(x => x != hullEntityId).Distinct().OrderBy(x => x)).ToArray();

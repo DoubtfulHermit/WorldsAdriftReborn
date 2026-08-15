@@ -318,15 +318,21 @@ was established from the one available log.
   request.
 - See `LoadBarrierPolicy`, `SpawnAckTimeoutPolicy`, `SpawnPlan`, and
   `Patching/SpatialOS/AssetLoadAck_Patch.cs`.
-- The 2026-08-14 post-PR4 crash audit found no duplicate AddEntity, no
-  RemoveEntity and no post-activation server packet burst in the second failed
+- The 2026-08-14 post-PR4 crash audit found no duplicate *world-resource*
+  AddEntity and no post-activation server packet burst in the second failed
   run. The installed client DLL was byte-identical to the one used by an
   82-minute known-good run. The actual server-side regression was the coupling
   of the 120 m roaming radius to the unpaced loading-barrier initial set: after
   fixing the old producer race, more in-radius resources correctly moved into
   synchronous connect-time instantiation. Keep connect radius, live radius and
   the settle window separate; do not "fix" this by re-enabling concurrent spawn
-  producers. Runtime stability still requires a live client confirmation.
+  producers. A later real-wire two-peer audit did expose the separate remote
+  avatar mirror retrying AddEntity three times and racing live 1073 ahead of its
+  seed. Production mirror creation is now single-shot, movement is held until
+  AddEntity plus both 1073/190602 seeds are served, and tier 2 fails on either a
+  duplicate avatar or non-monotonic timestamp. Departed avatars are removed on
+  channel 5 instead of being left as ghosts. Runtime rendering still requires a
+  live client confirmation.
 
 ### Stations and placement
 

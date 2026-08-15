@@ -574,6 +574,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.Equal(0f, latched.AxisRoll);
         }
 
+        [Theory]
+        [InlineData(0.009f)]
+        [InlineData(-0.009f)]
+        [InlineData(-0.0f)]
+        public void Latched_helm_treats_signed_centre_noise_as_an_explicit_stop(float throttle)
+        {
+            FlightControlInput latched = new FlightControlInput(
+                throttle, 0.8f, -0.4f, 0.6f, -0.7f).LatchedThrottleOnly();
+
+            Assert.True(latched.IsNeutral);
+            Assert.Equal(0f, latched.Throttle);
+        }
+
         [Fact]
         public void Input_equality_is_field_exact_for_the_echo_dedupe()
         {

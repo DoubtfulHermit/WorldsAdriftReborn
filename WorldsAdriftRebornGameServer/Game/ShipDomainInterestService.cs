@@ -53,6 +53,14 @@ namespace WorldsAdriftRebornGameServer.Game
                 LoadRadiusMetres);
         }
 
+        /// <summary>
+        /// Creates the peer slot at socket acceptance, before its connect plan
+        /// begins serving entities. Recall can then retain a rebuild request for
+        /// a peer that has received the old hull but has not reached the plan's
+        /// final sentinel yet.
+        /// </summary>
+        public void NotePeerConnected(ENetPeerHandle peer) => StateFor(peer);
+
         public void NoteConnectPlanComplete(ENetPeerHandle peer)
         {
             PeerState state = StateFor(peer);
@@ -92,9 +100,12 @@ namespace WorldsAdriftRebornGameServer.Game
         public int RequestRecallRefresh(long hullEntityId)
         {
             int peers = 0;
-            foreach ((ENetPeerHandle _, PeerState state) in _peers)
+            foreach ((ENetPeerHandle peer, PeerState state) in _peers)
             {
-                if (!state.ConnectPlanComplete || !state.RemoveSupported) continue;
+                bool rootCheckedOut = WorldsAdriftRebornGameServer.SentEntities
+                    .WasSent(peer, hullEntityId);
+                if (!ShipDomainInterestPolicy.ShouldQueueRecallRefresh(
+                        state.RemoveSupported, rootCheckedOut)) continue;
                 state.RecallRefreshHulls.Add(hullEntityId);
                 state.NextReconcile = TimeSpan.Zero;
                 peers++;

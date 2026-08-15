@@ -22,6 +22,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// </summary>
     public readonly struct FlightControlInput : System.IEquatable<FlightControlInput>
     {
+        // The retail lever occasionally reports a tiny signed residual when it
+        // visually reaches centre (live case logged as throttle=-0). Latching
+        // that noise after dismount commanded an endless ~1 cm/s cruise and kept
+        // the whole domain publishing forever. This is far below a meaningful
+        // propulsion command and applies only at the latch boundary.
+        private const float LatchedThrottleDeadzone = 0.01f;
         public FlightControlInput(float throttle, float vertical, float axisPitch, float axisYaw, float axisRoll)
         {
             Throttle = Sanitize(throttle);
@@ -84,7 +90,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// must be released to zero so an empty helm cannot keep turning or climbing.
         /// </summary>
         public FlightControlInput LatchedThrottleOnly() =>
-            new FlightControlInput(Throttle, 0f, 0f, 0f, 0f);
+            new FlightControlInput(System.MathF.Abs(Throttle) < LatchedThrottleDeadzone
+                ? 0f
+                : Throttle, 0f, 0f, 0f, 0f);
 
         /// <summary>
         /// A client-supplied axis, made safe: NaN/Infinity become 0 (a broken

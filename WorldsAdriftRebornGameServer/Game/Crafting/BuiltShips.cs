@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 
 namespace WorldsAdriftRebornGameServer.Game.Crafting
@@ -40,6 +41,13 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// </summary>
         private static readonly Dictionary<long, IReadOnlyList<ShipVector3>> DeckVerticesByEntityId =
             new Dictionary<long, IReadOnlyList<ShipVector3>>();
+        // A deck's authored hull-local transform is immutable.  Do not derive it
+        // later by subtracting the CURRENT hull registry position from the deck's
+        // original world registration: flight/recall relocates the hull seed but
+        // deliberately leaves child registrations alone.  Recomputing after a
+        // recall was measured shifting every rebuilt deck down by 11 metres.
+        private static readonly Dictionary<long, FixedPointPosition> DeckLocalOffsetByEntityId =
+            new Dictionary<long, FixedPointPosition>();
         private static readonly Dictionary<long, long> HullByDeck = new Dictionary<long, long>();
         private static readonly Dictionary<long, List<long>> DecksByHull = new Dictionary<long, List<long>>();
 
@@ -108,9 +116,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// 1099 material branch (via <see cref="IsBuiltDeck"/>) and the 1518 polygon
         /// branch (via <see cref="DeckVerticesFor"/>) are straight lookups.
         /// </summary>
-        internal static void RegisterDeck(long hullEntityId, long deckEntityId, IReadOnlyList<ShipVector3> localVertices)
+        internal static void RegisterDeck(long hullEntityId, long deckEntityId,
+            IReadOnlyList<ShipVector3> localVertices, FixedPointPosition localOffset)
         {
             DeckVerticesByEntityId[deckEntityId] = localVertices;
+            DeckLocalOffsetByEntityId[deckEntityId] = localOffset;
             HullByDeck[deckEntityId] = hullEntityId;
             if (!DecksByHull.TryGetValue(hullEntityId, out List<long>? decks))
             {
@@ -138,6 +148,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             foreach (long deckId in decks)
             {
                 DeckVerticesByEntityId.Remove(deckId);
+                DeckLocalOffsetByEntityId.Remove(deckId);
                 HullByDeck.Remove(deckId);
             }
             DecksByHull.Remove(hullEntityId);
@@ -167,6 +178,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         {
             return DeckVerticesByEntityId.ContainsKey(entityId);
         }
+
+        /// <summary>
+        /// Immutable authored offset of a built deck from its hull.  This remains
+        /// valid after the hull's live registry seed is relocated by flight or an
+        /// operator recall.
+        /// </summary>
+        internal static FixedPointPosition? LocalOffsetForDeck(long entityId) =>
+            DeckLocalOffsetByEntityId.TryGetValue(entityId, out FixedPointPosition offset)
+                ? offset
+                : null;
 
         /// <summary>
         /// The hull bytes a built hull's 1209 CustomShipHullState must serve, or null if

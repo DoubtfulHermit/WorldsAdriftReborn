@@ -615,19 +615,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>
         /// Whether a parked mirror op may be sent again on a later attempt.
-        ///
-        /// ONLY AddEntity. A client that was still loading the prefab silently
-        /// drops an AddEntity, so it has to be repeated or the other player never
-        /// appears (the one-way visibility bug) - and AddEntity carries no
-        /// component data, so repeating it cannot move anyone.
-        ///
-        /// Resending AddComponents is what caused the SKY-LAUNCH: it re-applied
-        /// the DEFAULT seeded TransformState to an already-moving player and
-        /// teleported them into the air.
+        /// Duplicate AddEntity is not inert: the Unity client can recreate the
+        /// remote rig and split its visualizers from the live stream. Mirror
+        /// creation is asset-ack gated now, so every op is single-shot.
         /// </summary>
         public static bool MayResend(MirrorOp op)
         {
-            return op == MirrorOp.AddEntity;
+            return false;
+        }
+
+        /// <summary>
+        /// Live movement starts only after the recipient has the remote entity
+        /// and both halves of its paired movement seed. Otherwise a live .25
+        /// timestamp can arrive before seed .20 and then repeat after the seed.
+        /// </summary>
+        public static bool MayRelayMovement(bool addEntitySent, bool playerStateServed,
+            bool transformServed)
+        {
+            return addEntitySent && playerStateServed && transformServed;
         }
 
         /// <summary>

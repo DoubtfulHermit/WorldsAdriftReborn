@@ -14,11 +14,11 @@ The server tracks which peer owns which player entity (`PlayerRegistry`), and
 on join mirrors each player to every other client (`RemotePlayerMirror`
 returns intents; the main loop executes them). Remote players are spawned with
 prefab context **"Default"** (the game's own remote-player rig), seeded with a
-minimal component set, and positioned by a client-side mod component
-(`RemoteRigMover`) that applies the relayed `TransformState` stream. Movement
-flows because each client is granted authority over its own TransformState —
-clients only publish components they have authority over — and the server
-relays every client `ComponentUpdateOp` verbatim to all other peers.
+minimal component set. Movement flows because each client is granted authority
+over its own TransformState — clients only publish components they have
+authority over — and the server coalesces 190602/1073 into a recipient-specific
+synthetic timeline. Aboard avatars retain the ship-relative frame and are
+emitted on the same domain cadence as the hull.
 
 ## The rules, and what breaks if you ignore them
 
@@ -39,9 +39,11 @@ relays every client `ComponentUpdateOp` verbatim to all other peers.
 
 3. **The mirror is two-phase.** Clients only instantiate entities whose prefab
    asset is loaded. Send `AssetLoadRequestOp("Traveller","Default")` first,
-   park the AddEntity/AddComponents ops per peer, flush on that peer's next
-   asset ack. (Known simplification: the ack payload is unparsed; a joining
-   client's own spawn acks can race the flush.)
+   park the AddEntity/AddComponents ops per peer, then flush exactly once on
+   that peer's next asset ack. Never retry AddEntity: the Unity client may
+   recreate the rig. Live movement is held until AddEntity and both 1073/190602
+   seeds are recorded delivered, preventing the seed from resetting an already
+   running timeline. (Known simplification: the ack payload is unparsed.)
 
 4. **All clients get the SAME island entity id.** Cross-client references
    (transform parenting) resolve per-client by entity id. With per-client
@@ -66,6 +68,7 @@ relays every client `ComponentUpdateOp` verbatim to all other peers.
    killing the enable chain. Never 1072 CharacterControlsData or 1109
    PilotState: those mean "this is the character you control". The set lives in
    `MirrorSendPolicy.RemoteSeedComponents` and is asserted on in the tests.
+   No mirror operation is resendable.
 
 8. **Never read `ComponentDatabase.MetaclassMap` before the game populates
    it.** Its private ctor runs once and scans currently-loaded assemblies; an
@@ -135,7 +138,7 @@ than reflows because the findings cite rules 7 and 10 by number.
     **UPDATE — there is no single default seed any more.** `InitAndSerialize` is
     entity-aware for 190602: `Multiplayer.SpawnPolicy` gives the island Haven's
     world position and a player the spawn point (`SpawnPolicy.cs`, tested in
-    `SpawnPolicyTests`). That makes rule 7's "never resend AddComponents" *more*
+    `SpawnPolicyTests`). That makes rule 7's "never resend mirror creation" *more*
     important, not less: the accidental destination used to be the world origin,
     which is where the island was, and is now 17 km away and 300 m below it —
     an out-of-world drop with no `WorldEdgePushback` (it gates on world bounds
