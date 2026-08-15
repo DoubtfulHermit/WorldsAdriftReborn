@@ -23,6 +23,7 @@ namespace RelayBot
             string csvPath = "relaybot-soak.csv";
             int setupTimeoutSeconds = 120;
             bool rewritten1073 = false;
+            bool shipAcceptance = false;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -40,9 +41,10 @@ namespace RelayBot
                     // delivery denominator. Without this flag every relayed 1073
                     // counts as unmatched and "delivered %" is meaningless.
                     case "--rewritten-1073": rewritten1073 = true; break;
+                    case "--ship-acceptance": shipAcceptance = true; break;
                     default:
                         Console.Error.WriteLine("unknown argument: " + args[i]);
-                        Console.Error.WriteLine("usage: RelayBot [--host H] [--port P] [--minutes M] [--csv FILE] [--setup-timeout S] [--rewritten-1073]");
+                        Console.Error.WriteLine("usage: RelayBot [--host H] [--port P] [--minutes M] [--csv FILE] [--setup-timeout S] [--rewritten-1073] [--ship-acceptance]");
                         return 2;
                 }
             }
@@ -100,6 +102,14 @@ namespace RelayBot
                     return 2;
                 }
                 Thread.Sleep(100);
+            }
+
+            if (shipAcceptance)
+            {
+                int result = ShipAcceptance.Run(bots[0], bots[1], setupTimeoutSeconds);
+                cts.Cancel();
+                foreach (Thread t in threads) t.Join(10000);
+                return result;
             }
 
             long startNs = (long)(Stopwatch.GetTimestamp() * (1e9 / Stopwatch.Frequency));

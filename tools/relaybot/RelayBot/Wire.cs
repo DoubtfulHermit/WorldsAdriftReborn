@@ -82,6 +82,12 @@ namespace RelayBot
         [ProtoMember(2)] public List<PbAuthorityChange> OpList = new();
     }
 
+    [ProtoContract]
+    public class PbRemoveEntityOp
+    {
+        [ProtoMember(1)] public long EntityId;
+    }
+
     public static class Wire
     {
         public static byte[] Encode<T>(T message)

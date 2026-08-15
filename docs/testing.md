@@ -66,18 +66,32 @@ acceptance. It catches the server regressions that produced a split hull,
 stale pilot input, a floating passenger, five-second steering wake-up and a
 peer-specific missing ship.
 
-`tools/relaybot` is tier 2 today: two real ENet peers, the production protobuf
-framing, generated component codecs, join/ack/authority flow and continuous
-player movement. It proves transport staleness and congestion but it does **not
-yet** drive a built helm or emulate Unity's ship/player visualizers. Do not call
-the ship work wire-accepted until relaybot has a disposable built-ship fixture
-and exercises Man -> 1111 -> 1130, handoff, member wakes, and channel-5
-remove/re-add on an isolated local server.
+Tier 2 is a real-wire acceptance gate. It builds the current native server and
+CoreSDK shim, creates a fresh temporary world containing one disposable hull
+and mounted helm, starts that server on an alternate UDP port, then connects two
+real ENet peers using the production protobuf envelopes and generated component
+codecs:
+
+```sh
+tools/relaybot/run-ship-acceptance.sh       # default isolated UDP 17779
+tools/relaybot/run-ship-acceptance.sh 18779 # optional alternate port
+```
+
+The runner refuses an occupied port and never reads the operator's world state.
+It proves join/ack/authority, Man -> 1111 -> 1130 flight, root-plus-mounted-member
+wakes on both peers, the aboard contact-seam hold, helm handoff with a stale old
+pilot write, peer-independent checkout, channel-5 member-first/root-last removal,
+and asset-requested root-first/member-last re-entry. Spatial interest is enabled
+explicitly in the disposable process, so this also prevents a test from silently
+passing in the fail-open "send everything" mode. Logs and temporary data stay in
+`tools/relaybot/run/`.
 
 Tier 3 is deliberately small and visual: two Unity clients confirm camera/IK,
-animation and interpolation presentation. Once tiers 1 and 2 pass, a session
-with Colin should be confirmation, not the first time the state machine is
-exercised.
+animation and interpolation presentation. Relaybot cannot execute Unity's
+`PlayerVisualizer`, `PathFollower`, physics or rendering, so it cannot prove
+that interpolation looks smooth on screen. Once tiers 1 and 2 pass, a session
+with Colin is confirmation of presentation, not the first time the protocol or
+state machine is exercised.
 
 ## The storage suite
 
@@ -245,9 +259,10 @@ state-machine discovery from this list, but it cannot remove visual acceptance.
 2. **That the camera and local-player identity stay with the right rig** when a
    second player joins. The keep-first *decision* is tested; whether Unity's
    `Awake`/`Start` ordering still puts the local rig first is not.
-3. **That movement is smooth and correctly positioned** — the coordinate remap,
-   the interpolators, parented vs unparented `TransformState`, and whether
-   `PlayerVisualizer` or `RemoteRigMover` is doing the positioning.
+3. **That movement is visually smooth and correctly positioned** — tier 2 proves
+   both peers receive the authoritative ship timeline and the passenger retains
+   its hull-relative coordinate frame, but only Unity can exercise its
+   interpolators, `PlayerVisualizer`, `PathFollower`, camera and rendered pose.
 4. **That the two-phase asset flush actually lands** — the ack payload is not
    parsed, so a joining client's own spawn acks can race the flush. Only two
    clients will show you a missing rig.

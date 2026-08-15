@@ -2,7 +2,7 @@
 
 **Canonical entry point for a new maintainer or coding agent**
 
-**Snapshot:** 2026-08-14, Europe/Berlin
+**Snapshot:** 2026-08-15, Europe/Berlin
 
 **Repository:** `DoubtfulHermit/WorldsAdriftReborn`
 
@@ -39,7 +39,7 @@ implemented.
    dotnet build WorldsAdriftReborn -c Release
    ```
 
-   At this snapshot the Multiplayer suite passes **2305/2305**, and both server
+   At this snapshot the Multiplayer suite passes **2342/2342**, and both server
    and client builds succeed. Existing nullable/obsolete/net6-EOL warnings are
    known. Do not run the test and server builds concurrently: both write the
    Multiplayer output and can cause a harmless file-lock retry.
@@ -88,7 +88,7 @@ reconciled explicitly.
 | `WorldsAdriftServer/` | Login, accounts, roster and patch-file HTTP service | request handlers, storage integration |
 | `WorldsAdriftReborn.Storage/` | PostgreSQL models/repositories/migrations | storage tests require `WAREBORN_DB` for integration cases |
 | `tools/patcher/` | WAPatch and manifest release pipeline | `README.md`, `build-manifest.sh` |
-| `tools/relaybot/` | Native shim builder and protocol/load diagnostics | `build-coresdk-native.sh`, relay bot |
+| `tools/relaybot/` | Native shim builder, protocol/load diagnostics and isolated two-peer ship wire acceptance | `build-coresdk-native.sh`, `run-ship-acceptance.sh` |
 | `docs/research/` | Evidence and protocol reconstruction | `README.md` index |
 
 Important local external inputs:
@@ -539,6 +539,17 @@ in-flight asset request every 500 ms reconcile; the local fix carries a still-
 valid head request and revalidates every Add/Remove at send time. All three fixes
 are deployed in `ab9bc94` but are not yet visually accepted. Phase 4 is therefore
 deployed as a foundation but is **not visually accepted**.
+
+The protocol/state-machine portion now has a repeatable two-peer acceptance
+gate at `tools/relaybot/run-ship-acceptance.sh`. It creates a disposable world
+and alternate-port native server, then drives two real ENet peers through
+flight, mounted-member wakes, passenger contact-seam suppression, authority
+handoff with stale input, independent whole-domain removal, and legal re-entry.
+The 2026-08-15 run passed every assertion. This replaces Colin as the first-line
+server regression test; it does not run Unity visualizers, interpolation,
+camera/IK or rendering, so the phase remains visually unaccepted until a short
+two-client presentation check.
+
 Phase 5 has a pure capture/restore/resume proof, but not yet the full live
 destroy/recreate/no-visible-teleport acceptance test. Phase 6 has ship authority
 generations, but no in-process gateway seam yet.

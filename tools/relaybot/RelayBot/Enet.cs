@@ -11,13 +11,14 @@ namespace RelayBot
     /// </summary>
     public static class Enet
     {
-        /// <summary>Channel map, fixed by enetLayer.h. 5 channels, hard-capped.</summary>
+        /// <summary>Channel map, fixed by enetLayer.h. 6 channels, hard-capped.</summary>
         public const int ChAssetLoadRequestOp = 0;
         public const int ChAddEntityOp = 1;
         public const int ChSendComponentInterest = 2;
         public const int ChAuthorityChangeOp = 3;
         public const int ChComponentUpdateOp = 4;
-        public const int ChannelCount = 5;
+        public const int ChRemoveEntityOp = 5;
+        public const int ChannelCount = 6;
 
         /// <summary>
         /// OUR wire flag values (WarPacketFlag in enetLayer.h), NOT ENet's

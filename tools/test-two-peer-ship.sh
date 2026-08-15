@@ -13,4 +13,4 @@ dotnet test "$repo/WorldsAdriftRebornGameServer.Multiplayer.Tests" -c Release \
 dotnet build "$repo/WorldsAdriftRebornGameServer" -c Release
 
 echo "[ship-acceptance] PASS: deterministic two-peer ship journey and server build."
-echo "[ship-acceptance] This is tier 1; tier 2 ENet helm-driving relaybot is still required before wire acceptance."
+echo "[ship-acceptance] This is tier 1. Run tools/relaybot/run-ship-acceptance.sh for the isolated tier-2 real-wire gate."

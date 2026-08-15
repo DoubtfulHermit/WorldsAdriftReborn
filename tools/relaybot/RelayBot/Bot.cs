@@ -3,7 +3,11 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Improbable.Corelibrary.Math;
 using Improbable.Corelibrary.Transforms;
+using Improbable;
+using Bossa.Travellers.Interact;
+using Bossa.Travellers.Motion.Prediction;
 using Bossa.Travellers.Player;
+using Bossa.Travellers.Ship;
 
 namespace RelayBot
 {
@@ -20,6 +24,9 @@ namespace RelayBot
     {
         private const uint TransformStateId = 190602;
         private const uint ClientAuthoritativePlayerStateId = 1073;
+        private const uint ShipControlInputId = 1111;
+        private const uint InteractAgentStateId = 1211;
+        private const uint PredictedMotionStateId = 1130;
 
         /// <summary>
         /// The interest set the bot requests for its own entity. Every id here
@@ -63,6 +70,35 @@ namespace RelayBot
 
         private IntPtr _clientHost = IntPtr.Zero;
         private IntPtr _peer = IntPtr.Zero;
+
+        // Public commands are queued onto the bot's ENet thread. The native host
+        // is deliberately never touched from Program's orchestration thread.
+        private readonly ConcurrentQueue<Action> _commands = new();
+        private readonly HashSet<long> _seenEntities = new();
+        private readonly ConcurrentQueue<long> _removedEntities = new();
+        private readonly ConcurrentQueue<long> _readdedEntities = new();
+        private readonly ConcurrentDictionary<long, (double X, double Y, double Z)> _hullFrames = new();
+
+        public long IslandEntityId { get; private set; } = -1;
+        public long ShipHullEntityId { get; private set; } = -1;
+        public long HelmEntityId { get; private set; } = -1;
+        public long DeckEntityId { get; private set; } = -1;
+        public long HullMotionUpdates { get; private set; }
+        public long HelmWakeUpdates { get; private set; }
+        public long RemoteAboardFrames { get; private set; }
+        public long RemoteInvalidRelativeFrames { get; private set; }
+        public double LastHullX { get; private set; }
+        public double LastHullY { get; private set; }
+        public double LastHullZ { get; private set; }
+        public long LastHullTimestamp { get; private set; }
+
+        private bool _shipAcceptanceMode;
+        private double _acceptanceLocalX = 208.0;
+        private double _acceptanceLocalY = 6.7;
+        private double _acceptanceLocalZ = 4.0;
+        private long _acceptanceRelativeTo = -1;
+        private bool _acceptanceAboard;
+        private int _invalidRelativeTicks;
 
         public long MyEntityId { get; private set; } = -1;
         public bool HasAuthority { get; private set; }
@@ -166,6 +202,7 @@ namespace RelayBot
                     }
 
                     MaybePublish();
+                    DrainCommands();
                     MaybeReportGap();
                 }
             }
@@ -215,6 +252,9 @@ namespace RelayBot
                     case Enet.ChComponentUpdateOp:
                         OnComponentUpdate(payload, length);
                         break;
+                    case Enet.ChRemoveEntityOp:
+                        OnRemoveEntity(payload, length);
+                        break;
                 }
             }
             catch (Exception ex)
@@ -248,6 +288,17 @@ namespace RelayBot
             PbAddEntityOp op = Wire.Decode<PbAddEntityOp>(payload, length);
             Log($"add entity {op.EntityId}: {op.PrefabName}@{op.PrefabContext}");
 
+            bool readd = !_seenEntities.Add(op.EntityId);
+            if (readd) _readdedEntities.Enqueue(op.EntityId);
+            // The spawn plan's first world entity is the island. Its prefab is a
+            // census asset name rather than the literal "Island", so record the
+            // first non-player entity instead of guessing that name.
+            if (IslandEntityId < 0 && op.PrefabContext != "Player" && op.PrefabContext != "Default")
+                IslandEntityId = op.EntityId;
+            if (op.PrefabName == "ShipFrame") ShipHullEntityId = op.EntityId;
+            if (op.PrefabName == "Helm01") HelmEntityId = op.EntityId;
+            if (op.PrefabName == "Deck01" && DeckEntityId < 0) DeckEntityId = op.EntityId;
+
             // Ack first (the real client's shim acks from inside GetOpList).
             Enet.Send(_peer, Enet.ChAddEntityOp, new byte[] { (byte)'a' }, Enet.FlagReliable);
             Enet.Flush(_clientHost);
@@ -268,6 +319,13 @@ namespace RelayBot
                 Enet.Send(_peer, Enet.ChSendComponentInterest, Wire.Encode(interest), Enet.FlagReliable);
                 Enet.Flush(_clientHost);
             }
+        }
+
+        private void OnRemoveEntity(byte[] payload, int length)
+        {
+            PbRemoveEntityOp op = Wire.Decode<PbRemoveEntityOp>(payload, length);
+            _removedEntities.Enqueue(op.EntityId);
+            Log($"remove entity {op.EntityId}");
         }
 
         private void OnAddComponents(byte[] payload, int length)
@@ -329,6 +387,31 @@ namespace RelayBot
 
             foreach (PbComponentData component in batch.Components)
             {
+                if (batch.EntityId == ShipHullEntityId && component.ComponentId == PredictedMotionStateId)
+                {
+                    if (GameComponents.Deserialize(PredictedMotionStateId, GameComponents.TypeUpdate,
+                            component.Data, component.Data.Length) is SSPPredictedMotionState.Update motion
+                        && motion.latestControlPoint.HasValue
+                        && motion.latestControlPoint.Value.HasValue)
+                    {
+                        ShipControlPoint point = motion.latestControlPoint.Value.Value;
+                        LastHullX = point.position.X;
+                        LastHullY = point.position.Y;
+                        LastHullZ = point.position.Z;
+                        LastHullTimestamp = point.timestamp;
+                        _hullFrames[point.timestamp] = (point.position.X,
+                            point.position.Y, point.position.Z);
+                        HullMotionUpdates++;
+                    }
+                    continue;
+                }
+
+                if (batch.EntityId == HelmEntityId && component.ComponentId == TransformStateId)
+                {
+                    HelmWakeUpdates++;
+                    continue;
+                }
+
                 if (component.ComponentId != TransformStateId && component.ComponentId != ClientAuthoritativePlayerStateId)
                 {
                     continue;
@@ -340,6 +423,16 @@ namespace RelayBot
                 if (!_entityOwners.TryGetValue(batch.EntityId, out int senderBot) || senderBot == Index)
                 {
                     continue;
+                }
+
+                if (_shipAcceptanceMode && component.ComponentId == ClientAuthoritativePlayerStateId
+                    && GameComponents.Deserialize(ClientAuthoritativePlayerStateId, GameComponents.TypeUpdate,
+                        component.Data, component.Data.Length) is ClientAuthoritativePlayerState.Update remoteState)
+                {
+                    if (remoteState.relativeTo.HasValue && remoteState.relativeTo.Value.Id == ShipHullEntityId)
+                        RemoteAboardFrames++;
+                    if (remoteState.relativeTo.HasValue && remoteState.relativeTo.Value.Id <= 0)
+                        RemoteInvalidRelativeFrames++;
                 }
 
                 _metrics.RecordReceive(Index, nowNs);
@@ -407,6 +500,111 @@ namespace RelayBot
             }
         }
 
+        public void EnableShipAcceptance()
+        {
+            _commands.Enqueue(() => _shipAcceptanceMode = true);
+        }
+
+        public void ManHelm()
+        {
+            _commands.Enqueue(() =>
+            {
+                if (HelmEntityId <= 0) throw new InvalidOperationException("helm entity is not known");
+                var update = new InteractAgentState.Update()
+                    .AddInteractWithObject(new InteractWithObject(new EntityId(HelmEntityId), InteractVerb.Man));
+                SendAcceptanceUpdate(InteractAgentStateId, update);
+                Log($"acceptance: Man helm {HelmEntityId}");
+            });
+        }
+
+        public void ReleaseHelm()
+        {
+            _commands.Enqueue(() =>
+            {
+                var update = new InteractAgentState.Update()
+                    .AddReleaseInteraction(new ReleaseInteraction(new EntityId(HelmEntityId)));
+                SendAcceptanceUpdate(InteractAgentStateId, update);
+                Log($"acceptance: release helm {HelmEntityId}");
+            });
+        }
+
+        public void SetShipInput(float throttle, float yaw)
+        {
+            _commands.Enqueue(() =>
+            {
+                var update = new ShipControlInput.Update()
+                    .SetThrottle(throttle)
+                    .SetVertical(0f)
+                    .SetShipAxes(new Improbable.Math.Vector3f(0f, yaw, 0f));
+                SendAcceptanceUpdate(ShipControlInputId, update);
+                Log($"acceptance: input throttle={throttle:0.##}, yaw={yaw:0.##}");
+            });
+        }
+
+        public void SetAboard(bool aboard)
+        {
+            _commands.Enqueue(() =>
+            {
+                _acceptanceAboard = aboard;
+                _acceptanceRelativeTo = aboard ? ShipHullEntityId : IslandEntityId;
+            });
+        }
+
+        public void InjectBriefContactSeam(int ticks = 3)
+        {
+            _commands.Enqueue(() => _invalidRelativeTicks = Math.Max(1, ticks));
+        }
+
+        public void MoveIslandLocal(double x, double y, double z)
+        {
+            _commands.Enqueue(() =>
+            {
+                _acceptanceAboard = false;
+                _acceptanceRelativeTo = IslandEntityId;
+                _acceptanceLocalX = x;
+                _acceptanceLocalY = y;
+                _acceptanceLocalZ = z;
+            });
+        }
+
+        public long[] DrainRemovedEntities()
+        {
+            var result = new System.Collections.Generic.List<long>();
+            while (_removedEntities.TryDequeue(out long id)) result.Add(id);
+            return result.ToArray();
+        }
+
+        public long[] DrainReaddedEntities()
+        {
+            var result = new System.Collections.Generic.List<long>();
+            while (_readdedEntities.TryDequeue(out long id)) result.Add(id);
+            return result.ToArray();
+        }
+
+        public bool TryGetHullFrame(long timestamp,
+            out (double X, double Y, double Z) position) =>
+            _hullFrames.TryGetValue(timestamp, out position);
+
+        private void DrainCommands()
+        {
+            while (_commands.TryDequeue(out Action command)) command();
+        }
+
+        private void SendAcceptanceUpdate(uint componentId, object update)
+        {
+            byte[] inner = GameComponents.Serialize(componentId, GameComponents.TypeUpdate, update);
+            byte[] outer = Wire.Encode(new PbComponentBatchOp
+            {
+                EntityId = MyEntityId,
+                Components =
+                {
+                    new PbComponentData { ComponentId = componentId, Data = inner, DataLength = inner.Length }
+                }
+            });
+            Enet.Send(_peer, Enet.ChComponentUpdateOp, outer, Enet.FlagReliable);
+            Enet.Flush(_clientHost);
+        }
+
         private void MaybePublish()
         {
             if (!HasAuthority || Disconnected)
@@ -442,13 +640,20 @@ namespace RelayBot
             float t = (float)((nowNs - _publishStartNs) / 1e9);
 
             double angle = 2 * Math.PI * (t / CircleSecondsPerLap) + Index * Math.PI; // bots start opposite
-            double x = _centreX + CircleRadiusMetres * Math.Cos(angle);
-            double z = _centreZ + CircleRadiusMetres * Math.Sin(angle);
+            double x = _shipAcceptanceMode
+                ? _centreX + (_acceptanceLocalX - 208.0)
+                : _centreX + CircleRadiusMetres * Math.Cos(angle);
+            double y = _shipAcceptanceMode
+                ? _centreY + (_acceptanceLocalY - 6.7)
+                : _centreY;
+            double z = _shipAcceptanceMode
+                ? _centreZ + (_acceptanceLocalZ - 4.0)
+                : _centreZ + CircleRadiusMetres * Math.Sin(angle);
 
             // Q52.12, truncation toward zero - FixedPointPosition semantics.
             var position = new FixedPointVector3(new Improbable.Collections.List<long>
             {
-                (long)(x * 4096), (long)(_centreY * 4096), (long)(z * 4096)
+                (long)(x * 4096), (long)(y * 4096), (long)(z * 4096)
             });
 
             TransformState.Update transform = new TransformState.Update()
@@ -461,6 +666,21 @@ namespace RelayBot
                 .SetTimestamp(t)
                 .SetGrounded(true)
                 .SetBoneData(BoneFiller);
+
+            if (_shipAcceptanceMode)
+            {
+                bool seam = _invalidRelativeTicks > 0;
+                if (seam) _invalidRelativeTicks--;
+                long relativeTo = seam ? -1 : _acceptanceRelativeTo;
+                state.SetPositionRelative(_acceptanceAboard
+                    ? new Improbable.Math.Vector3f(0f, 1f, 0f)
+                    : new Improbable.Math.Vector3f(
+                        (float)_acceptanceLocalX, (float)_acceptanceLocalY, (float)_acceptanceLocalZ));
+                state.SetRelativeTo(new EntityId(relativeTo));
+                state.SetRelativeBias(seam ? 0f : 1f);
+                state.SetIsRelativeToShip(new Improbable.Collections.Option<bool>(
+                    !seam && _acceptanceAboard));
+            }
 
             PublishUpdate(TransformStateId, transform, t);
             PublishUpdate(ClientAuthoritativePlayerStateId, state, t);
