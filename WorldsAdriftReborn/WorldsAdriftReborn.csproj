@@ -97,6 +97,8 @@
              Link="Patching\Interactions\StationPickupVisibilityPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\ShipInteractionHoldPolicy.cs"
              Link="Patching\Flight\ShipInteractionHoldPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\HierarchyLifecyclePolicy.cs"
+             Link="Patching\Multiplayer\HierarchyLifecyclePolicy.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->
