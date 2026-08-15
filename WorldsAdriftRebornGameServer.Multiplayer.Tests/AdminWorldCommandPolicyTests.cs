@@ -7,6 +7,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Theory]
         [InlineData("reset-resources all", AdminWorldCommandKind.ResetResources, 0, 0)]
         [InlineData("recall-ship 83 12", AdminWorldCommandKind.RecallShip, 83, 12)]
+        [InlineData("stop-ship 83", AdminWorldCommandKind.StopShip, 83, 0)]
+        [InlineData("release-helm 83", AdminWorldCommandKind.ReleaseHelm, 83, 0)]
         [InlineData("delete-ship 83 DELETE", AdminWorldCommandKind.DeleteShip, 83, 0)]
         public void Exact_allowlisted_commands_parse(string text, AdminWorldCommandKind kind,
             long hull, long player)
@@ -23,6 +25,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData("reset-resources haven")]
         [InlineData("recall-ship 0 12")]
         [InlineData("recall-ship 83 -1")]
+        [InlineData("stop-ship all")]
+        [InlineData("release-helm -1")]
         [InlineData("delete-ship 83 delete")]
         [InlineData("delete-ship 83 DELETE extra")]
         [InlineData("shell rm -rf")]

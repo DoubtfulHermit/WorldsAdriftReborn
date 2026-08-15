@@ -268,7 +268,8 @@ namespace WorldsAdriftServer.Handlers.Admin
                 CommandError(session, 409, command.Action, command.TargetEntityId, error);
                 return;
             }
-            if ((command.Action == "ship-recall" || command.Action == "ship-delete")
+            if ((command.Action == "ship-recall" || command.Action == "ship-stop"
+                    || command.Action == "helm-release" || command.Action == "ship-delete")
                 && command.TargetEntityId.HasValue
                 && !IsShipDomain(snapshot, command.TargetEntityId.Value, out error))
             {
@@ -291,6 +292,7 @@ namespace WorldsAdriftServer.Handlers.Admin
 
             string targetText = command.TargetEntityId.HasValue
                 ? (command.Action.StartsWith("ship-", StringComparison.Ordinal)
+                    || command.Action == "helm-release"
                     ? " for hull entity " : " for player entity ") + command.TargetEntityId.Value
                 : string.Empty;
             string message = "Accepted " + command.Action + targetText
@@ -350,8 +352,9 @@ namespace WorldsAdriftServer.Handlers.Admin
 
         private static string KnownAction(string? action)
         {
-            return action == "teleport" || action == "placement" || action == "ship-nudge"
-                || action == "resources-reset" || action == "ship-recall" || action == "ship-delete"
+            return action == "teleport" || action == "placement"
+                || action == "resources-reset" || action == "ship-recall"
+                || action == "ship-stop" || action == "helm-release" || action == "ship-delete"
                 ? action
                 : "invalid";
         }

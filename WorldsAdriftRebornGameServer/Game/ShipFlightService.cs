@@ -406,6 +406,91 @@ namespace WorldsAdriftRebornGameServer.Game
             return true;
         }
 
+        /// <summary>
+        /// Stops an unpiloted runaway at its exact authoritative pose. This is
+        /// intentionally separate from recall: it neither moves the hull nor
+        /// changes its checkout, and it is safe with passengers aboard.
+        /// </summary>
+        internal bool TryAdminStop(long hullEntityId, out string message)
+        {
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            if (IsPiloted(hullEntityId))
+            {
+                message = "Hull " + hullEntityId
+                    + " still has a pilot; release the helm first or ask the pilot to stop.";
+                return false;
+            }
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                message = "Hull " + hullEntityId + " has no simulation domain.";
+                return false;
+            }
+
+            RefreshDomainMembership(domain);
+            domain.Flight.EmergencyStop();
+            _activeHullIds.Add(hullEntityId);
+            FlightEmit point = domain.Flight.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            FixedPointPosition position = FixedPointPosition.FromMetres(
+                domain.Flight.State.X, domain.Flight.State.Y, domain.Flight.State.Z);
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(
+                hullEntityId, position, point.PackedRotation);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, position, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(point.Spec, point.PackedRotation)),
+                wakes.Root, wakes.Members);
+            PersistPoseNow(hullEntityId, domain.Flight.State);
+            message = "Stopped hull " + hullEntityId + " at its current authoritative pose.";
+            return true;
+        }
+
+        /// <summary>
+        /// Clears a stuck exclusive helm owner. Unlike a normal voluntary
+        /// dismount this is an operator recovery, so stale throttle is abandoned
+        /// and neutralized instead of remaining latched.
+        /// </summary>
+        internal bool TryAdminReleaseHelm(long hullEntityId, out string message)
+        {
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
+            if (!seat.HasValue)
+            {
+                message = "Hull " + hullEntityId + " already has no helm owner.";
+                return true;
+            }
+
+            long playerEntityId = seat.Value.PlayerEntityId;
+            foreach ((ulong peerId, long entityId) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                if (entityId != playerEntityId) continue;
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peer == null) break;
+                _seats.Release(playerEntityId);
+                StopPiloting(peer, playerEntityId, seat.Value.HelmEntityId,
+                    hullEntityId, "operator released a stuck helm", abandoned: true);
+                message = "Released player entity " + playerEntityId + " from hull "
+                    + hullEntityId + " and neutralized its controls.";
+                return true;
+            }
+
+            // A seat whose peer disappeared between stats and command execution
+            // is still recoverable through the normal disconnect cleanup path.
+            OnPlayerGone(playerEntityId);
+            message = "Cleared disconnected pilot entity " + playerEntityId
+                + " from hull " + hullEntityId + " and neutralized its controls.";
+            return true;
+        }
+
         internal bool TryGetDomainGeneration(long hullEntityId, out long generation)
         {
             ShipDomain? domain = _domains.ByHull(hullEntityId);
@@ -681,7 +766,8 @@ namespace WorldsAdriftRebornGameServer.Game
             }
         }
 
-        private void StopPiloting(ENetPeerHandle player, long playerEntityId, long helmEntityId, long hullEntityId, string why)
+        private void StopPiloting(ENetPeerHandle player, long playerEntityId, long helmEntityId,
+            long hullEntityId, string why, bool abandoned = false)
         {
             FlightSession? session = null;
             if (_domains.ByHull(hullEntityId) is ShipDomain domain)
@@ -689,7 +775,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 session = domain.Flight;
                 if (_authorityByPlayer.Remove(playerEntityId, out ShipAuthorityToken authority))
                 {
-                    domain.ReleasePilot(authority, abandoned: false);
+                    domain.ReleasePilot(authority, abandoned);
                 }
                 PersistPoseNow(hullEntityId, session.State);
                 // Publish the released transient axes and retained physical lever

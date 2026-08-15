@@ -4,6 +4,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     {
         ResetResources,
         RecallShip,
+        StopShip,
+        ReleaseHelm,
         DeleteShip,
     }
 
@@ -32,13 +34,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 command = new AdminWorldCommand(AdminWorldCommandKind.RecallShip, hull, player);
                 return true;
             }
+            if (fields.Length == 2 && fields[0] == "stop-ship"
+                && Positive(fields[1], out hull))
+            {
+                command = new AdminWorldCommand(AdminWorldCommandKind.StopShip, hull, 0);
+                return true;
+            }
+            if (fields.Length == 2 && fields[0] == "release-helm"
+                && Positive(fields[1], out hull))
+            {
+                command = new AdminWorldCommand(AdminWorldCommandKind.ReleaseHelm, hull, 0);
+                return true;
+            }
             if (fields.Length == 3 && fields[0] == "delete-ship"
                 && Positive(fields[1], out hull) && fields[2] == "DELETE")
             {
                 command = new AdminWorldCommand(AdminWorldCommandKind.DeleteShip, hull, 0);
                 return true;
             }
-            error = "expected reset-resources all, recall-ship <hull> <player>, or delete-ship <hull> DELETE";
+            error = "expected reset-resources all, recall-ship <hull> <player>, stop-ship <hull>, release-helm <hull>, or delete-ship <hull> DELETE";
             return false;
         }
 

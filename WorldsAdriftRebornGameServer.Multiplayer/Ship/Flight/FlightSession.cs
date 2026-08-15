@@ -155,6 +155,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         }
 
         /// <summary>
+        /// Operator recovery for an unpiloted runaway hull. Keep the exact
+        /// authoritative pose and heading, but clear every velocity, attitude
+        /// and held control immediately. The service refuses this while a pilot
+        /// owns the helm, so this cannot fight live input.
+        /// </summary>
+        public void EmergencyStop()
+        {
+            _state = FlightState.AtRestAt(_state.X, _state.Y, _state.Z, _state.YawRadians);
+            _input = FlightControlInput.Neutral;
+            _manned = false;
+            _restEmitted = 0;
+        }
+
+        /// <summary>
         /// One cadence tick: integrate if moving or manned, and decide whether a
         /// control point goes out. Call at the control-point cadence
         /// (<paramref name="stepSeconds"/> = ShipMotionPolicy.SendIntervalSeconds).

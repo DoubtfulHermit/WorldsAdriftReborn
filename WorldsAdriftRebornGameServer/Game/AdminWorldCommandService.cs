@@ -64,6 +64,16 @@ namespace WorldsAdriftRebornGameServer.Game
                     success = TryRecall(command.HullEntityId, command.PlayerEntityId, out message);
                     Complete("recall-ship", command.HullEntityId, success, message);
                     break;
+                case AdminWorldCommandKind.StopShip:
+                    success = WorldsAdriftRebornGameServer.Flight.TryAdminStop(
+                        command.HullEntityId, out message);
+                    Complete("stop-ship", command.HullEntityId, success, message);
+                    break;
+                case AdminWorldCommandKind.ReleaseHelm:
+                    success = WorldsAdriftRebornGameServer.Flight.TryAdminReleaseHelm(
+                        command.HullEntityId, out message);
+                    Complete("release-helm", command.HullEntityId, success, message);
+                    break;
                 case AdminWorldCommandKind.DeleteShip:
                     success = Crafting.ShipSalvageService.AdminDelete(
                         command.HullEntityId, out message);

@@ -19,20 +19,7 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Theory]
-        [InlineData("north", "0 0 1")]
-        [InlineData("south", "0 0 -1")]
-        [InlineData("east", "1 0 0")]
-        [InlineData("west", "-1 0 0")]
-        public void Ship_nudges_are_fixed_to_one_metre(string direction, string payload)
-        {
-            Assert.True(AdminCommandBridge.TryBuild(
-                "ship-nudge", null, direction, out AdminCommandRequest command, out string error), error);
-            Assert.Equal(payload, command.Payload);
-            Assert.Null(command.TargetEntityId);
-        }
-
-        [Theory]
-        [InlineData("ship-nudge", null, "up")]
+        [InlineData("ship-nudge", null, "north")]
         [InlineData("placement", "everyone", null)]
         [InlineData("shell", null, "systemctl restart")]
         public void Free_form_or_malformed_commands_are_refused(string action, string? target, string? argument)
@@ -83,6 +70,14 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(12, recall.RelatedPlayerEntityId);
 
             Assert.True(AdminCommandBridge.TryBuild(
+                "ship-stop", "83", null, out AdminCommandRequest stop, out error), error);
+            Assert.Equal("stop-ship 83", stop.Payload);
+
+            Assert.True(AdminCommandBridge.TryBuild(
+                "helm-release", "83", null, out AdminCommandRequest release, out error), error);
+            Assert.Equal("release-helm 83", release.Payload);
+
+            Assert.True(AdminCommandBridge.TryBuild(
                 "ship-delete", "83", null, out AdminCommandRequest delete, out error), error);
             Assert.Equal("delete-ship 83 DELETE", delete.Payload);
         }
@@ -91,6 +86,8 @@ namespace WorldsAdriftServer.Tests
         [InlineData("resources-reset", null, "nearby")]
         [InlineData("ship-recall", "83", null)]
         [InlineData("ship-recall", "all", "12")]
+        [InlineData("ship-stop", "all", null)]
+        [InlineData("helm-release", "0", null)]
         [InlineData("ship-delete", "all", null)]
         public void World_operations_refuse_ambiguous_targets(string action, string? target,
             string? argument)

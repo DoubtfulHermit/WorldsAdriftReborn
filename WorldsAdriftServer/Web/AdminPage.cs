@@ -95,11 +95,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .tool p{font-size:.76rem;color:var(--text-faint);margin:.2rem 0 .85rem;max-width:42rem;}
 .tool .field{margin:.8rem 0;}.tool.danger-zone{grid-column:1/-1;background:linear-gradient(90deg,var(--danger-soft),var(--surface) 55%);border-top:1px solid rgba(240,128,128,.25);}
 .button-row{display:flex;flex-wrap:wrap;gap:.5rem;}.button-row button{font-size:.68rem;}
-.nudge-pad{display:grid;grid-template:repeat(3,2.5rem)/repeat(3,2.5rem);gap:.3rem;width:max-content;margin-top:.7rem;}
-.nudge-pad button{width:2.5rem;min-height:2.5rem;padding:0;font-size:0;}
-.nudge-pad button:after{font-size:1rem;line-height:1;}.nudge-pad [data-argument=north]{grid-area:1/2}.nudge-pad [data-argument=south]{grid-area:3/2}.nudge-pad [data-argument=west]{grid-area:2/1}.nudge-pad [data-argument=east]{grid-area:2/3}
-.nudge-pad [data-argument=north]:after{content:'\2191'}.nudge-pad [data-argument=south]:after{content:'\2193'}.nudge-pad [data-argument=west]:after{content:'\2190'}.nudge-pad [data-argument=east]:after{content:'\2192'}
-.nudge-origin{grid-area:2/2;border:1px solid var(--line);border-radius:50%;margin:.72rem;background:var(--accent);box-shadow:0 0 12px rgba(116,201,207,.5);}
+.recovery-actions{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem;}
+.incident{margin-top:.85rem;padding:.72rem .8rem;border:1px solid var(--line);border-radius:7px;background:#0b141b;color:var(--text-soft);font:500 .68rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;}
 .feedback{display:none;margin-top:1rem;padding:.8rem .9rem;border:1px solid rgba(113,208,165,.35);border-radius:7px;background:rgba(113,208,165,.07);font-size:.8rem;}
 .feedback.show{display:block}.feedback.bad{border-color:rgba(240,128,128,.4);background:var(--danger-soft);}
 .receipt{margin-top:1rem;padding:1rem 1.1rem;border:1px solid var(--line);border-radius:8px;background:#0c151c;}
@@ -262,24 +259,20 @@ variable to <code>username:hash</code> and restart the login server to enable th
       <button type=""button"" data-command=""placement"" data-argument=""first"">Start deployable preview</button>
     </div>
     <div class=""tool"">
-      <h3>Ship position trim</h3>
-      <p>Nudge the active diagnostic ship one metre on the world plane.</p>
-      <div class=""nudge-pad"" role=""group"" aria-label=""Ship position trim, one metre""><span class=""nudge-origin"" aria-hidden=""true""></span>
-        <button type=""button"" title=""North, one metre"" aria-label=""Nudge ship north one metre"" data-command=""ship-nudge"" data-argument=""north"">North +1 m</button>
-        <button type=""button"" title=""South, one metre"" aria-label=""Nudge ship south one metre"" data-command=""ship-nudge"" data-argument=""south"">South -1 m</button>
-        <button type=""button"" title=""West, one metre"" aria-label=""Nudge ship west one metre"" data-command=""ship-nudge"" data-argument=""west"">West -1 m</button>
-        <button type=""button"" title=""East, one metre"" aria-label=""Nudge ship east one metre"" data-command=""ship-nudge"" data-argument=""east"">East +1 m</button>
+      <h3>Selected ship recovery</h3>
+      <p>Stop a runaway hull, clear a stuck helm owner, or bring an uncrewed ship beside the selected player.</p>
+      <div class=""recovery-actions"">
+        <button type=""button"" id=""stopShip"" data-command=""ship-stop"" data-target=""ship"">Stop ship</button>
+        <button type=""button"" id=""releaseHelm"" data-command=""helm-release"" data-target=""ship"">Release stuck helm</button>
+        <button type=""button"" id=""recallShip"" data-command=""ship-recall"" data-target=""ship"">Recall beside player</button>
+        <button class=""btn ghost"" type=""button"" id=""copyShipDiagnostics"">Copy incident bundle</button>
       </div>
+      <div class=""incident"" id=""selectedShipSummary"">Select a ship domain to inspect its live recovery state.</div>
     </div>
     <div class=""tool"">
       <h3>World resources</h3>
       <p>Restore all gatherable nodes to their authored state across the shared world.</p>
       <button type=""button"" data-command=""resources-reset"" data-argument=""all"">Reset all resource nodes</button>
-    </div>
-    <div class=""tool"">
-      <h3>Exact ship recovery</h3>
-      <p>Place the selected uncrewed hull at a safe clearance beside the selected player.</p>
-      <button type=""button"" data-command=""ship-recall"" data-target=""ship"">Recall selected ship</button>
     </div>
     <div class=""tool danger-zone"">
       <h3>Permanent ship deletion</h3>
@@ -335,6 +328,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var CSRF = '" + csrfToken + @"';
   var gameReporting = false;
   var secondIslandRegistered = false;
+  var latestDomains = [];
   function $(id){return document.getElementById(id);}
   function text(id,v){var e=$(id);if(e)e.textContent=v;}
 
@@ -353,6 +347,23 @@ variable to <code>username:hash</code> and restart the login server to enable th
   }
   function clear(el){while(el.firstChild)el.removeChild(el.firstChild);}
   function cell(row,val,cls){var td=document.createElement('td');if(cls)td.className=cls;td.textContent=val;row.appendChild(td);return td;}
+  function selectedDomain(){var id=$('targetShip').value;for(var i=0;i<latestDomains.length;i++){if(String(latestDomains[i].hullEntityId)===id)return latestDomains[i];}return null;}
+  function incidentText(d){
+    if(!d)return 'Select a ship domain to inspect its live recovery state.';
+    return 'hull '+d.hullEntityId+' | '+(d.piloted?'PILOT '+d.pilotPlayerEntityId:'unpiloted')
+      +' | '+((d.aboardPlayerEntityIds||[]).length)+' aboard | '+d.subscriberCount+' subscribers'
+      +' | gen '+d.authorityGeneration+' seq '+d.replicationSequence
+      +' | frame '+(d.deliveryAgeMs<0?'never':d.deliveryAgeMs+'ms')
+      +' | pose '+Number(d.x).toFixed(1)+', '+Number(d.y).toFixed(1)+', '+Number(d.z).toFixed(1);
+  }
+  function updateShipSummary(){text('selectedShipSummary',incidentText(selectedDomain()));}
+  function updateRecoveryActions(){
+    var d=selectedDomain();var hasPlayer=$('targetPlayer').value!=='';var occupied=d&&((d.aboardPlayerEntityIds||[]).length>0);
+    $('stopShip').disabled=!gameReporting||!d||d.piloted;
+    $('releaseHelm').disabled=!gameReporting||!d||!d.piloted;
+    $('recallShip').disabled=!gameReporting||!d||d.piloted||occupied||!hasPlayer;
+    $('copyShipDiagnostics').disabled=!d;
+  }
 
   function render(data){
     if(!data){return;}
@@ -425,6 +436,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     var runtime=g.runtime||{};
     text('hostMode',runtime.hostMode==='local-single-process'?'local single-process':(runtime.hostMode||'unknown host'));
     var domains=runtime.shipDomains||[];
+    latestDomains=domains;
     text('domainCount',reporting?String(domains.length):'—');
     text('activeDomains',reporting?String(domains.filter(function(d){return d.active;}).length):'—');
     text('aboardCount',reporting?String(domains.reduce(function(n,d){return n+(d.aboardPlayerEntityIds||[]).length;},0)):'—');
@@ -466,6 +478,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     var noShip=document.createElement('option');noShip.value='';noShip.textContent=domains.length?'Select an exact ship':'No registered ship domain';shipSelect.appendChild(noShip);
     domains.forEach(function(d){var o=document.createElement('option');o.value=String(d.hullEntityId);o.textContent=(d.domainId||'ship')+' · hull '+d.hullEntityId+' · '+(d.piloted?'piloted':'unpiloted');shipSelect.appendChild(o);});
     if(domains.some(function(d){return String(d.hullEntityId)===selectedShip;}))shipSelect.value=selectedShip;
+    updateShipSummary();
     var confirmation=$('deleteConfirmation');
     if(confirmation && confirmation.dataset.ship!==shipSelect.value){confirmation.value='';confirmation.dataset.ship=shipSelect.value;confirmation.placeholder=shipSelect.value?'DELETE':'Select a ship first';}
 
@@ -476,6 +489,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     players.forEach(function(p){var o=document.createElement('option');o.value=String(p.entityId);o.textContent='Entity '+p.entityId+' · peer '+p.peerId;playerSelect.appendChild(o);});
     if(players.some(function(p){return String(p.entityId)===selected;})){playerSelect.value=selected;}
     else if(players.length===1){playerSelect.value=String(players[0].entityId);}
+    updateRecoveryActions();
 
     var trades=$('tradesTravel');
     trades.disabled=!secondIslandRegistered;
@@ -543,11 +557,12 @@ variable to <code>username:hash</code> and restart the login server to enable th
   function sendCommand(action,argument,button){
     var target=button.dataset.target==='ship'?$('targetShip').value:$('targetPlayer').value;
     if((action==='teleport'||action==='placement')&&!target){showFeedback(false,'Select a connected player first.');return;}
-    if((action==='ship-recall'||action==='ship-delete')&&!target){showFeedback(false,'Select an exact ship domain first.');return;}
+    if((action==='ship-recall'||action==='ship-stop'||action==='helm-release'||action==='ship-delete')&&!target){showFeedback(false,'Select an exact ship domain first.');return;}
     if(action==='ship-recall'&&!$('targetPlayer').value){showFeedback(false,'Select the connected player who should receive the ship.');return;}
-    if(!gameReporting&&action!=='ship-nudge'){showFeedback(false,'The game server is not reporting fresh status.');return;}
-    if(action==='ship-nudge'&&!window.confirm('Move the active shared ship exactly one metre '+argument+'?'))return;
+    if(!gameReporting){showFeedback(false,'The game server is not reporting fresh status.');return;}
     if(action==='resources-reset'&&!window.confirm('Reset every shared-world resource node?'))return;
+    if(action==='ship-stop'&&!window.confirm('Immediately stop exact hull '+target+' at its current authoritative pose?'))return;
+    if(action==='helm-release'&&!window.confirm('Release the current helm owner of exact hull '+target+' and neutralize its controls?'))return;
     if(action==='ship-recall'){
       argument=$('targetPlayer').value;
       if(!window.confirm('Recall exact hull '+target+' to player entity '+argument+'?'))return;
@@ -567,7 +582,19 @@ variable to <code>username:hash</code> and restart the login server to enable th
       .then(function(){button.disabled=false;if(button.id==='tradesTravel'&&!secondIslandRegistered)button.disabled=true;});
   }
   function showFeedback(ok,message){var e=$('commandFeedback');e.className='feedback show'+(ok?'':' bad');e.textContent=message;}
+  function copyIncident(){
+    var d=selectedDomain();
+    if(!d){showFeedback(false,'Select an exact ship domain before copying diagnostics.');return;}
+    var bundle=JSON.stringify({capturedAt:new Date().toISOString(),domain:d},null,2);
+    function done(){showFeedback(true,'Copied the selected ship incident bundle.');}
+    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(bundle).then(done,function(){fallbackCopy(bundle);});}
+    else fallbackCopy(bundle);
+  }
+  function fallbackCopy(value){var area=document.createElement('textarea');area.value=value;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy');}catch(e){}document.body.removeChild(area);showFeedback(ok,ok?'Copied the selected ship incident bundle.':'Copy failed; use the World Inspector values instead.');}
   Array.prototype.forEach.call(document.querySelectorAll('[data-command]'),function(button){button.addEventListener('click',function(){sendCommand(button.dataset.command,button.dataset.argument,button);});});
+  $('targetShip').addEventListener('change',function(){updateShipSummary();updateRecoveryActions();});
+  $('targetPlayer').addEventListener('change',updateRecoveryActions);
+  $('copyShipDiagnostics').addEventListener('click',copyIncident);
   $('refreshNow').addEventListener('click',refresh);
   boot();
   refresh();

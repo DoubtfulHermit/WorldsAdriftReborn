@@ -55,5 +55,27 @@ namespace WorldsAdriftServer.Tests
             }
             finally { File.Delete(path); }
         }
+
+        [Theory]
+        [InlineData("stop-ship")]
+        [InlineData("release-helm")]
+        public void Ship_recovery_results_require_an_exact_positive_hull(string action)
+        {
+            string path = TempFile();
+            File.WriteAllText(path, new JObject
+            {
+                ["action"] = action, ["targetEntityId"] = 83,
+                ["success"] = true, ["message"] = "done",
+                ["completedAtUnixMs"] = 1723200123000,
+            }.ToString());
+            try
+            {
+                var read = WorldAdminResult.ReadFrom(path);
+                Assert.Equal(WorldAdminResultState.Ok, read.State);
+                Assert.Equal(action, read.Result!.Action);
+                Assert.Equal(83, read.Result.TargetEntityId);
+            }
+            finally { File.Delete(path); }
+        }
     }
 }

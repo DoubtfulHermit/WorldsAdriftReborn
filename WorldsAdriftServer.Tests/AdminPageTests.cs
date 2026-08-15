@@ -16,6 +16,8 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("id=\"operations\"", html);
             Assert.Contains("data-command=\"resources-reset\"", html);
             Assert.Contains("data-command=\"ship-recall\"", html);
+            Assert.Contains("data-command=\"ship-stop\"", html);
+            Assert.Contains("data-command=\"helm-release\"", html);
             Assert.Contains("data-command=\"ship-delete\"", html);
             Assert.Contains("name=\"csrf\" value=\"" + csrf + "\"", html);
             Assert.Contains("'X-Wareborn-CSRF':CSRF", html);
@@ -25,13 +27,19 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void Dashboard_uses_one_responsive_console_system_and_compact_safe_controls()
+        public void Dashboard_uses_one_responsive_console_system_and_real_recovery_controls()
         {
             string html = AdminPage.Dashboard("{}", new string('b', 64));
 
             Assert.Contains("class=\"selectors\"", html);
-            Assert.Contains("class=\"nudge-pad\"", html);
-            Assert.Contains("aria-label=\"Nudge ship north one metre\"", html);
+            Assert.Contains("class=\"recovery-actions\"", html);
+            Assert.Contains("id=\"copyShipDiagnostics\"", html);
+            Assert.Contains("id=\"selectedShipSummary\"", html);
+            Assert.Contains("id=\"stopShip\"", html);
+            Assert.Contains("id=\"releaseHelm\"", html);
+            Assert.Contains("updateRecoveryActions", html);
+            Assert.DoesNotContain("ship-nudge", html);
+            Assert.DoesNotContain("Ship position trim", html);
             Assert.Contains("class=\"tool danger-zone\"", html);
             Assert.Contains("class=\"danger-button\"", html);
             Assert.Contains("class=\"receipt\"", html);

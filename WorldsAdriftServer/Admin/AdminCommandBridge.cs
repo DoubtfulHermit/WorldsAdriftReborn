@@ -12,7 +12,6 @@ namespace WorldsAdriftServer.Admin
     {
         private const string DefaultTeleportFile = "/tmp/wareborn-teleport";
         private const string DefaultPlacementFile = "/tmp/wareborn-place";
-        private const string DefaultShipFile = "/tmp/wareborn-ship";
         private const string DefaultWorldAdminFile = "/tmp/wareborn-world-admin";
 
         private static readonly object WriteGate = new object();
@@ -62,26 +61,6 @@ namespace WorldsAdriftServer.Admin
                 return true;
             }
 
-            if (action == "ship-nudge")
-            {
-                string payload;
-                switch (argument)
-                {
-                    case "north": payload = "0 0 1"; break;
-                    case "south": payload = "0 0 -1"; break;
-                    case "east": payload = "1 0 0"; break;
-                    case "west": payload = "-1 0 0"; break;
-                    default:
-                        error = "Choose one of the four one-metre ship directions.";
-                        return false;
-                }
-
-                command = new AdminCommandRequest(
-                    "ship-nudge", null, argument!, payload,
-                    TriggerPath("WAREBORN_SHIP_FILE", DefaultShipFile));
-                return true;
-            }
-
             if (action == "resources-reset")
             {
                 if (argument != "all")
@@ -95,7 +74,8 @@ namespace WorldsAdriftServer.Admin
                 return true;
             }
 
-            if (action == "ship-recall" || action == "ship-delete")
+            if (action == "ship-recall" || action == "ship-stop"
+                || action == "helm-release" || action == "ship-delete")
             {
                 if (!TryPositiveId(target, "Select an exact ship domain.", out long hullId, out error))
                     return false;
@@ -109,6 +89,16 @@ namespace WorldsAdriftServer.Admin
                         "recall-ship " + hullId + " " + playerId,
                         TriggerPath("WAREBORN_WORLD_ADMIN_FILE", DefaultWorldAdminFile),
                         relatedPlayerEntityId: playerId);
+                    return true;
+                }
+                if (action == "ship-stop" || action == "helm-release")
+                {
+                    string payload = action == "ship-stop"
+                        ? "stop-ship " + hullId
+                        : "release-helm " + hullId;
+                    command = new AdminCommandRequest(
+                        action, hullId, "hull " + hullId, payload,
+                        TriggerPath("WAREBORN_WORLD_ADMIN_FILE", DefaultWorldAdminFile));
                     return true;
                 }
                 command = new AdminCommandRequest(

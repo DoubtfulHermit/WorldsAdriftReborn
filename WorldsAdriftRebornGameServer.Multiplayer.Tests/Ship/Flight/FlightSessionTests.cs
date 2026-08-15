@@ -325,6 +325,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.True(session.State.IsAtRest);
             Assert.True(session.Input.IsNeutral);
         }
+
+        [Fact]
+        public void Emergency_stop_preserves_pose_and_heading_but_clears_all_motion()
+        {
+            var moving = new FlightState(
+                10, 20, 30, 0.75, 0.4, -0.2, 0.1, 8, 4, 1, 7);
+            var session = new FlightSession(moving);
+
+            session.EmergencyStop();
+
+            Assert.Equal(10, session.State.X);
+            Assert.Equal(20, session.State.Y);
+            Assert.Equal(30, session.State.Z);
+            Assert.Equal(0.75, session.State.YawRadians);
+            Assert.True(session.State.IsAtRest);
+            Assert.True(session.Input.IsNeutral);
+            Assert.False(session.IsManned);
+        }
     }
 
     public class PilotSeatsTests

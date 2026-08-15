@@ -35,7 +35,9 @@ namespace WorldsAdriftServer.Admin
                 if (!File.Exists(path)) return (WorldAdminResultState.Missing, null);
                 JObject o = JObject.Parse(File.ReadAllText(path));
                 string action = (string?)o["action"] ?? "";
-                if (action != "reset-resources" && action != "recall-ship" && action != "delete-ship")
+                if (action != "reset-resources" && action != "recall-ship"
+                    && action != "stop-ship" && action != "release-helm"
+                    && action != "delete-ship")
                     return (WorldAdminResultState.Unreadable, null);
                 if (o["success"]?.Type != JTokenType.Boolean
                     || o["message"]?.Type != JTokenType.String
@@ -45,7 +47,8 @@ namespace WorldsAdriftServer.Admin
                 if (completed <= 0) return (WorldAdminResultState.Unreadable, null);
                 long? target = o["targetEntityId"]?.Type == JTokenType.Integer
                     ? (long?)o["targetEntityId"] : null;
-                if ((action == "recall-ship" || action == "delete-ship")
+                if ((action == "recall-ship" || action == "stop-ship"
+                        || action == "release-helm" || action == "delete-ship")
                     && (!target.HasValue || target.Value <= 0))
                     return (WorldAdminResultState.Unreadable, null);
                 if (action == "reset-resources" && target.HasValue)
