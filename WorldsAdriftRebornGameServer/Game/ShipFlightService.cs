@@ -392,6 +392,13 @@ namespace WorldsAdriftRebornGameServer.Game
                 destination.MetresZ, yaw);
             _activeHullIds.Add(hullEntityId);
 
+            // Move the authoritative registry/persistence BEFORE asking checkout
+            // to rebuild the domain. Its fresh 190602 and one-point 1130 seeds
+            // must both describe the recalled pose.
+            PersistPoseNow(hullEntityId, domain.Flight.State);
+            int refreshingPeers = WorldsAdriftRebornGameServer.ShipInterest
+                .RequestRecallRefresh(hullEntityId);
+
             FlightEmit point = domain.Flight.PrimePlayback(
                 ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
             uint rotation = point.PackedRotation;
@@ -402,7 +409,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
                     ShipPublisher.BuildUpdate(point.Spec, rotation)),
                 wakes.Root, wakes.Members);
-            PersistPoseNow(hullEntityId, domain.Flight.State);
+            Console.WriteLine("[admin-world] hull " + hullEntityId
+                + " recall scheduled a clean domain reconstruction for "
+                + refreshingPeers + " peer(s).");
             return true;
         }
 

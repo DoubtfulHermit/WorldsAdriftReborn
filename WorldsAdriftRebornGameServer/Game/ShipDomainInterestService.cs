@@ -22,6 +22,7 @@ namespace WorldsAdriftRebornGameServer.Game
         {
             public readonly Queue<Action> Pending = new();
             public readonly HashSet<long> RemovedMountedParts = new();
+            public readonly HashSet<long> RecallRefreshHulls = new();
             public TimeSpan NextReconcile;
             public TimeSpan NextSend;
             public TimeSpan ContinuousAfter;
@@ -80,6 +81,26 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         public void Forget(ENetPeerHandle peer) => _peers.Remove(peer);
+
+        /// <summary>
+        /// Forces every capable peer currently holding this hull through a full
+        /// member-first/root-last removal followed by root-first reconstruction.
+        /// A recall is a discontinuous teleport: feeding it into an existing
+        /// PathFollower can spline against minutes of stale trajectory and put
+        /// the rendered hull kilometres off-map.
+        /// </summary>
+        public int RequestRecallRefresh(long hullEntityId)
+        {
+            int peers = 0;
+            foreach ((ENetPeerHandle _, PeerState state) in _peers)
+            {
+                if (!state.ConnectPlanComplete || !state.RemoveSupported) continue;
+                state.RecallRefreshHulls.Add(hullEntityId);
+                state.NextReconcile = TimeSpan.Zero;
+                peers++;
+            }
+            return peers;
+        }
 
         /// <summary>Compatibility peers cannot unload, so motion must not freeze into a ghost.</summary>
         public bool MustRetainMotion(ENetPeerHandle peer) =>
@@ -147,10 +168,19 @@ namespace WorldsAdriftRebornGameServer.Game
                     hullPosition = _registry.TransformSeedFor(hull);
 
                 bool rootLoaded = WorldsAdriftRebornGameServer.SentEntities.WasSent(peer, hull);
-                bool shouldLoad = !state.RemoveSupported
+                bool recallRefreshUnload = ShipDomainInterestPolicy.RecallRefreshForcesUnload(
+                    state.RecallRefreshHulls.Contains(hull), rootLoaded);
+                if (state.RecallRefreshHulls.Contains(hull) && !rootLoaded)
+                {
+                    // Root is removed last, so its absence proves the whole old
+                    // domain checkout is gone. The same reconcile may now queue
+                    // the clean root-first reconstruction at the recalled pose.
+                    state.RecallRefreshHulls.Remove(hull);
+                }
+                bool shouldLoad = !recallRefreshUnload && (!state.RemoveSupported
                     || ShipDomainInterestPolicy.ShouldBeLoaded(rootLoaded,
                         protectedByInteraction, hasAnyCrew, center, hullPosition,
-                        LoadRadiusMetres, UnloadRadiusMetres);
+                        LoadRadiusMetres, UnloadRadiusMetres));
                 // Read the live ledgers, not the domain's last flight-tick snapshot:
                 // restored and newly mounted parts can change while a ship has never
                 // been piloted, and therefore before Flight.RefreshDomainMembership.

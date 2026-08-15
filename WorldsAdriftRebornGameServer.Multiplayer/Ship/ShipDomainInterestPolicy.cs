@@ -59,6 +59,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public static bool ShouldExecute(bool add, bool checkedOut) =>
             add ? !checkedOut : checkedOut;
 
+        /// <summary>
+        /// An operator recall is a discontinuous teleport, not ordinary ship
+        /// motion. A checked-out client must destroy and reconstruct the domain
+        /// so its PathFollower cannot spline from the old trajectory.
+        /// </summary>
+        public static bool RecallRefreshForcesUnload(bool refreshRequested,
+            bool rootCheckedOut) => refreshRequested && rootCheckedOut;
+
         public static IReadOnlyList<long> AddOrder(long hullEntityId, IEnumerable<long> members) =>
             new[] { hullEntityId }.Concat((members ?? throw new ArgumentNullException(nameof(members)))
                 .Where(x => x != hullEntityId).Distinct().OrderBy(x => x)).ToArray();

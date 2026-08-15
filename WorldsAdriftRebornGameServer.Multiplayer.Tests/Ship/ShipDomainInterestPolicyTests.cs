@@ -94,6 +94,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.False(ShipDomainInterestPolicy.ShouldExecute(add: true, checkedOut: true));
         }
 
+        [Theory]
+        [InlineData(true, true, true)]
+        [InlineData(true, false, false)]
+        [InlineData(false, true, false)]
+        public void Recall_refresh_unloads_only_a_current_checkout(
+            bool refreshRequested, bool rootCheckedOut, bool expected)
+        {
+            Assert.Equal(expected,
+                ShipDomainInterestPolicy.RecallRefreshForcesUnload(
+                    refreshRequested, rootCheckedOut));
+        }
+
         [Fact]
         public void Two_peers_have_independent_checkout_and_returning_owner_readds()
         {

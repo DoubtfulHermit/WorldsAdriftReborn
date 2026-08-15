@@ -2100,7 +2100,9 @@ namespace WorldsAdriftRebornGameServer
                     (int)Math.Round(Multiplayer.ShipMotionPolicy.SendIntervalSeconds * 1000),
                     replication.DeliveryAgeMs,
                     pose.X, pose.Y, pose.Z,
-                    Flight.IsActive(domain.HullEntityId),
+                    // UI `active` means live simulation, not merely resident in
+                    // the service's low-frequency resting keepalive set.
+                    liveCadenceExpected,
                     piloted,
                     liveCadenceExpected,
                     Flight.PilotEntityOf(domain.HullEntityId),

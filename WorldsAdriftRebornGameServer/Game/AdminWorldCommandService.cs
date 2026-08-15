@@ -99,7 +99,11 @@ namespace WorldsAdriftRebornGameServer.Game
                 FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
                 FixedPointPosition destination = new FixedPointPosition(
                     center.X + 8 * FixedPointPosition.UnitsPerMetre,
-                    center.Y + 4 * FixedPointPosition.UnitsPerMetre,
+                    // Recall above the player rather than near terrain. Built
+                    // hulls can span several metres below their origin; 15 m is
+                    // enough clearance for Haven ridges and lets the operator
+                    // see exactly where the ship arrived.
+                    center.Y + 15 * FixedPointPosition.UnitsPerMetre,
                     center.Z);
                 if (!WorldsAdriftRebornGameServer.Flight.TryAdminRecall(
                         hullId, destination, out message)) return false;
