@@ -52,8 +52,10 @@ Detailed gates and invariants are in
 
 - Complete a clean Haven → Trades Challenge → Haven acceptance run covering
   resource removal, re-checkout, harvesting and scanning.
-- Define terrain/island visibility between distant regions; seeing Haven from
-  Trades Challenge is currently separate from resource interest.
+- Visually accept the new continuous per-peer terrain checkout: approach,
+  destination-before-source handoff, resource drain, leave/re-entry, teleport,
+  reconnect and two-client independence. It is implemented but remains off by
+  default and undeployed.
 - Visually accept the opt-in tier-1 B3 terrain prefix one island at a time; see
   [`research/findings-first-region-terrain.md`](research/findings-first-region-terrain.md).
 - Finish retail-faithful wind, Wind Wall and sail behavior; current sails use a

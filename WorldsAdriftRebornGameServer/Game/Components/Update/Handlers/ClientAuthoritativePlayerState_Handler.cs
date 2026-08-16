@@ -115,6 +115,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 WorldsAdriftRebornGameServer.ResourceInterest.ObserveRelativeTo(
                     player, clientComponentUpdate.relativeTo.Value.Id);
+                WorldsAdriftRebornGameServer.TerrainInterest?.ObserveRelativeTo(
+                    player, clientComponentUpdate.relativeTo.Value.Id);
             }
 
             if (clientComponentUpdate.positionRelative.HasValue)
@@ -140,6 +142,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 {
                     WorldsAdriftRebornGameServer.ResourceInterest.ObserveIslandLocalPosition(player, p.X, p.Y, p.Z);
                 }
+
+                WorldsAdriftRebornGameServer.TerrainInterest?.ObserveGlobalPosition(
+                    player, WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(player));
             }
 
             // Carry echo. The client-side ship carry

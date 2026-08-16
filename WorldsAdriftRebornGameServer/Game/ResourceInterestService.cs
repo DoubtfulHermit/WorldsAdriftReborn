@@ -39,6 +39,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly Dictionary<long, WorldEntity> _resources = new();
         private readonly Dictionary<string, long> _resourceIdsByKey = new(StringComparer.Ordinal);
         private readonly Dictionary<long, IslandId> _resourceIslands = new();
+        private Func<ENetPeerHandle, IslandId, bool>? _terrainReady;
 
         public ResourceInterestService(IClock clock, WorldEntityRegistry registry,
             IslandRegistry islands, RegionRegistry regions)
@@ -117,6 +118,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 directory ?? throw new ArgumentNullException(nameof(directory)));
         }
 
+        /// <summary>
+        /// Binds the terrain lifecycle after both services exist. A null/unbound gate
+        /// is the legacy fail-open path and therefore preserves disabled-mode wire
+        /// behaviour exactly. Once bound, no resource AddEntity or late component
+        /// request can outrun its owning terrain root.
+        /// </summary>
+        public void AttachTerrainReadiness(Func<ENetPeerHandle, IslandId, bool> terrainReady)
+        {
+            _terrainReady = terrainReady ?? throw new ArgumentNullException(nameof(terrainReady));
+        }
+
         public void NoteLoaded(ENetPeerHandle peer, long entityId)
         {
             if (Enabled && _resources.ContainsKey(entityId)) StateFor(peer).Loaded.Add(entityId);
@@ -151,7 +163,41 @@ namespace WorldsAdriftRebornGameServer.Game
             WorldEntity? entity = _registry.ByEntityId(entityId);
             bool streamed = entity != null && ResourceInterestPolicy.IsStreamedResourceKey(entity.Key);
             bool loaded = _peers.TryGetValue(peer, out PeerState? state) && state.Loaded.Contains(entityId);
-            return ResourceInterestPolicy.MayServeComponents(Interest.Enabled, streamed, loaded);
+            bool checkoutAllows = ResourceInterestPolicy.MayServeComponents(
+                Interest.Enabled, streamed, loaded);
+            if (!streamed || !_resourceIslands.TryGetValue(entityId, out IslandId island))
+            {
+                return checkoutAllows;
+            }
+            bool terrainReady = _terrainReady == null || _terrainReady(peer, island);
+            return IslandTerrainResourceOrderingPolicy.MayServeResourceComponents(
+                checkoutAllows, _terrainReady != null, terrainReady);
+        }
+
+        /// <summary>
+        /// Cancels this island's pending resource adds and drains its loaded resource
+        /// entities before terrain removal. Returns true only after the wire-facing
+        /// loaded ledger is empty. An old client without channel 5 necessarily keeps
+        /// both resources and terrain for the rest of its session.
+        /// </summary>
+        public bool DrainIslandBeforeTerrainRemoval(ENetPeerHandle peer, IslandId island)
+        {
+            if (!Enabled || !_peers.TryGetValue(peer, out PeerState? state)) return true;
+
+            IReadOnlyList<ResourceStreamAction> drain =
+                IslandTerrainResourceOrderingPolicy.DrainBeforeTerrainRemoval(
+                    state.Pending, state.Loaded, _resourceIslands, island);
+            ResourceInterestPolicy.ReplacePending(state.Pending, drain, MaxQueuedPerPeer);
+            if (state.AssetRequestedFor != 0
+                && _resourceIslands.TryGetValue(state.AssetRequestedFor, out IslandId requestedIsland)
+                && requestedIsland == island)
+            {
+                state.AssetRequestedFor = 0;
+            }
+            state.NextSend = TimeSpan.Zero;
+            state.NextReconcile = _clock.Elapsed + ReconcileInterval;
+            return IslandTerrainResourceOrderingPolicy.IsDrained(
+                state.Loaded, _resourceIslands, island);
         }
 
         /// <summary>
@@ -305,6 +351,21 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
 
                 WorldEntity entity = _resources[action.EntityId];
+                IslandId actionIsland = _resourceIslands[action.EntityId];
+                bool terrainReady = _terrainReady == null || _terrainReady(peer, actionIsland);
+                if (!IslandTerrainResourceOrderingPolicy.MayAddResource(
+                        _terrainReady != null, terrainReady))
+                {
+                    // Drop rather than park a stale head: the next reconcile will
+                    // requeue it after terrain becomes ready, while removals and
+                    // other-island work remain free to progress now.
+                    state.Pending.Dequeue();
+                    if (state.AssetRequestedFor == action.EntityId) state.AssetRequestedFor = 0;
+                    Console.WriteLine("[resource-interest] deferred '" + entity.Key
+                        + "' because terrain for island " + actionIsland + " is not ready for "
+                        + peer.DangerousGetHandle() + ".");
+                    continue;
+                }
                 if (state.AssetRequestedFor != action.EntityId)
                 {
                     SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", entity.AssetName, entity.AssetContext);

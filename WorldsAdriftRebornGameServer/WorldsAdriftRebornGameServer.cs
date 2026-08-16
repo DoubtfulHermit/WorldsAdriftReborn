@@ -33,6 +33,7 @@ namespace WorldsAdriftRebornGameServer
                     PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
                 }
                 ShipInterest.NotePeerConnected(ePeer);
+                TerrainInterest?.NotePeerConnected(ePeer);
 
                 // Live-session bookkeeping for the operator dashboard. Keyed by
                 // the same peer id every later lookup uses, and stamped with wall
@@ -226,6 +227,7 @@ namespace WorldsAdriftRebornGameServer
             SentEntities.ForgetPeer(peer);
             ResourceInterest.Forget(peer);
             ShipInterest.Forget(peer);
+            TerrainInterest?.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
@@ -2405,6 +2407,29 @@ namespace WorldsAdriftRebornGameServer
             new Game.ResourceInterestService(
                 ServerClock, WorldEntities, IslandTopology, RegionTopology);
 
+        // Terrain streaming cannot safely run while resources retain their legacy
+        // all-world connect lifecycle: that could leave a resource instantiated
+        // after its optional ground was removed. Require both flags and say so in
+        // the startup diagnostics rather than weakening the ordering invariant.
+        internal static readonly bool TerrainInterestFeatureEnabled =
+            ResourceInterest.Enabled
+            && Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledEnvVar));
+
+        internal static readonly double TerrainInterestLoadRadius =
+            Multiplayer.Islands.IslandTerrainInterestPolicy.LoadRadiusFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.LoadRadiusEnvVar));
+
+        /// <summary>
+        /// Optional-island terrain lifecycle. It is initialized only after the
+        /// canonical directory and local authority host exist; before then no peer
+        /// can connect. Nullable solely because static construction precedes Main's
+        /// post-restore ownership bootstrap.
+        /// </summary>
+        internal static Game.IslandTerrainInterestService? TerrainInterest;
+
         /// <summary>Whole-ship per-peer checkout with load/unload hysteresis.</summary>
         internal static readonly Game.ShipDomainInterestService ShipInterest =
             new Game.ShipDomainInterestService(ServerClock, ShipDomains, WorldEntities);
@@ -2866,6 +2891,7 @@ namespace WorldsAdriftRebornGameServer
                     + entity.Key + "' (" + entityId + ").");
                 SentEntities.MarkSent(peer, entityId);
                 ResourceInterest.NoteLoaded(peer, entityId);
+                TerrainInterest?.NoteLoaded(peer, entityId);
 
                 // Visibility and authority are deliberately independent. With
                 // spatial interest disabled this is the legacy first-activation
@@ -3174,6 +3200,22 @@ namespace WorldsAdriftRebornGameServer
             if (packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP)
             {
                 FlushPendingMirrors(PeerIdentity.IdOf(sender));
+
+                // New clients return the exact AssetType/Name/Context in a
+                // marked protobuf response. Runtime loaders need that
+                // correlation; the spawn chain above deliberately retains its
+                // legacy behavior for old clients' opaque eight-byte response.
+                if (EnetLayer.TryDeserializeAssetLoadedAck(packet->Data,
+                        packet->DataLength, out string assetType,
+                        out string assetName, out string assetContext))
+                {
+                    AssetLoadedAck ack = new(senderId, assetType, assetName, assetContext);
+                    foreach (Exception error in AssetLoadedAckRouter.Publish(ack))
+                    {
+                        Console.WriteLine("[warning] correlated asset-loaded subscriber failed for '"
+                            + assetName + "': " + error.Message);
+                    }
+                }
             }
 
             // work on packets that are not relevant for progress of sync state
@@ -3413,10 +3455,11 @@ namespace WorldsAdriftRebornGameServer
                             // authoritative checkout still says it is loaded. Essential
                             // entities and interest-disabled mode fail open.
                             if (!ResourceInterest.MayServe(keyValuePair.Key, entityId)
-                                || !ShipInterest.MayServe(keyValuePair.Key, entityId))
+                                || !ShipInterest.MayServe(keyValuePair.Key, entityId)
+                                || !(TerrainInterest?.MayServe(keyValuePair.Key, entityId) ?? true))
                             {
                                 Console.WriteLine("[interest] ignored late component request for unloaded streamed"
-                                    + " resource entity " + entityId + " from "
+                                    + " entity " + entityId + " from "
                                     + Describe(keyValuePair.Key.DangerousGetHandle()) + ".");
                                 continue;
                             }
@@ -3756,7 +3799,8 @@ namespace WorldsAdriftRebornGameServer
             }
 
             bool BarrierInitial(WorldEntity entity) =>
-                ConnectInterestPolicy.IsInitial(
+                Multiplayer.Islands.IslandTerrainConnectPolicy.IsInitial(
+                    ConnectInterestPolicy.IsInitial(
                     entity.Key,
                     IsMountedShipPart(entity),
                     LoadBarrierPolicy.IsInitialKey(entity.Key),
@@ -3764,7 +3808,13 @@ namespace WorldsAdriftRebornGameServer
                     SpawnPolicy.PlayerSpawnPosition,
                     ConnectGatePosition(entity),
                     Game.Interest.InitialRadiusMetres,
-                    ShipInterest.LoadRadiusMetres);
+                    ShipInterest.LoadRadiusMetres),
+                    Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                        TerrainInterestFeatureEnabled,
+                        IslandTopology.ByWorldEntityKey(entity.Key)),
+                    SpawnPolicy.PlayerSpawnPosition,
+                    IslandTopology.ByWorldEntityKey(entity.Key),
+                    TerrainInterestLoadRadius);
 
             IReadOnlyList<SpawnPlanStep> plan;
             if (Game.LoadBarrier.Enabled)
@@ -3801,8 +3851,9 @@ namespace WorldsAdriftRebornGameServer
                     + Multiplayer.Regions.RegionCatalog.FirstTierOneRegionId + ", islands="
                     + string.Join(", ", Multiplayer.Islands.IslandCatalog.FirstRegionTerrain
                         .Skip(1).Take(FirstRegionTerrainCount).Select(island => island.DisplayName))
-                    + ". Terrain only; no candidate resource profiles and no continuous"
-                    + " terrain unload. Not a production-acceptance claim.");
+                    + ". Terrain only; no candidate resource profiles. Continuous terrain interest is "
+                    + (TerrainInterestFeatureEnabled ? "ON" : "OFF")
+                    + ". Not a production-acceptance claim.");
             }
 
             // ELASTIC-RUNTIME FOUNDATION. Build the canonical ownership directory
@@ -3817,6 +3868,28 @@ namespace WorldsAdriftRebornGameServer
             Game.LocalDomainOwnership.Bootstrap(
                 DomainHost, worldDirectory, WorldEntities, ShipDomains,
                 IslandTopology, RegionTopology);
+            TerrainInterest = new Game.IslandTerrainInterestService(
+                ServerClock, WorldEntities, IslandTopology, worldDirectory,
+                ResourceInterest.DrainIslandBeforeTerrainRemoval,
+                entityId => DomainHost.OwnerOf(entityId) != null,
+                enabled: TerrainInterestFeatureEnabled);
+            if (TerrainInterest.Enabled)
+            {
+                ResourceInterest.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
+                Console.WriteLine("[terrain-interest] ON: optional island terrain uses "
+                    + TerrainInterest.LoadRadiusMetres.ToString("0.#") + " m load / "
+                    + TerrainInterest.UnloadRadiusMetres.ToString("0.#")
+                    + " m unload hysteresis; resource checkout is terrain-gated.");
+            }
+            else if (Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledEnvVar))
+                && !ResourceInterest.Enabled)
+            {
+                Console.WriteLine("[warning] terrain-interest requested but safely disabled:"
+                    + " WAREBORN_INTEREST_RADIUS_M must also enable resource interest so"
+                    + " resources can never outlive their terrain.");
+            }
 
             GameState.Instance.WorldState[0] = plan
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step), () =>
@@ -3895,23 +3968,53 @@ namespace WorldsAdriftRebornGameServer
             bool[] gatedStep = plan
                 .Select(s => s.Entity != null
                              && s.Entity.Order == SpawnOrder.AfterPlayer
-                             && ConnectInterestPolicy.IsGateable(
+                             && (ConnectInterestPolicy.IsGateable(
                                  s.Entity.Key,
                                  IsMountedShipPart(s.Entity),
-                                 ResourceInterest.Enabled))
+                                 ResourceInterest.Enabled)
+                                || Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                                    TerrainInterestFeatureEnabled,
+                                    IslandTopology.ByWorldEntityKey(s.Entity.Key))))
+                .ToArray();
+            Multiplayer.Islands.IslandDefinition?[] gateTerrainIsland = plan
+                .Select(s => s.Entity == null ? null
+                    : IslandTopology.ByWorldEntityKey(s.Entity.Key))
+                .ToArray();
+            bool[] terrainGatedStep = gateTerrainIsland
+                .Select(island => Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                    TerrainInterestFeatureEnabled, island))
                 .ToArray();
             Multiplayer.FixedPointPosition[] gateEntityPos = plan
                 .Select(s => s.Entity != null ? ConnectGatePosition(s.Entity) : default)
                 .ToArray();
+
             double[] gateRadius = plan
                 .Select(s => s.Entity != null
-                    ? ConnectInterestPolicy.RadiusFor(
+                    ? (Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                            TerrainInterestFeatureEnabled,
+                            IslandTopology.ByWorldEntityKey(s.Entity.Key))
+                        ? TerrainInterestLoadRadius
+                        : ConnectInterestPolicy.RadiusFor(
                         s.Entity.Key,
                         IsMountedShipPart(s.Entity),
                         Game.Interest.InitialRadiusMetres,
-                        ShipInterest.LoadRadiusMetres)
+                        ShipInterest.LoadRadiusMetres))
                     : 0d)
                 .ToArray();
+
+            bool ConnectGateInRange(
+                int stepIndex, Multiplayer.FixedPointPosition center)
+            {
+                Multiplayer.Islands.IslandDefinition? island = gateTerrainIsland[stepIndex];
+                if (terrainGatedStep[stepIndex] && island != null)
+                {
+                    return Multiplayer.Islands.IslandTerrainEnvelopes.Require(island.Id)
+                        .DistanceSquaredTo(center, island)
+                        <= gateRadius[stepIndex] * gateRadius[stepIndex];
+                }
+                return InterestPolicy.InRange(
+                    center, gateEntityPos[stepIndex], gateRadius[stepIndex]);
+            }
 
             int gateableCount = gatedStep.Count(g => g);
             if (gateableCount > 0)
@@ -3921,8 +4024,9 @@ namespace WorldsAdriftRebornGameServer
                     + Game.Interest.InitialRadiusMetres.ToString("0.#")
                     + " m at connect; whole built-ship domains use "
                     + ShipInterest.LoadRadiusMetres.ToString("0.#")
-                    + " m. Remote ships are not instantiated during login and return root-first through"
-                    + " live ship interest when approached.");
+                    + " m; optional terrain uses " + TerrainInterestLoadRadius.ToString("0.#")
+                    + " m when enabled. Remote domains are not instantiated during login and"
+                    + " return root-first through their live interest owner when approached.");
             }
             else
             {
@@ -3994,6 +4098,10 @@ namespace WorldsAdriftRebornGameServer
                 // on the loading screen. No-op when nothing is pending (barrier off,
                 // or every joiner already activated). See TickLoadBarrierTimeouts.
                 TickLoadBarrierTimeouts();
+                // Terrain first: its removal request starts a resource drain and
+                // waits; its successful add makes the resource gate ready before
+                // resources reconcile later in this same loop turn.
+                TerrainInterest?.Tick();
                 ResourceInterest.Tick();
                 // Avatar relay remains 20 Hz, but any authoritative ship frame
                 // forces its aboard players to emit immediately after the hull on
@@ -4111,7 +4219,7 @@ namespace WorldsAdriftRebornGameServer
                             Game.Interest.CenterFor(PeerIdentity.IdOf(keyValuePair.Key));
                         while (pStatus.SyncStepPointer < lastStep
                                && gatedStep[pStatus.SyncStepPointer]
-                               && !InterestPolicy.InRange(center, gateEntityPos[pStatus.SyncStepPointer], gateRadius[pStatus.SyncStepPointer]))
+                               && !ConnectGateInRange(pStatus.SyncStepPointer, center))
                         {
                             pStatus.SyncStepPointer++;
                         }
@@ -4131,7 +4239,7 @@ namespace WorldsAdriftRebornGameServer
                         if (pStatus.SyncStepPointer == lastStep
                             && !pStatus.Performed
                             && gatedStep[lastStep]
-                            && !InterestPolicy.InRange(center, gateEntityPos[lastStep], gateRadius[lastStep]))
+                            && !ConnectGateInRange(lastStep, center))
                         {
                             Console.WriteLine("[interest] final plan step '" + stepDesc[lastStep]
                                 + "' is outside this peer's interest radius; completing its spawn chain"
@@ -4198,12 +4306,14 @@ namespace WorldsAdriftRebornGameServer
                     {
                         ResourceInterest.NoteConnectPlanComplete(keyValuePair.Key);
                         ShipInterest.NoteConnectPlanComplete(keyValuePair.Key);
+                        TerrainInterest?.NoteConnectPlanComplete(keyValuePair.Key);
                         PrepareRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                         DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }
                 }
             }
 
+            TerrainInterest?.Dispose();
             server.Dispose();
 
             Console.WriteLine("[info] shutting down.");

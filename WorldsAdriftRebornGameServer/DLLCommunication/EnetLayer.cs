@@ -76,6 +76,39 @@ namespace WorldsAdriftRebornGameServer.DLLCommunication
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_AssetLoadRequestOp_Serialize")]
         public static unsafe extern void* PB_AssetLoadRequestOp_Serialize( AssetLoadRequestOp* op, int* len );
 
+        [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_AssetLoadedAck_Deserialize")]
+        [return: MarshalAs(UnmanagedType.I1)]
+        private static unsafe extern bool PB_AssetLoadedAck_Deserialize(
+            void* data, int len, AssetLoadedAck* ack);
+
+        [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_AssetLoadedAck_Free")]
+        private static unsafe extern void PB_AssetLoadedAck_Free(AssetLoadedAck* ack);
+
+        /// <summary>
+        /// Parses only the marked correlated v1 response. Legacy eight-byte
+        /// responses and malformed/unmarked protobuf return false.
+        /// </summary>
+        public static unsafe bool TryDeserializeAssetLoadedAck(
+            void* data, int len, out string assetType, out string name, out string context)
+        {
+            assetType = string.Empty;
+            name = string.Empty;
+            context = string.Empty;
+            AssetLoadedAck ack = default;
+            if (!PB_AssetLoadedAck_Deserialize(data, len, &ack)) return false;
+            try
+            {
+                assetType = Marshal.PtrToStringUTF8(ack.AssetType) ?? string.Empty;
+                name = Marshal.PtrToStringUTF8(ack.Name) ?? string.Empty;
+                context = Marshal.PtrToStringUTF8(ack.Context) ?? string.Empty;
+                return assetType.Length != 0 && name.Length != 0 && context.Length != 0;
+            }
+            finally
+            {
+                PB_AssetLoadedAck_Free(&ack);
+            }
+        }
+
         [DllImport("CoreSdkDll", CallingConvention = CallingConvention.Cdecl, EntryPoint = "PB_EXP_AddEntityOp_Serialize")]
         public static unsafe extern void* PB_AddEntityOp_Serialize( AddEntityOp* op, int* len, long entityId );
 

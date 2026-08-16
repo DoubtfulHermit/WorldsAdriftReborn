@@ -574,8 +574,10 @@ bounded rollout set to exactly one terrain (`Mental Facility`); it is not yet
 visually accepted. Mental Facility has the first guarded named landing destination,
 `mental-facility`, derived from its extracted top surface; both the game server
 and admin page refuse it unless at least the first tier-1 terrain is registered.
-Do not enable all four at once: terrain has no continuous
-distance checkout yet and the four bundles total roughly 42.5 MiB compressed.
+Do not enable all four at once. Continuous distance checkout is implemented on
+the isolated `feat/island-terrain-interest` branch, with exact cold-asset ACKs,
+terrain/resource ordering and safe teleport deferral, but is not deployed or
+visually accepted. The four bundles total roughly 42.5 MiB compressed.
 See `docs/research/findings-first-region-terrain.md`.
 
 Production verification after the `07270f1` restart: stats schema 4 reported

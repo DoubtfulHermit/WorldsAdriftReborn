@@ -168,8 +168,18 @@ OpList* Connection::GetOpList() {
 
 void Connection::SendAssetLoaded(AssetLoaded* asset_loaded) {
     Logger::Debug("ASSET LOADED: " + std::string(asset_loaded->Name) + " " + asset_loaded->Context);
-    // send ack
-    ENet_Send(this->peer, CH_AssetLoadRequestOp, asset_loaded, sizeof(asset_loaded), WAR_PACKET_RELIABLE);
+    // Correlated v1 ack. The old implementation sent sizeof(asset_loaded)
+    // bytes, i.e. only the struct's first pointer-sized field rather than the
+    // three strings. Spawn sequencing only needed "some channel-0 packet", but a
+    // runtime terrain loader must know exactly which request completed.
+    int len = 0;
+    void* payload = PB_AssetLoadedAck_Serialize(asset_loaded, &len);
+    if (payload == NULL || len <= 0) {
+        Logger::Debug("FAILED TO SERIALIZE ASSET LOADED ACK");
+        return;
+    }
+    ENet_Send(this->peer, CH_AssetLoadRequestOp, payload, len, WAR_PACKET_RELIABLE);
+    PB_Free(payload);
 }
 
 bool Connection::DeserializeComponent(unsigned int component_id, ClientObjectType objType, char* buffer, unsigned int length, ClientObject** obj) {

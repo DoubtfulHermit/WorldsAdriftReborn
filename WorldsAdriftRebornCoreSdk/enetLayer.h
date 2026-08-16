@@ -48,6 +48,10 @@ DLL_EXPORT int __cdecl ENet_EXP_PeerChannelCount(ENetPeer* peer);
 DLL_EXPORT void __cdecl ENet_EXP_Flush(ENetHost* client);
 
 DLL_EXPORT void* __cdecl PB_EXP_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len);
+DLL_EXPORT void* __cdecl PB_EXP_AssetLoadedAck_Serialize(AssetLoaded* ack, int* len);
+DLL_EXPORT bool __cdecl PB_EXP_AssetLoadedAck_Deserialize(
+    const void* data, int len, AssetLoaded* ack);
+DLL_EXPORT void __cdecl PB_EXP_AssetLoadedAck_Free(AssetLoaded* ack);
 DLL_EXPORT void* __cdecl PB_EXP_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId);
 DLL_EXPORT bool __cdecl PB_EXP_SendComponentInterest_Deserialize(const void* data, int len, long* entityId, InterestOverride** interest_override, unsigned int* interest_override_count);
 DLL_EXPORT void* __cdecl PB_EXP_AddComponentOp_Serialize(long entityId, PB_AddComponentOp* addComponentOp, unsigned int addComponentOp_count, int* len);
@@ -91,6 +95,9 @@ void ENet_Flush(ENetHost* client);
 
 void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len);
 bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadRequestOp* op);
+void* PB_AssetLoadedAck_Serialize(AssetLoaded* ack, int* len);
+bool PB_AssetLoadedAck_Deserialize(const void* data, int len, AssetLoaded* ack);
+void PB_AssetLoadedAck_Free(AssetLoaded* ack);
 void* PB_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId);
 bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op);
 void* PB_RemoveEntityOp_Serialize(std::int64_t entityId,

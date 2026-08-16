@@ -34,6 +34,16 @@ void __cdecl ENet_EXP_Flush(ENetHost* client) {
 void* __cdecl PB_EXP_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     return PB_AssetLoadRequestOp_Serialize(op, len);
 }
+void* __cdecl PB_EXP_AssetLoadedAck_Serialize(AssetLoaded* ack, int* len) {
+    return PB_AssetLoadedAck_Serialize(ack, len);
+}
+bool __cdecl PB_EXP_AssetLoadedAck_Deserialize(
+    const void* data, int len, AssetLoaded* ack) {
+    return PB_AssetLoadedAck_Deserialize(data, len, ack);
+}
+void __cdecl PB_EXP_AssetLoadedAck_Free(AssetLoaded* ack) {
+    PB_AssetLoadedAck_Free(ack);
+}
 void* __cdecl PB_EXP_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId) {
     return PB_AddEntityOp_Serialize(op, len, entityId);
 }
@@ -349,6 +359,83 @@ void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     // Hand back a caller-owned copy (freed via PB_Free). Returning
     // serialized.data() leaked the std::string on every send - see FIX 2.
     return PB_TakeOwnership(serialized, len);
+}
+
+namespace {
+    // The Url field is unused by the client asset-loading response. Giving the
+    // correlated response an explicit marker makes it impossible to mistake
+    // the legacy response (eight opaque bytes containing a client pointer) for
+    // protobuf merely because those bytes happen to be parseable.
+    const char* kAssetLoadedAckMarker = "wareborn.asset-loaded.v1";
+
+    char* CopyAckField(const std::string& value) {
+        char* result = new char[value.size() + 1];
+        memcpy(result, value.data(), value.size());
+        result[value.size()] = '\0';
+        return result;
+    }
+}
+
+void* PB_AssetLoadedAck_Serialize(AssetLoaded* ack, int* len) {
+    if (len != NULL) *len = 0;
+    if (ack == NULL || len == NULL || ack->AssetType == NULL
+        || ack->Name == NULL || ack->Context == NULL) {
+        return NULL;
+    }
+
+    WorldsAdriftRebornCoreSdk::AssetLoadRequestOp pb_op;
+    pb_op.set_assettype(ack->AssetType);
+    pb_op.set_name(ack->Name);
+    pb_op.set_context(ack->Context);
+    pb_op.set_url(kAssetLoadedAckMarker);
+
+    std::string serialized;
+    if (!pb_op.SerializeToString(&serialized)) return NULL;
+    return PB_TakeOwnership(serialized, len);
+}
+
+bool PB_AssetLoadedAck_Deserialize(const void* data, int len, AssetLoaded* ack) {
+    if (ack == NULL) return false;
+    ack->AssetType = NULL;
+    ack->Name = NULL;
+    ack->Context = NULL;
+
+    // Old clients send sizeof(AssetLoaded*) bytes from Connection.cpp. Never
+    // feed those opaque pointer bytes into protobuf. The marked v1 payload is
+    // necessarily much larger than either a 32- or 64-bit pointer.
+    if (data == NULL || len <= static_cast<int>(sizeof(void*)) || len > 4096) {
+        return false;
+    }
+
+    WorldsAdriftRebornCoreSdk::AssetLoadRequestOp pb_op;
+    if (!pb_op.ParseFromArray(data, len)
+        || !pb_op.has_url() || pb_op.url() != kAssetLoadedAckMarker
+        || !pb_op.has_assettype() || pb_op.assettype().empty()
+        || !pb_op.has_name() || pb_op.name().empty()
+        || !pb_op.has_context() || pb_op.context().empty()
+        || pb_op.assettype().find('\0') != std::string::npos
+        || pb_op.name().find('\0') != std::string::npos
+        || pb_op.context().find('\0') != std::string::npos
+        || pb_op.assettype().size() > 512
+        || pb_op.name().size() > 512
+        || pb_op.context().size() > 1024) {
+        return false;
+    }
+
+    ack->AssetType = CopyAckField(pb_op.assettype());
+    ack->Name = CopyAckField(pb_op.name());
+    ack->Context = CopyAckField(pb_op.context());
+    return true;
+}
+
+void PB_AssetLoadedAck_Free(AssetLoaded* ack) {
+    if (ack == NULL) return;
+    delete[] ack->AssetType;
+    delete[] ack->Name;
+    delete[] ack->Context;
+    ack->AssetType = NULL;
+    ack->Name = NULL;
+    ack->Context = NULL;
 }
 
 bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadRequestOp* op) {

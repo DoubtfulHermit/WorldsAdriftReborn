@@ -1,7 +1,8 @@
 # First release-region terrain seed
 
-Status: implemented behind an off-by-default server setting; not deployed or
-visually accepted.
+Status: bounded terrain registration and continuous per-peer terrain checkout
+are implemented behind separate off-by-default server settings; not deployed
+or visually accepted.
 
 ## Proven source and rollout
 
@@ -39,15 +40,38 @@ databank parent lookup and admin topology share one configured island/region
 registry. Haven and Trades retain their existing regions; selected tier-1
 islands form `tier1-b3-region`. The zero-count topology remains unchanged.
 
+## Continuous terrain checkout
+
+`WAREBORN_TERRAIN_INTEREST_ENABLED=1` enables optional-island checkout only when
+resource interest is also enabled. Haven remains unconditional. Optional terrain
+uses extracted collision-surface AABBs plus configurable load/unload hysteresis,
+not origin-only distance. The connect plan skips distant optional terrain as a
+RequestAsset/AddEntity unit; live movement later adds it after an exact correlated
+asset-loaded acknowledgement. New clients carry asset name/context in a marked
+channel-0 protobuf; legacy eight-byte acknowledgements use a bounded fallback and
+retain visited terrain instead of attempting unsafe remove/re-add.
+
+Resources cannot add before their owning terrain is ready and are drained before
+terrain removal. Destination terrain loads before source terrain can leave.
+Teleports to optional islands defer until that peer has the destination checkout,
+then execute once, or fail safely after a bounded wait. Channel-5 teardown clears
+served components, native client-object references and the per-peer AddEntity
+ledger before a legal re-entry.
+
+The default tuning is 1200 m load, 1600 m unload and a 30 s cold-bundle ACK
+timeout (clamped 10–120 s, with one re-request). The feature remains local
+single-process visual checkout; it does not move IslandDomain authority or alter
+persistence.
+
 ## Acceptance boundary
 
-This is infrastructure, not a production enablement. Terrain currently enters
-the joining peer's paced spawn plan and is not continuously checked out by
-distance. Enabling all four adds roughly 42.5 MiB of compressed bundles and can
-also make distant terrain remain visible. Accept one count at a time while
-recording login duration, asset acknowledgements/timeouts, client memory/frame
-time, collision, reconnect and two-client behavior. Terrain interest/unload is
-the next prerequisite before treating the whole cluster as a normal live world.
+This is infrastructure, not a production enablement. Continuous checkout has
+passed headless policy, protocol, native round-trip and full server tests, but it
+still needs real Unity acceptance. Accept one count at a time while recording
+login duration, exact asset acknowledgements/timeouts, client memory/frame time,
+collision, approach/leave/re-entry, teleport deferral, reconnect and independent
+two-client visibility. Do not enable all four merely because headless tests pass;
+the four bundles total roughly 42.5 MiB compressed.
 Mental Facility now has the first guarded visual-test destination:
 `mental-facility`. Its island-local surface point is `(120.00, 34.26, -16.00)`
 with a 2 m capsule stand-off. The extracted vertex normal is `ny=0.990`, the
