@@ -56,8 +56,16 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
         public static unsafe bool SendRemoveEntityOP(ENetPeerHandle destination, long entityId)
         {
+            IReadOnlyList<uint> served = WorldsAdriftRebornGameServer.ServedComponents
+                .ServedOf(destination, entityId);
+            uint[] componentIds = served.Count == 0 ? Array.Empty<uint>() : served.ToArray();
             int len = 0;
-            void* ptr = EnetLayer.PB_RemoveEntityOp_Serialize(entityId, &len);
+            void* ptr;
+            fixed (uint* components = componentIds)
+            {
+                ptr = EnetLayer.PB_RemoveEntityOp_Serialize(
+                    entityId, components, (uint)componentIds.Length, &len);
+            }
             bool sent = false;
             if (ptr != null && len > 0)
             {

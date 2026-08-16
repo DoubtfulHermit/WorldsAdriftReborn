@@ -6,6 +6,7 @@
 void Dispatcher::RegisterAddEntityCallback(AddEntityCallback callback, void* GCHandle) { this->addEntityCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterAssetLoadRequestCallback(AssetLoadRequestCallback callback, void* GCHandle) { this->assetLoadRequestCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterAddComponentCallback(AddComponentCallback callback, void* GCHandle) { this->addComponentCallback = callback; this->GCHandle = GCHandle; }
+void Dispatcher::RegisterRemoveComponentCallback(RemoveComponentCallback callback, void* GCHandle) { this->removeComponentCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterAuthorityChangeCallback(AuthorityChangeCallback callback, void* GCHandle) { this->authorityChangeCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterComponentUpdateCallback(ComponentUpdateCallback callback, void* GCHandle) { this->componentUpdateCallback = callback; this->GCHandle = GCHandle; }
 void Dispatcher::RegisterRemoveEntityCallback(RemoveEntityCallback callback, void* GCHandle) { this->removeEntityCallback = callback; this->GCHandle = GCHandle; }
@@ -58,6 +59,19 @@ void Dispatcher::Process(OpList* op_list) {
 
             delete op;
         }
+    }
+    // SpatialOS removes component state before the entity object. Generated
+    // component stores use these callbacks to forget the entity id; omitting
+    // them leaves a later re-checkout reporting every component as a duplicate.
+    if (op_list != nullptr && op_list->removeComponentOp != nullptr) {
+        if (this->removeComponentCallback != nullptr) {
+            for (int i = 0; i < op_list->removeComponentLen; i++) {
+                this->removeComponentCallback(this->GCHandle, &op_list->removeComponentOp[i]);
+            }
+        }
+        delete[] op_list->removeComponentOp;
+        op_list->removeComponentOp = nullptr;
+        op_list->removeComponentLen = 0;
     }
     if (op_list != nullptr && op_list->removeEntityOp != nullptr && this->removeEntityCallback != nullptr) {
         this->removeEntityCallback(this->GCHandle, op_list->removeEntityOp);

@@ -54,7 +54,9 @@ DLL_EXPORT void* __cdecl PB_EXP_AddComponentOp_Serialize(long entityId, PB_AddCo
 DLL_EXPORT void* __cdecl PB_EXP_AuthorityChangeOp_Serialize(long entityId, Stripped_AuthorityChangeOp* authorityChangeOp, unsigned int authorityChangeOp_count, int* len);
 DLL_EXPORT void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpdateOp* componentUpdateOp, unsigned int componentUpdateOp_count, int* len);
 DLL_EXPORT bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count);
-DLL_EXPORT void* __cdecl PB_EXP_RemoveEntityOp_Serialize(std::int64_t entityId, int* len);
+DLL_EXPORT void* __cdecl PB_EXP_RemoveEntityOp_Serialize(
+    std::int64_t entityId, const std::uint32_t* componentIds,
+    std::uint32_t componentCount, int* len);
 
 // Frees a buffer previously returned by any PB_*_Serialize export. See the
 // ownership contract on PB_Free below. NULL is a safe no-op.
@@ -91,8 +93,10 @@ void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len);
 bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadRequestOp* op);
 void* PB_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId);
 bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op);
-void* PB_RemoveEntityOp_Serialize(std::int64_t entityId, int* len);
-bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op);
+void* PB_RemoveEntityOp_Serialize(std::int64_t entityId,
+    const std::uint32_t* componentIds, std::uint32_t componentCount, int* len);
+bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op,
+    RemoveComponentOp** components, int* componentCount);
 void* PB_SendComponentInterest_Serialize(long entityId, InterestOverride* interest_override, unsigned int interest_override_count, int* len);
 bool PB_SendComponentInterest_Deserialize(const void* data, int len, long* entityId, InterestOverride** interest_override, unsigned int* interest_override_count);
 void* PB_AddComponentOp_Serialize(long entityId, PB_AddComponentOp* addComponentOp, unsigned int addComponentOp_count, int* len);

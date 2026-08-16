@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VTable.h"
+#include <cstddef>
 #include <cstdint>
 
 struct EntityId {
@@ -216,9 +217,13 @@ struct AddComponentOp{
 };
 
 struct RemoveComponentOp {
-    long EntityId;
-    unsigned int ComponentId;
+    std::int64_t EntityId;
+    std::uint32_t ComponentId;
 };
+static_assert(offsetof(RemoveComponentOp, EntityId) == 0,
+    "RemoveComponentOp entity id must begin at offset zero");
+static_assert(offsetof(RemoveComponentOp, ComponentId) == 8,
+    "RemoveComponentOp ABI must match WorkerSdkCsharp");
 
 struct Stripped_AuthorityChangeOp {
     unsigned int ComponentId;

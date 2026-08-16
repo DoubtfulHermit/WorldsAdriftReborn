@@ -12,6 +12,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
     /// </summary>
     public class ServedComponentLedgerTests
     {
+        [Fact]
+        public void Served_snapshot_is_sorted_and_cleared_with_entity()
+        {
+            var ledger = new ServedComponentLedger<int>();
+            ledger.MarkServed(7, 42, new uint[] { 190602, 1099, 1130 });
+
+            Assert.Equal(new uint[] { 1099, 1130, 190602 }, ledger.ServedOf(7, 42));
+
+            ledger.ForgetEntity(7, 42);
+            Assert.Empty(ledger.ServedOf(7, 42));
+        }
+
         private const long Deck = 4;
 
         [Fact]

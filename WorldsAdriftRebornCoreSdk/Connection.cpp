@@ -150,7 +150,9 @@ OpList* Connection::GetOpList() {
             }
             else if (packet->channel == CH_RemoveEntityOp) {
                 op_list->removeEntityOp = new RemoveEntityOp();
-                if (!PB_RemoveEntityOp_Deserialize(packet->data, packet->dataLength, op_list->removeEntityOp)) {
+                if (!PB_RemoveEntityOp_Deserialize(packet->data, packet->dataLength,
+                        op_list->removeEntityOp, &op_list->removeComponentOp,
+                        &op_list->removeComponentLen)) {
                     delete op_list->removeEntityOp;
                     op_list->removeEntityOp = NULL;
                     Logger::Debug("FAILED TO DESERIALIZE RemoveEntityOp");

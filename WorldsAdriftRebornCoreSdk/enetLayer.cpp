@@ -1,4 +1,5 @@
 #include "enetLayer.h"
+#include <vector>
 
 int __cdecl ENet_EXP_Initialize() {
     return ENet_Initialize();
@@ -51,8 +52,9 @@ void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpda
 bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count) {
     return PB_ComponentUpdateOp_Deserialize(data, len, entityId, componentUpdateOp, componentUpdateOp_count);
 }
-void* __cdecl PB_EXP_RemoveEntityOp_Serialize(std::int64_t entityId, int* len) {
-    return PB_RemoveEntityOp_Serialize(entityId, len);
+void* __cdecl PB_EXP_RemoveEntityOp_Serialize(std::int64_t entityId,
+    const std::uint32_t* componentIds, std::uint32_t componentCount, int* len) {
+    return PB_RemoveEntityOp_Serialize(entityId, componentIds, componentCount, len);
 }
 void __cdecl PB_EXP_Free(void* handle) {
     PB_Free(handle);
@@ -248,33 +250,66 @@ static void* PB_TakeOwnership(const std::string& serialized, int* len) {
     return out;
 }
 
-void* PB_RemoveEntityOp_Serialize(std::int64_t entityId, int* len) {
-    if (len == NULL) return NULL;
-    std::string serialized;
-    serialized.push_back(static_cast<char>(0x08)); // field 1, int64 varint
-    unsigned long long value = static_cast<unsigned long long>(entityId);
+static void PB_AppendVarint(std::string& output, std::uint64_t value) {
     do {
         unsigned char b = static_cast<unsigned char>(value & 0x7f);
         value >>= 7;
-        serialized.push_back(static_cast<char>(value ? (b | 0x80) : b));
+        output.push_back(static_cast<char>(value ? (b | 0x80) : b));
     } while (value);
+}
+
+static bool PB_ReadVarint(const unsigned char* bytes, int len, int* cursor,
+    std::uint64_t* value) {
+    *value = 0;
+    for (int shift = 0; *cursor < len && shift < 64; shift += 7) {
+        unsigned char b = bytes[(*cursor)++];
+        *value |= static_cast<std::uint64_t>(b & 0x7f) << shift;
+        if ((b & 0x80) == 0) return true;
+    }
+    return false;
+}
+
+void* PB_RemoveEntityOp_Serialize(std::int64_t entityId,
+    const std::uint32_t* componentIds, std::uint32_t componentCount, int* len) {
+    if (len == NULL) return NULL;
+    std::string serialized;
+    serialized.push_back(static_cast<char>(0x08)); // field 1, int64 varint
+    PB_AppendVarint(serialized, static_cast<std::uint64_t>(entityId));
+    for (std::uint32_t i = 0; i < componentCount; ++i) {
+        serialized.push_back(static_cast<char>(0x10)); // field 2, uint32 varint
+        PB_AppendVarint(serialized, componentIds[i]);
+    }
     return PB_TakeOwnership(serialized, len);
 }
 
-bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op) {
-    if (data == NULL || op == NULL || len < 2) return false;
+bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op,
+    RemoveComponentOp** components, int* componentCount) {
+    if (data == NULL || op == NULL || components == NULL || componentCount == NULL || len < 2)
+        return false;
     const unsigned char* bytes = static_cast<const unsigned char*>(data);
-    if (bytes[0] != 0x08) return false;
-    unsigned long long value = 0;
-    int shift = 0;
-    for (int i = 1; i < len && shift < 64; ++i, shift += 7) {
-        value |= static_cast<unsigned long long>(bytes[i] & 0x7f) << shift;
-        if ((bytes[i] & 0x80) == 0) {
+    int cursor = 0;
+    bool sawEntity = false;
+    std::vector<std::uint32_t> ids;
+    while (cursor < len) {
+        std::uint64_t tag;
+        if (!PB_ReadVarint(bytes, len, &cursor, &tag)) return false;
+        std::uint64_t value;
+        if ((tag & 7) != 0 || !PB_ReadVarint(bytes, len, &cursor, &value)) return false;
+        if (tag == 0x08) {
             op->EntityId = static_cast<std::int64_t>(value);
-            return true;
+            sawEntity = true;
+        } else if (tag == 0x10) {
+            ids.push_back(static_cast<std::uint32_t>(value));
         }
     }
-    return false;
+    if (!sawEntity) return false;
+    *componentCount = static_cast<int>(ids.size());
+    *components = ids.empty() ? nullptr : new RemoveComponentOp[ids.size()];
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        (*components)[i].EntityId = op->EntityId;
+        (*components)[i].ComponentId = ids[i];
+    }
+    return true;
 }
 
 void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
