@@ -320,10 +320,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 new EntityIdAllocator(), firstRegionTerrainCount: 3);
 
             Assert.NotNull(registry.ByKey(IslandCatalog.Haven.WorldEntityKey));
-            Assert.NotNull(registry.ByKey(IslandCatalog.TradesChallenge.WorldEntityKey));
-            Assert.NotNull(registry.ByKey(IslandCatalog.AnchorageIsle.WorldEntityKey));
-            Assert.NotNull(registry.ByKey(IslandCatalog.OldMilitaryAcademy.WorldEntityKey));
-            Assert.Null(registry.ByKey(IslandCatalog.ShatteredMausoleum.WorldEntityKey));
+            Assert.Null(registry.ByKey(IslandCatalog.TradesChallenge.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.MentalFacility.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.BetrayalCopperKing.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.HighlandsHills.WorldEntityKey));
+            Assert.Null(registry.ByKey(IslandCatalog.LandManForgot.WorldEntityKey));
 
             foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1).Take(3))
             {
@@ -342,8 +343,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             Assert.Single(registry.Registrations,
                 entity => entity.Key == IslandCatalog.TradesChallenge.WorldEntityKey);
-            Assert.Equal(5, registry.Registrations.Count(entity =>
-                IslandCatalog.FirstRegionTerrain.Any(island => island.WorldEntityKey == entity.Key)));
+            Assert.Equal(6, registry.Registrations.Count(entity =>
+                entity.Key == IslandCatalog.TradesChallenge.WorldEntityKey
+                || IslandCatalog.FirstRegionTerrain.Any(island => island.WorldEntityKey == entity.Key)));
         }
 
         [Fact]

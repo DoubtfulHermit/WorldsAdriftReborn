@@ -2349,7 +2349,7 @@ namespace WorldsAdriftRebornGameServer
         /// <summary>
         /// Bounded terrain-only rollout for the evidenced first release-map region.
         /// Zero preserves today's Haven/Trades topology and spawn behavior; values
-        /// 1..4 select Trades, Anchorage, Old Military and Shattered in that order.
+        /// 1..4 select the evidenced Saborian tier-1 B3 terrain prefix.
         /// </summary>
         internal static readonly int FirstRegionTerrainCount =
             Multiplayer.Islands.FirstRegionTerrainCountPolicy.CountFrom(
@@ -3795,8 +3795,9 @@ namespace WorldsAdriftRebornGameServer
             {
                 Console.WriteLine("[first-region] TERRAIN TEST enabled: count="
                     + FirstRegionTerrainCount + ", region="
-                    + Multiplayer.Regions.RegionCatalog.FirstC6RegionId + ", islands="
-                    + string.Join(", ", IslandTopology.All.Select(island => island.DisplayName))
+                    + Multiplayer.Regions.RegionCatalog.FirstTierOneRegionId + ", islands="
+                    + string.Join(", ", Multiplayer.Islands.IslandCatalog.FirstRegionTerrain
+                        .Skip(1).Take(FirstRegionTerrainCount).Select(island => island.DisplayName))
                     + ". Terrain only; no candidate resource profiles and no continuous"
                     + " terrain unload. Not a production-acceptance claim.");
             }

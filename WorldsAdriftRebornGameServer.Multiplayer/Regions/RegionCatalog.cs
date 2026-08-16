@@ -8,7 +8,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
         public static readonly RegionId HavenRegionId = new RegionId("haven-region");
         public static readonly RegionId TradesChallengeRegionId =
             new RegionId("the-trades-challenge-region");
-        public static readonly RegionId FirstC6RegionId = new RegionId("first-c6-region");
+        public static readonly RegionId FirstTierOneRegionId = new RegionId("tier1-b3-region");
 
         public static readonly RegionDefinition Haven = new RegionDefinition(
             HavenRegionId,
@@ -21,10 +21,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
             new[] { IslandCatalog.TradesChallengeId });
 
         /// <summary>
-        /// Builds the opt-in first C6 region for an evidenced, bounded terrain prefix.
+        /// Builds the opt-in first tier-1 B3 region for an evidenced terrain prefix.
         /// This is deliberately separate from the production default topology.
         /// </summary>
-        public static RegionDefinition FirstC6(IEnumerable<IslandId> islandIds) =>
-            new RegionDefinition(FirstC6RegionId, "First C6 Region", islandIds);
+        public static RegionDefinition FirstTierOne(IEnumerable<IslandId> islandIds) =>
+            new RegionDefinition(FirstTierOneRegionId, "Tier 1 B3 Region", islandIds);
     }
 }

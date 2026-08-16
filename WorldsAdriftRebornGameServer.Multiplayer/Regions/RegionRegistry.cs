@@ -71,8 +71,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
         }
 
         /// <summary>
-        /// Creates one C6 region owning Haven plus the selected prefix of optional
-        /// after-player terrain. The supplied island registry must be the exact result
+        /// Creates the existing Haven/Trades regions plus one tier-1 B3 region owning
+        /// the selected prefix of optional terrain. The supplied island registry must be the exact result
         /// of <see cref="IslandRegistry.CreateWithFirstRegionTerrain(int)"/> for the
         /// same bounded count; mismatched topology is rejected before registration.
         /// </summary>
@@ -84,8 +84,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
                 throw new ArgumentNullException(nameof(islands));
 
             int bounded = FirstRegionTerrainCountPolicy.Clamp(optionalCount);
-            IReadOnlyList<IslandDefinition> expected =
-                IslandCatalog.FirstRegionTerrain.Take(bounded + 1).ToArray();
+            IReadOnlyList<IslandDefinition> selected =
+                IslandCatalog.FirstRegionTerrain.Skip(1).Take(bounded).ToArray();
+            IReadOnlyList<IslandDefinition> expected = new[]
+                { IslandCatalog.Haven, IslandCatalog.TradesChallenge }
+                .Concat(selected).ToArray();
             IReadOnlyList<IslandDefinition> actual = islands.All;
             if (actual.Count != expected.Count
                 || expected.Any(island => !ReferenceEquals(islands.ById(island.Id), island)))
@@ -96,7 +99,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
             }
 
             RegionRegistry registry = new(islands);
-            registry.Register(RegionCatalog.FirstC6(expected.Select(island => island.Id)));
+            registry.Register(RegionCatalog.Haven);
+            registry.Register(RegionCatalog.TradesChallenge);
+            if (selected.Count > 0)
+                registry.Register(RegionCatalog.FirstTierOne(selected.Select(island => island.Id)));
             return registry;
         }
     }

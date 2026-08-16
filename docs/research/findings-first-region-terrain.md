@@ -6,25 +6,29 @@ visually accepted.
 ## Proven source and rollout
 
 The source is the preserved Bossa release MapFile in
-`world-data/wamap-islands.json`, not the older 303-island closed-beta import.
-The first bounded cluster is release district C6:
+`world-data/wamap-islands.json`, joined by workshop asset id to the final
+Cardinal survey. Geographical proximity to Haven is not progression order:
+Haven exit was a server-selected teleport into the main world, and the nearby
+C6 islands are tier 3. The first bounded cluster is therefore surveyed
+Saborian tier-1 district B3, not C6:
 
 | Rollout | Island | Asset | Q52.12 world position |
 |---:|---|---:|---|
 | 0 | Haven | 1431299145 | 69650145, -1305269, -4645549 |
-| 1 | The Trades Challenge | 1206286558 | 54286560, -791844, -8077469 |
-| 2 | Anchorage Isle | 650186469 | 53748326, -1229240, 1475919 |
-| 3 | The Old Military Academy | 1673355094 | 58796532, 277533, 7307445 |
-| 4 | Shattered Mausoleum | 949069116 | 58660618, -2158603, -19035735 |
+| 1 | Mental Facility | 1143725558 | 34121298, 990124, 34175648 |
+| 2 | Betrayal of the Copper King | 950242829 | 31506652, 580855, 40190030 |
+| 3 | Highlands Hills | 1206946500 | 38919041, 516457, 38365766 |
+| 4 | The Land that Man Forgot | 942473835 | 40357265, 37785, 29935290 |
 
 All four optional client bundles/manifests and extracted island surfaces exist
-locally. The order deliberately puts the already-proven Trades terrain first,
-then the smaller/closer Anchorage and Old Military assets, with the much larger
-Shattered Mausoleum last.
+locally. All are tier-1 Saborian islands with surveyed revival chambers and
+3–5 databanks. Rollout order is increasing bundle size, keeping the first visual
+acceptance inexpensive. The full B3 district has twelve surveyed tier-1 islands;
+this is a bounded prefix, not a claim that four islands complete the zone.
 
 ## Runtime contract
 
-`WAREBORN_FIRST_REGION_TERRAIN_COUNT` selects a clamped prefix from 0 through 4.
+`WAREBORN_FIRST_REGION_TERRAIN_COUNT` selects a clamped B3 prefix from 0 through 4.
 Zero is the production default and changes no spawned terrain. The older
 `WAREBORN_SPAWN_SECOND_ISLAND` remains independent and retains its proven Trades
 resource profile. The new setting registers terrain only: it does not invent
@@ -32,22 +36,20 @@ metal, tree, databank, fauna or fuel populations for unsurveyed islands.
 
 When enabled, spawn, resource routing, the world directory, local domain host,
 databank parent lookup and admin topology share one configured island/region
-registry. The selected islands form one ownership region (`first-c6-region`),
-while the existing zero-count topology remains Haven and Trades as separate
-regions for compatibility.
+registry. Haven and Trades retain their existing regions; selected tier-1
+islands form `tier1-b3-region`. The zero-count topology remains unchanged.
 
 ## Acceptance boundary
 
 This is infrastructure, not a production enablement. Terrain currently enters
 the joining peer's paced spawn plan and is not continuously checked out by
-distance. Enabling all four adds roughly 44.5 MiB of compressed bundles and can
+distance. Enabling all four adds roughly 42.5 MiB of compressed bundles and can
 also make distant terrain remain visible. Accept one count at a time while
 recording login duration, asset acknowledgements/timeouts, client memory/frame
 time, collision, reconnect and two-client behavior. Terrain interest/unload is
 the next prerequisite before treating the whole cluster as a normal live world.
-Only Trades currently has a proven named teleport destination. Do not invent
-landing coordinates for Anchorage, Old Military or Shattered; recover/validate
-safe surface points before exposing them in the admin allowlist.
+The new tier-1 islands do not yet have validated named teleport destinations.
+Recover surface-safe landing points before exposing them in the admin allowlist.
 
 ## Wall correction
 

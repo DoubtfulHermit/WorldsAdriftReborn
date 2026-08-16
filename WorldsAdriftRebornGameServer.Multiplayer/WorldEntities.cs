@@ -957,13 +957,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // resource flag. It adds only a bounded, evidenced prefix of release-map
             // terrain; candidate resources remain disabled until each island profile
             // has its own acceptance pass.
+            if (includeProductionSecondIsland)
+                registry.Register(Island(IslandCatalog.TradesChallenge));
+
             int candidateIndex = 0;
             foreach (IslandDefinition candidate in IslandCatalog.FirstRegionTerrain.Skip(1))
             {
                 bool selected = candidateIndex < terrainCount;
-                bool legacyTrades = includeProductionSecondIsland
-                    && candidate.Id == IslandCatalog.TradesChallengeId;
-                if ((selected || legacyTrades) && registry.ByKey(candidate.WorldEntityKey) == null)
+                if (selected && registry.ByKey(candidate.WorldEntityKey) == null)
                     registry.Register(Island(candidate));
                 candidateIndex++;
             }

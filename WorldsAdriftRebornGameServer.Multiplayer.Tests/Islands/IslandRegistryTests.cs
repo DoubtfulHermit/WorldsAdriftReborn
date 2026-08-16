@@ -32,6 +32,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.Null(registry.ById(IslandCatalog.AnchorageIsleId));
             Assert.Null(registry.ById(IslandCatalog.OldMilitaryAcademyId));
             Assert.Null(registry.ById(IslandCatalog.ShatteredMausoleumId));
+            Assert.Null(registry.ById(IslandCatalog.MentalFacilityId));
             Assert.Null(registry.ById(new IslandId("missing")));
         }
 
@@ -51,13 +52,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Theory]
-        [InlineData(-1, 1)]
-        [InlineData(0, 1)]
-        [InlineData(1, 2)]
-        [InlineData(2, 3)]
-        [InlineData(4, 5)]
-        [InlineData(99, 5)]
-        public void First_region_factory_registers_Haven_plus_a_bounded_candidate_prefix(
+        [InlineData(-1, 2)]
+        [InlineData(0, 2)]
+        [InlineData(1, 3)]
+        [InlineData(2, 4)]
+        [InlineData(4, 6)]
+        [InlineData(99, 6)]
+        public void First_region_factory_preserves_defaults_and_adds_a_bounded_candidate_prefix(
             int optionalCount,
             int expectedTotal)
         {
@@ -65,6 +66,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Assert.Equal(expectedTotal, registry.All.Count);
             Assert.Same(IslandCatalog.Haven, registry.Require(IslandCatalog.HavenId));
+            Assert.Same(IslandCatalog.TradesChallenge,
+                registry.Require(IslandCatalog.TradesChallengeId));
 
             int bounded = FirstRegionTerrainCountPolicy.Clamp(optionalCount);
             foreach (IslandDefinition included in IslandCatalog.FirstRegionTerrain.Take(bounded + 1))
@@ -80,10 +83,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 new[]
                 {
                     IslandCatalog.HavenId,
-                    IslandCatalog.TradesChallengeId,
-                    IslandCatalog.AnchorageIsleId,
-                    IslandCatalog.OldMilitaryAcademyId,
-                    IslandCatalog.ShatteredMausoleumId,
+                    IslandCatalog.MentalFacilityId,
+                    IslandCatalog.BetrayalCopperKingId,
+                    IslandCatalog.HighlandsHillsId,
+                    IslandCatalog.LandManForgotId,
                 },
                 IslandCatalog.FirstRegionTerrain.Select(island => island.Id));
 
@@ -94,15 +97,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Theory]
-        [InlineData("anchorage-isle", "Anchorage Isle", "island-anchorage-isle",
-            53748326, -1229240, 1475919, "650186469@Island")]
-        [InlineData("the-old-military-academy", "The Old Military Academy",
-            "island-the-old-military-academy", 58796532, 277533, 7307445,
-            "1673355094@Island")]
-        [InlineData("shattered-mausoleum", "Shattered Mausoleum",
-            "island-shattered-mausoleum", 58660618, -2158603, -19035735,
-            "949069116@Island")]
-        public void C6_candidates_preserve_release_MapFile_identity_and_transform(
+        [InlineData("mental-facility", "Mental Facility", "island-mental-facility",
+            34121298, 990124, 34175648, "1143725558@Island")]
+        [InlineData("betrayal-of-the-copper-king", "Betrayal of the Copper King",
+            "island-betrayal-of-the-copper-king", 31506652, 580855, 40190030,
+            "950242829@Island")]
+        [InlineData("highlands-hills", "Highlands Hills", "island-highlands-hills",
+            38919041, 516457, 38365766, "1206946500@Island")]
+        [InlineData("the-land-that-man-forgot", "The Land that Man Forgot",
+            "island-the-land-that-man-forgot", 40357265, 37785, 29935290,
+            "942473835@Island")]
+        public void Tier_one_B3_candidates_preserve_release_identity_and_transform(
             string id,
             string displayName,
             string entityKey,

@@ -156,7 +156,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         }
 
         [Fact]
-        public void First_region_terrain_has_one_region_owner_and_exact_island_affinity()
+        public void Tier_one_terrain_has_one_region_owner_and_exact_island_affinity()
         {
             IslandRegistry islands = IslandRegistry.CreateWithFirstRegionTerrain(4);
             RegionRegistry regions = RegionRegistry.CreateWithFirstRegionTerrain(islands, 4);
@@ -165,10 +165,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
 
             WorldDirectory directory = WorldDirectory.Build(entities, islands, regions);
 
-            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain)
+            WorldDirectoryEntry haven = directory.ByEntityKey(IslandCatalog.Haven.WorldEntityKey)!;
+            Assert.Equal(WorldOwner.ForRegion(RegionCatalog.HavenRegionId), haven.Owner);
+            Assert.Equal(IslandCatalog.HavenId, haven.IslandId);
+
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1))
             {
                 WorldDirectoryEntry entry = directory.ByEntityKey(island.WorldEntityKey)!;
-                Assert.Equal(WorldOwner.ForRegion(RegionCatalog.FirstC6RegionId), entry.Owner);
+                Assert.Equal(WorldOwner.ForRegion(RegionCatalog.FirstTierOneRegionId), entry.Owner);
                 Assert.Equal(island.Id, entry.IslandId);
             }
         }

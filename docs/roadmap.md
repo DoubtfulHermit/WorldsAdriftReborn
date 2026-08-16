@@ -54,7 +54,7 @@ Detailed gates and invariants are in
   resource removal, re-checkout, harvesting and scanning.
 - Define terrain/island visibility between distant regions; seeing Haven from
   Trades Challenge is currently separate from resource interest.
-- Visually accept the opt-in first-C6 terrain prefix one island at a time; see
+- Visually accept the opt-in tier-1 B3 terrain prefix one island at a time; see
   [`research/findings-first-region-terrain.md`](research/findings-first-region-terrain.md).
 - Finish retail-faithful wind, Wind Wall and sail behavior; current sails use a
   documented scalar propulsion approximation.

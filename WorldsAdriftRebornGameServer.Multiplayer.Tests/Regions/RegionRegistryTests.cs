@@ -26,18 +26,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
-        public void Opt_in_first_C6_topology_has_one_owner_for_every_selected_island(
+        public void Opt_in_tier_one_topology_preserves_defaults_and_owns_every_selected_island(
             int optionalCount)
         {
             IslandRegistry islands = IslandRegistry.CreateWithFirstRegionTerrain(optionalCount);
             RegionRegistry regions =
                 RegionRegistry.CreateWithFirstRegionTerrain(islands, optionalCount);
 
-            RegionDefinition region = regions.Require(RegionCatalog.FirstC6RegionId);
-            Assert.Single(regions.All);
-            Assert.Equal(optionalCount + 1, region.IslandIds.Count);
-            Assert.Equal(islands.All.Count, region.IslandIds.Count);
-            foreach (IslandDefinition island in islands.All)
+            RegionDefinition region = regions.Require(RegionCatalog.FirstTierOneRegionId);
+            Assert.Equal(3, regions.All.Count);
+            Assert.Equal(optionalCount, region.IslandIds.Count);
+            Assert.Same(RegionCatalog.Haven, regions.ByIsland(IslandCatalog.HavenId));
+            Assert.Same(RegionCatalog.TradesChallenge,
+                regions.ByIsland(IslandCatalog.TradesChallengeId));
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1).Take(optionalCount))
                 Assert.Same(region, regions.ByIsland(island.Id));
         }
 
@@ -46,7 +48,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
-        public void Opt_in_first_C6_membership_is_deterministic_and_ordinal(int optionalCount)
+        public void Opt_in_tier_one_membership_is_deterministic_and_ordinal(int optionalCount)
         {
             IslandRegistry firstIslands =
                 IslandRegistry.CreateWithFirstRegionTerrain(optionalCount);
@@ -54,10 +56,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
                 IslandRegistry.CreateWithFirstRegionTerrain(optionalCount);
             RegionDefinition first = RegionRegistry
                 .CreateWithFirstRegionTerrain(firstIslands, optionalCount)
-                .Require(RegionCatalog.FirstC6RegionId);
+                .Require(RegionCatalog.FirstTierOneRegionId);
             RegionDefinition second = RegionRegistry
                 .CreateWithFirstRegionTerrain(secondIslands, optionalCount)
-                .Require(RegionCatalog.FirstC6RegionId);
+                .Require(RegionCatalog.FirstTierOneRegionId);
 
             Assert.Equal(first.IslandIds, second.IslandIds);
             Assert.Equal(
@@ -66,13 +68,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         }
 
         [Fact]
-        public void Opt_in_first_C6_region_cannot_gain_a_second_owner_for_a_member()
+        public void Opt_in_tier_one_region_cannot_gain_a_second_owner_for_a_member()
         {
             IslandRegistry islands = IslandRegistry.CreateWithFirstRegionTerrain(4);
             RegionRegistry regions = RegionRegistry.CreateWithFirstRegionTerrain(islands, 4);
 
             Assert.Throws<ArgumentException>(() =>
-                regions.Register(Definition("duplicate-owner", IslandCatalog.AnchorageIsleId)));
+                regions.Register(Definition("duplicate-owner", IslandCatalog.MentalFacilityId)));
         }
 
         [Fact]
