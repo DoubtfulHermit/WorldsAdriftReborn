@@ -120,19 +120,17 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `634aca2`, deployed and restarted at 2026-08-15 15:22 CEST.
-  This adds single-shot remote-avatar creation, seed-before-live movement,
-  channel-5 avatar cleanup, per-recipient relay backpressure, immutable deck
-  offsets across recall, and the latched-throttle deadzone. The full 2,363-test
-  suite and tier-2 real-wire two-peer ship journey passed before deployment.
-- **Login/admin server:** `d867781`, deployed at 2026-08-15 08:58 CEST. The
-  responsive dark simulation console now replaces the diagnostic one-metre ship
-  nudge with exact-domain recovery controls: stop an unpiloted runaway in place,
-  release a stuck helm owner while neutralizing stale controls, recall an
-  uncrewed hull beside a selected player, and copy a live incident bundle. All
-  mutations remain authenticated, CSRF-bound and independently validated by the
-  game server. Login/admin remains on `d867781`; its matching rollback is
-  `/opt/wareborn/backups/pre-d867781-20260815`.
+- **Game and login/admin servers:** `175839f`, deployed and restarted together
+  at 2026-08-16 12:48 CEST. The game now reports schema-v3 local-domain
+  topology (two islands and the live ship domains), host identity and
+  bidirectional ownership integrity. The admin Simulation Fabric groups that
+  topology by authority host and island affinity, caps dense ship lanes, and
+  provides a searchable inventory plus one-domain authority/replication detail.
+  Production boot reported 254 owned entities, one explicit global, zero
+  unowned entities and zero ownership inconsistencies. Pre-deploy validation
+  passed 2,389/2,389 Multiplayer tests and 169/169 admin tests; both native
+  Linux builds had zero errors. The coordinated rollback copy is
+  `/opt/wareborn/backups/20260816T104747Z/{game,login}`.
 - **Public client manifest:** `2026.08.14-10`, build label
   `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
   UTC fallback from `2627810` and fixes six native protobuf string allocations
