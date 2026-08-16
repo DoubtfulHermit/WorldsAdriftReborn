@@ -117,9 +117,33 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .domain-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,25rem);gap:1rem;align-items:start;}.domain-browser{min-width:0;border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;}.domain-toolbar{display:grid;grid-template-columns:minmax(12rem,1fr) auto;gap:.75rem;padding:.8rem;border-bottom:1px solid var(--line);}.domain-toolbar input{min-height:2.3rem}.segmented{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#091219}.segmented button{min-height:1.9rem;padding:.35rem .55rem;border:0;background:transparent;box-shadow:none;color:var(--text-faint);font-size:.6rem}.segmented button.active{color:var(--text);background:var(--surface-2)}
 .domain-table-wrap{overflow:auto;max-height:32rem}.domain-table{font-size:.72rem}.domain-table tbody tr{cursor:pointer}.domain-table tbody tr:focus-visible,.island-node:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.domain-table tbody tr.selected{background:var(--accent-soft)}.domain-table .domain-name{font-weight:620;color:var(--text)}.kind-mark{display:inline-block;width:.42rem;height:.42rem;border-radius:2px;margin-right:.42rem;background:var(--accent)}.kind-mark.ship{border-radius:50%;background:#8aa6ff}.domain-footer{display:flex;justify-content:space-between;gap:1rem;padding:.62rem .8rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.61rem;}
 .domain-detail{position:sticky;top:5rem;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(155deg,#14242e,#0d171f);overflow:hidden;min-height:18rem;}.detail-empty{display:grid;place-items:center;min-height:18rem;padding:2rem;text-align:center;color:var(--text-faint);font-size:.73rem}.detail-content{display:none}.detail-content.show{display:block}.detail-head{padding:1rem 1.05rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.035)}.detail-head-top{display:flex;justify-content:space-between;gap:.6rem}.detail-head h3{font-size:1rem;margin:0 0 .18rem}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.detail-item{padding:.78rem .9rem;background:#0e1921;min-width:0;overflow-wrap:anywhere}.detail-item b{display:block;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin-bottom:.16rem}.detail-item span{font-size:.72rem;color:var(--text-soft)}.detail-note{padding:.85rem .95rem;color:var(--text-faint);font-size:.65rem;line-height:1.55;border-top:1px solid var(--line)}
+.terrain-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1rem;}
+.terrain-metric{padding:.85rem .95rem;background:var(--surface);min-width:0;}.terrain-metric .n{font-size:1.1rem;font-weight:610;overflow-wrap:anywhere;}.terrain-metric .l{margin-top:.16rem;font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);}
+.terrain-panel{border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;margin-bottom:1rem;}
+.terrain-panel-head{display:flex;justify-content:space-between;align-items:center;gap:.75rem;flex-wrap:wrap;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.55);}.terrain-panel-head strong{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;}
+.terrain-toolbar{display:grid;grid-template-columns:minmax(11rem,1fr) auto;gap:.75rem;padding:.8rem;border-bottom:1px solid var(--line);}.terrain-toolbar input{min-height:2.3rem;}
+.terrain-table-wrap{overflow:auto;max-height:30rem;}.terrain-table{font-size:.72rem;}.terrain-table th{position:sticky;top:0;z-index:1;background:#0c151c;}
+.terrain-table tbody tr.player-row{cursor:pointer;}.terrain-table tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
+.state-chip{display:inline-block;padding:.16rem .45rem;border-radius:5px;border:1px solid var(--line-strong);background:rgba(255,255,255,.025);color:var(--text-faint);white-space:nowrap;font:700 .55rem/1.35 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.06em;text-transform:uppercase;}
+.state-chip.ready{color:var(--good);border-color:rgba(113,208,165,.42);background:rgba(113,208,165,.07);}
+.state-chip.requesting,.state-chip.waiting-ack{color:var(--accent);border-color:rgba(116,201,207,.4);background:var(--accent-soft);}
+.state-chip.draining,.state-chip.unloading{color:var(--warn);border-color:rgba(217,179,107,.4);background:rgba(217,179,107,.07);}
+.state-chip.retained-legacy{color:var(--warn);border-style:dashed;border-color:rgba(217,179,107,.55);}
+.state-chip.error{color:var(--danger);border-color:rgba(240,128,128,.5);background:var(--danger-soft);}
+.terrain-detail td{background:#0a131a;}
+.terrain-kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.55rem .9rem;}
+.terrain-kv div{min-width:0;overflow-wrap:anywhere;}.terrain-kv b{display:block;font-size:.52rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint);margin-bottom:.14rem;}.terrain-kv span{font-size:.71rem;color:var(--text-soft);}
+.events{margin:0;padding:0;list-style:none;max-height:17rem;overflow:auto;}
+.event-line{display:grid;grid-template-columns:4.5rem 8rem minmax(0,1fr) auto;gap:.7rem;align-items:center;padding:.4rem .9rem;border-bottom:1px solid var(--line);font:500 .67rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text-soft);}
+.event-line:last-child{border-bottom:0;}.event-line .age{color:var(--text-faint);}.event-line.bad{color:#ffd2d2;background:var(--danger-soft);}
+.acceptance{border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(155deg,#14242e,#0d171f);padding:1.15rem 1.25rem;}
+.acceptance ol{margin:.5rem 0 0;padding-left:1.2rem;font-size:.78rem;color:var(--text-soft);}.acceptance li{margin:.3rem 0;}
+.prereq{display:flex;flex-wrap:wrap;gap:.45rem;margin:.75rem 0;}
+.note{margin:.75rem 0 0;font-size:.68rem;color:var(--text-faint);line-height:1.55;}
 footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);font-size:.68rem;color:var(--text-faint);}
 @media(max-width:980px){.runtime-overview{grid-template-columns:repeat(3,1fr)}.host-summary{grid-column:1/-1}.domain-workbench{grid-template-columns:1fr}.domain-detail{position:relative;top:auto}.host-domain-grid{grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}}
-@media(max-width:760px){body{padding:0 .8rem 3rem}.card{padding:1.15rem}.topbar{padding-top:1.35rem}.nav{overflow-x:auto;justify-content:flex-start}.nav a{flex:0 0 auto}.tool{grid-column:1/-1}.selectors{grid-template-columns:1fr}.row .fit{width:100%}.row .fit button{width:100%}.domain-toolbar{grid-template-columns:1fr}.segmented{overflow-x:auto}.host-domain-grid{grid-template-columns:1fr}.runtime-overview{grid-template-columns:1fr 1fr}}
+@media(max-width:980px){.terrain-strip{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){body{padding:0 .8rem 3rem}.card{padding:1.15rem}.topbar{padding-top:1.35rem}.nav{overflow-x:auto;justify-content:flex-start}.nav a{flex:0 0 auto}.tool{grid-column:1/-1}.selectors{grid-template-columns:1fr}.row .fit{width:100%}.row .fit button{width:100%}.domain-toolbar{grid-template-columns:1fr}.segmented{overflow-x:auto}.host-domain-grid{grid-template-columns:1fr}.runtime-overview{grid-template-columns:1fr 1fr}.terrain-strip{grid-template-columns:1fr 1fr}.terrain-toolbar{grid-template-columns:1fr}.event-line{grid-template-columns:4.5rem minmax(0,1fr);row-gap:.15rem}.terrain-table th{position:static}}
 @media(max-width:430px){.stat{min-height:4.7rem;padding:.8rem}.kv{grid-template-columns:1fr 1fr}th,td{padding:.58rem .45rem}.button-row button{width:100%}}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;}}
 </style>";
@@ -194,7 +218,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   </div>
   <form method=""post"" action=""/admin/logout""><input type=""hidden"" name=""csrf"" value=""" + HtmlEncode(csrfToken) + @"""><button class=""btn ghost"" type=""submit"">Sign out</button></form>
 </div>
-<nav class=""nav"" aria-label=""Control panel sections""><a href=""#world"">World</a><a href=""#simulation"">Simulation</a><a href=""#operations"">Operations</a><a href=""#system"">System</a></nav>
+<nav class=""nav"" aria-label=""Control panel sections""><a href=""#world"">World</a><a href=""#simulation"">Simulation</a><a href=""#terrain"">Terrain checkout</a><a href=""#operations"">Operations</a><a href=""#system"">System</a></nav>
 
 <div class=""banner"" id=""spiralBanner""><strong>Wire-health warning</strong><span id=""spiralText""></span></div>
 <div class=""banner"" id=""downBanner""><strong>Game server not reporting</strong><span id=""downText""></span></div>
@@ -252,6 +276,65 @@ variable to <code>username:hash</code> and restart the login server to enable th
   <p class=""muted"" id=""noDomains"" style=""display:none;font-size:.78rem"">No runtime topology is available. An older game server may still be writing schema-v2 ship telemetry.</p>
 </div>
 
+<div class=""section-head"" id=""terrain"">Terrain checkout</div>
+<div class=""card"">
+  <div class=""row""><div class=""grow""><h2>Optional island terrain</h2></div><div class=""fit""><span class=""pill"" id=""terrainMode"">unknown</span></div></div>
+  <p class=""lede"" style=""margin-top:0"">Per-peer checkout of optional island terrain on this one authoritative poll loop (<span id=""terrainHost"">local:primary</span>). Observation only: it does not move island authority and describes no remote worker.</p>
+  <div class=""banner"" id=""terrainBanner""><strong>Terrain checkout attention</strong><span id=""terrainBannerText""></span></div>
+  <div class=""terrain-strip"">
+    <div class=""terrain-metric""><div class=""n"" id=""terrainState"">&mdash;</div><div class=""l"">Runtime state</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainCandidates"">&mdash;</div><div class=""l"">Managed candidates</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainPeers"">&mdash;</div><div class=""l"">Tracked peers</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainReady"">&mdash;</div><div class=""l"">Ready checkouts</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainWarnings"">&mdash;</div><div class=""l"">Peer warnings</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainErrors"">&mdash;</div><div class=""l"">Errors</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainRadii"">&mdash;</div><div class=""l"">Load / unload m</div></div>
+    <div class=""terrain-metric""><div class=""n"" id=""terrainTimings"">&mdash;</div><div class=""l"">Ack / settle</div></div>
+  </div>
+  <p class=""muted"" id=""terrainUnavailable"" style=""display:none;font-size:.8rem""></p>
+
+  <div class=""terrain-panel"">
+    <div class=""terrain-toolbar""><input id=""terrainSearch"" type=""search"" placeholder=""Filter by player entity, island or state&hellip;"" aria-label=""Filter terrain checkout rows""><span class=""muted"" style=""align-self:center;font-size:.62rem"" id=""terrainMatrixCount"">0 players</span></div>
+    <div class=""terrain-table-wrap"">
+      <table class=""terrain-table matrix"" id=""terrainMatrix""><thead><tr id=""terrainMatrixHead""><th>Player</th><th>Confirmed ground</th><th>Destination</th><th>Pending</th><th>Asset flight</th><th>Client</th></tr></thead><tbody id=""terrainPlayers""></tbody></table>
+    </div>
+    <div class=""domain-footer""><span id=""terrainMatrixNote"">One row per tracked peer; select a row for its lifecycle detail.</span><span>Columns are managed islands</span></div>
+  </div>
+  <p class=""muted"" id=""noTerrainPlayers"" style=""display:none;font-size:.8rem"">No peer is being tracked for terrain checkout.</p>
+
+  <div class=""terrain-panel"">
+    <div class=""terrain-panel-head""><strong>Island inventory</strong><span class=""muted"" style=""font-size:.62rem"" id=""terrainIslandCount"">0 islands</span></div>
+    <div class=""terrain-table-wrap"">
+      <table class=""terrain-table""><thead><tr><th>Island</th><th>Registration</th><th class=""num"">Ready</th><th class=""num"">Loading</th><th class=""num"">Draining</th><th class=""num"">Unloading</th><th class=""num"">Retained</th><th class=""num"">Errors</th><th>Resources</th><th>Extent</th><th>Last event</th></tr></thead><tbody id=""terrainIslands""></tbody></table>
+    </div>
+  </div>
+  <p class=""muted"" id=""noTerrainIslands"" style=""display:none;font-size:.8rem"">No optional terrain is registered on this game server.</p>
+
+  <div class=""terrain-panel"">
+    <div class=""terrain-panel-head""><strong>Recent lifecycle events</strong><span class=""muted"" style=""font-size:.62rem"" id=""terrainEventNote"">bounded ring buffer</span></div>
+    <ul class=""events"" id=""terrainEvents"" aria-label=""Recent terrain lifecycle events""></ul>
+  </div>
+  <p class=""muted"" id=""noTerrainEvents"" style=""display:none;font-size:.8rem"">No terrain lifecycle event has been recorded since boot.</p>
+
+  <div class=""acceptance"">
+    <h3 style=""margin:0 0 .2rem;font-size:.9rem"">One-island visual acceptance run</h3>
+    <p class=""muted"" style=""font-size:.76rem;margin:.1rem 0 0"">Haven &rarr; Mental Facility &rarr; Haven using the existing guarded travel operations. The console reports lifecycle state only; whether the terrain LOOKS right is a human judgement and is never asserted here.</p>
+    <div class=""prereq"" id=""acceptancePrereq""></div>
+    <div class=""button-row"">
+      <button type=""button"" id=""acceptanceTravel"">Run step 2 &middot; travel to Mental Facility</button>
+      <button type=""button"" id=""acceptanceReturn"">Run step 4 &middot; return to Haven</button>
+    </div>
+    <ol>
+      <li>Select the connected player in Operations, and confirm they are grounded on Haven below.</li>
+      <li>Travel to Mental Facility. Watch this player's row go REQUESTING &rarr; WAITING ACK &rarr; READY.</li>
+      <li>In game, look at the island: terrain mesh, collision underfoot, and its resources appearing only after the ground does.</li>
+      <li>Return to Haven, then watch the row go DRAINING &rarr; UNLOADING &rarr; ABSENT. A RETAINED (LEGACY) row means this client cannot receive a terrain removal and will keep it for the session.</li>
+      <li>Record what you saw. Nothing on this page is evidence that the visuals were correct.</li>
+    </ol>
+    <p class=""note"" id=""acceptanceNote"">Both steps dispatch the same allowlisted, CSRF-bound travel commands as the Operations panel.</p>
+  </div>
+</div>
+
 <div class=""section-head"" id=""operations"">Operations</div>
 <div class=""card"">
   <div class=""row"">
@@ -274,7 +357,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       <h3>Player travel</h3>
       <p>Move the selected player to an authored safe destination.</p>
       <div class=""button-row"">
-        <button type=""button"" data-command=""teleport"" data-argument=""haven"">Return to Haven</button>
+        <button type=""button"" id=""havenTravel"" data-command=""teleport"" data-argument=""haven"">Return to Haven</button>
         <button type=""button"" id=""tradesTravel"" data-command=""teleport"" data-argument=""trades-challenge"">Trades Challenge</button>
         <button type=""button"" id=""mentalFacilityTravel"" data-command=""teleport"" data-argument=""mental-facility"">Mental Facility · Tier 1</button>
       </div>
@@ -358,6 +441,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var firstRegionTerrainCount = 0;
   var latestDomains = [];
   var latestRuntimeDomains = [];
+  var latestTerrain = null;
+  var terrainExpandedSlot = -1;
   var domainFilter = 'all';
   var selectedRuntimeDomainId = '';
   function $(id){return document.getElementById(id);}
@@ -486,6 +571,267 @@ variable to <code>username:hash</code> and restart the login server to enable th
       var state=domainState(d);var stateCell=cell(tr,'');var pill=document.createElement('span');pill.className='pill '+(state==='warning'?'bad':(state==='active'||state==='resident'?'ok':'warn'));pill.textContent=state;stateCell.appendChild(pill);body.appendChild(tr);
     });
     text('domainResultCount',rows.length+' domain'+(rows.length===1?'':'s')+(rows.length>250?' · first 250 shown':''));
+  }
+
+  // ---- terrain checkout ------------------------------------------------
+  // The state labels below are the SAME vocabulary the game server derives in
+  // IslandTerrainStatePolicy. The console renders what it was told; it never
+  // re-derives a peer's lifecycle position from raw fields.
+  var STATE_LABELS={'absent':'ABSENT','requesting':'REQUESTING','waiting-ack':'WAITING ACK',
+    'ready':'READY','draining':'DRAINING','unloading':'UNLOADING',
+    'retained-legacy':'RETAINED (LEGACY)','error':'ERROR'};
+  function stateLabel(s){return STATE_LABELS[s]||'UNKNOWN';}
+  function stateChip(s){
+    var span=document.createElement('span');
+    span.className='state-chip '+(STATE_LABELS[s]?s:'');
+    span.textContent=stateLabel(s);return span;
+  }
+  function fmtMs(ms){
+    ms=Math.max(0,Number(ms)||0);
+    if(ms<1000)return ms+'ms';
+    if(ms<60000)return (ms/1000).toFixed(1)+'s';
+    return Math.round(ms/60000)+'m';
+  }
+  function terrainPlayerName(p){
+    return p.playerEntityId?('entity '+p.playerEntityId):('slot '+p.slot+' · no entity yet');
+  }
+  function managedIslands(t){return (t.islands||[]).filter(function(i){return i.managed;});}
+  function assetText(p){
+    if(!p.asset)return '—';
+    var a=p.asset;
+    return a.islandId+' · '+fmtMs(a.requestAgeMs)
+      +(a.retryCount?' · '+a.retryCount+' retries':'')
+      +(a.acknowledged?' · exact ack':(a.fallbackDue?' · ack timed out':' · awaiting ack'));
+  }
+  function clientText(p){
+    return (p.mayRemove?'v1 lifecycle':(p.removeSupported?'legacy ack only':'no remove channel'))
+      +(p.legacyRetaining?' · retaining':'');
+  }
+  function terrainDetailRow(p,columns){
+    var tr=document.createElement('tr');tr.className='terrain-detail';
+    var td=document.createElement('td');td.colSpan=columns;
+    var kv=document.createElement('div');kv.className='terrain-kv';
+    function item(label,value){
+      var d=document.createElement('div');var b=document.createElement('b');b.textContent=label;
+      var s=document.createElement('span');s.textContent=value;d.appendChild(b);d.appendChild(s);kv.appendChild(d);
+    }
+    item('World centre',Number(p.x).toFixed(1)+', '+Number(p.y).toFixed(1)+', '+Number(p.z).toFixed(1));
+    item('Confirmed ground',p.confirmedGroundIslandId||'not confirmed');
+    item('Requested destination',p.requestedDestinationIslandId
+      ?(p.requestedDestinationIslandId+(p.destinationWaiting?' · waiting':' · ready')):'none');
+    item('Pending action',p.pendingAction==='none'?'idle':(p.pendingAction+' '+(p.pendingIslandId||'')));
+    item('Cold asset flight',assetText(p));
+    item('Correlated ack observed',p.correlatedAckObserved?'yes':'no');
+    item('RemoveEntity support',p.removeSupported?'yes':'no (retain-visited compatibility)');
+    item('Connect plan',p.connectPlanComplete
+      ?(p.settleWaiting?'complete · settle delay running':'complete'):'incomplete');
+    item('Checked-out terrain',String(p.readyCount||0));
+    item('Warning',p.warning||'none');
+    td.appendChild(kv);tr.appendChild(td);return tr;
+  }
+  function renderTerrainMatrix(t){
+    var islands=managedIslands(t);
+    var head=$('terrainMatrixHead');
+    while(head.children.length>6)head.removeChild(head.lastChild);
+    islands.forEach(function(i){
+      var th=document.createElement('th');th.className='island-col';
+      th.textContent=i.displayName;th.title=i.islandId;head.appendChild(th);
+    });
+    var columns=6+islands.length;
+    var query=($('terrainSearch').value||'').toLowerCase().trim();
+    var rows=(t.players||[]).filter(function(p){
+      if(!query)return true;
+      var hay=(terrainPlayerName(p)+' '+(p.confirmedGroundIslandId||'')+' '
+        +(p.requestedDestinationIslandId||'')+' '+(p.pendingIslandId||'')+' '+p.pendingAction+' '
+        +(p.warning||'')+' '+(p.islands||[]).map(function(c){
+          return c.islandId+' '+stateLabel(c.state);}).join(' ')).toLowerCase();
+      return hay.indexOf(query)>=0;
+    });
+    var body=$('terrainPlayers');clear(body);
+    var shown=rows.slice(0,200);
+    shown.forEach(function(p){
+      var tr=document.createElement('tr');tr.className='player-row';tr.tabIndex=0;
+      var expanded=terrainExpandedSlot===p.slot;
+      tr.setAttribute('aria-expanded',expanded?'true':'false');
+      tr.setAttribute('aria-label','Terrain lifecycle for '+terrainPlayerName(p));
+      function toggle(){terrainExpandedSlot=expanded?-1:p.slot;renderTerrainMatrix(t);}
+      tr.addEventListener('click',toggle);
+      tr.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();toggle();}});
+      cell(tr,terrainPlayerName(p));
+      cell(tr,p.confirmedGroundIslandId||'—',p.confirmedGroundIslandId?'':'muted');
+      cell(tr,p.requestedDestinationIslandId||'—',p.requestedDestinationIslandId?'':'muted');
+      cell(tr,p.pendingAction==='none'?'—':(p.pendingAction+' '+(p.pendingIslandId||'')),
+        p.pendingAction==='none'?'muted':'');
+      cell(tr,assetText(p),p.asset?'':'muted');
+      var client=cell(tr,clientText(p));
+      if(p.warning){
+        var pill=document.createElement('span');pill.className='pill warn';pill.textContent='warning';
+        client.insertBefore(document.createTextNode(' '),client.firstChild);
+        client.insertBefore(pill,client.firstChild);
+        client.title=p.warning;
+      }
+      islands.forEach(function(i){
+        var found=null;
+        (p.islands||[]).forEach(function(c){if(c.islandId===i.islandId)found=c;});
+        var td=document.createElement('td');
+        td.appendChild(stateChip(found?found.state:'absent'));tr.appendChild(td);
+      });
+      body.appendChild(tr);
+      if(expanded)body.appendChild(terrainDetailRow(p,columns));
+    });
+    text('terrainMatrixCount',rows.length+' player'+(rows.length===1?'':'s')
+      +(rows.length>shown.length?' · first '+shown.length+' shown':''));
+    $('noTerrainPlayers').style.display=(t.players||[]).length?'none':'block';
+    text('terrainMatrixNote',islands.length
+      ?'One row per tracked peer; select a row for its lifecycle detail.'
+      :'No island is stream-managed, so the matrix has no lifecycle columns.');
+  }
+  function islandRegistration(i){
+    if(i.unconditional)return {label:'unconditional',cls:'pill'};
+    if(i.managed)return {label:'managed',cls:'pill ok'};
+    if(!i.registered)return {label:'not registered',cls:'pill warn'};
+    if(!i.locallyOwned)return {label:'not locally owned',cls:'pill warn'};
+    if(!i.hasEnvelope)return {label:'no extracted envelope',cls:'pill warn'};
+    return {label:'not managed',cls:'pill warn'};
+  }
+  function lastEventFor(t,islandId){
+    var events=t.events||[];
+    for(var i=0;i<events.length;i++)if(events[i].islandId===islandId)return events[i];
+    return null;
+  }
+  function renderTerrainIslands(t){
+    var query=($('terrainSearch').value||'').toLowerCase().trim();
+    var rows=(t.islands||[]).filter(function(i){
+      if(!query)return true;
+      return (i.islandId+' '+i.displayName).toLowerCase().indexOf(query)>=0;
+    });
+    var body=$('terrainIslands');clear(body);
+    rows.forEach(function(i){
+      var tr=document.createElement('tr');
+      var name=cell(tr,i.displayName);
+      var id=document.createElement('div');id.className='island-id';id.textContent=i.islandId
+        +(i.terrainEntityId?' · entity '+i.terrainEntityId:' · unbound');
+      name.appendChild(id);
+      var reg=islandRegistration(i);
+      var regCell=cell(tr,'');
+      var pill=document.createElement('span');pill.className=reg.cls;pill.textContent=reg.label;
+      regCell.appendChild(pill);
+      cell(tr,String(i.readyPeerCount),'num');
+      cell(tr,String(i.loadingPeerCount),'num');
+      cell(tr,String(i.drainingPeerCount),'num');
+      cell(tr,String(i.unloadingPeerCount),'num');
+      cell(tr,String(i.retainedLegacyPeerCount),'num');
+      cell(tr,String(i.errorPeerCount),'num');
+      cell(tr,i.resourceNodeCount<0
+        ?'unknown'
+        :(i.resourceNodeCount+' nodes · '+i.checkedOutResourceCount+' checked out'
+          +(i.resourceDrainWired?'':' · drain not wired')),
+        i.resourceNodeCount<0?'muted':'');
+      cell(tr,i.envelope
+        ?(Math.round(i.envelope.spanX)+'×'+Math.round(i.envelope.spanY)+'×'+Math.round(i.envelope.spanZ)+' m')
+        :'—',i.envelope?'':'muted');
+      var last=lastEventFor(t,i.islandId);
+      cell(tr,last?(last.kind+' · '+fmtMs(last.ageMs)+' ago'):'—',last?'':'muted');
+      body.appendChild(tr);
+    });
+    text('terrainIslandCount',rows.length+' island'+(rows.length===1?'':'s'));
+    $('noTerrainIslands').style.display=(t.islands||[]).length?'none':'block';
+  }
+  function renderTerrainEvents(t){
+    var list=$('terrainEvents');clear(list);
+    var events=(t.events||[]).slice(0,40);
+    events.forEach(function(e){
+      var li=document.createElement('li');li.className='event-line'+(e.success?'':' bad');
+      var age=document.createElement('span');age.className='age';age.textContent=fmtMs(e.ageMs);
+      var kind=document.createElement('span');kind.textContent=e.kind;
+      var who=document.createElement('span');
+      who.textContent=(e.islandId||'—')+' · '+(e.playerEntityId?('entity '+e.playerEntityId):('slot '+e.slot));
+      var ok=document.createElement('span');ok.textContent=e.success?'ok':'failed';
+      li.appendChild(age);li.appendChild(kind);li.appendChild(who);li.appendChild(ok);
+      list.appendChild(li);
+    });
+    $('noTerrainEvents').style.display=events.length?'none':'block';
+    text('terrainEventNote',(t.events||[]).length+' of '+(t.eventCapacity||0)+' retained'
+      +((t.events||[]).length>events.length?' · newest 40 shown':''));
+  }
+  function prereqChip(container,ok,label){
+    var pill=document.createElement('span');pill.className='pill '+(ok?'ok':'warn');
+    pill.textContent=(ok?'✓ ':'· ')+label;container.appendChild(pill);
+  }
+  function renderAcceptance(t,reporting){
+    var box=$('acceptancePrereq');clear(box);
+    var mental=null,haven=null;
+    (t.islands||[]).forEach(function(i){
+      if(i.islandId==='mental-facility')mental=i;
+      if(i.islandId==='haven')haven=i;
+    });
+    var playerSelected=$('targetPlayer').value!=='';
+    var mentalReady=!!(mental&&mental.managed);
+    prereqChip(box,reporting&&!!gameReporting,'fresh game status');
+    prereqChip(box,t.mode==='on','terrain checkout on');
+    prereqChip(box,!!haven,'Haven registered');
+    prereqChip(box,mentalReady,'Mental Facility stream-managed');
+    prereqChip(box,playerSelected,'live player selected');
+    var travel=$('acceptanceTravel'),back=$('acceptanceReturn');
+    var mentalButton=$('mentalFacilityTravel'),havenButton=$('havenTravel');
+    travel.disabled=mentalButton.disabled||!playerSelected||!gameReporting||t.mode!=='on';
+    back.disabled=havenButton.disabled||!playerSelected||!gameReporting;
+    text('acceptanceNote',t.mode==='on'
+      ?'Both steps dispatch the same allowlisted, CSRF-bound travel commands as the Operations panel.'
+      :'Travel steps stay disabled until terrain checkout is actually running on the game server.');
+  }
+  function renderTerrain(g,reporting){
+    var t=(g&&g.terrain)||null;
+    var unavailable=$('terrainUnavailable');
+    var present=!!(t&&t.present);
+    var mode=t?t.mode:'unknown';
+    var modePill=$('terrainMode');
+    modePill.className='pill '+(mode==='on'?'ok':(mode==='unknown'?'':'warn'));
+    modePill.textContent=reporting?mode:'not reporting';
+    text('terrainHost',(t&&t.hostId&&t.hostId!=='unknown')?t.hostId:'local:primary');
+    if(!t)t={present:false,mode:'unknown',islands:[],players:[],events:[],stateCounts:{}};
+
+    // Freshness and mode are separate facts and are reported as both: a stale
+    // snapshot of a prerequisite-disabled server must not hide either half.
+    var messages=[];
+    if(!reporting)messages.push('The game server is not reporting, so its terrain lifecycle is unknown.');
+    else if(g.stale)messages.push('These terrain figures are '+Math.round(g.ageSeconds)
+      +'s old and may no longer be true.');
+    if(reporting&&!present)messages.push('This game server predates terrain telemetry (stats schema '
+      +(g.schemaVersion||'unknown')+'). Its terrain lifecycle cannot be reported.');
+    else if(reporting&&mode==='off')messages.push('Terrain checkout is off.'
+      +' Optional island terrain stays in the immutable connect plan.');
+    else if(reporting&&mode==='prerequisite-disabled')messages.push('Terrain checkout was requested'
+      +' but is safely disabled: resource interest must also be enabled so resources can never'
+      +' outlive their terrain.');
+    var message=messages.join(' ');
+    unavailable.style.display=message?'block':'none';
+    text('terrainUnavailable',message);
+
+    var live=reporting&&present;
+    text('terrainState',live?mode:'—');
+    text('terrainCandidates',live?String(t.candidateCount||0):'—');
+    text('terrainPeers',live?String(t.trackedPeerCount||0):'—');
+    text('terrainReady',live?String(t.readyCount||0):'—');
+    text('terrainWarnings',live?String(t.warningCount||0):'—');
+    text('terrainErrors',live?String(t.errorCount||0):'—');
+    text('terrainRadii',live?(Math.round(t.loadRadiusMetres)+' / '+Math.round(t.unloadRadiusMetres)):'—');
+    text('terrainTimings',live?(fmtMs(t.assetAckTimeoutMs)+' / '+fmtMs(t.settleDelayMs)):'—');
+
+    var warnings=[];
+    (t.players||[]).forEach(function(p){
+      if(p.warning)warnings.push(terrainPlayerName(p)+': '+p.warning);
+    });
+    if((t.errorCount||0)>0)warnings.push(t.errorCount+' peer/island lifecycle steps have failed');
+    var banner=$('terrainBanner');
+    if(live&&warnings.length){banner.classList.add('show');text('terrainBannerText',warnings.join('; ')+'.');}
+    else banner.classList.remove('show');
+
+    renderTerrainMatrix(t);
+    renderTerrainIslands(t);
+    renderTerrainEvents(t);
+    renderAcceptance(t,reporting);
+    latestTerrain=t;
   }
 
   function render(data){
@@ -622,6 +968,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
           +(firstRegionTerrainCount>0?firstRegionTerrainCount+' tier-1 B3 island'+(firstRegionTerrainCount===1?'':'s'):'')
       : 'Optional travel is unavailable until its terrain is registered and freshly reported.');
 
+    // After the travel controls and the player selector, because the acceptance
+    // panel reports THEIR live prerequisites rather than duplicating them.
+    renderTerrain(g,reporting);
+
     var recent=((data.commands||{}).recent)||[];
     var completion=(data.commands||{}).latestCompletion;
     $('completionEmpty').style.display=completion?'none':'block';
@@ -722,6 +1072,16 @@ variable to <code>username:hash</code> and restart the login server to enable th
   $('copyShipDiagnostics').addEventListener('click',copyIncident);
   $('refreshNow').addEventListener('click',refresh);
   $('domainSearch').addEventListener('input',renderDomainInventory);
+  $('terrainSearch').addEventListener('input',function(){
+    if(latestTerrain){renderTerrainMatrix(latestTerrain);renderTerrainIslands(latestTerrain);}
+  });
+  // The acceptance run drives the EXISTING guarded travel controls rather than
+  // owning a second command path: same allowlist, same CSRF, same journal entry.
+  $('acceptanceTravel').addEventListener('click',function(){$('mentalFacilityTravel').click();});
+  $('acceptanceReturn').addEventListener('click',function(){$('havenTravel').click();});
+  $('targetPlayer').addEventListener('change',function(){
+    if(latestTerrain)renderAcceptance(latestTerrain,gameReporting);
+  });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
   boot();
   refresh();

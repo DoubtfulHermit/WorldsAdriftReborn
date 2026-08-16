@@ -459,6 +459,8 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["wireHealthWarning"] = s.WireHealthWarning;
             game["secondIslandRegistered"] = s.SecondIslandRegistered;
             game["firstRegionTerrainCount"] = s.FirstRegionTerrainCount;
+            game["schemaVersion"] = s.SchemaVersion;
+            game["terrain"] = s.Terrain.Json;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,

@@ -587,6 +587,34 @@ Production verification after the `07270f1` restart: stats schema 4 reported
 setting is a runtime systemd test override and therefore intentionally disappears
 on VPS reboot unless promoted after visual acceptance.
 
+### Terrain checkout observability (branch `feat/admin-terrain-checkout`, not deployed)
+
+Stats schema **5** adds a `terrain` section to `/tmp/wareborn-stats.json` so the
+one-island visual acceptance run above can be observed instead of guessed. The
+game server reads it from `IslandTerrainInterestService` on the same
+authoritative poll loop that already ticks the service, and exports immutable
+copies only: the read allocates no entity id, sends nothing, and never asks the
+resource-drain gate (asking would mutate the send queue), so it cannot become a
+second authority. It reports requested-vs-actually-enabled (the resource-interest
+prerequisite can hold the feature back), the radii/ack-timeout/settle
+configuration, per-peer lifecycle state keyed by **player entity id**, per-island
+registration/ownership truth with envelope-backed extents, and a bounded 64-entry
+ring of recent lifecycle events. Peer handles, packet payloads and paths are
+structurally unable to reach the file: events carry a closed enum and a
+process-local slot ordinal.
+
+`/admin` gains a **Terrain checkout** view: a status strip, a player x island
+matrix with expandable per-peer detail, an island inventory, the event timeline,
+and an acceptance-run panel that drives the EXISTING guarded Haven /
+Mental Facility travel commands rather than adding a command path. The semantic
+states are `ABSENT`, `REQUESTING`, `WAITING ACK`, `READY`, `DRAINING`,
+`UNLOADING`, `RETAINED (LEGACY)` and `ERROR`, derived once in
+`IslandTerrainStatePolicy` so the server, the JSON contract and the console
+cannot disagree. A schema-4 game server, a disabled feature and a legacy client
+each render as a stated condition rather than an empty page. The panel reports
+lifecycle only; whether the terrain LOOKS right stays a human judgement and is
+never asserted.
+
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains

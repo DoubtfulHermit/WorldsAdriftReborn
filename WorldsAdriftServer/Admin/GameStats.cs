@@ -157,6 +157,14 @@ namespace WorldsAdriftServer.Admin
         public IReadOnlyList<GameRuntimeDomainStat> RuntimeDomains { get; private init; } = Array.Empty<GameRuntimeDomainStat>();
         public IReadOnlyList<GameShipDomainStat> ShipDomains { get; private init; } = Array.Empty<GameShipDomainStat>();
 
+        /// <summary>
+        /// The optional-terrain lifecycle section (schema v5+). Never null: an
+        /// older game server that never writes it parses to an ABSENT projection,
+        /// which the dashboard renders as "this server predates terrain
+        /// telemetry" rather than as "terrain is off".
+        /// </summary>
+        public GameTerrainStat Terrain { get; private init; } = GameTerrainStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -209,11 +217,218 @@ namespace WorldsAdriftServer.Admin
                 RuntimeOwnershipIssueCount = (int?)(runtime?["ownershipIssueCount"]) ?? 0,
                 RuntimeDomains = runtimeDomains,
                 ShipDomains = domains,
+                Terrain = GameTerrainStat.Parse(o["terrain"] as JObject),
             };
         }
 
         internal static DateTimeOffset FromUnixMs(long ms) =>
             DateTimeOffset.FromUnixTimeMilliseconds(ms);
+    }
+
+    /// <summary>
+    /// The login server's view of the game server's terrain lifecycle section.
+    ///
+    /// Like <see cref="GameShipDomainStat"/> this REBUILDS an allowlisted object
+    /// rather than forwarding whatever the file contained: the dashboard is
+    /// authenticated output, and a field the writer never promised must not reach
+    /// it just because something wrote it. Every value defaults, so a v4 file
+    /// (no terrain section at all) and a v5 file with a truncated section both
+    /// render as a defined state instead of throwing.
+    /// </summary>
+    internal sealed class GameTerrainStat
+    {
+        /// <summary>
+        /// The three modes the game server can report. Anything else - including
+        /// a section written by a future schema - reads as "unknown" rather than
+        /// being echoed into the console verbatim.
+        /// </summary>
+        private static readonly string[] KnownModes = { "on", "off", "prerequisite-disabled" };
+
+        /// <summary>The per-cell states the console knows how to label.</summary>
+        private static readonly string[] KnownStates =
+        {
+            "absent", "requesting", "waiting-ack", "ready",
+            "draining", "unloading", "retained-legacy", "error",
+        };
+
+        private static readonly string[] KnownActions = { "none", "load", "remove", "resource-drain" };
+
+        private static readonly string[] KnownEventKinds =
+        {
+            "request", "asset-ack", "asset-retry", "asset-fallback",
+            "add-ok", "add-failed", "drain-wait", "remove-ok", "remove-failed",
+            "teleport-wait", "teleport-ready", "teleport-refused",
+        };
+
+        public bool Present { get; private init; }
+        public string Mode { get; private init; } = "unknown";
+        public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>The projection for a game server whose schema has no terrain section.</summary>
+        public static GameTerrainStat Absent() => new GameTerrainStat
+        {
+            Present = false,
+            Mode = "unknown",
+            Json = Build(null),
+        };
+
+        public static GameTerrainStat Parse(JObject? t)
+        {
+            if (t == null) return Absent();
+            return new GameTerrainStat
+            {
+                Present = true,
+                Mode = Allowed((string?)t["mode"], KnownModes),
+                Json = Build(t),
+            };
+        }
+
+        private static JObject Build(JObject? t)
+        {
+            JObject stateCounts = new JObject();
+            JObject? counts = t?["stateCounts"] as JObject;
+            foreach (string state in KnownStates)
+                stateCounts[state] = Math.Max(0, (int?)counts?[state] ?? 0);
+
+            JArray players = new JArray();
+            if (t?["players"] is JArray playerArray)
+                foreach (JToken token in playerArray)
+                    if (token is JObject p) players.Add(BuildPlayer(p));
+
+            JArray islands = new JArray();
+            if (t?["islands"] is JArray islandArray)
+                foreach (JToken token in islandArray)
+                    if (token is JObject i) islands.Add(BuildIsland(i));
+
+            JArray events = new JArray();
+            if (t?["events"] is JArray eventArray)
+                foreach (JToken token in eventArray)
+                    if (token is JObject e) events.Add(BuildEvent(e));
+
+            return new JObject
+            {
+                ["present"] = t != null,
+                ["requested"] = (bool?)t?["requested"] ?? false,
+                ["enabled"] = (bool?)t?["enabled"] ?? false,
+                ["mode"] = Allowed((string?)t?["mode"], KnownModes),
+                ["hostId"] = (string?)t?["hostId"] ?? "unknown",
+                ["authority"] = (string?)t?["authority"] ?? "unknown",
+                ["loadRadiusMetres"] = (double?)t?["loadRadiusMetres"] ?? 0,
+                ["unloadRadiusMetres"] = (double?)t?["unloadRadiusMetres"] ?? 0,
+                ["assetAckTimeoutMs"] = (long?)t?["assetAckTimeoutMs"] ?? 0,
+                ["settleDelayMs"] = (long?)t?["settleDelayMs"] ?? 0,
+                ["candidateCount"] = Math.Max(0, (int?)t?["candidateCount"] ?? 0),
+                ["trackedPeerCount"] = Math.Max(0, (int?)t?["trackedPeerCount"] ?? 0),
+                ["readyCount"] = Math.Max(0, (int?)t?["readyCount"] ?? 0),
+                ["warningCount"] = Math.Max(0, (int?)t?["warningCount"] ?? 0),
+                ["errorCount"] = Math.Max(0, (int?)t?["errorCount"] ?? 0),
+                ["eventCapacity"] = Math.Max(0, (int?)t?["eventCapacity"] ?? 0),
+                ["stateCounts"] = stateCounts,
+                ["players"] = players,
+                ["islands"] = islands,
+                ["events"] = events,
+            };
+        }
+
+        private static JObject BuildPlayer(JObject p)
+        {
+            JArray islands = new JArray();
+            if (p["islands"] is JArray cells)
+            {
+                foreach (JToken token in cells)
+                {
+                    if (token is not JObject cell) continue;
+                    islands.Add(new JObject
+                    {
+                        ["islandId"] = (string?)cell["islandId"] ?? "",
+                        ["state"] = Allowed((string?)cell["state"], KnownStates),
+                    });
+                }
+            }
+
+            JObject? asset = p["asset"] as JObject;
+            return new JObject
+            {
+                ["playerEntityId"] = (long?)p["playerEntityId"] ?? 0,
+                ["slot"] = (int?)p["slot"] ?? 0,
+                ["x"] = (double?)p["x"] ?? 0,
+                ["y"] = (double?)p["y"] ?? 0,
+                ["z"] = (double?)p["z"] ?? 0,
+                ["confirmedGroundIslandId"] = p["confirmedGroundIslandId"]?.Type == JTokenType.String
+                    ? (string?)p["confirmedGroundIslandId"] : null,
+                ["requestedDestinationIslandId"] = p["requestedDestinationIslandId"]?.Type == JTokenType.String
+                    ? (string?)p["requestedDestinationIslandId"] : null,
+                ["pendingAction"] = Allowed((string?)p["pendingAction"], KnownActions),
+                ["pendingIslandId"] = p["pendingIslandId"]?.Type == JTokenType.String
+                    ? (string?)p["pendingIslandId"] : null,
+                ["correlatedAckObserved"] = (bool?)p["correlatedAckObserved"] ?? false,
+                ["removeSupported"] = (bool?)p["removeSupported"] ?? false,
+                ["mayRemove"] = (bool?)p["mayRemove"] ?? false,
+                ["legacyRetaining"] = (bool?)p["legacyRetaining"] ?? false,
+                ["connectPlanComplete"] = (bool?)p["connectPlanComplete"] ?? false,
+                ["settleWaiting"] = (bool?)p["settleWaiting"] ?? false,
+                ["destinationWaiting"] = (bool?)p["destinationWaiting"] ?? false,
+                ["readyCount"] = Math.Max(0, (int?)p["readyCount"] ?? 0),
+                ["warning"] = (string?)p["warning"] ?? "",
+                ["asset"] = asset == null ? null : new JObject
+                {
+                    ["islandId"] = (string?)asset["islandId"] ?? "",
+                    ["assetName"] = (string?)asset["assetName"] ?? "",
+                    ["requestAgeMs"] = (long?)asset["requestAgeMs"] ?? 0,
+                    ["lastRetryAgeMs"] = (long?)asset["lastRetryAgeMs"] ?? 0,
+                    ["retryCount"] = Math.Max(0, (int?)asset["retryCount"] ?? 0),
+                    ["acknowledged"] = (bool?)asset["acknowledged"] ?? false,
+                    ["fallbackDue"] = (bool?)asset["fallbackDue"] ?? false,
+                },
+                ["islands"] = islands,
+            };
+        }
+
+        private static JObject BuildIsland(JObject i)
+        {
+            JObject? envelope = i["envelope"] as JObject;
+            return new JObject
+            {
+                ["islandId"] = (string?)i["islandId"] ?? "",
+                ["displayName"] = (string?)i["displayName"] ?? "Unnamed island",
+                ["terrainEntityId"] = (long?)i["terrainEntityId"] ?? 0,
+                ["registered"] = (bool?)i["registered"] ?? false,
+                ["locallyOwned"] = (bool?)i["locallyOwned"] ?? false,
+                ["hasEnvelope"] = (bool?)i["hasEnvelope"] ?? false,
+                ["managed"] = (bool?)i["managed"] ?? false,
+                ["unconditional"] = (bool?)i["unconditional"] ?? false,
+                ["readyPeerCount"] = Math.Max(0, (int?)i["readyPeerCount"] ?? 0),
+                ["loadingPeerCount"] = Math.Max(0, (int?)i["loadingPeerCount"] ?? 0),
+                ["drainingPeerCount"] = Math.Max(0, (int?)i["drainingPeerCount"] ?? 0),
+                ["unloadingPeerCount"] = Math.Max(0, (int?)i["unloadingPeerCount"] ?? 0),
+                ["retainedLegacyPeerCount"] = Math.Max(0, (int?)i["retainedLegacyPeerCount"] ?? 0),
+                ["errorPeerCount"] = Math.Max(0, (int?)i["errorPeerCount"] ?? 0),
+                // -1 is the writer's "unknown", and stays -1: a resource count the
+                // game server could not supply must not read as "drained".
+                ["resourceNodeCount"] = (int?)i["resourceNodeCount"] ?? -1,
+                ["checkedOutResourceCount"] = (int?)i["checkedOutResourceCount"] ?? -1,
+                ["resourceDrainWired"] = (bool?)i["resourceDrainWired"] ?? false,
+                ["envelope"] = envelope == null ? null : new JObject
+                {
+                    ["spanX"] = (double?)envelope["spanX"] ?? 0,
+                    ["spanY"] = (double?)envelope["spanY"] ?? 0,
+                    ["spanZ"] = (double?)envelope["spanZ"] ?? 0,
+                },
+            };
+        }
+
+        private static JObject BuildEvent(JObject e) => new JObject
+        {
+            ["ageMs"] = Math.Max(0, (long?)e["ageMs"] ?? 0),
+            ["kind"] = Allowed((string?)e["kind"], KnownEventKinds),
+            ["islandId"] = (string?)e["islandId"] ?? "",
+            ["playerEntityId"] = (long?)e["playerEntityId"] ?? 0,
+            ["slot"] = (int?)e["slot"] ?? 0,
+            ["success"] = (bool?)e["success"] ?? false,
+        };
+
+        private static string Allowed(string? value, string[] known) =>
+            value != null && Array.IndexOf(known, value) >= 0 ? value : "unknown";
     }
 
     internal sealed class GameRuntimeDomainStat
