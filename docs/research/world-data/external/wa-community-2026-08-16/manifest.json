@@ -1,0 +1,78 @@
+{
+  "retrievedAtUtc": "2026-08-16T19:48:59Z",
+  "classification": "community-measured; cross-check before retail-fidelity claims",
+  "workbooks": [
+    {
+      "title": "Worlds Adrift Engine Science",
+      "googleSheetId": "1xXTrHpvVgybTBUw6tl2MXfYke3Ez9VoBlkqszfePRUU",
+      "requestedGid": "0",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1xXTrHpvVgybTBUw6tl2MXfYke3Ez9VoBlkqszfePRUU/edit#gid=0",
+      "status": "downloaded",
+      "path": "workbooks/engine-science/source.xlsx",
+      "sha256": "989f292221cc55d8b7b378de315a2ff692b6d55b55faa7c7d1312868e7eea26a",
+      "sheets": [
+        { "name": "Sheet1", "rows": 49, "columns": 10 }
+      ]
+    },
+    {
+      "title": "Worlds Adrift Wing Science",
+      "googleSheetId": "1gC2QtSINylJelrvFVG37HzfOFpBlyITBOyZteGfZDkI",
+      "requestedGid": "1568854898",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1gC2QtSINylJelrvFVG37HzfOFpBlyITBOyZteGfZDkI/edit#gid=1568854898",
+      "status": "downloaded",
+      "path": "workbooks/wing-science/source.xlsx",
+      "sha256": "c1a0bdc12b4eeb99d5654f9a0e233af4086cc47257fff65327f728d4bf46c7a1",
+      "sheets": [
+        { "name": "Formatted", "rows": 32, "columns": 14 },
+        { "name": "Aileron RAW", "rows": 39, "columns": 22 },
+        { "name": "Mechanical Internals RAW", "rows": 39, "columns": 22 }
+      ]
+    },
+    {
+      "title": null,
+      "googleSheetId": "1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg",
+      "requestedGid": "1926050317",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit#gid=1926050317",
+      "status": "http-410-deleted",
+      "path": "workbooks/deleted-sheet-http-410.html",
+      "sha256": "ea5d25b1ff6308756cd607b26395a1a6af14fee4d57b06c2dacb508bbef11cf3",
+      "sheets": []
+    },
+    {
+      "title": "Panel Resilience by Cannons Shots",
+      "googleSheetId": "18ERiL81Z9nfiAvB-vDfPpnFroqg2puxZ1gtcsf--hAs",
+      "requestedGid": "0",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/18ERiL81Z9nfiAvB-vDfPpnFroqg2puxZ1gtcsf--hAs/edit#gid=0",
+      "status": "downloaded-in-progress-source",
+      "path": "workbooks/panel-resilience-cannon-shots/source.xlsx",
+      "sha256": "c15da47707dc8145464db733d3cbaafa493ec25871b9e1b33b6618f4fc89dc5b",
+      "sheets": [
+        { "name": "Kg Per Shot", "rows": 202, "columns": 7 }
+      ]
+    },
+    {
+      "title": "Engine Power Calculator Data",
+      "googleSheetId": "1RBskFnl2LbcOv9Dr_eLbeUkFY8h8ZMVhwmT5opuGnNg",
+      "requestedGid": "0 and 153389871",
+      "sourceUrl": "https://docs.google.com/spreadsheets/d/1RBskFnl2LbcOv9Dr_eLbeUkFY8h8ZMVhwmT5opuGnNg/edit#gid=0",
+      "status": "downloaded; dependency discovered in WAEngenius source",
+      "path": "workbooks/waengenius-engine-power-data/source.xlsx",
+      "sha256": "6ce85dd1adb4f3206324cc3702774932c2209b87effafd3212c1c00c812e867c",
+      "sheets": [
+        { "name": "CombustionPowerBoosts", "rows": 24, "columns": 24 },
+        { "name": "Sheet3", "rows": 24, "columns": 4 },
+        { "name": "EngineParts", "rows": 19, "columns": 10 },
+        { "name": "Standard WPU", "rows": 9, "columns": 3 }
+      ]
+    }
+  ],
+  "waengenius": {
+    "siteUrl": "https://wolkenreiter.github.io/WAEngenius/dist/index.html",
+    "repositoryUrl": "https://github.com/Wolkenreiter/WAEngenius",
+    "commit": "944277f5c56163d76eedb78f8e16a400b3caf274",
+    "commitDate": "2018-05-29T19:03:00+02:00",
+    "path": "waengenius/source",
+    "licensePath": "waengenius/source/LICENSE"
+  }
+}
+

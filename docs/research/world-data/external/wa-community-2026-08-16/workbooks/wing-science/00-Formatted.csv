@@ -1,0 +1,32 @@
+,Aileron,,,,,,,,Casing
+,Material,Pivot Speed,,Power,,Total Increase,Mass Efficiency,,Material,Health,,Mass Efficiency
+,Tin,34.8%,(+20.0%),76.9%,(+48.8%),+34.6%,1.728,,Copper,66.7%,,0.531
+,Titanium,39.1%,(+22.5%),92.3%,(+58.5%),+40.7%,2.263,,Aluminium,69.4%,,0.751
+,Iron,39.1%,(+22.5%),80.8%,(+51.2%),+37.0%,1.684,,Bronze,69.4%,,0.606
+,Copper,43.5%,(+25.0%),84.6%,(+53.7%),+39.5%,1.362,,Tin,72.2%,,0.698
+,Gold,52.2%,(+30.0%),84.6%,(+53.7%),+42.0%,1.024,,Titanium,72.2%,,0.737
+,Nickel,56.5%,(+32.5%),80.8%,(+51.2%),+42.0%,1.555,,Iron,75.0%,,0.688
+,Tungsten,56.5%,(+32.5%),92.3%,(+58.5%),+45.7%,1.062,,Silver,77.8%,,0.587
+,Steel,65.2%,(+37.5%),100.0%,(+63.4%),+50.6%,2.201,,Steel,77.8%,,0.696
+,Silver,69.6%,(+40.0%),80.8%,(+51.2%),+45.7%,1.427,,Gold,83.3%,,0.549
+,Lead,73.9%,(+42.5%),76.9%,(+48.8%),+45.7%,1.305,,Nickel,88.9%,,0.740
+,Bronze,87.0%,(+50.0%),80.8%,(+51.2%),+50.6%,2.025,,Lead,97.2%,,0.698
+,Aluminium,100.0%,(+57.5%),80.8%,(+51.2%),+54.3%,3.621,,Tungsten,100.0%,,0.630
+
+
+,Mechanical Internals,,,,,,,,Wing Materials Sheet
+,Material,Power,,Pivot Speed,,Total Increase,Mass Efficiency,,Worlds Adrift Closed Beta 0.1.3.3
+,Tin,33.3%,(+19.5%),76.0%,(+47.5%),+33.3%,1.754
+,Titanium,41.7%,(+24.4%),92.0%,(+57.5%),+40.7%,2.397,,made by Gouki (Morrow#9503)
+,Iron,41.7%,(+24.4%),80.0%,(+50.0%),+37.0%,1.764,,based on Fallout's Cannon Materials Sheet
+,Copper,45.8%,(+26.8%),84.0%,(+52.5%),+39.5%,1.411,,https://docs.google.com/spreadsheets/d/1cUHxiOTPgDWxLzJOLGpnrfjLxQUY-MnqEGsn58QDdfg/edit?usp=sharing
+,Gold,50.0%,(+29.3%),84.0%,(+52.5%),+40.7%,1.045
+,Nickel,58.3%,(+34.1%),80.0%,(+50.0%),+42.0%,1.614,,All wings were crafted with the same quality material to keep the results consistent.
+,Tungsten,58.3%,(+34.1%),92.0%,(+57.5%),+45.7%,1.088,,The best performing material of each attribute in each slot was then identified and all other materials in that attribute put into relation with it.
+,Steel,62.5%,(+36.6%),100.0%,(+62.5%),+49.4%,2.147,,"Example: Aluminium performed best for pivot speed in the Aileron with a resulting wing with 63 pivot speed, in comparison iron created a wing with 49 pivot speed."
+,Silver,70.8%,(+41.5%),80.0%,(+50.0%),+45.7%,1.474,,Substracting the base pivot speed of the engine (40) that leaves aluminium with 23 added pivot speed and iron with with 9.
+,Lead,75.0%,(+43.9%),76.0%,(+47.5%),+45.7%,1.344,,Aluminium's 23 added pivot speed being 100% makes iron's added pivot speed in relation 39.1% (rounded).
+,Bronze,87.5%,(+51.2%),80.0%,(+50.0%),+50.6%,2.109,,Base stats are substracted to increase the scalability of the results with wings other than the one used in testing.								
+,Aluminium,100.0%,(+58.5%),80.0%,(+50.0%),+54.3%,3.621
+,,,,,,,,,Engine Materials Sheet
+,,,,,,,,,https://docs.google.com/spreadsheets/d/1lUYA9dYvxLYVlJUQ6GRrWMl-0ptKT3ASj3-rnhmYr3U/edit?usp=sharing

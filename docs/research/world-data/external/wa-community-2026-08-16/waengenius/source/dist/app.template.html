@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<div style="display: flex; flex-direction: row">
+    <div class="ship-config" style="width:55%">
+        <!-- Ship total stats -->
+        <div style="position: relative; height: 256px">
+            <div style="z-index: 1; position:absolute; top:0; left:32px">
+                <airspeed-indicator speed="$ctrl.currentShip.getSpeed()"></airspeed-indicator>
+            </div>
+            <div class="ship-component-box-outer" style="position: absolute;z-index:0; top: 50%; left: 0; right:0">
+            
+                <div class="ship-component-box-inner full-border" style="position:static;margin-left:300px;" >
+                    <div class="stat-row" style="height:100%;vertical-align:middle">
+                        <div class="ship-stat-column" >
+                            <div style="font-size:24pt">{{$ctrl.currentShip.getSpeed()|number:2}}kn</div>
+                            <div>Speed</div>
+                        </div>
+                        <div class="ship-stat-column">
+                            <div>{{$ctrl.currentShip.getPower()|number:1}}</div>
+                            <div>Power</div>
+                        </div>
+                        <div class="ship-stat-column">
+                            <div>{{$ctrl.currentShip.getMass()|number:1}}kg</div>
+                            <div>Mass</div>
+                        </div>
+                        <div class="ship-stat-column">
+                            <div>{{$ctrl.currentShip.getPower()/$ctrl.currentShip.getMass()|number:3}}</div>
+                            <div>Mass&nbsp;Efficiency</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- base weight -->
+        <div class="ship-component-box-outer">
+            <div style="display: flex; flex-direction: row">
+                <div style="flex:1;display:flex; flex-direction: column; margin-right:10px">
+                    <div class="ship-component-header">
+                        <div class="ship-component-tab stat-background">Base&nbsp;Mass</div>
+                        <div style="flex:1"></div>
+                    </div>
+                    <div class="ship-component-box-inner">
+                        <span style="white-space: nowrap;width:100%">
+                            <input style="margin:0 5px;box-sizing: border-box;width:90%" ng-change="$ctrl.updateShipConfig()" type="text" ng-model="$ctrl.currentShip.baseMass"/>&nbsp;kg
+                        </span>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex; flex-direction: column">
+                    <div class="ship-component-header">
+                        <div class="ship-component-tab stat-background">Additional&nbsp;Power</div>
+                        <div style="flex:1"></div>
+                    </div>
+                    <div class="ship-component-box-inner">
+                        <input style="margin:0 5px;box-sizing: border-box;width:97%" ng-change="$ctrl.updateShipConfig()" type="text" ng-model="$ctrl.currentShip.addPower"/>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <engine-set-editor ng-repeat="e in $ctrl.currentShip.engines track by e.setId" 
+            set-id="e.setId" 
+            engine-set-data="e" 
+            material-names="$ctrl.materialNames" 
+            material-data="$ctrl.materialData"
+            engine-list="$ctrl.engineList"
+            engine-set-being-edited="$ctrl.engineSetBeingEdited"
+            engine-part-data="$ctrl.enginePartData"
+            engine-schem-data="$ctrl.getEngineSchemById(e.engineId)"
+            on-engine-schem-update="$ctrl.onEngineSchemUpdate(engineId, property, engineSchemData)"
+        >
+        </engine-set-editor>
+        <div class="engine-list-footer">
+            <img ng-click="$ctrl.addEngineSet()" class="svg-icon" src="images/iconmonstr-plus-6.svg" width="48" height="48" alt="add new engine" style="align-self: center"/>
+        </div>
+    </div>
+    <div id="graph-floater" style="top:0;width:45%;display:flex;flex-direction: column;margin:0;right:0">        
+        <div id="graph-container" class="ship-component-box-outer chart-floater " style="top:0">
+            <performance-chart 
+                performance-data="$ctrl.getChartData()" 
+                material-names="$ctrl.graphMaterials"
+                engine-name="$ctrl.focusedEngineName"
+                focused-slot="$ctrl.focusedSlot"></performance-chart>
+        </div>
+    </div>
+</div>
