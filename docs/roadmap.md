@@ -30,15 +30,15 @@ The long-term goal is one legacy-client gateway backed eventually by movable
 island and whole-ship simulation domains. Multi-process meshing is deliberately
 deferred until the boundaries work in one process.
 
-1. **Stable region topology — implemented.** Dependency-free
-   `RegionId`, `RegionDefinition` and `RegionRegistry`; no runtime behavior yet.
-2. **Read-only world directory — implemented locally, live boot log pending.**
-   Every current registration is classified as region, whole ship or explicit
-   global scope. The server logs a summary; no gameplay path reads it.
-3. **Region-backed interest routing — next after acceptance.** Preserve current resource semantics,
-   then extend visibility one entity family at a time with measured budgets.
-4. **Local simulation domains.** Island and whole-ship domains scheduled in the
-   existing poll loop.
+1. **Stable region topology — implemented and consumed.** `RegionId`,
+   `RegionDefinition` and configured registries feed the directory and interest.
+2. **World directory — implemented and live.** Every registration is classified
+   as region, whole ship or explicit global scope.
+3. **Region-backed resource routing — implemented.** Existing resource semantics
+   are preserved while candidate selection consumes canonical ownership.
+4. **Local ownership domains — implemented.** Island and whole-ship membership is
+   complete and unique; gameplay scheduling intentionally remains in the proven
+   poll-loop order.
 5. **Ship snapshot proof.** Capture, destroy, restore and resume one live ship.
 6. **Authority generations and gateway seam.** Reject stale-authority writes
    before introducing a process boundary.
@@ -54,6 +54,8 @@ Detailed gates and invariants are in
   resource removal, re-checkout, harvesting and scanning.
 - Define terrain/island visibility between distant regions; seeing Haven from
   Trades Challenge is currently separate from resource interest.
+- Visually accept the opt-in first-C6 terrain prefix one island at a time; see
+  [`research/findings-first-region-terrain.md`](research/findings-first-region-terrain.md).
 - Finish retail-faithful wind, Wind Wall and sail behavior; current sails use a
   documented scalar propulsion approximation.
 - Add safe reconnect after a game-server restart without broadening authority.

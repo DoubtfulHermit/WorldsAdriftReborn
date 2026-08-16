@@ -1,4 +1,5 @@
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -416,6 +417,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // The ship hull (initial) precedes the first tree/ore (distant).
             int hull = IndexOf(plan, SpawnOp.AddEntity, WorldEntities.ShipFrameKey);
             Assert.True(hull > 0);
+        }
+
+        [Fact]
+        public void First_region_terrain_streams_after_player_in_release_rollout_order()
+        {
+            WorldEntityRegistry registry = WorldEntities.Default(
+                new EntityIdAllocator(), firstRegionTerrainCount: 4);
+            IReadOnlyList<SpawnPlanStep> plan = SpawnPlan.For(registry);
+
+            int player = IndexOf(plan, SpawnOp.AddEntity, null);
+            int previous = player;
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1))
+            {
+                int request = IndexOf(plan, SpawnOp.RequestAsset, island.WorldEntityKey);
+                int add = IndexOf(plan, SpawnOp.AddEntity, island.WorldEntityKey);
+                Assert.True(request > previous);
+                Assert.Equal(request + 1, add);
+                previous = add;
+            }
         }
 
         private static int IndexOf(IReadOnlyList<SpawnPlanStep> plan, SpawnOp op, string? key)

@@ -1195,7 +1195,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         Multiplayer.WorldEntity? databank =
                             WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId);
                         Multiplayer.Islands.IslandRegistry islands =
-                            Multiplayer.Islands.IslandRegistry.CreateDefault();
+                            WorldsAdriftRebornGameServer.IslandTopology;
                         Multiplayer.Islands.IslandId owner = databank == null
                             ? Multiplayer.Islands.IslandCatalog.HavenId
                             : Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(

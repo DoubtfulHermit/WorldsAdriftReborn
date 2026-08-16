@@ -2130,8 +2130,7 @@ namespace WorldsAdriftRebornGameServer
             // domain inventory. ShipDomainStat remains the richer control/replication
             // view; these compact nodes let the admin UI scale across islands, ships
             // and future hosts without flattening everything into ship cards.
-            Multiplayer.Islands.IslandRegistry topologyIslands =
-                Multiplayer.Islands.IslandRegistry.CreateDefault();
+            Multiplayer.Islands.IslandRegistry topologyIslands = IslandTopology;
             Dictionary<long, ShipDomainStat> shipStatsByHull = shipDomains
                 .ToDictionary(domain => domain.HullEntityId);
             List<RuntimeDomainStat> runtimeDomains = new List<RuntimeDomainStat>();
@@ -2348,6 +2347,26 @@ namespace WorldsAdriftRebornGameServer
         private static readonly EntityIdAllocator EntityIds = new EntityIdAllocator();
 
         /// <summary>
+        /// Bounded terrain-only rollout for the evidenced first release-map region.
+        /// Zero preserves today's Haven/Trades topology and spawn behavior; values
+        /// 1..4 select Trades, Anchorage, Old Military and Shattered in that order.
+        /// </summary>
+        internal static readonly int FirstRegionTerrainCount =
+            Multiplayer.Islands.FirstRegionTerrainCountPolicy.CountFrom(
+                Environment.GetEnvironmentVariable("WAREBORN_FIRST_REGION_TERRAIN_COUNT"));
+
+        internal static readonly Multiplayer.Islands.IslandRegistry IslandTopology =
+            FirstRegionTerrainCount > 0
+                ? Multiplayer.Islands.IslandRegistry.CreateWithFirstRegionTerrain(FirstRegionTerrainCount)
+                : Multiplayer.Islands.IslandRegistry.CreateDefault();
+
+        internal static readonly Multiplayer.Regions.RegionRegistry RegionTopology =
+            FirstRegionTerrainCount > 0
+                ? Multiplayer.Regions.RegionRegistry.CreateWithFirstRegionTerrain(
+                    IslandTopology, FirstRegionTerrainCount)
+                : Multiplayer.Regions.RegionRegistry.CreateDefault(IslandTopology);
+
+        /// <summary>
         /// EVERY non-player thing this server puts in the world, and the one
         /// entity id each is known by on every client.
         ///
@@ -2376,10 +2395,12 @@ namespace WorldsAdriftRebornGameServer
                 Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"),
                 VaryTreeSpecies,
                 SpawnStaticShip,
-                SpawnProductionSecondIsland);
+                SpawnProductionSecondIsland,
+                FirstRegionTerrainCount);
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
-            new Game.ResourceInterestService(ServerClock, WorldEntities);
+            new Game.ResourceInterestService(
+                ServerClock, WorldEntities, IslandTopology, RegionTopology);
 
         /// <summary>Whole-ship per-peer checkout with load/unload hysteresis.</summary>
         internal static readonly Game.ShipDomainInterestService ShipInterest =
@@ -3770,16 +3791,28 @@ namespace WorldsAdriftRebornGameServer
             Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
 
+            if (FirstRegionTerrainCount > 0)
+            {
+                Console.WriteLine("[first-region] TERRAIN TEST enabled: count="
+                    + FirstRegionTerrainCount + ", region="
+                    + Multiplayer.Regions.RegionCatalog.FirstC6RegionId + ", islands="
+                    + string.Join(", ", IslandTopology.All.Select(island => island.DisplayName))
+                    + ". Terrain only; no candidate resource profiles and no continuous"
+                    + " terrain unload. Not a production-acceptance claim.");
+            }
+
             // ELASTIC-RUNTIME FOUNDATION. Build the canonical ownership directory
             // only after restore + SpawnPlan have bound every boot entity id, so
             // mounted loose parts can be associated with their hull roots. Phase 3
             // lets resource candidate selection consume region ownership; spawn,
             // persistence and ship authority remain on their existing paths.
             Multiplayer.Regions.WorldDirectory worldDirectory =
-                Game.WorldDirectoryDiagnostics.BuildAndLog(WorldEntities);
+                Game.WorldDirectoryDiagnostics.BuildAndLog(
+                    WorldEntities, IslandTopology, RegionTopology);
             ResourceInterest.AttachDirectory(worldDirectory);
             Game.LocalDomainOwnership.Bootstrap(
-                DomainHost, worldDirectory, WorldEntities, ShipDomains);
+                DomainHost, worldDirectory, WorldEntities, ShipDomains,
+                IslandTopology, RegionTopology);
 
             GameState.Instance.WorldState[0] = plan
                 .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step), () =>

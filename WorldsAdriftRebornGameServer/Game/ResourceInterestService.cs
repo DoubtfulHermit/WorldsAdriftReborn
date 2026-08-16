@@ -32,7 +32,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
         private readonly IClock _clock;
         private readonly WorldEntityRegistry _registry;
-        private readonly IslandRegistry _islands = IslandRegistry.CreateDefault();
+        private readonly IslandRegistry _islands;
         private readonly RegionRegistry? _regions;
         private RegionInterestQuery? _interestQuery;
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
@@ -40,15 +40,17 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly Dictionary<string, long> _resourceIdsByKey = new(StringComparer.Ordinal);
         private readonly Dictionary<long, IslandId> _resourceIslands = new();
 
-        public ResourceInterestService(IClock clock, WorldEntityRegistry registry)
+        public ResourceInterestService(IClock clock, WorldEntityRegistry registry,
+            IslandRegistry islands, RegionRegistry regions)
         {
             _clock = clock;
             _registry = registry;
+            _islands = islands ?? throw new ArgumentNullException(nameof(islands));
             // Fail-open compatibility: with interest disabled, do not even bind
             // resource ids or construct routing topology early; the old spawn plan
             // retains both its allocation order and its previous failure boundary.
             if (!Interest.Enabled) return;
-            _regions = RegionRegistry.CreateDefault(_islands);
+            _regions = regions ?? throw new ArgumentNullException(nameof(regions));
             _interestQuery = new RegionInterestQuery(
                 WorldDirectory.Build(registry, _islands, _regions));
             foreach (WorldEntity entity in registry.Registrations.Where(e => ResourceInterestPolicy.IsStreamedResourceKey(e.Key)))

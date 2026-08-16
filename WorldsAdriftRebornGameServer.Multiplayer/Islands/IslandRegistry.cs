@@ -59,5 +59,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             registry.Register(IslandCatalog.TradesChallenge);
             return registry;
         }
+
+        /// <summary>
+        /// Builds the evidenced first-region terrain registry without changing the
+        /// production default. Haven is always present; <paramref name="optionalCount"/>
+        /// selects a bounded prefix of the four after-player candidates.
+        /// </summary>
+        public static IslandRegistry CreateWithFirstRegionTerrain(int optionalCount)
+        {
+            int bounded = FirstRegionTerrainCountPolicy.Clamp(optionalCount);
+            IslandRegistry registry = new();
+            registry.Register(IslandCatalog.Haven);
+            for (int i = 0; i < bounded; i++)
+                registry.Register(IslandCatalog.FirstRegionTerrain[i + 1]);
+            return registry;
+        }
     }
 }

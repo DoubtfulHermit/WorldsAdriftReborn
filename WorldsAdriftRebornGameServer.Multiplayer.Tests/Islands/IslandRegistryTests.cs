@@ -25,10 +25,101 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         {
             IslandRegistry registry = IslandRegistry.CreateDefault();
 
+            Assert.Equal(2, registry.All.Count);
             Assert.Same(IslandCatalog.Haven, registry.Require(new IslandId("haven")));
             Assert.Same(IslandCatalog.TradesChallenge,
                 registry.Require(new IslandId("the-trades-challenge")));
+            Assert.Null(registry.ById(IslandCatalog.AnchorageIsleId));
+            Assert.Null(registry.ById(IslandCatalog.OldMilitaryAcademyId));
+            Assert.Null(registry.ById(IslandCatalog.ShatteredMausoleumId));
             Assert.Null(registry.ById(new IslandId("missing")));
+        }
+
+        [Fact]
+        public void First_region_catalogue_can_be_registered_without_identity_collisions()
+        {
+            IslandRegistry registry = new IslandRegistry();
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain)
+                registry.Register(island);
+
+            Assert.Equal(IslandCatalog.FirstRegionTerrain.Count, registry.All.Count);
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain)
+            {
+                Assert.Same(island, registry.Require(island.Id));
+                Assert.Same(island, registry.ByWorldEntityKey(island.WorldEntityKey));
+            }
+        }
+
+        [Theory]
+        [InlineData(-1, 1)]
+        [InlineData(0, 1)]
+        [InlineData(1, 2)]
+        [InlineData(2, 3)]
+        [InlineData(4, 5)]
+        [InlineData(99, 5)]
+        public void First_region_factory_registers_Haven_plus_a_bounded_candidate_prefix(
+            int optionalCount,
+            int expectedTotal)
+        {
+            IslandRegistry registry = IslandRegistry.CreateWithFirstRegionTerrain(optionalCount);
+
+            Assert.Equal(expectedTotal, registry.All.Count);
+            Assert.Same(IslandCatalog.Haven, registry.Require(IslandCatalog.HavenId));
+
+            int bounded = FirstRegionTerrainCountPolicy.Clamp(optionalCount);
+            foreach (IslandDefinition included in IslandCatalog.FirstRegionTerrain.Take(bounded + 1))
+                Assert.Same(included, registry.Require(included.Id));
+            foreach (IslandDefinition excluded in IslandCatalog.FirstRegionTerrain.Skip(bounded + 1))
+                Assert.Null(registry.ById(excluded.Id));
+        }
+
+        [Fact]
+        public void First_region_terrain_is_ordered_as_one_required_then_four_optional_candidates()
+        {
+            Assert.Equal(
+                new[]
+                {
+                    IslandCatalog.HavenId,
+                    IslandCatalog.TradesChallengeId,
+                    IslandCatalog.AnchorageIsleId,
+                    IslandCatalog.OldMilitaryAcademyId,
+                    IslandCatalog.ShatteredMausoleumId,
+                },
+                IslandCatalog.FirstRegionTerrain.Select(island => island.Id));
+
+            Assert.Equal(SpawnOrder.BeforePlayer, IslandCatalog.FirstRegionTerrain[0].SpawnOrder);
+            Assert.All(
+                IslandCatalog.FirstRegionTerrain.Skip(1),
+                island => Assert.Equal(SpawnOrder.AfterPlayer, island.SpawnOrder));
+        }
+
+        [Theory]
+        [InlineData("anchorage-isle", "Anchorage Isle", "island-anchorage-isle",
+            53748326, -1229240, 1475919, "650186469@Island")]
+        [InlineData("the-old-military-academy", "The Old Military Academy",
+            "island-the-old-military-academy", 58796532, 277533, 7307445,
+            "1673355094@Island")]
+        [InlineData("shattered-mausoleum", "Shattered Mausoleum",
+            "island-shattered-mausoleum", 58660618, -2158603, -19035735,
+            "949069116@Island")]
+        public void C6_candidates_preserve_release_MapFile_identity_and_transform(
+            string id,
+            string displayName,
+            string entityKey,
+            long x,
+            long y,
+            long z,
+            string assetName)
+        {
+            IslandDefinition island = IslandCatalog.FirstRegionTerrain.Single(
+                candidate => candidate.Id == new IslandId(id));
+
+            Assert.Equal(displayName, island.DisplayName);
+            Assert.Equal(entityKey, island.WorldEntityKey);
+            Assert.Equal(new FixedPointPosition(x, y, z), island.GlobalOrigin);
+            Assert.Equal(assetName, island.TerrainAssetName);
+            Assert.Equal(IslandCatalog.DefaultTerrainAssetContext, island.TerrainAssetContext);
+            Assert.Equal(SpawnOrder.AfterPlayer, island.SpawnOrder);
         }
 
         [Fact]

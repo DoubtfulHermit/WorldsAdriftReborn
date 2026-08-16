@@ -155,6 +155,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
             Assert.Equal(east.Id, directory.ByEntityKey("resource-east")!.IslandId);
         }
 
+        [Fact]
+        public void First_region_terrain_has_one_region_owner_and_exact_island_affinity()
+        {
+            IslandRegistry islands = IslandRegistry.CreateWithFirstRegionTerrain(4);
+            RegionRegistry regions = RegionRegistry.CreateWithFirstRegionTerrain(islands, 4);
+            WorldEntityRegistry entities = WorldEntities.Default(
+                new EntityIdAllocator(), firstRegionTerrainCount: 4);
+
+            WorldDirectory directory = WorldDirectory.Build(entities, islands, regions);
+
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain)
+            {
+                WorldDirectoryEntry entry = directory.ByEntityKey(island.WorldEntityKey)!;
+                Assert.Equal(WorldOwner.ForRegion(RegionCatalog.FirstC6RegionId), entry.Owner);
+                Assert.Equal(island.Id, entry.IslandId);
+            }
+        }
+
         private static WorldDirectory Build(
             WorldEntityRegistry entities,
             IReadOnlyDictionary<string, string>? overrides = null)

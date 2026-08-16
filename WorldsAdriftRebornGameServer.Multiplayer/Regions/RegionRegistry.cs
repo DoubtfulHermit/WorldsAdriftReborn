@@ -69,5 +69,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
             registry.Register(RegionCatalog.TradesChallenge);
             return registry;
         }
+
+        /// <summary>
+        /// Creates one C6 region owning Haven plus the selected prefix of optional
+        /// after-player terrain. The supplied island registry must be the exact result
+        /// of <see cref="IslandRegistry.CreateWithFirstRegionTerrain(int)"/> for the
+        /// same bounded count; mismatched topology is rejected before registration.
+        /// </summary>
+        public static RegionRegistry CreateWithFirstRegionTerrain(
+            IslandRegistry islands,
+            int optionalCount)
+        {
+            if (islands == null)
+                throw new ArgumentNullException(nameof(islands));
+
+            int bounded = FirstRegionTerrainCountPolicy.Clamp(optionalCount);
+            IReadOnlyList<IslandDefinition> expected =
+                IslandCatalog.FirstRegionTerrain.Take(bounded + 1).ToArray();
+            IReadOnlyList<IslandDefinition> actual = islands.All;
+            if (actual.Count != expected.Count
+                || expected.Any(island => !ReferenceEquals(islands.ById(island.Id), island)))
+            {
+                throw new ArgumentException(
+                    "island registry does not match the selected first-region terrain prefix",
+                    nameof(islands));
+            }
+
+            RegionRegistry registry = new(islands);
+            registry.Register(RegionCatalog.FirstC6(expected.Select(island => island.Id)));
+            return registry;
+        }
     }
 }

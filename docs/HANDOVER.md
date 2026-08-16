@@ -559,6 +559,24 @@ Phase 5 has a pure capture/restore/resume proof, but not yet the full live
 destroy/recreate/no-visible-teleport acceptance test. Phase 6 has ship authority
 generations, but no in-process gateway seam yet.
 
+### First C6 terrain expansion (local, off by default)
+
+The next release-world terrain cluster is now encoded from the preserved Bossa
+MapFile in rollout order: Trades, Anchorage Isle, The Old Military Academy and
+Shattered Mausoleum. `WAREBORN_FIRST_REGION_TERRAIN_COUNT=0..4` selects a bounded
+terrain-only prefix; zero is the default. All runtime topology consumers share
+the same configured island/region registries, so spawn, resource routing,
+directory ownership, local domains, databank parent resolution and admin stats
+cannot disagree about which islands exist. This has not been deployed or
+visually accepted. Do not enable all four at once: terrain has no continuous
+distance checkout yet and the four bundles total roughly 44.5 MiB compressed.
+See `docs/research/findings-first-region-terrain.md`.
+
+The release MapFile also proves wall geometry. The nearest Haven separator is a
+type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
+exact release wall placement as missing are superseded. Wall behavior remains
+unimplemented.
+
 ## 10. Known risks and unfinished work
 
 - **Panel placement:** WAPatch `2026.08.14-7` is awaiting visual acceptance.

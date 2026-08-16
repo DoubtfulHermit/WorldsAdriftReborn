@@ -8,10 +8,11 @@ namespace WorldsAdriftRebornGameServer.Game
     /// <summary>Builds the canonical post-restore directory and logs its topology.</summary>
     internal static class WorldDirectoryDiagnostics
     {
-        internal static WorldDirectory BuildAndLog(WorldEntityRegistry entities)
+        internal static WorldDirectory BuildAndLog(WorldEntityRegistry entities,
+            IslandRegistry islands, RegionRegistry regions)
         {
-            IslandRegistry islands = IslandRegistry.CreateDefault();
-            RegionRegistry regions = RegionRegistry.CreateDefault(islands);
+            if (islands == null) throw new ArgumentNullException(nameof(islands));
+            if (regions == null) throw new ArgumentNullException(nameof(regions));
             var mountedOverrides = new Dictionary<string, string>(StringComparer.Ordinal);
 
             foreach (WorldEntity entity in entities.Registrations)

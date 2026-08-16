@@ -15,10 +15,12 @@ namespace WorldsAdriftRebornGameServer.Game
             LocalDomainHost host,
             WorldDirectory directory,
             WorldEntityRegistry entities,
-            ShipDomainRegistry shipDomains)
+            ShipDomainRegistry shipDomains,
+            IslandRegistry islands,
+            RegionRegistry regions)
         {
-            IslandRegistry islands = IslandRegistry.CreateDefault();
-            RegionRegistry regions = RegionRegistry.CreateDefault(islands);
+            if (islands == null) throw new ArgumentNullException(nameof(islands));
+            if (regions == null) throw new ArgumentNullException(nameof(regions));
 
             foreach (IslandDefinition island in islands.All)
             {
@@ -91,7 +93,7 @@ namespace WorldsAdriftRebornGameServer.Game
             FixedPointPosition position)
         {
             IslandId islandId = IslandResourceInterestPolicy.ClosestIsland(
-                position, IslandRegistry.CreateDefault().All);
+                position, WorldsAdriftRebornGameServer.IslandTopology.All);
             SimulationDomainId destination = SimulationDomainId.ForIsland(islandId);
             if (host.ById(destination) is not IslandDomain)
                 throw new InvalidOperationException("island domain '" + destination + "' is not hosted");

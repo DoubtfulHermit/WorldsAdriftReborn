@@ -1,4 +1,5 @@
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -310,6 +311,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal("1206286558@Island", island.AssetName);
             Assert.Equal(SeededEntityKind.Island, on.KindOf(entityId));
             Assert.Equal(SpawnOrder.AfterPlayer, island.Order);
+        }
+
+        [Fact]
+        public void First_region_rollout_adds_only_the_selected_terrain_prefix()
+        {
+            WorldEntityRegistry registry = WorldEntities.Default(
+                new EntityIdAllocator(), firstRegionTerrainCount: 3);
+
+            Assert.NotNull(registry.ByKey(IslandCatalog.Haven.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.TradesChallenge.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.AnchorageIsle.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.OldMilitaryAcademy.WorldEntityKey));
+            Assert.Null(registry.ByKey(IslandCatalog.ShatteredMausoleum.WorldEntityKey));
+
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1).Take(3))
+            {
+                WorldEntity entity = registry.ByKey(island.WorldEntityKey)!;
+                Assert.Equal(SeededEntityKind.Island, registry.KindOf(registry.EntityIdFor(entity)));
+                Assert.Empty(entity.SeedComponents);
+                Assert.Equal(SpawnOrder.AfterPlayer, entity.Order);
+            }
+        }
+
+        [Fact]
+        public void Legacy_trades_flag_and_first_region_rollout_never_duplicate_terrain()
+        {
+            WorldEntityRegistry registry = WorldEntities.Default(new EntityIdAllocator(),
+                includeProductionSecondIsland: true, firstRegionTerrainCount: 4);
+
+            Assert.Single(registry.Registrations,
+                entity => entity.Key == IslandCatalog.TradesChallenge.WorldEntityKey);
+            Assert.Equal(5, registry.Registrations.Count(entity =>
+                IslandCatalog.FirstRegionTerrain.Any(island => island.WorldEntityKey == entity.Key)));
         }
 
         [Fact]

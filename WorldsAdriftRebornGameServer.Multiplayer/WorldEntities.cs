@@ -943,16 +943,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// biome profile is birch; this remains available for a future island whose
         /// recovered per-island data actually names several woods.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
-            IslandRegistry islands = IslandRegistry.CreateDefault();
+            int terrainCount = FirstRegionTerrainCountPolicy.Clamp(firstRegionTerrainCount);
+            IslandRegistry islands = terrainCount > 0
+                ? IslandRegistry.CreateWithFirstRegionTerrain(terrainCount)
+                : IslandRegistry.CreateDefault();
 
             registry.Register(Island(islands.Require(IslandCatalog.HavenId)));
 
-            if (includeProductionSecondIsland)
+            // Terrain expansion is deliberately independent from the older Trades
+            // resource flag. It adds only a bounded, evidenced prefix of release-map
+            // terrain; candidate resources remain disabled until each island profile
+            // has its own acceptance pass.
+            int candidateIndex = 0;
+            foreach (IslandDefinition candidate in IslandCatalog.FirstRegionTerrain.Skip(1))
             {
-                registry.Register(Island(islands.Require(IslandCatalog.TradesChallengeId)));
+                bool selected = candidateIndex < terrainCount;
+                bool legacyTrades = includeProductionSecondIsland
+                    && candidate.Id == IslandCatalog.TradesChallengeId;
+                if ((selected || legacyTrades) && registry.ByKey(candidate.WorldEntityKey) == null)
+                    registry.Register(Island(candidate));
+                candidateIndex++;
             }
 
             if (includeProofIsland)
