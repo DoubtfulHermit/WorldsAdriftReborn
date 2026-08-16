@@ -569,13 +569,21 @@ terrain-only prefix; zero is the default. Geographically closer C6 islands are
 tier 3 and are intentionally deferred. All runtime topology consumers share
 the same configured island/region registries, so spawn, resource routing,
 directory ownership, local domains, databank parent resolution and admin stats
-cannot disagree about which islands exist. This has not been deployed, enabled,
-or visually accepted. Mental Facility has the first guarded named landing destination,
+cannot disagree about which islands exist. Build `07270f1` is deployed with the
+bounded rollout set to exactly one terrain (`Mental Facility`); it is not yet
+visually accepted. Mental Facility has the first guarded named landing destination,
 `mental-facility`, derived from its extracted top surface; both the game server
 and admin page refuse it unless at least the first tier-1 terrain is registered.
 Do not enable all four at once: terrain has no continuous
 distance checkout yet and the four bundles total roughly 42.5 MiB compressed.
 See `docs/research/findings-first-region-terrain.md`.
+
+Production verification after the `07270f1` restart: stats schema 4 reported
+`firstRegionTerrainCount=1`; the directory classified Mental Facility into
+`tier1-b3-region`; the local host reported 3 island domains, 5 ship domains,
+255 owned entities, 0 unowned entities and 0 ownership issues. The count-one
+setting is a runtime systemd test override and therefore intentionally disappears
+on VPS reboot unless promoted after visual acceptance.
 
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating

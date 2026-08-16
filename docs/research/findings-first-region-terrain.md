@@ -57,6 +57,12 @@ overhead within 5 m. Runtime and the admin console both refuse the destination
 unless Mental Facility terrain is registered. The other three tier-1 islands
 still need independently derived and visually accepted landing points.
 
+Build `07270f1` was staged in production with the bounded count set to exactly
+one. Boot verification passed (Mental Facility owned by `tier1-b3-region`, no
+unowned or duplicate entities); player-side terrain, collision and landing
+remain pending visual acceptance. The production count is a runtime systemd
+override so a VPS reboot fails safely back to the default zero-island rollout.
+
 ## Wall correction
 
 The preserved release MapFile does contain exact wall geometry and wall types.
