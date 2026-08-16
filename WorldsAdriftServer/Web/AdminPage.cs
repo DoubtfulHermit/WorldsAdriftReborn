@@ -276,8 +276,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
       <div class=""button-row"">
         <button type=""button"" data-command=""teleport"" data-argument=""haven"">Return to Haven</button>
         <button type=""button"" id=""tradesTravel"" data-command=""teleport"" data-argument=""trades-challenge"">Trades Challenge</button>
+        <button type=""button"" id=""mentalFacilityTravel"" data-command=""teleport"" data-argument=""mental-facility"">Mental Facility · Tier 1</button>
       </div>
-      <p id=""islandRequirement"">Trades Challenge requires <code>WAREBORN_SPAWN_SECOND_ISLAND=1</code>.</p>
+      <p id=""islandRequirement"">Optional destinations unlock only after their terrain registration is confirmed by the game server.</p>
     </div>
     <div class=""tool"">
       <h3>Placement recovery</h3>
@@ -354,6 +355,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var CSRF = '" + csrfToken + @"';
   var gameReporting = false;
   var secondIslandRegistered = false;
+  var firstRegionTerrainCount = 0;
   var latestDomains = [];
   var latestRuntimeDomains = [];
   var domainFilter = 'all';
@@ -519,6 +521,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     text('relay', reporting?(g.relayMode||'—'):'—');
     gameReporting=reporting && !g.stale;
     secondIslandRegistered=gameReporting && g.secondIslandRegistered===true;
+    firstRegionTerrainCount=gameReporting?Math.max(0,Number(g.firstRegionTerrainCount)||0):0;
     text('testIsland',reporting?(secondIslandRegistered?'ready':'off'):'—');
 
     var spiral=$('spiralBanner');
@@ -611,9 +614,13 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
     var trades=$('tradesTravel');
     trades.disabled=!secondIslandRegistered;
-    text('islandRequirement',secondIslandRegistered
-      ? 'Terrain registration is confirmed by the live game server.'
-      : 'Unavailable: requires WAREBORN_SPAWN_SECOND_ISLAND=1 and a fresh game-server report.');
+    var mental=$('mentalFacilityTravel');
+    mental.disabled=firstRegionTerrainCount<1;
+    text('islandRequirement',(secondIslandRegistered||firstRegionTerrainCount>0)
+      ? 'Live terrain: '+(secondIslandRegistered?'Trades Challenge':'')
+          +(secondIslandRegistered&&firstRegionTerrainCount>0?' · ':'')
+          +(firstRegionTerrainCount>0?firstRegionTerrainCount+' tier-1 B3 island'+(firstRegionTerrainCount===1?'':'s'):'')
+      : 'Optional travel is unavailable until its terrain is registered and freshly reported.');
 
     var recent=((data.commands||{}).recent)||[];
     var completion=(data.commands||{}).latestCompletion;
@@ -697,7 +704,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       .then(function(r){if(r.status===401){location.href='/admin';return null;}return r.json().then(function(j){return {ok:r.ok,data:j};});})
       .then(function(result){if(result){showFeedback(result.ok,result.data.message||'Command request finished.');refresh();}})
       .catch(function(){showFeedback(false,'The admin command request could not reach the login server.');})
-      .then(function(){button.disabled=false;if(button.id==='tradesTravel'&&!secondIslandRegistered)button.disabled=true;});
+      .then(function(){button.disabled=false;if(button.id==='tradesTravel'&&!secondIslandRegistered)button.disabled=true;if(button.id==='mentalFacilityTravel'&&firstRegionTerrainCount<1)button.disabled=true;});
   }
   function showFeedback(ok,message){var e=$('commandFeedback');e.className='feedback show'+(ok?'':' bad');e.textContent=message;}
   function copyIncident(){

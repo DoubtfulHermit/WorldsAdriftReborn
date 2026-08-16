@@ -48,8 +48,14 @@ also make distant terrain remain visible. Accept one count at a time while
 recording login duration, asset acknowledgements/timeouts, client memory/frame
 time, collision, reconnect and two-client behavior. Terrain interest/unload is
 the next prerequisite before treating the whole cluster as a normal live world.
-The new tier-1 islands do not yet have validated named teleport destinations.
-Recover surface-safe landing points before exposing them in the admin allowlist.
+Mental Facility now has the first guarded visual-test destination:
+`mental-facility`. Its island-local surface point is `(120.00, 34.26, -16.00)`
+with a 2 m capsule stand-off. The extracted vertex normal is `ny=0.990`, the
+surrounding cardinal/diagonal samples support a broad top surface, the nearest
+authored static prop is more than 35 m away, and there is no authored static
+overhead within 5 m. Runtime and the admin console both refuse the destination
+unless Mental Facility terrain is registered. The other three tier-1 islands
+still need independently derived and visually accepted landing points.
 
 ## Wall correction
 

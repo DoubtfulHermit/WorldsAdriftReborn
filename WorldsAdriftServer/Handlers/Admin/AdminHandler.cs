@@ -260,6 +260,13 @@ namespace WorldsAdriftServer.Handlers.Admin
                     "The test island is not registered on the live game server.");
                 return;
             }
+            if (command.Action == "teleport" && command.Detail == "mental-facility"
+                && snapshot.FirstRegionTerrainCount < 1)
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId,
+                    "Mental Facility terrain is not registered on the live game server.");
+                return;
+            }
 
             if ((command.Action == "teleport" || command.Action == "placement")
                 && command.TargetEntityId.HasValue
@@ -451,6 +458,7 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["peakOnline"] = s.PeakOnline;
             game["wireHealthWarning"] = s.WireHealthWarning;
             game["secondIslandRegistered"] = s.SecondIslandRegistered;
+            game["firstRegionTerrainCount"] = s.FirstRegionTerrainCount;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,

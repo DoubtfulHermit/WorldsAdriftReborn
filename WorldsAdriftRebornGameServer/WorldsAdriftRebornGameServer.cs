@@ -2217,7 +2217,10 @@ namespace WorldsAdriftRebornGameServer
                 runtimeOwnedEntityCount: ownership.OwnedEntityCount,
                 runtimeGlobalEntityCount: ownership.GlobalEntityCount,
                 runtimeUnownedEntityCount: ownership.UnownedEntityIds.Count,
-                runtimeOwnershipIssueCount: ownership.Inconsistencies.Count);
+                runtimeOwnershipIssueCount: ownership.Inconsistencies.Count,
+                firstRegionTerrainCount: Multiplayer.Islands.IslandCatalog.FirstRegionTerrain
+                    .Skip(1)
+                    .Count(island => WorldEntities.ByKey(island.WorldEntityKey) != null));
         }
 
         /// <summary>Published appearance per player entity; read by the 1088

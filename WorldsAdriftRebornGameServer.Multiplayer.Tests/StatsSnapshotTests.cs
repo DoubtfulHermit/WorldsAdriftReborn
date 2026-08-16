@@ -54,7 +54,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(4, (int)o["peakOnline"]!);
             Assert.False((bool)o["wireHealthWarning"]!);
             Assert.False((bool)o["secondIslandRegistered"]!);
+            Assert.Equal(0, (int)o["firstRegionTerrainCount"]!);
             Assert.Empty((JArray)o["players"]!);
+        }
+
+        [Fact]
+        public void Snapshot_reports_actual_first_region_terrain_count()
+        {
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), firstRegionTerrainCount: 1);
+
+            Assert.Equal(1, snapshot.FirstRegionTerrainCount);
+            Assert.Equal(1, (int)JObject.Parse(snapshot.ToJson())["firstRegionTerrainCount"]!);
         }
 
         [Fact]

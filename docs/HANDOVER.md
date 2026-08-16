@@ -569,8 +569,11 @@ terrain-only prefix; zero is the default. Geographically closer C6 islands are
 tier 3 and are intentionally deferred. All runtime topology consumers share
 the same configured island/region registries, so spawn, resource routing,
 directory ownership, local domains, databank parent resolution and admin stats
-cannot disagree about which islands exist. This has not been deployed or
-visually accepted. Do not enable all four at once: terrain has no continuous
+cannot disagree about which islands exist. This has not been deployed, enabled,
+or visually accepted. Mental Facility has the first guarded named landing destination,
+`mental-facility`, derived from its extracted top surface; both the game server
+and admin page refuse it unless at least the first tier-1 terrain is registered.
+Do not enable all four at once: terrain has no continuous
 distance checkout yet and the four bundles total roughly 42.5 MiB compressed.
 See `docs/research/findings-first-region-terrain.md`.
 

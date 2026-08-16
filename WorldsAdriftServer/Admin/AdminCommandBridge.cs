@@ -33,10 +33,10 @@ namespace WorldsAdriftServer.Admin
                     return false;
                 }
 
-                // Haven is the recovery destination. trades-challenge is the
-                // PR3 visual-test destination; the game server performs its own
-                // final guard and refuses it unless that terrain is registered.
-                if (argument != "haven" && argument != "trades-challenge")
+                // Optional islands remain exact allowlist entries. The game
+                // server performs the final terrain-registration guard too.
+                if (argument != "haven" && argument != "trades-challenge"
+                    && argument != "mental-facility")
                 {
                     error = "Choose one of the allowlisted travel destinations.";
                     return false;

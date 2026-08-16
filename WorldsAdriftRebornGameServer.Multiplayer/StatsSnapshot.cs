@@ -181,7 +181,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 3;
+        public const int SchemaVersion = 4;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -205,6 +205,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// environment variable owned by another process.
         /// </summary>
         public bool SecondIslandRegistered { get; }
+
+        /// <summary>
+        /// Number of tier-1 B3 terrain candidates actually registered this boot.
+        /// This is registry truth, not a copy of the environment setting.
+        /// </summary>
+        public int FirstRegionTerrainCount { get; }
 
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
@@ -232,7 +238,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int runtimeOwnedEntityCount = 0,
             int runtimeGlobalEntityCount = 0,
             int runtimeUnownedEntityCount = 0,
-            int runtimeOwnershipIssueCount = 0)
+            int runtimeOwnershipIssueCount = 0,
+            int firstRegionTerrainCount = 0)
         {
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
@@ -252,6 +259,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             RuntimeGlobalEntityCount = runtimeGlobalEntityCount;
             RuntimeUnownedEntityCount = runtimeUnownedEntityCount;
             RuntimeOwnershipIssueCount = runtimeOwnershipIssueCount;
+            FirstRegionTerrainCount = Math.Max(0, firstRegionTerrainCount);
         }
 
         /// <summary>
@@ -297,6 +305,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "peakOnline", PeakOnline); b.Append(',');
             Bool(b, "wireHealthWarning", WireHealthWarning); b.Append(',');
             Bool(b, "secondIslandRegistered", SecondIslandRegistered); b.Append(',');
+            Num(b, "firstRegionTerrainCount", FirstRegionTerrainCount); b.Append(',');
 
             Key(b, "players");
             b.Append('[');

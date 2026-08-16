@@ -146,6 +146,7 @@ namespace WorldsAdriftServer.Admin
         public int PeakOnline { get; private init; }
         public bool WireHealthWarning { get; private init; }
         public bool SecondIslandRegistered { get; private init; }
+        public int FirstRegionTerrainCount { get; private init; }
         public IReadOnlyList<GamePlayerStat> Players { get; private init; } = Array.Empty<GamePlayerStat>();
         public string RuntimeHostMode { get; private init; } = "unknown";
         public string RuntimeHostId { get; private init; } = "unknown";
@@ -198,6 +199,7 @@ namespace WorldsAdriftServer.Admin
                 PeakOnline = (int?)o["peakOnline"] ?? 0,
                 WireHealthWarning = (bool?)o["wireHealthWarning"] ?? false,
                 SecondIslandRegistered = (bool?)o["secondIslandRegistered"] ?? false,
+                FirstRegionTerrainCount = Math.Max(0, (int?)o["firstRegionTerrainCount"] ?? 0),
                 Players = players,
                 RuntimeHostMode = (string?)(runtime?["hostMode"]) ?? "unknown",
                 RuntimeHostId = (string?)(runtime?["hostId"]) ?? "unknown",

@@ -13,6 +13,10 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal("trades-challenge 42", command.Payload);
             Assert.Equal(42, command.TargetEntityId);
 
+            Assert.True(AdminCommandBridge.TryBuild(
+                "teleport", "42", "mental-facility", out command, out error), error);
+            Assert.Equal("mental-facility 42", command.Payload);
+
             Assert.False(AdminCommandBridge.TryBuild(
                 "teleport", "42", "coord", out _, out error));
             Assert.Contains("allowlisted", error);

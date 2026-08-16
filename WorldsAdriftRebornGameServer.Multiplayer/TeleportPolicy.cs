@@ -175,6 +175,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>1206286558 "The Trades Challenge", the first distinct PR3 island.</summary>
         public const string TradesChallengeName = "trades-challenge";
 
+        /// <summary>1143725558 "Mental Facility", first tier-1 B3 rollout island.</summary>
+        public const string MentalFacilityName = "mental-facility";
+
         /// <summary>
         /// The keyword that introduces an AD-HOC world coordinate, for reaching an
         /// island this menu does not name - e.g. a ship ferry's destination while
@@ -273,6 +276,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 "The Trades Challenge (1206286558), first distinct PR3 production island. "
                 + "Flat extracted upper-surface point; available only when its terrain entity is registered.",
                 Islands.IslandCatalog.TradesChallenge.WorldEntityKey),
+
+            // First tier-1 B3 visual-acceptance destination. Bossa's release
+            // MapFile places 1143725558 at (8330.395, 241.729477, 8343.664).
+            // Local (120.00, 34.26, -16.00) is an upward-facing top-surface
+            // vertex (ny 0.990). Cardinal and diagonal samples through 9 m stay
+            // within 2.5 m, the nearest authored static prop is over 35 m away,
+            // and there is no authored static overhead within 5 m. Add the same
+            // 2 m capsule stand-off used by Haven and Trades.
+            new TeleportDestination(
+                MentalFacilityName,
+                FixedPointPosition.FromMetres(
+                    8330.395 + 120.00,
+                    241.729477 + 34.26 + 2.00,
+                    8343.664 + -16.00),
+                landsOnLoadedGround: true,
+                "Mental Facility (1143725558), first surveyed tier-1 B3 rollout island. "
+                + "Extracted top-surface point with broad neighbouring support and static-prop clearance; "
+                + "available only when its terrain entity is registered.",
+                Islands.IslandCatalog.MentalFacility.WorldEntityKey),
         };
 
         /// <summary>Destination names, in menu order. For the log banner and error messages.</summary>

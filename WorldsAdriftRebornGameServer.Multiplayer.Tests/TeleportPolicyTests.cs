@@ -83,7 +83,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Only_Haven_and_the_guarded_PR3_island_claim_ground()
+        public void Only_Haven_and_guarded_registered_islands_claim_ground()
         {
             // This server spawns ONE island entity. Any second destination
             // claiming solid ground would be a lie that ends in an endless fall,
@@ -97,7 +97,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(2, landable);
+            Assert.Equal(3, landable);
             Assert.Equal(TeleportPolicy.HavenName, TeleportPolicy.SafeDestination.Name);
         }
 
@@ -122,6 +122,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(TeleportPolicy.TryResolve(
                 TeleportPolicy.HavenName, out TeleportDestination haven));
             Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(haven, _ => false));
+        }
+
+        [Fact]
+        public void Mental_facility_uses_a_clear_extracted_surface_and_requires_its_registered_terrain()
+        {
+            Assert.True(TeleportPolicy.TryResolve(
+                TeleportPolicy.MentalFacilityName, out TeleportDestination destination));
+
+            Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Islands
+                    .IslandCatalog.MentalFacility.WorldEntityKey,
+                destination.RequiredWorldEntityKey);
+            Assert.True(destination.LandsOnLoadedGround);
+            AssertMetres(8330.395 + 120.00, destination.Position.MetresX);
+            AssertMetres(241.729477 + 34.26 + 2.00, destination.Position.MetresY);
+            AssertMetres(8343.664 - 16.00, destination.Position.MetresZ);
+
+            Assert.False(TeleportPolicy.RequiredTerrainIsRegistered(destination, _ => false));
+            Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(destination,
+                key => key == destination.RequiredWorldEntityKey));
         }
 
         [Fact]
