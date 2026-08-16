@@ -291,7 +291,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       <div class=""recovery-actions"">
         <button type=""button"" id=""stopShip"" data-command=""ship-stop"" data-target=""ship"">Stop ship</button>
         <button type=""button"" id=""releaseHelm"" data-command=""helm-release"" data-target=""ship"">Release stuck helm</button>
-        <button type=""button"" id=""recallShip"" data-command=""ship-recall"" data-target=""ship"">Recall beside player</button>
+        <button type=""button"" id=""recallShip"" data-command=""ship-recall"" data-target=""ship"">Recall 30m above player</button>
         <button class=""btn ghost"" type=""button"" id=""copyShipDiagnostics"">Copy incident bundle</button>
       </div>
       <div class=""incident"" id=""selectedShipSummary"">Select a ship domain to inspect its live recovery state.</div>

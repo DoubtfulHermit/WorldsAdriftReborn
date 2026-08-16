@@ -97,18 +97,12 @@ namespace WorldsAdriftRebornGameServer.Game
                     return false;
                 }
                 FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
-                FixedPointPosition destination = new FixedPointPosition(
-                    center.X + 8 * FixedPointPosition.UnitsPerMetre,
-                    // Recall above the player rather than near terrain. Built
-                    // hulls can span several metres below their origin; 15 m is
-                    // enough clearance for Haven ridges and lets the operator
-                    // see exactly where the ship arrived.
-                    center.Y + 15 * FixedPointPosition.UnitsPerMetre,
-                    center.Z);
+                FixedPointPosition destination = AdminShipRecallPolicy.DestinationAbove(center);
                 if (!WorldsAdriftRebornGameServer.Flight.TryAdminRecall(
                         hullId, destination, out message)) return false;
-                message = "Recalled hull " + hullId + " beside player entity "
-                    + playerEntityId + ".";
+                message = "Recalled hull " + hullId + " exactly "
+                    + AdminShipRecallPolicy.HeightAbovePlayerMetres.ToString("0")
+                    + " m above player entity " + playerEntityId + ".";
                 return true;
             }
             message = "Player entity " + playerEntityId + " is no longer connected.";

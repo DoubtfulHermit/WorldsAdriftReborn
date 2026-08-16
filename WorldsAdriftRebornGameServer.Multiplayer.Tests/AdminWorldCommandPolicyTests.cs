@@ -4,6 +4,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 {
     public class AdminWorldCommandPolicyTests
     {
+        [Fact]
+        public void Ship_recall_is_exactly_thirty_metres_over_the_player_without_sideways_drift()
+        {
+            FixedPointPosition player = FixedPointPosition.FromMetres(8450.395, 277.946, 8327.664);
+
+            FixedPointPosition recalled = AdminShipRecallPolicy.DestinationAbove(player);
+
+            Assert.Equal(player.X, recalled.X);
+            Assert.Equal(player.Z, recalled.Z);
+            Assert.Equal(30 * FixedPointPosition.UnitsPerMetre, recalled.Y - player.Y);
+            Assert.Equal(30.0, AdminShipRecallPolicy.HeightAbovePlayerMetres);
+        }
+
         [Theory]
         [InlineData("reset-resources all", AdminWorldCommandKind.ResetResources, 0, 0)]
         [InlineData("recall-ship 83 12", AdminWorldCommandKind.RecallShip, 83, 12)]
