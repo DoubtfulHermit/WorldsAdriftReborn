@@ -124,10 +124,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // Q52.12 straight off the wire, no arithmetic: FixedPointPosition IS
             // this encoding, and FallPolicy's thresholds are in it too, so the
             // hot path never converts to metres at all.
+            FixedPointPosition position = new FixedPointPosition(
+                fixedPoint[0], fixedPoint[1], fixedPoint[2]);
+
+            // Preferred teleport completion is the client's 1073 request ack.
+            // Some shipped builds execute the teleport yet omit that optional
+            // field forever. Feed the already ownership-gated world transform to
+            // a strict pending-destination matcher so interest can follow the
+            // player without treating arbitrary movement as teleport evidence.
+            WorldsAdriftRebornGameServer.Teleports.OnPlayerTransform(
+                player, entityId, position, parentPresent);
+
             WorldsAdriftRebornGameServer.Falls.OnPlayerTransform(
-                entityId,
-                new FixedPointPosition(fixedPoint[0], fixedPoint[1], fixedPoint[2]),
-                parentPresent);
+                entityId, position, parentPresent);
         }
     }
 }

@@ -60,6 +60,7 @@ namespace WorldsAdriftRebornGameServer.Game
         internal const string FallRescueReason = "fall-rescue";
 
         private readonly TeleportRequestCounter _requests = new TeleportRequestCounter();
+        private readonly TeleportArrivalTracker _arrivals = new TeleportArrivalTracker();
 
         /// <summary>
         /// Why the outstanding teleport for an entity was sent, so the ack can be
@@ -313,16 +314,18 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             _destinationByEntity[entityId] = destination;
+            _arrivals.Arm(entityId, request, destination.Position);
 
             Console.WriteLine("[info] " + reason + ": entity " + entityId + " -> " + destination.Name
-                + " " + destination.Position + ", request " + request + ", awaiting 1073 ack.");
+                + " " + destination.Position + ", request " + request
+                + ", awaiting 1073 ack or bounded transform confirmation.");
             return true;
         }
 
         /// <summary>
         /// Called with every 1073 <c>lastExecutedRequest</c> the client
-        /// publishes. This is the ONLY evidence the server has that a teleport
-        /// happened: <c>TeleportTransformVisualizer</c> writes the executed
+        /// publishes. This is the preferred evidence that a teleport happened:
+        /// <c>TeleportTransformVisualizer</c> writes the executed
         /// request number back into ClientAuthoritativePlayerState, a component
         /// we already grant the client authority over, which is precisely why
         /// this path needs no new grant.
@@ -350,6 +353,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             if (outstandingBefore.HasValue && lastExecutedRequest >= outstandingBefore.Value)
             {
+                _arrivals.Cancel(entityId);
                 if (_destinationByEntity.Remove(entityId, out TeleportDestination landed))
                 {
                     WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
@@ -371,10 +375,57 @@ namespace WorldsAdriftRebornGameServer.Game
             }
         }
 
+        /// <summary>
+        /// Fallback landing proof for client builds that execute 190607 but do
+        /// not publish 1073 lastExecutedRequest. The caller has already enforced
+        /// player ownership. The pure tracker additionally requires two
+        /// consecutive unparented world transforms within 12m of the exact
+        /// outstanding server-issued destination; arbitrary client jumps cannot
+        /// qualify.
+        /// </summary>
+        public void OnPlayerTransform(
+            ENetPeerHandle peer,
+            long entityId,
+            FixedPointPosition position,
+            bool? parentPresent)
+        {
+            int? provedRequest = _arrivals.Observe(entityId, position, parentPresent);
+            if (!provedRequest.HasValue)
+            {
+                return;
+            }
+
+            int? completedRequest = _requests.ConfirmOutstanding(entityId);
+            if (!completedRequest.HasValue || completedRequest.Value != provedRequest.Value)
+            {
+                // A newer request or a real ack won the race between samples.
+                // Never advance interest for stale evidence.
+                return;
+            }
+
+            if (!_reasonByEntity.TryGetValue(entityId, out string? reason))
+            {
+                reason = OperatorReason;
+            }
+
+            if (!_destinationByEntity.Remove(entityId, out TeleportDestination landed))
+            {
+                return;
+            }
+
+            WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                peer, position, "teleport transform confirmation '" + landed.Name + "'");
+            Console.WriteLine("[success] " + reason + ": entity " + entityId
+                + " transform-confirmed request " + completedRequest.Value + " near "
+                + landed.Name + " at " + position
+                + "; this client did not publish the 1073 ack, so world interest advanced from its authoritative 190602.");
+        }
+
         /// <summary>Drops an entity's counters when its peer disconnects.</summary>
         public void Forget(long entityId)
         {
             _requests.Forget(entityId);
+            _arrivals.Cancel(entityId);
             _reasonByEntity.Remove(entityId);
             _destinationByEntity.Remove(entityId);
         }

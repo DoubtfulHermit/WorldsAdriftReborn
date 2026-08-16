@@ -619,6 +619,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return sent > acked ? sent : null;
         }
 
+        /// <summary>
+        /// Completes the current request from another bounded proof of arrival
+        /// (the owner's transform at the exact server-issued destination).
+        /// Returns the request completed, or null when none is outstanding.
+        /// This deliberately advances the same high-water record as a 1073 ack
+        /// so a late ack cannot report or apply the landing twice.
+        /// </summary>
+        public int? ConfirmOutstanding(long entityId)
+        {
+            int? outstanding = Outstanding(entityId);
+            if (!outstanding.HasValue)
+            {
+                return null;
+            }
+
+            _acked[entityId] = outstanding.Value;
+            return outstanding;
+        }
+
         /// <summary>Drops an entity's counters. Called when its peer disconnects.</summary>
         public void Forget(long entityId)
         {

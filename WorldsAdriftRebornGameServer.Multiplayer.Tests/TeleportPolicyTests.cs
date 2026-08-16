@@ -342,6 +342,63 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Bounded_transform_confirmation_completes_the_same_request_once()
+        {
+            TeleportRequestCounter counter = new TeleportRequestCounter();
+            int sent = counter.Next(1);
+
+            Assert.Equal(sent, counter.ConfirmOutstanding(1));
+            Assert.Null(counter.Outstanding(1));
+            Assert.Null(counter.ConfirmOutstanding(1));
+            Assert.False(counter.RecordAck(1, sent)); // delayed real ack is not news
+            Assert.Equal(sent + 1, counter.Next(1));
+        }
+
+        [Fact]
+        public void Arrival_requires_two_consecutive_samples_near_the_exact_destination()
+        {
+            TeleportArrivalTracker tracker = new TeleportArrivalTracker();
+            FixedPointPosition destination = FixedPointPosition.FromMetres(100, 20, -50);
+            tracker.Arm(7, 3, destination);
+
+            Assert.Null(tracker.Observe(7, FixedPointPosition.FromMetres(100, 20, -37), false));
+            Assert.Null(tracker.Observe(7, FixedPointPosition.FromMetres(104, 20, -50), false));
+            Assert.Equal(3, tracker.Outstanding(7));
+            Assert.Equal(3, tracker.Observe(7, FixedPointPosition.FromMetres(105, 20, -50), null));
+            Assert.Null(tracker.Outstanding(7));
+        }
+
+        [Fact]
+        public void Parented_or_wrong_entity_transforms_cannot_confirm_arrival()
+        {
+            TeleportArrivalTracker tracker = new TeleportArrivalTracker();
+            FixedPointPosition destination = FixedPointPosition.FromMetres(100, 20, -50);
+            tracker.Arm(7, 3, destination);
+
+            Assert.Null(tracker.Observe(8, destination, false));
+            Assert.Null(tracker.Observe(7, destination, true));
+            Assert.Null(tracker.Observe(7, destination, false));
+            Assert.Equal(3, tracker.Observe(7, destination, false));
+        }
+
+        [Fact]
+        public void A_new_request_replaces_partial_arrival_evidence_and_forget_cancels_it()
+        {
+            TeleportArrivalTracker tracker = new TeleportArrivalTracker();
+            FixedPointPosition first = FixedPointPosition.FromMetres(100, 20, -50);
+            FixedPointPosition second = FixedPointPosition.FromMetres(400, 30, 90);
+            tracker.Arm(7, 3, first);
+            Assert.Null(tracker.Observe(7, first, false));
+
+            tracker.Arm(7, 4, second);
+            Assert.Null(tracker.Observe(7, first, false));
+            Assert.Null(tracker.Observe(7, second, false));
+            tracker.Cancel(7);
+            Assert.Null(tracker.Observe(7, second, false));
+            Assert.Null(tracker.Outstanding(7));
+        }
+
+        [Fact]
         public void Forgetting_an_entity_drops_both_of_its_counters()
         {
             // Entity ids are handed out monotonically so a stale record is only
