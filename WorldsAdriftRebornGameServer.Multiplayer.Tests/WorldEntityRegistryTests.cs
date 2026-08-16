@@ -87,11 +87,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             WorldEntity tree = registry.Register(Tree());
             long id = registry.EntityIdFor(tree);
             FixedPointPosition moved = FixedPointPosition.FromMetres(1, 2, 3);
+            uint turned = WorldsAdriftRebornGameServer.Multiplayer.Placement
+                .Quaternion32Packing.Encode(0.9238795f, 0f, 0.3826834f, 0f);
 
-            Assert.True(registry.Relocate(id, moved,
-                WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity));
+            Assert.True(registry.Relocate(id, moved, turned));
             Assert.Equal(id, registry.BoundEntityIdFor(tree.Key));
             Assert.Equal(moved, registry.TransformSeedFor(id));
+            // Re-checkout's 190602 transform and 1130 motion seeds both read
+            // these registry answers. Losing the rotation here made a recalled
+            // ship snap only when its live domain first became relevant.
+            Assert.Equal(turned, registry.RotationSeedFor(id));
         }
 
         [Fact]

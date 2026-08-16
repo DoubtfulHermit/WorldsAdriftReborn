@@ -1731,17 +1731,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // point lands on the same position, so the hull cannot drift
                         // no matter how far the client's clock is from our timestamp.
                         //
-                        // Rotation 1023 is the identity SENTINEL - the low 10 bits
-                        // all set. It is not "a rotation that happens to be near
-                        // identity"; 1 decodes to NaN, and a NaN rotation is
-                        // rejected outright by ControlPoint.ValidateControlPoint.
+                        // Rotation MUST come from the same live registration as
+                        // 190602 above. This used to be hard-coded to the identity
+                        // sentinel (1023), even after Relocate had persisted a
+                        // recalled ship's real yaw. The hull therefore appeared at
+                        // one orientation from 190602, then snapped to its real yaw
+                        // only when proximity/interaction caused the live ship
+                        // domain to publish its first 1130 point. A grapple merely
+                        // made that checkout boundary visible; it did not rotate
+                        // the ship. RotationSeedFor returns the valid identity
+                        // sentinel for entities which never supplied a rotation.
                         Multiplayer.FixedPointPosition at =
                             WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(entityId);
+                        uint atRotation =
+                            WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId);
 
                         ShipControlPoint atRest = new ShipControlPoint(
                             Multiplayer.ShipHull.NowMillisecondsSinceEpoch(),
                             new Coordinates(at.MetresX, at.MetresY, at.MetresZ),
-                            new Quaternion32(1023),
+                            new Quaternion32(atRotation),
                             new Improbable.Math.Vector3f(0f, 0f, 0f),
                             Multiplayer.ShipHull.FsimIdHash);
 
@@ -1754,7 +1762,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         Console.WriteLine("[info] seeding 1130 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with one control point at rest at " + at + ".");
+                            + ") with one control point at rest at " + at
+                            + ", packed rotation " + atRotation + ".");
 
                         obj = pmData;
                     }
