@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
@@ -181,7 +182,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 4;
+        public const int SchemaVersion = 5;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -212,6 +213,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public int FirstRegionTerrainCount { get; }
 
+        /// <summary>
+        /// The process-local optional-terrain lifecycle. Always a fully built
+        /// value: a server with no terrain service reports
+        /// <see cref="TerrainRuntimeStat.Off"/> rather than an absent section, so
+        /// the operator sees "off", not "unknown".
+        /// </summary>
+        public TerrainRuntimeStat Terrain { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -239,7 +248,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int runtimeGlobalEntityCount = 0,
             int runtimeUnownedEntityCount = 0,
             int runtimeOwnershipIssueCount = 0,
-            int firstRegionTerrainCount = 0)
+            int firstRegionTerrainCount = 0,
+            TerrainRuntimeStat? terrain = null)
         {
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
@@ -260,6 +270,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             RuntimeUnownedEntityCount = runtimeUnownedEntityCount;
             RuntimeOwnershipIssueCount = runtimeOwnershipIssueCount;
             FirstRegionTerrainCount = Math.Max(0, firstRegionTerrainCount);
+            Terrain = terrain ?? TerrainRuntimeStat.Off;
         }
 
         /// <summary>
@@ -342,9 +353,193 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
             b.Append(']');
             b.Append('}');
+            b.Append(',');
+
+            AppendTerrain(b, Terrain);
 
             b.Append('}');
             return b.ToString();
+        }
+
+        /// <summary>
+        /// The optional-terrain lifecycle section. Written unconditionally so a
+        /// reader can always distinguish "off", "requested but held back by its
+        /// prerequisite" and "on" without inferring anything from absence.
+        ///
+        /// Every string here is either a fixed label or an island id / asset name
+        /// the server itself registered. No path, packet payload, peer pointer or
+        /// operator secret has a route into this object.
+        /// </summary>
+        private static void AppendTerrain(StringBuilder b, TerrainRuntimeStat t)
+        {
+            Key(b, "terrain");
+            b.Append('{');
+            Bool(b, "requested", t.Requested); b.Append(',');
+            Bool(b, "enabled", t.Enabled); b.Append(',');
+            Str(b, "mode", TerrainTelemetryLabels.Of(t.Mode)); b.Append(',');
+            // The same single authoritative loop the runtime section describes.
+            // Terrain checkout does not move island authority and says so here.
+            Str(b, "hostId", "local:primary"); b.Append(',');
+            Str(b, "authority", "process-local-poll-loop"); b.Append(',');
+            Num(b, "loadRadiusMetres", t.LoadRadiusMetres); b.Append(',');
+            Num(b, "unloadRadiusMetres", t.UnloadRadiusMetres); b.Append(',');
+            Num(b, "assetAckTimeoutMs", t.AssetAckTimeoutMs); b.Append(',');
+            Num(b, "settleDelayMs", t.SettleDelayMs); b.Append(',');
+            Num(b, "candidateCount", t.CandidateCount); b.Append(',');
+            Num(b, "trackedPeerCount", t.TrackedPeerCount); b.Append(',');
+            Num(b, "readyCount", t.ReadyCount); b.Append(',');
+            Num(b, "warningCount", t.WarningCount); b.Append(',');
+            Num(b, "errorCount", t.ErrorCount); b.Append(',');
+            Num(b, "eventCapacity", TerrainEventLog.Capacity); b.Append(',');
+
+            Key(b, "stateCounts");
+            b.Append('{');
+            IReadOnlyList<int> counts = t.StateCounts;
+            for (int i = 0; i < TerrainTelemetryLabels.AllStates.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                Num(b, TerrainTelemetryLabels.Of(TerrainTelemetryLabels.AllStates[i]), counts[i]);
+            }
+            b.Append('}'); b.Append(',');
+
+            Key(b, "players"); b.Append('[');
+            for (int i = 0; i < t.Players.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                AppendTerrainPlayer(b, t.Players[i]);
+            }
+            b.Append(']'); b.Append(',');
+
+            Key(b, "islands"); b.Append('[');
+            for (int i = 0; i < t.Islands.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                AppendTerrainIsland(b, t.Islands[i]);
+            }
+            b.Append(']'); b.Append(',');
+
+            Key(b, "events"); b.Append('[');
+            for (int i = 0; i < t.Events.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                TerrainEventStat e = t.Events[i];
+                b.Append('{');
+                Num(b, "ageMs", e.AgeMs); b.Append(',');
+                Str(b, "kind", TerrainTelemetryLabels.Of(e.Kind)); b.Append(',');
+                Str(b, "islandId", e.IslandId); b.Append(',');
+                Num(b, "playerEntityId", e.PlayerEntityId); b.Append(',');
+                Num(b, "slot", e.Slot); b.Append(',');
+                Bool(b, "success", e.Success);
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
+        }
+
+        private static void AppendTerrainPlayer(StringBuilder b, TerrainPlayerStat p)
+        {
+            b.Append('{');
+            // Entity id first: a peer is identified by the player it controls.
+            // Slot is a process-local ordinal so a peer that has not spawned an
+            // entity yet still has a stable row; it is not a peer handle.
+            Num(b, "playerEntityId", p.PlayerEntityId); b.Append(',');
+            Num(b, "slot", p.Slot); b.Append(',');
+            Num(b, "x", p.X); b.Append(','); Num(b, "y", p.Y); b.Append(','); Num(b, "z", p.Z); b.Append(',');
+            NullableStr(b, "confirmedGroundIslandId", p.ConfirmedGroundIslandId); b.Append(',');
+            NullableStr(b, "requestedDestinationIslandId", p.RequestedDestinationIslandId); b.Append(',');
+            Str(b, "pendingAction", TerrainTelemetryLabels.Of(p.PendingAction)); b.Append(',');
+            NullableStr(b, "pendingIslandId", p.PendingIslandId); b.Append(',');
+            Bool(b, "correlatedAckObserved", p.CorrelatedAckObserved); b.Append(',');
+            Bool(b, "removeSupported", p.RemoveSupported); b.Append(',');
+            Bool(b, "mayRemove", p.MayRemove); b.Append(',');
+            Bool(b, "legacyRetaining", p.LegacyRetaining); b.Append(',');
+            Bool(b, "connectPlanComplete", p.ConnectPlanComplete); b.Append(',');
+            Bool(b, "settleWaiting", p.SettleWaiting); b.Append(',');
+            Bool(b, "destinationWaiting", p.DestinationWaiting); b.Append(',');
+            Num(b, "readyCount", p.ReadyCount); b.Append(',');
+            Str(b, "warning", p.Warning); b.Append(',');
+
+            Key(b, "asset");
+            if (p.Asset.HasValue)
+            {
+                TerrainAssetFlightStat a = p.Asset.Value;
+                b.Append('{');
+                Str(b, "islandId", a.IslandId); b.Append(',');
+                Str(b, "assetName", a.AssetName); b.Append(',');
+                Num(b, "requestAgeMs", a.RequestAgeMs); b.Append(',');
+                Num(b, "lastRetryAgeMs", a.LastRetryAgeMs); b.Append(',');
+                Num(b, "retryCount", a.RetryCount); b.Append(',');
+                Bool(b, "acknowledged", a.Acknowledged); b.Append(',');
+                Bool(b, "fallbackDue", a.FallbackDue);
+                b.Append('}');
+            }
+            else
+            {
+                // null, not a zero-age request: "idle" and "asked one millisecond
+                // ago" are different facts about a peer.
+                b.Append("null");
+            }
+            b.Append(',');
+
+            Key(b, "islands"); b.Append('[');
+            for (int i = 0; i < p.Islands.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                b.Append('{');
+                Str(b, "islandId", p.Islands[i].IslandId); b.Append(',');
+                Str(b, "state", TerrainTelemetryLabels.Of(p.Islands[i].State));
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
+        }
+
+        private static void AppendTerrainIsland(StringBuilder b, TerrainIslandStat i)
+        {
+            b.Append('{');
+            Str(b, "islandId", i.IslandId); b.Append(',');
+            Str(b, "displayName", i.DisplayName); b.Append(',');
+            Num(b, "terrainEntityId", i.TerrainEntityId); b.Append(',');
+            Bool(b, "registered", i.Registered); b.Append(',');
+            Bool(b, "locallyOwned", i.LocallyOwned); b.Append(',');
+            Bool(b, "hasEnvelope", i.HasEnvelope); b.Append(',');
+            Bool(b, "managed", i.Managed); b.Append(',');
+            Bool(b, "unconditional", i.Unconditional); b.Append(',');
+            Num(b, "readyPeerCount", i.ReadyPeerCount); b.Append(',');
+            Num(b, "loadingPeerCount", i.LoadingPeerCount); b.Append(',');
+            Num(b, "drainingPeerCount", i.DrainingPeerCount); b.Append(',');
+            Num(b, "unloadingPeerCount", i.UnloadingPeerCount); b.Append(',');
+            Num(b, "retainedLegacyPeerCount", i.RetainedLegacyPeerCount); b.Append(',');
+            Num(b, "errorPeerCount", i.ErrorPeerCount); b.Append(',');
+            Num(b, "resourceNodeCount", i.ResourceNodeCount); b.Append(',');
+            Num(b, "checkedOutResourceCount", i.CheckedOutResourceCount); b.Append(',');
+            Bool(b, "resourceDrainWired", i.ResourceDrainWired); b.Append(',');
+
+            // Geometry is reported only where an extracted envelope evidences it.
+            // An island without one is null here rather than a fabricated box.
+            Key(b, "envelope");
+            if (i.HasEnvelope)
+            {
+                b.Append('{');
+                Num(b, "minX", i.MinX); b.Append(','); Num(b, "minY", i.MinY); b.Append(',');
+                Num(b, "minZ", i.MinZ); b.Append(','); Num(b, "maxX", i.MaxX); b.Append(',');
+                Num(b, "maxY", i.MaxY); b.Append(','); Num(b, "maxZ", i.MaxZ); b.Append(',');
+                Num(b, "spanX", i.SpanX); b.Append(','); Num(b, "spanY", i.SpanY); b.Append(',');
+                Num(b, "spanZ", i.SpanZ);
+                b.Append('}');
+            }
+            else
+            {
+                b.Append("null");
+            }
+            b.Append('}');
+        }
+
+        private static void NullableStr(StringBuilder b, string name, string? value)
+        {
+            Key(b, name);
+            if (value == null) b.Append("null");
+            else AppendJsonString(b, value);
         }
 
         private static void AppendRuntimeDomain(StringBuilder b, RuntimeDomainStat d)

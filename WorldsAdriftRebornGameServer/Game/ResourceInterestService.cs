@@ -245,6 +245,34 @@ namespace WorldsAdriftRebornGameServer.Game
         /// eventually-divergent movement ledger. Before the first movement sample,
         /// the connect spawn point is the conservative answer.
         /// </summary>
+        /// <summary>
+        /// How many streamed resource nodes belong to an island. A pure read for
+        /// the operator console: it neither registers nor reconciles anything.
+        /// </summary>
+        public int ResourceNodeCountFor(IslandId island)
+        {
+            int count = 0;
+            foreach (IslandId owner in _resourceIslands.Values)
+                if (owner == island) count++;
+            return count;
+        }
+
+        /// <summary>
+        /// How many of that island's resources are still checked out across all
+        /// peers. Zero is what a completed terrain drain looks like, which is why
+        /// the terrain console shows it beside the drain state rather than
+        /// re-asking the drain gate (asking would mutate the send queue).
+        /// </summary>
+        public int CheckedOutResourceCountFor(IslandId island)
+        {
+            int count = 0;
+            foreach (PeerState state in _peers.Values)
+                foreach (long entityId in state.Loaded)
+                    if (_resourceIslands.TryGetValue(entityId, out IslandId owner)
+                        && owner == island) count++;
+            return count;
+        }
+
         public FixedPointPosition CenterFor(ENetPeerHandle peer) =>
             _peers.TryGetValue(peer, out PeerState? state)
                 ? state.Center

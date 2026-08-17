@@ -2222,7 +2222,14 @@ namespace WorldsAdriftRebornGameServer
                 runtimeOwnershipIssueCount: ownership.Inconsistencies.Count,
                 firstRegionTerrainCount: Multiplayer.Islands.IslandCatalog.FirstRegionTerrain
                     .Skip(1)
-                    .Count(island => WorldEntities.ByKey(island.WorldEntityKey) != null));
+                    .Count(island => WorldEntities.ByKey(island.WorldEntityKey) != null),
+                // Read on this same authoritative poll thread, from state Tick has
+                // already decided. Before the post-restore bootstrap builds the
+                // service there is no terrain lifecycle to describe, and the
+                // snapshot says "off" rather than inventing one.
+                terrain: TerrainInterest?.Snapshot(
+                    ResourceInterest.ResourceNodeCountFor,
+                    ResourceInterest.CheckedOutResourceCountFor));
         }
 
         /// <summary>Published appearance per player entity; read by the 1088
