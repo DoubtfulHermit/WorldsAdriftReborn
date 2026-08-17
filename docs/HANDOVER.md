@@ -649,8 +649,18 @@ both legitimate arrival proofs update terrain ground identity and clear the
 destination pin, allowing normal drain/unload. It also reports a queued
 `teleport-wait` as an accepted wait rather than a failed operation. Headless
 regression coverage proves the return produces exactly one old-terrain removal;
-live unload/re-entry acceptance remains required after deployment.
-The fix is deployed as `b52f504`; the repeat live return remains pending.
+The fix is deployed as `b52f504`.
+
+The repeat production run on `b52f504` completed that gate. One current v1
+client performed two full Haven → Mental Facility → Haven cycles in the same
+session. Each outbound leg recorded `teleport-wait` (accepted), request, exact
+asset ACK, add and teleport-ready; the player visually confirmed correct terrain
+and collision after the second post-removal add. Each return advanced resource
+interest to Haven, cleared the destination pin and recorded `remove-ok`. Final
+telemetry showed both managed islands `ABSENT`, no pending action, zero ready,
+zero retained, zero errors and no warning. The one-client teleport-driven
+load/unload/re-entry lifecycle is therefore visually accepted. Distance approach
+and independent two-client checkout remain separate acceptance gates.
 
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating

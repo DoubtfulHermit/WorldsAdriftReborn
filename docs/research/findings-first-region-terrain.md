@@ -110,8 +110,15 @@ did not clear terrain's requested-destination pin when the sparse 1073 island
 frame was absent. The server follow-up unifies both accepted teleport-arrival
 proofs into the same terrain landing transition; unload and re-entry still need
 one repeat live pass.
-The unified landing transition is deployed in `b52f504`; live return/unload and
-re-entry are the remaining acceptance steps.
+The unified landing transition is deployed in `b52f504`.
+
+Production then completed two Haven → Mental Facility → Haven cycles with the
+same v1 client. Both cold/re-entry loads received exact ACKs and reached `READY`;
+the second loaded terrain retained correct collision after a real prior removal.
+Both returns recorded `remove-ok`, and final telemetry was cleanly `ABSENT` with
+no destination pin, pending action, retention, warning or error. This accepts the
+one-client teleport-driven load/unload/re-entry lifecycle. Proximity approach
+and two-client independence remain pending.
 
 ## Wall correction
 
