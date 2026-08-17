@@ -144,6 +144,17 @@ namespace WorldsAdriftRebornGameServer.Game
         internal TimeSpan AssetAckTimeout { get; }
         internal bool DistantShellsEnabled { get; }
 
+        /// <summary>
+        /// Whether this boot registered the complete release-world rollout. It is
+        /// passed in from the one place that already decided it
+        /// (<c>WorldsAdriftRebornGameServer.ReleaseWorldEnabled</c>, which fails
+        /// closed on its two prerequisites) rather than re-read from the
+        /// environment here, so the shell fidelity cannot disagree with the
+        /// topology that was actually built. It selects distant-shell fidelity
+        /// only; see <see cref="IslandShellFidelityPolicy"/>.
+        /// </summary>
+        internal bool ReleaseWorldRolloutActive { get; }
+
         internal IslandTerrainInterestService(
             IClock clock,
             WorldEntityRegistry registry,
@@ -152,8 +163,10 @@ namespace WorldsAdriftRebornGameServer.Game
             Func<ENetPeerHandle, IslandId, bool>? prepareAndCheckResourcesDrained = null,
             Func<long, bool>? isLocallyOwned = null,
             bool? enabled = null,
-            TimeSpan? settleDelay = null)
+            TimeSpan? settleDelay = null,
+            bool releaseWorldRolloutActive = false)
         {
+            ReleaseWorldRolloutActive = releaseWorldRolloutActive;
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _islands = islands ?? throw new ArgumentNullException(nameof(islands));
@@ -443,21 +456,40 @@ namespace WorldsAdriftRebornGameServer.Game
             if (state.ShellPending.Count == 0) return;
             IslandCandidacy next = state.ShellPending.Dequeue();
             FixedPointPosition origin = next.Island.GlobalOrigin;
+
+            // The fidelity choice is a policy decision, not a consequence of the
+            // release catalogue happening to be embedded: every bounded-rollout
+            // island is also a catalogue record. V1 retail LOD is preferred; the
+            // compact outline is the fallback the 254-island rollout needs. A
+            // deferred near-band upgrade (v2 shell -> v1 mesh as a viewer closes in)
+            // belongs in the same policy plus a client teardown/rebuild path.
             ReleaseIslandRecord? release = ReleaseWorldCatalog.ByIsland(next.Island.Id);
-            string marker = release != null
-                ? IslandDistantShellProtocol.ProceduralRequest(next.Island.Id.Value,
+            IslandShellFidelity fidelity = IslandShellFidelityPolicy.Choose(
+                release, ReleaseWorldRolloutActive);
+            string marker;
+            if (fidelity == IslandShellFidelity.CompactOutline)
+            {
+                ReleaseIslandRecord outline = IslandShellFidelityPolicy.RequireOutline(release);
+                marker = IslandDistantShellProtocol.ProceduralRequest(next.Island.Id.Value,
                     next.EntityId, origin.X, origin.Y, origin.Z,
-                    release.Envelope.MinY, release.Envelope.MaxY,
-                    release.Shell.ToArray())
-                : IslandDistantShellProtocol.Request(next.Island.Id.Value,
+                    outline.Envelope.MinY, outline.Envelope.MaxY,
+                    outline.Shell.ToArray());
+            }
+            else
+            {
+                marker = IslandDistantShellProtocol.Request(next.Island.Id.Value,
                     next.EntityId, origin.X, origin.Y, origin.Z);
+            }
             if (SendOPHelper.SendAssetLoadRequestOP(peer, marker,
                     next.Island.TerrainAssetName, next.Island.TerrainAssetContext))
             {
                 state.ShellRequestedAt[next.Island.Id] = now;
                 state.NextShellSend = now + ShellSendInterval;
-                Console.WriteLine("[island-shell] prefetched low-LOD visual for "
-                    + next.Island.Id + " on peer " + peer.DangerousGetHandle() + ".");
+                Console.WriteLine("[island-shell] requested "
+                    + (fidelity == IslandShellFidelity.CompactOutline
+                        ? "compact-outline" : "retail-LOD")
+                    + " visual for " + next.Island.Id
+                    + " on peer " + peer.DangerousGetHandle() + ".");
             }
             else
             {

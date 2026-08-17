@@ -3925,7 +3925,8 @@ namespace WorldsAdriftRebornGameServer
                 ServerClock, WorldEntities, IslandTopology, worldDirectory,
                 ResourceInterest.DrainIslandBeforeTerrainRemoval,
                 entityId => DomainHost.OwnerOf(entityId) != null,
-                enabled: TerrainInterestFeatureEnabled);
+                enabled: TerrainInterestFeatureEnabled,
+                releaseWorldRolloutActive: ReleaseWorldEnabled);
             if (TerrainInterest.Enabled)
             {
                 ResourceInterest.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
@@ -3934,7 +3935,15 @@ namespace WorldsAdriftRebornGameServer
                     + TerrainInterest.UnloadRadiusMetres.ToString("0.#")
                     + " m unload hysteresis; resource checkout is terrain-gated.");
                 Console.WriteLine("[island-shell] distant non-physical island visuals: "
-                    + (TerrainInterest.DistantShellsEnabled ? "ON" : "OFF") + ".");
+                    + (TerrainInterest.DistantShellsEnabled ? "ON" : "OFF")
+                    + (TerrainInterest.DistantShellsEnabled
+                        ? "; fidelity=" + (TerrainInterest.ReleaseWorldRolloutActive
+                            ? "compact outline (v2 scalability fallback: the complete"
+                                + " rollout cannot prefetch 254 island bundles)"
+                            : "retail LOD (v1 preferred: the managed terrain set is"
+                                + " bounded, so the island bundle prefetch is affordable)")
+                        : string.Empty)
+                    + ".");
             }
             else if (Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
                 Environment.GetEnvironmentVariable(
