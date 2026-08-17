@@ -38,8 +38,11 @@ set -euo pipefail
 
 # ---- defaults ------------------------------------------------------------
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_PACK="/tmp/claude-1000/-home-ttanurhan-Documents-Claude-Projects/ff15d21e-990d-43c5-9a18-cdf8ff2884cf/scratchpad/WAReborn-Update"
-PACK="$DEFAULT_PACK"
+# There is deliberately NO default pack. The original default pointed at a
+# throwaway session scratchpad that no longer exists, so an omitted --pack
+# failed with a confusing "no plugin/ under pack" instead of saying what to do.
+# --pack is now required and the error below is the recipe.
+PACK=""
 OUT="$HERE/dist"
 VERSION=""
 BUILD_LABEL="client-pack"
@@ -75,6 +78,32 @@ done
 
 BASE_URL="${BASE_URL%/}"   # no trailing slash; we join with a single '/'
 
+if [[ -z "$PACK" ]]; then
+  cat >&2 <<'NOPACK'
+ERROR: --pack is required.
+
+Assemble one (54 files: 3 plugin + 51 gameroot), from the two locations the
+README names as equivalent to the original hand-tested pack:
+
+  PACK=$(mktemp -d /tmp/wareborn-pack.XXXXXX)
+  mkdir -p "$PACK/plugin" "$PACK/gameroot"
+  M=WorldsAdriftRebornCoreSdk/build-mingw
+  # plugin/: the freshly built client DLL + its .config, and CoreSdkDll.dll
+  cp "<game>/BepInEx/plugins/WorldsAdriftReborn/WorldsAdriftReborn.dll" \
+     "<game>/BepInEx/plugins/WorldsAdriftReborn/WorldsAdriftReborn.dll.config" \
+     "$M/CoreSdkDll.dll" "$PACK/plugin/"
+  # gameroot/: every other runtime DLL from the same mingw tree
+  for f in "$M"/*.dll; do
+    [ "$(basename "$f")" = CoreSdkDll.dll ] && continue
+    cp "$f" "$PACK/gameroot/"
+  done
+
+<game> is the local Worlds Adrift install; building WorldsAdriftReborn copies
+the plugin DLL there. Before shipping, diff the assembled pack against the LIVE
+manifest hashes - only the files you actually changed should differ.
+NOPACK
+  exit 1
+fi
 [[ -d "$PACK/plugin"   ]] || { echo "ERROR: no plugin/ under pack '$PACK'"   >&2; exit 1; }
 [[ -d "$PACK/gameroot" ]] || { echo "ERROR: no gameroot/ under pack '$PACK'" >&2; exit 1; }
 

@@ -120,8 +120,40 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `3d64a7f`, deployed and restarted at 2026-08-17 13:52 CEST.
-  **Login/admin server:** `2994db3`, deployed and restarted at 2026-08-17
+- **Game server:** `ccfb138`, deployed and restarted at 2026-08-17 19:10 CEST.
+  **Login/admin server:** `ccfb138`, deployed and restarted in the same pass.
+  This is the merged retail-LOD shell preference plus the admin map provenance
+  labelling. The rollout switch `WAREBORN_RELEASE_WORLD_DISTRICTS` is NOT set,
+  so production remains the bounded one-terrain topology; the deploy is a
+  behaviour-preserving baseline, not the release-world rollout. Boot proved the
+  fix directly: the startup line reads `[island-shell] distant non-physical
+  island visuals: ON; fidelity=retail LOD (v1 preferred: the managed terrain
+  set is bounded, so the island bundle prefetch is affordable)`, which is the
+  branch that would have silently downgraded Mental Facility and The Trades
+  Challenge to compact outlines had the fidelity stayed keyed on catalogue
+  membership. Restore counts matched the previous boot: 4/4 placed deployables,
+  5/7 hulls with the two salvaged tombstones correctly skipped, mounted and
+  loose parts intact. `[world-directory]` classified 256 registrations
+  (global=1, region=181, ship=74 across 5 hull roots). Terrain reported schema
+  6, mode `on`, 3 islands, enabled, zero warnings and zero errors. The
+  deployed game managed DLL is SHA-256
+  `ff0d69007465253818c66159484d93f79b02ca9a7228e896a9c73a692117aae2` and the
+  login/admin managed DLL is
+  `58098d8af571c23511aa19dcdecb4a40bfa0239ef7ceddebacf4f51ded5fdc16`; both
+  match the staged publish exactly. `WorldsAdriftRebornCoreSdk` did not change,
+  so no native shim was rebuilt and the production `libCoreSdkDll.so` remains
+  `0121219a138a07f345103f83cc5647f993ecb0282a0172c7bf19a54b78a252f7`.
+  Coordinated rollback:
+  `/opt/wareborn/backups/pre-ccfb138-20260817T170732Z/{game,login,patch,live-data}`.
+  NOTE for future deploys: `WorldsAdriftRebornGameServer-native/data` is a
+  SYMLINK to `../WorldsAdriftRebornGameServer/data`, which is where the live
+  `world-state.json` actually lives. Back up that real directory (the backup
+  above keeps it as `live-data`), and never rsync a staging tree that contains
+  its own `data/` entry without excluding it, or the symlink is replaced and
+  persistence is orphaned. Restarted with zero players connected and zero
+  connects recorded for the whole prior uptime. Not visually accepted.
+  The previous deployment was game `3d64a7f` at 13:52 CEST and login
+  `2994db3` at 2026-08-17
   15:25 CEST. Stats schema 6 reports terrain checkout, runtime
   topology and authoritative player world positions, and the admin
   console exposes its one-island acceptance run. Production remains bounded to
@@ -188,7 +220,18 @@ changes.
   `/opt/wareborn/backups/login-before-svg-map-20260817T130929Z`; the immediate
   pre-zone-signage login rollback is
   `/opt/wareborn/backups/login-before-zone-signage-20260817T132536Z`.
-- **Public client manifest:** `2026.08.17-3`, build label
+- **Public client manifest:** `2026.08.17-4`, build label
+  `retail-LOD island shell preference (ccfb138)`. Cut from a freshly assembled
+  pack (3 plugin + 51 gameroot = 54 files). Before shipping, every file was
+  diffed against the live `-3` manifest: exactly ONE payload changed,
+  `BepInEx/plugins/WorldsAdriftReborn/WorldsAdriftReborn.dll`, and the other 53
+  were byte-identical, so this release carries only the rebuilt plugin. All 54
+  public payloads were then re-fetched over HTTPS and matched their published
+  hashes. `tools/patcher/build-manifest.sh` had a dead `DEFAULT_PACK` pointing
+  at a deleted session scratchpad, which failed with a confusing "no plugin/
+  under pack"; `--pack` is now required and the error prints the assembly
+  recipe.
+  The previous manifest was `2026.08.17-3`, build label
   `activate distant island shell waiter (bede97e)`. The first `-2` live pass
   proved both bundles cached but exposed an activation-order defect: Unity
   rejected the material-ready coroutine while its shell object was inactive,
@@ -198,7 +241,8 @@ changes.
   unload/re-entry plus the non-physical low-LOD shell lifecycle. All 54 public
   payloads matched their published hashes.
 - **Managed client DLL SHA-256:**
-  `db403029aa0dc6a2b96e585141ee506942051a9d9b7b674229f9da6340ce1eca`.
+  `1c6f278ee886ad09805fa30807b1f510fde5fa0ba4b8cf97b8bf15e572c92863`
+  (the public payload was re-downloaded and matched this exactly).
 - **Windows CoreSDK DLL SHA-256:**
   `26b5ce1568abec2ca06d488e3aadaaf725c92a89e1e2482571e27ad31986c354`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
