@@ -684,9 +684,26 @@ coordinate. Full Multiplayer validation remains 2,556/2,556 with a clean Release
 server build. This server-only correction is deployed as `1aa9fe4`; no client
 patch changed. Post-restart verification reported schema 5, terrain mode `on`,
 the count-one B3 topology, 3 island domains, 5 ship domains, 255 owned entities,
-zero ownership issues and zero terrain warnings/errors. Repeat the Trades walk
-and require checked-out resources to rise above zero before claiming resource
-streaming accepted.
+zero ownership issues and zero terrain warnings/errors.
+
+Live acceptance on `1aa9fe4` succeeded: after a ship approach and disembark, the
+player walked across Trades and the authoritative interest centre continued to
+move. Twelve of the island's 15 entities were concurrently checked out. Four
+databanks rendered, accepted interaction and each durably awarded 10,000
+knowledge (32,391 -> 72,391). Metal and Atlas-shard deposits also entered and
+left the 120 m bubble as the player moved. Terrain remained `READY` with zero
+terrain warnings/errors. This accepts one-client on-foot resource and databank
+streaming.
+
+The same run exposed a non-blocking approach-boundary conflict: while aboard,
+the 1073 + hull-pose source classified interest by the ship's island affinity,
+then each 190602 pose independently classified it by nearest island, alternating
+Haven/Trades until the boundary crossing completed. The local follow-up gives
+the canonical aboard tracker precedence: 190602 drives spatial interest only
+when unparented and not aboard; ship-derived 1073 remains the sole aboard source.
+The focused policy covers every fall verdict in both aboard/on-foot states; all
+2,570 Multiplayer tests and the Release server build pass. Do not deploy that
+follow-up until the acceptance player disconnects.
 
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating

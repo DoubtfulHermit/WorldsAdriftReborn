@@ -139,14 +139,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 entityId, position, parentPresent);
 
             // 190602 is the ownership-gated authoritative WORLD pose whenever
-            // the remembered parent state is absent. Feed that one truth into
-            // both spatial-interest services. The former 1073-only path depends
+            // the remembered parent state is absent and the canonical 1073
+            // tracker says the player is not aboard. While aboard, the existing
+            // 1073 + hull-pose path owns spatial interest; consuming both streams
+            // makes nearest-island classification alternate at zone boundaries.
+            // Feed the on-foot truth into both spatial-interest services. The
+            // former 1073-only path depends
             // on sparse positionRelative/relativeTo fields; after disembarking a
             // ship those can stop changing while the player continues walking,
             // freezing the resource bubble at the disembark point. FallWatch has
             // already accumulated the sparse parent edge above, so a parented
             // LOCAL transform can never be mistaken for global coordinates here.
-            if (fallVerdict != FallVerdict.Parented)
+            ulong peerId = PeerIdentity.IdOf(player);
+            if (PlayerWorldInterestPolicy.MayUseTransform190602(
+                    fallVerdict,
+                    WorldsAdriftRebornGameServer.Aboard.IsAboardAnything(peerId)))
             {
                 WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
                     player, position, "authoritative player 190602");

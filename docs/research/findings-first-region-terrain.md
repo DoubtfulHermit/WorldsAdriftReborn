@@ -134,9 +134,21 @@ resource and terrain interest. It uses the existing sparse parent-state
 accumulator before accepting the pose, preventing parent-local coordinates from
 entering world interest. Multiplayer validation passes 2,556/2,556 and the
 Release server build is clean. It is deployed as `1aa9fe4`; boot verification
-was clean and no client patch changed. Live acceptance still requires walking
-across Trades until nearby resources/databanks check out, then leaving beyond
-the unload boundary.
+was clean and no client patch changed.
+
+Live acceptance then proved the correction. The player approached Trades by
+ship, disembarked, walked across the island and saw four interactive databanks.
+Server truth showed 12/15 resources checked out, metal and Atlas-shard deposits
+tracking the 120 m bubble, and four successful 10,000-knowledge scans (32,391 to
+72,391). Terrain stayed `READY` with zero warnings/errors.
+
+Approach logs also revealed that aboard 1073 + hull-pose observations and 190602
+nearest-island observations could alternate Haven/Trades at the zone boundary.
+The pending follow-up therefore suppresses 190602 interest while the canonical
+aboard tracker is true; it resumes automatically after confirmed disembark. This
+does not change the accepted on-foot path. All 2,570 Multiplayer tests and the
+Release server build pass. Leaving beyond the terrain unload boundary remains
+the final one-client proximity gate.
 
 ## Wall correction
 
