@@ -574,8 +574,8 @@ bounded rollout set to exactly one terrain (`Mental Facility`); it is not yet
 visually accepted. Mental Facility has the first guarded named landing destination,
 `mental-facility`, derived from its extracted top surface; both the game server
 and admin page refuse it unless at least the first tier-1 terrain is registered.
-Do not enable all four at once. Continuous distance checkout is implemented on
-the isolated `feat/island-terrain-interest` branch, with exact cold-asset ACKs,
+Do not enable all four at once. Continuous distance checkout is integrated into
+`feat/island-identity` at `7cbb376`, with exact cold-asset ACKs,
 terrain/resource ordering and safe teleport deferral, but is not deployed or
 visually accepted. The four bundles total roughly 42.5 MiB compressed.
 See `docs/research/findings-first-region-terrain.md`.
@@ -587,7 +587,7 @@ Production verification after the `07270f1` restart: stats schema 4 reported
 setting is a runtime systemd test override and therefore intentionally disappears
 on VPS reboot unless promoted after visual acceptance.
 
-### Terrain checkout observability (branch `feat/admin-terrain-checkout`, not deployed)
+### Terrain checkout observability (integrated by `a4e135c`, not deployed)
 
 Stats schema **5** adds a `terrain` section to `/tmp/wareborn-stats.json` so the
 one-island visual acceptance run above can be observed instead of guessed. The
@@ -614,6 +614,13 @@ cannot disagree. A schema-4 game server, a disabled feature and a legacy client
 each render as a stated condition rather than an empty page. The panel reports
 lifecycle only; whether the terrain LOOKS right stays a human judgement and is
 never asserted.
+
+The runtime checkout milestone (`7cbb376`) and its admin observability milestone
+(`fa83318`) are consolidated on `feat/island-identity` by merge commit
+`a4e135c`. They remain local-only: not pushed, deployed, enabled or published to
+the patcher. Independent consolidation validation passed all 2,524 Multiplayer
+tests, all 181 admin/login tests, both affected Release builds and
+`git diff --check`.
 
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
