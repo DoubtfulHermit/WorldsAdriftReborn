@@ -77,6 +77,38 @@ namespace WorldsAdriftReborn.Storage.Repositories
         }
 
         /// <summary>
+        /// One character by NAME, for the crew panel's player search.
+        ///
+        /// Case-insensitive, because a player typing a crewmate's name should not
+        /// have to match their capitalisation, and empty slots are excluded
+        /// because a "create a character" placeholder is not a person anyone can
+        /// invite.
+        ///
+        /// Names are NOT unique in this schema - only (account, slot) is - so a
+        /// duplicate name resolves to the oldest character. That is a real
+        /// limitation of searching by a non-unique key rather than something this
+        /// query can fix: the alternative, returning nothing on a collision, would
+        /// make a common name uninvitable.
+        /// </summary>
+        public CharacterRecord? FindByName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText =
+                "SELECT " + Columns + " FROM characters "
+                + "WHERE lower(name) = lower(@name) AND is_empty_slot = FALSE "
+                + "ORDER BY created_at, character_uid LIMIT 1;";
+            command.Parameters.AddWithValue("name", name.Trim());
+
+            using NpgsqlDataReader reader = command.ExecuteReader();
+
+            return reader.Read() ? Read(reader) : null;
+        }
+
+        /// <summary>
         /// Replaces an account's whole roster with the given rows, in ONE
         /// transaction.
         ///

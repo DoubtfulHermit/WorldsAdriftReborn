@@ -388,5 +388,32 @@ namespace WorldsAdriftReborn.Storage.Tests
                 new[] { "B", "A" },
                 db.Characters.ListForAccount(account.AccountId).Select(c => c.Name).ToArray());
         }
+
+        /// <summary>
+        /// The crew panel's player search. Case-insensitive because a player
+        /// should not have to match a crewmate's capitalisation, and empty slots
+        /// are excluded because a "create a character" placeholder is not a
+        /// person anyone can invite.
+        /// </summary>
+        [PostgresFact]
+        public void A_character_can_be_found_by_name_for_the_crew_search()
+        {
+            using TempDb db = new TempDb();
+            AccountRecord account = db.AnAccount();
+            CharacterRecord real = TempDb.ACharacter(account.AccountId, name: "Mira Vale", slot: 0);
+            CharacterRecord placeholder =
+                TempDb.ACharacter(account.AccountId, name: "Empty", slot: 1, empty: true);
+            db.Characters.Save(real);
+            db.Characters.Save(placeholder);
+
+            Assert.Equal(real.CharacterUid, db.Characters.FindByName("Mira Vale")!.CharacterUid);
+            Assert.Equal(real.CharacterUid, db.Characters.FindByName("mira vale")!.CharacterUid);
+            Assert.Equal(real.CharacterUid, db.Characters.FindByName("  Mira Vale  ")!.CharacterUid);
+
+            Assert.Null(db.Characters.FindByName("Empty"));
+            Assert.Null(db.Characters.FindByName("nobody"));
+            Assert.Null(db.Characters.FindByName(""));
+            Assert.Null(db.Characters.FindByName("   "));
+        }
     }
 }

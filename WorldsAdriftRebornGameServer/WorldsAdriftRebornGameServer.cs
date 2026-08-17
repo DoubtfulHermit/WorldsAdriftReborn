@@ -3756,6 +3756,8 @@ namespace WorldsAdriftRebornGameServer
             Game.Inventory.InventoryService.ReportPersistenceState();
             Game.Knowledge.ProgressionService.ReportPersistenceState();
             Game.Persistence.PlayerPositionService.ReportPersistenceState();
+            Game.Crew.CrewService.ReportPersistenceState();
+            Game.Crew.CrewService.RestoreFromDatabase();
 
             // Said once, at start-up, because "where did the ore come from" is the
             // question this deploy exists to answer and the operator reads the log to

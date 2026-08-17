@@ -824,6 +824,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                                         new Option<ScalaSlottedInventoryItem> { }));
                         obj = iasData;
                     }
+                    else if (componentId == 6900)
+                    {
+                        // The player's crew, as they see it. Built from the live
+                        // ledger by the SAME builder every later push uses, so a
+                        // checkout and an update can never disagree.
+                        obj = new Bossa.Travellers.Crew.CrewMembershipState.Data(
+                            Game.Crew.CrewWire.For(Game.CharacterOwnership.UidForEntity(entityId)));
+                    }
+                    else if (componentId == 6901)
+                    {
+                        // Event-only: the schema has no data fields at all. It
+                        // exists so the client has somewhere authoritative to
+                        // publish InvitePlayer/AcceptInvite/LeaveCrew and the rest,
+                        // which is why crews need no command channel.
+                        obj = new Bossa.Travellers.Crew.CrewClientInterfaceState.Data(
+                            new Bossa.Travellers.Crew.CrewClientInterfaceStateData());
+                    }
                     else if(componentId == 6924)
                     {
                         AllianceNameState.Data anData = new AllianceNameState.Data(new AllianceNameStateData(""));
