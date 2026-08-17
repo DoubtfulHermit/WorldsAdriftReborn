@@ -52,10 +52,10 @@ Detailed gates and invariants are in
 
 - Complete a clean Haven → Trades Challenge → Haven acceptance run covering
   resource removal, re-checkout, harvesting and scanning.
-- Visually accept the new continuous per-peer terrain checkout: approach,
+- Visually accept the deployed, one-island continuous per-peer terrain checkout: approach,
   destination-before-source handoff, resource drain, leave/re-entry, teleport,
-  reconnect and two-client independence. It is implemented but remains off by
-  default and undeployed.
+  reconnect and two-client independence. It remains off by default; production
+  has a runtime-only opt-in for the bounded Mental Facility acceptance run.
 - Visually accept the opt-in tier-1 B3 terrain prefix one island at a time; see
   [`research/findings-first-region-terrain.md`](research/findings-first-region-terrain.md).
 - Finish retail-faithful wind, Wind Wall and sail behavior; current sails use a

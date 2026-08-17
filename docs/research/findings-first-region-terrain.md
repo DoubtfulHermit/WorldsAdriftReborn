@@ -1,8 +1,8 @@
 # First release-region terrain seed
 
 Status: bounded terrain registration and continuous per-peer terrain checkout
-are implemented behind separate off-by-default server settings; not deployed
-or visually accepted.
+are deployed for a one-island test behind separate off-by-default settings;
+real Unity acceptance is pending.
 
 ## Proven source and rollout
 
@@ -96,11 +96,12 @@ overhead within 5 m. Runtime and the admin console both refuse the destination
 unless Mental Facility terrain is registered. The other three tier-1 islands
 still need independently derived and visually accepted landing points.
 
-Build `07270f1` was staged in production with the bounded count set to exactly
-one. Boot verification passed (Mental Facility owned by `tier1-b3-region`, no
-unowned or duplicate entities); player-side terrain, collision and landing
-remain pending visual acceptance. The production count is a runtime systemd
-override so a VPS reboot fails safely back to the default zero-island rollout.
+Build `069a372` and client manifest `2026.08.17-1` are staged in production with
+the bounded count set to exactly one and continuous terrain checkout enabled.
+Boot verification passed (Mental Facility owned by `tier1-b3-region`, no unowned
+or duplicate entities, terrain telemetry mode `on`); player-side terrain,
+collision and landing remain pending visual acceptance. The rollout flags are
+runtime systemd overrides so a VPS reboot fails safely back to the defaults.
 
 ## Wall correction
 

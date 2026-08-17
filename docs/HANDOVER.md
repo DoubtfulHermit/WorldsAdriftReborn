@@ -120,33 +120,30 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game and login/admin servers:** `175839f`, deployed and restarted together
-  at 2026-08-16 12:48 CEST. The game now reports schema-v3 local-domain
-  topology (two islands and the live ship domains), host identity and
-  bidirectional ownership integrity. The admin Simulation Fabric groups that
-  topology by authority host and island affinity, caps dense ship lanes, and
-  provides a searchable inventory plus one-domain authority/replication detail.
-  Production boot reported 254 owned entities, one explicit global, zero
-  unowned entities and zero ownership inconsistencies. Pre-deploy validation
-  passed 2,389/2,389 Multiplayer tests and 169/169 admin tests; both native
-  Linux builds had zero errors. The coordinated rollback copy is
-  `/opt/wareborn/backups/20260816T104747Z/{game,login}`.
-- **Public client manifest:** `2026.08.14-10`, build label
-  `native spawn heap corruption fix (3a7cd31)`. It retains the operating-system
-  UTC fallback from `2627810` and fixes six native protobuf string allocations
-  that wrote their terminator one byte past the allocated block during
-  AssetLoad/AddEntity decoding. Windows reported the resulting loading crash as
-  `c0000374` / `StackHash` heap corruption.
+- **Game and login/admin servers:** `069a372`, deployed and restarted together
+  at 2026-08-17 11:32 CEST. Stats schema 5 reports terrain checkout and the admin
+  console exposes its one-island acceptance run. Production remains bounded to
+  `WAREBORN_FIRST_REGION_TERRAIN_COUNT=1` and reports 3 island domains, 5 ship
+  domains, 255 owned entities, one explicit global, zero unowned entities and
+  zero ownership inconsistencies. Terrain checkout is enabled with the existing
+  120 m resource-interest prerequisite; its defaults are 1200 m load / 1600 m
+  unload. Validation passed 2,554/2,554 Multiplayer tests and 181/181 admin/login
+  tests; game, login and client Release builds had zero errors. The coordinated
+  rollback copy is `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`.
+- **Public client manifest:** `2026.08.17-1`, build label
+  `terrain checkout and B3 visual acceptance (069a372)`. It ships the marked,
+  correlated asset-loaded acknowledgement required for safe optional-terrain
+  unload/re-entry. All 54 public payloads matched their published hashes.
 - **Managed client DLL SHA-256:**
-  `b231b41ceeede651debefa75009dcb9c245cc4cfb59e4e0100430e1a7030ccaa`.
+  `9759a005fb1efe2cab39bbeafc66be4da7a095fed3399b24390f75c819d7cf6b`.
 - **Windows CoreSDK DLL SHA-256:**
-  `1f4aa7a1410dfd09257e0258d70dcab0bd0a921dc9c56fe505d0099cd374ed42`.
+  `26b5ce1568abec2ca06d488e3aadaaf725c92a89e1e2482571e27ad31986c354`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
   deployables, 5/7 ships (two tombstones), 16/16 mounted parts and 3/3 loose
-  parts. Stats report schema 2, build `634aca2`, host mode
-  `local-single-process`, and five ship domains. Staged/live managed DLL hashes
-  matched exactly. The current game rollback is
-  `/opt/wareborn/backups/pre-634aca2-20260815-152232`.
+  parts. Stats report schema 5, host mode `local-single-process`, and terrain mode
+  `on`. Staged/live game, login and production-built Linux CoreSDK hashes match;
+  the Linux shim is SHA-256
+  `0121219a138a07f345103f83cc5647f993ecb0282a0172c7bf19a54b78a252f7`.
 
 ### Latest multiplayer incident
 
@@ -578,29 +575,30 @@ prefix; zero is the default. Geographically closer C6 islands are
 tier 3 and are intentionally deferred. All runtime topology consumers share
 the same configured island/region registries, so spawn, resource routing,
 directory ownership, local domains, databank parent resolution and admin stats
-cannot disagree about which islands exist. Build `07270f1` is deployed with the
+cannot disagree about which islands exist. Build `069a372` is deployed with the
 bounded rollout set to exactly one terrain (`Mental Facility`); it is not yet
 visually accepted. Mental Facility has the first guarded named landing destination,
 `mental-facility`, derived from its extracted top surface; both the game server
 and admin page refuse it unless at least the first tier-1 terrain is registered.
 Do not jump to the complete district at once. Continuous distance checkout is integrated into
 `feat/island-identity` at `7cbb376`, with exact cold-asset ACKs,
-terrain/resource ordering and safe teleport deferral, but is not deployed or
-visually accepted. All twelve bundles total roughly 116.5 MiB compressed; the
+terrain/resource ordering and safe teleport deferral. It is deployed and enabled
+for the one-island run, but is not visually accepted. All twelve bundles total
+roughly 116.5 MiB compressed; the
 original four-island acceptance prefix is roughly 42.5 MiB. Release-map origins,
 terrain envelopes and joined survey profiles (databanks, revival chambers,
 trees, turret/danger flags and metal tables) are pinned for all twelve, but no
 new dynamic resource population is enabled by terrain registration alone.
 See `docs/research/findings-first-region-terrain.md`.
 
-Production verification after the `07270f1` restart: stats schema 4 reported
+Production verification after the `069a372` restart: stats schema 5 reported
 `firstRegionTerrainCount=1`; the directory classified Mental Facility into
 `tier1-b3-region`; the local host reported 3 island domains, 5 ship domains,
 255 owned entities, 0 unowned entities and 0 ownership issues. The count-one
 setting is a runtime systemd test override and therefore intentionally disappears
 on VPS reboot unless promoted after visual acceptance.
 
-### Terrain checkout observability (integrated by `a4e135c`, not deployed)
+### Terrain checkout observability (integrated by `a4e135c`, deployed)
 
 Stats schema **5** adds a `terrain` section to `/tmp/wareborn-stats.json` so the
 one-island visual acceptance run above can be observed instead of guessed. The
@@ -630,10 +628,10 @@ never asserted.
 
 The runtime checkout milestone (`7cbb376`) and its admin observability milestone
 (`fa83318`) are consolidated on `feat/island-identity` by merge commit
-`a4e135c`. They remain local-only: not pushed, deployed, enabled or published to
-the patcher. Independent consolidation validation passed all 2,524 Multiplayer
-tests, all 181 admin/login tests, both affected Release builds and
-`git diff --check`.
+`a4e135c`. They were pushed, deployed and enabled for the bounded Mental Facility
+run in `069a372`; public manifest `2026.08.17-1` supplies the correlated native
+acknowledgement. Final validation passed all 2,554 Multiplayer tests, all 181
+admin/login tests, all affected Release builds and `git diff --check`.
 
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
