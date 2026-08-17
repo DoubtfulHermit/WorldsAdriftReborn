@@ -82,11 +82,14 @@ namespace WorldsAdriftReborn.Storage.Tests
             Assert.Equal(1, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema() AND table_name = 'crew_members';"));
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'social_invites';"));
 
             // accounts, sessions, characters, character_inventories,
             // server_config, character_progression, character_positions, crews,
-            // crew_members, schema_version - and nothing else.
-            Assert.Equal(10, db.Scalar<int>(
+            // crew_members, social_invites, schema_version - and nothing else.
+            Assert.Equal(11, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema();"));
         }
@@ -97,16 +100,18 @@ namespace WorldsAdriftReborn.Storage.Tests
             // The reason this is a one-line test rather than a per-connection
             // pragma the whole library has to remember.
             //
-            // Eight: sessions -> accounts, characters -> accounts,
+            // Ten: sessions -> accounts, characters -> accounts,
             // character_inventories/character_progression/character_positions ->
-            // characters, crews -> characters, and crew_members -> BOTH characters
-            // and crews. The character-keyed ones matter most, because their key
-            // arrives from outside the database - the game server digs the
-            // character uid out of a JSON blob a client published - so they are the
+            // characters, crews -> characters, crew_members -> BOTH characters
+            // and crews, and social_invites -> characters TWICE, once for the
+            // invitee and once for the inviter. The character-keyed ones matter
+            // most, because their key arrives from outside the database - the game
+            // server digs the character uid out of a JSON blob a client published,
+            // and the login server takes it off an HTTP header - so they are the
             // only place a made-up key could get in.
             using TempDb db = new TempDb();
 
-            Assert.Equal(8, db.Scalar<int>(
+            Assert.Equal(10, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.table_constraints "
                 + "WHERE table_schema = current_schema() AND constraint_type = 'FOREIGN KEY';"));
         }
