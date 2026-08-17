@@ -134,7 +134,12 @@ changes.
   non-physical last-retail-LOD silhouette, reveals it only after its generated
   material is ready, hides it while full terrain is checked out, and restores it
   after full terrain removal. Collision, resources and databanks remain
-  exclusively on physical checkout. Live visual acceptance is still required.
+  exclusively on physical checkout. This retail-LOD (v1) shell is the preferred
+  fidelity and remains what the bounded configuration requests: shell fidelity is
+  chosen by `IslandShellFidelityPolicy` from whether the complete release-world
+  rollout is active, not from release-catalogue membership, so embedding the
+  254-island catalogue does not change what production sends. Live visual
+  acceptance is still required.
   The authenticated Simulation Fabric also embeds an allowlisted projection of
   the preserved release MapFile (266 islands, 20 tier/biome cells and 44 typed
   weather-wall segments). Eighteen cells retain their authored district IDs;
@@ -665,11 +670,22 @@ facts: Tier 3 in the final community survey and location in Bossa's Tier-2 A4
 cell. The source generator is
 `tools/world-import/generate-release-runtime-catalog.py`.
 
-Distant visuals now use a v2 procedural shell: the server sends the compact
-outline only for islands within 9 km, and the client builds a non-physical mesh
-without loading the terrain bundle. At the 1.2 km physical radius the existing
-correlated asset checkout replaces that shell with full terrain, collision and
-nearby resources. The full rollout is **not deployed and not visually accepted**.
+Under the full rollout distant visuals use the v2 procedural shell: the server
+sends the compact outline only for islands within 9 km, and the client builds a
+non-physical mesh without loading the terrain bundle. At the 1.2 km physical
+radius the existing correlated asset checkout replaces that shell with full
+terrain, collision and nearby resources. The v2 shell is a **scalability
+fallback, not a preference**: it exists because 254 island-bundle prefetches per
+peer are not affordable. `IslandShellFidelityPolicy` makes that an explicit
+decision keyed on whether the release-world rollout is active, so the bounded
+configuration keeps requesting the v1 retail-LOD shell even though its islands
+are also records in the embedded 254-island catalogue. Catalogue membership
+alone never selects v2, and v2 can never be selected for an island that has no
+outline to encode. A near-band fidelity upgrade (replacing a placed v2 shell
+with a v1 mesh as a viewer approaches) is deferred: the client dedups shells by
+terrain entity id and both entry points re-acknowledge instead of rebuilding, so
+an upgrade needs a client teardown path that does not exist yet. The full
+rollout is **not deployed and not visually accepted**.
 Trees, revival chambers, turrets and weather-wall gameplay are not spawned by
 this milestone; their survey facts are retained for later systems.
 
