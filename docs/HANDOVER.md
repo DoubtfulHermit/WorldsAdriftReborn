@@ -633,6 +633,20 @@ run in `069a372`; public manifest `2026.08.17-1` supplies the correlated native
 acknowledgement. Final validation passed all 2,554 Multiplayer tests, all 181
 admin/login tests, all affected Release builds and `git diff --check`.
 
+The first real Unity run on 2026-08-17 proved exact request/asset-ack/add ordering,
+deferred teleport, correct Mental Facility rendering and collision, and correct
+Haven resource removal/re-checkout. It also exposed one real lifecycle defect:
+this client proves teleport arrival through the bounded authoritative-transform
+route but omits the sparse 1073 relative-to island acknowledgement. Resource
+interest advanced correctly, while terrain interest retained the old requested
+destination and therefore kept Mental Facility `READY` after the proved return to
+Haven. The follow-up makes a proved teleport landing one shared authority event:
+both legitimate arrival proofs update terrain ground identity and clear the
+destination pin, allowing normal drain/unload. It also reports a queued
+`teleport-wait` as an accepted wait rather than a failed operation. Headless
+regression coverage proves the return produces exactly one old-terrain removal;
+live unload/re-entry acceptance remains required after deployment.
+
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains

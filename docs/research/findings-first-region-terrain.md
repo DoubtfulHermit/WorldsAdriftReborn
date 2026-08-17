@@ -103,6 +103,14 @@ or duplicate entities, terrain telemetry mode `on`); player-side terrain,
 collision and landing remain pending visual acceptance. The rollout flags are
 runtime systemd overrides so a VPS reboot fails safely back to the defaults.
 
+The first Unity run proved visual terrain, collision, exact correlated asset
+acknowledgement and safe deferred arrival. Returning to Haven also restored its
+resource interest, but revealed that the client's bounded transform confirmation
+did not clear terrain's requested-destination pin when the sparse 1073 island
+frame was absent. The server follow-up unifies both accepted teleport-arrival
+proofs into the same terrain landing transition; unload and re-entry still need
+one repeat live pass.
+
 ## Wall correction
 
 The preserved release MapFile does contain exact wall geometry and wall types.

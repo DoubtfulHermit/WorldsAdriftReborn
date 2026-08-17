@@ -230,6 +230,27 @@ namespace WorldsAdriftRebornGameServer.Game
             state.NextReconcile = TimeSpan.Zero;
         }
 
+        /// <summary>
+        /// Records a server-issued teleport whose arrival was proved either by
+        /// 1073 lastExecutedRequest or by the bounded authoritative-transform
+        /// fallback. Unlike ordinary proximity this is strong ground evidence:
+        /// it clears the destination pin so a later teleport back to Haven can
+        /// drain and remove the optional terrain even when the client never
+        /// publishes a relative-to island id.
+        /// </summary>
+        internal void ConfirmTeleportLanding(
+            ENetPeerHandle peer,
+            IslandId islandId,
+            FixedPointPosition position)
+        {
+            if (!Enabled) return;
+            PeerState state = StateFor(peer);
+            state.Position = position;
+            state.ConfirmedGround = islandId;
+            _ledger.ConfirmTeleportLanding(peer);
+            state.NextReconcile = TimeSpan.Zero;
+        }
+
         /// <summary>1073 relative-to is authoritative evidence of current terrain.</summary>
         internal void ObserveRelativeTo(ENetPeerHandle peer, long terrainEntityId)
         {
@@ -262,7 +283,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 state.LastDestinationStatus = status;
                 state.LastDestinationIsland = islandId;
                 _events.Record(_clock.Elapsed, EventKindFor(status), islandId, state.Slot,
-                    status == TerrainDestinationStatus.Ready);
+                    status != TerrainDestinationStatus.Disabled
+                        && status != TerrainDestinationStatus.Unknown);
             }
             return status;
         }

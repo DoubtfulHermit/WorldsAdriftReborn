@@ -45,6 +45,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             if (_peers.TryGetValue(peer, out Entry? entry)) entry.RequestedDestination = null;
         }
 
+        /// <summary>
+        /// A server-issued teleport has been proved at its destination. The
+        /// request is no longer a reason to retain the previous checkout, even
+        /// when the client omits the sparse 1073 relative-to acknowledgement.
+        /// </summary>
+        public void ConfirmTeleportLanding(TPeer peer)
+        {
+            EntryFor(peer).RequestedDestination = null;
+        }
+
         public TerrainDestinationStatus RequestDestination(
             TPeer peer,
             IslandId islandId,

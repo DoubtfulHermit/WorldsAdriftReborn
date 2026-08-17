@@ -452,8 +452,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 {
                     WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
                         peer, landed.Position, "teleport landing '" + landed.Name + "'");
-                    WorldsAdriftRebornGameServer.TerrainInterest?.ObserveGlobalPosition(
-                        peer, landed.Position);
+                    ObserveTerrainLanding(peer, landed, landed.Position);
                 }
                 Console.WriteLine("[success] " + reason + ": entity " + entityId
                     + " executed request " + lastExecutedRequest + ". It landed"
@@ -511,11 +510,27 @@ namespace WorldsAdriftRebornGameServer.Game
 
             WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
                 peer, position, "teleport transform confirmation '" + landed.Name + "'");
-            WorldsAdriftRebornGameServer.TerrainInterest?.ObserveGlobalPosition(peer, position);
+            ObserveTerrainLanding(peer, landed, position);
             Console.WriteLine("[success] " + reason + ": entity " + entityId
                 + " transform-confirmed request " + completedRequest.Value + " near "
                 + landed.Name + " at " + position
                 + "; this client did not publish the 1073 ack, so world interest advanced from its authoritative 190602.");
+        }
+
+        private static void ObserveTerrainLanding(
+            ENetPeerHandle peer,
+            TeleportDestination landed,
+            FixedPointPosition position)
+        {
+            IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
+            IslandDefinition? island = landed.RequiredWorldEntityKey == null
+                ? null
+                : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
+                    landed.RequiredWorldEntityKey);
+            if (terrain != null && island != null)
+                terrain.ConfirmTeleportLanding(peer, island.Id, position);
+            else
+                terrain?.ObserveGlobalPosition(peer, position);
         }
 
         /// <summary>Drops an entity's counters when its peer disconnects.</summary>

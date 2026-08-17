@@ -126,6 +126,41 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
+        public void Proved_return_to_haven_releases_destination_and_removes_old_terrain()
+        {
+            var ledger = new IslandTerrainPeerLedger<string>();
+            ledger.NoteLoaded("peer", MentalId);
+            ledger.RequestDestination("peer", IslandCatalog.MentalFacilityId,
+                IslandCatalog.HavenId,
+                new Dictionary<IslandId, long>
+                {
+                    [IslandCatalog.MentalFacilityId] = MentalId,
+                },
+                enabled: true, assetWaiting: false);
+
+            // Both the outbound and return teleports were authoritatively proved.
+            // The return must release the old optional destination pin even when
+            // the client omitted a sparse relative-to island acknowledgement.
+            ledger.ConfirmTeleportLanding("peer");
+            Assert.Equal(TerrainDestinationStatus.Ready,
+                ledger.RequestDestination("peer", IslandCatalog.HavenId,
+                    IslandCatalog.HavenId, new Dictionary<IslandId, long>(),
+                    enabled: true, assetWaiting: false));
+            ledger.ConfirmTeleportLanding("peer");
+
+            IReadOnlyList<TerrainStreamAction> actions = Reconcile(
+                IslandCatalog.Haven.GlobalOrigin,
+                ledger.LoadedFor("peer"),
+                ground: IslandCatalog.HavenId,
+                destination: ledger.RequestedDestination("peer"),
+                load: 100, unload: 300);
+
+            TerrainStreamAction remove = Assert.Single(actions);
+            Assert.Equal(TerrainStreamActionKind.Remove, remove.Kind);
+            Assert.Equal(MentalId, remove.EntityId);
+        }
+
+        [Fact]
         public void Adds_are_ordered_before_removes_during_handoff()
         {
             // Force destination and no loaded destination means the source remains.

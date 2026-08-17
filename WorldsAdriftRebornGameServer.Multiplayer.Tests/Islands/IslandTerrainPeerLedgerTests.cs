@@ -68,6 +68,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
+        public void Proved_teleport_landing_releases_the_destination_pin()
+        {
+            var ledger = new IslandTerrainPeerLedger<string>();
+            ledger.RequestDestination("peer", IslandCatalog.MentalFacilityId,
+                IslandCatalog.HavenId, Managed, enabled: true, assetWaiting: false);
+
+            ledger.ConfirmTeleportLanding("peer");
+
+            Assert.Null(ledger.RequestedDestination("peer"));
+        }
+
+        [Fact]
         public void Removing_one_peer_checkout_does_not_touch_another()
         {
             var ledger = new IslandTerrainPeerLedger<int>();
