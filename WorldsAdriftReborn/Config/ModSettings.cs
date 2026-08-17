@@ -22,6 +22,9 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> gameServerPort { get; set; }
         public static ConfigEntry<int> perfSpikeThresholdMs { get; set; }
         public static ConfigEntry<string> stationPickupKey { get; set; }
+        public static ConfigEntry<float> impostorFollowAngleDegrees { get; set; }
+        public static ConfigEntry<float> impostorRebakeAngleDegrees { get; set; }
+        public static ConfigEntry<float> impostorRebakeSeconds { get; set; }
 
         public static void InitConfig()
         {
@@ -96,6 +99,19 @@ namespace WorldsAdriftReborn.Config
                                                     "Interact_StationPickupKey",
                                                     "X",
                                                     "UnityEngine.KeyCode name of the key held (0.5s) while looking at a placed Shipyard or Assembly Station to pack it back into your inventory. The normal E/Craft interaction is untouched.");
+
+            impostorFollowAngleDegrees = modConfig.Bind<float>("Impostors",
+                                                    "Impostor_FollowAngleDegrees",
+                                                    0f,
+                                                    "How far (degrees) a distant island's impostor billboard may turn to face you before it holds still, i.e. ImpostersHandler.minAngleToStopLookAtCamera. Retail ships 30 against a 2.5 degree re-bake trigger, so a late re-bake lets the island visibly swing. 0 means 'follow the re-bake angle', which bounds the swing to what a timely re-bake already produces. Set 30 to restore retail exactly. Retail range is 0..45.");
+            impostorRebakeAngleDegrees = modConfig.Bind<float>("Impostors",
+                                                    "Impostor_RebakeAngleDegrees",
+                                                    0f,
+                                                    "Overrides ImposterController.errorCameraAngle on island impostors: how far you may move around an island before its billboard texture is re-rendered. 0 keeps retail's 2.5. Smaller is sharper and costs more bakes; every bake is two full camera renders of the island.");
+            impostorRebakeSeconds = modConfig.Bind<float>("Impostors",
+                                                    "Impostor_RebakeSeconds",
+                                                    0f,
+                                                    "Overrides ImposterController.timeInterval on island impostors, the backstop re-bake that fires regardless of camera movement. 0 keeps retail's 10 seconds.");
         }
     }
 }

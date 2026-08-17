@@ -98,6 +98,14 @@ namespace WorldsAdriftReborn
             // of the hull mesh - if that decode is axis-swapped relative to what
             // the client actually draws, only the rendered numbers can show it.
             gameObject.AddComponent<Patching.Flight.OrientationProbe>();
+
+            // Reports whether the retail island-impostor BAKE QUEUE is keeping
+            // up. Islands are drawn at distance as camera-facing billboards that
+            // only re-render their texture every 2.5 degrees of viewer movement;
+            // if those re-bakes are starved, the billboard keeps turning to face
+            // you while wearing a stale silhouette, which reads as the island
+            // rotating. Read-only apart from re-asserting the follow angle.
+            gameObject.AddComponent<Patching.InGameChanges.IslandImpostorProbe>();
         }
 
         /// <summary>

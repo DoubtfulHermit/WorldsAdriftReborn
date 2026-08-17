@@ -103,6 +103,8 @@
              Link="Patching\Multiplayer\Islands\IslandDistantShellProtocol.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\HelmYawResponsePolicy.cs"
              Link="Patching\Flight\HelmYawResponsePolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Islands\ImpostorBillboardPolicy.cs"
+             Link="Patching\InGameChanges\ImpostorBillboardPolicy.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->
