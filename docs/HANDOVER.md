@@ -120,7 +120,7 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `1aa9fe4`, deployed and restarted at 2026-08-17 12:44 CEST;
+- **Game server:** `7fab2e2`, deployed and restarted at 2026-08-17 13:11 CEST;
   **login/admin server:** the `069a372` build deployed at 11:32 CEST. Stats schema
   5 reports terrain checkout and the admin
   console exposes its one-island acceptance run. Production remains bounded to
@@ -135,7 +135,9 @@ changes.
   immediate pre-fix game rollback is
   `/opt/wareborn/backups/pre-b52f504-20260817T100136Z`; the immediate
   pre-`1aa9fe4` rollback is
-  `/opt/wareborn/backups/pre-1aa9fe4-20260817T104346Z`.
+  `/opt/wareborn/backups/pre-1aa9fe4-20260817T104346Z`; the immediate
+  pre-`7fab2e2` rollback is
+  `/opt/wareborn/backups/pre-7fab2e2-20260817T111125Z`.
 - **Public client manifest:** `2026.08.17-1`, build label
   `terrain checkout and B3 visual acceptance (069a372)`. It ships the marked,
   correlated asset-loaded acknowledgement required for safe optional-terrain
@@ -702,8 +704,10 @@ Haven/Trades until the boundary crossing completed. The local follow-up gives
 the canonical aboard tracker precedence: 190602 drives spatial interest only
 when unparented and not aboard; ship-derived 1073 remains the sole aboard source.
 The focused policy covers every fall verdict in both aboard/on-foot states; all
-2,570 Multiplayer tests and the Release server build pass. Do not deploy that
-follow-up until the acceptance player disconnects.
+2,570 Multiplayer tests and the Release server build pass. It is deployed as
+`7fab2e2`; post-restart verification reported matching hashes, the count-one B3
+topology, 255 owned entities, zero ownership issues and zero terrain
+warnings/errors. No client patch changed.
 
 The player then departed Trades toward Haven. Resource checkout drained all 15
 Trades entities to zero before terrain teardown, `remove-ok` succeeded, and the

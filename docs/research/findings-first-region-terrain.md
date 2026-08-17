@@ -144,10 +144,11 @@ tracking the 120 m bubble, and four successful 10,000-knowledge scans (32,391 to
 
 Approach logs also revealed that aboard 1073 + hull-pose observations and 190602
 nearest-island observations could alternate Haven/Trades at the zone boundary.
-The pending follow-up therefore suppresses 190602 interest while the canonical
-aboard tracker is true; it resumes automatically after confirmed disembark. This
-does not change the accepted on-foot path. All 2,570 Multiplayer tests and the
-Release server build pass.
+The follow-up therefore suppresses 190602 interest while the canonical aboard
+tracker is true; it resumes automatically after confirmed disembark. This does
+not change the accepted on-foot path. All 2,570 Multiplayer tests and the Release
+server build pass. It is deployed as `7fab2e2`; post-restart topology, ownership,
+terrain telemetry and staged/live hashes were clean. No client patch changed.
 
 Departure toward Haven completed the remaining gate. All 15 Trades resources
 drained before terrain removal, `remove-ok` succeeded, and final state was
