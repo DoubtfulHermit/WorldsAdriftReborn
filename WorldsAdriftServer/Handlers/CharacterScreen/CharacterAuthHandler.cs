@@ -19,8 +19,24 @@ namespace WorldsAdriftServer.Handlers.CharacterScreen
                 return;
             }
 
+            // The token we answer with becomes BossaNetBootstrap.CharacterClientAuthToken,
+            // and grepping the whole decompile that value has exactly ONE consumer:
+            // SocialHelper.WebToken, which SocialRequest.DecorateRequest puts in the
+            // "Security" header of every alliance and crew request.
+            //
+            // It used to be the literal string "token", which was harmless while
+            // nothing read it. Now that we serve the social API ourselves it is the
+            // only identity those requests carry, and a constant would make every
+            // player look like the same caller. Echoing the caller's own live
+            // session token back - the one they just proved they hold, in the
+            // Security header of THIS request - makes the social API authenticate
+            // exactly as the character routes already do, and changes nothing else,
+            // because nothing else reads it.
+            string sessionToken = Persistence.Accounts.HeaderValue(
+                request, Persistence.Accounts.SecurityHeader) ?? "token";
+
             HttpResponse resp = new HttpResponse();
-            CharacterAuthResponse authResp = new CharacterAuthResponse("token", "1", 123, "12.12.12", true);
+            CharacterAuthResponse authResp = new CharacterAuthResponse(sessionToken, "1", 123, "12.12.12", true);
 
             JObject respO = (JObject)JToken.FromObject(authResp);
             if(respO != null)

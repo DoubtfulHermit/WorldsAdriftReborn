@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -435,6 +435,93 @@ CREATE TABLE crew_members (
 );
 
 CREATE INDEX crew_members_by_crew ON crew_members (crew_id);
+";
+
+        /// <summary>
+        /// v7 - social invites, the membership change requests the retail Social
+        /// Sheet reads and writes over HTTP.
+        ///
+        /// v6 deliberately did NOT persist invites, on the reasoning that they are
+        /// transient offers held on the invitee's live SpatialOS component. That
+        /// reasoning held while the only crew UI was the pre-alliance panel, which
+        /// is component-driven. It does not survive the finding that the RETAIL
+        /// crew panel is driven entirely by the Bossa REST API
+        /// (docs/research/findings-social-api.md): the login server answers those
+        /// requests, it is a different process from the game server, and an invite
+        /// living in the game server's memory is invisible to it. The two ends of
+        /// an invite - "who invited me" and "who have I invited" - are now queried
+        /// from HTTP by both parties, so the invite has to be a durable fact
+        /// somewhere both processes can see, and that is this table.
+        ///
+        /// Modelled on the client's own MembershipChangeRequestDataModel rather
+        /// than on our crew ledger, because its field set is the wire contract and
+        /// inventing a different one just moves the translation somewhere worse.
+        /// </summary>
+        internal const string V7 = @"
+CREATE TABLE social_invites (
+    -- The client calls this 'id' and echoes it straight back in the accept,
+    -- reject and cancel URLs. Text, not UUID, for the same reason crews.crew_id
+    -- is: it is minted here and parsed nowhere.
+    invite_id      TEXT        NOT NULL PRIMARY KEY,
+
+    -- The group being joined. NOT a foreign key to crews: target_type decides
+    -- which table it points into, and alliances have no table. The service
+    -- resolves it and refuses a dangling target rather than the database doing
+    -- so, because a stale invite to a disbanded crew must read as
+    -- 'invite_not_found', not as a constraint violation at insert time.
+    target_id      TEXT        NOT NULL,
+
+    -- 'crew_member' or 'alliance_member' - the client's own vocabulary
+    -- (SocialGroupParsers.CheckSocialGroupType). Constrained here because the
+    -- client THROWS on any third value rather than ignoring it, so a bad row
+    -- would break the whole invite list rather than one entry in it.
+    target_type    TEXT        NOT NULL,
+
+    -- Who is being invited. The character the offer is FOR.
+    character_uid  UUID        NOT NULL
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    -- Who sent it. NULL means this is an APPLICATION rather than an invite -
+    -- that is the client's own structural discriminator
+    -- (CheckMembershipRequestType returns Application exactly when inviter is
+    -- null), so it is represented the same way here instead of as a separate
+    -- flag that could disagree with it.
+    inviter_uid    UUID        NULL
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    message        TEXT        NOT NULL DEFAULT '',
+
+    -- 'new' | 'accepted' | 'rejected' | 'cancelled'. Same reasoning as
+    -- target_type: the client throws on an unknown value.
+    status         TEXT        NOT NULL,
+
+    created_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT social_invites_target_type_known
+        CHECK (target_type IN ('crew_member', 'alliance_member')),
+    CONSTRAINT social_invites_status_known
+        CHECK (status IN ('new', 'accepted', 'rejected', 'cancelled')),
+    CONSTRAINT social_invites_no_self_invite
+        CHECK (inviter_uid IS NULL OR inviter_uid <> character_uid),
+    CONSTRAINT social_invites_updated_after_created
+        CHECK (updated_at >= created_at)
+);
+
+-- One LIVE offer per (character, target). A second identical invite is the
+-- 'existing_invite' error the client already has a string for, and refusing it
+-- here means every code path gets that answer rather than only the ones that
+-- remembered to look. Partial, so a rejected invite does not block a later one.
+CREATE UNIQUE INDEX social_invites_one_live_per_pair
+    ON social_invites (character_uid, target_id)
+    WHERE status = 'new';
+
+-- 'what have I been offered' - the invitee's own list, read on every open of
+-- the Social Sheet.
+CREATE INDEX social_invites_by_character ON social_invites (character_uid);
+
+-- 'who has this crew invited' - read whenever the crew panel refreshes.
+CREATE INDEX social_invites_by_target ON social_invites (target_id);
 ";
     }
 }

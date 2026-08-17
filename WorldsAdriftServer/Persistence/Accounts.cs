@@ -36,12 +36,27 @@ namespace WorldsAdriftServer.Persistence
         private static SessionRepository? sessions;
         private static CharacterRepository? characters;
         private static ServerConfigRepository? serverConfig;
+        private static CrewRepository? crews;
+        private static SocialInviteRepository? socialInvites;
 
         internal static Db Database => Ensure().db;
         internal static AccountRepository Repository => Ensure().accounts;
         internal static SessionRepository Sessions => Ensure().sessions;
         internal static CharacterRepository Characters => Ensure().characters;
         internal static ServerConfigRepository ServerConfig => Ensure().serverConfig;
+
+        /// <summary>
+        /// Crews, shared with the game server through the same tables.
+        ///
+        /// The login server is a SECOND writer here, which v6 did not anticipate:
+        /// the retail Social Sheet drives crews over HTTP, so create, invite, boot,
+        /// leave and disband all arrive on this process. See
+        /// docs/research/findings-social-api.md.
+        /// </summary>
+        internal static CrewRepository Crews => Ensure().crews;
+
+        /// <summary>Crew and alliance invites - schema v7, written only here.</summary>
+        internal static SocialInviteRepository SocialInvites => Ensure().socialInvites;
 
         /// <summary>
         /// Opens the database and applies the schema. Called once at startup so
@@ -58,7 +73,7 @@ namespace WorldsAdriftServer.Persistence
                 + Repository.Count() + " account(s) registered.");
         }
 
-        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig) Ensure()
+        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites) Ensure()
         {
             lock (gate)
             {
@@ -69,9 +84,11 @@ namespace WorldsAdriftServer.Persistence
                     sessions = new SessionRepository(db);
                     characters = new CharacterRepository(db);
                     serverConfig = new ServerConfigRepository(db);
+                    crews = new CrewRepository(db);
+                    socialInvites = new SocialInviteRepository(db);
                 }
 
-                return (db!, accounts!, sessions!, characters!, serverConfig!);
+                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!);
             }
         }
 
@@ -100,7 +117,7 @@ namespace WorldsAdriftServer.Persistence
         /// NetCoreServer exposes headers only as an indexed pair list, and header
         /// names are case-insensitive on the wire.
         /// </summary>
-        private static string? HeaderValue(HttpRequest request, string name)
+        internal static string? HeaderValue(HttpRequest request, string name)
         {
             for (int i = 0; i < request.Headers; i++)
             {

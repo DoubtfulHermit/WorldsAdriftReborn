@@ -58,26 +58,26 @@ namespace WorldsAdriftReborn.Storage.Tests
         }
 
         [Fact]
-        public void The_shipped_schema_is_at_version_six()
+        public void The_shipped_schema_is_at_version_seven()
         {
             // If this fails, a script was added: check it was APPENDED and that
             // no existing one was edited, then update the number.
             // v1 accounts/sessions/characters, v2 character_inventories,
             // v3 server_config, v4 character_progression, v5 character_positions,
-            // v6 crews + crew_members.
-            Assert.Equal(6, SchemaMigrator.TargetVersion(SchemaScripts.All));
+            // v6 crews + crew_members, v7 social_invites.
+            Assert.Equal(7, SchemaMigrator.TargetVersion(SchemaScripts.All));
         }
 
         [Fact]
-        public void A_database_at_version_five_is_brought_forward_by_exactly_one_script()
+        public void A_database_at_version_six_is_brought_forward_by_exactly_one_script()
         {
-            // The upgrade an operator who already has a v5 database will actually
-            // run when the crew tables ship. It must not re-run v1..v5
-            // against tables that exist.
-            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(5, SchemaScripts.All);
+            // The upgrade an operator who already has a v6 database will actually
+            // run when the social API ships. It must not re-run v1..v6 against
+            // tables that exist.
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(6, SchemaScripts.All);
 
             Assert.Single(pending);
-            Assert.Contains("crew_members", pending[0]);
+            Assert.Contains("social_invites", pending[0]);
         }
 
         [Fact]
@@ -88,7 +88,7 @@ namespace WorldsAdriftReborn.Storage.Tests
             // of these references characters, which only v1 creates).
             IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
 
-            Assert.Equal(5, pending.Count);
+            Assert.Equal(6, pending.Count);
             Assert.Contains("character_inventories", pending[0]);
             Assert.Contains("server_config", pending[1]);
             Assert.Contains("character_progression", pending[2]);

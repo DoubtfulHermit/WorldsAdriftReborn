@@ -16,6 +16,7 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> steamBranchName { get; set; }
         public static ConfigEntry<string> restServerUrl { get; set; }
         public static ConfigEntry<string> restServerDeploymentUrl { get; set; }
+        public static ConfigEntry<string> alliancesServerUrl { get; set; }
         public static ConfigEntry<string> NTPServerUrl { get; set; }
         public static ConfigEntry<string> localAssetPath { get; set; }
         public static ConfigEntry<string> gameServerHost { get; set; }
@@ -48,6 +49,22 @@ namespace WorldsAdriftReborn.Config
                                                     "REST_ServerDeploymentUrl",
                                                     "http://127.0.0.1:8080/deploymentStatus",
                                                     "Sets the URL for the REST server that the game queries once the main menu is reached. It is the endpoint where server status informations are retrieved from.");
+
+            // The dead Bossa alliances host, redirected at our login server.
+            //
+            // Its own entry rather than a reuse of REST_ServerUrl because retail
+            // really did run these as two services - ConfigKeys.AlliancesUrl and
+            // ConfigKeys.RestServerUrl are separate keys pointing at separate
+            // hosts - and an operator who splits them should not have to patch
+            // code. The default is the same origin because ours does not split
+            // them: WorldsAdriftServer serves both.
+            //
+            // No trailing slash: the client joins this with "/" + endpoint
+            // (SocialRequest.cs:69), so a trailing slash produces a double one.
+            alliancesServerUrl = modConfig.Bind<string>("REST",
+                                                    "REST_AlliancesUrl",
+                                                    "http://127.0.0.1:8080",
+                                                    "Sets the URL for the social/alliances server - the host that answers the Social Sheet's alliance and CREW requests. Ours is the same server as REST_ServerUrl. No trailing slash.");
 
             NTPServerUrl = modConfig.Bind<string>("NTP",
                                                     "NTP_ServerUrl",

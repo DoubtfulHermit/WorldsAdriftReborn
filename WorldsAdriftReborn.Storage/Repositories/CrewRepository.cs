@@ -9,7 +9,14 @@ namespace WorldsAdriftReborn.Storage.Repositories
     /// Unlike the inventory, progression and position repositories this one is
     /// not a per-character key/value store: a crew is a relationship, so it is
     /// read WHOLE at boot into the in-memory ledger and written back as
-    /// individual membership changes happen. The game server is the only writer.
+    /// individual membership changes happen.
+    ///
+    /// It has TWO readers, which is why the single-crew queries below exist
+    /// alongside the whole-table ones. The game server reads everything at boot
+    /// to seed its ledger; the login server answers the retail Social Sheet's
+    /// crew requests (docs/research/findings-social-api.md) and only ever wants
+    /// one crew at a time, per HTTP request, with no cache in front of it - so
+    /// whatever the game server has written is what the sheet shows.
     ///
     /// The database enforces the two invariants that matter even if a caller
     /// forgets: one crew per character (crew_members' primary key) and one
@@ -64,6 +71,43 @@ namespace WorldsAdriftReborn.Storage.Repositories
 
             using NpgsqlDataReader reader = command.ExecuteReader();
             return reader.Read() ? ReadMember(reader) : null;
+        }
+
+        /// <summary>One crew by id, or null. Null is a normal answer: the client
+        /// can hold a crew id from before it was disbanded.</summary>
+        public CrewRecord? FindCrew(string crewId)
+        {
+            if (crewId == null) throw new ArgumentNullException(nameof(crewId));
+
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+            command.CommandText = "SELECT " + CrewColumns + " FROM crews WHERE crew_id = @crew_id;";
+            command.Parameters.AddWithValue("crew_id", crewId);
+
+            using NpgsqlDataReader reader = command.ExecuteReader();
+            return reader.Read() ? ReadCrew(reader) : null;
+        }
+
+        /// <summary>
+        /// One crew's membership, in join order. Join order is the order the crew
+        /// panel lists people in and the order leadership succeeds in, so it is
+        /// sorted here rather than left to each caller to remember.
+        /// </summary>
+        public IReadOnlyList<CrewMemberRecord> MembersOf(string crewId)
+        {
+            if (crewId == null) throw new ArgumentNullException(nameof(crewId));
+
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT " + MemberColumns + " FROM crew_members WHERE crew_id = @crew_id "
+                + "ORDER BY join_order;";
+            command.Parameters.AddWithValue("crew_id", crewId);
+
+            List<CrewMemberRecord> members = new List<CrewMemberRecord>();
+            using NpgsqlDataReader reader = command.ExecuteReader();
+            while (reader.Read()) members.Add(ReadMember(reader));
+            return members;
         }
 
         /// <summary>

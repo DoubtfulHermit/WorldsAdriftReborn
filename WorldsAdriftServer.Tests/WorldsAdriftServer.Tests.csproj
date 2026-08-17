@@ -17,4 +17,19 @@
     <ProjectReference Include="..\WorldsAdriftServer\WorldsAdriftServer.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      The social API's end-to-end tests drive the REAL repositories against a real
+      PostgreSQL, for the same reason the storage suite does: the shapes on this
+      wire were reconstructed from a decompiler's output, and a fake store that
+      accepted what the real one refuses would let a wrong contract pass.
+
+      Linked rather than copied so there is ONE throwaway-schema harness and one
+      skip rule. A second copy would drift from the schema the moment a migration
+      landed.
+    -->
+    <Compile Include="..\WorldsAdriftReborn.Storage.Tests\TempDb.cs" Link="Harness\TempDb.cs" />
+    <Compile Include="..\WorldsAdriftReborn.Storage.Tests\PostgresFactAttribute.cs" Link="Harness\PostgresFactAttribute.cs" />
+  </ItemGroup>
+
 </Project>
