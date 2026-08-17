@@ -120,7 +120,7 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `7fab2e2`, deployed and restarted at 2026-08-17 13:11 CEST;
+- **Game server:** `7c99dac`, deployed and restarted at 2026-08-17 13:30 CEST;
   **login/admin server:** the `069a372` build deployed at 11:32 CEST. Stats schema
   5 reports terrain checkout and the admin
   console exposes its one-island acceptance run. Production remains bounded to
@@ -128,22 +128,31 @@ changes.
   domains, 255 owned entities, one explicit global, zero unowned entities and
   zero ownership inconsistencies. Terrain checkout is enabled with the existing
   120 m resource-interest prerequisite; its defaults are 1200 m load / 1600 m
-  unload. Validation passed 2,556/2,556 Multiplayer tests and 181/181 admin/login
-  tests; game, login and client Release builds had zero errors. The coordinated
-  coordinated rollback copy is
+  unload. Opt-in distant island shells are also enabled: after login the server
+  prefetches managed optional-island bundles and the matching client builds a
+  non-physical last-retail-LOD silhouette, reveals it only after its generated
+  material is ready, hides it while full terrain is checked out, and restores it
+  after full terrain removal. Collision, resources and databanks remain
+  exclusively on physical checkout. Live visual acceptance is still required.
+  Validation passed 2,585/2,585 Multiplayer tests and 181/181 admin/login tests;
+  game, login and client Release builds had zero errors. The coordinated
+  rollback copy is
   `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`; the
   immediate pre-fix game rollback is
   `/opt/wareborn/backups/pre-b52f504-20260817T100136Z`; the immediate
   pre-`1aa9fe4` rollback is
   `/opt/wareborn/backups/pre-1aa9fe4-20260817T104346Z`; the immediate
   pre-`7fab2e2` rollback is
-  `/opt/wareborn/backups/pre-7fab2e2-20260817T111125Z`.
-- **Public client manifest:** `2026.08.17-1`, build label
-  `terrain checkout and B3 visual acceptance (069a372)`. It ships the marked,
+  `/opt/wareborn/backups/pre-7fab2e2-20260817T111125Z`; the coordinated
+  pre-`7c99dac` game/patch rollback is
+  `/opt/wareborn/backups/pre-7c99dac-20260817T113001Z`.
+- **Public client manifest:** `2026.08.17-2`, build label
+  `distant island visual shells (7c99dac)`. It ships the marked,
   correlated asset-loaded acknowledgement required for safe optional-terrain
-  unload/re-entry. All 54 public payloads matched their published hashes.
+  unload/re-entry plus the non-physical low-LOD shell lifecycle. All 54 public
+  payloads matched their published hashes.
 - **Managed client DLL SHA-256:**
-  `9759a005fb1efe2cab39bbeafc66be4da7a095fed3399b24390f75c819d7cf6b`.
+  `94a28bfb086ec2c11a5dc23e3449e363abbdda7f9996c67038226bdab23b5b4f`.
 - **Windows CoreSDK DLL SHA-256:**
   `26b5ce1568abec2ca06d488e3aadaaf725c92a89e1e2482571e27ad31986c354`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
@@ -152,6 +161,8 @@ changes.
   `on`. Staged/live game, login and production-built Linux CoreSDK hashes match;
   the Linux shim is SHA-256
   `0121219a138a07f345103f83cc5647f993ecb0282a0172c7bf19a54b78a252f7`.
+  The deployed managed server executable is SHA-256
+  `2635348245b9b2464f1f2cdb2c53bd33f1733824883c68b8ac0f8b06105dc86b`.
 
 ### Latest multiplayer incident
 
