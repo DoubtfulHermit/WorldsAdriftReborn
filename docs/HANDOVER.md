@@ -120,7 +120,29 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `c31e8be`, deployed and restarted at 2026-08-17 21:55 CEST.
+- **Game server:** `958c8e1`, deployed and restarted at 2026-08-18 00:07 CEST.
+  **Login/admin server:** `958c8e1`, same pass. This deploy carries the solid
+  hazed compact island shell, the revived CREW system, and the client authority
+  grant without which crews are silently unreachable. It **migrated the
+  production database from schema v5 to v6**, adding `crews` and `crew_members`;
+  verified after restart as `version = 6` with both tables present and the other
+  eight unchanged, and the database was `pg_dump`ed first to
+  `pre-958c8e1-20260817T220636Z/wareborn-db-pre-v6.sql`. Boot reports all four
+  per-character stores ON (inventory, knowledge, logout position, crew), restore
+  counts unchanged at 4/4 deployables, 5/7 hulls, 16/16 mounted and 3/3 loose,
+  `owned=349 unowned=0 duplicates=0`, terrain 4000 m load / 4800 m unload, and
+  zero errors in the first four minutes.
+  Crews are **deployed but never exercised against a live client**: the rules and
+  persistence are tested exhaustively, but whether the retail crew UI renders and
+  drives them is unproven. The panel is the **CREW tab of the Social Sheet**
+  (`InputButtons.OpenSocial`, "Open Social Sheet" in the controls list); the
+  default key is not recoverable from the decompile or from PlayerPrefs, so read
+  it off the in-game controls screen. Silence in the log on a crew click means
+  the event never arrived.
+  Rollback: `/opt/wareborn/backups/pre-958c8e1-20260817T220636Z/{game,login,patch,live-data}`
+  plus the SQL dump. The v6 tables are additive, so rolling the binary back needs
+  no database action.
+  The previous deployment was `c31e8be` at 2026-08-17 21:55 CEST.
   **Login/admin server:** `c31e8be`, deployed and restarted in the same pass.
   This deploy carries the ownership-bootstrap crash fix, the corrected compact
   island shell, and logout-position persistence. It also **migrated the
@@ -239,7 +261,19 @@ changes.
   `/opt/wareborn/backups/login-before-svg-map-20260817T130929Z`; the immediate
   pre-zone-signage login rollback is
   `/opt/wareborn/backups/login-before-zone-signage-20260817T132536Z`.
-- **Public client manifest:** `2026.08.17-6`, build label
+- **Public client manifest:** `2026.08.17-7`, build label
+  `solid hazed island shells + crews (958c8e1)`. Managed client DLL SHA-256
+  `09c14ad11a43e8126e1a2e2802fd5ef60dcc245c74d97fd101ceec430fc1742e`. Exactly one
+  payload changed against `-6`; all 54 public payloads matched their published
+  hashes. It carries the shell fixes: side walls and keel now wind OUTWARD (both
+  were inverted, so the flanks and the underside were backface-culled and the
+  shell read as blown glass), hard rim edges, and self-hazing by distance -
+  necessary because the client reports `scene fog=False`, so Unity's built-in fog
+  is not what makes retail's distance haze and a fog-aware shader bought nothing.
+  NOTE: distant shells are currently DISABLED in production
+  (`WAREBORN_DISTANT_ISLAND_SHELLS_ENABLED=0`), because the 4 km terrain radius
+  makes real islands the near-field answer, so these fixes ship but do not render.
+  The previous manifest was `2026.08.17-6`, build label
   `island shell underside fix + logout position (c31e8be)`. It carries the keel
   winding fix: the compact shell's keel fan copied the top cap's winding, but it
   faces DOWN and so must wind the opposite way. The whole underside of every
