@@ -29,10 +29,20 @@ namespace WorldsAdriftRebornGameServer.Game
                 host.Register(new IslandDomain(island.Id, region.Id));
             }
 
-            foreach (IGrouping<string, WorldDirectoryEntry> group in directory.Entries
-                .Where(entry => entry.Owner.Kind == WorldOwnerKind.Ship)
-                .GroupBy(entry => entry.Owner.Id, StringComparer.Ordinal))
+            // Resolve every entry ONCE. An entry whose AddEntityOp has not run has
+            // no id to own and is deferred, not fatal; see WorldDirectoryBindingPolicy.
+            WorldDirectoryBinding binding = WorldDirectoryBindingPolicy.Resolve(
+                directory.Entries, entities.BoundEntityIdFor);
+            string deferralReport = WorldDirectoryBindingPolicy.DeferralReport(binding);
+            if (deferralReport.Length > 0)
+                Console.WriteLine("[domain-host] " + deferralReport);
+
+            foreach (IGrouping<string, BoundDirectoryEntry> group in binding.Bound
+                .Where(item => item.Entry.Owner.Kind == WorldOwnerKind.Ship)
+                .GroupBy(item => item.Entry.Owner.Id, StringComparer.Ordinal))
             {
+                // The policy already deferred any group whose root is unbound, so a
+                // missing id here is a real inconsistency rather than a pending spawn.
                 long hullEntityId = entities.BoundEntityIdFor(group.Key)
                     ?? throw new InvalidOperationException("ship root '" + group.Key + "' has no bound entity id");
                 ShipDomain? liveDomain = shipDomains.ByHull(hullEntityId);
@@ -44,7 +54,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 long[] decks = BuiltShips.DecksForHull(hullEntityId).ToArray();
                 var deckSet = new HashSet<long>(decks);
                 long[] otherMembers = group
-                    .Select(entry => RequireBoundId(entities, entry.Entity.Key))
+                    .Select(item => item.EntityId)
                     .Where(id => id != hullEntityId && !deckSet.Contains(id))
                     .ToArray();
                 ILocalSimulationDomain domain;
@@ -61,9 +71,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 else host.Synchronize(domain);
             }
 
-            foreach (WorldDirectoryEntry entry in directory.Entries)
+            foreach (BoundDirectoryEntry item in binding.Bound)
             {
-                long entityId = RequireBoundId(entities, entry.Entity.Key);
+                WorldDirectoryEntry entry = item.Entry;
+                long entityId = item.EntityId;
                 if (entry.Owner.Kind == WorldOwnerKind.Global)
                 {
                     host.MarkGlobal(entityId);
@@ -79,8 +90,7 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
             }
 
-            long[] expected = directory.Entries
-                .Select(entry => RequireBoundId(entities, entry.Entity.Key)).ToArray();
+            long[] expected = binding.ExpectedEntityIds.ToArray();
             DomainOwnershipSummary summary = host.EnsureComplete(expected);
             Console.WriteLine("[domain-host] local-single-process islands=" + summary.IslandDomainCount
                 + " ships=" + summary.ShipDomainCount + " owned=" + summary.OwnedEntityCount
@@ -124,9 +134,5 @@ namespace WorldsAdriftRebornGameServer.Game
             if (!owner.HasValue) return;
             host.Unassign(entityId, owner.Value);
         }
-
-        private static long RequireBoundId(WorldEntityRegistry entities, string key) =>
-            entities.BoundEntityIdFor(key)
-                ?? throw new InvalidOperationException("world registration '" + key + "' has no bound entity id");
     }
 }
