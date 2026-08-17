@@ -50,6 +50,7 @@ namespace WorldsAdriftReborn.Storage.Tests
             Inventories = new Repositories.InventoryRepository(Db);
             Progressions = new Repositories.ProgressionRepository(Db);
             Positions = new Repositories.PositionRepository(Db);
+            Crews = new Repositories.CrewRepository(Db);
         }
 
         internal Db Db { get; }
@@ -65,6 +66,8 @@ namespace WorldsAdriftReborn.Storage.Tests
         internal Repositories.ProgressionRepository Progressions { get; }
 
         internal Repositories.PositionRepository Positions { get; }
+
+        internal Repositories.CrewRepository Crews { get; }
 
         /// <summary>A fixed instant, so nothing here depends on the wall clock.</summary>
         internal static readonly DateTimeOffset Now =

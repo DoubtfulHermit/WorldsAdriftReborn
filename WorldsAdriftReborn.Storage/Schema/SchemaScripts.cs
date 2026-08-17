@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -368,6 +368,73 @@ CREATE TABLE character_positions (
     CONSTRAINT character_positions_updated_after_created
         CHECK (updated_at >= created_at)
 );
+";
+
+        /// <summary>
+        /// v6 - crews.
+        ///
+        /// The first table in this database describing a relationship BETWEEN
+        /// characters rather than state belonging to one, which is why it is two
+        /// tables and not a JSON blob on the leader: a crew has to be queryable
+        /// from either end. When a player connects the server must answer "which
+        /// crew is this character in", and when a crew changes it must answer "who
+        /// else must be told", and a blob keyed by leader answers neither without
+        /// scanning every row.
+        ///
+        /// Invites are deliberately NOT persisted. They are transient social
+        /// offers held on the invitee's live component; losing them on restart
+        /// costs a player one click and keeps this schema to the durable facts.
+        /// </summary>
+        internal const string V6 = @"
+CREATE TABLE crews (
+    crew_id        TEXT        NOT NULL PRIMARY KEY,
+
+    -- The leader is a member like any other, so this is a denormalised pointer
+    -- INTO crew_members rather than a separate role. It is not a foreign key to
+    -- crew_members because the two rows are written in one transaction and the
+    -- ordering would make either direction impossible to insert first.
+    leader_uid     UUID        NOT NULL
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    num_slots      INT         NOT NULL,
+
+    created_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT crews_num_slots_sane CHECK (num_slots BETWEEN 1 AND 8),
+    CONSTRAINT crews_updated_after_created CHECK (updated_at >= created_at)
+);
+
+CREATE TABLE crew_members (
+    -- The PRIMARY KEY is the CHARACTER, not (crew, character). That is the whole
+    -- point: a character can be in at most one crew, and making that a key means
+    -- the database refuses a double membership rather than trusting every code
+    -- path that ever writes here to check first.
+    character_uid  UUID        NOT NULL PRIMARY KEY
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    crew_id        TEXT        NOT NULL
+                               REFERENCES crews (crew_id) ON DELETE CASCADE,
+
+    -- Join order, which is load-bearing: leadership succession reads the
+    -- longest-standing remaining member straight off it. An integer rather than a
+    -- timestamp so two members who joined in the same tick still have an order.
+    join_order     INT         NOT NULL,
+
+    -- The seat in the crew UI, or NULL for a member who has not taken one.
+    slot           INT         NULL,
+
+    created_at     TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT crew_members_join_order_not_negative CHECK (join_order >= 0),
+    CONSTRAINT crew_members_slot_not_negative CHECK (slot IS NULL OR slot >= 0),
+
+    -- One character per seat per crew. A slot collision is a UI-visible bug, so
+    -- it is refused here too rather than only in the policy.
+    CONSTRAINT crew_members_slot_unique UNIQUE (crew_id, slot)
+);
+
+CREATE INDEX crew_members_by_crew ON crew_members (crew_id);
 ";
     }
 }
