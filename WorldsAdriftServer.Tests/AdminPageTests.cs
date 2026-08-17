@@ -226,6 +226,106 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
+        public void Map_and_terrain_views_are_labelled_with_their_own_provenance()
+        {
+            string html = AdminPage.Dashboard("{}", new string('g', 64), ReleaseWorldMap.Json);
+
+            // The SVG cartography is preserved map evidence, not live simulation.
+            Assert.Contains("Preserved release-world map", html);
+            Assert.DoesNotContain("Live release-world map", html);
+            Assert.Contains("map evidence", html);
+            Assert.Contains("static embedded projection of the preserved Bossa release MapFile", html);
+            Assert.Contains("historical map evidence, not live simulation state", html);
+            Assert.Contains("None of this geometry is read from the running game server", html);
+            Assert.Contains("Static map evidence: release MapFile", html);
+
+            // Only the overlay is live, and its cadence is stated where it is described.
+            Assert.Contains("Only the ship and player markers, and the ring drawn around each"
+                + " simulated island domain, are live", html);
+            Assert.Contains("every 4 seconds", html);
+            Assert.Contains("roughly 3-second stats snapshots", html);
+
+            // The terrain view is signed as the authoritative live set.
+            Assert.Contains("provenance-tag live", html);
+            Assert.Contains("live simulation state", html);
+            Assert.Contains("Island inventory &middot; islands this game server is simulating", html);
+            Assert.Contains("authoritative live set of islands the running game server is"
+                + " actually simulating", html);
+
+            // The one visual distinction that is exactly derivable is legended:
+            // the live ring over a simulated island domain's reported position.
+            Assert.Contains(".map-swatch.runtime", html);
+            Assert.Contains("Currently simulated island domain (live)", html);
+            Assert.Contains("Every other mark is preserved map evidence", html);
+            Assert.Contains("currently simulated island domain, resident on this host", html);
+        }
+
+        [Fact]
+        public void Island_counts_are_reconciled_from_the_live_stats_rather_than_hardcoded()
+        {
+            string html = AdminPage.Dashboard("{}", new string('h', 64), ReleaseWorldMap.Json);
+
+            Assert.Contains("id=\"mapReconcile\"", html);
+            Assert.Contains("id=\"terrainReconcile\"", html);
+            Assert.Contains("islands on the preserved release map", html);
+            Assert.Contains("currently simulated", html);
+
+            // One helper feeds BOTH labels, so the two panels cannot disagree.
+            Assert.Equal(1, Occurrences(html, "function islandReconciliationText()"));
+            Assert.Contains("text('mapReconcile',line);text('terrainReconcile',line);", html);
+
+            // The live half is read from the same terrain section the checkout
+            // view renders; the map half from the embedded projection. Neither
+            // number is a literal in the page.
+            Assert.Contains("count:(t.islands||[]).length", html);
+            Assert.Contains("var mapCount=(worldMap.islands||[]).length;", html);
+            Assert.DoesNotContain("3 currently simulated", html);
+            Assert.DoesNotContain("266 islands on the preserved release map", html);
+            Assert.DoesNotContain("266 islands /", html);
+        }
+
+        [Fact]
+        public void Reconciled_counts_state_a_condition_instead_of_fabricating_a_number()
+        {
+            string html = AdminPage.Dashboard("{}", new string('i', 64), ReleaseWorldMap.Json);
+
+            Assert.Contains("currently simulated count unavailable: ", html);
+            Assert.Contains("'the game server is not reporting'", html);
+            Assert.Contains("predates terrain telemetry (stats schema ", html);
+            Assert.Contains("its last stats snapshot is ", html);
+            Assert.Contains("preserved release map not loaded", html);
+
+            // A degraded census carries a condition and NO count, so a missing,
+            // stale or older-schema snapshot can never render as a real zero.
+            Assert.Contains("{known:false,condition:", html);
+            Assert.Contains("return {known:true,count:(t.islands||[]).length};", html);
+            Assert.Contains("census.known", html);
+            Assert.DoesNotContain("{known:false,count:", html);
+        }
+
+        [Fact]
+        public void Provenance_labelling_leaves_the_zone_signage_rules_untouched()
+        {
+            string html = AdminPage.Dashboard("{}", new string('j', 64), ReleaseWorldMap.Json);
+
+            // The unassigned Tier-4 cells stay unassigned, and Holy Ruins keeps
+            // its two conflicting preserved facts; labelling changed nothing here.
+            Assert.Contains("E3 is one cell", html);
+            Assert.Contains("NO DISTRICT", html);
+            Assert.Contains("no name inferred", html);
+            Assert.Contains("two Tier-4 Badlands cells are explicitly unassigned", html);
+            Assert.Contains("not silently invented as E1/E2 or merged into E3", html);
+            // No unassigned cell acquires a district, under any spelling.
+            Assert.DoesNotContain("\"district\":\"E1\"", html);
+            Assert.DoesNotContain("\"district\":\"E2\"", html);
+            Assert.DoesNotContain("District E1", html);
+            Assert.DoesNotContain("District E2", html);
+            // Holy Ruins keeps its two conflicting preserved facts: nothing on
+            // this page reconciles the survey tier with the authored A4 cell.
+            Assert.DoesNotContain("Holy Ruins", html);
+        }
+
+        [Fact]
         public void Release_map_preserves_all_tier_cells_without_inventing_missing_districts()
         {
             JObject map = JObject.Parse(ReleaseWorldMap.Json);
