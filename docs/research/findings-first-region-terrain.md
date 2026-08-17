@@ -129,13 +129,14 @@ After disembark, sparse 1073 relative-position fields stopped advancing and left
 the spatial-interest centre at the disembark point, while authoritative global
 190602 player transforms continued normally.
 
-The pending server-only correction feeds unparented 190602 world poses into both
+The server-only correction feeds unparented 190602 world poses into both
 resource and terrain interest. It uses the existing sparse parent-state
 accumulator before accepting the pose, preventing parent-local coordinates from
 entering world interest. Multiplayer validation passes 2,556/2,556 and the
-Release server build is clean. Live acceptance still requires deployment after
-disconnect, walking across Trades until nearby resources/databanks check out,
-then leaving beyond the unload boundary.
+Release server build is clean. It is deployed as `1aa9fe4`; boot verification
+was clean and no client patch changed. Live acceptance still requires walking
+across Trades until nearby resources/databanks check out, then leaving beyond
+the unload boundary.
 
 ## Wall correction
 

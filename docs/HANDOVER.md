@@ -120,7 +120,7 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `b52f504`, deployed and restarted at 2026-08-17 12:01 CEST;
+- **Game server:** `1aa9fe4`, deployed and restarted at 2026-08-17 12:44 CEST;
   **login/admin server:** the `069a372` build deployed at 11:32 CEST. Stats schema
   5 reports terrain checkout and the admin
   console exposes its one-island acceptance run. Production remains bounded to
@@ -133,7 +133,9 @@ changes.
   coordinated rollback copy is
   `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`; the
   immediate pre-fix game rollback is
-  `/opt/wareborn/backups/pre-b52f504-20260817T100136Z`.
+  `/opt/wareborn/backups/pre-b52f504-20260817T100136Z`; the immediate
+  pre-`1aa9fe4` rollback is
+  `/opt/wareborn/backups/pre-1aa9fe4-20260817T104346Z`.
 - **Public client manifest:** `2026.08.17-1`, build label
   `terrain checkout and B3 visual acceptance (069a372)`. It ships the marked,
   correlated asset-loaded acknowledgement required for safe optional-terrain
@@ -679,8 +681,10 @@ The local follow-up routes each unparented authoritative 190602 player pose into
 both resource and terrain interest. It reuses `FallWatch`'s accumulated sparse
 parent state so a parented local transform cannot be mistaken for a global
 coordinate. Full Multiplayer validation remains 2,556/2,556 with a clean Release
-server build. This is a server-only correction and is not yet deployed; deploy
-only after the connected acceptance client exits, then repeat the Trades walk
+server build. This server-only correction is deployed as `1aa9fe4`; no client
+patch changed. Post-restart verification reported schema 5, terrain mode `on`,
+the count-one B3 topology, 3 island domains, 5 ship domains, 255 owned entities,
+zero ownership issues and zero terrain warnings/errors. Repeat the Trades walk
 and require checked-out resources to rise above zero before claiming resource
 streaming accepted.
 
