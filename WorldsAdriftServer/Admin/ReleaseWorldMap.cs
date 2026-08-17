@@ -30,8 +30,11 @@ namespace WorldsAdriftServer.Admin
             JObject source = JObject.Parse(reader.ReadToEnd());
 
             double edge = (double?)source["WorldInfo"]?["WorldEdgeLength"] ?? 0;
-            if (edge <= 0 || source["Islands"] is not JArray sourceIslands
-                || source["Walls"] is not JArray sourceWalls)
+            double havenSeparatorX = (double?)source["Haven"]?["xOfVerticalSeparator"] ?? 0;
+            if (edge <= 0 || havenSeparatorX <= 0
+                || source["Islands"] is not JArray sourceIslands
+                || source["Walls"] is not JArray sourceWalls
+                || source["Biomes"] is not JArray sourceBiomes)
                 throw new InvalidOperationException("Embedded release world map has an invalid shape.");
 
             JArray islands = new();
@@ -40,8 +43,26 @@ namespace WorldsAdriftServer.Admin
                 islands.Add(new JObject
                 {
                     ["x"] = (double?)island["x"] ?? 0,
+                    ["y"] = (double?)island["y"] ?? 0,
                     ["z"] = (double?)island["z"] ?? 0,
                     ["asset"] = (string?)island["Island"] ?? string.Empty,
+                    ["haven"] = string.Equals((string?)island["Island"], "1431299145.json",
+                        StringComparison.Ordinal),
+                });
+            }
+
+            JArray biomes = new();
+            foreach (JObject biome in sourceBiomes.OfType<JObject>())
+            {
+                int type = (int?)biome["Type"] ?? 0;
+                if (type is < 1 or > 4) continue;
+                biomes.Add(new JObject
+                {
+                    ["x"] = (double?)biome["x"] ?? 0,
+                    ["z"] = (double?)biome["z"] ?? 0,
+                    ["type"] = type,
+                    ["civilization"] = (int?)biome["Civ"] ?? 0,
+                    ["district"] = (string?)biome["District"] ?? string.Empty,
                 });
             }
 
@@ -64,7 +85,9 @@ namespace WorldsAdriftServer.Admin
             {
                 ["source"] = "preserved-release-mapfile",
                 ["worldEdgeLength"] = edge,
+                ["havenSeparatorX"] = havenSeparatorX,
                 ["islands"] = islands,
+                ["biomes"] = biomes,
                 ["walls"] = walls,
             };
 

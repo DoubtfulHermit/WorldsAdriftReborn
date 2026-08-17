@@ -117,7 +117,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .domain-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,25rem);gap:1rem;align-items:start;}.domain-browser{min-width:0;border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;}.domain-toolbar{display:grid;grid-template-columns:minmax(12rem,1fr) auto;gap:.75rem;padding:.8rem;border-bottom:1px solid var(--line);}.domain-toolbar input{min-height:2.3rem}.segmented{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#091219}.segmented button{min-height:1.9rem;padding:.35rem .55rem;border:0;background:transparent;box-shadow:none;color:var(--text-faint);font-size:.6rem}.segmented button.active{color:var(--text);background:var(--surface-2)}
 .domain-table-wrap{overflow:auto;max-height:32rem}.domain-table{font-size:.72rem}.domain-table tbody tr{cursor:pointer}.domain-table tbody tr:focus-visible,.island-node:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.domain-table tbody tr.selected{background:var(--accent-soft)}.domain-table .domain-name{font-weight:620;color:var(--text)}.kind-mark{display:inline-block;width:.42rem;height:.42rem;border-radius:2px;margin-right:.42rem;background:var(--accent)}.kind-mark.ship{border-radius:50%;background:#8aa6ff}.domain-footer{display:flex;justify-content:space-between;gap:1rem;padding:.62rem .8rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.61rem;}
 .domain-detail{position:sticky;top:5rem;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(155deg,#14242e,#0d171f);overflow:hidden;min-height:18rem;}.detail-empty{display:grid;place-items:center;min-height:18rem;padding:2rem;text-align:center;color:var(--text-faint);font-size:.73rem}.detail-content{display:none}.detail-content.show{display:block}.detail-head{padding:1rem 1.05rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.035)}.detail-head-top{display:flex;justify-content:space-between;gap:.6rem}.detail-head h3{font-size:1rem;margin:0 0 .18rem}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.detail-item{padding:.78rem .9rem;background:#0e1921;min-width:0;overflow-wrap:anywhere}.detail-item b{display:block;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin-bottom:.16rem}.detail-item span{font-size:.72rem;color:var(--text-soft)}.detail-note{padding:.85rem .95rem;color:var(--text-faint);font-size:.65rem;line-height:1.55;border-top:1px solid var(--line)}
-.world-map{border:1px solid var(--line);border-radius:10px;background:#071017;overflow:hidden;margin-bottom:1rem}.world-map-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.65)}.world-map-title strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.world-map-title span{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.map-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}.map-controls button{min-height:2rem;padding:.3rem .58rem;font-size:.62rem}.map-toggle{display:inline-flex;align-items:center;gap:.28rem;padding:.28rem .45rem;border:1px solid var(--line);border-radius:6px;color:var(--text-soft);font-size:.58rem;text-transform:none;letter-spacing:0;margin:0}.map-toggle input{width:auto;min-height:0;margin:0;accent-color:var(--accent)}.world-map-stage{position:relative;height:clamp(25rem,62vh,48rem);overflow:hidden;background:radial-gradient(circle at 50% 45%,rgba(30,64,76,.22),transparent 55%),#070f15}.world-map-stage svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}.world-map-stage svg.dragging{cursor:grabbing}.map-grid line{stroke:#29404c;stroke-width:18;opacity:.24;vector-effect:non-scaling-stroke}.map-island{fill:#71838d;opacity:.58;stroke:#aab9c0;stroke-width:12;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:32;opacity:.82;vector-effect:non-scaling-stroke}.map-wall.type-0{stroke:#74c9cf}.map-wall.type-1{stroke:#9b86d8}.map-wall.type-2{stroke:#d48388}.map-wall.type-3{stroke:#d9b36b}.map-wall.type-4{stroke:#a9d6ed}.map-wall.type-5{stroke:#f08080;stroke-width:52}.map-runtime-island{fill:#071017;stroke:#71d0a5;stroke-width:34;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#edf3f5;stroke-width:24;vector-effect:non-scaling-stroke}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edf3f5;stroke-width:28;vector-effect:non-scaling-stroke}.map-label{fill:#edf3f5;font:650 220px/1 ui-sans-serif,sans-serif;paint-order:stroke;stroke:#071017;stroke-width:55;stroke-linejoin:round;pointer-events:none}.map-label.subtle{fill:#aab9c0;font-size:180px}.world-map-legend{display:flex;flex-wrap:wrap;gap:.65rem;padding:.55rem .9rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.storm{background:#9b86d8}.map-swatch.sand{background:#d9b36b}.map-swatch.edge{background:#f08080}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-empty{position:absolute;inset:auto 1rem 1rem;padding:.55rem .7rem;border:1px solid var(--line);border-radius:7px;background:rgba(7,15,21,.88);color:var(--text-faint);font-size:.65rem;pointer-events:none}
+.world-map{border:1px solid var(--line);border-radius:10px;background:#071017;overflow:hidden;margin-bottom:1rem}.world-map-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.65)}.world-map-title strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.world-map-title span{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.map-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}.map-controls button{min-height:2rem;padding:.3rem .58rem;font-size:.62rem}.map-toggle{display:inline-flex;align-items:center;gap:.28rem;padding:.28rem .45rem;border:1px solid var(--line);border-radius:6px;color:var(--text-soft);font-size:.58rem;text-transform:none;letter-spacing:0;margin:0}.map-toggle input{width:auto;min-height:0;margin:0;accent-color:var(--accent)}.world-map-stage{position:relative;height:clamp(25rem,62vh,48rem);overflow:hidden;background:#071017}.world-map-stage svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}.world-map-stage svg.dragging{cursor:grabbing}.map-ocean{fill:#09151d}.map-world-boundary{fill:none;stroke:#536b78;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-haven-zone{fill:#17322f;opacity:.72}.map-haven-separator{fill:none;stroke:#ec8f88;stroke-width:2.5;stroke-dasharray:8 5;vector-effect:non-scaling-stroke}.map-grid line{stroke:#39515d;stroke-width:1;opacity:.35;vector-effect:non-scaling-stroke}.map-biome{stroke:#203640;stroke-width:1;vector-effect:non-scaling-stroke;opacity:.54}.map-biome.type-1{fill:#203d46}.map-biome.type-2{fill:#343252}.map-biome.type-3{fill:#4b3b2c}.map-biome.type-4{fill:#284238}.map-district-label,.map-zone-label{fill:#8299a5;font:700 340px/1 ui-sans-serif,sans-serif;letter-spacing:.12em;text-anchor:middle;pointer-events:none}.map-zone-label{fill:#8dc8b1;font-size:300px}.map-island{fill:#80939c;stroke:#c0cbd0;stroke-width:1;vector-effect:non-scaling-stroke}.map-island.haven{fill:#71d0a5;stroke:#d6fff0}.map-wall-halo{fill:none;stroke:#071017;stroke-width:5;opacity:.8;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:2.5;opacity:.98;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall.type-0{stroke:#74c9cf}.map-wall.type-1{stroke:#9b86d8}.map-wall.type-2{stroke:#d48388}.map-wall.type-3{stroke:#d9b36b}.map-wall.type-4{stroke:#a9d6ed}.map-wall.type-5{stroke:#ec8f88;stroke-width:3}.map-runtime-island{fill:none;stroke:#71d0a5;stroke-width:2.5;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#f3f7ff;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edfff7;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-marker{cursor:pointer}.map-marker:focus{outline:none}.map-marker:focus .map-ship,.map-marker:focus .map-player{stroke:#fff;stroke-width:3}.map-inspector{position:absolute;top:.75rem;left:.75rem;max-width:min(22rem,calc(100% - 1.5rem));padding:.6rem .72rem;border:1px solid rgba(116,201,207,.34);border-radius:7px;background:rgba(7,15,21,.92);box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none}.map-inspector b{display:block;font-size:.65rem}.map-inspector span{display:block;margin-top:.12rem;color:var(--text-faint);font:500 .58rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.map-compass{position:absolute;right:.8rem;top:.8rem;width:2rem;height:2rem;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;background:rgba(7,15,21,.8);font-size:.58rem;font-weight:750;color:var(--text-soft);pointer-events:none}.map-scale{position:absolute;right:.8rem;bottom:.75rem;padding:.18rem .35rem;border-bottom:2px solid var(--text-soft);color:var(--text-soft);font-size:.54rem;pointer-events:none}.world-map-legend{display:flex;flex-wrap:wrap;gap:.65rem;padding:.55rem .9rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.storm{background:#9b86d8}.map-swatch.sand{background:#d9b36b}.map-swatch.edge{background:#ec8f88}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-authenticity{padding:.65rem .9rem;border-top:1px solid var(--line);background:rgba(113,208,165,.035);color:var(--text-faint);font-size:.61rem;line-height:1.55}.map-authenticity strong{color:#9ee0c2}.map-empty{position:absolute;inset:auto 1rem 1rem;padding:.55rem .7rem;border:1px solid var(--line);border-radius:7px;background:rgba(7,15,21,.88);color:var(--text-faint);font-size:.65rem;pointer-events:none}
 .terrain-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1rem;}
 .terrain-metric{padding:.85rem .95rem;background:var(--surface);min-width:0;}.terrain-metric .n{font-size:1.1rem;font-weight:610;overflow-wrap:anywhere;}.terrain-metric .l{margin-top:.16rem;font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);}
 .terrain-panel{border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;margin-bottom:1rem;}
@@ -266,6 +266,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   <div class=""world-map"">
     <div class=""world-map-bar""><div class=""world-map-title""><strong>Live release-world map</strong><span id=""mapStatus"">Loading preserved geography&hellip;</span></div>
       <div class=""map-controls"">
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapBiomes"" checked>districts</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapIslands"" checked>islands</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapWalls"" checked>walls</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapShips"" checked>ships</label>
@@ -273,8 +274,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
         <button type=""button"" id=""mapZoomIn"" aria-label=""Zoom map in"">+</button><button type=""button"" id=""mapZoomOut"" aria-label=""Zoom map out"">&minus;</button><button type=""button"" id=""mapReset"">Whole world</button>
       </div>
     </div>
-    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Release world islands and weather walls with live authoritative ships and players""><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></svg><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
-    <div class=""world-map-legend""><span><i class=""map-swatch""></i>Wind Rift</span><span><i class=""map-swatch storm""></i>Storm Rift</span><span><i class=""map-swatch sand""></i>Sand Storm</span><span><i class=""map-swatch edge""></i>World End</span><span><i class=""map-swatch ship""></i>Ship</span><span><i class=""map-swatch player""></i>Player</span><span>Drag to pan &middot; wheel to zoom &middot; X/Z plane</span></div>
+    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Authored release world, Haven corridor, weather walls, islands, live authoritative ships and players""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -145 112 98 0 58 -112 98Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-inspector"" id=""mapInspector""><b>Release world overview</b><span>Choose a live marker for authoritative XYZ details.</span></div><div class=""map-compass"">N</div><div class=""map-scale"" id=""mapScale"">6 km</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
+    <div class=""world-map-legend""><span><i class=""map-swatch haven""></i>Haven corridor</span><span><i class=""map-swatch""></i>Wind Rift</span><span><i class=""map-swatch storm""></i>Storm Rift</span><span><i class=""map-swatch sand""></i>Sand Storm</span><span><i class=""map-swatch edge""></i>Haven separator / World End</span><span><i class=""map-swatch ship""></i>Ship</span><span><i class=""map-swatch player""></i>Player</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
+    <div class=""map-authenticity""><strong>Release MapFile geometry.</strong> Haven is intentionally inside the 36&times;36 km world but east of the authored x=15,943.7 m Haven separator. All 12 starter-island placements in that corridor come directly from the preserved release data; colors are admin cartography, not claimed original-game colors.</div>
   </div>
   <div class=""topology"">
     <div class=""topology-bar""><strong>Authority topology</strong><div class=""topology-legend""><span><i class=""legend-dot""></i>Island</span><span><i class=""legend-dot ship""></i>Ship affinity</span><span><i class=""legend-dot warn""></i>Warning</span></div></div>
@@ -461,7 +463,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var terrainExpandedSlot = -1;
   var domainFilter = 'all';
   var selectedRuntimeDomainId = '';
-  var worldMap={worldEdgeLength:36000,islands:[],walls:[]};
+  var worldMap={worldEdgeLength:36000,havenSeparatorX:15943.6523,islands:[],biomes:[],walls:[]};
   var mapView={x:-18000,y:-18000,w:36000,h:36000};
   var latestPlayers=[];
   function $(id){return document.getElementById(id);}
@@ -602,6 +604,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
   }
   function applyMapView(){
     $('liveWorldMap').setAttribute('viewBox',[mapView.x,mapView.y,mapView.w,mapView.h].join(' '));
+    var raw=mapView.w/5,power=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)),unit=raw/power;
+    var nice=(unit>=5?5:(unit>=2?2:1))*power;
+    text('mapScale',(nice/1000).toFixed(nice<1000?1:0)+' km');
   }
   function resetMapView(){
     var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000);
@@ -614,62 +619,76 @@ variable to <code>username:hash</code> and restart the login server to enable th
     mapView={x:cx-(cx-mapView.x)*ratio,y:cy-(cy-mapView.y)*ratio,w:next,h:next};applyMapView();
   }
   function mapClientPoint(event){
-    var rect=$('liveWorldMap').getBoundingClientRect();
-    return {x:mapView.x+(event.clientX-rect.left)/rect.width*mapView.w,
-      y:mapView.y+(event.clientY-rect.top)/rect.height*mapView.h};
+    var svg=$('liveWorldMap'),point=svg.createSVGPoint();point.x=event.clientX;point.y=event.clientY;
+    return point.matrixTransform(svg.getScreenCTM().inverse());
   }
+  function clipPolygon(poly,a,b,c){
+    var out=[];
+    for(var i=0;i<poly.length;i++){
+      var current=poly[i],previous=poly[(i+poly.length-1)%poly.length];
+      var currentValue=current.x*a+current.y*b-c,previousValue=previous.x*a+previous.y*b-c;
+      if(currentValue<=0){
+        if(previousValue>0){var t=previousValue/(previousValue-currentValue);out.push({x:previous.x+(current.x-previous.x)*t,y:previous.y+(current.y-previous.y)*t});}
+        out.push(current);
+      }else if(previousValue<=0){var cross=previousValue/(previousValue-currentValue);out.push({x:previous.x+(current.x-previous.x)*cross,y:previous.y+(current.y-previous.y)*cross});}
+    }
+    return out;
+  }
+  function biomeCell(biome,all,half,separator){
+    var poly=[{x:-half,y:-half},{x:separator,y:-half},{x:separator,y:half},{x:-half,y:half}],iy=-Number(biome.z),ix=Number(biome.x);
+    all.forEach(function(other){if(other===biome||!poly.length)return;var ox=Number(other.x),oy=-Number(other.z),a=ox-ix,b=oy-iy,c=(ox*ox+oy*oy-ix*ix-iy*iy)/2;poly=clipPolygon(poly,a,b,c);});
+    return poly;
+  }
+  function pathFromSegments(segments){return segments.map(function(w){return 'M '+Number(w.x1)+' '+(-Number(w.z1))+' L '+Number(w.x2)+' '+(-Number(w.z2));}).join(' ');}
   function renderStaticWorldMap(){
-    var grid=$('mapGrid'),walls=$('mapWallLayer'),islands=$('mapIslandLayer');
-    clear(grid);clear(walls);clear(islands);
-    var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000),half=edge/2;
+    var grid=$('mapGrid'),walls=$('mapWallLayer'),islands=$('mapIslandLayer'),biomes=$('mapBiomeLayer'),haven=$('mapHavenLayer');
+    clear(grid);clear(walls);clear(islands);clear(biomes);clear(haven);
+    var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000),half=edge/2,separator=Number(worldMap.havenSeparatorX)||15943.6523;
+    ['mapOcean','mapWorldBoundary','worldClipRect'].forEach(function(id){var node=$(id);node.setAttribute('x',-half);node.setAttribute('y',-half);node.setAttribute('width',edge);node.setAttribute('height',edge);});
+    (worldMap.biomes||[]).forEach(function(b){var poly=biomeCell(b,worldMap.biomes,half,separator);if(!poly.length)return;var path=svgEl('path',{d:'M '+poly.map(function(p){return p.x+' '+p.y;}).join(' L ')+' Z','class':'map-biome type-'+b.type},'District '+b.district+' · biome '+b.type+' · civilization '+b.civilization);biomes.appendChild(path);var label=svgEl('text',{x:b.x,y:-b.z,'class':'map-district-label'});label.textContent=b.district;biomes.appendChild(label);});
+    haven.appendChild(svgEl('rect',{x:separator,y:-half,width:half-separator,height:edge,'class':'map-haven-zone'},'Authored Haven reserve corridor'));
+    var zoneLabel=svgEl('text',{x:(separator+half)/2,y:0,'class':'map-zone-label',transform:'rotate(-90 '+((separator+half)/2)+' 0)'});zoneLabel.textContent='HAVEN CORRIDOR';haven.appendChild(zoneLabel);
     for(var p=-half;p<=half;p+=6000){
       grid.appendChild(svgEl('line',{x1:p,y1:-half,x2:p,y2:half}));
       grid.appendChild(svgEl('line',{x1:-half,y1:p,x2:half,y2:p}));
     }
-    (worldMap.walls||[]).forEach(function(w){
-      var names=['Wind Rift','Storm Rift','Typhon','Sand Storm','Ice Storm','World End'];
-      walls.appendChild(svgEl('line',{x1:w.x1,y1:-w.z1,x2:w.x2,y2:-w.z2,'class':'map-wall type-'+w.type},
-        (names[w.type]||'Unknown wall')+' · '+Number(w.x1).toFixed(0)+','+Number(w.z1).toFixed(0)+' to '+Number(w.x2).toFixed(0)+','+Number(w.z2).toFixed(0)));
-    });
-    (worldMap.islands||[]).forEach(function(i){
-      islands.appendChild(svgEl('circle',{cx:i.x,cy:-i.z,r:75,'class':'map-island'},
-        (i.asset||'release island')+' · '+Number(i.x).toFixed(0)+', '+Number(i.z).toFixed(0)));
+    var names=['Wind Rift','Storm Rift','Typhon','Sand Storm','Ice Storm','World End'];
+    names.forEach(function(name,type){var segments=(worldMap.walls||[]).filter(function(w){return Number(w.type)===type;});if(!segments.length)return;var d=pathFromSegments(segments);walls.appendChild(svgEl('path',{d:d,'class':'map-wall-halo'}));walls.appendChild(svgEl('path',{d:d,'class':'map-wall type-'+type},name+' · '+segments.length+' authored segments'));});
+    (worldMap.islands||[]).forEach(function(i,index){
+      islands.appendChild(svgEl('use',{href:i.haven?'#havenIslandSymbol':'#releaseIslandSymbol',x:Number(i.x)-90,y:-Number(i.z)-90,width:180,height:180,'class':'map-island'+(i.haven?' haven':'')},
+        (i.haven?'Haven starter island':'Release island')+' '+(index+1)+' · asset '+(i.asset||'unknown')+' · XYZ '+Number(i.x).toFixed(1)+', '+Number(i.y).toFixed(1)+', '+Number(i.z).toFixed(1)));
     });
     resetMapView();
   }
-  function addMapLabel(layer,x,y,value,subtle){
-    var label=svgEl('text',{x:x+210,y:y-180,'class':'map-label'+(subtle?' subtle':'')});
-    label.textContent=value;layer.appendChild(label);
+  function inspectMap(title,detail){$('mapInspector').innerHTML='';var strong=document.createElement('b');strong.textContent=title;var span=document.createElement('span');span.textContent=detail;$('mapInspector').appendChild(strong);$('mapInspector').appendChild(span);}
+  function interactiveMarker(layer,shape,title,detail){
+    var group=svgEl('g',{'class':'map-marker',tabindex:'0',role:'button','aria-label':title});group.appendChild(shape);group.addEventListener('click',function(e){e.stopPropagation();inspectMap(title,detail);});group.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();inspectMap(title,detail);}});layer.appendChild(group);
   }
   function renderLiveWorldMap(reporting,ageSeconds){
     var runtimeLayer=$('mapRuntimeIslandLayer'),shipLayer=$('mapShipLayer'),playerLayer=$('mapPlayerLayer');
     clear(runtimeLayer);clear(shipLayer);clear(playerLayer);
     var runtimeIslands=latestRuntimeDomains.filter(function(d){return d.kind==='island';});
     runtimeIslands.forEach(function(i){
-      runtimeLayer.appendChild(svgEl('rect',{x:Number(i.x)-100,y:-Number(i.z)-100,width:200,height:200,rx:35,'class':'map-runtime-island'},
+      runtimeLayer.appendChild(svgEl('circle',{cx:Number(i.x),cy:-Number(i.z),r:155,'class':'map-runtime-island'},
         (i.label||i.domainId)+' · resident domain · '+Number(i.x).toFixed(1)+', '+Number(i.z).toFixed(1)));
-      addMapLabel(runtimeLayer,Number(i.x),-Number(i.z),i.label||i.domainId,true);
     });
     latestDomains.forEach(function(s){
-      var x=Number(s.x),y=-Number(s.z),r=150;
-      shipLayer.appendChild(svgEl('polygon',{points:[x+','+(y-r),(x+r)+','+y,x+','+(y+r),(x-r)+','+y].join(' '),
-        'class':'map-ship'+(s.active?'':' resting')},'Ship '+s.hullEntityId+' · XYZ '+x.toFixed(1)+', '+Number(s.y).toFixed(1)+', '+Number(s.z).toFixed(1)+(s.piloted?' · piloted':' · resting')));
-      addMapLabel(shipLayer,x,y,'ship '+s.hullEntityId,false);
+      var x=Number(s.x),y=-Number(s.z),detail='XYZ '+x.toFixed(1)+', '+Number(s.y).toFixed(1)+', '+Number(s.z).toFixed(1)+(s.piloted?' · piloted':' · resting');
+      interactiveMarker(shipLayer,svgEl('use',{href:'#shipSymbol',x:x-170,y:y-170,width:340,height:340,'class':'map-ship'+(s.active?'':' resting')}),'Ship '+s.hullEntityId,detail);
     });
     var positioned=latestPlayers.filter(function(p){return p.hasPosition;});
     positioned.forEach(function(p){
       var x=Number(p.x),y=-Number(p.z);
-      playerLayer.appendChild(svgEl('circle',{cx:x,cy:y,r:125,'class':'map-player'},
-        'Player entity '+p.entityId+' · XYZ '+x.toFixed(1)+', '+Number(p.y).toFixed(1)+', '+Number(p.z).toFixed(1)));
-      addMapLabel(playerLayer,x,y,'player '+p.entityId,false);
+      interactiveMarker(playerLayer,svgEl('use',{href:'#playerSymbol',x:x-145,y:y-145,width:290,height:290,'class':'map-player'}),'Player entity '+p.entityId,'XYZ '+x.toFixed(1)+', '+Number(p.y).toFixed(1)+', '+Number(p.z).toFixed(1));
     });
+    $('mapBiomeLayer').style.display=$('mapBiomes').checked?'':'none';
     $('mapIslandLayer').style.display=$('mapIslands').checked?'':'none';
     runtimeLayer.style.display=$('mapIslands').checked?'':'none';
     $('mapWallLayer').style.display=$('mapWalls').checked?'':'none';
     shipLayer.style.display=$('mapShips').checked?'':'none';
     playerLayer.style.display=$('mapPlayers').checked?'':'none';
     var unknown=latestPlayers.length-positioned.length,live=latestDomains.length+positioned.length;
-    text('mapStatus',(worldMap.islands||[]).length+' release islands · '+(worldMap.walls||[]).length+' weather walls · '
+    text('mapStatus','Release MapFile · '+(worldMap.islands||[]).length+' islands · '+(worldMap.biomes||[]).length+' districts · '+(worldMap.walls||[]).length+' wall segments · '
       +(reporting?(latestDomains.length+' ships · '+positioned.length+' positioned players · '+Math.round(ageSeconds||0)+'s snapshot age'):'game server not reporting'));
     var note=$('mapLiveNote');note.style.display=(live||!reporting)?'none':'block';
     if(unknown){note.style.display='block';note.textContent=unknown+' connected player'+(unknown===1?' has':'s have')+' no authoritative world position yet.';}
@@ -1189,7 +1208,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(latestTerrain)renderAcceptance(latestTerrain,gameReporting);
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
-  ['mapIslands','mapWalls','mapShips','mapPlayers'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);});});
+  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);});});
   $('mapZoomIn').addEventListener('click',function(){zoomMap(.65);});
   $('mapZoomOut').addEventListener('click',function(){zoomMap(1.5);});
   $('mapReset').addEventListener('click',resetMapView);
