@@ -23,6 +23,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             });
         }
 
+        /// <summary>
+        /// The shell outline is the island's silhouette, so every point must be
+        /// evidence: a measured surface sample, or a point on the chord between two
+        /// of them. An empty angular bin once emitted a UNIT vector, putting a 1 m
+        /// radius point between neighbours hundreds of metres out and pinching 12
+        /// islands into spikes (83 points, worst 1 m against a real 599 m extent).
+        /// The first repair reused a neighbour's RADIUS at the missing angle, which
+        /// overshot the other way on long or concave islands - 66 points outside
+        /// their own island, the worst by 383 m. Both failures are guarded here.
+        /// </summary>
+        [Fact]
+        public void Every_shell_outline_point_stays_inside_its_own_island()
+        {
+            Assert.All(ReleaseWorldCatalog.All, record =>
+            {
+                IslandTerrainEnvelope envelope = record.Envelope;
+                foreach (IslandShellPoint point in record.Shell)
+                {
+                    // No unit-vector fallback: that is the pinch signature.
+                    Assert.True(Math.Sqrt(point.X * point.X + point.Z * point.Z) > 1.5,
+                        record.Definition.Id + " has a degenerate outline point");
+                    // Inside the measured footprint: that is the bulge signature.
+                    Assert.InRange(point.X, envelope.MinX - 1, envelope.MaxX + 1);
+                    Assert.InRange(point.Z, envelope.MinZ - 1, envelope.MaxZ + 1);
+                }
+            });
+        }
+
         [Fact]
         public void Full_rollout_has_255_active_terrains_and_complete_cell_ownership()
         {

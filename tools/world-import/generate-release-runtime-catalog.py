@@ -64,13 +64,36 @@ def shell(points, rays=16):
         radius = x * x + z * z
         if bins[index] is None or radius > bins[index][0]:
             bins[index] = (radius, x, z)
+
+    # An empty angular bin used to emit a UNIT vector, which put a 1 m radius
+    # point between neighbours hundreds of metres out and pinched the silhouette
+    # into a spike. 12 of the 254 islands hit this, 83 points in total, the worst
+    # spanning 1 m against a real 599 m extent. Interpolate the missing radius
+    # from the nearest MEASURED bins on either side instead: the angle is the
+    # bin's own, and the radius stays bounded by real samples rather than being
+    # invented. A wholly empty ray set has no silhouette to state and is refused.
+    measured = [i for i, entry in enumerate(bins) if entry is not None]
+    if not measured:
+        raise ValueError("island surface produced no radial samples")
     outline = []
     for index, entry in enumerate(bins):
-        if entry is None:
-            angle = -math.pi + (index + .5) * 2 * math.pi / rays
-            outline.append([round(math.cos(angle), 2), round(math.sin(angle), 2)])
-        else:
+        if entry is not None:
             outline.append([round(entry[1], 1), round(entry[2], 1)])
+            continue
+        # Interpolate the POSITION between the nearest measured samples, not the
+        # radius. Reusing a neighbour's radius at this bin's angle overshoots badly
+        # on a long or concave island - it put 66 points outside their own AABB,
+        # the worst by 383 m. A point on the chord between two measured samples is
+        # inside their convex hull by construction, which is the same rule the
+        # databank/deposit filler above already follows.
+        before = max((i for i in measured if i <= index), default=measured[-1] - rays)
+        after = min((i for i in measured if i >= index), default=measured[0] + rays)
+        span = (after - before) % rays or rays
+        weight = ((index - before) % rays) / span
+        start = bins[before % rays]
+        end = bins[after % rays]
+        outline.append([round(start[1] * (1 - weight) + end[1] * weight, 1),
+                        round(start[2] * (1 - weight) + end[2] * weight, 1)])
     return outline
 
 

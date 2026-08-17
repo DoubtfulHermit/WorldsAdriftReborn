@@ -46,10 +46,13 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                 MeshFilter filter = root.AddComponent<MeshFilter>();
                 MeshRenderer renderer = root.AddComponent<MeshRenderer>();
                 filter.sharedMesh = ProceduralMesh(spec);
-                Shader shader = Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
-                Material material = new Material(shader);
-                material.color = new Color(0.22f, 0.36f, 0.38f, 1f);
-                renderer.sharedMaterial = material;
+                // Submesh 0 is the plateau, submesh 1 the rock beneath it. Both are
+                // muted: a distant island is mostly silhouette, and fog does the rest.
+                renderer.sharedMaterials = new Material[]
+                {
+                    ShellMaterial(new Color(.34f, .40f, .31f, 1f)),
+                    ShellMaterial(new Color(.29f, .27f, .25f, 1f)),
+                };
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
                 DistantIslandShellAnchor anchor = root.AddComponent<DistantIslandShellAnchor>();
@@ -66,38 +69,84 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
             }
         }
 
+        // The underside profile. The outline is a MAXIMUM-radius radial silhouette
+        // sampled from the island's walkable top surface, so the rim belongs at the
+        // top of the envelope and the mass below it tapers to a keel. These two
+        // numbers shape that taper and are the only invented values here; the rim
+        // radius, the rim height and the keel depth are all measured.
+        private const float KeelRingHeight = .45f;
+        private const float KeelRingInset = .72f;
+
+        /// <summary>
+        /// A floating-island silhouette: a plateau cap at the measured top, and an
+        /// underside tapering to a keel at the measured bottom.
+        ///
+        /// The previous mesh was a flat-topped, flat-bottomed drum spanning
+        /// MinY..MinY+45% - the BOTTOM 45% of the envelope. It therefore drew the
+        /// island's underside and omitted the plateau the outline was sampled from,
+        /// leaving the silhouette a median 121 m (up to 411 m) below the terrain it
+        /// stands in for. Islands appeared to sit too low and then jump when the
+        /// physical terrain replaced them.
+        /// </summary>
         private static Mesh ProceduralMesh(IslandDistantShellSpec spec)
         {
             int count = spec.Outline.Length;
+            float rimY = (float)spec.MaxY;
+            float keelY = (float)spec.MinY;
+            float ringY = keelY + (rimY - keelY) * KeelRingHeight;
+
             Vector3[] vertices = new Vector3[count * 2 + 2];
-            int bottomCenter = count * 2;
-            int topCenter = bottomCenter + 1;
-            float bottom = (float)spec.MinY;
-            float top = (float)(spec.MinY + (spec.MaxY - spec.MinY) * .45);
+            int keelApex = count * 2;
+            int topCenter = keelApex + 1;
             for (int i = 0; i < count; i++)
             {
-                vertices[i] = new Vector3((float)spec.Outline[i].X, bottom,
-                    (float)spec.Outline[i].Z);
-                vertices[count + i] = new Vector3((float)spec.Outline[i].X, top,
-                    (float)spec.Outline[i].Z);
+                float x = (float)spec.Outline[i].X;
+                float z = (float)spec.Outline[i].Z;
+                vertices[i] = new Vector3(x, rimY, z);
+                vertices[count + i] = new Vector3(x * KeelRingInset, ringY, z * KeelRingInset);
             }
-            vertices[bottomCenter] = new Vector3(0, bottom, 0);
-            vertices[topCenter] = new Vector3(0, top, 0);
-            List<int> triangles = new List<int>(count * 12);
+            vertices[keelApex] = new Vector3(0, keelY, 0);
+            vertices[topCenter] = new Vector3(0, rimY, 0);
+
+            // Two submeshes so the plateau and the rock read differently without a
+            // texture: at this distance the top/side break is most of the shape cue.
+            List<int> cap = new List<int>(count * 3);
+            List<int> body = new List<int>(count * 9);
             for (int i = 0; i < count; i++)
             {
                 int next = (i + 1) % count;
-                triangles.Add(topCenter); triangles.Add(count + next); triangles.Add(count + i);
-                triangles.Add(i); triangles.Add(next); triangles.Add(count + next);
-                triangles.Add(i); triangles.Add(count + next); triangles.Add(count + i);
+                cap.Add(topCenter); cap.Add(next); cap.Add(i);
+                body.Add(count + i); body.Add(count + next); body.Add(next);
+                body.Add(count + i); body.Add(next); body.Add(i);
+                body.Add(keelApex); body.Add(count + next); body.Add(count + i);
             }
+
             Mesh mesh = new Mesh();
             mesh.name = "WAReborn compact island silhouette";
             mesh.vertices = vertices;
-            mesh.triangles = triangles.ToArray();
+            mesh.subMeshCount = 2;
+            mesh.SetTriangles(cap.ToArray(), 0);
+            mesh.SetTriangles(body.ToArray(), 1);
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
             return mesh;
+        }
+
+        /// <summary>
+        /// A lit, fog-aware material. Unlit/Color ignores both scene lighting and
+        /// distance fog, so the old shell read as a flat cut-out pasted over the
+        /// sky exactly where atmosphere should be dissolving it. Falls back through
+        /// the shaders this client is known to carry.
+        /// </summary>
+        private static Material ShellMaterial(Color color)
+        {
+            Shader shader = Shader.Find("Legacy Shaders/Diffuse")
+                ?? Shader.Find("Diffuse")
+                ?? Shader.Find("Standard")
+                ?? Shader.Find("Unlit/Color");
+            Material material = new Material(shader);
+            material.color = color;
+            return material;
         }
 
         public static void TemplatePrepared(object dispatchHandler, AssetLoadRequestOp request)

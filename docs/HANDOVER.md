@@ -731,6 +731,38 @@ facts: Tier 3 in the final community survey and location in Bossa's Tier-2 A4
 cell. The source generator is
 `tools/world-import/generate-release-runtime-catalog.py`.
 
+The v2 shell's shape and data were corrected on 2026-08-17; the fixes are local
+and **not visually accepted**.
+
+- **It was drawn in the wrong place.** The mesh spanned `MinY` to
+  `MinY + 45%` of the envelope - the BOTTOM 45% - so it showed the island's
+  underside and omitted the plateau its own outline was sampled from. The
+  silhouette sat a median **121 m** (up to **411 m**) below the terrain it stood
+  in for, so an island read as hanging too low and then jumped when the physical
+  terrain replaced it. The mesh is now a plateau cap at the measured `MaxY` with
+  the underside tapering to a keel at the measured `MinY`. Only the taper profile
+  (a ring at 45% height inset to 72%) is invented; rim radius, rim height and
+  keel depth are all measured.
+- **12 islands were pinched into spikes.** An empty angular bin in
+  `shell()` emitted a UNIT vector, placing a 1 m radius point between neighbours
+  hundreds of metres out - 83 points, the worst 1 m against a real 599 m extent.
+  The first repair reused a neighbour's RADIUS at the missing angle and overshot
+  the other way, putting 66 points outside their own island, the worst by 383 m.
+  The shipped fix interpolates the POSITION along the chord between the two
+  nearest measured samples, which is inside their convex hull by construction and
+  is the same rule the deposit/databank filler already used. The regenerated
+  catalogue has zero degenerate points and zero points outside their island, with
+  the 254/354/1233 counts unchanged.
+- **It read as a flat cut-out.** `Unlit/Color` ignores scene lighting AND
+  distance fog, so the shell was pasted over the sky exactly where atmosphere
+  should dissolve it. It is now a lit, fog-aware material in two submeshes so the
+  plateau and the rock beneath it read differently, which at this distance is
+  most of the shape cue. The two colours are a judgement call and are the part
+  most likely to need adjusting on sight.
+
+A per-angle top height would follow the real skyline instead of a flat rim, but
+that needs a v3 marker carrying a height per outline point; it is not done.
+
 Under the full rollout distant visuals use the v2 procedural shell: the server
 sends the compact outline only for islands within 9 km, and the client builds a
 non-physical mesh without loading the terrain bundle. At the 1.2 km physical
