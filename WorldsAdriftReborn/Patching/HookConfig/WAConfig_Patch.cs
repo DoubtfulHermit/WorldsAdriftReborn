@@ -66,6 +66,15 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
                     __result = ModSettings.NTPServerUrl.Value;
                     return false;
                 }
+                else if (ForcedString(key, out string forced))
+                {
+                    // The alliances host is normally read through GetOrDefault,
+                    // patched below - but the key is also reachable through Get,
+                    // and answering it in only one of the two would be the same
+                    // half-patch that has caught this file before.
+                    __result = forced;
+                    return false;
+                }
                 // Log ONCE per key. This fires on every config read, and a
                 // two-client session produced 327,713 copies of one line - about
                 // 90% of all log output, ~10x the exception count. It is the
@@ -79,6 +88,52 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
 
                 return true;
             }
+        }
+
+        /// <summary>
+        /// The client's own name for a ConfigKeys field, read off the type rather
+        /// than hardcoded.
+        ///
+        /// Several of these forward to SharedConfigKeys, which lives in an
+        /// assembly we do not have decompiled, so the literals are not recoverable
+        /// by reading. Reflecting the real value cannot be wrong; guessing the
+        /// sibling naming convention produces a patch which silently never fires,
+        /// which is exactly what happened once already.
+        /// </summary>
+        private static string ConfigKeyLiteral(string fieldName, ref string cached, ref bool resolved)
+        {
+            if (resolved) return cached;
+            resolved = true;
+
+            try
+            {
+                Type keys = AccessTools.TypeByName("ConfigKeys");
+                FieldInfo field = keys == null ? null : AccessTools.Field(keys, fieldName);
+                cached = field == null ? null : field.GetValue(null) as string;
+                Debug.Log("[WAReborn] ConfigKeys." + fieldName + " resolves to '"
+                    + (cached ?? "<unresolved>") + "'.");
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[WAReborn] could not resolve ConfigKeys." + fieldName + ": " + e);
+                cached = null;
+            }
+
+            return cached;
+        }
+
+        private static string alliancesUrlKey;
+        private static bool alliancesUrlKeyResolved;
+
+        /// <summary>
+        /// The key naming the alliances/social REST host.
+        ///
+        /// ConfigKeys.AlliancesUrl forwards to SharedConfigKeys.AlliancesServerUrl,
+        /// so it is resolved the same way the feature flag is.
+        /// </summary>
+        internal static string AlliancesUrlKey()
+        {
+            return ConfigKeyLiteral("AlliancesUrl", ref alliancesUrlKey, ref alliancesUrlKeyResolved);
         }
 
         /// <summary>
@@ -98,46 +153,33 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
 
         internal static string AlliancesEnabledKey()
         {
-            if (alliancesKeyResolved) return alliancesEnabledKey;
-            alliancesKeyResolved = true;
-
-            try
-            {
-                Type keys = AccessTools.TypeByName("ConfigKeys");
-                FieldInfo field = keys == null ? null : AccessTools.Field(keys, "AlliancesEnabled");
-                alliancesEnabledKey = field == null ? null : field.GetValue(null) as string;
-                Debug.Log("[WAReborn] alliances feature key resolves to '"
-                    + (alliancesEnabledKey ?? "<unresolved>") + "'.");
-            }
-            catch (Exception e)
-            {
-                Debug.LogWarning("[WAReborn] could not resolve the alliances config key: " + e);
-                alliancesEnabledKey = null;
-            }
-
-            return alliancesEnabledKey;
+            return ConfigKeyLiteral("AlliancesEnabled", ref alliancesEnabledKey, ref alliancesKeyResolved);
         }
 
         /// <summary>
-        /// Forces alliances OFF, which is what makes crews reachable at all.
+        /// Alliances are left ON, and the retail Social Sheet is what players get.
         ///
-        /// Alliances are a dead Bossa WEB SERVICE (StagingConfig points
-        /// ConfigKeys.AlliancesUrl at alliances-staging.api.bossagames.com).
-        /// The Social Sheet fetches from it on open, the request fails, and
+        /// This used to force the flag OFF. The reasoning was that alliances are a
+        /// dead Bossa WEB SERVICE, that the Social Sheet fetches from it on open,
+        /// and that the failure lands in
         /// SocialCharacterSheet.TriggerAllianceExceptionHandler - which is SHARED
-        /// between alliances and crews - throws up "Can't retrieve alliance or
-        /// crew data" over the whole sheet, including the CREW tab.
+        /// between alliances and crews - covering the whole sheet including the
+        /// CREW tab. All of that is true. What was wrong was the conclusion that
+        /// turning the flag off gave crews a working home.
         ///
-        /// With the flag off the client takes its OTHER path, which predates the
-        /// web service entirely: SocialScreenUIState.CanThisStateBeOpened returns
-        /// false so the Social Sheet never opens, and CharacterSheetScreen adds
-        /// OldCrewScreenModule instead - the pre-alliance crew UI, driven by the
-        /// SpatialOS components this server actually serves. ChatSpeak confirms
-        /// the intent: with alliances off it reads the crew straight from
-        /// CrewMembershipState.currentCrewLeaderId, which is 6900.
+        /// It does not. With the flag off the client mounts OldCrewScreen, and
+        /// reading it (docs/research/findings-social-api.md, section 1) shows two
+        /// things: its ICrewClient field is declared and never used, and its CREATE
+        /// CREW button is three SetActive calls that send nothing to anyone. The
+        /// old panel could never create a crew, which is exactly the "EMPTY SLOT
+        /// everywhere" this flag was flipped to fix.
         ///
-        /// So this is not a workaround around a missing feature; it is selecting
-        /// the branch of the client that matches the world we can actually host.
+        /// Meanwhile the RETAIL crew panel is not SpatialOS-driven at all - it goes
+        /// over the same REST API the alliances did, through CrewClient ->
+        /// CrewServerImpl -> SocialRequest. So the honest fix is not to pick the
+        /// other branch of the client, it is to answer the requests. We do:
+        /// WorldsAdriftServer serves that API now, and the redirect below points
+        /// the client at it.
         /// </summary>
         private static bool ForcedBool(string key, out bool value)
         {
@@ -147,15 +189,82 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
                 return true;
             }
 
-            string alliances = AlliancesEnabledKey();
-            if (alliances != null && key == alliances)
+            value = false;
+            return false;
+        }
+
+        /// <summary>
+        /// Redirects the alliances/social host at our own server.
+        ///
+        /// This has to hook GetOrDefault, NOT Get. SocialHelper reads it as
+        ///
+        ///     public static readonly string AlliancesServerUrl =
+        ///         WAConfig.GetOrDefault&lt;string&gt;(ConfigKeys.AlliancesUrl);
+        ///
+        /// and GetOrDefault does not route through Get - the same trap that made
+        /// an earlier patch of the alliances BOOL look correct and do nothing.
+        ///
+        /// It is also a static readonly field, so it is resolved once by
+        /// SocialHelper's type initializer the first time anything touches it.
+        /// Harmony patches at plugin load, long before any social code runs, so
+        /// the redirect is in place before that read happens - but it does mean
+        /// editing the cfg mid-session cannot move it, unlike the other URLs here.
+        /// </summary>
+        private static bool ForcedString(string key, out string value)
+        {
+            string alliancesUrl = AlliancesUrlKey();
+            if (alliancesUrl != null && key == alliancesUrl)
             {
-                value = false;
+                value = ModSettings.alliancesServerUrl.Value;
                 return true;
             }
 
-            value = false;
+            value = null;
             return false;
+        }
+
+        [HarmonyPatch()]
+        class GetOrDefault_String
+        {
+            [HarmonyTargetMethod]
+            public static MethodBase GetTargetMethod()
+            {
+                return AccessTools.Method(
+                    AccessTools.TypeByName("WAConfig"),
+                    "GetOrDefault",
+                    new Type[] { typeof(string) }).MakeGenericMethod(typeof(string));
+            }
+
+            [HarmonyPrefix]
+            public static bool Prefix( ref string __result, string key )
+            {
+                ReloadIfStale();
+                if (!ForcedString(key, out string forced)) return true;
+                __result = forced;
+                return false;
+            }
+        }
+
+        [HarmonyPatch()]
+        class GetOrDefault_String_WithFallback
+        {
+            [HarmonyTargetMethod]
+            public static MethodBase GetTargetMethod()
+            {
+                return AccessTools.Method(
+                    AccessTools.TypeByName("WAConfig"),
+                    "GetOrDefault",
+                    new Type[] { typeof(string), typeof(string) }).MakeGenericMethod(typeof(string));
+            }
+
+            [HarmonyPrefix]
+            public static bool Prefix( ref string __result, string key )
+            {
+                ReloadIfStale();
+                if (!ForcedString(key, out string forced)) return true;
+                __result = forced;
+                return false;
+            }
         }
 
         [HarmonyPatch()]
