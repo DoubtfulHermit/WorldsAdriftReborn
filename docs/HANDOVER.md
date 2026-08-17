@@ -120,8 +120,27 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `ccfb138`, deployed and restarted at 2026-08-17 19:10 CEST.
-  **Login/admin server:** `ccfb138`, deployed and restarted in the same pass.
+- **Game server:** `c31e8be`, deployed and restarted at 2026-08-17 21:55 CEST.
+  **Login/admin server:** `c31e8be`, deployed and restarted in the same pass.
+  This deploy carries the ownership-bootstrap crash fix, the corrected compact
+  island shell, and logout-position persistence. It also **migrated the
+  production database from schema v4 to v5**, adding `character_positions`;
+  verified after restart as `version = 5` with the table present and the other
+  seven unchanged. The database was `pg_dump`ed first to
+  `pre-c31e8be-20260817T195325Z/wareborn-db-pre-v5.sql` (68 KB). Boot reported
+  all three per-character stores ON (inventory, knowledge, logout position),
+  restore counts unchanged at 4/4 deployables, 5/7 hulls, 16/16 mounted and 3/3
+  loose, `owned=349 unowned=0 duplicates=0`, and zero errors in the first five
+  minutes.
+  **Production is still running the temporary `WAREBORN_RELEASE_WORLD_DISTRICTS=C6`
+  visual-acceptance config** from the drop-in
+  `/etc/systemd/system/wareborn-game.service.d/release-world.conf`: 16 terrains,
+  compact-outline shell fidelity, Mental Facility NOT registered. Remove that
+  file and restart to return to the bounded one-terrain topology.
+  Rollback: `/opt/wareborn/backups/pre-c31e8be-20260817T195325Z/{game,login,patch,live-data}`
+  plus the SQL dump above. Note the v5 table is additive, so rolling the binary
+  back does not require touching the database.
+  The previous deployment was `ccfb138` at 19:10 CEST.
   This is the merged retail-LOD shell preference plus the admin map provenance
   labelling. The rollout switch `WAREBORN_RELEASE_WORLD_DISTRICTS` is NOT set,
   so production remains the bounded one-terrain topology; the deploy is a
@@ -220,7 +239,20 @@ changes.
   `/opt/wareborn/backups/login-before-svg-map-20260817T130929Z`; the immediate
   pre-zone-signage login rollback is
   `/opt/wareborn/backups/login-before-zone-signage-20260817T132536Z`.
-- **Public client manifest:** `2026.08.17-4`, build label
+- **Public client manifest:** `2026.08.17-6`, build label
+  `island shell underside fix + logout position (c31e8be)`. It carries the keel
+  winding fix: the compact shell's keel fan copied the top cap's winding, but it
+  faces DOWN and so must wind the opposite way. The whole underside of every
+  island was therefore backface-culled, the silhouette read as a shape with a
+  piece cut out, and what remained looked like a flat plate. `-5` shipped that
+  defect, so `-6` repairs a live regression rather than iterating on taste.
+  Managed client DLL SHA-256
+  `58de4eb816f7e24ee04cf3f83163bb80f0c3cf539efeff4235d9ee3208c2851d`. Exactly
+  one payload changed against `-5`, the other 53 were byte-identical, and all 54
+  public payloads matched their published hashes. NOT visually accepted; the
+  taper profile and the two colours remain judgement calls.
+  Manifest `2026.08.17-5` shipped the first shell shape/outline/material pass.
+  Before it, `2026.08.17-4` carried build label
   `retail-LOD island shell preference (ccfb138)`. Cut from a freshly assembled
   pack (3 plugin + 51 gameroot = 54 files). Before shipping, every file was
   diffed against the live `-3` manifest: exactly ONE payload changed,
