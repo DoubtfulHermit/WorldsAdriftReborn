@@ -97,9 +97,13 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                     PhysicalPresent = physicalPresent,
                 };
                 ByTerrainEntity[spec.EntityId] = shell;
+                // MonoBehaviour.StartCoroutine is rejected on an inactive
+                // GameObject. Renderers and physics are already disabled above,
+                // so activation is visually inert; activate first, then arm the
+                // material waiter and generator.
+                root.SetActive(true);
                 anchor.Begin(spec, request.Name, request.Context, generator, lodGroup,
                     lowRenderers, delegate { return shell.PhysicalPresent; });
-                root.SetActive(true);
                 generator.GenerateMaterial();
                 Debug.Log("[WAReborn] preparing non-physical low-LOD shell for "
                     + spec.IslandId + " (terrain entity " + spec.EntityId + ").");
