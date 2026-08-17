@@ -27,6 +27,7 @@
     <EmbeddedResource Include="Resources\haven-surface-1431299145.txt" />
     <EmbeddedResource Include="Resources\trades-challenge-surface-1206286558.txt" />
     <EmbeddedResource Include="Islands\release-runtime-catalog.json" />
+    <EmbeddedResource Include="Islands\release-tree-placements.json" />
   </ItemGroup>
 
 </Project>
