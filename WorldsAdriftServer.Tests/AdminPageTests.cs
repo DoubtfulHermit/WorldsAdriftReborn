@@ -189,9 +189,14 @@ namespace WorldsAdriftServer.Tests
             string html = AdminPage.Dashboard("{}", new string('a', 64), map);
 
             Assert.Contains("\"worldEdgeLength\":36000", map);
+            Assert.Contains("\"havenSeparatorX\":15943.6523", map);
             Assert.Equal(266, Occurrences(map, "\"asset\":"));
-            Assert.Equal(44, Occurrences(map, "\"type\":"));
+            Assert.Equal(12, Occurrences(map, "\"haven\":true"));
+            Assert.Equal(20, Occurrences(map, "\"district\":"));
+            Assert.Equal(44, Occurrences(map, "\"x1\":"));
             Assert.Contains("id=\"liveWorldMap\"", html);
+            Assert.Contains("id=\"mapBiomeLayer\"", html);
+            Assert.Contains("id=\"mapHavenLayer\"", html);
             Assert.Contains("id=\"mapWallLayer\"", html);
             Assert.Contains("id=\"mapIslandLayer\"", html);
             Assert.Contains("id=\"mapShipLayer\"", html);
@@ -201,6 +206,12 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("Drag to pan", html);
             Assert.Contains("Wind Rift", html);
             Assert.Contains("World End", html);
+            Assert.Contains("Haven is intentionally inside", html);
+            Assert.Contains("All 12 starter-island placements", html);
+            Assert.Contains("biomeCell", html);
+            Assert.Contains("getScreenCTM().inverse()", html);
+            Assert.DoesNotContain("stroke-width:32", html);
+            Assert.DoesNotContain("stroke-width:52", html);
             Assert.Contains("preserved-release-mapfile", html);
         }
 
