@@ -48,14 +48,17 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                 filter.sharedMesh = ProceduralMesh(spec);
                 // Submesh 0 is the plateau, submesh 1 the rock beneath it. Both are
                 // muted: a distant island is mostly silhouette, and fog does the rest.
-                renderer.sharedMaterials = new Material[]
+                Material[] shellMaterials = new Material[]
                 {
-                    ShellMaterial(new Color(.34f, .40f, .31f, 1f)),
-                    ShellMaterial(new Color(.29f, .27f, .25f, 1f)),
+                    ShellMaterial(PlateauColour),
+                    ShellMaterial(RockColour),
                 };
+                renderer.sharedMaterials = shellMaterials;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
                 DistantIslandShellAnchor anchor = root.AddComponent<DistantIslandShellAnchor>();
+                anchor.hazeMaterials = shellMaterials;
+                Haze(shellMaterials, root.transform.position);
                 bool physicalPresent = Improbable.Unity.Core.SpatialOS.Universe.Get(
                     new EntityId(spec.EntityId)) != null;
                 var shell = new Shell { Spec = spec, Anchor = anchor, PhysicalPresent = physicalPresent };
@@ -97,15 +100,23 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
             float keelY = (float)spec.MinY;
             float ringY = keelY + (rimY - keelY) * KeelRingHeight;
 
-            Vector3[] vertices = new Vector3[count * 2 + 2];
-            int keelApex = count * 2;
+            // The cap ring and the body ring are SEPARATE vertices at the same
+            // coordinates. Sharing them let RecalculateNormals average the
+            // upward cap normal with the outward wall normal across what should be
+            // the island's hard rim, smoothing the one edge that gives the shape
+            // its read and leaving something that looked blown from glass.
+            Vector3[] vertices = new Vector3[count * 3 + 2];
+            int bodyRim = count;
+            int keelRing = count * 2;
+            int keelApex = count * 3;
             int topCenter = keelApex + 1;
             for (int i = 0; i < count; i++)
             {
                 float x = (float)spec.Outline[i].X;
                 float z = (float)spec.Outline[i].Z;
                 vertices[i] = new Vector3(x, rimY, z);
-                vertices[count + i] = new Vector3(x * KeelRingInset, ringY, z * KeelRingInset);
+                vertices[bodyRim + i] = new Vector3(x, rimY, z);
+                vertices[keelRing + i] = new Vector3(x * KeelRingInset, ringY, z * KeelRingInset);
             }
             vertices[keelApex] = new Vector3(0, keelY, 0);
             vertices[topCenter] = new Vector3(0, rimY, 0);
@@ -118,13 +129,17 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
             {
                 int next = (i + 1) % count;
                 cap.Add(topCenter); cap.Add(next); cap.Add(i);
-                body.Add(count + i); body.Add(count + next); body.Add(next);
-                body.Add(count + i); body.Add(next); body.Add(i);
+                // The side walls must face OUTWARD. The original pair wound the
+                // other way, so the shell's flanks were backface-culled too and
+                // the viewer looked straight through them at the inside of the far
+                // wall - which is why it read as blown glass rather than rock.
+                body.Add(keelRing + i); body.Add(bodyRim + next); body.Add(keelRing + next);
+                body.Add(keelRing + i); body.Add(bodyRim + i); body.Add(bodyRim + next);
                 // The keel fan faces DOWN, so it winds opposite to the top cap.
                 // Copying the cap's order here pointed the whole underside inward:
                 // it was backface-culled, every island rendered with no bottom, and
                 // the silhouette read as a shape with a piece missing.
-                body.Add(keelApex); body.Add(count + i); body.Add(count + next);
+                body.Add(keelApex); body.Add(keelRing + i); body.Add(keelRing + next);
             }
 
             Mesh mesh = new Mesh();
@@ -139,10 +154,51 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
         }
 
         /// <summary>
-        /// A lit, fog-aware material. Unlit/Color ignores both scene lighting and
-        /// distance fog, so the old shell read as a flat cut-out pasted over the
-        /// sky exactly where atmosphere should be dissolving it. Falls back through
-        /// the shaders this client is known to carry.
+        /// Fades a shell toward the horizon by distance, because NOTHING ELSE WILL.
+        ///
+        /// The diagnostic below reported `scene fog=False`: this game does not use
+        /// Unity's built-in fog, so choosing a fog-aware shader bought exactly
+        /// nothing and the shell rendered at full contrast in front of an
+        /// atmosphere it should be dissolving into. The retail terrain shaders do
+        /// their own aerial perspective and we cannot borrow theirs without loading
+        /// the island bundle the compact shell exists to avoid.
+        ///
+        /// So the shell hazes itself, from the scene's ambient light rather than a
+        /// hardcoded pink: this sky changes colour with the time of day, and a
+        /// baked-in tint would be wrong for most of it.
+        /// </summary>
+        private const float HazeStartMetres = 1500f;
+        private const float HazeFullMetres = 7000f;
+        private const float HazeMaxStrength = .88f;
+
+        // Darker and less saturated than the first pass. A distant island reads as
+        // MASS first, and a pale surface against a pale sky has no silhouette at
+        // all - which is most of why the first attempt looked like glass.
+        private static readonly Color PlateauColour = new Color(.24f, .28f, .22f, 1f);
+        private static readonly Color RockColour = new Color(.20f, .19f, .18f, 1f);
+
+        internal static void Haze(Material[] materials, Vector3 shellPosition)
+        {
+            if (materials == null) return;
+            Camera camera = Camera.main;
+            if (camera == null) return;
+
+            float distance = Vector3.Distance(camera.transform.position, shellPosition);
+            float t = Mathf.Clamp01((distance - HazeStartMetres) / (HazeFullMetres - HazeStartMetres));
+            Color haze = RenderSettings.ambientLight;
+
+            for (int i = 0; i < materials.Length; i++)
+            {
+                if (materials[i] == null) continue;
+                Color baseColour = i == 0 ? PlateauColour : RockColour;
+                materials[i].color = Color.Lerp(baseColour, haze, t * HazeMaxStrength);
+            }
+        }
+
+        /// <summary>
+        /// A lit material. Unlit/Color ignored scene lighting entirely, so the shell
+        /// had no form at all; this at least takes the sun. Falls back through the
+        /// shaders this client is known to carry.
         /// </summary>
         private static Material ShellMaterial(Color color)
         {
@@ -347,7 +403,11 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
             if (Time.unscaledTime < nextRemapAt) return;
             nextRemapAt = Time.unscaledTime + 0.25f;
             RemapPosition();
+            DistantIslandShells.Haze(hazeMaterials, transform.position);
         }
+
+        /// <summary>The compact shell's own materials, or null for a v1 retail shell.</summary>
+        internal Material[] hazeMaterials;
 
         private void RemapPosition()
         {
