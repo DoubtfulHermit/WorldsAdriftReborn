@@ -120,16 +120,20 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game and login/admin servers:** `069a372`, deployed and restarted together
-  at 2026-08-17 11:32 CEST. Stats schema 5 reports terrain checkout and the admin
+- **Game server:** `b52f504`, deployed and restarted at 2026-08-17 12:01 CEST;
+  **login/admin server:** the `069a372` build deployed at 11:32 CEST. Stats schema
+  5 reports terrain checkout and the admin
   console exposes its one-island acceptance run. Production remains bounded to
   `WAREBORN_FIRST_REGION_TERRAIN_COUNT=1` and reports 3 island domains, 5 ship
   domains, 255 owned entities, one explicit global, zero unowned entities and
   zero ownership inconsistencies. Terrain checkout is enabled with the existing
   120 m resource-interest prerequisite; its defaults are 1200 m load / 1600 m
-  unload. Validation passed 2,554/2,554 Multiplayer tests and 181/181 admin/login
+  unload. Validation passed 2,556/2,556 Multiplayer tests and 181/181 admin/login
   tests; game, login and client Release builds had zero errors. The coordinated
-  rollback copy is `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`.
+  coordinated rollback copy is
+  `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`; the
+  immediate pre-fix game rollback is
+  `/opt/wareborn/backups/pre-b52f504-20260817T100136Z`.
 - **Public client manifest:** `2026.08.17-1`, build label
   `terrain checkout and B3 visual acceptance (069a372)`. It ships the marked,
   correlated asset-loaded acknowledgement required for safe optional-terrain
@@ -646,6 +650,7 @@ destination pin, allowing normal drain/unload. It also reports a queued
 `teleport-wait` as an accepted wait rather than a failed operation. Headless
 regression coverage proves the return produces exactly one old-terrain removal;
 live unload/re-entry acceptance remains required after deployment.
+The fix is deployed as `b52f504`; the repeat live return remains pending.
 
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating

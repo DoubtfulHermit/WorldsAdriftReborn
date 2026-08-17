@@ -110,6 +110,8 @@ did not clear terrain's requested-destination pin when the sparse 1073 island
 frame was absent. The server follow-up unifies both accepted teleport-arrival
 proofs into the same terrain landing transition; unload and re-entry still need
 one repeat live pass.
+The unified landing transition is deployed in `b52f504`; live return/unload and
+re-entry are the remaining acceptance steps.
 
 ## Wall correction
 
