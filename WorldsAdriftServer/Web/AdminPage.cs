@@ -117,6 +117,7 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .domain-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,25rem);gap:1rem;align-items:start;}.domain-browser{min-width:0;border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;}.domain-toolbar{display:grid;grid-template-columns:minmax(12rem,1fr) auto;gap:.75rem;padding:.8rem;border-bottom:1px solid var(--line);}.domain-toolbar input{min-height:2.3rem}.segmented{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#091219}.segmented button{min-height:1.9rem;padding:.35rem .55rem;border:0;background:transparent;box-shadow:none;color:var(--text-faint);font-size:.6rem}.segmented button.active{color:var(--text);background:var(--surface-2)}
 .domain-table-wrap{overflow:auto;max-height:32rem}.domain-table{font-size:.72rem}.domain-table tbody tr{cursor:pointer}.domain-table tbody tr:focus-visible,.island-node:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.domain-table tbody tr.selected{background:var(--accent-soft)}.domain-table .domain-name{font-weight:620;color:var(--text)}.kind-mark{display:inline-block;width:.42rem;height:.42rem;border-radius:2px;margin-right:.42rem;background:var(--accent)}.kind-mark.ship{border-radius:50%;background:#8aa6ff}.domain-footer{display:flex;justify-content:space-between;gap:1rem;padding:.62rem .8rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.61rem;}
 .domain-detail{position:sticky;top:5rem;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(155deg,#14242e,#0d171f);overflow:hidden;min-height:18rem;}.detail-empty{display:grid;place-items:center;min-height:18rem;padding:2rem;text-align:center;color:var(--text-faint);font-size:.73rem}.detail-content{display:none}.detail-content.show{display:block}.detail-head{padding:1rem 1.05rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.035)}.detail-head-top{display:flex;justify-content:space-between;gap:.6rem}.detail-head h3{font-size:1rem;margin:0 0 .18rem}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.detail-item{padding:.78rem .9rem;background:#0e1921;min-width:0;overflow-wrap:anywhere}.detail-item b{display:block;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin-bottom:.16rem}.detail-item span{font-size:.72rem;color:var(--text-soft)}.detail-note{padding:.85rem .95rem;color:var(--text-faint);font-size:.65rem;line-height:1.55;border-top:1px solid var(--line)}
+.world-map{border:1px solid var(--line);border-radius:10px;background:#071017;overflow:hidden;margin-bottom:1rem}.world-map-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.65)}.world-map-title strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.world-map-title span{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.map-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}.map-controls button{min-height:2rem;padding:.3rem .58rem;font-size:.62rem}.map-toggle{display:inline-flex;align-items:center;gap:.28rem;padding:.28rem .45rem;border:1px solid var(--line);border-radius:6px;color:var(--text-soft);font-size:.58rem;text-transform:none;letter-spacing:0;margin:0}.map-toggle input{width:auto;min-height:0;margin:0;accent-color:var(--accent)}.world-map-stage{position:relative;height:clamp(25rem,62vh,48rem);overflow:hidden;background:radial-gradient(circle at 50% 45%,rgba(30,64,76,.22),transparent 55%),#070f15}.world-map-stage svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}.world-map-stage svg.dragging{cursor:grabbing}.map-grid line{stroke:#29404c;stroke-width:18;opacity:.24;vector-effect:non-scaling-stroke}.map-island{fill:#71838d;opacity:.58;stroke:#aab9c0;stroke-width:12;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:32;opacity:.82;vector-effect:non-scaling-stroke}.map-wall.type-0{stroke:#74c9cf}.map-wall.type-1{stroke:#9b86d8}.map-wall.type-2{stroke:#d48388}.map-wall.type-3{stroke:#d9b36b}.map-wall.type-4{stroke:#a9d6ed}.map-wall.type-5{stroke:#f08080;stroke-width:52}.map-runtime-island{fill:#071017;stroke:#71d0a5;stroke-width:34;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#edf3f5;stroke-width:24;vector-effect:non-scaling-stroke}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edf3f5;stroke-width:28;vector-effect:non-scaling-stroke}.map-label{fill:#edf3f5;font:650 220px/1 ui-sans-serif,sans-serif;paint-order:stroke;stroke:#071017;stroke-width:55;stroke-linejoin:round;pointer-events:none}.map-label.subtle{fill:#aab9c0;font-size:180px}.world-map-legend{display:flex;flex-wrap:wrap;gap:.65rem;padding:.55rem .9rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.storm{background:#9b86d8}.map-swatch.sand{background:#d9b36b}.map-swatch.edge{background:#f08080}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-empty{position:absolute;inset:auto 1rem 1rem;padding:.55rem .7rem;border:1px solid var(--line);border-radius:7px;background:rgba(7,15,21,.88);color:var(--text-faint);font-size:.65rem;pointer-events:none}
 .terrain-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1rem;}
 .terrain-metric{padding:.85rem .95rem;background:var(--surface);min-width:0;}.terrain-metric .n{font-size:1.1rem;font-weight:610;overflow-wrap:anywhere;}.terrain-metric .l{margin-top:.16rem;font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);}
 .terrain-panel{border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;margin-bottom:1rem;}
@@ -203,7 +204,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
         /// everything below the header is rendered by the inline script from it
         /// and then re-rendered every few seconds from a fresh fetch.
         /// </summary>
-        internal static string Dashboard(string bootstrapJson, string csrfToken)
+        internal static string Dashboard(string bootstrapJson, string csrfToken,
+            string worldMapJson = "{}")
         {
             return @"<!DOCTYPE html><html lang=""en""><head>
 <meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1"">
@@ -261,6 +263,19 @@ variable to <code>username:hash</code> and restart the login server to enable th
     <div class=""runtime-metric""><div class=""n"" id=""runtimeWarningTotal"">&mdash;</div><div class=""l"">Warnings</div></div>
   </div>
   <div class=""banner"" id=""domainWarning""><strong>Domain delivery warning</strong><span id=""domainWarningText""></span></div>
+  <div class=""world-map"">
+    <div class=""world-map-bar""><div class=""world-map-title""><strong>Live release-world map</strong><span id=""mapStatus"">Loading preserved geography&hellip;</span></div>
+      <div class=""map-controls"">
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapIslands"" checked>islands</label>
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapWalls"" checked>walls</label>
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapShips"" checked>ships</label>
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapPlayers"" checked>players</label>
+        <button type=""button"" id=""mapZoomIn"" aria-label=""Zoom map in"">+</button><button type=""button"" id=""mapZoomOut"" aria-label=""Zoom map out"">&minus;</button><button type=""button"" id=""mapReset"">Whole world</button>
+      </div>
+    </div>
+    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Release world islands and weather walls with live authoritative ships and players""><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></svg><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
+    <div class=""world-map-legend""><span><i class=""map-swatch""></i>Wind Rift</span><span><i class=""map-swatch storm""></i>Storm Rift</span><span><i class=""map-swatch sand""></i>Sand Storm</span><span><i class=""map-swatch edge""></i>World End</span><span><i class=""map-swatch ship""></i>Ship</span><span><i class=""map-swatch player""></i>Player</span><span>Drag to pan &middot; wheel to zoom &middot; X/Z plane</span></div>
+  </div>
   <div class=""topology"">
     <div class=""topology-bar""><strong>Authority topology</strong><div class=""topology-legend""><span><i class=""legend-dot""></i>Island</span><span><i class=""legend-dot ship""></i>Ship affinity</span><span><i class=""legend-dot warn""></i>Warning</span></div></div>
     <div class=""topology-canvas"" id=""topologyCanvas""></div>
@@ -431,6 +446,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
 <footer>Operator console. Auto-refreshes every few seconds. Not affiliated with Bossa Studios.</footer>
 </div>
 <script id=""bootstrap"" type=""application/json"">" + bootstrapJson + @"</script>
+<script id=""releaseWorldMap"" type=""application/json"">" + worldMapJson + @"</script>
 <script>
 (function(){
   'use strict';
@@ -445,6 +461,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var terrainExpandedSlot = -1;
   var domainFilter = 'all';
   var selectedRuntimeDomainId = '';
+  var worldMap={worldEdgeLength:36000,islands:[],walls:[]};
+  var mapView={x:-18000,y:-18000,w:36000,h:36000};
+  var latestPlayers=[];
   function $(id){return document.getElementById(id);}
   function text(id,v){var e=$(id);if(e)e.textContent=v;}
 
@@ -571,6 +590,90 @@ variable to <code>username:hash</code> and restart the login server to enable th
       var state=domainState(d);var stateCell=cell(tr,'');var pill=document.createElement('span');pill.className='pill '+(state==='warning'?'bad':(state==='active'||state==='resident'?'ok':'warn'));pill.textContent=state;stateCell.appendChild(pill);body.appendChild(tr);
     });
     text('domainResultCount',rows.length+' domain'+(rows.length===1?'':'s')+(rows.length>250?' · first 250 shown':''));
+  }
+
+  // ---- live release-world map ------------------------------------------
+  var SVG_NS='http://www.w3.org/2000/svg';
+  function svgEl(name,attrs,title){
+    var e=document.createElementNS(SVG_NS,name);
+    Object.keys(attrs||{}).forEach(function(k){e.setAttribute(k,String(attrs[k]));});
+    if(title){var t=document.createElementNS(SVG_NS,'title');t.textContent=title;e.appendChild(t);}
+    return e;
+  }
+  function applyMapView(){
+    $('liveWorldMap').setAttribute('viewBox',[mapView.x,mapView.y,mapView.w,mapView.h].join(' '));
+  }
+  function resetMapView(){
+    var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000);
+    mapView={x:-edge/2,y:-edge/2,w:edge,h:edge};applyMapView();
+  }
+  function zoomMap(factor,cx,cy){
+    var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000);
+    var next=Math.max(edge/32,Math.min(edge,mapView.w*factor));
+    var ratio=next/mapView.w;cx=cx==null?mapView.x+mapView.w/2:cx;cy=cy==null?mapView.y+mapView.h/2:cy;
+    mapView={x:cx-(cx-mapView.x)*ratio,y:cy-(cy-mapView.y)*ratio,w:next,h:next};applyMapView();
+  }
+  function mapClientPoint(event){
+    var rect=$('liveWorldMap').getBoundingClientRect();
+    return {x:mapView.x+(event.clientX-rect.left)/rect.width*mapView.w,
+      y:mapView.y+(event.clientY-rect.top)/rect.height*mapView.h};
+  }
+  function renderStaticWorldMap(){
+    var grid=$('mapGrid'),walls=$('mapWallLayer'),islands=$('mapIslandLayer');
+    clear(grid);clear(walls);clear(islands);
+    var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000),half=edge/2;
+    for(var p=-half;p<=half;p+=6000){
+      grid.appendChild(svgEl('line',{x1:p,y1:-half,x2:p,y2:half}));
+      grid.appendChild(svgEl('line',{x1:-half,y1:p,x2:half,y2:p}));
+    }
+    (worldMap.walls||[]).forEach(function(w){
+      var names=['Wind Rift','Storm Rift','Typhon','Sand Storm','Ice Storm','World End'];
+      walls.appendChild(svgEl('line',{x1:w.x1,y1:-w.z1,x2:w.x2,y2:-w.z2,'class':'map-wall type-'+w.type},
+        (names[w.type]||'Unknown wall')+' · '+Number(w.x1).toFixed(0)+','+Number(w.z1).toFixed(0)+' to '+Number(w.x2).toFixed(0)+','+Number(w.z2).toFixed(0)));
+    });
+    (worldMap.islands||[]).forEach(function(i){
+      islands.appendChild(svgEl('circle',{cx:i.x,cy:-i.z,r:75,'class':'map-island'},
+        (i.asset||'release island')+' · '+Number(i.x).toFixed(0)+', '+Number(i.z).toFixed(0)));
+    });
+    resetMapView();
+  }
+  function addMapLabel(layer,x,y,value,subtle){
+    var label=svgEl('text',{x:x+210,y:y-180,'class':'map-label'+(subtle?' subtle':'')});
+    label.textContent=value;layer.appendChild(label);
+  }
+  function renderLiveWorldMap(reporting,ageSeconds){
+    var runtimeLayer=$('mapRuntimeIslandLayer'),shipLayer=$('mapShipLayer'),playerLayer=$('mapPlayerLayer');
+    clear(runtimeLayer);clear(shipLayer);clear(playerLayer);
+    var runtimeIslands=latestRuntimeDomains.filter(function(d){return d.kind==='island';});
+    runtimeIslands.forEach(function(i){
+      runtimeLayer.appendChild(svgEl('rect',{x:Number(i.x)-100,y:-Number(i.z)-100,width:200,height:200,rx:35,'class':'map-runtime-island'},
+        (i.label||i.domainId)+' · resident domain · '+Number(i.x).toFixed(1)+', '+Number(i.z).toFixed(1)));
+      addMapLabel(runtimeLayer,Number(i.x),-Number(i.z),i.label||i.domainId,true);
+    });
+    latestDomains.forEach(function(s){
+      var x=Number(s.x),y=-Number(s.z),r=150;
+      shipLayer.appendChild(svgEl('polygon',{points:[x+','+(y-r),(x+r)+','+y,x+','+(y+r),(x-r)+','+y].join(' '),
+        'class':'map-ship'+(s.active?'':' resting')},'Ship '+s.hullEntityId+' · XYZ '+x.toFixed(1)+', '+Number(s.y).toFixed(1)+', '+Number(s.z).toFixed(1)+(s.piloted?' · piloted':' · resting')));
+      addMapLabel(shipLayer,x,y,'ship '+s.hullEntityId,false);
+    });
+    var positioned=latestPlayers.filter(function(p){return p.hasPosition;});
+    positioned.forEach(function(p){
+      var x=Number(p.x),y=-Number(p.z);
+      playerLayer.appendChild(svgEl('circle',{cx:x,cy:y,r:125,'class':'map-player'},
+        'Player entity '+p.entityId+' · XYZ '+x.toFixed(1)+', '+Number(p.y).toFixed(1)+', '+Number(p.z).toFixed(1)));
+      addMapLabel(playerLayer,x,y,'player '+p.entityId,false);
+    });
+    $('mapIslandLayer').style.display=$('mapIslands').checked?'':'none';
+    runtimeLayer.style.display=$('mapIslands').checked?'':'none';
+    $('mapWallLayer').style.display=$('mapWalls').checked?'':'none';
+    shipLayer.style.display=$('mapShips').checked?'':'none';
+    playerLayer.style.display=$('mapPlayers').checked?'':'none';
+    var unknown=latestPlayers.length-positioned.length,live=latestDomains.length+positioned.length;
+    text('mapStatus',(worldMap.islands||[]).length+' release islands · '+(worldMap.walls||[]).length+' weather walls · '
+      +(reporting?(latestDomains.length+' ships · '+positioned.length+' positioned players · '+Math.round(ageSeconds||0)+'s snapshot age'):'game server not reporting'));
+    var note=$('mapLiveNote');note.style.display=(live||!reporting)?'none':'block';
+    if(unknown){note.style.display='block';note.textContent=unknown+' connected player'+(unknown===1?' has':'s have')+' no authoritative world position yet.';}
+    else note.textContent='No live positions reported.';
   }
 
   // ---- terrain checkout ------------------------------------------------
@@ -881,6 +984,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
     var tbody=$('players');clear(tbody);
     var players=(reporting?g.players:[])||[];
+    latestPlayers=players;
     $('noPlayers').style.display=players.length?'none':'block';
     players.forEach(function(p){
       var tr=document.createElement('tr');
@@ -937,6 +1041,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(warnings.length){domainWarning.classList.add('show','spiral');text('domainWarningText',warnings.join('; ')+'.');}
     else{domainWarning.classList.remove('show','spiral');}
     renderTopology();
+    renderLiveWorldMap(reporting,g.ageSeconds);
     if(selectedRuntimeDomainId&&latestRuntimeDomains.some(function(d){return d.domainId===selectedRuntimeDomainId;}))selectRuntimeDomain(selectedRuntimeDomainId);
     else{if(selectedRuntimeDomainId)selectedRuntimeDomainId='';renderDomainInventory();}
 
@@ -1021,6 +1126,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   if(input){input.addEventListener('input',function(){input.dataset.touched='1';});}
 
   function boot(){
+    try{worldMap=JSON.parse($('releaseWorldMap').textContent);renderStaticWorldMap();}catch(e){text('mapStatus','Preserved geography could not be loaded.');}
     try{render(JSON.parse($('bootstrap').textContent));}catch(e){}
   }
   function refresh(){
@@ -1083,6 +1189,18 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(latestTerrain)renderAcceptance(latestTerrain,gameReporting);
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
+  ['mapIslands','mapWalls','mapShips','mapPlayers'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);});});
+  $('mapZoomIn').addEventListener('click',function(){zoomMap(.65);});
+  $('mapZoomOut').addEventListener('click',function(){zoomMap(1.5);});
+  $('mapReset').addEventListener('click',resetMapView);
+  $('liveWorldMap').addEventListener('wheel',function(e){e.preventDefault();var p=mapClientPoint(e);zoomMap(e.deltaY<0 ? .78 : 1.28,p.x,p.y);},{passive:false});
+  (function(){
+    var svg=$('liveWorldMap'),drag=null;
+    svg.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY,vx:mapView.x,vy:mapView.y};svg.setPointerCapture(e.pointerId);svg.classList.add('dragging');});
+    svg.addEventListener('pointermove',function(e){if(!drag)return;var rect=svg.getBoundingClientRect();mapView.x=drag.vx-(e.clientX-drag.x)/rect.width*mapView.w;mapView.y=drag.vy-(e.clientY-drag.y)/rect.height*mapView.h;applyMapView();});
+    function end(e){if(!drag)return;drag=null;svg.classList.remove('dragging');if(svg.hasPointerCapture(e.pointerId))svg.releasePointerCapture(e.pointerId);}
+    svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
+  })();
   boot();
   refresh();
   setInterval(refresh,REFRESH_MS);

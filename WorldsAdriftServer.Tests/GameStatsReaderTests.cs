@@ -32,6 +32,7 @@ namespace WorldsAdriftServer.Tests
           ""firstRegionTerrainCount"":1,
           ""players"":[
             {""entityId"":3,""peerId"":""0x2f00"",""connectedAtUnixMs"":1723200100000,
+             ""position"":{""x"":14734.5,""y"":-55.25,""z"":15208.75},
              ""health"":{""rttMs"":640,""rttVarianceMs"":30,""packetsLost"":9,""packetsSent"":1290,""inFlightBytes"":4096,""spiral"":true}},
             {""entityId"":7,""peerId"":""0x9900"",""connectedAtUnixMs"":1723200050000,""health"":null}
           ]
@@ -91,9 +92,14 @@ namespace WorldsAdriftServer.Tests
                 Assert.True(p0.HasHealth);
                 Assert.Equal(640u, p0.RttMs);
                 Assert.True(p0.Spiral);
+                Assert.True(p0.HasPosition);
+                Assert.Equal(14734.5, p0.X, 3);
+                Assert.Equal(-55.25, p0.Y, 3);
+                Assert.Equal(15208.75, p0.Z, 3);
 
                 GamePlayerStat p1 = GameStats.ReadFrom(path, Now).Snapshot!.Players[1];
                 Assert.False(p1.HasHealth);
+                Assert.False(p1.HasPosition);
             }
             finally
             {

@@ -58,8 +58,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Fact]
         public void The_schema_version_records_that_terrain_telemetry_exists()
         {
-            Assert.Equal(5, StatsSnapshot.SchemaVersion);
-            Assert.Equal(5, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            Assert.Equal(6, StatsSnapshot.SchemaVersion);
+            Assert.Equal(6, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

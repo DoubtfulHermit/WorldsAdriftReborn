@@ -2087,7 +2087,11 @@ namespace WorldsAdriftRebornGameServer
                         ? read
                         : (EnetPeerHealth?)null;
 
-                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health));
+                FixedPointPosition? position = ResourceInterest.TryCenterFor(peerId,
+                    out FixedPointPosition worldPosition)
+                        ? worldPosition
+                        : (FixedPointPosition?)null;
+                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health, position));
             }
 
             List<ShipDomainStat> shipDomains = new List<ShipDomainStat>();

@@ -278,6 +278,25 @@ namespace WorldsAdriftRebornGameServer.Game
                 ? state.Center
                 : SpawnPolicy.PlayerSpawnPosition;
 
+        /// <summary>
+        /// Returns the latest authoritative world-space centre held for an exact
+        /// connected peer. Unlike <see cref="CenterFor(ENetPeerHandle)"/>, this
+        /// does not manufacture the spawn point when the peer has never entered
+        /// the interest ledger, so operator telemetry can distinguish "unknown"
+        /// from a real position.
+        /// </summary>
+        public bool TryCenterFor(ulong peerId, out FixedPointPosition center)
+        {
+            foreach ((ENetPeerHandle peer, PeerState state) in _peers)
+            {
+                if (PeerIdentity.IdOf(peer) != peerId) continue;
+                center = state.Center;
+                return true;
+            }
+            center = default;
+            return false;
+        }
+
         public void Tick()
         {
             if (!Enabled) return;

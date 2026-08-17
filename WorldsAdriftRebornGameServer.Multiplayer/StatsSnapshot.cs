@@ -148,13 +148,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public ulong PeerId { get; }
         public long ConnectedAtUnixMs { get; }
         public EnetPeerHealth? Health { get; }
+        public FixedPointPosition? Position { get; }
 
-        public PlayerStat(long entityId, ulong peerId, long connectedAtUnixMs, EnetPeerHealth? health)
+        public PlayerStat(long entityId, ulong peerId, long connectedAtUnixMs,
+            EnetPeerHealth? health, FixedPointPosition? position = null)
         {
             EntityId = entityId;
             PeerId = peerId;
             ConnectedAtUnixMs = connectedAtUnixMs;
             Health = health;
+            Position = position;
         }
 
         /// <summary>Whether this player's RTT is spiralling. False when health is unreadable.</summary>
@@ -182,7 +185,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 5;
+        public const int SchemaVersion = 6;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -601,6 +604,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // and because a 64-bit pointer value is not safely a JSON number.
             Str(b, "peerId", "0x" + p.PeerId.ToString("x")); b.Append(',');
             Num(b, "connectedAtUnixMs", p.ConnectedAtUnixMs); b.Append(',');
+
+            Key(b, "position");
+            if (p.Position.HasValue)
+            {
+                FixedPointPosition position = p.Position.Value;
+                b.Append('{');
+                Num(b, "x", position.MetresX); b.Append(',');
+                Num(b, "y", position.MetresY); b.Append(',');
+                Num(b, "z", position.MetresZ);
+                b.Append('}');
+            }
+            else
+            {
+                b.Append("null");
+            }
+            b.Append(',');
 
             Key(b, "health");
             if (p.Health.HasValue)

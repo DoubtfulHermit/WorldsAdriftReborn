@@ -104,6 +104,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_player_position_is_explicit_world_xyz_and_unknown_stays_null()
+        {
+            PlayerStat known = new PlayerStat(3, 0x2f00, 0, null,
+                FixedPointPosition.FromMetres(14734.5, -55.25, 15208.75));
+            PlayerStat unknown = new PlayerStat(7, 0x9900, 0, null);
+            JArray players = (JArray)JObject.Parse(Snapshot(known, unknown).ToJson())["players"]!;
+
+            JObject position = (JObject)players[0]["position"]!;
+            Assert.Equal(14734.5, (double)position["x"]!, 3);
+            Assert.Equal(-55.25, (double)position["y"]!, 3);
+            Assert.Equal(15208.75, (double)position["z"]!, 3);
+            Assert.Equal(JTokenType.Null, players[1]["position"]!.Type);
+        }
+
+        [Fact]
         public void An_unreadable_peer_serialises_health_as_null_not_zeros()
         {
             PlayerStat p = new PlayerStat(7, 0x9900, 1_723_200_050_000, null);

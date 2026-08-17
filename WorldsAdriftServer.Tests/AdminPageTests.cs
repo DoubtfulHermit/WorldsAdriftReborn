@@ -1,3 +1,4 @@
+using WorldsAdriftServer.Admin;
 using WorldsAdriftServer.Web;
 using Xunit;
 
@@ -179,6 +180,28 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("/admin/api/command", html);
             // Exactly the allowlisted command surface, unchanged.
             Assert.Equal(9, Occurrences(html, "data-command="));
+        }
+
+        [Fact]
+        public void Dashboard_has_the_release_geography_and_live_position_layers()
+        {
+            string map = ReleaseWorldMap.Json;
+            string html = AdminPage.Dashboard("{}", new string('a', 64), map);
+
+            Assert.Contains("\"worldEdgeLength\":36000", map);
+            Assert.Equal(266, Occurrences(map, "\"asset\":"));
+            Assert.Equal(44, Occurrences(map, "\"type\":"));
+            Assert.Contains("id=\"liveWorldMap\"", html);
+            Assert.Contains("id=\"mapWallLayer\"", html);
+            Assert.Contains("id=\"mapIslandLayer\"", html);
+            Assert.Contains("id=\"mapShipLayer\"", html);
+            Assert.Contains("id=\"mapPlayerLayer\"", html);
+            Assert.Contains("renderLiveWorldMap", html);
+            Assert.Contains("Player entity ", html);
+            Assert.Contains("Drag to pan", html);
+            Assert.Contains("Wind Rift", html);
+            Assert.Contains("World End", html);
+            Assert.Contains("preserved-release-mapfile", html);
         }
 
         private static int Occurrences(string haystack, string needle)

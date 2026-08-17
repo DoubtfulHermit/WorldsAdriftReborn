@@ -80,7 +80,7 @@ namespace WorldsAdriftServer.Handlers.Admin
                 if (authed)
                 {
                     Html(session, 200, AdminPage.Dashboard(BuildStatsJson(),
-                        AdminAuthPolicy.CsrfTokenForSession(sessionToken!)));
+                        AdminAuthPolicy.CsrfTokenForSession(sessionToken!), ReleaseWorldMap.Json));
                 }
                 else
                 {
@@ -491,6 +491,13 @@ namespace WorldsAdriftServer.Handlers.Admin
                     pj["packetsSent"] = p.PacketsSent;
                     pj["inFlightBytes"] = p.InFlightBytes;
                     pj["spiral"] = p.Spiral;
+                }
+                pj["hasPosition"] = p.HasPosition;
+                if (p.HasPosition)
+                {
+                    pj["x"] = p.X;
+                    pj["y"] = p.Y;
+                    pj["z"] = p.Z;
                 }
                 players.Add(pj);
             }

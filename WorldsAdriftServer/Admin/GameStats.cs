@@ -503,10 +503,15 @@ namespace WorldsAdriftServer.Admin
         public uint PacketsSent { get; private init; }
         public uint InFlightBytes { get; private init; }
         public bool Spiral { get; private init; }
+        public bool HasPosition { get; private init; }
+        public double X { get; private init; }
+        public double Y { get; private init; }
+        public double Z { get; private init; }
 
         public static GamePlayerStat Parse(JObject p)
         {
             JObject? h = p["health"] as JObject;
+            JObject? position = p["position"] as JObject;
 
             return new GamePlayerStat
             {
@@ -520,6 +525,10 @@ namespace WorldsAdriftServer.Admin
                 PacketsSent = (uint?)(h?["packetsSent"]) ?? 0,
                 InFlightBytes = (uint?)(h?["inFlightBytes"]) ?? 0,
                 Spiral = (bool?)(h?["spiral"]) ?? false,
+                HasPosition = position != null,
+                X = (double?)position?["x"] ?? 0,
+                Y = (double?)position?["y"] ?? 0,
+                Z = (double?)position?["z"] ?? 0,
             };
         }
     }

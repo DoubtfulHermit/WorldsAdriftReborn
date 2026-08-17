@@ -18,6 +18,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Preserved release MapFile: static geography for the authenticated live map. -->
+    <EmbeddedResource Include="..\docs\research\world-data\wamap-islands.json"
+                      Link="WorldData\wamap-islands.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- RosterPolicy and friends are internal; the unit tests live outside. -->
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>WorldsAdriftServer.Tests</_Parameter1>
