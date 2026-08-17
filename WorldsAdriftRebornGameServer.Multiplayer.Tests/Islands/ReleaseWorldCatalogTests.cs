@@ -109,6 +109,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 entity.AssetName == MetalDeposits.AssetName));
             Assert.Equal(1233, world.Registrations.Count(entity =>
                 entity.AssetName == Databanks.AssetName));
+            // One atlas shard per deposit at the default rate: a deposit with no
+            // shard mines out to metal and nothing else, which is the loop's payoff
+            // missing rather than a rarity choice.
+            Assert.Equal(354, world.Registrations.Count(entity =>
+                entity.AssetName == AtlasShardCatalogue.AssetName));
             Assert.Equal(world.Registrations.Count,
                 world.Registrations.Select(entity => entity.Key).Distinct().Count());
 

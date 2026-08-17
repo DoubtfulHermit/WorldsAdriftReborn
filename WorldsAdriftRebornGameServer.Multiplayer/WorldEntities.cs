@@ -1121,11 +1121,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // Complete release-world population. Counts and metal tables come from
             // the joined survey; positions come from each island's extracted surface.
             // No tree rows are fabricated here: tree entity placement still needs a
-            // species-specific acceptance pass and is intentionally a later phase.
+            // species-specific acceptance pass and is intentionally a later phase,
+            // and unlike deposits (retail 0.05-per-cell density) and databanks (an
+            // exact surveyed count) there is no evidenced tree count to place.
+            //
+            // Each deposit's ATLAS SHARD is registered IMMEDIATELY AFTER its host, as
+            // AtlasShardEntity requires: registration resolves the host by key through
+            // BoundEntityIdFor, so a shard whose deposit is not yet bound is refused.
+            // Without this a release-world deposit mined out to nothing - the metal
+            // arrived but the shard that is the loop's payoff could never exist, the
+            // same gap the source-agnostic overload was added to close for the
+            // handshake deposits. The rate is applied to each ISLAND's own deposit
+            // index, so every island with any metal reliably has at least one shard
+            // whatever WAREBORN_ATLAS_RATE says, and WAREBORN_SPAWN_ATLAS=0 still
+            // kills the whole population.
+            int releaseOneInDeposits = AtlasSpawnPolicy.OneInDeposits(atlasRateEnv);
             foreach (ReleaseIslandRecord island in releaseIslands)
             {
-                foreach (MetalNode deposit in island.Deposits)
+                for (int i = 0; i < island.Deposits.Count; i++)
+                {
+                    MetalNode deposit = island.Deposits[i];
                     registry.Register(DepositEntity(deposit));
+                    if (includeAtlasShard
+                        && AtlasSpawnPolicy.DepositCarriesShard(i, releaseOneInDeposits))
+                    {
+                        registry.Register(AtlasShardEntity(deposit.Key, deposit.Position));
+                    }
+                }
                 for (int i = 0; i < island.Databanks.Count; i++)
                     registry.Register(DatabankEntity(
                         Resources.ReleaseWorldResources.DatabankKeyFor(island, i),
