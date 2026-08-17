@@ -86,24 +86,36 @@ The 46 deposits are **not one per island**. They are concentrated on four:
 | Breeze Isles | 6 | Bronze q2, Copper q4, Epilar q4, Iron q3, Tin q2 |
 | Comm Strip | 3 | Iron q1, Lead q2 |
 
-**42 of the 46 tier-1 islands have zero metal deposits.** This is not a bug and
-not a registration failure - it is what the evidence says. The catalogue
-generator (`tools/world-import/generate-release-runtime-catalog.py`) computes
-`deposit_count = ceil(cells * 0.05) if metals else 0`: the 0.05-per-cell density
-is the recovered retail figure, but it is only applied to islands whose **final
-Cardinal Guild survey recorded a PvE metal table**. An empty table stays empty.
-World-wide only 38 of 254 islands have one.
+**SUPERSEDED 2026-08-18.** The table above and the paragraph below describe the
+state until then: 46 deposits on four islands, because the generator computed
+`deposit_count = ceil(cells * 0.05) if metals else 0` and only 38 of 254 islands
+had a surveyed PvE metal table.
+
+That guard is gone. The empty tables turned out to be a coverage gap in a
+player-submitted community survey rather than a barren world - the survey visited
+all 254 islands, its own UI reads an empty list as "No metals data", and retail's
+island spawner component carries a `minMetalRockDeposits` floor. Tier 1 is now
+**328 deposits, every island populated**: 4 from their own survey and 42 stamped
+`inferred-tier`. The density rule itself did not change.
+
+See `docs/research/findings-island-resource-population.md` for the full evidence,
+the derived rule and the measured load. One correction it makes to this document:
+the 0.05-per-cell density is **not** "the recovered retail figure". The decompile
+has the field names and confirms the island reports its LOD0 mesh count to the
+spawner, but the formula lived in the lost Scala worker. The shape is retail; the
+value is ours.
 
 Databanks are the opposite: every one of the 46 islands has 3-5, and all 215 are
 placed on measured surface samples.
 
 So a player who travels to Tier 1 today finds, on **every** island, real terrain
-with collision and 3-5 scannable databanks, and on **four** islands a metal
-mining loop. That is the honest state of the preserved data. Inventing metal for
-the other 42 would violate the doctrine this repository has applied since the
-first region seed ("an empty metal table remains explicitly empty; it is not
-permission to invent a generic population") and is deliberately NOT done here.
-See section 5 for what changing that would take.
+with collision, 3-5 scannable databanks and a metal mining loop. The doctrine
+that produced the earlier four-island state ("an empty metal table remains
+explicitly empty; it is not permission to invent a generic population") is
+honoured differently rather than abandoned: the metals are derived from the
+surveyed cohort, never invented freely, and every island whose table is derived
+carries `metalSource: inferred-tier` in the catalogue and
+`IslandSurveyProfile.MetalsAreInferred` at runtime.
 
 ## 3. Measured costs at 47 terrains
 
@@ -203,7 +215,8 @@ entries: Oak, Elm, Birch, Chestnut, Palm, Ash). None of them has a tree
 species list and nothing more.
 
 Deposits and databanks could be placed because both had a number backed by
-evidence - deposits from the recovered retail 0.05-per-cell density, databanks
+evidence - deposits from a 0.05-per-cell density (retail's SHAPE, our value -
+see findings-island-resource-population.md section 3), databanks
 from the survey's exact per-island count. **There is no comparable evidence for
 tree density.** Any number chosen would be invented, and this repository has
 consistently refused to invent populations.
@@ -235,16 +248,15 @@ respawn path that honours it instead of the fixed Haven spawn. That is a feature
 in its own right (crew graduation from Haven leans on it), not a Tier-1 rollout
 task.
 
-### Metal on the 42 unsurveyed islands - DEFERRED, and it is a decision, not a bug
+### Metal on the 42 unsurveyed islands - DONE 2026-08-18
 
-Covered in section 2. If the user decides that an empty Cardinal table means
-"the community never recorded it" rather than "there was none", the change is
-small and mechanical: drop the `if metals` guard in the generator, choose a
-metal table for an unsurveyed island (the honest choice is its cell's
-tier-typical metals, explicitly labelled a reconstruction), regenerate, and
-update the 354/1233 constants. It would take Tier 1 from 46 deposits to roughly
-900. That number, and the fact that it is invented, is why it is not being done
-silently.
+The decision recorded here was taken: an empty Cardinal table means "the
+community never recorded it". The `if metals` guard was dropped, unsurveyed
+islands take a tier-derived table explicitly labelled `inferred-tier`, and the
+constants moved 354 -> 1930 world-wide and 46 -> 328 in Tier 1 (the estimate of
+"roughly 900" here was for Tier 1 and was high; the real figure is 328).
+
+Evidence, derivation and cost: `docs/research/findings-island-resource-population.md`.
 
 ### Distant island shells stay behind their own flag
 

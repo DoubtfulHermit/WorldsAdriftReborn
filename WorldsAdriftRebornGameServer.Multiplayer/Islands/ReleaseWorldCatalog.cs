@@ -94,7 +94,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                     item.GetProperty("turrets").GetBoolean(),
                     Strings(item.GetProperty("trees")),
                     Metals(item.GetProperty("pveMetals")),
-                    Metals(item.GetProperty("pvpMetals")));
+                    Metals(item.GetProperty("pvpMetals")),
+                    Metals(item.GetProperty("metals")),
+                    SourceOf(item.GetProperty("metalSource").GetString()));
                 List<IslandShellPoint> shell = item.GetProperty("shell").EnumerateArray()
                     .Select(point => new IslandShellPoint(point[0].GetDouble(), point[1].GetDouble()))
                     .ToList();
@@ -124,6 +126,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
         private static IEnumerable<string> Strings(JsonElement values) =>
             values.EnumerateArray().Select(value => value.GetString()!);
+        /// <summary>
+        /// The catalogue's provenance string. An unrecognised value THROWS rather
+        /// than defaulting: a silent fallback to SurveyPve would relabel inferred
+        /// metals as Bossa data, which is the exact confusion the field exists to
+        /// prevent.
+        /// </summary>
+        private static MetalTableSource SourceOf(string? source) => source switch
+        {
+            "survey-pve" => MetalTableSource.SurveyPve,
+            "survey-pvp" => MetalTableSource.SurveyPvp,
+            "inferred-tier" => MetalTableSource.InferredTier,
+            _ => throw new InvalidDataException(
+                "release catalogue states an unknown metalSource '" + source + "'"),
+        };
+
         private static IEnumerable<SurveyedMetal> Metals(JsonElement values) =>
             values.EnumerateArray().Select(value => new SurveyedMetal(
                 value.GetProperty("name").GetString()!, value.GetProperty("quality").GetInt32()));

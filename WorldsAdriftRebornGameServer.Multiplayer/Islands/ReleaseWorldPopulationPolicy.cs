@@ -14,7 +14,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         int AtlasShards,
         int IslandsWithoutMetal,
         int IslandsWithRevivalChambers,
-        int IslandsWithTreeSpecies)
+        int IslandsWithTreeSpecies,
+        int IslandsWithSurveyedMetal,
+        int IslandsWithInferredMetal,
+        int InferredDeposits)
     {
         /// <summary>Every world entity this selector adds beyond the Haven baseline.</summary>
         public int ReleaseEntities => Islands + Deposits + Databanks + AtlasShards;
@@ -27,12 +30,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     ///
     /// WHY THIS EXISTS. The counts were previously re-derived by hand in tests, in
     /// the handover and in the boot banner, which is exactly how three numbers
-    /// drift apart. More importantly it makes one uncomfortable fact impossible to
-    /// overlook: <see cref="ReleaseWorldPopulation.IslandsWithoutMetal"/>. The
-    /// final Cardinal Guild survey recorded a PvE metal table for only 38 of the
-    /// 254 ordinary islands, so most islands carry databanks and terrain but no
-    /// mining loop. That is the evidence, not a registration failure, and an empty
-    /// table is deliberately never backfilled with an invented population.
+    /// drift apart. More importantly it keeps one uncomfortable fact impossible to
+    /// overlook, now stated as
+    /// <see cref="ReleaseWorldPopulation.IslandsWithInferredMetal"/>.
+    ///
+    /// The final Cardinal Guild survey recorded a PvE metal table for only 38 of
+    /// the 254 ordinary islands, and a PvP one for 33. It visited all 254 - every
+    /// island carries a surveyor name and an exact databank count - so the missing
+    /// tables are a coverage gap in the survey, not islands retail shipped barren.
+    /// Retail's own island spawner state (component 1010) carries a
+    /// `minMetalRockDeposits` floor and a per-island `metalDepositQualities` map,
+    /// which is precisely the map the survey was reading off.
+    ///
+    /// The 193 islands with neither table therefore get a metal table composed
+    /// from their tier cohort by tools/world-import/metal_inference.py. That is
+    /// INFERENCE, it is not Bossa data, and it is counted separately here for
+    /// exactly that reason. <see cref="ReleaseWorldPopulation.IslandsWithoutMetal"/>
+    /// is retained and should now be zero for any selector.
     ///
     /// Pure: no ENet, no Improbable types, no game install.
     /// </summary>
@@ -52,11 +66,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             int shards = 0;
             int databanks = 0;
             int withoutMetal = 0;
+            int surveyed = 0;
+            int inferred = 0;
+            int inferredDeposits = 0;
             foreach (ReleaseIslandRecord island in selection)
             {
                 deposits += island.Deposits.Count;
                 databanks += island.Databanks.Count;
                 if (island.Deposits.Count == 0) withoutMetal++;
+                if (island.Survey.MetalsAreInferred)
+                {
+                    inferred++;
+                    inferredDeposits += island.Deposits.Count;
+                }
+                else surveyed++;
                 if (atlasShardsEnabled) shards += ShardCountFor(island, oneInDeposits);
             }
             return new ReleaseWorldPopulation(
@@ -72,7 +95,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 IslandsWithRevivalChambers: selection.Count(
                     island => island.Survey.HasRevivalChamber),
                 IslandsWithTreeSpecies: selection.Count(
-                    island => island.Survey.Trees.Count > 0));
+                    island => island.Survey.Trees.Count > 0),
+                IslandsWithSurveyedMetal: surveyed,
+                IslandsWithInferredMetal: inferred,
+                InferredDeposits: inferredDeposits);
         }
 
         /// <summary>

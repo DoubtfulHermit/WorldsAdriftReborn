@@ -85,27 +85,80 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         /// <summary>
-        /// The Wilderness content budget, stated once. 42 of the 46 islands have NO
-        /// metal at all: the final Cardinal survey recorded a PvE metal table for
-        /// only 38 of the 254 ordinary islands, and an empty table is deliberately
-        /// never backfilled with an invented population. If a later decision does
-        /// backfill it, this test is where that decision becomes visible.
+        /// The Wilderness content budget, stated once.
+        ///
+        /// THIS TEST CHANGED DELIBERATELY. It used to assert 46 deposits with 42 of
+        /// the 46 islands carrying none, because the catalogue applied its density
+        /// rule only to islands whose Cardinal PvE metal table was non-empty. The
+        /// survey visited all 254 islands - every one has a surveyor name and an
+        /// exact databank count - but recorded a PvE metal table for only 38, so
+        /// those empty tables are a coverage gap and not a barren world. Every
+        /// tier-1 island now carries metal; 4 of the 46 from its own survey and 42
+        /// composed from the tier-1 cohort and stamped `inferred-tier`.
+        ///
+        /// 46 -> 328 deposits is the density rule (ceil(LOD0 cells * 0.05)) meeting
+        /// 42 more islands, not a change of density. Shards follow deposits 1:1 as
+        /// they always have.
         /// </summary>
         [Fact]
-        public void Tier_one_population_is_46_deposits_and_215_databanks_on_46_islands()
+        public void Tier_one_population_is_328_deposits_and_215_databanks_on_46_islands()
         {
             ReleaseWorldPopulation population = ReleaseWorldPopulationPolicy.For("tier1");
 
             Assert.Equal(46, population.Islands);
             Assert.Equal(47, population.Terrains); // 46 + Haven
             Assert.Equal(4, population.Cells);
-            Assert.Equal(46, population.Deposits);
+            Assert.Equal(328, population.Deposits);
             Assert.Equal(215, population.Databanks);
-            Assert.Equal(46, population.AtlasShards); // default rate: one per deposit
-            Assert.Equal(42, population.IslandsWithoutMetal);
+            Assert.Equal(328, population.AtlasShards); // default rate: one per deposit
+            Assert.Equal(0, population.IslandsWithoutMetal);
+            Assert.Equal(4, population.IslandsWithSurveyedMetal);
+            Assert.Equal(42, population.IslandsWithInferredMetal);
+            Assert.Equal(282, population.InferredDeposits);
             Assert.Equal(12, population.IslandsWithRevivalChambers);
             Assert.Equal(14, population.IslandsWithTreeSpecies);
-            Assert.Equal(46 + 46 + 215 + 46, population.ReleaseEntities);
+            Assert.Equal(46 + 328 + 215 + 328, population.ReleaseEntities);
+        }
+
+        /// <summary>
+        /// The honesty guard. Every deposit a tier-1 player can mine is traceable
+        /// to a named provenance, the 4 surveyed islands keep EXACTLY the metals
+        /// the Cardinal survey recorded for them, and no inferred island is allowed
+        /// to claim a survey it does not have.
+        /// </summary>
+        [Fact]
+        public void Every_tier_one_island_states_where_its_metals_came_from()
+        {
+            IReadOnlyList<ReleaseIslandRecord> tier1 = ReleaseWorldRolloutPolicy.Select("tier1");
+
+            Assert.All(tier1, island =>
+            {
+                Assert.NotEmpty(island.Deposits);
+                Assert.NotEmpty(island.Survey.Metals);
+                Assert.Equal(island.Survey.MetalSource == MetalTableSource.InferredTier,
+                    island.Survey.MetalsAreInferred);
+                if (island.Survey.MetalsAreInferred)
+                {
+                    Assert.Empty(island.Survey.PveMetals);
+                    Assert.Empty(island.Survey.PvpMetals);
+                }
+                else
+                {
+                    Assert.Equal(MetalTableSource.SurveyPve, island.Survey.MetalSource);
+                    Assert.Equal(island.Survey.PveMetals.Select(metal => metal.Name),
+                        island.Survey.Metals.Select(metal => metal.Name));
+                }
+                // Every deposit's metal comes from that island's own effective table.
+                Assert.All(island.Deposits, deposit => Assert.Contains(
+                    island.Survey.Metals,
+                    metal => string.Equals(metal.Name, deposit.MetalType,
+                        StringComparison.OrdinalIgnoreCase)));
+            });
+
+            // No tier-1 island was surveyed on the PvP shard, so that middle rung of
+            // the provenance ladder is genuinely unused here rather than untested.
+            Assert.DoesNotContain(tier1, island =>
+                island.Survey.MetalSource == MetalTableSource.SurveyPvp);
         }
 
         [Fact]
@@ -140,11 +193,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Assert.Equal(47, world.Registrations.Count(entity =>
                 entity.AssetName.EndsWith("@Island", StringComparison.Ordinal)));
-            Assert.Equal(46, world.Registrations.Count(entity =>
+            Assert.Equal(328, world.Registrations.Count(entity =>
                 entity.AssetName == MetalDeposits.AssetName));
             Assert.Equal(215, world.Registrations.Count(entity =>
                 entity.AssetName == Databanks.AssetName));
-            Assert.Equal(46, world.Registrations.Count(entity =>
+            Assert.Equal(328, world.Registrations.Count(entity =>
                 entity.AssetName == AtlasShardCatalogue.AssetName));
             Assert.Equal(world.Registrations.Count,
                 world.Registrations.Select(entity => entity.Key).Distinct(StringComparer.Ordinal).Count());
@@ -180,6 +233,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         /// registers but does not resolve here is the "the prefab renders but the
         /// resource is inert" failure, so this asserts production's own seam rather
         /// than re-reading the catalogue.
+        ///
+        /// 46 -> 328 because the 42 previously barren islands now carry metal. The
+        /// point of running it over ALL of them is that an inferred deposit must be
+        /// indistinguishable from a surveyed one HERE: same lookup, same
+        /// authoritative record, same quality domain the yield curve reads. If the
+        /// backfill had produced decorative rock this test is what would catch it.
         /// </summary>
         [Fact]
         public void Every_tier_one_deposit_resolves_through_the_production_activation_lookup()
@@ -187,14 +246,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             IReadOnlyList<ReleaseIslandRecord> tier1 = ReleaseWorldRolloutPolicy.Select("tier1");
             IReadOnlyList<MetalNode> deposits = tier1.SelectMany(island => island.Deposits).ToArray();
 
-            Assert.Equal(46, deposits.Count);
-            Assert.Equal(46, deposits.Select(node => node.Key).Distinct(StringComparer.Ordinal).Count());
+            Assert.Equal(328, deposits.Count);
+            Assert.Equal(328, deposits.Select(node => node.Key).Distinct(StringComparer.Ordinal).Count());
             Assert.All(deposits, node =>
             {
                 MetalNode resolved = Assert.IsType<MetalNode>(MetalDeposits.ByKey(node.Key));
                 Assert.Same(node, resolved);
                 Assert.True(resolved.IsDeposit);
                 Assert.False(string.IsNullOrWhiteSpace(resolved.MetalType));
+                // Quality is what the yield curve and the crafted-material stats
+                // read; out of 1..10 it would be a live deposit that grants nothing.
+                Assert.InRange(resolved.Quality, 1, 10);
+                Assert.False(string.IsNullOrWhiteSpace(resolved.VariantId));
             });
         }
 

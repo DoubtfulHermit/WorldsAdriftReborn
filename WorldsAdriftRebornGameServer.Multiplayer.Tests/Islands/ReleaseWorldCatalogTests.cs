@@ -74,14 +74,153 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 .Distinct().Count());
         }
 
+        /// <summary>
+        /// THIS TEST CHANGED DELIBERATELY: 354 -> 1930 deposits. Databanks are
+        /// untouched at 1233 because those ARE an exact surveyed count for all 254
+        /// islands; only the metal tables had a coverage gap. The density rule
+        /// (ceil(LOD0 cells * 0.05)) is unchanged - it simply now applies to all
+        /// 254 islands rather than to the 38 with a surveyed PvE table.
+        /// </summary>
         [Fact]
-        public void Surveyed_resource_population_is_deterministic_and_evidence_bounded()
+        public void Resource_population_is_deterministic_and_every_island_has_metal()
         {
-            Assert.Equal(354, ReleaseWorldCatalog.All.Sum(x => x.Deposits.Count));
+            Assert.Equal(1930, ReleaseWorldCatalog.All.Sum(x => x.Deposits.Count));
             Assert.Equal(1233, ReleaseWorldCatalog.All.Sum(x => x.Survey.DatabankCount));
             Assert.Equal(1233, ReleaseWorldCatalog.All.Sum(x => x.Databanks.Count));
             Assert.All(ReleaseWorldCatalog.All.SelectMany(x => x.Deposits), node =>
                 Assert.Same(node, ReleaseWorldCatalog.DepositByKey(node.Key)));
+            Assert.DoesNotContain(ReleaseWorldCatalog.All, island => island.Deposits.Count == 0);
+        }
+
+        /// <summary>
+        /// The world-wide provenance split, stated as one number per rung so a
+        /// silent reclassification cannot happen. 38 islands carry their own PvE
+        /// survey; 23 more have no PvE table but WERE read on the PvP shard, which
+        /// is still an observation of that island; the remaining 193 have neither
+        /// and their metals are composed from their tier cohort by
+        /// tools/world-import/metal_inference.py.
+        ///
+        /// The 216 empty PvE tables in the source survey are preserved verbatim -
+        /// this asserts the inference sits BESIDE the evidence rather than
+        /// overwriting it.
+        /// </summary>
+        [Fact]
+        public void Every_island_states_the_provenance_of_its_metals()
+        {
+            ILookup<MetalTableSource, ReleaseIslandRecord> bySource =
+                ReleaseWorldCatalog.All.ToLookup(island => island.Survey.MetalSource);
+
+            Assert.Equal(38, bySource[MetalTableSource.SurveyPve].Count());
+            Assert.Equal(23, bySource[MetalTableSource.SurveyPvp].Count());
+            Assert.Equal(193, bySource[MetalTableSource.InferredTier].Count());
+            Assert.Equal(254, bySource.Sum(group => group.Count()));
+
+            // The raw survey is untouched: 38 PvE tables, 33 PvP tables, and the
+            // 216 islands the survey left blank are still blank in PveMetals.
+            Assert.Equal(38, ReleaseWorldCatalog.All.Count(x => x.Survey.PveMetals.Count > 0));
+            Assert.Equal(33, ReleaseWorldCatalog.All.Count(x => x.Survey.PvpMetals.Count > 0));
+
+            Assert.All(bySource[MetalTableSource.SurveyPve], island => Assert.Equal(
+                island.Survey.PveMetals.Select(metal => (metal.Name, metal.Quality)),
+                island.Survey.Metals.Select(metal => (metal.Name, metal.Quality))));
+            Assert.All(bySource[MetalTableSource.SurveyPvp], island =>
+            {
+                Assert.Empty(island.Survey.PveMetals);
+                Assert.Equal(island.Survey.PvpMetals.Select(metal => (metal.Name, metal.Quality)),
+                    island.Survey.Metals.Select(metal => (metal.Name, metal.Quality)));
+            });
+            Assert.All(bySource[MetalTableSource.InferredTier], island =>
+            {
+                Assert.Empty(island.Survey.PveMetals);
+                Assert.Empty(island.Survey.PvpMetals);
+                Assert.NotEmpty(island.Survey.Metals);
+            });
+        }
+
+        /// <summary>
+        /// INDEPENDENT CONFIRMATION that the derived metal->tier ladder is real and
+        /// not an artefact of thin sampling.
+        ///
+        /// Bossa's Update 31 patch notes - the release build this world IS, shipped
+        /// 11 June 2019 - state two specific metal retierings by name: "Orthite has
+        /// been made a T3 metal" and "Nickel has been made a T2 metal"
+        /// (https://worldsadrift.fandom.com/wiki/Update_31). The ladder derived
+        /// here reads Bossa's numbers straight back out of player observations that
+        /// never mentioned a tier: Orthite is first seen at tier 3, Nickel at tier
+        /// 2. Two independent artefacts, exact agreement.
+        ///
+        /// The same notes say "metal quality is more in line with the biome they
+        /// spawn in", which is the stated cause of the tier quality bands, and
+        /// "each island will only produce one quality variant of each metal", which
+        /// is why one {name, quality} pair per metal is the right table shape.
+        ///
+        /// If a catalogue regeneration ever broke this agreement, the inference
+        /// would have stopped tracking the only retail statement that can check it.
+        /// </summary>
+        [Fact]
+        public void Derived_metal_tiers_agree_with_the_Update_31_patch_notes()
+        {
+            Dictionary<string, int> firstSeenAtTier = ReleaseWorldCatalog.All
+                .SelectMany(island => island.Survey.PveMetals.Concat(island.Survey.PvpMetals),
+                    (island, metal) => (island.Survey.Tier, metal.Name))
+                .GroupBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Min(entry => entry.Tier),
+                    StringComparer.OrdinalIgnoreCase);
+
+            Assert.Equal(3, firstSeenAtTier["Orthite"]);
+            Assert.Equal(2, firstSeenAtTier["Nickel"]);
+            // "Iron ... found in every tier of the map" (fandom.com/wiki/Metal).
+            Assert.Equal(1, firstSeenAtTier["Iron"]);
+            // All 15 metals of the release build are represented, none invented.
+            Assert.Equal(15, firstSeenAtTier.Count);
+        }
+
+        /// <summary>
+        /// The inference must stay inside the envelope the survey actually
+        /// measured. Both bounds are derived from the recorded observations, not
+        /// chosen: no inferred island may carry a metal that was never seen at or
+        /// below its tier, nor a quality outside that tier's observed range.
+        ///
+        /// The tier-4 quality floor is the strongest single measurement behind
+        /// this: 280 recorded tier-4 observations and not one below quality 7.
+        /// </summary>
+        [Fact]
+        public void Inferred_metals_stay_inside_the_envelope_the_survey_measured()
+        {
+            IReadOnlyList<(int Tier, SurveyedMetal Metal)> observed = ReleaseWorldCatalog.All
+                .SelectMany(island => island.Survey.PveMetals.Concat(island.Survey.PvpMetals),
+                    (island, metal) => (island.Survey.Tier, metal))
+                .ToArray();
+            Assert.Equal(405, observed.Count);
+
+            Dictionary<string, int> firstSeenAtTier = observed
+                .GroupBy(entry => entry.Metal.Name, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.Min(entry => entry.Tier),
+                    StringComparer.OrdinalIgnoreCase);
+            Dictionary<int, (int Low, int High)> band = observed
+                .GroupBy(entry => entry.Tier)
+                .ToDictionary(group => group.Key,
+                    group => (group.Min(e => e.Metal.Quality), group.Max(e => e.Metal.Quality)));
+
+            Assert.Equal((7, 10), band[4]);
+            Assert.Equal((1, 4), band[1]);
+
+            foreach (ReleaseIslandRecord island in ReleaseWorldCatalog.All
+                .Where(island => island.Survey.MetalsAreInferred))
+            {
+                foreach (SurveyedMetal metal in island.Survey.Metals)
+                {
+                    Assert.True(firstSeenAtTier[metal.Name] <= island.Survey.Tier,
+                        island.Survey.WorkshopId + " infers " + metal.Name + " at tier "
+                        + island.Survey.Tier + ", never observed above tier "
+                        + firstSeenAtTier[metal.Name]);
+                    (int low, int high) = band[island.Survey.Tier];
+                    Assert.InRange(metal.Quality, low, high);
+                }
+                // A table with a repeated metal would make one deposit shadow another.
+                Assert.Equal(island.Survey.Metals.Count, island.Survey.Metals
+                    .Select(metal => metal.Name).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            }
         }
 
         [Fact]
@@ -105,14 +244,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             Assert.Equal(255, world.Registrations.Count(entity =>
                 entity.AssetName.EndsWith("@Island", StringComparison.Ordinal)));
-            Assert.Equal(354, world.Registrations.Count(entity =>
+            Assert.Equal(1930, world.Registrations.Count(entity =>
                 entity.AssetName == MetalDeposits.AssetName));
             Assert.Equal(1233, world.Registrations.Count(entity =>
                 entity.AssetName == Databanks.AssetName));
-            // One atlas shard per deposit at the default rate: a deposit with no
-            // shard mines out to metal and nothing else, which is the loop's payoff
-            // missing rather than a rarity choice.
-            Assert.Equal(354, world.Registrations.Count(entity =>
+            // One atlas shard per deposit at the default rate. This is not a taste
+            // call: Update 31 - the release build this world is - states "Metal
+            // nodes now have 100% chance of spawning an Atlas Shard"
+            // (https://worldsadrift.fandom.com/wiki/Update_31). Shards ride
+            // deposits, so filling the 216 unsurveyed islands moved this number in
+            // lockstep: 354 -> 1930 is the same invariant, not a new shard rate.
+            Assert.Equal(1930, world.Registrations.Count(entity =>
                 entity.AssetName == AtlasShardCatalogue.AssetName));
             Assert.Equal(world.Registrations.Count,
                 world.Registrations.Select(entity => entity.Key).Distinct().Count());

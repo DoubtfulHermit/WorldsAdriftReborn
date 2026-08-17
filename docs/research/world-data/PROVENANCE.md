@@ -81,6 +81,20 @@ Source: <https://github.com/cardinal-guild/wamap> (`static/islands.json`).
 Useful for populating resource spawners — `findings-resources.md` established that
 1010/1011 have no serializer handler today.
 
+**This file has exactly ONE commit in its history** (`bbaebec0`, 2019-09-10,
+"Surveyor backend removed, images and json files immortalized forever"). There is no
+fuller revision to fetch — checked.
+
+**Its metal coverage is a survey gap, not world data.** 254/254 islands carry a
+surveyor name and an exact databank count, but only **38** carry a `pveMetals` table
+and **33** a `pvpMetals` one. The backend (`cardinal-guild/wasurveyor`) is a
+player-report system with an admin approval queue, its API serialises those arrays
+unfiltered, and the map UI renders an empty one as the string "No metals data" —
+i.e. *unsurveyed*. Update 31 replaced the whole map on 2019-06-11 and the game shut
+down on 2019-07-26, so volunteers had five weeks. Databank counts ARE complete and
+exact; metal tables are not. Details and the derived backfill:
+`docs/research/findings-island-resource-population.md`.
+
 Enum notes: `Civ` is `0 = Saborian, 1 = Kioki`. `Biomes.Type` is 1–4 across
 four tiers and 20 cells total: Tier 1 has 4 cells, Tier 2 has 4, Tier 3 has 6,
 and Tier 4 has 6. Eighteen cells carry authored district IDs. The other two are
@@ -92,6 +106,15 @@ invented as E1/E2 or folded into the adjacent E3 cell. `Walls.Type` ∈
 `github.com/Jerodar/WAMap`'s `island_data.csv` (303 islands) is an **earlier
 closed-beta world revision** — Update 27, a different layout, extent ±16877. Historical
 interest only. **Do not mix it with the release layout.**
+
+Re-examined 2026-08-16 as a possible source of the missing metal tables, since it
+covers 271 of 304 islands (89%) and would join to ~47 of ours by Steam URL.
+**Still rejected, and now for a second independent reason:** it predates Update 31,
+so it knows only 12 metals (no Epilar, Eternium or Orthite) and its qualities come
+from the balance pass Update 31 explicitly rewrote — it records Aluminium Q1 and
+Tungsten Q1 on tier-4 islands, where the release build's 280 tier-4 observations
+never go below Q7. Importing it would write values the release build provably never
+produced. It IS cited as corroboration that ~89% of islands carried metal.
 
 ## The map-UI question, settled permanently
 The client has **no world map UI**. `Bossa.Travellers.Visualisers.WorldMap` contains

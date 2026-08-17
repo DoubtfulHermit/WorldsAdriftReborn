@@ -789,7 +789,7 @@ evidence only.
 
 The embedded generated catalogue contains 254 unique definitions, all 254
 collision AABBs, one 16-point compact shell outline per island, the exact survey
-profiles, 354 surface-derived PvE deposits, and all 1,233 surveyed databanks.
+profiles, 1,930 surface-derived deposits, and all 1,233 surveyed databanks.
 The full registry is 255 terrains grouped into the exact 20 MapFile cells plus
 Haven. The two null Tier-4 cells retain stable `unassigned-t4-*` internal ids;
 no E1/E2 labels are invented. Holy Ruins deliberately retains both conflicting
@@ -818,7 +818,7 @@ and **not visually accepted**.
   nearest measured samples, which is inside their convex hull by construction and
   is the same rule the deposit/databank filler already used. The regenerated
   catalogue has zero degenerate points and zero points outside their island, with
-  the 254/354/1233 counts unchanged.
+  the 254/1233 counts unchanged (deposits were 354 at the time; see below).
 - **It read as a flat cut-out.** `Unlit/Color` ignores scene lighting AND
   distance fog, so the shell was pasted over the sky exactly where atmosphere
   should dissolve it. It is now a lit, fog-aware material in two submeshes so the
@@ -855,7 +855,7 @@ contradictory describe two different flags:
 `WAREBORN_FIRST_REGION_TERRAIN_COUNT` registers terrain roots only (that is the
 "no new dynamic resource population" sentence above), while
 `WAREBORN_RELEASE_WORLD_DISTRICTS` registers terrain PLUS every catalogued
-deposit and databank for the selected cells (that is the 354/1233 assertion in
+deposit and databank for the selected cells (that is the 1930/1233 assertion in
 `ReleaseWorldCatalogTests`). Both are true.
 
 Tier 1 is exactly map cells A2, A3, B2 and B3: 46 islands, all tier 1, and those
@@ -863,13 +863,23 @@ four cells contain nothing else. `WAREBORN_RELEASE_WORLD_DISTRICTS=tier1` (or
 `t1`/`wilderness`) now names that from the catalogue's own `cellTier` so it
 cannot drift; the explicit cell list still works and the selectors compose.
 
-Its content is **46 PvE deposits, 215 databanks, 46 atlas shards**, 12 islands
-with surveyed revival chambers and 14 with surveyed tree species. The deposits
-are concentrated on FOUR islands (Crimson Paradise 23, Mount Spero 14, Breeze
-Isles 6, Comm Strip 3): **42 of the 46 have no metal at all**, because the final
-Cardinal survey recorded a PvE metal table for only 38 of the 254 ordinary
-islands and an empty table is never backfilled with an invented population. Every
-island does have 3-5 databanks. That is the evidence, not a bug.
+Its content is **328 deposits, 215 databanks, 328 atlas shards**, 12 islands
+with surveyed revival chambers and 14 with surveyed tree species. Every one of
+the 46 islands now has metal.
+
+It was 46 deposits on FOUR islands until 2026-08-18. The catalogue applied its
+density rule only where the Cardinal survey recorded a PvE metal table, and it
+recorded one for just 38 of the 254 islands. That turned out to be a coverage gap
+in a player-submitted survey, not a barren world: the survey visited all 254
+islands (every one has a surveyor name and an exact databank count), its own map
+UI renders an empty list as "No metals data", and it had five weeks between
+Update 31's new map and shutdown. 216 islands are now populated from a labelled
+three-rung provenance ladder - 38 `survey-pve`, 23 `survey-pvp` (no PvE table but
+the same island WAS read on the PvP shard), 193 `inferred-tier`. The inference is
+NOT Bossa data, it is stamped as such in the catalogue and in
+`IslandSurveyProfile.MetalSource`, and the raw survey arrays are preserved
+verbatim beside it. Full evidence, the derivation and the load numbers:
+`docs/research/findings-island-resource-population.md`.
 
 The one real gap, now closed: release-world deposits registered no atlas shard,
 so a tier-1 deposit yielded metal but never the shard that is the mining loop's
@@ -889,11 +899,15 @@ tier-1 terrains and zero tier-1 resources. Connect (45 m), live resource (120 m)
 and terrain (4000/4400 m) radii stay separate; nothing here widens resource
 interest. At 4 km a median of 9 terrains are physically loaded (min 5, max 12).
 
-Trees, revival chambers and metal for the 42 unsurveyed islands are explicitly
-DEFERRED, each with its cost, in `docs/research/findings-tier-one-world.md`.
-Trees are blocked on there being no evidenced density (deposits had retail
-0.05/cell, databanks had an exact surveyed count; trees have a species list and
-nothing else), revival chambers on there being no server system of any kind.
+Trees and revival chambers are explicitly DEFERRED, each with its cost, in
+`docs/research/findings-tier-one-world.md`. Trees are blocked on there being no
+evidenced density (deposits use 0.05/cell, databanks have an exact surveyed
+count; trees have a species list and nothing else), revival chambers on there
+being no server system of any kind. NOTE: 0.05/cell was previously called "the
+recovered retail figure" - it is not. The decompile has the field names
+(`metalDepositDensity`, `minMetalRockDeposits`) and confirms the island reports
+its LOD0 mesh count to the spawner, but the formula lived in the lost Scala
+worker. The SHAPE is retail; the value 0.05 is ours.
 Distant island shells still need `WAREBORN_DISTANT_ISLAND_SHELLS_ENABLED=1`
 separately and remain visually unaccepted. Nothing here is deployed or proved
 with a real client.
