@@ -60,10 +60,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // Exactly-once: Complete returns true only if this peer was still holding
             // the barrier. A second signal, or a race with the timeout sweep, is a
             // no-op here.
-            if (WorldsAdriftRebornGameServer.LoadBarriers.Complete(peerId))
+            if (!WorldsAdriftRebornGameServer.LoadBarriers.Complete(peerId))
             {
-                WorldsAdriftRebornGameServer.ReleaseLoadBarrier(player, entityId, "client signalled ready (190001)");
+                return;
             }
+
+            // Ready is not the same as safe. If this player's logout position is on
+            // terrain that is still checking out, the screen stays up a little
+            // longer (bounded, and swept by TickLoadBarrierTimeouts) rather than
+            // showing them the spawn island and then teleporting them off it onto
+            // ground that may not exist yet.
+            if (WorldsAdriftRebornGameServer.HoldLoadBarrierForRestore(player, entityId))
+            {
+                return;
+            }
+
+            WorldsAdriftRebornGameServer.ReleaseLoadBarrier(player, entityId, "client signalled ready (190001)");
         }
     }
 }

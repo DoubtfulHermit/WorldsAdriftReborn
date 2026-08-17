@@ -78,6 +78,17 @@ namespace WorldsAdriftRebornGameServer.Game
             public long EntityId;
             public TeleportDestination Destination;
             public TimeSpan Deadline;
+
+            /// <summary>The label this teleport will carry in the log when it fires.</summary>
+            public string Reason = OperatorReason;
+
+            /// <summary>
+            /// Whether this is a returning player's logout restore rather than an
+            /// operator teleport. A restore may be holding a loading screen open,
+            /// and it fails toward the spawn point rather than toward nothing, so
+            /// both of its endings say something different from an operator's.
+            /// </summary>
+            public bool IsRestore;
         }
 
         private readonly Dictionary<long, PendingTerrainTeleport> _pendingTerrain = new();
@@ -259,8 +270,7 @@ namespace WorldsAdriftRebornGameServer.Game
                         PeerId = peerId,
                         EntityId = entityId,
                         Destination = command.Destination,
-                        Deadline = _terrainWaitClock.Elapsed + terrain.AssetAckTimeout
-                            + TimeSpan.FromSeconds(5),
+                        Deadline = TerrainWaitDeadline(terrain),
                     };
                     sent++;
                     Console.WriteLine("[teleport] deferring entity " + entityId + " -> "
@@ -297,8 +307,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (peer == null || island == null || terrain == null || !terrain.Enabled)
                 {
                     _pendingTerrain.Remove(entityId);
-                    Console.WriteLine("[warning] teleport: cancelled deferred request for entity "
+                    Console.WriteLine("[warning] " + pending.Reason
+                        + ": cancelled deferred request for entity "
                         + entityId + "; peer or terrain authority vanished.");
+                    ReleaseSpawnHoldFor(pending, "the destination terrain authority went away");
                     continue;
                 }
 
@@ -313,15 +325,28 @@ namespace WorldsAdriftRebornGameServer.Game
                 if (decision == TerrainTeleportDecision.Send)
                 {
                     _pendingTerrain.Remove(entityId);
-                    Send(pending.PeerId, entityId, pending.Destination);
+                    Send(pending.PeerId, entityId, pending.Destination, pending.Reason);
+                    // Only NOW is the loading screen allowed to lift: the client has
+                    // the terrain AND has been told where to stand on it, in that
+                    // order, which is the whole point of holding it.
+                    ReleaseSpawnHoldFor(pending, "destination terrain is ready and the restore has been sent");
                     continue;
                 }
                 if (decision == TerrainTeleportDecision.Refuse)
                 {
                     _pendingTerrain.Remove(entityId);
-                    Console.WriteLine("[warning] teleport: safely refused entity " + entityId
-                        + " -> " + pending.Destination.Name
-                        + "; destination terrain did not become ready within the bounded wait.");
+                    // The bounded ending. A restore that never becomes safe leaves
+                    // the player standing at the spawn point they were seeded at -
+                    // which is where they already are, so there is nothing to send.
+                    SpawnRestoreOutcome refusal = SpawnRestorePolicy.Decide(
+                        PositionRestoreVerdict.Restore,
+                        new IslandLocation(IslandLocationKind.OnKnownTerrain, island, 0.0),
+                        destinationTerrainRegistered: true,
+                        terrainDecision: TerrainTeleportDecision.Refuse,
+                        waitExpired: expired);
+                    Console.WriteLine("[warning] " + pending.Reason + ": safely refused entity "
+                        + entityId + " -> " + pending.Destination.Name + "; " + refusal.Reason + ".");
+                    ReleaseSpawnHoldFor(pending, "the destination terrain never became ready");
                 }
             }
         }
@@ -371,36 +396,180 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>
         /// Puts a returning player back where they logged out, by the same 190607
-        /// path as the operator trigger and the fall rescue.
+        /// path as the operator trigger and the fall rescue - but NEVER before the
+        /// ground they are being put on exists on their client.
         ///
         /// This is a teleport rather than a different spawn seed on purpose: see
-        /// PlayerPositionService. It inherits the whole existing arrival contract
-        /// for free - the request counter, the 1073 ack, the loading-screen gate
-        /// and the terrain-readiness deferral - which is the entire reason the
-        /// feature is small. The DECISION to move is not taken here; it is
-        /// PlayerPositionPolicy, which is pure and tested. This is only the wire.
+        /// PlayerPositionService, and SpawnPolicy on why re-seeding 190602 on a
+        /// live entity is the out-of-world bug this must not become.
+        ///
+        /// WHAT WENT WRONG BEFORE. The first version of this method called
+        /// <see cref="Send"/> directly and built its destination with no
+        /// <c>RequiredWorldEntityKey</c>. Its own comment claimed it inherited the
+        /// terrain-readiness deferral; it did not - that deferral lives in
+        /// <see cref="Execute"/>, which this path never entered. So a character
+        /// whose logout position was on OPTIONAL terrain - checked out only by
+        /// proximity, and Shattered Mausoleum is 4425 m from spawn, past a 4000 m
+        /// load radius - was moved onto an island their client had never been sent,
+        /// and fell through it. The naming gap had a second cost: with no island
+        /// named, the 1073 landing could not pin ConfirmedGround, so even a lucky
+        /// arrival could have its terrain unloaded out from under it later.
+        ///
+        /// It now asks <see cref="IslandLocationPolicy"/> which island the stored
+        /// point belongs to, requests that terrain for this peer, and lets
+        /// <see cref="SpawnRestorePolicy"/> decide between placing, holding, and
+        /// staying at the spawn point. Every decision is pure and tested; this is
+        /// only the wire.
         /// </summary>
-        public bool RestoreLoggedOutPosition(long entityId, FixedPointPosition where)
+        public bool RestoreLoggedOutPosition(
+            long entityId,
+            FixedPointPosition? stored,
+            PositionRestoreVerdict verdict)
         {
-            TeleportDestination home = new TeleportDestination(
-                LogoutRestoreReason,
-                where,
-                landsOnLoadedGround: false,
-                description: "where this character logged out");
-
-            foreach ((ulong peerId, long candidate) in WorldsAdriftRebornGameServer.Players.All())
+            ulong? peerId = null;
+            foreach ((ulong candidatePeer, long candidate) in WorldsAdriftRebornGameServer.Players.All())
             {
                 if (candidate == entityId)
                 {
-                    return Send(peerId, entityId, home, LogoutRestoreReason);
+                    peerId = candidatePeer;
+                    break;
                 }
             }
 
-            // They disconnected between publishing 1088 and this call. Nothing to
-            // do and nothing wrong; ForgetPeer drops the rest.
+            if (!peerId.HasValue)
+            {
+                // They disconnected between publishing 1088 and this call. Nothing
+                // to do and nothing wrong; ForgetPeer drops the rest.
+                Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                    + " is no longer a connected player, nothing to restore.");
+                return false;
+            }
+
+            ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId.Value));
+
+            // Which island's terrain bundle is this point standing on? Answered
+            // against the WHOLE known world, not this boot's topology, so a stored
+            // position on an island we are not hosting is recognised and refused
+            // rather than mistaken for open sky and restored into nothing.
+            IslandLocation location = stored.HasValue && verdict == PositionRestoreVerdict.Restore
+                ? IslandLocationPolicy.Locate(stored.Value, IslandLocationPolicy.KnownWorld())
+                : IslandLocation.OpenSky;
+
+            IslandDefinition? registered = location.Island == null
+                ? null
+                : WorldsAdriftRebornGameServer.IslandTopology.ById(location.Island.Id);
+            bool terrainRegistered = registered != null
+                && WorldsAdriftRebornGameServer.WorldEntities.ByKey(registered.WorldEntityKey) != null;
+
+            IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
+            bool managed = terrain != null && terrain.Enabled && terrainRegistered && peer != null;
+
+            // Asking is also DOING: RequestDestination pins the island as this
+            // peer's forced destination, which is what makes the terrain interest
+            // service check it out regardless of the load radius. Without this call
+            // an out-of-radius island is never even requested.
+            TerrainDestinationStatus readiness = managed
+                ? terrain!.RequestDestination(peer!, registered!.Id)
+                : TerrainDestinationStatus.Ready;
+
+            TerrainTeleportDecision terrainDecision = IslandTerrainTeleportPolicy.Decide(
+                terrainManaged: managed,
+                destinationKnown: readiness != TerrainDestinationStatus.Unknown,
+                terrainReady: readiness == TerrainDestinationStatus.Ready,
+                waitExpired: false);
+
+            SpawnRestoreOutcome outcome = SpawnRestorePolicy.Decide(
+                verdict, location, terrainRegistered, terrainDecision, waitExpired: false);
+
+            if (outcome.Decision == SpawnRestoreDecision.UseSpawnPoint)
+            {
+                Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                    + " stays at " + TeleportPolicy.SafeDestination.Name + "; " + outcome.Reason + ".");
+                return false;
+            }
+
+            TeleportDestination home = new TeleportDestination(
+                LogoutRestoreReason,
+                stored!.Value,
+                // Still false, and honestly so: the server has no terrain query, so
+                // an arbitrary stored coordinate is never an EVIDENCED surface point
+                // however confident we are about which island it is on. What
+                // protects this arrival is the terrain gate below, not this flag.
+                landsOnLoadedGround: false,
+                description: "where this character logged out (" + location.Name + ")",
+                // The island name is the load-bearing part: it is what lets the
+                // 1073 landing call ConfirmTeleportLanding and pin this terrain as
+                // the player's confirmed ground, so the streamer cannot unload it.
+                requiredWorldEntityKey: registered?.WorldEntityKey);
+
+            if (outcome.Decision == SpawnRestoreDecision.Place)
+            {
+                Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                    + " -> " + location.Name + "; " + outcome.Reason + ".");
+                return Send(peerId.Value, entityId, home, LogoutRestoreReason);
+            }
+
+            _pendingTerrain[entityId] = new PendingTerrainTeleport
+            {
+                PeerId = peerId.Value,
+                EntityId = entityId,
+                Destination = home,
+                Deadline = TerrainWaitDeadline(terrain),
+                Reason = LogoutRestoreReason,
+                IsRestore = true,
+            };
             Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
-                + " is no longer a connected player, nothing to restore.");
-            return false;
+                + " held at " + TeleportPolicy.SafeDestination.Name + "; " + outcome.Reason
+                + " (up to " + TerrainWaitBudget(terrain).TotalSeconds.ToString("0.#")
+                + " s, then it stays at " + TeleportPolicy.SafeDestination.Name + ").");
+            return true;
+        }
+
+        /// <summary>
+        /// Whether this entity's restore is still waiting for its destination
+        /// terrain. The loading barrier asks: a client that signals ready while
+        /// this is true is held on its loading screen rather than shown a world it
+        /// is about to be moved out of - or worse, dropped into a hole.
+        /// </summary>
+        public bool HasPendingRestore(long entityId) =>
+            _pendingTerrain.TryGetValue(entityId, out PendingTerrainTeleport? pending)
+            && pending.IsRestore;
+
+        /// <summary>
+        /// How much of the bounded terrain wait this entity's pending restore has
+        /// left, or null if it has none. Returned as a DURATION rather than a
+        /// deadline because this service's wait clock and the server clock have
+        /// different epochs; the caller adds it to its own.
+        /// </summary>
+        public TimeSpan? RestoreWaitRemaining(long entityId)
+        {
+            if (!_pendingTerrain.TryGetValue(entityId, out PendingTerrainTeleport? pending)
+                || !pending.IsRestore)
+            {
+                return null;
+            }
+
+            TimeSpan remaining = pending.Deadline - _terrainWaitClock.Elapsed;
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.Zero;
+        }
+
+        /// <summary>The bounded budget one deferred teleport gets to wait for its terrain.</summary>
+        private static TimeSpan TerrainWaitBudget(IslandTerrainInterestService? terrain) =>
+            (terrain?.AssetAckTimeout ?? TimeSpan.FromSeconds(30)) + TimeSpan.FromSeconds(5);
+
+        private TimeSpan TerrainWaitDeadline(IslandTerrainInterestService? terrain) =>
+            _terrainWaitClock.Elapsed + TerrainWaitBudget(terrain);
+
+        /// <summary>
+        /// Lets go of any loading screen this restore was holding open. Called on
+        /// EVERY ending of a pending restore - sent, refused, or abandoned - so
+        /// there is no path on which a held client is forgotten. A no-op for an
+        /// operator teleport and for a peer that was never held.
+        /// </summary>
+        private static void ReleaseSpawnHoldFor(PendingTerrainTeleport pending, string reason)
+        {
+            if (!pending.IsRestore) return;
+            WorldsAdriftRebornGameServer.ReleaseSpawnHold(pending.PeerId, pending.EntityId, reason);
         }
 
         /// <summary>
@@ -417,9 +586,15 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             // A client that has not finished first-time setup has not been given
-            // 190607 yet, so an update would land on a component it does not
-            // have. It is also still inside its loading screen, where a teleport
-            // would be invisible and then overwritten by its own spawn.
+            // 190607 yet, so an update would land on a component it does not have.
+            //
+            // This is NOT a loading-screen gate, and an older comment here that
+            // said it was is wrong: first-time setup ADDS the peer to
+            // clientSetupState and only then ARMS the loading barrier, so every
+            // teleport that passes this check may well reach a client still behind
+            // its loading screen. That turns out to be exactly where a logout
+            // restore wants to land - see RestoreLoggedOutPosition - but nothing
+            // here may assume either way.
             if (!PeerManager.Instance.clientSetupState.Contains(peer))
             {
                 Console.WriteLine("[info] teleport: entity " + entityId + " is still loading, skipping.");

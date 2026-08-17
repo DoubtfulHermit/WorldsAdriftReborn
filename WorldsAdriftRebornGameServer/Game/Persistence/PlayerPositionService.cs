@@ -73,24 +73,35 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             PositionRestoreVerdict verdict = PlayerPositionPolicy.Decide(
                 stored, SpawnPolicy.PlayerSpawnPosition);
 
-            if (verdict != PositionRestoreVerdict.Restore)
+            // The identity half of the story only. The VERDICT is printed by the
+            // restore path itself, which is the one that knows whether the ground
+            // was there, so the two lines never say the same thing twice.
+            Console.WriteLine("[info] logout position for character:" + uid.Value.ToString("D")
+                + " (entity " + entityId + "): "
+                + (stored.HasValue
+                    ? "stored at (" + stored.Value.MetresX.ToString("0.#") + ", "
+                        + stored.Value.MetresY.ToString("0.#") + ", "
+                        + stored.Value.MetresZ.ToString("0.#") + ") m."
+                    : "nothing stored."));
+
+            if (verdict == PositionRestoreVerdict.Restore)
             {
-                Console.WriteLine("[info] logout position for character:" + uid.Value.ToString("D")
-                    + " (entity " + entityId + "): " + PlayerPositionPolicy.Explain(verdict) + ".");
-                return;
+                // Do not re-save what we just read: LastSaved is seeded with the
+                // restored value so an immediate periodic tick is a no-op. Seeded
+                // even when the restore is later refused for terrain reasons, and
+                // that is correct: the player is then at the spawn point, which is
+                // far from the stored value, so the next periodic tick writes their
+                // real location instead of quietly keeping the old one.
+                LastSaved[entityId] = stored!.Value;
             }
 
-            // Do not re-save what we just read: LastSaved is seeded with the
-            // restored value so an immediate periodic tick is a no-op.
-            LastSaved[entityId] = stored!.Value;
-
-            Console.WriteLine("[info] logout position for character:" + uid.Value.ToString("D")
-                + " (entity " + entityId + "): " + PlayerPositionPolicy.Explain(verdict)
-                + " (" + stored.Value.MetresX.ToString("0.#") + ", "
-                + stored.Value.MetresY.ToString("0.#") + ", "
-                + stored.Value.MetresZ.ToString("0.#") + ") m.");
-
-            WorldsAdriftRebornGameServer.Teleports.RestoreLoggedOutPosition(entityId, stored.Value);
+            // Handed on WHATEVER the verdict, including "nothing stored". The
+            // second half of the decision - is the ground at that point actually on
+            // this player's client yet - needs the terrain ledger and the teleport
+            // machinery, so it lives there; SpawnRestorePolicy composes both halves
+            // and this service does not second-guess it.
+            WorldsAdriftRebornGameServer.Teleports.RestoreLoggedOutPosition(
+                entityId, stored, verdict);
         }
 
         /// <summary>
