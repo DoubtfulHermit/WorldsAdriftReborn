@@ -2371,13 +2371,40 @@ namespace WorldsAdriftRebornGameServer
             Multiplayer.Islands.FirstRegionTerrainCountPolicy.CountFrom(
                 Environment.GetEnvironmentVariable("WAREBORN_FIRST_REGION_TERRAIN_COUNT"));
 
+        /// <summary>
+        /// Opt-in complete release-world rollout. "all" enables all 254 ordinary
+        /// islands; otherwise this is an exact comma-separated district list.
+        /// </summary>
+        internal static readonly string? ReleaseWorldDistricts =
+            Environment.GetEnvironmentVariable(
+                Multiplayer.Islands.ReleaseWorldRolloutPolicy.EnvVar);
+
+        internal static readonly bool ReleaseWorldRequested =
+            Multiplayer.Islands.ReleaseWorldRolloutPolicy.Select(ReleaseWorldDistricts).Count > 0;
+
+        // Fail closed. A release-world catalogue without BOTH continuous gates
+        // would put every terrain/resource into each immutable connect plan.
+        internal static readonly bool ReleaseWorldEnabled = ReleaseWorldRequested
+            && Multiplayer.InterestPolicy.IsEnabled(
+                Multiplayer.InterestPolicy.RadiusMetresFrom(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.InterestPolicy.RadiusEnvVar)))
+            && Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledEnvVar));
+
         internal static readonly Multiplayer.Islands.IslandRegistry IslandTopology =
-            FirstRegionTerrainCount > 0
+            ReleaseWorldEnabled
+                ? Multiplayer.Islands.IslandRegistry.CreateReleaseWorld(ReleaseWorldDistricts)
+                : FirstRegionTerrainCount > 0
                 ? Multiplayer.Islands.IslandRegistry.CreateWithFirstRegionTerrain(FirstRegionTerrainCount)
                 : Multiplayer.Islands.IslandRegistry.CreateDefault();
 
         internal static readonly Multiplayer.Regions.RegionRegistry RegionTopology =
-            FirstRegionTerrainCount > 0
+            ReleaseWorldEnabled
+                ? Multiplayer.Regions.RegionRegistry.CreateReleaseWorld(
+                    IslandTopology, ReleaseWorldDistricts)
+                : FirstRegionTerrainCount > 0
                 ? Multiplayer.Regions.RegionRegistry.CreateWithFirstRegionTerrain(
                     IslandTopology, FirstRegionTerrainCount)
                 : Multiplayer.Regions.RegionRegistry.CreateDefault(IslandTopology);
@@ -2412,7 +2439,8 @@ namespace WorldsAdriftRebornGameServer
                 VaryTreeSpecies,
                 SpawnStaticShip,
                 SpawnProductionSecondIsland,
-                FirstRegionTerrainCount);
+                FirstRegionTerrainCount,
+                ReleaseWorldEnabled ? ReleaseWorldDistricts : null);
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(
@@ -3855,7 +3883,7 @@ namespace WorldsAdriftRebornGameServer
             Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
 
-            if (FirstRegionTerrainCount > 0)
+            if (FirstRegionTerrainCount > 0 && !ReleaseWorldEnabled)
             {
                 Console.WriteLine("[first-region] TERRAIN TEST enabled: count="
                     + FirstRegionTerrainCount + ", region="
@@ -3865,6 +3893,20 @@ namespace WorldsAdriftRebornGameServer
                     + ". Terrain only; no candidate resource profiles. Continuous terrain interest is "
                     + (TerrainInterestFeatureEnabled ? "ON" : "OFF")
                     + ". Not a production-acceptance claim.");
+            }
+            if (ReleaseWorldEnabled)
+            {
+                Console.WriteLine("[release-world] LOCAL TEST enabled: selectors='"
+                    + ReleaseWorldDistricts + "', terrains=" + IslandTopology.All.Count
+                    + ", regions=" + RegionTopology.All.Count + ". District rollout,"
+                    + " continuous terrain/resource interest and compact shells only;"
+                    + " not a visual-acceptance claim.");
+            }
+            else if (ReleaseWorldRequested)
+            {
+                Console.WriteLine("[warning] release-world rollout requested but safely disabled:"
+                    + " set a positive WAREBORN_INTEREST_RADIUS_M and"
+                    + " WAREBORN_TERRAIN_INTEREST_ENABLED=1 together.");
             }
 
             // ELASTIC-RUNTIME FOUNDATION. Build the canonical ownership directory

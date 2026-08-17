@@ -111,6 +111,8 @@ namespace WorldsAdriftRebornGameServer.Game
         private static readonly TimeSpan ShellSendInterval = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan ShellRetryInterval = TimeSpan.FromSeconds(20);
         private const int MaxQueuedPerPeer = 32;
+        private const int MaxShellQueuedPerPeer = 32;
+        private const double ShellVisibilityRadiusMetres = 9000.0;
         private const string AssetType = "notNeeded?";
 
         private readonly IClock _clock;
@@ -232,8 +234,6 @@ namespace WorldsAdriftRebornGameServer.Game
             state.NextReconcile = state.ContinuousAfter;
             if (DistantShellsEnabled)
             {
-                foreach (IslandCandidacy candidacy in _candidacy)
-                    if (candidacy.Managed) state.ShellPending.Enqueue(candidacy);
                 state.NextShellSend = state.ContinuousAfter;
             }
         }
@@ -396,11 +396,43 @@ namespace WorldsAdriftRebornGameServer.Game
         {
             if (!DistantShellsEnabled || now < state.NextShellSend) return;
 
+            int pendingAtStart = state.ShellPending.Count;
+            for (int i = 0; i < pendingAtStart; i++)
+            {
+                IslandCandidacy pending = state.ShellPending.Dequeue();
+                if (pending.Envelope != null
+                    && pending.Envelope.Value.DistanceSquaredTo(state.Position, pending.Island)
+                        <= ShellVisibilityRadiusMetres * ShellVisibilityRadiusMetres)
+                    state.ShellPending.Enqueue(pending);
+            }
+
+            // Admit only shells near the viewer. V2 shells are tiny procedural
+            // silhouettes, but sending all 254 at connect would still be pointless
+            // work and would obscure readiness telemetry.
+            HashSet<IslandId> queued = new(state.ShellPending.Select(item => item.Island.Id));
+            foreach (var nearby in _candidacy
+                         .Where(item => item.Managed && item.Envelope != null)
+                         .Select(item => (Item: item, Distance: item.Envelope!.Value
+                             .DistanceSquaredTo(state.Position, item.Island)))
+                         .Where(item => item.Distance <= ShellVisibilityRadiusMetres
+                             * ShellVisibilityRadiusMetres)
+                         .OrderBy(item => item.Distance))
+            {
+                if (state.ShellPending.Count >= MaxShellQueuedPerPeer) break;
+                if (!state.ShellReady.Contains(nearby.Item.Island.Id)
+                    && !state.ShellRequestedAt.ContainsKey(nearby.Item.Island.Id)
+                    && queued.Add(nearby.Item.Island.Id))
+                    state.ShellPending.Enqueue(nearby.Item);
+            }
+
             // Requeue timed-out requests. Client construction is idempotent by
             // terrain entity id, so a lost ready marker cannot create duplicates.
             foreach (IslandCandidacy candidacy in _candidacy)
             {
-                if (!candidacy.Managed || state.ShellReady.Contains(candidacy.Island.Id)) continue;
+                if (!candidacy.Managed || candidacy.Envelope == null
+                    || candidacy.Envelope.Value.DistanceSquaredTo(state.Position, candidacy.Island)
+                        > ShellVisibilityRadiusMetres * ShellVisibilityRadiusMetres
+                    || state.ShellReady.Contains(candidacy.Island.Id)) continue;
                 TimeSpan requestedAt;
                 if (state.ShellRequestedAt.TryGetValue(candidacy.Island.Id, out requestedAt)
                     && now - requestedAt >= ShellRetryInterval
@@ -411,8 +443,14 @@ namespace WorldsAdriftRebornGameServer.Game
             if (state.ShellPending.Count == 0) return;
             IslandCandidacy next = state.ShellPending.Dequeue();
             FixedPointPosition origin = next.Island.GlobalOrigin;
-            string marker = IslandDistantShellProtocol.Request(next.Island.Id.Value,
-                next.EntityId, origin.X, origin.Y, origin.Z);
+            ReleaseIslandRecord? release = ReleaseWorldCatalog.ByIsland(next.Island.Id);
+            string marker = release != null
+                ? IslandDistantShellProtocol.ProceduralRequest(next.Island.Id.Value,
+                    next.EntityId, origin.X, origin.Y, origin.Z,
+                    release.Envelope.MinY, release.Envelope.MaxY,
+                    release.Shell.ToArray())
+                : IslandDistantShellProtocol.Request(next.Island.Id.Value,
+                    next.EntityId, origin.X, origin.Y, origin.Z);
             if (SendOPHelper.SendAssetLoadRequestOP(peer, marker,
                     next.Island.TerrainAssetName, next.Island.TerrainAssetContext))
             {

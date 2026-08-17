@@ -53,6 +53,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.False(IslandDistantShellProtocol.TryParseRequest(marker, out _));
         }
 
+        [Fact]
+        public void ProceduralRequestRoundTripsCompactOutlineWithoutBundleData()
+        {
+            IslandShellPoint[] outline =
+            {
+                new(-10.5, -4), new(12, -3.5), new(9.5, 8), new(-8, 7),
+            };
+            string marker = IslandDistantShellProtocol.ProceduralRequest(
+                "release-123", 900, 1, 2, 3, -20, 40, outline);
+
+            Assert.True(IslandDistantShellProtocol.TryParseProceduralRequest(marker, out var parsed));
+            Assert.Equal("release-123", parsed.IslandId);
+            Assert.Equal(-20, parsed.MinY);
+            Assert.Equal(40, parsed.MaxY);
+            Assert.Equal(4, parsed.Outline.Length);
+            Assert.Equal(-10.5, parsed.Outline[0].X);
+            Assert.False(IslandDistantShellProtocol.TryParseRequest(marker, out _));
+        }
+
         [Theory]
         [InlineData("wareborn.island-shell.v1")]
         [InlineData("wareborn.island-shell.v1||254|1|2|3")]

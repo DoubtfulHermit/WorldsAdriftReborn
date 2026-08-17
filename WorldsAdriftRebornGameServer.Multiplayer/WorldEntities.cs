@@ -943,11 +943,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// biome profile is birch; this remains available for a future island whose
         /// recovered per-island data actually names several woods.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
             int terrainCount = FirstRegionTerrainCountPolicy.Clamp(firstRegionTerrainCount);
-            IslandRegistry islands = terrainCount > 0
+            IReadOnlyList<ReleaseIslandRecord> releaseIslands =
+                ReleaseWorldRolloutPolicy.Select(releaseWorldDistricts);
+            IslandRegistry islands = releaseIslands.Count > 0
+                ? IslandRegistry.CreateReleaseWorld(releaseWorldDistricts)
+                : terrainCount > 0
                 ? IslandRegistry.CreateWithFirstRegionTerrain(terrainCount)
                 : IslandRegistry.CreateDefault();
 
@@ -957,8 +961,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // resource flag. It adds only a bounded, evidenced prefix of release-map
             // terrain; candidate resources remain disabled until each island profile
             // has its own acceptance pass.
-            if (includeProductionSecondIsland)
+            if (includeProductionSecondIsland
+                && registry.ByKey(IslandCatalog.TradesChallenge.WorldEntityKey) == null)
                 registry.Register(Island(IslandCatalog.TradesChallenge));
+
+            foreach (ReleaseIslandRecord record in releaseIslands)
+                if (registry.ByKey(record.Definition.WorldEntityKey) == null)
+                    registry.Register(Island(record.Definition));
 
             int candidateIndex = 0;
             foreach (IslandDefinition candidate in IslandCatalog.FirstRegionTerrain.Skip(1))
@@ -1037,7 +1046,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             // The biome lookup table is world-wide and required by deposits on
             // either island. Register it exactly once, before every deposit.
-            if (includeDeposit || includeProductionSecondIsland)
+            if (includeDeposit || includeProductionSecondIsland
+                || releaseIslands.Any(record => record.Deposits.Count > 0))
             {
                 registry.Register(GlobalEntity());
             }
@@ -1081,7 +1091,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
             }
 
-            if (includeProductionSecondIsland)
+            if (includeProductionSecondIsland && releaseIslands.Count == 0)
             {
                 // The Trades Challenge's recovered community row is unusually exact:
                 // Aluminium quality 4, five deposits (98 cells * retail 0.05 density),
@@ -1106,6 +1116,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                         Resources.TradesChallengeResources.DatabankKeyFor(i),
                         Resources.TradesChallengeResources.DatabankPositionAt(i)));
                 }
+            }
+
+            // Complete release-world population. Counts and metal tables come from
+            // the joined survey; positions come from each island's extracted surface.
+            // No tree rows are fabricated here: tree entity placement still needs a
+            // species-specific acceptance pass and is intentionally a later phase.
+            foreach (ReleaseIslandRecord island in releaseIslands)
+            {
+                foreach (MetalNode deposit in island.Deposits)
+                    registry.Register(DepositEntity(deposit));
+                for (int i = 0; i < island.Databanks.Count; i++)
+                    registry.Register(DatabankEntity(
+                        Resources.ReleaseWorldResources.DatabankKeyFor(island, i),
+                        island.Databanks[i]));
             }
 
             if (includeFuelPods)

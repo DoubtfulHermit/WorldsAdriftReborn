@@ -75,7 +75,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             };
 
         public static IslandTerrainEnvelope? ByIsland(IslandId islandId) =>
-            Known.TryGetValue(islandId, out IslandTerrainEnvelope envelope) ? envelope : null;
+            Known.TryGetValue(islandId, out IslandTerrainEnvelope envelope) ? envelope
+                : ReleaseWorldCatalog.ByIsland(islandId)?.Envelope;
 
         public static IslandTerrainEnvelope Require(IslandId islandId) =>
             ByIsland(islandId) ?? throw new KeyNotFoundException(

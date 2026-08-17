@@ -136,6 +136,7 @@ Important game-server variables include:
 | `WAREBORN_TERRAIN_UNLOAD_RADIUS_M` | optional-terrain unload hysteresis; default `1600` m |
 | `WAREBORN_TERRAIN_ASSET_ACK_TIMEOUT_MS` | exact cold-bundle acknowledgement timeout; default `30000` ms |
 | `WAREBORN_DISTANT_ISLAND_SHELLS_ENABLED` | opt-in client-only retail low-LOD island silhouettes; requires the matching managed client patch |
+| `WAREBORN_RELEASE_WORLD_DISTRICTS` | local-only rollout: `all` or exact MapFile cells such as `B3,C6`; ignored unless resource and terrain interest are both enabled |
 | `WAREBORN_DEPOSIT_VARIANT` | optional global diagnostic override for the normal stable 01/02/03 deposit-shape cycle |
 | `WAREBORN_WORLD_ADMIN_FILE` | authenticated admin command bridge; default `/tmp/wareborn-world-admin` |
 | `WAREBORN_WORLD_ADMIN_RESULT_FILE` | atomic game-completion receipt consumed by `/admin`; default `/tmp/wareborn-world-admin.result` |

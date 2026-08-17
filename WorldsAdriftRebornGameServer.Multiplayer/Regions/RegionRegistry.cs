@@ -105,5 +105,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Regions
                 registry.Register(RegionCatalog.FirstTierOne(selected.Select(island => island.Id)));
             return registry;
         }
+
+        /// <summary>Creates one ownership region per selected release MapFile cell.</summary>
+        public static RegionRegistry CreateReleaseWorld(IslandRegistry islands, string? districts)
+        {
+            if (islands == null) throw new ArgumentNullException(nameof(islands));
+            IReadOnlyList<ReleaseIslandRecord> selected =
+                ReleaseWorldRolloutPolicy.Select(districts);
+            if (selected.Count == 0) return CreateDefault(islands);
+            RegionRegistry registry = new(islands);
+            registry.Register(RegionCatalog.Haven);
+            foreach (IGrouping<string, ReleaseIslandRecord> cell in selected.GroupBy(
+                         record => record.CellId, StringComparer.OrdinalIgnoreCase))
+            {
+                registry.Register(new RegionDefinition(
+                    new RegionId("release-" + cell.Key.ToLowerInvariant() + "-region"),
+                    "Release " + cell.Key + " Region",
+                    cell.Select(record => record.Definition.Id)));
+            }
+            return registry;
+        }
     }
 }

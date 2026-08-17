@@ -26,6 +26,7 @@
          keeping the assembly dependency-free. Reviewed DATA, diffable in git. -->
     <EmbeddedResource Include="Resources\haven-surface-1431299145.txt" />
     <EmbeddedResource Include="Resources\trades-challenge-surface-1206286558.txt" />
+    <EmbeddedResource Include="Islands\release-runtime-catalog.json" />
   </ItemGroup>
 
 </Project>

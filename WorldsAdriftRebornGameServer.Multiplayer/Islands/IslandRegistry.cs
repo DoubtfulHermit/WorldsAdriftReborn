@@ -74,5 +74,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 registry.Register(IslandCatalog.FirstRegionTerrain[i + 1]);
             return registry;
         }
+
+        /// <summary>Builds Haven plus the exact district-selected release terrain.</summary>
+        public static IslandRegistry CreateReleaseWorld(string? districts)
+        {
+            IReadOnlyList<ReleaseIslandRecord> selected =
+                ReleaseWorldRolloutPolicy.Select(districts);
+            if (selected.Count == 0)
+                return CreateDefault();
+            IslandRegistry registry = new();
+            registry.Register(IslandCatalog.Haven);
+            foreach (ReleaseIslandRecord record in selected)
+                registry.Register(record.Definition);
+            return registry;
+        }
     }
 }

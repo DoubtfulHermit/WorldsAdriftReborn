@@ -644,6 +644,35 @@ Production verification after the `069a372` restart: stats schema 5 reported
 setting is a runtime systemd test override and therefore intentionally disappears
 on VPS reboot unless promoted after visual acceptance.
 
+### Complete release-world rollout (local, off by default)
+
+Steps 1–5 of the release-world expansion are implemented locally behind
+`WAREBORN_RELEASE_WORLD_DISTRICTS`. `all` selects all 254 ordinary MapFile
+islands; an exact comma-separated cell list such as `B3,C6` enables a staged
+district rollout. Startup refuses the rollout unless both
+`WAREBORN_INTEREST_RADIUS_M` and `WAREBORN_TERRAIN_INTEREST_ENABLED=1` are also
+valid, preventing an accidental all-world connect plan. Haven remains its one
+active #5 placement; the other eleven preserved Haven positions remain map
+evidence only.
+
+The embedded generated catalogue contains 254 unique definitions, all 254
+collision AABBs, one 16-point compact shell outline per island, the exact survey
+profiles, 354 surface-derived PvE deposits, and all 1,233 surveyed databanks.
+The full registry is 255 terrains grouped into the exact 20 MapFile cells plus
+Haven. The two null Tier-4 cells retain stable `unassigned-t4-*` internal ids;
+no E1/E2 labels are invented. Holy Ruins deliberately retains both conflicting
+facts: Tier 3 in the final community survey and location in Bossa's Tier-2 A4
+cell. The source generator is
+`tools/world-import/generate-release-runtime-catalog.py`.
+
+Distant visuals now use a v2 procedural shell: the server sends the compact
+outline only for islands within 9 km, and the client builds a non-physical mesh
+without loading the terrain bundle. At the 1.2 km physical radius the existing
+correlated asset checkout replaces that shell with full terrain, collision and
+nearby resources. The full rollout is **not deployed and not visually accepted**.
+Trees, revival chambers, turrets and weather-wall gameplay are not spawned by
+this milestone; their survey facts are retained for later systems.
+
 ### Terrain checkout observability (integrated by `a4e135c`, deployed)
 
 Stats schema **5** adds a `terrain` section to `/tmp/wareborn-stats.json` so the

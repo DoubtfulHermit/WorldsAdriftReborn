@@ -94,14 +94,17 @@ of every peer's checkout ledger, and replication evaluates each recipient after
 the authoritative step. Ship visibility uses separate island-scale radii rather
 than the resource radii.
 Optional island visibility now also has two deliberately separate lifecycles.
-After the normal connect plan completes, the server can prefetch each managed
-island bundle and the patched client constructs a non-colliding shell from its
-last retail terrain LOD. The shell remains hidden until
-`GenerateDynamicMaterial` finishes, so an uninitialised magenta material is
-never presented. It hides while the authoritative terrain entity is checked
-out and returns after that entity is removed. Collision, resources, databanks,
-static prefabs and island authority remain exclusively on the existing
-1200/1600 m physical checkout lifecycle; a shell is visual evidence only.
+The original bounded rollout can prefetch a managed island bundle and clone its
+last retail terrain LOD. The complete local release-world extension instead
+projects all 254 ordinary MapFile islands into stable identities, exact origins,
+extracted envelopes, cell ownership and 16-point radial outlines. Within 9 km
+the patched client builds that compact outline into a non-colliding v2 shell
+without loading the terrain bundle, so registering 254 islands cannot create a
+254-bundle connect burst. It hides while the authoritative terrain entity is
+checked out and returns after that entity is removed. Collision, resources,
+databanks, static prefabs and island authority remain exclusively on the existing
+1200/1600 m physical checkout lifecycle; a shell is visual evidence only. The
+district-gated extension is test-covered but not deployed or visually accepted.
 Crewed/piloted ships remain globally checked out as a compatibility bridge while
 remote player entities are still globally relayed outside domain lifecycle.
 The local runtime now provides one bounded coherence bridge for that legacy

@@ -30,6 +30,76 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
         private static readonly Dictionary<long, Shell> ByTerrainEntity =
             new Dictionary<long, Shell>();
 
+        public static void PrepareProcedural(AssetLoadRequestOp request,
+            IslandDistantShellSpec spec)
+        {
+            Shell existing;
+            if (ByTerrainEntity.TryGetValue(spec.EntityId, out existing)
+                && existing.Anchor != null)
+            {
+                existing.Anchor.SendReadyAgain(request.Name, request.Context);
+                return;
+            }
+            try
+            {
+                GameObject root = new GameObject("WAReborn Compact Island Shell - " + spec.IslandId);
+                MeshFilter filter = root.AddComponent<MeshFilter>();
+                MeshRenderer renderer = root.AddComponent<MeshRenderer>();
+                filter.sharedMesh = ProceduralMesh(spec);
+                Shader shader = Shader.Find("Unlit/Color") ?? Shader.Find("Standard");
+                Material material = new Material(shader);
+                material.color = new Color(0.22f, 0.36f, 0.38f, 1f);
+                renderer.sharedMaterial = material;
+                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                renderer.receiveShadows = false;
+                DistantIslandShellAnchor anchor = root.AddComponent<DistantIslandShellAnchor>();
+                bool physicalPresent = Improbable.Unity.Core.SpatialOS.Universe.Get(
+                    new EntityId(spec.EntityId)) != null;
+                var shell = new Shell { Spec = spec, Anchor = anchor, PhysicalPresent = physicalPresent };
+                ByTerrainEntity[spec.EntityId] = shell;
+                anchor.BeginProcedural(spec, request.Name, request.Context,
+                    new Renderer[] { renderer }, delegate { return shell.PhysicalPresent; });
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("[WAReborn] failed compact shell " + spec.IslandId + ": " + e);
+            }
+        }
+
+        private static Mesh ProceduralMesh(IslandDistantShellSpec spec)
+        {
+            int count = spec.Outline.Length;
+            Vector3[] vertices = new Vector3[count * 2 + 2];
+            int bottomCenter = count * 2;
+            int topCenter = bottomCenter + 1;
+            float bottom = (float)spec.MinY;
+            float top = (float)(spec.MinY + (spec.MaxY - spec.MinY) * .45);
+            for (int i = 0; i < count; i++)
+            {
+                vertices[i] = new Vector3((float)spec.Outline[i].X, bottom,
+                    (float)spec.Outline[i].Z);
+                vertices[count + i] = new Vector3((float)spec.Outline[i].X, top,
+                    (float)spec.Outline[i].Z);
+            }
+            vertices[bottomCenter] = new Vector3(0, bottom, 0);
+            vertices[topCenter] = new Vector3(0, top, 0);
+            List<int> triangles = new List<int>(count * 12);
+            for (int i = 0; i < count; i++)
+            {
+                int next = (i + 1) % count;
+                triangles.Add(topCenter); triangles.Add(count + next); triangles.Add(count + i);
+                triangles.Add(i); triangles.Add(next); triangles.Add(count + next);
+                triangles.Add(i); triangles.Add(count + next); triangles.Add(count + i);
+            }
+            Mesh mesh = new Mesh();
+            mesh.name = "WAReborn compact island silhouette";
+            mesh.vertices = vertices;
+            mesh.triangles = triangles.ToArray();
+            mesh.RecalculateNormals();
+            mesh.RecalculateBounds();
+            return mesh;
+        }
+
         public static void TemplatePrepared(object dispatchHandler, AssetLoadRequestOp request)
         {
             IslandDistantShellSpec spec;
@@ -171,6 +241,21 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
             physicalPresent = isPhysicalPresent;
             RemapPosition();
             StartCoroutine(WaitForMaterial());
+        }
+
+        public void BeginProcedural(IslandDistantShellSpec value, string name, string context,
+            Renderer[] renderers, Func<bool> isPhysicalPresent)
+        {
+            spec = value;
+            assetName = name;
+            assetContext = context;
+            visibleRenderers = renderers;
+            physicalPresent = isPhysicalPresent;
+            materialReady = true;
+            RemapPosition();
+            RefreshVisibility();
+            SendReadyAgain(name, context);
+            Debug.Log("[WAReborn] compact distant shell ready for " + spec.IslandId + ".");
         }
 
         private IEnumerator WaitForMaterial()

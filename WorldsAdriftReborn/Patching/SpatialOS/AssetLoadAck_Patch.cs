@@ -3,6 +3,7 @@ using System.Reflection;
 using HarmonyLib;
 using Improbable.Worker;
 using UnityEngine;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftReborn.Patching.SpatialOS
 {
@@ -138,9 +139,19 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
         }
 
         [HarmonyPrefix]
-        public static void OnAssetLoad_Prefix( AssetLoadRequestOp assetLoad )
+        public static bool OnAssetLoad_Prefix( AssetLoadRequestOp assetLoad )
         {
+            IslandDistantShellSpec procedural;
+            if (IslandDistantShellProtocol.TryParseProceduralRequest(
+                    assetLoad.AssetType, out procedural))
+            {
+                // V2 is a complete compact mesh description. Do not hand it to the
+                // retail bundle loader: doing so would defeat release-world scaling.
+                DistantIslandShells.PrepareProcedural(assetLoad, procedural);
+                return false;
+            }
             AssetLoadAck.RecordRequested(assetLoad.Name, assetLoad.AssetType, assetLoad.Context);
+            return true;
         }
     }
 
