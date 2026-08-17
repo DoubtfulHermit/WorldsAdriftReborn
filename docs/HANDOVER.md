@@ -705,6 +705,15 @@ The focused policy covers every fall verdict in both aboard/on-foot states; all
 2,570 Multiplayer tests and the Release server build pass. Do not deploy that
 follow-up until the acceptance player disconnects.
 
+The player then departed Trades toward Haven. Resource checkout drained all 15
+Trades entities to zero before terrain teardown, `remove-ok` succeeded, and the
+island reached `ABSENT` with no pending action, warning, error or legacy
+retention. This completes the one-client ship-proximity add, on-foot resource and
+databank interaction, departure drain and terrain-unload lifecycle. It does not
+accept visual presentation: the approach showed a brief magenta material state
+before the normal island shader appeared, and the island still visibly pops in
+and disappears because there is no persistent distant visual shell yet.
+
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains

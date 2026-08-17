@@ -147,8 +147,18 @@ nearest-island observations could alternate Haven/Trades at the zone boundary.
 The pending follow-up therefore suppresses 190602 interest while the canonical
 aboard tracker is true; it resumes automatically after confirmed disembark. This
 does not change the accepted on-foot path. All 2,570 Multiplayer tests and the
-Release server build pass. Leaving beyond the terrain unload boundary remains
-the final one-client proximity gate.
+Release server build pass.
+
+Departure toward Haven completed the remaining gate. All 15 Trades resources
+drained before terrain removal, `remove-ok` succeeded, and final state was
+`ABSENT` with no pending action, warning, error or legacy retention. The complete
+one-client proximity lifecycle is accepted. Visual presentation is not: approach
+briefly showed magenta geometry before its normal material initialized, and the
+whole island still pops in/out because the current service removes its distant
+visual representation together with collision terrain. The retail
+`IslandVisualiser` LOD/impostor path should become a separate zone-visible shell,
+with full physical terrain retaining the existing 1200/1600 m hysteresis and
+resources retaining their 120 m interest.
 
 ## Wall correction
 
