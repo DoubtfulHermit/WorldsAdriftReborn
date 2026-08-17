@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Materials;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -106,8 +107,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             {
                 string? matId = (string?)req["name"];
                 Assert.False(string.IsNullOrWhiteSpace(matId), $"{recipeId} has a blank material id.");
-                Assert.True(itemIds.Contains(matId!),
-                    $"{recipeId} references material '{matId}' with no itemData.json row (dangling id).");
+                // A requirement is EITHER one concrete item id OR a material FAMILY
+                // ("Metal"/"Wood"), retail's own form, which has no itemData row by
+                // design. What must not dangle is a requirement that is neither.
+                Assert.True(itemIds.Contains(matId!) || MaterialCatalog.IsFamily(matId),
+                    $"{recipeId} references material '{matId}' that is neither an " +
+                    "itemData.json row nor a known material family (dangling id).");
             }
         }
 

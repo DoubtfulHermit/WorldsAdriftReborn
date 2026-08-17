@@ -7,14 +7,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
     /// <summary>
     /// Whether an inventory item is an acceptable fill for a blueprint material slot.
     ///
-    /// STRICT for Phase 2, on purpose. The client renders whatever the server writes
-    /// into 1271; the server is the sole authority on what counts. We accept an item
-    /// only when its itemTypeId equals the required material's
-    /// <see cref="MaterialRequirement.MaterialTypeId"/> (case-insensitive) AND its
-    /// quality is at least the required quality. Equivalent-material rules (a higher
-    /// category standing in for a lower one, alternate categories, customization
-    /// materials) are a documented widen-later; they are NOT implemented here so the
-    /// first pass can never silently accept the wrong thing.
+    /// The client renders whatever the server writes into 1271; the server is the
+    /// sole authority on what counts.
+    ///
+    /// THE WIDENING (this is the "documented widen-later" the Phase 2 comment
+    /// promised). Retail's hull slots asked for a FAMILY at a minimum quality -
+    /// the shipyard row literally reads "Q3+ Metal", printed by
+    /// <c>ShipBlueprintMaterialUI</c> whenever the row's category is "Metal" or
+    /// "Wood" (acs/ShipBlueprintMaterialUI.cs:81-86, VERIFIED) - and the player
+    /// chose which metal. So a requirement now accepts ANY material of its
+    /// category, unless it opts out with
+    /// <c>AcceptsAnyInCategory: false</c> (an atlas shard is not "any metal").
+    ///
+    /// The quality floor is unchanged and still applies to every candidate, so
+    /// widening the SUBSTANCE never widens the STANDARD.
     /// </summary>
     public static class MaterialMatch
     {
@@ -25,9 +31,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
 
         public static bool Matches(MaterialRequirement required, string itemTypeId, int quality)
         {
-            return required != null
-                && string.Equals(required.MaterialTypeId, itemTypeId, StringComparison.OrdinalIgnoreCase)
-                && quality >= required.Quality;
+            if (required == null || quality < required.Quality)
+            {
+                return false;
+            }
+
+            if (string.Equals(required.MaterialTypeId, itemTypeId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return required.AcceptsAnyInCategory
+                && Materials.MaterialCatalog.Satisfies(required.Category, itemTypeId);
         }
     }
 
@@ -198,6 +213,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
 
         /// <summary>The selected blueprint's id/name (the 1271 blueprintId).</summary>
         public string BlueprintId { get; }
+
+        /// <summary>
+        /// WHAT THIS BUILD IS ACTUALLY MADE OF - the dominant wood and metal among
+        /// every item the player reserved into an ENABLED row.
+        ///
+        /// The craft has always known this: <see cref="MaterialSlot.Loaded"/> holds
+        /// the real <see cref="InventoryItem"/>s, complete with their itemTypeId and
+        /// quality. It simply never asked them what they were, so a copper hull was
+        /// indistinguishable from an iron one the moment the timer finished. This is
+        /// the accessor that carries the player's CHOICE onto the output.
+        ///
+        /// Disabled rows are excluded: a row the player switched off contributes no
+        /// substance to the ship.
+        /// </summary>
+        public Materials.HullMaterials LoadedMaterials()
+        {
+            var consumed = new List<(string ItemTypeId, int Amount, int Quality)>();
+            foreach (SchematicRowBuild row in _rows)
+            {
+                if (!row.IsEnabled)
+                {
+                    continue;
+                }
+                foreach (MaterialSlot slot in row.Slots)
+                {
+                    foreach (InventoryItem item in slot.Loaded)
+                    {
+                        consumed.Add((item.ItemTypeId, item.Amount, item.Quality));
+                    }
+                }
+            }
+            return Materials.HullMaterials.FromConsumed(consumed);
+        }
 
         /// <summary>The whole-blueprint craft time in seconds (the 1271 craftingTime).</summary>
         public int CraftingTime { get; }

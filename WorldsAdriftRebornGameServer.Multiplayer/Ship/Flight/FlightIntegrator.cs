@@ -135,14 +135,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// <summary>Attitude snap, radians (~0.06 deg) - same reasoning as <see cref="SnapEpsilon"/>.</summary>
         private const double AttitudeSnapEpsilon = 0.001;
 
-        /// <summary>One fixed step at the control-point cadence.</summary>
+        /// <summary>
+        /// One fixed step at the control-point cadence.
+        ///
+        /// <paramref name="agilityScale"/> is HOW HEAVY THE SHIP IS, expressed as a
+        /// multiplier on the things mass should govern: how hard it accelerates, how
+        /// briskly it starts and stops a turn, and how fast it climbs. It DEFAULTS TO
+        /// 1.0, which reproduces this integrator's behaviour exactly, so every
+        /// existing call site and test is unaffected and a ship of the reference mass
+        /// flies precisely as it does today.
+        ///
+        /// Top SPEED is deliberately left alone. A heavy ship should be sluggish to
+        /// get going and lazy to turn, not permanently slower once it is up to speed -
+        /// and the control-point cadence already caps speed, so scaling it there would
+        /// fight the stream rather than the physics. The magnitude comes from
+        /// <c>HullMassCalculator.AgilityScale</c>; see its remarks for what is
+        /// recovered (the inverse-square-root shape) and what is not.
+        /// </summary>
         public static FlightState Step(FlightState state, FlightControlInput input, double dtSeconds,
-            FlightTuning tuning, int unfurledSails = 0)
+            FlightTuning tuning, int unfurledSails = 0, double agilityScale = 1.0)
         {
             if (dtSeconds <= 0.0 || double.IsNaN(dtSeconds) || double.IsInfinity(dtSeconds))
             {
                 return state;
             }
+
+            // A malformed scale must leave the ship flying, not freeze it in the sky.
+            double agility = double.IsFinite(agilityScale) && agilityScale > 0.0 ? agilityScale : 1.0;
 
             // 1. Turn rate eases toward the combined stick target, heading
             // integrates it. TWO inputs turn the ship: A/D (AxisYaw) and the
@@ -161,8 +180,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 (yawSign * input.AxisYaw) + (rollSign * input.AxisRoll * tuning.RollTurnFactor),
                 -1.0, 1.0);
             double yawRateTarget = turnInput * tuning.YawRateRadPerSec;
+            // Mass shows up in the TURN RAMP: a heavy hull takes longer to wind a
+            // turn up and longer to unwind it, which is what "less manoeuvrable"
+            // actually feels like at the helm.
             double yawRate = ApproachWithSnap(
-                state.YawRateRadPerSec, yawRateTarget, tuning.YawAccelRadPerSec2 * dtSeconds, 0.0005);
+                state.YawRateRadPerSec, yawRateTarget,
+                tuning.YawAccelRadPerSec2 * agility * dtSeconds, 0.0005);
             double yaw = WrapAngle(state.YawRadians + yawRate * dtSeconds);
 
             // 2. Commanded speed under the accel limit (exact-zero snap).
@@ -183,7 +206,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // Sail force increases the acceleration toward a higher FORWARD
             // target. Furling/removing canvas or pulling the lever back uses the
             // ordinary deceleration, rather than sails somehow braking harder.
-            double acceleration = tuning.AccelMps2;
+            // Mass divides thrust: the same engines shift a light hull faster.
+            // Multiplied with the sail bonus rather than replacing it, so canvas and
+            // ballast compose the way a player would expect.
+            double acceleration = tuning.AccelMps2 * agility;
             if (speedTarget > state.SpeedCmdMps && speedTarget > 0.0)
             {
                 acceleration *= sailScale;
@@ -202,8 +228,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // POSITIVE X torque = nose DOWN = dive, hence the minus. Both are
             // <=1, so the sum is naturally bounded by climbRate + pitchRate.
             double pitchSign = tuning.InvertPitch ? -1.0 : 1.0;
-            double targetVy = (input.Vertical * tuning.ClimbRateMps)
-                - (pitchSign * input.AxisPitch * tuning.PitchRateMps);
+            // Climb is where mass bites hardest - it is the axis fighting the sky
+            // core directly, and it is the one retail cut off entirely once a ship
+            // exceeded its lift.
+            double targetVy = ((input.Vertical * tuning.ClimbRateMps)
+                - (pitchSign * input.AxisPitch * tuning.PitchRateMps)) * agility;
             double blend = tuning.VelocitySmoothingSeconds <= 0.0
                 ? 1.0
                 : Math.Min(1.0, dtSeconds / tuning.VelocitySmoothingSeconds);
@@ -216,8 +245,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // dips, climb = nose up.
             double rollTarget = tuning.YawRateRadPerSec <= 0.0 ? 0.0
                 : -tuning.BankMaxRadians * (yawRate / tuning.YawRateRadPerSec);
-            double pitchTarget = tuning.ClimbRateMps <= 0.0 ? 0.0
-                : -tuning.PitchMaxRadians * Math.Clamp(vy / tuning.ClimbRateMps, -1.0, 1.0);
+            // Normalise against the SCALED climb rate so a heavy ship still noses up
+            // fully at its own full climb, rather than looking permanently level.
+            double scaledClimb = tuning.ClimbRateMps * agility;
+            double pitchTarget = scaledClimb <= 0.0 ? 0.0
+                : -tuning.PitchMaxRadians * Math.Clamp(vy / scaledClimb, -1.0, 1.0);
             double attitudeBlend = Math.Min(1.0, dtSeconds / tuning.AttitudeSmoothingSeconds);
             double roll = ChaseWithSnap(state.RollRadians, rollTarget, attitudeBlend, AttitudeSnapEpsilon);
             double pitch = ChaseWithSnap(state.PitchRadians, pitchTarget, attitudeBlend, AttitudeSnapEpsilon);

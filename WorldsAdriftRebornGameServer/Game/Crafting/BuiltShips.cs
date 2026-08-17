@@ -48,6 +48,18 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         // recall was measured shifting every rebuilt deck down by 11 metres.
         private static readonly Dictionary<long, FixedPointPosition> DeckLocalOffsetByEntityId =
             new Dictionary<long, FixedPointPosition>();
+        /// <summary>
+        /// WHAT EACH BUILT HULL IS MADE OF, keyed by the hull's live entity id.
+        /// Populated by the runtime build (from what the craft actually consumed) and
+        /// by the boot restore (from the persisted record). A hull with no entry - or
+        /// a hull restored from a record written before materials were recorded - is
+        /// read as <see cref="Multiplayer.Materials.HullMaterials.Legacy"/>, i.e. the
+        /// birch-and-iron the server used to hardcode, so nothing about an existing
+        /// ship changes.
+        /// </summary>
+        private static readonly Dictionary<long, Multiplayer.Materials.HullMaterials> MaterialsByHull =
+            new Dictionary<long, Multiplayer.Materials.HullMaterials>();
+
         private static readonly Dictionary<long, long> HullByDeck = new Dictionary<long, long>();
         private static readonly Dictionary<long, List<long>> DecksByHull = new Dictionary<long, List<long>>();
 
@@ -155,6 +167,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             HullBytesByEntityId.Remove(hullEntityId);
             PersistentIndexByHull.Remove(hullEntityId);
             OwnerByHull.Remove(hullEntityId);
+            MaterialsByHull.Remove(hullEntityId);
             return decks;
         }
 
@@ -240,6 +253,39 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         internal static string OwnerFor(long hullEntityId)
         {
             return OwnerByHull.TryGetValue(hullEntityId, out string? uid) ? uid : "";
+        }
+
+        /// <summary>
+        /// Records what a built hull is made of. Called by the runtime build with the
+        /// materials the craft consumed, and by the boot restore with the persisted
+        /// ones. A null is stored as the legacy pair rather than left absent, so the
+        /// 1099/1257/1121 serve branches never have to special-case it.
+        /// </summary>
+        internal static void SetMaterials(long hullEntityId, Multiplayer.Materials.HullMaterials? materials)
+        {
+            MaterialsByHull[hullEntityId] =
+                (materials ?? Multiplayer.Materials.HullMaterials.Legacy).OrLegacy();
+        }
+
+        /// <summary>
+        /// What a built hull is made of. Never null: an unrecorded hull reads as the
+        /// birch-and-iron every ship built before this feature actually is.
+        /// </summary>
+        internal static Multiplayer.Materials.HullMaterials MaterialsFor(long hullEntityId)
+        {
+            return MaterialsByHull.TryGetValue(hullEntityId, out Multiplayer.Materials.HullMaterials? m)
+                ? m
+                : Multiplayer.Materials.HullMaterials.Legacy;
+        }
+
+        /// <summary>
+        /// What the ship a DECK belongs to is made of, so a deck matches its hull.
+        /// Falls back to the legacy pair for an unparented or unknown deck.
+        /// </summary>
+        internal static Multiplayer.Materials.HullMaterials MaterialsForDeck(long deckEntityId)
+        {
+            long? hull = HullForDeck(deckEntityId);
+            return hull.HasValue ? MaterialsFor(hull.Value) : Multiplayer.Materials.HullMaterials.Legacy;
         }
 
         // ------------------------------------------------------------------

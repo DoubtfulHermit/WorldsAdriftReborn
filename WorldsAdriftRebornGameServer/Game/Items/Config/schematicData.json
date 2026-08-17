@@ -54,7 +54,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "birch",
+        "name": "Wood",
         "iconId": "woods/Wood_Cedar",
         "component": "Handle",
         "description": "",
@@ -103,7 +103,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -112,7 +112,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Docking Mechanism",
         "description": "",
@@ -121,7 +121,7 @@
       },
       {
         "id": 2,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Skyship Generator",
         "description": "",
@@ -161,7 +161,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -170,7 +170,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "",
@@ -179,7 +179,7 @@
       },
       {
         "id": 2,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Assembly Device",
         "description": "",
@@ -219,7 +219,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Frame",
         "description": "",
@@ -228,7 +228,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "scrap items/4x2_Beetle_Blood_Linen1",
         "component": "Wings",
         "description": "",
@@ -237,7 +237,7 @@
       },
       {
         "id": 2,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "scrap items/3x2_Herders_Saddlebag",
         "component": "Pack",
         "description": "",
@@ -277,7 +277,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Bullet",
         "description": "",
@@ -317,7 +317,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Shell",
         "description": "",
@@ -357,7 +357,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "birch",
+        "name": "Wood",
         "iconId": "woods/Wood_Cedar",
         "component": "Container",
         "description": "",
@@ -366,7 +366,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Clamps",
         "description": "",
@@ -406,7 +406,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
@@ -415,7 +415,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Generator",
         "description": "",
@@ -464,7 +464,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Lantern",
         "description": "",
@@ -513,7 +513,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Torch",
         "description": "",
@@ -562,7 +562,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "birch",
+        "name": "Wood",
         "iconId": "woods/Wood_Cedar",
         "component": "Wood",
         "description": "",
@@ -740,7 +740,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -749,7 +749,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Respawn Tech",
         "description": "",
@@ -789,7 +789,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -798,7 +798,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Piping",
         "description": "",
@@ -838,7 +838,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Deck",
         "description": "",
@@ -878,7 +878,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "birch",
+        "name": "Wood",
         "iconId": "woods/Wood_Cedar",
         "component": "Mast",
         "description": "",
@@ -918,7 +918,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -927,7 +927,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Flight Stick",
         "description": "",
@@ -936,7 +936,7 @@
       },
       {
         "id": 2,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "",
@@ -976,7 +976,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Panel",
         "description": "",
@@ -1016,7 +1016,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Panel",
         "description": "",
@@ -1056,7 +1056,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Panel",
         "description": "",
@@ -1096,7 +1096,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Window",
         "description": "",
@@ -1136,7 +1136,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Staircase",
         "description": "",
@@ -1176,7 +1176,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Rails",
         "description": "",
@@ -1216,7 +1216,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Rails",
         "description": "",
@@ -1256,7 +1256,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1265,7 +1265,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Hoops",
         "description": "",
@@ -1305,7 +1305,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1314,7 +1314,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Hinges",
         "description": "",
@@ -1354,7 +1354,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1363,7 +1363,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Nails",
         "description": "",
@@ -1403,7 +1403,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1412,7 +1412,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Nails",
         "description": "",
@@ -1452,7 +1452,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1461,7 +1461,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Hinges",
         "description": "",
@@ -1501,7 +1501,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1510,7 +1510,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Hinges",
         "description": "",
@@ -1550,7 +1550,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "birch",
+        "name": "Wood",
         "iconId": "woods/Wood_Cedar",
         "component": "Body",
         "description": "",
@@ -1559,7 +1559,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Aparatus",
         "description": "",
@@ -1608,7 +1608,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1617,7 +1617,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Filament",
         "description": "",
@@ -1666,7 +1666,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1715,7 +1715,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1724,7 +1724,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Horn",
         "description": "",
@@ -1764,7 +1764,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1773,7 +1773,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Needles & Dials",
         "description": "",
@@ -1813,7 +1813,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -1822,7 +1822,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Needles & Dials",
         "description": "",
@@ -1862,7 +1862,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
@@ -1871,7 +1871,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Gyro",
         "description": "",
@@ -1911,7 +1911,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
@@ -1920,7 +1920,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Ball",
         "description": "",
@@ -1960,7 +1960,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Housing",
         "description": "",
@@ -1969,7 +1969,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Needle",
         "description": "",
@@ -2009,7 +2009,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2018,7 +2018,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Generator",
         "description": "",
@@ -2067,7 +2067,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2076,7 +2076,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2125,7 +2125,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2134,7 +2134,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2183,7 +2183,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2192,7 +2192,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2241,7 +2241,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2250,7 +2250,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2299,7 +2299,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2308,7 +2308,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2357,7 +2357,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2366,7 +2366,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2415,7 +2415,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2424,7 +2424,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2473,7 +2473,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2482,7 +2482,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Internals",
         "description": "",
@@ -2531,7 +2531,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "The delicate mechanisms of the wing are housed in this protective sheath.",
@@ -2540,7 +2540,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Aileron",
         "description": "A flap along the back edge of the wing, which is positioned to exert torque.",
@@ -2549,7 +2549,7 @@
       },
       {
         "id": 2,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "The cogs and levers inside the wing, which rotate the aileron.",
@@ -2592,7 +2592,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "The protective sheath that houses the engine's internals.",
@@ -2601,7 +2601,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Combustion Internals",
         "description": "The firing chamber that converts fuel into thrust.",
@@ -2610,7 +2610,7 @@
       },
       {
         "id": 2,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Mechanical Internals",
         "description": "The cogs and shafts that transfer power to the propeller.",
@@ -2619,7 +2619,7 @@
       },
       {
         "id": 3,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Propeller",
         "description": "The blades that bite the air and pull the ship forward.",
@@ -2666,7 +2666,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "birch",
+        "name": "Wood",
         "iconId": "item_wood_large",
         "component": "Panel",
         "description": "Wood for the body.",
@@ -2675,7 +2675,7 @@
       },
       {
         "id": 1,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "item_metal_large",
         "component": "Mechanical Internals",
         "description": "Metal for the strings and bridge.",
@@ -2715,7 +2715,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Shot",
         "description": "",
@@ -2755,7 +2755,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",
@@ -2835,7 +2835,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Frame",
         "description": "",
@@ -2875,7 +2875,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Shell",
         "description": "",
@@ -2915,7 +2915,7 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
+        "name": "Metal",
         "iconId": "metals/Metal_Iron",
         "component": "Casing",
         "description": "",

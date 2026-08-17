@@ -100,6 +100,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// <summary>The shipyard-centre position, in Q52.12 fixed-point units.</summary>
         public long ShipyardZ { get; set; }
 
+        // ------------------------------------------------------------------
+        // WHAT THE SHIP IS MADE OF. Four additive fields, chosen so that their JSON
+        // defaults ("" and 0) mean exactly the LEGACY behaviour - the same pattern
+        // SailUnfurled and LampOff use below. System.Text.Json leaves an absent
+        // member at its initializer, so every ship written before this change loads
+        // with empty ids, and Materials() restates it as the birch-and-iron it has
+        // always actually been (the server hardcoded Deck.MaterialTypeId = "birch"
+        // and mapped "Metal" -> "iron"). No migration pass, no reordering of
+        // BuiltShips (MountedPartRecord.BuiltShipIndex references that order), and
+        // an older binary reading a newer file simply ignores the extra members.
+        // ------------------------------------------------------------------
+
+        /// <summary>The itemTypeId of the wood the frame was built from. Empty for a legacy record.</summary>
+        public string HullWoodId { get; set; } = "";
+
+        /// <summary>The itemTypeId of the metal the fittings were built from. Empty for a legacy record.</summary>
+        public string HullMetalId { get; set; } = "";
+
+        /// <summary>Quality 1..10 of the wood; 0 for a legacy record.</summary>
+        public int HullWoodQuality { get; set; }
+
+        /// <summary>Quality 1..10 of the metal; 0 for a legacy record.</summary>
+        public int HullMetalQuality { get; set; }
+
+        /// <summary>
+        /// What this hull is made of, with a legacy record restated as birch+iron so
+        /// it keeps exactly the mass and appearance it has today.
+        /// </summary>
+        public Materials.HullMaterials Materials() =>
+            new Materials.HullMaterials(HullWoodId, HullWoodQuality, HullMetalId, HullMetalQuality).OrLegacy();
+
+        /// <summary>Records what a completed craft actually consumed.</summary>
+        public void SetMaterials(Materials.HullMaterials materials)
+        {
+            if (materials == null)
+            {
+                return;
+            }
+            HullWoodId = materials.WoodId ?? "";
+            HullMetalId = materials.MetalId ?? "";
+            HullWoodQuality = materials.WoodId == null ? 0 : materials.WoodQuality;
+            HullMetalQuality = materials.MetalId == null ? 0 : materials.MetalQuality;
+        }
+
         /// <summary>The hull position as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition HullPosition() => new FixedPointPosition(HullX, HullY, HullZ);
 

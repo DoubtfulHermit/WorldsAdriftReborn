@@ -134,8 +134,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     + shipyardEntityId + " / player " + playerEntityId + ": " + e.Message);
             }
 
-            // Hand off to Phase 3 (logs; spawn is not implemented yet).
-            ShipBuildCompletion.OnBuilt(shipyardEntityId, playerEntityId, hullBytes);
+            // Hand off to Phase 3, carrying WHAT THE PLAYER PAID IN so the finished
+            // ship remembers its own substance instead of defaulting to birch+iron.
+            ShipBuildCompletion.OnBuilt(
+                shipyardEntityId, playerEntityId, hullBytes, build.LoadedMaterials());
         }
 
         private static byte[] ResolveHullBytes(long playerEntityId)

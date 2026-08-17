@@ -130,11 +130,12 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
         /// only ever appended and restored in that same order.
         /// </summary>
         internal static int RecordBuiltShip(FixedPointPosition hullPosition, byte[] hullBytes,
-            string? ownerCharacterUid = null, FixedPointPosition? shipyardPosition = null)
+            string? ownerCharacterUid = null, FixedPointPosition? shipyardPosition = null,
+            Multiplayer.Materials.HullMaterials? materials = null)
         {
             WorldStateSnapshot snapshot = Snapshot();
 
-            snapshot.BuiltShips.Add(new BuiltShipRecord
+            BuiltShipRecord record = new BuiltShipRecord
             {
                 HullX = hullPosition.X,
                 HullY = hullPosition.Y,
@@ -152,7 +153,13 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
                 ShipyardX = shipyardPosition?.X ?? 0,
                 ShipyardY = shipyardPosition?.Y ?? 0,
                 ShipyardZ = shipyardPosition?.Z ?? 0,
-            });
+            };
+            // What the ship is made of. Absent (a null) leaves the four material
+            // members at their JSON defaults, which read back as the legacy
+            // birch+iron - so an un-threaded caller degrades to today's behaviour
+            // rather than to a ship made of nothing.
+            record.SetMaterials(materials ?? Multiplayer.Materials.HullMaterials.Legacy);
+            snapshot.BuiltShips.Add(record);
 
             Save();
             return snapshot.BuiltShips.Count - 1;
