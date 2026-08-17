@@ -77,6 +77,8 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
         private const float KeelRingHeight = .45f;
         private const float KeelRingInset = .72f;
 
+        private static bool loggedShader;
+
         /// <summary>
         /// A floating-island silhouette: a plateau cap at the measured top, and an
         /// underside tapering to a keel at the measured bottom.
@@ -118,7 +120,11 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                 cap.Add(topCenter); cap.Add(next); cap.Add(i);
                 body.Add(count + i); body.Add(count + next); body.Add(next);
                 body.Add(count + i); body.Add(next); body.Add(i);
-                body.Add(keelApex); body.Add(count + next); body.Add(count + i);
+                // The keel fan faces DOWN, so it winds opposite to the top cap.
+                // Copying the cap's order here pointed the whole underside inward:
+                // it was backface-culled, every island rendered with no bottom, and
+                // the silhouette read as a shape with a piece missing.
+                body.Add(keelApex); body.Add(count + i); body.Add(count + next);
             }
 
             Mesh mesh = new Mesh();
@@ -144,6 +150,19 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                 ?? Shader.Find("Diffuse")
                 ?? Shader.Find("Standard")
                 ?? Shader.Find("Unlit/Color");
+            // Report which one we actually got, ONCE. Whether the shell sits in the
+            // scene's haze or reads as a cut-out pasted on the sky depends entirely
+            // on this falling through to something fog-aware, and guessing from a
+            // screenshot is exactly what cost a round trip.
+            if (!loggedShader)
+            {
+                loggedShader = true;
+                Debug.Log("[WAReborn] compact island shell shader: "
+                    + (shader == null ? "<none found>" : shader.name)
+                    + "; scene fog=" + RenderSettings.fog
+                    + " mode=" + RenderSettings.fogMode
+                    + " colour=" + RenderSettings.fogColor);
+            }
             Material material = new Material(shader);
             material.color = color;
             return material;
