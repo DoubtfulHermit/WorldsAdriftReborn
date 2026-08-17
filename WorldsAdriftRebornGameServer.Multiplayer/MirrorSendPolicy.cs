@@ -427,6 +427,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // Both are event-on-trigger, NOT per-frame (the scanner rate-limits itself
             // and UseNode is a click), so they add no relay load - see the handlers.
             2107, 1334,
+            // 6901 CrewClientInterfaceState - the CREW panel's only writer, and the
+            // reason crews need no command channel.
+            //
+            // The schema presents crew actions as SpatialOS commands, which this
+            // server cannot carry in either direction. But 6901 also exposes them
+            // as EVENTS (TriggerInvitePlayer/TriggerAcceptInvite/TriggerLeaveCrew
+            // return an Updater), and events ride component updates. 6901 has no
+            // data fields at all - it exists ONLY to carry them.
+            //
+            // Like every other entry here it is dead without the grant: a writer
+            // binds only for a component the client holds authority over, so the
+            // crew UI would render, accept clicks, and publish nothing. That is
+            // silent in a way a missing reader is not, because the panel looks
+            // fine. Event-on-click, never per-frame, so it adds no relay load.
+            6901,
         };
 
         /// <summary>

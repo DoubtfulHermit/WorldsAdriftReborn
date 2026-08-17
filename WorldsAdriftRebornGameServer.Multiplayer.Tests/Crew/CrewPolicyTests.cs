@@ -209,5 +209,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crew
                 Assert.NotEqual("That did not work.", line);
             }
         }
+
+        /// <summary>
+        /// The grant is what makes the whole crew feature reachable, and its
+        /// absence is SILENT: the panel renders, accepts clicks and publishes
+        /// nothing, because a client writer binds only for a component the client
+        /// holds authority over. Worth a test precisely because nothing else fails
+        /// when it is missing.
+        /// </summary>
+        [Fact]
+        public void The_client_is_granted_authority_over_the_crew_action_component()
+        {
+            Assert.Contains(6901u, MirrorSendPolicy.AuthoritativeComponents);
+        }
+
+        /// <summary>
+        /// 6900 is the crew's STATE and the server owns it. Granting it would let
+        /// a client rewrite its own crew membership, which is the difference
+        /// between a crew system and a suggestion.
+        /// </summary>
+        [Fact]
+        public void The_client_is_never_granted_authority_over_crew_state()
+        {
+            Assert.DoesNotContain(6900u, MirrorSendPolicy.AuthoritativeComponents);
+        }
     }
 }
