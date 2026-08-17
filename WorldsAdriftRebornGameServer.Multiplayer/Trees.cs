@@ -143,32 +143,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <c>TreeFsimVisualizer.SpawnNewTree</c> -> <c>TriggerSpawnNewTreeBit</c>
         /// (acs/TreeFsimVisualizer.cs:71-82): the severed part becomes ANOTHER tree
         /// entity carrying the falling mask plus the parent's linear and angular
-        /// velocity, and the UnityWorker simulates it. Three separate facts decide
-        /// what is possible here, and they do not all point the same way:
+        /// velocity, and the UnityWorker simulates it.
         ///
-        /// 1. The SIMULATION cannot be reproduced. <c>TreeFsimVisualizer</c> is
-        ///    <c>[WorkerType(UnityWorker)]</c> and absent from the client build, and
-        ///    <c>TreeBase.ResetCOMHackCoroutine</c> keeps a dynamic tree KINEMATIC
-        ///    on the client (<c>if (dynamic &amp;&amp; !WorldsAdrift.IsClient)</c>,
-        ///    acs/TreeBase.cs:555). No client will ever tumble a log by itself.
-        /// 2. An ANIMATED fall is nevertheless renderable, which is worth writing
-        ///    down because the obvious conclusion from (1) is that it is not. 190602
-        ///    TransformState carries localPosition AND localRotation (plus velocity,
-        ///    angularVelocity, isSleeping), and served transform updates demonstrably
-        ///    move a world entity on the stock client - the nugget's depletion sink
-        ///    is exactly that. So a server could spawn a second tree entity holding
-        ///    the falling mask and drive it down an authored arc.
-        /// 3. It is blocked on DESPAWN, not on rendering. This server has no entity
-        ///    removal at all, so every felled log would be permanent litter that
-        ///    accumulates for the life of the world and is re-sent to every joiner.
-        ///    And "dangerous" is separately impossible: HealthState is seeded static
+        /// THAT LOG IS BUILT NOW. See <see cref="TreeFall"/> and
+        /// <c>Game.Gathering.FallingLogService</c>. What this field says is still
+        /// true and still a trap - a STANDING tree must be <c>false</c> - but the
+        /// three facts this comment used to close with need correcting, because one
+        /// of them has expired:
+        ///
+        /// 1. STILL TRUE. The SIMULATION cannot be reproduced.
+        ///    <c>TreeFsimVisualizer</c> is <c>[WorkerType(UnityWorker)]</c> and
+        ///    absent from the client build, and <c>TreeBase.ResetCOMHackCoroutine</c>
+        ///    keeps a dynamic tree KINEMATIC on the client
+        ///    (<c>if (dynamic &amp;&amp; !WorldsAdrift.IsClient)</c>, acs/TreeBase.cs:555).
+        ///    No client will ever tumble a log by itself - but nor did a retail
+        ///    client, which is the point (2) turns on.
+        /// 2. STILL TRUE, and now acted on. An ANIMATED fall is renderable. 190602
+        ///    TransformState carries localPosition AND localRotation, and served
+        ///    transform updates demonstrably move a world entity on the stock
+        ///    client. Because of (1) that is not an approximation of what a retail
+        ///    client saw, it is the same code path: the log is spawned as a second
+        ///    tree entity holding the falling mask, and driven down an authored arc.
+        /// 3. EXPIRED. "This server has no entity removal at all" was true when it
+        ///    was written and is not any more: native channel 5 carries RemoveEntity
+        ///    (docs/HANDOVER.md), so a log can be retired on a timer rather than
+        ///    accumulating as permanent litter. Only the second half still holds -
+        ///    "dangerous" remains impossible, because HealthState is seeded static
         ///    with no damage authority anywhere, so nothing can crush anybody.
         ///
-        /// The faithful served behaviour until removal exists is therefore the one
-        /// this server implements: the section leaves the mask, the client plays the
-        /// authored break VFX and SFX on it (<c>TreeClientVisualizer</c> ->
-        /// <c>TreeSection.ShowReplicatedVisualHitAndPlaySfx</c>), and the wood is
-        /// granted to the cutter. No fall is claimed that will not render.
+        /// The standing tree's own behaviour is unchanged: the section leaves the
+        /// mask, the client plays the authored break VFX and SFX on it
+        /// (<c>TreeClientVisualizer</c> -> <c>TreeSection.ShowReplicatedVisualHitAndPlaySfx</c>),
+        /// and the wood is granted to the cutter. The log is what now happens
+        /// alongside that instead of the crown simply blinking out.
         /// </summary>
         public const bool Dynamic = false;
 

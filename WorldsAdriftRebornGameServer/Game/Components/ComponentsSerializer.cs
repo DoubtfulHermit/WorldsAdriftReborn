@@ -182,6 +182,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         Multiplayer.FixedPointPosition seed =
                             WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(entityId);
 
+                        // A FELLED LOG is not in the registry (TreeFall.FirstLogEntityId
+                        // says why), so TransformSeedFor would hand it the PLAYER SPAWN
+                        // - a log checked out by a second player would appear on top of
+                        // them instead of on the tree it came off. Its pose comes off
+                        // the log ledger, and the ROTATION is the live one rather than
+                        // the one it was dropped with: a player arriving halfway
+                        // through a fall must be seeded at the angle the log has
+                        // already reached, or it snaps flat when the next pose lands.
+                        Multiplayer.FixedPointPosition? logSeed =
+                            WorldsAdriftRebornGameServer.FallingLogs.Logs.PositionOf(entityId);
+                        if (logSeed.HasValue)
+                        {
+                            seed = logSeed.Value;
+                        }
+
                         // A depleted metal node stays in the registry (rule 1) and is
                         // still seeded to a late joiner - but SUNK, so the joiner sees
                         // it gone exactly as everyone already present does. Sink() is
@@ -353,11 +368,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // facing the player chose); any other parented part (a bolted deck/helm)
                         // keeps identity; a parentless registered entity (a placed shipyard) uses
                         // its registration yaw.
-                        Quaternion32 rotationSeed = mountedPartRotation.HasValue
-                            ? new Quaternion32(mountedPartRotation.Value)
-                            : parent.HasValue
-                                ? new Quaternion32(1023)
-                                : new Quaternion32(WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId));
+                        uint? logRotation =
+                            WorldsAdriftRebornGameServer.FallingLogs.Logs.RotationOf(entityId);
+                        Quaternion32 rotationSeed = logRotation.HasValue
+                            ? new Quaternion32(logRotation.Value)
+                            : mountedPartRotation.HasValue
+                                ? new Quaternion32(mountedPartRotation.Value)
+                                : parent.HasValue
+                                    ? new Quaternion32(1023)
+                                    : new Quaternion32(WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId));
 
                         TransformState.Data tData = ShipPartTransform.BuildSeed(
                             ShipPartTransform.LocalPosition(localSeed),
@@ -2344,8 +2363,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // a second tree species cannot inherit this one's name.
                         // respawnTime is 0 and means nothing - `respawn_time` has zero
                         // references in the whole client, units included.
+                        //
+                        // A FELLED LOG asks first. A log is not a world registration
+                        // (see TreeFall.FirstLogEntityId for the three registry-driven
+                        // paths that would otherwise leak a short-lived entity), so
+                        // ByEntityId cannot answer for one and the prefab has to come
+                        // off the log ledger instead. Without this a palm's severed
+                        // crown would check out under the name "Tree".
                         string treePrefabName =
-                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.AssetName
+                            WorldsAdriftRebornGameServer.FallingLogs.Logs.AssetNameOf(entityId)
+                            ?? WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.AssetName
                             ?? Multiplayer.Trees.AssetName;
 
                         Bossa.Travellers.Materials.TreeState.Data treeData =
@@ -2381,13 +2408,32 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The client never reads it - TreeFSimState.woodType is written
                         // only by the UnityWorker-only visualizer - so it rides along
                         // purely so the eventual inventory grant has a species.
-                        int liveMask = WorldsAdriftRebornGameServer.Harvest.MaskOf(entityId)
+                        // A FELLED LOG IS ASKED FIRST, and it must be: a log is not
+                        // planted in Harvest - deliberately, so nobody can chop a log
+                        // and be paid a second time for wood that was already granted
+                        // - so MaskOf returns null for it and the fallback would hand
+                        // it the FULL mask. That is not a cosmetic slip: the severed
+                        // crown would check out as a COMPLETE tree standing inside the
+                        // one it fell off. And its `dynamic` is TRUE where a standing
+                        // tree's is false, which is what leaves the client's
+                        // relative-transform behaviour enabled so the log follows the
+                        // arc this server serves it (acs/TreeBase.cs:191-198) and
+                        // plays the falling-tree audio that, on a log, is correct.
+                        bool isFelledLog = WorldsAdriftRebornGameServer.FallingLogs.Logs.IsLog(entityId);
+
+                        int liveMask = WorldsAdriftRebornGameServer.FallingLogs.Logs.MaskOf(entityId)
+                            ?? WorldsAdriftRebornGameServer.Harvest.MaskOf(entityId)
                             ?? Multiplayer.Trees.FullSectionMask;
-                        string liveWood = WorldsAdriftRebornGameServer.Harvest.WoodTypeOf(entityId)
+                        string liveWood = WorldsAdriftRebornGameServer.FallingLogs.Logs.WoodTypeOf(entityId)
+                            ?? WorldsAdriftRebornGameServer.Harvest.WoodTypeOf(entityId)
                             ?? Multiplayer.Trees.WoodType;
+                        int liveSectionCount =
+                            WorldsAdriftRebornGameServer.FallingLogs.Logs.SectionCountOf(entityId)
+                            ?? WorldsAdriftRebornGameServer.Harvest.TopologyOf(entityId)?.SectionCount
+                            ?? Multiplayer.Trees.SectionCount;
 
                         Improbable.Collections.List<int> sectionHealth = new Improbable.Collections.List<int>();
-                        for (int s = 0; s < Multiplayer.Trees.SectionCount; s++)
+                        for (int s = 0; s < liveSectionCount; s++)
                         {
                             sectionHealth.Add(Multiplayer.Trees.SectionHealth);
                         }
@@ -2396,8 +2442,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             new Bossa.Travellers.Materials.TreeFSimState.Data(
                                 new Bossa.Travellers.Materials.TreeFSimStateData(
                                     sectionHealth,
-                                    Multiplayer.Trees.Dynamic,
-                                    Multiplayer.Trees.SectionCount,
+                                    isFelledLog ? Multiplayer.TreeFall.LogIsDynamic : Multiplayer.Trees.Dynamic,
+                                    liveSectionCount,
                                     liveMask,
                                     Multiplayer.Trees.ResourcePerSection,
                                     liveWood,
