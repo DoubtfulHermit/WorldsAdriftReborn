@@ -2,8 +2,13 @@
 """Build the compact, runtime-owned release-island catalogue from preserved evidence."""
 
 import json
+from collections import Counter
 import math
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from metal_inference import MetalInference, metals_for  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "docs/research/world-data"
@@ -112,6 +117,7 @@ def main():
     if set(placements) != set(surveys):
         raise ValueError("release MapFile and survey workshop ids do not join exactly")
 
+    inference = MetalInference(list(surveys.values()))
     result = []
     null_cells = sorted((b for b in biomes if b.get("District") is None), key=lambda b: (b["z"], b["x"]))
     for asset in sorted(placements, key=int):
@@ -123,8 +129,17 @@ def main():
         surface = json.loads((DATA / "island-surfaces" / f"{asset}.json").read_text())
         points = surface["points"]
         cell_count = surface["meta"]["cells"]
-        metals = profile.get("pveMetals") or []
-        deposit_count = math.ceil(cell_count * .05) if metals else 0
+        # WHICH metals and HOW MANY deposits are two independent questions, and
+        # conflating them is what left 216 islands barren. The count has always
+        # been a function of the island's own LOD0 cell count - the same
+        # `IslandMeshCount` retail's island reported up to component 1010's
+        # spawner - and never depended on the survey. It was gated behind
+        # `if metals` only because an unsurveyed island had no metal NAME to
+        # stamp on a deposit. metals_for() answers that question separately and
+        # states its own provenance, so the density rule now applies to every
+        # island exactly as it always applied to the surveyed 38.
+        metals, metal_source = metals_for(profile, inference)
+        deposit_count = math.ceil(cell_count * .05)
         deposit_points = spaced(points, deposit_count, 35)
         databank_points = spaced(points, profile["databanks"], 30, deposit_points)
         aabb = surface["meta"]["localAABB"]
@@ -138,9 +153,16 @@ def main():
             "culture": profile["type"], "databanks": profile["databanks"],
             "revival": profile["revivalChambers"], "dangerous": profile["dangerous"],
             "turrets": profile["turrets"], "trees": profile.get("trees") or [],
-            "pveMetals": [{"name": m["name"], "quality": m["quality"]} for m in metals],
+            # pveMetals/pvpMetals stay EXACTLY as the survey recorded them,
+            # empty arrays included. `metals` is the effective table the
+            # deposits below were stamped from and `metalSource` says where it
+            # came from; the evidence is never overwritten by the inference.
+            "pveMetals": [{"name": m["name"], "quality": m["quality"]}
+                          for m in profile.get("pveMetals") or []],
             "pvpMetals": [{"name": m["name"], "quality": m["quality"]}
                            for m in profile.get("pvpMetals") or []],
+            "metals": [{"name": m["name"], "quality": m["quality"]} for m in metals],
+            "metalSource": metal_source,
             "aabb": [*aabb["min"], *aabb["max"]],
             "shell": shell(points),
             "deposits": [{"x": p[0], "y": p[1], "z": p[2],
@@ -152,10 +174,14 @@ def main():
         })
     if len(result) != 254:
         raise ValueError(f"expected 254 ordinary islands, got {len(result)}")
-    OUTPUT.write_text(json.dumps({"schema": 1, "islands": result}, separators=(",", ":")) + "\n")
+    OUTPUT.write_text(json.dumps({"schema": 2, "islands": result}, separators=(",", ":")) + "\n")
+    sources = Counter(island["metalSource"] for island in result)
     print(f"wrote {OUTPUT.relative_to(ROOT)}: {len(result)} islands, "
-          f"{sum(len(x['deposits']) for x in result)} PvE deposits, "
+          f"{sum(len(x['deposits']) for x in result)} deposits, "
           f"{sum(len(x['databankPoints']) for x in result)} databanks")
+    for source in sorted(sources):
+        print(f"  {source:14s} {sources[source]:3d} islands, "
+              f"{sum(len(x['deposits']) for x in result if x['metalSource'] == source):5d} deposits")
 
 
 if __name__ == "__main__":
