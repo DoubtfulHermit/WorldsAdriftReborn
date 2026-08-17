@@ -6,8 +6,8 @@ using WorldsAdriftRebornGameServer.Networking.Singleton;
 namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 {
     /*
-     * Watches 190602 TransformState for a player who has fallen out of the world,
-     * and nothing else.
+     * Watches the authoritative world-space 190602 TransformState for relay,
+     * teleport arrival, fall rescue and spatial interest.
      *
      * THIS IS THE TYPED PATH, AND IT ALREADY EXISTED. The packet loop hands every
      * inbound ComponentUpdate to ComponentUpdateManager.HandleComponentUpdate,
@@ -135,8 +135,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             WorldsAdriftRebornGameServer.Teleports.OnPlayerTransform(
                 player, entityId, position, parentPresent);
 
-            WorldsAdriftRebornGameServer.Falls.OnPlayerTransform(
+            FallVerdict fallVerdict = WorldsAdriftRebornGameServer.Falls.OnPlayerTransform(
                 entityId, position, parentPresent);
+
+            // 190602 is the ownership-gated authoritative WORLD pose whenever
+            // the remembered parent state is absent. Feed that one truth into
+            // both spatial-interest services. The former 1073-only path depends
+            // on sparse positionRelative/relativeTo fields; after disembarking a
+            // ship those can stop changing while the player continues walking,
+            // freezing the resource bubble at the disembark point. FallWatch has
+            // already accumulated the sparse parent edge above, so a parented
+            // LOCAL transform can never be mistaken for global coordinates here.
+            if (fallVerdict != FallVerdict.Parented)
+            {
+                WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                    player, position, "authoritative player 190602");
+                WorldsAdriftRebornGameServer.TerrainInterest?.ObserveGlobalPosition(
+                    player, position);
+            }
         }
     }
 }

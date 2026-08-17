@@ -65,9 +65,10 @@ namespace WorldsAdriftRebornGameServer.Game
         /// case is a single long comparison inside
         /// <see cref="FallPolicy.IsInTheWorld"/> and a dictionary miss.
         /// </summary>
-        public void OnPlayerTransform(long entityId, FixedPointPosition position, bool? parentPresent)
+        public FallVerdict OnPlayerTransform(long entityId, FixedPointPosition position, bool? parentPresent)
         {
-            switch (_watch.Observe(entityId, position, parentPresent))
+            FallVerdict verdict = _watch.Observe(entityId, position, parentPresent);
+            switch (verdict)
             {
                 case FallVerdict.Rescue:
                     _teleports.RescueFromFall(entityId, position, _watch.AttemptsFor(entityId));
@@ -94,6 +95,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     // edge, which is where the news actually is.
                     break;
             }
+            return verdict;
         }
 
         /// <summary>Drops an entity's fall record when its peer disconnects.</summary>

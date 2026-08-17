@@ -662,6 +662,28 @@ zero retained, zero errors and no warning. The one-client teleport-driven
 load/unload/re-entry lifecycle is therefore visually accepted. Distance approach
 and independent two-client checkout remain separate acceptance gates.
 
+The first proximity run then flew ship 176 from Haven to The Trades Challenge.
+At roughly 1,153 m from the extracted terrain envelope, checkout recorded the
+exact `request -> asset-ack -> add-ok` sequence and reached `READY` without a
+teleport. The player landed, disembarked and visually confirmed stable terrain
+and collision. This accepts one-client ship-approach terrain loading, but exposed
+a separate on-foot spatial-interest defect: all 15 recovered Trades resources
+(five Aluminium Q4 deposits, five Atlas shards and five databanks) remained
+unchecked-out even at the island centre. Telemetry showed the interest position
+frozen at the disembark point. The client continues sending ownership-gated
+authoritative global 190602 transforms while walking, but the interest services
+were fed only from sparse 1073 `positionRelative`/`relativeTo` fields that can
+stop changing after disembark.
+
+The local follow-up routes each unparented authoritative 190602 player pose into
+both resource and terrain interest. It reuses `FallWatch`'s accumulated sparse
+parent state so a parented local transform cannot be mistaken for a global
+coordinate. Full Multiplayer validation remains 2,556/2,556 with a clean Release
+server build. This is a server-only correction and is not yet deployed; deploy
+only after the connected acceptance client exits, then repeat the Trades walk
+and require checked-out resources to rise above zero before claiming resource
+streaming accepted.
+
 The release MapFile also proves wall geometry. The nearest Haven separator is a
 type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains

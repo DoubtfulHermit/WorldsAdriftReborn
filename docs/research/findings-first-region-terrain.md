@@ -120,6 +120,23 @@ no destination pin, pending action, retention, warning or error. This accepts th
 one-client teleport-driven load/unload/re-entry lifecycle. Proximity approach
 and two-client independence remain pending.
 
+The subsequent ship-proximity run reached The Trades Challenge at about 1,153 m
+from its extracted envelope and produced `request`, exact `asset-ack` and
+`add-ok`; the player landed and walked on stable terrain. The island's 15-node
+profile was present in inventory, but zero resources checked out even at the
+island centre. This was not missing survey data or a placement/radius failure.
+After disembark, sparse 1073 relative-position fields stopped advancing and left
+the spatial-interest centre at the disembark point, while authoritative global
+190602 player transforms continued normally.
+
+The pending server-only correction feeds unparented 190602 world poses into both
+resource and terrain interest. It uses the existing sparse parent-state
+accumulator before accepting the pose, preventing parent-local coordinates from
+entering world interest. Multiplayer validation passes 2,556/2,556 and the
+Release server build is clean. Live acceptance still requires deployment after
+disconnect, walking across Trades until nearby resources/databanks check out,
+then leaving beyond the unload boundary.
+
 ## Wall correction
 
 The preserved release MapFile does contain exact wall geometry and wall types.
