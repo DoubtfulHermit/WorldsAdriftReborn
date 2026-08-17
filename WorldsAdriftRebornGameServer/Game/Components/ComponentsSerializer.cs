@@ -829,8 +829,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The player's crew, as they see it. Built from the live
                         // ledger by the SAME builder every later push uses, so a
                         // checkout and an update can never disagree.
+                        //
+                        // CrewWire.For takes a LEDGER key ("character:<guid>"),
+                        // not a bare uid. Passing UidForEntity's bare guid here
+                        // looked right and silently answered "no crew" for
+                        // everyone, on every checkout: CrewService.CrewOf could
+                        // never match a ledger keyed the other way, so a player
+                        // who logged in already crewed saw an empty crew panel
+                        // until some unrelated action happened to trigger a push.
+                        // Every other CrewWire.For call site already converts
+                        // (CrewPush.EntityOf, the 6901 handler); this was the one
+                        // that did not.
+                        string crewOwnerUid = Game.CharacterOwnership.UidForEntity(entityId);
                         obj = new Bossa.Travellers.Crew.CrewMembershipState.Data(
-                            Game.Crew.CrewWire.For(Game.CharacterOwnership.UidForEntity(entityId)));
+                            Game.Crew.CrewWire.For(
+                                crewOwnerUid.Length > 0
+                                    ? Game.Crew.CrewPersistence.Key(Guid.Parse(crewOwnerUid))
+                                    : crewOwnerUid));
                     }
                     else if (componentId == 6901)
                     {
