@@ -50,7 +50,7 @@ void __cdecl WorkerProtocol_Dispatcher_RegisterAddEntityCallback(Dispatcher* dis
 }
 void __cdecl WorkerProtocol_Dispatcher_RegisterRemoveEntityCallback(Dispatcher* dispatcher, void* data, RemoveEntityCallback callback) {
     hook("WorkerProtocol_Dispatcher_RegisterRemoveEntityCallback");
-    // TODO: Add method RegisterRemoveEntityCallback to dispatcher and call it here
+    dispatcher->RegisterRemoveEntityCallback(callback, data);
 }
 void __cdecl WorkerProtocol_Dispatcher_RegisterReserveEntityIdResponseCallback(Dispatcher* dispatcher, void* data, ReserveEntityIdResponseCallback callback) {
     hook("WorkerProtocol_Dispatcher_RegisterReserveEntityIdResponseCallback");
@@ -74,7 +74,7 @@ void __cdecl WorkerProtocol_Dispatcher_RegisterAddComponentCallback(Dispatcher* 
 }
 void __cdecl WorkerProtocol_Dispatcher_RegisterRemoveComponentCallback(Dispatcher* dispatcher, void* data, RemoveComponentCallback callback) {
     hook("WorkerProtocol_Dispatcher_RegisterRemoveComponentCallback");
-    // TODO: Add method RegisterRemoveComponentCallback to dispatcher and call it here
+    dispatcher->RegisterRemoveComponentCallback(callback, data);
 }
 void __cdecl WorkerProtocol_Dispatcher_RegisterAuthorityChangeCallback(Dispatcher* dispatcher, void* data, AuthorityChangeCallback callback) {
     hook("WorkerProtocol_Dispatcher_RegisterAuthorityChangeCallback");

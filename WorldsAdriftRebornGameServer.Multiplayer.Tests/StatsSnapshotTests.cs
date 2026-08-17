@@ -53,7 +53,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(0, (int)o["currentOnline"]!);
             Assert.Equal(4, (int)o["peakOnline"]!);
             Assert.False((bool)o["wireHealthWarning"]!);
+            Assert.False((bool)o["secondIslandRegistered"]!);
+            Assert.Equal(0, (int)o["firstRegionTerrainCount"]!);
             Assert.Empty((JArray)o["players"]!);
+        }
+
+        [Fact]
+        public void Snapshot_reports_actual_first_region_terrain_count()
+        {
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), firstRegionTerrainCount: 1);
+
+            Assert.Equal(1, snapshot.FirstRegionTerrainCount);
+            Assert.Equal(1, (int)JObject.Parse(snapshot.ToJson())["firstRegionTerrainCount"]!);
+        }
+
+        [Fact]
+        public void Snapshot_reports_actual_second_island_registry_readiness()
+        {
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), secondIslandRegistered: true);
+
+            Assert.True(snapshot.SecondIslandRegistered);
+            Assert.True((bool)JObject.Parse(snapshot.ToJson())["secondIslandRegistered"]!);
         }
 
         [Fact]
@@ -77,6 +101,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(1290, (int)health["packetsSent"]!);
             Assert.Equal(1448, (int)health["inFlightBytes"]!);
             Assert.False((bool)health["spiral"]!);
+        }
+
+        [Fact]
+        public void A_player_position_is_explicit_world_xyz_and_unknown_stays_null()
+        {
+            PlayerStat known = new PlayerStat(3, 0x2f00, 0, null,
+                FixedPointPosition.FromMetres(14734.5, -55.25, 15208.75));
+            PlayerStat unknown = new PlayerStat(7, 0x9900, 0, null);
+            JArray players = (JArray)JObject.Parse(Snapshot(known, unknown).ToJson())["players"]!;
+
+            JObject position = (JObject)players[0]["position"]!;
+            Assert.Equal(14734.5, (double)position["x"]!, 3);
+            Assert.Equal(-55.25, (double)position["y"]!, 3);
+            Assert.Equal(15208.75, (double)position["z"]!, 3);
+            Assert.Equal(JTokenType.Null, players[1]["position"]!.Type);
         }
 
         [Fact]
@@ -136,6 +175,60 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             JObject o = JObject.Parse(snap.ToJson());
             Assert.Equal("raw\"mode\\\n", (string)o["relayMode"]!);
             Assert.Equal("tag with \"quotes\" and \\slash", (string)o["build"]!);
+        }
+
+        [Fact]
+        public void Ship_domain_snapshot_reports_only_real_local_runtime_state()
+        {
+            var domain = new ShipDomainStat(
+                "ship:83", 83, 4, 91, 240, 35,
+                17200.5, -310.25, -1100.75,
+                active: true, piloted: true, liveCadenceExpected: true,
+                pilotPlayerEntityId: 12, aboardPlayerEntityIds: new long[] { 12, 18 },
+                deckCount: 8, mountedPartCount: 3, subscriberCount: 2);
+            var topology = new RuntimeDomainStat(
+                "ship:83", "ship", "Ship 83", "local:primary", "island:haven",
+                entityCount: 12, active: true, warningCount: 0,
+                17200.5, -310.25, -1100.75);
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain },
+                runtimeDomains: new[] { topology }, runtimeOwnedEntityCount: 72,
+                runtimeGlobalEntityCount: 1, runtimeUnownedEntityCount: 0,
+                runtimeOwnershipIssueCount: 0);
+
+            JObject root = JObject.Parse(snapshot.ToJson());
+            JObject runtime = (JObject)root["runtime"]!;
+            Assert.Equal("local-single-process", (string)runtime["hostMode"]!);
+            JObject d = (JObject)((JArray)runtime["shipDomains"]!)[0];
+            Assert.Equal(83, (long)d["hullEntityId"]!);
+            Assert.Equal(4, (long)d["authorityGeneration"]!);
+            Assert.Equal(91, (long)d["replicationSequence"]!);
+            Assert.Equal(12, (long)d["pilotPlayerEntityId"]!);
+            Assert.Equal(2, ((JArray)d["aboardPlayerEntityIds"]!).Count);
+            Assert.False((bool)d["staleDelivery"]!);
+            Assert.False((bool)d["aboardCheckoutWarning"]!);
+            Assert.Equal("local:primary", (string)runtime["hostId"]!);
+            Assert.Equal(72, (int)runtime["ownedEntityCount"]!);
+            Assert.Equal(1, (int)runtime["globalEntityCount"]!);
+            Assert.Equal(0, (int)runtime["ownershipIssueCount"]!);
+            JObject topologyNode = (JObject)((JArray)runtime["domains"]!)[0];
+            Assert.Equal("ship", (string)topologyNode["kind"]!);
+            Assert.Equal("island:haven", (string)topologyNode["affinityDomainId"]!);
+            Assert.Equal(12, (int)topologyNode["entityCount"]!);
+            Assert.Null(runtime["worker"]);
+            Assert.Null(runtime["migrations"]);
+        }
+
+        [Fact]
+        public void Domain_warning_policy_flags_only_live_staleness_and_checkout_gaps()
+        {
+            Assert.False(ShipDomainStatPolicy.IsDeliveryStale(false, -1, 240));
+            Assert.False(ShipDomainStatPolicy.IsDeliveryStale(true, 960, 240));
+            Assert.True(ShipDomainStatPolicy.IsDeliveryStale(true, 1001, 240));
+            Assert.True(ShipDomainStatPolicy.IsDeliveryStale(true, -1, 240));
+            Assert.False(ShipDomainStatPolicy.HasAboardCheckoutGap(1, 1));
+            Assert.True(ShipDomainStatPolicy.HasAboardCheckoutGap(2, 1));
         }
     }
 }

@@ -12,10 +12,12 @@ namespace WorldsAdriftRebornGameServer.Game
     {
         public GameState.NextStateRequirement NextStateRequirement { get; set; }
         public Action<object> Step { get; set; } = new Action<object>((object o) => { });
-        public SyncStep(GameState.NextStateRequirement req, Action<object> action)
+        public Func<bool> IsObsolete { get; set; }
+        public SyncStep(GameState.NextStateRequirement req, Action<object> action, Func<bool>? isObsolete = null)
         {
             NextStateRequirement = req;
             Step = action;
+            IsObsolete = isObsolete ?? (() => false);
         }
     }
     internal class GameState

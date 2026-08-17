@@ -1,4 +1,5 @@
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -343,6 +344,99 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             Assert.Equal(1, island);
             Assert.Equal(2, player);
+        }
+
+        // ------------------------------------------------------------------
+        // Barrier-aware ordering: initial AfterPlayer entities stream first
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void The_predicate_overload_with_no_initials_is_byte_for_byte_the_registration_order_plan()
+        {
+            // For(registry) delegates to For(registry, _ => false); the two must be
+            // indistinguishable or the non-barrier path has silently changed.
+            WorldEntityRegistry registry = WorldEntities.Default(new EntityIdAllocator(), includeProofIsland: true);
+
+            IReadOnlyList<SpawnPlanStep> plain = SpawnPlan.For(registry);
+            IReadOnlyList<SpawnPlanStep> none = SpawnPlan.For(registry, _ => false);
+
+            Assert.Equal(plain.Count, none.Count);
+            for (int i = 0; i < plain.Count; i++)
+            {
+                Assert.Equal(plain[i].Op, none[i].Op);
+                Assert.Equal(plain[i].Entity?.Key, none[i].Entity?.Key);
+            }
+        }
+
+        [Fact]
+        public void An_initial_AfterPlayer_entity_is_streamed_before_a_distant_one()
+        {
+            // "ship" is initial, "tree" is not: the whole point is that the ship
+            // reaches the client before the scenery, so the barrier's initial set
+            // is not stuck behind every tree in the pacer.
+            IReadOnlyList<SpawnPlanStep> plan =
+                SpawnPlan.For(With(WorldEntities.Island(), Tree(), Ship()), key => key == "ship");
+
+            Assert.True(IndexOf(plan, SpawnOp.AddEntity, "ship") < IndexOf(plan, SpawnOp.AddEntity, "tree"));
+
+            // And it is still after the player and still valid.
+            Assert.True(IndexOf(plan, SpawnOp.AddEntity, null) < IndexOf(plan, SpawnOp.AddEntity, "ship"));
+            Assert.True(SpawnPlan.GroundPrecedesPlayer(plan));
+            Assert.True(SpawnPlan.EveryAssetIsRequestedBeforeItsEntity(plan));
+        }
+
+        [Fact]
+        public void Reordering_preserves_the_registration_order_within_each_group()
+        {
+            // Two initial and two distant entities; each group keeps its internal
+            // order (a hull must still precede the helm whose 8066 seed names it).
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            registry.Register(new WorldEntity("i1", "A", "Default", FixedPointPosition.FromMetres(0, 0, 0)));
+            registry.Register(new WorldEntity("d1", "B", "Default", FixedPointPosition.FromMetres(0, 0, 0)));
+            registry.Register(new WorldEntity("i2", "C", "Default", FixedPointPosition.FromMetres(0, 0, 0)));
+            registry.Register(new WorldEntity("d2", "D", "Default", FixedPointPosition.FromMetres(0, 0, 0)));
+
+            IReadOnlyList<SpawnPlanStep> plan =
+                SpawnPlan.For(registry, key => key == "i1" || key == "i2");
+
+            // Initials first, in registration order, then distants in registration order.
+            Assert.True(IndexOf(plan, SpawnOp.AddEntity, "i1") < IndexOf(plan, SpawnOp.AddEntity, "i2"));
+            Assert.True(IndexOf(plan, SpawnOp.AddEntity, "i2") < IndexOf(plan, SpawnOp.AddEntity, "d1"));
+            Assert.True(IndexOf(plan, SpawnOp.AddEntity, "d1") < IndexOf(plan, SpawnOp.AddEntity, "d2"));
+        }
+
+        [Fact]
+        public void The_default_registry_partitioned_by_the_real_policy_is_a_valid_plan()
+        {
+            IReadOnlyList<SpawnPlanStep> plan =
+                SpawnPlan.For(WorldEntities.Default(new EntityIdAllocator()), LoadBarrierPolicy.IsInitialKey);
+
+            Assert.True(SpawnPlan.GroundPrecedesPlayer(plan));
+            Assert.True(SpawnPlan.EveryAssetIsRequestedBeforeItsEntity(plan));
+
+            // The ship hull (initial) precedes the first tree/ore (distant).
+            int hull = IndexOf(plan, SpawnOp.AddEntity, WorldEntities.ShipFrameKey);
+            Assert.True(hull > 0);
+        }
+
+        [Fact]
+        public void First_region_terrain_streams_after_player_in_release_rollout_order()
+        {
+            WorldEntityRegistry registry = WorldEntities.Default(
+                new EntityIdAllocator(),
+                firstRegionTerrainCount: FirstRegionTerrainCountPolicy.MaximumOptionalTerrain);
+            IReadOnlyList<SpawnPlanStep> plan = SpawnPlan.For(registry);
+
+            int player = IndexOf(plan, SpawnOp.AddEntity, null);
+            int previous = player;
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1))
+            {
+                int request = IndexOf(plan, SpawnOp.RequestAsset, island.WorldEntityKey);
+                int add = IndexOf(plan, SpawnOp.AddEntity, island.WorldEntityKey);
+                Assert.True(request > previous);
+                Assert.Equal(request + 1, add);
+                previous = add;
+            }
         }
 
         private static int IndexOf(IReadOnlyList<SpawnPlanStep> plan, SpawnOp op, string? key)

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Components;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
@@ -60,6 +61,7 @@ namespace WorldsAdriftRebornGameServer.Game
         internal const string FallRescueReason = "fall-rescue";
 
         private readonly TeleportRequestCounter _requests = new TeleportRequestCounter();
+        private readonly TeleportArrivalTracker _arrivals = new TeleportArrivalTracker();
 
         /// <summary>
         /// Why the outstanding teleport for an entity was sent, so the ack can be
@@ -67,6 +69,18 @@ namespace WorldsAdriftRebornGameServer.Game
         /// the ack; entries are dropped with the entity in <see cref="Forget"/>.
         /// </summary>
         private readonly Dictionary<long, string> _reasonByEntity = new Dictionary<long, string>();
+        private readonly Dictionary<long, TeleportDestination> _destinationByEntity = new();
+
+        private sealed class PendingTerrainTeleport
+        {
+            public ulong PeerId;
+            public long EntityId;
+            public TeleportDestination Destination;
+            public TimeSpan Deadline;
+        }
+
+        private readonly Dictionary<long, PendingTerrainTeleport> _pendingTerrain = new();
+        private readonly Stopwatch _terrainWaitClock = Stopwatch.StartNew();
 
         private readonly Stopwatch _sinceLastPoll = Stopwatch.StartNew();
         private readonly string _triggerFile;
@@ -103,8 +117,14 @@ namespace WorldsAdriftRebornGameServer.Game
                 new Structs.Structs.InterestOverride(TeleportPolicy.TeleportRequestStateComponentId, 1),
             };
 
-            if (SendOPHelper.SendAddComponentOp(peer, entityId, teleport))
+            List<uint> teleportServed = new List<uint>();
+            if (SendOPHelper.SendAddComponentOp(peer, entityId, teleport, false, teleportServed))
             {
+                // Ledger the seed so the client's re-declared interest for its own
+                // entity does not re-ADD 190607 (same MarkServed-gap class as the
+                // 190602 duplicate; a re-add cycles TeleportTransformVisualizer's
+                // reader for no reason).
+                WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, teleportServed);
                 Console.WriteLine("[info] teleport: seeded 190607 on entity " + entityId
                     + " (request " + TeleportPolicy.SeedRequest + ", parent absent). It can now be moved.");
             }
@@ -126,6 +146,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
             _sinceLastPoll.Restart();
+
+            PollPendingTerrainTeleports();
 
             string line;
             try
@@ -166,6 +188,16 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Carries out one parsed command.</summary>
         private void Execute(TeleportCommand command)
         {
+            if (!TeleportPolicy.RequiredTerrainIsRegistered(
+                    command.Destination,
+                    key => WorldsAdriftRebornGameServer.WorldEntities.ByKey(key) != null))
+            {
+                Console.WriteLine("[warning] teleport: refusing '" + command.Destination.Name
+                    + "' because required terrain '" + command.Destination.RequiredWorldEntityKey
+                    + "' is not registered. Enable WAREBORN_SPAWN_SECOND_ISLAND=1 and restart first.");
+                return;
+            }
+
             if (!command.Destination.LandsOnLoadedGround)
             {
                 // Not a refusal - going somewhere with no ground is the whole
@@ -197,9 +229,47 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
 
-                if (Send(peerId, entityId, command.Destination))
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                IslandDefinition? destinationIsland = command.Destination.RequiredWorldEntityKey == null
+                    ? null
+                    : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
+                        command.Destination.RequiredWorldEntityKey);
+                IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
+                if (peer == null || destinationIsland == null || terrain == null || !terrain.Enabled)
                 {
+                    if (Send(peerId, entityId, command.Destination)) sent++;
+                    continue;
+                }
+
+                TerrainDestinationStatus readiness = terrain.RequestDestination(peer, destinationIsland.Id);
+                TerrainTeleportDecision decision = IslandTerrainTeleportPolicy.Decide(
+                    terrainManaged: true,
+                    destinationKnown: readiness != TerrainDestinationStatus.Unknown,
+                    terrainReady: readiness == TerrainDestinationStatus.Ready,
+                    waitExpired: false);
+                if (decision == TerrainTeleportDecision.Send)
+                {
+                    if (Send(peerId, entityId, command.Destination)) sent++;
+                }
+                else if (decision == TerrainTeleportDecision.Wait)
+                {
+                    _pendingTerrain[entityId] = new PendingTerrainTeleport
+                    {
+                        PeerId = peerId,
+                        EntityId = entityId,
+                        Destination = command.Destination,
+                        Deadline = _terrainWaitClock.Elapsed + terrain.AssetAckTimeout
+                            + TimeSpan.FromSeconds(5),
+                    };
                     sent++;
+                    Console.WriteLine("[teleport] deferring entity " + entityId + " -> "
+                        + command.Destination.Name + " until terrain " + destinationIsland.Id
+                        + " is checked out for that peer.");
+                }
+                else
+                {
+                    Console.WriteLine("[warning] teleport: refusing '" + command.Destination.Name
+                        + "' because its terrain is not managed by the local authority host.");
                 }
             }
 
@@ -210,6 +280,48 @@ namespace WorldsAdriftRebornGameServer.Game
                         ? "entity " + command.EntityId.Value + " is not a connected player"
                         : "no players connected")
                     + ").");
+            }
+        }
+
+        private void PollPendingTerrainTeleports()
+        {
+            foreach ((long entityId, PendingTerrainTeleport pending) in _pendingTerrain.ToArray())
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)pending.PeerId));
+                IslandDefinition? island = pending.Destination.RequiredWorldEntityKey == null
+                    ? null
+                    : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
+                        pending.Destination.RequiredWorldEntityKey);
+                IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
+                if (peer == null || island == null || terrain == null || !terrain.Enabled)
+                {
+                    _pendingTerrain.Remove(entityId);
+                    Console.WriteLine("[warning] teleport: cancelled deferred request for entity "
+                        + entityId + "; peer or terrain authority vanished.");
+                    continue;
+                }
+
+                TerrainDestinationStatus status = terrain.RequestDestination(peer, island.Id);
+                bool expired = IslandTerrainTeleportPolicy.WaitExpired(
+                    _terrainWaitClock.Elapsed, pending.Deadline);
+                TerrainTeleportDecision decision = IslandTerrainTeleportPolicy.Decide(
+                    terrainManaged: true,
+                    destinationKnown: status != TerrainDestinationStatus.Unknown,
+                    terrainReady: status == TerrainDestinationStatus.Ready,
+                    waitExpired: expired);
+                if (decision == TerrainTeleportDecision.Send)
+                {
+                    _pendingTerrain.Remove(entityId);
+                    Send(pending.PeerId, entityId, pending.Destination);
+                    continue;
+                }
+                if (decision == TerrainTeleportDecision.Refuse)
+                {
+                    _pendingTerrain.Remove(entityId);
+                    Console.WriteLine("[warning] teleport: safely refused entity " + entityId
+                        + " -> " + pending.Destination.Name
+                        + "; destination terrain did not become ready within the bounded wait.");
+                }
             }
         }
 
@@ -295,15 +407,19 @@ namespace WorldsAdriftRebornGameServer.Game
                 return false;
             }
 
+            _destinationByEntity[entityId] = destination;
+            _arrivals.Arm(entityId, request, destination.Position);
+
             Console.WriteLine("[info] " + reason + ": entity " + entityId + " -> " + destination.Name
-                + " " + destination.Position + ", request " + request + ", awaiting 1073 ack.");
+                + " " + destination.Position + ", request " + request
+                + ", awaiting 1073 ack or bounded transform confirmation.");
             return true;
         }
 
         /// <summary>
         /// Called with every 1073 <c>lastExecutedRequest</c> the client
-        /// publishes. This is the ONLY evidence the server has that a teleport
-        /// happened: <c>TeleportTransformVisualizer</c> writes the executed
+        /// publishes. This is the preferred evidence that a teleport happened:
+        /// <c>TeleportTransformVisualizer</c> writes the executed
         /// request number back into ClientAuthoritativePlayerState, a component
         /// we already grant the client authority over, which is precisely why
         /// this path needs no new grant.
@@ -312,7 +428,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// constantly; the counter decides what is news so the log carries one
         /// line per landing rather than one per frame.
         /// </summary>
-        public void OnAck(long entityId, int lastExecutedRequest)
+        public void OnAck(ENetPeerHandle peer, long entityId, int lastExecutedRequest)
         {
             int? outstandingBefore = _requests.Outstanding(entityId);
 
@@ -331,6 +447,13 @@ namespace WorldsAdriftRebornGameServer.Game
 
             if (outstandingBefore.HasValue && lastExecutedRequest >= outstandingBefore.Value)
             {
+                _arrivals.Cancel(entityId);
+                if (_destinationByEntity.Remove(entityId, out TeleportDestination landed))
+                {
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                        peer, landed.Position, "teleport landing '" + landed.Name + "'");
+                    ObserveTerrainLanding(peer, landed, landed.Position);
+                }
                 Console.WriteLine("[success] " + reason + ": entity " + entityId
                     + " executed request " + lastExecutedRequest + ". It landed"
                     + (reason == FallRescueReason ? " - it is back on solid ground." : "."));
@@ -347,11 +470,77 @@ namespace WorldsAdriftRebornGameServer.Game
             }
         }
 
+        /// <summary>
+        /// Fallback landing proof for client builds that execute 190607 but do
+        /// not publish 1073 lastExecutedRequest. The caller has already enforced
+        /// player ownership. The pure tracker additionally requires two
+        /// consecutive unparented world transforms within 12m of the exact
+        /// outstanding server-issued destination; arbitrary client jumps cannot
+        /// qualify.
+        /// </summary>
+        public void OnPlayerTransform(
+            ENetPeerHandle peer,
+            long entityId,
+            FixedPointPosition position,
+            bool? parentPresent)
+        {
+            int? provedRequest = _arrivals.Observe(entityId, position, parentPresent);
+            if (!provedRequest.HasValue)
+            {
+                return;
+            }
+
+            int? completedRequest = _requests.ConfirmOutstanding(entityId);
+            if (!completedRequest.HasValue || completedRequest.Value != provedRequest.Value)
+            {
+                // A newer request or a real ack won the race between samples.
+                // Never advance interest for stale evidence.
+                return;
+            }
+
+            if (!_reasonByEntity.TryGetValue(entityId, out string? reason))
+            {
+                reason = OperatorReason;
+            }
+
+            if (!_destinationByEntity.Remove(entityId, out TeleportDestination landed))
+            {
+                return;
+            }
+
+            WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                peer, position, "teleport transform confirmation '" + landed.Name + "'");
+            ObserveTerrainLanding(peer, landed, position);
+            Console.WriteLine("[success] " + reason + ": entity " + entityId
+                + " transform-confirmed request " + completedRequest.Value + " near "
+                + landed.Name + " at " + position
+                + "; this client did not publish the 1073 ack, so world interest advanced from its authoritative 190602.");
+        }
+
+        private static void ObserveTerrainLanding(
+            ENetPeerHandle peer,
+            TeleportDestination landed,
+            FixedPointPosition position)
+        {
+            IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
+            IslandDefinition? island = landed.RequiredWorldEntityKey == null
+                ? null
+                : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
+                    landed.RequiredWorldEntityKey);
+            if (terrain != null && island != null)
+                terrain.ConfirmTeleportLanding(peer, island.Id, position);
+            else
+                terrain?.ObserveGlobalPosition(peer, position);
+        }
+
         /// <summary>Drops an entity's counters when its peer disconnects.</summary>
         public void Forget(long entityId)
         {
             _requests.Forget(entityId);
+            _arrivals.Cancel(entityId);
             _reasonByEntity.Remove(entityId);
+            _destinationByEntity.Remove(entityId);
+            _pendingTerrain.Remove(entityId);
         }
     }
 }

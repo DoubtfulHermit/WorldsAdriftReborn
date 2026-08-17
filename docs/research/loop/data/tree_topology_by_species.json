@@ -1,0 +1,3059 @@
+{
+ "Tree": {
+  "authoredSectionMask": 4095,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 12,
+  "wood": "birch"
+ },
+ "TreeDessert2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "hemlock"
+ },
+ "TreeDessert3": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     7
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "hemlock"
+ },
+ "TreeDessertLeaf1": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     7
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "hemlock"
+ },
+ "TreeDessertLeaf2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "hemlock"
+ },
+ "TreeOrange": {
+  "authoredSectionMask": 4095,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 12,
+  "wood": "birch"
+ },
+ "TreePalm1": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalm2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalm3": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalm4": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalm5": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmBlue1": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmBlue2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": false,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmBlue3": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmBlue4": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmBlue5": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmBranchesGreen": {
+  "authoredSectionMask": 16383,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     4,
+     5,
+     7,
+     9,
+     12,
+     13
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     8
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     10
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 14,
+  "wood": "palm"
+ },
+ "TreePalmBranchesPink": {
+  "authoredSectionMask": 16383,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     4,
+     5,
+     7,
+     9,
+     12,
+     13
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     8
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     10
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 14,
+  "wood": "palm"
+ },
+ "TreePalmShortLeaves1": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmShortLeaves2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmShortLeaves3": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmShortLeaves4": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmShortLeaves5": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6,
+     7,
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "palm"
+ },
+ "TreePalmStubby": {
+  "authoredSectionMask": 16383,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     8
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     10
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     11
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     12
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 13,
+  "wood": "palm"
+ },
+ "TreePalmStubby02": {
+  "authoredSectionMask": 16383,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     8
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     10
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     11
+    ]
+   },
+   {
+    "root": 0,
+    "sections": [
+     12
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 14,
+  "wood": "palm"
+ },
+ "TreeStraightBlue": {
+  "authoredSectionMask": 4095,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 12,
+  "wood": "ash"
+ },
+ "TreeStraightDarkGreen": {
+  "authoredSectionMask": 4095,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 12,
+  "wood": "birch"
+ },
+ "TreeStraightPink": {
+  "authoredSectionMask": 4095,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 12,
+  "wood": "ash"
+ },
+ "TreeStraightRed": {
+  "authoredSectionMask": 4095,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     6,
+     8,
+     9,
+     10
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     5
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 9,
+    "sections": [
+     11
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 12,
+  "wood": "chestnut"
+ },
+ "TreeWonky1Leaf1": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "ash"
+ },
+ "TreeWonky1Leaf2": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "ash"
+ },
+ "TreeWonky1Leaf3": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "elm"
+ },
+ "TreeWonky1Leaf4": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "chestnut"
+ },
+ "TreeWonky1Leaf5": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "chestnut"
+ },
+ "TreeWonky1Leaf6": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "oak"
+ },
+ "TreeWonky1Leaf7": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "ash"
+ },
+ "TreeWonky1LongLeaf2": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "cedar"
+ },
+ "TreeWonky1LongLeaf7": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     6,
+     10
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     8,
+     9
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "cedar"
+ },
+ "TreeWonky2Leaf2": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "ash"
+ },
+ "TreeWonky2Leaf3": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "elm"
+ },
+ "TreeWonky2Leaf4": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "chestnut"
+ },
+ "TreeWonky2Leaf5": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "chestnut"
+ },
+ "TreeWonky2Leaf6": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "oak"
+ },
+ "TreeWonky2Leaf7": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "ash"
+ },
+ "TreeWonky2LongLeaf2": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "cedar"
+ },
+ "TreeWonky2LongLeaf7": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "cedar"
+ },
+ "TreeWonky3Leaf1": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "ash"
+ },
+ "TreeWonky3Leaf2": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "ash"
+ },
+ "TreeWonky3Leaf3": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "elm"
+ },
+ "TreeWonky3Leaf4": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "chestnut"
+ },
+ "TreeWonky3Leaf5": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "chestnut"
+ },
+ "TreeWonky3Leaf6": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "oak"
+ },
+ "TreeWonky3Leaf7": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "ash"
+ },
+ "TreeWonky3LongLeaf2": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "cedar"
+ },
+ "TreeWonky3LongLeaf7": {
+  "authoredSectionMask": 2047,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     5,
+     7,
+     8
+    ]
+   },
+   {
+    "root": 3,
+    "sections": [
+     4
+    ]
+   },
+   {
+    "root": 5,
+    "sections": [
+     6
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 7,
+    "sections": [
+     10
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 11,
+  "wood": "cedar"
+ },
+ "TreeWonky4Leaf1": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "ash"
+ },
+ "TreeWonky4Leaf2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "ash"
+ },
+ "TreeWonky4Leaf3": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "elm"
+ },
+ "TreeWonky4Leaf4": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "chestnut"
+ },
+ "TreeWonky4Leaf5": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "chestnut"
+ },
+ "TreeWonky4Leaf6": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "oak"
+ },
+ "TreeWonky4Leaf7": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "ash"
+ },
+ "TreeWonky4LongLeaf2": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "cedar"
+ },
+ "TreeWonky4LongLeaf7": {
+  "authoredSectionMask": 511,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     3,
+     4,
+     5,
+     6
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     7
+    ]
+   },
+   {
+    "root": 4,
+    "sections": [
+     8
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 9,
+  "wood": "cedar"
+ },
+ "treewonky2Leaf1": {
+  "authoredSectionMask": 1023,
+  "branches": [
+   {
+    "root": 0,
+    "sections": [
+     1,
+     2,
+     5,
+     6,
+     8
+    ]
+   },
+   {
+    "root": 2,
+    "sections": [
+     3,
+     4
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     9
+    ]
+   },
+   {
+    "root": 6,
+    "sections": [
+     7
+    ]
+   }
+  ],
+  "componentSetIdenticalToTree": true,
+  "harvestable": [
+   false,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true,
+   true
+  ],
+  "sectionCount": 10,
+  "wood": "ash"
+ }
+}

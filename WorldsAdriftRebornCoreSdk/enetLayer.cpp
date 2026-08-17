@@ -1,4 +1,5 @@
 #include "enetLayer.h"
+#include <vector>
 
 int __cdecl ENet_EXP_Initialize() {
     return ENet_Initialize();
@@ -24,11 +25,24 @@ void __cdecl ENet_EXP_Destroy_Packet(ENetPacket_Wrapper* packet) {
 void __cdecl ENet_EXP_Send(ENetPeer* peer, int channel, const void* data, long len, int flag) {
     ENet_Send(peer, channel, data, len, flag);
 }
+int __cdecl ENet_EXP_PeerChannelCount(ENetPeer* peer) {
+    return peer == NULL ? 0 : static_cast<int>(peer->channelCount);
+}
 void __cdecl ENet_EXP_Flush(ENetHost* client) {
     ENet_Flush(client);
 }
 void* __cdecl PB_EXP_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     return PB_AssetLoadRequestOp_Serialize(op, len);
+}
+void* __cdecl PB_EXP_AssetLoadedAck_Serialize(AssetLoaded* ack, int* len) {
+    return PB_AssetLoadedAck_Serialize(ack, len);
+}
+bool __cdecl PB_EXP_AssetLoadedAck_Deserialize(
+    const void* data, int len, AssetLoaded* ack) {
+    return PB_AssetLoadedAck_Deserialize(data, len, ack);
+}
+void __cdecl PB_EXP_AssetLoadedAck_Free(AssetLoaded* ack) {
+    PB_AssetLoadedAck_Free(ack);
 }
 void* __cdecl PB_EXP_AddEntityOp_Serialize(stripped_AddEntityOp* op, int* len, long entityId) {
     return PB_AddEntityOp_Serialize(op, len, entityId);
@@ -47,6 +61,10 @@ void* __cdecl PB_EXP_ComponentUpdateOp_Serialize(long entityId, PB_ComponentUpda
 }
 bool __cdecl PB_EXP_ComponentUpdateOp_Deserialize(const void* data, int len, long* entityId, PB_ComponentUpdateOp** componentUpdateOp, unsigned int* componentUpdateOp_count) {
     return PB_ComponentUpdateOp_Deserialize(data, len, entityId, componentUpdateOp, componentUpdateOp_count);
+}
+void* __cdecl PB_EXP_RemoveEntityOp_Serialize(std::int64_t entityId,
+    const std::uint32_t* componentIds, std::uint32_t componentCount, int* len) {
+    return PB_RemoveEntityOp_Serialize(entityId, componentIds, componentCount, len);
 }
 void __cdecl PB_EXP_Free(void* handle) {
     PB_Free(handle);
@@ -242,6 +260,68 @@ static void* PB_TakeOwnership(const std::string& serialized, int* len) {
     return out;
 }
 
+static void PB_AppendVarint(std::string& output, std::uint64_t value) {
+    do {
+        unsigned char b = static_cast<unsigned char>(value & 0x7f);
+        value >>= 7;
+        output.push_back(static_cast<char>(value ? (b | 0x80) : b));
+    } while (value);
+}
+
+static bool PB_ReadVarint(const unsigned char* bytes, int len, int* cursor,
+    std::uint64_t* value) {
+    *value = 0;
+    for (int shift = 0; *cursor < len && shift < 64; shift += 7) {
+        unsigned char b = bytes[(*cursor)++];
+        *value |= static_cast<std::uint64_t>(b & 0x7f) << shift;
+        if ((b & 0x80) == 0) return true;
+    }
+    return false;
+}
+
+void* PB_RemoveEntityOp_Serialize(std::int64_t entityId,
+    const std::uint32_t* componentIds, std::uint32_t componentCount, int* len) {
+    if (len == NULL) return NULL;
+    std::string serialized;
+    serialized.push_back(static_cast<char>(0x08)); // field 1, int64 varint
+    PB_AppendVarint(serialized, static_cast<std::uint64_t>(entityId));
+    for (std::uint32_t i = 0; i < componentCount; ++i) {
+        serialized.push_back(static_cast<char>(0x10)); // field 2, uint32 varint
+        PB_AppendVarint(serialized, componentIds[i]);
+    }
+    return PB_TakeOwnership(serialized, len);
+}
+
+bool PB_RemoveEntityOp_Deserialize(const void* data, int len, RemoveEntityOp* op,
+    RemoveComponentOp** components, int* componentCount) {
+    if (data == NULL || op == NULL || components == NULL || componentCount == NULL || len < 2)
+        return false;
+    const unsigned char* bytes = static_cast<const unsigned char*>(data);
+    int cursor = 0;
+    bool sawEntity = false;
+    std::vector<std::uint32_t> ids;
+    while (cursor < len) {
+        std::uint64_t tag;
+        if (!PB_ReadVarint(bytes, len, &cursor, &tag)) return false;
+        std::uint64_t value;
+        if ((tag & 7) != 0 || !PB_ReadVarint(bytes, len, &cursor, &value)) return false;
+        if (tag == 0x08) {
+            op->EntityId = static_cast<std::int64_t>(value);
+            sawEntity = true;
+        } else if (tag == 0x10) {
+            ids.push_back(static_cast<std::uint32_t>(value));
+        }
+    }
+    if (!sawEntity) return false;
+    *componentCount = static_cast<int>(ids.size());
+    *components = ids.empty() ? nullptr : new RemoveComponentOp[ids.size()];
+    for (std::size_t i = 0; i < ids.size(); ++i) {
+        (*components)[i].EntityId = op->EntityId;
+        (*components)[i].ComponentId = ids[i];
+    }
+    return true;
+}
+
 void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     if (op == NULL || len == NULL) {
         if (len != NULL) {
@@ -281,6 +361,83 @@ void* PB_AssetLoadRequestOp_Serialize(AssetLoadRequestOp* op, int* len) {
     return PB_TakeOwnership(serialized, len);
 }
 
+namespace {
+    // The Url field is unused by the client asset-loading response. Giving the
+    // correlated response an explicit marker makes it impossible to mistake
+    // the legacy response (eight opaque bytes containing a client pointer) for
+    // protobuf merely because those bytes happen to be parseable.
+    const char* kAssetLoadedAckMarker = "wareborn.asset-loaded.v1";
+
+    char* CopyAckField(const std::string& value) {
+        char* result = new char[value.size() + 1];
+        memcpy(result, value.data(), value.size());
+        result[value.size()] = '\0';
+        return result;
+    }
+}
+
+void* PB_AssetLoadedAck_Serialize(AssetLoaded* ack, int* len) {
+    if (len != NULL) *len = 0;
+    if (ack == NULL || len == NULL || ack->AssetType == NULL
+        || ack->Name == NULL || ack->Context == NULL) {
+        return NULL;
+    }
+
+    WorldsAdriftRebornCoreSdk::AssetLoadRequestOp pb_op;
+    pb_op.set_assettype(ack->AssetType);
+    pb_op.set_name(ack->Name);
+    pb_op.set_context(ack->Context);
+    pb_op.set_url(kAssetLoadedAckMarker);
+
+    std::string serialized;
+    if (!pb_op.SerializeToString(&serialized)) return NULL;
+    return PB_TakeOwnership(serialized, len);
+}
+
+bool PB_AssetLoadedAck_Deserialize(const void* data, int len, AssetLoaded* ack) {
+    if (ack == NULL) return false;
+    ack->AssetType = NULL;
+    ack->Name = NULL;
+    ack->Context = NULL;
+
+    // Old clients send sizeof(AssetLoaded*) bytes from Connection.cpp. Never
+    // feed those opaque pointer bytes into protobuf. The marked v1 payload is
+    // necessarily much larger than either a 32- or 64-bit pointer.
+    if (data == NULL || len <= static_cast<int>(sizeof(void*)) || len > 4096) {
+        return false;
+    }
+
+    WorldsAdriftRebornCoreSdk::AssetLoadRequestOp pb_op;
+    if (!pb_op.ParseFromArray(data, len)
+        || !pb_op.has_url() || pb_op.url() != kAssetLoadedAckMarker
+        || !pb_op.has_assettype() || pb_op.assettype().empty()
+        || !pb_op.has_name() || pb_op.name().empty()
+        || !pb_op.has_context() || pb_op.context().empty()
+        || pb_op.assettype().find('\0') != std::string::npos
+        || pb_op.name().find('\0') != std::string::npos
+        || pb_op.context().find('\0') != std::string::npos
+        || pb_op.assettype().size() > 512
+        || pb_op.name().size() > 512
+        || pb_op.context().size() > 1024) {
+        return false;
+    }
+
+    ack->AssetType = CopyAckField(pb_op.assettype());
+    ack->Name = CopyAckField(pb_op.name());
+    ack->Context = CopyAckField(pb_op.context());
+    return true;
+}
+
+void PB_AssetLoadedAck_Free(AssetLoaded* ack) {
+    if (ack == NULL) return;
+    delete[] ack->AssetType;
+    delete[] ack->Name;
+    delete[] ack->Context;
+    ack->AssetType = NULL;
+    ack->Name = NULL;
+    ack->Context = NULL;
+}
+
 bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadRequestOp* op) {
     if (data == NULL || op == NULL) {
         return false;
@@ -292,36 +449,43 @@ bool PB_AssetLoadRequestOp_Deserialize(const void* data, int len, AssetLoadReque
     
     if (!pb_op->ParseFromString(*str)) {
         delete pb_op;
+        delete str;
 
         return false;
     }
 
+    // Every field crosses the Worker SDK ABI as a C string. Reserve the byte
+    // written by the terminator: allocating exactly payload.size() and then
+    // writing field[len] poisoned the Windows heap once per field. With the
+    // larger Wareborn spawn plan, Windows eventually reported c0000374 while
+    // activating a later prefab even though the damage happened here.
     if (pb_op->has_assettype()) {
         std::size_t len = pb_op->assettype().size();
-        op->AssetType = new char[len];
+        op->AssetType = new char[len + 1];
         memcpy(op->AssetType, pb_op->assettype().data(), len);
         op->AssetType[len] = '\0';
     }
     if (pb_op->has_name()) {
         std::size_t len = pb_op->name().size();
-        op->Name = new char[len];
+        op->Name = new char[len + 1];
         memcpy(op->Name, pb_op->name().data(), len);
         op->Name[len] = '\0';
     }
     if (pb_op->has_context()) {
         std::size_t len = pb_op->context().size();
-        op->Context = new char[len];
+        op->Context = new char[len + 1];
         memcpy(op->Context, pb_op->context().data(), len);
         op->Context[len] = '\0';
     }
     if (pb_op->has_url()) {
         std::size_t len = pb_op->url().size();
-        op->Url = new char[len];
+        op->Url = new char[len + 1];
         memcpy(op->Url, pb_op->url().data(), len);
         op->Url[len] = '\0';
     }
 
     delete pb_op;
+    delete str;
 
     return true;
 }
@@ -370,6 +534,7 @@ bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op) {
 
     if (!pb_op->ParseFromString(*str)) {
         delete pb_op;
+        delete str;
 
         return false;
     }
@@ -379,18 +544,19 @@ bool PB_AddEntityOp_Deserialize(const void* data, int len, AddEntityOp* op) {
     }
     if (pb_op->has_prefabcontext()) {
         std::size_t len = pb_op->prefabcontext().size();
-        op->PrefabContext = new char[len];
+        op->PrefabContext = new char[len + 1];
         memcpy(op->PrefabContext, pb_op->prefabcontext().data(), len);
         op->PrefabContext[len] = '\0';
     }
     if (pb_op->has_prefabname()) {
         std::size_t len = pb_op->prefabname().size();
-        op->PrefabName = new char[len];
+        op->PrefabName = new char[len + 1];
         memcpy(op->PrefabName, pb_op->prefabname().data(), len);
         op->PrefabName[len] = '\0';
     }
 
     delete pb_op;
+    delete str;
 
     return true;
 }

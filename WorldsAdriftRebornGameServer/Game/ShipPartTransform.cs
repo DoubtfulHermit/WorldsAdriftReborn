@@ -126,5 +126,34 @@ namespace WorldsAdriftRebornGameServer.Game
                 .SetIsSleeping(false)
                 .SetTimestamp(timestamp);
         }
+
+        /// <summary>
+        /// A 190602 WAKE UPDATE for a PARENTLESS (root/world-absolute) entity - a built hull,
+        /// or a mounted part being LIFTED back off a ship. The parent option is explicitly
+        /// ABSENT (present-but-empty), so a part that WAS a <c>"~"</c> child of the hull is
+        /// un-followed; for a hull that was already parentless it is a no-op assertion of the
+        /// same state. Everything else is value-equivalent to the seed
+        /// (<see cref="BuildSeed(FixedPointVector3, Improbable.Collections.Option{Parent}, Quaternion32)"/>) -
+        /// only the timestamp differs - so this advances a timeline WITHOUT re-seeding.
+        ///
+        /// USED FOR TWO THINGS (findings-mount-placement.md section 2):
+        ///   * advancing a built HULL's 190602 timeline on each accepted mount so the client's
+        ///     parent-sampling time reaches the newest <c>"~"</c> child sample (the world
+        ///     position is the hull's own, unchanged, so it does not move); and
+        ///   * the re-lift DETACH of a mounted part - a global 190602 at the part's last world
+        ///     pose with the hull parent cleared, so the part reads as loose again.
+        /// </summary>
+        public static TransformState.Update BuildParentlessWakeUpdate(FixedPointPosition worldPosition, Quaternion32 rotation, float timestamp)
+        {
+            return new TransformState.Update()
+                .SetLocalPosition(LocalPosition(worldPosition))
+                .SetLocalRotation(rotation)
+                .SetParent(default(Option<Parent>))
+                .SetPivot(new Vector3d(0f, 0f, 0f))
+                .SetVelocity(new Vector3f(0f, 0f, 0f))
+                .SetAngularVelocity(new Vector3f(0f, 0f, 0f))
+                .SetIsSleeping(false)
+                .SetTimestamp(timestamp);
+        }
     }
 }

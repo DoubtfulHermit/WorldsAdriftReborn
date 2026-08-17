@@ -1,4 +1,5 @@
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -63,6 +64,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             registry.Register(Tree());
 
             Assert.Throws<ArgumentException>(() => registry.Register(Tree()));
+        }
+
+        [Fact]
+        public void Retiring_an_entity_removes_it_from_future_plans_without_reusing_its_id()
+        {
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            WorldEntity tree = registry.Register(Tree());
+            long id = registry.EntityIdFor(tree);
+
+            Assert.True(registry.Unregister(id));
+            Assert.Null(registry.ByEntityId(id));
+            Assert.Null(registry.ByKey(tree.Key));
+            Assert.DoesNotContain(tree, registry.Registrations);
+            Assert.False(registry.Unregister(id));
+        }
+
+        [Fact]
+        public void Relocating_a_surviving_entity_updates_its_recheckout_pose_and_keeps_its_id()
+        {
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            WorldEntity tree = registry.Register(Tree());
+            long id = registry.EntityIdFor(tree);
+            FixedPointPosition moved = FixedPointPosition.FromMetres(1, 2, 3);
+            uint turned = WorldsAdriftRebornGameServer.Multiplayer.Placement
+                .Quaternion32Packing.Encode(0.9238795f, 0f, 0.3826834f, 0f);
+
+            Assert.True(registry.Relocate(id, moved, turned));
+            Assert.Equal(id, registry.BoundEntityIdFor(tree.Key));
+            Assert.Equal(moved, registry.TransformSeedFor(id));
+            // Re-checkout's 190602 transform and 1130 motion seeds both read
+            // these registry answers. Losing the rotation here made a recalled
+            // ship snap only when its live domain first became relevant.
+            Assert.Equal(turned, registry.RotationSeedFor(id));
+        }
+
+        [Fact]
+        public void A_frozen_spawn_plan_cannot_restore_a_stale_registration_after_relocation()
+        {
+            WorldEntityRegistry registry = new WorldEntityRegistry(new EntityIdAllocator());
+            WorldEntity frozenPlanEntity = registry.Register(Tree());
+            long id = registry.EntityIdFor(frozenPlanEntity);
+            FixedPointPosition firstMove = FixedPointPosition.FromMetres(1, 2, 3);
+            FixedPointPosition secondMove = FixedPointPosition.FromMetres(4, 5, 6);
+
+            Assert.True(registry.Relocate(id, firstMove,
+                WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity));
+
+            // A later peer executes the boot-time plan, which still holds the
+            // pre-relocation object. Binding it must keep the canonical moved
+            // registration rather than poisoning the entity-id lookup.
+            Assert.Equal(id, registry.EntityIdFor(frozenPlanEntity));
+            Assert.Equal(firstMove, registry.TransformSeedFor(id));
+            Assert.True(registry.Relocate(id, secondMove,
+                WorldsAdriftRebornGameServer.Multiplayer.Placement.Quaternion32Packing.Identity));
+            Assert.Equal(secondMove, registry.TransformSeedFor(id));
         }
 
         [Fact]
@@ -242,6 +298,59 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             WorldEntityRegistry on = WorldEntities.Default(new EntityIdAllocator(), includeProofIsland: true);
             Assert.NotNull(on.ByKey(WorldEntities.ProofIslandKey));
+        }
+
+        [Fact]
+        public void The_production_second_island_is_off_unless_asked_for_and_is_classified_as_terrain()
+        {
+            string key = global::WorldsAdriftRebornGameServer.Multiplayer.Islands
+                .IslandCatalog.TradesChallenge.WorldEntityKey;
+            WorldEntityRegistry off = WorldEntities.Default(new EntityIdAllocator());
+            Assert.Null(off.ByKey(key));
+
+            WorldEntityRegistry on = WorldEntities.Default(
+                new EntityIdAllocator(), includeProductionSecondIsland: true);
+            WorldEntity island = on.ByKey(key)!;
+            long entityId = on.EntityIdFor(island);
+
+            Assert.Equal("1206286558@Island", island.AssetName);
+            Assert.Equal(SeededEntityKind.Island, on.KindOf(entityId));
+            Assert.Equal(SpawnOrder.AfterPlayer, island.Order);
+        }
+
+        [Fact]
+        public void First_region_rollout_adds_only_the_selected_terrain_prefix()
+        {
+            WorldEntityRegistry registry = WorldEntities.Default(
+                new EntityIdAllocator(), firstRegionTerrainCount: 3);
+
+            Assert.NotNull(registry.ByKey(IslandCatalog.Haven.WorldEntityKey));
+            Assert.Null(registry.ByKey(IslandCatalog.TradesChallenge.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.MentalFacility.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.BetrayalCopperKing.WorldEntityKey));
+            Assert.NotNull(registry.ByKey(IslandCatalog.HighlandsHills.WorldEntityKey));
+            Assert.Null(registry.ByKey(IslandCatalog.LandManForgot.WorldEntityKey));
+
+            foreach (IslandDefinition island in IslandCatalog.FirstRegionTerrain.Skip(1).Take(3))
+            {
+                WorldEntity entity = registry.ByKey(island.WorldEntityKey)!;
+                Assert.Equal(SeededEntityKind.Island, registry.KindOf(registry.EntityIdFor(entity)));
+                Assert.Empty(entity.SeedComponents);
+                Assert.Equal(SpawnOrder.AfterPlayer, entity.Order);
+            }
+        }
+
+        [Fact]
+        public void Legacy_trades_flag_and_first_region_rollout_never_duplicate_terrain()
+        {
+            WorldEntityRegistry registry = WorldEntities.Default(new EntityIdAllocator(),
+                includeProductionSecondIsland: true, firstRegionTerrainCount: 4);
+
+            Assert.Single(registry.Registrations,
+                entity => entity.Key == IslandCatalog.TradesChallenge.WorldEntityKey);
+            Assert.Equal(6, registry.Registrations.Count(entity =>
+                entity.Key == IslandCatalog.TradesChallenge.WorldEntityKey
+                || IslandCatalog.FirstRegionTerrain.Any(island => island.WorldEntityKey == entity.Key)));
         }
 
         [Fact]

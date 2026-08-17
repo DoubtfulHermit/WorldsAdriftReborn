@@ -86,10 +86,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return set != null && set.Contains(componentId);
         }
 
+        /// <summary>
+        /// Snapshot every component currently checked out for this entity.
+        /// RemoveEntity transports this list so the client can dispatch the
+        /// matching RemoveComponent callbacks before retiring the entity.
+        /// </summary>
+        public IReadOnlyList<uint> ServedOf(TPeer peer, long entityId)
+        {
+            HashSet<uint>? set = SetFor(peer, entityId, create: false);
+            if (set == null || set.Count == 0)
+            {
+                return new uint[0];
+            }
+            List<uint> result = new List<uint>(set);
+            result.Sort();
+            return result;
+        }
+
         /// <summary>Drop everything remembered for a departed peer.</summary>
         public void ForgetPeer(TPeer peer)
         {
             _served.Remove(peer);
+        }
+
+        /// <summary>Drop one entity after it was removed from this peer's checkout.</summary>
+        public void ForgetEntity(TPeer peer, long entityId)
+        {
+            if (_served.TryGetValue(peer, out Dictionary<long, HashSet<uint>>? byEntity))
+            {
+                byEntity.Remove(entityId);
+                if (byEntity.Count == 0) _served.Remove(peer);
+            }
         }
 
         private HashSet<uint>? SetFor(TPeer peer, long entityId, bool create)

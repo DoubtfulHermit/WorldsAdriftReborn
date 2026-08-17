@@ -18,12 +18,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         private const long Invalid = 0; // stands in for InvalidEntityId in these tests
 
         // An update that CARRIED a relativeTo (a board/leave edge on the wire).
-        private static CarryEchoDecision Carried(CarryEchoTracker t, ulong p, long id) =>
-            t.Observe(p, relativeToPresent: true, relativeTo: id);
+        private static CarryEchoDecision Carried(CarryEchoTracker t, ulong p, long id,
+            AboardTransition? transition = null, bool deferInvalid = false) =>
+            t.Observe(p, transition ?? AboardTransition.NoChange,
+                relativeToPresent: true, relativeTo: id,
+                deferInvalidForShipContactGap: deferInvalid);
 
         // An update that carried NO relativeTo (a position/bone/timestamp tick).
         private static CarryEchoDecision NoField(CarryEchoTracker t, ulong p) =>
-            t.Observe(p, relativeToPresent: false, relativeTo: 0);
+            t.Observe(p, AboardTransition.NoChange,
+                relativeToPresent: false, relativeTo: 0,
+                deferInvalidForShipContactGap: false);
 
         [Fact]
         public void First_board_echoes_the_reported_id()
@@ -37,13 +42,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Echoes_the_EXACT_id_not_a_root()
+        public void Same_root_surface_switch_echoes_the_EXACT_new_contact_id()
         {
             // The client arms only when the echoed id resolves to the same GameObject
             // it already ground-chose. Standing on the deck must echo the DECK id,
             // never the hull it belongs to.
             CarryEchoTracker t = new CarryEchoTracker();
 
+            Carried(t, Player, Hull,
+                new AboardTransition(AboardChange.Boarded, Hull, 0));
             CarryEchoDecision d = Carried(t, Player, Deck);
 
             Assert.True(d.ShouldEcho);
@@ -92,6 +99,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             CarryEchoDecision leave = Carried(t, Player, Invalid);
 
+            Assert.True(leave.ShouldEcho);
+            Assert.Equal(Invalid, leave.RelativeTo);
+        }
+
+        [Fact]
+        public void Brief_invalid_ship_contact_is_silent_until_semantic_leave_is_confirmed()
+        {
+            CarryEchoTracker t = new CarryEchoTracker();
+            Carried(t, Player, Deck,
+                new AboardTransition(AboardChange.Boarded, Hull, 0));
+
+            Assert.False(Carried(t, Player, Invalid, deferInvalid: true).ShouldEcho);
+
+            CarryEchoDecision leave = t.Observe(Player,
+                new AboardTransition(AboardChange.Disembarked, 0, Hull),
+                relativeToPresent: false, relativeTo: 0,
+                deferInvalidForShipContactGap: false);
+            Assert.True(leave.ShouldEcho);
+            Assert.Equal(-1, leave.RelativeTo);
+        }
+
+        [Fact]
+        public void Invalid_contact_for_non_ship_ground_still_disarms_immediately()
+        {
+            CarryEchoTracker t = new CarryEchoTracker();
+            Carried(t, Player, 500); // moving non-ship ground object
+
+            CarryEchoDecision leave = Carried(t, Player, Invalid, deferInvalid: false);
             Assert.True(leave.ShouldEcho);
             Assert.Equal(Invalid, leave.RelativeTo);
         }

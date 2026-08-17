@@ -89,6 +89,20 @@
   <ItemGroup>
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\ClientRigPolicy.cs"
              Link="Patching\Multiplayer\ClientRigPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\ShipPartClientPrecache.cs"
+             Link="Patching\Multiplayer\ShipPartClientPrecache.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\SkyCoreSockets.cs"
+             Link="Patching\Multiplayer\SkyCoreSockets.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Placement\StationPickupVisibilityPolicy.cs"
+             Link="Patching\Interactions\StationPickupVisibilityPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\ShipInteractionHoldPolicy.cs"
+             Link="Patching\Flight\ShipInteractionHoldPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\HierarchyLifecyclePolicy.cs"
+             Link="Patching\Multiplayer\HierarchyLifecyclePolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Islands\IslandDistantShellProtocol.cs"
+             Link="Patching\Multiplayer\Islands\IslandDistantShellProtocol.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\HelmYawResponsePolicy.cs"
+             Link="Patching\Flight\HelmYawResponsePolicy.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->

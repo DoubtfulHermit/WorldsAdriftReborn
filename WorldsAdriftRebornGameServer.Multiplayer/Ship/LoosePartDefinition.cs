@@ -34,7 +34,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///   LampVisualizer     -> 1108, 1236, 1099
     ///     (LampVisualizer.cs:13-20 - LampState, IsTooDamagedToWorkState,
     ///      SalvageAndRepairState)
-    /// The base seven are shared by ANY ship part; the part-specific ids
+    /// The common base is shared by ANY ship part; the part-specific ids
     /// (<see cref="PartSpecificComponents"/>) are the lamp's 1108/1236. Everything
     /// else the prefab asks for (mass, lightning, deteriorate, collision) is served
     /// best-effort over interest or left dormant, exactly as the hull leaves its
@@ -55,8 +55,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// The 1120 attachmentType string, mapped by BuilderVisualizer.GetAttachmentType
         /// (one of none/side/deck/wing/deckGrid/deckForward/engine/shipSurfaces/coreModule;
         /// anything else degrades safely to None). Also server refdata, not in the
-        /// decompile; a decorative lamp is a surface part, so "shipSurfaces" is the
-        /// best guess. Only affects placement snapping, not whether the part renders.
+        /// decompile. Legacy "shipSurfaces" values are normalized to "deck" because
+        /// reconstructed ships do not expose retail's Environment-layer skin; this
+        /// affects placement snapping, not whether the part renders.
         /// </param>
         /// <param name="partSpecificComponents">
         /// The functional component ids unique to this part type (the lamp's
@@ -75,7 +76,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             ItemType = itemType;
             Title = title;
             PrefabName = prefabName;
-            AttachmentType = attachmentType;
+            // The current built ship has a real ShipDeck placement collider but no
+            // retail Environment-layer ShipSurfaces skin. Normalize here (rather than
+            // only in the catalogue) so old loose/mounted records and live env
+            // overrides cannot resurrect the one-incidental-frame placement bug.
+            AttachmentType = PartMountSurfaces.NormalizeForBuiltShip(attachmentType);
             PartSpecificComponents = partSpecificComponents;
         }
 
@@ -98,7 +103,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public IReadOnlyList<uint> PartSpecificComponents { get; }
 
         /// <summary>
-        /// The seven components EVERY loose ship part carries so
+        /// The components EVERY loose ship part carries so
         /// <c>ShipPartVisualizer</c> enables (making it render/lift) plus its salvage
         /// base: 190602 TransformState (position, no ship parent), 190601
         /// TransformHierarchyState (empty children so it stays liftable), 1016
@@ -109,7 +114,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// order.
         /// </summary>
         public static readonly IReadOnlyList<uint> BaseShipPartComponents =
-            new uint[] { 190602, 190601, 1016, 1099, 1013, 1120, 8066 };
+            // 1246 is shared deliberately: many ship-part prefabs carry variation
+            // visualizers below the root (and therefore outside a root-only prefab
+            // census). A stable seed is harmless when unused and prevents a valid
+            // crafted entity from retaining an invisible material/mesh child.
+            new uint[] { 190602, 190601, 1016, 1099, 1013, 1120, 8066, 1246 };
 
         /// <summary>
         /// This part's full proactive, all-or-nothing seed set:

@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -73,7 +75,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// entities and is gone. This is a small pretty island with a ruined
         /// metal camp, not a tutorial.
         /// </summary>
-        public const string IslandAssetName = "1431299145@Island";
+        public const string IslandAssetName = IslandCatalog.HavenTerrainAssetName;
 
         /// <summary>
         /// The island this server shipped before Haven. Kept only so a test can
@@ -103,8 +105,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// not teleport, it starts a 5-second smoothstep slide, which would drag
         /// the terrain out from under everyone standing on it.
         /// </summary>
-        public static readonly FixedPointPosition IslandPosition =
-            new FixedPointPosition(69650145, -1305269, -4645549);
+        public static readonly FixedPointPosition IslandPosition = IslandCatalog.Haven.GlobalOrigin;
 
         /// <summary>
         /// Island-local (208.00, 6.70, 4.00) on Haven instance #5, i.e. world
@@ -132,7 +133,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// server, so a bad spawn is an endless fall rather than a death.
         /// </summary>
         public static readonly FixedPointPosition PlayerSpawnPosition =
-            new FixedPointPosition(70502113, -1277826, -4629165);
+            IslandCatalog.Haven.LocalToGlobal(208.0, 6.70, 4.0);
 
         /// <summary>
         /// The value seeded into 8055 NewPlayerState. FALSE, deliberately, and

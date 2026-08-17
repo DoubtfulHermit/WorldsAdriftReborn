@@ -4,15 +4,32 @@ using Improbable.Corelibrary.Math;
 using Improbable.Math;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
+using System.Diagnostics;
 
 namespace WorldsAdriftRebornGameServer.Game
 {
+    internal readonly record struct ShipDomainComponentUpdate(long EntityId, uint ComponentId, object Update);
+
+    internal readonly record struct ShipDomainDeliveryResult(
+        ShipReplicationStamp Stamp,
+        int RelevantPeers,
+        int RootDeliveries,
+        int AuxiliaryFailures,
+        int MemberDeliveries,
+        int SkippedMembers,
+        IReadOnlyList<ulong> RootDeliveredPeerIds);
+
+    internal readonly record struct ShipDomainReplicationTelemetry(
+        long AuthorityGeneration, long Sequence, long DeliveryAgeMs);
+
     /// <summary>
     /// The one ENet-shaped thing the two ship-motion features share: turn a pure
     /// <see cref="ShipControlPointSpec"/> into a 1130 SSPPredictedMotionState
-    /// update and RELIABLY send it to every client that has the hull.
+    /// update and send it to every client that has the hull.
     ///
     /// Both callers - the step-3 carry probe (<see cref="ShipMoveService"/>) and
     /// the step-4 ferry (<see cref="ShipFerryService"/>) - address the SAME
@@ -21,16 +38,57 @@ namespace WorldsAdriftRebornGameServer.Game
     /// world-entity registry (<c>WorldEntities.EntityIdFor</c>), the same number
     /// the spawn plan already handed out.
     ///
-    /// RELIABLE, not the movement relay's unreliable path: a ship control point is
-    /// NOT superseded every tick the way a player's 190602 is - each one is a
-    /// distinct step of the flight, and <c>ValidateControlPoints</c> rejects a
-    /// point that arrives out of order, so a dropped or reordered one is a visible
-    /// stutter that never self-heals. <c>SendComponentUpdateOp</c> sends on the
-    /// COMPONENT_UPDATE_OP channel with <c>ENetPacketFlag.RELIABLE</c>, which is
-    /// exactly what we want here.
+    /// Each update contains one complete absolute latest control point: timestamp,
+    /// global position, rotation and velocity. A later point therefore supersedes
+    /// a lost one. <c>ValidateControlPoints</c> only rejects regression or a gap
+    /// smaller than 0.228 s; skipping a 0.24 s point widens the next gap to 0.48 s,
+    /// which is valid, and <c>PathFollower</c> corrects from its extrapolated pose.
+    /// Delivery is consequently UNRELIABLE through <see cref="MirrorSendPolicy"/>,
+    /// avoiding reliable-channel head-of-line delay during loss.
     /// </summary>
     internal static class ShipPublisher
     {
+        private static readonly ShipReplicationCursor DomainSequence = new ShipReplicationCursor();
+        private static readonly Dictionary<long, DomainDeliveryWindow> DomainWindows = new();
+        private static readonly TimeSpan DomainStatsInterval = TimeSpan.FromSeconds(5);
+        private static readonly Stopwatch DomainStatsClock = Stopwatch.StartNew();
+
+        private sealed class DomainDeliveryWindow
+        {
+            public long Generation;
+            public long LastSequence;
+            public long Ticks;
+            public long RelevantPeers;
+            public long RootDeliveries;
+            public long AuxiliaryFailures;
+            public long MemberDeliveries;
+            public long SkippedMembers;
+            public TimeSpan LastDeliveryAt;
+            public TimeSpan NextLogAt;
+        }
+
+        public static ShipDomainReplicationTelemetry TelemetryFor(long hullEntityId)
+        {
+            if (!DomainWindows.TryGetValue(hullEntityId, out DomainDeliveryWindow? window))
+                return new ShipDomainReplicationTelemetry(0, 0, -1);
+            long ageMs = (long)Math.Max(0,
+                (DomainStatsClock.Elapsed - window.LastDeliveryAt).TotalMilliseconds);
+            return new ShipDomainReplicationTelemetry(
+                window.Generation, window.LastSequence, ageMs);
+        }
+
+        /// <summary>
+        /// Forgets replication state after authoritative hull removal. Entity ids are
+        /// normally monotonic, but treating retirement as a lifecycle boundary prevents
+        /// stale authority generations, sequence numbers, and diagnostics surviving a
+        /// restored/replaced domain in tests or a future allocator implementation.
+        /// </summary>
+        public static void RetireDomain(long hullEntityId)
+        {
+            DomainSequence.Forget(hullEntityId);
+            DomainWindows.Remove(hullEntityId);
+        }
+
         /// <summary>
         /// The hull's entity id and its seed position, or false if the ship has
         /// not been spawned into the world yet.
@@ -74,10 +132,25 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         public static object BuildUpdate(ShipControlPointSpec spec)
         {
+            return BuildUpdate(spec, 1023u);
+        }
+
+        /// <summary>
+        /// The 1130 update with an EXPLICIT packed rotation - the overload piloted
+        /// flight uses so the hull BANKS onto its heading (PathFollower slerps and
+        /// MoveRotation()s the rotation between points, VERIFIED at
+        /// acs/PathFollower.cs:332-354). The value must already be a valid packed
+        /// Quaternion32 - 1023 for identity, or the output of
+        /// Quaternion32Packing.Encode / FlightIntegrator.PackedRotation; a raw 0 or 1
+        /// decodes to NaN and ControlPoint.ValidateControlPoint rejects the point
+        /// silently. Everything else matches the identity overload above.
+        /// </summary>
+        public static object BuildUpdate(ShipControlPointSpec spec, uint packedRotation)
+        {
             ShipControlPoint controlPoint = new ShipControlPoint(
                 spec.TimestampMs,
                 new Coordinates(spec.X, spec.Y, spec.Z),
-                new Quaternion32(1023),
+                new Quaternion32(packedRotation),
                 new Vector3f((float)spec.Vx, (float)spec.Vy, (float)spec.Vz),
                 ShipHull.FsimIdHash);
 
@@ -107,7 +180,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// Sends one already-built component update on a GIVEN component id to every
         /// fully-loaded peer, keeping count. The hull's 1130 SSPPredictedMotionState
         /// and each bolted part's 190602 TransformState wake both ride this same
-        /// reliable path (see <see cref="ShipPartMotionService"/>); only the id and the
+        /// superseding-update path (see <see cref="ShipPartMotionService"/>); only the id and the
         /// target entity differ.
         /// </summary>
         public static int Broadcast(long entityId, uint componentId, object update)
@@ -131,6 +204,239 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
             }
             return sent;
+        }
+
+        /// <summary>
+        /// Publishes high-frequency motion only to peers that both hold the target
+        /// entity and are near the ship (or piloting/aboard it). Event updates keep
+        /// using <see cref="Broadcast(long,uint,object)"/>; this gate is specifically
+        /// for the 1130/190602 stream. Without it, one abandoned ship cruising tens
+        /// of kilometres away sent its hull and every mounted-part wake to every
+        /// player forever.
+        /// </summary>
+        public static int BroadcastMotion(long targetEntityId, long hullEntityId,
+            FixedPointPosition hullPosition, uint componentId, object update)
+        {
+            int sent = 0;
+            foreach ((ulong peerId, long playerEntityId) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peer == null || !PeerManager.Instance.clientSetupState.Contains(peer))
+                {
+                    continue;
+                }
+
+                bool checkedOut = WorldsAdriftRebornGameServer.SentEntities
+                    .WasSent(peer, targetEntityId)
+                    && WorldsAdriftRebornGameServer.ServedComponents
+                        .HasServed(peer, targetEntityId, componentId);
+                bool pilot = WorldsAdriftRebornGameServer.Flight
+                    .IsPilotOf(playerEntityId, hullEntityId);
+                bool aboard = WorldsAdriftRebornGameServer.Aboard.ShipOf(peerId) == hullEntityId;
+                FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
+
+                if (!ShipUpdateVisibilityPolicy.ShouldPublish(
+                        checkedOut,
+                        pilot || WorldsAdriftRebornGameServer.ShipInterest.MustRetainMotion(peer)
+                            || WorldsAdriftRebornGameServer.Aboard.AnyoneAboard(hullEntityId)
+                            || WorldsAdriftRebornGameServer.Flight.IsPiloted(hullEntityId),
+                        aboard, center, hullPosition, Interest.RadiusMetres))
+                {
+                    continue;
+                }
+
+                if (SendOPHelper.SendComponentUpdateOp(
+                        peer,
+                        targetEntityId,
+                        new System.Collections.Generic.List<uint> { componentId },
+                        new System.Collections.Generic.List<object> { update }))
+                {
+                    sent++;
+                }
+            }
+            return sent;
+        }
+
+        /// <summary>
+        /// Publishes one coherent ship-domain frame. Relevance is evaluated once on
+        /// the hull, the root update is always queued first, and member updates are
+        /// eligible only after that root send succeeds for the same peer. Generation
+        /// and sequence stay server-internal, preserving the legacy component wire
+        /// protocol while making ordering and future authority handoff explicit.
+        ///
+        /// This is ordered, not atomic: the legacy SDK exposes one entity component
+        /// update per ENet send, so hull and members cannot share one wire envelope.
+        /// Both 1130 and 190602 use the same unreliable-sequenced channel; delivered
+        /// packets retain root-first order, a lost member is superseded by the next
+        /// frame, and a lost root can at worst leave a member composed against the
+        /// previous root until the next absolute hull point arrives.
+        /// </summary>
+        public static ShipDomainDeliveryResult BroadcastDomainMotion(
+            long hullEntityId,
+            FixedPointPosition hullPosition,
+            long authorityGeneration,
+            ShipDomainComponentUpdate root,
+            ShipDomainComponentUpdate? rootAuxiliary,
+            IReadOnlyList<ShipDomainComponentUpdate> members)
+        {
+            if (!ShipDomainDeliveryPolicy.RootTargetsHull(
+                    hullEntityId, root.EntityId, rootAuxiliary?.EntityId))
+            {
+                Console.WriteLine("[ship-domain] rejected frame whose root does not target hull "
+                    + hullEntityId + ".");
+                return new ShipDomainDeliveryResult(default, 0, 0, 0, 0, members.Count,
+                    Array.Empty<ulong>());
+            }
+            if (!DomainSequence.TryNext(hullEntityId, authorityGeneration, out ShipReplicationStamp stamp))
+            {
+                Console.WriteLine("[ship-domain] rejected stale replication frame for hull " + hullEntityId
+                    + " generation " + authorityGeneration + ".");
+                return new ShipDomainDeliveryResult(default, 0, 0, 0, 0, members.Count,
+                    Array.Empty<ulong>());
+            }
+
+            int relevantPeers = 0;
+            int rootDeliveries = 0;
+            int auxiliaryFailures = 0;
+            int memberDeliveries = 0;
+            int skippedMembers = 0;
+            System.Collections.Generic.List<ulong>? rootDeliveredPeerIds = null;
+
+            foreach ((ulong peerId, long playerEntityId) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peer == null || !PeerManager.Instance.clientSetupState.Contains(peer))
+                {
+                    continue;
+                }
+
+                bool rootCheckedOut = WorldsAdriftRebornGameServer.SentEntities.WasSent(peer, hullEntityId)
+                    && WorldsAdriftRebornGameServer.ServedComponents
+                        .HasServed(peer, root.EntityId, root.ComponentId);
+                bool pilot = WorldsAdriftRebornGameServer.Flight.IsPilotOf(playerEntityId, hullEntityId);
+                bool aboard = WorldsAdriftRebornGameServer.Aboard.ShipOf(peerId) == hullEntityId;
+                FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
+                bool relevant = ShipUpdateVisibilityPolicy.ShouldPublish(
+                    rootCheckedOut, pilot || WorldsAdriftRebornGameServer.ShipInterest.MustRetainMotion(peer)
+                        || WorldsAdriftRebornGameServer.Aboard.AnyoneAboard(hullEntityId)
+                        || WorldsAdriftRebornGameServer.Flight.IsPiloted(hullEntityId),
+                    aboard, center, hullPosition, Interest.RadiusMetres);
+                if (!relevant)
+                {
+                    skippedMembers += members.Count;
+                    continue;
+                }
+                relevantPeers++;
+
+                bool rootDelivered = SendComponent(peer, root);
+                if (!rootDelivered)
+                {
+                    skippedMembers += members.Count;
+                    continue;
+                }
+                rootDeliveries++;
+                (rootDeliveredPeerIds ??= new System.Collections.Generic.List<ulong>()).Add(peerId);
+
+                bool auxiliaryDelivered = !rootAuxiliary.HasValue;
+                if (rootAuxiliary.HasValue)
+                {
+                    ShipDomainComponentUpdate auxiliary = rootAuxiliary.Value;
+                    if (WorldsAdriftRebornGameServer.ServedComponents
+                            .HasServed(peer, auxiliary.EntityId, auxiliary.ComponentId))
+                    {
+                        auxiliaryDelivered = SendComponent(peer, auxiliary);
+                    }
+                    if (!auxiliaryDelivered)
+                    {
+                        auxiliaryFailures++;
+                        skippedMembers += members.Count;
+                        continue;
+                    }
+                }
+
+                foreach (ShipDomainComponentUpdate member in members)
+                {
+                    bool memberCheckedOut = WorldsAdriftRebornGameServer.SentEntities
+                            .WasSent(peer, member.EntityId)
+                        && WorldsAdriftRebornGameServer.ServedComponents
+                            .HasServed(peer, member.EntityId, member.ComponentId);
+                    if (!ShipDomainDeliveryPolicy.DeliverMember(
+                            domainRelevant: true,
+                            rootDelivered: true,
+                            auxiliaryRequired: rootAuxiliary.HasValue,
+                            auxiliaryDelivered: auxiliaryDelivered,
+                            memberCheckedOut: memberCheckedOut))
+                    {
+                        skippedMembers++;
+                        continue;
+                    }
+
+                    if (SendComponent(peer, member)) memberDeliveries++;
+                    else skippedMembers++;
+                }
+            }
+
+            ShipDomainDeliveryResult result = new ShipDomainDeliveryResult(
+                stamp, relevantPeers, rootDeliveries, auxiliaryFailures,
+                memberDeliveries, skippedMembers,
+                (IReadOnlyList<ulong>?)rootDeliveredPeerIds ?? Array.Empty<ulong>());
+            RecordDomainDelivery(result);
+            return result;
+        }
+
+        private static bool SendComponent(ENetPeerHandle peer, ShipDomainComponentUpdate item)
+        {
+            return SendOPHelper.SendComponentUpdateOp(
+                peer,
+                item.EntityId,
+                new System.Collections.Generic.List<uint> { item.ComponentId },
+                new System.Collections.Generic.List<object> { item.Update });
+        }
+
+        private static void RecordDomainDelivery(ShipDomainDeliveryResult result)
+        {
+            long hullEntityId = result.Stamp.HullEntityId;
+            if (!DomainWindows.TryGetValue(hullEntityId, out DomainDeliveryWindow? window)
+                || window.Generation != result.Stamp.AuthorityGeneration)
+            {
+                window = new DomainDeliveryWindow
+                {
+                    Generation = result.Stamp.AuthorityGeneration,
+                    NextLogAt = DomainStatsClock.Elapsed + DomainStatsInterval,
+                };
+                DomainWindows[hullEntityId] = window;
+            }
+
+            window.LastSequence = result.Stamp.Sequence;
+            window.LastDeliveryAt = DomainStatsClock.Elapsed;
+            window.Ticks++;
+            window.RelevantPeers += result.RelevantPeers;
+            window.RootDeliveries += result.RootDeliveries;
+            window.AuxiliaryFailures += result.AuxiliaryFailures;
+            window.MemberDeliveries += result.MemberDeliveries;
+            window.SkippedMembers += result.SkippedMembers;
+
+            if (DomainStatsClock.Elapsed < window.NextLogAt)
+            {
+                return;
+            }
+
+            Console.WriteLine("[ship-domain] hull " + hullEntityId
+                + " generation=" + window.Generation
+                + " sequence=" + window.LastSequence
+                + " ticks=" + window.Ticks
+                + " relevant-peer-frames=" + window.RelevantPeers
+                + " roots=" + window.RootDeliveries
+                + " auxiliary-failures=" + window.AuxiliaryFailures
+                + " members=" + window.MemberDeliveries
+                + " skipped-members=" + window.SkippedMembers + ".");
+            window.Ticks = 0;
+            window.RelevantPeers = 0;
+            window.RootDeliveries = 0;
+            window.AuxiliaryFailures = 0;
+            window.MemberDeliveries = 0;
+            window.SkippedMembers = 0;
+            window.NextLogAt = DomainStatsClock.Elapsed + DomainStatsInterval;
         }
     }
 }

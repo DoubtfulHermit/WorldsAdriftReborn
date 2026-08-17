@@ -93,12 +93,17 @@ namespace WorldsAdriftRebornGameServer.Networking
             // Stats-window counters.
             public long EmittedTransform;
             public long EmittedPlayerState;
+            public long HeldShipDetachEdges;
+            public long DomainAlignedEmits;
+            public long BackpressureSkips;
         }
 
         private readonly Dictionary<ulong, SenderState> _senders = new();
 
         /// <summary>One synthetic 1073 timeline per (recipient, sender) pair.</summary>
         private readonly Dictionary<(ulong Recipient, ulong Sender), SyntheticTimeline> _timelines = new();
+        private readonly Dictionary<ulong, RecipientRelayPressure> _pressureByRecipient = new();
+        private readonly Dictionary<(ulong Recipient, ulong Sender), TimeSpan> _lastEmitByPair = new();
 
         private readonly MovementIngest _ingest;
         private readonly CadenceTimer _cadence;
@@ -245,16 +250,18 @@ namespace WorldsAdriftRebornGameServer.Networking
         /// re-times the stream. Every emitted 1073 gets a synthetic stamp at
         /// emit instead.
         /// </summary>
-        public void ObservePlayerState(ulong senderPeerId, ClientAuthoritativePlayerState.Update update)
+        public void ObservePlayerState(ulong senderPeerId, ClientAuthoritativePlayerState.Update update,
+            bool holdRelativeFrame = false, bool synthesizeRelativeDetach = false)
         {
             bool hasPosition = update.positionRelative.HasValue;
             Improbable.Math.Vector3f pos = hasPosition ? update.positionRelative.Value : default;
 
             // relativeTo / isRelativeToShip flips move positionRelative into
             // another object's space (island vs ship deck).
-            bool spaceChange = update.relativeTo.HasValue
-                || update.isRelativeToShip.HasValue
-                || update.relativeToShipUid.HasValue;
+            bool spaceChange = synthesizeRelativeDetach
+                || (!holdRelativeFrame && (update.relativeTo.HasValue
+                    || update.isRelativeToShip.HasValue
+                    || update.relativeToShipUid.HasValue));
 
             MovementSample sample = new(
                 hasTimestamp: update.timestamp.HasValue,
@@ -271,6 +278,11 @@ namespace WorldsAdriftRebornGameServer.Networking
 
             SenderState state = SenderFor(senderPeerId);
             bool keepMovement = verdict is IngestVerdict.Accept or IngestVerdict.AcceptReanchor;
+
+            if (holdRelativeFrame)
+            {
+                state.HeldShipDetachEdges++;
+            }
 
             ClientAuthoritativePlayerState.Update pending = state.PendingPlayerState ??= new ClientAuthoritativePlayerState.Update();
 
@@ -290,21 +302,36 @@ namespace WorldsAdriftRebornGameServer.Networking
             {
                 pending.SetGrounded(update.grounded.Value);
             }
-            if (update.relativeTo.HasValue)
+            // A moving ship's adjacent colliders produce brief Invalid/bias=0
+            // samples. AboardTracker intentionally bridges those gaps. Do not let
+            // the relay contradict that canonical state: PlayerVisualizer would
+            // lower its relative bias and blend toward the avatar's stale absolute
+            // 190602 until the hull stops, which is the observed trail-then-snap.
+            if (synthesizeRelativeDetach)
             {
-                pending.SetRelativeTo(update.relativeTo.Value);
+                pending.SetRelativeTo(new Improbable.EntityId(-1));
+                pending.SetRelativeBias(0f);
+                pending.SetIsRelativeToShip(new Improbable.Collections.Option<bool>(false));
+                pending.SetRelativeToShipUid(new Improbable.Collections.Option<long>(-1));
             }
-            if (update.relativeBias.HasValue)
+            else if (!holdRelativeFrame)
             {
-                pending.SetRelativeBias(update.relativeBias.Value);
-            }
-            if (update.isRelativeToShip.HasValue)
-            {
-                pending.SetIsRelativeToShip(update.isRelativeToShip.Value);
-            }
-            if (update.relativeToShipUid.HasValue)
-            {
-                pending.SetRelativeToShipUid(update.relativeToShipUid.Value);
+                if (update.relativeTo.HasValue)
+                {
+                    pending.SetRelativeTo(update.relativeTo.Value);
+                }
+                if (update.relativeBias.HasValue)
+                {
+                    pending.SetRelativeBias(update.relativeBias.Value);
+                }
+                if (update.isRelativeToShip.HasValue)
+                {
+                    pending.SetIsRelativeToShip(update.isRelativeToShip.Value);
+                }
+                if (update.relativeToShipUid.HasValue)
+                {
+                    pending.SetRelativeToShipUid(update.relativeToShipUid.Value);
+                }
             }
 
             if (keepMovement)
@@ -335,6 +362,34 @@ namespace WorldsAdriftRebornGameServer.Networking
             return state;
         }
 
+        /// <summary>
+        /// The last accepted 190602 position this peer published about its own
+        /// avatar, in the game's fixed-point wire units, or false when none is
+        /// held (relay v2 off - the raw path never stores it - or the peer has
+        /// not moved yet). CAVEAT for callers doing distance checks: this is the
+        /// position in whatever SPACE the client publishes in - world space on
+        /// foot, but SHIP-LOCAL while parented to a moving hull - so gate on the
+        /// aboard tracker before treating it as a world coordinate. Used by the
+        /// station-pickup transaction's authoritative range check.
+        /// </summary>
+        internal bool TryLastPosition(ulong senderPeerId, out FixedPointPosition position)
+        {
+            position = default;
+            if (!_senders.TryGetValue(senderPeerId, out SenderState? state) || !state.HasPosition)
+            {
+                return false;
+            }
+
+            Improbable.Collections.List<long> fp = state.LastPosition.fixedPointValues;
+            if (fp == null || fp.Count < 3)
+            {
+                return false;
+            }
+
+            position = new FixedPointPosition(fp[0], fp[1], fp[2]);
+            return true;
+        }
+
         // ------------------------------------------------------------------
         // EMIT - driven by ONE call per main-loop turn.
         // ------------------------------------------------------------------
@@ -344,13 +399,15 @@ namespace WorldsAdriftRebornGameServer.Networking
         /// other player when the cadence says so, and the statistics every
         /// 5 s. Cheap when idle - two Stopwatch comparisons.
         /// </summary>
-        public void Tick()
+        public void Tick(IReadOnlySet<ulong>? domainFrameSenders = null)
         {
             TimeSpan now = _clock.Elapsed;
 
-            if (V2Enabled && _cadence.Due(now))
+            bool regularCadenceDue = V2Enabled && _cadence.Due(now);
+            if (regularCadenceDue
+                || (V2Enabled && domainFrameSenders != null && domainFrameSenders.Count > 0))
             {
-                EmitAll();
+                EmitAll(regularCadenceDue, domainFrameSenders);
             }
 
             if (_stats.Due(now))
@@ -359,12 +416,23 @@ namespace WorldsAdriftRebornGameServer.Networking
             }
         }
 
-        private void EmitAll()
+        private void EmitAll(bool regularCadenceDue, IReadOnlySet<ulong>? domainFrameSenders)
         {
             foreach (KeyValuePair<ulong, SenderState> entry in _senders)
             {
                 ulong senderId = entry.Key;
                 SenderState state = entry.Value;
+
+                bool aboardDomainFrame = domainFrameSenders?.Contains(senderId) == true;
+                if (!DomainAlignedRelayPolicy.ShouldEmitSender(
+                        regularCadenceDue, aboardDomainFrame))
+                {
+                    continue;
+                }
+                if (!regularCadenceDue && aboardDomainFrame)
+                {
+                    state.DomainAlignedEmits++;
+                }
 
                 // Nothing worth animating until a first position exists.
                 if (!state.HasPosition)
@@ -421,7 +489,36 @@ namespace WorldsAdriftRebornGameServer.Networking
                         continue;
                     }
 
+                    // The mirror seed establishes this recipient's synthetic
+                    // timestamp epoch. Do not race live movement ahead of the
+                    // entity or either seed component: .25 -> seed .20 -> .25
+                    // is a real delivered regression that splits the avatar.
+                    if (!MirrorSendPolicy.MayRelayMovement(
+                            WorldsAdriftRebornGameServer.SentEntities.WasSent(target, entityId.Value),
+                            WorldsAdriftRebornGameServer.ServedComponents.HasServed(target, entityId.Value,
+                                MirrorSendPolicy.ClientAuthoritativePlayerStateComponentId),
+                            WorldsAdriftRebornGameServer.ServedComponents.HasServed(target, entityId.Value,
+                                MirrorSendPolicy.TransformStateComponentId)))
+                    {
+                        continue;
+                    }
+
+                    // Advance the synthetic clock even when this recipient is
+                    // pressure-limited, so a later delivered sample describes
+                    // elapsed emit time rather than playing the avatar in slow
+                    // motion. Healthy recipients take this path every time.
                     playerState.SetTimestamp(TimelineFor(targetId, senderId).Next(_stepSeconds));
+                    RecipientRelayPressure pressure = PressureFor(targetId, target);
+                    (ulong Recipient, ulong Sender) pair = (targetId, senderId);
+                    TimeSpan? lastSent = _lastEmitByPair.TryGetValue(pair, out TimeSpan last)
+                        ? last
+                        : null;
+                    if (!RelayBackpressurePolicy.IsDue(_clock.Elapsed, lastSent, pressure))
+                    {
+                        state.BackpressureSkips++;
+                        continue;
+                    }
+                    _lastEmitByPair[pair] = _clock.Elapsed;
                     byte[]? playerStatePayload = SendOPHelper.SerializeComponentUpdatePayload(
                         MirrorSendPolicy.ClientAuthoritativePlayerStateComponentId, playerState);
 
@@ -452,6 +549,20 @@ namespace WorldsAdriftRebornGameServer.Networking
                 _timelines[key] = timeline;
             }
             return timeline;
+        }
+
+        private RecipientRelayPressure PressureFor(ulong recipientId, ENetPeerHandle peer)
+        {
+            RecipientRelayPressure current = _pressureByRecipient.TryGetValue(
+                recipientId, out RecipientRelayPressure known)
+                ? known
+                : RecipientRelayPressure.Normal;
+            if (EnetPeerProbe.TryRead(peer.DangerousGetHandle(), out EnetPeerHealth health))
+            {
+                current = RelayBackpressurePolicy.Next(current, health.RoundTripTimeMs);
+                _pressureByRecipient[recipientId] = current;
+            }
+            return current;
         }
 
         // ------------------------------------------------------------------
@@ -508,7 +619,9 @@ namespace WorldsAdriftRebornGameServer.Networking
             foreach ((ulong, ulong) key in dead)
             {
                 _timelines.Remove(key);
+                _lastEmitByPair.Remove(key);
             }
+            _pressureByRecipient.Remove(peerId);
         }
 
         // ------------------------------------------------------------------
@@ -523,12 +636,21 @@ namespace WorldsAdriftRebornGameServer.Networking
 
                 long emittedTransform = 0;
                 long emittedPlayerState = 0;
+                long heldShipDetachEdges = 0;
+                long domainAlignedEmits = 0;
+                long backpressureSkips = 0;
                 if (_senders.TryGetValue(peerId, out SenderState? state))
                 {
                     emittedTransform = state.EmittedTransform;
                     emittedPlayerState = state.EmittedPlayerState;
                     state.EmittedTransform = 0;
                     state.EmittedPlayerState = 0;
+                    heldShipDetachEdges = state.HeldShipDetachEdges;
+                    state.HeldShipDetachEdges = 0;
+                    domainAlignedEmits = state.DomainAlignedEmits;
+                    state.DomainAlignedEmits = 0;
+                    backpressureSkips = state.BackpressureSkips;
+                    state.BackpressureSkips = 0;
                 }
 
                 if (window.IsEmpty && emittedTransform == 0 && emittedPlayerState == 0)
@@ -564,6 +686,9 @@ namespace WorldsAdriftRebornGameServer.Networking
                     + " staleness=" + (window.StalenessSeconds < 0 ? "-" : "+")
                     + Math.Abs(window.StalenessSeconds).ToString("0.000") + "s"
                     + " emitted(190602=" + emittedTransform + ",1073=" + emittedPlayerState + ")"
+                    + " heldShipDetach=" + heldShipDetachEdges
+                    + " domainAligned=" + domainAlignedEmits
+                    + " pressureSkips=" + backpressureSkips
                     + " badTsPairs=" + badPairs
                     + " mode=" + (V2Enabled ? "v2@" + _hz + "Hz" : "raw"));
             }

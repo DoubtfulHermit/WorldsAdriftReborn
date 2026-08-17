@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<div class="engine-list-entry-body" style="display: flex; flex-direction: column; border-bottom:thin solid lightgray;">
+    <div class="engine-schem-editor-row">
+        <div class="ship-schem-editor-comp-group">
+            <label>Case</label>
+            <div><select ng-change="$ctrl.update('name')"  ng-model="$ctrl.engineSchemData.name.case" ng-options="c.name as c.name for c in $ctrl.enginePartData.case"/></div>
+        </div>
+        <div class="ship-schem-editor-comp-group">
+            <label>Head</label>
+            <div><select ng-change="$ctrl.update('name')"  ng-model="$ctrl.engineSchemData.name.head" ng-options="h.name as h.name for h in $ctrl.validHeadModels"/></div>
+        </div>
+        <div class="ship-schem-editor-comp-group">
+            <label>Propeller</label>
+            <div><select ng-change="$ctrl.update('name')"  ng-model="$ctrl.engineSchemData.name.prop" ng-options="p.name as p.name for p in $ctrl.enginePartData.prop"/></div>
+        </div>
+        <div class="ship-schem-editor-comp-group">
+            <label>Owner</label>
+            <div><input ng-change="$ctrl.update('name')" type="text" ng-model="$ctrl.engineSchemData.name.owner"/></div>
+        </div>
+    </div>
+    <hr>
+    <div class="engine-schem-editor-row">
+        <div class="ship-schem-editor-comp-group">
+            <label>Power</label>
+            <div><input ng-change="$ctrl.update('basestats.power')" type="number" ng-model="$ctrl.engineSchemData.baseStats.power"/></div>
+        </div>
+    </div>
+    <hr>
+    <div class="engine-schem-editor-row">
+        <div class="ship-schem-editor-comp-group" style="flex-direction: column; padding: 0 10px" ng-repeat="(compName, compData) in $ctrl.engineSchemData.components">
+            <label>#{{compName}}&nbsp;</label><input ng-change="$ctrl.update('components[\'{{compName}}\'].matCount')" type="number" ng-model="compData.matCount"/>
+        </div>
+    </div>
+</div>

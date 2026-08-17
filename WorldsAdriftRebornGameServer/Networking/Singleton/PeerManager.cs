@@ -1,5 +1,7 @@
-﻿using WorldsAdriftRebornGameServer.DLLCommunication;
+﻿using System.Collections.Generic;
+using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game;
+using WorldsAdriftRebornGameServer.Multiplayer;
 
 namespace WorldsAdriftRebornGameServer.Networking.Singleton
 {
@@ -18,6 +20,29 @@ namespace WorldsAdriftRebornGameServer.Networking.Singleton
             }
         }
         public bool Performed { get; set; }
+
+        /// <summary>
+        /// When (ServerClock.Elapsed) the current step's op was actually sent -
+        /// meaningful only while <see cref="Performed"/> is true. Read by the
+        /// spawn-chain ack timeout (SpawnAckTimeoutPolicy) so one lost ack can
+        /// never park the chain forever; the pointer setter clearing Performed
+        /// is what invalidates it on advance.
+        /// </summary>
+        public TimeSpan PerformedAtElapsed { get; set; }
+
+        /// <summary>
+        /// Player-made entities registered after the process-wide spawn plan was
+        /// frozen. A late joiner drains this queue one entity at a time after the
+        /// normal plan completes, avoiding both invisibility and a main-thread burst.
+        /// </summary>
+        public Queue<WorldEntity>? RuntimeCatchupQueue { get; set; }
+
+        /// <summary>Earliest monotonic server time at which the next catch-up entity may be sent.</summary>
+        public TimeSpan RuntimeCatchupNextAt { get; set; }
+
+        /// <summary>Whether the peer's one-time catch-up snapshot has been prepared.</summary>
+        public bool RuntimeCatchupInitialized { get; set; }
+
         public PlayerSyncStatus()
         {
             SyncStepPointer = 0;

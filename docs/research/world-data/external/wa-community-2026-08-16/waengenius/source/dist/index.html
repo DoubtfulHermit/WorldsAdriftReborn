@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" ng-app="waEngineCalc">
+  <head>
+    <meta charset="utf-8">
+    <title>Worlds Adrift Engine Power Calculator</title>
+    <link href="https://fonts.googleapis.com/css?family=Roboto|Roboto+Condensed" rel="stylesheet"/>
+    
+    <link rel="stylesheet" href="styles/app.css">
+
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" type="text/javascript"></script>
+    <script src="https://code.jquery.com/color/jquery.color.plus-names-2.1.2.min.js" type="text/javascript"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery.localscroll@2.0.0/jquery.localScroll.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery.scrollto@2.1.2/jquery.scrollTo.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-sheetrock/1.1.4/dist/sheetrock.min.js"></script>
+      
+    <script src="lib/angular.min.js"></script>
+    <script src="lib/Chart.min.js"></script>
+    <script src="lib/angular-chart.min.js"></script>
+    <script src="lib/js-shortid.min.js"></script>
+    <script src="lib/lodash.min.js"></script>
+    <script src="lib/svg.min.js"></script>
+    <script src="app.js"></script>
+    <script src="material-data-service/material-data.service.js"></script>
+    <script src="engine-set-editor/engine-set-editor.component.js"></script>
+    <script src="engine-schem-editor/engine-schem-editor.component.js"></script>
+    <script src="performance-chart/performance-chart.component.js" type="text/javascript"></script>
+    <script src="material-class-filter/material-class.filter.js" type="text/javascript"></script>
+    <script src="engine-part-service/engine-part.service.js" type="text/javascript"></script>
+    <script src="airspeed-indicator/airspeed-indicator.component.js" type="text/javascript"></script>  </head>
+  <body>
+    <h1>WAEngenius</h1>
+    <h2>a comprehensive airship performance calculator for Worlds Adrift</h2>
+    <p class="credits">
+        by Wolkenreiter, data courtesy of Harromann
+    </p>
+    <app></app>
+  </body>
+</html>

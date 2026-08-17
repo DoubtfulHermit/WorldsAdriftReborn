@@ -43,6 +43,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 {
     internal class ComponentsSerializer
     {
+        /// <summary>
+        /// Whether an entity is the REQUESTING peer's OWN player avatar - the only
+        /// thing the loading barrier ever holds. The barrier seeds (190000 Requested,
+        /// 190002 IsActive=false) must land on the joining peer's own player and
+        /// nothing else: a mirrored REMOTE player also looks like "a player" to the
+        /// registry, but seeding its Activated false on the observing client would
+        /// freeze the wrong avatar, and a world entity must never be seeded Requested
+        /// at all. Ownership is the exact "is this your own avatar" test used across
+        /// the setup path.
+        /// </summary>
+        private static bool IsOwnPlayerEntity(ENetPeerHandle player, long entityId) =>
+            WorldsAdriftRebornGameServer.Players.Owns(PeerIdentity.IdOf(player), entityId);
+
         public unsafe static Multiplayer.ComponentSeedOutcome InitAndSerialize(ENetPeerHandle player, long entityId, uint componentId, byte** buffer, uint* length)
         {
             // THREE DIFFERENT THINGS LOOK IDENTICAL TO A CALLER THAT ONLY READS
@@ -186,6 +199,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = Multiplayer.MetalNodes.Sink(seed);
                         }
 
+                        // A COLLECTED atlas shard is gone: it has no RemoveEntityOp, so a
+                        // late joiner is seeded the same sunk position everyone present was
+                        // teleported to at collection (BroadcastShardCollected). A lodged or
+                        // released (uncollected) shard keeps its real position.
+                        if (WorldsAdriftRebornGameServer.AtlasShards.IsCollected(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
+                        // An EMPTIED fuel canister is likewise gone: seed the late joiner
+                        // the same sunk position everyone present was teleported to on the
+                        // emptying salvage shot (BroadcastFuelCanisterDepleted). A
+                        // part-salvaged canister keeps its real position - it is still
+                        // there to shoot.
+                        if (WorldsAdriftRebornGameServer.FuelCanisters.IsDepleted(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
+                        // A PACKED station (shipyard / Assembly Station picked back up
+                        // into inventory) is likewise gone: seed the late joiner the
+                        // same sunk position everyone present was teleported to at
+                        // pickup (BroadcastStationPickedUp). Its membership ledgers are
+                        // removed at pickup, so the tombstone is the only thing that
+                        // still knows the entity - the registry entry itself must stay
+                        // (no RemoveEntityOp exists to retire it).
+                        if (Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId))
+                        {
+                            seed = Multiplayer.MetalNodes.Sink(seed);
+                        }
+
                         // A BOLTED SHIP PART is seeded hull-RELATIVE so it follows the
                         // moving hull instead of drifting. The localPosition becomes the
                         // part's offset FROM the hull and the parent names the hull with
@@ -275,7 +319,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 : WorldsAdriftRebornGameServer.WorldEntities.ByKey(hullKey)?.Position;
                             if (builtHullId.HasValue && builtHullSeed.HasValue)
                             {
-                                localSeed = Multiplayer.BoltedPartTransform.LocalOffset(seed, builtHullSeed.Value);
+                                // The hull registry seed moves with live flight and
+                                // operator recall; the deck registration does not.
+                                // Use the authored offset captured at registration,
+                                // never subtraction against the relocated root.
+                                localSeed = Game.Crafting.BuiltShips.LocalOffsetForDeck(entityId)
+                                    ?? Multiplayer.BoltedPartTransform.LocalOffset(seed, builtHullSeed.Value);
                                 parent = ShipPartTransform.RelativeParent(builtHullId.Value, Multiplayer.Deck.HierarchyKey);
                                 Console.WriteLine("[info] seeding 190602 for BUILT DECK " + entityId
                                     + " parent=" + Multiplayer.Deck.HierarchyKey + " (Unity child) of built hull "
@@ -417,11 +466,34 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             ? new Coordinates(hullPos.Value.MetresX, hullPos.Value.MetresY, hullPos.Value.MetresZ)
                             : new Coordinates(0, 0, 0);
 
-                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, true, false);
+                        bool isDocked = dockShipyardId != 0;
+                        obj = new DockableState.Data(new EntityId(dockShipyardId), dockLocation, isDocked, false);
 
                         Console.WriteLine("[info] seeding 1114 DockableState for built hull entity " + entityId
-                            + " (docked=true, dockShipyard=" + dockShipyardId + "); the shipyard now presents an"
-                            + " active docked ship for the crafted-part lift.");
+                            + " (docked=" + isDocked + ", dockShipyard=" + dockShipyardId + ").");
+                    }
+                    else if(componentId == 1258 && Game.Crafting.BuiltShips.IsBuiltHull(entityId))
+                    {
+                        // ShipLiftState on a BUILT hull: the sky core's lift capacity.
+                        // The one live consumer on the pilot path is
+                        // ShipControlsBehaviour.UpdateVertical -> ShipLiftVisualizer
+                        // .IsOverloaded (totalMass > TotalLift * AtlasMultiplier): if it
+                        // reads overloaded, VERTICAL INPUT IS BLOCKED with the "Ship
+                        // weighs more than its atlas sky core can lift" OSD. With 1258
+                        // absent the visualizer's reader is null and TotalLift returns 0
+                        // (null-guarded), leaving the check to whatever
+                        // ParentingMassAdderVisualizer.totalMass happens to be - so a
+                        // generous seed is the belt-and-braces that keeps climb working.
+                        // No server mass model exists (1257 is known-absent), so the
+                        // honest seed is "lift is not the limiting factor": a large
+                        // totalLift, zero torque, reliable=true. VERIFIED ctor
+                        // (gencode ShipLiftStateData: totalLift, totalTorque, reliable).
+                        // Gated on IsBuiltHull so no other entity's 1258 is answered here.
+                        obj = new ShipLiftState.Data(new ShipLiftStateData(
+                            1000000f, new Improbable.Math.Vector3f(0f, 0f, 0f), true));
+
+                        Console.WriteLine("[info] seeding 1258 ShipLiftState for built hull entity " + entityId
+                            + " (totalLift=1e6): the sky core lifts, vertical input stays unblocked.");
                     }
                     else if(componentId == 190601)
                     {
@@ -568,12 +640,65 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isPlacedCraftingStation = !isPlacedShipyard
                             && Placement.PlacedCraftingStations.IsPlacedCraftingStation(entityId);
                         bool isCraftStation = isPlacedShipyard || isPlacedCraftingStation;
+                        // A helm is the STATIC test-ship helm OR any crafted helm part. The
+                        // latter must receive Man even while still loose because
+                        // InteractiveObjectVisualizer caches the matching entry only once,
+                        // in OnEnable. Availability stays false until it is mounted.
+                        // This is the one every real player has: the Helm01 prefab's
+                        // InteractiveObjectVisualizer has verb Man BAKED, and it caches
+                        // `Interactions.FirstOrDefault(i => i.verb == Verb)` at enable - so
+                        // when this branch served the mounted helm the generic PickUp entry
+                        // instead, that lookup found NOTHING and no E prompt could ever
+                        // appear (live report: "i dont get the option to press e next to
+                        // helm"). Lifting/re-mounting is untouched: parts are lifted with
+                        // the SCANNER (1239), never the E interact.
+                        bool isStaticHelm = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
+                            == Multiplayer.WorldEntities.HelmKey;
+                        string? craftedPartItemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
                         bool isHelm = !isCraftStation
-                            && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
-                                == Multiplayer.WorldEntities.HelmKey;
+                            && (isStaticHelm || craftedPartItemType == "helm");
+                        // An ATLAS SHARD bakes the SAME PickUp verb as the nugget, but its
+                        // availability is SERVER-GATED on release: available=false while the
+                        // shard is lodged in its core (no prompt), flipped true when the core
+                        // is destroyed (WorldsAdriftRebornGameServer.BroadcastShardReleased),
+                        // and false again once collected. So a late joiner checking the shard
+                        // out sees exactly the prompt state everyone present sees, without a
+                        // separate replay. See findings-atlas-shards §2 Phase C.
+                        bool isAtlasShard = !isCraftStation && !isHelm
+                            && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
+                        // An INTERACTABLE PART (sail / lamp / horn): the part
+                        // prefab's own InteractiveObjectVisualizer carries verb
+                        // Activate SERIALIZED (decompile: GetTutorialStep maps
+                        // Activate + Sail/Lamp/HornVisualizer to the per-part
+                        // tutorial prompt), and OnEnable caches
+                        // Interactions.FirstOrDefault(i => i.verb == Verb) - so
+                        // without an Activate entry here the prompt can never
+                        // appear, the exact trap the mounted helm's Man fix above
+                        // documents. Keyed off the mount ledger's itemType through
+                        // the pure PartInteractionPolicy (tested), which answers
+                        // None for every part retail did not make interactable and
+                        // for the parts whose interaction we cannot honestly serve
+                        // yet (storage needs 1081, the reviver needs 1094) - so a
+                        // prompt is never a lie. The correct Activate entry exists while
+                        // loose but remains unavailable until the mount commit.
+                        Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
+                        if (!isCraftStation && !isHelm && !isAtlasShard)
+                        {
+                            Multiplayer.Ship.PartVerb seededVerb =
+                                Multiplayer.Ship.PartInteractionPolicy.SeedVerbFor(craftedPartItemType);
+                            if (seededVerb == Multiplayer.Ship.PartVerb.Activate)
+                            {
+                                mountedPartVerb = seededVerb;
+                            }
+                        }
+                        // NOTE: a FUEL CANISTER deliberately has NO 1210 branch. Retail
+                        // fuel is SALVAGED with the gauntlet beam, never picked up, so it
+                        // must not advertise an interaction prompt at all - its gate is
+                        // 1099 isSalvageable (see the 1099 branch below).
 
                         InteractionEntry entry;
                         string verbName;
+                        bool available = true;
                         if (isCraftStation)
                         {
                             entry = new InteractionEntry(
@@ -591,6 +716,40 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 false, "", "", "", false,
                                 Multiplayer.Helm.ManTimeToUse);
                             verbName = "Man";
+                            // The prefab caches its Man entry at OnEnable, while the
+                            // part is still loose. Keep that correct entry but gate it
+                            // until the mount commit flips availability live.
+                            available = isStaticHelm
+                                || Multiplayer.Ship.PartInteractionPolicy.IsSeededInteractionAvailable(
+                                    craftedPartItemType, Game.Crafting.MountedParts.Is(entityId));
+                        }
+                        else if (isAtlasShard)
+                        {
+                            entry = new InteractionEntry(
+                                InteractVerb.PickUp,
+                                Multiplayer.AtlasShardCatalogue.PickUpRadius,
+                                false, "", "", "", false,
+                                Multiplayer.AtlasShardCatalogue.PickUpTimeToUse);
+                            verbName = "PickUp";
+                            // Gated: only offer the prompt once the shard is mined loose,
+                            // and never again once collected.
+                            available = WorldsAdriftRebornGameServer.AtlasShards.IsAvailable(entityId);
+                        }
+                        else if (mountedPartVerb != Multiplayer.Ship.PartVerb.None)
+                        {
+                            // The mounted sail/lamp/horn Activate entry. radius 5 m
+                            // (non-zero or no prompt, the ManRadius trap), timeToUse 0
+                            // (instant - a light switch, not a hold). The E press comes
+                            // back as a 1211 InteractWithObject(Activate) and is
+                            // dispatched to PartInteractionService.
+                            entry = new InteractionEntry(
+                                (InteractVerb)(int)mountedPartVerb,
+                                Multiplayer.Ship.PartInteractionPolicy.ActivateRadius,
+                                false, "", "", "", false,
+                                Multiplayer.Ship.PartInteractionPolicy.ActivateTimeToUse);
+                            verbName = ((InteractVerb)(int)mountedPartVerb).ToString();
+                            available = Multiplayer.Ship.PartInteractionPolicy.IsSeededInteractionAvailable(
+                                craftedPartItemType, Game.Crafting.MountedParts.Is(entityId));
                         }
                         else
                         {
@@ -600,18 +759,40 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 false, "", "", "", false,
                                 Multiplayer.MetalNodes.PickUpTimeToUse);
                             verbName = "PickUp";
+                            // A FUEL CANISTER must never offer an interact prompt: retail
+                            // fuel is SALVAGED with the gauntlet (8/8/9 per canister), not
+                            // picked up. This generic branch used to catch the canister and
+                            // advertise "Pick Up" - a prompt whose E press the server
+                            // rightly ignores, which reads as "E does nothing" to the
+                            // player. available=false keeps the 1210 checkout intact (no
+                            // batch risk) while suppressing the lie; the real gate is 1099
+                            // isSalvageable.
+                            if (WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId))
+                            {
+                                available = false;
+                            }
+                            // A PACKED station lands on this generic branch too (its
+                            // membership ledgers were removed at pickup, so the
+                            // isCraftStation check above no longer claims it). It is
+                            // sunk under the terrain, but never advertise a prompt on
+                            // the ghost either - the same "a prompt is never a lie"
+                            // rule the canister above follows.
+                            if (Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId))
+                            {
+                                available = false;
+                            }
                         }
 
                         InteractiveState.Data interactiveData = new InteractiveState.Data(
                             new InteractiveStateData(
-                                true,
+                                available,
                                 EntityId.InvalidEntityId,
                                 new Improbable.Collections.List<InteractionEntry> { entry },
                                 false));
 
                         Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with verb " + verbName + ".");
+                            + ") with verb " + verbName + ", available=" + available + ".");
 
                         obj = interactiveData;
                     }
@@ -704,6 +885,43 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         PilotState.Data psData = new PilotState.Data(new PilotStateData(new EntityId(0), new EntityId(0), ControlVehicleType.None));
 
                         obj = psData;
+                    }
+                    else if(componentId == 1111)
+                    {
+                        // ShipControlInput: neutral zero input, for EVERY entity that
+                        // asks - the same unconditional shape as 1109 above, because the
+                        // same component id lives on three different entities:
+                        //   * the PLAYER - the pilot's writer twin. Must be seeded (an
+                        //     inbound update is dropped unless the component is in the
+                        //     ComponentMap) and is granted under WAREBORN_HELM_FLIGHT so
+                        //     ShipControlsBehaviour's [Require] 1111 WRITER binds.
+                        //   * the HULL - ShipControlInputVisualizer's reader. LOAD-BEARING
+                        //     even though it looks cosmetic: PilotVisualizer's
+                        //     OnChangeLinkedEntity does GetComponentInParent<ShipControl
+                        //     InputVisualizer>() on the driven hull and calls
+                        //     ShipControlsBehaviour.SetInitialInput, which dereferences
+                        //     that visualizer's reader - GetComponentInParent finds the
+                        //     component whether or not it is enabled, so serving 1111 here
+                        //     is what makes that call safe the moment piloting starts.
+                        //   * the HELM - HelmVisualizer's reader (the wheel visuals).
+                        // This id spent its life in ComponentAbsencePolicy.KnownAbsent
+                        // ("this server simulates no piloting"); helm flight made that
+                        // false, so it moved here. Zeros = stick centred, throttle off.
+                        obj = new ShipControlInput.Data(new ShipControlInputData(
+                            new Improbable.Math.Vector3f(0f, 0f, 0f), 0f, 0f));
+                    }
+                    else if(componentId == 1112)
+                    {
+                        // TurretControlInput: ShipControlsBehaviour's OTHER [Require]d
+                        // writer (alongside 1111 and the 1109 reader) - the behaviour
+                        // enables only when every require resolves, so the player must
+                        // have 1112 checked out too. Ship piloting never sets its one
+                        // field (LookAt is only written under ControlType.Turret, and the
+                        // per-frame empty FinishAndSend is diff-suppressed client-side),
+                        // so a zero LookAt is the honest idle seed. No handler consumes
+                        // it; it is filtered from relay beside 1111.
+                        obj = new TurretControlInput.Data(new TurretControlInputData(
+                            new Coordinates(0, 0, 0)));
                     }
                     else if(componentId == 1071)
                     {
@@ -974,8 +1192,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // against it); we point it at the registered island entity when we
                         // know its id, else an empty option. Only databank entities request
                         // 8073, so this branch is databank-only in practice.
+                        Multiplayer.WorldEntity? databank =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId);
+                        Multiplayer.Islands.IslandRegistry islands =
+                            WorldsAdriftRebornGameServer.IslandTopology;
+                        Multiplayer.Islands.IslandId owner = databank == null
+                            ? Multiplayer.Islands.IslandCatalog.HavenId
+                            : Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(
+                                databank.Position, islands.All);
+                        string islandKey = islands.Require(owner).WorldEntityKey;
                         long? islandId = WorldsAdriftRebornGameServer.WorldEntities
-                            .BoundEntityIdFor(Multiplayer.WorldEntities.IslandKey);
+                            .BoundEntityIdFor(islandKey);
                         Option<EntityId> relativeToIsland = islandId.HasValue
                             ? new Option<EntityId>(new EntityId(islandId.Value))
                             : new Option<EntityId>();
@@ -1014,19 +1241,62 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if(componentId == 190002)
                     {
-                        Activated.Data aData = new Activated.Data(new ActivatedData(true, true, 0));
+                        // LOADING BARRIER. PlayerActivationVisualiser fades the loading
+                        // screen when Activated.IsActive goes TRUE. With the barrier on we
+                        // seed it FALSE for the player, so the screen stays up while the
+                        // ground and ship stream in behind it; EntityLoadingResponse_Handler
+                        // (or the timeout) pushes IsActive=true to release the player once
+                        // the initial set is ready. Barrier off (or a non-player entity) =>
+                        // the original always-active seed, unchanged. Seeding false also
+                        // sets the player kinematic (frozen) until activation, which is
+                        // exactly the intended "held on the loading screen" behaviour.
+                        bool active = !(global::WorldsAdriftRebornGameServer.Game.LoadBarrier.Enabled && IsOwnPlayerEntity(player, entityId));
+                        Activated.Data aData = new Activated.Data(new ActivatedData(active, true, 0));
 
                         obj = aData;
                     }
                     else if(componentId == 190000)
                     {
-                        EntityLoadingControl.Data elData = new EntityLoadingControl.Data(new EntityLoadingControlData(EntityLoadingControlData.EntityLoadingStates.Idle,
-                                                                                                            0,
-                                                                                                            5,
-                                                                                                            100,
-                                                                                                            false,
-                                                                                                            new Improbable.Collections.List<EntityId> { }));
-                        obj = elData;
+                        if (global::WorldsAdriftRebornGameServer.Game.LoadBarrier.Enabled && IsOwnPlayerEntity(player, entityId))
+                        {
+                            // Requested + the initial entity-id list is WA's shipped
+                            // readiness barrier: BossaEntityLoadingChecker publishes
+                            // 190001 Loaded=true only once every id named here exists and
+                            // is active on the client. Distant scenery is deliberately NOT
+                            // named, so 21 trees and 21 ore never gate the loading screen.
+                            EntityLoadingControl.Data elData = new EntityLoadingControl.Data(new EntityLoadingControlData(EntityLoadingControlData.EntityLoadingStates.Requested,
+                                                                                                                0,
+                                                                                                                5,
+                                                                                                                100,
+                                                                                                                false,
+                                                                                                                global::WorldsAdriftRebornGameServer.Game.LoadBarrier.InitialEntityIds()));
+                            obj = elData;
+                        }
+                        else
+                        {
+                            // The original bypass: Idle with an empty list means the
+                            // client's checker never runs and the barrier is not used.
+                            EntityLoadingControl.Data elData = new EntityLoadingControl.Data(new EntityLoadingControlData(EntityLoadingControlData.EntityLoadingStates.Idle,
+                                                                                                                0,
+                                                                                                                5,
+                                                                                                                100,
+                                                                                                                false,
+                                                                                                                new Improbable.Collections.List<EntityId> { }));
+                            obj = elData;
+                        }
+                    }
+                    else if(componentId == 190001)
+                    {
+                        // EntityLoadingResponse: the client's writer twin of 190000.
+                        // BossaEntityLoadingChecker holds this writer and flips loaded=true
+                        // when the initial set is ready. Seeded false and (in barrier mode)
+                        // granted to the client at setup so the writer enables; the server
+                        // READS the update in EntityLoadingResponse_Handler. Harmless when
+                        // the barrier is off - nothing grants the client authority, so the
+                        // checker never enables and this component is inert.
+                        EntityLoadingResponse.Data erData = new EntityLoadingResponse.Data(false);
+
+                        obj = erData;
                     }
                     else if(componentId == 1150)
                     {
@@ -1174,7 +1444,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                                                             Multiplayer.RelayTimestampPolicy.SeedTimestampSeconds,
                                                                                                                                             new byte[] { },
                                                                                                                                             false,
-                                                                                                                                            2,
+                                                                                                                                            // TeleportRequestState seeds request 0 and the
+                                                                                                                                            // first live request is 1. Seeding this ack above
+                                                                                                                                            // zero makes retail's visualizer reject request 1
+                                                                                                                                            // as already executed, so it neither moves nor acks.
+                                                                                                                                            Multiplayer.TeleportPolicy.SeedRequest,
                                                                                                                                             false,
                                                                                                                                             false,
                                                                                                                                             100));
@@ -1273,6 +1547,60 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                                                                                            new Option<double>(),
                                                                                                            new Option<double>()));
                         obj = data;
+                    }
+                    else if (componentId == 1010)
+                    {
+                        // 1010 IslandResourceSpawnerState - the SERVER's resource-request
+                        // component on the ISLAND. The stock client's IslandProxyVisualizer
+                        // [Require]s its READER (acs/IslandProxyVisualizer.cs:22) and, in
+                        // OnEnable, copies metalOnSurfaceProb off it (:60) and subscribes to
+                        // its SpawnResources event (:58). Seeding it here is what makes that
+                        // visualizer enable at all; the SpawnResources REQUEST itself is a
+                        // separate ComponentUpdate raised later (Game.Gathering.IslandResourceService),
+                        // once the client has had a chance to run OnEnable and subscribe.
+                        //
+                        // The data fields are the LOST server refdata (count/density/quality
+                        // maps); only metalOnSurfaceProb is read by the client, and it forces
+                        // it to 1 anyway (acs/IslandSurfaceData.cs:184), so a reconstructed
+                        // 0.3 is harmless. Everything else is a zero/empty seed - the client
+                        // reads none of it. See Multiplayer.IslandResourceHandshake.
+                        Bossa.Travellers.Islands.IslandResourceSpawnerState.Data resourceData =
+                            new Bossa.Travellers.Islands.IslandResourceSpawnerState.Data(
+                                new Bossa.Travellers.Islands.IslandResourceSpawnerStateData(
+                                    0,      // metalRocksRequiredToRespawn (unused by client)
+                                    0,      // initialMetalRockDeposits (server count; we use the env knob)
+                                    0f,     // metalDepositDensity
+                                    0f,     // minMetalRockDeposits
+                                    Multiplayer.IslandResourceHandshake.MetalOnSurfaceProb,
+                                    new Improbable.Collections.Map<string, int>(),   // metalDepositQuantities
+                                    new Improbable.Collections.Map<string, int>(),   // metalDepositQualities
+                                    0,      // eggsSpawned
+                                    new Improbable.Collections.List<EntityId>()));   // spawnedMetalDeposits
+                        obj = resourceData;
+                    }
+                    else if (componentId == 1011)
+                    {
+                        // 1011 IslandResourceSpawnerClientState - the CLIENT's resource-reply
+                        // WRITER on the island (IslandProxyVisualizer [Require]s it, :25). The
+                        // client reads batchSize + spawnInterval off this seed (:82-83) to pace
+                        // its reply batches, and OVERWRITES initialized + islandMeshCount itself
+                        // once its visualizer runs (:86). Seeded initialized=false so the
+                        // client's own OnEnable sends its Initialized(true).IslandMeshCount(...)
+                        // update, exactly as it does against a real deployment.
+                        //
+                        // Seeding it is NOT optional even though the client is the writer: the
+                        // 1011 update handler dispatches only for a component the server already
+                        // has in ComponentMap[peer][island][1011] (ComponentUpdateManager), so
+                        // no seed => no handler call. Its authority is granted separately by
+                        // the island-resource setup so the client's WRITER binds.
+                        Bossa.Travellers.Islands.IslandResourceSpawnerClientState.Data clientResourceData =
+                            new Bossa.Travellers.Islands.IslandResourceSpawnerClientState.Data(
+                                new Bossa.Travellers.Islands.IslandResourceSpawnerClientStateData(
+                                    false,                                                       // initialized (client sets true)
+                                    0,                                                           // islandMeshCount (client fills from its own mesh count)
+                                    Multiplayer.IslandResourceHandshake.BatchSize,
+                                    Multiplayer.IslandResourceHandshake.SpawnIntervalSeconds));
+                        obj = clientResourceData;
                     }
                     else if(componentId == 190604)
                     {
@@ -1403,17 +1731,25 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // point lands on the same position, so the hull cannot drift
                         // no matter how far the client's clock is from our timestamp.
                         //
-                        // Rotation 1023 is the identity SENTINEL - the low 10 bits
-                        // all set. It is not "a rotation that happens to be near
-                        // identity"; 1 decodes to NaN, and a NaN rotation is
-                        // rejected outright by ControlPoint.ValidateControlPoint.
+                        // Rotation MUST come from the same live registration as
+                        // 190602 above. This used to be hard-coded to the identity
+                        // sentinel (1023), even after Relocate had persisted a
+                        // recalled ship's real yaw. The hull therefore appeared at
+                        // one orientation from 190602, then snapped to its real yaw
+                        // only when proximity/interaction caused the live ship
+                        // domain to publish its first 1130 point. A grapple merely
+                        // made that checkout boundary visible; it did not rotate
+                        // the ship. RotationSeedFor returns the valid identity
+                        // sentinel for entities which never supplied a rotation.
                         Multiplayer.FixedPointPosition at =
                             WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(entityId);
+                        uint atRotation =
+                            WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId);
 
                         ShipControlPoint atRest = new ShipControlPoint(
                             Multiplayer.ShipHull.NowMillisecondsSinceEpoch(),
                             new Coordinates(at.MetresX, at.MetresY, at.MetresZ),
-                            new Quaternion32(1023),
+                            new Quaternion32(atRotation),
                             new Improbable.Math.Vector3f(0f, 0f, 0f),
                             Multiplayer.ShipHull.FsimIdHash);
 
@@ -1426,7 +1762,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                         Console.WriteLine("[info] seeding 1130 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with one control point at rest at " + at + ".");
+                            + ") with one control point at rest at " + at
+                            + ", packed rotation " + atRotation + ".");
 
                         obj = pmData;
                     }
@@ -1658,9 +1995,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The light is on only when enabled AND IsFunctional (1236) are
                         // both true (LampVisualizer.cs:87), so a working lamp seeds
                         // enabled=true. VERIFIED ctor (gencode LampState.cs:309).
+                        //
+                        // A MOUNTED lamp serves its SWITCH ledger instead, so a relog /
+                        // late joiner sees the on/off a player set (the 1211 Activate
+                        // toggle, PartInteractionService). Lamps.IsOn returns true for
+                        // any untracked id, so a LOOSE lamp keeps the proven always-on
+                        // serve unchanged.
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new LampState.Data(true);
+                            obj = new LampState.Data(WorldsAdriftRebornGameServer.Lamps.IsOn(entityId));
                         }
                     }
                     else if (componentId == 1236)
@@ -1686,9 +2029,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // this idle Data is crash-safe. Only a sail seeds 1303, so only a
                         // sail ever requests it. VERIFIED ctor (gencode SailState.cs:375,
                         // SailStateData fields unfurled/power).
+                        //
+                        // A MOUNTED sail serves its FURL ledger instead, so a relog /
+                        // late joiner sees the rigging a player set (the 1211 Activate
+                        // toggle, PartInteractionService) - SailControlVisuals.Init
+                        // starts every sail visually furled and the LateUpdate poll
+                        // fires UnfurlSail off this served bit. Power rides the same
+                        // bit (1 rigged / 0 furled), matching the toggle's push. An
+                        // untracked (loose) sail reads false from the ledger, i.e. the
+                        // furled idle it always had.
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new SailState.Data(false, 0f);
+                            bool unfurled = WorldsAdriftRebornGameServer.Sails.IsUnfurled(entityId);
+                            obj = new SailState.Data(unfurled, unfurled ? 1f : 0f);
                         }
                     }
                     else if (componentId == 1107)
@@ -1698,9 +2051,75 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // _state.Charge (a plain float, no Option), so idle Data cannot
                         // NRE. Only a horn seeds 1107, so only a horn requests it. VERIFIED
                         // ctor (gencode HornState.cs:362, HornStateData field charge).
+                        //
+                        // A MOUNTED horn serves its cooldown ledger's charge instead
+                        // (1 ready, ramping 0..1 after a honk) so the needle a relog /
+                        // late joiner sees matches what the 1211 Activate honk gate
+                        // will actually allow. ChargeFor returns null for an untracked
+                        // (loose) horn, which keeps the idle charge=0 serve unchanged.
                         if (Game.Crafting.LooseParts.Is(entityId))
                         {
-                            obj = new HornState.Data(0f);
+                            obj = new HornState.Data(
+                                WorldsAdriftRebornGameServer.HornChargeNow(entityId) ?? 0f);
+                        }
+                    }
+                    else if (componentId == 1246)
+                    {
+                        // ShipPartVariationsSeedState. Structural panel geometry derives
+                        // its stable art/material variation from this reader. Entity id is
+                        // stable for the entity lifetime and therefore gives every peer the
+                        // same appearance without storing another mutable field.
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            obj = new ShipPartVariationsSeedState.Data(unchecked((int)entityId));
+                        }
+                    }
+                    else if (componentId == 1118)
+                    {
+                        // ShipPanelState. A loose panel has not yet been bent against a
+                        // hull, so its collider target list is empty and bending is off.
+                        // ShipPanelVisualizer still uses the prefab's authored PanelsX/Y
+                        // to create the straight panel; after mounting, the normal panel
+                        // request path can supply a shaped target in a future physics pass.
+                        var panel = Game.Crafting.LooseParts.DefFor(entityId);
+                        if (panel != null && (panel.ItemType == "smallPanel"
+                            || panel.ItemType == "mediumPanel"
+                            || panel.ItemType == "largePanel"
+                            || panel.ItemType == "window"))
+                        {
+                            obj = new ShipPanelState.Data(
+                                0, 0,
+                                new Improbable.Collections.List<PanelCollider>(),
+                                0,
+                                false);
+                        }
+                    }
+                    else if (componentId == 12281)
+                    {
+                        // ModularShipPartState. ModularEngine/ModularWing are shells;
+                        // their visualizer calls ShipPartGenerator with this exact map.
+                        // Values are Resources prefab BASENAMES (GetModulePrefab adds
+                        // ModularShipComponents/<type>/<slot>/ itself). Every selected
+                        // name is present in the shipped client's resources.assets.
+                        string? itemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
+                        if (itemType == "proceduralEngineDefault")
+                        {
+                            obj = new ModularShipPartState.Data(new Map<string, string>
+                            {
+                                { "Body", "Engine_Body_001" },
+                                { "Head", "Engine_Head_001" },
+                                { "Prop", "Engine_Propeller_001" },
+                            });
+                        }
+                        else if (itemType == "proceduralWingDefault")
+                        {
+                            obj = new ModularShipPartState.Data(new Map<string, string>
+                            {
+                                { "Aileron", "Wing_Airleon_003" },
+                                { "Body", "Wing_Body_003" },
+                                { "Connector", "Wing_Connector_002" },
+                                { "Tip", "Wing_Tip_002" },
+                            });
                         }
                     }
                     else if (componentId == 8062)
@@ -2022,11 +2441,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     }
                     else if (componentId == 1099)
                     {
-                        // A LOOSE crafted part served from the LooseParts ledger: its OWN
-                        // itemType, a NON-EMPTY material list of one REAL material, and NOT
-                        // salvageable (no loose-part salvage flow yet, so the multitool offers
-                        // nothing on it). LampVisualizer [Require]s 1099 (LampVisualizer.cs:19),
-                        // so this is on the essential seed path, not cosmetic.
+                        // A crafted part served from the LooseParts ledger: its OWN itemType
+                        // and a NON-EMPTY material list. A genuinely MOUNTED part is
+                        // salvageable so PlayerMultitool emits the 2106 ShotEvent that the
+                        // server's owned-shipyard-radius transaction validates. This is a
+                        // client CAPABILITY bit, not authorization: loose and mounted parts
+                        // both need to name hits, while the server rejects anything outside
+                        // the owner's yard. LampVisualizer [Require]s
+                        // 1099, so this is on the essential seed path, not cosmetic.
                         //
                         // WHY NON-EMPTY (the helm-freeze fix). The lamp guards its
                         // OriginalMaterials read, so an EMPTY list was fine for it. But most
@@ -2077,7 +2499,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     loosePart1099.ItemType,
                                     0f, 0f, 0f, 1f,
                                     false,          // isRepairable
-                                    false,          // isSalvageable (no loose-part salvage flow)
+                                    true,           // report part hits; server enforces owned shipyard radius
                                     "",
                                     looseMaterials,
                                     false, 0f, new Option<float> { }));
@@ -2134,9 +2556,27 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // MaterialManager lookup as "birch" was.
                         Multiplayer.MetalNode? metalNode =
                             WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
-                        string salvageItemType = metalNode != null
-                            ? metalNode.MetalType
-                            : (isShipHull ? "" : Multiplayer.Trees.WoodType);
+
+                        // A FUEL CANISTER names "fuel" as its salvage item type. THIS
+                        // BRANCH IS THE WHOLE GATE for fuel gathering: the client's
+                        // Salvageable base class [Require]s 1099 and
+                        // PlayerMultitool.TryDeploySalvager refuses to raise a shot at all
+                        // unless componentInEntity.IsSalvageable() is true
+                        // (acs/PlayerMultitool.cs:296-300, acs/Salvageable.cs:8-9). So a
+                        // canister MUST get isSalvageable=true here or it is a canister
+                        // the beam will not touch - the exact failure the tree's comment
+                        // above warns about. An EMPTIED canister stops being salvageable,
+                        // so a late joiner cannot keep shooting a husk for more fuel.
+                        bool isFuelCanister =
+                            WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId);
+                        bool fuelSpent =
+                            WorldsAdriftRebornGameServer.FuelCanisters.IsDepleted(entityId);
+
+                        string salvageItemType = isFuelCanister
+                            ? Multiplayer.FuelPods.ItemTypeId
+                            : metalNode != null
+                                ? metalNode.MetalType
+                                : (isShipHull ? "" : Multiplayer.Trees.WoodType);
 
                         // THE DECK IS THE ONE ENTITY WHOSE 1099 MUST NOT BE EMPTY.
                         // ShipDeckVisualizer.OnEnable reads OriginalMaterials[0]
@@ -2151,6 +2591,34 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // before any material is resolved anyway. Every OTHER entity
                         // keeps the EMPTY list the hull needs (an invented id WOULD NRE
                         // ComponentMaterialColors on the paths that dereference it).
+                        // A SALVAGEABLE RESOURCE MUST NOT HAVE AN EMPTY LIST EITHER, and an
+                        // empty one is why the salvage beam did nothing at all. When the
+                        // player shoots a salvageable, PlayerMultitool.ImpactSalvage calls
+                        // MaterialsEffectsData.GetOrDefaultFromMaterialList(OriginalMaterials)
+                        // (acs/PlayerMultitool.cs:347), which sums the amounts, walks the
+                        // list, and on falling through the loop indexes mat[0] - on an EMPTY
+                        // list that is an ArgumentOutOfRangeException thrown INSIDE the shot
+                        // callback, so the whole salvage attempt aborts and the player sees
+                        // nothing happen (VERIFIED live: "[MaterialsTypes] Unable to select an
+                        // effect from material select" + ArgumentOutOfRangeException in
+                        // ImpactSalvage). RawMaterialBreakOnImpactVisualizer.OnBreak calls the
+                        // same helper (acs/RawMaterialBreakOnImpactVisualizer.cs:26).
+                        //
+                        // The empty list was chosen because ComponentMaterialColors
+                        // .SetMaterialColors dereferences a MaterialManager lookup, so an
+                        // INVENTED id NREs. That hazard does not apply here: we name the
+                        // resource's OWN REAL material (the same id the salvage grant uses -
+                        // "fuel", the node's metal, the wood), never an invented one, and a
+                        // fuel canister / metal deposit prefab does not carry
+                        // ComponentMaterialColors at all (checked in the decompile). The ship
+                        // HULL keeps the empty list it needs.
+                        bool isSalvageableResource = !isShipHull && !isDeck
+                            && (isFuelCanister || metalNode != null || !string.IsNullOrEmpty(salvageItemType));
+
+                        string salvageMaterialCategory = isFuelCanister
+                            ? "Fuel"
+                            : metalNode != null ? "Metal" : "Wood";
+
                         Improbable.Collections.List<SlottedMaterial> originalMaterials =
                             isDeck
                                 ? new Improbable.Collections.List<SlottedMaterial>
@@ -2165,7 +2633,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                         1,                                      // amount
                                         new Option<Bossa.Travellers.Materials.RawMaterial> { }),
                                 }
-                                : new Improbable.Collections.List<SlottedMaterial> { };
+                                : isSalvageableResource
+                                    ? new Improbable.Collections.List<SlottedMaterial>
+                                    {
+                                        new SlottedMaterial(
+                                            0,
+                                            new Bossa.Travellers.Materials.RawMaterial(
+                                                salvageItemType,                // the REAL material id
+                                                metalNode?.Quality ?? 1,        // quality
+                                                salvageMaterialCategory,
+                                                new Map<string, string> { }),
+                                            1,                                  // amount (>0: the sum must be non-zero)
+                                            new Option<Bossa.Travellers.Materials.RawMaterial> { }),
+                                    }
+                                    : new Improbable.Collections.List<SlottedMaterial> { };
 
                         Bossa.Travellers.Salvaging.SalvageAndRepairState.Data salvageData =
                             new Bossa.Travellers.Salvaging.SalvageAndRepairState.Data(
@@ -2176,7 +2657,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     isShipHull ? 1f : 0f,   // repairToSalvageRatio - no client reader
                                     1f,             // period                 - no client reader
                                     false,          // isRepairable: keeps IsDamaged() false
-                                    !isShipHull && !isDeck,    // isSalvageable: deck is not (no salvage flow)
+                                    // isSalvageable: deck/hull are not; a fuel canister IS
+                                    // until it has been emptied.
+                                    isFuelCanister
+                                        ? !fuelSpent
+                                        : (!isShipHull && !isDeck),
                                     "",             // isSalvageableStatus
                                     originalMaterials,
                                     false,          // destroyOnSalvageComplete
@@ -2207,7 +2692,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // coreId points at the deposit's own entity.
                         Multiplayer.MetalNode? depositNode =
                             WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
-                        string variantId = depositNode?.VariantId ?? Multiplayer.MetalDeposits.VariantId();
+                        string variantId = depositNode?.VariantId
+                            ?? Multiplayer.MetalDeposits.VariantIdFor(0);
 
                         Bossa.Travellers.Materials.MetalDepositState.Data depositData =
                             new Bossa.Travellers.Materials.MetalDepositState.Data(
@@ -2232,12 +2718,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // state, not a replayed explosion.
                         bool coreDestroyed = WorldsAdriftRebornGameServer.Nodes.IsDestroyed(entityId);
 
+                        // attachedEntities lists the shard(s) lodged in this core - the
+                        // authoritative core->shard relationship (the shard's 1305
+                        // rockCoreId is the reverse link). Non-null always (DeepCopy reads
+                        // .Count); empty for a deposit with no shard, exactly as before.
+                        Improbable.Collections.List<EntityId> attachedShards =
+                            new Improbable.Collections.List<EntityId>();
+                        foreach (long shardId in WorldsAdriftRebornGameServer.AtlasShards.ShardsForHost(entityId))
+                        {
+                            attachedShards.Add(new EntityId(shardId));
+                        }
+
                         Bossa.Travellers.Materials.MetalRockCoreState.Data coreData =
                             new Bossa.Travellers.Materials.MetalRockCoreState.Data(
                                 new Bossa.Travellers.Materials.MetalRockCoreStateData(
-                                    new EntityId(entityId),                        // depositId (self)
-                                    new Improbable.Collections.List<EntityId> { }, // attachedEntities: non-null, empty
-                                    EntityId.InvalidEntityId,                      // islandId: dead field
+                                    new EntityId(entityId),    // depositId (self)
+                                    attachedShards,            // attachedEntities: the lodged shard(s)
+                                    EntityId.InvalidEntityId,  // islandId: dead field
                                     coreDestroyed));
 
                         Console.WriteLine("[info] seeding 2103 for entity " + entityId + " ("
@@ -2280,6 +2777,141 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             + ") " + crustShotPoints.Count + " shot point(s), exploded=" + crustExploded + ".");
 
                         obj = crustData;
+                    }
+                    // ------------------------------------------------------------------
+                    // THE ATLAS SHARD. A SEPARATE entity from its host deposit, carrying
+                    // 1305 (identity/host link) + 2102 (lodged state) on top of the
+                    // 190602 (transform) + 1210 (PickUp prompt) served above. Its client
+                    // visualiser [Require]s ONLY 1305 and won't initialise until its
+                    // rockCoreId resolves to an initialised MetalDepositCoreVisualiser, so
+                    // the host id MUST be a live deposit; the InteractiveObjectVisualizer
+                    // it also carries [Require]s 1210. VERIFIED shapes: gencode
+                    // Bossa.Travellers.Materials/MetalDepositAtlasShardStateData.cs:6-16
+                    // and LodgeableStateData.cs (ctor bool,EntityId,string). See
+                    // findings-atlas-shards §2 + §4 step 3.
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1257)
+                    {
+                        // 1257 ParentingMassAdderState - {float mass, bool reliable}
+                        // (VERIFIED ctor gencode Bossa.Travellers.Ship/ParentingMassAdderState.cs:375).
+                        // The hull's mass, read by ShipLiftVisualizer.Load/IsOverloaded and,
+                        // through it, the pilot's ShipControlsBehaviour.UpdateVertical EVERY
+                        // FRAME while driving - absence NRE'd the whole flight input loop
+                        // (12,077/session measured). Mass is a RECONSTRUCTION (retail values
+                        // lost): modest enough that the flight-agent's generous 1258 lift
+                        // seed keeps Load < 1 (not overloaded), tunable without rebuild.
+                        float shipMass = 800f;
+                        string? massEnv = Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS");
+                        if (!string.IsNullOrEmpty(massEnv) && float.TryParse(massEnv,
+                                System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out float parsedMass)
+                            && parsedMass > 0f && parsedMass < 1000000f)
+                        {
+                            shipMass = parsedMass;
+                        }
+                        obj = new Bossa.Travellers.Ship.ParentingMassAdderState.Data(shipMass, false);
+                    }
+                    else if (componentId == 1121)
+                    {
+                        // 1121 OriginalMassState - {float mass} (VERIFIED ctor gencode
+                        // Bossa.Travellers.Ship/OriginalMassState.cs:309). A part's own
+                        // authored mass; served modest so parented parts add sane weight.
+                        obj = new Bossa.Travellers.Ship.OriginalMassState.Data(50f);
+                    }
+                    else if (componentId == 1294)
+                    {
+                        // 1294 UidState - a single long uid (VERIFIED ctor: UidState.Data(long),
+                        // gencode Bossa.Travellers.Misc/UidState.cs:309). Served for ANY entity
+                        // that requests it, uid = the entity id (stable and unique per session).
+                        // This id used to be KnownAbsent, which was NOT safe: the player's own
+                        // ClientAuthoritativePlayerMovement.CollectDataHighFrequency reads
+                        // UidVisualizer.Uid every movement tick regardless of visualizer
+                        // enablement, so a never-injected reader threw an NRE per tick
+                        // (3,290 in one measured session - a stutter contributor).
+                        obj = new Bossa.Travellers.Misc.UidState.Data(entityId);
+                    }
+                    else if (componentId == 1305)
+                    {
+                        // 1305 MetalDepositAtlasShardState - {rockCoreId, slotId}. rockCoreId
+                        // is the host DEPOSIT entity (which carries the core in this
+                        // one-entity-deposit build), stored in the AtlasShards ledger at
+                        // spawn. slotId indexes the core's ScrapSlots. A shard whose host is
+                        // not registered gets an invalid rockCoreId, which is the correct
+                        // "do not render" value (the client's DepositExists() gate returns
+                        // false), not a crash.
+                        long? shardHost = WorldsAdriftRebornGameServer.AtlasShards.HostOf(entityId);
+                        int shardSlot = WorldsAdriftRebornGameServer.AtlasShards.SlotOf(entityId)
+                            ?? Multiplayer.AtlasShardCatalogue.DefaultSlotId;
+                        EntityId rockCoreId = shardHost.HasValue
+                            ? new EntityId(shardHost.Value)
+                            : EntityId.InvalidEntityId;
+
+                        Bossa.Travellers.Materials.MetalDepositAtlasShardState.Data shardData =
+                            new Bossa.Travellers.Materials.MetalDepositAtlasShardState.Data(
+                                new Bossa.Travellers.Materials.MetalDepositAtlasShardStateData(
+                                    rockCoreId,
+                                    shardSlot));
+
+                        Console.WriteLine("[info] seeding 1305 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") rockCoreId=" + (shardHost?.ToString() ?? "INVALID") + " slot=" + shardSlot + ".");
+
+                        obj = shardData;
+                    }
+                    else if (componentId == 2102
+                        && WorldsAdriftRebornGameServer.FuelCanisters.IsCanister(entityId))
+                    {
+                        // 2102 LodgeableState for a FUEL CANISTER. Free-standing, so
+                        // ownerId is invalid and slotName empty. isLodged is seeded TRUE =
+                        // KINEMATIC: the canister sits still on the ground rather than
+                        // rolling off the island. That is the component's ONLY job here -
+                        // FuelPodVisualiser_fsim [Require]s LodgeableState and pipes
+                        // IsLodged straight into FuelPod.IsLodged -> Rigidbody.isKinematic
+                        // (acs/FuelPodVisualiser_fsim.cs:47-50, acs/FuelPod.cs:48-51). It
+                        // is a PHYSICS flag, NOT an acquisition state: the canister is
+                        // salvaged with the beam, so nothing ever "dislodges" it. VERIFIED
+                        // ctor: LodgeableStateData(bool isLodged, EntityId ownerId, string
+                        // slotName) - gencode Bossa.Travellers.Materials/LodgeableStateData.cs.
+                        Bossa.Travellers.Materials.LodgeableState.Data podLodge =
+                            new Bossa.Travellers.Materials.LodgeableState.Data(
+                                new Bossa.Travellers.Materials.LodgeableStateData(
+                                    true,
+                                    EntityId.InvalidEntityId,
+                                    Multiplayer.FuelPods.SlotName));
+
+                        Console.WriteLine("[info] seeding 2102 for FUEL POD entity " + entityId
+                            + " (" + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") isLodged=true (kinematic).");
+
+                        obj = podLodge;
+                    }
+                    else if (componentId == 2102)
+                    {
+                        // 2102 LodgeableState - {isLodged, ownerId, slotName}. isLodged is
+                        // the live release flag: true while lodged (kinematic, in the slot),
+                        // flipped false + a Dislodged event when the core is destroyed
+                        // (BroadcastShardReleased). ownerId names the host deposit; slotName
+                        // is empty (the client indexes slots by the 1305 slotId int, not
+                        // this string). A late joiner checking out an already-mined deposit
+                        // is seeded isLodged=false, matching the released/collected world.
+                        bool lodged = WorldsAdriftRebornGameServer.AtlasShards.IsLodged(entityId);
+                        long? lodgeHost = WorldsAdriftRebornGameServer.AtlasShards.HostOf(entityId);
+                        EntityId ownerId = lodgeHost.HasValue
+                            ? new EntityId(lodgeHost.Value)
+                            : EntityId.InvalidEntityId;
+
+                        Bossa.Travellers.Materials.LodgeableState.Data lodgeData =
+                            new Bossa.Travellers.Materials.LodgeableState.Data(
+                                new Bossa.Travellers.Materials.LodgeableStateData(
+                                    lodged,
+                                    ownerId,
+                                    Multiplayer.AtlasShardCatalogue.SlotName));
+
+                        Console.WriteLine("[info] seeding 2102 for entity " + entityId + " ("
+                            + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
+                            + ") isLodged=" + lodged + " ownerId=" + (lodgeHost?.ToString() ?? "INVALID") + ".");
+
+                        obj = lodgeData;
                     }
                     // ------------------------------------------------------------------
                     // THE GLOBAL BIOME TABLE. Served on the GLOBAL entity so the

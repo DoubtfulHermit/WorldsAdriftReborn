@@ -50,7 +50,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <c>MetalDepositVisuals</c> asset in the biome's PropLibrary (case-insensitive
         /// lookup in SharedResourceData.MetalDepositVariant); a value that does not
         /// resolve leaves the visualiser disabled and the entity invisible. Null for a
-        /// nugget. See <see cref="MetalDeposits.VariantId"/> for the verified value.
+        /// nugget. See <see cref="MetalDeposits.VariantIdFor"/> for the verified values.
         /// </summary>
         public string? VariantId { get; }
 

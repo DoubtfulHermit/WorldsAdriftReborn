@@ -71,6 +71,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(TimeSpan.FromSeconds(5), RelayCadencePolicy.StatsInterval);
         }
 
+        [Fact]
+        public void Backpressure_is_per_recipient_hysteretic_and_leaves_healthy_peers_unchanged()
+        {
+            RecipientRelayPressure pressure = RecipientRelayPressure.Normal;
+            Assert.Equal(TimeSpan.Zero, RelayBackpressurePolicy.MinimumInterval(pressure));
+
+            pressure = RelayBackpressurePolicy.Next(pressure, 700);
+            Assert.Equal(RecipientRelayPressure.Degraded, pressure);
+            Assert.Equal(TimeSpan.FromMilliseconds(100),
+                RelayBackpressurePolicy.MinimumInterval(pressure));
+
+            // Do not flap around the 500 ms entry boundary.
+            Assert.Equal(RecipientRelayPressure.Degraded,
+                RelayBackpressurePolicy.Next(pressure, 400));
+            pressure = RelayBackpressurePolicy.Next(pressure, 1800);
+            Assert.Equal(RecipientRelayPressure.Severe, pressure);
+            Assert.Equal(TimeSpan.FromMilliseconds(200),
+                RelayBackpressurePolicy.MinimumInterval(pressure));
+            Assert.Equal(RecipientRelayPressure.Degraded,
+                RelayBackpressurePolicy.Next(pressure, 900));
+            Assert.Equal(RecipientRelayPressure.Normal,
+                RelayBackpressurePolicy.Next(pressure, 100));
+        }
+
+        [Fact]
+        public void Backpressure_drops_only_superseding_samples_until_the_recipient_interval_is_due()
+        {
+            TimeSpan sent = TimeSpan.FromSeconds(10);
+            Assert.False(RelayBackpressurePolicy.IsDue(
+                sent + TimeSpan.FromMilliseconds(50), sent,
+                RecipientRelayPressure.Degraded));
+            Assert.True(RelayBackpressurePolicy.IsDue(
+                sent + TimeSpan.FromMilliseconds(100), sent,
+                RecipientRelayPressure.Degraded));
+            Assert.True(RelayBackpressurePolicy.IsDue(
+                sent + TimeSpan.FromMilliseconds(1), sent,
+                RecipientRelayPressure.Normal));
+        }
+
         // ------------------------------------------------------------------
         // THE METRONOME
         // ------------------------------------------------------------------

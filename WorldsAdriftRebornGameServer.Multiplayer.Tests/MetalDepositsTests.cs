@@ -25,34 +25,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_default_variant_is_a_real_MetalDepositVisuals_asset_id()
+        public void The_three_shipped_deposit_variants_are_pinned_in_stable_order()
         {
             // VERIFIED by a strings scan of sharedassets0.assets: the
             // MetalDepositsByBiome table lists metal_deposit_composite_light_01/_02/_03
             // under every biome. A variantId that does not resolve leaves the
             // visualiser disabled (invisible entity), so this string is load-bearing.
-            Assert.Equal("metal_deposit_composite_light_01", MetalDeposits.DefaultVariantId);
+            Assert.Equal(
+                new[]
+                {
+                    "metal_deposit_composite_light_01",
+                    "metal_deposit_composite_light_02",
+                    "metal_deposit_composite_light_03",
+                },
+                MetalDeposits.VariantIds);
+            Assert.Equal(MetalDeposits.DefaultVariantId, MetalDeposits.VariantIds[0]);
         }
 
         [Fact]
-        public void The_variant_is_env_overridable_for_live_iteration_without_a_rebuild()
+        public void Placement_indices_cycle_deterministically_through_all_three_shapes()
         {
-            string? previous = Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT");
-            try
-            {
-                Environment.SetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT", "metal_deposit_composite_light_03");
-                Assert.Equal("metal_deposit_composite_light_03", MetalDeposits.VariantId());
+            Assert.Equal(MetalDeposits.VariantIds[0], MetalDeposits.VariantIdFor(0, null));
+            Assert.Equal(MetalDeposits.VariantIds[1], MetalDeposits.VariantIdFor(1, null));
+            Assert.Equal(MetalDeposits.VariantIds[2], MetalDeposits.VariantIdFor(2, null));
+            Assert.Equal(MetalDeposits.VariantIds[0], MetalDeposits.VariantIdFor(3, null));
+            Assert.Equal(MetalDeposits.VariantIds[2], MetalDeposits.VariantIdFor(11, null));
+            Assert.Throws<ArgumentOutOfRangeException>(() => MetalDeposits.VariantIdFor(-1, null));
+        }
 
-                Environment.SetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT", "  ");
-                Assert.Equal(MetalDeposits.DefaultVariantId, MetalDeposits.VariantId());
-
-                Environment.SetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT", null);
-                Assert.Equal(MetalDeposits.DefaultVariantId, MetalDeposits.VariantId());
-            }
-            finally
-            {
-                Environment.SetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT", previous);
-            }
+        [Fact]
+        public void The_variant_is_globally_overridable_for_live_iteration_without_a_rebuild()
+        {
+            Assert.Equal("metal_deposit_composite_light_03",
+                MetalDeposits.VariantIdFor(0, "metal_deposit_composite_light_03"));
+            Assert.Equal("metal_deposit_composite_light_03",
+                MetalDeposits.VariantIdFor(19, " metal_deposit_composite_light_03 "));
+            Assert.Equal(MetalDeposits.VariantIds[1], MetalDeposits.VariantIdFor(1, "  "));
+            Assert.Equal(MetalDeposits.VariantIds[2], MetalDeposits.VariantIdFor(2, null));
         }
 
         [Fact]
@@ -80,8 +89,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             MetalNode node = MetalDeposits.NodeAt(0);
             Assert.True(node.IsDeposit);
-            Assert.Equal(MetalDeposits.VariantId(), node.VariantId);
+            Assert.Equal(MetalDeposits.VariantIdFor(0), node.VariantId);
             Assert.Equal(MetalDeposits.KeyFor(0), node.Key);
+        }
+
+        [Fact]
+        public void Placed_Haven_deposits_carry_their_stable_shape_selection()
+        {
+            for (int i = 0; i < MetalDeposits.HavenPlacements.Count; i++)
+                Assert.Equal(MetalDeposits.VariantIdFor(i), MetalDeposits.NodeAt(i).VariantId);
         }
 
         [Fact]

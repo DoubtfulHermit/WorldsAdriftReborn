@@ -116,5 +116,65 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(pacer.Due(interval));
             Assert.False(pacer.Due(interval));
         }
+
+        // ------------------------------------------------------------------
+        // Which step is paced - AddEntity (instantiation), not RequestAsset
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Only_the_AddEntity_step_is_paced_because_it_is_what_instantiates()
+        {
+            // RequestAsset is never paced: a cached bundle acks instantly, so pacing
+            // it did not throttle the burst. AddEntity is the instantiation op.
+            Assert.False(SpawnPacePolicy.PacesInstantiation(SpawnOp.RequestAsset, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: false));
+            Assert.True(SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: false));
+        }
+
+        [Fact]
+        public void BeforePlayer_ground_is_never_paced()
+        {
+            Assert.False(SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.BeforePlayer, isInitialSet: false, barrierHoldsInitialSet: false));
+        }
+
+        [Fact]
+        public void The_barrier_initial_set_streams_full_speed_behind_the_loading_screen()
+        {
+            // With the barrier holding it, the initial set (island/ship/built ships +
+            // decks) instantiates while the player is frozen out of view - pacing it
+            // would only lengthen the loading screen.
+            Assert.False(SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: true, barrierHoldsInitialSet: true));
+            // The distant in-view scenery IS paced even with the barrier on.
+            Assert.True(SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: true));
+        }
+
+        [Fact]
+        public void With_no_barrier_everything_after_player_is_paced_including_the_initial_set()
+        {
+            // No barrier = no loading screen, so even the ship/decks appear in view and
+            // must be paced to avoid the burst.
+            Assert.True(SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: true, barrierHoldsInitialSet: false));
+        }
+
+        [Fact]
+        public void A_run_of_N_distant_entities_yields_N_paced_steps_so_they_span_N_ticks()
+        {
+            // Model a joiner's checkout: each distant entity contributes a RequestAsset
+            // (never paced) and an AddEntity (paced). N distant entities => N paced
+            // steps => the pacer releases them across N ticks, not one burst.
+            const int n = 17;
+            int pacedSteps = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (SpawnPacePolicy.PacesInstantiation(SpawnOp.RequestAsset, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: true))
+                {
+                    pacedSteps++;
+                }
+                if (SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: true))
+                {
+                    pacedSteps++;
+                }
+            }
+            Assert.Equal(n, pacedSteps);
+        }
     }
 }

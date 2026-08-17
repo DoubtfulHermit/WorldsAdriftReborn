@@ -72,12 +72,23 @@ internal static class Program
                         Log($"  would update: {p.File.DestPath} ({p.State})");
                         need++;
                     }
-                Log(need == 0 ? "Already up to date." : $"{need} file(s) would be updated. Re-run with --apply.");
+                bool configNeedsUpdate = WarebornConnectionConfig.NeedsUpdate(dir!);
+                if (configNeedsUpdate) Log("  would configure: BepInEx/config/WorldsAdriftReborn.cfg");
+                Log(need == 0 && !configNeedsUpdate
+                    ? "Already up to date."
+                    : $"{need} file(s) would be updated; connection settings "
+                      + (configNeedsUpdate ? "need configuration" : "are current")
+                      + ". Re-run with --apply.");
                 return 0;
             }
 
             PatchEngine.ApplyResult r = await engine.ApplyAsync(dir!, manifest);
             if (r.AnyFailed) return 1;
+
+            WarebornConnectionConfig.Result configured = WarebornConnectionConfig.Ensure(dir!);
+            Log(configured.Changed
+                ? "Configured this client for the public Wareborn server."
+                : "Wareborn server connection settings are current.");
 
             // Only record the version when everything landed cleanly.
             cfg.InstallDir = dir;

@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -130,7 +132,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Nodes are placed island-local against THIS origin so they move with the
         /// island if it is ever re-placed, exactly as the tree is.
         /// </summary>
-        public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
+        public static readonly FixedPointPosition IslandOrigin = IslandCatalog.Haven.GlobalOrigin;
 
         /// <summary>
         /// Encodes an island-LOCAL metre offset into a world Q52.12 fixed-point
@@ -245,7 +247,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 KeyFor(index),
                 p.MetalType,
                 p.Quality,
-                IslandLocalToWorldFixed(IslandOrigin, p.LocalX, p.LocalY, p.LocalZ));
+                IslandCatalog.Haven.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ));
         }
 
         /// <summary>
@@ -284,7 +286,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     KeyFor(i),
                     p.MetalType,
                     p.Quality,
-                    IslandLocalToWorldFixed(IslandOrigin, p.LocalX, p.LocalY, p.LocalZ)));
+                    IslandCatalog.Haven.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ)));
             }
             return nodes;
         }

@@ -3,6 +3,10 @@ using WorldsAdriftRebornGameServer.Multiplayer;
 
 namespace WorldsAdriftRebornGameServer.Game
 {
+    internal readonly record struct ShipPartWakeBundle(
+        ShipDomainComponentUpdate Root,
+        IReadOnlyList<ShipDomainComponentUpdate> Members);
+
     /// <summary>
     /// Keeps every bolted ship part FOLLOWING the moving hull by re-publishing its
     /// 190602 TransformState on a heartbeat below the client's one-second sleep.
@@ -36,6 +40,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// EntityIdAllocator and the registries.
         /// </summary>
         private static long _sample;
+        private static readonly Dictionary<long, FixedPointPosition> StaticLocalOffsets = new();
 
         public ShipPartMotionService(IClock clock)
         {
@@ -59,6 +64,14 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 return;
             }
+            if (WorldsAdriftRebornGameServer.Flight.IsFlightDomainActive(hullEntityId))
+            {
+                return;
+            }
+            if (WorldsAdriftRebornGameServer.ShipFerry.OwnsMotionFor(hullEntityId))
+            {
+                return;
+            }
             PublishWake(hullEntityId);
         }
 
@@ -76,16 +89,49 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         public static int PublishWake(long hullEntityId)
         {
-            WorldEntity? hull = WorldsAdriftRebornGameServer.WorldEntities.ByKey(Multiplayer.WorldEntities.ShipFrameKey);
+            // Active piloted/unmanned-cruising domains publish their own root+member
+            // frame in ShipFlightService. A second heartbeat would create an
+            // independently sequenced member stream and can use an older generation.
+            if (WorldsAdriftRebornGameServer.Flight.IsFlightDomainActive(hullEntityId))
+            {
+                return 0;
+            }
+            if (WorldsAdriftRebornGameServer.ShipFerry.OwnsMotionFor(hullEntityId))
+            {
+                return 0;
+            }
+            WorldEntity? hull = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(hullEntityId);
             if (hull == null)
             {
                 return 0;
             }
             FixedPointPosition hullPos = hull.Position;
 
-            float stamp = ShipPartMotionPolicy.StampFor(++_sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+            ShipPartWakeBundle bundle = BuildWakeBundle(
+                hullEntityId, hullPos,
+                WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId));
+            ShipDomainDeliveryResult delivered = ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, hullPos,
+                WorldsAdriftRebornGameServer.Flight.DomainGenerationFor(hullEntityId),
+                bundle.Root, rootAuxiliary: null, bundle.Members);
+            return delivered.MemberDeliveries;
+        }
 
-            int woken = 0;
+        /// <summary>
+        /// Builds the root-first wake portion of a domain frame without sending it.
+        /// Ferry/nudge publishers combine this with their 1130 root point so hull and
+        /// members share one relevance decision and one replication sequence.
+        /// </summary>
+        public static ShipPartWakeBundle BuildWakeBundle(
+            long hullEntityId, FixedPointPosition hullPos, uint packedRotation)
+        {
+            long sample = ++_sample;
+            float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+            var rootWake = ShipPartTransform.BuildParentlessWakeUpdate(
+                hullPos,
+                new Improbable.Corelibrary.Math.Quaternion32(packedRotation),
+                ShipPartMotionPolicy.ParentStampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds));
+            var members = new List<ShipDomainComponentUpdate>();
             foreach (WorldEntity part in WorldsAdriftRebornGameServer.WorldEntities.BoltedParts())
             {
                 // A part seeded as a REAL Unity child of the hull (the deck) is dragged
@@ -105,18 +151,26 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
 
-                FixedPointPosition localOffset = BoltedPartTransform.LocalOffset(part.Position, hullPos);
+                if (!StaticLocalOffsets.TryGetValue(partEntityId.Value, out FixedPointPosition localOffset))
+                {
+                    // Known static parts derive their offset from the key's placement
+                    // function, which is pose-independent even if the first wake occurs
+                    // after the hull registry has already been relocated. The fallback
+                    // preserves forward compatibility for a future unrecognised key.
+                    localOffset = BoltedPartTransform.LocalOffsetFor(part.Key, hullPos)
+                        ?? BoltedPartTransform.LocalOffset(part.Position, hullPos);
+                    StaticLocalOffsets.Add(partEntityId.Value, localOffset);
+                }
                 TransformState.Update wake = ShipPartTransform.BuildWakeUpdate(
                     localOffset, hullEntityId, BoltedPartTransform.HierarchyKeyFor(part.Key), stamp);
-
-                int sent = ShipPublisher.Broadcast(
-                    partEntityId.Value, ShipPartMotionPolicy.TransformStateComponentId, wake);
-                if (sent > 0)
-                {
-                    woken++;
-                }
+                members.Add(new ShipDomainComponentUpdate(
+                    partEntityId.Value, ShipPartMotionPolicy.TransformStateComponentId, wake));
             }
-            return woken;
+
+            return new ShipPartWakeBundle(
+                new ShipDomainComponentUpdate(
+                    hullEntityId, ShipPartMotionPolicy.TransformStateComponentId, rootWake),
+                members);
         }
     }
 }

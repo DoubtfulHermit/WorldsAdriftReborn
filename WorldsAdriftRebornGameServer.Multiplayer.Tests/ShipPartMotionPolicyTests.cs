@@ -61,6 +61,59 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Two_mounts_on_one_relative_child_let_the_parent_sampling_reach_the_second()
+        {
+            // Fix 2 (findings-mount-placement.md section 2). A Parent(hull,"~") part is sampled
+            // by the client at the PARENT hull's 190602 timestamp. Model TWO mounts on the SAME
+            // part: each stamps the child (StampFor) AND, under the fix, advances the hull to
+            // the same time (ParentStampFor). The interpolator can only select a child sample
+            // once the requested (parent) time reaches it, so the second sample is reachable
+            // ONLY if the hull timeline advanced with the child.
+            double step = ShipPartMotionPolicy.HeartbeatIntervalSeconds;
+
+            const long firstMount = 1;
+            const long secondMount = 2;
+
+            float childFirst = ShipPartMotionPolicy.StampFor(firstMount, step);
+            float childSecond = ShipPartMotionPolicy.StampFor(secondMount, step);
+
+            // The two child samples are distinct and advancing - the second sits strictly ahead.
+            Assert.True(childSecond > childFirst);
+
+            // THE FIX: the hull shares the child's clock, so the parent-sampling time after the
+            // second mount reaches (equals) the second child sample and it becomes selectable.
+            float parentAfterSecond = ShipPartMotionPolicy.ParentStampFor(secondMount, step);
+            Assert.Equal(childSecond, parentAfterSecond);
+            Assert.True(parentAfterSecond >= childSecond,
+                "parent-sampling time " + parentAfterSecond + " never reaches the second child sample " + childSecond);
+            Assert.True(ShipPartMotionPolicy.ParentSamplingReaches(secondMount, step));
+
+            // FAILS-BEFORE: the old built hull's 190602 was a SEED frozen at timestamp 0 (its
+            // 1130 motion never advanced that stamp), so the parent kept requesting time 0, the
+            // child interpolator returned its FIRST sample, and the second was never selected -
+            // re-position was a visible no-op. This is exactly the assertion that fails under
+            // the old behaviour and passes under the fix.
+            const float frozenHullSeedTimestamp = 0f;
+            Assert.True(frozenHullSeedTimestamp < childSecond);
+            Assert.False(frozenHullSeedTimestamp >= childSecond,
+                "a hull frozen at seed timestamp 0 must NOT reach a positive child sample");
+        }
+
+        [Fact]
+        public void The_parent_hull_stamp_shares_the_child_clock_at_every_index()
+        {
+            // The coherent-timeline invariant, walked across a session: the hull's 190602 stamp
+            // equals the child's for the same mount, so the parent always reaches the newest
+            // child sample rather than lagging behind on a separate clock.
+            double step = ShipPartMotionPolicy.HeartbeatIntervalSeconds;
+            for (long i = 0; i <= 10_000; i++)
+            {
+                Assert.Equal(ShipPartMotionPolicy.StampFor(i, step), ShipPartMotionPolicy.ParentStampFor(i, step));
+                Assert.True(ShipPartMotionPolicy.ParentSamplingReaches(i, step));
+            }
+        }
+
+        [Fact]
         public void Bolted_parts_are_exactly_the_registered_parts_never_the_hull()
         {
             // "Which parts" the heartbeat wakes: the deck (on by default) and, when

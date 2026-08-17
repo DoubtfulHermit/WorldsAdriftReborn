@@ -69,6 +69,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return _surfaceToRoot.TryGetValue(surfaceEntityId, out long root) ? root : (long?)null;
         }
 
+        /// <summary>
+        /// Removes a surface when a mounted part detaches or is salvaged. Returns
+        /// false when it was not registered. An expected root prevents stale
+        /// lifecycle work from removing a surface that has since joined another ship.
+        /// </summary>
+        public bool Unregister(long surfaceEntityId, long? expectedRoot = null)
+        {
+            if (!_surfaceToRoot.TryGetValue(surfaceEntityId, out long root)
+                || (expectedRoot.HasValue && root != expectedRoot.Value))
+            {
+                return false;
+            }
+            return _surfaceToRoot.Remove(surfaceEntityId);
+        }
+
         /// <summary>Whether any ship surface is registered at all. For the aboard glue's fast-out.</summary>
         public bool IsEmpty => _surfaceToRoot.Count == 0;
 

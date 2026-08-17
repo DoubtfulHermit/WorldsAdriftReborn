@@ -18,6 +18,12 @@ namespace WorldsAdriftRebornGameServer.Structs
             public unsafe byte* Context;
             public unsafe byte* Url;
         }
+        public struct AssetLoadedAck
+        {
+            public IntPtr AssetType;
+            public IntPtr Name;
+            public IntPtr Context;
+        }
         public struct AddEntityOp
         {
             public unsafe byte* PrefabName;

@@ -83,14 +83,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // The last verdict emitted for this player, so transitions are edges.
             public bool IsAboard;
             public long ShipRootEntityId;
+            public TimeSpan? PendingDisembarkAt;
         }
 
+        // Live 2026-08-14 traces measured moving-hull collider gaps of 0.09-0.79 s
+        // which always returned to the same hull. One second bridges those seams
+        // without indefinitely claiming a player who genuinely jumped overboard.
+        public static readonly TimeSpan ContactGapGrace = TimeSpan.FromSeconds(1);
         private readonly ShipMembership _membership;
+        private readonly IClock _clock;
         private readonly Dictionary<ulong, PlayerRelativeState> _players = new Dictionary<ulong, PlayerRelativeState>();
 
         public AboardTracker(ShipMembership membership)
+            : this(membership, new MonotonicClock())
+        {
+        }
+
+        public AboardTracker(ShipMembership membership, IClock clock)
         {
             _membership = membership ?? throw new ArgumentNullException(nameof(membership));
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
         }
 
         /// <summary>
@@ -111,7 +123,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             bool aboardBearing = sample.RelativeToChanged || sample.RelativeBiasChanged;
-            if (!aboardBearing)
+            if (!aboardBearing && !state.PendingDisembarkAt.HasValue)
             {
                 return AboardTransition.NoChange;
             }
@@ -129,11 +141,41 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AboardVerdict verdict = AboardPolicy.Evaluate(
                 state.RelativeToKnown, state.RelativeTo, state.RelativeBias, _membership);
 
+            // Physics contact can flicker to Invalid/bias=0 for one or two frames
+            // while walking across hull/deck/part collider seams. Keep the semantic
+            // ship root during that short gap. A positive non-ship surface (island)
+            // is an unambiguous real leave and is applied immediately.
+            long? contactShipRoot = state.RelativeToKnown
+                ? _membership.RootOf(state.RelativeTo)
+                : null;
+            bool transientContactGap = !verdict.IsAboard
+                && (!state.RelativeToKnown
+                    || state.RelativeTo <= 0
+                    || (contactShipRoot.HasValue
+                        && state.RelativeBias <= AboardPolicy.AttachedBiasThreshold));
+            if (state.IsAboard && transientContactGap)
+            {
+                if (!state.PendingDisembarkAt.HasValue)
+                {
+                    state.PendingDisembarkAt = _clock.Elapsed + ContactGapGrace;
+                    return AboardTransition.NoChange;
+                }
+                if (_clock.Elapsed < state.PendingDisembarkAt.Value)
+                {
+                    return AboardTransition.NoChange;
+                }
+            }
+            else
+            {
+                state.PendingDisembarkAt = null;
+            }
+
             bool wasAboard = state.IsAboard;
             long wasShip = state.ShipRootEntityId;
 
             state.IsAboard = verdict.IsAboard;
             state.ShipRootEntityId = verdict.IsAboard ? verdict.ShipRootEntityId : 0;
+            state.PendingDisembarkAt = null;
 
             if (!wasAboard && verdict.IsAboard)
             {

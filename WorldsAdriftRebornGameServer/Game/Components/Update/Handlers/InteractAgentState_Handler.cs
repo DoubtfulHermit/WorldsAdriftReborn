@@ -60,26 +60,157 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         public override void HandleUpdate(ENetPeerHandle player, long entityId,
             InteractAgentState.Update clientComponentUpdate, InteractAgentState.Data serverComponentData)
         {
+            // A DELTA: the vast majority of 1211 packets carry only look/slot data and
+            // no event. Read the event lists straight off the update and get out fast
+            // when there is nothing to act on - this runs at frame rate.
+            Improbable.Collections.List<UseItemKeyPressed>? presses = clientComponentUpdate.useItemKeyPressed;
+            Improbable.Collections.List<InteractWithObject>? interacts = clientComponentUpdate.interactWithObject;
+            Improbable.Collections.List<ReleaseInteraction>? releases = clientComponentUpdate.releaseInteraction;
+            bool noPress = presses == null || presses.Count == 0;
+            bool noInteract = interacts == null || interacts.Count == 0;
+            bool noRelease = releases == null || releases.Count == 0;
+            if (noPress && noInteract && noRelease)
+            {
+                return;
+            }
+
+            // Only the sender's OWN entity: 1211 is the player's own interact state
+            // (rule 6). This ownership fact is what the atlas pickup policy is handed and
+            // what the placement paths below require.
+            ulong peerId = PeerIdentity.IdOf(player);
+            bool ownsPlayer = WorldsAdriftRebornGameServer.Players.Owns(peerId, entityId);
+
+            // ATLAS SHARD PICKUP is ALWAYS active - NOT gated behind WAREBORN_PLACEMENT -
+            // because the acquisition loop must work in a plain deposit session. When the
+            // client completes a PickUp interaction on a released shard it fires
+            // TriggerInteractWithObject(shard, PickUp) here (findings-atlas-shards §2
+            // Phase C); the server validates + grants in the pure-policy transaction
+            // WorldsAdriftRebornGameServer.TryCollectAtlasShard. Ownership and verb are
+            // handed to that policy rather than short-circuited here, so the single gate
+            // is the policy. Other verbs/targets fall through to the placement paths.
+            if (!noInteract)
+            {
+                foreach (InteractWithObject pickup in interacts!)
+                {
+                    if (pickup.verb != InteractVerb.PickUp)
+                    {
+                        continue;
+                    }
+                    long pickupTarget = pickup.target.Id;
+
+                    // An ATLAS SHARD: mine-loose-then-pick-up, grants the atlas shard.
+                    if (WorldsAdriftRebornGameServer.AtlasShards.IsShard(pickupTarget))
+                    {
+                        Multiplayer.AtlasPickupOutcome outcome =
+                            WorldsAdriftRebornGameServer.TryCollectAtlasShard(
+                                entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
+                        if (outcome != Multiplayer.AtlasPickupOutcome.Grant)
+                        {
+                            Console.WriteLine("[info] atlas shard PickUp by entity " + entityId
+                                + " on " + pickupTarget + " not granted: " + outcome + ".");
+                        }
+                        continue;
+                    }
+
+                    // A PLACED STATION (shipyard / Assembly Station): the non-retail
+                    // "pack it back into inventory" extension. The client mod's
+                    // dedicated hold-to-pack key (StationPickup_Patch) issues the SAME
+                    // native TriggerInteractWithObject(station, PickUp) the shard path
+                    // uses; the server validates + grants in the pure-policy
+                    // transaction TryPickUpPlacedStation (StationPickupPolicy is the
+                    // single gate - ownership and verb are handed to it, exactly like
+                    // the shard dispatch above). The tombstone clause routes a
+                    // duplicate event on a just-packed station to the same transaction
+                    // so it is REJECTED with a named reason instead of falling through
+                    // silently. Every decision gets one greppable [pickup] line.
+                    if (Placement.PlacedShipyards.IsPlacedShipyard(pickupTarget)
+                        || Placement.PlacedCraftingStations.IsPlacedCraftingStation(pickupTarget)
+                        || Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(pickupTarget))
+                    {
+                        Multiplayer.StationPickupOutcome outcome =
+                            WorldsAdriftRebornGameServer.TryPickUpPlacedStation(
+                                player, entityId, pickupTarget, ownsPlayer, verbIsPickUp: true);
+                        Console.WriteLine("[pickup] station PickUp by entity " + entityId
+                            + " on " + pickupTarget + " -> " + outcome + ".");
+                        continue;
+                    }
+
+                    // NOTE: a FUEL CANISTER is deliberately NOT handled here. Retail fuel
+                    // is SALVAGED with the gauntlet beam, not picked up, so its shots
+                    // arrive on 2106 (MultitoolSalvagerState_Handler -> OnSalvageShot ->
+                    // OnFuelCanisterShot) and it advertises no 1210 prompt at all.
+                }
+
+                // HELM FLIGHT (verb Man): the pilot takes - or, re-manning, leaves -
+                // the helm of their built ship. ALWAYS-ON like the atlas pickup, NOT
+                // behind WAREBORN_PLACEMENT: the flight service carries its own
+                // WAREBORN_HELM_FLIGHT gate and answers false for any target that is
+                // not a mounted helm, so this dispatch costs one ledger miss for
+                // every other Man. Ownership is handed to the service, not
+                // short-circuited here, so the single gate is the service.
+                foreach (InteractWithObject man in interacts!)
+                {
+                    if (man.verb == InteractVerb.Man)
+                    {
+                        WorldsAdriftRebornGameServer.Flight.OnManInteraction(
+                            player, entityId, man.target.Id, ownsPlayer);
+                    }
+                    else if (man.verb == InteractVerb.Activate)
+                    {
+                        // MOUNTED PART ACTIVATE (sail furl/unfurl, lamp switch, horn
+                        // honk): ALWAYS-ON like the Man dispatch above - the service's
+                        // per-part ledgers are the single gate, so an Activate on
+                        // anything else costs three dictionary misses. The Activate
+                        // verb is baked into the Sail01/Lamp01/Horn01 prefabs' own
+                        // InteractiveObjectVisualizer (decompile-verified), and the
+                        // prompt only appears once the 1210 mounted-part branch
+                        // advertises a matching entry, so an unhandled Activate here
+                        // is a client poking at something not interactable yet.
+                        bool handled = WorldsAdriftRebornGameServer.PartInteractions
+                            .OnActivateInteraction(entityId, man.target.Id, ownsPlayer);
+                        if (!handled)
+                        {
+                            Console.WriteLine("[info] 1211 Activate on target " + man.target.Id
+                                + " matched no mounted sail/lamp/horn ledger; ignored.");
+                        }
+                    }
+                    else if (man.verb == InteractVerb.Default && man.target.Id <= 0 && ownsPlayer)
+                    {
+                        // THE PILOT'S ACTUAL EXIT, measured live: a seated pilot pressing
+                        // the interact key produced `verb Default on target -1` events -
+                        // NOT the ReleaseInteraction the design expected and NOT a re-Man
+                        // (while driving, the player is not aiming at the helm's collider,
+                        // so the client has no target and sends the default verb with an
+                        // invalid id). Route it to the release path, which dismounts a
+                        // seated pilot and is a no-op for everyone else - so "E gets me
+                        // off the helm" finally holds.
+                        WorldsAdriftRebornGameServer.Flight.OnReleaseInteraction(
+                            player, entityId, man.target.Id);
+                    }
+                }
+            }
+
+            // The client's OWN dismount signal: TriggerReleaseInteraction from
+            // InteractAgentObserver.ReleaseInteractiveObject. Belt-and-braces beside
+            // the re-Man toggle - whichever the live client sends, the pilot gets
+            // off. Events only, a handful per session; ignored for non-pilots.
+            if (!noRelease && ownsPlayer)
+            {
+                foreach (ReleaseInteraction release in releases!)
+                {
+                    WorldsAdriftRebornGameServer.Flight.OnReleaseInteraction(
+                        player, entityId, release.interactEntityId.Id);
+                }
+            }
+
+            // Everything below is placement-only and gated behind WAREBORN_PLACEMENT.
             if (!WorldsAdriftRebornGameServer.Placement.Enabled)
             {
                 return;
             }
 
-            // A DELTA: the vast majority of 1211 packets carry only look/slot data and
-            // no event. Read both event lists straight off the update and get out fast
-            // when there is nothing to act on - this runs at frame rate.
-            Improbable.Collections.List<UseItemKeyPressed>? presses = clientComponentUpdate.useItemKeyPressed;
-            Improbable.Collections.List<InteractWithObject>? interacts = clientComponentUpdate.interactWithObject;
-            bool noPress = presses == null || presses.Count == 0;
-            bool noInteract = interacts == null || interacts.Count == 0;
-            if (noPress && noInteract)
-            {
-                return;
-            }
-
-            // Only the sender's OWN entity: 1211 is the player's own interact state.
-            ulong peerId = PeerIdentity.IdOf(player);
-            if (!WorldsAdriftRebornGameServer.Players.Owns(peerId, entityId))
+            // The placement paths act only on the sender's OWN entity.
+            if (!ownsPlayer)
             {
                 return;
             }
@@ -91,6 +222,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 foreach (InteractWithObject interact in interacts!)
                 {
+                    // DIAGNOSTIC (events only - a handful per session, never per-frame):
+                    // the live "press E on the station, nothing happens" report needs the
+                    // failure NAMED. One line per completed interaction event: verb,
+                    // target, and ownership - so a silent both-ledgers-miss below is
+                    // visible instead of a mystery.
+                    Console.WriteLine("[info] 1211 interact: entity " + entityId + " -> verb "
+                        + interact.verb + " on target " + interact.target.Id
+                        + " (ownsPlayer=" + ownsPlayer + ").");
+
                     if (interact.verb == InteractVerb.Craft)
                     {
                         // Both a placed shipyard and a placed Assembly Station bake the
@@ -103,11 +243,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         long target = interact.target.Id;
                         bool opened = WorldsAdriftRebornGameServer.Placement.OpenShipyardConsole(
                             player, entityId, target);
+                        bool openedStation = false;
                         if (!opened)
                         {
-                            WorldsAdriftRebornGameServer.Placement.OpenCraftingStationConsole(
+                            openedStation = WorldsAdriftRebornGameServer.Placement.OpenCraftingStationConsole(
                                 player, entityId, target);
                         }
+                        if (!opened && !openedStation)
+                        {
+                            // Both ledgers missed - previously a SILENT no-op, which reads
+                            // to the player as "I press E and nothing happens". Name it.
+                            Console.WriteLine("[warning] 1211 Craft on target " + target
+                                + " matched NEITHER the placed-shipyard nor the crafting-station"
+                                + " ledger - the console cannot open. Check the target id against"
+                                + " the placement RESTORE lines for this boot.");
+                        }
+                    }
+                    else if (interact.verb == InteractVerb.ReclaimShip)
+                    {
+                        Multiplayer.Ship.ShipSalvageReject outcome =
+                            Game.Crafting.ShipSalvageService.Reclaim(
+                                entityId, interact.target.Id, ownsPlayer);
+                        Console.WriteLine("[salvage] ReclaimShip by entity " + entityId
+                            + " on shipyard " + interact.target.Id + " -> " + outcome + ".");
                     }
                 }
             }

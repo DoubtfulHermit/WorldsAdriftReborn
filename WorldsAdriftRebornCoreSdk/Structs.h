@@ -1,6 +1,7 @@
 #pragma once
 
 #include "VTable.h"
+#include <cstddef>
 #include <cstdint>
 
 struct EntityId {
@@ -167,8 +168,13 @@ struct stripped_AddEntityOp {
 };
 
 struct RemoveEntityOp {
-    long EntityId;
+    // WorkerSdkCsharp's interop struct is an Int64. Windows uses LLP64, where
+    // C++ long is only 32 bits; declaring this as long made the managed thunk
+    // read four bytes of heap padding as the high half of the entity id.
+    std::int64_t EntityId;
 };
+static_assert(sizeof(RemoveEntityOp) == sizeof(std::int64_t),
+    "RemoveEntityOp ABI must match WorkerSdkCsharp's single Int64 field");
 
 struct ReserveEntityIdResponseOp {
     unsigned int RequestId;
@@ -211,9 +217,13 @@ struct AddComponentOp{
 };
 
 struct RemoveComponentOp {
-    long EntityId;
-    unsigned int ComponentId;
+    std::int64_t EntityId;
+    std::uint32_t ComponentId;
 };
+static_assert(offsetof(RemoveComponentOp, EntityId) == 0,
+    "RemoveComponentOp entity id must begin at offset zero");
+static_assert(offsetof(RemoveComponentOp, ComponentId) == 8,
+    "RemoveComponentOp ABI must match WorkerSdkCsharp");
 
 struct Stripped_AuthorityChangeOp {
     unsigned int ComponentId;

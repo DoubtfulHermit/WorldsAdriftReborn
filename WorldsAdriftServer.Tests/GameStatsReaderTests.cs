@@ -28,8 +28,11 @@ namespace WorldsAdriftServer.Tests
           ""currentOnline"":2,
           ""peakOnline"":4,
           ""wireHealthWarning"":true,
+          ""secondIslandRegistered"":true,
+          ""firstRegionTerrainCount"":1,
           ""players"":[
             {""entityId"":3,""peerId"":""0x2f00"",""connectedAtUnixMs"":1723200100000,
+             ""position"":{""x"":14734.5,""y"":-55.25,""z"":15208.75},
              ""health"":{""rttMs"":640,""rttVarianceMs"":30,""packetsLost"":9,""packetsSent"":1290,""inFlightBytes"":4096,""spiral"":true}},
             {""entityId"":7,""peerId"":""0x9900"",""connectedAtUnixMs"":1723200050000,""health"":null}
           ]
@@ -62,6 +65,8 @@ namespace WorldsAdriftServer.Tests
                 Assert.Equal(2, s.CurrentOnline);
                 Assert.Equal(4, s.PeakOnline);
                 Assert.True(s.WireHealthWarning);
+                Assert.True(s.SecondIslandRegistered);
+                Assert.Equal(1, s.FirstRegionTerrainCount);
                 Assert.Equal(2, s.Players.Count);
 
                 // Age is now - generatedAt = 3s, which is not yet stale.
@@ -87,9 +92,14 @@ namespace WorldsAdriftServer.Tests
                 Assert.True(p0.HasHealth);
                 Assert.Equal(640u, p0.RttMs);
                 Assert.True(p0.Spiral);
+                Assert.True(p0.HasPosition);
+                Assert.Equal(14734.5, p0.X, 3);
+                Assert.Equal(-55.25, p0.Y, 3);
+                Assert.Equal(15208.75, p0.Z, 3);
 
                 GamePlayerStat p1 = GameStats.ReadFrom(path, Now).Snapshot!.Players[1];
                 Assert.False(p1.HasHealth);
+                Assert.False(p1.HasPosition);
             }
             finally
             {
@@ -123,6 +133,51 @@ namespace WorldsAdriftServer.Tests
             GameStatsResult r = GameStats.ReadFrom(TempFile(), Now);
             Assert.Equal(GameStatsState.Missing, r.State);
             Assert.Null(r.Snapshot);
+        }
+
+        [Fact]
+        public void Runtime_ship_domains_are_allowlist_parsed_and_old_snapshots_still_work()
+        {
+            string path = TempFile();
+            string json = ValidJson.TrimEnd().TrimEnd('}') + @",
+              ""runtime"":{""hostMode"":""local-single-process"",""hostId"":""local:primary"",
+                ""ownedEntityCount"":72,""globalEntityCount"":1,""unownedEntityCount"":0,""ownershipIssueCount"":0,
+                ""domains"":[{""domainId"":""island:haven"",""kind"":""island"",""label"":""Haven"",
+                  ""hostId"":""local:primary"",""affinityDomainId"":null,""entityCount"":60,
+                  ""active"":true,""warningCount"":0,""x"":1,""y"":2,""z"":3,
+                  ""fictionalLease"":""must-not-pass""}],""shipDomains"":[{
+                ""domainId"":""ship:83"",""hullEntityId"":83,""authorityGeneration"":4,
+                ""replicationSequence"":91,""cadenceMs"":240,""deliveryAgeMs"":35,
+                ""x"":1.5,""y"":2.5,""z"":3.5,""active"":true,""piloted"":true,
+                ""liveCadenceExpected"":true,""pilotPlayerEntityId"":3,
+                ""aboardPlayerEntityIds"":[3,7],""deckCount"":8,""mountedPartCount"":3,
+                ""subscriberCount"":2,""staleDelivery"":false,""aboardCheckoutWarning"":false,
+                ""fictionalWorker"":""must-not-pass""}]}}";
+            File.WriteAllText(path, json);
+            try
+            {
+                GameStatsSnapshot s = GameStats.ReadFrom(path, Now).Snapshot!;
+                Assert.Equal("local-single-process", s.RuntimeHostMode);
+                Assert.Equal("local:primary", s.RuntimeHostId);
+                Assert.Equal(72, s.RuntimeOwnedEntityCount);
+                Assert.Single(s.RuntimeDomains);
+                Assert.Equal("island", (string)s.RuntimeDomains[0].Json["kind"]!);
+                Assert.Null(s.RuntimeDomains[0].Json["fictionalLease"]);
+                Assert.Single(s.ShipDomains);
+                Assert.Equal(83, (long)s.ShipDomains[0].Json["hullEntityId"]!);
+                Assert.Null(s.ShipDomains[0].Json["fictionalWorker"]);
+            }
+            finally { File.Delete(path); }
+
+            // Compatibility is intentional: the existing v1 fixture has no runtime.
+            path = TempFile(); File.WriteAllText(path, ValidJson);
+            try
+            {
+                GameStatsSnapshot old = GameStats.ReadFrom(path, Now).Snapshot!;
+                Assert.Equal("unknown", old.RuntimeHostMode);
+                Assert.Empty(old.ShipDomains);
+            }
+            finally { File.Delete(path); }
         }
 
         [Theory]

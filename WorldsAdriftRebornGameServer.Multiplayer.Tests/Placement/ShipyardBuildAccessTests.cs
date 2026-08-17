@@ -82,5 +82,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Placement
         {
             Assert.Same(ShipyardBuildAccess.Shared, ShipyardBuildAccess.Shared);
         }
+
+        [Fact]
+        public void RevokeAllFor_drops_every_grant_at_that_yard_and_names_the_players()
+        {
+            // The station-pickup path: the yard is packed, so every 1219 grant
+            // naming it must go, and grants at OTHER yards must survive.
+            var access = new ShipyardBuildAccess();
+            access.Grant(7, 4242);
+            access.Grant(8, 4242);
+            access.Grant(9, 9001);
+
+            var revoked = access.RevokeAllFor(4242);
+
+            Assert.Equal(new[] { 7L, 8L }, revoked.OrderBy(p => p).ToArray());
+            Assert.False(access.HasAccess(7));
+            Assert.False(access.HasAccess(8));
+            Assert.Equal(9001, access.ShipyardFor(9));
+        }
+
+        [Fact]
+        public void RevokeAllFor_an_unknown_yard_is_a_harmless_empty_list()
+        {
+            var access = new ShipyardBuildAccess();
+            access.Grant(7, 4242);
+
+            Assert.Empty(access.RevokeAllFor(1234));
+            Assert.True(access.HasAccess(7));
+        }
     }
 }

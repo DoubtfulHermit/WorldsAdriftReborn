@@ -36,6 +36,63 @@ dotnet build WorldsAdriftReborn -c Release -p:PluginOutputDirectory=/tmp/modout/
 Neither multiplayer project is in `WorldsAdriftReborn.sln`; name them
 explicitly as above.
 
+## Multiplayer ship acceptance ladder
+
+The Colin-session failures are no longer represented only by small, unrelated
+unit tests. `Ship/TwoPeerShipAcceptanceTests.cs` runs their complete sequence as
+one deterministic headless scenario:
+
+1. two independent peers check out the same hull, deck, helm and sail;
+2. the first player pilots for 120 authoritative 240 ms frames;
+3. every frame has one authority generation/sequence and every member is gated
+   behind the hull timeline;
+4. a raw `relativeTo=-1`, bias-zero collider seam is held while the canonical
+   aboard relationship survives, preventing the remote avatar from switching
+   to stale world coordinates and trailing or leading the ship;
+5. helm authority transfers to the second player, the new generation restarts
+   at sequence one, and delayed input from the old generation is rejected;
+6. one peer unloads without changing the other peer's checkout; and
+7. the returning peer receives root first and all current members afterwards.
+
+Run that gate and its supporting policies with:
+
+```sh
+dotnet test WorldsAdriftRebornGameServer.Multiplayer.Tests -c Release \
+  --filter 'FullyQualifiedName~TwoPeerShipAcceptanceTests|FullyQualifiedName~ShipDomainTests|FullyQualifiedName~AboardRelayPolicyTests|FullyQualifiedName~ShipDomainInterestPolicyTests|FullyQualifiedName~FlightSessionTests'
+```
+
+This is tier 1: deterministic authority, timeline, membership and checkout
+acceptance. It catches the server regressions that produced a split hull,
+stale pilot input, a floating passenger, five-second steering wake-up and a
+peer-specific missing ship.
+
+Tier 2 is a real-wire acceptance gate. It builds the current native server and
+CoreSDK shim, creates a fresh temporary world containing one disposable hull
+and mounted helm, starts that server on an alternate UDP port, then connects two
+real ENet peers using the production protobuf envelopes and generated component
+codecs:
+
+```sh
+tools/relaybot/run-ship-acceptance.sh       # default isolated UDP 17779
+tools/relaybot/run-ship-acceptance.sh 18779 # optional alternate port
+```
+
+The runner refuses an occupied port and never reads the operator's world state.
+It proves join/ack/authority, Man -> 1111 -> 1130 flight, root-plus-mounted-member
+wakes on both peers, the aboard contact-seam hold, helm handoff with a stale old
+pilot write, peer-independent checkout, channel-5 member-first/root-last removal,
+and asset-requested root-first/member-last re-entry. Spatial interest is enabled
+explicitly in the disposable process, so this also prevents a test from silently
+passing in the fail-open "send everything" mode. Logs and temporary data stay in
+`tools/relaybot/run/`.
+
+Tier 3 is deliberately small and visual: two Unity clients confirm camera/IK,
+animation and interpolation presentation. Relaybot cannot execute Unity's
+`PlayerVisualizer`, `PathFollower`, physics or rendering, so it cannot prove
+that interpolation looks smooth on screen. Once tiers 1 and 2 pass, a session
+with Colin is confirmation of presentation, not the first time the protocol or
+state machine is exercised.
+
 ## The storage suite
 
 ```sh
@@ -71,15 +128,15 @@ Verified against PostgreSQL 18 (local) and 16 (the deployment target).
 
 Rules are tested through **pure policy types**, and production calls those same
 types. Nothing here asserts on a mock's call count: where a rule is about a
-value that must never go on the wire (a prefab context, a component id in a
-resend set) the test asserts on the value itself.
+value that must never go on the wire (a prefab context or any duplicate mirror
+operation) the test asserts on the value itself.
 
 | Type | Owns |
 | --- | --- |
 | `PlayerRegistry` | peer↔entity ownership, relay target sets, the `Owns` gate |
 | `RemotePlayerMirror` | join/relay/leave intents |
 | `AppearanceStore` | per-entity customisation |
-| `MirrorSendPolicy` | prefab contexts, remote seed, authority set, resend set, relay reliability |
+| `MirrorSendPolicy` | prefab contexts, remote seed, authority set, single-shot creation, relay readiness/reliability |
 | `EntityIdAllocator` | entity ids, the one shared island id |
 | `ClientRigPolicy` | local-vs-remote rig discrimination, keep-first singleton claiming |
 
@@ -91,7 +148,7 @@ would have gone stale silently. Keep that one file `net35` / C# 7.3 clean: no
 `IReadOnly*` generics, no LINQ, no nullable annotations, no target-typed `new`.
 
 The suite is mutation-checked: 12 hand-written mutations (prefab context flipped
-to `"Player"`, `AddComponents` added to the resend set, `1073` reclassified as
+to `"Player"`, a mirror op made resendable, `1073` reclassified as
 reliable, `1072` added to the remote seed, `190602` dropped from the authority
 set, the island id re-allocated per call, `CameraProxy` dropped from the
 local-only markers, keep-first turned into last-wins, `Owns` weakened to "any
@@ -105,7 +162,7 @@ Numbering follows `docs/multiplayer.md`.
 | --- | --- | --- |
 | 1 | Packets must carry their sender (48-byte explicit layout) | **Not covered.** Native struct layout. A `Marshal.SizeOf`/`OffsetOf` test is possible but would force the test project to reference the server exe and therefore a real game install. Left alone on purpose. |
 | 2 | Remote players use prefab context `"Default"`, never `"Player"` | **Covered** — `MirrorSendPolicyTests`, asserted as a value plus a not-equal against the local context. |
-| 3 | The mirror is two-phase (asset request → park → flush on ack) | **Not covered.** The parking/flush/timeout logic is entangled with `ENetPeerHandle` in the main loop. Deliberately not extracted; see "left alone" below. |
+| 3 | The mirror is two-phase (asset request → park → one flush on ack) | **Covered as policy and real wire.** `MirrorScheduleTests` pins time-based parking/flush and production's zero-resend default; tier 2 rejects duplicate remote-player AddEntity. The ack payload itself remains opaque. |
 | 4 | All clients get the SAME island entity id | **Covered** — `EntityIdAllocatorTests`, including that the id is a real allocation rather than a constant and can never collide with a player entity. |
 | 5 | Grant each client authority over its own TransformState (190602) | **Covered** — set membership for `190602` and `1073`, plus a no-duplicates check. |
 | 6 | First-time setup + authority only against the sender's OWN entity | **Covered** — `PlayerRegistry.Owns`, including that an unregistered peer does not own entity `0`. |
@@ -190,34 +247,34 @@ Consequence, stated plainly: **the ENet-side per-peer maps are not covered by
 `PeerCleanupTests`.** That test proves the *multiplayer library* forgets a
 departed peer. It proves nothing about the main loop's dictionaries.
 
-## Still needs two humans and two clients
+## Still needs Unity clients
 
-No test in this repo can tell you any of the following. If you changed anything
-near them, you launch two clients and look.
+No pure test in this repo can tell you any of the following. If you changed
+anything near them, launch two clients (one person may operate both local
+clients) and look. The tier-2 ship extension above should remove protocol and
+state-machine discovery from this list, but it cannot remove visual acceptance.
 
 1. **That a remote avatar is actually visible** — spawned, skinned, on a layer
    the camera draws, not culled, not at the default seed position 90km away.
 2. **That the camera and local-player identity stay with the right rig** when a
    second player joins. The keep-first *decision* is tested; whether Unity's
    `Awake`/`Start` ordering still puts the local rig first is not.
-3. **That movement is smooth and correctly positioned** — the coordinate remap,
-   the interpolators, parented vs unparented `TransformState`, and whether
-   `PlayerVisualizer` or `RemoteRigMover` is doing the positioning.
-4. **That the two-phase asset flush actually lands** — the ack payload is not
-   parsed, so a joining client's own spawn acks can race the flush. Only two
-   clients will show you a missing rig.
-5. **That the resend window is long enough** for a client still loading the
-   prefab, and that the fallback flush timing still suits an idle in-world
-   player. Timing constants are not asserted anywhere on purpose; they are
-   empirical.
-6. **That nobody gets launched into the sky** on a second player's join. The
-   *rule* (never resend `AddComponents`) is tested; the physics outcome is not.
+3. **That movement is visually smooth and correctly positioned** — tier 2 proves
+   both peers receive the authoritative ship timeline and the passenger retains
+   its hull-relative coordinate frame, but only Unity can exercise its
+   interpolators, `PlayerVisualizer`, `PathFollower`, camera and rendered pose.
+4. **That the two-phase asset flush visually instantiates the Unity rig.** Tier
+   2 proves one AddEntity and one complete seed land over real ENet, but only a
+   Unity client proves the prefab rendered. The ack payload is still opaque.
+5. **That the fallback flush timing suits an idle in-world player.** Creation is
+   deliberately single-shot now: duplicate AddEntity can recreate/split a live
+   rig and is rejected by policy and tier 2.
+6. **That nobody gets launched into the sky** on a second player's join. Tier 2
+   rejects seed-timeline regressions; the rendered physics outcome remains visual.
 7. **That appearance, glider wings and the grapple rope render on a remote.**
-8. **That a departed player's avatar disappears.** It does not: there is no
-   wire message for entity removal (no `ENetChannel`, no `RemoveEntityOp` proto,
-   `RegisterRemoveEntityCallback` is an unimplemented TODO in `Exports.cpp`).
-   The server logs a warning and leaves a stale body. Tested as *intent*
-   (`OnLeave` emits `RemoveEntity`), untested and unimplemented as *delivery*.
+8. **That a departed player's avatar visually disappears.** Channel 5,
+   `RemoveEntityOp`, the SDK dispatcher callback and server cleanup are now
+   implemented; visual destruction still needs one Unity confirmation.
 9. **Anything about latency, packet loss or bandwidth** over a real internet
    path. The reliable/unreliable classification is tested as a classification
    only.

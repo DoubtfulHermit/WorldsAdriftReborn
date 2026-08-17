@@ -53,6 +53,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// other clients for them to see anyone move.
         /// </summary>
         public const uint TransformStateComponentId = 190602;
+        public const uint ShipPredictedMotionStateComponentId = 1130;
 
         /// <summary>
         /// ClientAuthoritativePlayerState: the player's bone/animation bytes.
@@ -283,6 +284,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const uint PlacementToolPlayerStateComponentId = 1239;
 
         /// <summary>
+        /// 1011 IslandResourceSpawnerClientState: the client's resource-placement REPLY
+        /// writer. It is client-authoritative on the ISLAND (a shared world entity), so
+        /// a client's 1011 update reaches the raw relay path - and
+        /// RelayToOtherPlayers would re-address its SpawnResourcesReply to the SENDER's
+        /// own player entity, which neither seeds 1011 nor is the island. The reply is
+        /// realised by the SERVER (the 1011 handler spawns deposits as shared world
+        /// entities every peer sees), not by relaying it to another client's own island
+        /// writer, and it is a one-shot-per-batch, not a per-frame stream - so this is
+        /// correctness, not bandwidth. See <see cref="IslandResourceHandshake"/>.
+        /// </summary>
+        public const uint IslandResourceSpawnerClientStateComponentId = 1011;
+
+        /// <summary>
         /// The part-mount toolchain components a client is granted AUTHORITY over: the
         /// two client writers 1070 (the commit) + 1239 (carry notifications). 1071 is a
         /// server-owned reader and is NOT granted. Kept OUT of the always-on
@@ -304,6 +318,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static readonly IReadOnlyList<uint> PartMountInjectedComponents =
             new uint[] { BuilderStateComponentId, BuilderServerStateComponentId, PlacementToolPlayerStateComponentId };
+
+        /// <summary>
+        /// ShipControlInput (1111): the pilot's throttle/vertical/axes writer on
+        /// the PLAYER. <c>ShipControlsBehaviour</c> [Require]s this WRITER (plus
+        /// the 1112 writer and the 1109 reader, ShipControlsBehaviour.cs:20-29),
+        /// and a writer exists only for a granted component - so piloting is dead
+        /// unless 1111 is granted. While driving the client sends it every 0.05 s
+        /// AT MOST: the generated FinishAndSend diff-suppresses unchanged frames,
+        /// so a held stick costs nothing. CONSUME-ONLY on the server (the flight
+        /// integrator eats it); NEVER relayed - see IsRelayedToOtherPlayers.
+        /// </summary>
+        public const uint ShipControlInputComponentId = 1111;
+
+        /// <summary>
+        /// TurretControlInput (1112): <c>ShipControlsBehaviour</c>'s OTHER
+        /// [Require] writer. Ship piloting never sets its fields (LookAt is only
+        /// written under ControlType.Turret and the empty per-frame FinishAndSend
+        /// is diff-suppressed), but without the grant the behaviour never enables
+        /// and the ship cannot be driven. Granted purely to satisfy the require
+        /// set; no handler consumes it; filtered from relay like 1111.
+        /// </summary>
+        public const uint TurretControlInputComponentId = 1112;
+
+        /// <summary>
+        /// The helm-flight components a client is granted AUTHORITY over: the two
+        /// writers of ShipControlsBehaviour. Kept OUT of the always-on
+        /// <see cref="AuthoritativeComponents"/> and appended at the setup site
+        /// only when WAREBORN_HELM_FLIGHT=1, exactly like the placement lists.
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipFlightAuthoritativeComponents =
+            new uint[] { ShipControlInputComponentId, TurretControlInputComponentId };
+
+        /// <summary>
+        /// The helm-flight components injected onto the player: the same two -
+        /// a component must be seeded before its updates can be handled (inbound
+        /// updates look it up in the component map or are dropped), and seeding
+        /// is also what lets the [Require] writers bind once the grant lands.
+        /// 1109 PilotState is NOT here: it is already injected early for every
+        /// player (the PlayerExternalDataVisualizer NRE fix).
+        /// </summary>
+        public static readonly IReadOnlyList<uint> ShipFlightInjectedComponents =
+            new uint[] { ShipControlInputComponentId, TurretControlInputComponentId };
 
         /// <summary>
         /// The three writers of <c>PlayerMultitoolVisualizer</c> - MultiToolPlayerState
@@ -531,6 +587,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// part entity's 8066/190602/1120, which every peer already sees as a shared
         /// world entity), not by relaying the client's event, and it is an event on
         /// pickup/place, not a per-frame stream - so this is correctness, not bandwidth.
+        /// 1111 ShipControlInput and 1112 TurretControlInput are filtered OUT for
+        /// BOTH standing reasons at once. Cross-entity: RelayToOtherPlayers would
+        /// re-address the pilot's input to the SENDER's own entity on every other
+        /// client, where the remote Traveller@Default rig runs no
+        /// ShipControlsBehaviour and reads neither component - the input is
+        /// realised by the SERVER (the flight integrator turns it into the hull's
+        /// 1130 control points, which every peer already receives). Rate: 1111 is
+        /// the up-to-20 Hz piloting stream, exactly the class of relayed reliable
+        /// per-frame traffic that produced the measured congestion spiral
+        /// (RTT 24 ms -> 5 s) before 6910 was tamed. Consume-only, never relayed.
         public static bool IsRelayedToOtherPlayers(uint componentId)
         {
             return componentId != SalvagerAimerStateComponentId
@@ -541,24 +607,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 && componentId != ShipHullAgentClientStateComponentId
                 && componentId != PlayerShipBlueprintInteractionStateComponentId
                 && componentId != BuilderStateComponentId
-                && componentId != PlacementToolPlayerStateComponentId;
+                && componentId != PlacementToolPlayerStateComponentId
+                && componentId != IslandResourceSpawnerClientStateComponentId
+                && componentId != ShipControlInputComponentId
+                && componentId != TurretControlInputComponentId;
         }
 
         /// <summary>
         /// Whether a parked mirror op may be sent again on a later attempt.
-        ///
-        /// ONLY AddEntity. A client that was still loading the prefab silently
-        /// drops an AddEntity, so it has to be repeated or the other player never
-        /// appears (the one-way visibility bug) - and AddEntity carries no
-        /// component data, so repeating it cannot move anyone.
-        ///
-        /// Resending AddComponents is what caused the SKY-LAUNCH: it re-applied
-        /// the DEFAULT seeded TransformState to an already-moving player and
-        /// teleported them into the air.
+        /// Duplicate AddEntity is not inert: the Unity client can recreate the
+        /// remote rig and split its visualizers from the live stream. Mirror
+        /// creation is asset-ack gated now, so every op is single-shot.
         /// </summary>
         public static bool MayResend(MirrorOp op)
         {
-            return op == MirrorOp.AddEntity;
+            return false;
+        }
+
+        /// <summary>
+        /// Live movement starts only after the recipient has the remote entity
+        /// and both halves of its paired movement seed. Otherwise a live .25
+        /// timestamp can arrive before seed .20 and then repeat after the seed.
+        /// </summary>
+        public static bool MayRelayMovement(bool addEntitySent, bool playerStateServed,
+            bool transformServed)
+        {
+            return addEntitySent && playerStateServed && transformServed;
         }
 
         /// <summary>
@@ -581,14 +655,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// beam is on" is invisible; a reliable backlog is fatal. The other
         /// trigger-based multitool components (2105/2106/2002 - on/off/mode) stay
         /// reliable: they are one-shots, and a dropped state change never returns.
+        ///
+        /// 1130 SSPPredictedMotionState is likewise a full absolute latest ship
+        /// control point, not a delta. Losing one widens the next legal timestamp
+        /// gap from 0.24 s to 0.48 s; it does not violate the client's 0.228 s
+        /// minimum, and the next point corrects the extrapolated pose. Keeping the
+        /// obsolete point reliable instead created multi-second ordered backlogs.
         /// </summary>
         public static RelayReliability RelayReliabilityFor(uint componentId)
         {
             return componentId == TransformStateComponentId
                 || componentId == ClientAuthoritativePlayerStateComponentId
                 || componentId == UtilitySlotActivatedStateComponentId
+                // A moving hull publishes a complete latest control point every
+                // 240 ms. The next point supersedes a lost one just like 190602;
+                // making this reliable only builds an ordered retransmit queue
+                // during loss. With two moving ships the live 2026-08-14 session
+                // reached 49 KB in flight and 6.8 s RTT, delaying helm traffic.
+                || componentId == ShipPredictedMotionStateComponentId
                 ? RelayReliability.Unreliable
                 : RelayReliability.Reliable;
+        }
+
+        /// <summary>
+        /// Delivery for one wire packet containing several component updates.
+        /// It is safe to drop only when every member is independently superseded;
+        /// an empty batch or one one-shot component makes the packet reliable.
+        /// </summary>
+        public static RelayReliability BatchReliabilityFor(
+            System.Collections.Generic.IEnumerable<uint> componentIds)
+        {
+            bool any = false;
+            foreach (uint componentId in componentIds)
+            {
+                any = true;
+                if (RelayReliabilityFor(componentId) == RelayReliability.Reliable)
+                {
+                    return RelayReliability.Reliable;
+                }
+            }
+            return any ? RelayReliability.Unreliable : RelayReliability.Reliable;
         }
     }
 }

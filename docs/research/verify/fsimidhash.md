@@ -97,11 +97,14 @@ gencode default.
    (`ShipConfiguration.cs:10`). Expect a half-second freeze on every pilot change —
    correct behaviour, but budget for it visually.
 
-**Relay must be RELIABLE for 1130.** `SendOPHelper.cs:140-145` passes the client's
-serialized payload through as opaque bytes, so a byte-passthrough relay preserves
-`fsimIdHash` verbatim. But `:162` marks only 190602 and 1073 unreliable-high-rate —
-1130 must stay reliable, because a dropped control point is not harmlessly superseded:
-it widens the interval and can trip the 0.228 s gate on the *next* point.
+**1130 may be UNRELIABLE and should be for a continuous flight stream.** Every update
+contains a complete absolute latest point (timestamp, global pose and velocity), so a
+later point supersedes a lost one. The earlier claim that a widened interval could trip
+the 0.228 s gate had the inequality backwards: `ValidateControlPoints` rejects only a
+gap *smaller* than 0.228 s. Losing one 0.24 s point produces a valid 0.48 s gap, after
+which `PathFollower` spline-corrects from its extrapolated pose. Reliable delivery made
+loss much worse in the 2026-08-14 two-player session: two moving ships accumulated
+49 KB in flight and 6.8 s RTT, delaying interaction traffic behind obsolete motion.
 
 ## NOT VERIFIED
 Whether a `+workerId` could arrive via Steam launch options — only that the two observed

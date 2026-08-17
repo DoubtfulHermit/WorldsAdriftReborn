@@ -23,6 +23,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         private float nextSweep;
         private Transform firstSeenTravellerRoot;
         private readonly System.Collections.Generic.HashSet<int> inventoried = new System.Collections.Generic.HashSet<int>();
+        private readonly System.Collections.Generic.HashSet<int> loggedCameras = new System.Collections.Generic.HashSet<int>();
 
         /// <summary>
         /// One-shot diagnostic: logs the top-level component list of every rig
@@ -71,6 +72,22 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
 
         private readonly System.Collections.Generic.HashSet<int> neutralized = new System.Collections.Generic.HashSet<int>();
 
+        // Rigs proven LOCAL once. Safe to cache: the local/remote decision reads
+        // component PRESENCE (ClientRigPolicy over the prefab's own scripts), and
+        // prefab components exist from instantiation - the classification of a
+        // root cannot flip later. Without this cache the full
+        // GetComponentsInChildren scan re-ran for the local rig EVERY pass,
+        // twice a frame, forever (measured as the mod's worst steady-state cost).
+        private readonly System.Collections.Generic.HashSet<int> knownLocal = new System.Collections.Generic.HashSet<int>();
+
+        // Scene-root-count change detection: a freshly spawned rig is always a
+        // new scene root, so when the root count is unchanged there is nothing
+        // new to neutralize and the per-frame pass is skipped WITHOUT allocating
+        // (GetRootGameObjects allocates an array of every root). The 2 s sweep
+        // below forces a scan regardless, as a safety net for anything that
+        // changes a root's name without changing the count.
+        private int lastRootCount = -1;
+
         // CRITICAL: this MUST run in FixedUpdate, not Update. Unity runs FixedUpdate
         // (and the neutralize below) BEFORE the physics simulation of each step,
         // whereas Update runs AFTER it. A freshly spawned plain "Traveller" rig has
@@ -79,9 +96,20 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         // the engine has already resolved the overlap by launching the local
         // player skyward ("yeet"). Running it in FixedUpdate strips the colliders
         // BEFORE the engine ever simulates the rig, so the collision cannot happen.
+        private float nextForcedNeutralizeScan;
+
         private void FixedUpdate()
         {
-            NeutralizeNewRemoteRigs();
+            // Force a periodic scan even when the root count is unchanged: a
+            // same-frame spawn+despawn keeps the count equal and would otherwise
+            // hide a new rig until the 2 s sweep - 2 s of live colliders is a
+            // yeet. 0.25 s bounds that window at ~4 small array allocations/s.
+            bool force = Time.unscaledTime >= nextForcedNeutralizeScan;
+            if (force)
+            {
+                nextForcedNeutralizeScan = Time.unscaledTime + 0.25f;
+            }
+            NeutralizeNewRemoteRigs(force);
         }
 
         /// <summary>
@@ -115,23 +143,34 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             }
         }
 
-        private void NeutralizeNewRemoteRigs()
+        private void NeutralizeNewRemoteRigs(bool force)
         {
-            foreach (GameObject rootGo in UnityEngine.SceneManagement.SceneManager.GetActiveScene().GetRootGameObjects())
+            UnityEngine.SceneManagement.Scene scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            int rootCount = scene.rootCount;
+            if (!force && rootCount == lastRootCount)
+            {
+                return; // nothing spawned since last pass; skip the allocating scan
+            }
+            lastRootCount = rootCount;
+
+            foreach (GameObject rootGo in scene.GetRootGameObjects())
             {
                 Transform r = rootGo.transform;
                 if (!r.name.StartsWith("Traveller") || r.name.StartsWith("Traveller@Player"))
                 {
                     continue; // not a remote rig (or it is the local player - never touch)
                 }
+                int id = r.GetInstanceID();
+                if (neutralized.Contains(id) || knownLocal.Contains(id))
+                {
+                    continue; // already classified; never rescan its components
+                }
                 if (IsLocalRig(r))
                 {
-                    continue; // definitive local-player check - never neutralize
+                    knownLocal.Add(id); // definitive local-player check - never neutralize
+                    continue;
                 }
-                if (!neutralized.Add(r.GetInstanceID()))
-                {
-                    continue; // already neutralized
-                }
+                neutralized.Add(id);
                 NeutralizeRemoteRigPhysics(r);
             }
         }
@@ -141,7 +180,7 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             // Belt-and-suspenders: also scan in Update so a rig that somehow
             // appears between physics steps is neutralized the same frame. The
             // FixedUpdate pass is the one that actually beats the collision.
-            NeutralizeNewRemoteRigs();
+            NeutralizeNewRemoteRigs(force: false);
 
             if (Time.unscaledTime < nextSweep)
             {
@@ -166,7 +205,13 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                     }
                 }
 
-                if (cam.enabled)
+                // One line per camera INSTANCE, not per sweep: this used to log
+                // every enabled camera every 2 s forever (string concat +
+                // Vector3.ToString per line, all session long). A camera's
+                // identity does not change; log it when first seen and stay
+                // quiet after. State CHANGES (the DISABLED lines below) still
+                // log every time they happen.
+                if (cam.enabled && loggedCameras.Add(cam.GetInstanceID()))
                 {
                     Debug.Log("[WAReborn] camera: '" + cam.name + "' root '" + root.name + "' pos " + cam.transform.position
                               + (traveller ? (root == localRoot ? " [local rig]" : " [REMOTE RIG]") : ""));

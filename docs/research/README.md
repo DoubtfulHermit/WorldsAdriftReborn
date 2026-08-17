@@ -12,8 +12,9 @@ predictions about runtime behaviour are predictions. Where a report says
 "unverified", it means a competent reader could not settle it from source alone,
 and that item is where the risk lives.
 
-They corrected several statements in `docs/roadmap.md` and `docs/hosting.md`,
-and added rules 13-16 to `docs/multiplayer.md`. Corrections are dated in place.
+They corrected several statements in the archived
+`docs/archive/2026-08/roadmap-2026-08-08.md` and in `docs/hosting.md`, and added
+rules 13-16 to `docs/multiplayer.md`. Corrections are dated in place.
 
 | report | what it settles | confidence |
 |---|---|---|
@@ -31,3 +32,16 @@ the entire configured gameplay ECS is seven systems, two of them weather
 bookkeeping. Player movement, sailing and the rest are ordinary MonoBehaviours.
 Any theory that blames ECS scheduling for a gameplay outage is structurally
 unlikely.
+
+## World-expansion additions (2026-08-14)
+
+- [findings-island-pipeline.md](findings-island-pipeline.md) audits PR1's
+  stable island identity and Haven-preservation boundary.
+- [findings-wamap-import.md](findings-wamap-import.md) records PR2's external
+  Jerodar/WAMap parser, exact source revision/schema, integrity results,
+  coordinate evidence, anomalies, and the boundary with Bossa's release-era
+  production placement MapFile.
+- [findings-island-fauna.md](findings-island-fauna.md) records the surviving
+  jellyfish/manta assets and components, the original GSim/UnityWorker authority
+  split, evidenced movement and interaction behavior, and a staged
+  island-domain implementation path without inventing retail population rules.

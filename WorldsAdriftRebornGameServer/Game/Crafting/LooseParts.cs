@@ -86,6 +86,14 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             return ByEntityId.ContainsKey(entityId);
         }
 
+        /// <summary>Forgets a part that was permanently dismantled.</summary>
+        internal static bool Unregister(long entityId)
+        {
+            SpawnStateByEntityId.Remove(entityId);
+            PartUidByEntityId.Remove(entityId);
+            return ByEntityId.Remove(entityId);
+        }
+
         /// <summary>
         /// The definition a loose part's serve branches read, or null when the id is
         /// not a loose part (the branch then serves nothing and best-effort interest

@@ -67,5 +67,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             return (float)(SeedStampSeconds + sampleIndex * stepSeconds);
         }
+
+        /// <summary>
+        /// The PARENT hull's 190602 timestamp for the same mount its <c>Parent(hull,"~")</c>
+        /// CHILD is stamped at - identical to <see cref="StampFor"/>, and that identity is
+        /// the whole fix.
+        ///
+        /// THE BUG THIS CLOSES (findings-mount-placement.md section 2). The client samples a
+        /// <c>"~"</c> child's local-transform interpolator at the PARENT hull's 190602
+        /// timestamp, not at wall-clock. Mounted-part 190602 updates advance
+        /// (<see cref="StampFor"/> climbs from <see cref="SeedStampSeconds"/>), but the built
+        /// hull's own 190602 is a SEED frozen at timestamp 0 and its 1130 motion never touches
+        /// that stamp - so the parent keeps asking for time 0, the child interpolator returns
+        /// its FIRST sample, and every later mount (a re-position, a rotation change) sits
+        /// enqueued behind it and is never selected. Re-positioning is a visible no-op.
+        ///
+        /// THE FIX. Put the hull and its <c>"~"</c> children on ONE timeline: advance the
+        /// hull's 190602 on the SAME clock as the child update, and stamp the child at the
+        /// current parent time. With <c>parent stamp == child stamp</c> the parent's own
+        /// interpolation ramps up to and clamps at the latest sample, so the parent-sampling
+        /// time REACHES the child's newest sample and it is selected. This is a per-mount
+        /// value-UPDATE (event-driven, one extra 190602 on the hull per accepted place), NOT
+        /// a re-seed and NOT a per-frame stream, so it never re-fires the client's
+        /// OnDisable-&gt;Clear. Preferred over an interpolator-reset hack because it matches
+        /// the client's relative-interpolation design and scales to a MOVING hull, where the
+        /// hull's motion clock owns this stamp instead of the mount counter.
+        /// </summary>
+        public static float ParentStampFor(long sampleIndex, double stepSeconds)
+        {
+            return StampFor(sampleIndex, stepSeconds);
+        }
+
+        /// <summary>
+        /// Whether the client's parent-sampling time can REACH a child sample stamped at the
+        /// same mount index - i.e. the hull's 190602 timeline has advanced far enough that the
+        /// <c>"~"</c> child's newest local transform is selectable rather than stuck behind the
+        /// first. True under the shared-timeline fix (<see cref="ParentStampFor"/> ==
+        /// <see cref="StampFor"/>); the pure regression test contrasts it with the old frozen
+        /// hull seed at timestamp 0, which never reaches a positive child stamp.
+        /// </summary>
+        public static bool ParentSamplingReaches(long sampleIndex, double stepSeconds)
+        {
+            return ParentStampFor(sampleIndex, stepSeconds) >= StampFor(sampleIndex, stepSeconds);
+        }
     }
 }

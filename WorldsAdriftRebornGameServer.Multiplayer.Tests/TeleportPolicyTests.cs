@@ -83,7 +83,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_one_destination_claims_to_have_ground_under_it()
+        public void Only_Haven_and_guarded_registered_islands_claim_ground()
         {
             // This server spawns ONE island entity. Any second destination
             // claiming solid ground would be a lie that ends in an endless fall,
@@ -97,8 +97,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(1, landable);
+            Assert.Equal(3, landable);
             Assert.Equal(TeleportPolicy.HavenName, TeleportPolicy.SafeDestination.Name);
+        }
+
+        [Fact]
+        public void Trades_challenge_uses_a_flat_extracted_surface_and_requires_its_registered_terrain()
+        {
+            Assert.True(TeleportPolicy.TryResolve(
+                TeleportPolicy.TradesChallengeName, out TeleportDestination destination));
+
+            Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Islands
+                    .IslandCatalog.TradesChallenge.WorldEntityKey,
+                destination.RequiredWorldEntityKey);
+            Assert.True(destination.LandsOnLoadedGround);
+            AssertMetres(13253.5547 - 64.0, destination.Position.MetresX);
+            AssertMetres(-193.321426 + 0.45 + 2.0, destination.Position.MetresY);
+            AssertMetres(-1972.03845 - 64.0, destination.Position.MetresZ);
+
+            Assert.False(TeleportPolicy.RequiredTerrainIsRegistered(destination, _ => false));
+            Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(destination,
+                key => key == destination.RequiredWorldEntityKey));
+
+            Assert.True(TeleportPolicy.TryResolve(
+                TeleportPolicy.HavenName, out TeleportDestination haven));
+            Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(haven, _ => false));
+        }
+
+        [Fact]
+        public void Mental_facility_uses_a_clear_extracted_surface_and_requires_its_registered_terrain()
+        {
+            Assert.True(TeleportPolicy.TryResolve(
+                TeleportPolicy.MentalFacilityName, out TeleportDestination destination));
+
+            Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Islands
+                    .IslandCatalog.MentalFacility.WorldEntityKey,
+                destination.RequiredWorldEntityKey);
+            Assert.True(destination.LandsOnLoadedGround);
+            AssertMetres(8330.395 + 120.00, destination.Position.MetresX);
+            AssertMetres(241.729477 + 34.26 + 2.00, destination.Position.MetresY);
+            AssertMetres(8343.664 - 16.00, destination.Position.MetresZ);
+
+            Assert.False(TeleportPolicy.RequiredTerrainIsRegistered(destination, _ => false));
+            Assert.True(TeleportPolicy.RequiredTerrainIsRegistered(destination,
+                key => key == destination.RequiredWorldEntityKey));
         }
 
         [Fact]
@@ -297,6 +339,63 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             counter.RecordAck(1, sent);
             Assert.Null(counter.Outstanding(1));
+        }
+
+        [Fact]
+        public void Bounded_transform_confirmation_completes_the_same_request_once()
+        {
+            TeleportRequestCounter counter = new TeleportRequestCounter();
+            int sent = counter.Next(1);
+
+            Assert.Equal(sent, counter.ConfirmOutstanding(1));
+            Assert.Null(counter.Outstanding(1));
+            Assert.Null(counter.ConfirmOutstanding(1));
+            Assert.False(counter.RecordAck(1, sent)); // delayed real ack is not news
+            Assert.Equal(sent + 1, counter.Next(1));
+        }
+
+        [Fact]
+        public void Arrival_requires_two_consecutive_samples_near_the_exact_destination()
+        {
+            TeleportArrivalTracker tracker = new TeleportArrivalTracker();
+            FixedPointPosition destination = FixedPointPosition.FromMetres(100, 20, -50);
+            tracker.Arm(7, 3, destination);
+
+            Assert.Null(tracker.Observe(7, FixedPointPosition.FromMetres(100, 20, -37), false));
+            Assert.Null(tracker.Observe(7, FixedPointPosition.FromMetres(104, 20, -50), false));
+            Assert.Equal(3, tracker.Outstanding(7));
+            Assert.Equal(3, tracker.Observe(7, FixedPointPosition.FromMetres(105, 20, -50), null));
+            Assert.Null(tracker.Outstanding(7));
+        }
+
+        [Fact]
+        public void Parented_or_wrong_entity_transforms_cannot_confirm_arrival()
+        {
+            TeleportArrivalTracker tracker = new TeleportArrivalTracker();
+            FixedPointPosition destination = FixedPointPosition.FromMetres(100, 20, -50);
+            tracker.Arm(7, 3, destination);
+
+            Assert.Null(tracker.Observe(8, destination, false));
+            Assert.Null(tracker.Observe(7, destination, true));
+            Assert.Null(tracker.Observe(7, destination, false));
+            Assert.Equal(3, tracker.Observe(7, destination, false));
+        }
+
+        [Fact]
+        public void A_new_request_replaces_partial_arrival_evidence_and_forget_cancels_it()
+        {
+            TeleportArrivalTracker tracker = new TeleportArrivalTracker();
+            FixedPointPosition first = FixedPointPosition.FromMetres(100, 20, -50);
+            FixedPointPosition second = FixedPointPosition.FromMetres(400, 30, 90);
+            tracker.Arm(7, 3, first);
+            Assert.Null(tracker.Observe(7, first, false));
+
+            tracker.Arm(7, 4, second);
+            Assert.Null(tracker.Observe(7, first, false));
+            Assert.Null(tracker.Observe(7, second, false));
+            tracker.Cancel(7);
+            Assert.Null(tracker.Observe(7, second, false));
+            Assert.Null(tracker.Outstanding(7));
         }
 
         [Fact]

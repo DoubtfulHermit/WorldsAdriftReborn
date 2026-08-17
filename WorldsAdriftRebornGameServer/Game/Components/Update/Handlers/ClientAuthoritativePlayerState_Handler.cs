@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Bossa.Travellers.Player;
+using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
@@ -64,13 +65,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            // The relay's ingest: timestamp/position judged (drops, staleness
-            // metric), accepted state merged for the cadence emitter. This is
-            // the deserialization the manager already did, used a second time
-            // rather than done a second time - RelayToOtherPlayers no longer
-            // touches 1073 under relay v2.
-            WorldsAdriftRebornGameServer.Relay.ObservePlayerState(PeerIdentity.IdOf(player), clientComponentUpdate);
-
             // Aboard-detection. A player on a deck is not parented; the client
             // reports which entity they stand on via 1073 relativeTo (VERIFIED:
             // ClientAuthoritativePlayerMovement.CollectDataHighFrequency sets
@@ -96,6 +90,63 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 Console.WriteLine("[info] player entity " + entityId + " " + aboard + ".");
             }
 
+            // Relay only AFTER accumulating the canonical aboard state. The raw
+            // client stream flickers Invalid/bias=0 between moving-hull colliders;
+            // forwarding that edge immediately makes remote PlayerVisualizer blend
+            // toward a stale world pose even though AboardTracker is intentionally
+            // holding the same ship through its contact-gap grace period.
+            bool holdRelativeFrame = Multiplayer.AboardRelayPolicy.HoldRelativeFrame(
+                WorldsAdriftRebornGameServer.Aboard.IsAboardAnything(PeerIdentity.IdOf(player)),
+                clientComponentUpdate.relativeTo.HasValue,
+                clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L,
+                clientComponentUpdate.relativeBias.HasValue,
+                clientComponentUpdate.relativeBias.HasValue ? clientComponentUpdate.relativeBias.Value : 0f);
+            bool synthesizeRelativeDetach = Multiplayer.AboardRelayPolicy.SynthesizeConfirmedDetach(
+                aboard.Change, clientComponentUpdate.relativeTo.HasValue);
+            WorldsAdriftRebornGameServer.Relay.ObservePlayerState(
+                PeerIdentity.IdOf(player), clientComponentUpdate,
+                holdRelativeFrame, synthesizeRelativeDetach);
+
+            // A terrain relativeTo is the authoritative coordinate-frame label for
+            // positionRelative. The field is sparse (only sent when it changes), so
+            // ResourceInterest remembers the last island until another terrain id is
+            // observed. Ship/deck ids are ignored here and handled as global poses below.
+            if (clientComponentUpdate.relativeTo.HasValue)
+            {
+                WorldsAdriftRebornGameServer.ResourceInterest.ObserveRelativeTo(
+                    player, clientComponentUpdate.relativeTo.Value.Id);
+                WorldsAdriftRebornGameServer.TerrainInterest?.ObserveRelativeTo(
+                    player, clientComponentUpdate.relativeTo.Value.Id);
+            }
+
+            if (clientComponentUpdate.positionRelative.HasValue)
+            {
+                Improbable.Math.Vector3f p = clientComponentUpdate.positionRelative.Value;
+                long? ship = WorldsAdriftRebornGameServer.Aboard.ShipOf(PeerIdentity.IdOf(player));
+                if (ship.HasValue)
+                {
+                    Multiplayer.FixedPointPosition basePos;
+                    if (!WorldsAdriftRebornGameServer.Flight.TryGetFlownPose(ship.Value, out basePos, out _))
+                    {
+                        basePos = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(ship.Value);
+                    }
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                        player,
+                        Multiplayer.FixedPointPosition.FromMetres(
+                            basePos.MetresX + p.X,
+                            basePos.MetresY + p.Y,
+                            basePos.MetresZ + p.Z),
+                        "aboard ship " + ship.Value);
+                }
+                else
+                {
+                    WorldsAdriftRebornGameServer.ResourceInterest.ObserveIslandLocalPosition(player, p.X, p.Y, p.Z);
+                }
+
+                WorldsAdriftRebornGameServer.TerrainInterest?.ObserveGlobalPosition(
+                    player, WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(player));
+            }
+
             // Carry echo. The client-side ship carry
             // (ClientAuthoritativePlayerMovement.RepositionRelativeToGroundedObject)
             // arms only when RelativePathFollower != null, which is set ONLY by
@@ -103,7 +154,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // relativeTo. The client's own Send() never fires it locally, and this
             // custom server otherwise never echoes a worker its own authoritative
             // update, so the owner never receives its own relativeTo and the carry
-            // never arms. Echo it back on the board/leave EDGE only.
+            // never arms. Echo it back when the exact contact object changes, and
+            // disarm only when the canonical aboard tracker confirms a real leave.
             //
             // MINIMAL ON PURPOSE: only relativeTo, and only when it CHANGES. The
             // player is authoritative over 1073's position/bone fields and
@@ -118,13 +170,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             {
                 Multiplayer.CarryEchoDecision echo = WorldsAdriftRebornGameServer.CarryEcho.Observe(
                     PeerIdentity.IdOf(player),
+                    aboard,
                     clientComponentUpdate.relativeTo.HasValue,
-                    clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L);
+                    clientComponentUpdate.relativeTo.HasValue ? clientComponentUpdate.relativeTo.Value.Id : 0L,
+                    WorldsAdriftRebornGameServer.Aboard.ShipOf(PeerIdentity.IdOf(player)).HasValue);
 
                 if (echo.ShouldEcho)
                 {
                     ClientAuthoritativePlayerState.Update carryEcho = new ClientAuthoritativePlayerState.Update();
-                    carryEcho.SetRelativeTo(clientComponentUpdate.relativeTo.Value);
+                    carryEcho.SetRelativeTo(new EntityId(echo.RelativeTo));
 
                     SendOPHelper.SendComponentUpdateOp(
                         player, entityId,
@@ -132,7 +186,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         new List<object> { carryEcho });
 
                     Console.WriteLine("[info] carry-echo: sent owner entity " + entityId
-                        + " its own relativeTo " + echo.RelativeTo + " back to arm the ship carry.");
+                        + " its own relativeTo " + echo.RelativeTo
+                        + " back to update the moving-ground carry.");
                 }
             }
 
@@ -141,7 +196,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
-            WorldsAdriftRebornGameServer.Teleports.OnAck(entityId, clientComponentUpdate.lastExecutedRequest.Value);
+            WorldsAdriftRebornGameServer.Teleports.OnAck(
+                player, entityId, clientComponentUpdate.lastExecutedRequest.Value);
         }
     }
 }

@@ -35,7 +35,9 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
         private TransformStateReader reader;
         private Rigidbody rootBody;
         private bool loggedFirstApply;
-        private int frameCounter;
+        private bool localCheckDone;
+        private float nextRepeatLogAt;
+        private float nextPositionerScanAt;
 
 
         private void Update()
@@ -43,11 +45,18 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             // Absolute safety: never touch the LOCAL player. If this component
             // ever lands on the local rig it would force it kinematic and drive
             // it from a remote stream - the infinite-fall bug. Verified by
-            // local-only components, not by name.
-            if (RemoteRigSweeper.IsLocalRig(transform.root))
+            // local-only components, not by name. Checked ONCE: the decision
+            // reads prefab component presence, which cannot flip for a living
+            // rig, and the uncached scan walked every child MonoBehaviour every
+            // frame for every remote rig.
+            if (!localCheckDone)
             {
-                enabled = false;
-                return;
+                localCheckDone = true;
+                if (RemoteRigSweeper.IsLocalRig(transform.root))
+                {
+                    enabled = false;
+                    return;
+                }
             }
 
             if (reader == null)
@@ -85,7 +94,6 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
                 Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': root rigidbody made kinematic.");
             }
 
-            frameCounter++;
 
             // Positioning is now owned by the game's own PlayerVisualizer (see
             // PlayerVisualizer_Patch), which interpolates the same relayed 190602
@@ -95,8 +103,12 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             // dropped the rig off-island before. RemoteRigMover stays as the
             // fallback positioner for the window before PlayerVisualizer enables
             // (or if it never does), so the avatar is never left frozen far away.
-            if (nativePositioner == null)
+            if (nativePositioner == null && Time.unscaledTime >= nextPositionerScanAt)
             {
+                // Throttled: this scan (GetComponentsInChildren + a type-name
+                // compare per component) used to run EVERY frame for as long as
+                // the plain rig had no PlayerVisualizer - potentially forever.
+                nextPositionerScanAt = Time.unscaledTime + 0.5f;
                 nativePositioner = FindNativePositioner();
             }
             if (nativePositioner != null && nativePositioner.enabled && nativePositioner.gameObject.activeInHierarchy)
@@ -115,9 +127,13 @@ namespace WorldsAdriftReborn.Patching.Multiplayer
             transform.root.position = unityPos;
             transform.root.rotation = unityRot;
 
-            if (!loggedFirstApply || frameCounter % 300 == 1)
+            // First apply logs immediately; repeats are time-throttled (10 s)
+            // instead of the old every-300-frames modulo, which allocated a
+            // formatted line every ~5 s per rig for the life of the session.
+            if (!loggedFirstApply || Time.unscaledTime >= nextRepeatLogAt)
             {
                 loggedFirstApply = true;
+                nextRepeatLogAt = Time.unscaledTime + 10f;
                 Debug.Log("[WAReborn] RemoteRigMover '" + transform.root.name + "': fallback global pos "
                           + unityPos + " (t=" + reader.Timestamp + ")");
             }

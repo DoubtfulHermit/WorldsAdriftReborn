@@ -276,6 +276,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crafting
         }
 
         [Fact]
+        public void Craft_refunds_the_excess_of_an_overfilled_stack_and_consumes_only_the_bill()
+        {
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(5750, "birch", amount: 20, quality: 2, x: 0, y: 0));
+            inv.Add(Material(5751, "iron", amount: 10, quality: 1, x: 3, y: 0));
+            ShipBlueprintTransaction.AutoFill(build, inv);
+
+            Assert.Equal(StartCraftOutcome.Started, ShipBlueprintTransaction.StartCraft(build));
+            int refunded = ShipBlueprintTransaction.RefundExcess(build, inv);
+
+            Assert.Equal(25, refunded); // 17 birch + 8 iron
+            Assert.Equal(17, inv.ById(5750)!.Amount);
+            Assert.Equal(8, inv.ById(5751)!.Amount);
+            Assert.Equal(3, build.SlotAt(Frame, Slot0)!.EquivalentAmount);
+            Assert.Equal(2, build.SlotAt(Deck, Slot0)!.EquivalentAmount);
+            Assert.Equal(2, build.DrainAllLoaded().Count); // exact consumed stack fragments
+        }
+
+        [Fact]
+        public void Refund_excess_is_a_no_op_until_the_craft_has_committed()
+        {
+            ShipBlueprintBuild build = NewBuild();
+            InventoryModel inv = InventoryModel.DefaultGrid();
+            inv.Add(Material(5760, "birch", amount: 20, quality: 1));
+            ShipBlueprintTransaction.AddItem(build, inv, Frame, Slot0, 5760);
+
+            Assert.Equal(0, ShipBlueprintTransaction.RefundExcess(build, inv));
+            Assert.Null(inv.ById(5760));
+            Assert.Equal(20, build.SlotAt(Frame, Slot0)!.EquivalentAmount);
+        }
+
+        [Fact]
         public void Crafting_consumes_the_materials_for_real_no_return()
         {
             ShipBlueprintBuild build = NewBuild();

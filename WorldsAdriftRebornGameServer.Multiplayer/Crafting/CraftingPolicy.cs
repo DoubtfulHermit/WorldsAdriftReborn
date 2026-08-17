@@ -151,6 +151,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
             MaterialCategoryLookup categoryLookup,
             out string reason)
         {
+            return TryConsumeOnly(schematic, model, categoryLookup, out reason, out _);
+        }
+
+        /// <summary>
+        /// <see cref="TryConsumeOnly(SchematicRecord, InventoryModel, MaterialCategoryLookup, out string)"/>,
+        /// additionally reporting exactly WHICH stacks the craft drew down. The
+        /// station-craft handler holds on to that list across the timed craft
+        /// window so that if the deferred world-spawn then fails, it can refund
+        /// the player the same materials instead of eating them silently - the
+        /// half of "no craft may eat materials it cannot show" that the up-front
+        /// <see cref="StationCraftOutputGate"/> cannot cover (an unexpected
+        /// throw between consume and spawn).
+        /// </summary>
+        public static bool TryConsumeOnly(
+            SchematicRecord schematic,
+            InventoryModel model,
+            MaterialCategoryLookup categoryLookup,
+            out string reason,
+            out IReadOnlyList<ConsumedMaterial> consumed)
+        {
+            consumed = System.Array.Empty<ConsumedMaterial>();
+
             if (schematic == null)
             {
                 reason = "no schematic selected";
@@ -159,12 +181,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
 
             InventoryModel work = model.Copy();
 
-            if (!TryConsume(schematic, work, categoryLookup, out reason, out _))
+            if (!TryConsume(schematic, work, categoryLookup, out reason, out List<ConsumedMaterial> drawn))
             {
                 return false;
             }
 
             model.Reset(work.Items);
+            consumed = drawn;
             reason = string.Empty;
             return true;
         }

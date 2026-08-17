@@ -11,6 +11,26 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
         private static readonly System.Collections.Generic.HashSet<string> loggedUntouched =
             new System.Collections.Generic.HashSet<string>();
 
+        // Reload the cfg from disk AT MOST once every 5 seconds, lazily, instead
+        // of on every WAConfig.Get. The game calls Get at frame frequency - the
+        // same two-client session that produced 327,713 log lines here also did
+        // 327,713 SYNCHRONOUS DISK READS + full cfg re-parses on the main
+        // thread, one per call. The values served here are launcher-written and
+        // effectively static for a session; 5 s keeps "edit the cfg while the
+        // game runs" working for diagnosis without the per-frame file I/O.
+        private static float nextReloadAt;
+
+        private static void ReloadIfStale()
+        {
+            float now = UnityEngine.Time.realtimeSinceStartup;
+            if (now < nextReloadAt)
+            {
+                return;
+            }
+            nextReloadAt = now + 5f;
+            ModSettings.modConfig.Reload();
+        }
+
         [HarmonyPatch()]
         class Get_String
         {
@@ -29,7 +49,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             [HarmonyPrefix]
             public static bool Get_Prefix( ref string __result, string key )
             {
-                ModSettings.modConfig.Reload();
+                ReloadIfStale();
 
                 if (key == "BossaNet.RestServerUrl")
                 {
@@ -79,7 +99,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             [HarmonyPrefix]
             public static bool Get_Prefix( ref bool __result, string key )
             {
-                ModSettings.modConfig.Reload();
+                ReloadIfStale();
 
                 if (key == "VOIP.Enabled")
                 {

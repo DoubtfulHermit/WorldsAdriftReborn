@@ -32,6 +32,8 @@ namespace WorldsAdriftRebornGameServer
                 {
                     PeerManager.Instance.playerState.Add(ePeer, new Dictionary<int, PlayerSyncStatus> { { 0, new PlayerSyncStatus() } });
                 }
+                ShipInterest.NotePeerConnected(ePeer);
+                TerrainInterest?.NotePeerConnected(ePeer);
 
                 // Live-session bookkeeping for the operator dashboard. Keyed by
                 // the same peer id every later lookup uses, and stamped with wall
@@ -77,21 +79,29 @@ namespace WorldsAdriftRebornGameServer
             ulong peerId = PeerIdentity.IdOf(peer);
             long? ownEntity = Players.EntityOf(peerId);
 
-            // Unregister first: this is what actually matters, because it stops
-            // relaying updates to and from a peer that is gone.
-            //
-            // The despawn intents cannot be sent yet. There is no wire message for
-            // entity removal: ENetChannel has no such channel, no RemoveEntityOp
-            // proto exists, and the SDK's RegisterRemoveEntityCallback is still an
-            // unimplemented TODO in Exports.cpp. Until that exists a departed
-            // player leaves a stale avatar behind, which is cosmetic rather than
-            // blocking.
+            // Unregister first to stop new relays, then remove the departed
+            // avatar from every capable observer. Channel 5 is implemented now;
+            // retaining the old no-removal fallback left ghost rigs on reconnect.
             IReadOnlyList<MirrorIntent> despawns = Mirror.OnLeave(peerId);
-            if (despawns.Count > 0)
+            foreach (MirrorIntent despawn in despawns)
             {
-                Console.WriteLine("[warning] " + despawns.Count + " avatar(s) of entity "
-                    + (ownEntity.HasValue ? ownEntity.Value.ToString() : "?")
-                    + " cannot be despawned: entity removal is not implemented on the wire. Stale avatar(s) will remain.");
+                ENetPeerHandle? target = PeerIdentity.Instance.Resolve(new IntPtr((long)despawn.TargetPeer));
+                if (target == null)
+                {
+                    continue;
+                }
+                if (EnetLayer.ENet_PeerChannelCount(target) >= 6
+                    && SendOPHelper.SendRemoveEntityOP(target, despawn.EntityId))
+                {
+                    PeerCheckoutCleanup.RemoveEntity(target, despawn.EntityId);
+                    Console.WriteLine("[info] mirror: removed departed player entity "
+                        + despawn.EntityId + " from " + Describe(despawn.TargetPeer) + ".");
+                }
+                else
+                {
+                    Console.WriteLine("[warning] mirror: observer " + Describe(despawn.TargetPeer)
+                        + " cannot receive RemoveEntity; its departed avatar may remain until reconnect.");
+                }
             }
 
             // Parked and pending-resend mirror ops for a peer that is gone: there
@@ -168,6 +178,15 @@ namespace WorldsAdriftRebornGameServer
 
                 Teleports.Forget(ownEntity.Value);
 
+                // The pilot seat, if this entity held one. The seat frees (the next
+                // player can Man the helm) and the flight session settles the ship
+                // to rest instead of flying on with a disconnected ghost's held
+                // throttle. A clean in-game release is different: its physical
+                // forward/reverse lever deliberately remains latched - the
+                // exact "invisible per-life state" class of leak this contract
+                // exists to prevent.
+                Flight.OnPlayerGone(ownEntity.Value);
+
                 // The fall watch keyed by the same entity. Left behind, the record
                 // would still be counting rescue attempts for somebody who has
                 // logged out - harmless in itself, but ForgetPeer's contract is
@@ -205,10 +224,19 @@ namespace WorldsAdriftRebornGameServer
             // inherit a stale "already delivered" set and wrongly skip seeding the
             // next joiner's entities.
             ServedComponents.ForgetPeer(peer);
+            SentEntities.ForgetPeer(peer);
+            ResourceInterest.Forget(peer);
+            ShipInterest.Forget(peer);
+            TerrainInterest?.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
             SpawnPacers.Remove(peer);
+
+            // The peer's loading-barrier slot. Dropped so a departed peer can never
+            // be reported as timing out (which would push an Activated update to a
+            // dead peer) and so a reused id starts fresh.
+            LoadBarriers.Forget(peerId);
 
             // The peer's wire-metrics window. Left behind it would keep emitting
             // an all-zero [rates] line for a ghost every five seconds, forever.
@@ -365,6 +393,79 @@ namespace WorldsAdriftRebornGameServer
         private static readonly Dictionary<ENetPeerHandle, CadenceTimer> SpawnPacers = new();
 
         /// <summary>
+        /// The loading-barrier readiness tracker: which joining peers are still
+        /// holding the loading screen waiting for their initial world set, and when
+        /// each one's patience runs out. Fed at first-time setup (Arm), released by
+        /// the 190001 handler (Complete) or the per-loop timeout sweep
+        /// (DueTimeouts), and cleared in ForgetPeer. Only ever touched from the
+        /// single-threaded main loop and the callbacks it drives, so it needs no
+        /// lock. Inert unless <see cref="Game.LoadBarrier.Enabled"/>. See
+        /// <see cref="LoadBarrierTracker"/> and <see cref="LoadBarrierPolicy"/>.
+        /// </summary>
+        internal static readonly LoadBarrierTracker LoadBarriers = new LoadBarrierTracker();
+
+        /// <summary>
+        /// Releases a peer from the loading barrier: pushes <c>190002 Activated
+        /// IsActive=true</c> (which lets PlayerActivationVisualiser fade the loading
+        /// screen and un-freezes the player) and moves <c>190000 EntityLoadingControl</c>
+        /// to <c>Loaded</c> for tidiness. Reliable-ordered, one-shot, to the peer's
+        /// own entity only. Called from exactly two places - the 190001 readiness
+        /// handler and the timeout sweep - both of which have already claimed this
+        /// peer from <see cref="LoadBarriers"/>, so this never double-fires.
+        /// </summary>
+        internal static void ReleaseLoadBarrier(ENetPeerHandle peer, long entityId, string reason)
+        {
+            Improbable.Corelibrary.Activation.Activated.Update activate =
+                new Improbable.Corelibrary.Activation.Activated.Update().SetIsActive(true);
+
+            Improbable.Corelib.Worker.Checkout.EntityLoadingControl.Update loaded =
+                new Improbable.Corelib.Worker.Checkout.EntityLoadingControl.Update()
+                    .SetLoadedState(Improbable.Corelib.Worker.Checkout.EntityLoadingControlData.EntityLoadingStates.Loaded);
+
+            bool ok = SendOPHelper.SendComponentUpdateOp(
+                peer, entityId,
+                new List<uint> { 190002, 190000 },
+                new List<object> { activate, loaded });
+
+            Console.WriteLine("[load-barrier] releasing " + Describe(peer.DangerousGetHandle())
+                + " entity " + entityId + " (" + reason + "): Activated=true "
+                + (ok ? "sent." : "FAILED to send - the client may stay on the loading screen; check the wire."));
+        }
+
+        /// <summary>
+        /// The loading-barrier safety net: releases any peer whose readiness deadline
+        /// has passed, so a client that never publishes 190001 (an old mod build with
+        /// no checker, a prefab that never instantiates) is never trapped on the
+        /// loading screen. Cheap and a no-op when nothing is pending. Runs once per
+        /// main-loop turn beside the other timers.
+        /// </summary>
+        private static void TickLoadBarrierTimeouts()
+        {
+            if (LoadBarriers.PendingCount == 0)
+            {
+                return;
+            }
+
+            foreach (ulong peerId in LoadBarriers.DueTimeouts(ServerClock.Elapsed))
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                long? entityId = Players.EntityOf(peerId);
+                if (peer == null || entityId == null)
+                {
+                    // The peer left between arming and timing out; ForgetPeer should
+                    // have dropped it, but if a race got here there is nothing to
+                    // release. Nothing to clean up - DueTimeouts already removed it.
+                    continue;
+                }
+
+                Console.WriteLine("[load-barrier] TIMEOUT: " + Describe(peer.DangerousGetHandle())
+                    + " did not signal ready within " + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0")
+                    + " s; activating in degraded mode so it is not stuck on the loading screen.");
+                ReleaseLoadBarrier(peer, entityId.Value, "readiness timeout");
+            }
+        }
+
+        /// <summary>
         /// Which components have already been delivered to each peer for each
         /// entity, so a repeat interest request never re-ADDS one the client still
         /// holds. See <see cref="Multiplayer.ServedComponentLedger{TPeer}"/> for the
@@ -373,6 +474,21 @@ namespace WorldsAdriftRebornGameServer
         /// collider). Forgotten on disconnect alongside the other per-peer state.
         /// </summary>
         internal static readonly Multiplayer.ServedComponentLedger<ENetPeerHandle> ServedComponents = new();
+
+        /// <summary>
+        /// Which entity creations have actually been queued to each peer. Runtime
+        /// placement can happen while a peer is still walking its boot plan, before
+        /// component interest exists, so component delivery is not a safe proxy for
+        /// whether repeating AddEntity would be a duplicate.
+        /// </summary>
+        internal static readonly Multiplayer.EntitySendLedger<ENetPeerHandle> SentEntities = new();
+
+        /// <summary>
+        /// Runtime catch-up pace. Player-made entities are prefab-heavy (especially
+        /// generated ship decks), so a late joiner receives one at a time instead of
+        /// the entire post-boot history in a single client frame.
+        /// </summary>
+        private static readonly TimeSpan RuntimeCatchupInterval = TimeSpan.FromMilliseconds(100);
 
         /// <summary>
         /// Rate-limiter for the per-packet crash-isolation catch below. A modified
@@ -391,31 +507,26 @@ namespace WorldsAdriftRebornGameServer
         /// chopped half of it must be told what is actually standing, not what the
         /// prefab was authored with.
         /// </summary>
-        internal static readonly TreeHarvest Harvest = new TreeHarvest(ServerClock);
+        /// <remarks>
+        /// The regrowth delay is tunable without a rebuild via
+        /// <c>WAREBORN_TREE_RESPAWN_SECONDS</c> (a bad value falls back to
+        /// <see cref="TreeHarvest.DefaultRespawnDelay"/> rather than refusing to
+        /// boot). Set it to <see cref="TreeHarvest.UnderstormCadence"/>'s 6300 to
+        /// approximate retail's ~1.75 h world reset - though see that field for why
+        /// a per-tree timer is a different shape from retail's global understorm.
+        /// </remarks>
+        internal static readonly TreeHarvest Harvest = new TreeHarvest(
+            ServerClock,
+            cutInterval: null,
+            respawnDelay: TreeHarvest.ParseRespawnDelay(
+                Environment.GetEnvironmentVariable("WAREBORN_TREE_RESPAWN_SECONDS")));
 
         /// <summary>
-        /// Applies every cut whose timer has elapsed and tells the clients.
-        ///
-        /// TWO RULES, both of which cost a debugging round elsewhere in this file
-        /// if broken:
-        ///
-        /// 1. The update is pushed to each peer DIRECTLY, never through
-        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
-        ///    player's update about THEMSELVES and substitutes the sender's own
-        ///    entity id for the address; routed through it, a tree's mask change
-        ///    would arrive addressed to whoever happened to be chopping, and the
-        ///    tree would never change on anyone's screen.
-        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
-        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
-        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
-        ///    audio loop on the true edge. Sending the whole component every 0.75 s
-        ///    would also re-assert sectionCount and massPerSection at the client
-        ///    for no reason. One field changed, one field sent.
-        ///
-        /// Peers that have not been served the tree's 1036 are skipped: an update
-        /// for a component a client does not hold is at best ignored, and the
-        /// ComponentMap lookup that establishes it is the same one the update path
-        /// uses, so this cannot disagree with reality.
+        /// Once per main-loop turn: applies every cut whose timer has elapsed
+        /// (telling the clients and granting the wood), then stands back up every
+        /// tree whose regrowth delay has elapsed. Both talk to the clients through
+        /// the one <see cref="PushTreeSectionMask"/> seam, whose doc carries the two
+        /// rules a tree mask push must never break.
         /// </summary>
         private static void TickTreeHarvest()
         {
@@ -423,30 +534,7 @@ namespace WorldsAdriftRebornGameServer
             {
                 Console.WriteLine("[info] " + change + ".");
 
-                foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
-                {
-                    if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
-                        || !byEntity.TryGetValue(change.TreeEntityId, out Dictionary<uint, ulong>? byComponent)
-                        || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
-                    {
-                        continue;
-                    }
-
-                    Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
-                        new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(change.SectionMask);
-
-                    // Keep this peer's stored component in step with what it has
-                    // just been told, so a later re-serve of 1036 from the stored
-                    // object cannot resurrect a felled section.
-                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
-                    {
-                        maskOnly.ApplyTo(stored);
-                    }
-
-                    SendOPHelper.SendComponentUpdateOp(peer, change.TreeEntityId,
-                        new List<uint> { TreeFSimStateComponentId },
-                        new List<object> { maskOnly });
-                }
+                PushTreeSectionMask(change.TreeEntityId, change.SectionMask);
 
                 // ------------------------------------------------------------------
                 // INVENTORY GRANT SEAM (Phase 5.4). The empty comment that used to
@@ -472,6 +560,81 @@ namespace WorldsAdriftRebornGameServer
                     change.SectionsFelled,
                     "tree " + change.TreeEntityId + " section " + change.SectionId);
             }
+
+            // ----------------------------------------------------------------------
+            // REGROWTH (P1-9). A tree chopped and then left alone grows its sections
+            // back after Harvest's respawn delay, so the island stops deforesting
+            // permanently. This is the SAME wire move as a cut - a 1036 sectionMask
+            // push - only the mask climbs back to full instead of shrinking, so the
+            // client reactivates the sections (TreeVisualizer re-inits off the mask)
+            // and plays NOTHING (TreeClientVisualizer's break effect fires only on
+            // bits LEAVING the mask). No wood is granted: regrowth is not a harvest,
+            // so there is no CutterEntityId and no HarvestReward.Award here.
+            foreach (TreeRespawn respawn in Harvest.DueRespawns())
+            {
+                Console.WriteLine("[info] " + respawn + ".");
+                PushTreeSectionMask(respawn.TreeEntityId, respawn.SectionMask);
+            }
+        }
+
+        /// <summary>
+        /// Pushes one tree's new <c>1036 sectionMask</c> to every peer that holds
+        /// the tree's 1036 - the shared move behind both a cut (mask shrinks) and a
+        /// respawn (mask climbs back to full).
+        ///
+        /// TWO RULES, both of which cost a debugging round elsewhere in this file
+        /// if broken:
+        ///
+        /// 1. The update is pushed to each peer DIRECTLY, never through
+        ///    <see cref="RelayToOtherPlayers"/>. That method exists to forward a
+        ///    player's update about THEMSELVES and substitutes the sender's own
+        ///    entity id for the address; routed through it, a tree's mask change
+        ///    would arrive addressed to whoever happened to be chopping, and the
+        ///    tree would never change on anyone's screen.
+        /// 2. It sends ONLY SetSectionMask, never <c>Data.ToUpdate()</c>.
+        ///    TreeFSimState's ToUpdate sets all seven properties, and one of them
+        ///    is <c>dynamic</c> - whose setter on the client starts a falling-tree
+        ///    audio loop on the true edge. Sending the whole component would also
+        ///    re-assert sectionCount and massPerSection at the client for no reason.
+        ///    One field changed, one field sent.
+        ///
+        /// Peers that have not been served the tree's 1036 are skipped: an update
+        /// for a component a client does not hold is at best ignored, and the
+        /// ComponentMap lookup that establishes it is the same one the update path
+        /// uses, so this cannot disagree with reality.
+        /// </summary>
+        private static void PushTreeSectionMask(long treeEntityId, int newMask)
+        {
+            int recipients = 0;
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!GameState.Instance.ComponentMap.TryGetValue(peer, out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                    || !byEntity.TryGetValue(treeEntityId, out Dictionary<uint, ulong>? byComponent)
+                    || !byComponent.TryGetValue(TreeFSimStateComponentId, out ulong refId))
+                {
+                    continue;
+                }
+
+                Bossa.Travellers.Materials.TreeFSimState.Update maskOnly =
+                    new Bossa.Travellers.Materials.TreeFSimState.Update().SetSectionMask(newMask);
+
+                // Keep this peer's stored component in step with what it has just
+                // been told, so a later re-serve of 1036 from the stored object
+                // cannot resurrect a felled section (or drop a regrown one).
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(refId) is Bossa.Travellers.Materials.TreeFSimState.Data stored)
+                {
+                    maskOnly.ApplyTo(stored);
+                }
+
+                if (SendOPHelper.SendComponentUpdateOp(peer, treeEntityId,
+                        new List<uint> { TreeFSimStateComponentId },
+                        new List<object> { maskOnly }))
+                {
+                    recipients++;
+                }
+            }
+            Console.WriteLine("[tree-visual] pushed sectionMask=" + newMask + " for entity "
+                + treeEntityId + " to " + recipients + " checked-out peer(s).");
         }
 
         /// <summary>
@@ -492,6 +655,26 @@ namespace WorldsAdriftRebornGameServer
         internal static void OnSalvageShot(long harvesterEntityId, long nodeEntityId,
             Improbable.Math.Coordinates shotCoordinate)
         {
+            // A mounted ship part is dismantled only while its hull is genuinely docked
+            // in the shooter's own shipyard. The service consumes the target even for a
+            // rejected part shot, so a ship component can never fall through into the
+            // natural-resource harvest paths below.
+            if (Game.Crafting.MountedPartSalvageService.HandleShot(harvesterEntityId, nodeEntityId))
+            {
+                return;
+            }
+
+            // A FUEL CANISTER is salvaged with the SAME gauntlet beam as metal and
+            // wood, so its shots arrive here on the same 2106 path - it is simply a
+            // different kind of target with its own per-shot yield curve. Checked
+            // FIRST because a canister is not a MetalHarvest node and would otherwise
+            // fall out at the IsNode guard below.
+            if (FuelCanisters.IsCanister(nodeEntityId))
+            {
+                OnFuelCanisterShot(harvesterEntityId, nodeEntityId);
+                return;
+            }
+
             if (!MetalHarvest.IsNode(nodeEntityId))
             {
                 return;
@@ -584,6 +767,47 @@ namespace WorldsAdriftRebornGameServer
                 + " shots, core health "
                 + Multiplayer.MetalDeposits.HealthAfter(MetalHarvest.HitsOn(nodeEntityId)) + ".");
 
+            // 2b. EXPOSURE. Retail: breaking enough of the outer shell reveals the
+            //     centre, and anything lodged in it becomes takeable RIGHT THERE - you
+            //     do not have to finish the node, and finishing it risks the shard
+            //     rolling away (worldsadrift.gamepedia.com/Getting_Started,
+            //     /Atlas_Shard). MetalDepositExposure decides when that is from the same
+            //     shot count the core health is derived from; the registry makes the
+            //     Lodged -> Exposed step once, so this broadcast fires on ONE shot
+            //     however long the beam is held.
+            ExposeAtlasShardsFor(nodeEntityId);
+
+            // 2c. THE METAL. The shell stage pays nothing; once the centre is open the
+            //     remaining shots free the core's scrap pieces one at a time, each
+            //     crediting its share straight to the inventory - which is what retail
+            //     did ("pieces of scrap metal sticking out of the rock in the center...
+            //     using the salvage tool on the scraps will give you 50 metal for each
+            //     piece"). MetalDepositYield owns the schedule; the last piece lands on
+            //     the shot BEFORE depletion, so all of a node's metal is obtainable
+            //     without breaking its core, and the depletion shot pays only whatever
+            //     is still owed. outcome.Units is deliberately unused for a deposit: the
+            //     nugget's single lump-on-depletion payout is the thing this replaces.
+            int hits = MetalHarvest.HitsOn(nodeEntityId);
+            int units = Multiplayer.MetalDepositYield.UnitsFor(
+                hits,
+                Multiplayer.MetalDepositExposure.ShotsToExpose(
+                    Multiplayer.MetalDeposits.ShotsToDeplete,
+                    Multiplayer.MetalDepositExposure.ExposureHealthFraction(
+                        Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_EXPOSE_AT"))),
+                Multiplayer.MetalDeposits.ShotsToDeplete,
+                Multiplayer.MetalDeposits.YieldUnits);
+
+            if (units > 0)
+            {
+                Console.WriteLine("[info] deposit " + nodeEntityId + " freed a scrap piece on shot "
+                    + hits + ": " + units + " x " + node.MetalType + " to entity " + harvesterEntityId + ".");
+                Game.Gathering.HarvestReward.Award(
+                    harvesterEntityId,
+                    node.MetalType,
+                    units,
+                    "metal deposit " + nodeEntityId + " scrap piece");
+            }
+
             if (!outcome.Depleted)
             {
                 return;
@@ -592,21 +816,602 @@ namespace WorldsAdriftRebornGameServer
             // 3. DEPLETION. Mark the ledger destroyed (it STAYS in the registry, rule
             //    1, so a late joiner is seeded isDestroyed=true - whose one-shot
             //    suppression gives the SILENT destroyed state, not a replayed
-            //    explosion), tell present clients the core is destroyed and the crust
-            //    exploded, then award (grant + the 8060 toast, which fires only if the
-            //    grant landed). ORDER matches the tree/nugget: award before the flag is
-            //    the wire's concern, not the ledger's.
+            //    explosion) and tell present clients the core is destroyed and the crust
+            //    exploded. The metal was already credited above, piece by piece.
             Nodes.MarkDestroyed(nodeEntityId);
             BroadcastDepositDestroyed(nodeEntityId);
 
-            Console.WriteLine("[info] metal DEPOSIT " + nodeEntityId + " depleted by entity "
-                + harvesterEntityId + ": " + outcome.Units + " x " + node.MetalType + ".");
+            Console.WriteLine("[info] metal DEPOSIT " + nodeEntityId + " core destroyed by entity "
+                + harvesterEntityId + " after " + hits + " shot(s) (" + node.MetalType + ").");
 
+            // 4. RELEASE THE SHARD. Destroying the core is exactly the retail seam that
+            //    frees a lodged atlas shard into the world (findings-atlas-shards §2
+            //    Phase B). ReleaseByHost flips each lodged shard to RELEASED once, so
+            //    this fires on the SAME single deplete transition as the destroyed
+            //    broadcast above - never on a held beam still resting on the dead core.
+            ReleaseAtlasShardsFor(nodeEntityId);
+        }
+
+        /// <summary>
+        /// EXPOSES every still-hidden atlas shard in a deposit whose crust has now been
+        /// broken far enough (<see cref="Multiplayer.MetalDepositExposure"/>): the
+        /// shard becomes takeable while STILL SITTING IN THE CORE, which is how retail
+        /// worked - a green crystal in the exposed centre that you grab with an ordinary
+        /// interact, before the node is finished.
+        ///
+        /// Only the 1210 prompt flips. 2102 isLodged deliberately STAYS true: the shard
+        /// has not fallen out, and dislodging it here would hand the client's rigidbody
+        /// chain a shard to drop half-way through mining. Destruction is what dislodges
+        /// it (<see cref="ReleaseAtlasShardsFor"/>).
+        ///
+        /// RATE + RELAY: EVENT-driven and once-only - <c>ExposeByHost</c> makes the
+        /// Lodged -> Exposed step exactly once per shard, so a held beam cannot turn
+        /// this into a stream. Pushed to each peer DIRECTLY (never through
+        /// RelayToOtherPlayers, which would re-address it to the shooter's avatar).
+        /// </summary>
+        private static void ExposeAtlasShardsFor(long depositEntityId)
+        {
+            if (!Multiplayer.MetalDepositExposure.IsExposed(
+                    MetalHarvest.HitsOn(depositEntityId),
+                    Multiplayer.MetalDeposits.ShotsToDeplete))
+            {
+                return;
+            }
+
+            foreach (long shardId in AtlasShards.ExposeByHost(depositEntityId))
+            {
+                Console.WriteLine("[info] atlas shard " + shardId + " EXPOSED in deposit "
+                    + depositEntityId + " after " + MetalHarvest.HitsOn(depositEntityId)
+                    + " shot(s); it can now be picked up out of the core.");
+                BroadcastShardExposed(shardId);
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer of a newly exposed shard that its 1210 PickUp prompt is
+        /// available. ONLY 1210 - the shard is still lodged, so its 2102 is untouched.
+        /// Peers that have not checked the shard out are seeded the exposed state from
+        /// the ledger when they do (the serializer reads the same AtlasShards state).
+        /// </summary>
+        private static void BroadcastShardExposed(long shardEntityId)
+        {
+            int told = 0;
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                // Push to EVERY connected peer, stored-ref or not. The old gate skipped
+                // any peer without a stored 1210 bookkeeping ref - silently, so a player
+                // standing at the opened core simply never learned the shard was takeable
+                // ("it's sticking out but there is no way to take it"). A 1210 update for
+                // an entity the client has not checked out is harmlessly dropped client-
+                // side, so unconditional is safe; the stored ref is only used to keep the
+                // server-side copy coherent WHEN it exists.
+                Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                    new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef)
+                    && Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                {
+                    availUpdate.ApplyTo(storedInteract);
+                }
+                SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                    new List<uint> { InteractiveStateComponentId },
+                    new List<object> { availUpdate });
+                told++;
+            }
+
+            Console.WriteLine("[info] atlas shard " + shardEntityId + ": 1210 available=true pushed to "
+                + told + " peer(s) (unconditional).");
+        }
+
+        /// <summary>
+        /// Releases every atlas shard lodged in a destroyed deposit's core: the
+        /// server's counterpart to the shipped client's "core Exploded -> shard
+        /// rigidbody goes non-kinematic" chain. For each shard the state ledger
+        /// transitions Lodged -> Released (once), and every viewer holding the shard is
+        /// told its 2102 is now dislodged and its 1210 PickUp prompt is available.
+        ///
+        /// RATE + RELAY: this is EVENT-driven - one 2102 + one 1210 update per shard,
+        /// on the single core-destruction transition, NOT a per-frame stream. Both are
+        /// pushed to each peer DIRECTLY (never through RelayToOtherPlayers, which would
+        /// re-address them to the shooter's own avatar). A shard is one-to-one with a
+        /// deposit today, so this is at most one shard per destroyed deposit.
+        /// </summary>
+        private static void ReleaseAtlasShardsFor(long depositEntityId)
+        {
+            foreach (long shardId in AtlasShards.ReleaseByHost(depositEntityId))
+            {
+                Console.WriteLine("[info] atlas shard " + shardId + " released from destroyed deposit "
+                    + depositEntityId + "; it can now be picked up.");
+                BroadcastShardReleased(shardId);
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer of a released shard its 2102 is dislodged (isLodged=false
+        /// + a transient Dislodged event) and its 1210 prompt is available. Pushed
+        /// directly and reliably, only to peers that already hold each component; peers
+        /// that have not checked the shard out are seeded the released state from the
+        /// ledger when they do (the serializer reads the same AtlasShards state).
+        /// </summary>
+        private static void BroadcastShardReleased(long shardEntityId)
+        {
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                // Unconditional, like BroadcastShardExposed: the stored-ref gate silently
+                // skipped peers, which left a player at the broken rock with no way to
+                // grab the freed shard. ApplyTo runs only when a stored copy exists.
+                Bossa.Travellers.Materials.LodgeableState.Update lodgeUpdate =
+                    new Bossa.Travellers.Materials.LodgeableState.Update()
+                        .SetIsLodged(false)
+                        .AddOnDislodged(new Bossa.Travellers.Materials.Dislodged());
+                if (TryGetStoredComponentRef(peer, shardEntityId, LodgeableStateComponentId, out ulong lodgeRef)
+                    && Improbable.Worker.Internal.ClientObjects.Instance.Dereference(lodgeRef) is Bossa.Travellers.Materials.LodgeableState.Data storedLodge)
+                {
+                    lodgeUpdate.ApplyTo(storedLodge);
+                }
+                SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                    new List<uint> { LodgeableStateComponentId },
+                    new List<object> { lodgeUpdate });
+
+                Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                    new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(true);
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef)
+                    && Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                {
+                    availUpdate.ApplyTo(storedInteract);
+                }
+                SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                    new List<uint> { InteractiveStateComponentId },
+                    new List<object> { availUpdate });
+            }
+        }
+
+        /// <summary>
+        /// The pickup TRANSACTION for an atlas shard: the authoritative side of a
+        /// native 1211 <c>InteractWithObject(shard, PickUp)</c>. Called from
+        /// InteractAgentState_Handler once per PickUp interaction the client issues.
+        ///
+        /// The DECISION is the pure <see cref="Multiplayer.AtlasPickupPolicy"/>; this
+        /// method is only the thin transaction around it: gather the facts, decide,
+        /// then RESERVE -> Grant -> Collect, rolling the reservation back if the grant
+        /// fails so a full inventory (or the still-pending item id) does not consume the
+        /// shard. Ownership and verb are passed in from the handler (which already knows
+        /// them) so the policy is the single gate.
+        /// </summary>
+        /// <returns>The outcome, for logging by the caller.</returns>
+        internal static Multiplayer.AtlasPickupOutcome TryCollectAtlasShard(
+            long playerEntityId, long shardEntityId, bool peerOwnsPlayer, bool verbIsPickUp)
+        {
+            Multiplayer.AtlasPickupDecision decision = Multiplayer.AtlasPickupPolicy.Evaluate(
+                peerOwnsPlayer: peerOwnsPlayer,
+                verbIsPickUp: verbIsPickUp,
+                targetIsShard: AtlasShards.IsShard(shardEntityId),
+                // EXPOSED counts as takeable, not just RELEASED: retail let a player
+                // grab the shard out of the opened core before the node was finished.
+                takeable: AtlasShards.IsTakeable(shardEntityId),
+                collected: AtlasShards.IsCollected(shardEntityId),
+                reservedByOther: AtlasShards.IsReservedByOther(shardEntityId, playerEntityId),
+                // No server-authoritative player position is kept keyed by entity id, and
+                // the client only issues the interaction after its OWN range check - the
+                // same trust the salvage path already extends to the client raycast. The
+                // pure policy fully supports a distance when a position source lands; the
+                // retail tolerance itself is not recoverable (findings §5).
+                distanceMetres: null,
+                radiusMetres: Multiplayer.AtlasShardCatalogue.PickUpRadius);
+
+            if (!decision.ShouldGrant)
+            {
+                return decision.Outcome;
+            }
+
+            // RESERVE first, so a second PickUp event in the same poll drain cannot also
+            // reach the grant. A failed reserve means someone beat us to it this drain.
+            if (!AtlasShards.Reserve(shardEntityId, playerEntityId))
+            {
+                return Multiplayer.AtlasPickupOutcome.Reserved;
+            }
+
+            // GRANT. Returns the item id on success, null when the type is unknown (the
+            // pending placeholder id until refdata lands) or the grid is full.
+            int? grantedItemId = Game.Inventory.InventoryService.Grant(
+                playerEntityId, Multiplayer.AtlasShardCatalogue.ItemTypeId, 1);
+
+            if (grantedItemId == null)
+            {
+                // Roll the reservation back so the shard stays pickable - a full grid
+                // now might have room later, and the pending item id will resolve once
+                // the refdata row is added. The shard is NOT consumed.
+                AtlasShards.Rollback(shardEntityId, playerEntityId);
+                Console.WriteLine("[warning] atlas shard " + shardEntityId + " pickup by entity "
+                    + playerEntityId + " did not grant '" + Multiplayer.AtlasShardCatalogue.ItemTypeId + "'"
+                    + (Multiplayer.AtlasShardCatalogue.IsItemIdPending
+                        ? " - the retail itemTypeId is PENDING: add the row to itemData.json and set "
+                          + "AtlasShardCatalogue.ItemTypeId (findings-atlas-shards.md §5)."
+                        : " (unknown item type or full inventory grid).")
+                    + " Reservation rolled back; the shard stays available.");
+                return Multiplayer.AtlasPickupOutcome.GrantFailed;
+            }
+
+            // COMMIT: the item is in the bag (Grant already pushed the 1081 update). Mark
+            // the shard collected and make the world entity vanish for everyone.
+            AtlasShards.Collect(shardEntityId, playerEntityId);
+            Console.WriteLine("[info] atlas shard " + shardEntityId + " collected by entity "
+                + playerEntityId + " -> inventory item " + grantedItemId + " ('"
+                + Multiplayer.AtlasShardCatalogue.ItemTypeId + "').");
+            BroadcastShardCollected(shardEntityId);
+            return Multiplayer.AtlasPickupOutcome.Grant;
+        }
+
+        /// <summary>
+        /// Tells every viewer that a collected shard is gone: its 1210 prompt is no
+        /// longer available and its 190602 is sunk under the terrain (WAReborn has no
+        /// RemoveEntityOp, so the nugget's sink teleport is how a world pickup vanishes
+        /// - findings-metal-deposits, "SURFACE NUGGETS"). The collecting client already
+        /// cleared the model optimistically (MetalDepositAtlasVisualiser_client
+        /// OnInteractionAttempted); this makes the removal authoritative for everyone.
+        /// A late joiner is instead seeded the collected state (1210 unavailable +
+        /// sunk transform) by the serializer, which reads the same AtlasShards ledger.
+        /// </summary>
+        private static void BroadcastShardCollected(long shardEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(shardEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, shardEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                    {
+                        availUpdate.ApplyTo(storedInteract);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                        new List<uint> { InteractiveStateComponentId },
+                        new List<object> { availUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, shardEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                        new Improbable.Corelibrary.Transforms.TransformState.Update()
+                            .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                                new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                    {
+                        sink.ApplyTo(storedTransform);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, shardEntityId,
+                        new List<uint> { TransformStateComponentId },
+                        new List<object> { sink });
+                }
+            }
+        }
+
+        // ==================================================================
+        // STATION PICKUP. Packing a PLACED shipyard / Assembly Station back into
+        // the owner's inventory - a deliberate NON-RETAIL extension (retail had no
+        // deployable pickup at all; codex-verified against the decompile). The
+        // request arrives as the SAME native 1211 InteractWithObject(target,
+        // PickUp) the atlas shard uses, issued by the client mod's dedicated
+        // hold-to-pack key (StationPickup_Patch), and the whole flow mirrors the
+        // shard transaction: pure policy -> reserve -> grant -> broadcast
+        // disappearance -> remove state. See Multiplayer.StationPickupPolicy.
+        // ==================================================================
+
+        /// <summary>
+        /// The pickup TRANSACTION for a placed station: the authoritative side of a
+        /// 1211 <c>InteractWithObject(station, PickUp)</c>. Called from
+        /// InteractAgentState_Handler once per PickUp interaction on a placed
+        /// shipyard / Assembly Station (or its tombstone).
+        ///
+        /// The DECISION is the pure <see cref="Multiplayer.StationPickupPolicy"/>;
+        /// this method is the thin transaction around it: gather the facts from the
+        /// placement/dock/build/craft ledgers, decide, then RESERVE -> Grant ->
+        /// Commit, rolling the reservation back if the grant fails so a full
+        /// inventory does not consume the station. The wire-visible success order
+        /// is: reserve -> inventory mutate (+1081 push, inside Grant) -> 1210
+        /// available=false -> 190602 sink -> persisted-record removal.
+        /// </summary>
+        /// <returns>The outcome, for the caller's one [pickup] log line.</returns>
+        internal static Multiplayer.StationPickupOutcome TryPickUpPlacedStation(
+            ENetPeerHandle player, long playerEntityId, long stationEntityId, bool peerOwnsPlayer, bool verbIsPickUp)
+        {
+            // WHICH KIND of placed station the ledgers say this is. After a pickup
+            // both memberships are gone and only the tombstone answers, which the
+            // policy reports as AlreadyPickedUp (checked before the kind).
+            bool isShipyard = Game.Placement.PlacedShipyards.IsPlacedShipyard(stationEntityId);
+            bool isAssemblyStation = !isShipyard
+                && Game.Placement.PlacedCraftingStations.IsPlacedCraftingStation(stationEntityId);
+            Multiplayer.PickupStationKind kind =
+                isShipyard ? Multiplayer.PickupStationKind.Shipyard
+                : isAssemblyStation ? Multiplayer.PickupStationKind.AssemblyStation
+                : Multiplayer.PickupStationKind.None;
+
+            // OWNER: the uid stamped at placement time; REQUESTER: resolved by the
+            // SAME mechanism the placement stamp used (CharacterOwnership reads the
+            // durable character uid the 1088 identity bind filed the player under),
+            // so the two compare like for like. An UNOWNED station ("" owner - the
+            // placer had no durable identity) is pickable by anyone, the same
+            // "empty owner means nobody owns it" convention the ship/shipyard
+            // ownership gates already follow (OwnershipRegistrationPolicy).
+            string ownerUid = isShipyard
+                ? Game.Placement.PlacedShipyards.SeedFor(stationEntityId).OwnerCharacterUid
+                : Game.Placement.PlacedCraftingStations.OwnerFor(stationEntityId);
+            string requesterUid = Game.CharacterOwnership.UidForEntity(playerEntityId);
+
+            // BUSY STATES, from the actual ledgers: a docked hull, a live blueprint
+            // build or frame-design edit (shipyard), a bound craft session and its
+            // slotted materials (assembly station; checked for both kinds - it is
+            // keyed by station id, so a shipyard simply never matches).
+            bool shipDocked = isShipyard && Game.Crafting.BuiltShips.DockedShipFor(stationEntityId) > 0;
+            bool buildInProgress = isShipyard
+                && (Multiplayer.Crafting.ShipBlueprintBuildStore.AnyAtShipyard(stationEntityId)
+                    || Multiplayer.Ship.ShipDesignStore.AnyEditingAt(stationEntityId));
+            bool craftInProgress = Game.Crafting.CraftSessions.AnyBoundTo(stationEntityId, out bool materialsLoaded);
+
+            // AUTHORITATIVE DISTANCE, when we honestly have one: the relay's last
+            // accepted world position for this peer. Skipped (null) when the relay
+            // holds none (v2 off / no movement yet) or the player is ABOARD a ship
+            // - their 190602 is ship-local then and a straight-line distance would
+            // be garbage that falsely rejects. A null trusts the client's own
+            // two-stage range check, exactly like the atlas pickup.
+            double? distanceMetres = null;
+            ulong peerId = PeerIdentity.IdOf(player);
+            if (!Aboard.IsAboardAnything(peerId)
+                && Relay.TryLastPosition(peerId, out Multiplayer.FixedPointPosition playerPos))
+            {
+                Multiplayer.FixedPointPosition stationPos = WorldEntities.TransformSeedFor(stationEntityId);
+                double dx = playerPos.MetresX - stationPos.MetresX;
+                double dy = playerPos.MetresY - stationPos.MetresY;
+                double dz = playerPos.MetresZ - stationPos.MetresZ;
+                distanceMetres = Math.Sqrt(dx * dx + dy * dy + dz * dz);
+            }
+
+            Multiplayer.StationPickupDecision decision = Multiplayer.StationPickupPolicy.Evaluate(
+                peerOwnsPlayer: peerOwnsPlayer,
+                verbIsPickUp: verbIsPickUp,
+                alreadyPickedUp: Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(stationEntityId),
+                kind: kind,
+                ownerCharacterUid: ownerUid,
+                requesterCharacterUid: requesterUid,
+                shipDocked: shipDocked,
+                buildInProgress: buildInProgress,
+                craftInProgress: craftInProgress,
+                materialsLoaded: materialsLoaded,
+                reservedByOther: Multiplayer.Placement.StationPickupLedger.Shared
+                    .IsReservedByOther(stationEntityId, playerEntityId),
+                distanceMetres: distanceMetres,
+                radiusMetres: Multiplayer.Placement.ShipyardInteraction.CraftRadius);
+
+            if (!decision.ShouldGrant)
+            {
+                return decision.Outcome;
+            }
+
+            // RESERVE first, so a second PickUp event in the same poll drain cannot
+            // also reach the grant. A failed reserve means someone beat us to it.
+            if (!Multiplayer.Placement.StationPickupLedger.Shared.Reserve(stationEntityId, playerEntityId))
+            {
+                return Multiplayer.StationPickupOutcome.ReservedByOther;
+            }
+
+            // GRANT the deployable item back ("shipyard" / "assemblyStation" - the
+            // same crafted item type that placed it). Grant pushes the full 1081
+            // inventory list itself, so the item appears in the bag before the
+            // world entity visibly vanishes. Null = unknown type or full grid.
+            string itemTypeId = isShipyard
+                ? Multiplayer.Placement.Deployables.ShipyardItemType
+                : "assemblyStation";
+            int? grantedItemId = Game.Inventory.InventoryService.Grant(playerEntityId, itemTypeId, 1);
+
+            if (grantedItemId == null)
+            {
+                // Roll the reservation back so the station stays placed and
+                // pickable - a full grid now might have room later. NOTHING else
+                // was touched: the station is left exactly as it stood.
+                Multiplayer.Placement.StationPickupLedger.Shared.Rollback(stationEntityId, playerEntityId);
+                Console.WriteLine("[pickup] station " + stationEntityId + " ('" + itemTypeId + "') pickup by entity "
+                    + playerEntityId + " did NOT grant (unknown item type or full inventory grid);"
+                    + " reservation rolled back, the station stays placed.");
+                return Multiplayer.StationPickupOutcome.GrantFailed;
+            }
+
+            // COMMIT: the item is in the bag. Tombstone the entity (late joiners are
+            // seeded the disappeared state off this), make it vanish live for every
+            // peer, then strip the server state and the persisted record.
+            Multiplayer.Placement.StationPickupLedger.Shared.Commit(stationEntityId, playerEntityId);
+
+            // The placed position, captured for the persisted-record removal BEFORE
+            // any ledger is dropped (the registry entry itself stays - no
+            // RemoveEntityOp exists to retire it - so this also matches what the
+            // sink broadcast reads).
+            Multiplayer.FixedPointPosition placedPos = WorldEntities.TransformSeedFor(stationEntityId);
+
+            BroadcastStationPickedUp(stationEntityId);
+
+            if (isShipyard)
+            {
+                Game.Placement.PlacedShipyards.Remove(stationEntityId);
+
+                // No dock to clear (the policy rejected a docked yard), but 1219
+                // build-access grants may still name the yard - revoke them all so
+                // no player's next 1219 checkout resolves a packed shipyard.
+                IReadOnlyList<long> revoked =
+                    Multiplayer.Placement.ShipyardBuildAccess.Shared.RevokeAllFor(stationEntityId);
+                if (revoked.Count > 0)
+                {
+                    Console.WriteLine("[pickup] revoked shipyard build access for " + revoked.Count
+                        + " player(s) that pointed at packed shipyard " + stationEntityId + ".");
+                }
+            }
+            else
+            {
+                Game.Placement.PlacedCraftingStations.Remove(stationEntityId);
+            }
+
+            // PERSISTED RECORD last (the recipe's wire-visible order): the next boot
+            // simply never restores it. A miss is loud - it would mean the record
+            // key drifted from the placement seam's.
+            if (!Game.Persistence.WorldStatePersistence.RemovePlacedDeployable(itemTypeId, placedPos))
+            {
+                Console.WriteLine("[warning] [pickup] no persisted placed-deployable record matched '"
+                    + itemTypeId + "' at " + placedPos + " for packed station " + stationEntityId
+                    + " - if this session did not place it, the boot restore may respawn it next boot.");
+            }
+
+            Console.WriteLine("[pickup] station " + stationEntityId + " ('" + itemTypeId + "') packed by entity "
+                + playerEntityId + " -> inventory item " + grantedItemId
+                + (distanceMetres.HasValue
+                    ? " (range check " + distanceMetres.Value.ToString("0.0") + " m)"
+                    : " (range check skipped - no world-space position)")
+                + "; entity sunk + 1210 unavailable, ledgers + persisted record removed.");
+            return Multiplayer.StationPickupOutcome.Grant;
+        }
+
+        /// <summary>
+        /// Tells every viewer that a packed station is gone: its 1210 prompt is no
+        /// longer available and its 190602 is sunk under the terrain - the exact
+        /// atlas-shard disappearance pattern (<see cref="BroadcastShardCollected"/>),
+        /// because WAReborn has no RemoveEntityOp. A late joiner is instead seeded
+        /// the same state by the serializer, which reads the pickup tombstone
+        /// (StationPickupLedger) in its 190602 and 1210 branches.
+        /// </summary>
+        private static void BroadcastStationPickedUp(long stationEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(stationEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, stationEntityId, InteractiveStateComponentId, out ulong interactRef))
+                {
+                    Bossa.Travellers.Interact.InteractiveState.Update availUpdate =
+                        new Bossa.Travellers.Interact.InteractiveState.Update().SetAvailable(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(interactRef) is Bossa.Travellers.Interact.InteractiveState.Data storedInteract)
+                    {
+                        availUpdate.ApplyTo(storedInteract);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, stationEntityId,
+                        new List<uint> { InteractiveStateComponentId },
+                        new List<object> { availUpdate });
+                }
+
+                if (TryGetStoredComponentRef(peer, stationEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                        new Improbable.Corelibrary.Transforms.TransformState.Update()
+                            .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                                new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                    {
+                        sink.ApplyTo(storedTransform);
+                    }
+                    SendOPHelper.SendComponentUpdateOp(peer, stationEntityId,
+                        new List<uint> { TransformStateComponentId },
+                        new List<object> { sink });
+                }
+            }
+        }
+
+        // ==================================================================
+        // FUEL CANISTERS. The FUEL crafting-material gather loop. A canister is a
+        // SALVAGE TARGET, not a pickup: retail fuel is obtained by salvaging fuel
+        // canisters with the gauntlet salvage tool, the same tool and flow as metal
+        // and wood (worldsadrift.fandom.com/wiki/Fuel, /wiki/Resources, /wiki/Mining).
+        // The client gate is 1099 SalvageAndRepairState.isSalvageable, which
+        // PlayerMultitool.TryDeploySalvager reads through the Salvageable base class
+        // before it will raise a shot at all. Unlike a metal node, EVERY shot pays
+        // out: the recovered retail curve is 8 + 8 + 9 = 25 fuel over three shots
+        // (Multiplayer.FuelCanisterYield). See docs/research/findings-combustion-fuel.md.
+        // ==================================================================
+
+        /// <summary>
+        /// One salvage shot landed on a FUEL CANISTER. The fuel counterpart to the
+        /// nugget path in <see cref="OnSalvageShot"/>, and deliberately the same
+        /// shape - count the shot, award, and on the emptying shot sink the husk -
+        /// with ONE difference: a canister grants on EVERY shot (8/8/9), not only on
+        /// the shot that empties it, so the award is inside the loop rather than
+        /// behind a deplete transition.
+        ///
+        /// RATE + RELAY: event-driven, one award per client-rate-limited 2106
+        /// ShotEvent (the client's MultitoolSalvageController already throttles to one
+        /// deploy per ~0.75 s), and at most ONE sink broadcast per canister. No
+        /// per-frame work, and the sink is pushed to each peer DIRECTLY, never through
+        /// RelayToOtherPlayers (which would re-address it to the shooter's avatar).
+        /// </summary>
+        private static void OnFuelCanisterShot(long harvesterEntityId, long canisterEntityId)
+        {
+            Multiplayer.FuelHitOutcome outcome = FuelCanisters.Hit(canisterEntityId);
+            if (!outcome.Granted)
+            {
+                // The beam legitimately keeps resting on an emptied canister and
+                // publishing ShotEvents; nothing more to do.
+                return;
+            }
+
+            Console.WriteLine("[info] fuel canister " + canisterEntityId + " salvaged by entity "
+                + harvesterEntityId + ": shot " + outcome.ShotNumber + "/"
+                + Multiplayer.FuelCanisterYield.ShotsToDeplete + " -> " + outcome.FuelGranted
+                + " fuel (" + FuelCanisters.FuelPaidOut(canisterEntityId) + "/"
+                + Multiplayer.FuelCanisterYield.TotalFuel + " total)"
+                + (outcome.Depleted ? ", canister emptied." : "."));
+
+            // AWARD through the SAME seam as metal and wood, so the grant, the stacking
+            // and the native "Salvaged Fuel xN" toast all behave identically. The yield
+            // rule is registered when the canister spawns (AddWorldEntity), so this
+            // resolves; amountPerUnit is 1, so units == fuel granted.
             Game.Gathering.HarvestReward.Award(
                 harvesterEntityId,
-                node.MetalType,
-                outcome.Units,
-                "metal deposit " + nodeEntityId);
+                Multiplayer.FuelPods.ItemTypeId,
+                outcome.FuelGranted,
+                "fuel canister " + canisterEntityId + " shot " + outcome.ShotNumber);
+
+            // The emptying shot makes the husk visibly vanish, exactly like a spent
+            // nugget (WAReborn has no RemoveEntityOp, so a sink teleport is how a world
+            // gather source disappears). Fires once - Hit reports Depleted on exactly
+            // one shot.
+            if (outcome.Depleted)
+            {
+                BroadcastFuelCanisterDepleted(canisterEntityId);
+            }
+        }
+
+        /// <summary>
+        /// Tells every viewer that an emptied fuel canister is gone: its 190602 is sunk
+        /// under the terrain. A late joiner is instead seeded the sunk position by the
+        /// serializer, which reads the same <see cref="FuelCanisters"/> ledger, so the
+        /// two agree without storing a second coordinate. Mirrors
+        /// <see cref="BroadcastNodeDepletion"/>; carries ONE field (localPosition) so
+        /// nothing else on the transform is re-asserted.
+        /// </summary>
+        private static void BroadcastFuelCanisterDepleted(long canisterEntityId)
+        {
+            Multiplayer.FixedPointPosition intact =
+                WorldEntities.TransformSeedFor(canisterEntityId);
+            Multiplayer.FixedPointPosition sunk = Multiplayer.MetalNodes.Sink(intact);
+
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, canisterEntityId, TransformStateComponentId, out ulong transformRef))
+                {
+                    continue;
+                }
+
+                Improbable.Corelibrary.Transforms.TransformState.Update sink =
+                    new Improbable.Corelibrary.Transforms.TransformState.Update()
+                        .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                            new Improbable.Collections.List<long> { sunk.X, sunk.Y, sunk.Z }));
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef) is Improbable.Corelibrary.Transforms.TransformState.Data storedTransform)
+                {
+                    sink.ApplyTo(storedTransform);
+                }
+                SendOPHelper.SendComponentUpdateOp(peer, canisterEntityId,
+                    new List<uint> { TransformStateComponentId },
+                    new List<object> { sink });
+            }
         }
 
         /// <summary>
@@ -658,6 +1463,104 @@ namespace WorldsAdriftRebornGameServer
                 SendOPHelper.SendComponentUpdateOp(peer, nodeEntityId,
                     new List<uint> { TransformStateComponentId },
                     new List<object> { sink });
+            }
+        }
+
+        /// <summary>
+        /// Authenticated operator understorm: restore every damaged tree, metal
+        /// node and fuel canister, then push the intact state only to peers that
+        /// currently have each entity checked out.
+        /// </summary>
+        internal static string ResetHarvestResources()
+        {
+            IReadOnlyList<TreeRespawn> trees = Harvest.ResetAll();
+            foreach (TreeRespawn tree in trees)
+                PushTreeSectionMask(tree.TreeEntityId, tree.SectionMask);
+
+            List<long> metal = Nodes.EntityIds
+                .Where(id => Nodes.IsDestroyed(id) || Nodes.ShotPointsOf(id).Count > 0
+                    || MetalHarvest.HitsOn(id) > 0).ToList();
+            Nodes.ResetAll();
+            MetalHarvest.ResetAll();
+            foreach (long nodeId in metal) BroadcastNodeReset(nodeId);
+
+            List<long> fuel = FuelCanisters.EntityIds
+                .Where(id => FuelCanisters.ShotsOn(id) > 0).ToList();
+            FuelCanisters.ResetAll();
+            foreach (long canisterId in fuel) BroadcastFuelCanisterReset(canisterId);
+
+            return "Reset " + trees.Count + " tree(s), " + metal.Count
+                + " metal node(s), and " + fuel.Count + " fuel canister(s).";
+        }
+
+        private static void BroadcastFuelCanisterReset(long entityId)
+        {
+            Multiplayer.FixedPointPosition intact = WorldEntities.TransformSeedFor(entityId);
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (!TryGetStoredComponentRef(peer, entityId, TransformStateComponentId,
+                        out ulong transformRef)) continue;
+                var update = new Improbable.Corelibrary.Transforms.TransformState.Update()
+                    .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                        new Improbable.Collections.List<long> { intact.X, intact.Y, intact.Z }));
+                if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef)
+                    is Improbable.Corelibrary.Transforms.TransformState.Data stored)
+                    update.ApplyTo(stored);
+                SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                    new List<uint> { TransformStateComponentId }, new List<object> { update });
+            }
+        }
+
+        private static void BroadcastNodeReset(long entityId)
+        {
+            Multiplayer.MetalNode? node = Nodes.NodeOf(entityId);
+            if (node == null) return;
+            foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+            {
+                if (TryGetStoredComponentRef(peer, entityId, TransformStateComponentId,
+                        out ulong transformRef))
+                {
+                    var transform = new Improbable.Corelibrary.Transforms.TransformState.Update()
+                        .SetLocalPosition(new Improbable.Corelibrary.Math.FixedPointVector3(
+                            new Improbable.Collections.List<long>
+                                { node.Position.X, node.Position.Y, node.Position.Z }));
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(transformRef)
+                        is Improbable.Corelibrary.Transforms.TransformState.Data stored)
+                        transform.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { TransformStateComponentId }, new List<object> { transform });
+                }
+                if (TryGetStoredComponentRef(peer, entityId, ItemHealthStateComponentId,
+                        out ulong healthRef))
+                {
+                    var health = new Bossa.Travellers.Items.ItemHealthState.Update()
+                        .SetHealth(Multiplayer.MetalDeposits.MaxHealth);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(healthRef)
+                        is Bossa.Travellers.Items.ItemHealthState.Data stored) health.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { ItemHealthStateComponentId }, new List<object> { health });
+                }
+                if (TryGetStoredComponentRef(peer, entityId, MetalRockCoreStateComponentId,
+                        out ulong coreRef))
+                {
+                    var core = new Bossa.Travellers.Materials.MetalRockCoreState.Update()
+                        .SetIsDestroyed(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(coreRef)
+                        is Bossa.Travellers.Materials.MetalRockCoreState.Data stored) core.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { MetalRockCoreStateComponentId }, new List<object> { core });
+                }
+                if (TryGetStoredComponentRef(peer, entityId, MetalRockCrustStateComponentId,
+                        out ulong crustRef))
+                {
+                    var crust = new Bossa.Travellers.Materials.MetalRockCrustState.Update()
+                        .SetShotPoints(new Improbable.Collections.List<Improbable.Math.Vector3f>())
+                        .SetExploded(false);
+                    if (Improbable.Worker.Internal.ClientObjects.Instance.Dereference(crustRef)
+                        is Bossa.Travellers.Materials.MetalRockCrustState.Data stored) crust.ApplyTo(stored);
+                    SendOPHelper.SendComponentUpdateOp(peer, entityId,
+                        new List<uint> { MetalRockCrustStateComponentId }, new List<object> { crust });
+                }
             }
         }
 
@@ -896,6 +1799,25 @@ namespace WorldsAdriftRebornGameServer
                     _ => true,
                 };
 
+                if (ok && intent.Op == MirrorOp.AddEntity)
+                {
+                    SentEntities.MarkSent(target, intent.EntityId);
+                }
+
+                // F1/F2 fix (findings-bug-sweep-lifecycle): this mirror AddComponents is
+                // a PROACTIVE seed of the remote avatar's {190602,1073,...}, so it must
+                // claim those ids in the served-ledger exactly as the world-entity spawn
+                // path does (SetupState MarkServed). Without it, the joiner's later
+                // interest request on the remote reports every id UNSERVED, so the server
+                // RE-seeds 190602 (fixed spawn position = a documented teleport) and 1073
+                // onto the live, relay-moving remote -> the rig snaps to spawn / T-poses
+                // on join. Marked only on a successful send, and only for the ids this
+                // seed actually carried (RemoteSeed).
+                if (ok && intent.Op == MirrorOp.AddComponents)
+                {
+                    ServedComponents.MarkServed(target, intent.EntityId, RemoteSeed);
+                }
+
                 Console.WriteLine((ok ? "[success] " : "[error] failed: ") + "mirror(flush) " + intent);
             }
         }
@@ -1012,6 +1934,17 @@ namespace WorldsAdriftRebornGameServer
                 // [Require]; 1071 stays a server-owned reader (injected, not granted).
                 list.AddRange(MirrorSendPolicy.PartMountAuthoritativeComponents);
             }
+            if (Game.ShipFlightService.Enabled)
+            {
+                // HELM FLIGHT (WAREBORN_HELM_FLIGHT=1, its own flag): the two writers
+                // of ShipControlsBehaviour - 1111 ShipControlInput + 1112
+                // TurretControlInput. The behaviour [Require]s BOTH writers plus the
+                // 1109 reader (already injected early for every player), and a writer
+                // binds only for a granted component - so without this the helm can be
+                // Manned but the ship never receives input. 1109 itself is NEVER
+                // granted: the server owns who is driving.
+                list.AddRange(MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+            }
             return list;
         }
 
@@ -1081,6 +2014,20 @@ namespace WorldsAdriftRebornGameServer
         private const uint MetalRockCrustStateComponentId = 12283;
 
         /// <summary>
+        /// 2102 LodgeableState - an atlas shard's lodged/released state. isLodged is
+        /// flipped false (+ a Dislodged event) when the host deposit's core is
+        /// destroyed, which is the shard's "you can pick me up now" transition.
+        /// </summary>
+        private const uint LodgeableStateComponentId = 2102;
+
+        /// <summary>
+        /// 1210 InteractiveState - the interaction prompt. For an atlas shard the
+        /// server flips available false->true on release (the PickUp prompt appears)
+        /// and true->false on collection (it is gone).
+        /// </summary>
+        private const uint InteractiveStateComponentId = 1210;
+
+        /// <summary>
         /// Components seeded on a mirrored remote avatar: TransformState (position),
         /// 1086 PlayerName, the two [Require]s of CharacterCustomisationVisualizer
         /// (1081 InventoryState, 1088 PlayerPropertiesState) which builds the body,
@@ -1140,8 +2087,116 @@ namespace WorldsAdriftRebornGameServer
                         ? read
                         : (EnetPeerHealth?)null;
 
-                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health));
+                FixedPointPosition? position = ResourceInterest.TryCenterFor(peerId,
+                    out FixedPointPosition worldPosition)
+                        ? worldPosition
+                        : (FixedPointPosition?)null;
+                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health, position));
             }
+
+            List<ShipDomainStat> shipDomains = new List<ShipDomainStat>();
+            foreach (Multiplayer.Ship.Domains.ShipDomain domain in
+                ShipDomains.All.OrderBy(x => x.HullEntityId))
+            {
+                Multiplayer.Ship.Flight.FlightState pose = domain.Flight.State;
+                ShipDomainReplicationTelemetry replication =
+                    Game.ShipPublisher.TelemetryFor(domain.HullEntityId);
+                List<long> aboardPlayers = new List<long>();
+                foreach (ulong peerId in Aboard.AboardShip(domain.HullEntityId))
+                {
+                    long? playerEntityId = Players.EntityOf(peerId);
+                    if (playerEntityId.HasValue) aboardPlayers.Add(playerEntityId.Value);
+                }
+                aboardPlayers.Sort();
+
+                bool piloted = Flight.IsPiloted(domain.HullEntityId);
+                bool liveCadenceExpected = piloted || !pose.IsAtRest
+                    || domain.Flight.Input.Throttle != 0f;
+                shipDomains.Add(new ShipDomainStat(
+                    domain.Id.ToString(),
+                    domain.HullEntityId,
+                    domain.Generation.Value,
+                    replication.Sequence,
+                    (int)Math.Round(Multiplayer.ShipMotionPolicy.SendIntervalSeconds * 1000),
+                    replication.DeliveryAgeMs,
+                    pose.X, pose.Y, pose.Z,
+                    // UI `active` means live simulation, not merely resident in
+                    // the service's low-frequency resting keepalive set.
+                    liveCadenceExpected,
+                    piloted,
+                    liveCadenceExpected,
+                    Flight.PilotEntityOf(domain.HullEntityId),
+                    aboardPlayers,
+                    Game.Crafting.BuiltShips.DecksForHull(domain.HullEntityId).Count,
+                    Game.Crafting.MountedParts.OnHull(domain.HullEntityId).Count(),
+                    ShipInterest.SubscriberCountFor(domain.HullEntityId)));
+            }
+
+            // Operator topology: the ownership-only host is the source of truth for
+            // domain inventory. ShipDomainStat remains the richer control/replication
+            // view; these compact nodes let the admin UI scale across islands, ships
+            // and future hosts without flattening everything into ship cards.
+            Multiplayer.Islands.IslandRegistry topologyIslands = IslandTopology;
+            Dictionary<long, ShipDomainStat> shipStatsByHull = shipDomains
+                .ToDictionary(domain => domain.HullEntityId);
+            List<RuntimeDomainStat> runtimeDomains = new List<RuntimeDomainStat>();
+            foreach (Multiplayer.Domains.ILocalSimulationDomain domain in DomainHost.Domains)
+            {
+                if (domain is Multiplayer.Domains.IslandDomain islandDomain)
+                {
+                    Multiplayer.Islands.IslandDefinition island =
+                        topologyIslands.Require(islandDomain.IslandId);
+                    runtimeDomains.Add(new RuntimeDomainStat(
+                        domain.Id.ToString(), "island", island.DisplayName,
+                        "local:primary", null, domain.EntityIds.Count,
+                        active: true, warningCount: 0,
+                        island.GlobalOrigin.MetresX, island.GlobalOrigin.MetresY,
+                        island.GlobalOrigin.MetresZ));
+                    continue;
+                }
+
+                long hullEntityId;
+                if (domain is Multiplayer.Ship.Domains.ShipDomain liveShip)
+                    hullEntityId = liveShip.HullEntityId;
+                else if (domain is Multiplayer.Domains.StaticShipDomain staticShip)
+                    hullEntityId = staticShip.HullEntityId;
+                else
+                {
+                    runtimeDomains.Add(new RuntimeDomainStat(
+                        domain.Id.ToString(), domain.Kind.ToString().ToLowerInvariant(),
+                        domain.Id.ToString(), "local:primary", null,
+                        domain.EntityIds.Count, active: false, warningCount: 0,
+                        0, 0, 0));
+                    continue;
+                }
+                bool hasLiveStats = shipStatsByHull.TryGetValue(hullEntityId,
+                    out ShipDomainStat shipStat);
+                FixedPointPosition shipPosition = hasLiveStats
+                    ? FixedPointPosition.FromMetres(shipStat.X, shipStat.Y, shipStat.Z)
+                    : WorldEntities.TransformSeedFor(hullEntityId);
+                Multiplayer.Islands.IslandId affinity =
+                    Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(
+                        shipPosition, topologyIslands.All);
+                int warnings = hasLiveStats
+                    ? (shipStat.StaleDelivery ? 1 : 0)
+                        + (shipStat.AboardCheckoutWarning ? 1 : 0)
+                    : 0;
+                runtimeDomains.Add(new RuntimeDomainStat(
+                    domain.Id.ToString(), hasLiveStats ? "ship" : "static-ship",
+                    hasLiveStats ? "Ship " + hullEntityId : "Static ship " + hullEntityId,
+                    "local:primary", Multiplayer.Ship.Domains.SimulationDomainId
+                        .ForIsland(affinity).ToString(),
+                    domain.EntityIds.Count, hasLiveStats && shipStat.Active, warnings,
+                    shipPosition.MetresX, shipPosition.MetresY, shipPosition.MetresZ));
+            }
+
+            List<long> expectedOwnedEntities = WorldEntities.Registrations
+                .Select(entity => WorldEntities.BoundEntityIdFor(entity.Key))
+                .Where(entityId => entityId.HasValue)
+                .Select(entityId => entityId!.Value)
+                .ToList();
+            Multiplayer.Domains.DomainOwnershipSummary ownership =
+                DomainHost.Inspect(expectedOwnedEntities);
 
             string build = Environment.GetEnvironmentVariable("WAREBORN_BUILD");
             if (string.IsNullOrWhiteSpace(build))
@@ -1160,7 +2215,25 @@ namespace WorldsAdriftRebornGameServer
                 totalDisconnects: Stats.TotalDisconnects,
                 currentOnline: Stats.CurrentOnline,
                 peakOnline: Stats.PeakOnline,
-                players: players);
+                players: players,
+                secondIslandRegistered: WorldEntities.ByKey(
+                    Multiplayer.Islands.IslandCatalog.TradesChallenge.WorldEntityKey) != null,
+                shipDomains: shipDomains,
+                runtimeDomains: runtimeDomains,
+                runtimeOwnedEntityCount: ownership.OwnedEntityCount,
+                runtimeGlobalEntityCount: ownership.GlobalEntityCount,
+                runtimeUnownedEntityCount: ownership.UnownedEntityIds.Count,
+                runtimeOwnershipIssueCount: ownership.Inconsistencies.Count,
+                firstRegionTerrainCount: Multiplayer.Islands.IslandCatalog.FirstRegionTerrain
+                    .Skip(1)
+                    .Count(island => WorldEntities.ByKey(island.WorldEntityKey) != null),
+                // Read on this same authoritative poll thread, from state Tick has
+                // already decided. Before the post-restore bootstrap builds the
+                // service there is no terrain lifecycle to describe, and the
+                // snapshot says "off" rather than inventing one.
+                terrain: TerrainInterest?.Snapshot(
+                    ResourceInterest.ResourceNodeCountFor,
+                    ResourceInterest.CheckedOutResourceCountFor));
         }
 
         /// <summary>Published appearance per player entity; read by the 1088
@@ -1256,10 +2329,58 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly Game.ShipPartMotionService ShipPartMotion = new Game.ShipPartMotionService(ServerClock);
 
         /// <summary>
+        /// PILOTED SHIP FLIGHT (WAREBORN_HELM_FLIGHT=1): Man a mounted helm, and the
+        /// pilot's own 1111 ShipControlInput drives the built hull's 1130 control
+        /// points through a pure integrator. The 1211 handler dispatches Man/Release
+        /// into it, ShipControlInput_Handler feeds it input, the main loop ticks its
+        /// publisher, and ForgetPeer dismounts a vanished pilot. Takes ServerClock
+        /// for the same textual-order reason as Falls/Relay/ShipFerry.
+        /// </summary>
+        /// <summary>
+        /// Local whole-ship authority host. Domains still tick on this process's
+        /// single poll loop; this explicit directory is the seam a future local
+        /// snapshot/handoff and, later, remote worker host will share.
+        /// </summary>
+        internal static readonly Multiplayer.Ship.Domains.ShipDomainRegistry ShipDomains = new();
+
+        /// <summary>
+        /// Ownership-only Phase 4A host. It has no Tick and cannot reorder the
+        /// existing authoritative services; it proves where every world entity lives.
+        /// </summary>
+        internal static readonly Multiplayer.Domains.LocalDomainHost DomainHost = new();
+
+        internal static readonly Game.ShipFlightService Flight =
+            new Game.ShipFlightService(ServerClock, ShipDomains, DomainHost);
+
+        /// <summary>Authenticated, allowlisted web-console world operations.</summary>
+        internal static readonly Game.AdminWorldCommandService WorldAdmin =
+            new Game.AdminWorldCommandService(ServerClock);
+
+        /// <summary>
         /// Entity id source. Pure policy so the "one shared island id, ids never
         /// reused" rule is unit-testable; see EntityIdAllocator.
         /// </summary>
         private static readonly EntityIdAllocator EntityIds = new EntityIdAllocator();
+
+        /// <summary>
+        /// Bounded terrain-only rollout for the evidenced first release-map region.
+        /// Zero preserves today's Haven/Trades topology and spawn behavior; values
+        /// 1..12 select the evidenced Saborian tier-1 B3 terrain prefix.
+        /// </summary>
+        internal static readonly int FirstRegionTerrainCount =
+            Multiplayer.Islands.FirstRegionTerrainCountPolicy.CountFrom(
+                Environment.GetEnvironmentVariable("WAREBORN_FIRST_REGION_TERRAIN_COUNT"));
+
+        internal static readonly Multiplayer.Islands.IslandRegistry IslandTopology =
+            FirstRegionTerrainCount > 0
+                ? Multiplayer.Islands.IslandRegistry.CreateWithFirstRegionTerrain(FirstRegionTerrainCount)
+                : Multiplayer.Islands.IslandRegistry.CreateDefault();
+
+        internal static readonly Multiplayer.Regions.RegionRegistry RegionTopology =
+            FirstRegionTerrainCount > 0
+                ? Multiplayer.Regions.RegionRegistry.CreateWithFirstRegionTerrain(
+                    IslandTopology, FirstRegionTerrainCount)
+                : Multiplayer.Regions.RegionRegistry.CreateDefault(IslandTopology);
 
         /// <summary>
         /// EVERY non-player thing this server puts in the world, and the one
@@ -1283,7 +2404,46 @@ namespace WorldsAdriftRebornGameServer
                 SpawnDeposit,
                 Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_COUNT"),
                 SpawnDatabank,
-                Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"));
+                Environment.GetEnvironmentVariable("WAREBORN_DATABANK_COUNT"),
+                SpawnAtlasShard,
+                Environment.GetEnvironmentVariable("WAREBORN_ATLAS_RATE"),
+                SpawnFuelPods,
+                Environment.GetEnvironmentVariable("WAREBORN_FUELPOD_COUNT"),
+                VaryTreeSpecies,
+                SpawnStaticShip,
+                SpawnProductionSecondIsland,
+                FirstRegionTerrainCount);
+
+        internal static readonly Game.ResourceInterestService ResourceInterest =
+            new Game.ResourceInterestService(
+                ServerClock, WorldEntities, IslandTopology, RegionTopology);
+
+        // Terrain streaming cannot safely run while resources retain their legacy
+        // all-world connect lifecycle: that could leave a resource instantiated
+        // after its optional ground was removed. Require both flags and say so in
+        // the startup diagnostics rather than weakening the ordering invariant.
+        internal static readonly bool TerrainInterestFeatureEnabled =
+            ResourceInterest.Enabled
+            && Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledEnvVar));
+
+        internal static readonly double TerrainInterestLoadRadius =
+            Multiplayer.Islands.IslandTerrainInterestPolicy.LoadRadiusFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.LoadRadiusEnvVar));
+
+        /// <summary>
+        /// Optional-island terrain lifecycle. It is initialized only after the
+        /// canonical directory and local authority host exist; before then no peer
+        /// can connect. Nullable solely because static construction precedes Main's
+        /// post-restore ownership bootstrap.
+        /// </summary>
+        internal static Game.IslandTerrainInterestService? TerrainInterest;
+
+        /// <summary>Whole-ship per-peer checkout with load/unload hysteresis.</summary>
+        internal static readonly Game.ShipDomainInterestService ShipInterest =
+            new Game.ShipDomainInterestService(ServerClock, ShipDomains, WorldEntities);
 
         /// <summary>
         /// The ledger of every placed resource node and the ONLY place a node's
@@ -1313,6 +2473,86 @@ namespace WorldsAdriftRebornGameServer
             new MetalHarvest(Multiplayer.MetalNodes.NuggetShotsToDeplete);
 
         /// <summary>
+        /// The ledger of every ATLAS SHARD placed in the world and its acquisition
+        /// state (lodged -> released -> collected, plus the pickup reservation). The
+        /// atlas analogue of <see cref="Nodes"/>, kept separate because a shard is a
+        /// SECOND entity from its host deposit with its own lifecycle: destroying a
+        /// deposit's core RELEASES the shard (<see cref="OnDepositShot"/> calls
+        /// <see cref="Multiplayer.AtlasShardRegistry.ReleaseByHost"/>), and the shard
+        /// is then a free-standing pickup a player collects with a 1211 PickUp
+        /// (InteractAgentState_Handler -> <see cref="TryCollectAtlasShard"/>). Internal
+        /// because both the serializer (seeds 1305/2102/1210/2103 from it) and those
+        /// two glue seams read it. Populated in <see cref="AddWorldEntity"/> the moment
+        /// a shard entity has an id. See docs/research/findings-atlas-shards.md.
+        /// </summary>
+        internal static readonly Multiplayer.AtlasShardRegistry AtlasShards =
+            new Multiplayer.AtlasShardRegistry();
+
+        /// <summary>
+        /// The ledger of every FUEL CANISTER placed in the world and how far each has
+        /// been salvaged (shot count + emptied flag). The fuel analogue of
+        /// <see cref="MetalHarvest"/> - NOT of <see cref="AtlasShards"/>: a canister is
+        /// a SALVAGE TARGET worked with the gauntlet beam, not a pickup, so its shots
+        /// arrive on 2106 exactly like a metal node's and it grants on EVERY shot
+        /// (the recovered retail 8/8/9 curve). Internal because both the serializer
+        /// (seeds 1099/2102/190602 from it) and <see cref="OnSalvageShot"/> read it.
+        /// Populated in <see cref="AddWorldEntity"/> the moment a canister entity has
+        /// an id. See docs/research/findings-combustion-fuel.md.
+        /// </summary>
+        internal static readonly Multiplayer.FuelCanisterRegistry FuelCanisters =
+            new Multiplayer.FuelCanisterRegistry();
+
+        /// <summary>
+        /// Authoritative activation for boot-registered resources. A resource is
+        /// harvestable because it exists in the world, not because a nearby peer
+        /// happened to execute its connect-time AddEntity callback.
+        /// </summary>
+        private static readonly Game.Gathering.WorldResourceActivation WorldResources =
+            new Game.Gathering.WorldResourceActivation(
+                WorldEntities, Harvest, Nodes, MetalHarvest, AtlasShards, FuelCanisters);
+
+        /// <summary>
+        /// The furl state of every MOUNTED sail (registered on mount / boot restore,
+        /// cleared on lift). Read by the 1303 serve branch so a re-checkout shows the
+        /// rigging as set, toggled by <see cref="PartInteractions"/> on an Activate
+        /// interact, and exposed to the flight integrator via
+        /// <c>Sails.UnfurledCountFor(hullId)</c> - this ledger never reaches into the
+        /// flight service itself.
+        /// </summary>
+        internal static readonly Multiplayer.Sails Sails = new Multiplayer.Sails();
+
+        /// <summary>
+        /// The on/off switch of every MOUNTED lamp - the sail's pattern applied to
+        /// 1108 enabled. Untracked (loose) lamps keep the proven always-on serve.
+        /// </summary>
+        internal static readonly Multiplayer.Lamps Lamps = new Multiplayer.Lamps();
+
+        /// <summary>
+        /// The honk cooldown of every MOUNTED horn - gates 1107 SoundHorn events to
+        /// one per 30 s recharge window (the client's own needle animation length).
+        /// </summary>
+        internal static readonly Multiplayer.Horns Horns = new Multiplayer.Horns();
+
+        /// <summary>
+        /// The Activate-verb interact dispatcher for mounted parts (sail furl, lamp
+        /// switch, horn honk). Fed by InteractAgentState_Handler exactly like the
+        /// flight service's Man dispatch; each part's ledger is its single gate.
+        /// </summary>
+        internal static readonly Game.PartInteractionService PartInteractions =
+            new Game.PartInteractionService(ServerClock);
+
+        /// <summary>
+        /// A mounted horn's 1107 charge RIGHT NOW (1 ready, ramping after a honk), or
+        /// null when the id is not a mounted horn. Exists because the serializer's
+        /// 1107 branch needs the ledger read AT the server clock, and the clock is
+        /// private to this class.
+        /// </summary>
+        internal static float? HornChargeNow(long hornEntityId)
+        {
+            return Horns.ChargeFor(hornEntityId, ServerClock.Elapsed.TotalSeconds);
+        }
+
+        /// <summary>
         /// Which entity ids are ship SURFACES, and which ship each belongs to. The
         /// server fills this from its own spawn decisions (a hull registers itself
         /// as its own surface in <see cref="AddWorldEntity"/>), so aboard-detection
@@ -1333,7 +2573,7 @@ namespace WorldsAdriftRebornGameServer
         /// Internal because ClientAuthoritativePlayerState_Handler feeds it every
         /// 1073 and ForgetPeer clears a departed peer from it.
         /// </summary>
-        internal static readonly AboardTracker Aboard = new AboardTracker(ShipMembership);
+        internal static readonly AboardTracker Aboard = new AboardTracker(ShipMembership, ServerClock);
 
         /// <summary>
         /// Whether the carry echo is armed. ON by default; set
@@ -1370,6 +2610,15 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnProofIsland =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_PROOF_ISLAND") == "1";
+
+        /// <summary>
+        /// Opt-in PR3 visual acceptance island. Unlike the old duplicate-Haven
+        /// proof, this is a distinct shipped production island at its exact Bossa
+        /// MapFile position. It stays off until a client confirms load, placement,
+        /// collision and reconnect behavior.
+        /// </summary>
+        private static bool SpawnProductionSecondIsland =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_SECOND_ISLAND") == "1";
 
         /// <summary>
         /// Whether to spawn the choppable tree (see Multiplayer.WorldEntities.HavenTree).
@@ -1412,8 +2661,53 @@ namespace WorldsAdriftRebornGameServer
         /// an invalid variantId is an invisible entity. It is AfterPlayer, so leaving it
         /// off or on cannot delay or break a player's own spawn either way.
         /// </summary>
+        /// <remarks>
+        /// SUPPRESSED BY THE HANDSHAKE. When the island resource handshake is on (the
+        /// default), the client decides where the deposits go and the hand-placed table
+        /// exists only as the deadline FALLBACK - which spawns it at runtime, once, if no
+        /// usable 1011 reply arrives (Game.Gathering.DepositFallbackSpawner). Registering
+        /// it at boot as well would put BOTH sets in the world: the forty client-placed
+        /// deposits AND the twenty-odd hand-measured ones the player already rejected,
+        /// with no way to tell from the log which is which. So an operator's existing
+        /// WAREBORN_SPAWN_DEPOSIT=1 is deliberately ignored while the handshake is
+        /// enabled; turn the handshake off (WAREBORN_METAL_HANDSHAKE=0) to get the old
+        /// boot-time behaviour back.
+        /// </remarks>
         private static bool SpawnDeposit =>
-            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1";
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DEPOSIT") == "1"
+            && !Multiplayer.IslandResourceHandshake.Enabled();
+
+        /// <summary>
+        /// Haven's explicit biome profile is birch-only. The old
+        /// WAREBORN_TREE_SPECIES=1 experiment cycled every known wood across one
+        /// starter island, producing the random assortment the biome should not have.
+        /// Keep the generic variation machinery available to tests/future islands,
+        /// but never apply it to Haven's production registry.
+        /// </summary>
+        private static bool VaryTreeSpecies => false;
+
+        /// <summary>
+        /// Whether to lodge an ATLAS SHARD in the proven deposit - the real retail
+        /// acquisition object. ON unless WAREBORN_SPAWN_ATLAS=0, and only takes effect
+        /// when <see cref="SpawnDeposit"/> is on (a shard needs a live host core to
+        /// render and be mined loose). AfterPlayer and inert until its core is
+        /// destroyed, so it cannot delay or break a spawn; and its grant is a no-op
+        /// until the pending retail itemTypeId is recovered (AtlasShardCatalogue.
+        /// ItemTypeId), so it can never mis-grant. See findings-atlas-shards.md.
+        /// </summary>
+        private static bool SpawnAtlasShard =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_ATLAS") != "0";
+
+        /// <summary>
+        /// Whether to place the FUEL PODS - the gatherable "fuel" crafting material.
+        /// ON unless WAREBORN_SPAWN_FUELPODS=0. Independent of the deposit/atlas
+        /// spawns: a fuel pod is host-less (carries only 2102, no host core), so it
+        /// needs no deposit. AfterPlayer and it grants the real, already-shipping
+        /// "fuel" item, so it can neither delay a spawn nor mis-grant. See
+        /// docs/research/findings-combustion-fuel.md.
+        /// </summary>
+        private static bool SpawnFuelPods =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_FUELPODS") != "0";
 
         /// <summary>
         /// Whether to place the scannable DATABANK that feeds the KNOWLEDGE loop.
@@ -1463,6 +2757,17 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool RecogniseShip =>
             Environment.GetEnvironmentVariable("WAREBORN_SHIP_RECOGNISE") != "0";
+
+        /// <summary>
+        /// Whether to spawn the STATIC test ship (hull + helm + deck) near the
+        /// shipyard - the pre-shipbuilding development rig. OFF unless
+        /// WAREBORN_STATIC_SHIP=1: players now build and fly their own ships, and
+        /// a second helm-bearing hull 50 m from the shipyard reads as a bug (it
+        /// confused the ship-orientation investigation as "hull 22"). Opt-IN to
+        /// bring it back for A/B tests against a known-good static rig.
+        /// </summary>
+        private static bool SpawnStaticShip =>
+            Environment.GetEnvironmentVariable("WAREBORN_STATIC_SHIP") == "1";
 
         /// <summary>
         /// The island's entity id, or null if it has not been handed out yet.
@@ -1595,99 +2900,35 @@ namespace WorldsAdriftRebornGameServer
 
                 Console.WriteLine("[info] successfully serialized and queued AddEntityOp for world entity '"
                     + entity.Key + "' (" + entityId + ").");
+                SentEntities.MarkSent(peer, entityId);
+                ResourceInterest.NoteLoaded(peer, entityId);
+                TerrainInterest?.NoteLoaded(peer, entityId);
 
-                // A tree becomes harvestable the moment it has an entity id, which
-                // is here and only here. Keyed on the ASSET so a second registration
-                // of the same prefab is planted too, and idempotent so the second
-                // player walking this same step does not stand the tree back up:
-                // every client walks the identical plan, but there is one tree.
-                if (entity.AssetName == Multiplayer.Trees.AssetName
-                    && Harvest.Plant(entityId, Multiplayer.Trees.Topology(), Multiplayer.Trees.WoodType))
-                {
-                    Console.WriteLine("[info] planted '" + entity.Key + "' as entity " + entityId
-                        + ": " + Multiplayer.Trees.SectionCount + " sections, mask "
-                        + Convert.ToString(Multiplayer.Trees.FullSectionMask, 2)
-                        + ", " + Multiplayer.Trees.WoodType + ".");
-                }
+                // Visibility and authority are deliberately independent. With
+                // spatial interest disabled this is the legacy first-activation
+                // seam; with it enabled startup has already activated every bound
+                // resource and this idempotent call is a no-op.
+                WorldResources.Activate(entity, entityId);
 
-                // A metal node becomes an entry in the harvest ledger the moment it
-                // has an entity id - the same seam as the tree above. Keyed on the
-                // registration key so its metal type and future depletion state ride
-                // with it, and idempotent (Register returns false on re-registration)
-                // so the second joiner walking this identical step does not stand a
-                // depleted node back up: every client walks the same plan, but there
-                // is one node.
-                if (entity.AssetName == Multiplayer.MetalNodes.AssetName)
+                // A restored/served BUILT HULL that is docked to a shipyard: replay a LIVE 1205
+                // DockedShipId update to this peer now that the hull exists on its client
+                // (findings-mount-placement.md section 1). The shipyard's 1205 SEED already
+                // carries the right DockedShipId, but ShipyardVisualizer only fires
+                // OnDockedShipChanged on a FUTURE DockedShipIdUpdated event - never from the
+                // initial seed value - so without this live update Shipyard.DockedShip stays
+                // null after a reconnect/restart and the docked ship's deck is never a valid
+                // placement surface. The shipyard is registered before its ship (deployables
+                // precede built ships in both the restore and the spawn order), so it is
+                // already on this client; mirrors the runtime build path's PushDockedShipId.
+                if (Game.Crafting.BuiltShips.IsBuiltHull(entityId))
                 {
-                    Multiplayer.MetalNode? metalNode = Multiplayer.MetalNodes.ByKey(entity.Key);
-                    if (metalNode != null && Nodes.Register(entityId, metalNode))
+                    long dockedShipyardId = Game.Crafting.BuiltShips.ShipyardForHull(entityId);
+                    if (dockedShipyardId != 0)
                     {
-                        // Teach the yield table what this metal grants, exactly as
-                        // wood is pre-registered from Trees.WoodType. The metal type
-                        // string is the source key AND the itemTypeId (a real row in
-                        // itemData.json - iron, aluminium, copper... - so the client
-                        // can look it up); one item per unit, and MetalHarvest below
-                        // decides the unit count. Register is idempotent, so the many
-                        // "iron" nodes all resolving to the same rule is harmless.
-                        Game.Gathering.HarvestReward.Register(
-                            metalNode.MetalType,
-                            new Multiplayer.Gathering.YieldRule(metalNode.MetalType, amountPerUnit: 1));
-
-                        // And make it shootable: the same spawn seam as the ledger
-                        // above, idempotent for the same reason (one node, every
-                        // joiner walks this step).
-                        MetalHarvest.Place(entityId, Multiplayer.MetalNodes.NuggetYieldUnits);
-
-                        Console.WriteLine("[info] placed metal node '" + entity.Key + "' as entity "
-                            + entityId + ": " + metalNode.MetalType + " q" + metalNode.Quality
-                            + " at " + metalNode.Position + " (" + Multiplayer.MetalNodes.NuggetShotsToDeplete
-                            + " shots -> " + Multiplayer.MetalNodes.NuggetYieldUnits + " units).");
-                    }
-                }
-
-                // An anchored metal DEPOSIT becomes an entry in the SAME ledgers the
-                // moment it has an entity id - the identical seam as the nugget above,
-                // and it shares the NodeRegistry (which carries the crust shotPoints)
-                // and the MetalHarvest shot counter. What differs is the DEPLETION
-                // SIZING (ten shots, richer yield) and the fact that it is a DEPOSIT
-                // (MetalNode.IsDeposit true), which OnSalvageShot and ComponentsSerializer
-                // branch on to run the crust/core loop instead of the nugget sink.
-                // Idempotent (Register/Place return false on re-registration) so the
-                // second joiner walking this same step cannot refill a mined-out core.
-                if (entity.AssetName == Multiplayer.MetalDeposits.AssetName)
-                {
-                    Multiplayer.MetalNode? deposit = Multiplayer.MetalDeposits.ByKey(entity.Key);
-                    if (deposit != null && Nodes.Register(entityId, deposit))
-                    {
-                        Game.Gathering.HarvestReward.Register(
-                            deposit.MetalType,
-                            new Multiplayer.Gathering.YieldRule(deposit.MetalType, amountPerUnit: 1));
-
-                        MetalHarvest.Place(entityId,
-                            Multiplayer.MetalDeposits.YieldUnits,
-                            shotsToDeplete: Multiplayer.MetalDeposits.ShotsToDeplete);
-
-                        Console.WriteLine("[info] placed metal DEPOSIT '" + entity.Key + "' as entity "
-                            + entityId + ": " + deposit.MetalType + " q" + deposit.Quality
-                            + " variant '" + deposit.VariantId + "' at " + deposit.Position
-                            + " (" + Multiplayer.MetalDeposits.ShotsToDeplete + " shots -> "
-                            + Multiplayer.MetalDeposits.YieldUnits + " units).");
-                    }
-                }
-
-                // A scannable DATABANK becomes an entry in the DatabankLedger the moment
-                // it has an entity id - the same spawn seam as the deposit above. The
-                // 2107 scan handler consults the ledger to decide a ScanEntityEvent
-                // target is worth knowledge and how much. Idempotent, so a second joiner
-                // walking this same step cannot double-register it.
-                if (entity.AssetName == Multiplayer.Databanks.AssetName)
-                {
-                    if (Multiplayer.DatabankLedger.Register(entityId, Multiplayer.Databanks.GrantAmount,
-                            Multiplayer.Databanks.NoteTitle, Multiplayer.Databanks.NoteDescription))
-                    {
-                        Console.WriteLine("[info] placed scannable DATABANK '" + entity.Key + "' as entity "
-                            + entityId + " at " + entity.Position + " (scan grants "
-                            + Multiplayer.Databanks.GrantAmount + " knowledge).");
+                        Game.Crafting.BuiltShipSpawner.PushDockedShipId(peer, dockedShipyardId, entityId);
+                        Console.WriteLine("[info] connect: replayed live 1205 DockedShipId=" + entityId
+                            + " to a peer for shipyard " + dockedShipyardId
+                            + " so OnDockedShipChanged fires and its deck becomes a placement surface.");
                     }
                 }
 
@@ -1749,6 +2990,105 @@ namespace WorldsAdriftRebornGameServer
                 }
                 ServedComponents.MarkServed(peer, entityId, seedServed);
             };
+        }
+
+        /// <summary>
+        /// Snapshot player-made entities registered after the process-wide boot plan
+        /// was built. Runtime placement/build broadcasts reach peers which are already
+        /// present, but without this pass a later joiner can only see entities restored
+        /// before boot. The AddEntity send ledger is the duplicate guard: a placement
+        /// broadcast while this peer was still loading is recorded immediately, even
+        /// before the client asks for components, and therefore is not sent twice.
+        /// </summary>
+        private static void PrepareRuntimeEntityCatchup(ENetPeerHandle peer, PlayerSyncStatus status)
+        {
+            if (status.RuntimeCatchupInitialized)
+            {
+                return;
+            }
+
+            Queue<WorldEntity> pending = new Queue<WorldEntity>();
+            foreach (WorldEntity entity in WorldEntities.Registrations)
+            {
+                long? entityId = WorldEntities.BoundEntityIdFor(entity.Key);
+                bool retired = entityId.HasValue
+                    && entity.Key.StartsWith("placed-", StringComparison.Ordinal)
+                    && Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId.Value);
+                if (!RuntimeEntityCatchupPolicy.ShouldQueue(
+                        entity.Key,
+                        isBound: WorldEntities.IsBound(entity),
+                        addEntityAlreadySent: entityId.HasValue && SentEntities.WasSent(peer, entityId.Value),
+                        retired: retired,
+                        shipDomainManaged: Multiplayer.Ship.BuiltShipPlacement.IsBuiltShipEntityKey(entity.Key)
+                            || (entityId.HasValue && Game.Crafting.MountedParts.Is(entityId.Value))))
+                {
+                    continue;
+                }
+
+                if (entityId.HasValue)
+                {
+                    pending.Enqueue(entity);
+                }
+            }
+
+            status.RuntimeCatchupQueue = pending;
+            // Leave one frame budget after the boot plan's final entity before
+            // beginning the post-boot tail; the final AddEntity is sent, not yet
+            // known to have finished instantiating, when this method is called.
+            status.RuntimeCatchupNextAt = ServerClock.Elapsed + RuntimeCatchupInterval;
+            status.RuntimeCatchupInitialized = true;
+
+            Console.WriteLine("[runtime-catchup] late joiner has " + pending.Count
+                + " post-boot player-made entit" + (pending.Count == 1 ? "y" : "ies")
+                + " to receive (paced at one every " + RuntimeCatchupInterval.TotalMilliseconds.ToString("0") + " ms).");
+        }
+
+        /// <summary>Send at most one queued runtime entity on this loop turn.</summary>
+        private static void DrainRuntimeEntityCatchup(ENetPeerHandle peer, PlayerSyncStatus status)
+        {
+            Queue<WorldEntity>? pending = status.RuntimeCatchupQueue;
+            if (pending == null || pending.Count == 0 || ServerClock.Elapsed < status.RuntimeCatchupNextAt)
+            {
+                return;
+            }
+
+            while (pending.Count > 0)
+            {
+                WorldEntity queued = pending.Dequeue();
+                // It may have been salvaged or relocated after the snapshot was
+                // prepared. Resolve by key again so a moving ship is seeded at its
+                // latest authoritative pose, never the position captured seconds ago.
+                WorldEntity? entity = WorldEntities.ByKey(queued.Key);
+                if (entity == null)
+                {
+                    continue;
+                }
+
+                long? entityId = WorldEntities.BoundEntityIdFor(entity.Key);
+                bool retired = entityId.HasValue
+                    && entity.Key.StartsWith("placed-", StringComparison.Ordinal)
+                    && Multiplayer.Placement.StationPickupLedger.Shared.IsPickedUp(entityId.Value);
+                if (!entityId.HasValue
+                    || !RuntimeEntityCatchupPolicy.ShouldQueue(
+                        entity.Key, isBound: true,
+                        addEntityAlreadySent: SentEntities.WasSent(peer, entityId.Value),
+                        retired: retired,
+                        shipDomainManaged: Multiplayer.Ship.BuiltShipPlacement.IsBuiltShipEntityKey(entity.Key)
+                            || Game.Crafting.MountedParts.Is(entityId.Value)))
+                {
+                    continue;
+                }
+
+                // The runtime spawn path uses this same proven sequence. Client boot
+                // precache covers these prefabs; pacing prevents generated deck work
+                // from landing in one frame.
+                RequestWorldEntityAsset(entity)(peer);
+                AddWorldEntity(entity)(peer);
+                status.RuntimeCatchupNextAt = ServerClock.Elapsed + RuntimeCatchupInterval;
+                Console.WriteLine("[runtime-catchup] sent '" + entity.Key + "' (" + entityId.Value
+                    + ") to late joiner; " + pending.Count + " remaining.");
+                return;
+            }
         }
 
         private static Action<object> AddPlayerEntity()
@@ -1871,6 +3211,22 @@ namespace WorldsAdriftRebornGameServer
             if (packet->Channel == (int)EnetLayer.ENetChannel.ASSET_LOAD_REQUEST_OP)
             {
                 FlushPendingMirrors(PeerIdentity.IdOf(sender));
+
+                // New clients return the exact AssetType/Name/Context in a
+                // marked protobuf response. Runtime loaders need that
+                // correlation; the spawn chain above deliberately retains its
+                // legacy behavior for old clients' opaque eight-byte response.
+                if (EnetLayer.TryDeserializeAssetLoadedAck(packet->Data,
+                        packet->DataLength, out string assetType,
+                        out string assetName, out string assetContext))
+                {
+                    AssetLoadedAck ack = new(senderId, assetType, assetName, assetContext);
+                    foreach (Exception error in AssetLoadedAckRouter.Publish(ack))
+                    {
+                        Console.WriteLine("[warning] correlated asset-loaded subscriber failed for '"
+                            + assetName + "': " + error.Message);
+                    }
+                }
             }
 
             // work on packets that are not relevant for progress of sync state
@@ -1929,14 +3285,36 @@ namespace WorldsAdriftRebornGameServer
                                 new Structs.Structs.InterestOverride(1207, 1)
                             };
 
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true))
+                            // Ledger-gated like every other AddComponent in this handler:
+                            // 1207 also rides in ShipBuildUiInjectedComponents below, and an
+                            // aborted setup retries this whole branch - both would re-ADD
+                            // these two without the mark. (duplicate-TransformState sweep)
+                            List<uint> earlyServed = new List<uint>();
+                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injectedEarly, true, earlyServed))
                             {
                                 continue;
                             }
+                            ServedComponents.MarkServed(keyValuePair.Key, entityId, earlyServed);
 
-                            // then send what the game requested
+                            // then send what the game requested - filtered through the
+                            // ledger so a retried setup (any later send in this branch
+                            // 'continue's out and the client re-asks) does not re-ADD the
+                            // components that already hit the wire on the first attempt.
+                            List<uint> stageOneIds = new List<uint>((int)interestCount);
+                            for (int si = 0; si < interestCount; si++)
+                            {
+                                stageOneIds.Add(interests[si].ComponentId);
+                            }
+                            IReadOnlyList<uint> stageOneUnserved =
+                                ServedComponents.UnservedOf(keyValuePair.Key, entityId, stageOneIds);
+                            List<Structs.Structs.InterestOverride> stageOne =
+                                new List<Structs.Structs.InterestOverride>(stageOneUnserved.Count);
+                            foreach (uint stageOneId in stageOneUnserved)
+                            {
+                                stageOne.Add(new Structs.Structs.InterestOverride(stageOneId, 1));
+                            }
                             List<uint> setupServed = new List<uint>();
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, interests, interestCount, true, setupServed))
+                            if (stageOne.Count > 0 && !SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, stageOne, true, setupServed))
                             {
                                 continue;
                             }
@@ -1977,24 +3355,96 @@ namespace WorldsAdriftRebornGameServer
                                 // component map for their handlers. 1070+1239 are also granted.
                                 injectedIds.AddRange(MirrorSendPolicy.PartMountInjectedComponents);
                             }
+                            if (Game.ShipFlightService.Enabled)
+                            {
+                                // Helm flight: 1111 + 1112 (both also granted above) so
+                                // ShipControlsBehaviour's [Require] writers bind and the
+                                // player's inbound 1111 updates are in the ComponentMap for
+                                // ShipControlInput_Handler to receive. See MirrorSendPolicy
+                                // .ShipFlightInjectedComponents.
+                                injectedIds.AddRange(MirrorSendPolicy.ShipFlightInjectedComponents);
+                            }
 
-                            List<Structs.Structs.InterestOverride> injected = injectedIds
-                                .Select(p => new Structs.Structs.InterestOverride(p, 1))
-                                .ToList();
+                            // LOADING BARRIER (WAREBORN_LOAD_BARRIER=1). Inject the three
+                            // barrier components with the rest of the atomic setup batch so
+                            // they are guaranteed present before activation is decided:
+                            //   190000 EntityLoadingControl  - server-owned, seeded Requested
+                            //          + the initial entity-id list (ComponentsSerializer);
+                            //   190001 EntityLoadingResponse - the client's readiness writer,
+                            //          seeded false and GRANTED below so its writer enables;
+                            //   190002 Activated             - server-owned, seeded IsActive
+                            //          FALSE so the loading screen stays up until we release it.
+                            // These seeds are trivial and always serialize, so folding them
+                            // into the fatal batch adds no real failure risk while keeping the
+                            // "all present or no spawn" atomicity the rest of setup relies on.
+                            List<uint> authNow = authoritativeComponents;
+                            if (Game.LoadBarrier.Enabled)
+                            {
+                                injectedIds.Add(190000);
+                                injectedIds.Add(190001);
+                                injectedIds.Add(190002);
+                                // Only 190001 becomes client-authoritative; 190000/190002 stay
+                                // server-owned readers on the client.
+                                authNow = authoritativeComponents.Concat(new uint[] { 190001 }).ToList();
+                            }
 
-                            if (!SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true))
+                            // DUPLICATE-TRANSFORMSTATE FIX. InjectedComponents includes the
+                            // authoritative set, and the authoritative set includes 190602
+                            // TransformState - which the client ALSO requests for every
+                            // entity it checks out, its own included. Sending this batch
+                            // unfiltered re-ADDs 190602 whenever stage 1 already served it;
+                            // and leaving it unmarked let the client's later re-declared
+                            // interest (the else branch below) re-ADD it AGAIN. Each re-add
+                            // is not just the "Component TransformState added to entity N,
+                            // but it already exists" line in the client log - the serializer
+                            // re-seeds TransformState from TransformSeedFor(), which for a
+                            // player entity is the SPAWN position, i.e. a silent yank back
+                            // to spawn. So: serve only what this peer has not been given,
+                            // and mark EVERYTHING that hit the wire - not the old 3-id
+                            // barrier subset. (The old comment's "the client never requests
+                            // them, so they are never re-added" was false for 190602.) The
+                            // barrier ids 190000/190001/190002 keep the exact protection the
+                            // old code gave them; they are simply no longer the only ones.
+                            IReadOnlyList<uint> injectedUnserved =
+                                ServedComponents.UnservedOf(keyValuePair.Key, entityId, injectedIds);
+                            List<Structs.Structs.InterestOverride> injected =
+                                new List<Structs.Structs.InterestOverride>(injectedUnserved.Count);
+                            foreach (uint injectedId in injectedUnserved)
+                            {
+                                injected.Add(new Structs.Structs.InterestOverride(injectedId, 1));
+                            }
+
+                            List<uint> injectedServed = new List<uint>();
+                            if (injected.Count > 0 && !SendOPHelper.SendAddComponentOp(keyValuePair.Key, entityId, injected, true, injectedServed))
                             {
                                 continue;
                             }
+                            ServedComponents.MarkServed(keyValuePair.Key, entityId, injectedServed);
 
                             // now send auth change
-                            if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authoritativeComponents))
+                            if(!SendOPHelper.SendAuthorityChangeOp(keyValuePair.Key, entityId, authNow))
                             {
                                 continue;
                             }
 
                             // now add player to clientSetupState
                             PeerManager.Instance.clientSetupState.Add(keyValuePair.Key);
+
+                            // Arm the loading barrier for this peer: it is now holding the
+                            // loading screen (190002 IsActive=false) until its
+                            // BossaEntityLoadingChecker publishes 190001 Loaded=true for the
+                            // initial set, or the timeout sweep releases it. Armed AFTER the
+                            // atomic setup succeeded, so a peer we could not fully set up is
+                            // never left waiting on a barrier that will not resolve.
+                            if (Game.LoadBarrier.Enabled)
+                            {
+                                LoadBarriers.Arm(PeerIdentity.IdOf(keyValuePair.Key),
+                                    ServerClock.Elapsed + Game.LoadBarrier.Timeout);
+                                Console.WriteLine("[load-barrier] armed " + Describe(keyValuePair.Key.DangerousGetHandle())
+                                    + " entity " + entityId + "; holding the loading screen for up to "
+                                    + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0")
+                                    + " s or until 190001 Loaded=true.");
+                            }
 
                             // Teleport last, and on its own. 190607 is the third
                             // [Require] of TeleportTransformVisualizer and the client does
@@ -2009,6 +3459,22 @@ namespace WorldsAdriftRebornGameServer
                         }
                         else
                         {
+                            // Cross-channel lifecycle guard. RemoveEntity travels on
+                            // channel 5 while interest requests arrive on channel 2, so
+                            // an already-in-flight request may reach us after unload.
+                            // Never re-seed a streamed resource unless this peer's
+                            // authoritative checkout still says it is loaded. Essential
+                            // entities and interest-disabled mode fail open.
+                            if (!ResourceInterest.MayServe(keyValuePair.Key, entityId)
+                                || !ShipInterest.MayServe(keyValuePair.Key, entityId)
+                                || !(TerrainInterest?.MayServe(keyValuePair.Key, entityId) ?? true))
+                            {
+                                Console.WriteLine("[interest] ignored late component request for unloaded streamed"
+                                    + " entity " + entityId + " from "
+                                    + Describe(keyValuePair.Key.DangerousGetHandle()) + ".");
+                                continue;
+                            }
+
                             // BEST EFFORT, DELIBERATELY - this is the only interest
                             // send that is not first-time setup, and it is the one a
                             // client makes when it asks about ANOTHER entity.
@@ -2055,6 +3521,20 @@ namespace WorldsAdriftRebornGameServer
                             // given for this entity; component VALUE updates are
                             // unaffected because they travel on COMPONENT_UPDATE_OP, a
                             // different channel, not this AddComponent path.
+                            // ISLAND RESOURCE HANDSHAKE. When a peer checks the island
+                            // out, serve it 1010+1011, grant 1011 authority and raise the
+                            // SpawnResources request (one-time per peer, gated by
+                            // WAREBORN_METAL_HANDSHAKE). Done BEFORE the best-effort serve
+                            // below and marked served, so the client's own 1010/1011
+                            // interest is deduped rather than re-added. A no-op for any
+                            // non-island entity or when the handshake is off.
+                            IReadOnlyList<uint> handshakeServed =
+                                Game.Gathering.IslandResourceService.OnIslandInterest(keyValuePair.Key, entityId);
+                            if (handshakeServed.Count > 0)
+                            {
+                                ServedComponents.MarkServed(keyValuePair.Key, entityId, new List<uint>(handshakeServed));
+                            }
+
                             List<uint> requestedIds = new List<uint>((int)interestCount);
                             for (int ii = 0; ii < interestCount; ii++)
                             {
@@ -2130,8 +3610,41 @@ namespace WorldsAdriftRebornGameServer
             EnetLayer.ENet_Destroy_Packet(new IntPtr(packet));
         }
 
+        // Native-library resolvers for running the game server directly on Linux
+        // .NET. Under Windows/Wine the stock CoreSdkDll.dll and msvcrt resolve in
+        // the normal way, so this is deliberately inert there. The legacy Worker
+        // SDK imports msvcrt.dll!memcpy and CoreSdkDll from its own assembly; on
+        // Linux those map to glibc and the native shim staged beside this server.
+        // Install before ENet or generated-component serialization touches either.
+        private static bool nativeResolverInstalled;
+        private static void InstallNativeLibraryResolvers()
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) || nativeResolverInstalled)
+            {
+                return;
+            }
+            nativeResolverInstalled = true;
+
+            NativeLibrary.SetDllImportResolver(typeof(ComponentProtocol).Assembly,
+                (name, assembly, searchPath) =>
+                {
+                    if (name.StartsWith("msvcrt", StringComparison.OrdinalIgnoreCase))
+                    {
+                        return NativeLibrary.Load("libc.so.6");
+                    }
+                    if (name == "CoreSdkDll")
+                    {
+                        return NativeLibrary.Load("libCoreSdkDll.so",
+                            typeof(EnetLayer).Assembly, DllImportSearchPath.AssemblyDirectory);
+                    }
+                    return IntPtr.Zero;
+                });
+        }
+
         static unsafe void Main( string[] args )
         {
+            InstallNativeLibraryResolvers();
+
             Console.CancelKeyPress += delegate ( object? sender, ConsoleCancelEventArgs e )
             {
                 keepRunning = false;
@@ -2155,7 +3668,7 @@ namespace WorldsAdriftRebornGameServer
             }
             Console.WriteLine("[info] game server listening on UDP " + gamePort + ".");
 
-            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, 5, 0, 0);
+            ENetHostHandle server = EnetLayer.ENet_Create_Host(gamePort, MaxPlayers, 6, 0, 0);
 
             if (server.IsInvalid)
             {
@@ -2173,6 +3686,12 @@ namespace WorldsAdriftRebornGameServer
             // wrong thing.
             Game.Inventory.InventoryService.ReportPersistenceState();
             Game.Knowledge.ProgressionService.ReportPersistenceState();
+
+            // Said once, at start-up, because "where did the ore come from" is the
+            // question this deploy exists to answer and the operator reads the log to
+            // answer it. One line: which path is primary, how many, how wide the
+            // coordinate guard is, and when the fallback would take over.
+            Game.Gathering.IslandResourceService.ReportConfiguration();
 
             // Said once so the operator knows where the dashboard's live data
             // comes from and can point the login server at the same file if the
@@ -2228,6 +3747,18 @@ namespace WorldsAdriftRebornGameServer
             // before SpawnPlan.For, and does: this is the last thing before it.
             Game.Persistence.WorldStatePersistence.RestoreOnBoot(Placement);
 
+            // Spatial interest binds static resource ids before any peer connects,
+            // then may skip their connect-time plan steps when they are out of
+            // range. Activate their WORLD gameplay now: later AddEntity/RemoveEntity
+            // operations change visibility only. Registration order keeps deposits
+            // before their lodged atlas shards.
+            if (ResourceInterest.Enabled)
+            {
+                int activatedResources = WorldResources.ActivateBoundResources();
+                Console.WriteLine("[world-resource] activated " + activatedResources
+                    + " boot resource entities independently of per-peer visibility.");
+            }
+
             // define initial world state for first chunk
             //
             // Built FROM SpawnPlan - i.e. derived from what is REGISTERED -
@@ -2248,39 +3779,272 @@ namespace WorldsAdriftRebornGameServer
             // The plan is computed ONCE, not per peer, so every client walks an
             // identical sequence and every world entity's id is allocated by
             // whichever client reaches its step first and then reused verbatim.
-            IReadOnlyList<SpawnPlanStep> plan = SpawnPlan.For(WorldEntities);
+            // LOADING BARRIER (WAREBORN_LOAD_BARRIER=1). When armed, bind every world
+            // entity id now - so the initial set can be NAMED in 190000 before those
+            // entities' AddEntity steps run - and order the plan so the initial set
+            // (island + ship + parts) streams BEFORE the distant scenery, so the
+            // barrier is not stuck behind every tree in the pacer. When off, this is
+            // exactly the registration-order plan the server has always produced.
+            bool IsMountedShipPart(WorldEntity entity) =>
+                Game.Crafting.MountedParts.Is(WorldEntities.EntityIdFor(entity));
+
+            long? ShipHullFor(WorldEntity entity)
+            {
+                long entityId = WorldEntities.EntityIdFor(entity);
+                Game.Crafting.MountedParts.Mount? mount =
+                    Game.Crafting.MountedParts.MountFor(entityId);
+                if (mount != null) return mount.Value.HullEntityId;
+                if (Game.Crafting.BuiltShips.IsBuiltHull(entityId)) return entityId;
+                return Game.Crafting.BuiltShips.HullForDeck(entityId);
+            }
+
+            // Every member of one ship domain is range-tested against the ROOT's
+            // current persisted transform. Testing child seed positions separately
+            // could split a hull from a deck exactly at the radius boundary.
+            Multiplayer.FixedPointPosition ConnectGatePosition(WorldEntity entity)
+            {
+                long? hullEntityId = ShipHullFor(entity);
+                return hullEntityId != null
+                    ? WorldEntities.TransformSeedFor(hullEntityId.Value)
+                    : entity.Position;
+            }
+
+            bool BarrierInitial(WorldEntity entity) =>
+                Multiplayer.Islands.IslandTerrainConnectPolicy.IsInitial(
+                    ConnectInterestPolicy.IsInitial(
+                    entity.Key,
+                    IsMountedShipPart(entity),
+                    LoadBarrierPolicy.IsInitialKey(entity.Key),
+                    ResourceInterest.Enabled,
+                    SpawnPolicy.PlayerSpawnPosition,
+                    ConnectGatePosition(entity),
+                    Game.Interest.InitialRadiusMetres,
+                    ShipInterest.LoadRadiusMetres),
+                    Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                        TerrainInterestFeatureEnabled,
+                        IslandTopology.ByWorldEntityKey(entity.Key)),
+                    SpawnPolicy.PlayerSpawnPosition,
+                    IslandTopology.ByWorldEntityKey(entity.Key),
+                    TerrainInterestLoadRadius);
+
+            IReadOnlyList<SpawnPlanStep> plan;
+            if (Game.LoadBarrier.Enabled)
+            {
+                Game.LoadBarrier.Prime(WorldEntities, BarrierInitial);
+                plan = SpawnPlan.For(WorldEntities, key =>
+                {
+                    WorldEntity? entity = WorldEntities.ByKey(key);
+                    return entity != null && BarrierInitial(entity);
+                });
+
+                Console.WriteLine("[load-barrier] ON (WAREBORN_LOAD_BARRIER=1). Loading screen is held via"
+                    + " 190000/190001/190002 until the initial set is ready, timeout "
+                    + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0") + " s.");
+                Console.WriteLine("[load-barrier] initial set (" + Game.LoadBarrier.InitialKeys.Count
+                    + ", gates the loading screen): " + string.Join(", ", Game.LoadBarrier.InitialKeys));
+                Console.WriteLine("[load-barrier] streamed after spawn (" + Game.LoadBarrier.DistantKeys.Count
+                    + ", does not gate): " + string.Join(", ", Game.LoadBarrier.DistantKeys));
+            }
+            else
+            {
+                plan = SpawnPlan.For(WorldEntities);
+                Console.WriteLine("[load-barrier] OFF (set WAREBORN_LOAD_BARRIER=1 to hold the loading screen"
+                    + " until the initial world set is ready).");
+            }
 
             Console.WriteLine("[info] spawn plan (" + plan.Count + " steps): "
                 + string.Join(" -> ", plan.Select(s => s.ToString())));
 
+            if (FirstRegionTerrainCount > 0)
+            {
+                Console.WriteLine("[first-region] TERRAIN TEST enabled: count="
+                    + FirstRegionTerrainCount + ", region="
+                    + Multiplayer.Regions.RegionCatalog.FirstTierOneRegionId + ", islands="
+                    + string.Join(", ", Multiplayer.Islands.IslandCatalog.FirstRegionTerrain
+                        .Skip(1).Take(FirstRegionTerrainCount).Select(island => island.DisplayName))
+                    + ". Terrain only; no candidate resource profiles. Continuous terrain interest is "
+                    + (TerrainInterestFeatureEnabled ? "ON" : "OFF")
+                    + ". Not a production-acceptance claim.");
+            }
+
+            // ELASTIC-RUNTIME FOUNDATION. Build the canonical ownership directory
+            // only after restore + SpawnPlan have bound every boot entity id, so
+            // mounted loose parts can be associated with their hull roots. Phase 3
+            // lets resource candidate selection consume region ownership; spawn,
+            // persistence and ship authority remain on their existing paths.
+            Multiplayer.Regions.WorldDirectory worldDirectory =
+                Game.WorldDirectoryDiagnostics.BuildAndLog(
+                    WorldEntities, IslandTopology, RegionTopology);
+            ResourceInterest.AttachDirectory(worldDirectory);
+            Game.LocalDomainOwnership.Bootstrap(
+                DomainHost, worldDirectory, WorldEntities, ShipDomains,
+                IslandTopology, RegionTopology);
+            TerrainInterest = new Game.IslandTerrainInterestService(
+                ServerClock, WorldEntities, IslandTopology, worldDirectory,
+                ResourceInterest.DrainIslandBeforeTerrainRemoval,
+                entityId => DomainHost.OwnerOf(entityId) != null,
+                enabled: TerrainInterestFeatureEnabled);
+            if (TerrainInterest.Enabled)
+            {
+                ResourceInterest.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
+                Console.WriteLine("[terrain-interest] ON: optional island terrain uses "
+                    + TerrainInterest.LoadRadiusMetres.ToString("0.#") + " m load / "
+                    + TerrainInterest.UnloadRadiusMetres.ToString("0.#")
+                    + " m unload hysteresis; resource checkout is terrain-gated.");
+                Console.WriteLine("[island-shell] distant non-physical island visuals: "
+                    + (TerrainInterest.DistantShellsEnabled ? "ON" : "OFF") + ".");
+            }
+            else if (Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledEnvVar))
+                && !ResourceInterest.Enabled)
+            {
+                Console.WriteLine("[warning] terrain-interest requested but safely disabled:"
+                    + " WAREBORN_INTEREST_RADIUS_M must also enable resource interest so"
+                    + " resources can never outlive their terrain.");
+            }
+
             GameState.Instance.WorldState[0] = plan
-                .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step)))
+                .Select(step => new SyncStep(RequirementFor(step.Ack), ActionFor(step), () =>
+                    step.Entity != null && WorldEntities.ByKey(step.Entity.Key) == null))
                 .ToList();
 
-            // Which plan steps are PACED: the RequestAsset that BEGINS each
-            // AfterPlayer world entity. Its AddEntity is not paced - it follows on
-            // the client's ack, unchanged. The player's own avatar (Entity == null)
-            // and every BeforePlayer entity (the ground) are never paced: they gate
-            // the loading screen and must go out immediately. Parallel to the
-            // WorldState list so the perform loop can index it by SyncStepPointer.
+            // Human-readable step names, parallel to the WorldState list, so the
+            // ack-timeout and interest logs can say WHICH entity they acted on
+            // instead of a bare index.
+            string[] stepDesc = plan.Select(s => s.ToString()).ToArray();
+
+            // SPAWN-CHAIN ACK TIMEOUT (WAREBORN_SPAWN_ACK_TIMEOUT_MS, clamped,
+            // never off). The chain advances on client acks; before this net, ONE
+            // ack that never arrived parked a joining peer's chain forever and
+            // every entity behind the stuck step was silently never delivered
+            // (live 2026-08-12: chain parked at 'global', the restored stations
+            // never reached the client). Advancing past a dead RequestAsset is
+            // safe because the client mod's synchronous rescue loads the prefab at
+            // AddEntity time; see SpawnAckTimeoutPolicy for the full argument.
+            TimeSpan spawnAckTimeout = SpawnAckTimeoutPolicy.TimeoutFrom(
+                Environment.GetEnvironmentVariable(SpawnAckTimeoutPolicy.TimeoutEnvVar));
+            Console.WriteLine("[spawn-chain] ack timeout: " + spawnAckTimeout.TotalMilliseconds.ToString("0")
+                + " ms per step (" + SpawnAckTimeoutPolicy.TimeoutEnvVar + " to tune; it cannot be disabled -"
+                + " a lost ack costs one pause, never the rest of the plan).");
+
+            // Which plan steps are PACED: the AddEntity that INSTANTIATES each
+            // distant AfterPlayer world entity on the client's main thread - the op a
+            // joiner was measured receiving in a burst (17/s). Pacing AddEntity, not
+            // RequestAsset, is what actually throttles instantiation: a client with the
+            // bundle cached acks the asset load instantly, so the old RequestAsset pace
+            // never held the AddEntity back. The player's own avatar (Entity == null)
+            // and the BeforePlayer ground are never paced (they gate the loading
+            // screen); when the barrier holds the initial set (island, ship, and the
+            // nearby built-ship domains folded into it) that set streams at full speed
+            // BEHIND the loading screen. Remote ships are skipped completely and the
+            // live whole-domain interest service checks them out only on approach.
+            // Parallel to the WorldState list so the perform loop can index it by
+            // SyncStepPointer. See SpawnPacePolicy.PacesInstantiation.
+            bool barrierHoldsInitialSet = Game.LoadBarrier.Enabled;
             bool[] pacedStep = plan
-                .Select(s => s.Op == SpawnOp.RequestAsset
-                             && s.Entity != null
-                             && s.Entity.Order == SpawnOrder.AfterPlayer)
+                .Select(s => s.Entity != null
+                             && SpawnPacePolicy.PacesInstantiation(
+                                    s.Op,
+                                    s.Entity.Order,
+                                    BarrierInitial(s.Entity),
+                                    barrierHoldsInitialSet))
                 .ToArray();
 
             int pacedCount = pacedStep.Count(p => p);
             if (SpawnPacePolicy.IsEnabled(SpawnPaceInterval))
             {
                 Console.WriteLine("[info] spawn pacing: " + pacedCount
-                    + " AfterPlayer entities released " + SpawnPaceInterval.TotalMilliseconds.ToString("0")
+                    + " distant AfterPlayer entities INSTANTIATED " + SpawnPaceInterval.TotalMilliseconds.ToString("0")
                     + " ms apart (~" + SpawnPacePolicy.StreamDurationFor(pacedCount, SpawnPaceInterval).TotalSeconds.ToString("0.0")
-                    + " s to stream in); player + ground spawn immediately. WAREBORN_SPAWN_PACE_MS=0 disables.");
+                    + " s to stream in); player, ground, and the barrier's nearby initial set are never"
+                    + " paced - they load at full speed"
+                    + (barrierHoldsInitialSet ? " BEHIND the loading screen" : "")
+                    + ". WAREBORN_SPAWN_PACE_MS=0 disables.");
             }
             else
             {
                 Console.WriteLine("[info] spawn pacing: OFF (WAREBORN_SPAWN_PACE_MS=0); "
                     + pacedCount + " AfterPlayer entities drain as fast as the client acks.");
+            }
+
+            // CONNECT-TIME SPATIAL INTEREST. Resources use WAREBORN_INTEREST_RADIUS_M;
+            // complete built-ship domains use WAREBORN_SHIP_INTEREST_RADIUS_M. Both of
+            // an entity's steps (RequestAsset + AddEntity) are marked,
+            // so a peer skips the entity as a unit and is never told to place an asset
+            // it never loaded. The player's own avatar (Entity == null), the ground,
+            // and essential non-spatial entities are never gateable, so they always stream. Parallel
+            // to the WorldState list, like pacedStep, so the perform loop can index
+            // both by SyncStepPointer. gateEntityPos holds each gateable step's world
+            // position; the default (0,0,0) for non-gateable steps is never read (the
+            // gate is only consulted where gatedStep is true). See InterestPolicy.
+            bool[] gatedStep = plan
+                .Select(s => s.Entity != null
+                             && s.Entity.Order == SpawnOrder.AfterPlayer
+                             && (ConnectInterestPolicy.IsGateable(
+                                 s.Entity.Key,
+                                 IsMountedShipPart(s.Entity),
+                                 ResourceInterest.Enabled)
+                                || Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                                    TerrainInterestFeatureEnabled,
+                                    IslandTopology.ByWorldEntityKey(s.Entity.Key))))
+                .ToArray();
+            Multiplayer.Islands.IslandDefinition?[] gateTerrainIsland = plan
+                .Select(s => s.Entity == null ? null
+                    : IslandTopology.ByWorldEntityKey(s.Entity.Key))
+                .ToArray();
+            bool[] terrainGatedStep = gateTerrainIsland
+                .Select(island => Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                    TerrainInterestFeatureEnabled, island))
+                .ToArray();
+            Multiplayer.FixedPointPosition[] gateEntityPos = plan
+                .Select(s => s.Entity != null ? ConnectGatePosition(s.Entity) : default)
+                .ToArray();
+
+            double[] gateRadius = plan
+                .Select(s => s.Entity != null
+                    ? (Multiplayer.Islands.IslandTerrainConnectPolicy.IsManaged(
+                            TerrainInterestFeatureEnabled,
+                            IslandTopology.ByWorldEntityKey(s.Entity.Key))
+                        ? TerrainInterestLoadRadius
+                        : ConnectInterestPolicy.RadiusFor(
+                        s.Entity.Key,
+                        IsMountedShipPart(s.Entity),
+                        Game.Interest.InitialRadiusMetres,
+                        ShipInterest.LoadRadiusMetres))
+                    : 0d)
+                .ToArray();
+
+            bool ConnectGateInRange(
+                int stepIndex, Multiplayer.FixedPointPosition center)
+            {
+                Multiplayer.Islands.IslandDefinition? island = gateTerrainIsland[stepIndex];
+                if (terrainGatedStep[stepIndex] && island != null)
+                {
+                    return Multiplayer.Islands.IslandTerrainEnvelopes.Require(island.Id)
+                        .DistanceSquaredTo(center, island)
+                        <= gateRadius[stepIndex] * gateRadius[stepIndex];
+                }
+                return InterestPolicy.InRange(
+                    center, gateEntityPos[stepIndex], gateRadius[stepIndex]);
+            }
+
+            int gateableCount = gatedStep.Count(g => g);
+            if (gateableCount > 0)
+            {
+                Console.WriteLine("[info] connect spatial interest: " + gateableCount
+                    + " step(s) range-gated. Resources use "
+                    + Game.Interest.InitialRadiusMetres.ToString("0.#")
+                    + " m at connect; whole built-ship domains use "
+                    + ShipInterest.LoadRadiusMetres.ToString("0.#")
+                    + " m; optional terrain uses " + TerrainInterestLoadRadius.ToString("0.#")
+                    + " m when enabled. Remote domains are not instantiated during login and"
+                    + " return root-first through their live interest owner when approached.");
+            }
+            else
+            {
+                Console.WriteLine("[info] spatial interest: OFF (set WAREBORN_INTEREST_RADIUS_M=<metres> to only "
+                    + "stream each client the world entities near it; unset = every entity is sent, as before).");
             }
 
             while (keepRunning)
@@ -2291,13 +4055,8 @@ namespace WorldsAdriftRebornGameServer
                 // mirror of a newly joined player never spawned. After a short
                 // delay (the asset request has had time to load) flush anyway.
                 FlushStaleMirrors();
-                // Resend ONLY AddEntity (never AddComponents). A peer that was
-                // still loading the prefab drops the AddEntity and never spawns the
-                // other player - the one-way visibility bug. Resending AddComponents
-                // was what caused the sky-teleport: it re-applied the DEFAULT seeded
-                // TransformState (0,100,0) to a live player. AddEntity alone carries
-                // no component data, so it cannot move anyone.
-                ResendMirrors();
+                // Mirror creation is single-shot after asset acknowledgement.
+                // Duplicate AddEntity can create a second remote rig.
                 // The only way a human can currently ask for anything: a file.
                 // There is no command channel (SendCommandRequest is a TODO stub
                 // in the SDK), so a client cannot request a teleport at all. Self-
@@ -2326,6 +4085,13 @@ namespace WorldsAdriftRebornGameServer
                 // a no-op until a ship and a loaded client both exist. See
                 // Game.ShipPartMotionService.
                 ShipPartMotion.Tick();
+                // PILOTED FLIGHT: the pilot's 1111 input, integrated into the built
+                // hull's 1130 control points at the ferry's proven 0.24 s cadence,
+                // plus the mounted parts' 190602 wakes. Off unless
+                // WAREBORN_HELM_FLIGHT=1; cheap when off (an env check) or when no
+                // helm was ever manned (an empty dictionary). See Game.ShipFlightService.
+                IReadOnlySet<ulong> domainFrameSenders = Flight.Tick();
+                ShipInterest.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a
                 // section, one when it leaves - so "hold the beam and the tree
@@ -2337,7 +4103,24 @@ namespace WorldsAdriftRebornGameServer
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
                 // Cheap when idle (one UtcNow compare over an empty list). See Game.DeferredActions.
                 Game.DeferredActions.Tick();
-                Relay.Tick(); // fixed-cadence movement emit + 5 s relay stats; cheap when idle (two Stopwatch compares). See Networking.RelayEmitter.
+                // Authenticated operator commands are consumed on this same
+                // authoritative loop, so resets/recalls/deletes cannot race game state.
+                WorldAdmin.Tick();
+                // Loading-barrier safety net: release any joiner whose readiness
+                // deadline passed, so a client that never signals ready is not stuck
+                // on the loading screen. No-op when nothing is pending (barrier off,
+                // or every joiner already activated). See TickLoadBarrierTimeouts.
+                TickLoadBarrierTimeouts();
+                // Terrain first: its removal request starts a resource drain and
+                // waits; its successful add makes the resource gate ready before
+                // resources reconcile later in this same loop turn.
+                TerrainInterest?.Tick();
+                ResourceInterest.Tick();
+                // Avatar relay remains 20 Hz, but any authoritative ship frame
+                // forces its aboard players to emit immediately after the hull on
+                // this same loop turn. This is ordered coherence, not fictional
+                // cross-entity wire atomicity. See DomainAlignedRelayPolicy.
+                Relay.Tick(domainFrameSenders);
 
                 // Report each connected peer's 5 s wire-rate line (with ENet peer
                 // health appended when readable). Runs with the other timers so a
@@ -2412,17 +4195,105 @@ namespace WorldsAdriftRebornGameServer
                 {
                     int currentChunkIndex = 0;
                     PlayerSyncStatus pStatus = keyValuePair.Value[currentChunkIndex];
+
+                    // A runtime lifecycle operation (currently ship-frame salvage) can
+                    // retire registrations captured by this boot's immutable plan. Skip
+                    // those request/add pairs without waiting for impossible acks; if the
+                    // retired entity occupied the final slot, park normally at completion.
+                    int planLastStep = GameState.Instance.WorldState[currentChunkIndex].Count - 1;
+                    while (pStatus.SyncStepPointer < planLastStep
+                           && GameState.Instance.WorldState[currentChunkIndex][pStatus.SyncStepPointer].IsObsolete())
+                    {
+                        pStatus.SyncStepPointer++;
+                    }
+                    if (pStatus.SyncStepPointer == planLastStep
+                        && GameState.Instance.WorldState[currentChunkIndex][planLastStep].IsObsolete())
+                    {
+                        pStatus.Performed = true;
+                        pStatus.PerformedAtElapsed = ServerClock.Elapsed;
+                    }
+
+                    // CONNECT-TIME SPATIAL INTEREST. Before performing this peer's next
+                    // step, fast-forward its pointer past every gateable AfterPlayer
+                    // world entity outside its interest radius - in ONE turn, because
+                    // these steps send NOTHING (the entity stays in the world for peers
+                    // near it; this peer is simply never told about it, which is how a
+                    // resource-dense world stays cheap per client). Bounded by the last
+                    // index so the pointer can never run off the plan; the pointer
+                    // setter clears Performed, so the in-range step it lands on still
+                    // performs normally. Gated-out steps are never sent, so their acks
+                    // never arrive and can never double-advance the pointer. A no-op
+                    // when interest is off or the peer is already at an in-range /
+                    // initial-set / player step. See InterestPolicy / Game.Interest.
+                    if (gateableCount > 0)
+                    {
+                        int lastStep = GameState.Instance.WorldState[currentChunkIndex].Count - 1;
+                        Multiplayer.FixedPointPosition center =
+                            Game.Interest.CenterFor(PeerIdentity.IdOf(keyValuePair.Key));
+                        while (pStatus.SyncStepPointer < lastStep
+                               && gatedStep[pStatus.SyncStepPointer]
+                               && !ConnectGateInRange(pStatus.SyncStepPointer, center))
+                        {
+                            pStatus.SyncStepPointer++;
+                        }
+
+                        // BOUNDARY FIX. The while above is bounded by the LAST index so
+                        // the pointer can never run off the plan - but that bound also
+                        // meant a skip run reaching the END of the plan stopped ON the
+                        // last step and then PERFORMED it, even though it was just
+                        // range-tested out. Live 2026-08-13: the final gated step's bare
+                        // AddEntity went out with no RequestAsset ever sent, and only the
+                        // client mod's synchronous rescue put the prefab on screen
+                        // ("RESCUED prefab 'GlobalEntity_unityclient'"). A gated-out
+                        // last step must PARK the chain complete instead: mark it
+                        // performed without sending anything (the last step is the
+                        // plan's normal "done" sentinel; neither the ack path nor the
+                        // timeout ever advances past it).
+                        if (pStatus.SyncStepPointer == lastStep
+                            && !pStatus.Performed
+                            && gatedStep[lastStep]
+                            && !ConnectGateInRange(lastStep, center))
+                        {
+                            Console.WriteLine("[interest] final plan step '" + stepDesc[lastStep]
+                                + "' is outside this peer's interest radius; completing its spawn chain"
+                                + " without sending it.");
+                            pStatus.Performed = true;
+                            pStatus.PerformedAtElapsed = ServerClock.Elapsed;
+                        }
+                    }
+
+                    // SPAWN-CHAIN ACK TIMEOUT. A performed step whose ack never comes
+                    // must not park the chain forever - advance with a loud line and
+                    // let the next step run this same turn. The last step is exempt
+                    // (parking there is the normal end-of-plan state), and a step the
+                    // pacer is still holding (Performed false) has not asked for an
+                    // ack yet, so it cannot time out. See SpawnAckTimeoutPolicy for
+                    // why AddEntity-after-timeout is safe for the client.
+                    if (SpawnAckTimeoutPolicy.ShouldAdvance(
+                            pStatus.Performed,
+                            pStatus.SyncStepPointer == GameState.Instance.WorldState[currentChunkIndex].Count - 1,
+                            pStatus.PerformedAtElapsed,
+                            ServerClock.Elapsed,
+                            spawnAckTimeout))
+                    {
+                        Console.WriteLine("[spawn-chain] ack timeout for '" + stepDesc[pStatus.SyncStepPointer]
+                            + "' after " + spawnAckTimeout.TotalMilliseconds.ToString("0")
+                            + " ms, advancing anyway.");
+                        pStatus.SyncStepPointer++;
+                    }
+
                     SyncStep step = GameState.Instance.WorldState[currentChunkIndex][pStatus.SyncStepPointer];
 
                     if (!pStatus.Performed)
                     {
-                        // Pace the step that BEGINS each AfterPlayer entity: if this
-                        // peer released one too recently, hold it for a later tick
-                        // (leave Performed false so it retries) instead of adding to
-                        // the first-load burst. The step is still ack-gated as
-                        // before - this only spaces the ready ones out in time.
-                        // Player + ground steps are never paced (pacedStep is false
-                        // for them) so they are never held back.
+                        // Pace the AddEntity that INSTANTIATES each distant entity: if
+                        // this peer instantiated one too recently, hold it for a later
+                        // tick (leave Performed false so it retries) instead of adding
+                        // to the connect-time burst. The step is still ack-gated as
+                        // before - this only spaces the ready ones out in time. Player,
+                        // ground, and the barrier's initial set (island/ship/built
+                        // ships/decks) are never paced (pacedStep is false for them) so
+                        // the loading screen is never lengthened.
                         if (SpawnPacePolicy.IsEnabled(SpawnPaceInterval)
                             && pStatus.SyncStepPointer < pacedStep.Length
                             && pacedStep[pStatus.SyncStepPointer]
@@ -2433,10 +4304,29 @@ namespace WorldsAdriftRebornGameServer
 
                         step.Step(keyValuePair.Key);
                         pStatus.Performed = true;
+                        // Start the ack-timeout clock only now, when the op has
+                        // actually been sent - a pacer-held turn must not eat into
+                        // the client's time to reply.
+                        pStatus.PerformedAtElapsed = ServerClock.Elapsed;
+                    }
+
+                    // Initial resource checkout belongs exclusively to the spawn
+                    // plan. Only after its final step has been sent/parked may the
+                    // movement-driven service begin adding and removing resources.
+                    if (pStatus.SyncStepPointer
+                            == GameState.Instance.WorldState[currentChunkIndex].Count - 1
+                        && pStatus.Performed)
+                    {
+                        ResourceInterest.NoteConnectPlanComplete(keyValuePair.Key);
+                        ShipInterest.NoteConnectPlanComplete(keyValuePair.Key);
+                        TerrainInterest?.NoteConnectPlanComplete(keyValuePair.Key);
+                        PrepareRuntimeEntityCatchup(keyValuePair.Key, pStatus);
+                        DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }
                 }
             }
 
+            TerrainInterest?.Dispose();
             server.Dispose();
 
             Console.WriteLine("[info] shutting down.");

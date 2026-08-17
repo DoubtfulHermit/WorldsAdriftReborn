@@ -11,7 +11,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// both <c>Game.Crafting.BuiltShipSpawner.Spawn</c> (runtime) and the boot restore
     /// construct their hull + deck WorldEntities here, from the same
     /// <see cref="BuiltShipPlacement"/> constants, so the hull's all-or-nothing seed
-    /// set (190602/1209/1099/1130/8062/8071/4349) and each deck's (190602/1518/1099)
+    /// set (190602/1209/1099/1130/190601/1114/8062/8071/4349 - the proven set plus the
+    /// 190601/1114 placement prerequisites) and each deck's (190602/1518/1099)
     /// are identical id-for-id on both paths - the only per-ship difference being the
     /// hull bytes (which the serializer resolves per-entity from the built-ship ledger)
     /// and the DERIVED deck panels (which both paths regenerate deterministically from
@@ -52,19 +53,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// The hull and deck registrations for a ship built at <paramref name="hullPos"/>,
         /// keyed by <paramref name="sequence"/>, with one deck entity per derived
         /// <paramref name="panels"/> entry. Each deck is placed at the hull position plus
-        /// the panel's hull-local offset (the client re-parents it under the hull and the
-        /// 190602 branch converts that to a local offset), so a restore from the same hull
-        /// bytes reproduces the same standable floors.
+        /// the panel's UNROTATED hull-local offset. The 190602 serializer subtracts the
+        /// hull seed and sends that offset with Parent(hull,"deck"); Unity then applies
+        /// the hull's rotation exactly once through the real parent transform. Pre-rotating
+        /// the registration here would rotate it a second time and shift every board away
+        /// from its frame after a non-zero-yaw restore.
         /// </summary>
-        public static HullAndDecks For(int sequence, FixedPointPosition hullPos, IReadOnlyList<DeckPanel> panels)
+        public static HullAndDecks For(int sequence, FixedPointPosition hullPos, IReadOnlyList<DeckPanel> panels,
+            double yawRadians = 0.0)
         {
+            uint packedRotation = ShipyardDockingPolicy.PackedYaw(yawRadians);
             WorldEntity hull = new WorldEntity(
                 BuiltShipPlacement.HullKey(sequence),
                 WorldEntities.ShipFrameAssetName,
                 WorldEntities.DefaultAssetContext,
                 hullPos,
                 seedComponents: BuiltShipPlacement.HullSeedComponents.ToArray(),
-                order: SpawnOrder.AfterPlayer);
+                order: SpawnOrder.AfterPlayer,
+                packedRotation: packedRotation);
 
             var decks = new List<WorldEntity>(panels.Count);
             for (int i = 0; i < panels.Count; i++)

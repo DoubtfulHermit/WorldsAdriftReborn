@@ -8,11 +8,11 @@ DLL changes. Three pieces:
    `manifest.json` + a flat file dir ready to rsync.
 2. **`WAPatch/`** - the Windows app a player runs. One self-contained `.exe`:
    pick the game folder, check, patch. Verifies every downloaded byte.
-3. **The `/patch` page + Caddy static hosting** - a browser index of the latest
-   build, and the static bytes the app downloads.
+3. **The login server's `/patch` routes** - a browser index of the latest build,
+   manifest, and verified payload bytes, proxied publicly by Caddy.
 
-The first real payload through this pipe will be **client pack #2** (not merged
-yet). It is seeded and tested end-to-end with the current known-good files.
+This pipeline is live. The public patcher and manifest have been tested
+end-to-end, including a headless Wine smoke test of the exact release binary.
 
 ---
 
@@ -21,8 +21,8 @@ yet). It is seeded and tested end-to-end with the current known-good files.
 ```bash
 tools/patcher/build-manifest.sh \
   --pack /path/to/pack \          # dir with plugin/ and gameroot/ (defaults to the known-good WAReborn-Update pack)
-  --version 2026.08.09-1 \        # what players see; auto YYYY.MM.DD-N if omitted
-  --build   client-pack-2         # human label
+  --version 2026.08.13-8 \        # what players see; auto YYYY.MM.DD-N if omitted
+  --build   "resource streaming + helm + sails"  # human label
 ```
 
 Output lands in `tools/patcher/dist/` (git-ignored):
@@ -112,13 +112,17 @@ Output: `tools/patcher/WAPatch/bin/Release/net8.0-windows/win-x64/publish/WAPatc
   run never clobbers the original backup.
 - Writes via a temp file + move, so a crash mid-write can't leave a half DLL.
 - Never touches `steam_api64.dll` or `winhttp.dll`.
+- Creates or updates only the four public Wareborn connection keys in
+  `BepInEx/config/WorldsAdriftReborn.cfg`, preserving all unrelated settings and
+  a one-time `.pre-wareborn.bak` backup.
 - Shows current-vs-latest version so a player knows if they are behind.
 
 ### How a player uses it
 
 **First run:** double-click `WAPatch.exe` -> **Browse** to the Worlds Adrift
 folder (the one with `UnityClient@Windows.exe`) -> **Check for updates** ->
-**Patch**. Close the game first if it is running.
+**Patch**. Close the game first if it is running. The public server addresses
+are configured automatically.
 
 **Later:** double-click, **Check for updates**. If it says "up to date", done.
 Otherwise **Patch**. The folder is remembered between runs.

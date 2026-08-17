@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -26,7 +28,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// later, it is what the client's dispatch expects when there is nothing
         /// to disambiguate.
         /// </summary>
-        public const string DefaultAssetContext = "notNeeded?";
+        public const string DefaultAssetContext = IslandCatalog.DefaultTerrainAssetContext;
 
         /// <summary>The island's registration key. See <see cref="EntityIdAllocator.IslandKey"/>.</summary>
         public const string IslandKey = EntityIdAllocator.IslandKey;
@@ -45,13 +47,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static WorldEntity Island()
         {
+            return Island(IslandRegistry.CreateDefault().Require(IslandCatalog.HavenId));
+        }
+
+        /// <summary>Creates a terrain entity from one registered island definition.</summary>
+        public static WorldEntity Island(IslandDefinition island)
+        {
+            if (island == null)
+            {
+                throw new ArgumentNullException(nameof(island));
+            }
+
             return new WorldEntity(
-                IslandKey,
-                SpawnPolicy.IslandAssetName,
-                DefaultAssetContext,
-                SpawnPolicy.IslandPosition,
+                island.WorldEntityKey,
+                island.TerrainAssetName,
+                island.TerrainAssetContext,
+                island.GlobalOrigin,
                 seedComponents: null,
-                order: SpawnOrder.BeforePlayer);
+                order: island.SpawnOrder);
         }
 
         /// <summary>The proof entity's registration key. See <see cref="ProofIsland"/>.</summary>
@@ -461,7 +474,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// flat, clear, and well inside the 40 m the aim raycast reaches.
         /// </summary>
         public static readonly FixedPointPosition HavenTreePosition =
-            new FixedPointPosition(70502113, -1284830, -4612781);
+            IslandCatalog.Haven.LocalToGlobal(208.0, 4.99, 8.0);
 
         /// <summary>
         /// ONE CHOPPABLE TREE, four metres from where the player wakes up.
@@ -516,37 +529,91 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// Trees distributed across the whole island (island-local metres),
-        /// farthest-point sampled from the 1431299145 surface table (ny&gt;0.90),
-        /// so harvesting can be tested away from spawn too. Each spawns as its own
-        /// choppable Tree entity (unique key), planted by AssetName exactly like
-        /// <see cref="HavenTree"/>. AfterPlayer, so none can delay a player spawn.
+        /// Trees distributed across the whole island (island-local metres), generated
+        /// deterministically from the complete 1431299145 terrain surface with no
+        /// altitude band. The former hand table mostly occupied Haven's low eastern
+        /// shelf; ridges and the western half were therefore barren. Each seat is
+        /// flat, spaced and clear of spawn/ship/deposits by
+        /// <see cref="Resources.HavenSurface"/>.
         /// </summary>
         public static readonly IReadOnlyList<(double X, double Y, double Z)> DistributedTreeLocals =
-            new (double, double, double)[]
+            BuildDistributedTreeLocals();
+
+        private static IReadOnlyList<(double X, double Y, double Z)> BuildDistributedTreeLocals()
         {
-            (-59.7, 12.00, 88.0), (116.0, 7.65, 24.0),  (168.0, 4.43, -40.0),
-            (142.1, 4.00, 68.0),  (224.0, 2.87, 32.0),  (168.0, 4.46, 32.0),
-            (216.0, 2.69, -8.0),  (144.0, 4.35, 24.0),  (168.0, 3.74, 56.0),
-            (208.0, 2.06, 48.0),  (152.0, 3.96, -20.0), (32.0, 11.11, -112.0),
-            (184.0, 2.80, 48.0),  (160.0, 4.72, 16.0),  (240.0, 3.58, 16.0),
-            (224.0, 8.83, 8.0),   (136.0, 3.86, -16.0), (168.0, 5.06, 0.0),
-            (176.0, 4.90, 16.0),  (128.0, 4.80, 16.0),
+            List<(double X, double Y, double Z)> result = new List<(double, double, double)>();
+            foreach (Resources.GeneratedPlacement p in Resources.HavenSurface.TreeLocals())
+            {
+                result.Add((p.LocalX, p.LocalY, p.LocalZ));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// ONE VERIFIED PREFAB PER WOOD - the species the distributed trees cycle
+        /// through when species variety is switched on.
+        ///
+        /// Retail gave every tree type its own wood, and all eight woods are real
+        /// items; this is what makes seven of them gatherable instead of one. Each
+        /// entry cleared THREE gates before being listed, because a wrong pick is
+        /// not a log line, it is a visibly broken tree:
+        ///
+        /// 1. Its skeleton is recovered and verified (<see cref="TreeTopologies"/>),
+        ///    so the mask arithmetic is the species' own.
+        /// 2. Its wood is recovered (<see cref="TreeSpecies"/>), so the yield is
+        ///    Bossa's, and the eight cover every wood in the catalogue.
+        /// 3. Its MonoBehaviour set is IDENTICAL to `Tree`'s - same 23 classes, no
+        ///    extras - so its <c>[Require]</c> reader ids are exactly the ten this
+        ///    server already serves branches for. That gate is not cosmetic: the
+        ///    client's component batch is <c>failOnComponentInitError: true</c>, so
+        ///    one uncovered id aborts the batch and the tree comes up broken with
+        ///    its break VFX silent.
+        ///
+        /// 64 of the 65 shipped species pass gate 3. The one that does not is
+        /// <c>TreePalmBlue2</c>, which carries <c>LocalTransformTeleportBehaviour</c>
+        /// and therefore requires <c>TeleportRequestState (190607)</c> - a component
+        /// this server never serves. It is deliberately absent from this list, and
+        /// that is the reason.
+        ///
+        /// `Tree` itself stays first so the birch everyone has already chopped is
+        /// still the tree nearest spawn's neighbour.
+        /// </summary>
+        public static readonly IReadOnlyList<string> VerifiedSpecies = new[]
+        {
+            Trees.AssetName,          // birch
+            "TreePalm1",              // palm
+            "TreeStraightBlue",       // ash
+            "TreeStraightRed",        // chestnut
+            "TreeWonky1Leaf6",        // oak
+            "TreeWonky1Leaf3",        // elm
+            "TreeDessert2",           // hemlock
+            "TreeWonky1LongLeaf2",    // cedar
         };
 
         /// <summary>
         /// The distributed trees as spawnable entities, keyed tree-0..N.
+        ///
+        /// With <paramref name="varySpecies"/> false (the default) every one is
+        /// `Tree`, exactly as before. With it true they cycle through
+        /// <see cref="VerifiedSpecies"/> so all eight woods are gatherable on one
+        /// island. The near-spawn <see cref="HavenTree"/> is birch either way - the
+        /// one tree every session walks up to does not change behaviour behind a
+        /// switch.
         /// </summary>
-        public static IEnumerable<WorldEntity> DistributedTrees()
+        public static IEnumerable<WorldEntity> DistributedTrees(bool varySpecies = false)
         {
             int i = 0;
             foreach ((double x, double y, double z) in DistributedTreeLocals)
             {
+                string asset = varySpecies
+                    ? VerifiedSpecies[i % VerifiedSpecies.Count]
+                    : Trees.AssetName;
+
                 yield return new WorldEntity(
                     "tree-" + i++,
-                    Trees.AssetName,
+                    asset,
                     DefaultAssetContext,
-                    MetalNodes.IslandLocalToWorldFixed(MetalNodes.IslandOrigin, x, y, z),
+                    IslandCatalog.Haven.LocalToGlobal(x, y, z),
                     seedComponents: null,
                     order: SpawnOrder.AfterPlayer);
             }
@@ -591,7 +658,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// contents are our guess at the prefab's needs rather than its own statement
         /// of them. Unlike the nugget, the deposit's geometry is IMPORTED at runtime
         /// from the variant named by 1255, so a missing/invalid variantId leaves it
-        /// invisible even though the entity exists (see <see cref="MetalDeposits.VariantId"/>).
+        /// invisible even though the entity exists (see <see cref="MetalDeposits.VariantIdFor"/>).
         ///
         /// AfterPlayer: nobody stands on a deposit, so it never delays the loading
         /// screen, and a misbehaving deposit can never break a player's own spawn.
@@ -608,6 +675,60 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// An ATLAS SHARD lodged in the deposit at placement <paramref name="index"/> -
+        /// the real retail acquisition object, a SEPARATE <c>MetalDepositAtlas</c>
+        /// entity from its host deposit. Keyed <c>atlas-shard-N</c> to pair with
+        /// <c>deposit-N</c>, and positioned ON its host deposit
+        /// (<see cref="AtlasShardCatalogue.LodgedPositionFor(FixedPointPosition)"/>,
+        /// offset 0 by default). The VISIBLE embedding in the core is done client-side
+        /// by aligning the shard's view to the core's authored ScrapSlots - the retail
+        /// alignment is UnityWorker-only, so no server position can stand in for it;
+        /// see the remarks on <see cref="AtlasShardCatalogue.DefaultLodgedHeightOffsetMetres"/>.
+        ///
+        /// NO SEEDED COMPONENTS, exactly like the deposit and the nugget: the client
+        /// checks the shard out and asks for its 1305/2102/1210/190602 over
+        /// SEND_COMPONENT_INTEREST, which ComponentsSerializer answers best-effort. Its
+        /// 1305 rockCoreId and lodged/released/collected state are wired from the
+        /// AtlasShards ledger (populated in AddWorldEntity from the host deposit's id).
+        ///
+        /// AfterPlayer, and it MUST be registered AFTER its host deposit so the
+        /// deposit's shared entity id is already bound when the shard's spawn step
+        /// resolves its host (see <see cref="Default"/>).
+        /// </summary>
+        public static WorldEntity AtlasShardEntity(int index, FixedPointPosition depositPosition) =>
+            AtlasShardEntity(MetalDeposits.KeyFor(index), depositPosition);
+
+        /// <summary>
+        /// An ATLAS SHARD lodged in the deposit registered under
+        /// <paramref name="hostDepositKey"/> - the SOURCE-AGNOSTIC factory.
+        ///
+        /// Use this for any deposit that is not part of the static Haven table: the
+        /// real resource-spawn handshake places deposits the client ground-checked and
+        /// keys them <c>handshake-deposit-&lt;island&gt;-&lt;i&gt;</c>, and before this overload
+        /// existed nothing could give one of those a shard (shard keys were built from a
+        /// bare table index, so only <c>deposit-N</c> could ever be a host). The shard's
+        /// key embeds the host's key, so <c>AtlasShardCatalogue.HostKeyOf</c> recovers
+        /// the host at registration time without any index arithmetic.
+        ///
+        /// THE CALLER MUST REGISTER THE HOST DEPOSIT FIRST. Registration resolves the
+        /// host by key through <c>BoundEntityIdFor</c>; a shard whose host is not yet
+        /// bound is refused (with a warning) rather than given an invalid 1305
+        /// rockCoreId, because an invalid host is a shard the client will not render and
+        /// nobody can pick up. For a runtime spawner that means: register the deposit
+        /// entity, then immediately register <c>AtlasShardEntity(hostKey, hostPosition)</c>.
+        /// </summary>
+        public static WorldEntity AtlasShardEntity(string hostDepositKey, FixedPointPosition depositPosition)
+        {
+            return new WorldEntity(
+                AtlasShardCatalogue.KeyForHost(hostDepositKey),
+                AtlasShardCatalogue.AssetName,
+                DefaultAssetContext,
+                AtlasShardCatalogue.LodgedPositionFor(depositPosition),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
         /// A scannable DATABANK world entity at a placement index - the KNOWLEDGE
         /// analogue of <see cref="DepositEntity"/>. Same shape: no seedComponents (its
         /// 190602 TransformState and 8073 ScannableRuinState are served best-effort
@@ -617,11 +738,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static WorldEntity DatabankEntity(int index)
         {
+            return DatabankEntity(Databanks.KeyFor(index), Databanks.PositionAt(index));
+        }
+
+        /// <summary>A scannable databank with an island-specific stable key and pose.</summary>
+        public static WorldEntity DatabankEntity(string key, FixedPointPosition position)
+        {
             return new WorldEntity(
-                Databanks.KeyFor(index),
+                key,
                 Databanks.AssetName,
                 DefaultAssetContext,
-                Databanks.PositionAt(index),
+                position,
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
+        /// <summary>
+        /// A FUEL CANISTER as a <see cref="WorldEntity"/>: the fuel-pod prefab at a
+        /// measured Haven surface vertex, keyed <c>fuel-pod-N</c>. It is a SALVAGE
+        /// TARGET worked with the gauntlet beam - the same flow as a metal node, NOT a
+        /// pickup like the atlas shard. See <see cref="FuelPods"/> for the client
+        /// evidence and <see cref="FuelCanisterYield"/> for the recovered 8/8/9 curve.
+        ///
+        /// NO SEEDED COMPONENTS, exactly like the nugget and the tree: the client checks
+        /// the canister out and asks for its 190602/1099/2102/1016 over
+        /// SEND_COMPONENT_INTEREST, which ComponentsSerializer answers best-effort. The
+        /// 1099 isSalvageable flag (the beam's gate) and the sunk-when-emptied transform
+        /// are wired from the fuel-canister ledger. AfterPlayer, so a misbehaving
+        /// canister can never delay or break a player's own spawn.
+        /// </summary>
+        public static WorldEntity FuelPodEntity(int index)
+        {
+            return new WorldEntity(
+                FuelPods.KeyFor(index),
+                FuelPods.AssetName,
+                DefaultAssetContext,
+                FuelPods.PositionAt(index),
                 seedComponents: null,
                 order: SpawnOrder.AfterPlayer);
         }
@@ -671,7 +823,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 GlobalEntityKey,
                 GlobalEntityAssetName,
                 DefaultAssetContext,
-                SpawnPolicy.IslandPosition,
+                IslandCatalog.Haven.GlobalOrigin,
                 seedComponents: null,
                 order: SpawnOrder.AfterPlayer);
         }
@@ -755,41 +907,103 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Clamped to [1, all placed]; index 0 is the proven deposit, so any count keeps
         /// it. Defaults to a single deposit - the cautious first-live count.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null)
+        /// <param name="includeAtlasShard">
+        /// Whether to lodge an ATLAS SHARD in the proven deposit (index 0) - the real
+        /// retail acquisition object. Only meaningful alongside
+        /// <paramref name="includeDeposit"/> (a shard needs a live host core to render
+        /// and be mined loose). ON by default when deposits are on, with
+        /// WAREBORN_SPAWN_ATLAS=0 as the kill switch: it is AfterPlayer and inert until
+        /// its core is destroyed, so a misbehaving shard can never delay or break a
+        /// spawn, and the grant is a no-op until the pending retail itemTypeId is
+        /// recovered (AtlasShardCatalogue.ItemTypeId), so it cannot mis-grant.
+        /// </param>
+        /// <param name="atlasRateEnv">
+        /// The raw WAREBORN_ATLAS_RATE value, or null for the default. "One shard per N
+        /// deposits" - the documented, deterministic <see cref="AtlasSpawnPolicy"/>
+        /// reconstruction of the lost retail rarity rule. Defaults to every deposit
+        /// (index 0, the proven deposit, always carries one).
+        /// </param>
+        /// <param name="includeFuelPods">
+        /// Whether to place the <see cref="FuelPods.HavenPlacements"/> fuel canisters -
+        /// the gatherable FUEL crafting material, salvaged with the gauntlet beam. ON by
+        /// default with WAREBORN_SPAWN_FUELPODS=0 as the kill switch, on the same
+        /// AfterPlayer footing as the tree and node: a misbehaving canister cannot delay
+        /// or break a player's spawn, and it grants the real, already-shipping
+        /// <c>"fuel"</c> item so it cannot mis-grant. Independent of the deposit/atlas
+        /// spawns - a canister is free-standing and needs no deposit.
+        /// </param>
+        /// <param name="fuelPodCountEnv">
+        /// The raw WAREBORN_FUELPOD_COUNT value, or null for the full starter set.
+        /// Clamped to [1, all placed]; index 0 is the nearest-spawn pod, so any count
+        /// keeps it.
+        /// </param>
+        /// <param name="varyTreeSpecies">
+        /// Generic support for cycling the eight verified per-species tree prefabs.
+        /// Production Haven deliberately passes false because its explicit starter
+        /// biome profile is birch; this remains available for a future island whose
+        /// recovered per-island data actually names several woods.
+        /// </param>
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
+            int terrainCount = FirstRegionTerrainCountPolicy.Clamp(firstRegionTerrainCount);
+            IslandRegistry islands = terrainCount > 0
+                ? IslandRegistry.CreateWithFirstRegionTerrain(terrainCount)
+                : IslandRegistry.CreateDefault();
 
-            registry.Register(Island());
+            registry.Register(Island(islands.Require(IslandCatalog.HavenId)));
+
+            // Terrain expansion is deliberately independent from the older Trades
+            // resource flag. It adds only a bounded, evidenced prefix of release-map
+            // terrain; candidate resources remain disabled until each island profile
+            // has its own acceptance pass.
+            if (includeProductionSecondIsland)
+                registry.Register(Island(IslandCatalog.TradesChallenge));
+
+            int candidateIndex = 0;
+            foreach (IslandDefinition candidate in IslandCatalog.FirstRegionTerrain.Skip(1))
+            {
+                bool selected = candidateIndex < terrainCount;
+                if (selected && registry.ByKey(candidate.WorldEntityKey) == null)
+                    registry.Register(Island(candidate));
+                candidateIndex++;
+            }
 
             if (includeProofIsland)
             {
                 registry.Register(ProofIsland());
             }
 
-            registry.Register(ShipFrame(recogniseShip));
-            // The helm goes in right after the hull so the hull's shared entity id
-            // is allocated first: the helm's 8066 seed names the hull by that id,
-            // and ByEntityId/BoundEntityIdFor must be able to find it without
-            // allocating. Gated by the same WAREBORN_SPAWN_SHIP-adjacent tree/metal
-            // philosophy - AfterPlayer, so a misbehaving helm cannot delay a spawn -
-            // but always on: it is inert scenery until the client asks for its 1210,
-            // and the whole point is to have it there to walk up to.
-            registry.Register(Helm());
+            // The STATIC test ship (hull + helm + deck + optional cosmetic parts) -
+            // the pre-shipbuilding development rig. Now that players build and fly
+            // their own ships it is scenery that confuses the world (a second
+            // hull+helm standing 50 m from the shipyard), so it is gated as a
+            // whole. Every server-side consumer looks it up via nullable
+            // ByKey/BoundEntityIdFor, so its absence serves nothing rather than
+            // faulting.
+            if (includeStaticShip)
+            {
+                registry.Register(ShipFrame(recogniseShip));
+                // The helm goes in right after the hull so the hull's shared entity id
+                // is allocated first: the helm's 8066 seed names the hull by that id,
+                // and ByEntityId/BoundEntityIdFor must be able to find it without
+                // allocating. AfterPlayer, so a misbehaving helm cannot delay a spawn -
+                // it is inert scenery until the client asks for its 1210.
+                registry.Register(Helm());
 
-            // The walkable floor, then the cosmetic parts - all AFTER the hull so
-            // its shared entity id is allocated first: each part's 8066 seed and (for
-            // the deck) its ship-surface membership name the hull by that id. Same
-            // always-on-with-a-kill-switch philosophy as the helm; the deck defaults
-            // on because it is the deliverable, the engine/sail off because they are
-            // unverified. AfterPlayer throughout, so none can delay a spawn.
-            if (includeDeck)
-            {
-                registry.Register(Deck01());
-            }
-            if (includeExtraParts)
-            {
-                registry.Register(ModularEngine());
-                registry.Register(Sail01());
+                // The walkable floor, then the cosmetic parts - all AFTER the hull so
+                // its shared entity id is allocated first: each part's 8066 seed and (for
+                // the deck) its ship-surface membership name the hull by that id.
+                // AfterPlayer throughout, so none can delay a spawn.
+                if (includeDeck)
+                {
+                    registry.Register(Deck01());
+                }
+                if (includeExtraParts)
+                {
+                    registry.Register(ModularEngine());
+                    registry.Register(Sail01());
+                }
             }
 
             if (includeTree)
@@ -801,7 +1015,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int treeTotal = SpawnCountPolicy.CountFrom(treeCountEnv, fullTrees);
 
                 registry.Register(HavenTree());
-                foreach (WorldEntity tree in DistributedTrees().Take(treeTotal - 1))
+                foreach (WorldEntity tree in DistributedTrees(varyTreeSpecies).Take(treeTotal - 1))
                 {
                     registry.Register(tree);
                 }
@@ -821,15 +1035,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
             }
 
+            // The biome lookup table is world-wide and required by deposits on
+            // either island. Register it exactly once, before every deposit.
+            if (includeDeposit || includeProductionSecondIsland)
+            {
+                registry.Register(GlobalEntity());
+            }
+
             if (includeDeposit)
             {
-                // The GLOBAL entity FIRST: it carries the biome table the deposit's
-                // visualiser blocks on (GetBiomeAt), so without it the rock never draws.
-                // Registered before the deposits so its AddEntity - and its 1253/8064 -
-                // are in flight first. Only spawned alongside deposits: nothing else in
-                // a session needs it, so existing tree/nugget/ship sessions are unchanged.
-                registry.Register(GlobalEntity());
-
                 // Default to ONE (the proven deposit) - the coordinate and the
                 // runtime-imported variant have never been validated live, so a single
                 // anchored rock before the whole table. A WAREBORN_DEPOSIT_COUNT is
@@ -838,9 +1052,73 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int depositCount = depositCountEnv == null
                     ? 1
                     : SpawnCountPolicy.CountFrom(depositCountEnv, MetalDeposits.HavenPlacements.Count);
-                foreach (MetalNode node in MetalDeposits.Haven(depositCount))
+                IReadOnlyList<MetalNode> deposits = MetalDeposits.Haven(depositCount);
+                foreach (MetalNode node in deposits)
                 {
                     registry.Register(DepositEntity(node));
+                }
+
+                // ATLAS SHARDS, one lodged in each deposit the spawn rule selects. ALL
+                // deposits are registered first (above), so every deposit's shared entity
+                // id is already bound when a shard's spawn step resolves its host (the
+                // shard's 1305 rockCoreId and the deposit's 2103 attachedEntities are
+                // wired from it). Which deposits carry a shard is the DOCUMENTED,
+                // deterministic AtlasSpawnPolicy knob (WAREBORN_ATLAS_RATE = one shard per
+                // N deposits, default every deposit) - the retail rarity rule is lost, so
+                // this is a reconstruction to tune, and index 0 (the proven deposit)
+                // always carries one so a tester reliably has a shard. Killable wholesale
+                // with WAREBORN_SPAWN_ATLAS=0.
+                if (includeAtlasShard)
+                {
+                    int oneInDeposits = AtlasSpawnPolicy.OneInDeposits(atlasRateEnv);
+                    for (int i = 0; i < deposits.Count; i++)
+                    {
+                        if (AtlasSpawnPolicy.DepositCarriesShard(i, oneInDeposits))
+                        {
+                            registry.Register(AtlasShardEntity(i, deposits[i].Position));
+                        }
+                    }
+                }
+            }
+
+            if (includeProductionSecondIsland)
+            {
+                // The Trades Challenge's recovered community row is unusually exact:
+                // Aluminium quality 4, five deposits (98 cells * retail 0.05 density),
+                // five databanks, and NO trees. Populate only that evidence-backed
+                // profile; do not copy Haven's birch/iron/fuel starter biome across.
+                IReadOnlyList<Resources.GeneratedPlacement> tradesDeposits =
+                    Resources.TradesChallengeResources.DepositLocals();
+                for (int i = 0; i < tradesDeposits.Count; i++)
+                {
+                    MetalNode node = Resources.TradesChallengeResources.DepositByKey(
+                        Resources.TradesChallengeResources.DepositKeyFor(i))!;
+                    registry.Register(DepositEntity(node));
+                    if (includeAtlasShard)
+                    {
+                        registry.Register(AtlasShardEntity(node.Key, node.Position));
+                    }
+                }
+
+                for (int i = 0; i < Resources.TradesChallengeResources.DatabankCount; i++)
+                {
+                    registry.Register(DatabankEntity(
+                        Resources.TradesChallengeResources.DatabankKeyFor(i),
+                        Resources.TradesChallengeResources.DatabankPositionAt(i)));
+                }
+            }
+
+            if (includeFuelPods)
+            {
+                // FUEL CANISTERS - the gatherable fuel crafting material, salvaged with
+                // the gauntlet beam. Free-standing, so this block is INDEPENDENT of the
+                // deposit/atlas spawn above and each canister is its own standalone
+                // salvage target, registered like a tree or a nugget. AfterPlayer, so
+                // none can delay a spawn; index 0 (nearest spawn) is always kept.
+                int fuelPodCount = FuelPods.CountFrom(fuelPodCountEnv);
+                for (int i = 0; i < fuelPodCount; i++)
+                {
+                    registry.Register(FuelPodEntity(i));
                 }
             }
 

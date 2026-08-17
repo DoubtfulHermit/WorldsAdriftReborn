@@ -91,6 +91,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static bool IsEnabled(TimeSpan interval) => interval > TimeSpan.Zero;
 
         /// <summary>
+        /// Whether ONE spawn-plan step should be held back by the pacer.
+        ///
+        /// The op that matters is <see cref="SpawnOp.AddEntity"/>, not RequestAsset:
+        /// AddEntity is what INSTANTIATES the prefab on the client's main thread - the
+        /// per-entity frame cost, and the exact op a joiner was measured receiving in a
+        /// burst (17 in one second). Pacing RequestAsset instead did not throttle it,
+        /// because a client with the bundle already cached acks the asset load
+        /// instantly and the AddEntity follows unpaced. Pacing AddEntity directly caps
+        /// instantiation at one per interval; the RequestAsset stays unpaced but cannot
+        /// run ahead, since the single step pointer is held at the paced AddEntity, so
+        /// at most one asset load is ever outstanding.
+        ///
+        /// The player's own avatar and every BeforePlayer entity (the ground) are never
+        /// paced - they gate the loading screen and must go out at once.
+        ///
+        /// When the loading barrier holds the initial set (<paramref name="barrierHoldsInitialSet"/>),
+        /// that set - island, static ship, and nearby built-ship domains -
+        /// instantiates while the player is FROZEN behind the loading screen, out of
+        /// view, so pacing it would only lengthen the loading screen for no visible
+        /// benefit. It streams at full speed and only the DISTANT scenery that appears
+        /// in view after release is paced. With no barrier there is no screen, so
+        /// everything appears in view and everything AfterPlayer is paced.
+        /// </summary>
+        public static bool PacesInstantiation(SpawnOp op, SpawnOrder order, bool isInitialSet, bool barrierHoldsInitialSet)
+        {
+            if (op != SpawnOp.AddEntity)
+            {
+                return false;
+            }
+
+            if (order != SpawnOrder.AfterPlayer)
+            {
+                return false;
+            }
+
+            if (barrierHoldsInitialSet && isInitialSet)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// How long a run of <paramref name="entities"/> AfterPlayer entities takes
         /// to release at a given spacing, assuming the first is immediate and each
         /// subsequent one waits one interval. Purely for the boot log line and the

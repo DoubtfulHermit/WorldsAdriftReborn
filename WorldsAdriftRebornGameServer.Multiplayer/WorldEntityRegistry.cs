@@ -63,6 +63,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return entity;
         }
 
+        /// <summary>
+        /// Retires a live registration without reusing its allocated id. It disappears
+        /// from future spawn plans and all registry lookups; the allocator deliberately
+        /// keeps the old key/id reservation so a stale packet can never name a new object.
+        /// </summary>
+        public bool Unregister(long entityId)
+        {
+            if (!_byEntityId.TryGetValue(entityId, out WorldEntity? entity)) return false;
+            _byEntityId.Remove(entityId);
+            _byKey.Remove(entity.Key);
+            _registrations.Remove(entity);
+            return true;
+        }
+
+        /// <summary>Updates a surviving entity's parentless seed pose, preserving key and id.</summary>
+        public bool Relocate(long entityId, FixedPointPosition position, uint packedRotation)
+        {
+            if (!_byEntityId.TryGetValue(entityId, out WorldEntity? old)) return false;
+            var replacement = new WorldEntity(old.Key, old.AssetName, old.AssetContext, position,
+                old.SeedComponents, old.Order, packedRotation);
+            int index = _registrations.IndexOf(old);
+            if (index < 0)
+            {
+                // Recover by stable identity if an older caller ever poisoned
+                // the ID map with a superseded object. The key is unique by
+                // registration contract; failing closed avoids an index -1
+                // process crash if the registration was genuinely retired.
+                index = _registrations.FindIndex(candidate => candidate.Key == old.Key);
+                if (index < 0) return false;
+            }
+            _registrations[index] = replacement;
+            _byKey[old.Key] = replacement;
+            _byEntityId[entityId] = replacement;
+            return true;
+        }
+
         /// <summary>Everything registered, in registration order.</summary>
         public IReadOnlyList<WorldEntity> Registrations => _registrations;
 
@@ -119,14 +155,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 throw new ArgumentNullException(nameof(entity));
             }
-            if (!_byKey.ContainsKey(entity.Key))
+            if (!_byKey.TryGetValue(entity.Key, out WorldEntity? current))
             {
                 throw new ArgumentException(
                     "world entity '" + entity.Key + "' was never registered", nameof(entity));
             }
 
             long id = _ids.SharedEntityId(entity.Key);
-            _byEntityId[id] = entity;
+            // SpawnPlan is a boot-time snapshot and therefore may retain the
+            // original WorldEntity object after Relocate has replaced the
+            // canonical registration. A late join must bind the ID to the
+            // current object, not put that stale snapshot back into the ID map.
+            // Otherwise the next Relocate finds an object that is no longer in
+            // _registrations and indexes the list at -1, crashing the server.
+            _byEntityId[id] = current;
             return id;
         }
 
@@ -221,7 +263,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 return SeededEntityKind.Player;
             }
-            return entity.Key == WorldEntities.IslandKey
+            return entity.AssetName.EndsWith("@Island", StringComparison.Ordinal)
                 ? SeededEntityKind.Island
                 : SeededEntityKind.World;
         }

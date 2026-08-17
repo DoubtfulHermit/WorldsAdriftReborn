@@ -379,6 +379,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return;
             }
 
+            // REALIZABILITY GATE - "no craft may eat materials it cannot show". Judge the
+            // EFFECTIVE part (after the WAREBORN_PART_PREFAB__* env overrides, the same
+            // resolution the spawner will apply) against the real client prefab census
+            // BEFORE anything is consumed. A prefab the client cannot load would spawn an
+            // entity that throws MissingComponentException client-side and shows NOTHING -
+            // the "crafted it, resources eaten, no part anywhere" bug. Refusing here costs
+            // the player nothing and says why in both the log and the station UI.
+            LoosePartDefinition effectivePart = LoosePartSpawner.ApplyEnvOverrides(part);
+            if (!StationCraftOutputGate.CanRealize(effectivePart.PrefabName, ClientEntityPrefabs.CanResolve, out string gateReason))
+            {
+                Console.WriteLine("[warn] station craft REFUSED (entity " + entityId + ", recipe "
+                    + record.SchematicId + "): effective prefab '" + effectivePart.PrefabName
+                    + "' is not client-resolvable; no materials were consumed. " + gateReason);
+                PushCraftingState(player, pushTarget, session,
+                    update => update.AddCraftingValidationFailed(new CraftingValidationFailed(gateReason)));
+                return;
+            }
+
             // ONE plan drives both pushes so START and COMPLETE can never drift apart: same
             // target (the station), and the SAME slot count + schematic id on both. requirementCount
             // is the recipe's requirement count (== session.Slots.Length here), which is exactly the
@@ -398,6 +416,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             bool started = false;
             bool consumeRejected = false;
             string consumeReason = "";
+            IReadOnlyList<ConsumedMaterial> consumedStacks = Array.Empty<ConsumedMaterial>();
 
             // AT-MOST-ONE guard via BeginGuarded: reserving (station, player) and running the whole
             // craft-start under ONE guard scope means a throw ANYWHERE between reserving the guard and
@@ -423,7 +442,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     string crafterUid = Game.CharacterOwnership.UidForEntity(entityId);
 
                     InventoryModel model = InventoryService.ForEntity(entityId);
-                    if (!CraftingPolicy.TryConsumeOnly(record, model, InventoryWire.CategoryLookup, out string reason))
+                    if (!CraftingPolicy.TryConsumeOnly(record, model, InventoryWire.CategoryLookup, out string reason,
+                            out consumedStacks))
                     {
                         // A normal rejection, not a fault: report it after BeginGuarded returns (the
                         // reservation is still held, so it is released on that path too). Nothing has
@@ -462,9 +482,17 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     DeferredActions.After(seconds, () =>
                     {
                         long? spawned = null;
+                        Exception? spawnFault = null;
                         try
                         {
                             spawned = LoosePartSpawner.Spawn(stationEntityId, part, crafterUid);
+                        }
+                        catch (Exception e)
+                        {
+                            // The materials are already consumed; swallowing this silently IS
+                            // the "resources eaten, nothing appears" bug. Remember the fault,
+                            // finish the mandatory unwind below, then REFUND.
+                            spawnFault = e;
                         }
                         finally
                         {
@@ -498,6 +526,16 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                                 itemReadyInSeconds: donePush.ItemReadyInSeconds,
                                 minSlotCount: donePush.SlotCount,
                                 clientSchematicIdOverride: donePush.SchematicId);
+                        }
+
+                        // HONEST FAILURE: if the spawn faulted (or produced nothing) after the
+                        // consume, give the materials BACK and say so loudly. Without this the
+                        // craft would end "successfully" on the wire with the player's inventory
+                        // short and no part anywhere - materials must never be eaten silently.
+                        if (spawned == null)
+                        {
+                            RefundStationCraftMaterials(entityId, consumedStacks, record.SchematicId,
+                                spawnFault?.Message ?? "spawner produced no part entity");
                         }
 
                         Console.WriteLine("[info] entity " + entityId + " COMPLETED station craft of loose part '"
@@ -545,6 +583,33 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 PushCraftingState(player, pushTarget, session,
                     update => update.AddCraftingValidationFailed(new CraftingValidationFailed(consumeReason)));
                 InventoryPush.Push(entityId, "station craft rejected");
+            }
+        }
+
+        /// <summary>
+        /// Gives a station craft's consumed materials BACK after a post-consume spawn
+        /// failure - the refund half of "no craft may eat materials it cannot show"
+        /// (the up-front <see cref="StationCraftOutputGate"/> covers everything
+        /// knowable; this covers the unexpected throw between consume and spawn).
+        /// Grants stack-first via <see cref="InventoryService.Grant"/>, which also
+        /// pushes 1081 so the player watches the materials come back. Best-effort per
+        /// stack: a stack that no longer fits (bag rearranged mid-craft) is logged
+        /// loudly rather than blocking the rest of the refund.
+        /// </summary>
+        private static void RefundStationCraftMaterials( long entityId, System.Collections.Generic.IReadOnlyList<ConsumedMaterial> consumed, string schematicId, string why )
+        {
+            Console.WriteLine("[warn] station craft '" + schematicId + "' for entity " + entityId
+                + " consumed materials but could NOT spawn its part (" + why + "); refunding "
+                + consumed.Count + " stack(s).");
+
+            foreach (ConsumedMaterial material in consumed)
+            {
+                if (InventoryService.Grant(entityId, material.ItemTypeId, material.Amount) == null)
+                {
+                    Console.WriteLine("[error] station craft refund: could not return " + material.Amount
+                        + "x '" + material.ItemTypeId + "' to entity " + entityId
+                        + " (no space or unknown type); the player is short this stack.");
+                }
             }
         }
 

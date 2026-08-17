@@ -65,6 +65,11 @@ namespace WorldsAdriftRebornGameServer.Game
         private bool _announced;
         private TimeSpan? _readyAt;
 
+        internal bool OwnsMotionFor(long hullEntityId) =>
+            Enabled && !_done && _plan != null
+            && ShipPublisher.TryResolveShip(out long activeHull, out _)
+            && activeHull == hullEntityId;
+
         /// <summary>
         /// How long the ferry HOLDS the ship at rest after it first exists, before
         /// flying - so a player has time to climb aboard and be carried. Set with
@@ -140,10 +145,18 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             ShipControlPointSpec spec = _plan.Spec(_index);
-            int sent = ShipPublisher.Broadcast(entityId, ShipPublisher.BuildUpdate(spec));
-            // Wake the bolted parts alongside every ferry control point so they ride
-            // the whole flight with the hull, not just the first second of it.
-            ShipPartMotionService.PublishWake(entityId);
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(spec.X, spec.Y, spec.Z);
+            uint packedRotation = WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(entityId);
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(
+                entityId, hullPosition, packedRotation);
+            ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
+                entityId, hullPosition, WorldsAdriftRebornGameServer.Flight.DomainGenerationFor(entityId),
+                new ShipDomainComponentUpdate(entityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(spec)),
+                wakes.Root,
+                wakes.Members);
+            int sent = delivery.RootDeliveries;
+            WorldsAdriftRebornGameServer.WorldEntities.Relocate(entityId, hullPosition, packedRotation);
 
             if (sent > 0 && !_announced && _index == 0)
             {

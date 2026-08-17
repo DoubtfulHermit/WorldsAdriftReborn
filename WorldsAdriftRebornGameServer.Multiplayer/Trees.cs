@@ -136,6 +136,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// falling-tree audio loop on a tree that is not falling, because nothing
         /// on this server gives a tree physics authority. It also un-kinematics the
         /// Rigidbody via <c>HasAuthority</c>. A static tree is `dynamic = false`.
+        ///
+        /// ON RETAIL'S FALLING LOGS, since this is where that question lands.
+        /// Retail felled sections really did topple and really could crush a player
+        /// (worldsadrift.fandom.com/wiki/Trees). The mechanism is
+        /// <c>TreeFsimVisualizer.SpawnNewTree</c> -> <c>TriggerSpawnNewTreeBit</c>
+        /// (acs/TreeFsimVisualizer.cs:71-82): the severed part becomes ANOTHER tree
+        /// entity carrying the falling mask plus the parent's linear and angular
+        /// velocity, and the UnityWorker simulates it. Three separate facts decide
+        /// what is possible here, and they do not all point the same way:
+        ///
+        /// 1. The SIMULATION cannot be reproduced. <c>TreeFsimVisualizer</c> is
+        ///    <c>[WorkerType(UnityWorker)]</c> and absent from the client build, and
+        ///    <c>TreeBase.ResetCOMHackCoroutine</c> keeps a dynamic tree KINEMATIC
+        ///    on the client (<c>if (dynamic &amp;&amp; !WorldsAdrift.IsClient)</c>,
+        ///    acs/TreeBase.cs:555). No client will ever tumble a log by itself.
+        /// 2. An ANIMATED fall is nevertheless renderable, which is worth writing
+        ///    down because the obvious conclusion from (1) is that it is not. 190602
+        ///    TransformState carries localPosition AND localRotation (plus velocity,
+        ///    angularVelocity, isSleeping), and served transform updates demonstrably
+        ///    move a world entity on the stock client - the nugget's depletion sink
+        ///    is exactly that. So a server could spawn a second tree entity holding
+        ///    the falling mask and drive it down an authored arc.
+        /// 3. It is blocked on DESPAWN, not on rendering. This server has no entity
+        ///    removal at all, so every felled log would be permanent litter that
+        ///    accumulates for the life of the world and is re-sent to every joiner.
+        ///    And "dangerous" is separately impossible: HealthState is seeded static
+        ///    with no damage authority anywhere, so nothing can crush anybody.
+        ///
+        /// The faithful served behaviour until removal exists is therefore the one
+        /// this server implements: the section leaves the mask, the client plays the
+        /// authored break VFX and SFX on it (<c>TreeClientVisualizer</c> ->
+        /// <c>TreeSection.ShowReplicatedVisualHitAndPlaySfx</c>), and the wood is
+        /// granted to the cutter. No fall is claimed that will not render.
         /// </summary>
         public const bool Dynamic = false;
 
@@ -153,10 +186,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const double Scale = 1.0;
 
         /// <summary>
-        /// Seeded into <c>1035 TreeState.respawnTime</c>. Zero, and it means
-        /// nothing: <c>respawn_time</c> has zero references in the entire client
-        /// decompile, not merely no readers - even its units are unknown. Nothing
-        /// respawns on this server.
+        /// Seeded into <c>1035 TreeState.respawnTime</c>. Left at zero, and on the
+        /// WIRE that still means nothing: <c>respawn_time</c> has zero references in
+        /// the entire client decompile, not merely no readers - even its units are
+        /// unknown, so no value here would change what any client does.
+        ///
+        /// Respawn is therefore not driven through this field - it CANNOT be. It is
+        /// driven server-side by resetting a chopped tree's <c>sectionMask</c> back
+        /// to whole, which is the one channel the client actually acts on
+        /// (<c>TreeVisualizer</c> reactivates the sections off the 1036 mask). The
+        /// real, tunable cadence lives with the timer that owns it,
+        /// <see cref="TreeHarvest.DefaultRespawnDelay"/> - reconstructed there,
+        /// because retail's value is unrecoverable. Trees DO respawn on this server
+        /// now; this constant is only the inert wire seed the component still needs
+        /// to be structurally complete.
         /// </summary>
         public const long RespawnTime = 0;
 

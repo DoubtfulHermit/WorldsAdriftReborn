@@ -108,11 +108,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// again. Returns true if it was mounted. Called from the 1239 pickup handler so a
         /// player can re-position a part they already placed: without this the re-lifted
         /// part stays in the ledger and its next PlacePart is rejected
-        /// <see cref="Multiplayer.Ship.PartMountReject.PartAlreadyMounted"/>. The
-        /// authoritative component revert (1120 attached=false, 8066 no-ship, 190602 loose)
-        /// is a documented follow-on; clearing the ledger is what unblocks the re-mount and
-        /// is enough for the static-ship milestone (the part re-seeds loose on its next
-        /// checkout via the loose-part branches, which still know it).
+        /// <see cref="Multiplayer.Ship.PartMountReject.PartAlreadyMounted"/>. This is the
+        /// LEDGER half only; the 1239 handler pairs it with
+        /// <see cref="Game.PartMountService.BroadcastDetach"/>, which now performs the
+        /// authoritative component revert the milestone used to defer (1120 attached=false,
+        /// 8066 no-ship, 190602 loose global) so live carry state stays consistent and the
+        /// re-place is deterministic - it is no longer left to the part's next checkout.
         /// </summary>
         internal static bool Unmount(long partEntityId)
         {
@@ -121,6 +122,23 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
 
         /// <summary>How many parts have been mounted this session.</summary>
         internal static int Count => ByEntityId.Count;
+
+        /// <summary>
+        /// Every part mounted on one hull, as (part entity id, mount). A linear
+        /// scan over a per-ship handful of parts, called at the flight wake
+        /// cadence (~4 Hz while a ship is moving) - not worth an index until a
+        /// ship has hundreds of parts. Allocation-light: yields, no list.
+        /// </summary>
+        internal static IEnumerable<KeyValuePair<long, Mount>> OnHull(long hullEntityId)
+        {
+            foreach (KeyValuePair<long, Mount> entry in ByEntityId)
+            {
+                if (entry.Value.HullEntityId == hullEntityId)
+                {
+                    yield return entry;
+                }
+            }
+        }
 
         // ------------------------------------------------------------------
         // CARRY tracking (client-driven lift; PlacePart carries no part id).

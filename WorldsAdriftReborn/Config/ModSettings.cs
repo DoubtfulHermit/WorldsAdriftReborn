@@ -20,6 +20,8 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> localAssetPath { get; set; }
         public static ConfigEntry<string> gameServerHost { get; set; }
         public static ConfigEntry<string> gameServerPort { get; set; }
+        public static ConfigEntry<int> perfSpikeThresholdMs { get; set; }
+        public static ConfigEntry<string> stationPickupKey { get; set; }
 
         public static void InitConfig()
         {
@@ -84,6 +86,16 @@ namespace WorldsAdriftReborn.Config
                                                     "GameServer_Host",
                                                     "127.0.0.1",
                                                     "The hostname or address of the game server.");
+
+            perfSpikeThresholdMs = modConfig.Bind<int>("Perf",
+                                                    "Perf_SpikeThresholdMs",
+                                                    100,
+                                                    "Frame-time threshold in milliseconds above which the stutter probe logs one '[WAR][perf] spike' attribution line. Minimum 20.");
+
+            stationPickupKey = modConfig.Bind<string>("Interact",
+                                                    "Interact_StationPickupKey",
+                                                    "X",
+                                                    "UnityEngine.KeyCode name of the key held (0.5s) while looking at a placed Shipyard or Assembly Station to pack it back into your inventory. The normal E/Craft interaction is untouched.");
         }
     }
 }

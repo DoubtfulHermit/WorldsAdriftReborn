@@ -102,6 +102,20 @@ server-side only** — which no longer matters, because we have the server's fil
 Community-preserved data from public repositories, recorded here so the provenance
 travels with it. Not our work; credit belongs to the Cardinal Guild map project.
 
+## Community engineering spreadsheets and WAEngenius
+
+The project-owner supplied four historical community spreadsheets plus the
+WAEngenius engine calculator on 2026-08-16. The surviving workbooks, every tab as
+display/formula CSV, the calculator source, its hidden source-data workbook,
+hashes, limitations and attribution are preserved under
+[`external/wa-community-2026-08-16/`](external/wa-community-2026-08-16/README.md).
+
+These sources contain valuable measured engine, wing, material, mass and panel
+resilience data. They are community evidence rather than Bossa authority and may
+describe different game patches. One supplied Google Sheet was already deleted
+(HTTP 410); the failed source and recovery attempts are recorded rather than
+silently replacing it with guesses.
+
 ## island-surfaces/ — regenerated 2026-08-08 (TRS fix)
 
 All 255 files were re-extracted after a bug fix in `tools/sweep_one.py`. The old

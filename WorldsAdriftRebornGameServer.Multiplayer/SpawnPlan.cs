@@ -93,13 +93,49 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     public static class SpawnPlan
     {
         /// <summary>
-        /// The steps for one joining client, given everything registered.
+        /// The steps for one joining client, given everything registered. The
+        /// AfterPlayer entities are emitted in registration order, unchanged.
         /// </summary>
         public static IReadOnlyList<SpawnPlanStep> For(WorldEntityRegistry registry)
+        {
+            // A predicate that never fires means "nothing is prioritised", so the
+            // AfterPlayer block is emitted in plain registration order - byte for
+            // byte the plan this method has always produced. The barrier path calls
+            // the overload below with LoadBarrierPolicy.IsInitialKey.
+            return For(registry, _ => false);
+        }
+
+        /// <summary>
+        /// The steps for one joining client, with the AfterPlayer entities matching
+        /// <paramref name="isInitial"/> emitted BEFORE the rest.
+        ///
+        /// WHY REORDER AT ALL. The loading barrier releases the player as soon as an
+        /// INITIAL set (the ground and the player's ship) is ready on the client;
+        /// the distant scenery keeps streaming afterwards. Each AfterPlayer entity
+        /// is released one pacing interval apart, so if the initial entities sat at
+        /// the BACK of the plan the barrier would have to wait out every tree and
+        /// ore node before its own set even started - the pacer would put the delay
+        /// back that the barrier exists to remove. Bringing the initial entities to
+        /// the front streams exactly the load-bearing set first.
+        ///
+        /// WHAT DOES NOT CHANGE. This only permutes the AfterPlayer block; the
+        /// player's own asset/entity steps and every BeforePlayer entity (the
+        /// ground that must precede the player, see the type remarks) keep their
+        /// positions, so <see cref="GroundPrecedesPlayer"/> and
+        /// <see cref="EveryAssetIsRequestedBeforeItsEntity"/> hold exactly as
+        /// before. Relative order WITHIN the initial group and within the distant
+        /// group is preserved, so a hull still precedes the helm whose 8066 seed
+        /// names it.
+        /// </summary>
+        public static IReadOnlyList<SpawnPlanStep> For(WorldEntityRegistry registry, Func<string, bool> isInitial)
         {
             if (registry == null)
             {
                 throw new ArgumentNullException(nameof(registry));
+            }
+            if (isInitial == null)
+            {
+                throw new ArgumentNullException(nameof(isInitial));
             }
 
             List<SpawnPlanStep> plan = new List<SpawnPlanStep>();
@@ -118,10 +154,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             plan.Add(new SpawnPlanStep(SpawnOp.AddEntity, null));
 
-            foreach (WorldEntity entity in registry.InOrder(SpawnOrder.AfterPlayer))
+            // Initial (ground + ship) AfterPlayer entities first, then distant
+            // scenery - each group kept in registration order. A stable partition,
+            // not a sort: two passes over the same list.
+            IReadOnlyList<WorldEntity> afterPlayer = registry.InOrder(SpawnOrder.AfterPlayer);
+            foreach (WorldEntity entity in afterPlayer)
             {
-                plan.Add(new SpawnPlanStep(SpawnOp.RequestAsset, entity));
-                plan.Add(new SpawnPlanStep(SpawnOp.AddEntity, entity));
+                if (isInitial(entity.Key))
+                {
+                    plan.Add(new SpawnPlanStep(SpawnOp.RequestAsset, entity));
+                    plan.Add(new SpawnPlanStep(SpawnOp.AddEntity, entity));
+                }
+            }
+            foreach (WorldEntity entity in afterPlayer)
+            {
+                if (!isInitial(entity.Key))
+                {
+                    plan.Add(new SpawnPlanStep(SpawnOp.RequestAsset, entity));
+                    plan.Add(new SpawnPlanStep(SpawnOp.AddEntity, entity));
+                }
             }
 
             return plan;

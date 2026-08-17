@@ -11,4 +11,21 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <!--
+    The REAL client entity-prefab census (the same file the tests embed), so the
+    RUNTIME server can refuse a station craft whose output prefab the client
+    could never load - instead of eating the materials and spawning an entity
+    that renders nothing. See ClientEntityPrefabs.
+  -->
+  <ItemGroup>
+    <EmbeddedResource Include="Ship\client-entity-prefabs.txt" />
+    <!-- The extracted, TRS-composed LOD0 surface samples for Haven (island
+         1431299145): island-local metres + normal, ~2,139 candidate points.
+         Embedded so SurfacePlacementGenerator can derive the deterministic
+         resource-deposit field from real terrain with no runtime path dependency,
+         keeping the assembly dependency-free. Reviewed DATA, diffable in git. -->
+    <EmbeddedResource Include="Resources\haven-surface-1431299145.txt" />
+    <EmbeddedResource Include="Resources\trades-challenge-surface-1206286558.txt" />
+  </ItemGroup>
+
 </Project>

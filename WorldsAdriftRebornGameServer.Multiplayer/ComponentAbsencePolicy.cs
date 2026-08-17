@@ -195,7 +195,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>1235 DetachFromParentWhenUnderHealthThresholdState - no damage/detach model on our parts.</summary>
         public const uint DetachFromParentWhenUnderHealthThresholdStateComponentId = 1235;
 
-        /// <summary>1111 ShipControlInput - the helm/pilot-seat control-input reader (HelmVisualizer); this server simulates no ship piloting input.</summary>
+        /// <summary>
+        /// 1111 ShipControlInput. NO LONGER ABSENT - it is SERVED (a neutral
+        /// zero-input seed in ComponentsSerializer) since helm flight landed.
+        /// The old rationale ("this server simulates no ship piloting input")
+        /// stopped being true: the pilot's own client WRITES 1111 (granted in
+        /// MirrorSendPolicy.ShipFlightAuthoritativeComponents), the server
+        /// consumes it (ShipControlInput_Handler), and the HULL's checked-out
+        /// 1111 must exist because PilotVisualizer.OnChangeLinkedEntity does
+        /// GetComponentInParent&lt;ShipControlInputVisualizer&gt;() on the driven
+        /// hull and calls ShipControlsBehaviour.SetInitialInput on it - which
+        /// dereferences the visualizer's 1111 reader. GetComponentInParent finds
+        /// the component whether or not the visualizer is enabled, so an absent
+        /// 1111 there is an NRE at the exact moment piloting starts. The constant
+        /// stays for the serializer branch and the tests.
+        /// </summary>
         public const uint ShipControlInputComponentId = 1111;
 
         // ------------------------------------------------------------------
@@ -238,9 +252,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// * 1257 / 1121 / 1225 / 1235 - loose-ship-part physics/cosmetic states
         ///   this server authors for no entity; the visualizers that read them are
         ///   off the lift path and safe disabled (see the block above).
-        /// * 1111 - the helm's ShipControlInput (pilot-seat control input); this
-        ///   server simulates no piloting, HelmVisualizer is off the lift path and
-        ///   safe disabled, so the helm still renders and lifts as a loose part.
         /// * 1294 / 1306 - a ship entity's UidState (information-only UidVisualizer)
         ///   and ShipAtlasPulseState (cosmetic core-pulse ShipAtlasPulseVisualizer);
         ///   both readers are off any render/lift path and safe disabled, so the ship
@@ -255,12 +266,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         {
             WeatherCellStateComponentId,
             RadialStormStateComponentId,
-            ParentingMassAdderStateComponentId,
-            OriginalMassStateComponentId,
+            // 1257 ParentingMassAdderState and 1121 OriginalMassState left this set:
+            // absence was NOT safe. The hull's ParentingMassAdderVisualizer.totalMass
+            // is read by ShipLiftVisualizer.Load/IsOverloaded, which the PILOT'S OWN
+            // ShipControlsBehaviour.UpdateVertical calls every frame while driving -
+            // a never-injected mass reader NRE'd 12,077 times in one measured session
+            // and killed the flight input loop outright (and the sky-core glow before
+            // it). Both are now SERVED with modest reconstructed masses.
             LightningStrikableStateComponentId,
             DetachFromParentWhenUnderHealthThresholdStateComponentId,
-            ShipControlInputComponentId,
-            UidStateComponentId,
+            // 1111 ShipControlInput is NO LONGER absent - it is SERVED (neutral
+            // zero input). Helm flight made the old "no piloting" rationale
+            // false, and absence on the HULL was never actually safe once a
+            // pilot exists: SetInitialInput dereferences the hull visualizer's
+            // 1111 reader the moment 1109 DrivingEntityId goes valid. See the
+            // constant's remarks.
+            // 1294 UidState is NO LONGER absent - it is SERVED (uid = entity id).
+            // Absence was not actually safe: the PLAYER's own
+            // ClientAuthoritativePlayerMovement.CollectDataHighFrequency calls
+            // UidVisualizer.get_Uid every movement tick regardless of visualizer
+            // enablement, and a never-injected reader NRE'd 3,290 times in one
+            // measured session. Serving a real uid fixes the flood at the source.
             ShipAtlasPulseStateComponentId,
         };
 

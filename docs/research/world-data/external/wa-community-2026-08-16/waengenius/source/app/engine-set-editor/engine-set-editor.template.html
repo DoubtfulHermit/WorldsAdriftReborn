@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<div class="ship-component-box-outer">
+    <div  class="ship-component-header">
+        <div class="ship-component-tab">
+            <input type="number" id="engine-count-{{$index}}" ng-change="$ctrl.updateEngineSet('count')" ng-model="$ctrl.engineSetData.count" style="width:50px"/>
+            <label for="engine-count-{{$index}}">&#10005;</label>
+            <select class="procedural-tier-{{$ctrl.engineSchemData.tier}}" ng-change="$ctrl.updateEngineSet('engineId')" ng-model="$ctrl.engineSetData.engineId" ng-options="engine.id as engine.schem.name.toString() for engine in $ctrl.engineList"></select>
+            <!--span>Tier {{$ctrl.engineSchemData.tier}}</span-->
+            <img ng-click="$ctrl.editEngineSchem()" src="images/iconmonstr-edit-6.svg" style="vertical-align:middle;" width="24" height="24" alt="edit engine"/>
+            <img ng-click="$ctrl.createEngineSchem()" src="images/iconmonstr-plus-6.svg" style="vertical-align:middle;" width="24" height="24" alt="create new engine"/> 
+        </div>
+        <div style="flex:1;"></div>
+        <div style="padding-right:20px">
+            <img ng-click="$ctrl.removeEngineSet()" src="images/iconmonstr-trash-can-2.svg" style="vertical-align: middle" width="28" height="28" alt="delete engine set"/>
+        </div>
+    </div>
+    <div class="ship-component-box-inner" style="display: flex; flex-direction: column; flex-wrap:wrap; justify-content: flex-start;">
+        <engine-schem-editor ng-show="$ctrl.engineSetBeingEdited === $ctrl.setId" set-id="$ctrl.setId" 
+        engine-part-data="$ctrl.enginePartData" 
+        engine-schem-data="$ctrl.engineSchemData"
+        on-update="$ctrl.engineSchemUpdate(property, engineSchemData)">
+    </engine-schem-editor>
+        <div class="eng-comp-row">
+            <div class="eng-comp-col">
+                <div  class="eng-comp-group">
+                    <label for="select-casing-material-{{$ctrl.setId}}">Casing</label>
+                    <select id="select-casing-material-{{$ctrl.setId}}" 
+                        ng-focus="$ctrl.focusComp('Casing')" 
+                        ng-change="$ctrl.updateEngineSet('slots.Casing.material')"  
+                        ng-model="$ctrl.engineSetData.slots['Casing'].material" 
+                        ng-options="m for m in $ctrl.materialData|arrayByMaterialClass:(($ctrl.enginePartData.case|filter:{name: $ctrl.engineSchemData.name.case})[0].materialClass)">
+                    </select>
+                </div>
+                <div  class="eng-comp-group">
+                    <label for="select-comb-material-{{$ctrl.setId}}" >Combustion Internals</label>
+                    <select id="select-comb-material-{{$ctrl.setId}}" 
+                        ng-focus="$ctrl.focusComp('Combustion Internals')" 
+                        ng-change="$ctrl.updateEngineSet('slots.Combustion Internals.material')"  
+                        ng-model="$ctrl.engineSetData.slots['Combustion Internals'].material" 
+                        ng-options="m for m in $ctrl.materialData|arrayByMaterialClass:'m'">
+                    </select>
+                </div>
+                <div class="eng-comp-group comp-group-quality" >
+                    <label for="input-comb-quality-{{$ctrl.setId}}" style="font-size: 10pt">Quality</label>
+                    <input id="input-comb-quality-{{$ctrl.setId}}" 
+                        ng-focus="$ctrl.focusComp('Combustion Internals')" 
+                        ng-change="$ctrl.updateEngineSet('slots.Combustion Internals.quality')" 
+                        type="number" 
+                        min="1" max="10" 
+                        ng-model="$ctrl.engineSetData.slots['Combustion Internals'].quality"/>
+                </div>
+            </div>
+            <div class="eng-comp-col">
+                <div  class="eng-comp-group">
+                    <label for="select-mech-material-{{$ctrl.setId}}">Mechanical Internals</label>
+                    <select id="select-mech-material-{{$ctrl.setId}}" 
+                        ng-focus="$ctrl.focusComp('Mechanical Internals')"  
+                        ng-change="$ctrl.updateEngineSet('slots.Mechanical Internals.material')"  
+                        ng-model="$ctrl.engineSetData.slots['Mechanical Internals'].material" 
+                        ng-options="m for m in $ctrl.materialData|arrayByMaterialClass:'m'">
+                    </select>
+                </div>
+                <div  class="eng-comp-group">
+                    <label for="select-prop-material-{{$ctrl.setId}}">Propeller</label>
+                    <select id="select-prop-material-{{$ctrl.setId}}" 
+                        ng-focus="$ctrl.focusComp('Propeller')" 
+                        ng-change="$ctrl.updateEngineSet('slots.Propeller.material')"  
+                        ng-model="$ctrl.engineSetData.slots['Propeller'].material" 
+                        ng-options="m for m in $ctrl.materialData|arrayByMaterialClass:(($ctrl.enginePartData.prop|filter:{name: $ctrl.engineSchemData.name.prop})[0].materialClass)">
+                    </select>
+                </div>
+                <div class="eng-comp-group comp-group-quality" >
+                    <label for="input-prop-quality-{{$ctrl.setId}}" style="font-size: 10pt">Quality</label>
+                    <input id="input-prop-quality-{{$ctrl.setId}}" 
+                        ng-focus="$ctrl.focusComp('Propeller')" 
+                        ng-change="$ctrl.updateEngineSet('slots.Propeller.quality')" 
+                        type="number" 
+                        min="1" max="10" 
+                        ng-model="$ctrl.engineSetData.slots['Propeller'].quality"/>
+                </div>
+            </div>
+        </div>
+        <div class="engine-set-editor-footer">
+            <div>
+                <span>Mass</span>{{$ctrl.engineSetData.getIndividualMass()|number:1}}&nbsp;/&nbsp;{{$ctrl.engineSetData.getMass()|number:1}}kg
+            </div>
+            <div>
+                <span>Power</span>{{$ctrl.engineSetData.getIndividualPower()|number:1}}&nbsp;/&nbsp;{{$ctrl.engineSetData.getPower()|number:1}}
+            </div>
+            <div>
+               <span>Mass&nbsp;Efficiency</span>{{$ctrl.engineSetData.getPower()/$ctrl.engineSetData.getMass()|number:3}}
+            </div>
+        </div>
+    </div>
+</div>

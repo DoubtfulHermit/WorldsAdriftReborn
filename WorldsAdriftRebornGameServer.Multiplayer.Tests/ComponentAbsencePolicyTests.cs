@@ -44,23 +44,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // entities ARE, and it must not happen by drive-by edit - anything
             // that is merely unseeded belongs in the loud path instead. The two
             // weather ids (1139/1269) plus the four loose-ship-part physics/cosmetic
-            // states this server authors for no entity (1257/1121/1225/1235), plus the
-            // helm's ShipControlInput (1111) - the pilot-seat control input this server
-            // does not simulate - plus a ship entity's UidState (1294) and
-            // ShipAtlasPulseState (1306), both off any render/lift path so the ship
-            // hull's interest batch serializes instead of dropping on them.
+            // states this server authors for no entity (1257/1121/1225/1235), plus
+            // a ship entity's ShipAtlasPulseState (1306), off any render/lift path
+            // so the ship hull's interest batch serializes instead of dropping on it.
             Assert.Equal(
-                new uint[] { 1139, 1269, 1257, 1121, 1225, 1235, 1111, 1294, 1306 },
+                // 1294 UidState left this set on purpose: it is SERVED now (uid = entity
+                // id), because the player's own movement path reads UidVisualizer.Uid
+                // every tick regardless of enablement and NRE'd when never injected.
+                // 1111 ShipControlInput left it for helm flight: it is SERVED (neutral
+                // zero input) and GRANTED on the player, because ShipControlsBehaviour
+                // needs the writer and PilotVisualizer dereferences the HULL's reader
+                // (SetInitialInput) the moment 1109 DrivingEntityId goes valid.
+                // 1257/1121 (the mass chain) left this set: the pilot's own
+                // ShipControlsBehaviour.UpdateVertical reads them every frame while
+                // driving regardless of visualizer enablement, so absence NRE-flooded
+                // (12,077/session measured). They are SERVED now.
+                new uint[] { 1139, 1269, 1225, 1235, 1306 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
         [Theory]
-        [InlineData(1257u)] // ParentingMassAdderState
-        [InlineData(1121u)] // OriginalMassState
         [InlineData(1225u)] // LightningStrikableState
         [InlineData(1235u)] // DetachFromParentWhenUnderHealthThresholdState
-        [InlineData(1111u)] // ShipControlInput (helm pilot seat)
-        [InlineData(1294u)] // UidState (ship entity, information-only visualizer)
         [InlineData(1306u)] // ShipAtlasPulseState (ship entity, cosmetic core pulse)
         public void Loose_ship_part_physics_states_are_absent_so_a_part_checkout_is_clean(uint componentId)
         {
@@ -115,6 +120,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [InlineData(1081u)]    // InventoryState
         [InlineData(190607u)]  // TeleportRequestState
         [InlineData(1209u)]    // CustomShipHullState
+        [InlineData(1111u)]    // ShipControlInput - the pilot input, served + granted for helm flight
+        [InlineData(1112u)]    // TurretControlInput - ShipControlsBehaviour's other required writer
         public void Components_we_actually_serve_are_not_absent(uint componentId)
         {
             Assert.False(ComponentAbsencePolicy.IsKnownAbsent(componentId));
@@ -133,6 +140,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             AssertNoneAbsent(MirrorSendPolicy.AuthoritativeComponents);
             AssertNoneAbsent(MirrorSendPolicy.RemoteSeedComponents);
             AssertNoneAbsent(MirrorSendPolicy.MultitoolComponents);
+            AssertNoneAbsent(MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+            AssertNoneAbsent(MirrorSendPolicy.ShipFlightInjectedComponents);
             AssertNoneAbsent(WorldEntities.ShipFrameSeedComponents);
             AssertNoneAbsent(WorldEntities.ShipRecognitionSeedComponents);
             Assert.False(ComponentAbsencePolicy.IsKnownAbsent(MirrorSendPolicy.TransformStateComponentId));

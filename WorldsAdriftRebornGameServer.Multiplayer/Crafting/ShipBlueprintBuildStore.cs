@@ -60,6 +60,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
             Builds.Remove(new Key(shipyardEntityId, playerEntityId));
         }
 
+        /// <summary>
+        /// Whether ANY player has a live blueprint build on this shipyard - the
+        /// station-pickup busy gate: packing the yard would strand their bill and
+        /// any materials already loaded into it. Builds are few (one per player per
+        /// yard), so a scan per pickup EVENT is nothing.
+        /// </summary>
+        public static bool AnyAtShipyard(long shipyardEntityId)
+        {
+            foreach (Key key in Builds.Keys)
+            {
+                if (key.ShipyardEntityId == shipyardEntityId)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Drop every build a player holds, on any shipyard (they left).</summary>
         public static void ForgetPlayer(long playerEntityId)
         {

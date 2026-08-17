@@ -32,6 +32,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void Every_hull_deck_and_mounted_member_canonicalizes_to_one_root()
+        {
+            ShipMembership m = new ShipMembership();
+            m.Register(100, 100);
+            m.Register(101, 100);
+            m.Register(102, 100);
+
+            Assert.Equal(100, m.RootOf(100));
+            Assert.Equal(100, m.RootOf(101));
+            Assert.Equal(100, m.RootOf(102));
+        }
+
+        [Fact]
+        public void Detached_member_no_longer_resolves_to_the_ship()
+        {
+            ShipMembership m = new ShipMembership();
+            m.Register(102, 100);
+
+            Assert.False(m.Unregister(102, expectedRoot: 999));
+            Assert.Equal(100, m.RootOf(102));
+            Assert.True(m.Unregister(102, expectedRoot: 100));
+            Assert.Null(m.RootOf(102));
+        }
+
+        [Fact]
         public void An_unregistered_id_is_not_a_ship_surface()
         {
             // The island, a tree, empty air: all "not aboard".

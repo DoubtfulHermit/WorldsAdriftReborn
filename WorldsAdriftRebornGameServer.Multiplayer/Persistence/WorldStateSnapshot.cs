@@ -54,6 +54,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
     /// </summary>
     public sealed class BuiltShipRecord
     {
+        /// <summary>
+        /// Stable-index tombstone. Mounted parts refer to this list index, so salvaging
+        /// cannot compact the list; restore skips this record and new ships append.
+        /// </summary>
+        public bool Salvaged { get; set; }
+
         /// <summary>Hull-centre position, in Q52.12 fixed-point units.</summary>
         public long HullX { get; set; }
 
@@ -62,6 +68,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 
         /// <summary>Hull-centre position, in Q52.12 fixed-point units.</summary>
         public long HullZ { get; set; }
+
+        /// <summary>Level heading at the last authoritative flight save, radians.</summary>
+        public double HullYawRadians { get; set; }
 
         /// <summary>The hull geometry blob the 1209 CustomShipHullState serves (base64 in JSON).</summary>
         public byte[] HullBytes { get; set; } = System.Array.Empty<byte>();
@@ -74,8 +83,61 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
         /// </summary>
         public string OwnerCharacterUid { get; set; } = "";
 
+        /// <summary>
+        /// The position of the SHIPYARD that built this ship, in Q52.12 fixed-point units.
+        /// The shipyard restores as its own deployable at this exact position, so on boot
+        /// the ship is re-DOCKED to the deployable found there. Without this link a
+        /// restored shipyard has no docked ship, and the client's
+        /// <c>PlayerScannerTool.IsShipyardActive()</c> (= <c>DockedShip != null</c>) reports
+        /// it INACTIVE - the "nearby shipyard is inactive" bug. Zero for a legacy record
+        /// written before the dock-link was persisted (that ship restores un-docked).
+        /// </summary>
+        public long ShipyardX { get; set; }
+
+        /// <summary>The shipyard-centre position, in Q52.12 fixed-point units.</summary>
+        public long ShipyardY { get; set; }
+
+        /// <summary>The shipyard-centre position, in Q52.12 fixed-point units.</summary>
+        public long ShipyardZ { get; set; }
+
         /// <summary>The hull position as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition HullPosition() => new FixedPointPosition(HullX, HullY, HullZ);
+
+        public void UpdatePose(FixedPointPosition position, double yawRadians)
+        {
+            HullX = position.X;
+            HullY = position.Y;
+            HullZ = position.Z;
+            HullYawRadians = double.IsFinite(yawRadians) ? yawRadians : 0.0;
+        }
+
+        public void DockTo(FixedPointPosition shipyardPosition)
+        {
+            ShipyardX = shipyardPosition.X;
+            ShipyardY = shipyardPosition.Y;
+            ShipyardZ = shipyardPosition.Z;
+        }
+
+        /// <summary>
+        /// The building shipyard's position as a <see cref="FixedPointPosition"/>, or null
+        /// for a legacy record with no persisted dock link (all-zero).
+        /// </summary>
+        public FixedPointPosition? ShipyardPosition() =>
+            (ShipyardX == 0 && ShipyardY == 0 && ShipyardZ == 0)
+                ? (FixedPointPosition?)null
+                : new FixedPointPosition(ShipyardX, ShipyardY, ShipyardZ);
+
+        /// <summary>
+        /// Removes the current dock link after the ship leaves its shipyard. The record
+        /// itself remains at the same stable list index (mounted parts reference that
+        /// index); a later successful capture may set a new dock link with DockTo.
+        /// </summary>
+        public void ClearShipyardDock()
+        {
+            ShipyardX = 0;
+            ShipyardY = 0;
+            ShipyardZ = 0;
+        }
     }
 
     /// <summary>
@@ -193,6 +255,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Persistence
 
         /// <summary>The character uid of the player who mounted it.</summary>
         public string OwnerCharacterUid { get; set; } = "";
+
+        /// <summary>
+        /// SAIL ONLY: whether the sail's canvas is out (1303 unfurled), so a relog /
+        /// restart restores the rigging a player set. False for every other part type
+        /// and for legacy records (JSON default), which is exactly the fresh-mount
+        /// state - so an old save loads unchanged.
+        /// </summary>
+        public bool SailUnfurled { get; set; }
+
+        /// <summary>
+        /// LAMP ONLY: whether the lamp is switched OFF (1108 enabled=false). Stored
+        /// INVERTED on purpose: the JSON default (false) must mean the fresh-mount /
+        /// legacy-record state, and a lamp's proven default is ON - so absence of the
+        /// field restores an old save's lamps exactly as they always were.
+        /// </summary>
+        public bool LampOff { get; set; }
 
         /// <summary>The hull-local mount offset as a <see cref="FixedPointPosition"/>.</summary>
         public FixedPointPosition LocalOffset() => new FixedPointPosition(LocalX, LocalY, LocalZ);

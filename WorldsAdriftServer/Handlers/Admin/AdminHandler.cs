@@ -61,19 +61,26 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            string? sessionToken = SessionToken(request);
+            bool authed = AdminConfig.Sessions.IsValid(sessionToken, DateTimeOffset.UtcNow);
+
             if (path == "/admin/logout" && method == "POST")
             {
+                if (!authed || !VerifyFormCsrf(request, sessionToken))
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
                 HandleLogout(session, request);
                 return true;
             }
-
-            bool authed = IsAuthenticated(request);
 
             if (path == "/admin" && method == "GET")
             {
                 if (authed)
                 {
-                    Html(session, 200, AdminPage.Dashboard(BuildStatsJson()));
+                    Html(session, 200, AdminPage.Dashboard(BuildStatsJson(),
+                        AdminAuthPolicy.CsrfTokenForSession(sessionToken!), ReleaseWorldMap.Json));
                 }
                 else
                 {
@@ -94,9 +101,27 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            if (path == "/admin/api/command" && method == "POST")
+            {
+                if (!authed)
+                {
+                    Json(session, 401, "{\"error\":\"unauthenticated\"}");
+                    return true;
+                }
+
+                HandleAdminCommand(session, request, sessionToken!);
+                return true;
+            }
+
             if (path == "/admin/server-name" && method == "POST")
             {
                 if (!authed)
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
+
+                if (!VerifyFormCsrf(request, sessionToken))
                 {
                     Redirect(session, "/admin");
                     return true;
@@ -121,11 +146,14 @@ namespace WorldsAdriftServer.Handlers.Admin
 
         // ---- auth ----------------------------------------------------------
 
-        private static bool IsAuthenticated(HttpRequest request)
+        private static string? SessionToken(HttpRequest request) =>
+            AdminAuthPolicy.TokenFromCookieHeader(HeaderValue(request, "Cookie"));
+
+        private static bool VerifyFormCsrf(HttpRequest request, string? sessionToken)
         {
-            string? cookie = HeaderValue(request, "Cookie");
-            string? token = AdminAuthPolicy.TokenFromCookieHeader(cookie);
-            return AdminConfig.Sessions.IsValid(token, DateTimeOffset.UtcNow);
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("csrf", out string? csrf);
+            return AdminAuthPolicy.VerifyCsrf(sessionToken, csrf);
         }
 
         private static void HandleLogin(HttpSession session, HttpRequest request)
@@ -179,6 +207,173 @@ namespace WorldsAdriftServer.Handlers.Admin
             Redirect(session, "/admin");
         }
 
+        private static void HandleAdminCommand(HttpSession session, HttpRequest request,
+            string sessionToken)
+        {
+            // This non-simple request header forces a cross-origin browser to
+            // preflight. We expose no CORS permission, so another site cannot
+            // use an operator's session to fire a game command.
+            if (HeaderValue(request, "X-Wareborn-Admin") != "1")
+            {
+                CommandError(session, 403, "request", null, "Admin command confirmation header is missing.");
+                return;
+            }
+            if (!AdminAuthPolicy.VerifyCsrf(sessionToken,
+                    HeaderValue(request, AdminAuthPolicy.CsrfHeader)))
+            {
+                CommandError(session, 403, "request", null,
+                    "The session-bound CSRF token is missing or invalid.");
+                return;
+            }
+
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("action", out string? action);
+            form.TryGetValue("target", out string? target);
+            form.TryGetValue("argument", out string? argument);
+            form.TryGetValue("confirmation", out string? confirmation);
+
+            if (!AdminCommandBridge.TryBuild(action, target, argument, out AdminCommandRequest command, out string error))
+            {
+                CommandError(session, 400, KnownAction(action), null, error);
+                return;
+            }
+
+            if (!TryReadFreshGame(out GameStatsSnapshot snapshot, out error))
+            {
+                CommandError(session, 503, command.Action, command.TargetEntityId, error);
+                return;
+            }
+
+            if (command.Action == "ship-delete"
+                && confirmation != "DELETE")
+            {
+                CommandError(session, 400, command.Action, command.TargetEntityId,
+                    "Type DELETE exactly to confirm permanent deletion of hull "
+                    + command.TargetEntityId + ".");
+                return;
+            }
+
+            if (command.Action == "teleport" && command.Detail == "trades-challenge"
+                && !snapshot.SecondIslandRegistered)
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId,
+                    "The test island is not registered on the live game server.");
+                return;
+            }
+            if (command.Action == "teleport" && command.Detail == "mental-facility"
+                && snapshot.FirstRegionTerrainCount < 1)
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId,
+                    "Mental Facility terrain is not registered on the live game server.");
+                return;
+            }
+
+            if ((command.Action == "teleport" || command.Action == "placement")
+                && command.TargetEntityId.HasValue
+                && !IsConnectedPlayer(snapshot, command.TargetEntityId.Value, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+            if ((command.Action == "ship-recall" || command.Action == "ship-stop"
+                    || command.Action == "helm-release" || command.Action == "ship-delete")
+                && command.TargetEntityId.HasValue
+                && !IsShipDomain(snapshot, command.TargetEntityId.Value, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+            if (command.Action == "ship-recall"
+                && command.RelatedPlayerEntityId.HasValue
+                && !IsConnectedPlayer(snapshot, command.RelatedPlayerEntityId.Value, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+
+            if (!AdminCommandBridge.TryQueue(command, out error))
+            {
+                CommandError(session, 409, command.Action, command.TargetEntityId, error);
+                return;
+            }
+
+            string targetText = command.TargetEntityId.HasValue
+                ? (command.Action.StartsWith("ship-", StringComparison.Ordinal)
+                    || command.Action == "helm-release"
+                    ? " for hull entity " : " for player entity ") + command.TargetEntityId.Value
+                : string.Empty;
+            string message = "Accepted " + command.Action + targetText
+                + " and handed it to the game server. This records dispatch, not gameplay completion.";
+            AdminCommandEntry entry = AdminCommandJournal.Record(
+                DateTimeOffset.UtcNow, command.Action, command.TargetEntityId,
+                command.Detail, accepted: true, message);
+            Console.WriteLine("[info] admin command accepted: " + command.Action + targetText
+                + " (" + command.Detail + ").");
+            Json(session, 202, entry.ToJson().ToString(Formatting.None));
+        }
+
+        private static bool TryReadFreshGame(out GameStatsSnapshot snapshot, out string error)
+        {
+            GameStatsResult stats = GameStats.Read(DateTimeOffset.UtcNow);
+            if (stats.State != GameStatsState.Ok || stats.Snapshot == null || stats.Stale)
+            {
+                snapshot = null!;
+                error = "Live game status is unavailable or stale; no command was queued.";
+                return false;
+            }
+
+            snapshot = stats.Snapshot;
+            error = string.Empty;
+            return true;
+        }
+
+        private static bool IsConnectedPlayer(GameStatsSnapshot snapshot, long entityId, out string error)
+        {
+            foreach (GamePlayerStat player in snapshot.Players)
+            {
+                if (player.EntityId == entityId)
+                {
+                    error = string.Empty;
+                    return true;
+                }
+            }
+
+            error = "That player is no longer connected; refresh the player list and choose again.";
+            return false;
+        }
+
+        private static bool IsShipDomain(GameStatsSnapshot snapshot, long hullEntityId,
+            out string error)
+        {
+            foreach (GameShipDomainStat ship in snapshot.ShipDomains)
+            {
+                if ((long?)ship.Json["hullEntityId"] == hullEntityId)
+                {
+                    error = string.Empty;
+                    return true;
+                }
+            }
+            error = "That ship domain no longer exists; refresh the world inspector and choose again.";
+            return false;
+        }
+
+        private static string KnownAction(string? action)
+        {
+            return action == "teleport" || action == "placement"
+                || action == "resources-reset" || action == "ship-recall"
+                || action == "ship-stop" || action == "helm-release" || action == "ship-delete"
+                ? action
+                : "invalid";
+        }
+
+        private static void CommandError(HttpSession session, int status, string action, long? target, string message)
+        {
+            AdminCommandEntry entry = AdminCommandJournal.Record(
+                DateTimeOffset.UtcNow, action, target, string.Empty, accepted: false, message);
+            Console.WriteLine("[warning] admin command rejected: " + action + ": " + message);
+            Json(session, status, entry.ToJson().ToString(Formatting.None));
+        }
+
         // ---- stats payload -------------------------------------------------
 
         /// <summary>
@@ -192,12 +387,20 @@ namespace WorldsAdriftServer.Handlers.Admin
         private static string BuildStatsJson()
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
+            (WorldAdminResultState resultState, WorldAdminResult? latestResult) =
+                WorldAdminResult.Read();
 
             JObject root = new JObject
             {
                 ["serverName"] = ReadServerName(),
                 ["game"] = BuildGameJson(now),
                 ["accounts"] = BuildAccountsJson(now),
+                ["commands"] = new JObject
+                {
+                    ["recent"] = AdminCommandJournal.ToJson(),
+                    ["completionState"] = resultState.ToString().ToLowerInvariant(),
+                    ["latestCompletion"] = latestResult?.ToJson(),
+                },
             };
 
             // EscapeHtml so the SAME payload is safe both as the /admin/api/stats
@@ -254,6 +457,21 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["currentOnline"] = s.CurrentOnline;
             game["peakOnline"] = s.PeakOnline;
             game["wireHealthWarning"] = s.WireHealthWarning;
+            game["secondIslandRegistered"] = s.SecondIslandRegistered;
+            game["firstRegionTerrainCount"] = s.FirstRegionTerrainCount;
+            game["schemaVersion"] = s.SchemaVersion;
+            game["terrain"] = s.Terrain.Json;
+            game["runtime"] = new JObject
+            {
+                ["hostMode"] = s.RuntimeHostMode,
+                ["hostId"] = s.RuntimeHostId,
+                ["ownedEntityCount"] = s.RuntimeOwnedEntityCount,
+                ["globalEntityCount"] = s.RuntimeGlobalEntityCount,
+                ["unownedEntityCount"] = s.RuntimeUnownedEntityCount,
+                ["ownershipIssueCount"] = s.RuntimeOwnershipIssueCount,
+                ["domains"] = new JArray(s.RuntimeDomains.Select(x => x.Json)),
+                ["shipDomains"] = new JArray(s.ShipDomains.Select(x => x.Json)),
+            };
 
             JArray players = new JArray();
             foreach (GamePlayerStat p in s.Players)
@@ -273,6 +491,13 @@ namespace WorldsAdriftServer.Handlers.Admin
                     pj["packetsSent"] = p.PacketsSent;
                     pj["inFlightBytes"] = p.InFlightBytes;
                     pj["spiral"] = p.Spiral;
+                }
+                pj["hasPosition"] = p.HasPosition;
+                if (p.HasPosition)
+                {
+                    pj["x"] = p.X;
+                    pj["y"] = p.Y;
+                    pj["z"] = p.Z;
                 }
                 players.Add(pj);
             }

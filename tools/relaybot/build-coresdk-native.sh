@@ -81,3 +81,20 @@ for sym in ENet_EXP_Initialize ENet_EXP_Create_Host ENet_EXP_Connect \
         || { echo "MISSING EXPORT: $sym"; exit 1; }
 done
 echo "all ENet_EXP_* exports present"
+
+# The game server also drives protobuf helpers directly and the complete
+# WorkerProtocol surface through Improbable.WorkerSdkCsharp. Derive the required
+# export names from the current sources so additions such as RemoveEntity cannot
+# compile successfully yet disappear from the Linux shim.
+SERVER_ENET_PB=$(grep -oE 'EntryPoint = "[^"]+"' \
+    ../../WorldsAdriftRebornGameServer/DLLCommunication/EnetLayer.cs \
+    | sed 's/.*"\(.*\)"/\1/' | sort -u)
+WORKER_WAR=$(grep -oE 'WAR_SetGamePort|WorkerProtocol_[A-Za-z_]+' \
+    "$SDK/Exports.h" | sort -u)
+MISSING=0
+for sym in $SERVER_ENET_PB $WORKER_WAR; do
+    echo "$SYMS" | grep " $sym\$" > /dev/null \
+        || { echo "MISSING GAME-SERVER EXPORT: $sym"; MISSING=$((MISSING+1)); }
+done
+[ "$MISSING" -eq 0 ] || { echo "$MISSING game-server exports MISSING"; exit 1; }
+echo "all game-server exports present ($(echo "$SERVER_ENET_PB $WORKER_WAR" | wc -w) checked)"

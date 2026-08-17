@@ -1,0 +1,17 @@
+[Unit]
+Description=Worlds Adrift Reborn - ENet game server (native Linux)
+After=network-online.target wareborn-login.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/wareborn/WorldsAdriftRebornGameServer-native
+Environment=WAREBORN_GAME_PORT=7779
+ExecStart=/opt/wareborn/WorldsAdriftRebornGameServer-native/WorldsAdriftRebornGameServer
+KillSignal=SIGTERM
+TimeoutStopSec=15
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

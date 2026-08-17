@@ -1,5 +1,22 @@
 #include "Connection.h"
 
+namespace {
+    // These are continuous absolute/snapshot streams. A newer sample completely
+    // supersedes an older one, so reliable retransmission creates head-of-line
+    // latency instead of correctness when a Unity client stalls. The server's
+    // downstream relay has used the same classification for months; this closes
+    // the previously overlooked client -> server half of the path.
+    constexpr unsigned int TransformStateComponentId = 190602;
+    constexpr unsigned int ClientAuthoritativePlayerStateComponentId = 1073;
+
+    int ComponentUpdatePacketFlag(unsigned int componentId) {
+        return componentId == TransformStateComponentId
+            || componentId == ClientAuthoritativePlayerStateComponentId
+                ? WAR_PACKET_UNRELIABLE
+                : WAR_PACKET_RELIABLE;
+    }
+}
+
 Connection::Connection(char* hostname, unsigned short port, ConnectionParameters* parameters, ENetHost* client) {
     this->hostname = hostname;
     this->port = port;
@@ -7,7 +24,7 @@ Connection::Connection(char* hostname, unsigned short port, ConnectionParameters
 
     if (this->client != NULL && this->hostname != NULL && this->port != 0) {
         Logger::Debug("Trying to connect to game server at " + std::string(this->hostname));
-        this->peer = ENet_Connect(this->hostname, this->port, this->client, 5);
+        this->peer = ENet_Connect(this->hostname, this->port, this->client, 6);
         if (this->peer != NULL) {
             Logger::Debug("SUCCESS!");
         }
@@ -131,6 +148,16 @@ OpList* Connection::GetOpList() {
                     }
                 }
             }
+            else if (packet->channel == CH_RemoveEntityOp) {
+                op_list->removeEntityOp = new RemoveEntityOp();
+                if (!PB_RemoveEntityOp_Deserialize(packet->data, packet->dataLength,
+                        op_list->removeEntityOp, &op_list->removeComponentOp,
+                        &op_list->removeComponentLen)) {
+                    delete op_list->removeEntityOp;
+                    op_list->removeEntityOp = NULL;
+                    Logger::Debug("FAILED TO DESERIALIZE RemoveEntityOp");
+                }
+            }
 
             ENet_Destroy_Packet(packet);
         }
@@ -141,8 +168,18 @@ OpList* Connection::GetOpList() {
 
 void Connection::SendAssetLoaded(AssetLoaded* asset_loaded) {
     Logger::Debug("ASSET LOADED: " + std::string(asset_loaded->Name) + " " + asset_loaded->Context);
-    // send ack
-    ENet_Send(this->peer, CH_AssetLoadRequestOp, asset_loaded, sizeof(asset_loaded), WAR_PACKET_RELIABLE);
+    // Correlated v1 ack. The old implementation sent sizeof(asset_loaded)
+    // bytes, i.e. only the struct's first pointer-sized field rather than the
+    // three strings. Spawn sequencing only needed "some channel-0 packet", but a
+    // runtime terrain loader must know exactly which request completed.
+    int len = 0;
+    void* payload = PB_AssetLoadedAck_Serialize(asset_loaded, &len);
+    if (payload == NULL || len <= 0) {
+        Logger::Debug("FAILED TO SERIALIZE ASSET LOADED ACK");
+        return;
+    }
+    ENet_Send(this->peer, CH_AssetLoadRequestOp, payload, len, WAR_PACKET_RELIABLE);
+    PB_Free(payload);
 }
 
 bool Connection::DeserializeComponent(unsigned int component_id, ClientObjectType objType, char* buffer, unsigned int length, ClientObject** obj) {
@@ -190,7 +227,8 @@ void Connection::SendComponentUpdate(long entityId, ComponentObject* component_u
     }
 
     if (this->peer != nullptr) {
-        ENet_Send(this->peer, CH_ComponentUpdateOp, ptr, pb_len, WAR_PACKET_RELIABLE);
+        ENet_Send(this->peer, CH_ComponentUpdateOp, ptr, pb_len,
+            ComponentUpdatePacketFlag(component_update->ComponentId));
     }
 
     delete update;

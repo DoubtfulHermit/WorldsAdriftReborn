@@ -71,12 +71,17 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     + " ship spot " + stationPos + " instead.");
             }
 
-            FixedPointPosition partPos = LoosePartPlacement.NextTo(stationPos);
-
             int sequence = LooseParts.NextSequence();
+            FixedPointPosition partPos = LoosePartPlacement.NextAvailable(
+                stationPos,
+                WorldsAdriftRebornGameServer.WorldEntities.Registrations
+                    .Where(e => LoosePartPlacement.IsLoosePartKey(e.Key))
+                    .Select(e => e.Position));
             WorldEntity registration = LoosePartSpawnPlan.For(sequence, partPos, part);
             WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
             long partEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
+            LocalDomainOwnership.MoveToIsland(
+                WorldsAdriftRebornGameServer.DomainHost, partEntityId, registration.Position);
 
             // A stable, cross-restart identity for this part, so its persisted loose record
             // can be found and removed the instant it becomes mounted (and re-added if it is
@@ -156,7 +161,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// Unlike a fresh craft it does NOT play the materialize dissolve (a restored part
         /// is already settled/liftable), does NOT broadcast (there are no peers at boot) and
         /// does NOT re-persist (the record it came from is already on disk). It seeds the
-        /// SAME crash-safe base set (190602/190601/1016/1099/1013/1120/8066 + part-specific)
+        /// SAME crash-safe common set (190602/190601/1016/1099/1013/1120/8066/1246 + part-specific)
         /// as a live craft, so the client renders and lifts it identically.
         /// </summary>
         internal static long? Restore(LoosePartRecord record)
@@ -189,18 +194,33 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// </summary>
         internal static void RepersistLiftedAsLoose(long partEntityId, string ownerCharacterUid)
         {
-            string? partUid = LooseParts.PartUidFor(partEntityId);
-            LoosePartDefinition? part = LooseParts.DefFor(partEntityId);
-            if (string.IsNullOrEmpty(partUid) || part == null)
+            LoosePartRecord? record = LooseRecordForCurrentPose(partEntityId, ownerCharacterUid);
+            if (record == null)
             {
                 return;
             }
+            WorldStatePersistence.RemoveMountedPart(record.PartUid);
+            WorldStatePersistence.RecordLoosePart(record);
+        }
 
-            FixedPointPosition pos = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(partEntityId)?.Position
-                ?? Multiplayer.WorldEntities.ShipFramePosition();
+        /// <summary>Builds the durable loose record after BroadcastDetach relocated the registration.</summary>
+        internal static LoosePartRecord? LooseRecordForCurrentPose(long partEntityId, string ownerCharacterUid)
+        {
+            string? partUid = LooseParts.PartUidFor(partEntityId);
+            LoosePartDefinition? part = LooseParts.DefFor(partEntityId);
+            WorldEntity? registration = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(partEntityId);
+            if (string.IsNullOrEmpty(partUid) || part == null || registration == null) return null;
+            return LooseRecord(partEntityId, ownerCharacterUid,
+                registration.Position, registration.PackedRotation);
+        }
 
-            WorldStatePersistence.RemoveMountedPart(partUid!);
-            WorldStatePersistence.RecordLoosePart(new LoosePartRecord
+        internal static LoosePartRecord? LooseRecord(long partEntityId, string ownerCharacterUid,
+            FixedPointPosition position, uint packedRotation)
+        {
+            string? partUid = LooseParts.PartUidFor(partEntityId);
+            LoosePartDefinition? part = LooseParts.DefFor(partEntityId);
+            if (string.IsNullOrEmpty(partUid) || part == null) return null;
+            return new LoosePartRecord
             {
                 PartUid = partUid!,
                 SchematicId = part.SchematicId,
@@ -209,12 +229,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 PrefabName = part.PrefabName,
                 AttachmentType = part.AttachmentType,
                 PartSpecificComponents = part.PartSpecificComponents.ToArray(),
-                X = pos.X,
-                Y = pos.Y,
-                Z = pos.Z,
-                PackedRotation = Multiplayer.Placement.Quaternion32Packing.Identity,
+                X = position.X,
+                Y = position.Y,
+                Z = position.Z,
+                PackedRotation = packedRotation,
                 OwnerCharacterUid = ownerCharacterUid ?? "",
-            });
+            };
         }
 
         /// <summary>
@@ -255,6 +275,24 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 part.ItemType,
                 record.PackedRotation,
                 record.OwnerCharacterUid));
+            WorldsAdriftRebornGameServer.ShipMembership.Register(partEntityId, hullEntityId);
+
+            // INTERACTABLE-PART LEDGERS: restore the operable state the save carries -
+            // the sail's furl and the lamp's switch come back exactly as left (LampOff
+            // is stored inverted so a legacy record restores ON); a horn restores
+            // fully charged (a honk is transient, never persisted).
+            switch (part.ItemType)
+            {
+                case "sail":
+                    WorldsAdriftRebornGameServer.Sails.Register(partEntityId, hullEntityId, record.SailUnfurled);
+                    break;
+                case "lamp":
+                    WorldsAdriftRebornGameServer.Lamps.Register(partEntityId, hullEntityId, !record.LampOff);
+                    break;
+                case "horn":
+                    WorldsAdriftRebornGameServer.Horns.Register(partEntityId, hullEntityId);
+                    break;
+            }
 
             Console.WriteLine("[info] loose-part spawn: RESTORED MOUNTED '" + part.ItemType + "' (prefab '"
                 + part.PrefabName + "') as part entity " + partEntityId + " attached to hull " + hullEntityId
@@ -314,8 +352,14 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// additionally honours its original <c>WAREBORN_LAMP_PREFAB</c> /
         /// <c>WAREBORN_LAMP_ATTACH</c> names for back-compat. A blank/unset variable
         /// keeps the catalogue default.
+        ///
+        /// INTERNAL (not private): the station-craft handler resolves the SAME
+        /// effective definition BEFORE consuming materials, so the up-front
+        /// realizability gate (StationCraftOutputGate) judges exactly the prefab
+        /// this spawner would broadcast - including a typo'd live override, which is
+        /// the one case the catalogue's compile-time pins cannot see.
         /// </summary>
-        private static LoosePartDefinition ApplyEnvOverrides(LoosePartDefinition definition)
+        internal static LoosePartDefinition ApplyEnvOverrides(LoosePartDefinition definition)
         {
             string? prefab = Environment.GetEnvironmentVariable("WAREBORN_PART_PREFAB__" + definition.SchematicId);
             string? attach = Environment.GetEnvironmentVariable("WAREBORN_PART_ATTACH__" + definition.SchematicId);
@@ -366,17 +410,24 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 Console.WriteLine("[error] loose-part spawn: failed to send AddEntityOp for entity " + entityId + " to a peer.");
                 return false;
             }
+            WorldsAdriftRebornGameServer.SentEntities.MarkSent(peer, entityId);
 
             List<Structs.Structs.InterestOverride> seeds = registration.SeedComponents
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))
                 .ToList();
 
-            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+            List<uint> seedServed = new List<uint>();
+            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true, seedServed))
             {
                 Console.WriteLine("[error] loose-part spawn: entity " + entityId
                     + " was created on a peer but its seed components were dropped; it will render inert.");
                 return false;
             }
+
+            // Ledger the seeds (same pattern as PlacementService): without the
+            // mark, the client's later re-declared interest for this entity
+            // re-ADDs everything the seed already delivered, 190602 included.
+            WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, seedServed);
 
             return true;
         }

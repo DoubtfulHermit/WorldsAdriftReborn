@@ -1,0 +1,26 @@
+<!--
+To change this license header, choose License Headers in Project Properties.
+To change this template file, choose Tools | Templates
+and open the template in the editor.
+-->
+<div style="flex:1;width:100%">
+    <div class="ship-component-header">
+        <div class="ship-component-tab">{{$ctrl.engineName}}:{{$ctrl.focusedSlot.name}}</div>
+        <div style="flex:1"></div>
+    </div>
+    <div class="ship-component-box-inner" style="display:flex;flex-direction:column">
+        <div class="flex-row" style="width:100%;display:flex;justify-content: center;flex-wrap: wrap; vertical-align: middle; min-height: 0">
+            <span><input type="radio" ng-change="$ctrl.setGraphMode()" name="graph-mode" ng-model="$ctrl.graphMode" value="speed"/><label>Speed</label></span>
+            <span><input type="radio" ng-change="$ctrl.setGraphMode()" name="graph-mode" ng-model="$ctrl.graphMode" value="power:set"/><label>Power&nbsp;[Set]</label></span>
+            <span><input type="radio" ng-change="$ctrl.setGraphMode()" name="graph-mode" ng-model="$ctrl.graphMode" value="power:ship"/><label>Power&nbsp;[Ship]</label></span>
+            <span><input type="radio" ng-change="$ctrl.setGraphMode()" name="graph-mode" ng-model="$ctrl.graphMode" value="massEfficiency"/><label>Mass&nbsp;Efficiency</label></span>
+        </div>
+        <canvas name="graph-canvas"  width="1280" height="900" id="line" class="chart chart-line" 
+                chart-data="$ctrl.performanceData"
+                chart-labels="$ctrl.labels" 
+                chart-series="$ctrl.materialNames" 
+                chart-options="$ctrl.options"
+                chart-dataset-override="$ctrl.override">
+        </canvas>
+    </div>
+</div>

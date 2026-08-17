@@ -11,7 +11,8 @@ Logs: `L1` = `~/Games/WorldsAdrift/BepInEx/LogOutput.log` (single client, 255,25
 
 ## HEADLINE: the premise is wrong in a way that changes the whole answer
 
-The brief, `S/multiplayer-dossier.md:40` and `R/docs/roadmap.md:67` all describe this as a
+The brief, `S/multiplayer-dossier.md:40` and
+`R/docs/archive/2026-08/roadmap-2026-08-08.md:67` all describe this as a
 **NullReferenceException that unwinds the ECS tree every FixedUpdate**. All three claims are
 false. Measured against the real logs:
 
@@ -324,7 +325,8 @@ matches the observed log lines exactly, confirming this is the emitting path.
 In `L2`, 212,214 x 17 ~ 3.61M of 3.88M lines — **93% of the log**, and the bulk of a 333 MB file.
 BepInEx writes this synchronously.
 
-**Honest verdict on magnitude.** `R/docs/roadmap.md:67` calls this "the biggest single perf win
+**Honest verdict on magnitude.** The archived
+`R/docs/archive/2026-08/roadmap-2026-08-08.md:67` calls this "the biggest single perf win
 available". That is **not supported**. Two `StackTrace().ToString()` captures plus ~34 lines of
 synchronous file I/O per tick at 50 Hz is real but modest — plausibly low single-digit percent,
 and the ~99%-of-nominal tick rate argues against anything dramatic. The strongest concrete
@@ -533,7 +535,8 @@ from the repo's `CreateAndPatchAll` pattern.
 
 **The caveat — the issue title is misleading and the PR should say so.** Upstream #34 is
 "WeatherCellCoordsC error spam", which is *exactly right*; it is this project's local notes
-(`S/multiplayer-dossier.md:40`, `R/docs/roadmap.md:67`) that escalated it to an "NRE storm that
+(`S/multiplayer-dossier.md:40`,
+`R/docs/archive/2026-08/roadmap-2026-08-08.md:67`) that escalated it to an "NRE storm that
 unwinds the ECS tree". A PR must not repeat that. It should state plainly: this is duplicate-key
 **log** spam from a branch that fails to mark the entity
 (`AddToIdComponentToEntityMapS.cs:61-64`), amplified by an unconditional stack capture per log
@@ -550,7 +553,8 @@ different codebase area and should be a separate PR.
 **Recommendation:** propose (d') as the shippable fix, describe (a) in the PR body as the deeper
 alternative pending a generic-patch feasibility test, and file (c) separately.
 
-**Note on project rules:** `R/docs/roadmap.md:78-80` and the user's standing rule require an
+**Note on project rules:** the archived
+`R/docs/archive/2026-08/roadmap-2026-08-08.md:78-80` and the user's standing rule require an
 explicit ask before any `gh pr create` on this project. None is implied here.
 
 ---

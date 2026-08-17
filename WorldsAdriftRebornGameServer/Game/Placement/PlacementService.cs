@@ -525,6 +525,11 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
 
             WorldsAdriftRebornGameServer.WorldEntities.Register(registration);
             long entityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(registration);
+            if (livePlacement)
+            {
+                LocalDomainOwnership.MoveToIsland(
+                    WorldsAdriftRebornGameServer.DomainHost, entityId, registration.Position);
+            }
 
             // A shipyard also carries 1205 ShipyardState, seeded from the placed-
             // structure ledger by ComponentsSerializer's 1205 branch. Record it there
@@ -607,6 +612,7 @@ namespace WorldsAdriftRebornGameServer.Game.Placement
                 Console.WriteLine("[error] placement: failed to send AddEntityOp for deployable " + entityId + " to a peer.");
                 return false;
             }
+            WorldsAdriftRebornGameServer.SentEntities.MarkSent(peer, entityId);
 
             List<Structs.Structs.InterestOverride> seeds = registration.SeedComponents
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))

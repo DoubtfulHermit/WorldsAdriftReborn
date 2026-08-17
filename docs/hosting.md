@@ -1,268 +1,171 @@
-# Hosting the server (VPS)
+# Hosting Wareborn
 
-The server runs on the VPS at **62.171.161.19**, installed under `/opt/wareborn`,
-as two systemd units that start at boot.
+**Current as of 2026-08-14.** Production runs native Linux x64 services on the
+VPS. The old Windows/Wine game deployment is rollback-only; its former mixed
+instructions are archived under `docs/archive/2026-08/`.
 
-## Ports
+## Production map
 
-| Service | Port | Why not the default |
-|---|---|---|
-| Game (ENet) | **UDP 7779** | 7777 is permanently held by `elementbrawl` (godot), 7778 by the Dragonwilds `frps` tunnel |
-| Login / REST | **TCP 8085** | 8080 is held by a docker-proxy |
-| Postgres (accounts) | **127.0.0.1:5434** | 5432 and 5433 are held by the Avatar stack. Loopback only - never opened in `ufw` |
+| Service | Endpoint | Live directory | Unit |
+| --- | --- | --- | --- |
+| Game/ENet | UDP `62.171.161.19:7779` | `/opt/wareborn/WorldsAdriftRebornGameServer-native` | `wareborn-game` |
+| Login/REST | TCP `62.171.161.19:8085` | `/opt/wareborn/WorldsAdriftServer-linux` | `wareborn-login` |
+| Public web/patch | `https://wareborn.ratlabs.cc` | Caddy proxies login and serves patch files | Avatar-stack Caddy |
+| PostgreSQL | loopback `127.0.0.1:5434` | Docker volume `wareborn-pgdata` | `wareborn-postgres` |
 
-The first two are opened in `ufw` (the INPUT policy is DROP, so rules are
-required). The database deliberately is not: nothing outside the box needs it.
+The game server is self-contained and loads `libCoreSdkDll.so` beside its
+executable. The login server is also self-contained. PostgreSQL is deliberately
+not exposed through the firewall.
 
-Ports are configurable rather than hardcoded:
+The public connection settings are written by WAPatch. Players joining the
+public server should not manually edit `BepInEx/config/WorldsAdriftReborn.cfg`.
 
-- Server: environment variables `WAREBORN_GAME_PORT` and `WAREBORN_REST_PORT`,
-  set in the wrapper scripts.
-- Client: `GameServer_Port` in `BepInEx/config/WorldsAdriftReborn.cfg`.
-  **The client port cannot be passed by environment variable** - the native SDK's
-  C runtime caches the environment when the DLL loads, so a value set later by
-  .NET is invisible to `getenv()`. The mod calls the DLL's exported
-  `WAR_SetGamePort(int)` instead. This cost a debugging session: the client kept
-  connecting to 7777 while the config said 7779.
-
-## Layout on the VPS
-
-```
-/opt/wareborn/
-├── WorldsAdriftServer-linux/      login/REST server - NATIVE, self-contained
-├── WorldsAdriftServer/            the old Wine deploy, kept only for rollback
-├── WorldsAdriftRebornGameServer/  ENet game server (+ CoreSdkDll + game DLLs)
-├── wineprefix/                    Wine prefix, portable .NET 6 at C:\dotnet6
-└── run-game.sh                    wrapper (sets WINEPREFIX + port, execs wine)
-
-/etc/wareborn/login.env            WAREBORN_DB - root-only, chmod 600
-```
-
-Wine 9.0 from the Ubuntu repos; no X needed for console apps.
-
-**Only the game server runs under Wine.** It has to: it loads the game's own
-assemblies and `CoreSdkDll.dll`. The login server is plain cross-platform C# and
-runs natively — see the crypto gotcha below for why that is not merely tidier.
-
-## Accounts and the database
-
-Accounts, sessions and character rosters live in Postgres 16 in its own docker
-container, `wareborn-postgres`, published on loopback port 5434 with its data in
-the `wareborn-pgdata` volume. It is deliberately **not** the Avatar stack's
-`avatar-postgres-1`: sharing it would mean a restart of that stack takes WAReborn
-logins down with it.
-
-The connection string is the `WAREBORN_DB` environment variable, read from
-`/etc/wareborn/login.env` by the unit so the password is not in a
-world-readable file. There is no default with a password in it — the code's
-fallback is passwordless loopback, because a shipped default credential is
-everybody's credential.
-
-The schema applies itself at startup and is a no-op when already current.
+## Read-only production checks
 
 ```bash
-# what is in there
-docker exec -e PGPASSWORD=<pw> wareborn-postgres \
-    psql -U wareborn -d wareborn -c 'SELECT account_id, username FROM accounts;'
+ssh root@62.171.161.19 \
+  'systemctl is-active wareborn-game wareborn-login'
+ssh root@62.171.161.19 \
+  "journalctl -u wareborn-game -n 100 --no-pager -o cat"
+curl -fsS https://wareborn.ratlabs.cc/patch/manifest.json \
+  | jq '{version,build}'
 ```
 
-Players sign up at **https://wareborn.ratlabs.cc/signup** and then type the same
-username and password into the login form on the game's own landing screen.
-There is no Steam account involved at any point.
+The game server has no HTTP health endpoint. Confirm UDP `7779` locally on the
+VPS with `ss -ulnp`; the login server exposes `/deploymentStatus` on port 8085.
 
-That hostname is served by the **Avatar stack's Caddy** (`/root/Avatar/Caddyfile`,
-container `caddy`, host networking), which terminates TLS with a Let's Encrypt
-certificate and proxies to `127.0.0.1:8085`. The A record already existed. The
-block exposes **only** `/signup` and `/register`, redirects `/` to `/signup`, and
-404s everything else — the game's own API is deliberately not on this host.
-A backup of the previous config sits at `Caddyfile.bak.wareborn`; reload with
-`docker exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`
-after validating with `caddy validate` first.
+## Validation before deployment
 
-⚠ **The game's own login is still cleartext.** Sign-up is now behind TLS, but
-`/authenticate` is not: the client is configured for `http://62.171.161.19:8085`
-and posts the password unencrypted. Repointing it means changing
-`REST_ServerUrl` in every player's `WorldsAdriftReborn.cfg` **and** confirming
-BestHTTP validates the chain under Wine — neither is tested. Until then, tell
-players to use a password they use nowhere else.
-
-`WAREBORN_LEGACY_ROSTER_OWNER=<username>` hands the pre-accounts shared roster
-(`data/characters/roster.json`) to one named account the first time that account's
-roster is loaded. Set it before that account's first login, or not at all on a
-fresh deployment.
-
-## Operating it
+From the selected integration worktree:
 
 ```bash
-systemctl status  wareborn-login wareborn-game
-systemctl restart wareborn-game
-journalctl -u wareborn-game -f
+dotnet test WorldsAdriftRebornGameServer.Multiplayer.Tests -c Release
+dotnet test WorldsAdriftServer.Tests -c Release
+dotnet build WorldsAdriftRebornGameServer -c Release
+dotnet build WorldsAdriftReborn -c Release
+git diff --check
 ```
 
-Health check from anywhere:
+Do not run the Multiplayer test build and game-server build concurrently because
+they share output files. Never restart while players are connected unless they
+explicitly accept a session-ending restart.
+
+## Native game-server deployment
+
+Publish into a fresh staging directory:
 
 ```bash
-curl http://62.171.161.19:8085/deploymentStatus     # login server
-```
-
-The game server has no HTTP health endpoint; check the port and the log:
-
-```bash
-ss -ulnp | grep 7779
-journalctl -u wareborn-game -n 50 --no-pager -o cat
-```
-
-### Gotchas
-
-- **Wine cannot do the crypto Postgres authentication needs.** Npgsql's
-  SCRAM-SHA-256 handshake derives a key with PBKDF2, .NET routes that through
-  Windows CNG, and Wine's `bcrypt.dll` answers with
-  `WindowsCryptographicException: Unknown error` before the first query runs. The
-  fix is not a weaker `md5` auth method — it is that the login server never
-  needed Wine. It runs natively now and the problem does not exist. Keep that in
-  mind before moving anything else that talks to the database into the prefix.
-- **The game server needs a pty**, because it ends in `Console.ReadKey()`, which
-  throws on a redirected stdin. Its unit runs
-  `sleep infinity | script -qfc <wrapper> /dev/null` to give it a tty whose stdin
-  never delivers input. The login server no longer needs this: it waits on
-  SIGTERM when `Console.IsInputRedirected`, and only reads a key when a person is
-  running it by hand.
-- **Restarting the game server orphans connected clients — today.** They keep
-  rendering the world and look fine to the player, but the server has forgotten
-  them: they are invisible to everyone and never reconnect. Players must restart
-  the client. **Plan a restart as a session-ending event until the fix below
-  ships.**
-
-  This is a limitation of our shim, not of the game. `docs/research/findings-robustness.md`
-  establishes that the game already ships a complete, working reconnect UX — a
-  RETRY/QUIT dialog that returns the player to character select and opens a
-  fresh ENet connection - and that four defects in our own layer stop it firing:
-  `Connection.cpp:44` passes `NULL` for both ENet callbacks so the DISCONNECT
-  event is consumed and discarded; `IsConnected()` returns `peer != NULL` and
-  `peer` is only cleared in the destructor, so it is true forever;
-  `WorkerProtocol_Dispatcher_RegisterDisconnectCallback` is an empty TODO
-  (`Exports.cpp:26-29`); and the mod patches out the game's 65 s watchdog.
-  ENet itself detects the dead server without any application traffic — an idle
-  peer is pinged reliably, so timeout detection is armed regardless.
-
-  The estimate is ~40 lines of C++, **no server change and no new wire message**.
-  Once it lands a restart becomes a **~30 s recoverable interruption** rather
-  than a session-ending one. That is a projection from static analysis: nothing
-  was executed, the riskiest step (`ENet_Deinitialize` → `ENet_Initialize` on a
-  second connect under Wine) is untested, and each reconnect will leave a stale
-  avatar behind until entity removal lands. Do not plan operations around it
-  until it is measured.
-
-  Two traps recorded there, for whoever does the work: do **not** un-patch the
-  65 s watchdog (`HeartbeatVisualiser` is `[Require]`-gated on components the
-  server never seeds and refreshes only on traffic never sent — the patch was
-  correct), and do **not** use the reason string `"Disconnect was called by the
-  user."`, which routes to a silent lobby return instead of the dialog.
-- **Log lines wrap and carry terminal escapes** (a side effect of `script`). When
-  grepping, strip them: `tr -d '\r' | sed 's/\x1b\[[0-9;?]*[a-zA-Z]//g'`.
-- Wine writes `CoreSdk_OutputLog.txt` into the process working directory.
-
-## Deploying an update
-
-Deploy with `dotnet publish -r win-x64 --self-contained false` into a clean
-directory, then `rsync` that whole directory. Do **not** use `dotnet build` plus a
-filename glob - see below.
-
-Game server (no client change needed):
-
-```bash
-cd ~/Games/WAReborn-src
-rm -rf /tmp/wa-pub-game
+cd /home/ttanurhan/Games/wareborn-loading
+game_stage=$(mktemp -d /tmp/wareborn-game-native.XXXXXX)
 dotnet publish WorldsAdriftRebornGameServer/WorldsAdriftRebornGameServer.csproj \
-    -c Release -r win-x64 --self-contained false \
-    -p:WorldsAdriftGameDir="$HOME/Games/WorldsAdrift" \
-    -o /tmp/wa-pub-game
-rsync -a /tmp/wa-pub-game/ \
-    root@62.171.161.19:/opt/wareborn/WorldsAdriftRebornGameServer/
-ssh root@62.171.161.19 systemctl restart wareborn-game
+  -c Release -r linux-x64 --self-contained true -o "$game_stage"
 ```
 
-Login server — **native linux-x64 and self-contained**, a different recipe from
-the game server's:
+If `WorldsAdriftRebornCoreSdk` changed, do **not** copy a development-host `.so`.
+The development machine links newer protobuf/Abseil libraries than Ubuntu 24.04
+production. Copy the current SDK sources and
+`tools/relaybot/build-coresdk-native.sh` to an isolated source tree on the VPS,
+build there, then verify:
 
 ```bash
-rm -rf /tmp/wa-pub-login
+ldd libCoreSdkDll.so
+nm -D --defined-only libCoreSdkDll.so | grep ENet_EXP_PeerChannelCount
+```
+
+The build script also checks the complete game-server export surface. Put the
+verified `libCoreSdkDll.so` in the publish stage beside the executable.
+
+After backing up the live deployment/state and confirming all players are out:
+
+```bash
+rsync -a "$game_stage"/ \
+  root@62.171.161.19:/opt/wareborn/WorldsAdriftRebornGameServer-native/
+ssh root@62.171.161.19 'systemctl restart wareborn-game'
+ssh root@62.171.161.19 \
+  "systemctl is-active wareborn-game && journalctl -u wareborn-game -n 100 --no-pager -o cat"
+```
+
+Never use `--delete` against the live directory: persistent `data/` is not
+produced by publish. Verify restore counts, resource-interest configuration,
+island registration and the first real connection before declaring success.
+
+## Native login-server deployment
+
+```bash
+login_stage=$(mktemp -d /tmp/wareborn-login-native.XXXXXX)
 dotnet publish WorldsAdriftServer/WorldsAdriftServer.csproj \
-    -c Release -r linux-x64 --self-contained true \
-    -o /tmp/wa-pub-login
-rsync -a /tmp/wa-pub-login/ \
-    root@62.171.161.19:/opt/wareborn/WorldsAdriftServer-linux/
-ssh root@62.171.161.19 systemctl restart wareborn-login
+  -c Release -r linux-x64 --self-contained true -o "$login_stage"
+rsync -a "$login_stage"/ \
+  root@62.171.161.19:/opt/wareborn/WorldsAdriftServer-linux/
+ssh root@62.171.161.19 'systemctl restart wareborn-login'
 ```
 
-Self-contained here (~71 MB) buys independence from whatever .NET the VPS
-happens to have, which is currently none — the box has Wine's private .NET 6
-inside the prefix and nothing on the host.
+The same no-`--delete` rule applies because live state/configuration is not all
+produced by publish. The database connection string belongs in the root-only
+`/etc/wareborn/login.env`, never documentation, chat output or a repository.
 
-⚠ **Never add `--delete` to these rsyncs.** Both deploy directories hold files
-`publish` does not produce: the login server's `data/` symlink points at the
-legacy roster the migration reads, and the game server keeps 55
-separately-built native SDK libraries (`CoreSdkDll.dll`, `libabsl_*.dll`,
-`zlib1.dll`) placed there by `build-mingw.sh` / `deploy-coresdk.sh`. `--delete`
-destroys both.
+## Client release boundary
 
-For the **game server** do not use `--self-contained true` or
-`PublishSingleFile`. The prefix already provides the runtime at `C:\dotnet6`, and
-the wrapper launches via `dotnet.exe <dll>`, which cannot unpack a single-file
-bundle. That constraint is Wine's, so it does not apply to the login server.
+Server-only changes do not require a patch release. A managed client change or a
+native export/path used by the Windows client requires a new manifest version.
+Follow [`../tools/patcher/README.md`](../tools/patcher/README.md), publish the
+generated patch directory, then fetch the public manifest and compare every
+payload SHA-256.
 
-**Deploy the build you just made.** A whole debugging round was lost to uploading
-a stale binary that still hardcoded 7777, because the fresh build was never copied
-into the deploy folder first. Publishing into a freshly emptied directory also
-stops a deleted file from lingering on the server forever.
+The current public patcher writes the public REST/game endpoints itself. Do not
+ship personal credentials, local paths, or private config values.
 
-### Why publish, and not build + a flat glob
+## Runtime configuration
 
-`dotnet build` places native NuGet assets under `runtimes/<rid>/native/`, never
-flat, so a filename glob silently leaves them behind. With
-`Microsoft.Data.Sqlite` referenced that produces the worst failure shape there
-is: a process that starts, answers `/deploymentStatus`, and throws the moment
-anyone first touches the database.
+Important game-server variables include:
 
-```
-System.DllNotFoundException: Unable to load DLL 'e_sqlite3'
-    or one of its dependencies: Module not found. (0x8007007E)
-```
+| Variable | Purpose |
+| --- | --- |
+| `WAREBORN_GAME_PORT` | ENet listen port; production uses `7779` |
+| `WAREBORN_DATA_DIR` | persistent world-state root |
+| `WAREBORN_INTEREST_RADIUS_M` | live resource load radius |
+| `WAREBORN_INTEREST_INITIAL_RADIUS_M` | bounded connect-time resource bubble; live default `45` m |
+| `WAREBORN_INTEREST_SETTLE_MS` | delay before continuous additions; live default `5000` ms |
+| `WAREBORN_INTEREST_UNLOAD_RADIUS_M` | unload hysteresis radius |
+| `WAREBORN_SHIP_INTEREST_RADIUS_M` | built-ship domain load radius; default `800` m and also used at connect |
+| `WAREBORN_SHIP_INTEREST_UNLOAD_RADIUS_M` | built-ship unload hysteresis radius; default `1000` m |
+| `WAREBORN_SPAWN_ACK_TIMEOUT_MS` | bounded per-step spawn acknowledgement timeout |
+| `WAREBORN_FIRST_REGION_TERRAIN_COUNT` | bounded 0..12 tier-1 B3 terrain prefix; test only one island at a time |
+| `WAREBORN_TERRAIN_INTEREST_ENABLED` | enables per-peer optional-terrain checkout when resource interest is also enabled |
+| `WAREBORN_TERRAIN_LOAD_RADIUS_M` | optional-terrain load radius; default `1200` m |
+| `WAREBORN_TERRAIN_UNLOAD_RADIUS_M` | optional-terrain unload hysteresis; default `1600` m |
+| `WAREBORN_TERRAIN_ASSET_ACK_TIMEOUT_MS` | exact cold-bundle acknowledgement timeout; default `30000` ms |
+| `WAREBORN_DISTANT_ISLAND_SHELLS_ENABLED` | opt-in client-only retail low-LOD island silhouettes; requires the matching managed client patch |
+| `WAREBORN_DEPOSIT_VARIANT` | optional global diagnostic override for the normal stable 01/02/03 deposit-shape cycle |
+| `WAREBORN_WORLD_ADMIN_FILE` | authenticated admin command bridge; default `/tmp/wareborn-world-admin` |
+| `WAREBORN_WORLD_ADMIN_RESULT_FILE` | atomic game-completion receipt consumed by `/admin`; default `/tmp/wareborn-world-admin.result` |
 
-Measured on the VPS under the live prefix (wine 9.0, `C:\dotnet6` = .NET 6.0.36):
+Resources remain authoritative in the world registry. The loading barrier gets
+only the initial nearby resource bubble; after client activation, movement-driven
+interest expands through the paced live radius. Terrain, players, global biome
+data and player-made structures are governed by their explicit policies. Built
+ships use whole-domain interest: a joining peer receives only ships within the
+ship load radius, and later checkout adds the hull before its deck and mounted
+members.
 
-| layout on disk | result |
-|---|---|
-| `e_sqlite3.dll` flat beside the managed DLLs (`publish -r win-x64`) | **works** |
-| `runtimes/win-x64/native/e_sqlite3.dll` (`publish`, no RID) | **works** - Wine's host reads `deps.json` and probes the RID path correctly |
-| managed DLLs present, native absent (`build` + flat glob) | `DllNotFoundException 0x8007007E` |
+The authenticated `/admin` console has four sections: World, Simulation,
+Operations and System. Mutating operations are a strict allowlist, never a shell
+or arbitrary-coordinate interface. It can reset all harvest nodes, recall an
+exact uncrewed hull beside an exact connected player, and permanently delete an
+exact uncrewed hull. Delete requires both typed `DELETE` confirmation and a
+browser confirmation. The login server revalidates fresh player/domain IDs and
+writes a one-shot command; the game server consumes it on its authoritative poll
+loop and atomically writes a separate completion receipt. Queue acceptance and
+gameplay completion are deliberately shown as different events.
 
-So Wine is not the constraint - both real layouts work, and the RID-less publish
-is a valid fallback if the whole directory is copied. `-r win-x64` is preferred
-because it emits 12 files and 3 MB instead of 26 MB of `runtimes/` for 21
-platforms, and everything it emits is flat, so no deploy step depends on
-remembering a subdirectory. On a VPS at 84% disk that difference is worth having.
+## Operational cautions
 
-If `CoreSdkDll.dll` changed, it must go to **both** the server and every client -
-it is the same binary on both sides.
-
-## Distributing a client
-
-Two artefacts, both built from `~/Games/WorldsAdrift` + the current mod build:
-
-- **Client pack** (~4 MB) - mod only, plus `SETUP.bat`, which downloads the
-  correct pinned game build from the player's own Steam account via
-  DepotDownloader and installs the mod over it. It does **not** contain game
-  assets.
-- **Update pack** (~3 MB) - `UPDATE.bat`, the two mod DLLs and all runtime
-  libraries, for someone who already installed.
-
-**Ship every runtime DLL, not just `lib*.dll`.** `zlib1.dll` does not match that
-pattern; without it `CoreSdkDll.dll` cannot load at all, and the symptom is
-maddening - login works fine (pure C#) while the world never loads, because the
-native networking layer is simply absent. Diagnose it by the absence of
-`CoreSdk_OutputLog.txt`.
-
-A `DIAG.bat` exists for players: it reports which port the mod was told to use,
-which port the client actually dialled, the config, and whether the machine can
-reach both servers.
+- A game-server restart remains session-ending; clients do not safely resume
+  authority after peer state is lost.
+- Channel-5 `RemoveEntity` is capability-gated by negotiated ENet channel count.
+  Old clients retain visited entities rather than receiving an invalid packet.
+- Build the native shim against production's ABI and check `ldd` every time.
+- Keep secrets in root-only environment files. Do not print complete systemd
+  environments into logs or chat.
+- Preserve the old Wine directory only as rollback evidence. Do not deploy new
+  work into it.

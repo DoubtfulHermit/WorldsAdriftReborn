@@ -6,8 +6,8 @@ using WorldsAdriftRebornGameServer.Networking.Singleton;
 namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 {
     /*
-     * Watches 190602 TransformState for a player who has fallen out of the world,
-     * and nothing else.
+     * Watches the authoritative world-space 190602 TransformState for relay,
+     * teleport arrival, fall rescue and spatial interest.
      *
      * THIS IS THE TYPED PATH, AND IT ALREADY EXISTED. The packet loop hands every
      * inbound ComponentUpdate to ComponentUpdateManager.HandleComponentUpdate,
@@ -124,10 +124,42 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // Q52.12 straight off the wire, no arithmetic: FixedPointPosition IS
             // this encoding, and FallPolicy's thresholds are in it too, so the
             // hot path never converts to metres at all.
-            WorldsAdriftRebornGameServer.Falls.OnPlayerTransform(
-                entityId,
-                new FixedPointPosition(fixedPoint[0], fixedPoint[1], fixedPoint[2]),
-                parentPresent);
+            FixedPointPosition position = new FixedPointPosition(
+                fixedPoint[0], fixedPoint[1], fixedPoint[2]);
+
+            // Preferred teleport completion is the client's 1073 request ack.
+            // Some shipped builds execute the teleport yet omit that optional
+            // field forever. Feed the already ownership-gated world transform to
+            // a strict pending-destination matcher so interest can follow the
+            // player without treating arbitrary movement as teleport evidence.
+            WorldsAdriftRebornGameServer.Teleports.OnPlayerTransform(
+                player, entityId, position, parentPresent);
+
+            FallVerdict fallVerdict = WorldsAdriftRebornGameServer.Falls.OnPlayerTransform(
+                entityId, position, parentPresent);
+
+            // 190602 is the ownership-gated authoritative WORLD pose whenever
+            // the remembered parent state is absent and the canonical 1073
+            // tracker says the player is not aboard. While aboard, the existing
+            // 1073 + hull-pose path owns spatial interest; consuming both streams
+            // makes nearest-island classification alternate at zone boundaries.
+            // Feed the on-foot truth into both spatial-interest services. The
+            // former 1073-only path depends
+            // on sparse positionRelative/relativeTo fields; after disembarking a
+            // ship those can stop changing while the player continues walking,
+            // freezing the resource bubble at the disembark point. FallWatch has
+            // already accumulated the sparse parent edge above, so a parented
+            // LOCAL transform can never be mistaken for global coordinates here.
+            ulong peerId = PeerIdentity.IdOf(player);
+            if (PlayerWorldInterestPolicy.MayUseTransform190602(
+                    fallVerdict,
+                    WorldsAdriftRebornGameServer.Aboard.IsAboardAnything(peerId)))
+            {
+                WorldsAdriftRebornGameServer.ResourceInterest.ObserveGlobalPosition(
+                    player, position, "authoritative player 190602");
+                WorldsAdriftRebornGameServer.TerrainInterest?.ObserveGlobalPosition(
+                    player, position);
+            }
         }
     }
 }

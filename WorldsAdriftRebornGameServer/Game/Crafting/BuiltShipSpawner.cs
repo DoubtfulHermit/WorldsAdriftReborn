@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Bossa.Travellers.Items;
+using Bossa.Travellers.Ship;
 using Improbable;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Persistence;
@@ -88,8 +89,10 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // OWNER = the shipyard's owner (the player who built this ship), threaded so
             // the ship's persisted record is owned like its yard and survives restart owned.
             string shipOwner = Placement.PlacedShipyards.SeedFor(shipyardEntityId).OwnerCharacterUid;
-            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner);
+            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner, shipyardPos);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
+            WorldsAdriftRebornGameServer.Flight.RegisterHull(
+                hullEntityId, persistentIndex, hullPos, yawRadians: 0.0);
 
             // GATE B (ship ownership): record the built hull's owner so its 8062/4349
             // serve branches seed the owner's character uid and the client's
@@ -156,7 +159,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             byte[] hullBytes = ResolveValidHullBytes(record.HullBytes);
             FixedPointPosition hullPos = record.HullPosition();
 
-            BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes);
+            BuiltRegistration reg = RegisterBuiltShip(hullPos, hullBytes, record.HullYawRadians);
 
             // GATE B (ship ownership): re-establish the built hull's owner from the
             // persisted record so a restored ship comes back OWNED by the same character,
@@ -203,7 +206,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             public byte[] EffectiveHullBytes { get; }
         }
 
-        private static BuiltRegistration RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes)
+        private static BuiltRegistration RegisterBuiltShip(FixedPointPosition hullPos, byte[] hullBytes,
+            double yawRadians = 0.0)
         {
             // Derive the deck panels from the SAME validated bytes 1209 will serve, so the
             // visible hull and its floors can never come from different geometry. If the
@@ -226,12 +230,15 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 panels = new[] { StaticFallbackPanel() };
             }
 
+            LogHullOrientation(effectiveBytes, panels.Count);
+
             int sequence = BuiltShips.NextSequence();
-            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence, hullPos, panels);
+            BuiltShipSpawnPlan.HullAndDecks plan = BuiltShipSpawnPlan.For(sequence, hullPos, panels, yawRadians);
 
             WorldsAdriftRebornGameServer.WorldEntities.Register(plan.Hull);
             long hullEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(plan.Hull);
             BuiltShips.RegisterHull(hullEntityId, effectiveBytes);
+            WorldsAdriftRebornGameServer.ShipMembership.Register(hullEntityId, hullEntityId);
 
             var decks = new List<(long Id, WorldEntity Entity)>(plan.Decks.Count);
             for (int i = 0; i < plan.Decks.Count; i++)
@@ -239,11 +246,47 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 WorldEntity deckEntity = plan.Decks[i];
                 WorldsAdriftRebornGameServer.WorldEntities.Register(deckEntity);
                 long deckEntityId = WorldsAdriftRebornGameServer.WorldEntities.EntityIdFor(deckEntity);
-                BuiltShips.RegisterDeck(deckEntityId, panels[i].LocalVertices);
+                BuiltShips.RegisterDeck(hullEntityId, deckEntityId, panels[i].LocalVertices,
+                    BoltedPartTransform.LocalOffset(deckEntity.Position, plan.Hull.Position));
+                WorldsAdriftRebornGameServer.ShipMembership.Register(deckEntityId, hullEntityId);
                 decks.Add((deckEntityId, deckEntity));
             }
 
             return new BuiltRegistration(hullEntityId, plan.Hull, decks, effectiveBytes);
+        }
+
+        /// <summary>
+        /// Logs the hull's real dimensions and its bow axis at spawn. Cheap, once per
+        /// ship, and it is the line that answers a "my ship is rotated / it flies
+        /// sideways" report without another round of yaw guessing: a stock cell is 12 m
+        /// of BEAM by 4 m of KEEL, so a short hull is genuinely wider than it is long
+        /// and its bow (+Z, where the pilot camera looks and where the ship flies) is
+        /// its SHORT axis. Never throws - a metrics failure must not cost a spawn.
+        /// </summary>
+        private static void LogHullOrientation(byte[] effectiveBytes, int panelCount)
+        {
+            try
+            {
+                if (!ShipPlanModel.TryDecode(effectiveBytes, out ShipPlanModel? model, out _) || model == null)
+                {
+                    return;
+                }
+                ShipHullMetrics metrics = ShipHullMetrics.Measure(model);
+                // A beam-dominant hull is logged at WARN, not INFO: it is the single
+                // most-reported live confusion ("my ship flies sideways"), the answer
+                // is a hull change and not a server change, and a line buried at info
+                // level among the spawn chatter has twice now failed to be the thing
+                // anyone found. WideHullAdvice() is the shared wording - the man-the-
+                // helm log (ShipFlightService.StartPiloting) prints the same sentence.
+                string level = metrics.KeelIsLongestAxis ? "[info]" : "[warn]";
+                Console.WriteLine(level + " built-ship spawn: hull geometry - "
+                    + metrics.Describe()
+                    + " " + panelCount + " deck panel(s).");
+            }
+            catch (System.Exception e)
+            {
+                Console.WriteLine("[warn] built-ship spawn: could not measure hull geometry: " + e.Message);
+            }
         }
 
         /// <summary>
@@ -304,29 +347,42 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// push with failOnComponentInitError TRUE. Mirrors
         /// <c>PlacementService.BroadcastToPeer</c>, fanned out to the live peer set.
         /// </summary>
-        private static bool BroadcastToPeer(ENetPeerHandle peer, long entityId, WorldEntity registration)
+        internal static bool CheckoutToPeer(ENetPeerHandle peer, long entityId,
+            WorldEntity registration, bool requestAsset = true)
         {
-            SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", registration.AssetName, registration.AssetContext);
+            if (requestAsset)
+                SendOPHelper.SendAssetLoadRequestOP(peer, "notNeeded?", registration.AssetName, registration.AssetContext);
 
             if (!SendOPHelper.SendAddEntityOP(peer, entityId, registration.AssetName, registration.AssetContext))
             {
                 Console.WriteLine("[error] built-ship spawn: failed to send AddEntityOp for entity " + entityId + " to a peer.");
                 return false;
             }
+            WorldsAdriftRebornGameServer.SentEntities.MarkSent(peer, entityId);
 
             List<Structs.Structs.InterestOverride> seeds = registration.SeedComponents
                 .Select(id => new Structs.Structs.InterestOverride(id, 1))
                 .ToList();
 
-            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true))
+            List<uint> seedServed = new List<uint>();
+            if (!SendOPHelper.SendAddComponentOp(peer, entityId, seeds, true, seedServed))
             {
                 Console.WriteLine("[error] built-ship spawn: entity " + entityId
                     + " was created on a peer but its seed components were dropped; it will render inert.");
                 return false;
             }
 
+            // Ledger the seeds (same pattern as PlacementService): without the
+            // mark, the client's later re-declared interest for this entity
+            // re-ADDs everything - including 1518/1099 (deck collider reset,
+            // player falls through the deck) and 190602 (TransformState re-seed).
+            WorldsAdriftRebornGameServer.ServedComponents.MarkServed(peer, entityId, seedServed);
+
             return true;
         }
+
+        private static bool BroadcastToPeer(ENetPeerHandle peer, long entityId, WorldEntity registration) =>
+            CheckoutToPeer(peer, entityId, registration);
 
         private static IEnumerable<ENetPeerHandle> ConnectedPeers()
         {
@@ -359,6 +415,44 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             {
                 PushDockedShipId(peer, shipyardEntityId, 0);
             }
+        }
+
+        /// <summary>
+        /// Clears both sides of the dock relationship when a built hull first receives
+        /// flight input. This is the real gameplay counterpart of the old debug-file
+        /// undock trigger: it frees the shipyard's build/reclaim state, updates both the
+        /// yard (1205) and hull (1114) on every client, and removes the saved build-time
+        /// dock link so a restart cannot silently re-dock a ship that flew away.
+        /// </summary>
+        internal static bool UndockDepartingHull(long hullEntityId)
+        {
+            long shipyardEntityId = BuiltShips.ShipyardForHull(hullEntityId);
+            if (shipyardEntityId == 0 || BuiltShips.ClearDocked(shipyardEntityId) != hullEntityId)
+            {
+                return false;
+            }
+
+            int? persistentIndex = BuiltShips.PersistentIndexFor(hullEntityId);
+            if (persistentIndex.HasValue)
+            {
+                WorldStatePersistence.ClearBuiltShipDock(persistentIndex.Value);
+            }
+
+            DockableState.Update hullUpdate = new DockableState.Update()
+                .SetDockEntityId(new EntityId(0))
+                .SetDocked(false)
+                .SetApproachingDock(false);
+
+            foreach (ENetPeerHandle peer in ConnectedPeers())
+            {
+                PushDockedShipId(peer, shipyardEntityId, 0);
+                SendOPHelper.SendComponentUpdateOp(peer, hullEntityId,
+                    new List<uint> { 1114 }, new List<object> { hullUpdate });
+            }
+
+            Console.WriteLine("[flight] hull " + hullEntityId + " departed shipyard " + shipyardEntityId
+                + "; cleared runtime and persisted dock links and pushed 1205/1114 undocked state.");
+            return true;
         }
     }
 }

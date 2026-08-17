@@ -60,9 +60,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         // (WorldsAdriftRebornGameServer.cs registers HarvestReward for each MetalNode /
         // MetalDeposits.MetalType), and trees yield birch (Trees.WoodType). Keep this in
         // sync if a new gather source lands.
+        //
+        // atlasShard is the NEWEST gather source: it is not salvaged like a metal, but
+        // MINED loose from a deposit core and PICKED UP (the atlas-shard acquisition
+        // loop - AtlasShardCatalogue / AtlasShardRegistry, granted through
+        // WorldsAdriftRebornGameServer.TryCollectAtlasShard). So the Atlas Sky Core /
+        // Enhancer / Lifter recipes that consume it are craftable in the live world.
+        //
+        // fuel is a gather source on the same footing as the METALS, not the atlas
+        // shard: a fuel CANISTER is SALVAGED with the gauntlet beam (the same tool and
+        // 2106 shot path as a metal node), yielding the recovered retail 8+8+9 = 25
+        // fuel over three shots - FuelCanisterRegistry / FuelCanisterYield, granted
+        // through WorldsAdriftRebornGameServer.OnFuelCanisterShot -> HarvestReward. So
+        // the combustion/light recipes that consume it (torch, hipLamp, headTorch,
+        // campFire, stove, lamp - the slots that already carry the fuel-container icon)
+        // are craftable in the live world.
         private static readonly HashSet<string> GatherableMaterials = new()
         {
             "iron", "copper", "aluminium", "birch",
+            "atlasShard",
+            "fuel",
         };
 
         // The node types that actually learn a craftable schematic (mirror of

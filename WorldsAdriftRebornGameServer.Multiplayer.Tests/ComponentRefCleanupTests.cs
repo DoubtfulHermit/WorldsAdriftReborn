@@ -67,5 +67,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             Assert.Equal(2, ComponentRefCleanup.RefsForDepartedPeer(slice).Count());
         }
+
+        [Fact]
+        public void Removing_one_entity_returns_its_refs_once_and_preserves_siblings()
+        {
+            Dictionary<long, Dictionary<uint, ulong>> slice = new()
+            {
+                { 11, new Dictionary<uint, ulong> { { 1036, 100 }, { 190602, 101 } } },
+                { 22, new Dictionary<uint, ulong> { { 1036, 200 } } },
+            };
+
+            Assert.Equal(new ulong[] { 100, 101 },
+                ComponentRefCleanup.TakeRefsForRemovedEntity(slice, 11).OrderBy(x => x));
+            Assert.False(slice.ContainsKey(11));
+            Assert.True(slice.ContainsKey(22));
+
+            // The map entry was consumed, so a duplicate lifecycle callback can
+            // never destroy the same native objects twice.
+            Assert.Empty(ComponentRefCleanup.TakeRefsForRemovedEntity(slice, 11));
+        }
+
+        [Fact]
+        public void Removing_an_unknown_entity_is_a_noop()
+        {
+            Dictionary<long, Dictionary<uint, ulong>> slice = new()
+            {
+                { 22, new Dictionary<uint, ulong> { { 1036, 200 } } },
+            };
+
+            Assert.Empty(ComponentRefCleanup.TakeRefsForRemovedEntity(slice, 999));
+            Assert.Single(slice);
+        }
     }
 }

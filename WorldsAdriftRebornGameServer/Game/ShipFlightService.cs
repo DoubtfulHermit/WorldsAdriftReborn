@@ -1,0 +1,1100 @@
+using Bossa.Travellers.Controls;
+using Bossa.Travellers.Ship;
+using Improbable;
+using Improbable.Corelibrary.Math;
+using Improbable.Math;
+using WorldsAdriftRebornGameServer.DLLCommunication;
+using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight;
+using WorldsAdriftRebornGameServer.Multiplayer.Ship.Domains;
+using WorldsAdriftRebornGameServer.Multiplayer.Domains;
+using WorldsAdriftRebornGameServer.Networking.Wrapper;
+using WorldsAdriftRebornGameServer.Networking.Singleton;
+using WorldsAdriftRebornGameServer.Game.Persistence;
+
+namespace WorldsAdriftRebornGameServer.Game
+{
+    /// <summary>
+    /// PILOTED SHIP FLIGHT - the payoff feature: the player Mans the helm on the
+    /// ship they built and FLIES it with the game's own controls.
+    ///
+    /// THE RETAIL WORKER THIS RECONSTRUCTS, in one sentence: on Man, set the
+    /// pilot's 1109 PilotState.DrivingEntityId; the client's own
+    /// ShipControlsBehaviour then reads WASD/throttle and writes 1111
+    /// ShipControlInput every 0.05 s; this service consumes that input,
+    /// integrates it into a pose (the pure <see cref="FlightIntegrator"/>), and
+    /// publishes the hull's 1130 SSPPredictedMotionState control points - which
+    /// the unmodified client replays via SSPDeadReckoningVisualizer ->
+    /// PathFollower, the same LIVE-PROVEN path the ferry flies the static hull
+    /// on. No client patch anywhere.
+    ///
+    /// OFF BY DEFAULT: WAREBORN_HELM_FLIGHT=1 arms it (the grant of the 1111/1112
+    /// writers at player setup is gated on the same flag).
+    ///
+    /// WIRE SHAPE, per moving hull (the multiplayer-safety contract):
+    /// <list type="bullet">
+    /// <item>IN: 1111 from the ONE piloting player, at most 20 Hz (the client
+    ///   diff-suppresses unchanged frames). Consumed here; NEVER relayed
+    ///   (MirrorSendPolicy.IsRelayedToOtherPlayers).</item>
+    /// <item>OUT: one 1130 control point per 0.24 s (the ferry's proven cadence),
+    ///   plus the mounted parts' 190602 wakes and the hull's own 190602 timeline
+    ///   advance riding the same tick - the exact per-point shape the ferry's
+    ///   PublishWake already put in front of live clients. Idle/at-rest ships
+    ///   drop to a slow keepalive (default 5 s).</item>
+    /// </list>
+    ///
+    /// WHY THE HULL'S 190602 RIDES EVERY WAKE. Mounted parts are "~" followers:
+    /// the client samples each child's local-transform interpolator at the
+    /// PARENT hull's 190602 timestamp, and their follow-visualizer sleeps one
+    /// second after the last transform change (ShipPartMotionPolicy). So a
+    /// moving hull must (a) keep waking the children below the 1 s sleep and
+    /// (b) advance its own 190602 stamp on the SAME timeline the mount commits
+    /// used - which is why every stamp here draws from
+    /// <see cref="PartMountService.NextTimelineSample"/> rather than a counter of
+    /// its own (a lower stamp would be silently discarded and the parts would
+    /// park mid-air while the hull flies off - the ferry's own "beams flew up,
+    /// floor stayed" lesson). The built DECK panels are real Unity children and
+    /// ride the hull's transform with no wake at all.
+    /// </summary>
+    internal sealed class ShipFlightService
+    {
+        /// <summary>Flies only when explicitly switched on. A bare OFF default.</summary>
+        internal static readonly bool Enabled =
+            Environment.GetEnvironmentVariable("WAREBORN_HELM_FLIGHT") == "1";
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_DRIVE_TARGET=helm points 1109 DrivingEntityId at the
+        /// HELM entity instead of the hull. Default: the HULL - it is what
+        /// ShipControlsBehaviour.UpdateVertical expects to find the
+        /// ShipControlInputVisualizer on, and PilotVisualizer's SetInitialInput
+        /// resolves through it. The helm option exists because the driven
+        /// entity's GameObject is also where the client looks for the
+        /// FullBodyIKTargets that pose the pilot at the wheel, and our mounted
+        /// helm is NOT a Unity child of the hull ("~" follower) - so if the live
+        /// client shows a working flight but a pilot who is not anchored to the
+        /// wheel, this is the knob to try before touching code.
+        /// </summary>
+        private static readonly bool DriveTargetIsHelm =
+            string.Equals(Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_DRIVE_TARGET"), "helm",
+                StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>How often the periodic [flight] stats line prints while any ship is live.</summary>
+        private static readonly TimeSpan StatsInterval = TimeSpan.FromSeconds(5);
+
+        private readonly IClock _clock;
+        private readonly CadenceTimer _cadence;
+        private readonly FlightTuning _tuning;
+        private readonly PilotSeats _seats = new PilotSeats();
+        private readonly ShipDomainRegistry _domains;
+        private readonly LocalDomainHost? _domainHost;
+        private readonly HashSet<long> _activeHullIds = new();
+        private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
+            new HashSet<ulong>();
+
+        /// <summary>The authority token issued at the player's current helm handoff.</summary>
+        private readonly Dictionary<long, ShipAuthorityToken> _authorityByPlayer = new();
+
+        /// <summary>Latest merged 1111 input per PILOT entity (the update is a delta).</summary>
+        private readonly Dictionary<long, FlightControlInput> _inputs = new Dictionary<long, FlightControlInput>();
+
+        /// <summary>
+        /// The helm each hull was last manned through, kept after dismount: the
+        /// helm-feedback echo (wheel/levers) targets the helm entity too, and a
+        /// dismounted helm still needs its one "wheel centres" echo.
+        /// </summary>
+        private readonly Dictionary<long, long> _helmByHull = new Dictionary<long, long>();
+
+        /// <summary>
+        /// The last input state ECHOED onto each hull/helm's ship-side 1111, so
+        /// an unchanged input costs zero packets (the whole echo is
+        /// event-on-change, capped by the tick cadence).
+        /// </summary>
+        private readonly Dictionary<long, FlightControlInput> _lastEchoed = new Dictionary<long, FlightControlInput>();
+
+        /// <summary>When each hull's mounted parts were last woken (the 0.5 s sub-cadence).</summary>
+        private readonly Dictionary<long, TimeSpan> _lastWakeAt = new Dictionary<long, TimeSpan>();
+
+        private static readonly TimeSpan PoseSaveInterval = TimeSpan.FromSeconds(2);
+        private readonly Dictionary<long, TimeSpan> _nextPoseSaveAt = new Dictionary<long, TimeSpan>();
+        private readonly Dictionary<long, long> _departingYardByHull = new Dictionary<long, long>();
+
+        /// <summary>
+        /// The wake sub-cadence, slightly under the policy's 0.5 s heartbeat so
+        /// the 0.24 s tick grid lands a wake every OTHER tick (0.48 s spacing) -
+        /// comfortably below the client's 1 s follow-visualizer sleep. v1 woke on
+        /// EVERY point (4.2 Hz); halving it is free because a "~" follower
+        /// composes against the hull's live interpolated transform every frame
+        /// while awake - the wake only needs to keep it awake, not move it.
+        /// </summary>
+        private static readonly TimeSpan WakeInterval =
+            TimeSpan.FromSeconds(ShipPartMotionPolicy.HeartbeatIntervalSeconds * 0.9);
+
+        /// <summary>1111 packets consumed since the last stats line, for the rx-rate readout.</summary>
+        private long _inputPacketsSinceStats;
+        private TimeSpan _nextStatsAt;
+
+        private sealed class FlightLatencyTrace
+        {
+            public long Sequence { get; init; }
+            public long PlayerEntityId { get; init; }
+            public long HullEntityId { get; init; }
+            public float AxisYaw { get; init; }
+            public TimeSpan ReceivedAt { get; init; }
+            public DateTime ReceivedUtc { get; init; }
+        }
+
+        private long _nextLatencyTraceSequence;
+        private readonly Dictionary<long, FlightLatencyTrace> _pendingLatencyByHull = new();
+
+        public ShipFlightService(IClock clock, ShipDomainRegistry domains,
+            LocalDomainHost? domainHost = null)
+        {
+            _clock = clock ?? throw new ArgumentNullException(nameof(clock));
+            _domains = domains ?? throw new ArgumentNullException(nameof(domains));
+            _domainHost = domainHost;
+            _cadence = new CadenceTimer(TimeSpan.FromSeconds(ShipMotionPolicy.SendIntervalSeconds));
+            _tuning = FlightTuning.FromEnvironment(Environment.GetEnvironmentVariable);
+
+            if (Enabled)
+            {
+                Console.WriteLine("[info] helm flight is ARMED (WAREBORN_HELM_FLIGHT=1): Man a mounted helm to fly"
+                    + " its built ship. " + _tuning + "; drive target = "
+                    + (DriveTargetIsHelm ? "HELM" : "HULL") + " (WAREBORN_FLIGHT_DRIVE_TARGET).");
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Man / dismount (called from InteractAgentState_Handler)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// A 1211 InteractWithObject(target, Man) from <paramref name="playerEntityId"/>.
+        /// Returns true when the target was a mounted helm this service owns (whatever
+        /// the outcome), false when the target is not flight's business - so the
+        /// caller can keep its own not-handled diagnostics precise.
+        /// </summary>
+        public bool OnManInteraction(ENetPeerHandle player, long playerEntityId, long targetEntityId, bool ownsPlayer)
+        {
+            if (!Enabled)
+            {
+                return false;
+            }
+
+            Crafting.MountedParts.Mount? mount = Crafting.MountedParts.MountFor(targetEntityId);
+            if (!mount.HasValue)
+            {
+                // Not a mounted part. The static ship's bolted helm also carries Man,
+                // but that hull belongs to the ferry/nudge probes - flying it here
+                // would fight them, so flight deliberately does not answer for it.
+                return false;
+            }
+            if (!string.Equals(mount.Value.ItemType, "helm", StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("[flight] Man on mounted part " + targetEntityId + " ('" + mount.Value.ItemType
+                    + "') ignored: only a helm can be manned for flight.");
+                return true;
+            }
+            if (!ownsPlayer)
+            {
+                // 1211 is the sender's own component; a Man for an entity the peer
+                // does not own is a spoof or a bug, never a feature.
+                Console.WriteLine("[warning] flight: Man on helm " + targetEntityId + " rejected: sender does not own"
+                    + " entity " + playerEntityId + ".");
+                return true;
+            }
+
+            long hullEntityId = mount.Value.HullEntityId;
+            ManOutcome outcome = _seats.TryMan(playerEntityId, targetEntityId, hullEntityId);
+            switch (outcome)
+            {
+                case ManOutcome.StartPiloting:
+                    StartPiloting(player, playerEntityId, targetEntityId, hullEntityId);
+                    break;
+
+                case ManOutcome.AlreadyPiloting:
+                    // Live clients can publish duplicate Man deltas while the
+                    // interaction transition is draining through a congested
+                    // channel. Treating the second copy as a toggle produced four
+                    // MANNED/DISMOUNTED cycles in one second on 2026-08-14 and made
+                    // the helm appear impossible to enter. ReleaseInteraction is
+                    // the unambiguous dismount operation.
+                    Console.WriteLine("[flight] duplicate Man on helm " + targetEntityId + " by entity "
+                        + playerEntityId + " ignored: already piloting hull " + hullEntityId + ".");
+                    break;
+
+                case ManOutcome.RejectedOccupied:
+                    Console.WriteLine("[flight] Man on helm " + targetEntityId + " by entity " + playerEntityId
+                        + " rejected: hull " + hullEntityId + " is already piloted by entity "
+                        + _seats.PilotOf(hullEntityId)!.Value.PlayerEntityId + ".");
+                    break;
+
+                case ManOutcome.RejectedAlreadyPiloting:
+                    Console.WriteLine("[flight] Man on helm " + targetEntityId + " by entity " + playerEntityId
+                        + " rejected: they are already piloting hull "
+                        + _seats.SeatOf(playerEntityId)!.Value.HullEntityId + ".");
+                    break;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// A 1211 ReleaseInteraction event - the client's own "let go of the
+        /// exclusively-used object" signal (InteractAgentObserver
+        /// .ReleaseInteractiveObject). Belt-and-braces beside the re-Man toggle:
+        /// whichever the live client sends, the pilot gets off.
+        /// </summary>
+        public void OnReleaseInteraction(ENetPeerHandle player, long playerEntityId, long targetEntityId)
+        {
+            if (!Enabled)
+            {
+                return;
+            }
+            PilotSeats.Seat? seat = _seats.SeatOf(playerEntityId);
+            // An INVALID target releases whatever seat the player holds: the measured
+            // live exit is `verb Default on target -1` (a driving pilot is not aiming
+            // at the helm, so the client has no target to name). A VALID target still
+            // has to match the seat, so a release aimed at some other object cannot
+            // eject a pilot.
+            if (seat == null
+                || (targetEntityId > 0
+                    && targetEntityId != seat.Value.HelmEntityId
+                    && targetEntityId != seat.Value.HullEntityId))
+            {
+                return;
+            }
+            _seats.Release(playerEntityId);
+            StopPiloting(player, playerEntityId, seat.Value.HelmEntityId, seat.Value.HullEntityId, "released the interaction");
+        }
+
+        /// <summary>
+        /// The pilot's peer is gone (ForgetPeer). No 1109 to push - there is nobody
+        /// to push it to - but the seat frees and the ship settles to a stop instead
+        /// of flying on with a ghost's throttle. This deliberately differs from a
+        /// clean ReleaseInteraction, which leaves the physical throttle lever latched.
+        /// </summary>
+        public void OnPlayerGone(long playerEntityId)
+        {
+            _inputs.Remove(playerEntityId);
+            PilotSeats.Seat? seat = _seats.Release(playerEntityId);
+            if (seat != null && _domains.ByHull(seat.Value.HullEntityId) is ShipDomain domain)
+            {
+                if (_authorityByPlayer.Remove(playerEntityId, out ShipAuthorityToken authority))
+                {
+                    domain.ReleasePilot(authority, abandoned: true);
+                }
+                Console.WriteLine("[flight] pilot entity " + playerEntityId + " disconnected while piloting hull "
+                    + seat.Value.HullEntityId + "; ship settles to rest at " + domain.Flight.State
+                    + " (authority generation " + domain.Generation + ").");
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // 1111 input (called from ShipControlInput_Handler)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// One decoded 1111 delta from a player's own entity. Merged over the held
+        /// input (an absent field means UNCHANGED, not zero - the client
+        /// diff-suppresses) and applied to the session they pilot, if any. Cheap
+        /// for non-pilots: one dictionary miss.
+        /// </summary>
+        public void OnControlInput(long playerEntityId, float? throttle, float? vertical,
+            float? axisPitch, float? axisYaw, float? axisRoll)
+        {
+            if (!Enabled)
+            {
+                return;
+            }
+
+            _inputs.TryGetValue(playerEntityId, out FlightControlInput held);
+            FlightControlInput merged = held.Merge(throttle, vertical, axisPitch, axisYaw, axisRoll);
+            _inputs[playerEntityId] = merged;
+            _inputPacketsSinceStats++;
+
+            PilotSeats.Seat? seat = _seats.SeatOf(playerEntityId);
+            if (seat != null && _domains.ByHull(seat.Value.HullEntityId) is ShipDomain domain
+                && _authorityByPlayer.TryGetValue(playerEntityId, out ShipAuthorityToken authority))
+            {
+                bool yawEdge = System.Math.Abs(held.AxisYaw) <= 0.001f
+                    && System.Math.Abs(merged.AxisYaw) > 0.001f;
+                bool yawReversed = System.Math.Sign(held.AxisYaw) != System.Math.Sign(merged.AxisYaw)
+                    && System.Math.Abs(held.AxisYaw) > 0.001f
+                    && System.Math.Abs(merged.AxisYaw) > 0.001f;
+                if (yawEdge || yawReversed)
+                {
+                    var trace = new FlightLatencyTrace
+                    {
+                        Sequence = ++_nextLatencyTraceSequence,
+                        PlayerEntityId = playerEntityId,
+                        HullEntityId = seat.Value.HullEntityId,
+                        AxisYaw = merged.AxisYaw,
+                        ReceivedAt = _clock.Elapsed,
+                        ReceivedUtc = DateTime.UtcNow
+                    };
+                    _pendingLatencyByHull[trace.HullEntityId] = trace;
+                    Console.WriteLine("[flight-latency] event=S" + trace.Sequence
+                        + " phase=1111-receive utc=" + trace.ReceivedUtc.ToString("O")
+                        + " elapsedMs=0 player=" + playerEntityId
+                        + " hull=" + trace.HullEntityId
+                        + " axisYaw=" + trace.AxisYaw.ToString("0.###",
+                            System.Globalization.CultureInfo.InvariantCulture));
+                }
+                if (!domain.TrySetInput(authority, merged))
+                {
+                    Console.WriteLine("[flight] rejected stale control authority for entity " + playerEntityId
+                        + " on hull " + seat.Value.HullEntityId + " (token generation "
+                        + authority.Generation + ", current " + domain.Generation + ").");
+                    return;
+                }
+                // A real control input begins departure. Zero/neutral packets while
+                // taking the wheel do nothing, and the dock remains occupied until the
+                // integrated hull actually clears the release volume.
+                if (!merged.IsNeutral)
+                {
+                    long yard = Crafting.BuiltShips.ShipyardForHull(seat.Value.HullEntityId);
+                    if (yard != 0)
+                    {
+                        // Motion begins the departure, but the yard stays occupied
+                        // until the hull actually clears its wider release volume.
+                        // That is the real "shipyard must be empty" build gate.
+                        _departingYardByHull[seat.Value.HullEntityId] = yard;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// The FLOWN pose of a hull, when a flight session owns it. The session is
+        /// the single authority on where a flown hull is (WorldEntity.Position is
+        /// immutable and still says "spawn"), so every OTHER producer of a hull
+        /// 190602 - the part-mount commit's parent-timeline bump, the detach's
+        /// world-pose reconstruction - must ask here first, or a part mounted on a
+        /// flown ship stamps the hull visually back to its spawn point.
+        /// </summary>
+        public bool TryGetFlownPose(long hullEntityId, out FixedPointPosition position, out uint packedRotation)
+        {
+            if (Enabled && _activeHullIds.Contains(hullEntityId)
+                && _domains.ByHull(hullEntityId) is ShipDomain domain)
+            {
+                FlightSession session = domain.Flight;
+                position = FixedPointPosition.FromMetres(session.State.X, session.State.Y, session.State.Z);
+                packedRotation = FlightIntegrator.PackedRotation(session.State);
+                return true;
+            }
+            position = default;
+            packedRotation = Multiplayer.Placement.Quaternion32Packing.Identity;
+            return false;
+        }
+
+        internal bool IsPiloted(long hullEntityId) => _seats.PilotOf(hullEntityId).HasValue;
+
+        internal bool IsActive(long hullEntityId) => _activeHullIds.Contains(hullEntityId);
+
+        internal long? PilotEntityOf(long hullEntityId) =>
+            _seats.PilotOf(hullEntityId)?.PlayerEntityId;
+
+        internal bool IsPilotOf(long playerEntityId, long hullEntityId)
+        {
+            PilotSeats.Seat? seat = _seats.SeatOf(playerEntityId);
+            return seat.HasValue && seat.Value.HullEntityId == hullEntityId;
+        }
+
+        /// <summary>
+        /// Safely recalls an uncrewed built hull to an operator-selected player's
+        /// current world position. The whole domain moves as one frame and the new
+        /// pose is persisted before the command reports success.
+        /// </summary>
+        internal bool TryAdminRecall(long hullEntityId, FixedPointPosition destination,
+            out string error)
+        {
+            error = string.Empty;
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                error = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            if (IsPiloted(hullEntityId) || WorldsAdriftRebornGameServer.Aboard.AnyoneAboard(hullEntityId))
+            {
+                error = "Hull " + hullEntityId + " is piloted or occupied; recall refused.";
+                return false;
+            }
+
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                error = "Hull " + hullEntityId + " has no simulation domain.";
+                return false;
+            }
+
+            Crafting.BuiltShipSpawner.UndockDepartingHull(hullEntityId);
+            RefreshDomainMembership(domain);
+            double yaw = domain.Flight.State.YawRadians;
+            domain.Flight.DockAt(destination.MetresX, destination.MetresY,
+                destination.MetresZ, yaw);
+            _activeHullIds.Add(hullEntityId);
+
+            // Move the authoritative registry/persistence BEFORE asking checkout
+            // to rebuild the domain. Its fresh 190602 and one-point 1130 seeds
+            // must both describe the recalled pose.
+            PersistPoseNow(hullEntityId, domain.Flight.State);
+            int refreshingPeers = WorldsAdriftRebornGameServer.ShipInterest
+                .RequestRecallRefresh(hullEntityId);
+
+            FlightEmit point = domain.Flight.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            uint rotation = point.PackedRotation;
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(
+                hullEntityId, destination, rotation);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, destination, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(point.Spec, rotation)),
+                wakes.Root, wakes.Members);
+            Console.WriteLine("[admin-world] hull " + hullEntityId
+                + " recall scheduled a clean domain reconstruction for "
+                + refreshingPeers + " peer(s).");
+            return true;
+        }
+
+        /// <summary>
+        /// Stops an unpiloted runaway at its exact authoritative pose. This is
+        /// intentionally separate from recall: it neither moves the hull nor
+        /// changes its checkout, and it is safe with passengers aboard.
+        /// </summary>
+        internal bool TryAdminStop(long hullEntityId, out string message)
+        {
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            if (IsPiloted(hullEntityId))
+            {
+                message = "Hull " + hullEntityId
+                    + " still has a pilot; release the helm first or ask the pilot to stop.";
+                return false;
+            }
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            if (domain == null)
+            {
+                message = "Hull " + hullEntityId + " has no simulation domain.";
+                return false;
+            }
+
+            RefreshDomainMembership(domain);
+            domain.Flight.EmergencyStop();
+            _activeHullIds.Add(hullEntityId);
+            FlightEmit point = domain.Flight.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            FixedPointPosition position = FixedPointPosition.FromMetres(
+                domain.Flight.State.X, domain.Flight.State.Y, domain.Flight.State.Z);
+            ShipPartWakeBundle wakes = ShipPartMotionService.BuildWakeBundle(
+                hullEntityId, position, point.PackedRotation);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, position, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(point.Spec, point.PackedRotation)),
+                wakes.Root, wakes.Members);
+            PersistPoseNow(hullEntityId, domain.Flight.State);
+            message = "Stopped hull " + hullEntityId + " at its current authoritative pose.";
+            return true;
+        }
+
+        /// <summary>
+        /// Clears a stuck exclusive helm owner. Unlike a normal voluntary
+        /// dismount this is an operator recovery, so stale throttle is abandoned
+        /// and neutralized instead of remaining latched.
+        /// </summary>
+        internal bool TryAdminReleaseHelm(long hullEntityId, out string message)
+        {
+            if (!Crafting.BuiltShips.IsBuiltHull(hullEntityId))
+            {
+                message = "Hull " + hullEntityId + " is not a live built ship.";
+                return false;
+            }
+            PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
+            if (!seat.HasValue)
+            {
+                message = "Hull " + hullEntityId + " already has no helm owner.";
+                return true;
+            }
+
+            long playerEntityId = seat.Value.PlayerEntityId;
+            foreach ((ulong peerId, long entityId) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                if (entityId != playerEntityId) continue;
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peer == null) break;
+                _seats.Release(playerEntityId);
+                StopPiloting(peer, playerEntityId, seat.Value.HelmEntityId,
+                    hullEntityId, "operator released a stuck helm", abandoned: true);
+                message = "Released player entity " + playerEntityId + " from hull "
+                    + hullEntityId + " and neutralized its controls.";
+                return true;
+            }
+
+            // A seat whose peer disappeared between stats and command execution
+            // is still recoverable through the normal disconnect cleanup path.
+            OnPlayerGone(playerEntityId);
+            message = "Cleared disconnected pilot entity " + playerEntityId
+                + " from hull " + hullEntityId + " and neutralized its controls.";
+            return true;
+        }
+
+        internal bool TryGetDomainGeneration(long hullEntityId, out long generation)
+        {
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            generation = (domain?.Generation ?? AuthorityGeneration.Initial).Value;
+            return domain != null;
+        }
+
+        internal long DomainGenerationFor(long hullEntityId) =>
+            _domains.GenerationFor(hullEntityId).Value;
+
+        internal bool IsFlightDomainActive(long hullEntityId)
+        {
+            ShipDomain? domain = _domains.ByHull(hullEntityId);
+            return domain != null && _activeHullIds.Contains(hullEntityId);
+        }
+
+        internal void RegisterHull(long hullEntityId, int? persistentIndex,
+            FixedPointPosition position, double yawRadians)
+        {
+            ShipDomain domain = _domains.GetOrAdd(hullEntityId, () =>
+                new ShipDomain(hullEntityId, persistentIndex,
+                    new FlightSession(FlightState.AtRestAt(
+                        position.MetresX, position.MetresY, position.MetresZ, yawRadians))));
+            RefreshDomainMembership(domain);
+            if (_domainHost != null && _domainHost.ById(domain.Id) == null)
+                _domainHost.Register(domain);
+            else if (_domainHost != null)
+                _domainHost.Synchronize(domain);
+        }
+
+        /// <summary>Refreshes host ownership after a mount or detach outside the flight tick.</summary>
+        internal void RefreshDomainOwnership(long hullEntityId)
+        {
+            if (_domains.ByHull(hullEntityId) is ShipDomain domain)
+                RefreshDomainMembership(domain);
+        }
+
+        /// <summary>Forgets every session-side trace of a hull after authoritative salvage.</summary>
+        internal void RetireHull(long hullEntityId)
+        {
+            PilotSeats.Seat? seat = _seats.PilotOf(hullEntityId);
+            if (seat.HasValue)
+            {
+                _seats.Release(seat.Value.PlayerEntityId);
+                _inputs.Remove(seat.Value.PlayerEntityId);
+                _authorityByPlayer.Remove(seat.Value.PlayerEntityId);
+            }
+            if (_domainHost != null)
+                _domainHost.RemoveDomain(SimulationDomainId.ForShip(hullEntityId));
+            _domains.Remove(hullEntityId);
+            _activeHullIds.Remove(hullEntityId);
+            _helmByHull.Remove(hullEntityId);
+            _lastEchoed.Remove(hullEntityId);
+            _lastWakeAt.Remove(hullEntityId);
+            _nextPoseSaveAt.Remove(hullEntityId);
+            _departingYardByHull.Remove(hullEntityId);
+            ShipPublisher.RetireDomain(hullEntityId);
+        }
+
+        // ------------------------------------------------------------------
+        // The publisher heartbeat
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// One call per main-loop turn. Cheap when off or idle (an env check and a
+        /// Stopwatch compare); when due, advances every session and publishes what
+        /// they decided to emit.
+        /// </summary>
+        public IReadOnlySet<ulong> Tick()
+        {
+            if (!Enabled || _activeHullIds.Count == 0)
+            {
+                return NoDomainFrameSenders;
+            }
+            if (!_cadence.Due(_clock.Elapsed))
+            {
+                return NoDomainFrameSenders;
+            }
+
+            var domainFrameSenders = new HashSet<ulong>();
+            long nowMs = ShipHull.NowMillisecondsSinceEpoch();
+            foreach (long hullEntityId in _activeHullIds.ToArray())
+            {
+                ShipDomain? domain = _domains.ByHull(hullEntityId);
+                if (domain == null) continue;
+                FlightSession session = domain.Flight;
+                RefreshDomainMembership(domain);
+                TryCaptureAtEmptyShipyard(hullEntityId, session);
+
+                // HELM FEEDBACK first, motion second: the echo is a pure
+                // input-changed compare (usually a no-op) and runs even on
+                // no-emit ticks, so a wheel wiggle inside the deadzone still
+                // animates the helm of a parked ship.
+                EchoHelmFeedback(hullEntityId, session);
+
+                int unfurledSails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId);
+                FlightEmit emit = session.Advance(
+                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails);
+                CompleteDepartureIfOutside(hullEntityId, session.State);
+                PersistPoseWhenDue(hullEntityId, session.State);
+                if (!emit.Emit)
+                {
+                    continue;
+                }
+
+                _pendingLatencyByHull.TryGetValue(hullEntityId, out FlightLatencyTrace? latencyTrace);
+                if (latencyTrace != null)
+                {
+                    Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
+                        + " phase=1130-emit utc=" + DateTime.UtcNow.ToString("O")
+                        + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        + " player=" + latencyTrace.PlayerEntityId
+                        + " hull=" + hullEntityId
+                        + " inputAxisYaw=" + latencyTrace.AxisYaw.ToString("0.###",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        + " stateYawRad=" + session.State.YawRadians.ToString("0.######",
+                            System.Globalization.CultureInfo.InvariantCulture));
+                }
+
+                FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
+                    emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
+                // Mounted-part wakes ride a 0.5 s SUB-cadence, not every point:
+                // an awake "~" follower composes against the hull's live
+                // interpolated transform every frame, so more wakes add reliable
+                // packets without adding smoothness (see WakeInterval).
+                bool wakeDue = !_lastWakeAt.TryGetValue(hullEntityId, out TimeSpan lastWake)
+                    || _clock.Elapsed - lastWake >= WakeInterval;
+                ShipDomainComponentUpdate? hullWake = null;
+                IReadOnlyList<ShipDomainComponentUpdate> memberWakes = Array.Empty<ShipDomainComponentUpdate>();
+                if (wakeDue)
+                {
+                    _lastWakeAt[hullEntityId] = _clock.Elapsed;
+                    ShipPartWakeBundle wakes = BuildHullAndPartWakes(hullEntityId, emit);
+                    hullWake = wakes.Root;
+                    memberWakes = wakes.Members;
+                }
+
+                // ONE domain frame per flight tick. On wake ticks this is ordered
+                // hull 1130 -> hull 190602 -> member 190602; between wakes it is the
+                // same root stream with an empty member set. Relevance is evaluated
+                // once for the whole ship by ShipPublisher.
+                ShipDomainDeliveryResult delivery = ShipPublisher.BroadcastDomainMotion(
+                    hullEntityId, hullPosition, (long)domain.Generation.Value,
+                    new ShipDomainComponentUpdate(
+                        hullEntityId, ShipMotionPolicy.ComponentId,
+                        ShipPublisher.BuildUpdate(emit.Spec, emit.PackedRotation)),
+                    hullWake,
+                    memberWakes);
+                if (latencyTrace != null)
+                {
+                    Console.WriteLine("[flight-latency] event=S" + latencyTrace.Sequence
+                        + " phase=1130-send utc=" + DateTime.UtcNow.ToString("O")
+                        + " elapsedMs=" + (_clock.Elapsed - latencyTrace.ReceivedAt).TotalMilliseconds.ToString("0.0",
+                            System.Globalization.CultureInfo.InvariantCulture)
+                        + " player=" + latencyTrace.PlayerEntityId
+                        + " hull=" + hullEntityId
+                        + " recipients=" + delivery.RootDeliveredPeerIds.Count);
+                    _pendingLatencyByHull.Remove(hullEntityId);
+                }
+                if (delivery.Stamp.HullEntityId == hullEntityId
+                    && delivery.RootDeliveredPeerIds.Count > 0)
+                {
+                    // The normal avatar relay remains 20 Hz. This set only forces
+                    // the latest aboard sample to follow the hull frame on THIS
+                    // loop turn when the independent 20 Hz cadence is not due.
+                    foreach (ulong aboardPeerId in domain.AboardPeerIds)
+                    {
+                        if (delivery.RootDeliveredPeerIds.Contains(aboardPeerId))
+                            domainFrameSenders.Add(aboardPeerId);
+                    }
+                }
+            }
+
+            if (_clock.Elapsed >= _nextStatsAt)
+            {
+                _nextStatsAt = _clock.Elapsed + StatsInterval;
+                foreach (long hullEntityId in _activeHullIds.ToArray())
+                {
+                    ShipDomain? domain = _domains.ByHull(hullEntityId);
+                    if (domain == null) continue;
+                    FlightSession session = domain.Flight;
+                    if (session.IsManned || !session.State.IsAtRest)
+                    {
+                        Console.WriteLine("[flight] hull " + hullEntityId + ": " + session.State
+                            + (session.IsManned
+                                ? " piloted by entity " + _seats.PilotOf(hullEntityId)!.Value.PlayerEntityId
+                                    + ", input " + session.Input
+                                : (session.Input.Throttle != 0f
+                                    ? " cruising unmanned on latched throttle " + session.Input.Throttle.ToString("0.##")
+                                    : " settling"))
+                            + ", unfurled sails "
+                            + WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId)
+                            + " (propulsion x"
+                            + _tuning.SailPropulsionScale(
+                                WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId)).ToString("0.##")
+                            + "); 1111 rx " + _inputPacketsSinceStats + " in last "
+                            + StatsInterval.TotalSeconds.ToString("0") + " s.");
+                        _inputPacketsSinceStats = 0;
+                    }
+                }
+            }
+            return domainFrameSenders;
+        }
+
+        // ------------------------------------------------------------------
+        // Internals
+        // ------------------------------------------------------------------
+
+        private void StartPiloting(ENetPeerHandle player, long playerEntityId, long helmEntityId, long hullEntityId)
+        {
+            ShipDomain domain = _domains.GetOrAdd(hullEntityId, () =>
+            {
+                // First manning this boot: the session starts from the hull's
+                // registered seed pose. WorldEntity.Position is immutable, so from
+                // here on the SESSION is the authority on where this hull is.
+                FixedPointPosition seed = WorldsAdriftRebornGameServer.WorldEntities.TransformSeedFor(hullEntityId);
+                uint seedRotation = WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(hullEntityId);
+                double seedYaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(seedRotation);
+                return new ShipDomain(hullEntityId, Crafting.BuiltShips.PersistentIndexFor(hullEntityId),
+                    new FlightSession(FlightState.AtRestAt(
+                        seed.MetresX, seed.MetresY, seed.MetresZ, seedYaw)));
+            });
+            RefreshDomainMembership(domain);
+            _activeHullIds.Add(hullEntityId);
+            FlightSession session = domain.Flight;
+
+            ShipAuthorityToken authority = domain.AcquirePilot(playerEntityId, helmEntityId);
+            _authorityByPlayer[playerEntityId] = authority;
+            // Seed the delta-merge ledger from the ship's actual lever state.
+            // ShipControlInput updates omit unchanged fields; a re-manning client
+            // initialized from the hull's echoed 1111 may therefore send no
+            // throttle field at all. Starting this ledger at neutral would turn an
+            // unrelated steering delta into an accidental throttle reset.
+            _inputs[playerEntityId] = session.Input;
+            _helmByHull[hullEntityId] = helmEntityId;
+
+            // Wake the hull's halted PathFollower at the unchanged authoritative
+            // pose BEFORE 1109 lets the client send steering. Otherwise a fast
+            // first input can be the wake point, and its small yaw delta takes the
+            // client's five-second slow spline-correction path.
+            FlightEmit prime = session.PrimePlayback(
+                ShipHull.NowMillisecondsSinceEpoch(), ShipMotionPolicy.SendIntervalSeconds);
+            FixedPointPosition primePosition = FixedPointPosition.FromMetres(
+                prime.Spec.X, prime.Spec.Y, prime.Spec.Z);
+            ShipPublisher.BroadcastDomainMotion(
+                hullEntityId, primePosition, domain.Generation.Value,
+                new ShipDomainComponentUpdate(hullEntityId, ShipMotionPolicy.ComponentId,
+                    ShipPublisher.BuildUpdate(prime.Spec, prime.PackedRotation)),
+                rootAuxiliary: null,
+                members: Array.Empty<ShipDomainComponentUpdate>());
+
+            long driveTarget = DriveTargetIsHelm ? helmEntityId : hullEntityId;
+            PilotState.Update update = new PilotState.Update()
+                .SetDrivingEntityId(new EntityId(driveTarget))
+                .SetControlEntityId(new EntityId(helmEntityId))
+                .SetControlType(ControlVehicleType.Ship)
+                .AddStartPiloting(default(StartPiloting));
+            bool pushed = PushPilotState(player, playerEntityId, update);
+
+            Console.WriteLine("[flight] entity " + playerEntityId + " MANNED helm " + helmEntityId + " of hull "
+                + hullEntityId + " at " + session.State + "; 1109 driving=" + driveTarget
+                + (DriveTargetIsHelm ? " (helm)" : " (hull)") + "; domain " + domain.Id
+                + " generation " + domain.Generation + (pushed ? " pushed." : " PUSH FAILED."));
+
+            LogHullShapeOnMan(hullEntityId);
+        }
+
+        /// <summary>
+        /// Prints the hull's measured shape THE MOMENT A PILOT TAKES THE HELM, and
+        /// escalates to a warning when the hull's beam exceeds its keel.
+        ///
+        /// WHY HERE AS WELL AS AT SPAWN. The spawn line is emitted once, at build or
+        /// at boot restore, and by the time the player says "it goes sideways" it is
+        /// thousands of lines back - or in a previous boot's log entirely, because a
+        /// restored ship is spawned before anyone connects. Manning the helm is the
+        /// exact instant the complaint is generated, so the explanation belongs on
+        /// the same timestamp. Same sentence as the spawn line
+        /// (<see cref="ShipHullMetrics.WideHullAdvice"/>), so two logs cannot tell
+        /// two stories.
+        ///
+        /// Never throws and never blocks the man: a hull with no registered bytes
+        /// (the static test hull) simply says nothing.
+        /// </summary>
+        private static void LogHullShapeOnMan(long hullEntityId)
+        {
+            try
+            {
+                byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
+                if (hullBytes == null
+                    || !Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out var model, out _)
+                    || model == null)
+                {
+                    return;
+                }
+
+                var metrics = Multiplayer.Ship.ShipHullMetrics.Measure(model);
+                string? advice = metrics.WideHullAdvice();
+                if (advice == null)
+                {
+                    Console.WriteLine("[flight] hull " + hullEntityId + " geometry - " + metrics.Describe());
+                    return;
+                }
+
+                Console.WriteLine("[warn] flight: hull " + hullEntityId + " geometry - " + metrics.Describe());
+                Console.WriteLine("[warn] flight: " + advice);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[warn] flight: could not measure hull " + hullEntityId
+                    + " geometry on man: " + e.Message);
+            }
+        }
+
+        private void StopPiloting(ENetPeerHandle player, long playerEntityId, long helmEntityId,
+            long hullEntityId, string why, bool abandoned = false)
+        {
+            FlightSession? session = null;
+            if (_domains.ByHull(hullEntityId) is ShipDomain domain)
+            {
+                session = domain.Flight;
+                if (_authorityByPlayer.Remove(playerEntityId, out ShipAuthorityToken authority))
+                {
+                    domain.ReleasePilot(authority, abandoned);
+                }
+                PersistPoseNow(hullEntityId, session.State);
+                // Publish the released transient axes and retained physical lever
+                // immediately. Waiting for the next 0.24 s flight tick leaves a
+                // small window where a quick re-man reads the old full control
+                // state (including steering) from the hull visualizer.
+                EchoHelmFeedback(hullEntityId, session);
+            }
+            _inputs.Remove(playerEntityId);
+
+            PilotState.Update update = new PilotState.Update()
+                .SetDrivingEntityId(new EntityId(0))
+                .SetControlEntityId(new EntityId(0))
+                .SetControlType(ControlVehicleType.None)
+                .AddStopPiloting(default(StopPiloting));
+            bool pushed = PushPilotState(player, playerEntityId, update);
+
+            Console.WriteLine("[flight] entity " + playerEntityId + " DISMOUNTED helm " + helmEntityId + " of hull "
+                + hullEntityId + " (" + why + ")"
+                + (session != null ? " at " + session.State : "")
+                + "; 1109 cleared" + (pushed ? "." : " - PUSH FAILED."));
+        }
+
+        private void RefreshDomainMembership(ShipDomain domain)
+        {
+            domain.ReplaceMembers(
+                Crafting.BuiltShips.DecksForHull(domain.HullEntityId),
+                Crafting.MountedParts.OnHull(domain.HullEntityId).Select(x => x.Key));
+            domain.ReplaceAboard(WorldsAdriftRebornGameServer.Aboard.AboardShip(domain.HullEntityId));
+            if (_domainHost != null)
+            {
+                if (_domainHost.ById(domain.Id) == null) _domainHost.Register(domain);
+                else _domainHost.Synchronize(domain);
+            }
+        }
+
+        /// <summary>
+        /// Sends a 1109 update to the PILOT's peer only. 1109 is deliberately
+        /// never seeded on remote mirrors (it steals the singleton PilotVisualizer
+        /// and pokes LocalPlayer - the standing rule in MirrorSendPolicy), so the
+        /// owner is the one client that has the component to update.
+        /// </summary>
+        private static bool PushPilotState(ENetPeerHandle player, long playerEntityId, PilotState.Update update)
+        {
+            return SendOPHelper.SendComponentUpdateOp(
+                player,
+                playerEntityId,
+                new List<uint> { MirrorSendPolicy.PilotStateComponentId },
+                new List<object> { update });
+        }
+
+        /// <summary>
+        /// ITEM 1 OF THE FEEL PASS - the missing 1111 echo. The research doc
+        /// named it: "the missing original server/worker behaviour is the relay
+        /// or copy from the pilot's 1111 to the ship's 1111". Two readers exist
+        /// (VERIFIED in the decompile) and both are served their own 1111:
+        /// <list type="bullet">
+        /// <item>the HELM's HelmVisualizer lerps its wheel/lever displays toward
+        ///   _input.Throttle/Vertical/ShipAxes every Update and drives the
+        ///   lever/winch SOUNDS off the deltas (HelmVisualizer.cs:59-104) - this
+        ///   is the dead-wheel fix, and remote players see/hear it too;</item>
+        /// <item>the HULL's ShipControlInputVisualizer is what
+        ///   ShipControlsBehaviour.SetInitialInput reads on man - echoing the
+        ///   held state here means a RE-manned helm resumes at the ship's actual
+        ///   latched throttle instead of snapping to zero.</item>
+        /// </list>
+        /// RATE, the safety argument: event-on-change ONLY (the exact-equality
+        /// compare), evaluated at the 0.24 s tick - so the worst case is ~4.2
+        /// updates/s per entity while the pilot is actively moving the stick,
+        /// zero while held or parked, never the client's raw 20 Hz. Unmanned
+        /// sessions keep echoing the latched throttle but zero the wheel, climb and
+        /// attitude controls after dismount. A disconnect echoes full neutral.
+        /// </summary>
+        private void EchoHelmFeedback(long hullEntityId, FlightSession session)
+        {
+            FlightControlInput current = session.Input;
+            if (_lastEchoed.TryGetValue(hullEntityId, out FlightControlInput previous) && previous == current)
+            {
+                return;
+            }
+            _lastEchoed[hullEntityId] = current;
+
+            ShipControlInput.Update update = new ShipControlInput.Update()
+                .SetThrottle(current.Throttle)
+                .SetVertical(current.Vertical)
+                .SetShipAxes(new Improbable.Math.Vector3f(current.AxisPitch, current.AxisYaw, current.AxisRoll));
+
+            ShipPublisher.Broadcast(hullEntityId, MirrorSendPolicy.ShipControlInputComponentId, update);
+            if (_helmByHull.TryGetValue(hullEntityId, out long helmEntityId))
+            {
+                ShipPublisher.Broadcast(helmEntityId, MirrorSendPolicy.ShipControlInputComponentId, update);
+            }
+        }
+
+        /// <summary>
+        /// The wake bundle, on the 0.5 s sub-cadence (<see cref="WakeInterval"/>,
+        /// v1 sent it per point): the hull's own 190602 timeline advance (the
+        /// moving pose + the next shared stamp) and one 190602 wake per mounted
+        /// "~" part carrying its UNCHANGED hull-local offset/rotation at the same
+        /// stamp. Deck panels are real Unity children - never woken (waking them
+        /// would re-fire ParentUpdated and churn a destroy/re-add, the exact trap
+        /// ShipPartMotionService documents).
+        /// </summary>
+        private static ShipPartWakeBundle BuildHullAndPartWakes(
+            long hullEntityId, FlightEmit emit)
+        {
+            long sample = PartMountService.NextTimelineSample();
+            float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+
+            FixedPointPosition hullPos = FixedPointPosition.FromMetres(emit.Spec.X, emit.Spec.Y, emit.Spec.Z);
+            var hullUpdate = ShipPartTransform.BuildParentlessWakeUpdate(
+                hullPos,
+                new Improbable.Corelibrary.Math.Quaternion32(emit.PackedRotation),
+                ShipPartMotionPolicy.ParentStampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds));
+            var members = new List<ShipDomainComponentUpdate>();
+            foreach ((long partEntityId, Crafting.MountedParts.Mount mount) in Crafting.MountedParts.OnHull(hullEntityId))
+            {
+                var wake = ShipPartTransform.BuildWakeUpdate(
+                    mount.LocalOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp,
+                    new Improbable.Corelibrary.Math.Quaternion32(mount.PackedRotation));
+                members.Add(new ShipDomainComponentUpdate(
+                    partEntityId, ShipPartMotionPolicy.TransformStateComponentId, wake));
+            }
+
+            return new ShipPartWakeBundle(
+                new ShipDomainComponentUpdate(
+                    hullEntityId, ShipPartMotionPolicy.TransformStateComponentId, hullUpdate),
+                members);
+        }
+
+        private void PersistPoseWhenDue(long hullEntityId, FlightState state)
+        {
+            if (_nextPoseSaveAt.TryGetValue(hullEntityId, out TimeSpan due) && _clock.Elapsed < due) return;
+            _nextPoseSaveAt[hullEntityId] = _clock.Elapsed + PoseSaveInterval;
+            PersistPoseNow(hullEntityId, state);
+        }
+
+        private static void PersistPoseNow(long hullEntityId, FlightState state)
+        {
+            FixedPointPosition position = FixedPointPosition.FromMetres(state.X, state.Y, state.Z);
+            uint packedRotation = FlightIntegrator.PackedRotation(state);
+            // WorldEntity.Position is also the seed used for a same-process late
+            // join/rejoin. Keeping only the JSON record current made a newly
+            // checked-out ship appear back at its build spot until a later motion
+            // keepalive happened to correct it.
+            WorldsAdriftRebornGameServer.WorldEntities.Relocate(
+                hullEntityId, position, packedRotation);
+
+            int? index = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
+            if (!index.HasValue) return;
+            WorldStatePersistence.UpdateBuiltShipPose(index.Value,
+                position, state.YawRadians);
+        }
+
+        /// <summary>
+        /// Captures a settled owned hull at an EMPTY shipyard. Departing docked hulls
+        /// remain linked until they clear the wider release radius, so they cannot
+        /// churn here. Restored legacy hulls physically sitting in a yard are eligible,
+        /// which repairs the live overlap case.
+        /// </summary>
+        private void TryCaptureAtEmptyShipyard(long hullEntityId, FlightSession session)
+        {
+            if (Crafting.BuiltShips.IsHullDocked(hullEntityId)) return;
+
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(
+                session.State.X, session.State.Y, session.State.Z);
+            string hullOwner = Crafting.BuiltShips.OwnerFor(hullEntityId);
+            foreach (long yardEntityId in Placement.PlacedShipyards.EntityIds.OrderBy(id => id))
+            {
+                FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
+                    .TransformSeedFor(yardEntityId);
+                Placement.PlacedShipyards.Seed yard = Placement.PlacedShipyards.SeedFor(yardEntityId);
+                if (!Multiplayer.Ship.ShipyardDockingPolicy.CanDock(
+                        captureArmed: true,
+                        hullAtRest: session.State.IsAtRest,
+                        inputNeutral: session.Input.IsNeutral,
+                        yardOccupied: Crafting.BuiltShips.IsShipyardOccupied(yardEntityId),
+                        hullOwner: hullOwner,
+                        yardOwner: yard.OwnerCharacterUid,
+                        hullPosition: hullPosition,
+                        shipyardPosition: yardPosition))
+                {
+                    continue;
+                }
+
+                FixedPointPosition target = Multiplayer.Ship.ShipyardDockingPolicy.DockPose(yardPosition);
+                double yaw = Multiplayer.Ship.ShipyardDockingPolicy.YawFromPacked(
+                    WorldsAdriftRebornGameServer.WorldEntities.RotationSeedFor(yardEntityId));
+                session.DockAt(target.MetresX, target.MetresY, target.MetresZ, yaw);
+                Crafting.BuiltShips.SetDocked(yardEntityId, hullEntityId);
+
+                int? persistentIndex = Crafting.BuiltShips.PersistentIndexFor(hullEntityId);
+                if (persistentIndex.HasValue)
+                {
+                    WorldStatePersistence.DockBuiltShip(
+                        persistentIndex.Value, target, yaw, yardPosition);
+                }
+
+                PilotSeats.Seat? pilot = _seats.PilotOf(hullEntityId);
+                if (pilot.HasValue) _inputs[pilot.Value.PlayerEntityId] = FlightControlInput.Neutral;
+
+                var hullUpdate = new DockableState.Update()
+                    .SetDockEntityId(new EntityId(yardEntityId))
+                    .SetDockLocation(new Coordinates(target.MetresX, target.MetresY, target.MetresZ))
+                    .SetDocked(true)
+                    .SetApproachingDock(false);
+                foreach (ENetPeerHandle peer in PeerManager.Instance.playerState.Keys.ToList())
+                {
+                    Crafting.BuiltShipSpawner.PushDockedShipId(peer, yardEntityId, hullEntityId);
+                    SendOPHelper.SendComponentUpdateOp(peer, hullEntityId,
+                        new List<uint> { 1114 }, new List<object> { hullUpdate });
+                }
+
+                Console.WriteLine("[flight] hull " + hullEntityId + " captured by empty shipyard "
+                    + yardEntityId + "; editing restored and dock link persisted.");
+                return;
+            }
+        }
+
+        private void CompleteDepartureIfOutside(long hullEntityId, FlightState state)
+        {
+            if (!_departingYardByHull.TryGetValue(hullEntityId, out long yardEntityId)) return;
+            FixedPointPosition hullPosition = FixedPointPosition.FromMetres(state.X, state.Y, state.Z);
+            FixedPointPosition yardPosition = WorldsAdriftRebornGameServer.WorldEntities
+                .TransformSeedFor(yardEntityId);
+            if (Multiplayer.Ship.ShipyardDockingPolicy.IsWithin(hullPosition,
+                    yardPosition, Multiplayer.Ship.ShipyardDockingPolicy.RearmRadiusMetres)) return;
+
+            _departingYardByHull.Remove(hullEntityId);
+            Crafting.BuiltShipSpawner.UndockDepartingHull(hullEntityId);
+        }
+    }
+}

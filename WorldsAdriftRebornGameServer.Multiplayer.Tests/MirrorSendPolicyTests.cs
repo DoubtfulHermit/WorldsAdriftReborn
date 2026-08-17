@@ -41,9 +41,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         // ------------------------------------------------------------------
 
         [Fact]
-        public void AddEntity_may_be_resent_because_a_client_still_loading_the_prefab_drops_it()
+        public void AddEntity_is_never_resent_because_duplicate_creation_can_split_a_live_rig()
         {
-            Assert.True(MirrorSendPolicy.MayResend(MirrorOp.AddEntity));
+            Assert.False(MirrorSendPolicy.MayResend(MirrorOp.AddEntity));
         }
 
         [Fact]
@@ -62,19 +62,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Every_resendable_op_carries_no_component_data()
+        public void No_mirror_op_is_resendable()
         {
-            // The safety argument for resending at all: AddEntity carries no
-            // component payload, so repeating it cannot move anyone. If a new
-            // op type is ever added to the resend set, this test forces whoever
-            // adds it to re-derive that argument.
             foreach (MirrorOp op in Enum.GetValues<MirrorOp>())
             {
-                if (MirrorSendPolicy.MayResend(op))
-                {
-                    Assert.Equal(MirrorOp.AddEntity, op);
-                }
+                Assert.False(MirrorSendPolicy.MayResend(op));
             }
+        }
+
+        [Theory]
+        [InlineData(true, true, true, true)]
+        [InlineData(false, true, true, false)]
+        [InlineData(true, false, true, false)]
+        [InlineData(true, true, false, false)]
+        public void Movement_waits_for_the_complete_remote_seed(bool addSent,
+            bool playerStateServed, bool transformServed, bool expected)
+        {
+            Assert.Equal(expected, MirrorSendPolicy.MayRelayMovement(
+                addSent, playerStateServed, transformServed));
         }
 
         // ------------------------------------------------------------------
@@ -383,7 +388,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Exactly_nine_component_ids_are_filtered_out_of_the_relay()
+        public void Exactly_twelve_component_ids_are_filtered_out_of_the_relay()
         {
             // Sweep rather than trust a hand-picked list: widening the filter has
             // to come here first, because a silently unrelayed component is
@@ -397,6 +402,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // 1239 PlacementToolPlayerState joined with part-mounting - both
             // client-authoritative, cross-entity (PlacePart / PickedUp name a THIRD
             // entity), realised server-side by writing the part's 8066/190602/1120.
+            // 1011 IslandResourceSpawnerClientState joined with the resource-placement
+            // handshake - client-authoritative on the shared ISLAND, its
+            // SpawnResourcesReply realised server-side by spawning deposits every peer
+            // sees, never relayed raw to another client's own island writer.
             List<uint> filtered = new List<uint>();
             for (uint id = 0; id < 200000; id++)
             {
@@ -406,7 +415,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 }
             }
 
-            Assert.Equal(new uint[] { 1017, 1037, 1070, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
+            // 1111 ShipControlInput and 1112 TurretControlInput joined with helm
+            // flight - the pilot's up-to-20 Hz input stream, consumed by the
+            // server's flight integrator and realised as the hull's 1130 control
+            // points every peer already receives; relaying it raw would be both
+            // the cross-entity misdelivery AND the per-frame reliable-relay rate
+            // spiral at once.
+            Assert.Equal(new uint[] { 1011, 1017, 1037, 1070, 1111, 1112, 1208, 1211, 1231, 1239, 1270, 6910 }, filtered);
+        }
+
+        // ------------------------------------------------------------------
+        // Helm flight (kept out of the always-on sets; env-gated)
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Helm_flight_grants_and_injects_exactly_the_two_pilot_writers()
+        {
+            // ShipControlsBehaviour [Require]s the 1111 AND 1112 writers plus the
+            // 1109 reader; a behaviour enables only when EVERY require resolves,
+            // so granting one without the other is worth exactly as much as
+            // granting neither. 1109 is not here - it is already injected early
+            // for every player (the PlayerExternalDataVisualizer NRE fix) and
+            // must never be granted (the server owns who is driving).
+            Assert.Equal(new uint[] { 1111, 1112 }, MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+            Assert.Equal(new uint[] { 1111, 1112 }, MirrorSendPolicy.ShipFlightInjectedComponents);
+            Assert.DoesNotContain(1109u, MirrorSendPolicy.ShipFlightAuthoritativeComponents);
+        }
+
+        [Fact]
+        public void Helm_flight_components_are_not_in_the_always_on_sets_so_the_feature_can_be_gated()
+        {
+            foreach (uint id in new uint[] { 1111, 1112 })
+            {
+                Assert.DoesNotContain(id, MirrorSendPolicy.AuthoritativeComponents);
+                Assert.DoesNotContain(id, MirrorSendPolicy.InjectedComponents);
+            }
+        }
+
+        [Fact]
+        public void The_pilot_input_stream_is_never_relayed()
+        {
+            // The one wire-safety rule of the whole feature: 1111 is a legit
+            // high-rate stream from ONE piloting player, consumed server-side,
+            // and must never reach a second client raw.
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(MirrorSendPolicy.ShipControlInputComponentId));
+            Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(MirrorSendPolicy.TurretControlInputComponentId));
         }
 
         // ------------------------------------------------------------------
@@ -528,6 +581,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(RelayReliability.Unreliable, MirrorSendPolicy.RelayReliabilityFor(6910));
         }
 
+        [Fact]
+        public void Ship_motion_control_points_are_unreliable_because_each_new_point_supersedes_the_last()
+        {
+            Assert.Equal(RelayReliability.Unreliable, MirrorSendPolicy.RelayReliabilityFor(1130));
+        }
+
+        [Fact]
+        public void A_typed_batch_is_unreliable_only_when_every_update_is_superseded()
+        {
+            Assert.Equal(RelayReliability.Unreliable,
+                MirrorSendPolicy.BatchReliabilityFor(new uint[] { 1130u, 190602u }));
+            Assert.Equal(RelayReliability.Reliable,
+                MirrorSendPolicy.BatchReliabilityFor(new uint[] { 1130u, 1109u }));
+            Assert.Equal(RelayReliability.Reliable,
+                MirrorSendPolicy.BatchReliabilityFor(Array.Empty<uint>()));
+        }
+
         [Theory]
         [InlineData(1088u)] // PlayerPropertiesState: appearance, published ONCE at spawn
         [InlineData(1098u)] // RopeControlPoints: grapple line
@@ -540,12 +610,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Only_the_three_known_high_rate_streams_are_ever_unreliable()
+        public void Only_the_four_known_superseding_streams_are_ever_unreliable()
         {
             // Sweep a wide id range rather than trusting a hand-picked list: a
             // future "this one is chatty too" edit has to come here first.
-            // The three high-rate streams: 1073, 190602, 6910.
-            var unreliable = new HashSet<uint> { 1073u, 190602u, 6910u };
+            // The four superseding streams: 1073, 1130, 190602, 6910.
+            var unreliable = new HashSet<uint> { 1073u, 1130u, 190602u, 6910u };
             for (uint id = 0; id < 200000; id++)
             {
                 if (MirrorSendPolicy.RelayReliabilityFor(id) == RelayReliability.Unreliable)
@@ -603,6 +673,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // neither behaviour. The mount is realised server-side, not by relaying.
             Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1070u));
             Assert.False(MirrorSendPolicy.IsRelayedToOtherPlayers(1239u));
+        }
+
+        [Fact]
+        public void The_injected_setup_batch_contains_TransformState_so_it_must_be_ledger_gated()
+        {
+            // InjectedComponents rides the authoritative tail, and the
+            // authoritative set contains 190602 TransformState - a component the
+            // client ALSO requests for every entity it checks out. Any send of
+            // this list that is not filtered through ServedComponentLedger and
+            // fully MarkServed afterwards re-ADDs 190602 ("Component
+            // TransformState added to entity N, but it already exists") and
+            // silently re-seeds the player's transform to spawn. This pins the
+            // fact that makes the gating mandatory; if it ever fails, the
+            // interest handler's injected batch may no longer need the ledger -
+            // but until then it does.
+            Assert.Contains(MirrorSendPolicy.TransformStateComponentId, MirrorSendPolicy.InjectedComponents);
         }
     }
 }

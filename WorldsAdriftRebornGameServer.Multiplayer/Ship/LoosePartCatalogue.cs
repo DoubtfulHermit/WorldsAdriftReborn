@@ -11,23 +11,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// one row in <see cref="Rows"/>; adding or adjusting a part is a single row, not
     /// new machinery (the shipyard Deployables table is the shape this mirrors).
     ///
-    /// WHY BASE-7 IS THE WHOLE STORY FOR RENDERING. A ship-part prefab renders from
-    /// its BAKED geometry the instant the client loads it (AssetLoadRequest +
-    /// AddEntity); the seed set does NOT make it visible, it makes it LIFTABLE and
-    /// (for a lamp) FUNCTIONAL. This is the same finding <see cref="ShipParts"/>
-    /// records for the static engine/sail ("they render from their BAKED prefab
-    /// geometry ... the server seeds NONE of their special-visualizer components ...
-    /// those visualizers stay dormant ... but the parts still appear"). So every part
-    /// here carries <see cref="LoosePartDefinition.BaseShipPartComponents"/> - the
-    /// ShipPartVisualizer [Require] union that makes it render-and-liftable - and adds
-    /// a functional component ONLY when that component is served with crash-safe idle
-    /// data AND its absence would make the part visibly broken rather than merely
-    /// dormant. The lamp adds 1108/1236 (it must glow); the motion-driven instruments
-    /// add 1236 (their needle visualizers are damage-gated and 1236 is already served
-    /// crash-safe). Everything else renders as an inert-but-correct prop, exactly as
-    /// the codebase already ships the static engine and sail - dormant functional
-    /// visuals are a documented follow-on, never a regression, because best-effort
-    /// interest leaves one missing part inert, not the ship.
+    /// RENDERING CONTRACT. Every row carries the common ShipPartVisualizer/lift/
+    /// material/variation closure from <see cref="LoosePartDefinition.BaseShipPartComponents"/>.
+    /// Prefabs whose visible geometry is generated rather than baked add their
+    /// mandatory state here: decks add 1518, panels/windows add 1118, and modular
+    /// engines/wings add 12281. Functional visuals are added only where the server
+    /// has crash-safe truthful state (lamp, sail, horn and passive instruments).
+    /// This distinction matters: the former "baked geometry is enough" assumption
+    /// consumed materials while producing invisible Deck01/Panel02 entities.
     ///
     /// PREFAB NAMES ARE THE VERIFIED CLIENT-RESOLVABLE NAMES. Every prefabName below was
     /// cross-checked against the REAL client entity-prefab set extracted straight from
@@ -66,7 +57,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public const string LampDefaultPrefab = "Lamp01";
 
         /// <summary>The lamp's default attachmentType (a surface-mounted decoration).</summary>
-        public const string LampDefaultAttachment = "shipSurfaces";
+        public const string LampDefaultAttachment = "deck";
 
         // Functional component ids that are SERVED crash-safe today (ComponentsSerializer):
         //   1108 LampState, 1236 IsTooDamagedToWorkState, 1303 SailState, 1107 HornState.
@@ -76,7 +67,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         // is verified crash-safe (SailVisualizer/HornVisualizer only subscribe on
         // enable, no Option deref). The riskier functional states (engine 1116+1251,
         // wing 1124, core 1115/1258, storage 1081+1210, respawn 1094) are left dormant
-        // - the part still renders from baked geometry and lifts on the base 7, exactly
+        // - the part still renders from its visual contract and lifts on the common base, exactly
         // as ShipParts leaves the static engine/sail dormant; waking them is a
         // documented follow-on, never a regression (best-effort interest leaves one
         // part inert, never the ship).
@@ -84,6 +75,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         private const uint IsTooDamagedToWorkState = 1236;
         private const uint SailState = 1303;
         private const uint HornState = 1107;
+        private const uint ShipDeckState = 1518;
+        private const uint ShipPanelState = 1118;
+        private const uint ModularShipPartState = 12281;
 
         /// <summary>
         /// One row of the catalogue: the recipe key plus everything
@@ -129,13 +123,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         // THE TABLE. One row per CraftingStation-category ship part the bench
         // shows. prefabName = the verified client-resolvable name; attachmentType
         // = the best-guess GetAttachmentType string (config-overridable); the last
-        // column = functional components seeded ON TOP of the base 7, and ONLY ids
+        // column = prefab-specific components seeded ON TOP of the common base, and ONLY ids
         // that are served crash-safe (1108/1236) may appear there.
         // ------------------------------------------------------------------
         private static readonly Row[] Rows =
         {
             // --- Basics: helm / sail / deck -------------------------------------
-            // Helm renders + lifts on base 7; HelmVisualizer needs the ship's 1111,
+            // Helm renders + lifts on the common base; HelmVisualizer needs the ship's 1111,
             // not a loose-part component, so no functional id here.
             //
             // attachmentType "deck" (NOT the former best-guess "shipSurfaces"): a helm
@@ -178,21 +172,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // yaw is runtime, so a placed orientation is cosmetic for now).
             new Row("sail",  "basics", "Sail", "Sail01", "deck", new uint[] { SailState }),
             // Deck piece; "deck" attachment drives ShipPartPlacement's deck styling.
-            new Row("deck",  "basics", "Deck", "Deck01", "deck",         new uint[] { }),
+            // 1518 is not optional decoration: ShipDeckVisualizer builds the actual
+            // visible mesh and solid collider from it. Without it a craft consumes
+            // materials and creates an entity whose deck never materialises.
+            new Row("deck",  "basics", "Deck", "Deck01", "deck", new uint[] { ShipDeckState }),
 
             // --- Engine / wing (procedural modular parts) -----------------------
             // Engine/wing render from baked geometry; their EngineVisualizer/
             // WingVisualizer functional state (1116/1251/1124) stays dormant, the
             // same call ShipParts makes for the static engine.
-            new Row("proceduralEngineDefault", "engine",         "Procedural Engine", "ModularEngine", "engine", new uint[] { }),
-            new Row("proceduralWingDefault",   "proceduralWing", "Procedural Wing",   "ModularWing",   "wing",   new uint[] { }),
+            // Modular prefabs are empty shells until 12281 names their component
+            // meshes. Without it the recipe succeeds but ShipPartGenerator never
+            // builds an engine/wing that the player can see or attach.
+            new Row("proceduralEngineDefault", "engine",         "Procedural Engine", "ModularEngine", "engine", new uint[] { ModularShipPartState }),
+            new Row("proceduralWingDefault",   "proceduralWing", "Procedural Wing",   "ModularWing",   "wing",   new uint[] { ModularShipPartState }),
 
-            // --- Sky cores: the main atlas core + its 8 module variants ----------
-            // coreModule attachment routes to ShipCoreAttachmentPlacement.
+            // --- Sky cores: the main atlas core (the BASE) + its 8 modules -------
+            //
+            // THE BASE IS CoreMain, settled by the shipped assets themselves: the
+            // CoreMain_unityclient prefab's LOD0 carries EIGHT authored socket
+            // transforms, one per module, named after the module prefabs -
+            // CoreGeneratorLocator, CoreComputerLocator, CoreAirfilterLocator,
+            // coreCoolantSystemLocator, CoreAtlasEnhancerLocator,
+            // CoreCircuitryNetworkLocator, CoreEfficiencyModuleLocator and
+            // CoreStabiliserLoacotor (the typo ships in the asset) - exactly what
+            // ShipCoreVisualizer.GetTransformForModule reads. No other prefab has
+            // sockets (full UnityPy census over resources.assets + sharedassets0/1 +
+            // globalgamemanagers). So the retail chain is: the CORE stands on the
+            // DECK, and every module - INCLUDING the generator (enum value
+            // AdvancedGenerator) - snaps onto the core. The placement text's "A Sky
+            // core generator" is the retail name of the CoreMain base, not of the
+            // skyCoreGenerator part; the earlier reconstruction that made the
+            // generator the deck base had the chain backwards (live-confirmed: the
+            // core refused to place on the generator - the generator has no sockets).
+            //
+            // The socket components themselves (ShipCoreVisualizer on the base,
+            // ShipCoreModuleVisualizer on the modules, ShipCoreModuleLocator on the
+            // sockets) are STRIPPED from every prefab in this build; the client mod
+            // restores them at template-compile time from SkyCoreSockets, the shared
+            // per-module map (prefab -> ShipCoreModuleTypes -> locator child).
+            //
             // ShipCoreVisualizer [Require]s ONLY 1236 + transform (NOT 1115), and 1236
             // is served crash-safe, so seeding it wakes the core's own visualizer
             // safely; its lift accounting (1258) only matters on a ship, dormant here.
-            new Row("atlasSkyCore",             "skyCore", "Atlas Sky Core",              "CoreMain",             "coreModule", new uint[] { IsTooDamagedToWorkState }),
+            new Row("atlasSkyCore",             "skyCore", "Atlas Sky Core",              "CoreMain",             "deck",       new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreAtlasEnhancer",     "skyCore", "Sky Core Atlas Enhancer",     "CoreAtlasEnhancer",    "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreGenerator",         "skyCore", "Sky Core Generator",          "CoreGenerator",        "coreModule", new uint[] { IsTooDamagedToWorkState }),
             new Row("skyCoreAirFilter",         "skyCore", "Sky Core Air Filter",         "CoreAirfilter",        "coreModule", new uint[] { IsTooDamagedToWorkState }),
@@ -204,10 +227,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
             // --- Structural: hull panels / window / stairs / railings -----------
             // "side" panels attach to the hull sides; stairs/railings to the deck.
-            new Row("smallPanel",   "structural", "Small Panel",   "Panel01",       "side", new uint[] { }),
-            new Row("mediumPanel",  "structural", "Medium Panel",  "Panel02",       "side", new uint[] { }),
-            new Row("largePanel",   "structural", "Large Panel",   "Panel03",       "side", new uint[] { }),
-            new Row("window",       "structural", "Window",        "Window01",      "side", new uint[] { }),
+            // Panels are generated geometry, not baked props. ShipPanelVisualizer
+            // [Require]s 1118 and its ShipPanelVariationVisualizer base [Require]s
+            // 1246. The live Panel02 request proved both were absent.
+            new Row("smallPanel",   "structural", "Small Panel",   "Panel01",  "side", new uint[] { ShipPanelState }),
+            new Row("mediumPanel",  "structural", "Medium Panel",  "Panel02",  "side", new uint[] { ShipPanelState }),
+            new Row("largePanel",   "structural", "Large Panel",   "Panel03",  "side", new uint[] { ShipPanelState }),
+            new Row("window",       "structural", "Window",        "Window01", "side", new uint[] { ShipPanelState }),
             new Row("stairs",       "structural", "Stairs",        "Stairs1",       "deck", new uint[] { }),
             new Row("railing",      "structural", "Railing",       "RailingStraight","deck", new uint[] { }),
             new Row("railingCorner","structural", "Railing Corner","RailingCorner", "deck", new uint[] { }),
@@ -219,13 +245,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // props that do not yet OPEN - the inventory wiring is the follow-on. The
             // container prefab sizing (Small/Medium/Large) is a best guess.
             new Row("trunk",             "storage", "Trunk",             "ContainerSmall",  "deck",         new uint[] { }),
-            // mountedBox stays "shipSurfaces" ON PURPOSE (NOT nudged to "deck"): its very
-            // name is the WALL/surface-mounted box, distinct from the deck-standing trunk/
-            // containers beside it. Its retail surface is a vertical ship SURFACE, which our
-            // built ship does not expose a usable collider for yet (only the deck is a real
-            // surface). Faking it onto the deck would be wrong-but-placeable, so it is left
-            // as-is until the ship exposes a side/surface collider.
-            new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "shipSurfaces", new uint[] { }),
+            // The reconstructed hull has no retail Environment-layer generic skin.
+            // Until that geometry exists, the mounted box uses the real deck placement
+            // surface so it is usable instead of hitting one incidental frame collider.
+            new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "deck", new uint[] { }),
             new Row("storageContainer",  "storage", "Storage Container", "ContainerMedium", "deck",         new uint[] { }),
             new Row("shippingContainer", "storage", "Shipping Container","ContainerLarge",  "deck",         new uint[] { }),
 
@@ -234,11 +257,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             new Row("cupboard", "decoration", "Cupboard", "Cupboard", "deck",         new uint[] { }),
             // Horn: 1107 HornState wakes HornVisualizer (charge=0; OnEnable reads a
             // plain float, no Option deref, crash-safe). Served by a new 1107 branch.
-            // Left "shipSurfaces": whether a ship's horn is deck-mounted or surface/rail-
-            // mounted in retail is NOT confirmable from the decompile (the attachmentType
-            // strings are server refdata, absent from the client), so it is not guessed onto
-            // the deck. Revisit with the real refdata or a live check.
-            new Row("horn",     "decoration", "Horn",     "Horn01",   "shipSurfaces", new uint[] { HornState }),
+            // Use the real deck collider; generic ShipSurfaces cannot hit it on generated
+            // ships and produced the same single-frame placement failure as the lamp.
+            new Row("horn",     "decoration", "Horn",     "Horn01",   "deck", new uint[] { HornState }),
             // THE LAMP - the one part already proven end-to-end. It MUST glow, so it
             // seeds 1108 LampState + 1236 IsTooDamagedToWorkState (both served
             // crash-safe). Prefab/attach are its verified-working defaults.
@@ -252,24 +273,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // NEW branch is needed - this is the one safe functional add beyond the
             // lamp, reusing the lamp's own 1236 serve.
             //
-            // attachmentType left "shipSurfaces" for ALL FIVE: whether these gauges are
-            // deck-standing pedestals or console/panel-mounted in retail is NOT confirmable
-            // from the decompile (ShipInstrument only adds a generic PlacementRules,
-            // acs/ShipInstrument.cs:7-11; the surface string is server refdata absent from
-            // the client). They are NOT guessed onto the deck - if any are panel/surface
-            // parts, our built ship exposes no usable surface for them yet. Revisit with the
-            // real refdata or a live check.
-            new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("artificialHorizon",  "instruments", "Artificial Horizon",  "ArtificialHorizon", "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
-            new Row("airspeedIndicator",  "instruments", "Airspeed Indicator",  "AirspeedIndicator", "shipSurfaces", new uint[] { IsTooDamagedToWorkState }),
+            // Their exact retail server-refdata strings are unavailable, but generated
+            // ships expose one broad usable mounting surface: ShipDeck. Author all five
+            // there rather than retaining the known-broken generic Environment raycast.
+            new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("artificialHorizon",  "instruments", "Artificial Horizon",  "ArtificialHorizon", "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("airspeedIndicator",  "instruments", "Airspeed Indicator",  "AirspeedIndicator", "deck", new uint[] { IsTooDamagedToWorkState }),
 
             // --- Power generators -----------------------------------------------
             // Two schematic keys, one prefab. Render from baked geometry; any
             // generator functional state is dormant.
-            new Row("powerGenerator",   "power", "Power Generator", "PowerGenerator01", "shipSurfaces", new uint[] { }),
-            new Row("powerGenerator01", "power", "Power Generator", "PowerGenerator01", "shipSurfaces", new uint[] { }),
+            new Row("powerGenerator",   "power", "Power Generator", "PowerGenerator01", "deck", new uint[] { }),
+            new Row("powerGenerator01", "power", "Power Generator", "PowerGenerator01", "deck", new uint[] { }),
 
             // --- Personal reviver (ship respawn point) --------------------------
             // A ship-mounted respawn point. RespawnerVisualizer [Require]s 1094 +

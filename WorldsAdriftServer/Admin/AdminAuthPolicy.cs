@@ -38,6 +38,31 @@ namespace WorldsAdriftServer.Admin
         /// public /signup or /register, which share this host.
         /// </summary>
         public const string CookiePath = "/admin";
+        public const string CsrfHeader = "X-Wareborn-CSRF";
+
+        /// <summary>
+        /// A session-bound double-submit value for authenticated POSTs. The
+        /// bearer token remains HttpOnly; only its one-way CSRF derivative is
+        /// embedded in the authenticated page.
+        /// </summary>
+        public static string CsrfTokenForSession(string sessionToken)
+        {
+            if (string.IsNullOrWhiteSpace(sessionToken)) return string.Empty;
+            byte[] bytes = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("wareborn-admin-csrf-v1:" + sessionToken));
+            return Convert.ToHexString(bytes).ToLowerInvariant();
+        }
+
+        public static bool VerifyCsrf(string? sessionToken, string? presented)
+        {
+            if (string.IsNullOrWhiteSpace(sessionToken) || string.IsNullOrWhiteSpace(presented))
+                return false;
+            string expected = CsrfTokenForSession(sessionToken!);
+            byte[] left = System.Text.Encoding.ASCII.GetBytes(expected);
+            byte[] right = System.Text.Encoding.ASCII.GetBytes(presented!);
+            return left.Length == right.Length
+                && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(left, right);
+        }
 
         /// <summary>
         /// Splits a configured <c>username:credential</c> value. The split is on

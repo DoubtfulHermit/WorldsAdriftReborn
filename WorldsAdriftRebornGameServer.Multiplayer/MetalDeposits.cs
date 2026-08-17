@@ -1,3 +1,5 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+
 namespace WorldsAdriftRebornGameServer.Multiplayer
 {
     /// <summary>
@@ -50,7 +52,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             key != null && key.StartsWith(KeyPrefix, System.StringComparison.Ordinal);
 
         /// <summary>
-        /// The DEFAULT 1255 variantId - a real <c>MetalDepositVisuals</c> asset id.
+        /// The first/default 1255 variantId - a real <c>MetalDepositVisuals</c> asset id.
         ///
         /// VERIFIED by a strings scan of the shipped
         /// <c>sharedassets0.assets</c>: the <c>MetalDepositsByBiome</c>
@@ -63,20 +65,41 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// MetalDepositVisualiser disabled and the entity invisible - so this is the
         /// single most important string in the deposit.
         ///
-        /// Overridable at runtime with <c>WAREBORN_DEPOSIT_VARIANT</c> so the other
-        /// two variants (or a future biome-specific one) can be tried live WITHOUT a
-        /// rebuild, matching the WAREBORN_* switch philosophy used across this server.
+        /// The shipped release contains three genuinely different meshes. Variant 03
+        /// is the tall ~5.1 m formation; variants 01 and 02 are shorter and broader.
+        /// Retail selected one variant and replicated its id. This server cycles the
+        /// same verified set by stable placement index, so all peers and restarts see
+        /// identical geometry without collapsing every field to variant 01.
         /// </summary>
         public const string DefaultVariantId = "metal_deposit_composite_light_01";
 
-        /// <summary>
-        /// The 1255 variantId to seed, from <c>WAREBORN_DEPOSIT_VARIANT</c> or the
-        /// verified <see cref="DefaultVariantId"/>.
-        /// </summary>
-        public static string VariantId()
+        public static readonly IReadOnlyList<string> VariantIds = Array.AsReadOnly(new[]
         {
-            string? env = System.Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT");
-            return string.IsNullOrWhiteSpace(env) ? DefaultVariantId : env.Trim();
+            DefaultVariantId,
+            "metal_deposit_composite_light_02",
+            "metal_deposit_composite_light_03",
+        });
+
+        /// <summary>
+        /// The 1255 variantId for a stable placement index. A non-empty
+        /// <c>WAREBORN_DEPOSIT_VARIANT</c> remains a global diagnostic override;
+        /// otherwise indices cycle through the three shipped variants.
+        /// </summary>
+        public static string VariantIdFor(int placementIndex)
+        {
+            return VariantIdFor(
+                placementIndex,
+                System.Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT"));
+        }
+
+        /// <summary>Pure form used to validate configured override behavior.</summary>
+        public static string VariantIdFor(int placementIndex, string? configuredOverride)
+        {
+            if (placementIndex < 0)
+                throw new ArgumentOutOfRangeException(nameof(placementIndex));
+            return string.IsNullOrWhiteSpace(configuredOverride)
+                ? VariantIds[placementIndex % VariantIds.Count]
+                : configuredOverride.Trim();
         }
 
         // ------------------------------------------------------------------
@@ -125,7 +148,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>The island every player spawns on; deposits are placed island-local against it.</summary>
-        public static readonly FixedPointPosition IslandOrigin = SpawnPolicy.IslandPosition;
+        public static readonly FixedPointPosition IslandOrigin = IslandCatalog.Haven.GlobalOrigin;
 
         /// <summary>
         /// One island-local deposit placement on Haven: a metal type, a quality, and a
@@ -150,48 +173,57 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The test deposit placements on Haven, island-local metres.
+        /// The deposit placements on Haven, island-local metres - a DENSE, reviewed
+        /// resource field generated deterministically from the real extracted Haven
+        /// LOD0 surface table, NOT a hand-measured handful.
         ///
-        /// Index 0 is the PROVEN-mode deposit: island-local (216.0, 4.57, 8.0) - the
-        /// same measured LOD0 surface vertex the nugget's proven node uses (8.9 m from
+        /// Index 0 is the PROVEN-mode deposit: island-local (216.0, 4.57, 8.0) - a
+        /// measured LOD0 surface vertex the nugget's proven node also uses (8.9 m from
         /// the spawn point, ny = 0.995, well inside the salvager's 10 m aim reach), so
-        /// a tester walks a few paces and aims. The remaining two are a small spread at
-        /// other measured near-spawn vertices so the area reads as more than one rock.
-        /// A deposit is bigger than a nugget; these are far enough apart (>= 14 m) not
-        /// to interpenetrate. Placement is a SEPARATE task - this is just enough to
-        /// prove the mining loop.
+        /// a tester walks a few paces and aims. Everything after it is emitted by
+        /// <see cref="Resources.SurfacePlacementGenerator"/> over
+        /// <see cref="Resources.HavenSurface.Samples"/> under
+        /// <see cref="Resources.HavenSurface.DepositConfig"/>: upward-facing ground
+        /// (ny &gt;= 0.92), the FULL extracted altitude range, Poisson-disk thinned
+        /// to a 22 m minimum spacing, and kept clear of the spawn, the ship and the
+        /// distributed trees. Forty deposits cover the complete ~560 x 290 m terrain
+        /// instead of concentrating on the old 1.5..12 m eastern shelf.
+        ///
+        /// DETERMINISTIC AND STABLE: the generator uses no RNG and no clock, so the
+        /// same embedded surface and config produce the identical layout every
+        /// restart - mining/persistence state keyed on a deposit's index stays
+        /// consistent. Density and spread are tunable via the documented knobs on
+        /// <see cref="Resources.HavenSurface"/> (min spacing, height band, normal
+        /// threshold, target count, clearances).
+        ///
+        /// Haven has no surviving per-island community resource row because it was
+        /// Bossa-authored, not a Workshop island. Its explicit starter-biome profile
+        /// is therefore conservative: IRON only, the metal required by Haven's first
+        /// crafting loop, rather than an invented rotating assortment.
         /// </summary>
-        public static readonly IReadOnlyList<Placement> HavenPlacements = new[]
+        public static readonly IReadOnlyList<Placement> HavenPlacements = BuildHavenPlacements();
+
+        private static IReadOnlyList<Placement> BuildHavenPlacements()
         {
-            new Placement("iron",   6, 216.0, 4.57,   8.0), // PROVEN, 8.9 m from spawn (index 0)
-            // Generated from the extracted Haven LOD0 surface table
-            // (docs/research/world-data/island-surfaces/1431299145.json): flat ground
-            // (upward normal >= 0.92), reachable height y in [1.5,12], each >= 14 m
-            // apart and >= 9 m from the distributed trees, so ore and trees never
-            // overlap and none spawn buried. Metal/quality cycled for variety.
-            new Placement("iron",   5, 200.0, 4.27,   0.0),
-            new Placement("copper", 6, 184.0, 7.32,   0.0),
-            new Placement("iron",   7, 200.0, 4.98,  16.0),
-            new Placement("iron",   5, 184.0, 8.68, -16.0),
-            new Placement("copper", 6, 216.0, 5.51,  16.0),
-            new Placement("iron",   7, 184.0, 5.47,  24.0),
-            new Placement("copper", 5, 228.0, 3.32, -16.0),
-            new Placement("iron",   6, 208.0, 6.84,  32.0),
-            new Placement("iron",   7, 184.0, 3.10, -32.0),
-            new Placement("copper", 5, 168.0, 5.67, -16.0),
-            new Placement("iron",   6, 236.0, 3.07,   4.0),
-            new Placement("iron",   7, 152.0, 4.71,   0.0),
-            new Placement("copper", 5, 160.0, 5.33, -32.0),
-            new Placement("iron",   6, 192.0, 1.50,  56.0),
-            new Placement("copper", 7, 160.0, 4.08,  40.0),
-            new Placement("iron",   5, 136.0, 4.47,   0.0),
-            new Placement("iron",   6, 144.0, 3.91, -32.0),
-            new Placement("copper", 7, 136.0, 5.64,  32.0),
-            new Placement("iron",   5, 152.0, 3.95,  56.0),
-            new Placement("iron",   6, 116.0, 7.51,  12.0),
-            new Placement("copper", 7, 152.0, 2.36,  72.0),
-            new Placement("iron",   5, -32.0, 11.27,  72.0),
-        };
+            IReadOnlyList<Resources.GeneratedPlacement> locals = Resources.HavenSurface.DepositLocals();
+            List<Placement> placements = new List<Placement>(locals.Count);
+            for (int i = 0; i < locals.Count; i++)
+            {
+                Resources.GeneratedPlacement p = locals[i];
+                placements.Add(new Placement(MetalTypeFor(i), QualityFor(i), p.LocalX, p.LocalY, p.LocalZ));
+            }
+            return placements;
+        }
+
+        /// <summary>
+        /// The Haven starter-biome metal. Deliberately iron-only: there is no recovered
+        /// Bossa Haven metal table, so cycling arbitrary metals would manufacture lore
+        /// and make the starter material needlessly scarce.
+        /// </summary>
+        private static string MetalTypeFor(int index) => "iron";
+
+        /// <summary>Stable mid-low starter quality; no invented per-node quality lottery.</summary>
+        private static int QualityFor(int index) => 6;
 
         /// <summary>
         /// The deposit for a registration key ("deposit-N"), or null if the key is not
@@ -201,6 +233,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static MetalNode? ByKey(string key)
         {
+            MetalNode? tradesChallenge = Resources.TradesChallengeResources.DepositByKey(key);
+            if (tradesChallenge != null)
+            {
+                return tradesChallenge;
+            }
             if (!IsDepositKey(key))
             {
                 return null;
@@ -221,9 +258,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 KeyFor(index),
                 p.MetalType,
                 p.Quality,
-                MetalNodes.IslandLocalToWorldFixed(IslandOrigin, p.LocalX, p.LocalY, p.LocalZ),
+                IslandCatalog.Haven.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ),
                 isDeposit: true,
-                variantId: VariantId());
+                variantId: VariantIdFor(index));
         }
 
         /// <summary>

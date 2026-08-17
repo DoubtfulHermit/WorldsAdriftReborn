@@ -127,7 +127,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void PlayerVisualizer_forces_the_global_branch_for_a_normally_named_remote_rig()
+        public void PlayerVisualizer_uses_the_safe_remote_reconstruction_for_a_remote_rig()
         {
             // The Parent branch of the game's FixedUpdate is what dropped a
             // remote rig ~90km away and made it fall through the map.
@@ -139,6 +139,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             Assert.False(ClientRigPolicy.TreatAsLocalForPlayerVisualizer("Traveller@Player 2", PlainRemoteRig));
             Assert.True(ClientRigPolicy.TreatAsLocalForPlayerVisualizer("Traveller 7", FullLocalRig));
+        }
+
+        [Fact]
+        public void A_resolved_ship_frame_with_positive_bias_uses_ship_relative_position()
+        {
+            Assert.Equal(
+                RemotePlayerPositionBranch.ShipRelative,
+                ClientRigPolicy.PositionBranchForRemote(hasRelativeObject: true, relativeBias: 1f));
+        }
+
+        [Theory]
+        [InlineData(false, 1f)]
+        [InlineData(true, 0f)]
+        [InlineData(true, -0.1f)]
+        public void An_unresolved_or_inactive_relative_frame_uses_global_position(
+            bool hasRelativeObject,
+            float relativeBias)
+        {
+            Assert.Equal(
+                RemotePlayerPositionBranch.Global,
+                ClientRigPolicy.PositionBranchForRemote(hasRelativeObject, relativeBias));
         }
 
         // ------------------------------------------------------------------
