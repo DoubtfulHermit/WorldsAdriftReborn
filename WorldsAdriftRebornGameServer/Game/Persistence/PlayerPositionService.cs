@@ -133,6 +133,37 @@ namespace WorldsAdriftRebornGameServer.Game.Persistence
             return Persistence.Save(uid, current);
         }
 
+        /// <summary>
+        /// A character's stored position, for anyone who needs to ask about a
+        /// player who is not the one in front of them.
+        ///
+        /// The Wilderness shrine asks it of a crew's LEADER, who may well be
+        /// offline: "which island does this crew live on" has to be answerable
+        /// without them logged in, or a crew could only ever regroup while
+        /// everybody happened to be present. Reading it here rather than opening a
+        /// second connection keeps one component owning the table.
+        /// </summary>
+        internal static FixedPointPosition? StoredFor(Guid uid) => Persistence.Load(uid);
+
+        /// <summary>
+        /// Writes a character's position directly, outside the movement threshold.
+        ///
+        /// Used by graduation to record a Wilderness island as somebody's home -
+        /// including a crewmate who is offline, which is the whole reason it is not
+        /// enough to let the periodic save catch up. For a LIVE entity it also
+        /// seeds the last-saved mark, so the next periodic tick does not
+        /// immediately write the position the player is being moved AWAY from and
+        /// undo the record.
+        /// </summary>
+        internal static bool Record(Guid uid, FixedPointPosition where)
+        {
+            if (!Persistence.Save(uid, where)) return false;
+
+            foreach (KeyValuePair<long, Guid> bound in EntityUid)
+                if (bound.Value == uid) LastSaved[bound.Key] = where;
+            return true;
+        }
+
         /// <summary>Drops every trace of an entity. Call AFTER the final save.</summary>
         internal static void Forget(long entityId)
         {

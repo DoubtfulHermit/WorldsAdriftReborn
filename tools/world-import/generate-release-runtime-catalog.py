@@ -102,6 +102,119 @@ def shell(points, rays=16):
     return outline
 
 
+# --- landing points -------------------------------------------------------
+#
+# ONE point per island a player may be TELEPORTED onto: the arrival pad the
+# Wilderness shrine uses. This is deliberately a different question from
+# `spaced()` above, which scatters resources: a resource may sit on a slope or a
+# ledge, a player arriving from a loading screen may not. The server has no
+# terrain query and never will, so the only defence against dropping somebody
+# into a hole is to land them on an EVIDENCED, WELL-SUPPORTED surface sample -
+# exactly the criteria the hand-derived Haven and Mental Facility points were
+# written against (docs/research/findings-haven.md,
+# docs/research/findings-first-region-terrain.md), now applied by a committed
+# script instead of by hand.
+#
+# The surface tables are one representative LOD0 vertex per 8 m voxel, so
+# neighbours land 8 m away on the cardinals and 11.31 m away on the diagonals.
+LANDING_SUPPORT_RADIUS = 12.0   # reaches both, and nothing in the next ring
+LANDING_OVERHEAD_RADIUS = 4.0   # roughly a character capsule's shoulders
+LANDING_OVERHEAD_CLEAR = 3.0    # ... and its head, plus slack
+
+# Progressive relaxation: (min upward normal, min supporting columns, max step).
+# The first rung that yields any candidate wins, so a normal island is judged by
+# the strictest rule and only genuinely poor meshes fall through. Every rung is
+# still a MEASURED sample - the ladder never invents a coordinate.
+LANDING_LADDER = (
+    (0.98, 8, 2.5),
+    (0.98, 6, 3.5),
+    (0.95, 5, 4.0),
+    (0.90, 4, 6.0),
+    (0.75, 2, 12.0),
+    (0.40, 0, float("inf")),
+    (-1.0, 0, float("inf")),
+)
+
+# Islands whose landing point was derived and REVIEWED before this script
+# existed. Kept verbatim so the generated field cannot contradict a coordinate
+# the rest of the server already names.
+#   1143725558 Mental Facility - TeleportPolicy.MentalFacilityName, local
+#   (120.00, 34.26, -16.00), ny 0.990; see findings-first-region-terrain.md.
+LANDING_OVERRIDES = {
+    "1143725558": [120.0, 34.26, -16.0],
+}
+
+
+def columns_of(points):
+    """The HIGHEST sample at each (x, z). A column is what "is there ground
+    beside me" and "is there rock over my head" are both really asking about,
+    and an island's underside samples would otherwise answer both wrongly."""
+    highest = {}
+    for point in points:
+        key = (round(point[0], 1), round(point[2], 1))
+        if key not in highest or point[1] > highest[key]:
+            highest[key] = point[1]
+    return [(key[0], height, key[1]) for key, height in highest.items()]
+
+
+def measure(tops, point, max_step):
+    """(supporting columns, worst step, blocked overhead) for one sample."""
+    support = 0
+    step = 0.0
+    for column_x, column_y, column_z in tops:
+        offset = (column_x - point[0]) ** 2 + (column_z - point[2]) ** 2
+        if (offset <= LANDING_OVERHEAD_RADIUS ** 2
+                and column_y >= point[1] + LANDING_OVERHEAD_CLEAR):
+            return 0, 0.0, True
+        if 0.0 < offset <= LANDING_SUPPORT_RADIUS ** 2:
+            rise = abs(column_y - point[1])
+            if rise <= max_step:
+                support += 1
+                step = max(step, rise)
+    return support, step, False
+
+
+def landing(points, pinned=None):
+    """The single arrival point on one island, in island-local metres.
+
+    Deterministic: no RNG, no clock, and every tie broken on the point's own
+    coordinates, so the same surface table always yields the same pad.
+
+    `pinned` names an already-reviewed sample to keep; it is still MEASURED
+    here, so a reviewed point reports its support honestly rather than being
+    exempt from the same numbers everything else is judged by.
+    """
+    tops = columns_of(points)
+
+    if pinned is not None:
+        match = next((p for p in points if p[:3] == pinned), None)
+        if match is None:
+            raise ValueError("reviewed landing point is not a measured sample")
+        support, step, _ = measure(tops, match, LANDING_LADDER[0][2])
+        return {"x": match[0], "y": match[1], "z": match[2], "ny": match[4],
+                "support": support, "step": round(step, 2), "reviewed": True}
+
+    for min_normal, min_columns, max_step in LANDING_LADDER:
+        best = None
+        for point in points:
+            if point[4] < min_normal:
+                continue
+            support, step, blocked = measure(tops, point, max_step)
+            if blocked or support < min_columns:
+                continue
+            # Flattest first, then most upward, then broadest, then coordinates.
+            key = (round(step, 3), -round(point[4], 3), -support,
+                   point[0], point[1], point[2])
+            if best is None or key < best[0]:
+                best = (key, point, support, step)
+        if best is not None:
+            _, point, support, step = best
+            return {"x": point[0], "y": point[1], "z": point[2],
+                    "ny": point[4], "support": support, "step": round(step, 2),
+                    "reviewed": False}
+    raise ValueError("island surface produced no landing candidate")
+
+
 def main():
     world = json.loads((DATA / "wamap-islands.json").read_text())
     survey = json.loads((DATA / "cardinal-guild-islands.json").read_text())
@@ -143,6 +256,7 @@ def main():
         deposit_points = spaced(points, deposit_count, 35)
         databank_points = spaced(points, profile["databanks"], 30, deposit_points)
         aabb = surface["meta"]["localAABB"]
+        pad = landing(points, LANDING_OVERRIDES.get(asset))
         result.append({
             "asset": asset,
             "name": profile["name"],
@@ -164,6 +278,7 @@ def main():
             "metals": [{"name": m["name"], "quality": m["quality"]} for m in metals],
             "metalSource": metal_source,
             "aabb": [*aabb["min"], *aabb["max"]],
+            "landing": pad,
             "shell": shell(points),
             "deposits": [{"x": p[0], "y": p[1], "z": p[2],
                           "metal": metals[i % len(metals)]["name"],
@@ -178,7 +293,10 @@ def main():
     sources = Counter(island["metalSource"] for island in result)
     print(f"wrote {OUTPUT.relative_to(ROOT)}: {len(result)} islands, "
           f"{sum(len(x['deposits']) for x in result)} deposits, "
-          f"{sum(len(x['databankPoints']) for x in result)} databanks")
+          f"{sum(len(x['databankPoints']) for x in result)} databanks, "
+          f"{len(result)} landing points "
+          f"({sum(1 for x in result if x['landing']['ny'] >= .98)} on a >=0.98 normal, "
+          f"{sum(1 for x in result if x['landing']['reviewed'])} reviewed)")
     for source in sorted(sources):
         print(f"  {source:14s} {sources[source]:3d} islands, "
               f"{sum(len(x['deposits']) for x in result if x['metalSource'] == source):5d} deposits")

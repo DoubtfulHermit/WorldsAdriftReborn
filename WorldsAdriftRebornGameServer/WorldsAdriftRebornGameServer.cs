@@ -2558,6 +2558,19 @@ namespace WorldsAdriftRebornGameServer
                 Environment.GetEnvironmentVariable(
                     Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledEnvVar));
 
+        /// <summary>
+        /// Whether the Wilderness shrine stands on Haven. ON unless
+        /// WAREBORN_WILDERNESS_SHRINE says otherwise: it is the only exit from the
+        /// tutorial island, and a server that opens Tier 1 and then hides the door
+        /// is worse than one that never opened. The kill switch exists because it
+        /// adds an entity to every connect, and anything on the connect path
+        /// deserves to be turnable off from the unit file.
+        /// </summary>
+        internal static readonly bool WildernessShrineEnabled =
+            Multiplayer.Wilderness.WildernessShrine.EnabledFrom(
+                Environment.GetEnvironmentVariable(
+                    Multiplayer.Wilderness.WildernessShrine.EnabledEnvVar));
+
         internal static readonly Multiplayer.Islands.IslandRegistry IslandTopology =
             ReleaseWorldEnabled
                 ? Multiplayer.Islands.IslandRegistry.CreateReleaseWorld(ReleaseWorldDistricts)
@@ -2605,7 +2618,8 @@ namespace WorldsAdriftRebornGameServer
                 SpawnStaticShip,
                 SpawnProductionSecondIsland,
                 FirstRegionTerrainCount,
-                ReleaseWorldEnabled ? ReleaseWorldDistricts : null);
+                ReleaseWorldEnabled ? ReleaseWorldDistricts : null,
+                WildernessShrineEnabled);
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(
@@ -3881,6 +3895,7 @@ namespace WorldsAdriftRebornGameServer
             Game.Knowledge.ProgressionService.ReportPersistenceState();
             Game.Persistence.PlayerPositionService.ReportPersistenceState();
             Game.Crew.CrewService.ReportPersistenceState();
+            Game.WildernessGraduationService.ReportState();
             Game.Crew.CrewService.RestoreFromDatabase();
 
             // Said once, at start-up, because "where did the ore come from" is the
