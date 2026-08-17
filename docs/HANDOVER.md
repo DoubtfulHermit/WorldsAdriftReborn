@@ -120,9 +120,9 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `7c99dac`, deployed and restarted at 2026-08-17 13:30 CEST;
-  **login/admin server:** the `069a372` build deployed at 11:32 CEST. Stats schema
-  5 reports terrain checkout and the admin
+- **Game server and login/admin server:** `3d64a7f`, deployed and restarted at
+  2026-08-17 13:52 CEST. Stats schema 6 reports terrain checkout, runtime
+  topology and authoritative player world positions, and the admin
   console exposes its one-island acceptance run. Production remains bounded to
   `WAREBORN_FIRST_REGION_TERRAIN_COUNT=1` and reports 3 island domains, 5 ship
   domains, 255 owned entities, one explicit global, zero unowned entities and
@@ -134,7 +134,12 @@ changes.
   material is ready, hides it while full terrain is checked out, and restores it
   after full terrain removal. Collision, resources and databanks remain
   exclusively on physical checkout. Live visual acceptance is still required.
-  Validation passed 2,585/2,585 Multiplayer tests and 181/181 admin/login tests;
+  The authenticated Simulation Fabric also embeds an allowlisted projection of
+  the preserved release MapFile (266 islands, 44 typed weather walls) and
+  overlays the current ship and player positions on its four-second browser /
+  three-second server snapshot cadence. Missing player position is shown as
+  unknown, never placed at a fabricated origin. Validation passed 2,586/2,586
+  Multiplayer tests and 182/182 admin/login tests;
   game, login and client Release builds had zero errors. The coordinated
   rollback copy is
   `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`; the
@@ -145,7 +150,9 @@ changes.
   pre-`7fab2e2` rollback is
   `/opt/wareborn/backups/pre-7fab2e2-20260817T111125Z`; the coordinated
   pre-`7c99dac` game/patch rollback is
-  `/opt/wareborn/backups/pre-7c99dac-20260817T113001Z`.
+  `/opt/wareborn/backups/pre-7c99dac-20260817T113001Z`; the coordinated
+  pre-live-map game/login rollback is
+  `/opt/wareborn/backups/pre-3d64a7f-20260817T115238Z`.
 - **Public client manifest:** `2026.08.17-3`, build label
   `activate distant island shell waiter (bede97e)`. The first `-2` live pass
   proved both bundles cached but exposed an activation-order defect: Unity
@@ -161,12 +168,15 @@ changes.
   `26b5ce1568abec2ca06d488e3aadaaf725c92a89e1e2482571e27ad31986c354`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
   deployables, 5/7 ships (two tombstones), 16/16 mounted parts and 3/3 loose
-  parts. Stats report schema 5, host mode `local-single-process`, and terrain mode
+  parts. Stats report schema 6, build `3d64a7f`, host mode
+  `local-single-process`, and terrain mode
   `on`. Staged/live game, login and production-built Linux CoreSDK hashes match;
   the Linux shim is SHA-256
   `0121219a138a07f345103f83cc5647f993ecb0282a0172c7bf19a54b78a252f7`.
-  The deployed managed server executable is SHA-256
-  `2635348245b9b2464f1f2cdb2c53bd33f1733824883c68b8ac0f8b06105dc86b`.
+  The deployed game managed DLL is SHA-256
+  `f2c9c288c2266f08448e2f50664abb1e693b11ac3cc0585e2c42914de9602973`;
+  the login/admin managed DLL is
+  `5872e9639202b481c217404ccfb8033690e02d677feeef0ac7f9473953823245`.
 
 ### Latest multiplayer incident
 

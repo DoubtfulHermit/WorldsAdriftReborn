@@ -118,6 +118,14 @@ capped ship nodes, a searchable/filterable inventory and one-domain drill-down;
 the shape scales to later hosts without claiming workers or migrations that do
 not exist. It still labels the current host `local-single-process` and does not
 invent compute scores or client-rendered offsets the runtime cannot observe.
+The same authenticated surface now separates geography from simulation state:
+an allowlisted projection of the preserved release MapFile supplies all 266
+island placements and 44 typed weather-wall segments, while schema-v6 snapshots
+supply current whole-ship poses and world-space player interest centres. The
+SVG map refreshes live markers on the existing bounded stats cadence, reports
+snapshot age and unknown player positions explicitly, and never turns the
+static MapFile into runtime authority. Pan, zoom and independent
+island/wall/ship/player layers are operator presentation only.
 Moving actual simulation services behind the host and a live acceptance pass
 remain outstanding. The first live two-player pass also exposed remote-avatar/ship coordinate-frame
 divergence, a five-second client spline wake after manned-idle stream starvation,
