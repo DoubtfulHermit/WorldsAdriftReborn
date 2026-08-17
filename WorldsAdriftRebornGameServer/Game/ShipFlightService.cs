@@ -637,8 +637,13 @@ namespace WorldsAdriftRebornGameServer.Game
                 EchoHelmFeedback(hullEntityId, session);
 
                 int unfurledSails = WorldsAdriftRebornGameServer.Sails.UnfurledCountFor(hullEntityId);
+                // HOW HEAVY THIS PARTICULAR SHIP IS. A hull built from cedar handles
+                // like a skiff; one built from tungsten wallows. 1.0 - no change at
+                // all from the pre-materials behaviour - for a ship of the reference
+                // mass, which is what every legacy birch-and-iron hull lands near.
+                double agility = AgilityScaleFor(hullEntityId);
                 FlightEmit emit = session.Advance(
-                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails);
+                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility);
                 CompleteDepartureIfOutside(hullEntityId, session.State);
                 PersistPoseWhenDue(hullEntityId, session.State);
                 if (!emit.Emit)
@@ -994,6 +999,50 @@ namespace WorldsAdriftRebornGameServer.Game
                     hullEntityId, ShipPartMotionPolicy.TransformStateComponentId, hullUpdate),
                 members);
         }
+
+        /// <summary>
+        /// The flight agility multiplier for one hull, from what it is made of and how
+        /// big it is: heavier ships accelerate, turn and climb more lazily.
+        ///
+        /// Cached per hull for the life of the ship. A hull's materials and geometry
+        /// are immutable once built, so recomputing them - which means decoding the
+        /// hull blob - on every 0.24 s tick for every flying ship would be pure waste.
+        ///
+        /// Falls back to 1.0 (today's exact behaviour) for anything that is not a
+        /// recognised built hull, so the static demo ship and the acceptance fixture
+        /// fly unchanged.
+        /// </summary>
+        private double AgilityScaleFor(long hullEntityId)
+        {
+            if (_agilityByHull.TryGetValue(hullEntityId, out double cached))
+            {
+                return cached;
+            }
+
+            double agility = 1.0;
+            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
+            if (hullBytes != null
+                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
+                && plan != null)
+            {
+                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
+                double massKg = Multiplayer.Materials.HullMassCalculator.HullMassKg(
+                    Crafting.BuiltShips.MaterialsFor(hullEntityId), metrics.CellCount, metrics.DeckCount);
+                agility = Multiplayer.Materials.HullMassCalculator.AgilityScale(massKg);
+
+                Console.WriteLine("[flight] hull " + hullEntityId + " mass "
+                    + massKg.ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                    + " kg (" + Crafting.BuiltShips.MaterialsFor(hullEntityId)
+                    + ", " + metrics.CellCount + " cell(s), " + metrics.DeckCount + " deck(s)) -> agility x"
+                    + agility.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture));
+            }
+
+            _agilityByHull[hullEntityId] = agility;
+            return agility;
+        }
+
+        /// <summary>Per-hull agility cache; see <see cref="AgilityScaleFor"/>.</summary>
+        private readonly Dictionary<long, double> _agilityByHull = new Dictionary<long, double>();
 
         private void PersistPoseWhenDue(long hullEntityId, FlightState state)
         {
