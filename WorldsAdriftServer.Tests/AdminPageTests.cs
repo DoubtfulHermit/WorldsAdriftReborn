@@ -1,5 +1,6 @@
 using WorldsAdriftServer.Admin;
 using WorldsAdriftServer.Web;
+using Newtonsoft.Json.Linq;
 using Xunit;
 
 namespace WorldsAdriftServer.Tests
@@ -193,6 +194,8 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(266, Occurrences(map, "\"asset\":"));
             Assert.Equal(12, Occurrences(map, "\"haven\":true"));
             Assert.Equal(20, Occurrences(map, "\"district\":"));
+            Assert.Equal(18, Occurrences(map, "\"authoredDistrict\":true"));
+            Assert.Equal(2, Occurrences(map, "\"authoredDistrict\":false"));
             Assert.Equal(44, Occurrences(map, "\"x1\":"));
             Assert.Contains("id=\"liveWorldMap\"", html);
             Assert.Contains("id=\"mapBiomeLayer\"", html);
@@ -206,13 +209,61 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("Drag to pan", html);
             Assert.Contains("Wind Rift", html);
             Assert.Contains("World End", html);
-            Assert.Contains("Haven is intentionally inside", html);
-            Assert.Contains("All 12 starter-island placements", html);
+            Assert.Contains("T1 Wilderness", html);
+            Assert.Contains("T2 Expanse", html);
+            Assert.Contains("T3 Remnants", html);
+            Assert.Contains("T4 Badlands", html);
+            Assert.Contains("E3 is one cell", html);
+            Assert.Contains("NO DISTRICT", html);
+            Assert.Contains("no name inferred", html);
+            Assert.Contains("Haven is inside", html);
+            Assert.Contains("12 preserved starter-island placements", html);
             Assert.Contains("biomeCell", html);
             Assert.Contains("getScreenCTM().inverse()", html);
             Assert.DoesNotContain("stroke-width:32", html);
             Assert.DoesNotContain("stroke-width:52", html);
             Assert.Contains("preserved-release-mapfile", html);
+        }
+
+        [Fact]
+        public void Release_map_preserves_all_tier_cells_without_inventing_missing_districts()
+        {
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            List<JObject> cells = ((JArray)map["biomes"]!).OfType<JObject>().ToList();
+
+            Assert.Equal(20, cells.Count);
+            Assert.Equal(4, cells.Count(cell => (int?)cell["type"] == 1));
+            Assert.Equal(4, cells.Count(cell => (int?)cell["type"] == 2));
+            Assert.Equal(6, cells.Count(cell => (int?)cell["type"] == 3));
+            Assert.Equal(6, cells.Count(cell => (int?)cell["type"] == 4));
+            Assert.Equal(new[] { "A2", "A3", "B2", "B3" }, DistrictsForTier(cells, 1));
+            Assert.Equal(new[] { "A1", "A4", "B1", "B4" }, DistrictsForTier(cells, 2));
+            Assert.Equal(new[] { "C1", "C2", "C3", "C4", "C5", "C6" }, DistrictsForTier(cells, 3));
+            Assert.Equal(new[] { "D1", "D2", "D3", "E3" }, DistrictsForTier(cells, 4));
+
+            Assert.Equal(18, cells.Count(cell => (bool?)cell["authoredDistrict"] == true));
+            List<JObject> unassigned = cells
+                .Where(cell => (bool?)cell["authoredDistrict"] == false).ToList();
+            Assert.Equal(2, unassigned.Count);
+            Assert.All(unassigned, cell =>
+            {
+                Assert.Null(cell["district"]!.Value<string?>());
+                Assert.Equal(4, (int?)cell["type"]);
+            });
+
+            JObject e3 = Assert.Single(cells,
+                cell => string.Equals((string?)cell["district"], "E3", StringComparison.Ordinal));
+            Assert.Equal(4, (int?)e3["type"]);
+        }
+
+        private static string[] DistrictsForTier(IEnumerable<JObject> cells, int tier)
+        {
+            return cells.Where(cell => (int?)cell["type"] == tier)
+                .Select(cell => (string?)cell["district"])
+                .Where(district => district != null)
+                .Select(district => district!)
+                .OrderBy(district => district, StringComparer.Ordinal)
+                .ToArray();
         }
 
         private static int Occurrences(string haystack, string needle)

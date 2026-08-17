@@ -81,8 +81,12 @@ Source: <https://github.com/cardinal-guild/wamap> (`static/islands.json`).
 Useful for populating resource spawners — `findings-resources.md` established that
 1010/1011 have no serializer handler today.
 
-Enum notes: `Civ` is `0 = Saborian, 1 = Kioki`. `Biomes.Type` is 1–4 (five each across
-four tiers, 20 total). `Walls.Type` ∈ {0,1,3,5}, 44 segments.
+Enum notes: `Civ` is `0 = Saborian, 1 = Kioki`. `Biomes.Type` is 1–4 across
+four tiers and 20 cells total: Tier 1 has 4 cells, Tier 2 has 4, Tier 3 has 6,
+and Tier 4 has 6. Eighteen cells carry authored district IDs. The other two are
+Tier-4 cells whose `District` field is explicitly `null`; they must not be
+invented as E1/E2 or folded into the adjacent E3 cell. `Walls.Type` ∈
+{0,1,3,5}, 44 segments.
 
 ## Deliberately NOT included
 `github.com/Jerodar/WAMap`'s `island_data.csv` (303 islands) is an **earlier
