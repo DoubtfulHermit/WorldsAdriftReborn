@@ -68,6 +68,12 @@ namespace WorldsAdriftRebornGameServer.Game
             /// </summary>
             public TerrainDestinationStatus? LastDestinationStatus;
             public IslandId? LastDestinationIsland;
+
+            /// <summary>Distant visual bundles waiting for their paced prefetch.</summary>
+            public readonly Queue<IslandCandidacy> ShellPending = new();
+            public readonly Dictionary<IslandId, TimeSpan> ShellRequestedAt = new();
+            public readonly HashSet<IslandId> ShellReady = new();
+            public TimeSpan NextShellSend;
         }
 
         /// <summary>
@@ -102,6 +108,8 @@ namespace WorldsAdriftRebornGameServer.Game
 
         private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan SendInterval = TimeSpan.FromMilliseconds(120);
+        private static readonly TimeSpan ShellSendInterval = TimeSpan.FromMilliseconds(500);
+        private static readonly TimeSpan ShellRetryInterval = TimeSpan.FromSeconds(20);
         private const int MaxQueuedPerPeer = 32;
         private const string AssetType = "notNeeded?";
 
@@ -132,6 +140,7 @@ namespace WorldsAdriftRebornGameServer.Game
         internal double LoadRadiusMetres { get; }
         internal double UnloadRadiusMetres { get; }
         internal TimeSpan AssetAckTimeout { get; }
+        internal bool DistantShellsEnabled { get; }
 
         internal IslandTerrainInterestService(
             IClock clock,
@@ -156,6 +165,8 @@ namespace WorldsAdriftRebornGameServer.Game
             Requested = IslandTerrainInterestPolicy.EnabledFrom(
                 Environment.GetEnvironmentVariable(IslandTerrainInterestPolicy.EnabledEnvVar));
             Enabled = enabled ?? Requested;
+            DistantShellsEnabled = Enabled && IslandDistantShellProtocol.EnabledFrom(
+                Environment.GetEnvironmentVariable(IslandDistantShellProtocol.EnabledEnvVar));
             LoadRadiusMetres = IslandTerrainInterestPolicy.LoadRadiusFrom(
                 Environment.GetEnvironmentVariable(IslandTerrainInterestPolicy.LoadRadiusEnvVar));
             UnloadRadiusMetres = IslandTerrainInterestPolicy.UnloadRadiusFrom(
@@ -219,6 +230,12 @@ namespace WorldsAdriftRebornGameServer.Game
             state.ConnectPlanComplete = true;
             state.ContinuousAfter = _clock.Elapsed + _settleDelay;
             state.NextReconcile = state.ContinuousAfter;
+            if (DistantShellsEnabled)
+            {
+                foreach (IslandCandidacy candidacy in _candidacy)
+                    if (candidacy.Managed) state.ShellPending.Enqueue(candidacy);
+                state.NextShellSend = state.ContinuousAfter;
+            }
         }
 
         /// <summary>Movement changes proximity only; it never invents a ground island.</summary>
@@ -315,6 +332,27 @@ namespace WorldsAdriftRebornGameServer.Game
             if (!Enabled) return;
             ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
             if (peer == null || !_peers.TryGetValue(peer, out PeerState? state)) return;
+            IslandDistantShellSpec? shell;
+            if (DistantShellsEnabled
+                && IslandDistantShellProtocol.TryParseReady(assetType, out shell))
+            {
+                IslandCandidacy candidacy = _candidacy.FirstOrDefault(item =>
+                    item.Managed && item.EntityId == shell.EntityId
+                    && item.Island.Id.Value == shell.IslandId);
+                if (candidacy.Managed
+                    && candidacy.Island.GlobalOrigin.X == shell.X
+                    && candidacy.Island.GlobalOrigin.Y == shell.Y
+                    && candidacy.Island.GlobalOrigin.Z == shell.Z
+                    && name == candidacy.Island.TerrainAssetName
+                    && context == candidacy.Island.TerrainAssetContext
+                    && state.ShellReady.Add(candidacy.Island.Id))
+                {
+                    state.ShellRequestedAt.Remove(candidacy.Island.Id);
+                    Console.WriteLine("[island-shell] client visual ready for "
+                        + shell.IslandId + " on peer " + peer.DangerousGetHandle() + ".");
+                }
+                return;
+            }
             // A marked v1 response is the protocol capability proof. Merely having
             // channel 5 is insufficient: legacy clients negotiate it in some builds
             // but return only the opaque eight-byte acknowledgement, so they retain
@@ -340,6 +378,7 @@ namespace WorldsAdriftRebornGameServer.Game
             foreach ((ENetPeerHandle peer, PeerState state) in _peers.ToArray())
             {
                 if (!state.ConnectPlanComplete || now < state.ContinuousAfter) continue;
+                TickDistantShells(peer, state, now);
                 if (now >= state.NextReconcile)
                 {
                     state.NextReconcile = now + ReconcileInterval;
@@ -350,6 +389,42 @@ namespace WorldsAdriftRebornGameServer.Game
                     state.NextSend = now + SendInterval;
                     Execute(peer, state, now);
                 }
+            }
+        }
+
+        private void TickDistantShells(ENetPeerHandle peer, PeerState state, TimeSpan now)
+        {
+            if (!DistantShellsEnabled || now < state.NextShellSend) return;
+
+            // Requeue timed-out requests. Client construction is idempotent by
+            // terrain entity id, so a lost ready marker cannot create duplicates.
+            foreach (IslandCandidacy candidacy in _candidacy)
+            {
+                if (!candidacy.Managed || state.ShellReady.Contains(candidacy.Island.Id)) continue;
+                TimeSpan requestedAt;
+                if (state.ShellRequestedAt.TryGetValue(candidacy.Island.Id, out requestedAt)
+                    && now - requestedAt >= ShellRetryInterval
+                    && !state.ShellPending.Any(item => item.Island.Id == candidacy.Island.Id))
+                    state.ShellPending.Enqueue(candidacy);
+            }
+
+            if (state.ShellPending.Count == 0) return;
+            IslandCandidacy next = state.ShellPending.Dequeue();
+            FixedPointPosition origin = next.Island.GlobalOrigin;
+            string marker = IslandDistantShellProtocol.Request(next.Island.Id.Value,
+                next.EntityId, origin.X, origin.Y, origin.Z);
+            if (SendOPHelper.SendAssetLoadRequestOP(peer, marker,
+                    next.Island.TerrainAssetName, next.Island.TerrainAssetContext))
+            {
+                state.ShellRequestedAt[next.Island.Id] = now;
+                state.NextShellSend = now + ShellSendInterval;
+                Console.WriteLine("[island-shell] prefetched low-LOD visual for "
+                    + next.Island.Id + " on peer " + peer.DangerousGetHandle() + ".");
+            }
+            else
+            {
+                state.ShellPending.Enqueue(next);
+                state.NextShellSend = now + ShellSendInterval;
             }
         }
 

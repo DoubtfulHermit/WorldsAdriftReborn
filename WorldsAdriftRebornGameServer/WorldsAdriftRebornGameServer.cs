@@ -3887,6 +3887,8 @@ namespace WorldsAdriftRebornGameServer
                     + TerrainInterest.LoadRadiusMetres.ToString("0.#") + " m load / "
                     + TerrainInterest.UnloadRadiusMetres.ToString("0.#")
                     + " m unload hysteresis; resource checkout is terrain-gated.");
+                Console.WriteLine("[island-shell] distant non-physical island visuals: "
+                    + (TerrainInterest.DistantShellsEnabled ? "ON" : "OFF") + ".");
             }
             else if (Multiplayer.Islands.IslandTerrainInterestPolicy.EnabledFrom(
                 Environment.GetEnvironmentVariable(

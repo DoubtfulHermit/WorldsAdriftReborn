@@ -93,6 +93,15 @@ the domain: the local `ShipFlightService` ticks its active-domain set independen
 of every peer's checkout ledger, and replication evaluates each recipient after
 the authoritative step. Ship visibility uses separate island-scale radii rather
 than the resource radii.
+Optional island visibility now also has two deliberately separate lifecycles.
+After the normal connect plan completes, the server can prefetch each managed
+island bundle and the patched client constructs a non-colliding shell from its
+last retail terrain LOD. The shell remains hidden until
+`GenerateDynamicMaterial` finishes, so an uninitialised magenta material is
+never presented. It hides while the authoritative terrain entity is checked
+out and returns after that entity is removed. Collision, resources, databanks,
+static prefabs and island authority remain exclusively on the existing
+1200/1600 m physical checkout lifecycle; a shell is visual evidence only.
 Crewed/piloted ships remain globally checked out as a compatibility bridge while
 remote player entities are still globally relayed outside domain lifecycle.
 The local runtime now provides one bounded coherence bridge for that legacy

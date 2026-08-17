@@ -39,13 +39,12 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
     {
         private sealed class PendingRequest
         {
-            public int Count;
             public string AssetType;
             public string Context;
         }
 
-        private static readonly Dictionary<string, PendingRequest> Pending =
-            new Dictionary<string, PendingRequest>();
+        private static readonly Dictionary<string, Queue<PendingRequest>> Pending =
+            new Dictionary<string, Queue<PendingRequest>>();
 
         /// <summary>An AssetLoadRequestOp arrived; remember that it owes one reply.</summary>
         public static void RecordRequested(string name, string assetType, string context)
@@ -55,15 +54,10 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
                 return;
             }
 
-            PendingRequest entry;
-            if (Pending.TryGetValue(name, out entry))
-            {
-                entry.Count++;
-            }
-            else
-            {
-                Pending[name] = new PendingRequest { Count = 1, AssetType = assetType, Context = context };
-            }
+            Queue<PendingRequest> queue;
+            if (!Pending.TryGetValue(name, out queue))
+                Pending[name] = queue = new Queue<PendingRequest>();
+            queue.Enqueue(new PendingRequest { AssetType = assetType, Context = context });
         }
 
         /// <summary>
@@ -86,12 +80,14 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
         /// </summary>
         public static bool TryAckNow(string name)
         {
-            PendingRequest entry;
-            if (string.IsNullOrEmpty(name) || !Pending.TryGetValue(name, out entry))
+            Queue<PendingRequest> queue;
+            if (string.IsNullOrEmpty(name) || !Pending.TryGetValue(name, out queue)
+                || queue.Count == 0)
             {
                 return false;
             }
 
+            PendingRequest entry = queue.Peek();
             string assetType = entry.AssetType;
             string context = entry.Context;
             ConsumePending(name);
@@ -115,17 +111,16 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
 
         private static bool ConsumePending(string name)
         {
-            PendingRequest entry;
-            if (string.IsNullOrEmpty(name) || !Pending.TryGetValue(name, out entry))
+            Queue<PendingRequest> queue;
+            if (string.IsNullOrEmpty(name) || !Pending.TryGetValue(name, out queue)
+                || queue.Count == 0)
             {
                 return false;
             }
 
-            entry.Count--;
-            if (entry.Count <= 0)
-            {
+            queue.Dequeue();
+            if (queue.Count == 0)
                 Pending.Remove(name);
-            }
             return true;
         }
     }
@@ -167,8 +162,13 @@ namespace WorldsAdriftReborn.Patching.SpatialOS
         }
 
         [HarmonyPrefix]
-        public static bool OnAssetTemplatePrepared_Prefix( AssetLoadRequestOp assetLoad )
+        public static bool OnAssetTemplatePrepared_Prefix(
+            object __instance, AssetLoadRequestOp assetLoad )
         {
+            // The callback proves the bundle is now cached. Shell construction
+            // must happen here (never in OnAssetLoad) so it cannot race the
+            // asynchronous island bundle loader.
+            DistantIslandShells.TemplatePrepared(__instance, assetLoad);
             if (AssetLoadAck.ConsumeForOriginalAck(assetLoad.Name))
             {
                 return true; // still owed - let the original send the reply.
