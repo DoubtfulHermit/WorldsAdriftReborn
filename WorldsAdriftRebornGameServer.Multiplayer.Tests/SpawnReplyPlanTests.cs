@@ -43,11 +43,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Accept_defaults_missing_variant()
+        public void Accept_cycles_missing_variants_from_the_stable_admission_index()
         {
-            var got = SpawnReplyPlan.Accept(new[] { Metal(1, 1, 1, "  ") }, 0, 10, null);
-            Assert.Single(got);
-            Assert.Equal(SpawnReplyPlan.DefaultVariant, got[0].Variant);
+            var got = SpawnReplyPlan.Accept(
+                new[]
+                {
+                    Metal(1, 1, 1, "  "),
+                    Metal(2, 2, 2, null),
+                    Metal(3, 3, 3, ""),
+                },
+                alreadySpawned: 1,
+                requestedCount: 4,
+                existing: null);
+
+            Assert.Equal(
+                new[]
+                {
+                    MetalDeposits.VariantIds[1],
+                    MetalDeposits.VariantIds[2],
+                    MetalDeposits.VariantIds[0],
+                },
+                got.Select(deposit => deposit.Variant));
         }
 
         [Fact]

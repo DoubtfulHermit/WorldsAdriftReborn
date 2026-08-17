@@ -20,6 +20,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Resources
                 Assert.Equal("aluminium", node.MetalType);
                 Assert.Equal(4, node.Quality);
                 Assert.True(node.IsDeposit);
+                Assert.Equal(MetalDeposits.VariantIdFor(i), node.VariantId);
             }
         }
 

@@ -121,7 +121,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public const string MetalMetadata = "MetalDeposit";
 
-        /// <summary>The variant used when the client's reply carried none - the verified default 1255 asset.</summary>
+        /// <summary>The first variant used when the client's reply carried none.</summary>
         public const string DefaultVariant = MetalDeposits.DefaultVariantId;
 
         /// <summary>Whether a reply item is a metal deposit (case-insensitive, like the client's own lookup).</summary>
@@ -222,7 +222,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     duplicate++;
                     continue;
                 }
-                string variant = string.IsNullOrWhiteSpace(item.Variant) ? DefaultVariant : item.Variant.Trim();
+                int placementIndex = alreadySpawned + accepted.Count;
+                string variant = string.IsNullOrWhiteSpace(item.Variant)
+                    ? MetalDeposits.VariantIdFor(placementIndex, configuredOverride: null)
+                    : item.Variant.Trim();
                 accepted.Add(new HandshakeDeposit(pos, variant));
             }
 

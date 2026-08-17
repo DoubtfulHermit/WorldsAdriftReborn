@@ -83,7 +83,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 DepositKeyFor(index), MetalType, MetalQuality,
                 IslandCatalog.TradesChallenge.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ),
                 isDeposit: true,
-                variantId: MetalDeposits.VariantId());
+                variantId: MetalDeposits.VariantIdFor(index));
         }
 
         public static FixedPointPosition DatabankPositionAt(int index)

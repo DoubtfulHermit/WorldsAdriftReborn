@@ -658,7 +658,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// contents are our guess at the prefab's needs rather than its own statement
         /// of them. Unlike the nugget, the deposit's geometry is IMPORTED at runtime
         /// from the variant named by 1255, so a missing/invalid variantId leaves it
-        /// invisible even though the entity exists (see <see cref="MetalDeposits.VariantId"/>).
+        /// invisible even though the entity exists (see <see cref="MetalDeposits.VariantIdFor"/>).
         ///
         /// AfterPlayer: nobody stands on a deposit, so it never delays the loading
         /// screen, and a misbehaving deposit can never break a player's own spawn.

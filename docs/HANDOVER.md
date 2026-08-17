@@ -254,6 +254,14 @@ client-only panel iterations through `7c3e6c4`.
   than a random species/material assortment.
 - Current full tables: 81 birches (including the proven starter anchor), 40
   iron deposits, fuel pods, databanks, and atlas shard companions.
+- Full deposits now use all three shipped `MetalDepositVisuals` shapes in a
+  deterministic 01/02/03 placement-index cycle. Variant 03 is the tall formation
+  seen in historical footage; biome controls material while metal type/quality do
+  not select shell geometry. `WAREBORN_DEPOSIT_VARIANT` remains a global test
+  override. The adjacent boulder, nugget, scrap, tree, databank and fuel-pod
+  boundaries are recorded in
+  `docs/research/findings-resource-visual-variants.md` rather than guessed into
+  the same contract.
 - The old 1010/1011 idea is not viable with the player client: retail's island
   resource sampler lived in server-side Unity workers and is absent from the
   shipped player binary. Offline generation is the correct current fallback.

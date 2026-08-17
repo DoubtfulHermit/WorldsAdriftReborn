@@ -131,6 +131,7 @@ Important game-server variables include:
 | `WAREBORN_SHIP_INTEREST_UNLOAD_RADIUS_M` | built-ship unload hysteresis radius; default `1000` m |
 | `WAREBORN_SPAWN_ACK_TIMEOUT_MS` | bounded per-step spawn acknowledgement timeout |
 | `WAREBORN_FIRST_REGION_TERRAIN_COUNT` | bounded 0..12 tier-1 B3 terrain prefix; test only one island at a time |
+| `WAREBORN_DEPOSIT_VARIANT` | optional global diagnostic override for the normal stable 01/02/03 deposit-shape cycle |
 | `WAREBORN_WORLD_ADMIN_FILE` | authenticated admin command bridge; default `/tmp/wareborn-world-admin` |
 | `WAREBORN_WORLD_ADMIN_RESULT_FILE` | atomic game-completion receipt consumed by `/admin`; default `/tmp/wareborn-world-admin.result` |
 

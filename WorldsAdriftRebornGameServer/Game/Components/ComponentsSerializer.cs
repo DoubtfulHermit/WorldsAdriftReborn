@@ -2692,7 +2692,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // coreId points at the deposit's own entity.
                         Multiplayer.MetalNode? depositNode =
                             WorldsAdriftRebornGameServer.Nodes.NodeOf(entityId);
-                        string variantId = depositNode?.VariantId ?? Multiplayer.MetalDeposits.VariantId();
+                        string variantId = depositNode?.VariantId
+                            ?? Multiplayer.MetalDeposits.VariantIdFor(0);
 
                         Bossa.Travellers.Materials.MetalDepositState.Data depositData =
                             new Bossa.Travellers.Materials.MetalDepositState.Data(

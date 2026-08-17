@@ -52,7 +52,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             key != null && key.StartsWith(KeyPrefix, System.StringComparison.Ordinal);
 
         /// <summary>
-        /// The DEFAULT 1255 variantId - a real <c>MetalDepositVisuals</c> asset id.
+        /// The first/default 1255 variantId - a real <c>MetalDepositVisuals</c> asset id.
         ///
         /// VERIFIED by a strings scan of the shipped
         /// <c>sharedassets0.assets</c>: the <c>MetalDepositsByBiome</c>
@@ -65,20 +65,41 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// MetalDepositVisualiser disabled and the entity invisible - so this is the
         /// single most important string in the deposit.
         ///
-        /// Overridable at runtime with <c>WAREBORN_DEPOSIT_VARIANT</c> so the other
-        /// two variants (or a future biome-specific one) can be tried live WITHOUT a
-        /// rebuild, matching the WAREBORN_* switch philosophy used across this server.
+        /// The shipped release contains three genuinely different meshes. Variant 03
+        /// is the tall ~5.1 m formation; variants 01 and 02 are shorter and broader.
+        /// Retail selected one variant and replicated its id. This server cycles the
+        /// same verified set by stable placement index, so all peers and restarts see
+        /// identical geometry without collapsing every field to variant 01.
         /// </summary>
         public const string DefaultVariantId = "metal_deposit_composite_light_01";
 
-        /// <summary>
-        /// The 1255 variantId to seed, from <c>WAREBORN_DEPOSIT_VARIANT</c> or the
-        /// verified <see cref="DefaultVariantId"/>.
-        /// </summary>
-        public static string VariantId()
+        public static readonly IReadOnlyList<string> VariantIds = Array.AsReadOnly(new[]
         {
-            string? env = System.Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT");
-            return string.IsNullOrWhiteSpace(env) ? DefaultVariantId : env.Trim();
+            DefaultVariantId,
+            "metal_deposit_composite_light_02",
+            "metal_deposit_composite_light_03",
+        });
+
+        /// <summary>
+        /// The 1255 variantId for a stable placement index. A non-empty
+        /// <c>WAREBORN_DEPOSIT_VARIANT</c> remains a global diagnostic override;
+        /// otherwise indices cycle through the three shipped variants.
+        /// </summary>
+        public static string VariantIdFor(int placementIndex)
+        {
+            return VariantIdFor(
+                placementIndex,
+                System.Environment.GetEnvironmentVariable("WAREBORN_DEPOSIT_VARIANT"));
+        }
+
+        /// <summary>Pure form used to validate configured override behavior.</summary>
+        public static string VariantIdFor(int placementIndex, string? configuredOverride)
+        {
+            if (placementIndex < 0)
+                throw new ArgumentOutOfRangeException(nameof(placementIndex));
+            return string.IsNullOrWhiteSpace(configuredOverride)
+                ? VariantIds[placementIndex % VariantIds.Count]
+                : configuredOverride.Trim();
         }
 
         // ------------------------------------------------------------------
@@ -239,7 +260,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 p.Quality,
                 IslandCatalog.Haven.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ),
                 isDeposit: true,
-                variantId: VariantId());
+                variantId: VariantIdFor(index));
         }
 
         /// <summary>
