@@ -233,5 +233,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Crew
         {
             Assert.DoesNotContain(6900u, MirrorSendPolicy.AuthoritativeComponents);
         }
+
+        /// <summary>
+        /// The id a new crew gets must not be one the ledger already holds.
+        ///
+        /// This is the shape of a real corruption bug: crew ids were minted from
+        /// a counter that reset on every boot while persistence restored
+        /// `crew:1`, so the first crew founded after a restart was created under
+        /// a live id - replacing a restored crew in the ledger and rewriting its
+        /// leader in the database. The rule is tested here rather than only in
+        /// the service, because the service's own guard is a loop over exactly
+        /// this condition.
+        /// </summary>
+        [Fact]
+        public void A_restored_crew_id_is_never_reissued_to_a_new_crew()
+        {
+            CrewLedger ledger = new CrewLedger();
+            ledger.Create("crew:1", Alice);   // as a restart would restore it
+
+            // Minting must skip the taken id rather than collide with it.
+            int number = 1;
+            string minted;
+            while (true)
+            {
+                minted = "crew:" + number++;
+                if (ledger.ById(minted) == null) break;
+            }
+
+            Assert.NotEqual("crew:1", minted);
+            Assert.Null(ledger.ById(minted));
+
+            ledger.Create(minted, Bob);
+            Assert.Equal(Alice, ledger.ById("crew:1")!.LeaderUid);
+            Assert.Equal(Bob, ledger.ById(minted)!.LeaderUid);
+        }
     }
 }

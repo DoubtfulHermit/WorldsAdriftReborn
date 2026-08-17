@@ -212,6 +212,28 @@ namespace WorldsAdriftRebornGameServer.Game.Crew
             Persistence.SaveMember(value.Value, crew.Id, joinOrder, crew.SlotOf(uid));
         }
 
-        private static string NextCrewId() => "crew:" + nextCrewNumber++;
+        /// <summary>
+        /// The next unused crew id.
+        ///
+        /// This used to be a bare counter starting at 1, which lost a crew on
+        /// every restart: persistence restores `crew:1`, the counter starts at 1
+        /// again, and the first crew founded afterwards is created under an id
+        /// that already exists. The ledger's Create then replaces the restored
+        /// crew outright, and the database's ON CONFLICT rewrites its leader -
+        /// so a real crew silently became somebody else's.
+        ///
+        /// Skipping ids the ledger already holds is the whole fix, and it is
+        /// checked against the LEDGER rather than a remembered high-water mark
+        /// because the ledger is the thing Create would collide with, restored
+        /// rows and this session's crews alike.
+        /// </summary>
+        private static string NextCrewId()
+        {
+            while (true)
+            {
+                string candidate = "crew:" + nextCrewNumber++;
+                if (Ledger.ById(candidate) == null) return candidate;
+            }
+        }
     }
 }
