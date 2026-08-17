@@ -222,5 +222,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 SplitpeakPass,
                 CrimsonParadise,
             });
+
+        /// <summary>
+        /// Every island written out by hand in this file, rollout list or not.
+        /// It exists so a lookup that must recognise ANY named island - "which
+        /// island is this stored position on", say - cannot silently miss the four
+        /// C6 definitions that <see cref="FirstRegionTerrain"/> deliberately
+        /// excludes. Rollout order is <see cref="FirstRegionTerrain"/>'s job; this
+        /// list makes no claim about order or about what is registered this boot.
+        /// </summary>
+        public static readonly IReadOnlyList<IslandDefinition> AllNamed =
+            Array.AsReadOnly(new[]
+            {
+                Haven,
+                TradesChallenge,
+                AnchorageIsle,
+                OldMilitaryAcademy,
+                ShatteredMausoleum,
+                MentalFacility,
+                BetrayalCopperKing,
+                HighlandsHills,
+                LandManForgot,
+                DrunkRavenInn,
+                BeautifulWildlands,
+                TheThree,
+                RoxboroughIsle,
+                CampsDaurats,
+                TriphalionCity,
+                SplitpeakPass,
+                CrimsonParadise,
+            });
     }
 }

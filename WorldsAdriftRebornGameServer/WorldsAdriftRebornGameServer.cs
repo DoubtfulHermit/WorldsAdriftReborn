@@ -256,6 +256,10 @@ namespace WorldsAdriftRebornGameServer
             // dead peer) and so a reused id starts fresh.
             LoadBarriers.Forget(peerId);
 
+            // And the restore hold, for the same reason: a departed peer must never
+            // be swept as an overdue terrain wait and pushed an Activated update.
+            SpawnHolds.Forget(peerId);
+
             // The peer's wire-metrics window. Left behind it would keep emitting
             // an all-zero [rates] line for a ghost every five seconds, forever.
             Rates.Forget(peerId);
@@ -423,6 +427,80 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly LoadBarrierTracker LoadBarriers = new LoadBarrierTracker();
 
         /// <summary>
+        /// The SECOND barrier hold: peers whose client has already signalled ready
+        /// but who are still being kept on the loading screen because the terrain
+        /// under their restored logout position has not checked out yet.
+        ///
+        /// WHY A SECOND ONE rather than simply not completing the first. The two
+        /// holds answer different questions and expire on different clocks - "is
+        /// the initial world set instantiated" and "is this player's destination
+        /// ground on the client" - and the readiness signal that answers the first
+        /// is exactly-once. Consuming it and re-arming here keeps that guarantee
+        /// intact while making the second wait separately bounded by
+        /// <see cref="SpawnRestorePolicy.MaxLoadingScreenHold"/>.
+        ///
+        /// It reuses <see cref="LoadBarrierTracker"/> because the state machine is
+        /// identical - arm with a deadline, complete exactly once, sweep the
+        /// overdue - and that machine is already the tested guarantee that nobody
+        /// is left on an immortal loading screen.
+        /// </summary>
+        internal static readonly LoadBarrierTracker SpawnHolds = new LoadBarrierTracker();
+
+        /// <summary>
+        /// Keeps a ready client on its loading screen while its logout-position
+        /// restore waits for destination terrain, returning TRUE if it took the
+        /// hold. The 190001 handler releases the barrier only when this says no.
+        ///
+        /// This is the point of the whole change: a returning player whose island
+        /// is still streaming should watch a loading screen for a few more seconds,
+        /// not watch the spawn island for a moment and then get yanked 4 km onto
+        /// terrain that may not be there. Bounded twice over - by the terrain
+        /// wait's own deadline and by <see cref="SpawnRestorePolicy.MaxLoadingScreenHold"/>,
+        /// whichever comes first - and swept by <see cref="TickLoadBarrierTimeouts"/>,
+        /// so the worst case is a longer load, never a stuck one.
+        /// </summary>
+        internal static bool HoldLoadBarrierForRestore(ENetPeerHandle peer, long entityId)
+        {
+            TimeSpan? remaining = Teleports.RestoreWaitRemaining(entityId);
+            if (remaining == null)
+            {
+                return false;
+            }
+
+            TimeSpan now = ServerClock.Elapsed;
+            TimeSpan deadline = SpawnRestorePolicy.HoldDeadline(now, now + remaining.Value);
+            SpawnHolds.Arm(PeerIdentity.IdOf(peer), deadline);
+            Console.WriteLine("[load-barrier] " + Describe(peer.DangerousGetHandle())
+                + " entity " + entityId + " signalled ready, but its logout position is on terrain"
+                + " that is still checking out; holding the loading screen for up to "
+                + (deadline - now).TotalSeconds.ToString("0.0")
+                + " s so it is never shown a world it is about to be moved out of.");
+            return true;
+        }
+
+        /// <summary>
+        /// Lets go of a loading screen held for a restore, if this peer was holding
+        /// one. Called from every ending of a deferred restore - sent, refused, or
+        /// abandoned - so there is no path that forgets a held client. Silent and
+        /// free for a peer that was never held.
+        /// </summary>
+        internal static void ReleaseSpawnHold(ulong peerId, long entityId, string reason)
+        {
+            if (!SpawnHolds.Complete(peerId))
+            {
+                return;
+            }
+
+            ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+            if (peer == null)
+            {
+                return;
+            }
+
+            ReleaseLoadBarrier(peer, entityId, reason);
+        }
+
+        /// <summary>
         /// Releases a peer from the loading barrier: pushes <c>190002 Activated
         /// IsActive=true</c> (which lets PlayerActivationVisualiser fade the loading
         /// screen and un-freezes the player) and moves <c>190000 EntityLoadingControl</c>
@@ -459,7 +537,7 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static void TickLoadBarrierTimeouts()
         {
-            if (LoadBarriers.PendingCount == 0)
+            if (LoadBarriers.PendingCount == 0 && SpawnHolds.PendingCount == 0)
             {
                 return;
             }
@@ -480,6 +558,28 @@ namespace WorldsAdriftRebornGameServer
                     + " did not signal ready within " + Game.LoadBarrier.Timeout.TotalSeconds.ToString("0.0")
                     + " s; activating in degraded mode so it is not stuck on the loading screen.");
                 ReleaseLoadBarrier(peer, entityId.Value, "readiness timeout");
+            }
+
+            // The restore hold's own safety net. It cannot rely on the deferred
+            // teleport's ending alone: if the terrain wait outlives
+            // SpawnRestorePolicy.MaxLoadingScreenHold the player is released INTO
+            // THE WORLD AT SPAWN and the terrain wait carries on behind them. A
+            // loading screen that never lifts is worse than a walk home.
+            foreach (ulong peerId in SpawnHolds.DueTimeouts(ServerClock.Elapsed))
+            {
+                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                long? entityId = Players.EntityOf(peerId);
+                if (peer == null || entityId == null)
+                {
+                    continue;
+                }
+
+                Console.WriteLine("[load-barrier] TIMEOUT: " + Describe(peer.DangerousGetHandle())
+                    + " waited " + SpawnRestorePolicy.MaxLoadingScreenHold.TotalSeconds.ToString("0.0")
+                    + " s for the terrain under its logout position and it is still not ready;"
+                    + " letting it into the world at " + TeleportPolicy.SafeDestination.Name
+                    + " instead. The restore stays deferred and still fires if the terrain arrives.");
+                ReleaseLoadBarrier(peer, entityId.Value, "spawn terrain hold timeout");
             }
         }
 
