@@ -79,24 +79,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// under the landing rule in tools/world-import/generate-release-runtime-catalog.py,
         /// restricted to a walkable band around the spawn point:
         ///
-        ///   * normal ny = 1.000, dead flat
-        ///   * all 8 neighbouring 8 m columns level within 1.64 m - a plateau
-        ///   * 12.0 m from <see cref="SpawnPolicy.PlayerSpawnPosition"/>'s local
-        ///     (208.00, 4.70, 4.00): in front of a player the moment they spawn,
-        ///     without being on top of them
-        ///   * nearest authored static prop 7.34 m away in 3D, and NO authored prop
-        ///     within 4 m horizontally and 12 m overhead, so it is neither buried
-        ///     nor under the ruined camp's platforms
-        ///   * 8.0 m from the Haven databank at local (208.00, 4.99, 8.00), which
-        ///     puts spawn, databank and shrine on one straight walk up +z
+        ///   * normal ny = 0.996, effectively flat
+        ///   * all 8 neighbouring 8 m columns level within 1.42 m - a plateau
+        ///   * 34.2 m from <see cref="SpawnPolicy.PlayerSpawnPosition"/>'s local
+        ///     (208.00, 4.70, 4.00), and 0.20 m above it: the same shelf, a short
+        ///     walk, no climb
+        ///   * nearest authored static prop 15.26 m away in 3D and 13.73 m
+        ///     horizontally, with NOTHING authored within 5 m horizontally anywhere
+        ///     from 2 m below to 15 m above it
+        ///   * clear of everything this server itself puts on Haven - 33 m from the
+        ///     databank, 32 m from the static dev ship frame - which
+        ///     WildernessShrineRegistrationTests checks against the whole registry
+        ///     rather than against a list somebody has to remember to update
         ///
-        /// Retail's own pad position is NOT recoverable - everything Haven-specific
-        /// was spawned by the GSim, and findings-haven.md is explicit that the
-        /// barrier/teleporter geometry gives only a relative offset. So this is OUR
-        /// placement, chosen for discoverability, and it is said so here rather
-        /// than dressed up as preserved.
+        /// WHY NOT CLOSER. The spawn point sits INSIDE the ruined metal camp, and
+        /// every flat sample within ~25 m of it has that camp's platforms and
+        /// walkways overhead or the dev ship frame on top of it. A monument buried
+        /// under scrap is not a monument. Moving out to x = 176 leaves the camp
+        /// while heading TOWARD the island's local origin - which is where retail's
+        /// own quest text puts the chamber, "at the center of the island".
+        ///
+        /// Retail's actual pad position is NOT recoverable - everything
+        /// Haven-specific was spawned by the GSim, and findings-haven.md is explicit
+        /// that the barrier/teleporter geometry gives only a relative offset. So
+        /// this is OUR placement, chosen for a clear approach, and it is said so
+        /// here rather than dressed up as preserved.
         /// </summary>
-        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (208.00, 4.80, 16.00);
+        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (176.00, 4.90, 16.00);
 
         /// <summary>Its global position, given the Haven definition it stands on.</summary>
         public static FixedPointPosition PositionOn(IslandDefinition haven)

@@ -58,8 +58,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
-        /// It has to be findable from where a new player wakes up: close enough to
-        /// walk to without instruction, far enough not to be inside them.
+        /// It has to be findable from where a new player wakes up: a walk, not an
+        /// expedition, and on the same shelf rather than up a cliff.
         /// </summary>
         [Fact]
         public void The_shrine_stands_a_short_walk_from_the_haven_spawn_point()
@@ -71,9 +71,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             double dz = shrine.MetresZ - spawn.MetresZ;
             double horizontal = Math.Sqrt(dx * dx + dz * dz);
 
-            Assert.InRange(horizontal, 6.0, 25.0);
-            // ... and on roughly the same ground, not up a cliff or down a hole.
-            Assert.InRange(Math.Abs(shrine.MetresY - spawn.MetresY), 0.0, 4.0);
+            Assert.InRange(horizontal, 10.0, 50.0);
+            // No climb: the server has no pathing and cannot promise a route, so
+            // the least it can do is not put the thing on a different level.
+            Assert.InRange(Math.Abs(shrine.MetresY - spawn.MetresY), 0.0, 3.0);
+        }
+
+        /// <summary>
+        /// Toward the island's local origin, not away from it. Retail's own quest
+        /// text puts the Revival Chamber "at the center of the island", and the
+        /// spawn point sits far out at local x = 208; a shrine placed further out
+        /// still would be the one direction that contradicts the source.
+        /// </summary>
+        [Fact]
+        public void The_shrine_is_further_toward_the_island_centre_than_the_spawn_point()
+        {
+            Assert.True(Math.Abs(WildernessShrine.HavenLocalPlacement.X)
+                < Math.Abs(TeleportPolicy.HavenSpawnLocalOffset.X));
         }
 
         /// <summary>

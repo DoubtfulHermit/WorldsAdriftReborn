@@ -741,6 +741,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return DatabankEntity(Databanks.KeyFor(index), Databanks.PositionAt(index));
         }
 
+        /// <summary>
+        /// THE WILDERNESS SHRINE: the Revival Chamber prefab standing on Haven, the
+        /// one interactable that takes a player off the tutorial island.
+        ///
+        /// <see cref="Wilderness.WildernessShrine"/> holds every value and every
+        /// piece of provenance; this is only the registration.
+        ///
+        /// AfterPlayer, and that is not the usual caution - it is required. The
+        /// shrine is on Haven's ground but nobody stands ON the shrine, so it has
+        /// no claim on being spawned before the player, and anything BeforePlayer
+        /// can delay a spawn if it misbehaves.
+        ///
+        /// It DOES carry a seed batch, unlike the databank next to it, because its
+        /// 1210 is the whole point: a client only asks for interest in components
+        /// it has a reason to want, and an object with no prompt gives it none.
+        /// Both ids in the batch have a ComponentsSerializer branch - see
+        /// <see cref="Wilderness.WildernessShrine.SeedComponents"/> on why that is a
+        /// rule and not a coincidence.
+        /// </summary>
+        public static WorldEntity WildernessShrineEntity(IslandDefinition haven)
+        {
+            return new WorldEntity(
+                Wilderness.WildernessShrine.WorldEntityKey,
+                Wilderness.WildernessShrine.AssetName,
+                DefaultAssetContext,
+                Wilderness.WildernessShrine.PositionOn(haven),
+                seedComponents: Wilderness.WildernessShrine.SeedComponents,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>A scannable databank with an island-specific stable key and pose.</summary>
         public static WorldEntity DatabankEntity(string key, FixedPointPosition position)
         {
@@ -943,7 +973,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// biome profile is birch; this remains available for a future island whose
         /// recovered per-island data actually names several woods.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null, bool includeWildernessShrine = true)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
             int terrainCount = FirstRegionTerrainCountPolicy.Clamp(firstRegionTerrainCount);
@@ -1181,6 +1211,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     registry.Register(DatabankEntity(i));
                 }
             }
+
+            // The exit from Haven. Registered LAST and unconditionally on the island
+            // itself, not behind the release-world flag: whether the Wilderness is
+            // open tonight is a question the shrine ANSWERS, not one that decides
+            // whether it exists. A door that says "not tonight" is better than a
+            // missing door, because the second one reads as a bug.
+            if (includeWildernessShrine)
+                registry.Register(WildernessShrineEntity(islands.Require(IslandCatalog.HavenId)));
 
             return registry;
         }

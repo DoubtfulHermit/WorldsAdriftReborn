@@ -150,6 +150,29 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 // short-circuited here, so the single gate is the service.
                 foreach (InteractWithObject man in interacts!)
                 {
+                    // THE WILDERNESS SHRINE: the exit from Haven. Checked FIRST and
+                    // short-circuited, because the shrine answers to three verbs
+                    // (its baked one is not decompiled - see WildernessShrine.Verbs)
+                    // and two of them, Man and Activate, are also the helm's and the
+                    // mounted part's. Letting a shrine interaction fall through to
+                    // those would cost two ledger misses and a confusing log line;
+                    // letting a HELM interaction reach the shrine would be far
+                    // worse, which is why the target key is what selects, not the
+                    // verb. ALWAYS-ON, like the atlas pickup and the helm above:
+                    // graduating is not a placement feature.
+                    //
+                    // Owner-only. It moves the SENDER's character - and, on a fresh
+                    // crew island, writes their crewmates' home rows - so a peer
+                    // must never be able to fire it for somebody else's entity.
+                    if (ownsPlayer
+                        && Multiplayer.Wilderness.WildernessShrine.Accepts((int)man.verb)
+                        && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(man.target.Id)?.Key
+                            == Multiplayer.Wilderness.WildernessShrine.WorldEntityKey)
+                    {
+                        WildernessGraduationService.Use(entityId);
+                        continue;
+                    }
+
                     if (man.verb == InteractVerb.Man)
                     {
                         WorldsAdriftRebornGameServer.Flight.OnManInteraction(

@@ -241,47 +241,7 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
 
-                ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
-                IslandDefinition? destinationIsland = command.Destination.RequiredWorldEntityKey == null
-                    ? null
-                    : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
-                        command.Destination.RequiredWorldEntityKey);
-                IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
-                if (peer == null || destinationIsland == null || terrain == null || !terrain.Enabled)
-                {
-                    if (Send(peerId, entityId, command.Destination)) sent++;
-                    continue;
-                }
-
-                TerrainDestinationStatus readiness = terrain.RequestDestination(peer, destinationIsland.Id);
-                TerrainTeleportDecision decision = IslandTerrainTeleportPolicy.Decide(
-                    terrainManaged: true,
-                    destinationKnown: readiness != TerrainDestinationStatus.Unknown,
-                    terrainReady: readiness == TerrainDestinationStatus.Ready,
-                    waitExpired: false);
-                if (decision == TerrainTeleportDecision.Send)
-                {
-                    if (Send(peerId, entityId, command.Destination)) sent++;
-                }
-                else if (decision == TerrainTeleportDecision.Wait)
-                {
-                    _pendingTerrain[entityId] = new PendingTerrainTeleport
-                    {
-                        PeerId = peerId,
-                        EntityId = entityId,
-                        Destination = command.Destination,
-                        Deadline = TerrainWaitDeadline(terrain),
-                    };
-                    sent++;
-                    Console.WriteLine("[teleport] deferring entity " + entityId + " -> "
-                        + command.Destination.Name + " until terrain " + destinationIsland.Id
-                        + " is checked out for that peer.");
-                }
-                else
-                {
-                    Console.WriteLine("[warning] teleport: refusing '" + command.Destination.Name
-                        + "' because its terrain is not managed by the local authority host.");
-                }
+                if (DispatchWithTerrainGate(peerId, entityId, command.Destination, OperatorReason)) sent++;
             }
 
             if (sent == 0)
@@ -292,6 +252,105 @@ namespace WorldsAdriftRebornGameServer.Game
                         : "no players connected")
                     + ").");
             }
+        }
+
+        /// <summary>
+        /// Sends one teleport, or defers it until the destination's terrain is on
+        /// that peer. Returns true when the teleport is under way - SENT or WAITING -
+        /// and false when it could not start at all.
+        ///
+        /// This is THE arrival gate, and every path that puts a player somewhere
+        /// they are not already standing goes through it: the operator trigger
+        /// file, and the wilderness shrine. (The logout restore composes the same
+        /// three decisions in <see cref="RestoreLoggedOutPosition"/>, which also
+        /// has a loading screen to hold and so cannot simply call this.) It was
+        /// extracted from the operator path rather than copied, because a second
+        /// copy of "ask, then wait, then give up" is exactly how the restore path
+        /// once ended up with no gate at all - see SpawnRestorePolicy's remarks on
+        /// the bug this class of thing produces.
+        ///
+        /// A destination naming no island is sent immediately: there is no terrain
+        /// to wait for, which is honest for Haven and for an ad-hoc coordinate, and
+        /// is why the RequiredWorldEntityKey on a wilderness destination is the
+        /// load-bearing field rather than a label.
+        /// </summary>
+        private bool DispatchWithTerrainGate(
+            ulong peerId, long entityId, TeleportDestination destination, string reason)
+        {
+            ENetPeerHandle? peer = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+            IslandDefinition? destinationIsland = destination.RequiredWorldEntityKey == null
+                ? null
+                : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(
+                    destination.RequiredWorldEntityKey);
+            IslandTerrainInterestService? terrain = WorldsAdriftRebornGameServer.TerrainInterest;
+            if (peer == null || destinationIsland == null || terrain == null || !terrain.Enabled)
+            {
+                return Send(peerId, entityId, destination, reason);
+            }
+
+            // Asking is also DOING: RequestDestination pins the island as this
+            // peer's forced destination, which is what makes the terrain interest
+            // service check it out however far away it is. A wilderness island is
+            // at least 9.9 km from Haven, well past any load radius, so without
+            // this call it would never even be requested.
+            TerrainDestinationStatus readiness = terrain.RequestDestination(peer, destinationIsland.Id);
+            TerrainTeleportDecision decision = IslandTerrainTeleportPolicy.Decide(
+                terrainManaged: true,
+                destinationKnown: readiness != TerrainDestinationStatus.Unknown,
+                terrainReady: readiness == TerrainDestinationStatus.Ready,
+                waitExpired: false);
+            if (decision == TerrainTeleportDecision.Send)
+            {
+                return Send(peerId, entityId, destination, reason);
+            }
+
+            if (decision == TerrainTeleportDecision.Wait)
+            {
+                _pendingTerrain[entityId] = new PendingTerrainTeleport
+                {
+                    PeerId = peerId,
+                    EntityId = entityId,
+                    Destination = destination,
+                    Deadline = TerrainWaitDeadline(terrain),
+                    Reason = reason,
+                };
+                Console.WriteLine("[" + reason + "] deferring entity " + entityId + " -> "
+                    + destination.Name + " until terrain " + destinationIsland.Id
+                    + " is checked out for that peer (up to "
+                    + TerrainWaitBudget(terrain).TotalSeconds.ToString("0.#") + " s).");
+                return true;
+            }
+
+            Console.WriteLine("[warning] " + reason + ": refusing '" + destination.Name
+                + "' because its terrain is not managed by the local authority host.");
+            return false;
+        }
+
+        /// <summary>
+        /// GRADUATION: moves a player off Haven to their Wilderness island, by the
+        /// same 190607 path and the same terrain gate as everything else here.
+        ///
+        /// Nothing about it is a special teleport, and that is the point. The
+        /// decision - which island, and whether the crew has one already - is made
+        /// by <see cref="Multiplayer.Wilderness.WildernessGraduationPolicy"/>, which
+        /// is pure and tested; this method is only the wire, and it deliberately
+        /// takes an already-built <see cref="TeleportDestination"/> so it cannot
+        /// grow a second opinion about where anybody goes.
+        /// </summary>
+        public bool Graduate(long entityId, TeleportDestination destination)
+        {
+            foreach ((ulong peerId, long candidate) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                if (candidate == entityId)
+                {
+                    return DispatchWithTerrainGate(
+                        peerId, entityId, destination, Multiplayer.Wilderness.WildernessShrine.TeleportReason);
+                }
+            }
+
+            Console.WriteLine("[info] " + Multiplayer.Wilderness.WildernessShrine.TeleportReason
+                + ": entity " + entityId + " is no longer a connected player, nothing to move.");
+            return false;
         }
 
         private void PollPendingTerrainTeleports()

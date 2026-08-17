@@ -632,12 +632,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // catalogue sync (1271) is the full-ship-building follow-on and
                         // the UI opens without it. The three unused strings are empty,
                         // not null - copied by DeepCopy. Craft verb = 5 (VERIFIED).
-                        bool isPlacedShipyard =
-                            Placement.PlacedShipyards.IsPlacedShipyard(entityId);
+                        // The WILDERNESS SHRINE is the one prefab here whose baked
+                        // verb we have NOT decompiled, so it is the one case that
+                        // cannot be served a single guess: guess wrong and the
+                        // FirstOrDefault above finds nothing, the prompt never
+                        // appears, and no log anywhere says why. It is therefore
+                        // served an entry PER plausible verb - the visualizer takes
+                        // the one matching its own and ignores the rest, so the
+                        // extras are inert. See Multiplayer.Wilderness.WildernessShrine.Verbs.
+                        bool isWildernessShrine =
+                            WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
+                            == Multiplayer.Wilderness.WildernessShrine.WorldEntityKey;
+                        bool isPlacedShipyard = !isWildernessShrine
+                            && Placement.PlacedShipyards.IsPlacedShipyard(entityId);
                         // A placed Assembly Station bakes the SAME Craft verb as the
                         // shipyard console - the prefab's crafting category (not this
                         // seed) decides parts-vs-ship-build once the interact opens.
-                        bool isPlacedCraftingStation = !isPlacedShipyard
+                        bool isPlacedCraftingStation = !isWildernessShrine && !isPlacedShipyard
                             && Placement.PlacedCraftingStations.IsPlacedCraftingStation(entityId);
                         bool isCraftStation = isPlacedShipyard || isPlacedCraftingStation;
                         // A helm is the STATIC test-ship helm OR any crafted helm part. The
@@ -655,7 +666,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isStaticHelm = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                             == Multiplayer.WorldEntities.HelmKey;
                         string? craftedPartItemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
-                        bool isHelm = !isCraftStation
+                        bool isHelm = !isWildernessShrine && !isCraftStation
                             && (isStaticHelm || craftedPartItemType == "helm");
                         // An ATLAS SHARD bakes the SAME PickUp verb as the nugget, but its
                         // availability is SERVER-GATED on release: available=false while the
@@ -664,7 +675,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // and false again once collected. So a late joiner checking the shard
                         // out sees exactly the prompt state everyone present sees, without a
                         // separate replay. See findings-atlas-shards §2 Phase C.
-                        bool isAtlasShard = !isCraftStation && !isHelm
+                        bool isAtlasShard = !isWildernessShrine && !isCraftStation && !isHelm
                             && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
                         // An INTERACTABLE PART (sail / lamp / horn): the part
                         // prefab's own InteractiveObjectVisualizer carries verb
@@ -682,7 +693,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // prompt is never a lie. The correct Activate entry exists while
                         // loose but remains unavailable until the mount commit.
                         Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
-                        if (!isCraftStation && !isHelm && !isAtlasShard)
+                        if (!isWildernessShrine && !isCraftStation && !isHelm && !isAtlasShard)
                         {
                             Multiplayer.Ship.PartVerb seededVerb =
                                 Multiplayer.Ship.PartInteractionPolicy.SeedVerbFor(craftedPartItemType);
@@ -699,7 +710,24 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         InteractionEntry entry;
                         string verbName;
                         bool available = true;
-                        if (isCraftStation)
+                        // Every branch but the shrine's serves exactly one entry, so
+                        // this stays null and the single `entry` is used.
+                        Improbable.Collections.List<InteractionEntry>? entries = null;
+                        if (isWildernessShrine)
+                        {
+                            entries = new Improbable.Collections.List<InteractionEntry>();
+                            foreach (int verb in Multiplayer.Wilderness.WildernessShrine.Verbs)
+                            {
+                                entries.Add(new InteractionEntry(
+                                    (InteractVerb)verb,
+                                    Multiplayer.Wilderness.WildernessShrine.InteractRadius,
+                                    false, "", "", "", false,
+                                    Multiplayer.Wilderness.WildernessShrine.InteractTimeToUse));
+                            }
+                            entry = entries[0];
+                            verbName = "Activate/Default/Man (shrine hedge)";
+                        }
+                        else if (isCraftStation)
                         {
                             entry = new InteractionEntry(
                                 InteractVerb.Craft,
@@ -787,7 +815,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             new InteractiveStateData(
                                 available,
                                 EntityId.InvalidEntityId,
-                                new Improbable.Collections.List<InteractionEntry> { entry },
+                                entries ?? new Improbable.Collections.List<InteractionEntry> { entry },
                                 false));
 
                         Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
