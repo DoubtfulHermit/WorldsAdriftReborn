@@ -121,8 +121,8 @@ changes.
 ### Exact deployed revisions
 
 - **Game server:** `3d64a7f`, deployed and restarted at 2026-08-17 13:52 CEST.
-  **Login/admin server:** `4ab84a7`, deployed and restarted at 2026-08-17
-  15:09 CEST. Stats schema 6 reports terrain checkout, runtime
+  **Login/admin server:** `2994db3`, deployed and restarted at 2026-08-17
+  15:25 CEST. Stats schema 6 reports terrain checkout, runtime
   topology and authoritative player world positions, and the admin
   console exposes its one-island acceptance run. Production remains bounded to
   `WAREBORN_FIRST_REGION_TERRAIN_COUNT=1` and reports 3 island domains, 5 ship
@@ -136,8 +136,11 @@ changes.
   after full terrain removal. Collision, resources and databanks remain
   exclusively on physical checkout. Live visual acceptance is still required.
   The authenticated Simulation Fabric also embeds an allowlisted projection of
-  the preserved release MapFile (266 islands, 20 biome districts and 44 typed
-  weather-wall segments). Its layered SVG cartography shows the exact 36 km
+  the preserved release MapFile (266 islands, 20 tier/biome cells and 44 typed
+  weather-wall segments). Eighteen cells retain their authored district IDs;
+  the two Tier-4 cells whose district is explicitly null are visibly signed as
+  unassigned rather than invented as E1/E2 or merged into E3. Its layered SVG
+  cartography shows the exact 36 km
   world boundary and the authored x=15,943.6523 m separator, explicitly shades
   the corridor containing all 12 preserved Haven placements, and overlays the
   current ship and player positions without permanent marker labels. The
@@ -145,7 +148,7 @@ changes.
   refreshes on a four-second cadence over the game server's three-second stats
   snapshots. Missing player position is shown as
   unknown, never placed at a fabricated origin. Validation passed 2,586/2,586
-  Multiplayer tests and 182/182 admin/login tests;
+  Multiplayer tests and 183/183 admin/login tests;
   game, login and client Release builds had zero errors. The coordinated
   rollback copy is
   `/opt/wareborn/backups/pre-069a372-20260817T093253Z/{game,login,patch}`; the
@@ -160,7 +163,9 @@ changes.
   pre-live-map game/login rollback is
   `/opt/wareborn/backups/pre-3d64a7f-20260817T115238Z`; the immediate
   pre-SVG-map login rollback is
-  `/opt/wareborn/backups/login-before-svg-map-20260817T130929Z`.
+  `/opt/wareborn/backups/login-before-svg-map-20260817T130929Z`; the immediate
+  pre-zone-signage login rollback is
+  `/opt/wareborn/backups/login-before-zone-signage-20260817T132536Z`.
 - **Public client manifest:** `2026.08.17-3`, build label
   `activate distant island shell waiter (bede97e)`. The first `-2` live pass
   proved both bundles cached but exposed an activation-order defect: Unity
@@ -184,7 +189,7 @@ changes.
   The deployed game managed DLL is SHA-256
   `f2c9c288c2266f08448e2f50664abb1e693b11ac3cc0585e2c42914de9602973`;
   the login/admin managed DLL is
-  `90abae88e141b2f493843f8401396e6f6f74982bf7ac6e91ce77ea9d2015c3e7`.
+  `a4277318cd097e44142a344adc675be02b9381b766b9036ddd779c5e0523f80c`.
 
 ### Latest multiplayer incident
 
