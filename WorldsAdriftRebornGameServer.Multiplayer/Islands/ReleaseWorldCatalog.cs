@@ -4,6 +4,44 @@ using System.Text.Json;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 {
     /// <summary>
+    /// The one place on an island a player may be TELEPORTED onto: an evidenced
+    /// LOD0 collision-surface sample, in ISLAND-LOCAL metres, with the numbers it
+    /// was chosen by.
+    ///
+    /// This is a different question from where a resource may sit, which is why it
+    /// is a different field: a deposit is allowed to cling to a slope, a player
+    /// arriving out of a loading screen is not. The server has no terrain query -
+    /// see <see cref="IslandLocationPolicy"/> and <see cref="PlayerPositionPolicy"/>,
+    /// which say so for the same reason - so landing on a MEASURED sample with
+    /// measured neighbours is the strongest claim it can make about solid ground.
+    ///
+    /// Derived offline by tools/world-import/generate-release-runtime-catalog.py
+    /// from docs/research/world-data/island-surfaces/&lt;asset&gt;.json, deterministically
+    /// and with no RNG, so the pad never moves between regenerations.
+    /// </summary>
+    /// <param name="LocalX">Island-local metres, east.</param>
+    /// <param name="LocalY">Island-local metres, up. The SURFACE height; the
+    /// player stand-off is added at the point of use, not baked in.</param>
+    /// <param name="LocalZ">Island-local metres, north.</param>
+    /// <param name="UpwardNormal">The sample's own <c>ny</c>. 1.0 is dead flat.</param>
+    /// <param name="SupportingColumns">How many neighbouring 8 m columns within
+    /// 12 m sit within the ladder's step tolerance of this one. 8 means every
+    /// cardinal and diagonal neighbour is level: a plateau, not a spire.</param>
+    /// <param name="WorstStepMetres">The largest height difference to any of those
+    /// neighbours.</param>
+    /// <param name="Reviewed">True when this coordinate was derived and reviewed
+    /// by hand BEFORE the generator existed and is pinned so the generated field
+    /// cannot contradict a point the server already names elsewhere.</param>
+    public readonly record struct IslandLandingPoint(
+        double LocalX,
+        double LocalY,
+        double LocalZ,
+        double UpwardNormal,
+        int SupportingColumns,
+        double WorstStepMetres,
+        bool Reviewed);
+
+    /// <summary>
     /// One ordinary release-world island joined across Bossa's MapFile, the final
     /// Cardinal survey, and the extracted TRS-correct collision surface.
     /// </summary>
@@ -13,7 +51,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             IslandTerrainEnvelope envelope, IslandSurveyProfile survey,
             IReadOnlyList<IslandShellPoint> shell,
             IReadOnlyList<MetalNode> deposits,
-            IReadOnlyList<FixedPointPosition> databanks)
+            IReadOnlyList<FixedPointPosition> databanks,
+            IslandLandingPoint landing)
         {
             Definition = definition;
             CellId = cellId;
@@ -23,6 +62,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             Shell = shell;
             Deposits = deposits;
             Databanks = databanks;
+            Landing = landing;
         }
 
         public IslandDefinition Definition { get; }
@@ -33,6 +73,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public IReadOnlyList<IslandShellPoint> Shell { get; }
         public IReadOnlyList<MetalNode> Deposits { get; }
         public IReadOnlyList<FixedPointPosition> Databanks { get; }
+
+        /// <summary>Where a teleport may put a player on this island.</summary>
+        public IslandLandingPoint Landing { get; }
     }
 
     /// <summary>
@@ -115,9 +158,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                     .EnumerateArray().Select(point => definition.LocalToGlobal(
                         point.GetProperty("x").GetDouble(), point.GetProperty("y").GetDouble(),
                         point.GetProperty("z").GetDouble())).ToList();
+                JsonElement pad = item.GetProperty("landing");
+                IslandLandingPoint landing = new(
+                    pad.GetProperty("x").GetDouble(),
+                    pad.GetProperty("y").GetDouble(),
+                    pad.GetProperty("z").GetDouble(),
+                    pad.GetProperty("ny").GetDouble(),
+                    pad.GetProperty("support").GetInt32(),
+                    pad.GetProperty("step").GetDouble(),
+                    pad.GetProperty("reviewed").GetBoolean());
                 records.Add(new ReleaseIslandRecord(definition, cell,
                     item.GetProperty("cellTier").GetInt32(), envelope, survey,
-                    shell.AsReadOnly(), deposits.AsReadOnly(), databanks.AsReadOnly()));
+                    shell.AsReadOnly(), deposits.AsReadOnly(), databanks.AsReadOnly(),
+                    landing));
             }
             return records.AsReadOnly();
         }
