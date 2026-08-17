@@ -1120,8 +1120,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             // Complete release-world population. Counts and metal tables come from
             // the joined survey; positions come from each island's extracted surface.
-            // No tree rows are fabricated here: tree entity placement still needs a
-            // species-specific acceptance pass and is intentionally a later phase.
+            // Trees are included from the 2026-08-18 pass: the species-specific
+            // acceptance this comment used to defer is done (VerifiedSpecies covers
+            // all eight woods with recovered topology), so the 72 islands the survey
+            // records as wooded now grow their own species. See ReleaseWorldTrees.
             foreach (ReleaseIslandRecord island in releaseIslands)
             {
                 foreach (MetalNode deposit in island.Deposits)
@@ -1130,6 +1132,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     registry.Register(DatabankEntity(
                         Resources.ReleaseWorldResources.DatabankKeyFor(island, i),
                         island.Databanks[i]));
+                foreach (WorldEntity tree in Islands.ReleaseWorldTrees.For(island))
+                    registry.Register(tree);
             }
 
             if (includeFuelPods)
