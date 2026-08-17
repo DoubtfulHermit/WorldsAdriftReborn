@@ -848,6 +848,56 @@ rollout is **not deployed and not visually accepted**.
 Trees, revival chambers, turrets and weather-wall gameplay are not spawned by
 this milestone; their survey facts are retained for later systems.
 
+### Tier 1 (Wilderness): the complete A2/A3/B2/B3 region (local, off by default)
+
+Resources on release-world islands ALREADY WORK. The two statements that looked
+contradictory describe two different flags:
+`WAREBORN_FIRST_REGION_TERRAIN_COUNT` registers terrain roots only (that is the
+"no new dynamic resource population" sentence above), while
+`WAREBORN_RELEASE_WORLD_DISTRICTS` registers terrain PLUS every catalogued
+deposit and databank for the selected cells (that is the 354/1233 assertion in
+`ReleaseWorldCatalogTests`). Both are true.
+
+Tier 1 is exactly map cells A2, A3, B2 and B3: 46 islands, all tier 1, and those
+four cells contain nothing else. `WAREBORN_RELEASE_WORLD_DISTRICTS=tier1` (or
+`t1`/`wilderness`) now names that from the catalogue's own `cellTier` so it
+cannot drift; the explicit cell list still works and the selectors compose.
+
+Its content is **46 PvE deposits, 215 databanks, 46 atlas shards**, 12 islands
+with surveyed revival chambers and 14 with surveyed tree species. The deposits
+are concentrated on FOUR islands (Crimson Paradise 23, Mount Spero 14, Breeze
+Isles 6, Comm Strip 3): **42 of the 46 have no metal at all**, because the final
+Cardinal survey recorded a PvE metal table for only 38 of the 254 ordinary
+islands and an empty table is never backfilled with an invented population. Every
+island does have 3-5 databanks. That is the evidence, not a bug.
+
+The one real gap, now closed: release-world deposits registered no atlas shard,
+so a tier-1 deposit yielded metal but never the shard that is the mining loop's
+payoff (Haven and Trades deposits both had one). Each release deposit now
+registers its shard immediately after itself, gated by the existing
+`WAREBORN_SPAWN_ATLAS` and `WAREBORN_ATLAS_RATE`, with the rate applied to each
+island's own deposit index so every island with metal reliably has at least one.
+
+Headless boot at `tier1` against a throwaway data directory: **terrains=47,
+regions=5, 481 registrations classified (global=1, region=480, unclassified=0),
+`[domain-host] islands=47 ships=0 owned=480 globals=1 unowned=0 duplicates=0`,
+433 boot resource activations (215+46+46 release + 81 trees + 24 fuel pods + 21
+metal nodes), spawn plan 964 steps, zero warnings/errors.** The 964-step plan is
+process-wide, not per-peer: the nearest tier-1 island is 9.33 km from the Haven
+spawn and production loads terrain at 4 km, so a fresh Haven connect streams zero
+tier-1 terrains and zero tier-1 resources. Connect (45 m), live resource (120 m)
+and terrain (4000/4400 m) radii stay separate; nothing here widens resource
+interest. At 4 km a median of 9 terrains are physically loaded (min 5, max 12).
+
+Trees, revival chambers and metal for the 42 unsurveyed islands are explicitly
+DEFERRED, each with its cost, in `docs/research/findings-tier-one-world.md`.
+Trees are blocked on there being no evidenced density (deposits had retail
+0.05/cell, databanks had an exact surveyed count; trees have a species list and
+nothing else), revival chambers on there being no server system of any kind.
+Distant island shells still need `WAREBORN_DISTANT_ISLAND_SHELLS_ENABLED=1`
+separately and remain visually unaccepted. Nothing here is deployed or proved
+with a real client.
+
 ### Terrain checkout observability (integrated by `a4e135c`, deployed)
 
 Stats schema **5** adds a `terrain` section to `/tmp/wareborn-stats.json` so the
