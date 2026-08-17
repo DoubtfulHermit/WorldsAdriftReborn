@@ -147,7 +147,24 @@ changes.
   operator can inspect live authoritative XYZ values on selection. The browser
   refreshes on a four-second cadence over the game server's three-second stats
   snapshots. Missing player position is shown as
-  unknown, never placed at a fabricated origin. Validation passed 2,586/2,586
+  unknown, never placed at a fabricated origin. The panel is now labelled for
+  its provenance, because a 266-island map beside a 3-island table reads as a
+  broken panel when it is only a configured one: the map is titled preserved
+  release-world map and signed as static embedded MapFile evidence whose
+  geometry, tier cells, walls and boundary are not read from the running game
+  server, while the ship, player and simulated-island-domain marks are signed
+  as the live overlay with their refresh cadence stated there. The Terrain
+  checkout island inventory is signed as the authoritative live set of islands
+  the game server is actually simulating. Both panels print one shared
+  reconciliation line, "N islands on the preserved release map / M currently
+  simulated", where N comes from the embedded projection and M is read from the
+  live terrain section; if the stats file is missing, stale or predates terrain
+  telemetry the line states that condition instead of a count, so a degraded
+  snapshot can never render as a real zero. Which individual map glyphs are
+  simulated is NOT claimed: the live ring already drawn at each simulated
+  island domain's reported position is legended as the live mark, and no static
+  glyph is restyled, because no exact island-id-to-MapFile-record mapping is
+  available on the page and name matching would be a guess. Validation passed 2,586/2,586
   Multiplayer tests and 183/183 admin/login tests;
   game, login and client Release builds had zero errors. The coordinated
   rollback copy is
