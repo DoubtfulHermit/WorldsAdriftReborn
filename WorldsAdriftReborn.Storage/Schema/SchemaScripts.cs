@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -327,6 +327,45 @@ CREATE TABLE character_progression (
     CONSTRAINT character_progression_data_json_not_empty
         CHECK (length(btrim(data_json)) > 0),
     CONSTRAINT character_progression_updated_after_created
+        CHECK (updated_at >= created_at)
+);
+";
+
+        /// <summary>
+        /// v5 - where a character logged out.
+        ///
+        /// Until now every player was placed at one compile-time constant, so a
+        /// relog put you back on Haven while your ship stayed where you left it.
+        ///
+        /// Unlike v2/v4 this payload is NOT opaque JSON: it is three fixed-point
+        /// world coordinates, stored as the exact Q52.12 integers the simulation
+        /// uses. Writing them as columns rather than a blob is deliberate - a
+        /// stored position is the one piece of per-character state an operator may
+        /// genuinely need to inspect or correct by hand when a player reports being
+        /// stuck, and a float round-trip would move them.
+        ///
+        /// Deliberately NOT stored: which ship they stood on. Hull entity ids are
+        /// allocated at boot and are not durable across a restart, so a ship-
+        /// relative restore needs a durable ship identity that does not exist yet.
+        /// A hull that has not moved is landed on correctly by world position alone.
+        /// </summary>
+        internal const string V5 = @"
+CREATE TABLE character_positions (
+    -- Same key and same CASCADE as the inventory and progression tables: a
+    -- position that names no character is unreachable and is refused here.
+    character_uid  UUID        NOT NULL PRIMARY KEY
+                               REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    -- Q52.12 fixed point, the simulation's own units, NOT metres. Stored exactly
+    -- so a save/restore round trip cannot drift a player through the floor.
+    x              BIGINT      NOT NULL,
+    y              BIGINT      NOT NULL,
+    z              BIGINT      NOT NULL,
+
+    created_at     TIMESTAMPTZ NOT NULL,
+    updated_at     TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT character_positions_updated_after_created
         CHECK (updated_at >= created_at)
 );
 ";

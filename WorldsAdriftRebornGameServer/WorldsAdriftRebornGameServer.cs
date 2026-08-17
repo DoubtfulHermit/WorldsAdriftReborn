@@ -166,6 +166,24 @@ namespace WorldsAdriftRebornGameServer
                 // player whose character uid never arrived.
                 Game.Knowledge.ProgressionService.Forget(ownEntity.Value);
 
+                // Save, then drop, where this player was standing, on the same
+                // last-chance contract. It MUST read the interest centre rather
+                // than the relay's last raw sample: Relay.Forget already ran
+                // further up, and the relay's value is in whatever space the
+                // client published in - ship-local while aboard a moving hull -
+                // whereas the interest centre is always a global world position.
+                if (ResourceInterest.TryCenterFor(peerId, out Multiplayer.FixedPointPosition leftAt))
+                {
+                    if (Game.Persistence.PlayerPositionService.SaveOnLeave(ownEntity.Value, leftAt))
+                    {
+                        Console.WriteLine("[info] saved the logout position of entity " + ownEntity.Value
+                            + " at (" + leftAt.MetresX.ToString("0.#") + ", "
+                            + leftAt.MetresY.ToString("0.#") + ", "
+                            + leftAt.MetresZ.ToString("0.#") + ") m.");
+                    }
+                }
+                Game.Persistence.PlayerPositionService.Forget(ownEntity.Value);
+
                 // Drop this player's live ship-blueprint builds and cancel any running
                 // build timer, so the completion path never fires against a gone peer.
                 Multiplayer.Crafting.ShipBlueprintBuildStore.ForgetPlayer(ownEntity.Value);
@@ -2064,6 +2082,29 @@ namespace WorldsAdriftRebornGameServer
         private static readonly StatsFileWriter StatsWriter = new StatsFileWriter(BuildStatsSnapshot);
 
         /// <summary>
+        /// How often the poll loop offers each player's position to the store. The
+        /// store then applies its own movement threshold, so a still player costs
+        /// one dictionary lookup and no database write.
+        /// </summary>
+        private static readonly TimeSpan PositionSaveInterval = TimeSpan.FromSeconds(20);
+        private static TimeSpan nextPositionSave = TimeSpan.Zero;
+
+        private static void MaybeSavePlayerPositions()
+        {
+            TimeSpan now = ServerClock.Elapsed;
+            if (now < nextPositionSave) return;
+            nextPositionSave = now + PositionSaveInterval;
+
+            foreach ((ulong peerId, long entityId) in Players.All())
+            {
+                if (ResourceInterest.TryCenterFor(peerId, out Multiplayer.FixedPointPosition at))
+                {
+                    Game.Persistence.PlayerPositionService.SaveIfMoved(entityId, at);
+                }
+            }
+        }
+
+        /// <summary>
         /// Assembles the current snapshot: the accumulated counters, the relay's
         /// live mode/rate, and one row per player IN WORLD (from <see cref="Players"/>,
         /// so it lists spawned entities; a peer still on its loading screen is in
@@ -3714,6 +3755,7 @@ namespace WorldsAdriftRebornGameServer
             // wrong thing.
             Game.Inventory.InventoryService.ReportPersistenceState();
             Game.Knowledge.ProgressionService.ReportPersistenceState();
+            Game.Persistence.PlayerPositionService.ReportPersistenceState();
 
             // Said once, at start-up, because "where did the ore come from" is the
             // question this deploy exists to answer and the operator reads the log to
@@ -4182,6 +4224,13 @@ namespace WorldsAdriftRebornGameServer
                 // operator dashboard. Self-throttled to a few seconds and atomic;
                 // never throws into this loop. See StatsFileWriter.
                 StatsWriter.MaybeWrite();
+
+                // Write down where each player is, on a slow cadence and only when
+                // they have actually moved. The disconnect path is the primary
+                // save; this exists because it does NOT run when the process is
+                // killed or the machine dies, and a player who crashes out should
+                // still come back near where they were rather than on Haven.
+                MaybeSavePlayerPositions();
 
                 // BOUNDED DRAIN. The old loop polled exactly ONCE per iteration, and
                 // the shim returns at most one event per call - so the server's

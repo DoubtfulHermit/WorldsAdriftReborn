@@ -92,6 +92,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // and is a no-op when the uid did not arrive.
             Game.Knowledge.ProgressionService.BindIdentity(entityId, map, player);
 
+            // The position sibling of the two binds above, and the reason it is
+            // here rather than at spawn: this is the first moment the server knows
+            // WHOSE position to look up. It moves the player by teleport rather
+            // than re-seeding their transform, which is forbidden on a live entity.
+            Game.Persistence.PlayerPositionService.BindIdentity(entityId, map);
+
             // Keep the server-side stored component in sync so later re-serves of
             // this entity's 1088 (interest requests) also carry the real data.
             //

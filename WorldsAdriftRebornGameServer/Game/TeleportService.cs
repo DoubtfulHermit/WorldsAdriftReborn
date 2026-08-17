@@ -59,6 +59,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// rescue work" are the two questions this feature will ever be asked.
         /// </summary>
         internal const string FallRescueReason = "fall-rescue";
+        internal const string LogoutRestoreReason = "logout-restore";
 
         private readonly TeleportRequestCounter _requests = new TeleportRequestCounter();
         private readonly TeleportArrivalTracker _arrivals = new TeleportArrivalTracker();
@@ -365,6 +366,40 @@ namespace WorldsAdriftRebornGameServer.Game
             // ForgetPeer along with everything else the peer owned.
             Console.WriteLine("[info] " + FallRescueReason + ": entity " + entityId
                 + " is no longer a connected player, nothing to rescue.");
+            return false;
+        }
+
+        /// <summary>
+        /// Puts a returning player back where they logged out, by the same 190607
+        /// path as the operator trigger and the fall rescue.
+        ///
+        /// This is a teleport rather than a different spawn seed on purpose: see
+        /// PlayerPositionService. It inherits the whole existing arrival contract
+        /// for free - the request counter, the 1073 ack, the loading-screen gate
+        /// and the terrain-readiness deferral - which is the entire reason the
+        /// feature is small. The DECISION to move is not taken here; it is
+        /// PlayerPositionPolicy, which is pure and tested. This is only the wire.
+        /// </summary>
+        public bool RestoreLoggedOutPosition(long entityId, FixedPointPosition where)
+        {
+            TeleportDestination home = new TeleportDestination(
+                LogoutRestoreReason,
+                where,
+                landsOnLoadedGround: false,
+                description: "where this character logged out");
+
+            foreach ((ulong peerId, long candidate) in WorldsAdriftRebornGameServer.Players.All())
+            {
+                if (candidate == entityId)
+                {
+                    return Send(peerId, entityId, home, LogoutRestoreReason);
+                }
+            }
+
+            // They disconnected between publishing 1088 and this call. Nothing to
+            // do and nothing wrong; ForgetPeer drops the rest.
+            Console.WriteLine("[info] " + LogoutRestoreReason + ": entity " + entityId
+                + " is no longer a connected player, nothing to restore.");
             return false;
         }
 

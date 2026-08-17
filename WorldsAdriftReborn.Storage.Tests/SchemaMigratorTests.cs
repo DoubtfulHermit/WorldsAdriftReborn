@@ -58,38 +58,40 @@ namespace WorldsAdriftReborn.Storage.Tests
         }
 
         [Fact]
-        public void The_shipped_schema_is_at_version_four()
+        public void The_shipped_schema_is_at_version_five()
         {
             // If this fails, a script was added: check it was APPENDED and that
             // no existing one was edited, then update the number.
             // v1 accounts/sessions/characters, v2 character_inventories,
-            // v3 server_config, v4 character_progression.
-            Assert.Equal(4, SchemaMigrator.TargetVersion(SchemaScripts.All));
+            // v3 server_config, v4 character_progression, v5 character_positions.
+            Assert.Equal(5, SchemaMigrator.TargetVersion(SchemaScripts.All));
         }
 
         [Fact]
-        public void A_database_at_version_three_is_brought_forward_by_exactly_one_script()
+        public void A_database_at_version_four_is_brought_forward_by_exactly_one_script()
         {
-            // The upgrade an operator who already has a v3 database will actually
-            // run when the progression table ships. It must not re-run v1..v3
+            // The upgrade an operator who already has a v4 database will actually
+            // run when the logout-position table ships. It must not re-run v1..v4
             // against tables that exist.
-            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(3, SchemaScripts.All);
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(4, SchemaScripts.All);
 
             Assert.Single(pending);
-            Assert.Contains("character_progression", pending[0]);
+            Assert.Contains("character_positions", pending[0]);
         }
 
         [Fact]
         public void A_database_at_version_one_still_runs_the_later_scripts_in_order()
         {
-            // An older database jumps three versions; the order is load-bearing
-            // (a script must never see a table a later script creates).
+            // An older database jumps four versions; the order is load-bearing
+            // (a script must never see a table a later script creates - every one
+            // of these references characters, which only v1 creates).
             IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
 
-            Assert.Equal(3, pending.Count);
+            Assert.Equal(4, pending.Count);
             Assert.Contains("character_inventories", pending[0]);
             Assert.Contains("server_config", pending[1]);
             Assert.Contains("character_progression", pending[2]);
+            Assert.Contains("character_positions", pending[3]);
         }
     }
 }
