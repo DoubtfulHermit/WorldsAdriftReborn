@@ -146,13 +146,17 @@ changes.
   `/opt/wareborn/backups/pre-7fab2e2-20260817T111125Z`; the coordinated
   pre-`7c99dac` game/patch rollback is
   `/opt/wareborn/backups/pre-7c99dac-20260817T113001Z`.
-- **Public client manifest:** `2026.08.17-2`, build label
-  `distant island visual shells (7c99dac)`. It ships the marked,
+- **Public client manifest:** `2026.08.17-3`, build label
+  `activate distant island shell waiter (bede97e)`. The first `-2` live pass
+  proved both bundles cached but exposed an activation-order defect: Unity
+  rejected the material-ready coroutine while its shell object was inactive,
+  leaving all renderers hidden. `bede97e` activates the already-inert object
+  before arming the waiter. It ships the marked,
   correlated asset-loaded acknowledgement required for safe optional-terrain
   unload/re-entry plus the non-physical low-LOD shell lifecycle. All 54 public
   payloads matched their published hashes.
 - **Managed client DLL SHA-256:**
-  `94a28bfb086ec2c11a5dc23e3449e363abbdda7f9996c67038226bdab23b5b4f`.
+  `db403029aa0dc6a2b96e585141ee506942051a9d9b7b674229f9da6340ce1eca`.
 - **Windows CoreSDK DLL SHA-256:**
   `26b5ce1568abec2ca06d488e3aadaaf725c92a89e1e2482571e27ad31986c354`.
 - **Server state:** active on native Linux, UDP 7779. Boot restored 4/4 placed
