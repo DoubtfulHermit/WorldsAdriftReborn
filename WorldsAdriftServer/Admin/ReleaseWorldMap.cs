@@ -56,13 +56,17 @@ namespace WorldsAdriftServer.Admin
             {
                 int type = (int?)biome["Type"] ?? 0;
                 if (type is < 1 or > 4) continue;
+                string? district = (string?)biome["District"];
                 biomes.Add(new JObject
                 {
                     ["x"] = (double?)biome["x"] ?? 0,
                     ["z"] = (double?)biome["z"] ?? 0,
                     ["type"] = type,
                     ["civilization"] = (int?)biome["Civ"] ?? 0,
-                    ["district"] = (string?)biome["District"] ?? string.Empty,
+                    // Preserve Bossa's two explicit nulls. Inventing E1/E2 or
+                    // folding these cells into E3 would falsify the MapFile.
+                    ["district"] = district == null ? JValue.CreateNull() : district,
+                    ["authoredDistrict"] = district != null,
                 });
             }
 
