@@ -15,6 +15,16 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WorldsAdriftReborn.Storage\WorldsAdriftReborn.Storage.csproj" />
+
+    <!--
+      The crew RULES, not the game server. WorldsAdriftRebornGameServer.Multiplayer
+      is deliberately dependency-free (no ENet, no game assemblies, no server
+      project), so referencing it costs this process nothing and keeps "who may
+      boot whom" in one place. The retail Social Sheet drives crews over HTTP -
+      see docs/research/findings-social-api.md - so this server and the game
+      server mutate the SAME crews, and two copies of those rules would drift.
+    -->
+    <ProjectReference Include="..\WorldsAdriftRebornGameServer.Multiplayer\WorldsAdriftRebornGameServer.Multiplayer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

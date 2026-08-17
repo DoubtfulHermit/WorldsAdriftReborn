@@ -64,6 +64,19 @@ namespace WorldsAdriftServer.Handlers
                     return;
                 }
 
+                // The reconstructed Bossa social API: the retail Social Sheet's
+                // alliance AND crew traffic. Checked before the character routes
+                // because it owns a whole namespace of its own (/memberships,
+                // /crew, /crews, /screenname, /alliance*, /rank*) that none of
+                // them touch, and because it must answer EVERY url in that
+                // namespace - including ones it does not implement - rather than
+                // letting them fall through to a 404 the client renders as a
+                // network error modal.
+                if (Handlers.Social.SocialHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 if(request.Method == "POST" && request.Url == "/authenticate")
                 {
                     SteamAuthenticationHandler.HandleAuthRequest(this, request);
