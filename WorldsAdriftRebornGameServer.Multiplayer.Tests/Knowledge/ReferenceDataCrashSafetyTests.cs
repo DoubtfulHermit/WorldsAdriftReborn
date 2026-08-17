@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer.Knowledge;
+using WorldsAdriftRebornGameServer.Multiplayer.Materials;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
@@ -81,6 +82,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
             "atlasShard",
             "fuel",
         };
+
+        /// <summary>
+        /// Whether a recipe's material requirement can actually be filled in the live
+        /// world. A requirement is EITHER one concrete item id (the old form: "iron",
+        /// "fuel", "atlasShard") OR a material FAMILY ("Metal", "Wood", "Wood/Metal" -
+        /// retail's own form, which the client's crafting slot understands via
+        /// InventoryItemManager.IsSameMaterialType). A family is craftable when at
+        /// least one gatherable material belongs to it, so widening a recipe from
+        /// "iron" to "Metal" can never make it LESS craftable - which is exactly the
+        /// invariant this test exists to protect.
+        /// </summary>
+        private static bool IsGatherableRequirement(string name)
+        {
+            if (GatherableMaterials.Contains(name))
+            {
+                return true;
+            }
+            return MaterialCatalog.IsFamily(name)
+                && GatherableMaterials.Any(g => MaterialCatalog.Satisfies(name, g));
+        }
 
         // The node types that actually learn a craftable schematic (mirror of
         // KnowledgeNodeInfo.LearnsSchematic). CIPHERSLOT/SLOT/TECHNOLOGY learn nothing.
@@ -503,7 +524,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
                 foreach (JToken req in reqs)
                 {
                     string? name = (string?)req["name"];
-                    if (string.IsNullOrEmpty(name) || !GatherableMaterials.Contains(name!))
+                    if (string.IsNullOrEmpty(name) || !IsGatherableRequirement(name!))
                     {
                         bad.Add($"{kv.Key} -> '{name}'");
                     }

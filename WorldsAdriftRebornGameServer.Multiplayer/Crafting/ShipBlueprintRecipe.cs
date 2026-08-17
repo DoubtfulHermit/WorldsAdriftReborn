@@ -15,19 +15,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
     /// </summary>
     public sealed class MaterialRequirement
     {
-        public MaterialRequirement(string materialTypeId, string category, int quality, int amount)
+        public MaterialRequirement(string materialTypeId, string category, int quality, int amount,
+            bool acceptsAnyInCategory = true)
         {
             MaterialTypeId = materialTypeId;
             Category = category;
             Quality = quality;
             Amount = amount;
+            AcceptsAnyInCategory = acceptsAnyInCategory;
         }
 
-        /// <summary>itemData.json itemTypeID, e.g. "birch"/"iron". Drives icon + name.</summary>
+        /// <summary>
+        /// itemData.json itemTypeID, e.g. "birch"/"iron". Drives icon + name.
+        ///
+        /// When <see cref="AcceptsAnyInCategory"/> is set this is the DISPLAY
+        /// EXEMPLAR, not the only acceptable fill: the row still has to name a real
+        /// item id because the client resolves the icon through
+        /// <c>InventoryItemManager.LookupItem(materialTypeId)</c>
+        /// (acs/ShipBlueprintMaterialUI.cs:47,89-92) and would otherwise draw a
+        /// blank slot. VERIFIED: that UI does no accept-filtering of its own - it
+        /// only renders - so the server is free to accept a wider set than the
+        /// exemplar it displays.
+        /// </summary>
         public string MaterialTypeId { get; }
 
         /// <summary>"Wood"/"Metal"/... - a "Wood"/"Metal" category prints the Q{quality}+ prefix.</summary>
         public string Category { get; }
+
+        /// <summary>
+        /// Whether ANY material of <see cref="Category"/> fills this slot (the
+        /// retail behaviour: a hull slot wanted "Q3+ Metal", not specifically iron),
+        /// or only <see cref="MaterialTypeId"/> exactly.
+        ///
+        /// Default TRUE. The strict form stays reachable for a slot that genuinely
+        /// wants one substance - an atlas shard is not "any metal".
+        /// </summary>
+        public bool AcceptsAnyInCategory { get; }
 
         /// <summary>Minimum quality shown as "Q{quality}+".</summary>
         public int Quality { get; }
