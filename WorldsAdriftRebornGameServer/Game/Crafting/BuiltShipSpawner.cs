@@ -53,7 +53,8 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// blob - into the client's log, where we cannot see it - and the visible result
         /// is a hull that renders nothing.
         /// </summary>
-        internal static long? Spawn(long shipyardEntityId, byte[] savedHullBytes)
+        internal static long? Spawn(long shipyardEntityId, byte[] savedHullBytes,
+            Multiplayer.Materials.HullMaterials? materials = null)
         {
             byte[] hullBytes = ResolveValidHullBytes(savedHullBytes);
 
@@ -89,7 +90,13 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // OWNER = the shipyard's owner (the player who built this ship), threaded so
             // the ship's persisted record is owned like its yard and survives restart owned.
             string shipOwner = Placement.PlacedShipyards.SeedFor(shipyardEntityId).OwnerCharacterUid;
-            int persistentIndex = WorldStatePersistence.RecordBuiltShip(hullPos, reg.EffectiveHullBytes, shipOwner, shipyardPos);
+            // WHAT IT IS MADE OF, recorded before anything serves the hull so the very
+            // first 1099/1257 a client receives already describes the real ship.
+            Multiplayer.Materials.HullMaterials effectiveMaterials =
+                (materials ?? Multiplayer.Materials.HullMaterials.Legacy).OrLegacy();
+            BuiltShips.SetMaterials(hullEntityId, effectiveMaterials);
+            int persistentIndex = WorldStatePersistence.RecordBuiltShip(
+                hullPos, reg.EffectiveHullBytes, shipOwner, shipyardPos, effectiveMaterials);
             BuiltShips.SetPersistentIndex(hullEntityId, persistentIndex);
             WorldsAdriftRebornGameServer.Flight.RegisterHull(
                 hullEntityId, persistentIndex, hullPos, yawRadians: 0.0);
@@ -167,6 +174,12 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             // this fixes). Empty for a legacy record written before ownership threading -
             // that hull restores unowned, exactly as it was persisted.
             BuiltShips.SetOwner(reg.HullEntityId, record.OwnerCharacterUid);
+
+            // WHAT IT IS MADE OF. record.Materials() restates a legacy record - one
+            // written before materials existed - as the birch+iron it has always
+            // implicitly been, so the user's existing ships come back with exactly the
+            // mass and appearance they have today rather than changing under them.
+            BuiltShips.SetMaterials(reg.HullEntityId, record.Materials());
 
             Console.WriteLine("[info] built-ship spawn: RESTORED ship as hull entity " + reg.HullEntityId
                 + " + " + reg.Decks.Count + " deck panel entity(ies) at " + reg.Hull.Position + " ("

@@ -214,6 +214,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crafting
         /// <summary>The selected blueprint's id/name (the 1271 blueprintId).</summary>
         public string BlueprintId { get; }
 
+        /// <summary>
+        /// WHAT THIS BUILD IS ACTUALLY MADE OF - the dominant wood and metal among
+        /// every item the player reserved into an ENABLED row.
+        ///
+        /// The craft has always known this: <see cref="MaterialSlot.Loaded"/> holds
+        /// the real <see cref="InventoryItem"/>s, complete with their itemTypeId and
+        /// quality. It simply never asked them what they were, so a copper hull was
+        /// indistinguishable from an iron one the moment the timer finished. This is
+        /// the accessor that carries the player's CHOICE onto the output.
+        ///
+        /// Disabled rows are excluded: a row the player switched off contributes no
+        /// substance to the ship.
+        /// </summary>
+        public Materials.HullMaterials LoadedMaterials()
+        {
+            var consumed = new List<(string ItemTypeId, int Amount, int Quality)>();
+            foreach (SchematicRowBuild row in _rows)
+            {
+                if (!row.IsEnabled)
+                {
+                    continue;
+                }
+                foreach (MaterialSlot slot in row.Slots)
+                {
+                    foreach (InventoryItem item in slot.Loaded)
+                    {
+                        consumed.Add((item.ItemTypeId, item.Amount, item.Quality));
+                    }
+                }
+            }
+            return Materials.HullMaterials.FromConsumed(consumed);
+        }
+
         /// <summary>The whole-blueprint craft time in seconds (the 1271 craftingTime).</summary>
         public int CraftingTime { get; }
 

@@ -44,6 +44,59 @@ namespace WorldsAdriftRebornGameServer.Game.Components
     internal class ComponentsSerializer
     {
         /// <summary>
+        /// Maps the engine-free 1099 material specs onto the gencode
+        /// <c>SlottedMaterial</c> the wire wants. The customization material (a paint
+        /// pigment) is always absent for a hull or deck; the client checks
+        /// <c>customizationMaterial.HasValue</c> before touching it
+        /// (ComponentMaterialColors.cs:93), so an empty Option is safe.
+        /// </summary>
+        private static Improbable.Collections.List<SlottedMaterial> ToSlottedMaterials(
+            System.Collections.Generic.IEnumerable<Multiplayer.Materials.SlottedMaterialSpec> specs)
+        {
+            var list = new Improbable.Collections.List<SlottedMaterial>();
+            foreach (Multiplayer.Materials.SlottedMaterialSpec spec in specs)
+            {
+                list.Add(new SlottedMaterial(
+                    spec.Index,
+                    new Bossa.Travellers.Materials.RawMaterial(
+                        spec.MaterialTypeId,
+                        spec.Quality,
+                        spec.Category,
+                        new Map<string, string> { }),
+                    spec.Amount,
+                    new Option<Bossa.Travellers.Materials.RawMaterial> { }));
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// A built hull's mass in kilograms, from its recorded materials and its
+        /// actual geometry. The hull blob is decoded to count cells and decks, so a
+        /// six-cell ship is heavier than a one-cell one in the same timber. A hull
+        /// whose blob will not decode falls back to the calculator's minimum rather
+        /// than reporting a weightless ship - the client writes this number straight
+        /// into Rigidbody.mass and divides by it.
+        /// </summary>
+        private static double ShipMassKgFor(long entityId)
+        {
+            Multiplayer.Materials.HullMaterials materials = Crafting.BuiltShips.MaterialsFor(entityId);
+
+            int cells = 1;
+            int decks = 1;
+            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(entityId);
+            if (hullBytes != null
+                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
+                && plan != null)
+            {
+                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
+                cells = metrics.CellCount;
+                decks = metrics.DeckCount;
+            }
+
+            return Multiplayer.Materials.HullMassCalculator.HullMassKg(materials, cells, decks);
+        }
+
+        /// <summary>
         /// Whether an entity is the REQUESTING peer's OWN player avatar - the only
         /// thing the loading barrier ever holds. The barrier seeds (190000 Requested,
         /// 190002 IsActive=false) must land on the joining peer's own player and
@@ -2682,20 +2735,38 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             ? "Fuel"
                             : metalNode != null ? "Metal" : "Wood";
 
+                        // THE HULL NOW PUBLISHES WHAT IT IS MADE OF. The empty list
+                        // below used to reach the ship frame too, and that is exactly
+                        // the error the live client logs on every ship mesh build:
+                        //   [ComponentMaterialColors] No wooden or metal materials
+                        //   found for ShipFrame .../Generated
+                        // CustomShipFrameVisualizer.cs:52 feeds this very list into
+                        // MeshGenerator.GenerateShipMesh -> SetMaterialColors, which
+                        // logs and bails when both its wood and metal buckets are
+                        // empty (ComponentMaterialColors.cs:173-177, VERIFIED).
+                        //
+                        // The stated reason for keeping it empty - that an id would
+                        // NRE ComponentMaterialColors - is DISPROVEN:
+                        // MaterialManager.MaterialDefinitionFromName logs ErrorOnce and
+                        // returns a non-null fallback (acs/MaterialManager.cs:109-118),
+                        // so a bad name is a magenta tint, not a crash. And we send
+                        // real itemData ids anyway. A hull with no recorded material
+                        // publishes the birch+iron it has always implicitly been.
                         Improbable.Collections.List<SlottedMaterial> originalMaterials =
-                            isDeck
-                                ? new Improbable.Collections.List<SlottedMaterial>
+                            isShipHull
+                                ? ToSlottedMaterials(
+                                    Multiplayer.Materials.HullMaterialPublication.ForHull(
+                                        Crafting.BuiltShips.MaterialsFor(entityId)))
+                                : isDeck
+                                ? ToSlottedMaterials(new[]
                                 {
-                                    new SlottedMaterial(
-                                        0,
-                                        new Bossa.Travellers.Materials.RawMaterial(
-                                            Multiplayer.Deck.MaterialTypeId,
-                                            1,                                  // quality
-                                            Multiplayer.Deck.MaterialCategory,  // "Wood"
-                                            new Map<string, string> { }),
-                                        1,                                      // amount
-                                        new Option<Bossa.Travellers.Materials.RawMaterial> { }),
-                                }
+                                    // A deck must carry EXACTLY ONE entry at index 0:
+                                    // ShipDeckVisualizer.OnEnable indexes
+                                    // OriginalMaterials[0].rawMaterial.category and an
+                                    // empty list throws there, leaving no solid floor.
+                                    Multiplayer.Materials.HullMaterialPublication.ForDeck(
+                                        Crafting.BuiltShips.MaterialsForDeck(entityId)),
+                                })
                                 : isSalvageableResource
                                     ? new Improbable.Collections.List<SlottedMaterial>
                                     {
@@ -2863,7 +2934,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // (12,077/session measured). Mass is a RECONSTRUCTION (retail values
                         // lost): modest enough that the flight-agent's generous 1258 lift
                         // seed keeps Load < 1 (not overloaded), tunable without rebuild.
-                        float shipMass = 800f;
+                        // NOW DERIVED FROM WHAT THE SHIP IS MADE OF, in retail's own
+                        // kilograms, instead of one flat number for every hull. The
+                        // calibration keeps a stock IRON hull at ~780 kg - within a
+                        // whisker of the 800 f this always served - so existing ships
+                        // do not change, while a cedar skiff is genuinely light and a
+                        // gold barge genuinely is not. WAREBORN_SHIP_MASS still wins
+                        // when set, as a live override.
+                        float shipMass = (float)ShipMassKgFor(entityId);
                         string? massEnv = Environment.GetEnvironmentVariable("WAREBORN_SHIP_MASS");
                         if (!string.IsNullOrEmpty(massEnv) && float.TryParse(massEnv,
                                 System.Globalization.NumberStyles.Float,

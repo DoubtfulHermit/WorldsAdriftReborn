@@ -26,18 +26,24 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         /// <summary>
         /// Called once, on the build timer's completion, after the blueprint's reserved
         /// materials have been consumed. <paramref name="savedHullBytes"/> is the
-        /// selected design's hull geometry blob, ready to expand into a ShipPlan.
+        /// selected design's hull geometry blob, ready to expand into a ShipPlan, and
+        /// <paramref name="materials"/> is what the player actually paid in - the
+        /// wood and metal the finished ship is made of. Null means "not recorded",
+        /// which resolves to the legacy birch+iron rather than to nothing.
         /// </summary>
-        internal static void OnBuilt(long shipyardEntityId, long playerEntityId, byte[] savedHullBytes)
+        internal static void OnBuilt(long shipyardEntityId, long playerEntityId, byte[] savedHullBytes,
+            Multiplayer.Materials.HullMaterials? materials = null)
         {
             Console.WriteLine("[info] ship build COMPLETE on shipyard " + shipyardEntityId
                 + " for player " + playerEntityId + " (" + (savedHullBytes?.Length ?? 0)
-                + " hull byte(s) ready). Spawning the built ship next to the shipyard.");
+                + " hull byte(s) ready, materials "
+                + (materials ?? Multiplayer.Materials.HullMaterials.Legacy)
+                + "). Spawning the built ship next to the shipyard.");
 
             // Spawn a real, boardable hull+deck next to the shipyard from the player's
             // saved design. One-time AddEntity + static seeds, then ordinary interest
             // serving - not a stream, not a per-frame re-seed.
-            BuiltShipSpawner.Spawn(shipyardEntityId, savedHullBytes ?? Array.Empty<byte>());
+            BuiltShipSpawner.Spawn(shipyardEntityId, savedHullBytes ?? Array.Empty<byte>(), materials);
         }
     }
 }
