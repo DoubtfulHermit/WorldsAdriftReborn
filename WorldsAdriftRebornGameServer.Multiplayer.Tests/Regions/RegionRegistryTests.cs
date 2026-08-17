@@ -26,6 +26,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
+        [InlineData(12)]
         public void Opt_in_tier_one_topology_preserves_defaults_and_owns_every_selected_island(
             int optionalCount)
         {
@@ -48,6 +49,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         [InlineData(2)]
         [InlineData(3)]
         [InlineData(4)]
+        [InlineData(12)]
         public void Opt_in_tier_one_membership_is_deterministic_and_ordinal(int optionalCount)
         {
             IslandRegistry firstIslands =

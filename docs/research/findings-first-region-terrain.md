@@ -20,16 +20,31 @@ Saborian tier-1 district B3, not C6:
 | 2 | Betrayal of the Copper King | 950242829 | 31506652, 580855, 40190030 |
 | 3 | Highlands Hills | 1206946500 | 38919041, 516457, 38365766 |
 | 4 | The Land that Man Forgot | 942473835 | 40357265, 37785, 29935290 |
+| 5 | DrunkRaven Inn | 924807150 | 33756291, 1415496, 18067083 |
+| 6 | Beautiful Wildlands | 742077672 | 30901057, 39425, 22887514 |
+| 7 | The Three | 1129983108 | 20839827, -667437, 22841061 |
+| 8 | Roxborough Isle | 1483206813 | 29404985, 445557, 28800561 |
+| 9 | Camps Daurats | 1319380815 | 24433521, -948307, 38831677 |
+| 10 | Triphalion City | 1675054039 | 22536482, 205446, 30035513 |
+| 11 | Splitpeak Pass | 966489234 | 25630871, 388610, 16943796 |
+| 12 | Crimson Paradise | 938282702 | 39857582, -721753, 22106451 |
 
-All four optional client bundles/manifests and extracted island surfaces exist
-locally. All are tier-1 Saborian islands with surveyed revival chambers and
-3–5 databanks. Rollout order is increasing bundle size, keeping the first visual
-acceptance inexpensive. The full B3 district has twelve surveyed tier-1 islands;
-this is a bounded prefix, not a claim that four islands complete the zone.
+All twelve optional client bundles/manifests and TRS-correct extracted island
+surfaces exist locally. All are surveyed tier-1 Saborian islands with 3–5
+databanks; seven report revival chambers. The first four rollout slots remain
+frozen so count one still means Mental Facility. The other eight are ordered by
+increasing bundle size. The full district is 116.5 MiB compressed; the original
+four-island acceptance prefix is roughly 42.5 MiB.
+
+`IslandSurveyCatalog` pins the joined Cardinal gameplay facts for all twelve:
+databank count, revival-chamber presence, tree species, turret/danger flags and
+surveyed PvE/PvP metal tables. An empty metal table remains explicitly empty; it
+is not permission to invent a generic population. Exact original dynamic-node
+coordinates did not survive and are not claimed by this topology milestone.
 
 ## Runtime contract
 
-`WAREBORN_FIRST_REGION_TERRAIN_COUNT` selects a clamped B3 prefix from 0 through 4.
+`WAREBORN_FIRST_REGION_TERRAIN_COUNT` selects a clamped B3 prefix from 0 through 12.
 Zero is the production default and changes no spawned terrain. The older
 `WAREBORN_SPAWN_SECOND_ISLAND` remains independent and retains its proven Trades
 resource profile. The new setting registers terrain only: it does not invent
@@ -70,8 +85,8 @@ passed headless policy, protocol, native round-trip and full server tests, but i
 still needs real Unity acceptance. Accept one count at a time while recording
 login duration, exact asset acknowledgements/timeouts, client memory/frame time,
 collision, approach/leave/re-entry, teleport deferral, reconnect and independent
-two-client visibility. Do not enable all four merely because headless tests pass;
-the four bundles total roughly 42.5 MiB compressed.
+two-client visibility. Do not enable the complete district merely because
+headless tests pass; advance the bounded prefix exactly one island at a time.
 Mental Facility now has the first guarded visual-test destination:
 `mental-facility`. Its island-local surface point is `(120.00, 34.26, -16.00)`
 with a 2 m capsule stand-off. The extracted vertex normal is `ny=0.990`, the

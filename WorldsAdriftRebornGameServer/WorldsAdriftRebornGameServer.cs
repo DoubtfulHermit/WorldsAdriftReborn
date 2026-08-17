@@ -2361,7 +2361,7 @@ namespace WorldsAdriftRebornGameServer
         /// <summary>
         /// Bounded terrain-only rollout for the evidenced first release-map region.
         /// Zero preserves today's Haven/Trades topology and spawn behavior; values
-        /// 1..4 select the evidenced Saborian tier-1 B3 terrain prefix.
+        /// 1..12 select the evidenced Saborian tier-1 B3 terrain prefix.
         /// </summary>
         internal static readonly int FirstRegionTerrainCount =
             Multiplayer.Islands.FirstRegionTerrainCountPolicy.CountFrom(

@@ -56,6 +56,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                     -268.2, -120.3, -222.5, 319.8, 98.7, 362.6),
                 [IslandCatalog.LandManForgotId] = new(IslandCatalog.LandManForgotId,
                     -320.3, -267.3, -313.0, 315.0, 210.3, 324.2),
+                [IslandCatalog.DrunkRavenInnId] = new(IslandCatalog.DrunkRavenInnId,
+                    -36.2, -240.2, -32.9, 72.5, 0.7, 69.1),
+                [IslandCatalog.BeautifulWildlandsId] = new(IslandCatalog.BeautifulWildlandsId,
+                    -82.4, -150.9, -101.9, 76.7, 92.0, 81.1),
+                [IslandCatalog.TheThreeId] = new(IslandCatalog.TheThreeId,
+                    -260.1, -84.4, -300.4, 75.1, 47.1, 86.3),
+                [IslandCatalog.RoxboroughIsleId] = new(IslandCatalog.RoxboroughIsleId,
+                    -276.3, -92.9, -200.7, 268.1, 35.7, 200.7),
+                [IslandCatalog.CampsDauratsId] = new(IslandCatalog.CampsDauratsId,
+                    -248.2, -85.5, -258.8, 257.6, 198.9, 347.2),
+                [IslandCatalog.TriphalionCityId] = new(IslandCatalog.TriphalionCityId,
+                    -284.1, -173.3, -295.9, 295.6, 133.1, 315.2),
+                [IslandCatalog.SplitpeakPassId] = new(IslandCatalog.SplitpeakPassId,
+                    -272.9, -82.5, -193.8, 302.0, 259.0, 193.7),
+                [IslandCatalog.CrimsonParadiseId] = new(IslandCatalog.CrimsonParadiseId,
+                    -314.8, -313.9, -312.9, 316.8, 109.7, 314.5),
             };
 
         public static IslandTerrainEnvelope? ByIsland(IslandId islandId) =>

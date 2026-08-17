@@ -18,6 +18,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public static readonly IslandId HighlandsHillsId = new IslandId("highlands-hills");
         public static readonly IslandId LandManForgotId =
             new IslandId("the-land-that-man-forgot");
+        public static readonly IslandId DrunkRavenInnId = new IslandId("drunkraven-inn");
+        public static readonly IslandId BeautifulWildlandsId =
+            new IslandId("beautiful-wildlands");
+        public static readonly IslandId TheThreeId = new IslandId("the-three");
+        public static readonly IslandId RoxboroughIsleId = new IslandId("roxborough-isle");
+        public static readonly IslandId CampsDauratsId = new IslandId("camps-daurats");
+        public static readonly IslandId TriphalionCityId = new IslandId("triphalion-city");
+        public static readonly IslandId SplitpeakPassId = new IslandId("splitpeak-pass");
+        public static readonly IslandId CrimsonParadiseId = new IslandId("crimson-paradise");
 
         /// <summary>Haven instance #5 from the preserved Bossa WAMap.</summary>
         public static readonly IslandDefinition Haven = new IslandDefinition(
@@ -115,12 +124,86 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             DefaultTerrainAssetContext,
             SpawnOrder.AfterPlayer);
 
+        public static readonly IslandDefinition DrunkRavenInn = new IslandDefinition(
+            DrunkRavenInnId,
+            "DrunkRaven Inn",
+            "island-drunkraven-inn",
+            new FixedPointPosition(33756291, 1415496, 18067083),
+            "924807150@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition BeautifulWildlands = new IslandDefinition(
+            BeautifulWildlandsId,
+            "Beautiful Wildlands",
+            "island-beautiful-wildlands",
+            new FixedPointPosition(30901057, 39425, 22887514),
+            "742077672@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition TheThree = new IslandDefinition(
+            TheThreeId,
+            "The Three",
+            "island-the-three",
+            new FixedPointPosition(20839827, -667437, 22841061),
+            "1129983108@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition RoxboroughIsle = new IslandDefinition(
+            RoxboroughIsleId,
+            "Roxborough Isle",
+            "island-roxborough-isle",
+            new FixedPointPosition(29404985, 445557, 28800561),
+            "1483206813@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition CampsDaurats = new IslandDefinition(
+            CampsDauratsId,
+            "Camps Daurats",
+            "island-camps-daurats",
+            new FixedPointPosition(24433521, -948307, 38831677),
+            "1319380815@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition TriphalionCity = new IslandDefinition(
+            TriphalionCityId,
+            "Triphalion City",
+            "island-triphalion-city",
+            new FixedPointPosition(22536482, 205446, 30035513),
+            "1675054039@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition SplitpeakPass = new IslandDefinition(
+            SplitpeakPassId,
+            "Splitpeak Pass",
+            "island-splitpeak-pass",
+            new FixedPointPosition(25630871, 388610, 16943796),
+            "966489234@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
+        public static readonly IslandDefinition CrimsonParadise = new IslandDefinition(
+            CrimsonParadiseId,
+            "Crimson Paradise",
+            "island-crimson-paradise",
+            new FixedPointPosition(39857582, -721753, 22106451),
+            "938282702@Island",
+            DefaultTerrainAssetContext,
+            SpawnOrder.AfterPlayer);
+
         /// <summary>
         /// The evidenced first progression-region terrain in rollout order. Haven is
-        /// the tutorial anchor; the remaining four entries are optional tier-1 B3
+        /// the tutorial anchor; the remaining twelve entries are optional tier-1 B3
         /// <see cref="SpawnOrder.AfterPlayer"/> candidates selected as a prefix.
         /// The geographically closer C6 islands above are tier 3 and deliberately do
-        /// not participate in this list.
+        /// not participate in this list. The first four slots preserve the already
+        /// staged rollout contract; the remaining eight are ordered by increasing
+        /// client bundle size so expansion can continue one island at a time.
         /// </summary>
         public static readonly IReadOnlyList<IslandDefinition> FirstRegionTerrain =
             Array.AsReadOnly(new[]
@@ -130,6 +213,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 BetrayalCopperKing,
                 HighlandsHills,
                 LandManForgot,
+                DrunkRavenInn,
+                BeautifulWildlands,
+                TheThree,
+                RoxboroughIsle,
+                CampsDaurats,
+                TriphalionCity,
+                SplitpeakPass,
+                CrimsonParadise,
             });
     }
 }

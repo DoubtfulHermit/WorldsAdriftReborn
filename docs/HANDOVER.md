@@ -562,10 +562,11 @@ generations, but no in-process gateway seam yet.
 ### First tier-1 B3 terrain expansion (local, off by default)
 
 The next release-world terrain cluster joins the preserved Bossa MapFile to the
-final Cardinal survey: Mental Facility, Betrayal of the Copper King, Highlands
-Hills and The Land that Man Forgot. They are all Saborian tier-1 islands in
-district B3. `WAREBORN_FIRST_REGION_TERRAIN_COUNT=0..4` selects a bounded
-terrain-only prefix; zero is the default. Geographically closer C6 islands are
+final Cardinal survey. The complete Saborian tier-1 B3 district contains twelve
+islands; its first four staged entries remain Mental Facility, Betrayal of the
+Copper King, Highlands Hills and The Land that Man Forgot.
+`WAREBORN_FIRST_REGION_TERRAIN_COUNT=0..12` selects a bounded terrain-only
+prefix; zero is the default. Geographically closer C6 islands are
 tier 3 and are intentionally deferred. All runtime topology consumers share
 the same configured island/region registries, so spawn, resource routing,
 directory ownership, local domains, databank parent resolution and admin stats
@@ -574,10 +575,14 @@ bounded rollout set to exactly one terrain (`Mental Facility`); it is not yet
 visually accepted. Mental Facility has the first guarded named landing destination,
 `mental-facility`, derived from its extracted top surface; both the game server
 and admin page refuse it unless at least the first tier-1 terrain is registered.
-Do not enable all four at once. Continuous distance checkout is integrated into
+Do not jump to the complete district at once. Continuous distance checkout is integrated into
 `feat/island-identity` at `7cbb376`, with exact cold-asset ACKs,
 terrain/resource ordering and safe teleport deferral, but is not deployed or
-visually accepted. The four bundles total roughly 42.5 MiB compressed.
+visually accepted. All twelve bundles total roughly 116.5 MiB compressed; the
+original four-island acceptance prefix is roughly 42.5 MiB. Release-map origins,
+terrain envelopes and joined survey profiles (databanks, revival chambers,
+trees, turret/danger flags and metal tables) are pinned for all twelve, but no
+new dynamic resource population is enabled by terrain registration alone.
 See `docs/research/findings-first-region-terrain.md`.
 
 Production verification after the `07270f1` restart: stats schema 4 reported

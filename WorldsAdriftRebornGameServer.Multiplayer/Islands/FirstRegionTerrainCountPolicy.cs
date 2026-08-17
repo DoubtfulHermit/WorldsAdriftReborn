@@ -7,7 +7,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// </summary>
     public static class FirstRegionTerrainCountPolicy
     {
-        public const int MaximumOptionalTerrain = 4;
+        public const int MaximumOptionalTerrain = 12;
 
         public static int Clamp(int count)
         {

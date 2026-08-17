@@ -57,7 +57,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [InlineData(1, 3)]
         [InlineData(2, 4)]
         [InlineData(4, 6)]
-        [InlineData(99, 6)]
+        [InlineData(12, 14)]
+        [InlineData(99, 14)]
         public void First_region_factory_preserves_defaults_and_adds_a_bounded_candidate_prefix(
             int optionalCount,
             int expectedTotal)
@@ -77,7 +78,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void First_region_terrain_is_ordered_as_one_required_then_four_optional_candidates()
+        public void First_region_terrain_preserves_the_staged_prefix_then_adds_the_complete_zone()
         {
             Assert.Equal(
                 new[]
@@ -87,6 +88,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                     IslandCatalog.BetrayalCopperKingId,
                     IslandCatalog.HighlandsHillsId,
                     IslandCatalog.LandManForgotId,
+                    IslandCatalog.DrunkRavenInnId,
+                    IslandCatalog.BeautifulWildlandsId,
+                    IslandCatalog.TheThreeId,
+                    IslandCatalog.RoxboroughIsleId,
+                    IslandCatalog.CampsDauratsId,
+                    IslandCatalog.TriphalionCityId,
+                    IslandCatalog.SplitpeakPassId,
+                    IslandCatalog.CrimsonParadiseId,
                 },
                 IslandCatalog.FirstRegionTerrain.Select(island => island.Id));
 
@@ -107,6 +116,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [InlineData("the-land-that-man-forgot", "The Land that Man Forgot",
             "island-the-land-that-man-forgot", 40357265, 37785, 29935290,
             "942473835@Island")]
+        [InlineData("drunkraven-inn", "DrunkRaven Inn", "island-drunkraven-inn",
+            33756291, 1415496, 18067083, "924807150@Island")]
+        [InlineData("beautiful-wildlands", "Beautiful Wildlands", "island-beautiful-wildlands",
+            30901057, 39425, 22887514, "742077672@Island")]
+        [InlineData("the-three", "The Three", "island-the-three",
+            20839827, -667437, 22841061, "1129983108@Island")]
+        [InlineData("roxborough-isle", "Roxborough Isle", "island-roxborough-isle",
+            29404985, 445557, 28800561, "1483206813@Island")]
+        [InlineData("camps-daurats", "Camps Daurats", "island-camps-daurats",
+            24433521, -948307, 38831677, "1319380815@Island")]
+        [InlineData("triphalion-city", "Triphalion City", "island-triphalion-city",
+            22536482, 205446, 30035513, "1675054039@Island")]
+        [InlineData("splitpeak-pass", "Splitpeak Pass", "island-splitpeak-pass",
+            25630871, 388610, 16943796, "966489234@Island")]
+        [InlineData("crimson-paradise", "Crimson Paradise", "island-crimson-paradise",
+            39857582, -721753, 22106451, "938282702@Island")]
         public void Tier_one_B3_candidates_preserve_release_identity_and_transform(
             string id,
             string displayName,

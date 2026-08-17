@@ -63,7 +63,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>
         /// Builds the evidenced first-region terrain registry without changing the
         /// production default. Haven and the proven Trades topology remain present;
-        /// <paramref name="optionalCount"/> selects a bounded prefix of four tier-1
+        /// <paramref name="optionalCount"/> selects a bounded prefix of twelve tier-1
         /// B3 after-player candidates.
         /// </summary>
         public static IslandRegistry CreateWithFirstRegionTerrain(int optionalCount)

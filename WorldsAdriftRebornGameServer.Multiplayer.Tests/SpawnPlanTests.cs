@@ -423,7 +423,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         public void First_region_terrain_streams_after_player_in_release_rollout_order()
         {
             WorldEntityRegistry registry = WorldEntities.Default(
-                new EntityIdAllocator(), firstRegionTerrainCount: 4);
+                new EntityIdAllocator(),
+                firstRegionTerrainCount: FirstRegionTerrainCountPolicy.MaximumOptionalTerrain);
             IReadOnlyList<SpawnPlanStep> plan = SpawnPlan.For(registry);
 
             int player = IndexOf(plan, SpawnOp.AddEntity, null);

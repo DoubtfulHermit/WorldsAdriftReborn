@@ -158,10 +158,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
         [Fact]
         public void Tier_one_terrain_has_one_region_owner_and_exact_island_affinity()
         {
-            IslandRegistry islands = IslandRegistry.CreateWithFirstRegionTerrain(4);
-            RegionRegistry regions = RegionRegistry.CreateWithFirstRegionTerrain(islands, 4);
+            int terrainCount = FirstRegionTerrainCountPolicy.MaximumOptionalTerrain;
+            IslandRegistry islands = IslandRegistry.CreateWithFirstRegionTerrain(terrainCount);
+            RegionRegistry regions = RegionRegistry.CreateWithFirstRegionTerrain(islands, terrainCount);
             WorldEntityRegistry entities = WorldEntities.Default(
-                new EntityIdAllocator(), firstRegionTerrainCount: 4);
+                new EntityIdAllocator(), firstRegionTerrainCount: terrainCount);
 
             WorldDirectory directory = WorldDirectory.Build(entities, islands, regions);
 
