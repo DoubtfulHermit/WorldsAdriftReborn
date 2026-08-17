@@ -540,17 +540,41 @@ namespace WorldsAdriftRebornGameServer
                 Environment.GetEnvironmentVariable("WAREBORN_TREE_RESPAWN_SECONDS")));
 
         /// <summary>
+        /// Everything felled by this server that is currently falling over or lying
+        /// on the ground. Internal because <see cref="Game.Components.ComponentsSerializer"/>
+        /// resolves a log's prefab, section mask and pose off it - a log is
+        /// deliberately not a world registration, so this is the only thing that
+        /// knows a log exists.
+        /// </summary>
+        /// <remarks>
+        /// Declared after <see cref="ServerClock"/>: static field initializers run in
+        /// textual order, and a clock declared below its consumer would be null here.
+        /// </remarks>
+        internal static readonly Game.Gathering.FallingLogService FallingLogs =
+            new Game.Gathering.FallingLogService(ServerClock);
+
+        /// <summary>
         /// Once per main-loop turn: applies every cut whose timer has elapsed
-        /// (telling the clients and granting the wood), then stands back up every
-        /// tree whose regrowth delay has elapsed. Both talk to the clients through
-        /// the one <see cref="PushTreeSectionMask"/> seam, whose doc carries the two
-        /// rules a tree mask push must never break.
+        /// (dropping the log, telling the clients and granting the wood), then stands
+        /// back up every tree whose regrowth delay has elapsed. Both talk to the
+        /// clients through the one <see cref="PushTreeSectionMask"/> seam, whose doc
+        /// carries the two rules a tree mask push must never break.
         /// </summary>
         private static void TickTreeHarvest()
         {
             foreach (TreeSectionMaskChange change in Harvest.Due())
             {
                 Console.WriteLine("[info] " + change + ".");
+
+                // ------------------------------------------------------------------
+                // THE LOG COMES FIRST, and the order is retail's, not a preference.
+                // TreeSection.Harvest calls SpawnNewTree(salvagerId, fallingMask) at
+                // acs/TreeSection.cs:78 and ChangeMask(remaining) at :79 - so the
+                // severed part exists while the crown is still standing, and the
+                // crown then vanishes underneath it. Push the mask first and there is
+                // a window in which the tree is visibly bald and nothing is falling,
+                // which is the bug this whole path exists to remove.
+                FallingLogs.Drop(change);
 
                 PushTreeSectionMask(change.TreeEntityId, change.SectionMask);
 
@@ -4193,6 +4217,12 @@ namespace WorldsAdriftRebornGameServer
                 // comes apart" is this timer or it does not happen. Cheap when
                 // nobody is chopping: an empty dictionary.
                 TickTreeHarvest();
+                // Drive whatever TickTreeHarvest just felled: the log's topple arc and
+                // the removal of one whose linger is up. Deliberately AFTER the cut,
+                // so a section severed this turn gets its first pose in this turn.
+                // Cheap when nothing is falling: two empty-dictionary walks. See
+                // Game.Gathering.FallingLogService for the wire-shape contract.
+                FallingLogs.Tick();
                 // Fire any due one-shot "seed in-progress then flip" completions on the main
                 // loop: the shipyard fold-out flip (1205 deployed=true), the crafted-part
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
