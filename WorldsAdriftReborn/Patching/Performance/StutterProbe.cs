@@ -33,6 +33,18 @@ namespace WorldsAdriftReborn.Patching.Performance
     ///             dispatch + entity creation + deferred queue). A big dt with
     ///             SMALL spatial exonerates networking/ECS entirely and points
     ///             at GC, rendering, or another Update.
+    ///   asset   - milliseconds spent inside DispatchEventHandler.OnAssetLoad,
+    ///             a SUBSET of spatial. This exists because spatial had one
+    ///             blind spot big enough to hide the island-approach hitch:
+    ///             an AssetLoadRequestOp is not an entity op, so it moves no
+    ///             ents/ops/comps/tmpl counter, yet OnAssetLoad is where the
+    ///             template provider is asked to prepare a prefab - and for
+    ///             island bundles that used to mean a synchronous multi-megabyte
+    ///             AssetBundle.LoadFromFile on this call stack. A spike with
+    ///             all four counters at 0 and spatial ~= asset is an asset read,
+    ///             full stop; spatial >> asset with counters at 0 is something
+    ///             else in the op pump and needs its own field. See
+    ///             IslandBundleAsyncLoad_Patch.
     ///   gc0/1/2 - GC.CollectionCount deltas across the spike window. gc>0 with
     ///             a large negative heapD = a collection ran; the stutter is
     ///             allocation pressure, not workload.
@@ -74,8 +86,10 @@ namespace WorldsAdriftReborn.Patching.Performance
         internal static int ComponentAdds;      // AddComponent dispatches
         internal static int TemplateRequests;   // prefab/template requests
         internal static long SpatialTicks;      // Stopwatch ticks inside ConnectionLifecycle.Update
+        internal static long AssetTicks;        // Stopwatch ticks inside DispatchEventHandler.OnAssetLoad
 
         private static readonly System.Diagnostics.Stopwatch SpatialWatch = new System.Diagnostics.Stopwatch();
+        private static readonly System.Diagnostics.Stopwatch AssetWatch = new System.Diagnostics.Stopwatch();
 
         // Lifetime totals (never reset; the beat prints them so the LAST beat
         // before a crash carries the whole session's shape).
@@ -83,6 +97,7 @@ namespace WorldsAdriftReborn.Patching.Performance
         private static int _totalEntityAdds;
         private static int _totalComponentAdds;
         private static int _totalTemplateRequests;
+        private static double _totalAssetMs;
 
         // ------------------------------------------------------------------
         // Probe state
@@ -95,7 +110,7 @@ namespace WorldsAdriftReborn.Patching.Performance
 
         // previous frame's activity (the long frame's own work; see TIMING MODEL)
         private int _prevEntityOps, _prevEntityAdds, _prevComponentAdds, _prevTemplateRequests;
-        private double _prevSpatialMs;
+        private double _prevSpatialMs, _prevAssetMs;
 
         // GC bookkeeping
         private int _lastGc0, _lastGc1, _lastGc2;
@@ -181,6 +196,18 @@ namespace WorldsAdriftReborn.Patching.Performance
                 "WorkerSpecificAssetDatabaseTemplateProvider", "GetEntityTemplate",
                 null, AccessTools.Method(typeof(StutterProbe), "Template_Postfix"));
 
+            // Priority.First because the mod's OWN prefix on this method returns
+            // false for procedural distant-shell requests, and Harmony skips every
+            // prefix after one that does. The timing prefix must be ahead of it or
+            // it would silently stop starting the clock. (Postfixes always run, so
+            // Asset_Postfix additionally refuses to bank a reading the prefix never
+            // opened.)
+            ArmOne(harmony, armed, "asset",
+                "Improbable.Unity.Core.DispatchEventHandler", "OnAssetLoad",
+                AccessTools.Method(typeof(StutterProbe), "Asset_Prefix"),
+                AccessTools.Method(typeof(StutterProbe), "Asset_Postfix"),
+                Priority.First);
+
             // Loading-screen release marker: PlayerActivationVisualiser.Activate
             // fires when 190002 Activated flips. One line per flip timestamps the
             // moment the barrier released the client - every entity instantiated
@@ -193,7 +220,8 @@ namespace WorldsAdriftReborn.Patching.Performance
         }
 
         private void ArmOne(Harmony harmony, StringBuilder armed, string name,
-            string typeName, string methodName, MethodInfo prefix, MethodInfo postfix)
+            string typeName, string methodName, MethodInfo prefix, MethodInfo postfix,
+            int prefixPriority = Priority.Normal)
         {
             try
             {
@@ -202,7 +230,7 @@ namespace WorldsAdriftReborn.Patching.Performance
                 MethodBase target = AccessTools.Method(type, methodName);
                 if (target == null) { throw new MissingMemberException(typeName, methodName); }
                 harmony.Patch(target,
-                    prefix == null ? null : new HarmonyMethod(prefix),
+                    prefix == null ? null : new HarmonyMethod(prefix) { priority = prefixPriority },
                     postfix == null ? null : new HarmonyMethod(postfix));
                 if (armed.Length > 0) { armed.Append('+'); }
                 armed.Append(name);
@@ -232,6 +260,23 @@ namespace WorldsAdriftReborn.Patching.Performance
         {
             SpatialWatch.Stop();
             SpatialTicks += SpatialWatch.ElapsedTicks;
+        }
+
+        private static void Asset_Prefix()
+        {
+            AssetWatch.Reset();
+            AssetWatch.Start();
+        }
+
+        private static void Asset_Postfix()
+        {
+            // A postfix runs even when an earlier prefix short-circuited the
+            // method - and, if that prefix ran first, Asset_Prefix never did.
+            // Banking ElapsedTicks off a stopped watch would then re-count the
+            // PREVIOUS call's duration on every such op.
+            if (!AssetWatch.IsRunning) { return; }
+            AssetWatch.Stop();
+            AssetTicks += AssetWatch.ElapsedTicks;
         }
 
         private static void Activation_Postfix(bool isActive)
@@ -300,6 +345,9 @@ namespace WorldsAdriftReborn.Patching.Performance
             _prevComponentAdds = ComponentAdds;
             _prevTemplateRequests = TemplateRequests;
             _prevSpatialMs = SpatialTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            _prevAssetMs = AssetTicks * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            _totalAssetMs += _prevAssetMs;
+            AssetTicks = 0;
             EntityOps = 0;
             EntityAdds = 0;
             ComponentAdds = 0;
@@ -324,6 +372,7 @@ namespace WorldsAdriftReborn.Patching.Performance
             _sb.Append(" comps+").Append(_prevComponentAdds);
             _sb.Append(" tmpl+").Append(_prevTemplateRequests);
             _sb.Append(" spatial=").Append(_prevSpatialMs.ToString("0.0", CultureInfo.InvariantCulture)).Append("ms");
+            _sb.Append(" asset=").Append(_prevAssetMs.ToString("0.0", CultureInfo.InvariantCulture)).Append("ms");
             _sb.Append(" gc0+").Append(dGc0).Append(" gc1+").Append(dGc1).Append(" gc2+").Append(dGc2);
             _sb.Append(" heapD=").Append((dHeap / (1024.0 * 1024.0)).ToString("+0.0;-0.0", CultureInfo.InvariantCulture)).Append("MB");
             _sb.Append(" heap=").Append((heap / (1024.0 * 1024.0)).ToString("0.0", CultureInfo.InvariantCulture)).Append("MB");
@@ -348,6 +397,7 @@ namespace WorldsAdriftReborn.Patching.Performance
             _sb.Append("/ops=").Append(_totalEntityOps);
             _sb.Append(" comps=").Append(_totalComponentAdds);
             _sb.Append(" tmpl=").Append(_totalTemplateRequests);
+            _sb.Append(" asset=").Append(_totalAssetMs.ToString("0", CultureInfo.InvariantCulture)).Append("ms");
             _sb.Append(" gc0=").Append(GC.CollectionCount(0));
             _sb.Append(" gc1=").Append(GC.CollectionCount(1));
             _sb.Append(" gc2=").Append(GC.CollectionCount(2));

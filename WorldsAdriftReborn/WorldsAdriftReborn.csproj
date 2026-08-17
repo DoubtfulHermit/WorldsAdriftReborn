@@ -101,6 +101,8 @@
              Link="Patching\Multiplayer\HierarchyLifecyclePolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Islands\IslandDistantShellProtocol.cs"
              Link="Patching\Multiplayer\Islands\IslandDistantShellProtocol.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Islands\IslandBundleLoadPolicy.cs"
+             Link="Patching\Multiplayer\Islands\IslandBundleLoadPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\HelmYawResponsePolicy.cs"
              Link="Patching\Flight\HelmYawResponsePolicy.cs" />
   </ItemGroup>
