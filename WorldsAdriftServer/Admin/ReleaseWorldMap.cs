@@ -132,7 +132,7 @@ namespace WorldsAdriftServer.Admin
                 },
                 ["faunaModel"] = ProjectFaunaModel(),
                 ["whaleModel"] = ProjectSkyWhaleModel(),
-                ["whaleCircuits"] = ProjectSkyWhaleCircuits(),
+                ["whaleRoutes"] = ProjectSkyWhaleRoutes(),
                 ["worldEdgeLength"] = edge,
                 ["havenSeparatorX"] = havenSeparatorX,
                 ["islands"] = islands,
@@ -310,68 +310,123 @@ namespace WorldsAdriftServer.Admin
                 ["unloadRadiusMetres"] = c.UnloadRadiusMetres,
                 ["callRadiusMetres"] = c.CallRadiusMetres,
                 ["poseIntervalSeconds"] = c.PoseIntervalSeconds,
-                ["minimumIslandsPerRegion"] = c.MinimumIslandsPerRegion,
+                ["minimumIslands"] = c.MinimumIslands,
                 ["perPeerWhales"] = c.PerPeerWhales,
             };
         }
 
         /// <summary>
-        /// Every region's whale circuit, IN TRAVEL ORDER, as island-local offsets -
-        /// the same frame the preserved coastline and the fauna geometry are
-        /// projected in, so the animal is drawn in the right relationship to the
-        /// rocks it flies between.
+        /// THE WORLD WHALE ROUTES, IN TRAVEL ORDER, as island-local offsets - the
+        /// same frame the preserved coastline and the fauna geometry are projected
+        /// in, so the animal is drawn in the right relationship to the rocks it
+        /// flies between.
         ///
-        /// THE RING ORDER IS THE SERVER'S, NOT THE BROWSER'S, and that is the one
-        /// decision here that matters. <see cref="SkyWhaleCircuit"/> orders its
-        /// waypoints by bearing about the region's centroid; a browser re-deriving
-        /// that from MapFile placements could get a different answer wherever the
-        /// MapFile and the runtime catalogue disagree about where an island is, and
-        /// a whale flying a different loop on the map than in the game would be a
+        /// ONE ROUTE PER ROLLOUT, NOT ONE PER REGION, and the plural is the whole
+        /// correctness argument. Since the whale became a single migrating animal
+        /// its route is a function of WHICH CELLS the game server rolled out: four
+        /// cells and twenty cells produce different zone orders, different lap times
+        /// and different phases. While there were four whales that could not bite -
+        /// a circuit was one cell's ring and cells are selected whole, so the map's
+        /// ring and the server's ring for the same cell were identical by
+        /// construction - and with one route it bites hard: a map holding the
+        /// twenty-cell route would draw the animal confidently on the wrong side of
+        /// the world.
+        ///
+        /// So this publishes one route for each cell set a rollout can name IN A
+        /// WORD - "all", and each of the four MapFile tiers - each labelled with
+        /// <see cref="SkyWhaleRoute.RouteIdFor"/>'s cell-set name, and the browser
+        /// joins on that name. A composed selector ("tier1,C6") produces a cell set
+        /// no route here carries, and the map then draws NO whale and says so, which
+        /// is the same honest degradation it already applies to a game server that
+        /// predates the feature. Production runs tier1.
+        ///
+        /// THE ROUTE ORDER IS THE SERVER'S, NOT THE BROWSER'S, and that is the other
+        /// decision here that matters. <see cref="SkyWhaleRoute"/> orders the zones
+        /// by bearing about the world centroid and the islands by bearing about
+        /// their own zone's centroid; a browser re-deriving that from MapFile
+        /// placements could get a different answer wherever the MapFile and the
+        /// runtime catalogue disagree about where an island is, and a whale
+        /// migrating in a different order on the map than in the game would be a
         /// worse lie than not drawing it. So the order, the lap time and the phase
         /// are computed ONCE, here, by the same code the game server runs, and the
         /// browser is left only the part that depends on time.
-        ///
-        /// EVERY region is published, not only the ones a given rollout selects: the
-        /// map file is static and shared, and which regions actually carry a whale
-        /// is a LIVE fact that arrives in the stats feed's roster. A circuit with no
-        /// live whale is simply not drawn.
         ///
         /// <c>circuitSeconds</c> is deliberately NOT ROUNDED, for exactly the reason
         /// <c>mantaLapSeconds</c> is not: it DIVIDES elapsed seconds, so its error is
         /// multiplied by how long the server has been up. A millisecond of rounding
         /// is metres after a day and hundreds of metres after a week.
+        ///
+        /// <c>z</c> AND <c>t</c> RIDE EACH WAYPOINT - the zone's index in this
+        /// route's own <c>regionIds</c>, and a flag for a crossing point - so the map
+        /// can draw the crossings differently from the tours. A dashed leg between
+        /// zones is what makes the migration visible AS a migration rather than as
+        /// one big scribble. An index rather than the zone's name because these are
+        /// the biggest arrays in this file and the name is already in
+        /// <c>regionIds</c>. Neither is used for arithmetic: which zone the whale is
+        /// IN at a given instant is classified once by the game server and arrives in
+        /// the stats feed (see <c>SkyWhaleStat</c>), never re-derived here or in the
+        /// browser.
         /// </summary>
-        private static JArray ProjectSkyWhaleCircuits()
+        private static JArray ProjectSkyWhaleRoutes()
         {
-            JArray circuits = new();
-            foreach (SkyWhalePlacement placement in SkyWhalePlan.Build(ReleaseWorldCatalog.All))
+            JArray routes = new();
+            HashSet<string> published = new(StringComparer.Ordinal);
+            // "all" first, then the tiers, so the array reads from the biggest world
+            // down and a diff of this file stays stable as tiers are added.
+            IEnumerable<string> selectors = new[] { "all" }.Concat(
+                Enumerable.Range(ReleaseWorldRolloutPolicy.MinTier,
+                        ReleaseWorldRolloutPolicy.MaxTier - ReleaseWorldRolloutPolicy.MinTier + 1)
+                    .Select(tier => "tier" + tier));
+
+            foreach (string selector in selectors)
             {
-                JArray waypoints = new();
-                foreach (SkyWhaleWaypoint waypoint in placement.Circuit.Waypoints)
-                {
-                    ReleaseIslandRecord? record = ReleaseWorldCatalog.ByIsland(waypoint.IslandId);
-                    if (record == null) continue;
-                    FixedPointPosition origin = record.Definition.GlobalOrigin;
-                    waypoints.Add(new JObject
-                    {
-                        ["islandId"] = waypoint.IslandId.Value,
-                        // Offsets, so a fixed centimetre of rounding costs a fixed
-                        // centimetre - unlike the lap time above.
-                        ["lx"] = Math.Round(waypoint.X - origin.MetresX, 2),
-                        ["ly"] = Math.Round(waypoint.Y - origin.MetresY, 2),
-                        ["lz"] = Math.Round(waypoint.Z - origin.MetresZ, 2),
-                    });
-                }
-                circuits.Add(new JObject
-                {
-                    ["regionId"] = placement.Whale.Region.Value,
-                    ["lengthMetres"] = Math.Round(placement.Circuit.LengthMetres, 1),
-                    ["circuitSeconds"] = placement.Circuit.CircuitSeconds,
-                    ["phaseFraction"] = placement.Circuit.PhaseFraction,
-                    ["waypoints"] = waypoints,
-                });
+                IReadOnlyList<ReleaseIslandRecord> islands =
+                    ReleaseWorldRolloutPolicy.Select(selector);
+                if (SkyWhalePlan.Build(islands) is not SkyWhalePlacement placement) continue;
+                if (!published.Add(placement.Whale.RouteId)) continue;
+                routes.Add(ProjectSkyWhaleRoute(placement));
             }
-            return circuits;
+            return routes;
+        }
+
+        /// <summary>One route, flattened. See <see cref="ProjectSkyWhaleRoutes"/>.</summary>
+        private static JObject ProjectSkyWhaleRoute(SkyWhalePlacement placement)
+        {
+            List<string> zones = placement.Circuit.Regions
+                .Select(region => region.Value).ToList();
+
+            JArray waypoints = new();
+            foreach (SkyWhaleWaypoint waypoint in placement.Circuit.Waypoints)
+            {
+                ReleaseIslandRecord? record = ReleaseWorldCatalog.ByIsland(waypoint.IslandId);
+                if (record == null) continue;
+                FixedPointPosition origin = record.Definition.GlobalOrigin;
+                JObject row = new JObject
+                {
+                    ["islandId"] = waypoint.IslandId.Value,
+                    // Offsets, so a fixed centimetre of rounding costs a fixed
+                    // centimetre - unlike the lap time above. A CROSSING point is
+                    // published relative to the nearer of the two islands it runs
+                    // between, for the same reason: it has to move with the rocks.
+                    ["lx"] = Math.Round(waypoint.X - origin.MetresX, 2),
+                    ["ly"] = Math.Round(waypoint.Y - origin.MetresY, 2),
+                    ["lz"] = Math.Round(waypoint.Z - origin.MetresZ, 2),
+                    ["z"] = zones.IndexOf(waypoint.Region.Value ?? ""),
+                };
+                if (waypoint.IsTransit) row["t"] = 1;
+                waypoints.Add(row);
+            }
+
+            return new JObject
+            {
+                ["routeId"] = placement.Whale.RouteId,
+                ["lengthMetres"] = Math.Round(placement.Circuit.LengthMetres, 1),
+                ["circuitSeconds"] = placement.Circuit.CircuitSeconds,
+                ["phaseFraction"] = placement.Circuit.PhaseFraction,
+                ["islandCount"] = placement.Circuit.IslandCount,
+                ["regionIds"] = new JArray(zones),
+                ["waypoints"] = waypoints,
+            };
         }
 
         /// <summary>

@@ -3,41 +3,118 @@ using WorldsAdriftRebornGameServer.Multiplayer.Regions;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 {
     /// <summary>
-    /// One point a whale's circuit passes through: directly over one island, at
+    /// One point the whale's route passes through.
+    ///
+    /// TWO KINDS OF POINT, and the distinction is the whole of the migration. An
+    /// ISLAND waypoint sits directly over one island, at
     /// <see cref="SkyWhalePolicy.AltitudeAboveIslandMetres"/> above its highest
-    /// terrain. WORLD metres, not island-local - a whale is the one thing on this
-    /// server that belongs to no island, so an island-local frame would have no
-    /// meaning for the legs between them.
+    /// terrain - that is a VISIT, and Catmull-Rom interpolates its control points
+    /// so the visit is an identity rather than a tolerance. A TRANSIT waypoint sits
+    /// on the open-sky leg BETWEEN two zones and is over nothing at all; it exists
+    /// only so the crossing is made of segments the same size as the ones inside a
+    /// zone (see <see cref="SkyWhaleRoute"/> on why that is a speed requirement and
+    /// not decoration).
+    ///
+    /// A TRANSIT WAYPOINT STILL CARRIES AN ISLAND ID, and it is not a lie: it is
+    /// the ANCHOR the point is published relative to. Every coordinate this server
+    /// sends the map is an island-local offset, because the map places islands from
+    /// the preserved MapFile and the game server places them from its own
+    /// catalogue; a transit point published in absolute metres would drift away
+    /// from the rocks either side of it. The anchor is the nearer of the leg's two
+    /// endpoints, so the error is always the smaller of the two.
+    ///
+    /// WORLD METRES, not island-local - a whale is the one thing on this server
+    /// that belongs to no island, so an island-local frame would have no meaning
+    /// for the legs between them, and now none at all for the legs between zones.
     /// </summary>
+    /// <param name="IslandId">The island this point is over, or - when
+    /// <see cref="SkyWhaleWaypoint.IsTransit"/> - the island it is published
+    /// relative to.</param>
+    /// <param name="Region">The region this point belongs to. For a transit point,
+    /// the region of its anchor island - which is deliberately NOT used to say
+    /// where the whale is: <see cref="SkyWhaleCircuit.WhereAt"/> only ever reads
+    /// island waypoints.</param>
+    /// <param name="IsTransit">Whether this point is a crossing rather than a
+    /// visit. See the type remarks.</param>
     public readonly record struct SkyWhaleWaypoint(
-        IslandId IslandId, double X, double Y, double Z);
+        IslandId IslandId, double X, double Y, double Z, RegionId Region, bool IsTransit)
+    {
+        /// <summary>
+        /// An ISLAND waypoint that has not been placed on a route yet - no zone, not
+        /// a crossing. The four-argument shape is kept because every caller that
+        /// describes one island still says exactly this much, and
+        /// <see cref="SkyWhaleRoute"/> is the only thing that has any business
+        /// deciding which zone a point ends up in.
+        /// </summary>
+        public SkyWhaleWaypoint(IslandId islandId, double x, double y, double z)
+            : this(islandId, x, y, z, default, false)
+        {
+        }
+    }
+
+    /// <summary>
+    /// WHERE THE WHALE IS IN THE WORLD, in zones rather than in metres: which zone
+    /// it is over now, which zone it goes to next and when.
+    ///
+    /// ONE STRUCT FROM ONE EVALUATION, for the reason
+    /// <see cref="SkyWhaleMotion.WorldTransformAt"/> gives about pose and heading:
+    /// three separate accessors would be correct today and would rot the moment one
+    /// of them was called against a different clock, and this is precisely the
+    /// answer the boot log and the map note are built out of.
+    /// </summary>
+    /// <param name="Region">The zone it is over, or the default when it is between
+    /// zones.</param>
+    /// <param name="InTransit">Whether it is on an open-sky crossing.</param>
+    /// <param name="NextRegion">The zone it enters next - while in transit, the one
+    /// it is crossing towards. The default when the route has only one zone.</param>
+    /// <param name="NextRegionIsland">The island it will be over when it enters
+    /// <see cref="NextRegion"/> - where a player of that zone should stand.</param>
+    /// <param name="SecondsToNextRegion">How long until it does.</param>
+    /// <param name="NextIsland">The next island of any zone it passes over.</param>
+    /// <param name="SecondsToNextIsland">How long until it does.</param>
+    public readonly record struct SkyWhaleWhereabouts(
+        RegionId Region,
+        bool InTransit,
+        RegionId NextRegion,
+        IslandId NextRegionIsland,
+        double SecondsToNextRegion,
+        IslandId NextIsland,
+        double SecondsToNextIsland);
 
     /// <summary>
     /// THE PATH, and why it is this shape.
     ///
-    /// The brief is a single animal transiting between the islands of one region,
-    /// entering a player's world for a minute or two and leaving. Everything below
-    /// is WAREBORN TUNING: retail's sky whale had no movement controller, no
+    /// The brief is ONE animal in the whole world, migrating from zone to zone -
+    /// entering a player's sky for a minute or two, working through that zone's
+    /// islands, and then leaving for another cell of the map entirely. Everything
+    /// below is WAREBORN TUNING: retail's sky whale had no movement controller, no
     /// spawner and no flock - it was cut - so there is no Bossa design here to be
     /// faithful to, and this file must not be read as one.
     ///
-    /// THE SHAPE: a CLOSED, UNIFORM CATMULL-ROM SPLINE through one waypoint per
-    /// island of the region, taken in ANGULAR ORDER about the region's centroid.
-    /// Four decisions, each with an alternative that was rejected:
+    /// THE SHAPE: ONE CLOSED, UNIFORM CATMULL-ROM SPLINE through every island in
+    /// the world, zone by zone, with the crossings between zones resampled into
+    /// segments the same size as the ones inside a zone. The ORDER is
+    /// <see cref="SkyWhaleRoute"/>'s job and is argued there; this file is the
+    /// curve and the clock. Four decisions, each with an alternative that was
+    /// rejected:
     ///
     /// <list type="number">
     /// <item>THROUGH THE ISLANDS, not around them. Catmull-Rom INTERPOLATES its
-    ///   control points, so at lap fraction i/N the whale is exactly over island i.
-    ///   A Bezier or a B-spline only approaches them, which would make "does the
+    ///   control points, so at lap fraction i/N the whale is exactly over waypoint
+    ///   i. A Bezier or a B-spline only approaches them, which would make "does the
     ///   whale visit my island" a question about a tolerance instead of an
     ///   identity. The visit is the feature; it should be exact.</item>
-    /// <item>ANGULAR ORDER about the centroid, not island-id order and not a
-    ///   nearest-neighbour tour. Sorting by <c>atan2</c> about the centroid gives a
-    ///   star-shaped, non-self-intersecting ring for ANY scatter of islands, with
-    ///   no search and no tie-breaking heuristics - it is a total function of the
-    ///   positions. Id order would produce a knot; a nearest-neighbour tour is a
-    ///   greedy walk whose result changes discontinuously when one island moves,
-    ///   which is precisely the property a closed-form path must not have.</item>
+    /// <item>ONE CURVE FOR THE WHOLE WORLD, not a per-zone circuit plus a scripted
+    ///   departure. This is the decision the single-whale rework turns on. A whale
+    ///   that flew a closed ring in one zone and then "left" would need a departure
+    ///   EVENT - a moment at which the ring stops being the path - and that event
+    ///   is state: it has a time, it has to be persisted or re-derived, and the
+    ///   blend out of the ring has to match the ring's tangent or the animal
+    ///   pivots. Making the crossing another SEGMENT OF THE SAME SPLINE removes
+    ///   the event entirely. There is no hand-off, so there is no hand-off to get
+    ///   wrong: the pose is still a single closed form of the clock, and C1
+    ///   continuity at a zone boundary is the same property it is at any other
+    ///   knot.</item>
     /// <item>CLOSED, and therefore periodic. The whole feature rests on the pose
     ///   being a pure function of the clock (see
     ///   <see cref="IslandFaunaRegistry"/>'s remarks - a restarted server must
@@ -56,15 +133,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// centripetal) Catmull-Rom parameterisation means the whale's SPEED varies
     /// along the lap - faster across the long legs, slower through a cluster - and
     /// can overshoot slightly outside the ring where two waypoints are much closer
-    /// together than their neighbours. On the real B3 circuit the instantaneous
-    /// speed runs 7.3 to 33.9 m/s about an 18 m/s average
-    /// (<c>SkyWhaleMotionTests</c> prints and pins that band). Both were accepted:
-    /// an animal that speeds up over open sky and dawdles among the rocks is a
-    /// better result than the alternative, and the centripetal variant's exponent
-    /// would have to be restated exactly in the browser mirror for a difference
-    /// nobody can see.
-    /// <see cref="CircuitSeconds"/> is therefore derived from the CHORD length, and
-    /// is honest about being an average.
+    /// together than their neighbours. That was accepted for a region-sized ring
+    /// and it is what makes <see cref="SkyWhaleRoute"/>'s resampling of the
+    /// zone-to-zone crossings MANDATORY rather than tidy: an unresampled 9 km
+    /// crossing sitting next to 1.5 km island hops would be given the same slice of
+    /// the lap as its neighbours and the whale would cross it at six times its own
+    /// speed. <c>SkyWhaleMotionTests</c> prints and pins the resulting speed band.
+    /// <see cref="CircuitSeconds"/> is derived from the CHORD length, and is honest
+    /// about being an average.
     ///
     /// PURE, TOTAL AND ALLOCATION-FREE once built. <see cref="PositionAt"/> and
     /// <see cref="TangentAt"/> read four control points and evaluate a cubic; there
@@ -74,24 +150,67 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     {
         private readonly SkyWhaleWaypoint[] _waypoints;
 
-        private SkyWhaleCircuit(RegionId region, SkyWhaleWaypoint[] waypoints,
+        private SkyWhaleCircuit(string routeId, SkyWhaleWaypoint[] waypoints,
             double lengthMetres, double circuitSeconds, double phaseFraction)
         {
-            Region = region;
+            RouteId = routeId;
             _waypoints = waypoints;
             LengthMetres = lengthMetres;
             CircuitSeconds = circuitSeconds;
             PhaseFraction = phaseFraction;
         }
 
-        /// <summary>The region whose islands this circuit strings together.</summary>
-        public RegionId Region { get; }
+        /// <summary>
+        /// The route's stable name. NOT a region any more, and that rename is the
+        /// point: the whale belongs to the world, not to a cell of it, and a
+        /// property still called <c>Region</c> would be the first thing to mislead
+        /// a reader about which of the two designs this is.
+        /// </summary>
+        public string RouteId { get; }
 
-        /// <summary>The ring, in travel order. Never fewer than three.</summary>
+        /// <summary>The route, in travel order. Never fewer than three points.</summary>
         public IReadOnlyList<SkyWhaleWaypoint> Waypoints => _waypoints;
 
+        /// <summary>How many of those points are island VISITS rather than crossings.</summary>
+        public int IslandCount
+        {
+            get
+            {
+                int count = 0;
+                foreach (SkyWhaleWaypoint waypoint in _waypoints)
+                {
+                    if (!waypoint.IsTransit) count++;
+                }
+                return count;
+            }
+        }
+
+        /// <summary>Every zone the route passes through, in travel order, without repeats.</summary>
+        public IReadOnlyList<RegionId> Regions
+        {
+            get
+            {
+                List<RegionId> regions = new List<RegionId>();
+                foreach (SkyWhaleWaypoint waypoint in _waypoints)
+                {
+                    if (waypoint.IsTransit) continue;
+                    if (regions.Count == 0 || regions[regions.Count - 1] != waypoint.Region)
+                    {
+                        regions.Add(waypoint.Region);
+                    }
+                }
+                // The route is closed, so the last block and the first are the same
+                // zone whenever the tour wrapped inside one.
+                if (regions.Count > 1 && regions[0] == regions[regions.Count - 1])
+                {
+                    regions.RemoveAt(regions.Count - 1);
+                }
+                return regions;
+            }
+        }
+
         /// <summary>
-        /// The CHORD length of the ring, in metres - the sum of the straight legs
+        /// The CHORD length of the route, in metres - the sum of the straight legs
         /// between consecutive waypoints, closing back to the first.
         ///
         /// Deliberately the chord and not the spline's arc length. The spline is
@@ -106,43 +225,59 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public double LengthMetres { get; }
 
         /// <summary>
-        /// How long one lap takes, in seconds: <see cref="LengthMetres"/> divided by
-        /// <see cref="SkyWhalePolicy.MetresPerSecond"/>. A CONSEQUENCE of the
-        /// region's size rather than a constant, which is the same choice
+        /// How long one lap of the WORLD takes, in seconds:
+        /// <see cref="LengthMetres"/> divided by
+        /// <see cref="SkyWhalePolicy.MetresPerSecond"/>. A CONSEQUENCE of how big
+        /// the world is rather than a constant, which is the same choice
         /// <see cref="IslandFaunaMovement.MantaMetresPerSecond"/> documents: a fixed
-        /// lap time would make a whale in a large cell supersonic and one in a small
-        /// cell becalmed.
+        /// lap time would make the whale supersonic in a large world and becalmed in
+        /// a small one. With one whale this is also the interval between two
+        /// consecutive visits to the SAME island - the rarity the brief asked for is
+        /// this number and nothing else, and <c>SkyWhalePlanTests</c> pins it.
         /// </summary>
         public double CircuitSeconds { get; }
 
-        /// <summary>Where on the lap this region's whale starts. See <see cref="SkyWhalePolicy.PhaseFractionFor"/>.</summary>
+        /// <summary>Where on the lap the whale starts. See <see cref="SkyWhalePolicy.PhaseFractionFor"/>.</summary>
         public double PhaseFraction { get; }
 
         /// <summary>
-        /// Builds a region's circuit, or returns null when the region cannot carry
-        /// one.
+        /// Builds the route's curve from waypoints ALREADY IN TRAVEL ORDER, or
+        /// returns null when the world cannot carry one.
         ///
-        /// NULL RATHER THAN THROW, and the two null cases are both "this region
-        /// has no whale", which is a quieter world and nothing worse: fewer than
-        /// <see cref="SkyWhalePolicy.MinimumIslandsPerRegion"/> waypoints, or a
-        /// degenerate ring of zero length. A server must not fail to boot because a
-        /// district selection happened to name two islands.
+        /// ORDER IS NOT THIS TYPE'S JOB any more. It was, while a circuit was one
+        /// region's ring and "sort by bearing about the centroid" was the whole
+        /// answer; a world route has to decide the order of the ZONES as well as of
+        /// the islands inside them, and doing that here would have buried the
+        /// migration's only real design decision inside a spline evaluator. It lives
+        /// in <see cref="SkyWhaleRoute"/>, which is pure and separately tested, and
+        /// this constructor takes what it produced verbatim - the same discipline
+        /// the map projection already follows.
+        ///
+        /// NULL RATHER THAN THROW, and both null cases are "this world has no
+        /// whale", which is a quieter world and nothing worse: fewer than
+        /// <see cref="SkyWhalePolicy.MinimumIslands"/> waypoints, or a degenerate
+        /// route of zero length. A server must not fail to boot because a district
+        /// selection happened to name two islands.
         /// </summary>
         public static SkyWhaleCircuit? Build(
-            RegionId region,
-            IEnumerable<SkyWhaleWaypoint> waypoints,
+            string routeId,
+            IEnumerable<SkyWhaleWaypoint> travelOrder,
             double metresPerSecond = SkyWhalePolicy.MetresPerSecond,
             double? phaseFraction = null)
         {
-            if (waypoints == null) throw new ArgumentNullException(nameof(waypoints));
+            if (string.IsNullOrWhiteSpace(routeId))
+            {
+                throw new ArgumentException("a route id must not be empty", nameof(routeId));
+            }
+            if (travelOrder == null) throw new ArgumentNullException(nameof(travelOrder));
             if (metresPerSecond <= 0.0)
             {
                 throw new ArgumentOutOfRangeException(nameof(metresPerSecond),
-                    "a whale that does not move has no circuit");
+                    "a whale that does not move has no route");
             }
 
-            SkyWhaleWaypoint[] ordered = OrderAroundCentroid(waypoints);
-            if (ordered.Length < SkyWhalePolicy.MinimumIslandsPerRegion)
+            SkyWhaleWaypoint[] ordered = travelOrder.ToArray();
+            if (ordered.Length < SkyWhalePolicy.MinimumIslands)
             {
                 return null;
             }
@@ -153,40 +288,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 return null;
             }
 
-            return new SkyWhaleCircuit(region, ordered, length,
+            return new SkyWhaleCircuit(routeId, ordered, length,
                 length / metresPerSecond,
-                phaseFraction ?? SkyWhalePolicy.PhaseFractionFor(region));
-        }
-
-        /// <summary>
-        /// The ring order: bearing about the lateral centroid, ties broken by island
-        /// id so the result cannot depend on the order the caller enumerated in.
-        ///
-        /// The centroid is the mean of the waypoints rather than of the islands'
-        /// AABBs on purpose - the waypoints ARE what is being ordered, so ordering
-        /// them about anything else could put a waypoint on the wrong side of the
-        /// ring. Y is ignored: this is a lateral ring that rises and falls with the
-        /// islands, not a three-dimensional tour.
-        /// </summary>
-        private static SkyWhaleWaypoint[] OrderAroundCentroid(
-            IEnumerable<SkyWhaleWaypoint> waypoints)
-        {
-            List<SkyWhaleWaypoint> all = new List<SkyWhaleWaypoint>(waypoints);
-            if (all.Count == 0) return Array.Empty<SkyWhaleWaypoint>();
-
-            double centreX = 0.0, centreZ = 0.0;
-            foreach (SkyWhaleWaypoint waypoint in all)
-            {
-                centreX += waypoint.X;
-                centreZ += waypoint.Z;
-            }
-            centreX /= all.Count;
-            centreZ /= all.Count;
-
-            return all
-                .OrderBy(waypoint => Math.Atan2(waypoint.Z - centreZ, waypoint.X - centreX))
-                .ThenBy(waypoint => waypoint.IslandId)
-                .ToArray();
+                phaseFraction ?? SkyWhalePolicy.PhaseFractionFor(routeId));
         }
 
         /// <summary>The closed control polygon's length, in metres.</summary>
@@ -232,8 +336,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// The lap fraction at an absolute elapsed time. ABSOLUTE rather than an
         /// age, for the reason <see cref="IslandFaunaRegistry"/> spells out: an age
         /// depends on when the whale happened to be added, so two servers that
-        /// seeded the same region at different points in their boot would disagree
-        /// about where the same animal is.
+        /// seeded at different points in their boot would disagree about where the
+        /// same animal is.
         /// </summary>
         public double LapAt(double elapsedSeconds) =>
             Fraction((elapsedSeconds / CircuitSeconds) + PhaseFraction);
@@ -243,16 +347,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         ///
         /// This exists for the boot log, and the reason is the one
         /// <c>IslandFaunaService</c> learned the hard way when it started naming
-        /// its populated islands: "4 whales across 4 regions" tells an operator the
-        /// seeding worked and tells a PLAYER nothing at all, and a feature nobody
-        /// can find is indistinguishable from one that is broken. A whale is the
-        /// worst case of that - it is one animal in a region several kilometres
-        /// across and it is only overhead for about a minute at a time - so the
-        /// server says where to stand and when.
+        /// its populated islands: "one whale on a 46-island route" tells an operator
+        /// the seeding worked and tells a PLAYER nothing at all, and a feature
+        /// nobody can find is indistinguishable from one that is broken. With ONE
+        /// whale in the world that is no longer merely the worst case, it is the
+        /// whole risk of the feature: most zones have no whale most of the time by
+        /// design, so the server has to say where to stand and when or the change
+        /// reads as a regression.
         ///
         /// The whale is exactly over waypoint i at lap i/N (Catmull-Rom
         /// interpolates its control points), so this is arithmetic rather than a
-        /// search.
+        /// search. TRANSIT points are skipped: they are over open sky and nobody
+        /// can stand under them.
         /// </summary>
         public (IslandId IslandId, double Seconds) NextArrivalAfter(double elapsedSeconds)
         {
@@ -261,9 +367,84 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             // The next INDEX strictly ahead, wrapping. Exactly on a knot counts as
             // arrived, so the answer is the one after it rather than "in 0 s".
             int next = (int)Math.Floor(lap * n) + 1;
-            double untilLaps = Fraction(((double)next / n) - lap);
-            return (_waypoints[next % n].IslandId, untilLaps * CircuitSeconds);
+            for (int step = 0; step < n && _waypoints[((next % n) + n) % n].IsTransit; step++)
+            {
+                next++;
+            }
+            int index = ((next % n) + n) % n;
+            return (_waypoints[index].IslandId, SecondsToKnot(lap, next, n));
         }
+
+        /// <summary>
+        /// WHICH ZONE IT IS IN, WHICH ZONE IT GOES TO NEXT, AND WHEN - the answer
+        /// the boot log and both maps are written out of, and the one question a
+        /// single migrating whale makes worth asking at all.
+        ///
+        /// IN A ZONE means the current SEGMENT runs between two island waypoints of
+        /// the same zone. Anything else - a leg out of a zone, a resampled crossing,
+        /// a leg into the next zone - is IN TRANSIT, and that is the honest reading:
+        /// the moment the animal leaves the last island of a cell it is no longer
+        /// over that cell in any sense a player would recognise, whichever rock the
+        /// next control point happens to be anchored to.
+        ///
+        /// ENTERING A ZONE is defined as reaching its first ISLAND, not as crossing
+        /// some notional cell boundary. A cell boundary is a line on the map file
+        /// that nobody can see; an island is a place a player can stand and look up
+        /// from, which is what the countdown is for.
+        /// </summary>
+        public SkyWhaleWhereabouts WhereAt(double elapsedSeconds)
+        {
+            double lap = LapAt(elapsedSeconds);
+            int n = _waypoints.Length;
+            double s = lap * n;
+            int i = (int)Math.Floor(s);
+            if (i >= n) i = n - 1;
+            if (i < 0) i = 0;
+
+            SkyWhaleWaypoint from = _waypoints[i];
+            SkyWhaleWaypoint to = _waypoints[(i + 1) % n];
+            bool inRegion = !from.IsTransit && !to.IsTransit && from.Region == to.Region;
+            RegionId region = inRegion ? from.Region : default;
+
+            int nextIsland = i + 1;
+            for (int step = 0; step < n && _waypoints[(nextIsland % n + n) % n].IsTransit; step++)
+            {
+                nextIsland++;
+            }
+
+            // The first island knot ahead that belongs to a DIFFERENT zone. While in
+            // transit `region` is the default, which no real zone equals, so the
+            // first island ahead wins - it is the zone being crossed towards.
+            int nextRegion = i + 1;
+            bool found = false;
+            for (int step = 0; step < n; step++)
+            {
+                SkyWhaleWaypoint candidate = _waypoints[(nextRegion % n + n) % n];
+                if (!candidate.IsTransit && !(inRegion && candidate.Region == region))
+                {
+                    found = true;
+                    break;
+                }
+                nextRegion++;
+            }
+
+            SkyWhaleWaypoint island = _waypoints[(nextIsland % n + n) % n];
+            SkyWhaleWaypoint entry = _waypoints[(nextRegion % n + n) % n];
+            return new SkyWhaleWhereabouts(
+                Region: region,
+                InTransit: !inRegion,
+                // A one-zone world has no next zone, and saying so is better than
+                // naming the zone it is already in and calling that a migration.
+                NextRegion: found ? entry.Region : default,
+                NextRegionIsland: found ? entry.IslandId : default,
+                SecondsToNextRegion: found ? SecondsToKnot(lap, nextRegion, n) : 0.0,
+                NextIsland: island.IslandId,
+                SecondsToNextIsland: SecondsToKnot(lap, nextIsland, n));
+        }
+
+        /// <summary>How long until the whale is exactly over knot <paramref name="knot"/>.</summary>
+        private double SecondsToKnot(double lap, int knot, int n) =>
+            Fraction(((double)knot / n) - lap) * CircuitSeconds;
 
         /// <summary>
         /// THE CURVE, as a static over an explicit ring, so a second evaluator can
@@ -276,6 +457,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <c>AdminSkyWhaleParityTests</c> fails at a nanometre if they diverge.
         /// Rewriting it in Horner form here without doing the same there would break
         /// that test for a reason no reader would guess, so do not "tidy" one side.
+        ///
+        /// NOTHING HERE KNOWS ABOUT ZONES, and that is deliberate: the migration is
+        /// entirely a property of the CONTROL POINTS, which are data on the wire, so
+        /// the browser mirror did not have to change at all to fly it.
         /// </summary>
         public static (double X, double Y, double Z) EvaluatePosition(
             IReadOnlyList<SkyWhaleWaypoint> ring, double lap)
@@ -312,11 +497,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         {
             if (ring == null) throw new ArgumentNullException(nameof(ring));
             int n = ring.Count;
-            if (n < SkyWhalePolicy.MinimumIslandsPerRegion)
+            if (n < SkyWhalePolicy.MinimumIslands)
             {
                 throw new ArgumentException(
-                    "a closed circuit needs at least "
-                    + SkyWhalePolicy.MinimumIslandsPerRegion + " waypoints", nameof(ring));
+                    "a closed route needs at least "
+                    + SkyWhalePolicy.MinimumIslands + " waypoints", nameof(ring));
             }
 
             double s = Fraction(lap) * n;

@@ -50,7 +50,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.False((bool)interest["present"]!);
             Assert.Empty((JArray)interest["peers"]!);
             // And the document as a whole is still one valid object.
-            Assert.Equal(11, (int)o["schemaVersion"]!);
+            Assert.Equal(StatsSnapshot.SchemaVersion, (int)o["schemaVersion"]!);
         }
 
         [Fact]

@@ -154,9 +154,14 @@ namespace WorldsAdriftServer.Tests
               ""enabled"":true,""clockSeconds"":4321.5,""whaleCount"":1,
               ""loadRadiusMetres"":1200,""callRadiusMetres"":4000,
               ""poseIntervalMs"":500,""callIntervalSeconds"":120,
-              ""regions"":[{""regionId"":""release-b3-region"",
-                            ""entityId"":2200000000,""callEntityId"":2200000001,
-                            ""callIndex"":36,""callX"":7000.5,""callY"":480.25,""callZ"":-6100.75}]
+              ""whales"":[{""routeId"":""release-world-route"",
+                          ""entityId"":2200000000,""callEntityId"":2200000001,
+                          ""callIndex"":36,""callX"":7000.5,""callY"":480.25,""callZ"":-6100.75,
+                          ""regionId"":""release-b3-region"",
+                          ""nextRegionId"":""release-b2-region"",
+                          ""nextRegionIslandId"":""camps-daurats"",
+                          ""nextRegionSeconds"":1830.5,
+                          ""nextIslandId"":""the-three"",""nextIslandSeconds"":72.25}]
             }
         }";
 
@@ -230,13 +235,22 @@ namespace WorldsAdriftServer.Tests
 
             Assert.Equal(
                 new[] { "present", "enabled", "clockSeconds", "whaleCount",
-                        "callIntervalSeconds", "regions" },
+                        "callIntervalSeconds", "whales" },
                 whale.Properties().Select(p => p.Name).ToArray());
 
-            JObject region = (JObject)((JArray)whale["regions"]!)[0];
-            Assert.Equal(new[] { "regionId", "callIndex", "callX", "callY", "callZ" },
+            JObject region = (JObject)((JArray)whale["whales"]!)[0];
+            // The migration fields are admitted DELIBERATELY and the whole set is
+            // pinned, so a future field cannot ride in unexamined: every one of
+            // these is a fact about the world that every visitor sees identically.
+            Assert.Equal(
+                new[] { "routeId", "callIndex", "callX", "callY", "callZ", "regionId",
+                        "nextRegionId", "nextRegionIslandId", "nextRegionSeconds",
+                        "nextIslandId", "nextIslandSeconds" },
                 region.Properties().Select(p => p.Name).ToArray());
+            Assert.Equal("release-world-route", (string?)region["routeId"]);
             Assert.Equal("release-b3-region", (string?)region["regionId"]);
+            Assert.Equal("release-b2-region", (string?)region["nextRegionId"]);
+            Assert.Equal(1830.5, (double)region["nextRegionSeconds"]!);
             Assert.Equal(7000.5, (double)region["callX"]!);
 
             // And the ids really are gone from the serialized bytes, not merely

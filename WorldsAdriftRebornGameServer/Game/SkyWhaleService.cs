@@ -10,7 +10,7 @@ namespace WorldsAdriftRebornGameServer.Game
     /// <summary>
     /// THE SKY WHALE ON THE WIRE. The impure half of <see cref="SkyWhalePolicy"/>,
     /// <see cref="SkyWhaleCircuit"/> and <see cref="SkyWhaleInterestPolicy"/>: it
-    /// seeds one whale per region at boot, streams it to the peers close enough to
+    /// seeds the world's ONE migrating whale at boot, streams it to the peers close enough to
     /// care, pushes its pose, and moves its invisible caller ahead of it.
     ///
     /// WIRE SHAPE, per peer (the multiplayer-safety contract):
@@ -28,7 +28,8 @@ namespace WorldsAdriftRebornGameServer.Game
     ///   <c>MirrorSendPolicy.RelayReliabilityFor</c> and this stream supersedes -
     ///   every update is the whole pose - so a loss costs one frame of smoothness.</item>
     /// <item>OUT, once per lap: RemoveEntity on channel 5 once the animal leaves the
-    ///   unload radius.</item>
+    ///   unload radius. A "lap" is now a WORLD lap - a little over two hours - not a
+    ///   region circuit, so every rate below got rarer and none got denser.</item>
     /// <item>OUT, once per call (every
     ///   <see cref="SkyWhalePolicy.CallIntervalSeconds"/>): a RemoveEntity and a
     ///   fresh AddEntity for the CALLER, to peers within
@@ -121,8 +122,13 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly double _unloadRadius;
         private readonly double _callRadius;
         private readonly TimeSpan _poseInterval;
-        private readonly Dictionary<long, SkyWhalePlacement> _whales = new();
-        private readonly Dictionary<long, SkyWhalePlacement> _byCallEntity = new();
+        /// <summary>
+        /// THE whale, or none. A field rather than a dictionary, because there is
+        /// one animal in the world: a collection here would be a standing invitation
+        /// to seed a second one without anybody having to think about the per-peer
+        /// budget, the id band or the migration's phase again.
+        /// </summary>
+        private SkyWhalePlacement? _whale;
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
         private TimeSpan _nextPoseAt;
         private long _sample;
@@ -157,8 +163,8 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Whether the sky whale is switched on.</summary>
         internal bool Enabled => _enabled;
 
-        /// <summary>How many whales exist. Zero whenever the feature is off.</summary>
-        internal int Count => _whales.Count;
+        /// <summary>How many whales exist: one, or none. Zero whenever the feature is off.</summary>
+        internal int Count => _whale.HasValue ? 1 : 0;
 
         /// <summary>The parsed visual radius this boot decides with, for telemetry.</summary>
         internal double LoadRadiusMetres => _loadRadius;
@@ -167,9 +173,9 @@ namespace WorldsAdriftRebornGameServer.Game
         internal double CallRadiusMetres => _callRadius;
 
         /// <summary>
-        /// The operator console's and the public map's view of the world's whales:
-        /// which regions carry one, where each one's current call is coming from,
-        /// and AT WHAT CLOCK.
+        /// The operator console's and the public map's view of the world's whale:
+        /// which zone it is over, which zone it goes to next, where its current call
+        /// is coming from, and AT WHAT CLOCK.
         ///
         /// The clock is the point, exactly as it is in
         /// <see cref="IslandFaunaService.Telemetry"/>. Every pose this service
@@ -189,30 +195,40 @@ namespace WorldsAdriftRebornGameServer.Game
                 return SkyWhaleRuntimeStat.Off;
             }
 
-            List<SkyWhaleRegionStat> regions = new List<SkyWhaleRegionStat>(_whales.Count);
-            foreach (SkyWhalePlacement placement in _whales.Values)
+            double now = _clock.Elapsed.TotalSeconds;
+            List<SkyWhaleStat> whales = new List<SkyWhaleStat>(1);
+            if (_whale is SkyWhalePlacement placement)
             {
                 SkyWhaleCall call = CurrentCall(placement);
-                regions.Add(new SkyWhaleRegionStat(
-                    placement.Whale.Region.Value,
+                // ONE evaluation of the whereabouts, at the SAME instant the clock
+                // below reports, so a reader cannot be handed a zone from one moment
+                // and a countdown from the next.
+                SkyWhaleWhereabouts where = placement.Circuit.WhereAt(now);
+                whales.Add(new SkyWhaleStat(
+                    placement.Whale.RouteId,
                     placement.Whale.EntityId,
                     placement.Whale.CallEntityId,
                     call.Index,
-                    call.Position.MetresX, call.Position.MetresY, call.Position.MetresZ));
+                    call.Position.MetresX, call.Position.MetresY, call.Position.MetresZ,
+                    // EMPTY while it is crossing between zones - a real answer, and
+                    // the one both maps render as "in transit" rather than as
+                    // missing data.
+                    where.InTransit ? string.Empty : where.Region.Value,
+                    where.NextRegion.ToString(),
+                    where.NextRegionIsland.ToString(),
+                    where.SecondsToNextRegion,
+                    where.NextIsland.ToString(),
+                    where.SecondsToNextIsland));
             }
-            // Sorted by region id so the file diffs readably and the console's
-            // order does not depend on dictionary iteration.
-            regions.Sort((left, right) =>
-                string.CompareOrdinal(left.RegionId, right.RegionId));
 
             return new SkyWhaleRuntimeStat(
                 enabled: true,
-                clockSeconds: _clock.Elapsed.TotalSeconds,
+                clockSeconds: now,
                 loadRadiusMetres: _loadRadius,
                 callRadiusMetres: _callRadius,
                 poseIntervalMs: (int)Math.Round(_poseInterval.TotalMilliseconds),
                 callIntervalSeconds: SkyWhalePolicy.CallIntervalSeconds,
-                regions: regions);
+                whales: whales);
         }
 
         /// <summary>How many whales this peer holds, for the interest stats snapshot.</summary>
@@ -220,13 +236,20 @@ namespace WorldsAdriftRebornGameServer.Game
             _peers.TryGetValue(peer, out PeerState? state) ? state.Loaded.Count : 0;
 
         /// <summary>
-        /// Takes the world's whales live, once, at boot.
+        /// Takes the world's whale live, once, at boot.
         ///
         /// A pure function of the selected island set - see
         /// <see cref="SkyWhalePlan.Build"/> - so it runs before any peer can connect
-        /// and nothing about it is persisted. It reports the regions it could NOT
-        /// give a whale to as well as the ones it could: a region silently missing
-        /// its animal is indistinguishable from the feature being broken.
+        /// and nothing about it is persisted.
+        ///
+        /// THE BOOT LOG IS THE FEATURE'S ONLY FINDER, and with one migrating whale
+        /// that is not a figure of speech. Four whales meant every cell had one and
+        /// an operator could stand anywhere; one whale means most zones are empty
+        /// most of the time BY DESIGN, so a log that only said "1 whale seeded"
+        /// would be indistinguishable from a broken seed for the two hours
+        /// before it happened to fly past. It therefore says where the animal is
+        /// NOW, which zone it goes to next and when, and which island to stand on -
+        /// see <see cref="SkyWhaleCircuit.WhereAt"/>.
         /// </summary>
         internal void Seed(IReadOnlyList<ReleaseIslandRecord> islands)
         {
@@ -240,34 +263,37 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             _regionsConsidered = SkyWhalePlan.RegionCount(islands);
-            foreach (SkyWhalePlacement placement in SkyWhalePlan.Build(islands))
+            _whale = SkyWhalePlan.Build(islands);
+            if (_whale is SkyWhalePlacement placement)
             {
-                _whales[placement.Whale.EntityId] = placement;
-                _byCallEntity[placement.Whale.CallEntityId] = placement;
-                Console.WriteLine("[sky-whale] " + placement.Whale.Region.Value + ": whale "
+                SkyWhaleCircuit circuit = placement.Circuit;
+                Console.WriteLine("[sky-whale] " + placement.Whale.RouteId + ": whale "
                     + placement.Whale.EntityId + " + caller " + placement.Whale.CallEntityId
-                    + " on a " + placement.Circuit.Waypoints.Count + "-island circuit of "
-                    + placement.Circuit.LengthMetres.ToString("0") + " m ("
-                    + (placement.Circuit.CircuitSeconds / 60.0).ToString("0.0")
-                    + " min a lap at " + SkyWhalePolicy.MetresPerSecond.ToString("0")
+                    + " on ONE world route - " + circuit.IslandCount + " islands across "
+                    + circuit.Regions.Count + " zone(s) plus "
+                    + (circuit.Waypoints.Count - circuit.IslandCount)
+                    + " crossing points, " + circuit.LengthMetres.ToString("0") + " m ("
+                    + (circuit.CircuitSeconds / 60.0).ToString("0.0")
+                    + " min a world lap at " + SkyWhalePolicy.MetresPerSecond.ToString("0")
                     + " m/s average), starting at lap fraction "
-                    + placement.Circuit.PhaseFraction.ToString("0.000") + ".");
-                // WHERE TO STAND, said out loud. See SkyWhaleCircuit.NextArrivalAfter.
-                (IslandId first, double seconds) =
-                    placement.Circuit.NextArrivalAfter(_clock.Elapsed.TotalSeconds);
-                Console.WriteLine("[sky-whale] " + placement.Whale.Region.Value
-                    + ": to SEE it, stand on " + first + " and look up in about "
-                    + seconds.ToString("0") + " s; it passes each island of the region in"
-                    + " turn, about a minute overhead each time.");
+                    + circuit.PhaseFraction.ToString("0.000") + ".");
+                Console.WriteLine("[sky-whale] it migrates through the zones in this order: "
+                    + string.Join(" -> ", circuit.Regions.Select(region => region.Value))
+                    + " -> back to the first. Any one island is passed ONCE a lap, so a"
+                    + " given zone has NO whale at all for most of every "
+                    + (circuit.CircuitSeconds / 60.0).ToString("0") + " min - that is the"
+                    + " feature, not a fault.");
+                WriteWhereabouts();
             }
 
-            Console.WriteLine("[sky-whale] ON (" + EnableEnv + "): " + _whales.Count
-                + " whale(s) across " + _regionsConsidered + " region(s). PROVENANCE: the"
+            Console.WriteLine("[sky-whale] ON (" + EnableEnv + "): " + Count
+                + " whale(s) for the WHOLE WORLD across " + _regionsConsidered
+                + " zone(s). PROVENANCE: the"
                 + " prefab, its size, its single required component (190602) and BigCall's"
-                + " semantics are RECOVERED from the shipped client; the path, speed,"
-                + " altitude, cadence, radii and call interval are WAREBORN TUNING - retail's"
-                + " whale behaviour was cut and its five Play_SkyWhale_* events ship in no"
-                + " bank.");
+                + " semantics are RECOVERED from the shipped client; the route, the"
+                + " zone-migration order, speed, altitude, cadence, radii and call interval"
+                + " are WAREBORN TUNING - retail's whale behaviour was cut and its five"
+                + " Play_SkyWhale_* events ship in no bank.");
             Console.WriteLine("[sky-whale] interest is keyed on the ANIMAL at "
                 + _loadRadius.ToString("0") + " m load / " + _unloadRadius.ToString("0")
                 + " m unload (" + RadiusEnv + "), capped at "
@@ -286,31 +312,54 @@ namespace WorldsAdriftRebornGameServer.Game
                 + " s of warning on a head-on approach. A call is a CHECKOUT, every "
                 + SkyWhalePolicy.CallIntervalSeconds.ToString("0")
                 + " s, and carries no pose stream at all.");
+        }
 
-            if (_whales.Count < _regionsConsidered)
-            {
-                Console.WriteLine("[sky-whale] " + (_regionsConsidered - _whales.Count)
-                    + " region(s) carry NO whale: a closed circuit needs at least "
-                    + SkyWhalePolicy.MinimumIslandsPerRegion
-                    + " islands and theirs have fewer.");
-            }
+        /// <summary>
+        /// WHERE IT IS AND WHERE IT IS GOING, in one line an operator can act on.
+        ///
+        /// Written at boot, and deliberately phrased as two different pieces of
+        /// advice depending on the answer: while the whale is over a zone the useful
+        /// thing is which island of that zone is next, and while it is crossing open
+        /// sky the useful thing is which zone is about to get it. Saying only the
+        /// first would tell an operator "next island: X in 40 s" during a crossing,
+        /// which is true and unhelpful.
+        /// </summary>
+        private void WriteWhereabouts()
+        {
+            if (_whale is not SkyWhalePlacement placement) return;
+            SkyWhaleWhereabouts where = placement.Circuit.WhereAt(_clock.Elapsed.TotalSeconds);
+
+            Console.WriteLine("[sky-whale] RIGHT NOW it is "
+                + (where.InTransit
+                    ? "CROSSING open sky towards " + where.NextRegion
+                    : "in " + where.Region + ", next over island " + where.NextIsland
+                        + " in about " + where.SecondsToNextIsland.ToString("0") + " s")
+                + ".");
+            Console.WriteLine("[sky-whale] NEXT ZONE: " + where.NextRegion
+                + ", entering it over island " + where.NextRegionIsland + " in about "
+                + (where.SecondsToNextRegion / 60.0).ToString("0.0") + " min ("
+                + where.SecondsToNextRegion.ToString("0") + " s). To SEE it, be on that"
+                + " island and look up; it then passes each island of that zone in turn,"
+                + " about a minute overhead each time, and leaves.");
         }
 
         /// <summary>Says so when the feature is on but the world gave it nothing to do.</summary>
         internal void WarnIfEmpty()
         {
-            if (!_enabled || _whales.Count > 0)
+            if (!_enabled || _whale != null)
             {
                 return;
             }
             Console.WriteLine("[sky-whale] ON but nothing was seeded: the whale needs the"
                 + " release-world rollout (" + ReleaseWorldRolloutPolicy.EnvVar + "), because a"
-                + " region is a MapFile cell and only release islands have one.");
+                + " zone is a MapFile cell and only release islands have one.");
         }
 
         /// <summary>Whether an entity id names this server's whale or its caller.</summary>
         internal bool IsSkyWhale(long entityId) =>
-            _enabled && (_whales.ContainsKey(entityId) || _byCallEntity.ContainsKey(entityId));
+            _enabled && _whale is SkyWhalePlacement placement
+            && (placement.Whale.EntityId == entityId
+                || placement.Whale.CallEntityId == entityId);
 
         /// <summary>
         /// Where a whale or its caller is RIGHT NOW, or null for anything else.
@@ -325,14 +374,15 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         internal FixedPointPosition? PositionOf(long entityId)
         {
-            if (!_enabled) return null;
-            if (_whales.TryGetValue(entityId, out SkyWhalePlacement whale))
+            if (!_enabled || _whale is not SkyWhalePlacement placement) return null;
+            if (placement.Whale.EntityId == entityId)
             {
-                return SkyWhaleMotion.WorldPositionAt(whale.Circuit, _clock.Elapsed.TotalSeconds);
+                return SkyWhaleMotion.WorldPositionAt(
+                    placement.Circuit, _clock.Elapsed.TotalSeconds);
             }
-            if (_byCallEntity.TryGetValue(entityId, out SkyWhalePlacement caller))
+            if (placement.Whale.CallEntityId == entityId)
             {
-                return CurrentCall(caller).Position;
+                return CurrentCall(placement).Position;
             }
             return null;
         }
@@ -351,11 +401,12 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         internal Bossa.Travellers.Creatures.Special.BigCallState.Data? CallDataOf(long entityId)
         {
-            if (!_enabled || !_byCallEntity.TryGetValue(entityId, out SkyWhalePlacement caller))
+            if (!_enabled || _whale is not SkyWhalePlacement placement
+                || placement.Whale.CallEntityId != entityId)
             {
                 return null;
             }
-            FixedPointPosition station = CurrentCall(caller).Position;
+            FixedPointPosition station = CurrentCall(placement).Position;
             return new Bossa.Travellers.Creatures.Special.BigCallState.Data(
                 default(Improbable.Collections.Option<long>),
                 true,
@@ -403,7 +454,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         internal void Tick()
         {
-            if (!_enabled || _whales.Count == 0)
+            if (!_enabled || _whale == null)
             {
                 return;
             }
@@ -453,11 +504,13 @@ namespace WorldsAdriftRebornGameServer.Game
             FixedPointPosition centre = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
             double now = _clock.Elapsed.TotalSeconds;
 
-            List<SkyWhaleCandidate> candidates = new List<SkyWhaleCandidate>(_whales.Count);
-            foreach ((long entityId, SkyWhalePlacement placement) in _whales)
+            List<SkyWhaleCandidate> candidates = new List<SkyWhaleCandidate>(1);
+            if (_whale is SkyWhalePlacement placement)
             {
-                candidates.Add(new SkyWhaleCandidate(entityId, SkyWhaleMotion.DistanceSquared(
-                    centre, SkyWhaleMotion.WorldPositionAt(placement.Circuit, now))));
+                candidates.Add(new SkyWhaleCandidate(
+                    placement.Whale.EntityId,
+                    SkyWhaleMotion.DistanceSquared(
+                        centre, SkyWhaleMotion.WorldPositionAt(placement.Circuit, now))));
             }
 
             IReadOnlyList<long> desired = SkyWhaleInterestPolicy.Admit(
@@ -504,7 +557,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
-            if (!_whales.TryGetValue(action.EntityId, out SkyWhalePlacement placement))
+            if (_whale is not SkyWhalePlacement placement
+                || placement.Whale.EntityId != action.EntityId)
             {
                 state.Pending.Dequeue();
                 return;
@@ -525,8 +579,12 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 state.Loaded.Add(action.EntityId);
                 WorldsAdriftRebornGameServer.SentEntities.MarkSent(peer, action.EntityId);
+                SkyWhaleWhereabouts where =
+                    placement.Circuit.WhereAt(_clock.Elapsed.TotalSeconds);
                 Console.WriteLine("[sky-whale] added whale " + action.EntityId + " ("
-                    + placement.Whale.Region.Value + ") to " + peer.DangerousGetHandle() + ".");
+                    + (where.InTransit ? "in transit towards " + where.NextRegion
+                        : "over " + where.Region)
+                    + ") to " + peer.DangerousGetHandle() + ".");
             }
         }
 
@@ -605,18 +663,17 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         private (long EntityId, long Index) DesiredCallFor(ENetPeerHandle peer, PeerState state)
         {
-            if (_callRadius <= 0.0 || _whales.Count == 0) return (0L, 0L);
+            if (_callRadius <= 0.0 || _whale is not SkyWhalePlacement placement) return (0L, 0L);
 
             FixedPointPosition centre = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
+            SkyWhaleCall call = CurrentCall(placement);
             List<SkyWhaleInterestPolicy.SkyWhaleCallCandidate> candidates =
-                new List<SkyWhaleInterestPolicy.SkyWhaleCallCandidate>(_whales.Count);
-            foreach (SkyWhalePlacement placement in _whales.Values)
-            {
-                SkyWhaleCall call = CurrentCall(placement);
-                candidates.Add(new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(
-                    placement.Whale.CallEntityId, call.Index,
-                    SkyWhaleMotion.DistanceSquared(centre, call.Position)));
-            }
+                new List<SkyWhaleInterestPolicy.SkyWhaleCallCandidate>(1)
+                {
+                    new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(
+                        placement.Whale.CallEntityId, call.Index,
+                        SkyWhaleMotion.DistanceSquared(centre, call.Position)),
+                };
 
             return SkyWhaleInterestPolicy.AdmitCall(candidates,
                 state.CallEntityId, state.CallIndex, _callRadius,
@@ -665,7 +722,8 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 foreach (long entityId in state.Loaded)
                 {
-                    if (!_whales.TryGetValue(entityId, out SkyWhalePlacement placement)
+                    if (_whale is not SkyWhalePlacement placement
+                        || placement.Whale.EntityId != entityId
                         || !TryGetStoredRef(peer, entityId, TransformStateComponentId,
                             out ulong refId))
                     {

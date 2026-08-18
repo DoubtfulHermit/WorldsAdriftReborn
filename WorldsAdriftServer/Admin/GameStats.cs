@@ -190,7 +190,7 @@ namespace WorldsAdriftServer.Admin
         public GameInterestStat Interest { get; private init; } = GameInterestStat.Absent();
 
         /// <summary>
-        /// The sky whale section (schema v11+). Never null: an older game server
+        /// The sky whale section (schema v11+, reshaped in v12). Never null: an older game server
         /// projects to an ABSENT section, which the maps render as "this server
         /// predates the sky whale" and, crucially, draw NO animal from - rather
         /// than one flying at a guessed clock.
@@ -739,12 +739,15 @@ namespace WorldsAdriftServer.Admin
     internal sealed class GameSkyWhaleStat
     {
         /// <summary>
-        /// The most regions whose whale is passed through. The release world has
-        /// twenty MapFile cells; a file naming hundreds is not a world this console
-        /// has to draw, and the cap keeps a malformed snapshot from becoming an
-        /// unbounded DOM.
+        /// The most whale rows that are passed through. The world carries ONE
+        /// migrating whale, so this is a corruption guard rather than a budget: a
+        /// file naming hundreds is not a world this console has to draw, and the cap
+        /// keeps a malformed snapshot from becoming an unbounded DOM. It is not
+        /// tightened to one, because "the server says four" should be visible as a
+        /// wrong number rather than silently truncated to the number this console
+        /// expected.
         /// </summary>
-        private const int MaxRegions = 64;
+        private const int MaxWhales = 64;
 
         /// <summary>
         /// The largest world coordinate a call station may claim, in metres. The
@@ -774,31 +777,40 @@ namespace WorldsAdriftServer.Admin
             {
                 Present = true,
                 Enabled = (bool?)w["enabled"] ?? false,
-                WhaleCount = Clamp((int?)w["whaleCount"] ?? 0, MaxRegions),
+                WhaleCount = Clamp((int?)w["whaleCount"] ?? 0, MaxWhales),
                 Json = Build(w),
             };
         }
 
         private static JObject Build(JObject? w)
         {
-            JArray regions = new JArray();
-            if (w?["regions"] is JArray rows)
+            JArray whales = new JArray();
+            if (w?["whales"] is JArray rows)
             {
                 foreach (JToken token in rows)
                 {
-                    if (regions.Count >= MaxRegions) break;
-                    if (token is not JObject region) continue;
-                    string id = (string?)region["regionId"] ?? "";
+                    if (whales.Count >= MaxWhales) break;
+                    if (token is not JObject whale) continue;
+                    string id = (string?)whale["routeId"] ?? "";
                     if (id.Length == 0) continue;
-                    regions.Add(new JObject
+                    whales.Add(new JObject
                     {
-                        ["regionId"] = id,
-                        ["entityId"] = (long?)region["entityId"] ?? 0,
-                        ["callEntityId"] = (long?)region["callEntityId"] ?? 0,
-                        ["callIndex"] = (long?)region["callIndex"] ?? 0,
-                        ["callX"] = Metres((double?)region["callX"] ?? 0),
-                        ["callY"] = Metres((double?)region["callY"] ?? 0),
-                        ["callZ"] = Metres((double?)region["callZ"] ?? 0),
+                        ["routeId"] = id,
+                        ["entityId"] = (long?)whale["entityId"] ?? 0,
+                        ["callEntityId"] = (long?)whale["callEntityId"] ?? 0,
+                        ["callIndex"] = (long?)whale["callIndex"] ?? 0,
+                        ["callX"] = Metres((double?)whale["callX"] ?? 0),
+                        ["callY"] = Metres((double?)whale["callY"] ?? 0),
+                        ["callZ"] = Metres((double?)whale["callZ"] ?? 0),
+                        // EMPTY regionId is a REAL answer - the animal is between
+                        // zones - so it is passed through rather than defaulted to
+                        // the next zone, which would put a marker in the wrong cell.
+                        ["regionId"] = Name((string?)whale["regionId"]),
+                        ["nextRegionId"] = Name((string?)whale["nextRegionId"]),
+                        ["nextRegionIslandId"] = Name((string?)whale["nextRegionIslandId"]),
+                        ["nextRegionSeconds"] = Seconds((double?)whale["nextRegionSeconds"] ?? 0),
+                        ["nextIslandId"] = Name((string?)whale["nextIslandId"]),
+                        ["nextIslandSeconds"] = Seconds((double?)whale["nextIslandSeconds"] ?? 0),
                     });
                 }
             }
@@ -811,13 +823,33 @@ namespace WorldsAdriftServer.Admin
                 ["present"] = w != null,
                 ["enabled"] = (bool?)w?["enabled"] ?? false,
                 ["clockSeconds"] = clock,
-                ["whaleCount"] = Clamp((int?)w?["whaleCount"] ?? 0, MaxRegions),
+                ["whaleCount"] = Clamp((int?)w?["whaleCount"] ?? 0, MaxWhales),
                 ["loadRadiusMetres"] = Metres((double?)w?["loadRadiusMetres"] ?? 0),
                 ["callRadiusMetres"] = Metres((double?)w?["callRadiusMetres"] ?? 0),
                 ["poseIntervalMs"] = Clamp((int?)w?["poseIntervalMs"] ?? 0, 3_600_000),
                 ["callIntervalSeconds"] = Metres((double?)w?["callIntervalSeconds"] ?? 0),
-                ["regions"] = regions,
+                ["whales"] = whales,
             };
+        }
+
+        /// <summary>
+        /// A zone or island name from a snapshot, bounded. Names reach the DOM, so a
+        /// megabyte of them from a corrupt file would be a megabyte of DOM; and an
+        /// absent name is EMPTY rather than a placeholder, because empty already
+        /// means something here ("between zones") and inventing a word for it would
+        /// make a real state indistinguishable from a parse failure.
+        /// </summary>
+        private static string Name(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            return value.Length <= 96 ? value : value.Substring(0, 96);
+        }
+
+        /// <summary>A countdown that is finite and not negative. A NaN would render as a NaN.</summary>
+        private static double Seconds(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < 0) return 0;
+            return value > 86_400.0 ? 86_400.0 : value;
         }
 
         /// <summary>A world coordinate that is finite and inside the world. See the type remarks.</summary>

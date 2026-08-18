@@ -376,7 +376,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // v11: adds the `skyWhale` section (the one animal per region, the clock
         // its circuit is a function of, and where each whale's current call is
         // coming from).
-        public const int SchemaVersion = 11;
+        // v12: the sky whale became ONE animal for the whole world, migrating from
+        // zone to zone, so `skyWhale.regions` (one row per region, each with its own
+        // whale) became `skyWhale.whales` (at most one row, carrying the route it
+        // flies, the zone it is over NOW - empty while it crosses open sky - and the
+        // zone it goes to next with a countdown). The rename is deliberate rather
+        // than cosmetic: a reader that kept reading `regions` would otherwise have
+        // silently drawn one whale per cell out of a feed that no longer means that.
+        public const int SchemaVersion = 12;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -440,7 +447,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public InterestRuntimeStat Interest { get; }
 
         /// <summary>
-        /// The sky whale and, critically, the clock that places it (schema v11+).
+        /// The sky whale and, critically, the clock that places it (schema v11+;
+        /// reshaped in v12 when four region whales became one migrating whale).
         /// Always a fully built value: a server with the whale off reports
         /// <see cref="SkyWhaleRuntimeStat.Off"/> rather than an absent section, so
         /// a reader distinguishes "off" from "older server".
@@ -739,19 +747,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The sky whale section (schema v11).
+        /// The sky whale section (schema v12).
         ///
         /// Written unconditionally with an explicit enabled flag, like every other
         /// section here: absence must mean "an older game server", never "no
-        /// whale". One row per region, and the rows are TINY - an id, an entity
-        /// pair and one call station each - because the expensive half of the
-        /// answer, WHERE the animal is, is a function of <c>clockSeconds</c> that
-        /// the reader evaluates for itself.
+        /// whale". At most ONE row - the world carries one migrating animal - and
+        /// the row is TINY, because the expensive half of the answer, WHERE the
+        /// animal is, is a function of <c>clockSeconds</c> that the reader evaluates
+        /// for itself against the published route.
         ///
-        /// The call station IS carried, unlike any creature position, because a
-        /// call is a discrete event pinned to one place for two minutes rather than
-        /// a pose that moves between snapshots. See
-        /// <see cref="SkyWhaleRegionStat"/>.
+        /// TWO KINDS OF FACT ARE CARRIED ANYWAY, and both are carried because they
+        /// are DISCRETE rather than continuous. The call station is a fixed place
+        /// for two minutes and cannot be derived without agreeing about the epoch.
+        /// The whereabouts - which zone it is over, which it enters next, when - are
+        /// the headline fact of the whole feature and are classified once, by the
+        /// server, rather than re-implemented by every reader. See
+        /// <see cref="SkyWhaleStat"/>.
         /// </summary>
         private static void AppendSkyWhale(StringBuilder b, SkyWhaleRuntimeStat w)
         {
@@ -764,19 +775,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "callRadiusMetres", w.CallRadiusMetres); b.Append(',');
             Num(b, "poseIntervalMs", w.PoseIntervalMs); b.Append(',');
             Num(b, "callIntervalSeconds", w.CallIntervalSeconds); b.Append(',');
-            Key(b, "regions"); b.Append('[');
-            for (int i = 0; i < w.Regions.Count; i++)
+            Key(b, "whales"); b.Append('[');
+            for (int i = 0; i < w.Whales.Count; i++)
             {
                 if (i > 0) b.Append(',');
-                SkyWhaleRegionStat region = w.Regions[i];
+                SkyWhaleStat whale = w.Whales[i];
                 b.Append('{');
-                Str(b, "regionId", region.RegionId); b.Append(',');
-                Num(b, "entityId", region.EntityId); b.Append(',');
-                Num(b, "callEntityId", region.CallEntityId); b.Append(',');
-                Num(b, "callIndex", region.CallIndex); b.Append(',');
-                Num(b, "callX", region.CallX); b.Append(',');
-                Num(b, "callY", region.CallY); b.Append(',');
-                Num(b, "callZ", region.CallZ);
+                Str(b, "routeId", whale.RouteId); b.Append(',');
+                Num(b, "entityId", whale.EntityId); b.Append(',');
+                Num(b, "callEntityId", whale.CallEntityId); b.Append(',');
+                Num(b, "callIndex", whale.CallIndex); b.Append(',');
+                Num(b, "callX", whale.CallX); b.Append(',');
+                Num(b, "callY", whale.CallY); b.Append(',');
+                Num(b, "callZ", whale.CallZ); b.Append(',');
+                // EMPTY MEANS "between zones", and it is a real answer. A reader
+                // must not fill it in from nextRegionId: the animal is over open sky
+                // and saying otherwise would send a player to the wrong cell.
+                Str(b, "regionId", whale.RegionId); b.Append(',');
+                Str(b, "nextRegionId", whale.NextRegionId); b.Append(',');
+                Str(b, "nextRegionIslandId", whale.NextRegionIslandId); b.Append(',');
+                Num(b, "nextRegionSeconds", whale.NextRegionSeconds); b.Append(',');
+                Str(b, "nextIslandId", whale.NextIslandId); b.Append(',');
+                Num(b, "nextIslandSeconds", whale.NextIslandSeconds);
                 b.Append('}');
             }
             b.Append(']');
