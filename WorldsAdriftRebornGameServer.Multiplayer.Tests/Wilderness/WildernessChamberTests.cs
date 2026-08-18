@@ -220,6 +220,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             }
         }
 
+        /// <summary>
+        /// THE DOORWAY FACES THE APPROACH. The prefab has exactly one opening, and
+        /// the previous placement pointed it 132 deg away from the spot the user
+        /// stood on - so they were looking at a blank wall and said the tower was
+        /// not where they asked. The measured spot is Haven-local (168.0, 4.52, 8.0).
+        /// </summary>
+        [Fact]
+        public void The_doorway_faces_the_ground_the_user_walks_in_from()
+        {
+            const double SpotX = 168.0, SpotZ = 8.0;
+
+            // Unity yaw: prefab local +x (the doorway) points at (cos yaw, -sin yaw).
+            double yaw = WildernessChamber.YawDegrees * Math.PI / 180.0;
+            double dx = Math.Cos(yaw), dz = -Math.Sin(yaw);
+
+            double ux = SpotX - WildernessChamber.HavenLocalPlacement.X;
+            double uz = SpotZ - WildernessChamber.HavenLocalPlacement.Z;
+            double len = Math.Sqrt((ux * ux) + (uz * uz));
+
+            double facing = ((dx * ux) + (dz * uz)) / len;
+            Assert.True(facing > 0.85,
+                "the doorway is aimed " + (Math.Acos(facing) * 180.0 / Math.PI).ToString("0")
+                + " deg away from where the user stands");
+        }
+
+        /// <summary>
+        /// ...and it is as close to that spot as the geometry allows. The spot ITSELF
+        /// cannot hold the building - the ground there is clear for only 12.4 m, with
+        /// 14 authored structures inside 22 m - so this pins the compromise rather
+        /// than pretending the constraint is not there.
+        /// </summary>
+        [Fact]
+        public void The_chamber_is_within_a_short_walk_of_the_spot_the_user_asked_for()
+        {
+            double dx = WildernessChamber.HavenLocalPlacement.X - 168.0;
+            double dz = WildernessChamber.HavenLocalPlacement.Z - 8.0;
+
+            Assert.InRange(Math.Sqrt((dx * dx) + (dz * dz)), 0.0, 26.0);
+        }
+
         [Fact]
         public void The_chamber_stands_on_haven()
         {

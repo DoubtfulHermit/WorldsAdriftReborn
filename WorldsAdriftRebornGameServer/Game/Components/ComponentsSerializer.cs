@@ -814,7 +814,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                     Multiplayer.Wilderness.WildernessShrine.InteractTimeToUse));
                             }
                             entry = entries[0];
-                            verbName = "Activate/Default/Man (shrine hedge)";
+                            verbName = string.Join("/", Multiplayer.Wilderness.WildernessShrine.Verbs) + " (shrine hedge, verb ids)";
                         }
                         else if (isCraftStation)
                         {

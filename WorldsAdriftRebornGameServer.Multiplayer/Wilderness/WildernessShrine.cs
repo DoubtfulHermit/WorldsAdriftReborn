@@ -77,9 +77,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// The bare prefab name, as <c>WorldEntity.AssetName</c> wants it: no
         /// <c>_unityclient</c> suffix, the client appends its own worker suffix.
         /// Case taken from the prefab itself in resources.assets, which carries the
-        /// GameObject <c>Respawner01_unityclient</c>.
+        /// GameObject <c>CraftingStation_unityclient</c> - the SAME prefab the placed
+        /// Assembly Station uses (<see cref="Placement.Deployables"/> "assemblyStation"),
+        /// whose Craft prompt is live-proven on this server.
         /// </summary>
-        public const string AssetName = "Respawner01";
+        public const string AssetName = "CraftingStation";
 
         /// <summary>
         /// Its stable registration key. Singular and not a prefix: there is exactly
@@ -104,6 +106,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         ///   * (168.00, 4.47, 24.00) cleared the camp by 24.5 m, but by then the
         ///     object was a bare 1.2 m plate 45 m from spawn and a live player could
         ///     not find it: "i cant find the teleporter now".
+        ///   * (160.00, 4.18, 32.00) put it inside the chamber, but 25.3 m from the
+        ///     spot the user had twice pointed at, with the chamber's one doorway
+        ///     facing 132 deg away from them.
         ///   * This one is INSIDE <see cref="WildernessChamber"/>, at chamber-local
         ///     (0, 0) - which is where retail's own spawn plate sits, 11 m further
         ///     down under the terrain. The 20 m tower is the landmark; the room is
@@ -132,7 +137,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         ///     flat walk, reachable by a flood fill that never climbs more than 2 m
         ///     per 8 m cell
         /// </summary>
-        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (160.00, 4.18, 32.00);
+        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (156.00, 4.16, 28.00);
 
         /// <summary>Its global position, given the Haven definition it stands on.</summary>
         public static FixedPointPosition PositionOn(IslandDefinition haven)
@@ -159,19 +164,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// How far the standable top of the plate is ABOVE the
-        /// <c>InteractiveObjectVisualizer</c>'s own transform, metres. Measured:
-        /// 0.00 m (the visualizer's local offset) + 0.20 m (the top of the plate's
-        /// collider).
+        /// How far the player's feet are ABOVE the
+        /// <c>InteractiveObjectVisualizer</c>'s own transform, metres. ZERO here:
+        /// the visualizer is on the prefab ROOT at offset (0, 0, 0) and the console
+        /// is something you stand BESIDE, not on, so the player's feet are level
+        /// with the entity origin. That zero is the whole reason this prefab works
+        /// where the Revival Chamber's 3.204 m did not.
         /// </summary>
-        public const float PadTopAboveVisualiserMetres = 0.20f;
+        public const float PadTopAboveVisualiserMetres = 0.00f;
 
         /// <summary>
-        /// Half-width of the plate's collider, metres - how far out from the centre
-        /// a player can stand and still be ON it. Measured from the prefab's
-        /// collision extent (x and z both -0.60 .. +0.60).
+        /// Half-width of the console's collider, metres - how far out from the axis
+        /// its own geometry reaches, so the prompt must at least cover somebody
+        /// standing against it. Measured from the prefab's collision extent
+        /// (x -1.16..1.16, y -0.57..1.26, z -1.16..0.99).
         /// </summary>
-        public const float PadHalfWidthMetres = 0.60f;
+        public const float PadHalfWidthMetres = 1.16f;
 
         /// <summary>
         /// 1210 InteractionEntry.radius, metres.
@@ -246,6 +254,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// </summary>
         public static readonly IReadOnlyList<int> Verbs = new[]
         {
+            VerbCraft,
             VerbActivate,
             VerbDefault,
             VerbMan,
@@ -254,6 +263,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         public const int VerbDefault = 0;
         public const int VerbActivate = 1;
         public const int VerbMan = 3;
+        public const int VerbCraft = 5;
 
         /// <summary>
         /// Whether an interact event on the shrine counts as "use the shrine".
@@ -273,17 +283,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// <summary>
         /// The components seeded on the shrine entity, in send order.
         ///
-        /// 190602 places it; 1210 makes it interactive. Nothing else, and that is a
-        /// rule rather than minimalism: the seed push is ALL-OR-NOTHING, so naming
-        /// an id with no ComponentsSerializer branch drops the whole batch and
-        /// yields an entity that renders at the world origin and does nothing. 6905
-        /// <c>AncientRespawnerState</c> exists in the schema (docs/component-ids.md)
-        /// and is exactly the kind of id that would be tempting to add; it has no
-        /// branch, so adding it would break the shrine rather than improve it.
+        /// EXACTLY the set <see cref="Placement.Deployables"/> seeds for the placed
+        /// Assembly Station (<c>TransformAndCraftingStation</c>): 190602 places it,
+        /// 1004 + 1005 satisfy <c>CraftingStationBehaviour</c>'s two [Require]
+        /// readers, and 1210 makes it interactive. Byte-for-byte the configuration
+        /// whose Craft prompt already works on this server, which is the whole
+        /// reason for choosing this prefab.
+        ///
+        /// The set is a rule rather than minimalism: the seed push is ALL-OR-NOTHING,
+        /// so naming an id with no ComponentsSerializer branch drops the whole batch
+        /// and yields an entity that renders at the world origin and does nothing.
+        /// 6905 <c>AncientRespawnerState</c> exists in the schema
+        /// (docs/component-ids.md) and is exactly the kind of id that would be
+        /// tempting to add; it has no branch, so adding it would break the shrine.
+        ///
+        /// NOTE: 1005 is seeded IDLE and this server never echoes the 1005
+        /// <c>PlayerStartCrafting</c> for the shrine, so no crafting UI opens when
+        /// the player interacts - the E press becomes a 1211 and nothing else.
         /// </summary>
         public static readonly IReadOnlyList<uint> SeedComponents = new uint[]
         {
             190602,
+            1004,
+            1005,
             1210,
         };
 
