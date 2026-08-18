@@ -234,8 +234,13 @@ namespace WorldsAdriftServer.Admin
                    .Append(";stroke:").Append(tier.Halo).Append('}');
                 css.Append(".map-cell-label.type-").Append(tier.Tier)
                    .Append(" .tier{fill:").Append(tier.Ink).Append('}');
-                css.Append(".map-cell-label.type-").Append(tier.Tier)
-                   .Append(" .stock{fill:").Append(tier.Ink).Append('}');
+                // Hovering or selecting a zone outlines it in the SAME computed
+                // ink its label already uses, so the highlight is guaranteed
+                // legible against that zone's composited fill. The fill itself is
+                // never touched by an interaction - if hover dimmed or brightened
+                // it, the legend would stop being the picture.
+                css.Append(".map-biome.type-").Append(tier.Tier)
+                   .Append(".is-active{stroke:").Append(tier.Ink).Append('}');
                 css.Append(".map-swatch.tier-").Append(tier.Tier)
                    .Append("{background:").Append(tier.Fill).Append('}');
                 // The ledger's tier chip is a fourth tier-coloured surface, and it

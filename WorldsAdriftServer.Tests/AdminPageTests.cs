@@ -202,6 +202,8 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("id=\"mapHavenLayer\"", html);
             Assert.Contains("id=\"mapWallLayer\"", html);
             Assert.Contains("id=\"mapIslandLayer\"", html);
+            Assert.Contains("id=\"mapShellLayer\"", html);
+            Assert.Contains("id=\"mapDetail\"", html);
             Assert.Contains("id=\"mapShipLayer\"", html);
             Assert.Contains("id=\"mapPlayerLayer\"", html);
             Assert.Contains("renderLiveWorldMap", html);
@@ -214,7 +216,7 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("T3 Remnants", html);
             Assert.Contains("T4 Badlands", html);
             Assert.Contains("E3 is one cell", html);
-            Assert.Contains("NO DISTRICT", html);
+            Assert.Contains("UNASSIGNED", html);
             Assert.Contains("no name inferred", html);
             Assert.Contains("Haven is inside", html);
             Assert.Contains("12 preserved starter-island placements", html);
@@ -261,37 +263,67 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void The_seeded_inventory_is_visible_without_clicking_anything()
+        public void The_map_surface_carries_no_statistics_and_detail_lives_in_the_panel()
         {
             string html = AdminPage.Dashboard("{}", new string('k', 64), ReleaseWorldMap.Json);
 
-            // Three surfaces, none of which needs an interaction. The panel opens on
-            // the world totals instead of on "select something"; every cell carries
-            // its own roll-up as a third label line; and the ledger under the map
-            // lists all 254 catalogued islands one row each.
-            Assert.Contains("function worldOverviewLines()", html);
-            Assert.Contains("showWorldOverview();", html);
-            Assert.DoesNotContain("Select a tier cell, island, ship or player", html);
+            // WHAT THIS TEST IS FOR. A previous iteration stamped an abbreviated
+            // resource roll-up on every tier cell - "11 isl / 55 db / 72 dep / 60
+            // tr / *8" - because the ask was read as "make the inventory visible"
+            // rather than "make it reachable". It made the world unreadable. The
+            // map is a map again; nothing but zone identity is drawn on it.
+            Assert.DoesNotContain("cellRollupShort", html);
+            Assert.DoesNotContain("' isl · '", html);
+            Assert.DoesNotContain("' db · '", html);
+            Assert.DoesNotContain("' dep · '", html);
+            Assert.DoesNotContain("+' tr'", html);
+            Assert.DoesNotContain("class=\"stock\"", html);
+            Assert.DoesNotContain("'class':'stock'", html);
+            Assert.DoesNotContain("id=\"mapResources\"", html);
+            // A cell draws exactly two lines: its district and its tier name.
+            Assert.Contains("districtLine.textContent=hasDistrict?b.district:'UNASSIGNED'", html);
+            Assert.Contains("tierLine.textContent='T'+b.type+' · '+info.name", html);
 
-            Assert.Contains("function cellRollupShort(", html);
-            Assert.Contains("stockLine.textContent=cellRollupShort(b.cellId)", html);
-            Assert.Contains("id=\"mapResources\" checked", html);
+            // Detail is reachable by CLICKING, and the click targets are real.
+            Assert.Contains("function selectIsland(node)", html);
+            Assert.Contains("function selectZone(z)", html);
+            Assert.Contains("function selectWorld()", html);
+            Assert.Contains("function renderMapDetail()", html);
+            Assert.Contains("function detailIsland(panel,scroll,node)", html);
+            Assert.Contains("function detailZone(panel,scroll,z)", html);
+            Assert.Contains("id=\"mapDetail\"", html);
 
+            // THE BUG THAT MADE THE FEATURE LOOK ABSENT. Capturing the pointer on
+            // pointerdown retargets the compatibility click too, so every island
+            // click was delivered to the SVG and silently reset the panel. The
+            // capture must happen only once a drag has actually started.
+            Assert.DoesNotContain("mapDragged=false;svg.setPointerCapture(e.pointerId)", html);
+            Assert.Contains("if(!mapDragged){", html);
+            Assert.Contains("svg.setPointerCapture(e.pointerId);drag.captured=true;", html);
+
+            // Discoverability: hover affordance, cursor, hit target, hint.
+            Assert.Contains(".map-marker{cursor:pointer}", html);
+            Assert.Contains("group.classList.add('hot')", html);
+            Assert.Contains("'class':'mk-hit'", html);
+            Assert.Contains("click an island for its full inventory", html);
+
+            // Progressive disclosure instead of crammed text: zoom classes, real
+            // coastlines and island names appear as you zoom in.
+            Assert.Contains("svg.classList.toggle('zoom-near'", html);
+            Assert.Contains("svg.zoom-near .map-shell-layer{opacity:1", html);
+            Assert.Contains("function shellPath(i)", html);
+            Assert.Contains("svg.zoom-near .map-marker .map-island-name{opacity:1}", html);
+
+            // The words are spelled out in the panel.
+            Assert.Contains("'Databanks'", html);
+            Assert.Contains("'Metal deposits'", html);
+            Assert.Contains("'Trees'", html);
+
+            // The ledger survives as the all-islands view, driven by ONE search.
             Assert.Contains("id=\"ledgerBody\"", html);
             Assert.Contains("function renderIslandLedger()", html);
-            Assert.Contains("renderIslandLedger();", html);
             Assert.Contains("id=\"ledgerFilter\"", html);
-
-            // Provenance survives the move out of the click-only panel. An inferred
-            // ore table is marked in its own row, not only in a footnote under the
-            // table, and the two genuinely-absent things are still reported as zero
-            // with their reason rather than quietly dropped.
-            Assert.Contains("(inv.oresInferred?'✱ ':'')+oreSummary(inv)", html);
-            Assert.Contains("row.className='inferred'", html);
-            Assert.Contains("INFERRED ore table", html);
-            Assert.Contains("The deposit COUNT is real; the ore names are plausible, not Bossa data.", html);
-            Assert.Contains("the lootable-container component never shipped at all", html);
-            Assert.Contains("never invented", html);
+            Assert.Contains("function applyMapFilter()", html);
         }
 
         [Fact]
@@ -345,7 +377,7 @@ namespace WorldsAdriftServer.Tests
             // The unassigned Tier-4 cells stay unassigned, and Holy Ruins keeps
             // its two conflicting preserved facts; labelling changed nothing here.
             Assert.Contains("E3 is one cell", html);
-            Assert.Contains("NO DISTRICT", html);
+            Assert.Contains("UNASSIGNED", html);
             Assert.Contains("no name inferred", html);
             Assert.Contains("two Tier-4 Badlands cells are explicitly unassigned", html);
             Assert.Contains("not silently invented as E1/E2 or merged into E3", html);
@@ -491,22 +523,34 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void Inferred_ore_is_marked_wherever_the_page_shows_it()
+        public void Inferred_ore_is_marked_in_words_wherever_the_page_shows_it()
         {
             string html = AdminPage.Dashboard("{}", new string('k', 64), ReleaseWorldMap.Json);
 
-            // The mark rides the ore line itself, the provenance line, and the
-            // per-cell roll-up - not just one of the three.
-            Assert.Contains("(inv.oresInferred?'✱ ':'')+'Ore: '", html);
-            Assert.Contains("(inv.oresInferred?'✱ ':'')+'Ore provenance: '", html);
-            Assert.Contains("have an INFERRED ore table", html);
-            // The legend explains the mark and names the provenance rung.
-            Assert.Contains("&#10033; marks an <strong>INFERRED</strong> ore table", html);
+            // The mark is a WORD now, not an asterisk that has to be looked up in
+            // a key. It rides the island panel, the zone panel's per-ore row, the
+            // ledger row and the legend - not just one of them.
+            Assert.Contains("Inferred, not recovered.", html);
             Assert.Contains("composed from the surveyed same-tier cohort", html);
+            Assert.Contains("plausible, not Bossa data", html);
+            Assert.Contains("row.className='is-inferred'", html);
+            Assert.Contains("tr.is-inferred td.ore:after{content:'inferred'", html);
+            Assert.Contains("(inv.oresInferred?'INFERRED: ':'')+oreSummary(inv)", html);
+            Assert.Contains("Partly inferred.", html);
+            Assert.Contains("Any row below that any unsurveyed island contributed to is marked"
+                + " inferred", html);
+            Assert.Contains("Ore types on 193 of the 254 islands are <strong>INFERRED</strong>", html);
             // A recovered PvP reading is still a reading of that island, and says so.
-            Assert.Contains("RECOVERED · read on the PvP shard", html);
+            Assert.Contains("RECOVERED - read on the PvP shard", html);
+            Assert.Contains("one ruleset removed from the PvE world", html);
             // Nothing invents a number for what did not survive.
-            Assert.Contains("Fuel pods and loot chests are shown as 0", html);
+            Assert.Contains("Fuel pods: 0.", html);
+            Assert.Contains("Loot containers: 0.", html);
+            Assert.Contains("never invented", html);
+            // The bare asterisk that used to carry all of this is gone from the
+            // map surface entirely.
+            Assert.DoesNotContain("'✱'+inferred", html);
+            Assert.DoesNotContain("(inv.oresInferred?'✱ ':'')", html);
         }
 
         [Fact]
