@@ -12,11 +12,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// (creature, island, envelope, elapsedSeconds) with no stored physics state,
     /// no clock of its own and no entropy. Everything below is built on it.
     /// </summary>
-    public delegate FixedPointPosition FaunaPoseFunction(
+    public delegate FaunaTransform FaunaPoseFunction(
         FaunaCreature creature,
         IslandDefinition island,
         IslandTerrainEnvelope envelope,
         double elapsedSeconds);
+
+    /// <summary>
+    /// A complete creature transform: where it is and which way it faces.
+    ///
+    /// ONE TYPE RATHER THAN TWO RETURN VALUES, deliberately. The pose and the
+    /// heading are computed from the same closed form at the same instant, and
+    /// bundling them makes it impossible for a later change to advance one without
+    /// the other - which is precisely how the wildlife ended up flying sideways:
+    /// the position was computed and the rotation simply never was, so every pose
+    /// went out with the client's identity sentinel.
+    /// </summary>
+    public readonly record struct FaunaTransform(
+        FixedPointPosition Position,
+        FaunaRotation Rotation);
 
     /// <summary>
     /// One creature's pose at one instant: everything a transform push needs.
@@ -31,12 +45,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     public readonly struct FaunaPose
     {
         public FaunaPose(long entityId, FaunaSpecies species, IslandId islandId,
-            FixedPointPosition position)
+            FaunaTransform transform)
         {
             EntityId = entityId;
             Species = species;
             IslandId = islandId;
-            Position = position;
+            Position = transform.Position;
+            Rotation = transform.Rotation;
         }
 
         /// <summary>The creature entity this pose addresses.</summary>
@@ -50,6 +65,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
         /// <summary>Where the creature is, absolutely. See the type remarks.</summary>
         public FixedPointPosition Position { get; }
+
+        /// <summary>
+        /// Which way it faces, as a unit quaternion. Rides the SAME 190602 update as
+        /// <see cref="Position"/>, so carrying it costs no extra packet and cannot
+        /// move the per-peer update rate.
+        /// </summary>
+        public FaunaRotation Rotation { get; }
 
         public override string ToString() =>
             Species + " " + EntityId + " on " + IslandId + " at " + Position;
@@ -220,7 +242,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// </summary>
         public FixedPointPosition? PositionOf(long entityId) =>
             _creatures.TryGetValue(entityId, out Entry? entry)
-                ? PoseOf(entry, _clock.Elapsed) : (FixedPointPosition?)null;
+                ? PoseOf(entry, _clock.Elapsed).Position : (FixedPointPosition?)null;
 
         /// <summary>
         /// Every creature whose next pose is due, advanced. Call once per main-loop
@@ -288,7 +310,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// servers that seeded the same island at different points in their boot
         /// would disagree about where the same creature is.
         /// </summary>
-        private FixedPointPosition PoseOf(Entry entry, TimeSpan now) =>
+        private FaunaTransform PoseOf(Entry entry, TimeSpan now) =>
             _pose(entry.Creature, entry.Island, entry.Envelope, now.TotalSeconds);
     }
 }

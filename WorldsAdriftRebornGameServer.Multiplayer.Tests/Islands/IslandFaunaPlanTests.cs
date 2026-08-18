@@ -247,7 +247,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // The plan and the registry share one budget; if they ever disagreed the
             // registry would silently refuse the tail of the plan.
             IslandFaunaRegistry registry = new IslandFaunaRegistry(
-                new FakeClock(), IslandFaunaMovement.WorldPoseAt);
+                new FakeClock(), IslandFaunaMovement.WorldTransformAt);
 
             foreach (FaunaPlacement placement in
                 IslandFaunaPlan.Build(Tier(1, 20), registry.MaxConcurrent))

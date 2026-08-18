@@ -175,12 +175,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         /// a C# anonymous method - so it binds whatever arguments the registry hands
         /// the movement layer.
         /// </summary>
+        [Fact]
+        public void A_pose_carries_the_rotation_the_movement_layer_produced()
+        {
+            // The registry must be a courier for the heading, not just the position.
+            // Until this feature existed the wire simply had no rotation on it, and
+            // every creature was re-slammed to "nose along world +Z" by the client
+            // four times a second.
+            FakeClock clock = new FakeClock();
+            IslandFaunaRegistry registry = Build(clock);
+            Assert.True(Add(registry, Creatures()[0]));
+
+            FaunaPose pose = Assert.Single(registry.DuePoses());
+            Assert.Equal(StubPose.Rotation, pose.Rotation);
+            Assert.NotEqual(FaunaRotation.Identity, pose.Rotation);
+        }
+
         private static IslandFaunaRegistry Build(
             IClock clock, int? maxConcurrent = null, TimeSpan? poseInterval = null) =>
             new IslandFaunaRegistry(clock, delegate { return StubPose; }, maxConcurrent, poseInterval);
 
-        private static readonly dynamic StubPose =
-            FixedPointPosition.FromMetres(1210.0, -395.0, 3610.0);
+        /// <summary>
+        /// A fixed transform, so the registry's SCHEDULING can be asserted without
+        /// the movement maths. The rotation is a real quarter turn rather than the
+        /// identity: the registry has to carry whatever it is handed, and a stub that
+        /// returned identity would agree with a registry that dropped the rotation on
+        /// the floor - which is the bug that shipped.
+        /// </summary>
+        private static readonly dynamic StubPose = new FaunaTransform(
+            FixedPointPosition.FromMetres(1210.0, -395.0, 3610.0),
+            new FaunaRotation(0.70710678f, 0f, 0.70710678f, 0f));
 
         /// <summary>One whole server lifetime: a fresh clock, a fresh registry, the same schedule.</summary>
         private static List<FaunaPose> Replay(IReadOnlyList<TimeSpan> steps)

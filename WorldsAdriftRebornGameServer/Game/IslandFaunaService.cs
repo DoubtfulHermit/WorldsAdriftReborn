@@ -145,7 +145,7 @@ namespace WorldsAdriftRebornGameServer.Game
             _unloadRadius = IslandFaunaInterestPolicy.UnloadRadiusFor(_loadRadius);
             _peerBudget = perPeerBudget ?? IslandFaunaInterestPolicy.DefaultPerPeerCreatures;
             _registry = new IslandFaunaRegistry(clock,
-                IslandFaunaMovement.WorldPoseAt, maxConcurrent);
+                IslandFaunaMovement.WorldTransformAt, maxConcurrent);
         }
 
         /// <summary>Whether island fauna is switched on.</summary>
@@ -550,10 +550,23 @@ namespace WorldsAdriftRebornGameServer.Game
                         continue;
                     }
 
+                    // THE ROTATION RIDES THIS SAME UPDATE. 190602 already carries a
+                    // localRotation, so facing costs no extra packet, no extra
+                    // component and no extra send - the per-peer ceiling of
+                    // IslandFaunaInterestPolicy.DefaultPerPeerCreatures x the pose
+                    // cadence is untouched by it.
+                    //
+                    // Sending the identity SENTINEL here, as this did until now, was
+                    // not a neutral default: the client's AbstractLerpTransformBehaviour
+                    // applies position and rotation TOGETHER whenever the position
+                    // moved, so identity actively re-slammed every creature to "nose
+                    // along world +Z" four times a second regardless of travel.
                     TransformState.Update update = ShipPartTransform.BuildParentlessWakeUpdate(
                         pose.Position,
                         new Improbable.Corelibrary.Math.Quaternion32(
-                            Multiplayer.Placement.Quaternion32Packing.Identity),
+                            Multiplayer.Placement.Quaternion32Packing.Encode(
+                                pose.Rotation.W, pose.Rotation.X,
+                                pose.Rotation.Y, pose.Rotation.Z)),
                         stamp);
 
                     // Keep this peer's stored 190602 in step with what it has just
