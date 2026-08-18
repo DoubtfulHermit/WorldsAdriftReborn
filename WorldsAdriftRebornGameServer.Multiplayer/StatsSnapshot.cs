@@ -44,6 +44,113 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     }
 
     /// <summary>
+    /// WHAT ONE SHIP IS, as opposed to where it is: the shape the player built, the
+    /// dimensions of it, who owns it and what it is made of.
+    ///
+    /// This is STATIC for the life of a hull. It rides the same snapshot as the
+    /// pose because the snapshot is the only bridge the two processes have, but a
+    /// reader is expected to treat the outline as immutable per
+    /// hull and rebuild nothing while <see cref="Present"/> and the hull id are
+    /// unchanged - a ring is a few dozen numbers on the wire and an SVG path
+    /// rebuild sixty times a second in the browser, so the cost that matters is
+    /// the second one.
+    ///
+    /// PROVENANCE. Everything here is RECOVERED from the player's own hull bytes or
+    /// from the ledger the build wrote - nothing is inferred and nothing is tuned.
+    /// A hull whose bytes are missing or undecodable reports
+    /// <see cref="Present"/> false rather than a plausible substitute shape.
+    /// </summary>
+    public readonly struct ShipHullStat
+    {
+        private readonly Ship.ShipMapSilhouette? _silhouette;
+        private readonly string? _ownerCharacterUid;
+        private readonly Materials.HullMaterials? _materials;
+
+        /// <summary>The hull whose bytes could not be found or decoded: no shape, no dimensions.</summary>
+        public static ShipHullStat Unavailable => default;
+
+        public ShipHullStat(
+            Ship.ShipMapSilhouette? silhouette,
+            string? ownerCharacterUid,
+            bool docked,
+            Materials.HullMaterials? materials)
+        {
+            _silhouette = silhouette;
+            _ownerCharacterUid = ownerCharacterUid;
+            _materials = materials;
+            Docked = docked;
+        }
+
+        /// <summary>Whether a real outline and real dimensions are carried.</summary>
+        public bool Present => _silhouette != null && !_silhouette.IsEmpty;
+
+        /// <summary>The derived plan-view ring and the measured hull behind it.</summary>
+        public Ship.ShipMapSilhouette Silhouette => _silhouette ?? Ship.ShipMapSilhouette.Empty;
+
+        /// <summary>The owner's character uid, or empty for an unowned hull.</summary>
+        public string OwnerCharacterUid => _ownerCharacterUid ?? string.Empty;
+
+        /// <summary>Whether the hull is sitting in a shipyard.</summary>
+        public bool Docked { get; }
+
+        /// <summary>The dominant wood and metal, with their qualities.</summary>
+        public Materials.HullMaterials Materials => _materials ?? Multiplayer.Materials.HullMaterials.Legacy;
+    }
+
+    /// <summary>
+    /// THE NUMBERS A SECOND EVALUATOR OF SHIP MOTION NEEDS, read off the running
+    /// server's own flight tuning rather than restated.
+    ///
+    /// The operator console draws a ship somewhere, and "somewhere" is a
+    /// measurement several seconds old carried forward along the velocity the
+    /// server reported. How far it may be carried is not a taste call: it is
+    /// solved from the acceleration limit the flight integrator is ACTUALLY
+    /// configured with, which is env-tunable per deployment. Publishing the live
+    /// value - instead of letting the console hard-code the default - is what stops
+    /// a server tuned to accelerate harder from being drawn with a window that is
+    /// too generous for it.
+    ///
+    /// Every field is a direct read of <see cref="Ship.Flight.FlightTuning"/> or of
+    /// <see cref="Ship.ShipMapMotion"/>'s own arithmetic. Nothing is a literal.
+    /// </summary>
+    public readonly struct ShipMapRuntimeStat
+    {
+        /// <summary>A server that reports no ship-motion model at all.</summary>
+        public static ShipMapRuntimeStat Off => default;
+
+        public ShipMapRuntimeStat(double accelMps2, double maxSpeedMps)
+        {
+            Present = true;
+            AccelMps2 = accelMps2;
+            MaxSpeedMps = maxSpeedMps;
+        }
+
+        public bool Present { get; }
+
+        /// <summary>The live <c>WAREBORN_FLIGHT_ACCEL</c>, m/s^2.</summary>
+        public double AccelMps2 { get; }
+
+        /// <summary>The live <c>WAREBORN_FLIGHT_MAX_SPEED</c>, m/s.</summary>
+        public double MaxSpeedMps { get; }
+
+        /// <summary>How long a reader may dead-reckon, solved from the acceleration above.</summary>
+        public double WindowSeconds => Ship.ShipMapMotion.WindowSecondsFor(AccelMps2);
+
+        /// <summary>The metres of error that window is bought at.</summary>
+        public double ToleratedErrorMetres => Ship.ShipMapMotion.ToleratedErrorMetres;
+
+        /// <summary>
+        /// The hard ceiling on any window, published so a second evaluator does
+        /// not have to restate it. It is the one guard that has nothing to do
+        /// with the error budget: a very gentle acceleration would otherwise
+        /// permit a minute of reckoning, and a minute-old pose is not a position
+        /// however tight its bound is - the helm can be released, the ship
+        /// recalled, the domain torn down.
+        /// </summary>
+        public double MaxWindowSeconds => Ship.ShipMapMotion.MaxWindowSeconds;
+    }
+
+    /// <summary>
     /// One truthful in-process whole-ship domain as exported to the operator UI.
     /// This is observation only: no worker, migration or authority-control fields
     /// are implied beyond the local domain generation the runtime already owns.
@@ -68,13 +175,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public int MountedPartCount { get; }
         public int SubscriberCount { get; }
 
+        /// <summary>
+        /// Heading about world +Y, radians; 0 faces +Z, positive turns the nose
+        /// toward +X. A ship's facing is REAL DATA, unlike a creature's, so a
+        /// console that draws hulls draws them turned.
+        /// </summary>
+        public double YawRadians { get; }
+
+        /// <summary>The current turn rate, rad/s - the derivative a reader needs to carry the heading forward.</summary>
+        public double YawRateRadPerSec { get; }
+
+        /// <summary>
+        /// The hull's own velocity in global axes, m/s: the exact derivative of the
+        /// position steps, which is what the flight state reports to the client's
+        /// spline as well. Carried so a reader seconds behind the measurement can
+        /// dead-reckon with the SERVER's number instead of guessing one.
+        /// </summary>
+        public double VxMps { get; }
+        public double VyMps { get; }
+        public double VzMps { get; }
+
+        /// <summary>The shape, dimensions, owner and materials of this hull.</summary>
+        public ShipHullStat Hull { get; }
+
         public ShipDomainStat(string domainId, long hullEntityId, long authorityGeneration,
             long replicationSequence, int cadenceMs, long deliveryAgeMs,
             double x, double y, double z, bool active, bool piloted,
             bool liveCadenceExpected, long? pilotPlayerEntityId,
             IReadOnlyList<long> aboardPlayerEntityIds, int deckCount,
-            int mountedPartCount, int subscriberCount)
+            int mountedPartCount, int subscriberCount,
+            double yawRadians = 0, double yawRateRadPerSec = 0,
+            double vxMps = 0, double vyMps = 0, double vzMps = 0,
+            ShipHullStat hull = default)
         {
+            YawRadians = yawRadians;
+            YawRateRadPerSec = yawRateRadPerSec;
+            VxMps = vxMps;
+            VyMps = vyMps;
+            VzMps = vzMps;
+            Hull = hull;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -185,7 +324,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 7;
+        public const int SchemaVersion = 8;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -232,6 +371,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public FaunaRuntimeStat Fauna { get; }
 
+        /// <summary>
+        /// The flight tuning a reader needs to draw ships between snapshots
+        /// (schema v8+). Always a fully built value on a server that has ships;
+        /// <see cref="ShipMapRuntimeStat.Present"/> false means the game server
+        /// predates it, which a reader must be able to tell from "no ships".
+        /// </summary>
+        public ShipMapRuntimeStat ShipModel { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -261,8 +408,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int runtimeOwnershipIssueCount = 0,
             int firstRegionTerrainCount = 0,
             TerrainRuntimeStat? terrain = null,
-            FaunaRuntimeStat? fauna = null)
+            FaunaRuntimeStat? fauna = null,
+            ShipMapRuntimeStat shipModel = default)
         {
+            ShipModel = shipModel;
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
             UptimeSeconds = uptimeSeconds;
@@ -371,9 +520,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendTerrain(b, Terrain);
             b.Append(',');
             AppendFauna(b, Fauna);
+            b.Append(',');
+            AppendShipModel(b, ShipModel);
 
             b.Append('}');
             return b.ToString();
+        }
+
+        /// <summary>
+        /// The ship-motion model section. Unconditional and self-describing, like
+        /// the terrain and fauna sections: a reader must distinguish a server that
+        /// predates it from a world with no ships in it, because the first means
+        /// "draw nothing and say why" and the second means "the sea is empty".
+        /// </summary>
+        private static void AppendShipModel(StringBuilder b, ShipMapRuntimeStat s)
+        {
+            Key(b, "shipModel");
+            b.Append('{');
+            Bool(b, "present", s.Present); b.Append(',');
+            Num(b, "accelMps2", s.AccelMps2); b.Append(',');
+            Num(b, "maxSpeedMps", s.MaxSpeedMps); b.Append(',');
+            Num(b, "windowSeconds", s.WindowSeconds); b.Append(',');
+            Num(b, "maxWindowSeconds", s.MaxWindowSeconds); b.Append(',');
+            Num(b, "toleratedErrorMetres", s.ToleratedErrorMetres);
+            b.Append('}');
         }
 
         /// <summary>
@@ -641,9 +811,79 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Num(b, "mountedPartCount", d.MountedPartCount); b.Append(',');
             Num(b, "subscriberCount", d.SubscriberCount); b.Append(',');
             Bool(b, "staleDelivery", d.StaleDelivery); b.Append(',');
-            Bool(b, "aboardCheckoutWarning", d.AboardCheckoutWarning);
+            Bool(b, "aboardCheckoutWarning", d.AboardCheckoutWarning); b.Append(',');
+
+            // The heading and the two derivatives. yawRadians was sitting unused in
+            // the same flight state the position is read from; without it a console
+            // can only draw a hull as a dot, and a ship's facing is real data.
+            Num(b, "yawRadians", Trim(d.YawRadians)); b.Append(',');
+            Num(b, "yawRateRadPerSec", Trim(d.YawRateRadPerSec)); b.Append(',');
+            Num(b, "vxMps", Trim(d.VxMps)); b.Append(',');
+            Num(b, "vyMps", Trim(d.VyMps)); b.Append(',');
+            Num(b, "vzMps", Trim(d.VzMps)); b.Append(',');
+
+            AppendHull(b, d.Hull);
             b.Append('}');
         }
+
+        /// <summary>
+        /// The hull's shape, size, owner and materials.
+        ///
+        /// The ring is written as a FLAT array of alternating x and z in hull-local
+        /// metres, trimmed to the centimetre - the same encoding and the same
+        /// reasoning as the preserved island coastlines, which are flat and trimmed
+        /// to the decimetre. Flat costs about a third of what pairs of objects
+        /// would, and a centimetre is far below one screen pixel at every zoom the
+        /// console offers, on a hull an order of magnitude smaller than an island.
+        ///
+        /// Written unconditionally with an explicit <c>present</c>, for the reason
+        /// every other section here is: absence must read as "an older game server",
+        /// never as "this ship has no shape".
+        /// </summary>
+        private static void AppendHull(StringBuilder b, ShipHullStat h)
+        {
+            Key(b, "hull");
+            b.Append('{');
+            Bool(b, "present", h.Present); b.Append(',');
+            Str(b, "ownerCharacterUid", h.OwnerCharacterUid); b.Append(',');
+            Bool(b, "docked", h.Docked); b.Append(',');
+
+            Ship.ShipHullMetrics m = h.Silhouette.Metrics;
+            Num(b, "beamMetres", Trim(m.BeamMetres)); b.Append(',');
+            Num(b, "keelMetres", Trim(m.KeelMetres)); b.Append(',');
+            Num(b, "deckPlaneMetres", Trim(m.DeckPlaneMetres)); b.Append(',');
+            Num(b, "bowLocalZMetres", Trim(m.BowLocalZMetres)); b.Append(',');
+            Num(b, "sternLocalZMetres", Trim(m.SternLocalZMetres)); b.Append(',');
+            Num(b, "cellCount", m.CellCount); b.Append(',');
+            Num(b, "hullDeckCount", m.DeckCount); b.Append(',');
+            Num(b, "sectionCount", h.Silhouette.SectionCount); b.Append(',');
+            Bool(b, "keelIsLongestAxis", m.KeelIsLongestAxis); b.Append(',');
+
+            Materials.HullMaterials materials = h.Materials;
+            Str(b, "woodId", materials.WoodId ?? string.Empty); b.Append(',');
+            Num(b, "woodQuality", materials.WoodQuality); b.Append(',');
+            Str(b, "metalId", materials.MetalId ?? string.Empty); b.Append(',');
+            Num(b, "metalQuality", materials.MetalQuality); b.Append(',');
+
+            Key(b, "outline"); b.Append('[');
+            IReadOnlyList<Ship.ShipMapPoint> ring = h.Silhouette.Outline;
+            for (int i = 0; i < ring.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                b.Append(Trim(ring[i].X).ToString("R", CultureInfo.InvariantCulture));
+                b.Append(',');
+                b.Append(Trim(ring[i].Z).ToString("R", CultureInfo.InvariantCulture));
+            }
+            b.Append(']');
+            b.Append('}');
+        }
+
+        /// <summary>
+        /// Centimetres. Every hull number on this wire is trimmed the same way, so
+        /// a reader that draws the ring and a reader that prints the beam are
+        /// looking at the same rounding.
+        /// </summary>
+        private static double Trim(double metres) => Math.Round(metres, 2, MidpointRounding.AwayFromZero);
 
         private static void AppendPlayer(StringBuilder b, PlayerStat p)
         {
