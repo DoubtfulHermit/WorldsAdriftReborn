@@ -141,9 +141,13 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
         /// <summary>
         /// The dashboard's script, in load order. The first two and the last
-        /// two are the operator's; the middle three are the SHARED map renderer
+        /// four are the operator's; the middle three are the SHARED map renderer
         /// the public map draws from too, so a fix to a coastline or a creature
-        /// reaches both pages from one edit.
+        /// reaches both pages from one edit. admin-operator.js is the operator
+        /// command panel over /admin/api/operator/; admin-topology.js is the
+        /// interest-and-streaming view. Both sit between admin-console.js
+        /// (whose CSRF constant and shared state they read) and admin-wiring.js
+        /// (which wires them last).
         /// </summary>
         internal static readonly string[] AdminScriptFragments =
         {
@@ -154,6 +158,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
             "map-ships.js",
             "map-interaction.js",
             "admin-console.js",
+            "admin-operator.js",
+            "admin-topology.js",
             "admin-wiring.js",
         };
 
