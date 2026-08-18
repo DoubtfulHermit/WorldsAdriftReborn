@@ -1,5 +1,29 @@
 #!/bin/sh
 # Worlds Adrift Reborn - game client, WORKER-POOL EXPERIMENT variant.
+#
+# ############################################################################
+# SUPERSEDED (2026-08-18), AND STILL UNMEASURED. Read tools/perf/README.md.
+#
+# The diagnosis below was right about the mechanism (27 spinning job workers)
+# but wrong about the lever. The cost is not the worker COUNT, it is the
+# workers waking CONCURRENTLY: Wine's fsync semaphore release wakes every
+# waiter, so each job dispatch fired 27 cross-core wakeups - 1.83M context
+# switches/s, and 72.5% of the Unity main thread's time inside FUTEX_WAKE.
+#
+# Confining the existing 27 workers to a SINGLE cpu (pin-unity-workers.sh,
+# now wired into run-client.sh) took the live client from 51.4 -> 120.9 fps
+# without touching the pool size. Measured worker concurrency curve:
+# 1 cpu 120.9 | 2 cpus 92.2 | 3 cpus 12.4 | 4 cpus 14.0 | 28 cpus 51.4 fps.
+#
+# Since 3-4 concurrent cpus is far WORSE than free, 7 free-roaming workers
+# (what this script produces) is EXPECTED to be worse than the one-cpu pin.
+# That is a prediction: this script was never actually run, because testing it
+# needs a relaunch and the client has no autologin (returning to the world
+# needs manual clicks, which the no-synthetic-input rule forbids).
+#
+# If you do run it, keep WAREBORN_PIN_WORKERS=0 so the two mechanisms do not
+# overlap, and compare against the numbers above.
+# ############################################################################
 # PREPARED, NOT DEPLOYED: copy over (or symlink next to)
 # ~/Games/WAReborn-servers/run-client.sh only when running the controlled
 # experiment. The only change vs the stock script is WINE_CPU_TOPOLOGY.

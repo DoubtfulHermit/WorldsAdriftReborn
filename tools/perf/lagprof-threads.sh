@@ -26,13 +26,30 @@
 
 GAP="${1:-10}"
 
-# Find the game by comm prefix, NOT pgrep -f (Wine argv lies; /proc comm is
-# ground truth - see the project's client-launch notes).
+# Find the game.
+#
+# This used to match /proc/<pid>/comm against "UnityClient*" and it NEVER
+# WORKED - it printed "UnityClient process not found" with the game running.
+# The Vivox voice SDK renames the process main thread during init, so the
+# client's comm reads "vx_initialize", not "UnityClient@Win". comm is only
+# trustworthy for the WORKER threads (below), not for finding the process.
+#
+# So match the cmdline instead, with two guards:
+#   - use the `case` BUILTIN, not grep: a `grep UnityClient@Windows.exe` child
+#     has the pattern in its own argv and matches itself;
+#   - require /proc/<pid>/exe to be a wine binary, so a shell or editor that
+#     merely mentions the exe name in its argv cannot match.
 PID=""
-for d in /proc/[0-9]*; do
-    [ -r "$d/comm" ] || continue
-    case "$(cat "$d/comm" 2>/dev/null)" in
-        UnityClient*) PID="${d#/proc/}"; break;;
+for c in /proc/[0-9]*/cmdline; do
+    [ -r "$c" ] || continue
+    p="${c#/proc/}"; p="${p%/cmdline}"
+    cl=$(tr '\0' ' ' < "$c" 2>/dev/null) || continue
+    case "$cl" in
+        *UnityClient@Windows.exe*) ;;
+        *) continue;;
+    esac
+    case "$(readlink "/proc/$p/exe" 2>/dev/null)" in
+        *wine*) PID="$p"; break;;
     esac
 done
 if [ -z "$PID" ]; then

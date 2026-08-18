@@ -1,0 +1,112 @@
+#!/bin/sh
+# Worlds Adrift Reborn - game client.
+#
+# NOTE: use GE-Proton's wine binary directly. The `proton run` wrapper returns
+# immediately without ever starting the game (silent exit 0, no logs).
+# winhttp override is what lets BepInEx's doorstop loader inject.
+export WINEPREFIX="$HOME/Games/wa-proton/pfx"
+# winhttp=n,b is what lets BepInEx's doorstop loader inject.
+#
+# The d3d/dxgi entries are what make DXVK load. They are NOT optional: calling
+# GE-Proton's wine binary directly (see the note above) skips the proton script
+# that normally installs these overrides, so wine loaded its BUILTIN d3d11/dxgi
+# and rendered the whole game through wined3d -> OpenGL. Proof it was happening:
+# /proc/<pid>/maps listed .../x86_64-windows/wined3d.dll with no winevulkan at
+# all, and Unity's output_log reported "ATI Radeon HD 5600 Series (ID=0x68d8)" -
+# wined3d's fallback card entry for an AMD GPU too new for its table, not the
+# RX 9070. Every draw call was translated on the CPU: ~8.5 cores pegged, GPU
+# idling at 47%, 43 fps. DXVK itself was already installed in the prefix's
+# system32 - nothing was loading it.
+#
+# d3d10core is deliberately NOT in this list: the copy in this prefix is not a
+# DXVK build, so forcing it native would load a non-DXVK library. Unity renders
+# through d3d11 here, so it is not needed.
+export WINEDLLOVERRIDES="winhttp=n,b;d3d11,d3d9,dxgi=n"
+export WINEDEBUG=-all
+# FSYNC/ESYNC: running the wine binary directly skips the Proton script that
+# normally enables these, so every NT sync primitive was a wineserver
+# round-trip - the classic cause of load-burst stutter on a strong machine.
+# Kernel 7.x has futex_waitv, GE wine supports fsync; esync is the fallback.
+export WINEFSYNC=1
+export WINEESYNC=1
+# CPU affinity: NONE by default.
+#
+# This used to pin the client to `0-7,16-21` so a second client (run-client2.sh)
+# could own the complementary group. That split costs a single client dearly on
+# this i7-14700F: cpu0-15 are the eight 5.3-5.4GHz P-cores, cpu16-27 the twelve
+# 4.2GHz E-cores, so the old mask handed the game four physical P-cores and six
+# E-cores - and let Unity's main thread, which alone sets the frame rate for a
+# legacy title under wine, land on an E-core or on two HT siblings of one core.
+# Unpinned, the kernel's hardware-guided scheduling keeps hot threads on P-cores.
+#
+# Set WAREBORN_CLIENT1_CPUS to restore a mask when actually running two clients
+# side by side (`WAREBORN_CLIENT1_CPUS=0-7,16-21 ./run-client.sh`).
+
+# --- Unity job-worker pin: the single biggest in-world win on this machine ---
+#
+# Unity 5.6 spawns (visible CPUs - 1) = 27 "Worker Thread"s here. Between jobs
+# each blocks on the job-queue semaphore, which under WINEFSYNC is a futex_waitv
+# whose release wakes EVERY waiter. That made the client burn 1.83 MILLION
+# voluntary context switches per second (~35,000 per rendered frame) and left
+# the Unity MAIN thread spending 72.5% of its time inside FUTEX_WAKE - which is
+# what capped the frame rate, not any per-entity game work.
+#
+# Confining all 27 workers to a SINGLE cpu serialises them, so a semaphore
+# release has at most one runnable waiter and the cross-core IPI storm cannot
+# form. Measured in-world, same session, same scene (ents=98, 3440x1440):
+#
+#   workers free (before)   51.4 fps   807% CPU   1,826,265 ctxsw/s   GPU 45%
+#   workers on one cpu     120.9 fps   137% CPU      58,367 ctxsw/s   GPU 84%
+#
+# Do NOT "compromise" by giving the workers 2-4 cpus - that is far WORSE than
+# leaving them free (3 cpus measured 12.4 fps, 4 cpus 14.0 fps), because 27
+# oversubscribed workers then preempt each other while holding job-queue state.
+# One cpu, or none at all. Full table: tools/perf/pin-unity-workers.sh.
+#
+# Set WAREBORN_PIN_WORKERS=0 to disable (e.g. to re-measure the before case).
+pinner="$(dirname "$0")/pin-unity-workers.sh"
+if [ "${WAREBORN_PIN_WORKERS:-1}" = "1" ] && [ -x "$pinner" ]; then
+  # The game reparents to systemd, so it is not findable as our child, and its
+  # /proc/<pid>/comm reads "vx_initialize" (the Vivox SDK renames the main
+  # thread) - so match on the cmdline. Only accept a pid that is NOT already
+  # running, so a second client does not steal the first client's pinner.
+  # Match with the `case` BUILTIN, not grep: a `grep UnityClient@Windows.exe`
+  # child has the pattern in its own argv and would match itself.
+  wa_find() {
+    for c in /proc/[0-9]*/cmdline; do
+      [ -r "$c" ] || continue
+      p=${c#/proc/}; p=${p%/cmdline}
+      cl=$(tr '\0' ' ' < "$c" 2>/dev/null) || continue
+      case "$cl" in
+        *UnityClient@Windows.exe*) ;;
+        *) continue;;
+      esac
+      # Second gate: it must actually BE the wine process. Any shell or editor
+      # that merely has the exe name somewhere in its argv would match above.
+      case "$(readlink "/proc/$p/exe" 2>/dev/null)" in
+        *wine*) echo "$p";;
+      esac
+    done
+  }
+  wa_before=" $(wa_find | tr '\n' ' ') "
+  (
+    i=0
+    while [ $i -lt 180 ]; do
+      for p in $(wa_find); do
+        case "$wa_before" in *" $p "*) continue;; esac
+        exec "$pinner" "$p"
+      done
+      i=$((i + 1)); sleep 1
+    done
+    echo "[pin-unity-workers] game process never appeared; giving up" >&2
+  ) &
+fi
+
+cd "$HOME/Games/WorldsAdrift" || exit 1
+wine_bin="$HOME/.steam/steam/compatibilitytools.d/GE-Proton10-34/files/bin/wine"
+if [ -n "$WAREBORN_CLIENT1_CPUS" ]; then
+  echo "Starting client 1 pinned to CPUs $WAREBORN_CLIENT1_CPUS"
+  exec taskset -c "$WAREBORN_CLIENT1_CPUS" "$wine_bin" 'UnityClient@Windows.exe'
+fi
+echo "Starting client 1 (no CPU pinning)"
+exec "$wine_bin" 'UnityClient@Windows.exe'
