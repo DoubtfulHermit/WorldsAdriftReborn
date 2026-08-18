@@ -1,6 +1,7 @@
 using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftServer.Admin
 {
@@ -8,6 +9,13 @@ namespace WorldsAdriftServer.Admin
     /// Read-only, allowlisted projection of Bossa's preserved release MapFile.
     /// Geography is loaded once from the embedded research artifact; live ships
     /// and players remain a separate authoritative game-stats stream.
+    ///
+    /// Each island also carries what is actually seeded ON it - databanks, metal
+    /// deposits by ore type, trees - joined from
+    /// <see cref="IslandResourceInventoryCatalog"/> on the only key the MapFile
+    /// has, its "&lt;workshopId&gt;.json" asset name. Those counts are counts of real
+    /// entities, and each carries the provenance of the survey it came from so an
+    /// inferred ore table can never be drawn as a recovered one.
     /// </summary>
     internal static class ReleaseWorldMap
     {
@@ -40,16 +48,31 @@ namespace WorldsAdriftServer.Admin
             JArray islands = new();
             foreach (JObject island in sourceIslands.OfType<JObject>())
             {
-                islands.Add(new JObject
+                string asset = (string?)island["Island"] ?? string.Empty;
+                JObject projectedIsland = new()
                 {
                     ["x"] = (double?)island["x"] ?? 0,
                     ["y"] = (double?)island["y"] ?? 0,
                     ["z"] = (double?)island["z"] ?? 0,
-                    ["asset"] = (string?)island["Island"] ?? string.Empty,
-                    ["haven"] = string.Equals((string?)island["Island"], "1431299145.json",
-                        StringComparison.Ordinal),
-                });
+                    ["asset"] = asset,
+                    ["haven"] = string.Equals(asset, "1431299145.json", StringComparison.Ordinal),
+                };
+                IslandResourceInventory? inventory =
+                    IslandResourceInventoryCatalog.ByMapAsset(asset);
+                if (inventory != null)
+                    projectedIsland["inventory"] = ProjectInventory(inventory);
+                islands.Add(projectedIsland);
             }
+
+            // Bossa left two cells' District null. The runtime catalogue names them
+            // "unassigned-t<type>-<n>", n being their rank when the null cells are
+            // sorted by (z, x) - so the same rule is applied here, and the drawn
+            // cell can be joined to the islands the catalogue put in it.
+            var nullCells = sourceBiomes.OfType<JObject>()
+                .Where(biome => (string?)biome["District"] == null)
+                .OrderBy(biome => (double?)biome["z"] ?? 0)
+                .ThenBy(biome => (double?)biome["x"] ?? 0)
+                .ToList();
 
             JArray biomes = new();
             foreach (JObject biome in sourceBiomes.OfType<JObject>())
@@ -67,6 +90,8 @@ namespace WorldsAdriftServer.Admin
                     // folding these cells into E3 would falsify the MapFile.
                     ["district"] = district == null ? JValue.CreateNull() : district,
                     ["authoredDistrict"] = district != null,
+                    ["cellId"] = district
+                        ?? $"unassigned-t{type}-{nullCells.IndexOf(biome) + 1}",
                 });
             }
 
@@ -85,9 +110,21 @@ namespace WorldsAdriftServer.Admin
                 });
             }
 
+            IslandResourceTotals totals = IslandResourceInventoryCatalog.Totals;
             JObject projected = new()
             {
                 ["source"] = "preserved-release-mapfile",
+                ["resourceTotals"] = new JObject
+                {
+                    ["islands"] = totals.Islands,
+                    ["deposits"] = totals.Deposits,
+                    ["databanks"] = totals.Databanks,
+                    ["trees"] = totals.Trees,
+                    ["woodedIslands"] = totals.WoodedIslands,
+                    ["islandsWithRecoveredOres"] = totals.IslandsWithRecoveredOres,
+                    ["islandsWithInferredOres"] = totals.IslandsWithInferredOres,
+                    ["inferredDeposits"] = totals.InferredDeposits,
+                },
                 ["worldEdgeLength"] = edge,
                 ["havenSeparatorX"] = havenSeparatorX,
                 ["islands"] = islands,
@@ -103,6 +140,55 @@ namespace WorldsAdriftServer.Admin
                 projected.WriteTo(writer);
             }
             return output.ToString();
+        }
+
+        /// <summary>
+        /// One island's seeded contents, in the compact shape the page draws from.
+        ///
+        /// Counts only. Nothing here is scaled, rounded or estimated: every number
+        /// is the length of a list in the catalogue the game server itself seeds
+        /// from. <c>oreSource</c> travels with the ore rows so the page can mark an
+        /// inferred table wherever it shows one.
+        /// </summary>
+        private static JObject ProjectInventory(IslandResourceInventory inventory)
+        {
+            JArray ores = new();
+            foreach (IslandOreTally ore in inventory.Ores)
+                ores.Add(new JObject
+                {
+                    ["metal"] = ore.Metal,
+                    ["quality"] = ore.Quality,
+                    ["deposits"] = ore.Deposits,
+                });
+
+            return new JObject
+            {
+                ["name"] = inventory.DisplayName,
+                ["islandId"] = inventory.IslandId.Value,
+                ["cell"] = inventory.CellId,
+                ["cellTier"] = inventory.CellTier,
+                ["surveyTier"] = inventory.SurveyTier,
+                ["culture"] = inventory.Culture,
+                ["databanks"] = inventory.Databanks,
+                ["deposits"] = inventory.Deposits,
+                ["trees"] = inventory.Trees,
+                ["woods"] = new JArray(inventory.TreeSpecies),
+                ["fuelPods"] = inventory.FuelPods,
+                ["lootContainers"] = inventory.LootContainers,
+                ["revival"] = inventory.HasRevivalChamber,
+                ["turrets"] = inventory.HasTurrets,
+                ["dangerous"] = inventory.Dangerous,
+                ["ores"] = ores,
+                ["oreSource"] = inventory.MetalSource switch
+                {
+                    MetalTableSource.SurveyPve => "survey-pve",
+                    MetalTableSource.SurveyPvp => "survey-pvp",
+                    MetalTableSource.InferredTier => "inferred-tier",
+                    _ => throw new InvalidOperationException(
+                        $"Unhandled metal table source {inventory.MetalSource}."),
+                },
+                ["oresInferred"] = inventory.OresAreInferred,
+            };
         }
     }
 }

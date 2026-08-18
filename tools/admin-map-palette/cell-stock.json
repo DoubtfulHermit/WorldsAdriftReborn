@@ -1,0 +1,162 @@
+{
+ "0": {
+  "cell": "D1",
+  "databanks": 64,
+  "deposits": 97,
+  "inferred": 9,
+  "islands": 13,
+  "trees": 275
+ },
+ "1": {
+  "cell": "D2",
+  "databanks": 68,
+  "deposits": 157,
+  "inferred": 4,
+  "islands": 14,
+  "trees": 222
+ },
+ "10": {
+  "cell": "E3",
+  "databanks": 50,
+  "deposits": 103,
+  "inferred": 5,
+  "islands": 10,
+  "trees": 36
+ },
+ "11": {
+  "cell": "C3",
+  "databanks": 79,
+  "deposits": 103,
+  "inferred": 11,
+  "islands": 16,
+  "trees": 180
+ },
+ "12": {
+  "cell": "A4",
+  "databanks": 67,
+  "deposits": 73,
+  "inferred": 13,
+  "islands": 14,
+  "trees": 192
+ },
+ "13": {
+  "cell": "A3",
+  "databanks": 53,
+  "deposits": 57,
+  "inferred": 12,
+  "islands": 12,
+  "trees": 129
+ },
+ "14": {
+  "cell": "A2",
+  "databanks": 55,
+  "deposits": 72,
+  "inferred": 8,
+  "islands": 11,
+  "trees": 60
+ },
+ "15": {
+  "cell": "A1",
+  "databanks": 61,
+  "deposits": 77,
+  "inferred": 13,
+  "islands": 13,
+  "trees": 334
+ },
+ "16": {
+  "cell": "C1",
+  "databanks": 63,
+  "deposits": 54,
+  "inferred": 11,
+  "islands": 13,
+  "trees": 32
+ },
+ "17": {
+  "cell": "C4",
+  "databanks": 63,
+  "deposits": 117,
+  "inferred": 7,
+  "islands": 13,
+  "trees": 152
+ },
+ "18": {
+  "cell": "D3",
+  "databanks": 60,
+  "deposits": 74,
+  "inferred": 7,
+  "islands": 12,
+  "trees": 340
+ },
+ "19": {
+  "cell": "C2",
+  "databanks": 45,
+  "deposits": 82,
+  "inferred": 9,
+  "islands": 9,
+  "trees": 60
+ },
+ "2": {
+  "cell": "C5",
+  "databanks": 73,
+  "deposits": 113,
+  "inferred": 13,
+  "islands": 15,
+  "trees": 290
+ },
+ "3": {
+  "cell": "B1",
+  "databanks": 65,
+  "deposits": 84,
+  "inferred": 11,
+  "islands": 13,
+  "trees": 221
+ },
+ "4": {
+  "cell": "B2",
+  "databanks": 53,
+  "deposits": 96,
+  "inferred": 11,
+  "islands": 11,
+  "trees": 60
+ },
+ "5": {
+  "cell": "B3",
+  "databanks": 54,
+  "deposits": 103,
+  "inferred": 11,
+  "islands": 12,
+  "trees": 478
+ },
+ "6": {
+  "cell": "B4",
+  "databanks": 54,
+  "deposits": 87,
+  "inferred": 7,
+  "islands": 11,
+  "trees": 368
+ },
+ "7": {
+  "cell": "C6",
+  "databanks": 73,
+  "deposits": 119,
+  "inferred": 11,
+  "islands": 15,
+  "trees": 60
+ },
+ "8": {
+  "cell": "unassigned-t4-2",
+  "databanks": 70,
+  "deposits": 133,
+  "inferred": 11,
+  "islands": 14,
+  "trees": 60
+ },
+ "9": {
+  "cell": "unassigned-t4-1",
+  "databanks": 63,
+  "deposits": 129,
+  "inferred": 9,
+  "islands": 13,
+  "trees": 218
+ }
+}

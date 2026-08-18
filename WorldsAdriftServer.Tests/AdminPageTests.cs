@@ -261,6 +261,40 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
+        public void The_seeded_inventory_is_visible_without_clicking_anything()
+        {
+            string html = AdminPage.Dashboard("{}", new string('k', 64), ReleaseWorldMap.Json);
+
+            // Three surfaces, none of which needs an interaction. The panel opens on
+            // the world totals instead of on "select something"; every cell carries
+            // its own roll-up as a third label line; and the ledger under the map
+            // lists all 254 catalogued islands one row each.
+            Assert.Contains("function worldOverviewLines()", html);
+            Assert.Contains("showWorldOverview();", html);
+            Assert.DoesNotContain("Select a tier cell, island, ship or player", html);
+
+            Assert.Contains("function cellRollupShort(", html);
+            Assert.Contains("stockLine.textContent=cellRollupShort(b.cellId)", html);
+            Assert.Contains("id=\"mapResources\" checked", html);
+
+            Assert.Contains("id=\"ledgerBody\"", html);
+            Assert.Contains("function renderIslandLedger()", html);
+            Assert.Contains("renderIslandLedger();", html);
+            Assert.Contains("id=\"ledgerFilter\"", html);
+
+            // Provenance survives the move out of the click-only panel. An inferred
+            // ore table is marked in its own row, not only in a footnote under the
+            // table, and the two genuinely-absent things are still reported as zero
+            // with their reason rather than quietly dropped.
+            Assert.Contains("(inv.oresInferred?'✱ ':'')+oreSummary(inv)", html);
+            Assert.Contains("row.className='inferred'", html);
+            Assert.Contains("INFERRED ore table", html);
+            Assert.Contains("The deposit COUNT is real; the ore names are plausible, not Bossa data.", html);
+            Assert.Contains("the lootable-container component never shipped at all", html);
+            Assert.Contains("never invented", html);
+        }
+
+        [Fact]
         public void Island_counts_are_reconciled_from_the_live_stats_rather_than_hardcoded()
         {
             string html = AdminPage.Dashboard("{}", new string('h', 64), ReleaseWorldMap.Json);
@@ -320,9 +354,20 @@ namespace WorldsAdriftServer.Tests
             Assert.DoesNotContain("\"district\":\"E2\"", html);
             Assert.DoesNotContain("District E1", html);
             Assert.DoesNotContain("District E2", html);
-            // Holy Ruins keeps its two conflicting preserved facts: nothing on
-            // this page reconciles the survey tier with the authored A4 cell.
-            Assert.DoesNotContain("Holy Ruins", html);
+            // Holy Ruins keeps its two conflicting preserved facts. The island is
+            // named now that the map carries per-island inventory, so the rule is
+            // no longer "never mention it" but the stronger one: BOTH tiers are
+            // published side by side and neither is quietly dropped to make the
+            // other consistent.
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            JObject holyRuins = ((JArray)map["islands"]!).OfType<JObject>()
+                .Single(island => (string?)island["inventory"]?["name"] == "Holy Ruins");
+            Assert.Equal("A4", (string?)holyRuins["inventory"]!["cell"]);
+            Assert.Equal(2, (int?)holyRuins["inventory"]!["cellTier"]);
+            Assert.Equal(3, (int?)holyRuins["inventory"]!["surveyTier"]);
+            Assert.NotEqual((int?)holyRuins["inventory"]!["cellTier"],
+                            (int?)holyRuins["inventory"]!["surveyTier"]);
+            Assert.Contains("surveyTier", html);
         }
 
         [Fact]
@@ -363,22 +408,127 @@ namespace WorldsAdriftServer.Tests
 
             foreach (MapTierColours tier in MapTierPalette.All)
             {
-                // Same fill for the drawn cell and for the legend key, emitted once
-                // from MapTierPalette so they cannot drift.
-                Assert.Contains($".map-biome.type-{tier.Tier}{{fill:{tier.Fill}}}", html);
+                // The cell is drawn TRANSLUCENT, so the legend key is not the CSS
+                // hex - it is the composite of that hex, that opacity and the ocean
+                // rule, all three of which are emitted here from MapTierPalette.
+                // The old bug was exactly this gap: raw hex in the key, 38%
+                // composite on the map.
+                Assert.Contains(
+                    $".map-biome.type-{tier.Tier}{{fill:{tier.Hue};fill-opacity:{MapTierPalette.FillOpacityCss}}}",
+                    html);
                 Assert.Contains($".map-swatch.tier-{tier.Tier}{{background:{tier.Fill}}}", html);
                 Assert.Contains($"map-swatch tier tier-{tier.Tier}", html);
                 Assert.Contains($"T{tier.Tier} ", html);
+                Assert.Equal(tier.Fill, MapTierPalette.Composite(
+                    tier.Hue, MapTierPalette.Ocean, MapTierPalette.FillOpacity));
             }
 
-            // The cell fill is drawn at full strength, so the legend swatch is
-            // literally the colour on the map. A layer opacity would make the
-            // legend a lie about the map.
+            // The backdrop the composite assumes is the backdrop the page paints,
+            // emitted from the same file rather than hand-written in the stylesheet.
+            Assert.Contains($".map-ocean{{fill:{MapTierPalette.Ocean}}}", html);
+            Assert.DoesNotContain(".map-ocean{fill:#09151d}.map-world-boundary", html);
+
+            // The transparency is on the FILL, not on the layer. A layer opacity
+            // would also dim the cell stroke and the label drawn on it, and neither
+            // of those was measured against a dimmed version of itself.
             Assert.DoesNotContain(".map-biome{stroke:#233a45;stroke-width:1;vector-effect:non-scaling-stroke;opacity:", html);
+            Assert.DoesNotContain(".map-biome.type-1{fill:#4b934f;opacity:", html);
+
+            // Wall strokes and their legend keys come off one list too, and the
+            // retired Storm Rift violet - which the lilac Remnants fill swallowed -
+            // appears nowhere.
+            foreach (MapWallColours wall in MapWallPalette.All)
+            {
+                Assert.Contains($".map-wall.type-{wall.Type}{{stroke:{wall.Colour};", html);
+                Assert.Contains($".map-swatch.wall-{wall.Type}{{background:{wall.Colour}}}", html);
+                Assert.Contains($"map-swatch wall-{wall.Type}", html);
+            }
+            Assert.DoesNotContain("#9b86d8", html);
 
             // Tier is never encoded by colour alone: the cell carries its tier as text.
             Assert.Contains("tierLine.textContent='T'+b.type", html);
             Assert.Contains("'class':'map-cell-label type-'+b.type", html);
+        }
+
+        [Fact]
+        public void Every_release_island_carries_its_seeded_inventory_onto_the_map()
+        {
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            List<JObject> islands = ((JArray)map["islands"]!).OfType<JObject>().ToList();
+
+            // 266 MapFile placements: 254 ordinary islands plus 12 Haven reserve
+            // placements, which are hand-tuned and carry no surveyed inventory.
+            Assert.Equal(266, islands.Count);
+            Assert.Equal(254, islands.Count(island => island["inventory"] != null));
+            Assert.Equal(12, islands.Count(island => (bool?)island["haven"] == true));
+            Assert.All(islands.Where(island => (bool?)island["haven"] == true),
+                island => Assert.Null(island["inventory"]));
+
+            // World totals, so the page never re-derives a count by hand.
+            JObject totals = (JObject)map["resourceTotals"]!;
+            Assert.Equal(1930, (int?)totals["deposits"]);
+            Assert.Equal(1233, (int?)totals["databanks"]);
+            Assert.Equal(3767, (int?)totals["trees"]);
+            Assert.Equal(193, (int?)totals["islandsWithInferredOres"]);
+
+            // Per island the deposits are broken down by ore, and the rows account
+            // for every deposit - an ore breakdown that does not add up would be a
+            // fabricated one.
+            foreach (JObject island in islands.Where(island => island["inventory"] != null))
+            {
+                JObject inventory = (JObject)island["inventory"]!;
+                int deposits = (int?)inventory["deposits"] ?? -1;
+                Assert.Equal(deposits, ((JArray)inventory["ores"]!).Sum(ore => (int?)ore["deposits"] ?? 0));
+                Assert.NotNull((string?)inventory["name"]);
+                Assert.Contains((string?)inventory["oreSource"],
+                    new[] { "survey-pve", "survey-pvp", "inferred-tier" });
+                Assert.Equal((string?)inventory["oreSource"] == "inferred-tier",
+                    (bool?)inventory["oresInferred"]);
+                // Not recovered, so stated as zero rather than guessed at.
+                Assert.Equal(0, (int?)inventory["fuelPods"]);
+                Assert.Equal(0, (int?)inventory["lootContainers"]);
+            }
+        }
+
+        [Fact]
+        public void Inferred_ore_is_marked_wherever_the_page_shows_it()
+        {
+            string html = AdminPage.Dashboard("{}", new string('k', 64), ReleaseWorldMap.Json);
+
+            // The mark rides the ore line itself, the provenance line, and the
+            // per-cell roll-up - not just one of the three.
+            Assert.Contains("(inv.oresInferred?'✱ ':'')+'Ore: '", html);
+            Assert.Contains("(inv.oresInferred?'✱ ':'')+'Ore provenance: '", html);
+            Assert.Contains("have an INFERRED ore table", html);
+            // The legend explains the mark and names the provenance rung.
+            Assert.Contains("&#10033; marks an <strong>INFERRED</strong> ore table", html);
+            Assert.Contains("composed from the surveyed same-tier cohort", html);
+            // A recovered PvP reading is still a reading of that island, and says so.
+            Assert.Contains("RECOVERED · read on the PvP shard", html);
+            // Nothing invents a number for what did not survive.
+            Assert.Contains("Fuel pods and loot chests are shown as 0", html);
+        }
+
+        [Fact]
+        public void Every_drawn_tier_cell_can_be_joined_to_the_islands_inside_it()
+        {
+            // The cell roll-up is only possible because the projection names each
+            // cell the same way the runtime catalogue does, including Bossa's two
+            // null districts.
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            var cellIds = ((JArray)map["biomes"]!).OfType<JObject>()
+                .Select(cell => (string?)cell["cellId"]).ToList();
+
+            Assert.Equal(20, cellIds.Count);
+            Assert.Equal(20, cellIds.Distinct().Count());
+            Assert.Contains("unassigned-t4-1", cellIds);
+            Assert.Contains("unassigned-t4-2", cellIds);
+
+            var islandCells = ((JArray)map["islands"]!).OfType<JObject>()
+                .Where(island => island["inventory"] != null)
+                .Select(island => (string?)island["inventory"]!["cell"])
+                .Distinct().ToList();
+            Assert.All(islandCells, cell => Assert.Contains(cell, cellIds));
         }
 
         [Fact]
@@ -389,12 +539,19 @@ namespace WorldsAdriftServer.Tests
             foreach (string retired in new[] { "#93c47d", "#6d9eeb", "#8e7cc3", "#f6b26b" })
                 Assert.DoesNotContain(retired, html);
 
-            // The old sand-storm wall sat dE00 8.5 from the old tier-4 swatch in the
-            // same legend; it now has its own clearly separated orange.
-            Assert.DoesNotContain(".map-wall.type-3{stroke:#d9b36b}", html);
-            Assert.DoesNotContain(".map-swatch.sand{background:#d9b36b}", html);
-            Assert.Contains(".map-wall.type-3{stroke:#e8963c}", html);
-            Assert.Contains(".map-swatch.sand{background:#e8963c}", html);
+            // Two walls have now been moved off a tier they were disappearing into.
+            // The sand-storm wall sat dE00 8.5 from the old tier-4 swatch; the storm
+            // rift sat 8.2 from the lilac tier-3 that replaced the old violet. Both
+            // are single-sourced from MapWallPalette now, key and stroke together.
+            // (#d9b36b survives as the console's --warn token, which is not a map
+            // colour; what must be gone is its use as a wall stroke or a map key.)
+            Assert.DoesNotContain("stroke:#d9b36b", html);
+            Assert.DoesNotContain("background:#d9b36b", html);
+            Assert.DoesNotContain("#9b86d8", html);
+            Assert.Contains(".map-wall.type-3{stroke:#e8963c;", html);
+            Assert.Contains(".map-swatch.wall-3{background:#e8963c}", html);
+            Assert.Contains(".map-wall.type-1{stroke:#c04ae8;", html);
+            Assert.Contains(".map-swatch.wall-1{background:#c04ae8}", html);
         }
 
         private static string[] DistrictsForTier(IEnumerable<JObject> cells, int tier)
