@@ -191,9 +191,18 @@ namespace WorldsAdriftServer.Social
                 return SocialEnvelope.OkBareList(new JArray());
             }
 
+            IReadOnlyList<CrewMemberRecord> roster = crews.MembersOf(crewId);
+
+            // Clamped, not trusted. The invite cap stops a crew growing past what
+            // the sheet can draw, but rows written before that cap existed do not
+            // heal themselves, and the panel is destroyed - not degraded - by one
+            // entry too many. See CrewRosterLimits.
+            int emit = CrewRosterLimits.EmittableMembers(roster.Count);
+
             JArray members = new JArray();
-            foreach (CrewMemberRecord member in crews.MembersOf(crewId))
+            for (int i = 0; i < emit; i++)
             {
+                CrewMemberRecord member = roster[i];
                 members.Add(SocialWire.CrewMembership(
                     SocialWire.Uid(member.CharacterUid),
                     NameOf(member.CharacterUid),
@@ -215,11 +224,23 @@ namespace WorldsAdriftServer.Social
         /// </summary>
         private JObject CrewInvites(string crewId)
         {
-            JArray items = new JArray();
+            List<SocialInviteRecord> live = new List<SocialInviteRecord>();
             foreach (SocialInviteRecord invite in invites.ForTarget(crewId))
             {
                 if (invite.Status != SocialInviteStatus.New) continue;
-                items.Add(Wire(invite));
+                live.Add(invite);
+            }
+
+            // The client appends these to the member list and draws one widget per
+            // entry, so members and invites share one fixed budget. Invites yield
+            // first: a truncated pending list is a nuisance, a member missing from
+            // their own crew panel is a bug report. See CrewRosterLimits.
+            int emit = CrewRosterLimits.EmittableInvites(crews.MembersOf(crewId).Count, live.Count);
+
+            JArray items = new JArray();
+            for (int i = 0; i < emit; i++)
+            {
+                items.Add(Wire(live[i]));
             }
 
             return SocialEnvelope.OkItems(items);
@@ -484,10 +505,12 @@ namespace WorldsAdriftServer.Social
             CrewLedger ledger = Hydrate();
             string actorKey = LedgerKey(actor);
 
-            // The ledger is hydrated from the crews tables, which do not hold
-            // invites, so the offer being accepted has to be put back into it
-            // before the policy can see it. Without this MayAccept would answer
-            // NotInvited for an invite that plainly exists.
+            // Hydrate loads live invites now, so the offer being accepted is
+            // already in the ledger; this used to re-inject it by hand because it
+            // was not. Kept as an idempotent assertion rather than removed: the
+            // invite was read straight from the store above, and MayAccept
+            // answering NoSuchInvite for an invite we are holding in our hand
+            // would be a maddening bug to chase.
             ledger.Invite(actorKey, invite.TargetId);
 
             CrewVerdict verdict = CrewPolicy.MayAccept(ledger, actorKey, invite.TargetId);
@@ -623,6 +646,20 @@ namespace WorldsAdriftServer.Social
                 if (member.Slot.HasValue) ledger.TakeSlot(LedgerKey(member.CharacterUid), member.Slot.Value);
             }
 
+            // Live invites, without which the ledger is only half the truth. The
+            // policy has to count a crew's outstanding offers to stop it offering
+            // more seats than the Social Sheet can draw, and it cannot count what
+            // was never loaded - so a leader alone in a crew could invite without
+            // limit and destroy the panel. This is also why the accept path no
+            // longer has to re-inject the invite it is acting on.
+            foreach (SocialInviteRecord invite in invites.AllLive())
+            {
+                if (invite.TargetType != SocialTargetType.Crew) continue;
+                if (!byId.ContainsKey(invite.TargetId)) continue;
+
+                ledger.Invite(LedgerKey(invite.CharacterUid), invite.TargetId);
+            }
+
             return ledger;
         }
 
@@ -659,6 +696,7 @@ namespace WorldsAdriftServer.Social
             CrewVerdict.AlreadyInThisCrew => SocialErrorCodes.AlreadyAMember,
             CrewVerdict.AlreadyInAnotherCrew => SocialErrorCodes.AlreadyAMember,
             CrewVerdict.AlreadyInvited => SocialErrorCodes.ExistingInvite,
+            CrewVerdict.InviteLimitMet => SocialErrorCodes.InviteLimitMet,
             CrewVerdict.NoSuchInvite => SocialErrorCodes.InviteNotFound,
             CrewVerdict.NotTheLeader => SocialErrorCodes.AuthFailed,
             CrewVerdict.CannotInviteYourself => SocialErrorCodes.SelfInvite,

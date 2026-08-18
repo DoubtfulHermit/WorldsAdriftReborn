@@ -34,7 +34,20 @@ namespace WorldsAdriftServer.Social
         internal static JObject Ok(JToken data)
         {
             JObject envelope = new JObject { ["success"] = true };
-            envelope["data"] = data ?? JValue.CreateNull();
+
+            // OMITTED when null, never emitted as an explicit JSON null. The
+            // client guards with `dataFieldExpected && model.data == null`
+            // (SocialRequest.cs:108), but data is typed JToken, and Json.NET turns
+            // a JSON null into a JValue of type Null rather than a C# null. An
+            // explicit null therefore walks straight through the guard that exists
+            // to catch it and NREs deeper in, instead of raising the client's own
+            // "Data in server response was empty". An ABSENT key does deserialize
+            // to C# null and trips the guard correctly.
+            if (data != null && data.Type != JTokenType.Null)
+            {
+                envelope["data"] = data;
+            }
+
             return envelope;
         }
 

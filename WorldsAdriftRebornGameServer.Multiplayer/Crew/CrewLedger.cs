@@ -101,6 +101,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crew
                 ? set
                 : Array.Empty<string>();
 
+        /// <summary>
+        /// How many outstanding invites one CREW is holding.
+        ///
+        /// Invites are stored against the invitee, mirroring retail's 6900
+        /// InvitesReceived map, which answers "who invited me" in O(1) and "how
+        /// many has this crew sent" not at all. That asymmetry is why nothing
+        /// counted them and a crew could offer unlimited seats. The crews on one
+        /// community server number in the tens, so the scan is honest and cheap;
+        /// a second index would be one more thing to keep in step.
+        /// </summary>
+        public int LiveInvitesFor(string crewId)
+        {
+            if (crewId == null) return 0;
+
+            int count = 0;
+            foreach (HashSet<string> offers in invitesByInvitee.Values)
+            {
+                if (offers.Contains(crewId)) count++;
+            }
+
+            return count;
+        }
+
         /// <summary>Founds a crew led by <paramref name="leaderUid"/>.</summary>
         public Crew Create(string crewId, string leaderUid, int numSlots = CrewPolicy.DefaultSlots)
         {

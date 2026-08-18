@@ -152,7 +152,17 @@ namespace WorldsAdriftServer.Social
                 case "crews" when s.Length == 1 && verb == "POST":
                     return new SocialRoute(SocialRouteKind.CreateCrew);
 
-                case "screenname" when s.Length >= 3 && s[1] == "find" && verb == "GET":
+                // Length 2 - "screenname/find" with NOTHING after it - is a real
+                // request, not a malformed one. CrewScreen guards the invite field
+                // with IsNullOrEmpty and only THEN trims (CrewScreen.cs:308-310),
+                // so a field holding just spaces sends an empty search term and
+                // the client builds "screenname/find/". Requiring three segments
+                // dropped that to NoMatch, which refused with an errorCode the
+                // search parser does not read - the player got a dialog naming an
+                // exception class. It also made SocialService's own "No name was
+                // given to search for." branch unreachable: the one place we
+                // correctly emit desc for a refusal could never be entered.
+                case "screenname" when s.Length >= 2 && s[1] == "find" && verb == "GET":
                     // The search term is everything after "find", rejoined. A
                     // character name containing a slash would otherwise be
                     // truncated here, and the client does not escape the name
@@ -160,7 +170,7 @@ namespace WorldsAdriftServer.Social
                     // %2F caveat in the findings document.
                     return new SocialRoute(
                         SocialRouteKind.CharacterSearch,
-                        string.Join("/", s, 2, s.Length - 2));
+                        s.Length > 2 ? string.Join("/", s, 2, s.Length - 2) : string.Empty);
 
                 case "alliances" when s.Length == 2 && verb == "GET":
                     return new SocialRoute(SocialRouteKind.ListAlliances, s[1]);

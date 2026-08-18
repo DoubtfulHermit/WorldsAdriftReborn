@@ -74,6 +74,25 @@ namespace WorldsAdriftReborn.Storage.Repositories
         }
 
         /// <summary>
+        /// Every invite still awaiting an answer, across all groups.
+        ///
+        /// The crew ledger is rebuilt whole rather than per crew, because the
+        /// policy questions are not local, and it needs the outstanding offers as
+        /// much as the seated members: without them nothing can count how many
+        /// seats a crew has already promised.
+        /// </summary>
+        public IReadOnlyList<SocialInviteRecord> AllLive()
+        {
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+            command.CommandText =
+                "SELECT " + Columns + " FROM social_invites WHERE status = @status "
+                + "ORDER BY created_at, invite_id;";
+            command.Parameters.AddWithValue("status", SocialInviteStatus.New);
+            return ReadAll(command);
+        }
+
+        /// <summary>
         /// Inserts an invite, or returns false if a live one already covers the
         /// same (character, target) pair.
         ///
