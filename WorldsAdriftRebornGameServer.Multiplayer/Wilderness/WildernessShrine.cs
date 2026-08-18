@@ -117,8 +117,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         ///     spawn point itself is under a platform 19.5 m up, so horizontal
         ///     distance alone is not clearance
         ///   * 44.7 m from <c>SpawnPolicy.PlayerSpawnPosition</c>'s local
-        ///     (208.00, 4.70, 4.00) and 0.23 m above it: the same shelf, a walk, no
-        ///     climb
+        ///     (208.00, 6.70, 4.00). The spawn seed stands the player 2 m over the
+        ///     ground so they do not spawn inside it; measured surface vertex to
+        ///     measured surface vertex the shrine is 0.23 m above the spawn's own
+        ///     ground. The same shelf, a walk, no climb.
         ///   * 43.1 m from the Haven databank, and clear of everything else in the
         ///     registry (WildernessShrineRegistrationTests checks the whole
         ///     registry rather than a list somebody has to remember to update)

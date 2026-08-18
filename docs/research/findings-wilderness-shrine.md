@@ -186,7 +186,7 @@ The chosen vertex is the best of the 15 that clear all of:
 | 8 neighbouring 8 m columns level within | **0.43 m** |
 | nearest authored structure | **24.5 m** (was 13.7 m) |
 | authored structures overhead (8 m radius, −2 m … +25 m) | **0** |
-| from the spawn point | **44.7 m** horizontally, **0.23 m** above it |
+| from the spawn point | **44.7 m** horizontally; 0.23 m above the spawn's own ground vertex (the 6.70 spawn seed stands the player 2 m clear of it) |
 | from the Haven databank | 43.1 m |
 
 The overhead check matters on its own: the camp is multi-storey and the Haven spawn
