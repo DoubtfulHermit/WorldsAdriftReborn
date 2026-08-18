@@ -384,6 +384,142 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 "the manta's birth times ignore the predator lag");
         }
 
+        // ---- proposal B: the calf is actually small ----------------------------
+
+        [Fact]
+        public void A_calf_slot_renders_smaller_than_an_adult_the_moment_it_appears()
+        {
+            // The claim the whole feature is for. Take a calf slot on a
+            // twelve-animal island, walk a couple of cycles, and assert that
+            // whenever it has a birth instant it draws below full size - and that
+            // it starts at the RECOVERED newborn scale rather than at something
+            // we chose.
+            const int Capacity = 12;
+            int rank = Capacity - 1;
+            int juvenile = 0;
+            double smallest = 1.0;
+            for (double t = 2000.0; t < 8000.0; t += 7.0)
+            {
+                double? age = IslandFaunaAge.AgeSeconds(
+                    Seed, Island, FaunaSpecies.MantaRay, Capacity, rank, t);
+                if (age == null) continue;
+                FaunaAgeState state = IslandFaunaAge.StateFor(
+                    Seed, Island, FaunaSpecies.MantaRay, Capacity, rank, isCalfSlot: true, t);
+                Assert.True(state.RenderedScale < IslandFaunaAge.RecoveredFullyGrownScale,
+                    "a calf with an age of " + age.Value + " s rendered full size");
+                Assert.True(state.RenderedScale >= IslandFaunaAge.RecoveredBirthScale);
+                smallest = Math.Min(smallest, state.RenderedScale);
+                juvenile++;
+            }
+            Assert.True(juvenile > 100, "only " + juvenile + " instants had a juvenile");
+            Assert.True(smallest < IslandFaunaAge.RecoveredBirthScale + 0.02,
+                "the youngest calf seen rendered at " + smallest
+                + "; a newborn should be at the prefab's own 0.25");
+        }
+
+        [Fact]
+        public void A_calf_stays_visibly_a_calf_for_the_whole_window_it_is_expressed()
+        {
+            // Maturation is tied to the rhythm's nominal cycle precisely so this
+            // holds: a calf slot is expressed for roughly half a cycle, so it
+            // should still be well under adult size when its slot withdraws. If
+            // it reached full size while still expressed, a player would watch a
+            // manta finish growing for no reason.
+            const int Capacity = 12;
+            int rank = Capacity - 1;
+            double oldest = 0.0;
+            for (double t = 2000.0; t < 20_000.0; t += 3.0)
+            {
+                double? age = IslandFaunaAge.AgeSeconds(
+                    Seed, Island, FaunaSpecies.MantaRay, Capacity, rank, t);
+                if (age != null) oldest = Math.Max(oldest, age.Value);
+            }
+            Assert.True(oldest > 60.0, "the calf slot was never expressed for long");
+            Assert.True(oldest < IslandFaunaAge.SecondsTillFullyGrown,
+                "a calf reached full size (" + oldest + " s) while still expressed");
+        }
+
+        [Fact]
+        public void A_calf_grows_rather_than_holding_one_size()
+        {
+            // Not a claim about live updates - the age is seeded once per checkout
+            // and no update is ever pushed - but about the POLICY: a player who
+            // leaves and comes back must find the calf bigger, because the age is
+            // a function of the clock rather than of the slot.
+            const int Capacity = 12;
+            int rank = Capacity - 1;
+            double? first = null, last = null;
+            for (double t = 2000.0; t < 8000.0; t += 1.0)
+            {
+                double? age = IslandFaunaAge.AgeSeconds(
+                    Seed, Island, FaunaSpecies.MantaRay, Capacity, rank, t);
+                if (age == null) { first = null; continue; }
+                if (first == null) { first = age; last = age; continue; }
+                // Inside one expression window the age only ever climbs.
+                Assert.True(age.Value >= last!.Value - 1e-9,
+                    "a calf got younger between two adjacent instants");
+                last = age;
+            }
+            Assert.NotNull(last);
+        }
+
+        [Fact]
+        public void The_scale_a_calf_renders_at_is_the_clients_own_arithmetic()
+        {
+            // Spot-check the endpoints and the midpoint against
+            // Lerp(0.25, 1.0, ratio) computed by hand, so a refactor of
+            // RenderedScale cannot quietly change what the client will draw.
+            Assert.Equal(0.25, IslandFaunaAge.For(0.0).RenderedScale, 12);
+            Assert.Equal(0.625,
+                IslandFaunaAge.For(IslandFaunaAge.SecondsTillFullyGrown / 2.0).RenderedScale, 2);
+            Assert.Equal(1.0,
+                IslandFaunaAge.For(IslandFaunaAge.SecondsTillFullyGrown).RenderedScale, 12);
+        }
+
+        [Fact]
+        public void Almost_every_expressed_calf_slot_in_the_tier1_world_is_actually_a_juvenile()
+        {
+            // THE WORLD-WIDE COUNTERPART of the adult sweep: if calf slots mostly
+            // fell back to "adult" the feature would exist on paper and nowhere
+            // else. Measured over the tier-1 rollout across several cycles, past
+            // the boot window, more than nine in ten expressed calf slots render
+            // below full size; the remainder are slots whose most recent crossing
+            // predates the process, which the policy declines to call a birth.
+            int expressedSamples = 0, juvenile = 0;
+            foreach (ReleaseIslandRecord island in ReleaseWorldRolloutPolicy.Select("tier1"))
+            {
+                (int capacity, _) = IslandFaunaCapacity.ClampedToPeerBudget(
+                    IslandFaunaCapacity.CapacityFor(FaunaSpecies.MantaRay,
+                        island.Survey.Tier, island.Envelope, island.Definition.Id),
+                    IslandFaunaCapacity.CapacityFor(FaunaSpecies.JellyFish,
+                        island.Survey.Tier, island.Envelope, island.Definition.Id),
+                    IslandFaunaInterestPolicy.DefaultPerPeerCreatures);
+                if (capacity < IslandFaunaFamily.MembersPerCalfSlot) continue;
+
+                int rank = capacity - 1;    // always a calf slot of the last group
+                for (double t = 3000.0; t < 12_000.0; t += 25.0)
+                {
+                    if (IslandFaunaRhythm.ExpressedCount(capacity,
+                            IslandFaunaRhythm.ExpressionAt(Seed, island.Definition.Id,
+                                FaunaSpecies.MantaRay, t)) <= rank)
+                    {
+                        continue;
+                    }
+                    expressedSamples++;
+                    if (IslandFaunaAge.StateFor(Seed, island.Definition.Id,
+                            FaunaSpecies.MantaRay, capacity, rank, isCalfSlot: true, t)
+                        .RenderedScale < IslandFaunaAge.RecoveredFullyGrownScale)
+                    {
+                        juvenile++;
+                    }
+                }
+            }
+            Assert.True(expressedSamples > 1000,
+                "only " + expressedSamples + " expressed calf-slot samples");
+            Assert.True(juvenile * 10 > expressedSamples * 9,
+                juvenile + " of " + expressedSamples + " expressed calf slots were juvenile");
+        }
+
         private static int Expressed(int capacity, double t) =>
             IslandFaunaRhythm.ExpressedCount(capacity,
                 IslandFaunaRhythm.ExpressionAt(Seed, Island, FaunaSpecies.MantaRay, t));

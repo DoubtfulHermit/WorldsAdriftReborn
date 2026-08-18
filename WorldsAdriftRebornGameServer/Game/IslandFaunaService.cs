@@ -528,6 +528,47 @@ namespace WorldsAdriftRebornGameServer.Game
                         ? " and " + (populated.Count - NameLimit) + " more." : "."));
             }
 
+            if (_juveniles)
+            {
+                // NAME THE CALVES, for the same reason the populated islands are
+                // named: "juveniles on" tells an operator the flag took; it does
+                // not tell a player where to stand to see one, and a feature
+                // nobody can find is indistinguishable from one that is broken.
+                int calfSlots = 0, calfIslands = 0, pairIslands = 0;
+                List<string> best = new List<string>();
+                foreach (KeyValuePair<IslandId, IslandPopulation> pair in _byIsland)
+                {
+                    int slots = 0;
+                    foreach (long entityId in pair.Value.MantaIds)
+                    {
+                        if (_planned.TryGetValue(entityId, out FaunaPlacement placement)
+                            && IslandFaunaFamily.IsCalfSlot(placement.Creature))
+                        {
+                            slots++;
+                        }
+                    }
+                    calfSlots += slots;
+                    if (slots > 0) calfIslands++;
+                    if (slots >= 2) { pairIslands++; best.Add(pair.Key.ToString()); }
+                }
+                best.Sort(StringComparer.Ordinal);
+                Console.WriteLine("[island-fauna] JUVENILES ON (" + JuvenilesEnv + "): "
+                    + calfSlots + " calf slot(s) on " + calfIslands + " of " + _byIsland.Count
+                    + " populated island(s); " + pairIslands + " can show TWO at once. A calf"
+                    + " is a quarter-scale manta trailing an adult by "
+                    + IslandFaunaFamily.PairStandoffMetres.ToString("0.#")
+                    + " m, present only while the island's population reaches its slot -"
+                    + " roughly half of each cycle, so about half of island visits show one.");
+                if (best.Count > 0)
+                {
+                    const int NameLimit = 8;
+                    Console.WriteLine("[island-fauna] two calves are reachable on: "
+                        + string.Join(", ", best.Take(NameLimit))
+                        + (best.Count > NameLimit ? " and " + (best.Count - NameLimit) + " more."
+                            : "."));
+                }
+            }
+
             if (demand > _registry.MaxConcurrent)
             {
                 Console.WriteLine("[island-fauna] " + (demand - _registry.Count)
@@ -676,14 +717,14 @@ namespace WorldsAdriftRebornGameServer.Game
             int rank = population.MantaIds.IndexOf(creature.EntityId);
             if (rank < 0) return IslandFaunaAge.Adult;
 
-            // NO CALF SLOTS EXIST AT THIS COMMIT. Turning 1166 on is a change to
-            // the whole species - the visualiser activates on every manta the
-            // moment the component is answered - so the adult case ships and is
-            // proved on its own first. The juvenile commit passes the family's
-            // answer here instead of false.
+            // THE ONLY WAY AN ANIMAL BECOMES SMALL. Everything else about this
+            // method - and every guard inside StateFor - lands on the adult
+            // branch, which is Hazard 0's containment: an error in the birth
+            // inversion can produce a full-sized manta and nothing else.
             return IslandFaunaAge.StateFor(
                 _ecology.WorldSeed, creature.IslandId, FaunaSpecies.MantaRay,
-                population.MantaIds.Count, rank, isCalfSlot: false, nowSeconds);
+                population.MantaIds.Count, rank,
+                IslandFaunaFamily.IsCalfSlot(creature), nowSeconds);
         }
 
         internal FaunaCreature? CreatureOf(long entityId) =>
