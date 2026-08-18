@@ -354,10 +354,25 @@ spinner. **Server timing and response shape can change only how LONG the spinner
 is visible and how many times it is snapped back — never how fast it sweeps.**
 Answering more slowly would make it spin fast for longer, which is worse.
 
-The fix is a client one: multiply by `Time.deltaTime` in `ForwardSpin`/
-`ReverseSpin` (or swap `LoadingInputBlocker` to the existing `SpinningSprite`),
-and stop resetting `fillAmount` in `Activate`. Not done here — this change is
-server-side and a client-mod change carries its own patcher obligation.
+The fix therefore had to be a client one, and it is:
+`WorldsAdriftReborn/Patching/Social/LoadingSpinner_Patch.cs` replaces both
+`Spin` bodies with `0.02f * 60f * Time.deltaTime` — the authored speed of 0.02
+per frame at 60 FPS, restated per second rather than re-tuned — capped at one
+frame's worth of 0.05 so a hitch cannot make the wheel teleport, and skips the
+`fillAmount` rewind in `Activate`.
+
+`Activate`'s OTHER line cannot simply be dropped with it. It is also the only
+thing guaranteeing `_spinPhase` is non-null before `Update` reads it, so the
+patch still ensures the phase and removes only the part the player sees; dropping
+both would turn a cosmetic bug into an NRE every frame on any blocker enabled
+before its init ran.
+
+The panel swap itself is left alone. `YouAsLeaderState.EnterScreen` is bare
+`SetActive` calls with no transition, but so is every state in that screen, and
+animating one of them would be a change to the game's look rather than a repair.
+
+**This is a client-mod change and the patcher has not been updated for it** — a
+player on the current patch will not get it until the mod ships.
 
 One latent client bug found while looking, recorded rather than acted on:
 `ResponseCache` is applied to the **POST `/crews`** too
