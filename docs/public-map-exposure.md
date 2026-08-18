@@ -13,8 +13,8 @@ none of the admin command bridge:
 
 | Route | Payload | Server cache header |
 | --- | --- | --- |
-| `GET /map` | The public map page (self-contained HTML, no external hosts) | `public, max-age=60` |
-| `GET /map/data` | Anonymized live snapshot (fauna clock/roster, anonymous player and ship markers). Rebuilt at most once per 2 s regardless of viewer count; the raw stats file is never served. | `public, max-age=2` |
+| `GET /map` | The public map page: the console's own renderer, composed without any operator fragment, with the live anonymized payload embedded for the first paint. Self-contained - no external host of any kind. | `no-cache` (it carries live data; the heavy catalogue beside it is cached instead) |
+| `GET /map/data` | Anonymized live snapshot: fauna clock/roster, anonymous traveller markers, anonymous ship markers with real hull outlines and the dead-reckoning model. Rebuilt at most once per 2 s regardless of viewer count; the raw stats file is never served. Viewers poll it every 3 s. | `public, max-age=2` |
 | `GET /map/world` | The static preserved-release world catalogue (the heavy one, ~island shells and inventories). Static per build. | `public, max-age=3600` |
 
 Everything else under `/map` is answered 404 by the login server itself, so no
@@ -57,7 +57,7 @@ handle /map* {
 
 - **Rate limiting**: if the stack's Caddy has the `rate_limit` plugin, cap
   `/map/data` at something generous like 2 r/s per remote IP with a burst of
-  10 - the page polls every ~3 s, so a legitimate viewer never gets near it.
+  10 - the page polls every 3 s, so a legitimate viewer never gets near it.
   If the plugin is not built in (stock Caddy: it is not), skip it; the 2 s
   server-side cache means even an abusive poller costs one string write per
   request, not a stats-file read.
@@ -75,3 +75,28 @@ curl -o /dev/null -sw '%{http_code}\n' https://wareborn.ratlabs.cc/map
 ```
 
 The second command must print `clean`.
+
+## What a viewer can and cannot learn
+
+Worth stating plainly, because "anonymized" is a claim and this is the list
+behind it.
+
+They CAN see: the world's islands, zones, walls and coastlines; what each
+island holds (databanks, ore, trees, wildlife); the wildlife moving in real
+time; how many travellers are aloft; where each positioned traveller is; where
+each ship is, which way it is heading, and the real outline of its hull.
+
+They CANNOT see: any player name, account, or character id; any peer id or IP;
+anyone's latency, packet loss or connection health; how long anyone has been
+online; who owns, pilots or is riding any ship; any entity id; or any operator
+surface. Marker tokens are salted hashes that change on every server restart,
+so a marker cannot be followed across days.
+
+The one judgement call, recorded so it can be revisited: ships are drawn with
+their REAL hull silhouettes. A hull is a shape in the world - the thing worth
+sharing, and already visible to any player who flies past it - and it carries
+no name or owner. But a distinctive custom hull is recognisable to someone who
+has seen it in game, so it is a weak fingerprint in a way a generic triangle
+would not be. If that trade is ever unwanted, dropping the hull block from
+`PublicMapProjection.ProjectShips` is a one-line change and the renderer falls
+back to a plain ship mark on its own.

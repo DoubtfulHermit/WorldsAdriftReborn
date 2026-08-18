@@ -54,18 +54,27 @@ namespace WorldsAdriftServer.Web
         /// <summary>
         /// How often a viewer's browser asks for a fresh snapshot.
         ///
-        /// Deliberately far slower than the console's 1.5 s. The operator is
-        /// ONE reader who is diagnosing a live world and needs every
-        /// generation the game server writes; the public map may have many
-        /// readers who are watching it, and for watching, five seconds is
-        /// indistinguishable - the wildlife and the ships are both animated
-        /// in the browser from a closed form and a dead-reckoned pose, so
-        /// motion stays smooth between polls no matter how far apart they
-        /// are. The endpoint's own 2 s cache means extra viewers cost a
-        /// cached string rather than a file read either way; this keeps the
-        /// bandwidth honest as well.
+        /// Slower than the console's 1.5 s, because the operator is ONE reader
+        /// diagnosing a live world and needs every generation the game server
+        /// writes, while the public map may have many readers who are simply
+        /// watching it. But NOT arbitrarily slower, and this number was
+        /// measured rather than guessed.
+        ///
+        /// Five seconds was tried first and was wrong: a moving hull is drawn
+        /// by carrying its last measurement forward, and the server's own
+        /// dead-reckoning window is 3 s - past that the browser correctly
+        /// stops guessing and holds position. At a 5 s poll that left every
+        /// ship visibly frozen for the last two seconds of each cycle, which
+        /// headless capture caught as a hull whose transform did not change
+        /// between frames.
+        ///
+        /// Three seconds is the game server's OWN write cadence, so a viewer
+        /// gets each generation about once, and the reckoning window covers
+        /// the whole gap - ships move continuously. It costs nothing extra:
+        /// the endpoint's 2 s cache means any number of viewers share one
+        /// rebuild, so the poll is a cached string per request either way.
         /// </summary>
-        internal const string RefreshMs = "5000";
+        internal const string RefreshMs = "3000";
 
         /// <summary>
         /// The shared map body, composed with the public page's copy: no

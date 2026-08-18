@@ -176,7 +176,15 @@ def main() -> int:
 
     # No live credential travels in a file meant to be passed around.
     html = re.sub(r'(name="csrf" value=")[0-9a-f]*(")', r"\1offline-preview\2", html)
-    html = re.sub(r"(var CSRF=')[0-9a-f]*(')", r"\1offline-preview\2", html)
+    # Whitespace-tolerant on purpose: the served page writes "var CSRF = '...'"
+    # with spaces, so the old spaceless pattern silently matched nothing and
+    # every frozen copy carried a real session-bound token into the repo.
+    html, blanked = re.subn(r"(var CSRF\s*=\s*')[0-9a-f]*(')", r"\1offline-preview\2", html)
+    if blanked != 1:
+        raise SystemExit(
+            f"refusing to write a preview: expected to blank exactly one CSRF "
+            f"token in the script, blanked {blanked}. The served page's shape "
+            f"changed - fix this pattern before publishing the file.")
 
     marker = "<body>"
     if marker not in html:

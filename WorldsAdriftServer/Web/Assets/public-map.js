@@ -7,29 +7,21 @@
   // payload it renders has already been through the server's anonymizing
   // whitelist, so there is no identity in it to show.
 
-  // A traveller is a position, not a person. The renderer asks this page what
-  // a mark is called; the console answers with the entity behind it, and this
-  // page answers with what it honestly knows: nothing but "someone".
-  MARKS.playerTitle=function(){return 'A traveller';};
-  MARKS.playerKicker='Someone, somewhere';
-  MARKS.playerPairs=function(){return [];};
-  MARKS.shipTitle=function(){return 'A ship';};
+  // No MARKS overrides here, and that is the point: the shared renderer's
+  // DEFAULT policy is the anonymous one, and only the operator fragment opts
+  // out of it. A public page that stays silent stays private.
 
   function publicSummary(g){
     var box=$('publicSummary');
     if(!box)return;
     clear(box);
     var fauna=(g&&g.fauna)||{};
-    var pairs=[
-      ['Travellers aloft',fmt(Number(g&&g.currentOnline)||0)],
-      ['Ships on the wind',fmt(((g&&g.ships)||[]).length)],
-      ['Creatures in the sky',fmt(Number(fauna.liveCount)||0)],
-      ['Islands charted',fmt(((worldMap&&worldMap.islands)||[]).length)]
-    ];
-    pairs.forEach(function(p){
-      var k=el('div','k',p[0]),v=el('div','v',p[1]);
-      box.appendChild(k);box.appendChild(v);
-    });
+    // The same stat tiles the world overview uses, so the page reads as one
+    // design rather than two.
+    box.appendChild(statTile(fmt(Number(g&&g.currentOnline)||0),'Travellers aloft'));
+    box.appendChild(statTile(fmt(((g&&g.ships)||[]).length),'Ships on the wind'));
+    box.appendChild(statTile(fmt(Number(fauna.liveCount)||0),'Creatures in the sky'));
+    box.appendChild(statTile(fmt(((worldMap&&worldMap.islands)||[]).length),'Islands charted'));
   }
 
   function publicRender(data){

@@ -939,8 +939,8 @@
     var namedCells=(worldMap.biomes||[]).filter(function(b){return typeof b.district==='string'&&b.district.trim().length>0;}).length;
     var rt=worldMap.resourceTotals||{};
     var seeded=rt.islands?(' Seeded on them: '+rt.deposits+' metal deposits, '+rt.databanks+' databanks, '+rt.trees+' trees across '+rt.woodedIslands+' wooded islands.'):'';
-    text('mapStatus','Static map evidence: release MapFile · '+(worldMap.islands||[]).length+' islands · '+(worldMap.biomes||[]).length+' tier cells ('+namedCells+' named, '+((worldMap.biomes||[]).length-namedCells)+' unassigned) · '+(worldMap.walls||[]).length+' wall segments.'+seeded+' Live overlay: '
-      +(reporting?(runtimeIslands.length+' simulated island domains · '+latestDomains.length+' ships · '+positioned.length+' positioned players · '+Math.round(ageSeconds||0)+'s snapshot age'):'game server not reporting'));
+    text('mapStatus',MARKS.mapStatusLead+(worldMap.islands||[]).length+' islands · '+(worldMap.biomes||[]).length+' tier cells ('+namedCells+' named, '+((worldMap.biomes||[]).length-namedCells)+' unassigned) · '+(worldMap.walls||[]).length+' wall segments.'+seeded+' Live overlay: '
+      +(reporting?MARKS.liveOverlayWords(runtimeIslands.length,latestDomains.length,positioned.length,ageSeconds):MARKS.notReportingWords));
     var note=$('mapLiveNote');note.style.display=(live||!reporting)?'none':'block';
     if(unknown){note.style.display='block';note.textContent=unknown+' connected player'+(unknown===1?' has':'s have')+' no authoritative world position yet.';}
     else note.textContent='No live positions reported.';

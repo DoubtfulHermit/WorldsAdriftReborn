@@ -1,4 +1,29 @@
   var CSRF = '{{csrfToken}}';
+  // The operator console OPTS IN to naming the entity behind each mark. This
+  // is the only place those words exist, so they never reach a public page.
+  MARKS.playerTitle=function(p){return 'Player entity '+p.entityId;};
+  MARKS.playerKicker='Live player';
+  MARKS.playerPairs=function(p){return [['Entity',String(p.entityId)]];};
+  MARKS.shipTitle=function(d){return 'Ship - hull entity '+d.hullEntityId;};
+  MARKS.shipIdRow=function(d){return (d.domainId||'no domain id')+'  \u00b7  hull entity '+d.hullEntityId;};
+  MARKS.mapStatusLead='Static map evidence: release MapFile · ';
+  MARKS.liveOverlayWords=function(domains,ships,players,age){
+    return domains+' simulated island domains · '+ships+' ships · '+players
+      +' positioned players · '+Math.round(age||0)+'s snapshot age';};
+  MARKS.notReportingWords='game server not reporting';
+  MARKS.shipCrewWords=function(d){return [d.piloted?'Piloted':'No pilot'];};
+  MARKS.crewTile=function(stats,d,statTile){
+    stats.appendChild(statTile((d.aboardPlayerEntityIds||[]).length,'Players aboard'));};
+  MARKS.shipBuiltHeading='What it is and who owns it';
+  MARKS.shipIdentityRows=function(d,h){return [
+    ['Owner character uid',h.ownerCharacterUid?h.ownerCharacterUid:'unowned'],
+    ['Pilot entity',d.pilotPlayerEntityId==null?'none':String(d.pilotPlayerEntityId)],
+    ['Players aboard',(d.aboardPlayerEntityIds||[]).length
+      ?(d.aboardPlayerEntityIds||[]).join(', '):'none']];};
+  MARKS.shipBuiltNote='Ships carry no name anywhere in this game, so a hull is identified by '
+    +'its entity id and its owner\u2019s character uid, both read from the server\u2019s own '
+    +'build ledger. Hull materials are the dominant wood and metal the craft consumed; a ship '
+    +'built before materials were recorded reads as birch and iron.';
   // ---- island-count reconciliation -------------------------------------
   // Two different KINDS of fact sit next to each other on this page: the static
   // preserved-MapFile projection, and the live set of islands this game server

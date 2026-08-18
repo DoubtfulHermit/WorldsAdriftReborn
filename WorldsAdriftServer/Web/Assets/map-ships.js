@@ -105,7 +105,7 @@
   function shipTitle(d){return MARKS.shipTitle(d);}
   function shipSummary(d,s){
     var speed=Math.sqrt(s.vx*s.vx+s.vz*s.vz);
-    return (d.piloted?'Piloted':(d.hull&&d.hull.docked?'Docked in a shipyard':'Resting'))
+    return (MARKS.shipCrewWords(d)[0]||(d.hull&&d.hull.docked?'Docked in a shipyard':'Resting'))
       +(speed>0.05?(' - making '+speed.toFixed(1)+' m/s'):'')
       +' - X '+s.x.toFixed(1)+' Z '+s.z.toFixed(1);
   }
@@ -296,11 +296,14 @@
     }
     var h=d.hull||{},s=shipState(d);
     var speed=Math.sqrt(s.vx*s.vx+s.vz*s.vz);
-    head.appendChild(el('h3','md-title','Ship '+d.hullEntityId));
-    head.appendChild(subLine([d.piloted?'Piloted':'No pilot',
+    head.appendChild(el('h3','md-title',MARKS.shipTitle(d)));
+    // Whether anyone is AT THE HELM is a fact about a person's whereabouts, so
+    // the crew line is the operator's; every page still gets the ship's own
+    // state (docked, under way).
+    head.appendChild(subLine(MARKS.shipCrewWords(d).concat([
       h.docked?'Docked in a shipyard':'Not docked',
-      d.active?'Live cadence':'Resting']));
-    head.appendChild(el('div','md-id',(d.domainId||'no domain id')+'  ·  hull entity '+d.hullEntityId));
+      d.active?'Live cadence':'Resting'])));
+    if(MARKS.shipIdRow(d))head.appendChild(el('div','md-id',MARKS.shipIdRow(d)));
     panel.appendChild(head);
 
     var stats=el('div','md-stats');
@@ -308,7 +311,7 @@
     stats.appendChild(statTile(h.present?(Number(h.beamMetres)||0).toFixed(1):'—','Beam, metres'));
     stats.appendChild(statTile(d.deckCount||0,'Deck panels'));
     stats.appendChild(statTile(d.mountedPartCount||0,'Mounted parts'));
-    stats.appendChild(statTile((d.aboardPlayerEntityIds||[]).length,'Players aboard'));
+    if(MARKS.crewTile)MARKS.crewTile(stats,d,statTile);
     stats.appendChild(statTile(speed.toFixed(1),'Speed, m/s'));
     scroll.appendChild(stats);
 
@@ -382,24 +385,21 @@
     }
     scroll.appendChild(where);
 
-    var built=mdBlock('What it is and who owns it');
-    built.appendChild(kv([
-      ['Owner character uid',h.ownerCharacterUid?h.ownerCharacterUid:'unowned'],
+    var built=mdBlock(MARKS.shipBuiltHeading);
+    // WHO owns, pilots and rides a hull is the operator's row set, supplied by
+    // the page. The public map returns none of them - not "unowned", not
+    // "none", but no row at all - so a projection that one day carried an
+    // owner still could not put it on the page.
+    built.appendChild(kv(MARKS.shipIdentityRows(d,h).concat([
       ['Hull materials',shipMaterialText(h)],
       ['Docked in a shipyard',h.docked?'yes':'no'],
-      ['Pilot entity',d.pilotPlayerEntityId==null?'none':String(d.pilotPlayerEntityId)],
-      ['Players aboard',(d.aboardPlayerEntityIds||[]).length
-        ?(d.aboardPlayerEntityIds||[]).join(', '):'none'],
       ['Deck panels',String(d.deckCount||0)],
       ['Mounted parts',String(d.mountedPartCount||0)],
       ['Checkout subscribers',String(d.subscriberCount||0)],
       ['Authority generation',String(d.authorityGeneration||0)],
       ['Replication','sequence '+(d.replicationSequence||0)+' at '+(d.cadenceMs||0)+' ms'],
-      ['Last delivery',(Number(d.deliveryAgeMs)<0)?'never':((d.deliveryAgeMs||0)+' ms ago')]]));
-    built.appendChild(el('p','md-p','Ships carry no name anywhere in this game, so a hull is '
-      +'identified by its entity id and its owner’s character uid, both read from the server’s '
-      +'own build ledger. Hull materials are the dominant wood and metal the craft consumed; a '
-      +'ship built before materials were recorded reads as birch and iron.'));
+      ['Last delivery',(Number(d.deliveryAgeMs)<0)?'never':((d.deliveryAgeMs||0)+' ms ago')]])));
+    built.appendChild(el('p','md-p',MARKS.shipBuiltNote));
     scroll.appendChild(built);
   }
 

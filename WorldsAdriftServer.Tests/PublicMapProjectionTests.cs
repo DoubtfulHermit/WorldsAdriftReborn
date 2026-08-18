@@ -274,8 +274,15 @@ namespace WorldsAdriftServer.Tests
 
             Assert.Equal(
                 new[] { "reporting", "state", "ageSeconds", "stale", "currentOnline",
-                        "fauna", "players", "ships" },
+                        "fauna", "players", "ships", "shipModel" },
                 o.Properties().Select(p => p.Name).ToArray());
+
+            // The dead-reckoning model: physics constants only. The map cannot
+            // draw a moving hull without them and none of them is anybody's.
+            Assert.Equal(
+                new[] { "present", "accelMps2", "maxSpeedMps", "windowSeconds",
+                        "maxWindowSeconds", "toleratedErrorMetres" },
+                ((JObject)o["shipModel"]!).Properties().Select(p => p.Name).ToArray());
         }
 
         // ---- anonymous ids --------------------------------------------------

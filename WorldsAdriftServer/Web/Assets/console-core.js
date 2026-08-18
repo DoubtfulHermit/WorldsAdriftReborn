@@ -37,11 +37,35 @@
   // no entity to name and must not invent one. Keeping the words here - and
   // the geometry, the motion and the hit-testing shared - is what lets one
   // renderer serve both without a single `if (public)` in the drawing code.
+  //
+  // THE DEFAULTS BELOW ARE THE ANONYMOUS ONES, deliberately. A page that
+  // forgets to state its policy gets the safe answer, and the operator
+  // fragment is what opts IN to naming people. That way the failure mode of
+  // this seam is a console that says too little, never a public page that
+  // says too much - and the operator's wording does not even ship to a
+  // reader who was never meant to see it.
   var MARKS={
-    playerTitle:function(p){return 'Player entity '+p.entityId;},
-    playerKicker:'Live player',
-    playerPairs:function(p){return [['Entity',String(p.entityId)]];},
-    shipTitle:function(d){return 'Ship - hull entity '+d.hullEntityId;}
+    playerTitle:function(){return 'A traveller';},
+    playerKicker:'Someone, somewhere',
+    playerPairs:function(){return [];},
+    shipTitle:function(){return 'A ship';},
+    shipIdRow:function(){return '';},
+    // No crew words and no crew tile: whether a hull is crewed, and by whom,
+    // is somebody's whereabouts. The public map says only what the SHIP is
+    // doing.
+    shipCrewWords:function(){return [];},
+    // The console leads this line with where the geometry came from; the
+    // public map just says what is on the map. Same numbers either way.
+    mapStatusLead:'The world: ',
+    liveOverlayWords:function(domains,ships,players,age){
+      return ships+' ship'+(ships===1?'':'s')+' · '+players+' traveller'
+        +(players===1?'':'s')+' aloft · seen '+Math.round(age||0)+'s ago';},
+    notReportingWords:'the world is quiet right now',
+    crewTile:null,
+    shipBuiltHeading:'What it is built from',
+    shipIdentityRows:function(){return [];},
+    shipBuiltNote:'Hull materials are the dominant wood and metal the craft consumed; '
+      +'a ship built before materials were recorded reads as birch and iron.'
   };
   function $(id){return document.getElementById(id);}
   function text(id,v){var e=$(id);if(e)e.textContent=v;}

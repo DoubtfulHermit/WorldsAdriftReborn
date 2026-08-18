@@ -80,6 +80,7 @@ namespace WorldsAdriftServer.PublicMap
             root["fauna"] = ProjectFauna(s.Fauna);
             root["players"] = ProjectPlayers(s.Players, salt);
             root["ships"] = ProjectShips(s.ShipDomains, salt);
+            root["shipModel"] = ProjectShipModel(s.ShipModel);
             return root;
         }
 
@@ -115,6 +116,28 @@ namespace WorldsAdriftServer.PublicMap
                 ["clockSeconds"] = (double?)fauna.Json["clockSeconds"] ?? 0,
                 ["liveCount"] = fauna.LiveCount,
                 ["islands"] = islands,
+            };
+        }
+
+        /// <summary>
+        /// The dead-reckoning model: the acceleration, speed ceiling and error
+        /// tolerance the browser carries a hull forward with between snapshots.
+        /// Pure physics - the same constants for every ship in the world, no
+        /// more identifying than gravity - and the map cannot draw a moving
+        /// hull without them. Rebuilt rather than forwarded, like everything
+        /// else here.
+        /// </summary>
+        private static JObject ProjectShipModel(GameShipModelStat model)
+        {
+            JObject m = model.Json;
+            return new JObject
+            {
+                ["present"] = (bool?)m["present"] ?? false,
+                ["accelMps2"] = (double?)m["accelMps2"] ?? 0,
+                ["maxSpeedMps"] = (double?)m["maxSpeedMps"] ?? 0,
+                ["windowSeconds"] = (double?)m["windowSeconds"] ?? 0,
+                ["maxWindowSeconds"] = (double?)m["maxWindowSeconds"] ?? 0,
+                ["toleratedErrorMetres"] = (double?)m["toleratedErrorMetres"] ?? 0,
             };
         }
 
