@@ -3384,13 +3384,84 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // Naming the creature's own id keeps the reference resolvable
                         // against an entity the peer definitely holds.
                         //
-                        // The four retail jelly species are collapsed to one by
-                        // IslandFaunaPolicy (the names survived, the per-island
-                        // eligibility did not); JellyFishSeed is the one this server
-                        // presents.
+                        // The species is the ISLAND's jelly species - the same
+                        // IslandFaunaPolicy.JellySpeciesFor decision that chose the
+                        // prefab the AddEntity named, so the component and the mesh
+                        // cannot disagree. The retail enum's four members map to the
+                        // four prefabs one to one (FaunaJellySpecies's own docs).
+                        Multiplayer.Islands.FaunaCreature jelly =
+                            WorldsAdriftRebornGameServer.Fauna.CreatureOf(entityId)!.Value;
                         obj = new Bossa.Travellers.Creatures.Basic.BasicCreatureState.Data(
                             new EntityId(entityId),
-                            Bossa.Travellers.Creatures.Basic.BasicSpeciesType.JellyFishSeed);
+                            Multiplayer.Islands.IslandFaunaPolicy.JellySpeciesFor(jelly.IslandId) switch
+                            {
+                                Multiplayer.Islands.FaunaJellySpecies.Seed =>
+                                    Bossa.Travellers.Creatures.Basic.BasicSpeciesType.JellyFishSeed,
+                                Multiplayer.Islands.FaunaJellySpecies.Flower =>
+                                    Bossa.Travellers.Creatures.Basic.BasicSpeciesType.JellyFishFlower,
+                                Multiplayer.Islands.FaunaJellySpecies.DesertA =>
+                                    Bossa.Travellers.Creatures.Basic.BasicSpeciesType.JellyFishDesertA,
+                                _ => Bossa.Travellers.Creatures.Basic.BasicSpeciesType.JellyFishDesertB,
+                            });
+                    }
+                    // ------------------------------------------------------------------
+                    // THE MANTA VARIANT PAIR: 1177 GenderState and 4326
+                    // MantaRayVariantState. These two are what make PickTail run at
+                    // all: MantaRayVariantClient sets MyVariantSettings in exactly one
+                    // method, PickTail, called from exactly two places - the update
+                    // callbacks of these two readers - and the generated reader fires
+                    // each callback ONCE IMMEDIATELY ON SUBSCRIPTION with the seeded
+                    // value (GenderState.Impl's event add does `value(Data.gender)`),
+                    // so seeding is sufficient and no follow-up update is needed.
+                    // Serving neither was the single largest client-side fauna cost in
+                    // the game: MyVariantSettings stayed null and
+                    // MantaRayMaterialExpressionClient.UpdateMaterial() threw one NRE
+                    // with a stack trace PER MANTA PER FRAME - 383,632 in one measured
+                    // session, 97% of a 145 MB log (plan-fauna-liveness.md 1.5). It
+                    // also means every manta rendered the un-picked default tail with
+                    // a dead material block; with these served the client selects one
+                    // of four shipped tail meshes and a male or female body.
+                    //
+                    // Value provenance: GenderType { None, Female, Male } and
+                    // BiomeType { Biome1..Biome4 } are RECOVERED enums; the biome is
+                    // the island's district joined against Bossa's own Voronoi
+                    // centres (IslandBiome); the gender RULE (alternate by member
+                    // index) is WAREBORN TUNING because GSim's breeding is lost.
+                    // The Option<MantaRayVariantType> is deliberately left EMPTY:
+                    // the client subscribes only to BiomeTypeUpdated - the variant
+                    // enum is vestigial (plan 2.3) - and an empty Option is the
+                    // honest encoding of "retail's value is not recoverable".
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1177
+                        && WorldsAdriftRebornGameServer.Fauna.SpeciesOf(entityId)
+                            == Multiplayer.Islands.FaunaSpecies.MantaRay)
+                    {
+                        Multiplayer.Islands.FaunaCreature manta =
+                            WorldsAdriftRebornGameServer.Fauna.CreatureOf(entityId)!.Value;
+                        obj = new Bossa.Travellers.Creatures.GenderState.Data(
+                            Multiplayer.Islands.IslandFaunaPolicy.GenderFor(manta.MemberIndex)
+                                == Multiplayer.Islands.FaunaGender.Female
+                                ? Bossa.Travellers.Creatures.GenderStateData.GenderType.Female
+                                : Bossa.Travellers.Creatures.GenderStateData.GenderType.Male);
+                    }
+                    else if (componentId == 4326
+                        && WorldsAdriftRebornGameServer.Fauna.SpeciesOf(entityId)
+                            == Multiplayer.Islands.FaunaSpecies.MantaRay)
+                    {
+                        Multiplayer.Islands.FaunaCreature manta =
+                            WorldsAdriftRebornGameServer.Fauna.CreatureOf(entityId)!.Value;
+                        // The island's district (survey cell) is the recovered biome
+                        // key; fauna is only ever seeded from the release catalogue,
+                        // so the record lookup cannot miss - but a miss still
+                        // degrades to Biome1 rather than serving an invalid enum.
+                        Multiplayer.Islands.ReleaseIslandRecord? record =
+                            Multiplayer.Islands.ReleaseWorldCatalog.ByIsland(manta.IslandId);
+                        int biome = Multiplayer.Islands.IslandBiome.VoronoiTypeForCell(
+                            record?.CellId);
+                        obj = new Bossa.Travellers.Creatures.Variants.MantaRayVariantState.Data(
+                            default(Improbable.Collections.Option<
+                                Bossa.Travellers.Creatures.Variants.MantaRayVariantType>),
+                            (Bossa.Travellers.Biomes.BiomeType)biome);
                     }
                     else if (componentId == Multiplayer.TeleportPolicy.TeleportRequestStateComponentId)
                     {

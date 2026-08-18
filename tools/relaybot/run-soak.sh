@@ -19,6 +19,11 @@
 #      holds, never by process-name patterns (which have self-matched before).
 #
 # Exit code: 0 flat, 1 growing, 2 the soak never produced data.
+#
+# FAUNA GATE: SOAK_FAUNA=1 tools/relaybot/run-soak.sh 10 7807
+#   Production world recipe + bots standing on a tier-1 island + --require-fauna,
+#   so the verdict covers the fauna checkout/pose path and a creatureless run
+#   FAILS instead of reporting FLAT. See the SOAK_FAUNA block below.
 set -uo pipefail
 
 MINUTES="${1:-10}"
@@ -57,6 +62,48 @@ BOT_FLAGS=""
 # per peer), and the fauna line reports real creature checkouts. A soak run
 # WITHOUT the barrier still measures relay staleness only.
 BOT_EXTRA="${SOAK_BOT_EXTRA:-}"
+
+# FAUNA GATE MODE (SOAK_FAUNA=1). Stands the bots on a tier-1 island, starts
+# the server with the production world recipe, and makes a run that never shows
+# a bot a creature FAIL (--require-fauna) instead of printing a confident FLAT.
+#
+# THE 2026-08-18 "KNOWN GAP" IS SOLVED, and the answer was an env variable, not
+# the harness: fauna is gated on optional-terrain readiness, and optional
+# terrain is only STREAM-MANAGED for islands whose world entity id was already
+# bound when IslandTerrainInterestService was constructed at boot. Entity ids
+# are normally allocated lazily, by the first client to reach that entity's
+# AddEntity step - hours after the constructor ran - so without the loading
+# barrier the service saw zero registered islands, managed nothing, and
+# IsTerrainReady() answered false forever: no "[terrain-interest] added" at any
+# radius, fauna silently withheld, exactly as the gap note recorded.
+# WAREBORN_LOAD_BARRIER=1 changes the boot order: LoadBarrier.Prime BINDS EVERY
+# WORLD ENTITY ID before the terrain service is constructed, the islands
+# register as managed candidates, terrain checks out to a bot (via the bounded
+# ack fallback - a headless bot's 1-byte ack never exactly correlates), and the
+# fauna path runs for real. Production runs with the barrier on, so this mode
+# is the production shape, not a test hack. Verified 2026-08-18: A/B on this
+# exact worktree - barrier off: 0 creature checkouts; barrier on: 40 checkouts,
+# 18,582 fauna 190602 poses, VERDICT FLAT.
+if [ "${SOAK_FAUNA:-0}" = "1" ]; then
+    BOT_FLAGS="$BOT_FLAGS --require-fauna"
+    [ -z "$BOT_EXTRA" ] && BOT_EXTRA="--centre 7376.4,25.2,6231.7"  # beautiful-wildlands, tier 1
+    # The production world recipe (mirrors the deployed unit), overridable var
+    # by var. Only effective when THIS script starts the server below; when a
+    # server is already listening its env is its own.
+    export WAREBORN_RELEASE_WORLD_DISTRICTS="${WAREBORN_RELEASE_WORLD_DISTRICTS:-tier1}"
+    export WAREBORN_INTEREST_RADIUS_M="${WAREBORN_INTEREST_RADIUS_M:-120}"
+    export WAREBORN_TERRAIN_INTEREST_ENABLED="${WAREBORN_TERRAIN_INTEREST_ENABLED:-1}"
+    export WAREBORN_TERRAIN_LOAD_RADIUS_M="${WAREBORN_TERRAIN_LOAD_RADIUS_M:-4000}"
+    export WAREBORN_TERRAIN_UNLOAD_RADIUS_M="${WAREBORN_TERRAIN_UNLOAD_RADIUS_M:-4800}"
+    export WAREBORN_ISLAND_FAUNA="${WAREBORN_ISLAND_FAUNA:-1}"
+    export WAREBORN_ISLAND_FAUNA_MAX="${WAREBORN_ISLAND_FAUNA_MAX:-4000}"
+    export WAREBORN_LOAD_BARRIER="${WAREBORN_LOAD_BARRIER:-1}"   # load-bearing: see above
+    export WAREBORN_LOAD_BARRIER_TIMEOUT_MS="${WAREBORN_LOAD_BARRIER_TIMEOUT_MS:-30000}"
+    export WAREBORN_SPAWN_PACE_MS="${WAREBORN_SPAWN_PACE_MS:-200}"
+    if port_listening_precheck=$(ss -Huln "sport = :$PORT" 2>/dev/null) && [ -n "$port_listening_precheck" ]; then
+        echo "[run-soak] SOAK_FAUNA=1 but a server already holds UDP $PORT - its env decides whether fauna exists; --require-fauna will judge the result."
+    fi
+fi
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"

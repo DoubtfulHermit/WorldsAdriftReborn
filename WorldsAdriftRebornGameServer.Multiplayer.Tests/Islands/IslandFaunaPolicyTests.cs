@@ -102,6 +102,103 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             }
         }
 
+        // --- Jelly species: four recovered prefabs, one WAREBORN-TUNED assignment.
+
+        [Theory]
+        [InlineData(FaunaJellySpecies.Seed, "SeedPodJelly")]
+        [InlineData(FaunaJellySpecies.Flower, "FlowerPodJelly")]
+        [InlineData(FaunaJellySpecies.DesertA, "DesertPod")]
+        [InlineData(FaunaJellySpecies.DesertB, "DesertPodB")]
+        public void Jelly_species_map_to_their_retail_prefab_names(
+            FaunaJellySpecies species, string expected) =>
+            Assert.Equal(expected, IslandFaunaPolicy.PrefabNameFor(species));
+
+        [Fact]
+        public void Every_jelly_prefab_is_one_the_unmodified_client_can_resolve()
+        {
+            foreach (FaunaJellySpecies species in Enum.GetValues<FaunaJellySpecies>())
+            {
+                Assert.True(ClientEntityPrefabs.CanResolve(IslandFaunaPolicy.PrefabNameFor(species)),
+                    species + " names a prefab the client cannot load");
+            }
+        }
+
+        [Fact]
+        public void An_islands_jelly_species_is_stable_across_processes()
+        {
+            // The assignment is a pure FNV-1a of the island id, never
+            // string.GetHashCode - which .NET randomises per process, and a
+            // per-process species would make a shoal change kind on every server
+            // restart. Pinned literals so a hash change cannot pass silently:
+            // changing the assignment is allowed, but it must be a decision.
+            Assert.Equal(FaunaJellySpecies.DesertB,
+                IslandFaunaPolicy.JellySpeciesFor(new IslandId("beautiful-wildlands")));
+            foreach (ReleaseIslandRecord island in ReleaseWorldCatalog.All)
+            {
+                Assert.Equal(
+                    IslandFaunaPolicy.JellySpeciesFor(island.Definition.Id),
+                    IslandFaunaPolicy.JellySpeciesFor(new IslandId(island.Definition.Id.Value)));
+            }
+        }
+
+        [Fact]
+        public void All_four_jelly_species_actually_appear_in_the_tier1_world()
+        {
+            // The point of serving four prefabs is that a player travelling the
+            // 46 open tier-1 islands sees four kinds of shoal, not a lucky hash
+            // that collapsed onto one. Coverage is a property of the real
+            // catalogue and is asserted against it.
+            HashSet<FaunaJellySpecies> seen = new HashSet<FaunaJellySpecies>();
+            foreach (ReleaseIslandRecord island in ReleaseWorldCatalog.All)
+            {
+                if (island.Survey.Tier == 1)
+                {
+                    seen.Add(IslandFaunaPolicy.JellySpeciesFor(island.Definition.Id));
+                }
+            }
+            Assert.Equal(4, seen.Count);
+        }
+
+        [Fact]
+        public void The_creature_prefab_follows_the_islands_jelly_species()
+        {
+            ReleaseIslandRecord island = AnyIsland(tier: 1);
+            IReadOnlyList<FaunaCreature> population = IslandFaunaPolicy
+                .PopulationFor(island, IslandFaunaPolicy.FirstFaunaEntityId);
+
+            string expectedJelly = IslandFaunaPolicy.PrefabNameFor(
+                IslandFaunaPolicy.JellySpeciesFor(island.Definition.Id));
+            foreach (FaunaCreature creature in population)
+            {
+                Assert.Equal(
+                    creature.Species == FaunaSpecies.MantaRay ? "MantaRay" : expectedJelly,
+                    IslandFaunaPolicy.PrefabNameFor(creature));
+            }
+        }
+
+        // --- Gender: the second input PickTail needs before a manta gets a tail.
+
+        [Fact]
+        public void Genders_alternate_so_every_school_carries_both()
+        {
+            Assert.Equal(FaunaGender.Female, IslandFaunaPolicy.GenderFor(0));
+            Assert.Equal(FaunaGender.Male, IslandFaunaPolicy.GenderFor(1));
+            Assert.Equal(FaunaGender.Female, IslandFaunaPolicy.GenderFor(2));
+            Assert.Equal(FaunaGender.Male, IslandFaunaPolicy.GenderFor(3));
+
+            // The guarantee the rule was chosen for: any school of two or more
+            // members contains both genders, so both tail meshes exist in world.
+            for (int size = 2; size <= 12; size++)
+            {
+                HashSet<FaunaGender> seen = new HashSet<FaunaGender>();
+                for (int member = 0; member < size; member++)
+                {
+                    seen.Add(IslandFaunaPolicy.GenderFor(member));
+                }
+                Assert.Equal(2, seen.Count);
+            }
+        }
+
         // --- Determinism: the same island seeds identically on every process start.
 
         [Fact]
