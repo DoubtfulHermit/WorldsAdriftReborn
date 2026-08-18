@@ -29,6 +29,11 @@ cleanup() {
         wait "$server_pid" 2>/dev/null || true
     fi
 }
+# INT TERM as well: a `timeout`-wrapped run dies by SIGTERM, and bash does NOT
+# run the EXIT trap on an unhandled signal - which is how 8 servers leaked
+# (some for 8 hours) on 2026-08-18. Trapping the signals makes cleanup run,
+# and the explicit `exit` inside then fires EXIT exactly once.
+trap 'cleanup; trap - EXIT; exit 143' INT TERM
 trap cleanup EXIT
 
 echo "[ship-acceptance] building current server, bot and native shim..."
