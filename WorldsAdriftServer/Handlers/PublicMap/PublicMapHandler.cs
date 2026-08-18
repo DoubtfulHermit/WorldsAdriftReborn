@@ -42,10 +42,15 @@ namespace WorldsAdriftServer.Handlers.PublicMap
                     return false;
 
                 case PublicMapRoute.Page:
-                    // Short cache: the page shell is static per build, but a
-                    // deploy should propagate within a minute.
-                    Send(session, 200, PublicMapPage.ContentType, PublicMapPage.Html,
-                        "public, max-age=60", headOnly);
+                    // The live payload is embedded for the first paint, the
+                    // same way the console bootstraps itself, so the map is
+                    // drawn on arrival rather than flashing empty. That makes
+                    // the page as fresh as the snapshot inside it, so it is
+                    // NOT cached - the world catalogue beside it, which is the
+                    // heavy part, is cached for an hour instead.
+                    Send(session, 200, PublicMapPage.ContentType,
+                        PublicMapPage.Html(LivePayload(DateTimeOffset.UtcNow), ReleaseWorldMap.Json),
+                        "no-cache", headOnly);
                     return true;
 
                 case PublicMapRoute.LiveData:

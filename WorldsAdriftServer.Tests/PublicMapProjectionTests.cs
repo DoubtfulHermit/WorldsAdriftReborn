@@ -58,6 +58,7 @@ namespace WorldsAdriftServer.Tests
             "NAME-SENTINEL",          // player display name
             "SHIPNAME-SENTINEL",      // ship name
             "OWNER-SENTINEL",         // ship owner uid
+            "HULLOWNER-SENTINEL",     // the owner uid the hull block really carries
             "ROOT-SENTINEL",          // an operator field at the root
             "FAUNA-SENTINEL",         // an unexpected field inside fauna
         };
@@ -89,6 +90,17 @@ namespace WorldsAdriftServer.Tests
               ""hullEntityId"":918273645,
               ""shipName"":""SHIPNAME-SENTINEL-Voidchaser"",
               ""ownerCharacterUid"":""OWNER-SENTINEL-deadbeef"",
+              ""yawRadians"":1.25,""yawRateRadPerSec"":0.05,
+              ""vxMps"":3.5,""vyMps"":0.25,""vzMps"":-2.75,
+              ""hull"":{""present"":true,""docked"":false,
+                ""ownerCharacterUid"":""HULLOWNER-SENTINEL-c0ffee"",
+                ""beamMetres"":8.5,""keelMetres"":22.25,""deckPlaneMetres"":1.5,
+                ""bowLocalZMetres"":11.5,""sternLocalZMetres"":-10.75,
+                ""cellCount"":42,""hullDeckCount"":3,""sectionCount"":7,
+                ""keelIsLongestAxis"":true,
+                ""woodId"":""pine"",""woodQuality"":3,
+                ""metalId"":""iron"",""metalQuality"":2,
+                ""outline"":[0,11.5,4.25,3,4.25,-10.75,-4.25,-10.75,-4.25,3]},
               ""authorityGeneration"":5,""replicationSequence"":2000,
               ""cadenceMs"":240,""deliveryAgeMs"":100,
               ""x"":17220.5,""y"":-310.75,""z"":-1084.25,
@@ -179,6 +191,17 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(-1084.25, (double?)ship["z"]);
             Assert.True((bool?)ship["active"]);
             Assert.Equal(6, (int?)ship["deckCount"]);
+            // The renderer keys ships by hullEntityId, so it is present - but
+            // it is the opaque token, not the entity id the server knows.
+            Assert.Equal((string?)ship["id"], (string?)ship["hullEntityId"]);
+            Assert.DoesNotContain("918273645", (string?)ship["hullEntityId"]!, StringComparison.Ordinal);
+
+            // The silhouette survives: it is a shape in the world, not a name.
+            JObject hull = (JObject)ship["hull"]!;
+            Assert.True((bool?)hull["present"]);
+            Assert.Equal(10, ((JArray)hull["outline"]!).Count);
+            Assert.Equal(8.5, (double?)hull["beamMetres"]);
+            Assert.Equal("pine", (string?)hull["woodId"]);
         }
 
         [Fact]
@@ -234,8 +257,20 @@ namespace WorldsAdriftServer.Tests
 
             JObject ship = (JObject)((JArray)o["ships"]!).Single();
             string[] shipKeys = ship.Properties().Select(p => p.Name).ToArray();
-            Assert.Equal(new[] { "id", "x", "y", "z", "active", "deckCount" },
+            Assert.Equal(
+                new[] { "hullEntityId", "id", "x", "y", "z", "active", "deckCount",
+                        "yawRadians", "yawRateRadPerSec", "vxMps", "vyMps", "vzMps", "hull" },
                 shipKeys.Where(k => k != "headingDegrees").ToArray());
+
+            // The hull block is the silhouette the public map draws. Every key
+            // here describes the SHIP; the moment one describes a person, this
+            // list is what makes it a deliberate act.
+            Assert.Equal(
+                new[] { "present", "docked", "beamMetres", "keelMetres", "deckPlaneMetres",
+                        "bowLocalZMetres", "sternLocalZMetres", "cellCount", "hullDeckCount",
+                        "sectionCount", "keelIsLongestAxis", "woodId", "woodQuality",
+                        "metalId", "metalQuality", "outline" },
+                ((JObject)ship["hull"]!).Properties().Select(p => p.Name).ToArray());
 
             Assert.Equal(
                 new[] { "reporting", "state", "ageSeconds", "stale", "currentOnline",

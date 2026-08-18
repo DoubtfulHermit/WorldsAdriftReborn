@@ -144,14 +144,32 @@ namespace WorldsAdriftServer.PublicMap
         }
 
         /// <summary>
-        /// Ship markers: opaque id, pose, and the two structural hints a
-        /// silhouette needs (activity and deck count). Pilot and aboard
-        /// linkage stays admin-only: publishing which anonymous player rides
-        /// which ship would let the two anonymized streams re-identify each
-        /// other. <c>headingDegrees</c> is a whitelisted SLOT for the heading
-        /// the ships work is adding to the stats file - passed through only
-        /// when the snapshot actually carries a number, omitted otherwise, so
-        /// absence stays the signal.
+        /// Ship markers: opaque id, pose, the motion terms the browser
+        /// dead-reckons with, and the hull's real outline.
+        ///
+        /// WHY THE PUBLIC MAP GETS REAL HULL SILHOUETTES. A hull outline is a
+        /// shape in the world, like an island's coastline - it is what anyone
+        /// standing on a nearby island can already see, and it carries no
+        /// name, no owner and no account. It is also the whole point of
+        /// sharing the map: the ships people built are the thing worth
+        /// looking at, and a generic triangle would be a map of nothing.
+        ///
+        /// The honest caveat, recorded rather than hidden: a sufficiently
+        /// distinctive custom hull is recognisable to someone who has seen it
+        /// in game, so a silhouette is a weak fingerprint in a way a triangle
+        /// is not. That is accepted here because the same shape is already
+        /// visible to any player who flies past it, and because nothing in
+        /// this payload turns "that hull" into "that person" - no name, no
+        /// owner uid, no pilot linkage, and a marker token that changes every
+        /// time the server restarts. If that trade is ever unwanted, the fix
+        /// is one line: drop the hull block and the renderer falls back to
+        /// its plain ship mark on its own.
+        ///
+        /// Pilot and aboard linkage stays admin-only regardless: publishing
+        /// which anonymous player rides which ship would let the two
+        /// anonymized streams re-identify each other. The hull's
+        /// <c>ownerCharacterUid</c> is likewise never copied - it is the one
+        /// field in the hull block that names a person.
         /// </summary>
         private static JArray ProjectShips(IReadOnlyList<GameShipDomainStat> ships, byte[] salt)
         {
@@ -161,12 +179,24 @@ namespace WorldsAdriftServer.PublicMap
                 string domainId = (string?)ship.Json["domainId"] ?? "";
                 JObject marker = new JObject
                 {
+                    // The renderer keys ships by hullEntityId; giving it the
+                    // opaque token keeps selection and dead reckoning working
+                    // while the real entity id never leaves the server.
+                    ["hullEntityId"] = AnonymousId("ship", domainId, salt),
                     ["id"] = AnonymousId("ship", domainId, salt),
                     ["x"] = (double?)ship.Json["x"] ?? 0,
                     ["y"] = (double?)ship.Json["y"] ?? 0,
                     ["z"] = (double?)ship.Json["z"] ?? 0,
                     ["active"] = (bool?)ship.Json["active"] ?? false,
                     ["deckCount"] = Math.Max(0, (int?)ship.Json["deckCount"] ?? 0),
+                    // The motion terms the browser carries a hull forward with
+                    // between snapshots. Geometry, not identity.
+                    ["yawRadians"] = (double?)ship.Json["yawRadians"] ?? 0,
+                    ["yawRateRadPerSec"] = (double?)ship.Json["yawRateRadPerSec"] ?? 0,
+                    ["vxMps"] = (double?)ship.Json["vxMps"] ?? 0,
+                    ["vyMps"] = (double?)ship.Json["vyMps"] ?? 0,
+                    ["vzMps"] = (double?)ship.Json["vzMps"] ?? 0,
+                    ["hull"] = ProjectHull(ship.Json["hull"] as JObject),
                 };
                 if (ship.Json["headingDegrees"]?.Type is JTokenType.Float or JTokenType.Integer)
                 {
@@ -175,6 +205,46 @@ namespace WorldsAdriftServer.PublicMap
                 projected.Add(marker);
             }
             return projected;
+        }
+
+        /// <summary>
+        /// The hull block, rebuilt field by field. Everything here describes
+        /// the SHIP - its outline, its dimensions, what it is built from -
+        /// and nothing describes who owns it. Note what is conspicuously
+        /// absent and must stay absent: <c>ownerCharacterUid</c>.
+        /// </summary>
+        private static JObject ProjectHull(JObject? hull)
+        {
+            JArray outline = new JArray();
+            if (hull?["outline"] is JArray ring)
+            {
+                foreach (JToken point in ring)
+                {
+                    outline.Add((double?)point ?? 0);
+                }
+            }
+
+            return new JObject
+            {
+                ["present"] = (bool?)hull?["present"] ?? false,
+                ["docked"] = (bool?)hull?["docked"] ?? false,
+                ["beamMetres"] = (double?)hull?["beamMetres"] ?? 0,
+                ["keelMetres"] = (double?)hull?["keelMetres"] ?? 0,
+                ["deckPlaneMetres"] = (double?)hull?["deckPlaneMetres"] ?? 0,
+                ["bowLocalZMetres"] = (double?)hull?["bowLocalZMetres"] ?? 0,
+                ["sternLocalZMetres"] = (double?)hull?["sternLocalZMetres"] ?? 0,
+                ["cellCount"] = Math.Max(0, (int?)hull?["cellCount"] ?? 0),
+                ["hullDeckCount"] = Math.Max(0, (int?)hull?["hullDeckCount"] ?? 0),
+                ["sectionCount"] = Math.Max(0, (int?)hull?["sectionCount"] ?? 0),
+                ["keelIsLongestAxis"] = (bool?)hull?["keelIsLongestAxis"] ?? false,
+                // What it is built OF is a property of the ship, like its
+                // beam - visible to anyone who walks its deck.
+                ["woodId"] = (string?)hull?["woodId"] ?? "",
+                ["woodQuality"] = Math.Max(0, (int?)hull?["woodQuality"] ?? 0),
+                ["metalId"] = (string?)hull?["metalId"] ?? "",
+                ["metalQuality"] = Math.Max(0, (int?)hull?["metalQuality"] ?? 0),
+                ["outline"] = outline,
+            };
         }
 
         /// <summary>

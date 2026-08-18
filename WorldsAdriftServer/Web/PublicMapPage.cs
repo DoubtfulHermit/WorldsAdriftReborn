@@ -1,62 +1,110 @@
+using WorldsAdriftServer.Admin;
+
 namespace WorldsAdriftServer.Web
 {
     /// <summary>
-    /// The /map shell as it stands in PHASE A of the public-map work: a
-    /// self-contained placeholder that proves the route, states what the page
-    /// will be, and shows the live anonymized headline figures from /map/data.
+    /// The public live world map at /map.
     ///
-    /// Phase B replaces this with the real map - the admin console's renderer,
-    /// extracted into shared assets and fed by the anonymized projection
-    /// instead of the operator one. Nothing on this page or its data feed
-    /// carries identity; see PublicMapProjection for the boundary.
+    /// It is the SAME map as the operator console's: the same coastlines, the
+    /// same zones, the same wildlife evaluated from the same closed form, the
+    /// same hulls. It is composed from the same shared asset files
+    /// (<see cref="WebAssets"/>), so a fix to the renderer reaches both pages
+    /// from one edit and neither can drift into being a second implementation.
     ///
-    /// Fully self-contained on purpose: this page is public, so a CDN or font
-    /// host reference would leak every visitor to a third party.
+    /// What makes it public is what it does NOT compose. The operator
+    /// fragments - the command UI, the player table, the terrain matrix, the
+    /// domain workbench - are simply not in
+    /// <see cref="ScriptFragments"/>, and the data it renders has already been
+    /// through the anonymizing whitelist in
+    /// <see cref="PublicMap.PublicMapProjection"/>. The privacy boundary is
+    /// therefore structural at BOTH ends: there is no identity in the payload,
+    /// and no UI that could show identity if there were.
+    ///
+    /// Per the current console decision, provenance is not displayed: no
+    /// INFERRED badges, no authenticity disclaimers, no "map evidence" tags.
+    /// The catalogue still carries its provenance labelling - the page just
+    /// shows the data plainly.
     /// </summary>
     internal static class PublicMapPage
     {
         internal const string ContentType = "text/html; charset=utf-8";
 
-        internal const string Html = @"<!DOCTYPE html>
-<html lang=""en"">
-<head>
-<meta charset=""utf-8"">
-<meta name=""viewport"" content=""width=device-width, initial-scale=1"">
+        /// <summary>
+        /// The renderer fragments this page shares with the operator console.
+        /// <see cref="WebAssetCompositionTests"/> asserts every one of these is
+        /// also in the console's load order, so "shared" is a checked fact.
+        /// </summary>
+        internal static readonly string[] SharedRendererFragments =
+        {
+            "console-core.js",
+            "map-render.js",
+            "map-fauna.js",
+            "map-ships.js",
+            "map-interaction.js",
+        };
+
+        /// <summary>
+        /// This page's script, in load order: the shared renderer, then the
+        /// public page's own bootstrap and wiring. No operator fragment
+        /// appears here, and a test asserts none ever does.
+        /// </summary>
+        internal static readonly string[] ScriptFragments =
+            SharedRendererFragments.Concat(new[] { "public-map.js" }).ToArray();
+
+        /// <summary>
+        /// How often a viewer's browser asks for a fresh snapshot.
+        ///
+        /// Deliberately far slower than the console's 1.5 s. The operator is
+        /// ONE reader who is diagnosing a live world and needs every
+        /// generation the game server writes; the public map may have many
+        /// readers who are watching it, and for watching, five seconds is
+        /// indistinguishable - the wildlife and the ships are both animated
+        /// in the browser from a closed form and a dead-reckoned pose, so
+        /// motion stays smooth between polls no matter how far apart they
+        /// are. The endpoint's own 2 s cache means extra viewers cost a
+        /// cached string rather than a file read either way; this keeps the
+        /// bandwidth honest as well.
+        /// </summary>
+        internal const string RefreshMs = "5000";
+
+        /// <summary>
+        /// The shared map body, composed with the public page's copy: no
+        /// provenance strip, no authenticity note, a legend that names the
+        /// anonymous marks for what they are, and the island ledger kept -
+        /// what an island holds is preserved catalogue data, not anybody's
+        /// business but the world's.
+        /// </summary>
+        private static string MapBody() => WebAssets.Fill(
+            WebAssets.ReadTrimmed("map-body.html"),
+            ("mapTitle", "The world of Worlds Adrift"),
+            ("mapProvenance", string.Empty),
+            ("mapLegend", WebAssets.Fill(WebAssets.ReadTrimmed("public-map-legend.html"),
+                ("tierFillOpacity", MapTierPalette.FillOpacityCss),
+                ("wallLegend", MapWallPalette.LegendHtml()))),
+            ("mapAuthenticity", string.Empty),
+            ("mapLedger", WebAssets.ReadTrimmed("public-map-ledger.html")));
+
+        /// <summary>
+        /// The page. <paramref name="bootstrapJson"/> is the anonymized live
+        /// payload /map/data returns, embedded for the first paint exactly as
+        /// the console embeds its own - so the map is drawn before the first
+        /// poll rather than flashing empty.
+        /// </summary>
+        internal static string Html(string bootstrapJson, string worldMapJson) =>
+            @"<!DOCTYPE html><html lang=""en""><head>
+<meta charset=""utf-8""><meta name=""viewport"" content=""width=device-width, initial-scale=1"">
 <meta name=""color-scheme"" content=""dark"">
-<title>Live World Map - Worlds Adrift Reborn</title>
-<style>
-:root{--bg:#0b141b;--panel:#101d26;--line:#1e3240;--text:#d7e4ec;--text-soft:#9fb4c0;--accent:#71d0a5}
-*{box-sizing:border-box;margin:0}
-body{background:var(--bg);color:var(--text);font:16px/1.55 system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;padding:1.5rem}
-main{max-width:34rem;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:2rem 2.2rem}
-h1{font-size:1.25rem;letter-spacing:.03em;margin-bottom:.8rem}
-p{color:var(--text-soft);margin-bottom:.8rem}
-strong{color:var(--accent);font-weight:650}
-#live{margin-top:1rem;padding-top:1rem;border-top:1px solid var(--line);font-size:.9rem}
-</style>
-</head>
-<body>
-<main>
-<h1>Worlds Adrift Reborn &mdash; Live World Map</h1>
-<p>A public, anonymized view of the living world is being prepared here:
-the preserved island atlas, its wildlife moving in real time, and the
-ships and travellers currently aloft &mdash; with <strong>no names and no
-identities</strong>, ever.</p>
-<p id=""live"">Checking the skies&hellip;</p>
+<meta name=""description"" content=""A live map of the Worlds Adrift Reborn world: islands, zones, wildlife, and the ships and travellers currently aloft."">
+<title>Live world map - Worlds Adrift Reborn</title>" + AdminPage.Style + @"</head>
+<body><div class=""wrap"">
+" + WebAssets.Fill(WebAssets.Read("public-map-body.html"), ("mapBody", MapBody()))
+   + @"<script id=""bootstrap"" type=""application/json"">" + bootstrapJson + @"</script>
+<script id=""releaseWorldMap"" type=""application/json"">" + worldMapJson + @"</script>
 <script>
-fetch('/map/data').then(function(r){return r.json();}).then(function(d){
-  var el=document.getElementById('live');
-  if(!d.reporting){el.textContent='The world is quiet right now: the game server is not reporting.';return;}
-  var f=d.fauna||{};
-  el.textContent='Right now: '+(d.currentOnline||0)+' traveller(s) aloft, '
-    +((d.ships||[]).length)+' ship(s) on the wind, '
-    +((f.liveCount||0))+' living creatures over the islands.';
-}).catch(function(){
-  document.getElementById('live').textContent='The live feed could not be reached.';
-});
+(function(){
+  'use strict';
+" + WebAssets.Fill(WebAssets.Script(ScriptFragments), ("refreshMs", RefreshMs)) + @"})();
 </script>
-</main>
-</body>
-</html>";
+</body></html>";
     }
 }
