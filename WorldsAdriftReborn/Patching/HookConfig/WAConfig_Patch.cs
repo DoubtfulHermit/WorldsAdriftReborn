@@ -248,16 +248,52 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             }
         }
 
+        /// <summary>
+        /// The two-argument <c>WAConfig.GetOrDefault&lt;T&gt;(string key, T defaultValue)</c>,
+        /// closed over <typeparamref name="T"/>.
+        ///
+        /// It cannot be found with <c>AccessTools.Method(type, name, new[] { typeof(string), typeof(bool) })</c>.
+        /// The second parameter of the generic DEFINITION is the open type
+        /// parameter <c>T</c>, not <c>bool</c> or <c>string</c>, so matching on a
+        /// concrete type finds nothing, AccessTools returns null, and
+        /// <c>MakeGenericMethod</c> then throws a NullReferenceException out of
+        /// GetTargetMethod.
+        ///
+        /// That is exactly what happened: both WithFallback classes threw, and
+        /// because the mod used to patch the whole assembly in one call, the
+        /// first one to be processed aborted every patch class Harmony had not
+        /// yet reached. Matching on arity instead cannot hit that trap.
+        /// </summary>
+        private static MethodBase GetOrDefaultWithFallback(Type closedOver)
+        {
+            Type waConfig = AccessTools.TypeByName("WAConfig");
+            if (waConfig == null)
+            {
+                throw new InvalidOperationException(
+                    "[WAReborn] WAConfig type not found; cannot patch GetOrDefault.");
+            }
+
+            foreach (MethodInfo candidate in AccessTools.GetDeclaredMethods(waConfig))
+            {
+                if (candidate.Name != "GetOrDefault") continue;
+                if (!candidate.IsGenericMethodDefinition) continue;
+                if (candidate.GetParameters().Length != 2) continue;
+                return candidate.MakeGenericMethod(closedOver);
+            }
+
+            throw new InvalidOperationException(
+                "[WAReborn] WAConfig.GetOrDefault<T>(string, T) not found. The client's config "
+                + "API has changed shape; the URL and feature-flag redirects that hang off it "
+                + "need rechecking.");
+        }
+
         [HarmonyPatch()]
         class GetOrDefault_String_WithFallback
         {
             [HarmonyTargetMethod]
             public static MethodBase GetTargetMethod()
             {
-                return AccessTools.Method(
-                    AccessTools.TypeByName("WAConfig"),
-                    "GetOrDefault",
-                    new Type[] { typeof(string), typeof(string) }).MakeGenericMethod(typeof(string));
+                return GetOrDefaultWithFallback(typeof(string));
             }
 
             [HarmonyPrefix]
@@ -301,10 +337,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             [HarmonyTargetMethod]
             public static MethodBase GetTargetMethod()
             {
-                return AccessTools.Method(
-                    AccessTools.TypeByName("WAConfig"),
-                    "GetOrDefault",
-                    new Type[] { typeof(string), typeof(bool) }).MakeGenericMethod(typeof(bool));
+                return GetOrDefaultWithFallback(typeof(bool));
             }
 
             [HarmonyPrefix]

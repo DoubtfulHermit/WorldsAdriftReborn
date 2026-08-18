@@ -139,21 +139,77 @@ namespace WorldsAdriftReborn
             }
         }
 
+        /// <summary>
+        /// Applies every patch class in this assembly, one at a time, so that a
+        /// single broken class cannot take the rest of the mod down with it.
+        ///
+        /// This used to be one <c>Harmony.CreateAndPatchAll(assembly)</c> call.
+        /// Harmony processes each class through a PatchClassProcessor and lets
+        /// an exception from any of them propagate out of PatchAll, so the
+        /// classes it had not reached yet were never patched - silently, because
+        /// the catch below turned it into a single log line that reads like a
+        /// warning rather than "most of the mod did not load".
+        ///
+        /// It was not hypothetical. A real session log shows
+        ///
+        ///     AccessTools.Method: Could not find method for type WAConfig and
+        ///     name GetOrDefault and parameters (string, string)
+        ///     Unhandled exception occurred while patching the game: ...
+        ///         WAConfig_Patch+GetOrDefault_String_WithFallback::GetTargetMethod()
+        ///
+        /// and no "Patching completed successfully" line anywhere in the file.
+        /// Everything Harmony had not yet processed was dead, and which patches
+        /// those were depended on nothing more meaningful than the order
+        /// Assembly.GetTypes() happened to return.
+        ///
+        /// The lookup that threw is fixed too (see WAConfig_Patch), but the
+        /// structural problem is worth fixing on its own: a patch that cannot
+        /// find its target should cost that one patch, and it should say so at
+        /// ERROR level with the class name in it.
+        /// </summary>
         private static void InitPatches()
         {
             Debug.Log("Patching Worlds Adrift...");
+            Debug.Log("Applying patches from WorldsAdriftReborn 0.0.1");
 
-            try
+            Harmony harmony = new Harmony("com.WAR.com");
+            int patchedClasses = 0;
+            int patchedMethods = 0;
+            int failedClasses = 0;
+
+            foreach (Type type in AccessTools.GetTypesFromAssembly(Assembly.GetExecutingAssembly()))
             {
-                Debug.Log("Applying patches from WorldsAdriftReborn 0.0.1");
-
-                Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), "com.WAR.com");
-
-                Debug.Log("Patching completed successfully");
+                try
+                {
+                    var patched = harmony.CreateClassProcessor(type).Patch();
+                    if (patched != null && patched.Count > 0)
+                    {
+                        patchedClasses++;
+                        patchedMethods += patched.Count;
+                    }
+                }
+                catch (Exception e)
+                {
+                    failedClasses++;
+                    // LogError, not Log: this is a feature of the mod not
+                    // loading. The old code logged the whole assembly's failure
+                    // at Info level and it went unnoticed for an unknown number
+                    // of releases.
+                    Debug.LogError("[WAReborn] patch class " + type.FullName
+                        + " FAILED and was skipped; the rest of the mod still applied. " + e);
+                }
             }
-            catch (Exception e)
+
+            if (failedClasses > 0)
             {
-                Debug.Log("Unhandled exception occurred while patching the game: " + e);
+                Debug.LogError("[WAReborn] patching finished with " + failedClasses
+                    + " FAILED patch class(es). " + patchedMethods + " method(s) patched across "
+                    + patchedClasses + " class(es).");
+            }
+            else
+            {
+                Debug.Log("Patching completed successfully: " + patchedMethods
+                    + " method(s) patched across " + patchedClasses + " class(es).");
             }
         }
     }
