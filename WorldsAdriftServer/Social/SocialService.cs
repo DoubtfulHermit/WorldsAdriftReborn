@@ -28,7 +28,8 @@ namespace WorldsAdriftServer.Social
     {
         private readonly CharacterRepository characters;
         private readonly CrewRepository crews;
-        private readonly SocialInviteRepository invites;
+        private readonly ISocialInviteStore invites;
+        private readonly AllianceEndpoints alliances;
         private readonly string region;
         private readonly Func<DateTimeOffset> clock;
 
@@ -36,6 +37,7 @@ namespace WorldsAdriftServer.Social
             CharacterRepository characters,
             CrewRepository crews,
             SocialInviteRepository invites,
+            IAllianceStore alliances,
             string region,
             Func<DateTimeOffset>? clock = null)
         {
@@ -44,6 +46,18 @@ namespace WorldsAdriftServer.Social
             this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
             this.region = region ?? throw new ArgumentNullException(nameof(region));
             this.clock = clock ?? (() => DateTimeOffset.UtcNow);
+
+            // The alliance half is a separate object, not more methods here. It is
+            // seventeen endpoints against this class's six, and - the part that
+            // decided it - it takes ports rather than the concrete repositories, so
+            // the alliance contract can be driven through the real router with no
+            // database at all. See AllianceEndpoints.
+            this.alliances = new AllianceEndpoints(
+                alliances ?? throw new ArgumentNullException(nameof(alliances)),
+                invites,
+                uid => characters.Find(uid)?.Name,
+                region,
+                this.clock);
         }
 
         /// <summary>
@@ -94,20 +108,13 @@ namespace WorldsAdriftServer.Social
                 case SocialRouteKind.CancelInvite:
                     return CancelInvite(actor, route.Segments[0]);
 
-                // Alliances are not implemented, and these two endpoints are the
-                // only ones where "not implemented" and the truth coincide: this
-                // server hosts no alliances, so an EMPTY LIST is an honest answer
-                // rather than a stand-in for one. It leaves the alliance browser
-                // rendering correctly and empty instead of throwing a dialog.
-                // Every other alliance endpoint is refused - see SocialHandler.
-                case SocialRouteKind.ListAlliances:
-                    return SocialEnvelope.OkItems(new JArray());
-
-                case SocialRouteKind.SearchAlliances:
-                    return SocialEnvelope.OkBareList(new JArray());
-
                 default:
-                    return SocialEnvelope.Error(SocialErrorCodes.StoreUnavailable);
+                    // Every alliance route, including the two that used to answer
+                    // an honestly empty list because we hosted none. We host them
+                    // now, so those answer the real thing.
+                    return AllianceEndpoints.Owns(route.Kind)
+                        ? alliances.Handle(route, actor, url, body)
+                        : SocialEnvelope.Error(SocialErrorCodes.StoreUnavailable);
             }
         }
 
@@ -154,7 +161,7 @@ namespace WorldsAdriftServer.Social
             }
 
             return SocialEnvelope.Ok(SocialWire.PlayerMemberships(
-                SocialWire.Uid(uid), character.Name, crew, alliance: null));
+                SocialWire.Uid(uid), character.Name, crew, alliances.MembershipFor(uid)));
         }
 
         private JObject InvitesForCharacter(string rawUid)
@@ -420,11 +427,19 @@ namespace WorldsAdriftServer.Social
                 return SocialEnvelope.Error(SocialErrorCodes.EmptyUpdatePayload);
             }
 
+            if (targetType == SocialTargetType.Alliance)
+            {
+                // Same endpoint, entirely different rules: an alliance invite is
+                // gated on a RANK PERMISSION rather than on being the leader, so it
+                // belongs with the rest of the alliance policy rather than here.
+                return alliances.SendInvite(actor, payload);
+            }
+
             if (targetType != SocialTargetType.Crew)
             {
-                // Alliance invites have no store here. Refusing is the honest
-                // answer; accepting one would create a row nothing can ever act on.
-                return SocialEnvelope.Error(SocialErrorCodes.StoreUnavailable);
+                // A third group type the client has no word for. It cannot have
+                // come from the retail UI, whose vocabulary is closed to two.
+                return SocialEnvelope.Error(SocialErrorCodes.InvalidEntityPair);
             }
 
             if (!Guid.TryParse(rawInvitee, out Guid invitee))
@@ -475,18 +490,34 @@ namespace WorldsAdriftServer.Social
         /// <summary>
         /// PUT memberships/invite/accept|reject/{inviteUid}/{characterUid}[/{region}].
         ///
-        /// Only the INVITEE may answer their own invite, which is why the uid in
-        /// the URL is checked against the authorised caller rather than trusted.
+        /// The uid in the URL is the SUBJECT of the row - the person who would end
+        /// up in the group - and it is NOT always the caller. Both directions use
+        /// this one endpoint:
+        ///
+        ///   - answering an INVITE, the invitee accepts their own offer, so the
+        ///     subject and the caller are the same person
+        ///     (AllianceClient.PlayerAcceptAllianceInvitation passes
+        ///     SocialHelper.MyCharacterUid);
+        ///   - answering an APPLICATION, an OFFICER accepts somebody else's
+        ///     request to join, and the client passes the APPLICANT's uid
+        ///     (AllianceClient.AllianceAcceptPlayerApplication passes
+        ///     applicationInfo.CharacterUiD).
+        ///
+        /// Requiring subject == caller therefore looks like a sound identity check
+        /// and is actually a refusal of every application ever accepted. Which of
+        /// the two a row is comes from <c>inviter</c> being null - the client's own
+        /// structural discriminator - not from the URL, which is identical either
+        /// way.
         /// </summary>
         private JObject ResolveInvite(Guid actor, string inviteId, string rawCharacter, bool accept)
         {
-            if (!Guid.TryParse(rawCharacter, out Guid subject) || subject != actor)
+            if (!Guid.TryParse(rawCharacter, out Guid subject))
             {
-                return SocialEnvelope.Error(SocialErrorCodes.AuthFailed);
+                return SocialEnvelope.Error(SocialErrorCodes.InvalidEntityId);
             }
 
             SocialInviteRecord? invite = invites.Find(inviteId);
-            if (invite == null || invite.CharacterUid != actor)
+            if (invite == null || invite.CharacterUid != subject)
             {
                 return SocialEnvelope.Error(SocialErrorCodes.InviteNotFound);
             }
@@ -496,14 +527,38 @@ namespace WorldsAdriftServer.Social
                 return SocialEnvelope.Error(SocialErrorCodes.InviteNotFound);
             }
 
+            if (!MayAnswer(actor, invite))
+            {
+                return SocialEnvelope.Error(SocialErrorCodes.AuthFailed);
+            }
+
             if (!accept)
             {
                 invites.Resolve(inviteId, SocialInviteStatus.Rejected, clock());
                 return SocialEnvelope.OkNoData();
             }
 
+            if (invite.TargetType == SocialTargetType.Alliance)
+            {
+                // Seat them first and only then resolve the offer: a join the
+                // alliance policy refuses - it filled up, or they were taken in by
+                // the other route meanwhile - must leave the invite live rather
+                // than consuming it into nothing.
+                JObject seated = alliances.Accept(invite);
+                if (seated.Value<bool>("success"))
+                {
+                    invites.Resolve(inviteId, SocialInviteStatus.Accepted, clock());
+                }
+
+                return seated;
+            }
+
             CrewLedger ledger = Hydrate();
-            string actorKey = LedgerKey(actor);
+
+            // The SUBJECT joins, not the caller. Identical for an invite and
+            // different for an application, and writing `actor` here was correct
+            // only for as long as applications did not exist.
+            string subjectKey = LedgerKey(subject);
 
             // Hydrate loads live invites now, so the offer being accepted is
             // already in the ledger; this used to re-inject it by hand because it
@@ -511,9 +566,9 @@ namespace WorldsAdriftServer.Social
             // invite was read straight from the store above, and MayAccept
             // answering NoSuchInvite for an invite we are holding in our hand
             // would be a maddening bug to chase.
-            ledger.Invite(actorKey, invite.TargetId);
+            ledger.Invite(subjectKey, invite.TargetId);
 
-            CrewVerdict verdict = CrewPolicy.MayAccept(ledger, actorKey, invite.TargetId);
+            CrewVerdict verdict = CrewPolicy.MayAccept(ledger, subjectKey, invite.TargetId);
             if (verdict != CrewVerdict.Ok)
             {
                 return SocialEnvelope.Error(VerdictCode(verdict));
@@ -526,10 +581,36 @@ namespace WorldsAdriftServer.Social
                 if (member.JoinOrder >= joinOrder) joinOrder = member.JoinOrder + 1;
             }
 
-            crews.SaveMember(new CrewMemberRecord(actor, invite.TargetId, joinOrder, null, clock()));
+            crews.SaveMember(new CrewMemberRecord(subject, invite.TargetId, joinOrder, null, clock()));
             invites.Resolve(inviteId, SocialInviteStatus.Accepted, clock());
 
             return SocialEnvelope.OkNoData();
+        }
+
+        /// <summary>
+        /// Who may accept or reject one membership change request.
+        ///
+        /// An INVITE is answered by the person invited, and by nobody else - not
+        /// even the group that sent it, which has CANCEL for that. An APPLICATION
+        /// is answered by the group: the applicant already said yes by applying, so
+        /// letting them "accept" their own application would be a self-join.
+        ///
+        /// The group side is asked as a permission question rather than a
+        /// leadership one, because for an alliance it IS one -
+        /// <c>edit_members</c> is a rank permission the founder can hand out.
+        /// </summary>
+        private bool MayAnswer(Guid actor, SocialInviteRecord invite)
+        {
+            bool isApplication = !invite.InviterUid.HasValue;
+            if (!isApplication) return invite.CharacterUid == actor;
+
+            if (invite.TargetType == SocialTargetType.Alliance)
+            {
+                return alliances.MayAdmit(actor, invite.TargetId);
+            }
+
+            CrewRecord? crew = crews.FindCrew(invite.TargetId);
+            return crew != null && crew.LeaderUid == actor;
         }
 
         /// <summary>
@@ -550,10 +631,15 @@ namespace WorldsAdriftServer.Social
             bool isInviter = invite.InviterUid == actor;
             bool isInvitee = invite.CharacterUid == actor;
 
-            CrewRecord? crew = crews.FindCrew(invite.TargetId);
-            bool isLeader = crew != null && crew.LeaderUid == actor;
+            // Anyone who may act for the group may also withdraw what the group
+            // offered. For a crew that is the leader; for an alliance it is a rank
+            // permission, which is why the question is delegated rather than
+            // repeated with a leader check that would be wrong here.
+            bool actsForGroup = invite.TargetType == SocialTargetType.Alliance
+                ? alliances.MayAdmit(actor, invite.TargetId)
+                : crews.FindCrew(invite.TargetId) is { } crew && crew.LeaderUid == actor;
 
-            if (!isInviter && !isInvitee && !isLeader)
+            if (!isInviter && !isInvitee && !actsForGroup)
             {
                 return SocialEnvelope.Error(SocialErrorCodes.AuthFailed);
             }
@@ -583,10 +669,18 @@ namespace WorldsAdriftServer.Social
                 ? crews.FindCrew(invite.TargetId)
                 : null;
 
+            // targetName is what the player reads in their own invitations list -
+            // "who is asking me". For a crew it is derived, because a crew has no
+            // name of its own; for an alliance it is the alliance's actual name,
+            // and an empty one would leave the row unidentifiable.
+            string targetName = invite.TargetType == SocialTargetType.Alliance
+                ? alliances.NameOfAlliance(invite.TargetId)
+                : crew == null ? string.Empty : NameOf(crew.LeaderUid) + "'s crew";
+
             return SocialWire.ChangeRequest(
                 invite.InviteId,
                 invite.TargetId,
-                crew == null ? string.Empty : NameOf(crew.LeaderUid) + "'s crew",
+                targetName,
                 invite.TargetType,
                 SocialWire.Uid(invite.CharacterUid),
                 NameOf(invite.CharacterUid),

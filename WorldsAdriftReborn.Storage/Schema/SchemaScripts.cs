@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -522,6 +522,163 @@ CREATE INDEX social_invites_by_character ON social_invites (character_uid);
 
 -- 'who has this crew invited' - read whenever the crew panel refreshes.
 CREATE INDEX social_invites_by_target ON social_invites (target_id);
+";
+
+        /// <summary>
+        /// v8 - alliances: the group itself, its ranks, and who holds which.
+        ///
+        /// Purely additive. v7 already anticipated alliances in
+        /// <c>social_invites.target_type</c> - 'alliance_member' has been a legal
+        /// value since then - so an alliance invite could always be STORED; what
+        /// was missing was anything for it to point at. That is these three tables.
+        ///
+        /// Modelled on the client's AllianceDataModel / RankDataModel /
+        /// AllianceMembershipDataModel rather than on any shape of ours, for the
+        /// same reason v7 was: their field sets are the wire contract, and a
+        /// different internal shape only moves the translation somewhere it is
+        /// easier to get wrong. See docs/research/findings-social-api.md.
+        /// </summary>
+        internal const string V8 = @"
+CREATE TABLE alliances (
+    -- A UUID column, unlike crews.crew_id which is TEXT. The client puts every
+    -- alliance id through SanitizeGuid/ValidateGuid before it will even build the
+    -- request (AllianceServerImpl.cs:26,33,86,104,123,130,137,153,175), so an id
+    -- that is not a GUID throws a FormatException inside the client and the
+    -- player sees a dialog that never reached us. Typing the column UUID makes
+    -- that unrepresentable rather than a convention someone has to remember.
+    alliance_id        UUID        NOT NULL PRIMARY KEY,
+
+    -- Accepted, not honoured: there is one deployment, and the client copies this
+    -- from the server it picked at character select. Stored so a future second
+    -- region does not need a migration to tell two alliances apart.
+    region             TEXT        NOT NULL,
+
+    name               TEXT        NOT NULL,
+    description        TEXT        NOT NULL DEFAULT '',
+    message_of_the_day TEXT        NOT NULL DEFAULT '',
+
+    -- The crest. Read-only from the client's side - it GETs this URL with
+    -- SpriteDownloader and never sends it back - so this column exists to be
+    -- SERVED, and an operator is the only thing that can fill it. Empty renders
+    -- the client's own placeholder, which is what retail showed for most
+    -- alliances anyway.
+    emblem_url         TEXT        NOT NULL DEFAULT '',
+
+    -- The founder. A member like any other, so this is a denormalised pointer
+    -- into alliance_members rather than a separate role - same reasoning, and
+    -- same absence of a foreign key, as crews.leader_uid.
+    leader_uid         UUID        NOT NULL
+                                   REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    created_at         TIMESTAMPTZ NOT NULL,
+    updated_at         TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT alliances_name_not_blank CHECK (length(btrim(name)) > 0),
+    CONSTRAINT alliances_updated_after_created CHECK (updated_at >= created_at)
+);
+
+-- The client has a 'duplicate_alliance_name' error code, so uniqueness is
+-- retail's rule and not an invention. Case-insensitive is OURS: an alliance list
+-- shows the name and nothing else, so 'Rat Corp' and 'rat corp' would be two
+-- groups a player cannot tell apart, and joining the wrong one is unrecoverable
+-- without a boot. Enforced here rather than only in the service because two
+-- founders racing would otherwise both pass a read-then-write check.
+CREATE UNIQUE INDEX alliances_one_name ON alliances (lower(name));
+
+CREATE TABLE alliance_ranks (
+    -- A GUID for the same reason alliance_id is: SanitizeGuid runs over rank ids
+    -- too (AllianceServerImpl.ModifyRank/DeleteRank).
+    rank_id         UUID    NOT NULL PRIMARY KEY,
+
+    alliance_id     UUID    NOT NULL
+                            REFERENCES alliances (alliance_id) ON DELETE CASCADE,
+
+    name            TEXT    NOT NULL,
+
+    -- 'leader' or 'member' - the client's own literals. Constrained because the
+    -- client compares them by string and a third value silently produces a rank
+    -- that is neither the leader's nor a basic member's.
+    rank_type       TEXT    NOT NULL,
+
+    -- Always 'alliance_member'; the client hardcodes it when it creates a rank
+    -- (SocialGroupParsers.cs:199) and echoes back whatever we send.
+    membership_type TEXT    NOT NULL DEFAULT 'alliance_member',
+
+    -- editable=false plus rank_type is how the CLIENT identifies the two default
+    -- ranks (SocialGroupParsers.cs:126-127). It is not a lock on our side; it is
+    -- a flag the client reads to fill AllianceRankInformation.Leader and
+    -- .BasicMember, and an alliance missing either leaves those null.
+    editable        BOOLEAN NOT NULL,
+
+    -- Comma-separated client permission literals. A closed vocabulary of seven
+    -- strings that is never queried by and goes out as a JSON array regardless,
+    -- so a join table would buy nothing but migrations.
+    permissions     TEXT    NOT NULL DEFAULT '',
+
+    sort_order      INT     NOT NULL DEFAULT 0,
+
+    CONSTRAINT alliance_ranks_type_known CHECK (rank_type IN ('leader', 'member')),
+    CONSTRAINT alliance_ranks_membership_type_known
+        CHECK (membership_type = 'alliance_member'),
+    CONSTRAINT alliance_ranks_name_not_blank CHECK (length(btrim(name)) > 0)
+);
+
+CREATE INDEX alliance_ranks_by_alliance ON alliance_ranks (alliance_id);
+
+-- Exactly one default leader rank and one default member rank per alliance. Both
+-- are load-bearing: the client fills two named fields from them by scanning the
+-- rank list, so a second of either means whichever came last silently wins, and a
+-- missing one means a null the alliance panel dereferences.
+CREATE UNIQUE INDEX alliance_ranks_one_default_leader
+    ON alliance_ranks (alliance_id) WHERE rank_type = 'leader' AND NOT editable;
+CREATE UNIQUE INDEX alliance_ranks_one_default_member
+    ON alliance_ranks (alliance_id) WHERE rank_type = 'member' AND NOT editable;
+
+CREATE TABLE alliance_members (
+    -- The PRIMARY KEY is the CHARACTER, exactly as in crew_members: a character
+    -- is in at most one alliance, and making that a key means the database
+    -- refuses a double membership rather than trusting every path that writes.
+    character_uid        UUID        NOT NULL PRIMARY KEY
+                                     REFERENCES characters (character_uid) ON DELETE CASCADE,
+
+    alliance_id          UUID        NOT NULL
+                                     REFERENCES alliances (alliance_id) ON DELETE CASCADE,
+
+    -- DELIBERATELY NOT a foreign key to alliance_ranks, and this is the one place
+    -- in this schema where a constraint was considered and rejected rather than
+    -- forgotten. Both this table and alliance_ranks cascade from alliances, and
+    -- Postgres does not order sibling cascades - so a RESTRICT here would make
+    -- disbanding an alliance fail whenever the ranks happened to be deleted
+    -- first, and a CASCADE here would delete MEMBERS when a rank was deleted,
+    -- which is a boot, not a rank change.
+    --
+    -- The invariant is kept one layer up instead, in two places that agree:
+    -- deleting a rank moves its holders to the default member rank
+    -- (AllianceLedger.RemoveRank), and the wire layer resolves an unknown rank id
+    -- to the default member rank before emitting it. The second is not belt and
+    -- braces - the client's AllianceClient.TryGetRank THROWS on a rank id missing
+    -- from ranks/{allianceUid}, and that throw destroys the whole Social Sheet.
+    rank_id              UUID        NOT NULL,
+
+    -- 'officerNote' on the way out, 'publicOfficerNote' on the way in. The
+    -- asymmetry is the client's; storing it under the READ name keeps the column
+    -- and the wire field that players actually see in step.
+    officer_note         TEXT        NOT NULL DEFAULT '',
+    private_officer_note TEXT        NOT NULL DEFAULT '',
+
+    -- Succession reads the longest-standing remaining member straight off this,
+    -- as crews do. An integer rather than a timestamp so two people who joined in
+    -- the same tick still have an order.
+    join_order           INT         NOT NULL DEFAULT 0,
+
+    created_at           TIMESTAMPTZ NOT NULL,
+    updated_at           TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT alliance_members_join_order_not_negative CHECK (join_order >= 0),
+    CONSTRAINT alliance_members_updated_after_created CHECK (updated_at >= created_at)
+);
+
+CREATE INDEX alliance_members_by_alliance ON alliance_members (alliance_id);
 ";
     }
 }

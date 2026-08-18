@@ -37,7 +37,7 @@ namespace WorldsAdriftServer.Tests
             {
                 Db = new TempDb();
                 Service = new SocialService(
-                    Db.Characters, Db.Crews, Db.SocialInvites, Region, () => Now);
+                    Db.Characters, Db.Crews, Db.SocialInvites, Db.Alliances, Region, () => Now);
             }
 
             internal Guid Character(string name)

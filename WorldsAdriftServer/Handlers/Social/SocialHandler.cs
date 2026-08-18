@@ -117,7 +117,7 @@ namespace WorldsAdriftServer.Handlers.Social
             }
 
             SocialService service = new SocialService(
-                Accounts.Characters, Accounts.Crews, Accounts.SocialInvites, Region);
+                Accounts.Characters, Accounts.Crews, Accounts.SocialInvites, Accounts.Alliances, Region);
 
             return service.Handle(decision.Route, decision.Character, url, request.Body);
         }

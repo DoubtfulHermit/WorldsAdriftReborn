@@ -38,6 +38,7 @@ namespace WorldsAdriftServer.Persistence
         private static ServerConfigRepository? serverConfig;
         private static CrewRepository? crews;
         private static SocialInviteRepository? socialInvites;
+        private static AllianceRepository? alliances;
 
         internal static Db Database => Ensure().db;
         internal static AccountRepository Repository => Ensure().accounts;
@@ -59,6 +60,17 @@ namespace WorldsAdriftServer.Persistence
         internal static SocialInviteRepository SocialInvites => Ensure().socialInvites;
 
         /// <summary>
+        /// Alliances, their ranks and their membership - schema v8.
+        ///
+        /// Unlike crews these have exactly ONE writer and one reader, both this
+        /// process: nothing in the game server knows what an alliance is, so there
+        /// is no second process holding a stale in-memory copy. That is the whole
+        /// of the "known gap" the crew feature carries, absent here by
+        /// construction rather than by care.
+        /// </summary>
+        internal static AllianceRepository Alliances => Ensure().alliances;
+
+        /// <summary>
         /// Opens the database and applies the schema. Called once at startup so
         /// a bad connection string is a loud failure on the console rather than
         /// a player staring at a login form that never answers.
@@ -73,7 +85,7 @@ namespace WorldsAdriftServer.Persistence
                 + Repository.Count() + " account(s) registered.");
         }
 
-        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites) Ensure()
+        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites, AllianceRepository alliances) Ensure()
         {
             lock (gate)
             {
@@ -86,9 +98,10 @@ namespace WorldsAdriftServer.Persistence
                     serverConfig = new ServerConfigRepository(db);
                     crews = new CrewRepository(db);
                     socialInvites = new SocialInviteRepository(db);
+                    alliances = new AllianceRepository(db);
                 }
 
-                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!);
+                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!, alliances!);
             }
         }
 

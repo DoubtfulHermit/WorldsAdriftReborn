@@ -129,6 +129,53 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(SocialErrorCodes.StoreUnavailable, decision.Refusal!.Value<string>("errorCode"));
         }
 
+        /// <summary>
+        /// Every alliance endpoint has to pass the SAME identity gate as the crew
+        /// ones. They were unimplemented when this file was written, so the gate
+        /// had never been asked about them - and "the route now resolves" and "the
+        /// route is now authorised" are two different changes.
+        /// </summary>
+        [Theory]
+        [InlineData("POST", "/alliance")]
+        [InlineData("GET", "/alliance/community_server/a1")]
+        [InlineData("PATCH", "/alliance/community_server/a1")]
+        [InlineData("DELETE", "/alliance/community_server/a1")]
+        [InlineData("GET", "/alliance/find/community_server/11111111-1111-1111-1111-111111111111")]
+        [InlineData("POST", "/alliance/community_server/batch")]
+        [InlineData("GET", "/memberships/alliance/a1")]
+        [InlineData("DELETE", "/memberships/alliance/a1/c1")]
+        [InlineData("GET", "/memberships/invites/alliance/a1")]
+        [InlineData("POST", "/memberships/join")]
+        [InlineData("PATCH", "/memberships/character/c1/a1")]
+        [InlineData("GET", "/ranks/a1")]
+        [InlineData("POST", "/rank")]
+        [InlineData("PUT", "/rank/r1")]
+        [InlineData("DELETE", "/rank/r1")]
+        public void AnUnauthenticatedAllianceRequestIsRefusedWithAnErrorCode(string method, string url)
+        {
+            SocialGate.Decision decision = Anonymous(method, url);
+
+            Assert.False(decision.Serve);
+            Assert.Equal(SocialErrorCodes.NoAuthToken, decision.Refusal!.Value<string>("errorCode"));
+
+            // The route is still known on a refusal - that ordering is what lets
+            // the refusal be written in the dialect its reader parses.
+            Assert.NotEqual(SocialRouteKind.None, decision.Route.Kind);
+        }
+
+        [Theory]
+        [InlineData("POST", "/alliance")]
+        [InlineData("GET", "/alliances/community_server")]
+        [InlineData("GET", "/ranks/a1")]
+        [InlineData("POST", "/memberships/join")]
+        public void AnAuthenticatedOwnerReachesTheAllianceEndpoints(string method, string url)
+        {
+            SocialGate.Decision decision = Authenticated(method, url);
+
+            Assert.True(decision.Serve);
+            Assert.Equal(Mine, decision.Character);
+        }
+
         [Fact]
         public void ALiveSessionClaimingSomeoneElsesCharacterIsRefused()
         {

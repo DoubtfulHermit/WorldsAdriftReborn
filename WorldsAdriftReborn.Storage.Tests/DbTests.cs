@@ -86,10 +86,22 @@ namespace WorldsAdriftReborn.Storage.Tests
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema() AND table_name = 'social_invites';"));
 
+            // v8 - alliances, and the two tables that make one openable.
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'alliances';"));
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'alliance_ranks';"));
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'alliance_members';"));
+
             // accounts, sessions, characters, character_inventories,
             // server_config, character_progression, character_positions, crews,
-            // crew_members, social_invites, schema_version - and nothing else.
-            Assert.Equal(11, db.Scalar<int>(
+            // crew_members, social_invites, alliances, alliance_ranks,
+            // alliance_members, schema_version - and nothing else.
+            Assert.Equal(14, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema();"));
         }
@@ -100,18 +112,26 @@ namespace WorldsAdriftReborn.Storage.Tests
             // The reason this is a one-line test rather than a per-connection
             // pragma the whole library has to remember.
             //
-            // Ten: sessions -> accounts, characters -> accounts,
+            // Fourteen: sessions -> accounts, characters -> accounts,
             // character_inventories/character_progression/character_positions ->
             // characters, crews -> characters, crew_members -> BOTH characters
-            // and crews, and social_invites -> characters TWICE, once for the
-            // invitee and once for the inviter. The character-keyed ones matter
-            // most, because their key arrives from outside the database - the game
-            // server digs the character uid out of a JSON blob a client published,
-            // and the login server takes it off an HTTP header - so they are the
-            // only place a made-up key could get in.
+            // and crews, social_invites -> characters TWICE (once for the invitee
+            // and once for the inviter), alliances -> characters for the founder,
+            // alliance_ranks -> alliances, and alliance_members -> BOTH characters
+            // and alliances. The character-keyed ones matter most, because their
+            // key arrives from
+            // outside the database - the game server digs the character uid out of
+            // a JSON blob a client published, and the login server takes it off an
+            // HTTP header - so they are the only place a made-up key could get in.
+            //
+            // alliance_members.rank_id is deliberately NOT among them: both it and
+            // alliance_ranks cascade from alliances, Postgres does not order
+            // sibling cascades, and either RESTRICT or CASCADE there would break a
+            // disband or turn a rank deletion into a mass boot. See the comment in
+            // SchemaScripts.V8.
             using TempDb db = new TempDb();
 
-            Assert.Equal(10, db.Scalar<int>(
+            Assert.Equal(14, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.table_constraints "
                 + "WHERE table_schema = current_schema() AND constraint_type = 'FOREIGN KEY';"));
         }
@@ -132,6 +152,30 @@ namespace WorldsAdriftReborn.Storage.Tests
             Assert.Equal(1, db.Scalar<int>(
                 "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = current_schema() "
                 + "AND indexname = 'ux_characters_account_slot';"));
+
+            // v7: one LIVE offer per (character, target), partial so a rejection
+            // does not block a later invite.
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = current_schema() "
+                + "AND indexname = 'social_invites_one_live_per_pair' AND indexdef LIKE '%WHERE%';"));
+
+            // v8: exactly one default rank of each kind per alliance. The client
+            // fills its Leader and BasicMember fields by scanning for them and then
+            // dereferences the result, so a second of either silently changes which
+            // one wins and a missing one is a null the alliance panel walks into.
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = current_schema() "
+                + "AND indexname = 'alliance_ranks_one_default_leader' AND indexdef LIKE '%WHERE%';"));
+
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = current_schema() "
+                + "AND indexname = 'alliance_ranks_one_default_member' AND indexdef LIKE '%WHERE%';"));
+
+            // v8: one alliance per name, folded to lower case. Two alliances a
+            // player cannot tell apart in a list that shows nothing but the name.
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM pg_indexes WHERE schemaname = current_schema() "
+                + "AND indexname = 'alliances_one_name' AND indexdef LIKE '%lower%';"));
         }
     }
 }

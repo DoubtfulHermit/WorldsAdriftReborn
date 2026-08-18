@@ -156,17 +156,214 @@ leaderCharacterUid: <my uid>, region}` — the client really does put the uid in
 
 ### Alliance (`AllianceServerImpl.cs`, 17 endpoints)
 
-`GET alliance/find/{region}/{uid}`, `GET alliance/{region}/{uid}`,
-`POST alliance`, `GET alliances/{region}` (items),
-`GET alliance/search/{region}?term=` (bare array of uid strings),
-`POST alliance/{region}/batch` body `{"batch":[ids]}` (bare array),
-`GET memberships/alliance/{uid}` (items), `POST memberships/join`,
-`DELETE alliance/{region}/{uid}`, `PATCH alliance/{region}/{uid}`, `POST rank`,
-`PUT rank/{uid}`, `DELETE rank/{uid}` (**`dataFieldExpected:true` —
-inconsistent with the other DELETEs**), `GET ranks/{uid}` (bare array),
-`GET memberships/invites/alliance/{uid}` (items),
-`PATCH memberships/character/{charUid}/{allianceUid}`,
-`DELETE memberships/alliance/{allianceUid}/{charUid}`.
+All PROVED from `acs/Bossa.Travellers.Alliances/AllianceServerImpl.cs` unless
+noted. `data` column is what the client's parser demands.
+
+| # | Method | Path | Body | `data` |
+| --- | --- | --- | --- | --- |
+| 1 | GET | `alliance/find/{region}/{characterUid}` | — | `AllianceDataModel` |
+| 2 | GET | `alliance/{region}/{allianceUid}` | — | `AllianceDataModel` |
+| 3 | POST | `alliance` | create | `AllianceDataModel` |
+| 4 | GET | `alliances/{region}` | — | `data.items[]`, null-checked |
+| 5 | GET | `alliance/search/{region}?term=` | — | **bare array of uid STRINGS** |
+| 6 | POST | `alliance/{region}/batch` | `{"batch":[ids]}` | **bare array** |
+| 7 | GET | `memberships/alliance/{allianceUid}` | — | `data.items[]`, null-checked |
+| 8 | POST | `memberships/join` | apply | `MembershipChangeRequestDataModel` |
+| 9 | DELETE | `alliance/{region}/{allianceUid}` | — | ignored (`dataFieldExpected:false`) |
+| 10 | PATCH | `alliance/{region}/{allianceUid}` | update | `AllianceDataModel` |
+| 11 | POST | `rank` | rank | `RankDataModel` |
+| 12 | PUT | `rank/{rankUid}` | rank | `RankDataModel` |
+| 13 | DELETE | `rank/{rankUid}` | — | **required** — `dataFieldExpected` left at its `true` default (`:132`), unlike 9 and 17 |
+| 14 | GET | `ranks/{allianceUid}` | — | **bare array** |
+| 15 | GET | `memberships/invites/alliance/{allianceUid}` | — | `data.items[]`, **NOT null-checked** (`:158`) |
+| 16 | PATCH | `memberships/character/{characterUid}/{allianceUid}` | one of three | `AllianceMembershipDataModel` |
+| 17 | DELETE | `memberships/alliance/{allianceUid}/{characterUid}` | — | ignored (`dataFieldExpected:false`) |
+
+**Alliance and rank uids must be real GUIDs.** `SanitizeGuid`/`ValidateGuid`
+(`SocialHelper.cs:30-59`) run over them on 1, 2, 7, 9, 12, 13, 14, 15 and 17;
+they require a hyphen and then construct a `System.Guid`. A crew-style
+`alliance:{guid}` throws a `FormatException` **inside the client**, so the
+request never leaves the machine and nothing appears in our log. Crews are
+exempt only because no crew id is ever sanitised.
+
+Three path shapes are ambiguous and matching the wrong one swaps two ids
+silently rather than failing:
+
+- `alliance/find/{region}/{uid}` takes a **character**; `alliance/{region}/{uid}`
+  takes an **alliance**;
+- `memberships/character/{characterUid}/{allianceUid}` is character-first while
+  `memberships/alliance/{allianceUid}/{characterUid}` is group-first — eight
+  lines apart in the same file (`:169` and `:177`);
+- ranks are a top-level `rank`/`ranks` resource with no region and no alliance in
+  the path — singular is the collection you POST to and plural is the one you
+  list, the exact inverse of `crew`/`crews` in the same service.
+
+#### Request bodies
+
+```
+POST alliance      {leaderCharacterUid, name, description?, messageOfTheDay?, region}
+PATCH alliance     {messageOfTheDay, description}          <- ONLY these two
+POST memberships/join
+POST memberships/invite
+                   {targetId, character, targetType:"alliance_member",
+                    message?, inviter?, region}
+POST rank / PUT rank
+                   {target, name, editable, rankType:"member",
+                    membershipType:"alliance_member", permissions:[...]}
+PATCH memberships/character/{c}/{a}
+                   {"rankUid":...} | {"publicOfficerNote":...} | {"privateOfficerNote":...}
+```
+
+`description` and `messageOfTheDay` are **omitted entirely**, not sent empty,
+when the player left the box blank (`CreateAllianceFillOptionalFields`).
+`inviter` is likewise omitted for an application — that absence is the client's
+structural discriminator, not a convention.
+
+`POST rank` always claims `editable:true`, `rankType:"member"` and
+`membershipType:"alliance_member"`; the client hardcodes all three
+(`SocialGroupParsers.cs:198-199`).
+
+#### Permission vocabulary
+
+Five the client WRITES (`ServerRankPermissionsFromAllianceRank`, `:225-249`) plus
+two it only READS (`:131-132`):
+
+`edit_group`, `edit_message_of_the_day`, `leader_chat`, `edit_ranks`,
+`edit_members`, `edit_officer_note`, `read_officer_note`
+
+The list is CLOSED in the weaker sense that an unknown string is not an error —
+`permissions.Contains(...)` simply answers false — so an invented permission
+produces a button nobody can ever see rather than a warning.
+
+Two derivations are load-bearing:
+
+```csharp
+// SocialGroupParsers.cs:126-127, 134
+isDefaultLeaderRank = rankType == "leader" && !editable;
+isDefaultMemberRank = rankType == "member" && !editable;
+editMembers         = permissions.Contains("edit_members") || isDefaultLeaderRank;
+```
+
+`AllianceRankInformation.CreateLookup` fills its `Leader` and `BasicMember`
+fields from those two booleans and callers dereference them, so an alliance
+missing either default rank has a null where the panel expects a rank.
+
+#### Field-name asymmetries, all retail's
+
+| written as | read back as | mapped onto |
+| --- | --- | --- |
+| `rankUid` | `rankId` | `AllianceMember.RankId` |
+| `publicOfficerNote` | `officerNote` | `AllianceMember.PublicNote` |
+| `privateOfficerNote` | `privateOfficerNote` | `AllianceMember.OfficerNote` |
+
+#### What could NOT be recovered, and was chosen instead
+
+- **`MAX_MEMBERS`, `MAX_APPS`, `MAX_INVITES`.** `SocialConstantsSchema` proves
+  they existed under the key `ALLIANCE`, but the row data lived in Bossa's remote
+  GameDB and no value survives in the shipped install. `AlliancePolicy` uses 100
+  and 50, both labelled WAREBORN TUNING. Unlike crews these are NOT rendering
+  limits: `AllianceMembersList.CreateListObjects` instantiates one widget per
+  member through `UIObjectFactory` behind a `ScrollPaginator`, so there is no
+  fixed widget budget to overrun and no `CrewRosterLimits`-style clamp is needed.
+- **`ALLIANCE_NAME` min/max length.** Same GameDB provenance. The CHARACTER rules
+  in `StringFormatHelper.CheckRules` (`:138-176`) *are* recoverable and are
+  reproduced exactly in `AllianceNamePolicy`; the length bounds are 1..64,
+  deliberately looser than any plausible retail value so the server never refuses
+  a name the client told the player was fine.
+- **Name-uniqueness comparison.** `duplicate_alliance_name` proves uniqueness was
+  a rule; nothing says how it compared. Case-insensitive invariant was CHOSEN,
+  because an alliance list shows the name and nothing else.
+- **Who inherits a leaving founder's alliance.** Nothing in the client decides
+  it. Seniority (join order) was chosen, matching crews; rank could not be used
+  because no ordering over ranks is defined anywhere.
+
+## The alliance crest: there is no picker
+
+**PROVED, and it is the whole answer to "I could fill in every field but could
+not change the logo".** The retail client cannot change an alliance crest,
+because nothing in it ever sends one.
+
+`YourAllianceCreateAlliancePanel` has exactly three `TMP_InputField`s — name,
+description, message of the day — and `OnCreateAllianceButtonPressed` calls
+`CreateAlliance(name, description, motd)`. There is no fourth control. Across the
+whole decompile there is no emblem picker, no uploader, no colour/pattern
+composer and no crest endpoint; grepping `emblem|crest|insignia|banner|heraldr`
+finds only the read path below and one unrelated lore string.
+
+The entire feature is one field:
+
+```csharp
+// AllianceDataModel.cs:26
+public string emblemUrl;
+
+// AllianceClient.cs:79-93
+if (string.IsNullOrEmpty(allianceInfo.EmblemWebLink)) return Promise<Sprite>.Resolved(null);
+return SpriteDownloader.GetSpriteFromUrl(allianceInfo.EmblemWebLink).Then(...);
+```
+
+`SpriteDownloader` does a plain GET on that URL with **no `Security` or
+`CharacterUid` header** — it bypasses `SocialRequest.DecorateRequest` entirely —
+decodes the bytes with `response.DataAsTexture2D`, and **resolves null on any
+exception** rather than rejecting. Every consumer
+(`SocialInfoPanelAllianceInfo`, `YourAllianceTitleSegment`, `AllianceInfoBar`)
+falls back to a local placeholder sprite. Neither `POST alliance` nor
+`PATCH alliance` carries the field.
+
+So the crest the player saw on the form is a **static placeholder**, and it was
+never interactive. Retail set `emblemUrl` out of band. This server stores the
+column and serves it back verbatim; it is empty unless an operator fills it in,
+which is exactly what retail did for the alliances that had no crest. Inventing
+an upload endpoint would have been inventing contract, so none was added.
+
+## The crew-creation spinner is client-side and cannot be fixed from here
+
+The report — *"the spinning icon kinda speeds super fast and jumps to crew
+created"* — is not caused by our responses. Two independent client facts explain
+it and neither is reachable from a server.
+
+**The spinner advances per FRAME, with no `Time.deltaTime`.**
+
+```csharp
+// Travellers.UI.Framework/ForwardSpin.cs
+public override void Spin(Image spinImage) {
+    spinImage.fillClockwise = true;
+    spinImage.fillAmount += 0.02f;          // per Update(), not per second
+}
+```
+
+`LoadingInputBlocker.Update` calls it every frame, so a full 0→1 sweep is exactly
+50 frames: 0.83 s at the 60 FPS it was authored for, 0.25 s at 200. The same
+codebase contains a correct time-based version of the identical effect,
+`SpinningSprite` (`float num = Time.deltaTime * speed * dir;`), which this
+component does not use.
+
+**It is also reset once per round trip.** `LoadingInputBlocker.Activate` sets
+`fillAmount = 0.3333f` and restarts the phase, and `Activate` runs on every
+off→on transition of the busy overlay. Busy is a boolean edge from
+`SocialRequestMonitor`, raised when the in-flight dictionary becomes non-empty
+and dropped when it empties — and the post-create calls are strictly sequential
+(`POST crews`, then `GET memberships/character`, `GET crew/{region}/{uid}`,
+`GET memberships/crew/{uid}`, `GET memberships/invites/crew/{uid}`, each
+`.Then`-chained on the last), so the dictionary empties between every one. Four
+resets, then `YouAsLeaderState.EnterScreen` flips the panel with bare
+`SetActive` calls and no transition — the "jumps to crew created".
+
+Note the count is a boolean edge, not a rate: `SocialRequestMonitor` only ever
+compares its dictionary count to `1` and `0`, and the number never reaches the
+spinner. **Server timing and response shape can change only how LONG the spinner
+is visible and how many times it is snapped back — never how fast it sweeps.**
+Answering more slowly would make it spin fast for longer, which is worse.
+
+The fix is a client one: multiply by `Time.deltaTime` in `ForwardSpin`/
+`ReverseSpin` (or swap `LoadingInputBlocker` to the existing `SpinningSprite`),
+and stop resetting `fillAmount` in `Activate`. Not done here — this change is
+server-side and a client-mod change carries its own patcher obligation.
+
+One latent client bug found while looking, recorded rather than acted on:
+`ResponseCache` is applied to the **POST `/crews`** too
+(`CrewServerImpl.cs:27`), keyed on `(uri, method, rawData)`, so an identical
+repeat create inside a warm-cache window is served from cache instead of being
+re-sent.
 
 ## What the sheet does on open
 
@@ -248,7 +445,9 @@ Stated rather than guessed.
 - **Pagination.** `data.items` implies a wrapper with siblings, but the client
   reads only `items` and never sends a page parameter. `AllianceMembersSlice` is
   built with empty strings and `0`, discarding whatever else the wrapper carried.
-- **`POST alliance` / `PATCH alliance` full payload**, and `emblemUrl` semantics.
+- ~~**`POST alliance` / `PATCH alliance` full payload**, and `emblemUrl`
+  semantics.~~ Both recovered — see the alliance endpoint table and the crest
+  section below.
 
 ## A retail client bug, recorded so nobody "fixes" it into a mismatch
 
@@ -263,14 +462,74 @@ than reimplementing crew rules. `SocialIdentityPolicy` resolves the account from
 `Security` and then requires the claimed `CharacterUid` to belong to that
 account, so a valid uid belonging to someone else is refused.
 
-Alliances: `alliances/{region}` and `alliance/search` answer an **honestly empty
-list** — we host none, which is true rather than a stand-in. Every other alliance
-endpoint is refused in band with `dynamo_read` and logged. Nothing is faked.
+Alliances are implemented in full: all 17 endpoints, in
+`WorldsAdriftServer/Social/AllianceEndpoints.cs` and `AllianceWire.cs`, over
+`AlliancePolicy`/`AllianceLedger`/`AlliancePermissions`/`AllianceNamePolicy` in
+the engine-free multiplayer project. `alliances/{region}` and `alliance/search`
+no longer answer an honestly empty list, because the list is no longer empty.
+
+The alliance endpoints take PORTS (`IAllianceStore`, `ISocialInviteStore`, a name
+lookup) rather than the concrete repositories, so
+`WorldsAdriftServer.Tests/AllianceEndpointsTests.cs` drives the whole contract
+through the real `SocialRoute` parser as plain `[Fact]`s with no database. That
+is deliberate and is the correction to the gap that let two crew defects ship:
+`SocialServiceTests` take the concrete repositories, so they are `[PostgresFact]`
+and skipped on most machines.
 
 Schema **v7** adds `social_invites` with both closed vocabularies as CHECKs, a
 no-self-invite CHECK, and a partial unique index on
 `(character_uid, target_id) WHERE status='new'` so a race cannot produce two live
 invites while a rejection still permits a later one.
+
+Schema **v8** is purely additive and adds `alliances`, `alliance_ranks` and
+`alliance_members`. `alliance_id` and `rank_id` are UUID columns, because the
+client parses them. Three constraints encode things the client cannot survive
+being wrong: one alliance per name folded to lower case
+(`alliances_one_name`), one alliance per character (`alliance_members`' primary
+key), and exactly one default rank of each kind per alliance
+(`alliance_ranks_one_default_leader` / `_member`).
+
+`alliance_members.rank_id` is deliberately NOT a foreign key. Both it and
+`alliance_ranks` cascade from `alliances`, Postgres does not order sibling
+cascades, and a RESTRICT would make disbanding fail whenever the ranks were
+deleted first while a CASCADE would turn a rank deletion into a mass boot. The
+invariant is kept in two agreeing places instead: `AllianceLedger.RemoveRank`
+moves holders to the default member rank, and the wire layer resolves an
+unresolvable rank id to that rank before emitting it. The second is not belt and
+braces — `AllianceClient.TryGetRank` THROWS on a rank id absent from
+`ranks/{allianceUid}`, and the throw lands in
+`TriggerAllianceExceptionHandler`, so one stale row destroys the whole sheet,
+crew tab included.
+
+### The accept endpoint has two different actors
+
+`PUT memberships/invite/accept/{inviteUid}/{characterUid}/{region}` carries the
+SUBJECT of the row, which is **not** always the caller:
+
+- answering an INVITE, the invitee accepts their own offer and the two coincide
+  (`PlayerAcceptAllianceInvitation` passes `SocialHelper.MyCharacterUid`);
+- answering an APPLICATION, an officer accepts somebody else's request and the
+  client passes the APPLICANT's uid
+  (`AllianceAcceptPlayerApplication` passes `applicationInfo.CharacterUiD`).
+
+`SocialService.ResolveInvite` used to require subject == caller. That reads as a
+sound identity check and is in fact a refusal of every application ever accepted;
+it was invisible because applications had no store. Which of the two a row is
+comes from `inviter` being null, not from the URL, which is identical either way.
+The group side is now asked as a PERMISSION question (`edit_members`), because
+`YourAllianceManagementButtons.SetForPermissions` shows the APPLICATIONS tab on
+exactly that permission — a server that only let the founder admit would render a
+button that always failed.
+
+### Alliance ids are collision-proof against the ledger, not a counter
+
+`AllianceEndpoints` mints a fresh GUID and re-rolls if the hydrated ledger
+already holds it. The loop is a formality for a GUID; it is the SHAPE the crew
+side had to be corrected into after a bare counter restarting at 1 every boot
+handed a new crew the id of a RESTORED one and the `ON CONFLICT` write gave
+somebody else's crew away. The check is against the ledger — which is what a
+create would actually collide with, restored rows included — rather than against
+a high-water mark this process happens to remember.
 
 ## The default that broke every install
 
