@@ -10,7 +10,7 @@ import sys
 
 import colour as C
 from palette import FINALISTS, build
-from palette import ink
+from palette import ink, LIGHT_INK, DARK_INK
 from render import map_svg
 
 OUT = sys.argv[1]
@@ -19,26 +19,49 @@ OCEAN = "#09151d"
 TIER_NAMES = ["T1 Wilderness", "T2 Expanse", "T3 Remnants", "T4 Badlands"]
 TIER_TERRAIN = ["temperate", "highlands", "ice", "desert"]
 
-SHIPPED = "deepwater"
+SHIPPED = "nightfall"
+
+# The three transparencies offered side by side, and the one that ships. They
+# are not evenly spaced and they are not round numbers by accident - see the
+# "How much" section: the intervals between them are the ones where a tier
+# lands in the band where no label ink reaches AA.
+ALPHAS = [0.96, 0.76, 0.58]
+SHIPPED_ALPHA = 0.76
+ALPHA_NAME = {0.96: "Barely", 0.76: "Wash", 0.58: "Airy"}
 
 OLD = ["#93c47d", "#6d9eeb", "#8e7cc3", "#f6b26b"]
 OLD_SEEN = [C.composite(h, OCEAN, 0.38) for h in OLD]
 CIVIDIS = ["#01295d", "#4d5361", "#848069", "#c4b34a"]
+DEEPWATER_HEX = ["#134e26", "#4f89c1", "#694189", "#cdb236"]
 
-WALLS = [("Wind Rift", "#74c9cf"), ("Storm Rift", "#9b86d8"), ("Typhon", "#d48388"),
+OLD_STORM = "#9b86d8"
+WALLS = [("Wind Rift", "#74c9cf"), ("Storm Rift", "#c04ae8"), ("Typhon", "#d48388"),
          ("Sand Storm", "#e8963c"), ("Ice Storm", "#a9d6ed"), ("World End", "#ec8f88")]
 
+
+def seen(fills, alpha):
+    return [C.composite(f, OCEAN, alpha) for f in fills]
+
+
+def ink_band():
+    """The luminance interval in which NEITHER ink reaches WCAG AA."""
+    lo = (C.relative_luminance(LIGHT_INK) + 0.05) / 4.5 - 0.05
+    hi = 4.5 * (C.relative_luminance(DARK_INK) + 0.05) - 0.05
+    return lo, hi
+
 BLURB = {
-    "deepwater": "Deep forest green, mid slate blue, deep violet, gold. The richest of the "
-                 "four and the one that sits most comfortably on a dark console: the cells "
-                 "read as land, the grey island markers and the weather walls stay legible "
-                 "on top of them, and no tier shouts over the others.",
+    "nightfall": "Chosen. Blue and violet the other way round from the rest: a deep navy "
+                 "Expanse and a pale lilac Remnants, with a bright green Wilderness and a "
+                 "light gold Badlands. It is the most contrasty of the four and the one "
+                 "with the clearest tier identities at a glance. Two things had to be dealt "
+                 "with to ship it, both below: the navy sits close to the ocean in "
+                 "lightness, and the lilac was sitting on top of the Storm Rift wall drawn "
+                 "across it.",
+    "deepwater": "The previous shipped set: deep forest green, mid slate blue, deep violet, "
+                 "gold. Richer and heavier; the cells read more as land and less as a key.",
     "meridian": "The same four hues pitched brighter. More cheerful, more poster-like; the "
                 "gold and the sky blue carry a lot of the picture, and the island markers "
                 "have to work harder against them.",
-    "nightfall": "Blue and violet swapped over: a deep navy Expanse and a pale lilac "
-                 "Remnants. Handsome, but the navy is close to the ocean in lightness and "
-                 "the lilac sits near the Storm Rift wall drawn across it.",
     "slate": "The muted option. Lower chroma throughout, so it recedes and lets the live "
              "overlay dominate. Calmest of the four; also the least characterful.",
 }
@@ -135,6 +158,76 @@ def figure(fills, caption, alpha=1.0, width=1000):
             f"<figcaption>{caption}</figcaption></figure>")
 
 
+def composited_table(fills, alpha):
+    """Authored hue -> what lands on the ocean -> what that can carry."""
+    rows = []
+    for i, hue in enumerate(fills):
+        s = C.composite(hue, OCEAN, alpha)
+        k = ink(s)
+        kc = C.contrast(k, s)
+        y = C.relative_luminance(s)
+        rows.append(
+            f"<tr><td>{TIER_NAMES[i]}</td><td><code>{hue}</code></td>"
+            f"<td><code>{s}</code></td><td class='n'>{y:.4f}</td>"
+            f"<td><code>{k}</code></td>"
+            f"<td class='n {'ok' if kc >= 4.5 else 'bad'}'>{kc:.2f}:1</td>"
+            f"<td class='n'>{C.de00(s, OCEAN):.1f}</td></tr>")
+    return ("<div class='wrap'><table><thead><tr><th>Tier</th><th>Authored hue</th>"
+            "<th>As drawn</th><th>Luminance</th><th>Label ink</th><th>Ink contrast</th>"
+            "<th>&Delta;E00 vs ocean</th></tr></thead><tbody>"
+            + "".join(rows) + "</tbody></table></div>")
+
+
+def alpha_report_table(fills):
+    """One row per candidate alpha: every floor, re-measured on the composite."""
+    rows = []
+    for a in ALPHAS:
+        s = seen(fills, a)
+        cells = []
+        for v in VISIONS:
+            d, pair = C.closest_pair(s, v)
+            cls = "" if v == "greyscale" else ("bad" if d < 5 else "warn" if d < 10 else "ok")
+            cells.append(f"<td class='n {cls}'>{d:.1f}<small> T{pair[0]}/T{pair[1]}</small></td>")
+        km = min((C.contrast(ink(f), f), i + 1) for i, f in enumerate(s))
+        om = min((C.de00(f, OCEAN), i + 1) for i, f in enumerate(s))
+        wm = min((C.de00(f, w), n) for f in s for n, w in WALLS)
+        tag = " &middot; shipped" if a == SHIPPED_ALPHA else ""
+        rows.append(
+            f"<tr><td>{a:.2f} &mdash; {ALPHA_NAME[a]}{tag}</td>" + "".join(cells)
+            + f"<td class='n {'ok' if km[0] >= 4.5 else 'bad'}'>{km[0]:.2f}:1<small> T{km[1]}</small></td>"
+            + f"<td class='n {'ok' if om[0] >= 15 else 'bad'}'>{om[0]:.1f}<small> T{om[1]}</small></td>"
+            + f"<td class='n {'ok' if wm[0] >= 10 else 'bad'}'>{wm[0]:.1f}<small> {wm[1]}</small></td></tr>")
+    head = "".join(f"<th>{VISION_LABEL[v]}</th>" for v in VISIONS)
+    return ("<div class='wrap'><table><thead><tr><th>Opacity</th>" + head
+            + "<th>Worst label</th><th>Worst vs ocean</th><th>Worst vs wall</th>"
+            "</tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
+
+
+def band_table(fills):
+    """Where each tier's luminance sits as alpha falls, against the dead band."""
+    lo, hi = ink_band()
+    rows = []
+    a = 1.00
+    while a >= 0.53:
+        s = seen(fills, a)
+        cells = []
+        blocked = []
+        for i, f in enumerate(s):
+            y = C.relative_luminance(f)
+            inside = lo < y < hi
+            if inside:
+                blocked.append(f"T{i + 1}")
+            cells.append(f"<td class='n {'bad' if inside else ''}'>{y:.4f}</td>")
+        verdict = ("<td class='bad'>" + ", ".join(blocked) + " unlabelable</td>"
+                   if blocked else "<td class='ok'>usable</td>")
+        mark = " &larr; shipped" if abs(a - SHIPPED_ALPHA) < 1e-9 else ""
+        rows.append(f"<tr><td>{a:.2f}{mark}</td>" + "".join(cells) + verdict + "</tr>")
+        a = round(a - 0.02, 2)
+    head = "".join(f"<th>{n}</th>" for n in TIER_NAMES)
+    return ("<div class='wrap'><table><thead><tr><th>Opacity</th>" + head
+            + "<th></th></tr></thead><tbody>" + "".join(rows) + "</tbody></table></div>")
+
+
 CSS = """
 :root{color-scheme:dark}
 *{box-sizing:border-box}
@@ -187,24 +280,31 @@ def main():
     finalists = {key: build(key)[1] for key in FINALISTS}
     shipped = finalists[SHIPPED]
 
-    parts = ["<title>Admin world map &mdash; tier palette, take two</title>",
+    parts = ["<title>Admin world map &mdash; Nightfall, with transparency</title>",
              f"<style>{CSS}</style>"]
 
-    parts.append("<h1>Admin world map &mdash; tier palette, take two</h1>")
+    parts.append("<h1>Admin world map &mdash; Nightfall, with transparency</h1>")
     parts.append(
-        '<p class="lede">The last pass replaced the map\'s four colours with a single-axis '
-        'sequential ramp (cividis). It measured beautifully and looked like a heatmap of '
-        'nothing. This pass puts the <b>hues</b> back &mdash; green, blue, purple and, as '
-        'asked, a proper <b>gold</b> for Badlands &mdash; and keeps only the parts of the last '
-        'pass that were real wins: the legend swatch is literally the colour on the map, the '
-        'label ink is computed rather than picked, and nobody is left unable to tell two tiers '
-        'apart.</p>')
+        '<p class="lede">Nightfall is now the shipped palette, and the tier cells are drawn '
+        '<b>translucent</b> again. Transparency is what broke the last translucent palette &mdash; '
+        'the legend showed the raw hex while the map showed the composited colour, so the key '
+        'was a lie about the picture &mdash; so this time the legend swatch <i>is</i> the '
+        'composite, computed from the same three values the stylesheet emits, and a unit test '
+        're-derives it rather than trusting it.</p>')
     parts.append(
-        '<p class="verdict"><em>&ldquo;i liked the old colors i just felt like sand one should '
-        'have been yellow, these new colors dont look nice at all. i like that you categorized '
-        'but the colors them selves are shiote&rdquo;</em> &mdash; so: same categories, same '
-        'hue identities, gold for the sand tier, and the whole set re-pitched so it looks '
-        'designed rather than defaulted.</p>')
+        '<p class="verdict"><em>&ldquo;the color scheme i like Nightfall but add some '
+        'transparancy to the zone colors, yes put the island inventory in there too i want to '
+        'see this fully&rdquo;</em> &mdash; so: Nightfall, a designed amount of transparency '
+        'rather than a return to the washed-out 38%, and the seeded inventory moved out from '
+        'behind a click.</p>')
+    parts.append(
+        "<p>Two things had to move to ship Nightfall, and both are stated in full below rather "
+        "than folded in quietly. Its lilac Remnants sat &Delta;E00 8.2 from the <b>Storm Rift "
+        "wall</b> drawn across it &mdash; at full opacity, before any transparency was involved "
+        "&mdash; so that wall moved off <code>" + OLD_STORM + "</code>. And the amount of "
+        "transparency turns out not to be a free dial: with only two label inks there is a band "
+        "of lightness in which <i>no</i> ink is legible, and each tier sweeps through it as "
+        "opacity falls.</p>")
     parts.append(
         '<p>Every number below is computed, not judged by eye: WCAG&nbsp;2.x relative luminance '
         'and contrast ratio, CIEDE2000 colour difference, and Machado&nbsp;2009 '
@@ -228,9 +328,14 @@ def main():
         CIVIDIS, "<b>What replaced it, and was rejected.</b> Cividis, drawn at full strength. "
         "Every measurement improved and the map stopped saying anything: four shades of the "
         "same idea, no tier with an identity of its own."))
+    parts.append(figure(
+        DEEPWATER_HEX, "<b>Deepwater, shipped for one commit.</b> The hues put back, drawn at "
+        "full strength. Measured well and read well; it is here because it is the thing "
+        "Nightfall is being chosen over, not because anything was wrong with it."))
     parts.append("</div>")
     parts.append(swatch_strip(OLD, OLD_SEEN))
     parts.append(swatch_strip(CIVIDIS))
+    parts.append(swatch_strip(DEEPWATER_HEX))
 
     # ---------------------------------------------------------------- the reasoning
     parts.append("<h2>Why the four hues land where they do</h2>")
@@ -280,6 +385,72 @@ def main():
         parts.append(palette_table(fills))
         parts.append("</div>")
 
+    # ---------------------------------------------------------------- transparency
+    shipped_seen = seen(shipped, SHIPPED_ALPHA)
+    lo, hi = ink_band()
+
+    parts.append("<h2>How much transparency</h2>")
+    parts.append(
+        "<p>Three amounts, on the real map, at the top of this section. They are not a smooth "
+        "range with three samples taken out of it: they are three of the only intervals "
+        "available, and the reason is the label ink.</p>")
+    parts.append(
+        "<p>The console has exactly two label inks, <code>" + LIGHT_INK + "</code> and "
+        "<code>" + DARK_INK + "</code>, and the cell label uses whichever has the greater "
+        "contrast. Their crossover sits at relative luminance "
+        f"<b>{((C.relative_luminance(LIGHT_INK)+0.05)*(C.relative_luminance(DARK_INK)+0.05))**0.5-0.05:.4f}</b>, "
+        "and the best contrast obtainable there &mdash; with either ink, by definition the "
+        f"better of the two &mdash; is only <b>{(C.relative_luminance(LIGHT_INK)+0.05)/(((C.relative_luminance(LIGHT_INK)+0.05)*(C.relative_luminance(DARK_INK)+0.05))**0.5):.2f}:1</b>. "
+        f"AA for normal text is 4.5:1. So the interval <b>Y&nbsp;{lo:.4f}&ndash;{hi:.4f}</b> is "
+        "dead: a fill landing in it cannot carry a legible label whatever ink is chosen. "
+        "Lowering opacity drags every tier's luminance down, and each one crosses that dead "
+        "band on the way. That is the whole reason the opacity is a value with a derivation "
+        "rather than a taste setting.</p>")
+    parts.append('<div class="maps">')
+    for a in ALPHAS:
+        s = seen(shipped, a)
+        tag = " <b>&mdash; shipped</b>" if a == SHIPPED_ALPHA else ""
+        parts.append(figure(
+            shipped, f"<b>{ALPHA_NAME[a]} &middot; fill-opacity {a:.2f}</b>{tag}. On screen: "
+            "<code>" + " ".join(s) + "</code>.", alpha=a, width=1000))
+    parts.append("</div>")
+    for a in ALPHAS:
+        parts.append(f"<h3>Opacity {a:.2f} &mdash; {ALPHA_NAME[a]}"
+                     + (' <span class="tag">Shipped</span>' if a == SHIPPED_ALPHA else "")
+                     + "</h3>")
+        parts.append(swatch_strip(shipped, seen(shipped, a)))
+        parts.append(composited_table(shipped, a))
+
+    parts.append("<h3>Every floor, re-measured on the composite</h3>")
+    parts.append(
+        "<p>Nothing here is measured on the authored hue. The authored hue is a value in a "
+        "stylesheet; the composite is the colour a person is shown, and it is the only one "
+        "worth a number. All three options clear every floor: &Delta;E00&nbsp;&ge;&nbsp;10 for "
+        "the closest tier pair under each deficiency, WCAG&nbsp;AA for the worst label, "
+        "&Delta;E00&nbsp;&ge;&nbsp;15 from the ocean underneath and &ge;&nbsp;10 from every "
+        "weather wall drawn over.</p>")
+    parts.append(alpha_report_table(shipped))
+    parts.append(
+        "<p>If you prefer one of the other two, say so and it is a two-line change &mdash; "
+        "<code>MapTierPalette.FillOpacity</code> and the value pinned in its test. Both are "
+        "already measured above and both hold every floor; nothing else has to move.</p>")
+    parts.append(
+        f"<p>{SHIPPED_ALPHA:.2f} ships because it is the middle of the widest usable interval "
+        "and the most transparency you can take while every tier keeps real headroom on its "
+        "label. Going further is not a matter of degree: the next step down parks Remnants in "
+        "the dead band. What it costs is on the table &mdash; the closest tier pair falls from "
+        f"{C.closest_pair(shipped, 'normal')[0]:.1f} to "
+        f"{C.closest_pair(shipped_seen, 'normal')[0]:.1f} under normal vision, and the Expanse "
+        f"navy closes from &Delta;E00 {C.de00(shipped[1], OCEAN):.1f} to "
+        f"{C.de00(shipped_seen[1], OCEAN):.1f} against the ocean it is painted on. Both are "
+        "still well clear of their floors, and neither is free.</p>")
+
+    parts.append("<h3>Where each tier's luminance sits, opacity by opacity</h3>")
+    parts.append(
+        "<p>Red is inside the dead band. Read down the shipped row: no tier is in it, and the "
+        "nearest one is Remnants, two steps away.</p>")
+    parts.append(band_table(shipped))
+
     # ---------------------------------------------------------------- measurements
     parts.append("<h2>Separation, measured</h2>")
     parts.append(
@@ -292,53 +463,114 @@ def main():
               "protanopia fused Wilderness and Badlands"),
              ("Cividis ramp (rejected)", CIVIDIS, "measured well, looked like nothing")]
     for key in order:
-        note = "shipped" if key == SHIPPED else "alternate"
-        named.append((FINALISTS[key][0], finalists[key], note))
+        note = ("chosen hues" if key == SHIPPED
+                else "previously shipped" if key == "deepwater" else "alternate")
+        named.append((FINALISTS[key][0] + ", full strength", finalists[key], note))
+    named.append((f"<b>Nightfall as drawn, fill-opacity {SHIPPED_ALPHA:.2f}</b>", shipped_seen,
+                  "<b>shipped</b>"))
     parts.append(separation_table(named))
 
-    parts.append("<h3>The shipped palette under each vision model</h3>")
-    parts.append(cvd_strip(shipped))
+    parts.append("<h3>The shipped fills, as drawn, under each vision model</h3>")
+    parts.append(cvd_strip(shipped_seen))
 
     parts.append("<h2>Label ink</h2>")
     parts.append(
         "<p>The ink on each cell is not picked, it is computed: whichever of the console's "
-        "light ink <code>#edf3f5</code> and dark ink <code>#0a1219</code> has the greater WCAG "
-        "contrast against that fill wins, and a unit test refuses any palette where a label "
-        "falls below AA for normal text (4.5:1). On the shipped palette that puts light ink on "
-        "the green and the violet, dark ink on the blue and the gold, at "
-        + ", ".join(f"{C.contrast(ink(f), f):.2f}:1" for f in shipped) + ".</p>")
+        "light ink <code>" + LIGHT_INK + "</code> and dark ink <code>" + DARK_INK + "</code> "
+        "has the greater WCAG contrast against the fill wins, and a unit test refuses any "
+        "palette where a label falls below AA for normal text (4.5:1).</p>")
+    parts.append(
+        "<p>Transparency makes that recompute load-bearing rather than tidy. Wilderness is the "
+        f"proof: the authored green <code>{shipped[0]}</code> takes <b>{ink(shipped[0])}</b> at "
+        f"{C.contrast(ink(shipped[0]), shipped[0]):.2f}:1, and the green as drawn "
+        f"<code>{shipped_seen[0]}</code> takes <b>{ink(shipped_seen[0])}</b> at "
+        f"{C.contrast(ink(shipped_seen[0]), shipped_seen[0]):.2f}:1. The ink flips. A palette "
+        "that picked its ink from the CSS hex would have put dark text on a dark cell here and "
+        "it would have measured fine, because it would have measured the wrong colour. As "
+        "drawn, the four labels sit at "
+        + ", ".join(f"{C.contrast(ink(f), f):.2f}:1" for f in shipped_seen) + ".</p>")
 
     parts.append("<h2>Clashes with the rest of the map</h2>")
     parts.append(
         "<p>A tier fill also has to survive everything drawn <i>over</i> it. The weather walls "
         "are stroked straight across the cells, so a wall that matches the fill under it "
-        "disappears. The last pass moved the Sand Storm wall from <code>#d9b36b</code> to "
-        "<code>#e8963c</code> because it sat &Delta;E00 8.5 from the old tan Badlands swatch in "
-        "the same legend; with Badlands now gold that move still holds, at "
-        f"&Delta;E00 {C.de00(shipped[3], '#e8963c'):.1f}, so no wall colour needed changing "
-        "this time. Figures below are for the shipped palette.</p>")
-    parts.append(wall_table(shipped))
+        "disappears. This is the second wall to be moved for that reason, and the first one "
+        "that was forced by the palette rather than by a legend: the Sand Storm wall went from "
+        "<code>#d9b36b</code> to <code>#e8963c</code> when Badlands became gold, and now the "
+        f"<b>Storm Rift</b> wall leaves <code>{OLD_STORM}</code>, because Nightfall's lilac "
+        f"Remnants sat only &Delta;E00 {C.de00(OLD_STORM, shipped[2]):.1f} from it at full "
+        f"strength and {C.de00(OLD_STORM, shipped_seen[2]):.1f} as drawn &mdash; a wall painted "
+        "invisibly across the tier it crosses most.</p>")
     parts.append(
-        "<p>Against the ocean <code>#09151d</code> the four fills sit at &Delta;E00 "
-        + ", ".join(f"{C.de00(f, OCEAN):.1f}" for f in shipped)
-        + " &mdash; every cell reads as land rather than as more water, including the deep "
-        "green, whose luminance is close to the ocean's but whose hue is not.</p>")
+        "<p>It becomes <code>#c04ae8</code>: the same violet family, so &ldquo;Storm Rift is "
+        "the purple one&rdquo; still holds, but pushed in chroma and lightness until it reads "
+        "as a discharge rather than as more Remnants. Against Remnants as drawn that is now "
+        f"&Delta;E00 {C.de00('#c04ae8', shipped_seen[2]):.1f}. The tier palette is the fixed "
+        "point and the walls are fitted around it, because tiers cover area and walls are thin "
+        "lines &mdash; the lines are the cheaper thing to move. Figures below are for the "
+        "shipped fills as drawn.</p>")
+    parts.append(wall_table(shipped_seen))
+    parts.append(
+        "<p>Against the ocean <code>" + OCEAN + "</code> &mdash; which under transparency is not "
+        "only what a cell sits next to but what it is composited <i>onto</i> &mdash; the four "
+        "fills as drawn sit at &Delta;E00 "
+        + ", ".join(f"{C.de00(f, OCEAN):.1f}" for f in shipped_seen)
+        + ". Every cell still reads as land rather than as more water. The Expanse navy is the "
+        "one to watch: it is the darkest tier against the darkest possible backdrop, and it is "
+        "the number that would fail first if the opacity were pushed lower.</p>")
+
+    parts.append("<h2>Seeing the inventory, not finding it</h2>")
+    parts.append(
+        "<p>The other half of the ask. What is seeded on each island &mdash; databanks, metal "
+        "deposits by ore and quality, trees by species &mdash; was already joined onto the map, "
+        "but it was only reachable by clicking an island, and a number you have to click for is "
+        "a number most operators never see. It is now on the page three ways, none of which "
+        "needs an interaction:</p>")
+    parts.append(
+        "<ul><li><b>Every cell carries its own roll-up</b> as a third line under its tier text: "
+        "islands, databanks, deposits, trees, and a count of how many of them have an inferred "
+        "ore table. A <code>cell resources</code> toggle turns it off for reading the map as "
+        "pure geography.</li>"
+        "<li><b>The inspector opens on the world totals</b> instead of on &ldquo;select "
+        "something&rdquo;, and clicking bare ocean returns to them.</li>"
+        "<li><b>An island ledger under the map</b> lists all 254 catalogued islands, one row "
+        "each, with a filter over name, cell, ore and wood.</li></ul>")
+    parts.append(
+        "<p>Provenance travelled with the data rather than being left behind by it. 193 of the "
+        "254 islands were never surveyed for metal, so <i>which</i> ore a deposit carries is "
+        "composed from the surveyed same-tier cohort. Those rows are marked <b>&#10033;</b> in "
+        "amber in the ledger itself, not only in a footnote beneath it, and the marker rides "
+        "the ore text so a skimmed line cannot be mistaken for a recovered one. The deposit "
+        "<i>counts</i> are real either way. Fuel pods and loot containers are reported as 0 for "
+        "every island, with the reason: retail shipped fuel pods only as hand-placed Haven "
+        "statics and never shipped the lootable-container component at all. Zero with a reason, "
+        "never an invented number.</p>")
 
     parts.append("<h2>What is pinned in code</h2>")
     parts.append(
-        "<p>The palette and the WCAG maths live in "
+        "<p>The palette, the transparency and the WCAG maths live in "
         "<code>WorldsAdriftServer/Admin/MapTierPalette.cs</code>, which emits the CSS for the "
-        "drawn cell, the cell label and the legend swatch from one list &mdash; so the legend "
-        "cannot go back to disagreeing with the map. The CIEDE2000 and CVD simulation live "
-        "next to it in <code>MapColourMetrics.cs</code>, so the separation claims on this page "
-        "are asserted by unit tests rather than by this page. A palette change that drops a "
-        "pair below &Delta;E00 10 under any deficiency, or puts a label below AA, fails the "
-        "build.</p>")
+        "drawn cell, the cell label, the legend swatch, the ledger's tier chip <i>and the "
+        "ocean rule the composite assumes</i> &mdash; all from one list, so the legend cannot go "
+        "back to disagreeing with the map. The wall colours and their legend keys moved into "
+        "<code>MapWallPalette.cs</code> for the same reason, which is also how two walls that "
+        "were being drawn without a key acquired one.</p>")
+    parts.append(
+        "<p>The CIEDE2000 and CVD simulation live in <code>MapColourMetrics.cs</code>, so the "
+        "separation claims on this page are asserted by unit tests rather than by this page. "
+        "The test that matters most re-derives the legend swatch by compositing the cell's "
+        "declared fill, the cell's declared <code>fill-opacity</code> and the declared ocean, "
+        "and fails if it does not land on the swatch the legend ships &mdash; the old bug, "
+        "closed with transparency switched on rather than switched off. A change that drops a "
+        "pair below &Delta;E00 10 under any deficiency, puts a label below AA, lands a tier in "
+        "the dead band, or lets a wall fade into the tier it crosses, fails the build.</p>")
 
     open(OUT, "w", encoding="utf-8").write("\n".join(parts) + "\n")
     print("wrote", OUT)
     for key in order:
         print(f"  {FINALISTS[key][0]:16s}", finalists[key])
+    for a in ALPHAS:
+        print(f"  alpha {a:.2f}", seen(shipped, a))
 
 
 if __name__ == "__main__":

@@ -21,12 +21,17 @@ namespace WorldsAdriftServer.Web
         internal const string ContentType = "text/html; charset=utf-8";
 
         /// <summary>
-        /// Self-contained, high-density simulation-console design system. The world
-        /// map's tier colours are appended from <see cref="MapTierPalette"/> rather
-        /// than written here, so the cell fill, the cell label ink and the legend
-        /// swatch cannot drift apart.
+        /// Self-contained, high-density simulation-console design system.
+        ///
+        /// Neither the tier colours nor the weather-wall colours are written here.
+        /// They are appended from <see cref="MapTierPalette"/> and
+        /// <see cref="MapWallPalette"/>, so the drawn surface and the legend key
+        /// beside it are always the same value - including the ocean the
+        /// translucent tier cells are composited over, which those modules emit
+        /// too rather than assume.
         /// </summary>
-        private static readonly string Style = StyleHead + MapTierPalette.Css() + "</style>";
+        private static readonly string Style =
+            StyleHead + MapTierPalette.Css() + MapWallPalette.Css() + "</style>";
 
         private const string StyleHead = @"<style>
 :root{
@@ -125,9 +130,10 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
 .domain-workbench{display:grid;grid-template-columns:minmax(0,1fr) minmax(18rem,25rem);gap:1rem;align-items:start;}.domain-browser{min-width:0;border:1px solid var(--line);border-radius:10px;background:#0c151c;overflow:hidden;}.domain-toolbar{display:grid;grid-template-columns:minmax(12rem,1fr) auto;gap:.75rem;padding:.8rem;border-bottom:1px solid var(--line);}.domain-toolbar input{min-height:2.3rem}.segmented{display:flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#091219}.segmented button{min-height:1.9rem;padding:.35rem .55rem;border:0;background:transparent;box-shadow:none;color:var(--text-faint);font-size:.6rem}.segmented button.active{color:var(--text);background:var(--surface-2)}
 .domain-table-wrap{overflow:auto;max-height:32rem}.domain-table{font-size:.72rem}.domain-table tbody tr{cursor:pointer}.domain-table tbody tr:focus-visible,.island-node:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}.domain-table tbody tr.selected{background:var(--accent-soft)}.domain-table .domain-name{font-weight:620;color:var(--text)}.kind-mark{display:inline-block;width:.42rem;height:.42rem;border-radius:2px;margin-right:.42rem;background:var(--accent)}.kind-mark.ship{border-radius:50%;background:#8aa6ff}.domain-footer{display:flex;justify-content:space-between;gap:1rem;padding:.62rem .8rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.61rem;}
 .domain-detail{position:sticky;top:5rem;border:1px solid var(--line-strong);border-radius:10px;background:linear-gradient(155deg,#14242e,#0d171f);overflow:hidden;min-height:18rem;}.detail-empty{display:grid;place-items:center;min-height:18rem;padding:2rem;text-align:center;color:var(--text-faint);font-size:.73rem}.detail-content{display:none}.detail-content.show{display:block}.detail-head{padding:1rem 1.05rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.035)}.detail-head-top{display:flex;justify-content:space-between;gap:.6rem}.detail-head h3{font-size:1rem;margin:0 0 .18rem}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--line)}.detail-item{padding:.78rem .9rem;background:#0e1921;min-width:0;overflow-wrap:anywhere}.detail-item b{display:block;font-size:.52rem;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);margin-bottom:.16rem}.detail-item span{font-size:.72rem;color:var(--text-soft)}.detail-note{padding:.85rem .95rem;color:var(--text-faint);font-size:.65rem;line-height:1.55;border-top:1px solid var(--line)}
-.world-map{border:1px solid var(--line);border-radius:10px;background:#071017;overflow:hidden;margin-bottom:1rem}.world-map-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.65)}.world-map-title strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.world-map-title span{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.map-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}.map-controls button{min-height:2rem;padding:.3rem .58rem;font-size:.62rem}.map-toggle{display:inline-flex;align-items:center;gap:.28rem;padding:.28rem .45rem;border:1px solid var(--line);border-radius:6px;color:var(--text-soft);font-size:.58rem;text-transform:none;letter-spacing:0;margin:0}.map-toggle input{width:auto;min-height:0;margin:0;accent-color:var(--accent)}.world-map-stage{position:relative;height:clamp(25rem,62vh,48rem);overflow:hidden;background:#071017}.world-map-stage svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}.world-map-stage svg.dragging{cursor:grabbing}.map-ocean{fill:#09151d}.map-world-boundary{fill:none;stroke:#536b78;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-haven-zone{fill:#17322f;opacity:.72}.map-grid line{stroke:#39515d;stroke-width:1;opacity:.35;vector-effect:non-scaling-stroke}.map-biome{stroke:#233a45;stroke-width:1;vector-effect:non-scaling-stroke;cursor:pointer;transition:stroke .12s,stroke-width .12s}.map-biome:hover,.map-biome:focus{stroke:#74c9cf;stroke-width:3;outline:none}.map-biome.unassigned{stroke-dasharray:6 4}.map-cell-label,.map-zone-label{fill:#dce8ed;font:700 330px/1 ui-sans-serif,sans-serif;letter-spacing:.1em;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#071017;stroke-width:55;stroke-linejoin:round}.map-cell-label .tier{fill:#c0d0d7;font-size:210px;letter-spacing:.055em}.map-cell-label.unassigned{font-size:270px}.map-zone-label{fill:#8dc8b1;font-size:300px}.map-island{fill:#80939c;stroke:#c0cbd0;stroke-width:1;vector-effect:non-scaling-stroke}.map-island.haven{fill:#71d0a5;stroke:#d6fff0}.map-wall-halo{fill:none;stroke:#071017;stroke-width:5;opacity:.8;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:2.5;opacity:.98;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall.type-0{stroke:#74c9cf}.map-wall.type-1{stroke:#9b86d8}.map-wall.type-2{stroke:#d48388}.map-wall.type-3{stroke:#e8963c}.map-wall.type-4{stroke:#a9d6ed}.map-wall.type-5{stroke:#ec8f88;stroke-width:3}.map-runtime-island{fill:none;stroke:#71d0a5;stroke-width:2.5;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#f3f7ff;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edfff7;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-marker{cursor:pointer}.map-marker:focus{outline:none}.map-marker:focus .map-ship,.map-marker:focus .map-player{stroke:#fff;stroke-width:3}.map-inspector{position:absolute;top:.75rem;left:.75rem;max-width:min(25rem,calc(100% - 1.5rem));padding:.6rem .72rem;border:1px solid rgba(116,201,207,.34);border-radius:7px;background:rgba(7,15,21,.92);box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none}.map-inspector b{display:block;font-size:.65rem}.map-inspector span{display:block;margin-top:.12rem;color:var(--text-faint);font:500 .58rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.map-inspector span.inferred{color:#e8c06a}.map-compass{position:absolute;right:.8rem;top:.8rem;width:2rem;height:2rem;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;background:rgba(7,15,21,.8);font-size:.58rem;font-weight:750;color:var(--text-soft);pointer-events:none}.map-scale{position:absolute;right:.8rem;bottom:.75rem;padding:.18rem .35rem;border-bottom:2px solid var(--text-soft);color:var(--text-soft);font-size:.54rem;pointer-events:none}.world-map-legend{display:flex;flex-wrap:wrap;gap:.5rem .8rem;padding:.62rem .9rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem}.map-legend-break{flex-basis:100%;height:0}.world-map-legend .legend-lead{flex-basis:100%;color:var(--text-soft);font-weight:650;letter-spacing:.04em}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.tier{height:.6rem;border:1px solid #6f7d85}.map-swatch.storm{background:#9b86d8}.map-swatch.sand{background:#e8963c}.map-swatch.edge{background:#ec8f88}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-swatch.runtime{width:.5rem;height:.5rem;border-radius:50%;background:transparent;border:1px solid #71d0a5}.world-map-legend .legend-inferred{color:#e8c06a}.world-map-legend .legend-inferred strong{color:#e8c06a}.map-provenance{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .8rem;padding:.6rem .9rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.045);color:var(--text-faint);font-size:.62rem;line-height:1.6}.map-provenance strong{color:var(--text-soft)}.map-provenance-text{flex:1 1 24rem;min-width:0}
+.world-map{border:1px solid var(--line);border-radius:10px;background:#071017;overflow:hidden;margin-bottom:1rem}.world-map-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:center;flex-wrap:wrap;padding:.72rem .9rem;border-bottom:1px solid var(--line);background:rgba(22,35,45,.65)}.world-map-title strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.world-map-title span{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.map-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem}.map-controls button{min-height:2rem;padding:.3rem .58rem;font-size:.62rem}.map-toggle{display:inline-flex;align-items:center;gap:.28rem;padding:.28rem .45rem;border:1px solid var(--line);border-radius:6px;color:var(--text-soft);font-size:.58rem;text-transform:none;letter-spacing:0;margin:0}.map-toggle input{width:auto;min-height:0;margin:0;accent-color:var(--accent)}.world-map-stage{position:relative;height:clamp(25rem,62vh,48rem);overflow:hidden;background:#071017}.world-map-stage svg{display:block;width:100%;height:100%;touch-action:none;cursor:grab}.world-map-stage svg.dragging{cursor:grabbing}.map-world-boundary{fill:none;stroke:#536b78;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-haven-zone{fill:#17322f;opacity:.72}.map-grid line{stroke:#39515d;stroke-width:1;opacity:.35;vector-effect:non-scaling-stroke}.map-biome{stroke:#233a45;stroke-width:1;vector-effect:non-scaling-stroke;cursor:pointer;transition:stroke .12s,stroke-width .12s}.map-biome:hover,.map-biome:focus{stroke:#74c9cf;stroke-width:3;outline:none}.map-biome.unassigned{stroke-dasharray:6 4}.map-cell-label,.map-zone-label{fill:#dce8ed;font:700 330px/1 ui-sans-serif,sans-serif;letter-spacing:.1em;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#071017;stroke-width:55;stroke-linejoin:round}.map-cell-label .tier{fill:#c0d0d7;font-size:210px;letter-spacing:.055em}.map-cell-label .stock{fill:#c0d0d7;font-size:165px;letter-spacing:.02em;font-weight:600}g.no-stock .map-cell-label .stock{display:none}.map-cell-label.unassigned{font-size:270px}.map-zone-label{fill:#8dc8b1;font-size:300px}.map-island{fill:#80939c;stroke:#c0cbd0;stroke-width:1;vector-effect:non-scaling-stroke}.map-island.haven{fill:#71d0a5;stroke:#d6fff0}.map-wall-halo{fill:none;stroke:#071017;stroke-width:5;opacity:.8;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:2.5;opacity:.98;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-runtime-island{fill:none;stroke:#71d0a5;stroke-width:2.5;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#f3f7ff;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edfff7;stroke-width:1.5;vector-effect:non-scaling-stroke}.map-marker{cursor:pointer}.map-marker:focus{outline:none}.map-marker:focus .map-ship,.map-marker:focus .map-player{stroke:#fff;stroke-width:3}.map-inspector{position:absolute;top:.75rem;left:.75rem;max-width:min(25rem,calc(100% - 1.5rem));padding:.6rem .72rem;border:1px solid rgba(116,201,207,.34);border-radius:7px;background:rgba(7,15,21,.92);box-shadow:0 8px 24px rgba(0,0,0,.25);pointer-events:none}.map-inspector b{display:block;font-size:.65rem}.map-inspector span{display:block;margin-top:.12rem;color:var(--text-faint);font:500 .58rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace}.map-inspector span.inferred{color:#e8c06a}.map-compass{position:absolute;right:.8rem;top:.8rem;width:2rem;height:2rem;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;background:rgba(7,15,21,.8);font-size:.58rem;font-weight:750;color:var(--text-soft);pointer-events:none}.map-scale{position:absolute;right:.8rem;bottom:.75rem;padding:.18rem .35rem;border-bottom:2px solid var(--text-soft);color:var(--text-soft);font-size:.54rem;pointer-events:none}.world-map-legend{display:flex;flex-wrap:wrap;gap:.5rem .8rem;padding:.62rem .9rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem}.map-legend-break{flex-basis:100%;height:0}.world-map-legend .legend-lead{flex-basis:100%;color:var(--text-soft);font-weight:650;letter-spacing:.04em}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.tier{height:.6rem;border:1px solid #6f7d85}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-swatch.runtime{width:.5rem;height:.5rem;border-radius:50%;background:transparent;border:1px solid #71d0a5}.world-map-legend .legend-inferred{color:#e8c06a}.world-map-legend .legend-inferred strong{color:#e8c06a}.map-provenance{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .8rem;padding:.6rem .9rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.045);color:var(--text-faint);font-size:.62rem;line-height:1.6}.map-provenance strong{color:var(--text-soft)}.map-provenance-text{flex:1 1 24rem;min-width:0}
 .provenance-tag{flex:0 0 auto;padding:.14rem .45rem;border:1px solid rgba(116,201,207,.42);border-radius:999px;color:var(--accent);font-size:.53rem;font-weight:750;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap}.provenance-tag.live{border-color:rgba(113,208,165,.45);color:var(--good)}
 .count-reconcile{display:inline-block;padding:.16rem .48rem;border:1px solid var(--line-strong);border-radius:5px;background:#0b141b;color:var(--text-soft);font:700 .58rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
+.island-ledger{border-top:1px solid var(--line)}.island-ledger-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:flex-end;flex-wrap:wrap;padding:.66rem .9rem;background:rgba(22,35,45,.5)}.island-ledger-bar strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.island-ledger-bar span.ledger-status{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.ledger-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem}.ledger-controls input[type=search]{min-height:2rem;width:16rem;max-width:52vw;padding:.28rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--bg-raised);color:var(--text);font-size:.64rem}.ledger-scroll{max-height:30rem;overflow:auto;border-top:1px solid var(--line)}table.ledger{border-collapse:collapse;width:100%;font-size:.62rem}table.ledger th,table.ledger td{text-align:left;padding:.3rem .55rem;border-bottom:1px solid rgba(38,54,65,.7);white-space:nowrap;vertical-align:top}table.ledger th{position:sticky;top:0;z-index:1;background:#101a22;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}table.ledger td.n,table.ledger th.n{text-align:right;font-variant-numeric:tabular-nums}table.ledger td.zero{color:var(--text-faint)}table.ledger td.wrap{white-space:normal;min-width:12rem}table.ledger tr.inferred td.ore{color:#e8c06a}table.ledger tbody tr:hover{background:rgba(116,201,207,.06)}table.ledger .tierchip{display:inline-block;min-width:1.5rem;padding:0 .25rem;border-radius:3px;text-align:center;font-weight:700}.ledger-foot{padding:.55rem .9rem;color:var(--text-faint);font-size:.6rem;line-height:1.55}.ledger-foot strong{color:var(--text-soft)}.ledger-empty{padding:1.2rem .9rem;color:var(--text-faint);font-size:.66rem}
 .map-authenticity{padding:.65rem .9rem;border-top:1px solid var(--line);background:rgba(113,208,165,.035);color:var(--text-faint);font-size:.61rem;line-height:1.55}.map-authenticity strong{color:#9ee0c2}.map-empty{position:absolute;inset:auto 1rem 1rem;padding:.55rem .7rem;border:1px solid var(--line);border-radius:7px;background:rgba(7,15,21,.88);color:var(--text-faint);font-size:.65rem;pointer-events:none}
 .terrain-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1rem;}
 .terrain-metric{padding:.85rem .95rem;background:var(--surface);min-width:0;}.terrain-metric .n{font-size:1.1rem;font-weight:610;overflow-wrap:anywhere;}.terrain-metric .l{margin-top:.16rem;font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);}
@@ -282,6 +288,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
         <label class=""map-toggle""><input type=""checkbox"" id=""mapWalls"" checked>walls</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapShips"" checked>ships</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapPlayers"" checked>players</label>
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapResources"" checked>cell resources</label>
         <button type=""button"" id=""mapZoomIn"" aria-label=""Zoom map in"">+</button><button type=""button"" id=""mapZoomOut"" aria-label=""Zoom map out"">&minus;</button><button type=""button"" id=""mapReset"">Whole world</button>
       </div>
     </div>
@@ -290,9 +297,20 @@ variable to <code>username:hash</code> and restart the login server to enable th
       <span class=""map-provenance-text""><strong>Island geometry, tier/biome cells, weather walls and the world boundary are a static embedded projection of the preserved Bossa release MapFile.</strong> They are historical map evidence, not live simulation state, and they do not change when the game server does. <strong>Only the ship and player markers, and the ring drawn around each simulated island domain, are live:</strong> this browser refreshes them every 4 seconds from the game server's roughly 3-second stats snapshots. The islands this server is actually simulating are the ones listed under Terrain checkout, not the ones drawn here.</span>
       <span class=""count-reconcile"" id=""mapReconcile"">Reconciling island counts&hellip;</span>
     </div>
-    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Preserved release-world map evidence - tiered biome cells, Haven corridor, weather walls and island placements - with a live overlay of authoritative ships, players and currently simulated island domains""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -145 112 98 0 58 -112 98Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-inspector"" id=""mapInspector""><b>Release world overview</b><span>Select a tier cell, island, ship or player for exact authored/runtime details.</span></div><div class=""map-compass"">N</div><div class=""map-scale"" id=""mapScale"">6 km</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
-    <div class=""world-map-legend""><span class=""legend-lead"">Island tier, low to high &mdash; one hue per tier; every cell also prints its own tier, so colour is never the only channel:</span><span><i class=""map-swatch tier tier-1""></i>T1 Wilderness &middot; temperate</span><span><i class=""map-swatch tier tier-2""></i>T2 Expanse &middot; highlands</span><span><i class=""map-swatch tier tier-3""></i>T3 Remnants &middot; ice</span><span><i class=""map-swatch tier tier-4""></i>T4 Badlands &middot; desert</span><span class=""map-legend-break""></span><span><i class=""map-swatch haven""></i>Haven corridor</span><span><i class=""map-swatch""></i>Wind Rift</span><span><i class=""map-swatch storm""></i>Storm Rift</span><span><i class=""map-swatch sand""></i>Sand Storm</span><span><i class=""map-swatch edge""></i>Haven separator / World End</span><span><i class=""map-swatch ship""></i>Ship (live)</span><span><i class=""map-swatch player""></i>Player (live)</span><span><i class=""map-swatch runtime""></i>Currently simulated island domain (live)</span><span>Every other mark is preserved map evidence</span><span class=""map-legend-break""></span><span class=""legend-lead"">Click a tier cell for its totals, or an island for what is seeded on it &mdash; databanks, metal deposits by ore, trees:</span><span>Counts are counts of real seeded entities, taken from the same catalogue the game server spawns from.</span><span class=""legend-inferred"">&#10033; marks an <strong>INFERRED</strong> ore table: 193 of the 254 islands were never surveyed for metal, so their ore types are composed from the surveyed same-tier cohort. Plausible, not Bossa data.</span><span>Fuel pods and loot chests are shown as 0 because retail&rsquo;s per-island placements did not survive; none were invented.</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
+    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Preserved release-world map evidence - tiered biome cells, Haven corridor, weather walls and island placements - with a live overlay of authoritative ships, players and currently simulated island domains""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -145 112 98 0 58 -112 98Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-inspector"" id=""mapInspector""><b>Release world &middot; seeded totals</b><span>Loading the preserved release catalogue&hellip;</span></div><div class=""map-compass"">N</div><div class=""map-scale"" id=""mapScale"">6 km</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
+    <div class=""world-map-legend""><span class=""legend-lead"">Island tier, low to high &mdash; one hue per tier, painted as a translucent zone over the world at " + MapTierPalette.FillOpacityCss + @" opacity. Each key below is the <em>composited</em> colour the cell actually shows, not the undimmed hex; every cell also prints its own tier, so colour is never the only channel:</span><span><i class=""map-swatch tier tier-1""></i>T1 Wilderness &middot; temperate</span><span><i class=""map-swatch tier tier-2""></i>T2 Expanse &middot; highlands</span><span><i class=""map-swatch tier tier-3""></i>T3 Remnants &middot; ice</span><span><i class=""map-swatch tier tier-4""></i>T4 Badlands &middot; desert</span><span class=""map-legend-break""></span><span><i class=""map-swatch haven""></i>Haven corridor</span>" + MapWallPalette.LegendHtml() + @"<span><i class=""map-swatch ship""></i>Ship (live)</span><span><i class=""map-swatch player""></i>Player (live)</span><span><i class=""map-swatch runtime""></i>Currently simulated island domain (live)</span><span>Every other mark is preserved map evidence</span><span class=""map-legend-break""></span><span class=""legend-lead"">What is seeded on the islands is shown three ways, none of which needs a click: every cell carries its own roll-up on the map, the panel top-left opens on the world totals, and the ledger below lists all 254 islands individually.</span><span>Click a cell or an island only to pin it in the panel. Counts are counts of real seeded entities, taken from the same catalogue the game server spawns from.</span><span class=""legend-inferred"">&#10033; marks an <strong>INFERRED</strong> ore table: 193 of the 254 islands were never surveyed for metal, so their ore types are composed from the surveyed same-tier cohort. Plausible, not Bossa data.</span><span>Fuel pods and loot chests are shown as 0 because retail&rsquo;s per-island placements did not survive; none were invented.</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
     <div class=""map-authenticity""><strong>Release MapFile geometry.</strong> The map contains 20 distinct tier/biome cells: 18 have authored district IDs and two Tier-4 Badlands cells are explicitly unassigned. E3 is one cell; the adjacent unnamed cells are not silently invented as E1/E2 or merged into E3. Haven is inside the 36&times;36 km boundary, east of the authored separator, with 12 preserved starter-island placements. None of this geometry is read from the running game server, and none of it is evidence that any of these islands is currently simulated.</div>
+    <div class=""island-ledger"">
+      <div class=""island-ledger-bar"">
+        <div><strong>Island ledger &middot; every catalogued island, in full <span class=""provenance-tag"">map evidence</span></strong><span class=""ledger-status"" id=""ledgerStatus"">Loading the release catalogue&hellip;</span></div>
+        <div class=""ledger-controls"">
+          <input type=""search"" id=""ledgerFilter"" placeholder=""filter: island, cell, ore, wood&hellip;"" aria-label=""Filter the island ledger"" autocomplete=""off"">
+          <label class=""map-toggle""><input type=""checkbox"" id=""ledgerInferredOnly"">inferred ore only</label>
+        </div>
+      </div>
+      <div class=""ledger-scroll""><table class=""ledger""><thead><tr><th>Island</th><th>Cell</th><th>Tier</th><th>Culture</th><th class=""n"">Databanks</th><th class=""n"">Deposits</th><th class=""n"">Trees</th><th>Woods</th><th>Ore table</th><th class=""n"">Fuel pods</th><th class=""n"">Loot</th><th>Notes</th></tr></thead><tbody id=""ledgerBody""></tbody></table><div class=""ledger-empty"" id=""ledgerEmpty"" hidden>No island matches that filter.</div></div>
+      <div class=""ledger-foot"" id=""ledgerFoot""></div>
+    </div>
   </div>
   <div class=""topology"">
     <div class=""topology-bar""><strong>Authority topology</strong><div class=""topology-legend""><span><i class=""legend-dot""></i>Island</span><span><i class=""legend-dot ship""></i>Ship affinity</span><span><i class=""legend-dot warn""></i>Warning</span></div></div>
@@ -484,6 +502,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   var mapLoaded=false;
   var worldMap={worldEdgeLength:36000,havenSeparatorX:15943.6523,islands:[],biomes:[],walls:[]};
   var mapView={x:-18000,y:-18000,w:36000,h:36000};
+  var mapDragged=false;
   var latestPlayers=[];
   function $(id){return document.getElementById(id);}
   function text(id,v){var e=$(id);if(e)e.textContent=v;}
@@ -718,18 +737,55 @@ variable to <code>username:hash</code> and restart the login server to enable th
     lines.push('Fuel pods 0 · loot containers 0 — retail never shipped per-island placements for either, so nothing was invented.');
     return lines;
   }
-  function cellRollupLine(cellId){
-    var members=(worldMap.islands||[]).filter(function(i){
+  function cellMembers(cellId){
+    return (worldMap.islands||[]).filter(function(i){
       return i.inventory&&i.inventory.cell===cellId;});
+  }
+  function sumOver(members,field){
+    return members.reduce(function(a,i){return a+Number(i.inventory[field]||0);},0);
+  }
+  function cellRollupLine(cellId){
+    var members=cellMembers(cellId);
     if(!members.length)return 'No catalogued islands sit in this cell.';
-    var sum=function(f){return members.reduce(function(a,i){return a+Number(i.inventory[f]||0);},0);};
     var inferred=members.filter(function(i){return i.inventory.oresInferred;}).length;
     return plural(members.length,'island','islands')+' here · '
-      +plural(sum('databanks'),'databank','databanks')+' · '
-      +plural(sum('deposits'),'metal deposit','metal deposits')+' · '
-      +plural(sum('trees'),'tree','trees')
+      +plural(sumOver(members,'databanks'),'databank','databanks')+' · '
+      +plural(sumOver(members,'deposits'),'metal deposit','metal deposits')+' · '
+      +plural(sumOver(members,'trees'),'tree','trees')
       +(inferred?(' · ✱ '+inferred+' of them have an INFERRED ore table'):' · every ore table here is recovered');
   }
+  // The same roll-up, short enough to live ON the cell. It is drawn by default:
+  // a number you have to click for is a number most operators never see, and the
+  // ask was to see the inventory, not to be able to find it.
+  function cellRollupShort(cellId){
+    var members=cellMembers(cellId);
+    if(!members.length)return 'no catalogued islands';
+    var inferred=members.filter(function(i){return i.inventory.oresInferred;}).length;
+    return members.length+' isl · '+sumOver(members,'databanks')+' db · '
+      +sumOver(members,'deposits')+' dep · '+sumOver(members,'trees')+' tr'
+      +(inferred?(' · ✱'+inferred):'');
+  }
+  // What the inspector shows when nothing is selected. It used to say: select a
+  // cell, an island, a ship or a player. An empty panel over a map full of data
+  // is a waste of the best real estate on the page, so it now opens on the
+  // world's own totals and returns to them when you click bare ocean.
+  function worldOverviewLines(){
+    var rt=worldMap.resourceTotals||{};
+    if(!rt.islands)return ['Preserved release map not loaded yet.'];
+    var lines=[
+      rt.islands+' catalogued islands (plus '+((worldMap.islands||[]).length-rt.islands)
+        +' hand-tuned Haven placements, which carry no survey)',
+      plural(rt.databanks,'databank','databanks')+' · '
+        +plural(rt.deposits,'metal deposit','metal deposits')+' · '
+        +plural(rt.trees,'tree','trees')+' across '+rt.woodedIslands+' wooded islands',
+      '✱ '+rt.islandsWithInferredOres+' of '+rt.islands+' islands have an INFERRED ore table ('
+        +rt.inferredDeposits+' deposits); '+rt.islandsWithRecoveredOres+' were really surveyed',
+      'Fuel pods 0 · loot containers 0 — retail never shipped per-island placements for either, so nothing was invented.',
+      'Every cell prints its own roll-up; the ledger under the map lists all '+rt.islands+' islands. Click anything for its own detail.'
+    ];
+    return lines;
+  }
+  function showWorldOverview(){inspectMap('Release world · seeded totals',worldOverviewLines());}
   function pathFromSegments(segments){return segments.map(function(w){return 'M '+Number(w.x1)+' '+(-Number(w.z1))+' L '+Number(w.x2)+' '+(-Number(w.z2));}).join(' ');}
   function renderStaticWorldMap(){
     var grid=$('mapGrid'),walls=$('mapWallLayer'),islands=$('mapIslandLayer'),biomes=$('mapBiomeLayer'),haven=$('mapHavenLayer');
@@ -749,6 +805,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       var label=svgEl('text',{x:b.x,y:-b.z-90,'class':'map-cell-label type-'+b.type+(hasDistrict?'':' unassigned')});
       var districtLine=svgEl('tspan',{x:b.x,dy:'0'});districtLine.textContent=hasDistrict?b.district:'NO DISTRICT';label.appendChild(districtLine);
       var tierLine=svgEl('tspan',{x:b.x,dy:'300','class':'tier'});tierLine.textContent='T'+b.type+' · '+info.name;label.appendChild(tierLine);
+      var stockLine=svgEl('tspan',{x:b.x,dy:'250','class':'stock'});stockLine.textContent=cellRollupShort(b.cellId);label.appendChild(stockLine);
       biomes.appendChild(label);
     });
     haven.appendChild(svgEl('rect',{x:separator,y:-half,width:half-separator,height:edge,'class':'map-haven-zone'},'Authored Haven reserve corridor'));
@@ -767,7 +824,97 @@ variable to <code>username:hash</code> and restart the login server to enable th
         title+' · '+lines.join(' · '));
       interactiveMarker(islands,shape,title,lines);
     });
+    renderIslandLedger();
+    showWorldOverview();
     resetMapView();
+  }
+
+  // ---- the ledger: every catalogued island, on the page, unclicked -------
+  // The map answers where something is; a 254-row table answers what we have,
+  // which no amount of clicking a map ever does. Provenance travels with a row:
+  // an inferred ore table is marked in the row it is in, not only in a footnote.
+  function ledgerInventories(){
+    return (worldMap.islands||[]).filter(function(i){return i.inventory;})
+      .map(function(i){return i.inventory;})
+      .sort(function(a,b){
+        return String(a.cell).localeCompare(String(b.cell))
+            || String(a.name).localeCompare(String(b.name));});
+  }
+  function ledgerHaystack(inv){
+    return [inv.name,inv.cell,'t'+inv.cellTier,biomeInfo(inv.cellTier).name,inv.culture,
+            (inv.woods||[]).join(' '),
+            (inv.ores||[]).map(function(o){return o.metal+' q'+o.quality;}).join(' '),
+            inv.oresInferred?'inferred':'recovered',inv.oreSource,
+            inv.revival?'revival':'',inv.turrets?'turrets':'',inv.dangerous?'dangerous':''
+           ].join(' ').toLowerCase();
+  }
+  function ledgerNotes(inv){
+    var notes=[];
+    if(inv.revival)notes.push('revival chamber');
+    if(inv.turrets)notes.push('turrets');
+    if(inv.dangerous)notes.push('dangerous');
+    if(Number(inv.surveyTier)!==Number(inv.cellTier))
+      notes.push('survey T'+inv.surveyTier+' vs cell T'+inv.cellTier+', both preserved');
+    return notes.join(' · ');
+  }
+  function renderIslandLedger(){
+    var body=$('ledgerBody');if(!body)return;
+    clear(body);
+    var q=(($('ledgerFilter')||{}).value||'').trim().toLowerCase();
+    var onlyInferred=!!(($('ledgerInferredOnly')||{}).checked);
+    var all=ledgerInventories(),frag=document.createDocumentFragment();
+    var shown=0,db=0,dep=0,tr=0,inf=0;
+    all.forEach(function(inv){
+      if(onlyInferred&&!inv.oresInferred)return;
+      if(q&&ledgerHaystack(inv).indexOf(q)<0)return;
+      shown++;db+=Number(inv.databanks||0);dep+=Number(inv.deposits||0);tr+=Number(inv.trees||0);
+      if(inv.oresInferred)inf++;
+      var row=document.createElement('tr');
+      if(inv.oresInferred)row.className='inferred';
+      cell(row,inv.name);
+      cell(row,inv.cell);
+      var td=cell(row,'');
+      var chip=document.createElement('span');
+      chip.className='tierchip tier-'+inv.cellTier;
+      chip.textContent='T'+inv.cellTier;
+      td.appendChild(chip);
+      td.appendChild(document.createTextNode(' '+biomeInfo(inv.cellTier).name));
+      cell(row,inv.culture);
+      cell(row,inv.databanks,'n'+(Number(inv.databanks)?'':' zero'));
+      cell(row,inv.deposits,'n'+(Number(inv.deposits)?'':' zero'));
+      cell(row,inv.trees,'n'+(Number(inv.trees)?'':' zero'));
+      cell(row,(inv.woods&&inv.woods.length)?inv.woods.join(', '):'—',
+           'wrap'+((inv.woods&&inv.woods.length)?'':' zero'));
+      cell(row,(inv.oresInferred?'✱ ':'')+oreSummary(inv),'wrap ore');
+      cell(row,inv.fuelPods,'n zero');
+      cell(row,inv.lootContainers,'n zero');
+      cell(row,ledgerNotes(inv)||'—','wrap'+(ledgerNotes(inv)?'':' zero'));
+      frag.appendChild(row);
+    });
+    body.appendChild(frag);
+    var empty=$('ledgerEmpty');if(empty)empty.hidden=shown>0;
+    text('ledgerStatus',shown===all.length
+      ? ('All '+all.length+' catalogued islands, sorted by cell then name. Haven’s 12 hand-tuned placements are not in the release catalogue and are deliberately absent.')
+      : (shown+' of '+all.length+' islands match the filter.'));
+    var foot=$('ledgerFoot');
+    if(foot){
+      clear(foot);
+      var totals=document.createElement('div');
+      totals.appendChild(document.createTextNode('Shown: '));
+      var strong=document.createElement('strong');
+      strong.textContent=shown+' islands · '+db+' databanks · '+dep+' metal deposits · '+tr+' trees';
+      totals.appendChild(strong);
+      totals.appendChild(document.createTextNode(
+        '. Counts are lengths of lists in the catalogue the game server seeds from — nothing here is scaled, rounded or estimated.'));
+      foot.appendChild(totals);
+      var prov=document.createElement('div');
+      prov.className='legend-inferred';
+      prov.textContent='✱ '+inf+' of the '+shown+' rows shown carry an INFERRED ore table: which metal a deposit holds was never recovered for those islands, so the table is composed from the surveyed same-tier cohort. The deposit COUNT is real; the ore names are plausible, not Bossa data.';
+      foot.appendChild(prov);
+      var none=document.createElement('div');
+      none.textContent='Fuel pods and loot containers are 0 for every island because retail shipped neither per-island: fuel pods exist only as hand-placed Haven statics, and the lootable-container component never shipped at all. Reported as zero rather than omitted, and never invented.';
+      foot.appendChild(none);
+    }
   }
   // `detail` is one string or a list of them. Each becomes its own line, and a
   // line that opens with the inference mark is styled as such - so a composed
@@ -803,6 +950,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
       interactiveMarker(playerLayer,svgEl('use',{href:'#playerSymbol',x:x-145,y:y-145,width:290,height:290,'class':'map-player'}),'Player entity '+p.entityId,'XYZ '+x.toFixed(1)+', '+Number(p.y).toFixed(1)+', '+Number(p.z).toFixed(1));
     });
     $('mapBiomeLayer').style.display=$('mapBiomes').checked?'':'none';
+    // The per-cell roll-up is drawn by default; the toggle is for when the map
+    // is being read as pure geography and the numbers are in the way.
+    if($('mapResources').checked)$('mapBiomeLayer').classList.remove('no-stock');
+    else $('mapBiomeLayer').classList.add('no-stock');
     $('mapIslandLayer').style.display=$('mapIslands').checked?'':'none';
     runtimeLayer.style.display=$('mapIslands').checked?'':'none';
     $('mapWallLayer').style.display=$('mapWalls').checked?'':'none';
@@ -1371,15 +1522,19 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(latestTerrain)renderAcceptance(latestTerrain,gameReporting);
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
-  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);});});
+  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers','mapResources'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);});});
+  ['ledgerFilter','ledgerInferredOnly'].forEach(function(id){var e=$(id);if(e){e.addEventListener('input',renderIslandLedger);e.addEventListener('change',renderIslandLedger);}});
+  // Clicking bare ocean puts the inspector back on the world totals, so the
+  // panel is never left holding one island after you have moved on.
+  $('liveWorldMap').addEventListener('click',function(){if(!mapDragged)showWorldOverview();});
   $('mapZoomIn').addEventListener('click',function(){zoomMap(.65);});
   $('mapZoomOut').addEventListener('click',function(){zoomMap(1.5);});
   $('mapReset').addEventListener('click',resetMapView);
   $('liveWorldMap').addEventListener('wheel',function(e){e.preventDefault();var p=mapClientPoint(e);zoomMap(e.deltaY<0 ? .78 : 1.28,p.x,p.y);},{passive:false});
   (function(){
     var svg=$('liveWorldMap'),drag=null;
-    svg.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY,vx:mapView.x,vy:mapView.y};svg.setPointerCapture(e.pointerId);svg.classList.add('dragging');});
-    svg.addEventListener('pointermove',function(e){if(!drag)return;var rect=svg.getBoundingClientRect();mapView.x=drag.vx-(e.clientX-drag.x)/rect.width*mapView.w;mapView.y=drag.vy-(e.clientY-drag.y)/rect.height*mapView.h;applyMapView();});
+    svg.addEventListener('pointerdown',function(e){drag={x:e.clientX,y:e.clientY,vx:mapView.x,vy:mapView.y};mapDragged=false;svg.setPointerCapture(e.pointerId);svg.classList.add('dragging');});
+    svg.addEventListener('pointermove',function(e){if(!drag)return;var rect=svg.getBoundingClientRect();if(Math.abs(e.clientX-drag.x)>3||Math.abs(e.clientY-drag.y)>3)mapDragged=true;mapView.x=drag.vx-(e.clientX-drag.x)/rect.width*mapView.w;mapView.y=drag.vy-(e.clientY-drag.y)/rect.height*mapView.h;applyMapView();});
     function end(e){if(!drag)return;drag=null;svg.classList.remove('dragging');if(svg.hasPointerCapture(e.pointerId))svg.releasePointerCapture(e.pointerId);}
     svg.addEventListener('pointerup',end);svg.addEventListener('pointercancel',end);
   })();
