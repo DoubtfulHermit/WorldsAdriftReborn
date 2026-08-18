@@ -33,19 +33,36 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
     /// <summary>
     /// One seeded creature: its identity, its species, the island that owns it,
-    /// and its position within that island's population.
+    /// its position within that island's population, and WHICH SCHOOL IT SWIMS IN.
     ///
-    /// <see cref="Index"/> is not decoration. It is the ONLY thing that makes two
-    /// mantas on the same island differ, and <see cref="IslandFaunaMovement"/>
-    /// phases their orbits off it, so a population does not fly in a single stack.
-    /// It is a position in the ordered population, so it is stable across restarts
-    /// in exactly the way an entity id must be.
+    /// <see cref="Index"/> is not decoration. It is a position in the ordered
+    /// population, so it is stable across restarts in exactly the way an entity id
+    /// must be, and <see cref="IslandFaunaPlan"/> allocates ids from it.
+    ///
+    /// <see cref="SchoolIndex"/> and <see cref="MemberIndex"/> are what make a
+    /// population a set of SCHOOLS rather than a set of loners, and they are carried
+    /// on the creature rather than recomputed because <see cref="IslandFaunaMovement"/>
+    /// is handed one creature at a time and must never need to know what else lives
+    /// on the island. The school is the thing that moves; the member is an offset
+    /// from it (<see cref="IslandFaunaSchool"/>).
     /// </summary>
+    /// <param name="EntityId">The wire identity. Inside the fauna band; see
+    /// <see cref="IslandFaunaPolicy.FirstFaunaEntityId"/>.</param>
+    /// <param name="Species">What it is.</param>
+    /// <param name="IslandId">The island that owns it.</param>
+    /// <param name="Index">Its position in the island's whole ordered population.</param>
+    /// <param name="SchoolIndex">Which school of its own species on this island it
+    /// belongs to, counting from zero. Schools are phase-spread around the island so
+    /// two of them are never in the same place.</param>
+    /// <param name="MemberIndex">Its position INSIDE that school, counting from zero.
+    /// This is the only thing that separates two members of one school.</param>
     public readonly record struct FaunaCreature(
         long EntityId,
         FaunaSpecies Species,
         IslandId IslandId,
-        int Index);
+        int Index,
+        int SchoolIndex,
+        int MemberIndex);
 
     /// <summary>
     /// WHO LIVES ON AN ISLAND, and whether the feature is switched on at all.
@@ -98,39 +115,57 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>
         /// How many creatures may be live world-wide at once.
         ///
-        /// WAREBORN TUNING. Nothing recovered from retail bounds this; the number
-        /// is chosen from what the wire can afford. Each live creature is a pose
-        /// pushed at <c>IslandFaunaRegistry</c>'s deliberately sub-20 Hz cadence to
-        /// every peer that can see it, so this constant - not the per-island counts
-        /// - is what actually caps the bandwidth the feature can spend. Twenty-four
-        /// is a handful of populated islands' worth of creatures visible at once,
-        /// which is the same order as a couple of flying ships.
+        /// WAREBORN TUNING, and NO LONGER THE WIRE'S SAFETY VALVE. It used to be:
+        /// while fauna checked out per creature at the global resource radius, the
+        /// world-wide count was the only bound on what one peer could be sent, so it
+        /// was held at 24 and the tier-1 world got 8 populated islands out of 46.
+        /// That is what the player saw when they said there should be more wildlife.
+        ///
+        /// <see cref="IslandFaunaInterestPolicy.DefaultPerPeerCreatures"/> now bounds
+        /// the wire directly, PER PEER, so this constant bounds only how much of the
+        /// world exists at once - a dictionary entry and a closed-form pose each,
+        /// costing nothing a peer can feel. Four thousand covers the complete
+        /// 254-island release catalogue (3,866 creatures) with headroom, so no
+        /// operator has to discover the cap by finding empty islands. The number that
+        /// governs desync is the per-peer one, and it did not move.
         /// </summary>
-        public const int DefaultMaxConcurrent = 24;
+        public const int DefaultMaxConcurrent = 4000;
 
         /// <summary>
-        /// Mantas on the calmest island. WAREBORN TUNING: a count retail never told
-        /// us. Two rather than one so the perimeter reads as patrolled rather than
-        /// as a single lost animal.
+        /// How many mantas swim in ONE school on the calmest island. WAREBORN TUNING
+        /// - the sweep of the decompiled client finds no group size anywhere, because
+        /// <c>FlockStateData</c>'s membership is two unbounded lists and the bookkeeping
+        /// that filled them lived in GSim. See <see cref="IslandFaunaSchool"/> for the
+        /// full negative result and for the two PROVED distances (10 m ready, 15 m
+        /// caught up) that do anchor how big a school is in metres.
+        ///
+        /// Four, because that is the smallest count that reads unambiguously as a
+        /// group rather than as two animals that happen to be near each other.
         /// </summary>
-        private const int MantaCountAtTier1 = 2;
+        private const int MantaSchoolSizeAtTier1 = 4;
 
         /// <summary>
-        /// Extra mantas per tier above 1. WAREBORN TUNING. One per step, so tier 4
-        /// Badlands carries five - noticeably busier than Wilderness without
-        /// turning the sky into a swarm.
+        /// Extra mantas per school per tier above 1. WAREBORN TUNING. The DIRECTION
+        /// is WIKI-SOURCED, from the worldsadrift.fandom.com Biome and Creatures
+        /// pages placing tier-1 Wilderness at the calm end and tier-4 Badlands at the
+        /// hostile end; the step is a choice.
         /// </summary>
-        private const int MantaPerTierStep = 1;
+        private const int MantaSchoolPerTierStep = 1;
 
         /// <summary>
-        /// Jellies on the calmest island. WAREBORN TUNING. One, because a jelly is
-        /// a hazard a player walks into rather than scenery, and the calm end of
-        /// the world should carry a token one, not a field of them.
+        /// How many jellies drift in ONE shoal on the calmest island. WAREBORN TUNING.
+        ///
+        /// Six, and much larger than a manta school on purpose. Retail jellies did
+        /// NOT flock - proved three ways in <see cref="IslandFaunaSchool"/> - so the
+        /// only thing that ever made jellyfish read as a shoal was DENSITY. One
+        /// jelly per island, which is what this server seeded before, cannot look
+        /// like anything; it is a single animal drifting under a rock, which is why
+        /// the player had never seen a jellyfish school.
         /// </summary>
-        private const int JellyFishCountAtTier1 = 1;
+        private const int JellyFishShoalSizeAtTier1 = 6;
 
-        /// <summary>Extra jellies per tier above 1. WAREBORN TUNING; see <see cref="MantaPerTierStep"/>.</summary>
-        private const int JellyFishPerTierStep = 1;
+        /// <summary>Extra jellies per shoal per tier above 1. WAREBORN TUNING; see <see cref="MantaSchoolPerTierStep"/>.</summary>
+        private const int JellyFishShoalPerTierStep = 2;
 
         /// <summary>The lowest and highest surveyed tier. Mirrors IslandSurveyProfile's own 1..4 guard.</summary>
         private const int LowestTier = 1;
@@ -193,21 +228,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         };
 
         /// <summary>
-        /// How many mantas a tier-<paramref name="tier"/> island carries. Counts are
-        /// WAREBORN TUNING; the fact that they RISE with the tier is WIKI-SOURCED
-        /// from the fandom Biome and Creatures pages, which place calm Wilderness at
-        /// tier 1 and hostile Badlands at tier 4.
+        /// How many SCHOOLS of each species a single island carries.
+        ///
+        /// One, across every tier, and that is a deliberate shape rather than an
+        /// unfinished one. A tier's danger is expressed by making its school BIGGER
+        /// (<see cref="MantaCountFor"/>), not by scattering more separate groups
+        /// around the same rock: two schools on one island are two things a player
+        /// must be in two places to see, whereas one larger school is the same
+        /// animals arriving together. It is also what keeps
+        /// <see cref="PopulationFor"/>'s largest output (19, on a tier-4 island)
+        /// inside <see cref="IslandFaunaInterestPolicy.DefaultPerPeerCreatures"/>, so
+        /// a player standing on an island is never shown a truncated school.
         /// </summary>
-        public static int MantaCountFor(int tier) =>
-            MantaCountAtTier1 + (MantaPerTierStep * (ClampTier(tier) - LowestTier));
+        public const int SchoolsPerIsland = 1;
 
         /// <summary>
-        /// How many jellies a tier-<paramref name="tier"/> island carries. Same
-        /// provenance as <see cref="MantaCountFor"/>: WAREBORN TUNING counts,
-        /// WIKI-SOURCED direction.
+        /// How many mantas a tier-<paramref name="tier"/> island carries, across all
+        /// its schools. Counts are WAREBORN TUNING; the fact that they RISE with the
+        /// tier is WIKI-SOURCED from the fandom Biome and Creatures pages, which
+        /// place calm Wilderness at tier 1 and hostile Badlands at tier 4.
+        /// </summary>
+        public static int MantaCountFor(int tier) =>
+            SchoolsPerIsland * (MantaSchoolSizeAtTier1
+                + (MantaSchoolPerTierStep * (ClampTier(tier) - LowestTier)));
+
+        /// <summary>
+        /// How many jellies a tier-<paramref name="tier"/> island carries, across all
+        /// its shoals. Same provenance as <see cref="MantaCountFor"/>: WAREBORN
+        /// TUNING counts, WIKI-SOURCED direction.
         /// </summary>
         public static int JellyFishCountFor(int tier) =>
-            JellyFishCountAtTier1 + (JellyFishPerTierStep * (ClampTier(tier) - LowestTier));
+            SchoolsPerIsland * (JellyFishShoalSizeAtTier1
+                + (JellyFishShoalPerTierStep * (ClampTier(tier) - LowestTier)));
+
+        /// <summary>How many members one school of <paramref name="species"/> has at <paramref name="tier"/>.</summary>
+        public static int SchoolSizeFor(FaunaSpecies species, int tier) =>
+            (species == FaunaSpecies.MantaRay ? MantaCountFor(tier) : JellyFishCountFor(tier))
+            / SchoolsPerIsland;
 
         /// <summary>
         /// Everything that lives on one island, in a fixed order, with contiguous
@@ -223,6 +280,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// Mantas are emitted before jellies so the ORDER is a property of the
         /// function rather than of dictionary iteration, and
         /// <see cref="FaunaCreature.Index"/> is the position in this list.
+        ///
+        /// A SCHOOL IS A CONTIGUOUS RUN OF IDS, which is not cosmetic: it is what
+        /// lets <see cref="IslandFaunaInterestPolicy.Reconcile"/> order additions by
+        /// id and have a school arrive together rather than interleaved with another
+        /// island's, and it is what makes a school a readable block in the log.
         /// </summary>
         public static IReadOnlyList<FaunaCreature> PopulationFor(
             ReleaseIslandRecord island, long firstEntityId)
@@ -233,24 +295,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             }
 
             int tier = ClampTier(island.Survey.Tier);
-            int mantas = MantaCountFor(tier);
-            int jellies = JellyFishCountFor(tier);
             IslandId id = island.Definition.Id;
 
-            FaunaCreature[] population = new FaunaCreature[mantas + jellies];
-            int index = 0;
-            for (int i = 0; i < mantas; i++, index++)
-            {
-                population[index] = new FaunaCreature(
-                    firstEntityId + index, FaunaSpecies.MantaRay, id, index);
-            }
-            for (int i = 0; i < jellies; i++, index++)
-            {
-                population[index] = new FaunaCreature(
-                    firstEntityId + index, FaunaSpecies.JellyFish, id, index);
-            }
+            List<FaunaCreature> population = new List<FaunaCreature>(
+                MantaCountFor(tier) + JellyFishCountFor(tier));
+            AddSchools(population, FaunaSpecies.MantaRay, tier, id, firstEntityId);
+            AddSchools(population, FaunaSpecies.JellyFish, tier, id, firstEntityId);
+            return population.AsReadOnly();
+        }
 
-            return Array.AsReadOnly(population);
+        /// <summary>
+        /// Appends every school of one species, school by school and member by
+        /// member, so a school's members hold consecutive indices and therefore
+        /// consecutive entity ids.
+        /// </summary>
+        private static void AddSchools(List<FaunaCreature> population, FaunaSpecies species,
+            int tier, IslandId island, long firstEntityId)
+        {
+            int size = SchoolSizeFor(species, tier);
+            for (int school = 0; school < SchoolsPerIsland; school++)
+            {
+                for (int member = 0; member < size; member++)
+                {
+                    int index = population.Count;
+                    population.Add(new FaunaCreature(
+                        firstEntityId + index, species, island, index, school, member));
+                }
+            }
         }
 
         /// <summary>

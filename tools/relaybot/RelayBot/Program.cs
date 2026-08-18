@@ -24,6 +24,7 @@ namespace RelayBot
             int setupTimeoutSeconds = 120;
             bool rewritten1073 = false;
             bool shipAcceptance = false;
+            (double X, double Y, double Z)? centre = null;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -42,9 +43,27 @@ namespace RelayBot
                     // counts as unmatched and "delivered %" is meaningless.
                     case "--rewritten-1073": rewritten1073 = true; break;
                     case "--ship-acceptance": shipAcceptance = true; break;
+                    // Stand the bots somewhere other than the Haven spawn, in world
+                    // METRES: "--centre 7376.4,25.2,6231.7". Needed to soak anything
+                    // whose interest is island-scoped, because the spawn is 3.8 km
+                    // from the nearest island. See the Bot constructor.
+                    case "--centre":
+                    {
+                        string[] parts = args[++i].Split(',');
+                        if (parts.Length != 3)
+                        {
+                            Console.Error.WriteLine("--centre wants X,Y,Z in world metres");
+                            return 2;
+                        }
+                        centre = (
+                            double.Parse(parts[0], CultureInfo.InvariantCulture),
+                            double.Parse(parts[1], CultureInfo.InvariantCulture),
+                            double.Parse(parts[2], CultureInfo.InvariantCulture));
+                        break;
+                    }
                     default:
                         Console.Error.WriteLine("unknown argument: " + args[i]);
-                        Console.Error.WriteLine("usage: RelayBot [--host H] [--port P] [--minutes M] [--csv FILE] [--setup-timeout S] [--rewritten-1073] [--ship-acceptance]");
+                        Console.Error.WriteLine("usage: RelayBot [--host H] [--port P] [--minutes M] [--csv FILE] [--setup-timeout S] [--rewritten-1073] [--ship-acceptance] [--centre X,Y,Z]");
                         return 2;
                 }
             }
@@ -72,8 +91,8 @@ namespace RelayBot
 
             var bots = new[]
             {
-                new Bot(0, "botA", host, port, rewritten1073, metrics, sendLog, entityOwners, cts.Token),
-                new Bot(1, "botB", host, port, rewritten1073, metrics, sendLog, entityOwners, cts.Token),
+                new Bot(0, "botA", host, port, rewritten1073, metrics, sendLog, entityOwners, cts.Token, centre),
+                new Bot(1, "botB", host, port, rewritten1073, metrics, sendLog, entityOwners, cts.Token, centre),
             };
 
             var threads = new List<Thread>();

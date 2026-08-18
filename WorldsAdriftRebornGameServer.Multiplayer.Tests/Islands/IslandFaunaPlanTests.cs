@@ -46,19 +46,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void The_release_tier_one_world_wants_far_more_fauna_than_the_default_cap()
+        public void The_default_budget_now_populates_the_whole_release_world()
         {
-            // Not a curiosity: this is the production configuration. Forty-six
-            // Wilderness islands at three creatures each is 138, and the default
-            // budget is 24, so the plan MUST be a selection rather than a copy.
-            // Stated as a test so the day somebody changes either number, the
-            // disagreement is reported rather than discovered in game.
+            // THIS IS THE "MORE WILDLIFE" FIX, pinned. The world-wide cap used to be
+            // 24 against a tier-1 demand of 138, so eight of forty-six Wilderness
+            // islands carried anything and thirty-eight were empty. That cap existed
+            // because it was the only bound on what ONE PEER could be sent; now that
+            // IslandFaunaInterestPolicy bounds the wire per peer directly, the
+            // world-wide number bounds only how much wildlife EXISTS, and every
+            // island can carry its own.
+            //
+            // Asserted for the production rollout AND for the complete catalogue, so
+            // an operator who turns the whole world on is not quietly handed empty
+            // islands either.
+            Assert.True(IslandFaunaPlan.Demand(ReleaseWorldRolloutPolicy.Select("tier1"))
+                <= IslandFaunaPolicy.DefaultMaxConcurrent,
+                "the production tier-1 world must fit inside the default budget");
+            Assert.True(IslandFaunaPlan.Demand(ReleaseWorldRolloutPolicy.Select("all"))
+                <= IslandFaunaPolicy.DefaultMaxConcurrent,
+                "the complete release catalogue must fit inside the default budget");
+        }
+
+        [Fact]
+        public void Every_tier_one_island_is_populated_under_the_default_budget()
+        {
             IReadOnlyList<ReleaseIslandRecord> tierOne =
                 ReleaseWorldRolloutPolicy.Select("tier1");
+            IReadOnlyList<FaunaPlacement> plan =
+                IslandFaunaPlan.Build(tierOne, IslandFaunaPolicy.DefaultMaxConcurrent);
 
-            Assert.True(IslandFaunaPlan.Demand(tierOne) > IslandFaunaPolicy.DefaultMaxConcurrent,
-                "the tier 1 rollout no longer over-subscribes the fauna budget; "
-                + "if that is deliberate, this test should be updated deliberately");
+            Assert.Equal(tierOne.Count, IslandFaunaPlan.IslandCount(plan));
+            Assert.Equal(IslandFaunaPlan.Demand(tierOne), plan.Count);
+        }
+
+        [Fact]
+        public void No_island_can_out_populate_what_one_peer_is_allowed_to_hold()
+        {
+            // The whole-island admission rule in IslandFaunaInterestPolicy skips a
+            // population that does not fit the per-peer budget. If any island in the
+            // catalogue were bigger than that budget, a player standing on it would be
+            // shown NO fauna at all - the loudest possible version of the bug this
+            // work exists to fix. This is the guard.
+            foreach (ReleaseIslandRecord island in ReleaseWorldRolloutPolicy.Select("all"))
+            {
+                int population = IslandFaunaPolicy
+                    .PopulationFor(island, IslandFaunaPolicy.FirstFaunaEntityId).Count;
+                Assert.True(population <= IslandFaunaInterestPolicy.DefaultPerPeerCreatures,
+                    island.Definition.Id + " carries " + population
+                        + " creature(s), more than one peer may hold ("
+                        + IslandFaunaInterestPolicy.DefaultPerPeerCreatures + ")");
+            }
         }
 
         [Fact]
@@ -140,8 +177,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         {
             IReadOnlyList<ReleaseIslandRecord> islands = Tier(1, 20);
 
-            Dictionary<long, FaunaCreature> generous = ById(IslandFaunaPlan.Build(islands, 60));
-            Dictionary<long, FaunaCreature> mean = ById(IslandFaunaPlan.Build(islands, 9));
+            // Both budgets must admit SOMETHING, so they are expressed in whole
+            // island populations rather than in raw creatures: one tier-1 island now
+            // costs ten, and a budget of nine would admit nobody and prove nothing.
+            int islandCost = IslandFaunaPolicy
+                .PopulationFor(islands[0], IslandFaunaPolicy.FirstFaunaEntityId).Count;
+            Dictionary<long, FaunaCreature> generous =
+                ById(IslandFaunaPlan.Build(islands, islandCost * 12));
+            Dictionary<long, FaunaCreature> mean =
+                ById(IslandFaunaPlan.Build(islands, islandCost * 3));
 
             Assert.NotEmpty(mean);
             foreach ((long entityId, FaunaCreature creature) in mean)

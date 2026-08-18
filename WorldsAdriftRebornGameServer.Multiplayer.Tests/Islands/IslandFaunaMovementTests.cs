@@ -4,41 +4,89 @@ using Xunit;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 {
     /// <summary>
-    /// WHY THESE FACTS MATTER. The manta perimeter orbit and the jellyfish
+    /// WHY THESE FACTS MATTER. The manta perimeter patrol and the jellyfish
     /// day/night drift ARE the feature: everything else - the population policy,
     /// the bounded registry, the interest scoping - exists only to decide which
     /// creatures get to move and how often their motion is published. If the
-    /// geometry is wrong, a manta flies inside the rock or a kilometre off the
-    /// perimeter and no amount of correct bookkeeping above it helps.
+    /// geometry is wrong, a manta flies inside the rock, or a kilometre off the
+    /// perimeter, or - as actually happened - two hundred metres UNDER the ground
+    /// the player is standing on, and no amount of correct bookkeeping above it
+    /// helps.
     ///
-    /// Three properties are asserted rather than assumed. GEOMETRY RESCALES: the
-    /// radii are ratios of the envelope's own extents, so the same facts are run
-    /// against a tiny islet, a huge island and a strongly anisotropic one - the
-    /// only "different viewport" this headless server has. PURITY: LocalPoseAt is
-    /// a total function of its arguments with no Random, no DateTime and no
-    /// accumulation, which is exactly what lets a restarted server replay the
-    /// identical path and lets peers agree without syncing state. WIRING: the
-    /// registry drives this maths through the FaunaPoseFunction delegate, and
-    /// nothing else proves that the two halves actually fit together.
+    /// FOUR properties are asserted rather than assumed.
+    ///
+    /// THE RECOVERED VERTICAL BAND, which is the fact this file exists for. Retail's
+    /// patrol offset is a sine of an orbit angle that is WRAPPED INTO [0,360], so its
+    /// argument only covers a quarter period and the offset is never negative: the
+    /// patrol occupies the band from the island's vertical MIDPOINT to its TOP. An
+    /// earlier reading took it as a full sine about the midpoint, which sent mantas
+    /// as far below the island as above it. On a floating island - whose walkable
+    /// ground the release catalogue measures at a median 0.755 of AABB height - that
+    /// is the difference between wildlife a player can see and wildlife inside the
+    /// rock spire. <see cref="Manta_never_flies_below_the_islands_vertical_midpoint"/>
+    /// pins it so the regression cannot come back quietly.
+    ///
+    /// CONTINUITY IN TIME. A closed form is free to teleport and this one used to:
+    /// the jelly switched radius and altitude instantly at the day/night boundary.
+    /// On the wire a teleport is indistinguishable from a despawn, which is the
+    /// complaint the whole feature was reported for, so every path is now asserted
+    /// to move in bounded steps across a WHOLE cycle rather than only at samples
+    /// chosen to look good.
+    ///
+    /// GEOMETRY RESCALES: radii come from the envelope's own extents, so the facts
+    /// run against a tiny islet, a huge island and a strongly anisotropic one - the
+    /// only "different viewport" this headless server has.
+    ///
+    /// PURITY AND WIRING: LocalPoseAt is a total function of its arguments with no
+    /// Random, no DateTime and no accumulation, which is what lets a restarted
+    /// server replay the identical path and lets peers agree without syncing state;
+    /// and the registry drives this maths through the FaunaPoseFunction delegate,
+    /// which nothing else proves fits together.
     /// </summary>
     public sealed class IslandFaunaMovementTests
     {
         private const double Tolerance = 1e-9;
         private const double LooseTolerance = 1e-6;
 
-        // --- Manta perimeter orbit (RECOVERED, acs/PatrolVisualiser.cs)
+        // --- Manta perimeter patrol (RECOVERED, acs/PatrolVisualiser.cs)
 
         [Fact]
-        public void Manta_holds_the_orbit_radius_outside_the_island_across_a_whole_revolution()
+        public void Manta_orbit_radius_is_the_recovered_half_diagonal_plus_the_standoff()
         {
-            IslandTerrainEnvelope envelope = Normal();
-            double lateral = IslandFaunaMovement.LateralRadiusOf(envelope);
-            double orbit = IslandFaunaMovement.MantaOrbitRadiusOf(envelope);
-            Assert.True(orbit > lateral, "the orbit must clear the island's lateral bounds");
-
-            foreach (double seconds in Revolution())
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
             {
-                Assert.Equal(orbit, LateralDistance(Manta(0), envelope, seconds), 6);
+                double halfX = (envelope.MaxX - envelope.MinX) / 2.0;
+                double halfZ = (envelope.MaxZ - envelope.MinZ) / 2.0;
+                double expected = Math.Sqrt((halfX * halfX) + (halfZ * halfZ))
+                    + IslandFaunaMovement.MantaLateralStandoffMetres;
+
+                Assert.Equal(expected, IslandFaunaMovement.MantaOrbitRadiusOf(envelope), 9);
+
+                // The half-DIAGONAL, not the larger half-extent: that is what clears
+                // the corners of a box rather than clipping through them.
+                Assert.True(IslandFaunaMovement.MantaOrbitRadiusOf(envelope)
+                    > IslandFaunaMovement.LateralRadiusOf(envelope),
+                    "the orbit must clear the island's lateral bounds");
+            }
+        }
+
+        [Fact]
+        public void Manta_school_centre_holds_the_orbit_radius_across_a_whole_revolution()
+        {
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
+            {
+                double orbit = IslandFaunaMovement.MantaOrbitRadiusOf(envelope);
+                double schoolRadius = IslandFaunaSchool.MantaSchoolRadiusMetres;
+
+                foreach (double seconds in Revolution(envelope))
+                {
+                    // A member is displaced from the school's centre, so the school's
+                    // radius is what is exact and the member is within a cluster of it.
+                    double distance = LateralDistance(Manta(0), envelope, seconds);
+                    Assert.True(Math.Abs(distance - orbit) <= schoolRadius + LooseTolerance,
+                        "a school member must stay within the cluster radius of the orbit,"
+                            + " was " + distance + " against an orbit of " + orbit);
+                }
             }
         }
 
@@ -53,53 +101,106 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             AssertStaysOutside(Anisotropic());
 
         [Fact]
-        public void Manta_altitude_rises_and_falls_inside_the_island_half_height()
+        public void Manta_never_flies_below_the_islands_vertical_midpoint()
         {
+            // THE RECOVERED FACT. acs/PatrolVisualiser.cs computes
+            //   Vector3.up * Mathf.Sin(orbitDegrees * (PI/180f) * 0.25f) * BoundsExtents.y
+            // with orbitDegrees wrapped into [0,360] by CreatureReachedPatrol, so the
+            // sine's argument covers [0, PI/2] and the offset covers [0, +extents.y].
+            // Never negative. A regression to a full sine about the midpoint would put
+            // half of every lap under the rock, and this is the assertion that catches it.
             foreach (IslandTerrainEnvelope envelope in EveryShape())
             {
-                double centreY = (envelope.MinY + envelope.MaxY) / 2.0;
+                double centreY = IslandFaunaMovement.CentreYOf(envelope);
                 double half = IslandFaunaMovement.HalfHeightOf(envelope);
-                double lowest = double.MaxValue;
-                double highest = double.MinValue;
+                double vertical = IslandFaunaSchool.MantaSchoolVerticalRadiusMetres;
 
-                foreach (double seconds in Revolution())
+                foreach (double seconds in Revolution(envelope))
                 {
                     double y = IslandFaunaMovement.LocalPoseAt(Manta(0), envelope, seconds).Y;
-                    Assert.True(Math.Abs(y - centreY) <= half + LooseTolerance,
-                        "a manta must not climb outside the island's own half-height");
-                    lowest = Math.Min(lowest, y);
-                    highest = Math.Max(highest, y);
+                    Assert.True(y >= centreY - vertical - LooseTolerance,
+                        "a manta must never patrol below the island's vertical midpoint;"
+                            + " was " + y + " against a midpoint of " + centreY);
+                    Assert.True(y <= centreY + half + vertical + LooseTolerance,
+                        "a manta must not climb above the island's own top");
+                }
+            }
+        }
+
+        [Fact]
+        public void Manta_band_straddles_the_ground_a_player_actually_stands_on()
+        {
+            // The release catalogue's own landing points sit at a median 0.755 of AABB
+            // height. The recovered band is [0.5, 1.0] of that height, so the patrol
+            // passes through the player's altitude twice a lap. This is the difference
+            // between "there is wildlife" and "there is wildlife you can see".
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
+            {
+                double walkable = envelope.MinY + ((envelope.MaxY - envelope.MinY)
+                    * IslandFaunaMovement.IslandWalkableHeightFraction);
+                bool below = false;
+                bool above = false;
+
+                foreach (double seconds in Revolution(envelope))
+                {
+                    // The SCHOOL's own altitude: a member's cluster offset is a fixed
+                    // number of metres and would swamp the band on a test islet only a
+                    // few metres tall.
+                    double y = IslandFaunaMovement
+                        .MantaSchoolCentreAt(Manta(0), envelope, seconds).Y;
+                    if (y < walkable) below = true;
+                    if (y > walkable) above = true;
                 }
 
-                // A constant altitude would satisfy the bound above and be wrong:
-                // the recovered path is a sinusoid, so it must genuinely move.
-                Assert.True(highest - lowest > half,
-                    "the vertical offset must both rise and fall, not sit flat");
+                Assert.True(below && above,
+                    "the patrol band must cross the walkable altitude, not sit entirely"
+                        + " above or below it");
             }
         }
 
         [Fact]
-        public void Manta_advances_one_orbit_step_per_orbit_step_of_time()
+        public void Manta_travels_at_a_constant_speed_so_a_big_island_takes_a_long_lap()
         {
-            IslandTerrainEnvelope envelope = Normal();
-            double step = IslandFaunaMovement.MantaSecondsPerOrbitStep;
+            // RECOVERED DIRECTION: retail advanced the patrol target when the creature
+            // REACHED it, so lap time followed island size. A fixed lap time - which is
+            // what this server used to have - makes the largest island's manta move at
+            // 23 m/s and the smallest one's crawl.
+            double smallLap = IslandFaunaMovement.MantaLapSecondsOf(Tiny());
+            double bigLap = IslandFaunaMovement.MantaLapSecondsOf(Huge());
+            Assert.True(bigLap > smallLap * 10.0,
+                "a much larger island must take a much longer lap at a fixed speed");
 
-            for (int i = 0; i < 12; i++)
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
             {
-                double first = HeadingDegrees(Manta(0), envelope, i * step);
-                double second = HeadingDegrees(Manta(0), envelope, (i + 1) * step);
-                double advanced = Normalise(second - first);
-                Assert.True(Math.Abs(advanced - IslandFaunaMovement.MantaOrbitStepDegrees) < 1e-6,
-                    "expected ~" + IslandFaunaMovement.MantaOrbitStepDegrees
-                        + " degrees per step, advanced " + advanced);
+                double lap = IslandFaunaMovement.MantaLapSecondsOf(envelope);
+                double expected = 2.0 * Math.PI
+                    * IslandFaunaMovement.MantaOrbitRadiusOf(envelope)
+                    / IslandFaunaMovement.MantaMetresPerSecond;
+                Assert.Equal(expected, lap, 9);
+
+                // And the school centre really does complete exactly one lap in it,
+                // returning to the same point rather than merely the same heading.
+                (double X, double Y, double Z) start =
+                    IslandFaunaMovement.MantaSchoolCentreAt(Manta(0), envelope, 0.0);
+                (double X, double Y, double Z) full =
+                    IslandFaunaMovement.MantaSchoolCentreAt(Manta(0), envelope, lap);
+                (double X, double Y, double Z) half =
+                    IslandFaunaMovement.MantaSchoolCentreAt(Manta(0), envelope, lap / 2.0);
+
+                Assert.Equal(start.X, full.X, 6);
+                Assert.Equal(start.Y, full.Y, 6);
+                Assert.Equal(start.Z, full.Z, 6);
+                Assert.True(Math.Abs(half.X - start.X) + Math.Abs(half.Z - start.Z)
+                    > IslandFaunaMovement.MantaOrbitRadiusOf(envelope),
+                    "half a lap must be most of the way round, not a rounding error");
             }
         }
 
         [Fact]
-        public void Two_mantas_do_not_fly_in_one_stack()
+        public void School_members_ride_the_school_rather_than_stacking_on_it()
         {
             IslandTerrainEnvelope envelope = Normal();
-            foreach (double seconds in Revolution())
+            foreach (double seconds in Revolution(envelope))
             {
                 (double X, double Y, double Z) first =
                     IslandFaunaMovement.LocalPoseAt(Manta(0), envelope, seconds);
@@ -107,82 +208,173 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                     IslandFaunaMovement.LocalPoseAt(Manta(1), envelope, seconds);
 
                 double dx = first.X - second.X;
+                double dy = first.Y - second.Y;
                 double dz = first.Z - second.Z;
-                Assert.True(Math.Sqrt((dx * dx) + (dz * dz)) > 1.0,
-                    "creatures with different indices must be phase-offset on the orbit");
+                double apart = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+
+                Assert.True(apart > 1.0,
+                    "two members of one school must not occupy the same point");
+                Assert.True(apart < 4.0 * IslandFaunaSchool.MantaSchoolRadiusMetres,
+                    "two members of one school must stay together; a school that spreads"
+                        + " past its own diameter is not a school");
             }
         }
 
         // --- Jellyfish day/night drift (RECOVERED, acs/JellyFishMovement.cs)
 
         [Fact]
-        public void Phase_is_day_in_the_first_half_night_in_the_second_and_total_for_any_input()
+        public void Day_and_night_use_the_recovered_thresholds_and_are_total_for_any_input()
         {
             double cycle = IslandFaunaMovement.DayNightCycleSeconds;
 
-            Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt(0.0));
-            Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt((cycle / 2.0) - 1.0));
-            Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(cycle / 2.0));
-            Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(cycle - 1.0));
+            // RECOVERED EXACTLY: _isDayTime = num > 0.2f && num < 0.8f. Day is the
+            // middle 60% of the cycle, NOT an even half - which is why it is recovered
+            // rather than assumed.
+            Assert.Equal(0.2, IslandFaunaMovement.DayBeginsAtCycleFraction);
+            Assert.Equal(0.8, IslandFaunaMovement.DayEndsAtCycleFraction);
+
+            Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(0.0));
+            Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(cycle * 0.1));
+            Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt(cycle * 0.5));
+            Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(cycle * 0.9));
 
             // Total for negative input: a clock that has not started must not throw
             // and must not produce an undefined phase.
             Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(-1.0));
-            Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt(-cycle));
-            Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt(-cycle + 5.0));
+            Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt(-cycle * 0.5));
 
             // Periodic across whole cycles, in both directions.
             for (int lap = -3; lap <= 3; lap++)
             {
-                Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt((lap * cycle) + 10.0));
+                Assert.Equal(FaunaDayPhase.Day,
+                    IslandFaunaMovement.PhaseAt((lap * cycle) + (cycle * 0.5)));
                 Assert.Equal(FaunaDayPhase.Night,
-                    IslandFaunaMovement.PhaseAt((lap * cycle) + (cycle / 2.0) + 10.0));
+                    IslandFaunaMovement.PhaseAt((lap * cycle) + (cycle * 0.95)));
             }
         }
 
         [Fact]
-        public void Jelly_drifts_out_past_the_bounds_by_day_and_is_drawn_back_in_by_night()
+        public void Dayness_is_a_smooth_ramp_that_agrees_with_the_boolean_away_from_dawn()
+        {
+            double cycle = IslandFaunaMovement.DayNightCycleSeconds;
+
+            Assert.Equal(0.0, IslandFaunaMovement.DaynessAt(0.0), 9);
+            Assert.Equal(1.0, IslandFaunaMovement.DaynessAt(cycle * 0.5), 9);
+            Assert.Equal(0.0, IslandFaunaMovement.DaynessAt(cycle * 0.95), 9);
+
+            // Bounded, periodic and continuous everywhere - including across the wrap,
+            // which is where a naive "cycle < 0.5" formulation breaks.
+            double previous = IslandFaunaMovement.DaynessAt(-cycle);
+            for (int step = 1; step <= 4000; step++)
+            {
+                double dayness = IslandFaunaMovement.DaynessAt(-cycle + (step * cycle / 1000.0));
+                Assert.InRange(dayness, 0.0, 1.0);
+                Assert.True(Math.Abs(dayness - previous) < 0.05,
+                    "dayness must ramp, not step");
+                previous = dayness;
+            }
+        }
+
+        [Fact]
+        public void Jelly_drifts_out_and_down_by_day_and_rises_to_the_rim_by_night()
         {
             double cycle = IslandFaunaMovement.DayNightCycleSeconds;
 
             foreach (IslandTerrainEnvelope envelope in EveryShape())
             {
                 double lateral = IslandFaunaMovement.LateralRadiusOf(envelope);
+                double shoal = IslandFaunaSchool.JellyShoalRadiusMetres;
 
-                // Half a cycle apart is a whole number of jelly revolutions plus the
-                // same fraction, so both samples sit at the SAME orbit phase and only
-                // the day/night rule differs. 1200 / 300 = 4 revolutions per cycle.
-                double day = 30.0;
-                double night = day + (cycle / 2.0);
+                double day = cycle * 0.5;
+                double night = 0.0;
                 Assert.Equal(FaunaDayPhase.Day, IslandFaunaMovement.PhaseAt(day));
                 Assert.Equal(FaunaDayPhase.Night, IslandFaunaMovement.PhaseAt(night));
 
-                double byDay = LateralDistance(Jelly(0), envelope, day);
-                double byNight = LateralDistance(Jelly(0), envelope, night);
+                // The SHOAL's own station, not one drifter's: a jelly cluster is 26 m
+                // wide and the test islet is 16 m across, so a member-level assertion
+                // would be measuring the cluster rather than the day/night rule.
+                (double X, double Y, double Z) dayCentre =
+                    IslandFaunaMovement.JellyShoalCentreAt(Jelly(0), envelope, day);
+                (double X, double Y, double Z) nightCentre =
+                    IslandFaunaMovement.JellyShoalCentreAt(Jelly(0), envelope, night);
+                double byDay = LateralOf(dayCentre, envelope);
+                double byNight = LateralOf(nightCentre, envelope);
+
+                // RECOVERED: daytime steers laterally AWAY from the island centre.
+                Assert.True(byDay > byNight,
+                    "by day the jelly moves laterally AWAY from the island centre");
+                Assert.True(byDay > lateral,
+                    "the day station must sit outside the island's lateral bounds");
 
                 Assert.Equal(lateral * IslandFaunaMovement.JellyDayRadiusRatio, byDay, 6);
                 Assert.Equal(lateral * IslandFaunaMovement.JellyNightRadiusRatio, byNight, 6);
-                Assert.True(byDay > byNight,
-                    "by day the jelly moves laterally AWAY from the island centre");
-                Assert.True(byDay > lateral, "the day radius must sit outside the bounds");
-                Assert.True(byNight < lateral, "the night radius must be drawn back inside");
+
+                // A member stays within its shoal of that station.
+                Assert.True(Math.Abs(LateralDistance(Jelly(0), envelope, day) - byDay)
+                    <= shoal + LooseTolerance);
+
+                // RECOVERED: the daytime jelly holds the BoundsMin altitude - the
+                // underside of the rock. At night it rises toward the rim.
+                Assert.True(nightCentre.Y > dayCentre.Y,
+                    "the night shoal must rise above the day station");
+                Assert.Equal(envelope.MinY, dayCentre.Y, 6);
             }
         }
 
         [Fact]
-        public void Jelly_seeks_the_bounds_minimum_altitude_by_day()
+        public void Night_shoal_reaches_the_altitude_a_player_stands_at()
         {
-            double cycle = IslandFaunaMovement.DayNightCycleSeconds;
-
+            // The reason the player had never seen a jellyfish: the night station used
+            // to be the AABB midpoint, which on a floating island is inside the rock
+            // and a hundred metres under the ground.
             foreach (IslandTerrainEnvelope envelope in EveryShape())
             {
-                double dayY = IslandFaunaMovement.LocalPoseAt(Jelly(0), envelope, 30.0).Y;
-                double nightY = IslandFaunaMovement
-                    .LocalPoseAt(Jelly(0), envelope, 30.0 + (cycle / 2.0)).Y;
+                double walkable = envelope.MinY + ((envelope.MaxY - envelope.MinY)
+                    * IslandFaunaMovement.IslandWalkableHeightFraction);
+                double nightY = IslandFaunaMovement.JellyShoalCentreAt(Jelly(0), envelope, 0.0).Y;
+                Assert.Equal(walkable, nightY, 6);
+            }
+        }
 
-                Assert.True(Math.Abs(dayY - envelope.MinY) < Math.Abs(nightY - envelope.MinY),
-                    "the daytime jelly must sink toward the bounds MIN altitude");
-                Assert.Equal(envelope.MinY, dayY, 9);
+        // --- Continuity: a closed form is allowed to teleport, and must not
+
+        [Fact]
+        public void No_creature_ever_teleports_across_a_whole_day_night_cycle()
+        {
+            // THE REGRESSION GUARD for the bug that made a jelly jump from the island's
+            // underside to its rim in one frame. Sampling at the pose cadence over a
+            // whole cycle is the only thing that catches a discontinuity at a phase
+            // boundary, because the boundary is exactly where hand-picked samples are
+            // not.
+            const double StepSeconds = 0.25;
+            double cycle = IslandFaunaMovement.DayNightCycleSeconds;
+
+            foreach (IslandTerrainEnvelope envelope in new[] { Normal(), Tiny(), Anisotropic() })
+            {
+                foreach (FaunaCreature creature in new[] { Manta(0), Manta(3), Jelly(0), Jelly(2) })
+                {
+                    // Generous but finite: the fastest thing here is a manta at
+                    // MantaMetresPerSecond plus the cluster weave, so a quarter second
+                    // can never move it more than a few metres.
+                    double limit = (IslandFaunaMovement.MantaMetresPerSecond * StepSeconds * 4.0)
+                        + 2.0;
+                    (double X, double Y, double Z) previous =
+                        IslandFaunaMovement.LocalPoseAt(creature, envelope, 0.0);
+
+                    for (double t = StepSeconds; t <= cycle; t += StepSeconds)
+                    {
+                        (double X, double Y, double Z) now =
+                            IslandFaunaMovement.LocalPoseAt(creature, envelope, t);
+                        double dx = now.X - previous.X;
+                        double dy = now.Y - previous.Y;
+                        double dz = now.Z - previous.Z;
+                        double moved = Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+                        Assert.True(moved <= limit,
+                            creature.Species + " teleported " + moved + " m at t=" + t
+                                + " on " + envelope.IslandId);
+                        previous = now;
+                    }
+                }
             }
         }
 
@@ -192,7 +384,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         public void Local_pose_is_a_pure_function_of_its_arguments()
         {
             IslandTerrainEnvelope envelope = Normal();
-            double[] times = Revolution().ToArray();
+            double[] times = Revolution(envelope).ToArray();
             Dictionary<double, (double X, double Y, double Z)> baseline =
                 times.ToDictionary(t => t,
                     t => IslandFaunaMovement.LocalPoseAt(Manta(1), envelope, t));
@@ -229,7 +421,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
             foreach (FaunaCreature creature in new[] { Manta(0), Manta(2), Jelly(1) })
             {
-                foreach (double seconds in Revolution())
+                foreach (double seconds in Revolution(envelope))
                 {
                     (double x, double y, double z) =
                         IslandFaunaMovement.LocalPoseAt(creature, envelope, seconds);
@@ -267,17 +459,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             }
         }
 
-        /// <summary>The manta orbit clears the island's own lateral bounds at every sample.</summary>
+        /// <summary>The manta patrol clears the island's own lateral bounds at every sample.</summary>
         private static void AssertStaysOutside(IslandTerrainEnvelope envelope)
         {
             double lateral = IslandFaunaMovement.LateralRadiusOf(envelope);
             double orbit = IslandFaunaMovement.MantaOrbitRadiusOf(envelope);
             Assert.True(orbit > lateral);
 
-            foreach (double seconds in Revolution())
+            foreach (double seconds in Revolution(envelope))
             {
                 double distance = LateralDistance(Manta(0), envelope, seconds);
-                Assert.Equal(orbit, distance, 6);
                 Assert.True(distance > lateral + Tolerance,
                     "a manta must never be inside the rock on an island of this shape");
             }
@@ -293,29 +484,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             return Math.Sqrt((dx * dx) + (dz * dz));
         }
 
-        private static double HeadingDegrees(
-            FaunaCreature creature, IslandTerrainEnvelope envelope, double seconds)
+        /// <summary>How far a point sits from the island's lateral centre.</summary>
+        private static double LateralOf(
+            (double X, double Y, double Z) point, IslandTerrainEnvelope envelope)
         {
-            (double x, double _, double z) =
-                IslandFaunaMovement.LocalPoseAt(creature, envelope, seconds);
-            return Math.Atan2(z - IslandFaunaMovement.CentreZOf(envelope),
-                x - IslandFaunaMovement.CentreXOf(envelope)) * 180.0 / Math.PI;
+            double dx = point.X - IslandFaunaMovement.CentreXOf(envelope);
+            double dz = point.Z - IslandFaunaMovement.CentreZOf(envelope);
+            return Math.Sqrt((dx * dx) + (dz * dz));
         }
 
-        /// <summary>A signed heading delta folded into (-180, 180].</summary>
-        private static double Normalise(double degrees)
+        /// <summary>Thirty-six sample times spanning one whole manta revolution of this island.</summary>
+        private static IEnumerable<double> Revolution(IslandTerrainEnvelope envelope)
         {
-            double value = degrees % 360.0;
-            if (value <= -180.0) value += 360.0;
-            if (value > 180.0) value -= 360.0;
-            return value;
-        }
-
-        /// <summary>Thirty-six sample times spanning one whole manta revolution.</summary>
-        private static IEnumerable<double> Revolution()
-        {
-            double lap = IslandFaunaMovement.MantaSecondsPerOrbitStep
-                * (360.0 / IslandFaunaMovement.MantaOrbitStepDegrees);
+            double lap = IslandFaunaMovement.MantaLapSecondsOf(envelope);
             for (int i = 0; i < 36; i++)
             {
                 yield return lap * i / 36.0;
@@ -346,11 +527,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
         private static FaunaCreature Manta(int index) =>
             new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId + index,
-                FaunaSpecies.MantaRay, new IslandId("fauna-normal"), index);
+                FaunaSpecies.MantaRay, new IslandId("fauna-normal"), index, 0, index);
 
         private static FaunaCreature Jelly(int index) =>
             new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId + 50 + index,
-                FaunaSpecies.JellyFish, new IslandId("fauna-normal"), index);
+                FaunaSpecies.JellyFish, new IslandId("fauna-normal"), 50 + index, 0, index);
 
         private static IslandDefinition Island(IslandId id) => new IslandDefinition(
             id, "Fauna Test Island", "island-" + id.Value,

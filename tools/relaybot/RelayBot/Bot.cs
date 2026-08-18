@@ -143,8 +143,26 @@ namespace RelayBot
         public Bot(int index, string name, string host, int port, bool rewritten1073, Metrics metrics,
             ConcurrentDictionary<(int, uint, int), long> sendLog,
             ConcurrentDictionary<long, int> entityOwners,
-            CancellationToken cancel)
+            CancellationToken cancel,
+            (double X, double Y, double Z)? centreOverride = null)
         {
+            // WHY AN OVERRIDE EXISTS AT ALL. The bot normally latches its circle
+            // centre from the 190602 spawn seed and walks a 5 m circle around it -
+            // which is the Haven spawn, and the Haven spawn is 3.8 KM from the
+            // nearest release-world island. Anything whose interest is island-scoped
+            // is therefore unmeasurable by default: island fauna in particular is
+            // never checked out to a bot no matter how the server is configured,
+            // which was discovered the hard way after a soak reported a confident
+            // FLAT while carrying exactly zero creatures. With this the bots can be
+            // stood anywhere the world has islands, which is the only way the fauna
+            // sender's rate can be soaked at all.
+            if (centreOverride.HasValue)
+            {
+                _centreX = centreOverride.Value.X;
+                _centreY = centreOverride.Value.Y;
+                _centreZ = centreOverride.Value.Z;
+                _centreKnown = true;
+            }
             Index = index;
             Name = name;
             _host = host;
