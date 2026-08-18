@@ -8,7 +8,7 @@
   // Nothing in this file fetches anything or knows what a viewer is. It takes an
   // array of numbers.
 
-  function svgEl(tag){return document.createElementNS('http://www.w3.org/2000/svg',tag);}
+  function viewerSvgEl(tag){return document.createElementNS("http://www.w3.org/2000/svg",tag);}
 
   // An area under a line, no axes and no grid: the point is the shape, and the
   // numbers worth reading are printed beneath it by the caller. The viewBox is
@@ -16,7 +16,7 @@
   // correctly at any width without recomputing anything.
   function viewerSparkline(points,peak,label){
     var w=points.length,h=32,top=peak>0?peak:1,i,y;
-    var svg=svgEl('svg');
+    var svg=viewerSvgEl('svg');
     svg.setAttribute('viewBox','0 0 '+(w>1?w-1:1)+' '+h);
     svg.setAttribute('preserveAspectRatio','none');
     svg.setAttribute('class','spark-svg');
@@ -31,12 +31,12 @@
     }
     area+=' L'+(w>1?w-1:0)+','+h+' Z';
 
-    var fill=svgEl('path');
+    var fill=viewerSvgEl('path');
     fill.setAttribute('d',area);
     fill.setAttribute('class','spark-area');
     svg.appendChild(fill);
 
-    var stroke=svgEl('path');
+    var stroke=viewerSvgEl('path');
     stroke.setAttribute('d',line);
     stroke.setAttribute('class','spark-line');
     svg.appendChild(stroke);
