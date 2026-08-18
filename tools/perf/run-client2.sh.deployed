@@ -1,0 +1,97 @@
+#!/bin/sh
+# Second Worlds Adrift client, for local two-player testing.
+#
+# Uses its own game directory AND its own Proton prefix. Two instances cannot
+# share a directory: BepInEx writes LogOutput.log and its config per game folder,
+# and the second instance dies on the shared state.
+#
+# The game copy is a btrfs reflink of the first, so it costs no real disk.
+export WINEPREFIX="$HOME/Games/wa-proton2/pfx"
+# d3d/dxgi entries make DXVK load; without them wine falls back to wined3d
+# (D3D->OpenGL on the CPU). See run-client.sh for the full diagnosis.
+export WINEDLLOVERRIDES="winhttp=n,b;d3d11,d3d9,dxgi=n"
+export WINEDEBUG=-all
+# Match the primary launcher: invoking GE Wine directly bypasses Proton's
+# wrapper, so opt back into its fast synchronization paths explicitly.
+export WINEFSYNC=1
+export WINEESYNC=1
+# Complement of client 1's physical-core group. Keeping the 266 Unity/Wine
+# threads in disjoint scheduler domains prevents one ENet pump being delayed by
+# seconds while the other remains healthy. Override with
+# WAREBORN_CLIENT2_CPUS on a different topology.
+client_cpus="${WAREBORN_CLIENT2_CPUS:-8-15,22-27}"
+mkdir -p "$WINEPREFIX"
+
+# This launcher is intentionally the SECOND half of a two-client test. Starting
+# it after client 1 has already exited produces two successful but sequential
+# server sessions, in which neither player can possibly see the other.
+if ! pgrep -f '[U]nityClient@Windows.exe' >/dev/null 2>&1; then
+    echo 'Client 1 is not running. Start run-client.sh, join the world, leave it open, then run this script.' >&2
+    exit 2
+fi
+
+# Both copies must exercise exactly the same managed/native protocol build.
+# Refuse a visually misleading comparison after only one install was patched.
+primary="$HOME/Games/WorldsAdrift/BepInEx/plugins/WorldsAdriftReborn"
+secondary="$HOME/Games/WorldsAdrift-2/BepInEx/plugins/WorldsAdriftReborn"
+for artifact in WorldsAdriftReborn.dll CoreSdkDll.dll; do
+    primary_hash="$(sha256sum "$primary/$artifact" 2>/dev/null | cut -d' ' -f1)"
+    secondary_hash="$(sha256sum "$secondary/$artifact" 2>/dev/null | cut -d' ' -f1)"
+    if [ -z "$primary_hash" ] || [ "$primary_hash" != "$secondary_hash" ]; then
+        echo "$artifact differs between client installs; patch/synchronise both before testing." >&2
+        exit 2
+    fi
+done
+
+
+# --- Unity job-worker pin (see run-client.sh for the full measurement table) ---
+# Unity 5.6 spawns (visible CPUs - 1) job workers that block on an fsync
+# futex whose release wakes EVERY waiter; free-roaming they burn 1.83M context
+# switches/s and cost this client 51 fps vs 121. Confine them to ONE cpu.
+# It must be a cpu INSIDE this client's taskset mask ($client_cpus) and it must
+# NOT be the one client 1 uses (its default is the last E-core), or the two
+# clients' worker pools serialise onto the same core and fight.
+: "${WAREBORN_WORKER_CPU:=22}"
+export WAREBORN_WORKER_CPU
+pinner="$(dirname "$0")/pin-unity-workers.sh"
+if [ "${WAREBORN_PIN_WORKERS:-1}" = "1" ] && [ -x "$pinner" ]; then
+  # The game reparents to systemd, so it is not findable as our child, and its
+  # /proc/<pid>/comm reads "vx_initialize" (the Vivox SDK renames the main
+  # thread) - so match on the cmdline. Only accept a pid that is NOT already
+  # running, so a second client does not steal the first client's pinner.
+  # Match with the `case` BUILTIN, not grep: a `grep UnityClient@Windows.exe`
+  # child has the pattern in its own argv and would match itself.
+  wa_find() {
+    for c in /proc/[0-9]*/cmdline; do
+      [ -r "$c" ] || continue
+      p=${c#/proc/}; p=${p%/cmdline}
+      cl=$(tr '\0' ' ' < "$c" 2>/dev/null) || continue
+      case "$cl" in
+        *UnityClient@Windows.exe*) ;;
+        *) continue;;
+      esac
+      # Second gate: it must actually BE the wine process. Any shell or editor
+      # that merely has the exe name somewhere in its argv would match above.
+      case "$(readlink "/proc/$p/exe" 2>/dev/null)" in
+        *wine*) echo "$p";;
+      esac
+    done
+  }
+  wa_before=" $(wa_find | tr '\n' ' ') "
+  (
+    i=0
+    while [ $i -lt 180 ]; do
+      for p in $(wa_find); do
+        case "$wa_before" in *" $p "*) continue;; esac
+        exec "$pinner" "$p"
+      done
+      i=$((i + 1)); sleep 1
+    done
+    echo "[pin-unity-workers] game process never appeared; giving up" >&2
+  ) &
+fi
+
+cd "$HOME/Games/WorldsAdrift-2" || exit 1
+echo "Starting client 2 on CPUs $client_cpus"
+exec taskset -c "$client_cpus" \
+  "$HOME/.steam/steam/compatibilitytools.d/GE-Proton10-34/files/bin/wine" 'UnityClient@Windows.exe'
