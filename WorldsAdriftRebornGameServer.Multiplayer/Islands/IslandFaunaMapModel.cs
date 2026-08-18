@@ -49,7 +49,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         // (behaviour, epoch) descriptors travel in the live feed.
         double ExcursionRampFraction,
         double FeedRadiusPinch,
-        double DiveBelowFloorFraction);
+        double DiveBelowFloorFraction,
+        // The family's geometry (Phase 5). WHICH slots are calves and WHICH
+        // adult each trails are seed-derived and travel in the live feed; these
+        // two lengths are compile-time and must be read, never restated.
+        double CalfTrailMetres,
+        double CalfDropMetres);
 
     /// <summary>
     /// One island's motion geometry, in ISLAND-LOCAL metres, precomputed from its
@@ -141,7 +146,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             MaxGroupSpread: IslandFaunaEcology.MaxGroupSpread,
             ExcursionRampFraction: IslandFaunaBehaviour.ExcursionRampFraction,
             FeedRadiusPinch: IslandFaunaBehaviour.FeedRadiusPinch,
-            DiveBelowFloorFraction: IslandFaunaBehaviour.DiveBelowFloorFraction);
+            DiveBelowFloorFraction: IslandFaunaBehaviour.DiveBelowFloorFraction,
+            CalfTrailMetres: IslandFaunaFamily.CalfTrailMetres,
+            CalfDropMetres: IslandFaunaFamily.CalfDropMetres);
 
         /// <summary>
         /// One island's precomputed motion geometry. Every field is the movement's

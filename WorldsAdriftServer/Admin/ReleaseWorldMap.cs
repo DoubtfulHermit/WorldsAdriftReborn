@@ -282,6 +282,10 @@ namespace WorldsAdriftServer.Admin
                 ["excursionRamp"] = c.ExcursionRampFraction,
                 ["feedRadiusPinch"] = c.FeedRadiusPinch,
                 ["diveBelowFloorFraction"] = c.DiveBelowFloorFraction,
+                // The family's two lengths (Phase 5); the pairing itself travels
+                // in the live feed, being seed-derived.
+                ["calfTrailMetres"] = c.CalfTrailMetres,
+                ["calfDropMetres"] = c.CalfDropMetres,
             };
         }
 

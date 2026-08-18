@@ -97,13 +97,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// two of them are never in the same place.</param>
     /// <param name="MemberIndex">Its position INSIDE that school, counting from zero.
     /// This is the only thing that separates two members of one school.</param>
+    /// <param name="GroupMembers">How many slots its school has in total - the
+    /// length of the fixed list <see cref="MemberIndex"/> is a position in.
+    ///
+    /// Carried rather than looked up because <see cref="IslandFaunaFamily"/> asks
+    /// "is this the last quarter of the group" and that question is unanswerable
+    /// from a member index alone. It defaults to ZERO, which reads as "no group
+    /// size stated" and makes every family predicate answer no - so a caller that
+    /// has not been taught about groups gets exactly the behaviour it had before
+    /// this field existed.</param>
     public readonly record struct FaunaCreature(
         long EntityId,
         FaunaSpecies Species,
         IslandId IslandId,
         int Index,
         int SchoolIndex,
-        int MemberIndex);
+        int MemberIndex,
+        int GroupMembers = 0);
 
     /// <summary>
     /// WHO LIVES ON AN ISLAND, and whether the feature is switched on at all.
@@ -428,7 +438,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 {
                     int index = population.Count;
                     population.Add(new FaunaCreature(
-                        firstEntityId + index, species, island, index, school, member));
+                        firstEntityId + index, species, island, index, school, member, size));
                 }
             }
         }

@@ -23,16 +23,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     public sealed class FaunaEcologyEvaluator
     {
         private readonly int _worldSeed;
+        private readonly bool _juveniles;
         private readonly Dictionary<(IslandId Island, FaunaSpecies Species), FaunaBloom[]> _blooms =
             new Dictionary<(IslandId, FaunaSpecies), FaunaBloom[]>();
 
-        public FaunaEcologyEvaluator(int worldSeed)
+        public FaunaEcologyEvaluator(int worldSeed, bool juveniles = false)
         {
             _worldSeed = worldSeed;
+            _juveniles = juveniles;
         }
 
         /// <summary>The seed every bloom in this world is derived from.</summary>
         public int WorldSeed => _worldSeed;
+
+        /// <summary>
+        /// Whether calf slots take their mother's offset instead of their own.
+        /// Read ONCE, in the constructor, like the world seed - a pose function
+        /// that could change shape mid-process would be two different worlds on
+        /// two peers' screens.
+        /// </summary>
+        public bool Juveniles => _juveniles;
 
         /// <summary>
         /// One island's blooms for one species, memoised. The envelope is an
@@ -111,9 +121,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
             (double radius, double verticalRadius) =
                 IslandFaunaSchool.ClusterFor(creature.Species);
+
+            // THE FAMILY SEAM, and the only place the juveniles flag reaches the
+            // pose. With it off the mother index is -1 and the offset is the
+            // function this server has always used, so the wire is unchanged to
+            // the bit; with it on, a calf slot takes its mother's place plus the
+            // recovered pair standoff.
+            int mother = _juveniles ? IslandFaunaFamily.MotherOf(creature) : -1;
             (double ox, double oy, double oz) = IslandFaunaSchool.MemberOffset(
                 creature.MemberIndex, radius, verticalRadius, elapsedSeconds,
-                IslandFaunaSchool.WeaveRadiansPerSecond);
+                IslandFaunaSchool.WeaveRadiansPerSecond, mother);
 
             return (x + ox, y + oy, z + oz);
         }

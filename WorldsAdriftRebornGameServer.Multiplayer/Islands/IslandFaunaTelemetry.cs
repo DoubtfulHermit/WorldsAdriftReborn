@@ -72,6 +72,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// start plus every migration completed, so it moves over a session.</param>
     /// <param name="ToBloom">Where a Migrate segment is heading; equals
     /// <paramref name="BloomIndex"/> for everything else.</param>
+    /// <param name="Calves">The group's calf slots and the adult each one
+    /// travels with, as MEMBER INDICES. Empty unless juveniles are on.
+    ///
+    /// This travels in the feed rather than being restated in the browser for
+    /// the same reason the bloom parameters do: the pairing is derived from a
+    /// seed the mirror cannot know and is INDEPENDENT OF TIME, so publishing it
+    /// keeps the mirror restating only the time part - which is the one thing
+    /// the parity test can hold to a nanometre.</param>
     public readonly record struct FaunaGroupStat(
         string Species,
         int Index,
@@ -80,7 +88,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         string Behaviour,
         double EpochSeconds,
         double DurationSeconds = 0,
-        int ToBloom = 0);
+        int ToBloom = 0,
+        IReadOnlyList<FaunaCalfSlot>? Calves = null)
+    {
+        /// <summary>The calf slots, never null - an empty list is "no calves here".</summary>
+        public IReadOnlyList<FaunaCalfSlot> Calves { get; } =
+            Calves ?? Array.Empty<FaunaCalfSlot>();
+    }
 
     /// <summary>
     /// One island's ecology: what it could carry, what it expresses, whether it

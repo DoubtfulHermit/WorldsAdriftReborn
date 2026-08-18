@@ -583,6 +583,30 @@ namespace WorldsAdriftServer.Admin
                         {
                             if (groups.Count >= MaxGroupsPerIsland) break;
                             if (groupToken is not JObject group) continue;
+                            // The family pairing (Phase 5). Both fields are
+                            // member indices inside one group, so the group's own
+                            // ceiling bounds them; a malformed row is dropped
+                            // rather than passed, because a mother index the
+                            // mirror cannot resolve draws a calf at the origin.
+                            JArray calves = new JArray();
+                            if (group["calves"] is JArray calfRows)
+                            {
+                                foreach (JToken calfToken in calfRows)
+                                {
+                                    if (calves.Count >= MaxCreaturesPerIsland) break;
+                                    if (calfToken is not JObject calf) continue;
+                                    int member = (int?)calf["member"] ?? -1;
+                                    int mother = (int?)calf["mother"] ?? -1;
+                                    if (member < 0 || mother < 0
+                                        || member > MaxCreaturesPerIsland
+                                        || mother > MaxCreaturesPerIsland) continue;
+                                    calves.Add(new JObject
+                                    {
+                                        ["member"] = member,
+                                        ["mother"] = mother,
+                                    });
+                                }
+                            }
                             groups.Add(new JObject
                             {
                                 ["species"] = Species((string?)group["species"]),
@@ -593,6 +617,7 @@ namespace WorldsAdriftServer.Admin
                                 ["epochSeconds"] = Finite((double?)group["epochSeconds"] ?? 0),
                                 ["durationSeconds"] = Finite((double?)group["durationSeconds"] ?? 0),
                                 ["toBloom"] = Clamp((int?)group["toBloom"] ?? 0, MaxBloomsPerIsland),
+                                ["calves"] = calves,
                             });
                         }
                     }

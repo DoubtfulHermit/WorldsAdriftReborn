@@ -182,6 +182,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
+        /// WHERE A CALF SITS: its mother's offset, plus a fixed displacement
+        /// BEHIND AND BELOW her.
+        ///
+        /// This is the whole of the family geometry, and it is deliberately the
+        /// smallest change that could produce a pair. No new entity, no new
+        /// component, no new id - a calf slot simply stops taking its own
+        /// golden-angle position and takes its mother's instead, shifted.
+        ///
+        /// "BEHIND" MEANS BEHIND IN THE CLUSTER'S OWN ROTATION, and the choice is
+        /// worth naming because there are two candidates. The obvious one is
+        /// "behind along the school's direction of travel" - but travel is the
+        /// GROUP's motion, which this function is not given and could not be
+        /// given without handing it a velocity, and a velocity is the state this
+        /// whole feature is built to avoid. The other is the cluster's own slow
+        /// weave, which every member already turns with
+        /// (<see cref="WeaveRadiansPerSecond"/>), and which is right here: a
+        /// fixed displacement in that rotating frame means the calf holds a
+        /// CONSTANT separation from its mother while the school turns over, so
+        /// what a player sees is two animals locked together inside a cluster
+        /// that is otherwise rearranging itself. That is the read the pair is
+        /// for. At a manta's viewing distance nobody can tell the two
+        /// definitions apart; only one of them is a pure function of the clock.
+        ///
+        /// The unit tangent at the mother's cluster angle <c>a</c> is
+        /// <c>(-sin a, 0, cos a)</c>, so trailing is its negative. Note the
+        /// displacement does NOT scale with the mother's radius: a calf at the
+        /// centre of the cluster and a calf at its rim sit exactly
+        /// <see cref="IslandFaunaFamily.PairStandoffMetres"/> from their mothers,
+        /// which is what makes the recovered standoff mean something.
+        ///
+        /// PURE AND TOTAL, like everything else here.
+        /// </summary>
+        public static (double X, double Y, double Z) CalfOffset(
+            int motherMemberIndex, double radius, double verticalRadius,
+            double elapsedSeconds, double weaveRadiansPerSecond)
+        {
+            (double x, double y, double z) = MemberOffset(
+                motherMemberIndex, radius, verticalRadius, elapsedSeconds, weaveRadiansPerSecond);
+            double angle = (motherMemberIndex * GoldenAngleRadians)
+                + (elapsedSeconds * weaveRadiansPerSecond);
+            return (
+                x + (IslandFaunaFamily.CalfTrailMetres * Math.Sin(angle)),
+                y - IslandFaunaFamily.CalfDropMetres,
+                z - (IslandFaunaFamily.CalfTrailMetres * Math.Cos(angle)));
+        }
+
+        /// <summary>
+        /// One member's offset, with the family applied: a calf slot takes
+        /// <see cref="CalfOffset"/> from its mother, everything else takes its
+        /// own <see cref="MemberOffset"/>.
+        ///
+        /// The family is passed IN rather than computed here, and that is the
+        /// seam the feature flag turns: a caller that hands over -1 gets exactly
+        /// the function this file has always had, byte for byte.
+        /// </summary>
+        public static (double X, double Y, double Z) MemberOffset(
+            int memberIndex, double radius, double verticalRadius,
+            double elapsedSeconds, double weaveRadiansPerSecond, int motherMemberIndex) =>
+            motherMemberIndex < 0
+                ? MemberOffset(memberIndex, radius, verticalRadius,
+                    elapsedSeconds, weaveRadiansPerSecond)
+                : CalfOffset(motherMemberIndex, radius, verticalRadius,
+                    elapsedSeconds, weaveRadiansPerSecond);
+
+        /// <summary>
         /// The cluster radii for a species: tight and flat for a manta school, wide
         /// and loose for a jelly shoal. See the type remarks for why those differ in
         /// kind rather than in degree.

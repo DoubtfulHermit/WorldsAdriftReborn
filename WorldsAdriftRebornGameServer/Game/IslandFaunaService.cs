@@ -220,7 +220,8 @@ namespace WorldsAdriftRebornGameServer.Game
             // it; see JuvenilesEnv. Decided ONCE, here, like the ecology itself.
             _juveniles = juvenilesEnabled && ecologyEnabled;
             _ecology = ecologyEnabled
-                ? new FaunaEcologyEvaluator(worldSeed ?? IslandFaunaEcology.DefaultWorldSeed)
+                ? new FaunaEcologyEvaluator(
+                    worldSeed ?? IslandFaunaEcology.DefaultWorldSeed, _juveniles)
                 : null;
             if (juvenilesEnabled && !ecologyEnabled)
             {
@@ -351,6 +352,11 @@ namespace WorldsAdriftRebornGameServer.Game
                     (liveMantas, liveJellies) = ExpressedFor(id, population, nowSeconds);
                     Dictionary<(FaunaSpecies Species, int Index), int> members =
                         new Dictionary<(FaunaSpecies Species, int Index), int>();
+                    // The group's SLOT count, which is not its live count: calf
+                    // slots are a property of the fixed list, so the map must be
+                    // told how long that list is, not how much of it is showing.
+                    Dictionary<(FaunaSpecies Species, int Index), int> slots =
+                        new Dictionary<(FaunaSpecies Species, int Index), int>();
                     foreach (long entityId in population.MantaIds.Take(liveMantas)
                         .Concat(population.JellyIds.Take(liveJellies)))
                     {
@@ -358,6 +364,7 @@ namespace WorldsAdriftRebornGameServer.Game
                         FaunaCreature creature = placement.Creature;
                         members.TryGetValue((creature.Species, creature.SchoolIndex), out int n);
                         members[(creature.Species, creature.SchoolIndex)] = n + 1;
+                        slots[(creature.Species, creature.SchoolIndex)] = creature.GroupMembers;
                     }
                     foreach (KeyValuePair<(FaunaSpecies Species, int Index), int> pair in members
                         .OrderBy(p => p.Key.Species).ThenBy(p => p.Key.Index))
@@ -375,7 +382,16 @@ namespace WorldsAdriftRebornGameServer.Game
                             segment.Behaviour.ToString(),
                             segment.EpochSeconds,
                             segment.DurationSeconds,
-                            segment.ToBloom));
+                            segment.ToBloom,
+                            // The pairing, published because the browser mirror
+                            // cannot derive it (it does not hold the world seed)
+                            // and because a map that drew a calf at its own
+                            // golden-angle position would be five metres from
+                            // where the wire actually has it.
+                            _juveniles && slots.TryGetValue(pair.Key, out int groupSlots)
+                                ? IslandFaunaFamily.SlotsFor(
+                                    id, pair.Key.Species, pair.Key.Index, groupSlots)
+                                : null));
                     }
                 }
 

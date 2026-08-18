@@ -209,7 +209,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 {
                     plan.Add(new FaunaPlacement(
                         new FaunaCreature(blockStart + index, species,
-                            island.Definition.Id, index, school, member),
+                            island.Definition.Id, index, school, member, size),
                         island.Definition, island.Envelope));
                     index++;
                 }

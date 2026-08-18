@@ -229,6 +229,197 @@ namespace WorldsAdriftServer.Tests
         }
 
         /// <summary>
+        /// THE FAMILY'S PARITY (Phase 5). A calf does not sit at its own
+        /// golden-angle position - it sits four metres behind and below its
+        /// mother - so the browser has to be told which slots are calves and
+        /// which adult each trails, and then has to place them with the same
+        /// arithmetic the server uses.
+        ///
+        /// The pairing is SEED-DERIVED and time-independent, so it travels in the
+        /// live feed as the group's <c>calves</c> array exactly as the bloom
+        /// parameters and the behaviour descriptors do; only the geometry is
+        /// restated in JavaScript, and that is what this pins. A mirror that
+        /// ignored the array would draw one manta per school in the wrong place
+        /// by four metres - invisible at world zoom, wrong at island zoom, and
+        /// exactly the drift this whole suite exists to refuse.
+        /// </summary>
+        [NodeFact]
+        public void The_family_mirror_puts_a_calf_where_the_evaluator_does()
+        {
+            const int GroupMembers = 8;   // 6 adults, 2 calves - a large island's group
+
+            string html = AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json);
+            string mirror = ExtractMirror(html);
+            JObject model = (JObject)EmbeddedWorldMap(html)["faunaModel"]!;
+
+            FaunaEcologyEvaluator evaluator = new FaunaEcologyEvaluator(
+                IslandFaunaEcology.DefaultWorldSeed, juveniles: true);
+
+            List<JObject> samples = new List<JObject>();
+            List<(FaunaCreature Creature, IslandTerrainEnvelope Envelope, double T)> expected =
+                new List<(FaunaCreature, IslandTerrainEnvelope, double)>();
+            int calfSamples = 0;
+
+            foreach (ReleaseIslandRecord island in SampleIslands())
+            {
+                JObject parameters = ExactFauna(island.Envelope);
+                parameters["blooms"] = new JObject
+                {
+                    ["manta"] = BloomsJson(evaluator, island, FaunaSpecies.MantaRay),
+                    ["jelly"] = BloomsJson(evaluator, island, FaunaSpecies.JellyFish),
+                };
+
+                FaunaBloom[] blooms = evaluator.BloomsFor(
+                    island.Definition.Id, FaunaSpecies.MantaRay, island.Envelope);
+                for (int group = 0; group < 2; group++)
+                {
+                    // The pairing in the wire shape StatsSnapshot writes.
+                    JArray calves = new JArray();
+                    foreach (FaunaCalfSlot slot in IslandFaunaFamily.SlotsFor(
+                        island.Definition.Id, FaunaSpecies.MantaRay, group, GroupMembers))
+                    {
+                        calves.Add(new JObject
+                        {
+                            ["member"] = slot.MemberIndex,
+                            ["mother"] = slot.MotherMemberIndex,
+                        });
+                    }
+                    Assert.NotEmpty(calves);
+
+                    for (int member = 0; member < GroupMembers; member++)
+                    {
+                        if (IslandFaunaFamily.IsCalfSlot(
+                            FaunaSpecies.MantaRay, GroupMembers, member))
+                        {
+                            calfSamples++;
+                        }
+                        foreach (double t in Moments)
+                        {
+                            FaunaCreature creature = new FaunaCreature(
+                                IslandFaunaPolicy.FirstFaunaEntityId + member,
+                                FaunaSpecies.MantaRay, island.Definition.Id,
+                                member, group, member, GroupMembers);
+                            FaunaGroupBehaviour segment = IslandFaunaBehaviour.SegmentAt(
+                                IslandFaunaEcology.DefaultWorldSeed, island.Definition.Id,
+                                FaunaSpecies.MantaRay, group, island.Envelope, blooms.Length, t);
+                            JObject sample = Sample(parameters, FaunaSpecies.MantaRay, member, t);
+                            sample["school"] = group;
+                            sample["g"] = new JObject
+                            {
+                                ["behaviour"] = segment.Behaviour.ToString(),
+                                ["epochSeconds"] = segment.EpochSeconds,
+                                ["durationSeconds"] = segment.DurationSeconds,
+                                ["bloom"] = segment.FromBloom,
+                                ["toBloom"] = segment.ToBloom,
+                                ["calves"] = calves.DeepClone(),
+                            };
+                            samples.Add(sample);
+                            expected.Add((creature, island.Envelope, t));
+                        }
+                    }
+                }
+            }
+
+            Assert.True(calfSamples > 0, "the sweep never sampled a calf slot");
+            JArray actual = Evaluate(mirror, model, samples);
+            Assert.Equal(samples.Count, actual.Count);
+
+            for (int i = 0; i < expected.Count; i++)
+            {
+                (FaunaCreature creature, IslandTerrainEnvelope envelope, double t) = expected[i];
+                (double x, double y, double z) = evaluator.LocalPoseAt(creature, envelope, t);
+                JArray got = (JArray)actual[i];
+                string where = (IslandFaunaFamily.IsCalfSlot(creature) ? "calf " : "adult ")
+                    + "group " + creature.SchoolIndex + " member " + creature.MemberIndex
+                    + " on " + envelope.IslandId
+                    + " at t=" + t.ToString(CultureInfo.InvariantCulture);
+
+                Assert.True(Math.Abs(x - (double)got[0]!) <= ExactTolerance,
+                    where + ": X was " + got[0] + ", the evaluator says " + x);
+                Assert.True(Math.Abs(y - (double)got[1]!) <= ExactTolerance,
+                    where + ": Y was " + got[1] + ", the evaluator says " + y);
+                Assert.True(Math.Abs(z - (double)got[2]!) <= ExactTolerance,
+                    where + ": Z was " + got[2] + ", the evaluator says " + z);
+            }
+        }
+
+        /// <summary>
+        /// AND THE OTHER HALF OF THE FLAG: with juveniles OFF, a group carrying
+        /// calf slots must be drawn exactly as it was before this feature existed.
+        /// The mirror is handed no <c>calves</c> array and the evaluator is
+        /// constructed without juveniles, and the two must still agree to a
+        /// nanometre - which is only true if the family is genuinely inert rather
+        /// than merely quiet.
+        /// </summary>
+        [NodeFact]
+        public void With_juveniles_off_a_calf_slot_is_an_ordinary_member()
+        {
+            const int GroupMembers = 8;
+
+            string html = AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json);
+            string mirror = ExtractMirror(html);
+            JObject model = (JObject)EmbeddedWorldMap(html)["faunaModel"]!;
+
+            FaunaEcologyEvaluator plain =
+                new FaunaEcologyEvaluator(IslandFaunaEcology.DefaultWorldSeed);
+
+            List<JObject> samples = new List<JObject>();
+            List<(FaunaCreature Creature, IslandTerrainEnvelope Envelope, double T)> expected =
+                new List<(FaunaCreature, IslandTerrainEnvelope, double)>();
+
+            foreach (ReleaseIslandRecord island in SampleIslands())
+            {
+                JObject parameters = ExactFauna(island.Envelope);
+                parameters["blooms"] = new JObject
+                {
+                    ["manta"] = BloomsJson(plain, island, FaunaSpecies.MantaRay),
+                    ["jelly"] = BloomsJson(plain, island, FaunaSpecies.JellyFish),
+                };
+                FaunaBloom[] blooms = plain.BloomsFor(
+                    island.Definition.Id, FaunaSpecies.MantaRay, island.Envelope);
+
+                for (int member = GroupMembers - 2; member < GroupMembers; member++)
+                {
+                    foreach (double t in Moments)
+                    {
+                        FaunaCreature creature = new FaunaCreature(
+                            IslandFaunaPolicy.FirstFaunaEntityId + member,
+                            FaunaSpecies.MantaRay, island.Definition.Id,
+                            member, 0, member, GroupMembers);
+                        Assert.True(IslandFaunaFamily.IsCalfSlot(creature),
+                            "the sample is not a calf slot, so it proves nothing");
+
+                        FaunaGroupBehaviour segment = IslandFaunaBehaviour.SegmentAt(
+                            IslandFaunaEcology.DefaultWorldSeed, island.Definition.Id,
+                            FaunaSpecies.MantaRay, 0, island.Envelope, blooms.Length, t);
+                        JObject sample = Sample(parameters, FaunaSpecies.MantaRay, member, t);
+                        sample["g"] = new JObject
+                        {
+                            ["behaviour"] = segment.Behaviour.ToString(),
+                            ["epochSeconds"] = segment.EpochSeconds,
+                            ["durationSeconds"] = segment.DurationSeconds,
+                            ["bloom"] = segment.FromBloom,
+                            ["toBloom"] = segment.ToBloom,
+                        };
+                        samples.Add(sample);
+                        expected.Add((creature, island.Envelope, t));
+                    }
+                }
+            }
+
+            JArray actual = Evaluate(mirror, model, samples);
+            for (int i = 0; i < expected.Count; i++)
+            {
+                (FaunaCreature creature, IslandTerrainEnvelope envelope, double t) = expected[i];
+                (double x, double y, double z) = plain.LocalPoseAt(creature, envelope, t);
+                JArray got = (JArray)actual[i];
+                Assert.True(Math.Abs(x - (double)got[0]!) <= ExactTolerance);
+                Assert.True(Math.Abs(y - (double)got[1]!) <= ExactTolerance);
+                Assert.True(Math.Abs(z - (double)got[2]!) <= ExactTolerance);
+            }
+        }
+
+        /// <summary>
         /// A species' blooms in the LIVE FEED's wire shape - the keys
         /// StatsSnapshot writes and GameStats/PublicMapProjection pass through -
         /// so the parity claim covers the object the page actually receives.
@@ -295,6 +486,10 @@ namespace WorldsAdriftServer.Tests
                 "mantaOrbitSpeed", "jellyOrbitSpeed", "maxGroupSpread",
                 // The behaviour excursions' shape constants (Phase 4).
                 "excursionRamp", "feedRadiusPinch", "diveBelowFloorFraction",
+                // The family's two lengths (Phase 5). WHICH slots are calves and
+                // WHICH adult each trails is seed-derived and rides the live feed;
+                // these are compile-time and must be read, not restated.
+                "calfTrailMetres", "calfDropMetres",
             })
             {
                 Assert.True(mirror.Contains("M." + field, StringComparison.Ordinal),
