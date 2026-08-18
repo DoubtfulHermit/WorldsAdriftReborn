@@ -46,5 +46,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
             Assert.Equal(0, DatabankLedger.GrantFor(9999));
             DatabankLedger.Clear();
         }
+
+        /// <summary>
+        /// The knowledge economy at stock values.
+        ///
+        /// The grant was 10,000 behind a "TESTING" comment, against a tree whose
+        /// cheapest meaningful unlock cost 20 - so one scan bought most of the
+        /// tree and four databanks on one island paid out 40,000. Retail's figures
+        /// are 25 per databank and 50 for Shipbuilding, so the unlock costs two
+        /// scans. Pinned because a generous grant is invisible in play until the
+        /// whole progression is already gone.
+        /// </summary>
+        [Fact]
+        public void A_databank_grants_retail_knowledge_and_shipbuilding_costs_two_scans()
+        {
+            Assert.Equal(25, Databanks.GrantAmount);
+            Assert.True(Databanks.GrantAmount * 2 >= 50,
+                "two databank scans must cover Shipbuilding's 50");
+            Assert.True(Databanks.GrantAmount < 50,
+                "one scan must NOT cover it, or there is no spend decision");
+        }
     }
 }

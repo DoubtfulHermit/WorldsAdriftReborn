@@ -39,12 +39,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public const string KeyPrefix = "databank-";
 
         /// <summary>
-        /// Knowledge a first scan of a databank grants. Databanks give big chunks
-        /// (a material node would trickle); 50 is one clean scan past the cheapest
-        /// meaningful unlock, "Shipbuilding" (cost 20), so a single scan proves the
-        /// whole GAIN -> SPEND -> LEARN loop.
+        /// Knowledge a first scan of a databank grants.
+        ///
+        /// 25 is retail's figure, from the Worlds Adrift wiki's Knowledge page.
+        /// It replaces a 10,000 marked "TESTING: big grant so many nodes can be
+        /// unlocked from one scan" - which did exactly that: against a tree whose
+        /// costs run 1..5000, a single scan bought most of it, and four databanks
+        /// on one island handed out 40,000. The loop was provable but meaningless.
+        ///
+        /// The tree's own costs are left alone: their spread (126 nodes at 1, then
+        /// bands at 60/120/150/180/240, up to 5000) is authored data, not something
+        /// to rescale around this number. The one exception is "Shipbuilding",
+        /// corrected from 20 to the wiki's 50 in the same pass - it was the single
+        /// outlier, and 50 is a band the tree already uses.
+        ///
+        /// So two scans buy Shipbuilding, which is the pacing the wiki describes.
+        /// WIKI-SOURCED, not decompiled: no surviving client table carries it.
         /// </summary>
-        public const long GrantAmount = 10000; // TESTING: big grant so many nodes can be unlocked from one scan
+        public const long GrantAmount = 25;
 
         /// <summary>
         /// The scan NOTE heading the client prints when a databank is scanned. Served as
