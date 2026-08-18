@@ -81,28 +81,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return System.Math.Min(value, InterestPolicy.MaxRadiusMetres);
         }
 
+        /// <summary>Squared metres between two world positions. The one spelling of it.</summary>
+        public static double DistanceSquared(FixedPointPosition a, FixedPointPosition b)
+        {
+            double dx = a.MetresX - b.MetresX;
+            double dy = a.MetresY - b.MetresY;
+            double dz = a.MetresZ - b.MetresZ;
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        /// <summary>
+        /// Turns "which resources should this peer hold" into the ordered lifecycle
+        /// work that gets it there. The MEMBERSHIP question is the caller's -
+        /// <paramref name="resources"/> arrives already carrying each entity's
+        /// Desired flag - and this owns only the ORDERING, which is geometry:
+        /// removals farthest-first, then additions NEAREST-FIRST, so a peer arriving
+        /// at an island sees the nodes at its feet before the ones across the ridge.
+        ///
+        /// Splitting membership from ordering is what lets island-keyed checkout
+        /// (<see cref="Islands.IslandResourceCheckoutPolicy"/>) reuse this instead of
+        /// growing a second, eventually-divergent copy of the same sort.
+        /// </summary>
         public static IReadOnlyList<ResourceStreamAction> Reconcile(
             FixedPointPosition center,
-            IEnumerable<(long Id, FixedPointPosition Position)> resources,
-            ISet<long> loaded,
-            double loadRadius,
-            double unloadRadius)
+            IEnumerable<(long Id, FixedPointPosition Position, bool Desired)> resources,
+            ISet<long> loaded)
         {
+            if (resources == null) throw new ArgumentNullException(nameof(resources));
+            if (loaded == null) throw new ArgumentNullException(nameof(loaded));
+
             List<(long Id, double DistanceSquared)> adds = new();
             List<(long Id, double DistanceSquared)> removes = new();
-            double load2 = loadRadius * loadRadius;
-            double unload2 = unloadRadius * unloadRadius;
-            foreach ((long id, FixedPointPosition position) in resources)
+            foreach ((long id, FixedPointPosition position, bool desired) in resources)
             {
-                double dx = center.MetresX - position.MetresX;
-                double dy = center.MetresY - position.MetresY;
-                double dz = center.MetresZ - position.MetresZ;
-                double d2 = dx * dx + dy * dy + dz * dz;
+                double d2 = DistanceSquared(center, position);
                 if (loaded.Contains(id))
                 {
-                    if (d2 > unload2) removes.Add((id, d2));
+                    if (!desired) removes.Add((id, d2));
                 }
-                else if (d2 <= load2)
+                else if (desired)
                 {
                     adds.Add((id, d2));
                 }
@@ -113,6 +130,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             result.AddRange(removes.Select(x => new ResourceStreamAction(ResourceStreamActionKind.Remove, x.Id)));
             result.AddRange(adds.Select(x => new ResourceStreamAction(ResourceStreamActionKind.Add, x.Id)));
             return result;
+        }
+
+        /// <summary>
+        /// The player-centred sphere: a resource is desired while it is inside
+        /// <paramref name="loadRadius"/>, and once held it stays desired out to
+        /// <paramref name="unloadRadius"/>. Expressing the hysteresis as a Desired
+        /// flag makes it exactly a special case of the reconcile above, which is why
+        /// there is only one sort in this file.
+        ///
+        /// NOT USED FOR ISLAND RESOURCE CHECKOUT ANY MORE. A release island is up to
+        /// 735 m across and this bubble is 240 m across, so it holds a fraction of an
+        /// island and empties it as the player walks - see
+        /// <see cref="Islands.IslandInterestAdmissionPolicy"/>. It remains the right
+        /// answer for anything genuinely centred on the player.
+        /// </summary>
+        public static IReadOnlyList<ResourceStreamAction> Reconcile(
+            FixedPointPosition center,
+            IEnumerable<(long Id, FixedPointPosition Position)> resources,
+            ISet<long> loaded,
+            double loadRadius,
+            double unloadRadius)
+        {
+            if (resources == null) throw new ArgumentNullException(nameof(resources));
+            if (loaded == null) throw new ArgumentNullException(nameof(loaded));
+
+            double load2 = loadRadius * loadRadius;
+            double unload2 = unloadRadius * unloadRadius;
+            return Reconcile(center, resources.Select(resource =>
+            {
+                double d2 = DistanceSquared(center, resource.Position);
+                bool desired = loaded.Contains(resource.Id) ? d2 <= unload2 : d2 <= load2;
+                return (resource.Id, resource.Position, desired);
+            }), loaded);
         }
 
         /// <summary>

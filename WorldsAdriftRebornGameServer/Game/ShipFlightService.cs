@@ -91,6 +91,16 @@ namespace WorldsAdriftRebornGameServer.Game
         private static readonly IReadOnlySet<ulong> NoDomainFrameSenders =
             new HashSet<ulong>();
 
+        /// <summary>
+        /// The flight tuning this service is ACTUALLY running with, for the
+        /// operator snapshot. The console solves how far it may carry a hull
+        /// between measurements from this acceleration, so it must read the live
+        /// value rather than the compiled default: a deployment that raised
+        /// WAREBORN_FLIGHT_ACCEL would otherwise be drawn with a window too
+        /// generous for it.
+        /// </summary>
+        internal FlightTuning Tuning => _tuning;
+
         /// <summary>The authority token issued at the player's current helm handoff.</summary>
         private readonly Dictionary<long, ShipAuthorityToken> _authorityByPlayer = new();
 

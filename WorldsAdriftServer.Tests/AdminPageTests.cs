@@ -217,7 +217,6 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("T4 Badlands", html);
             Assert.Contains("E3 is one cell", html);
             Assert.Contains("UNASSIGNED", html);
-            Assert.Contains("no name inferred", html);
             Assert.Contains("Haven is inside", html);
             Assert.Contains("12 preserved starter-island placements", html);
             Assert.Contains("biomeCell", html);
@@ -244,8 +243,11 @@ namespace WorldsAdriftServer.Tests
             // Only the overlay is live, and its cadence is stated where it is described.
             Assert.Contains("Only the ship and player markers, and the ring drawn around each"
                 + " simulated island domain, are live", html);
-            Assert.Contains("every 4 seconds", html);
+            // The console reads faster than the game server writes, on purpose:
+            // a reader slower than its source is guaranteed to miss generations.
+            Assert.Contains("every 1.5 seconds", html);
             Assert.Contains("roughly 3-second stats snapshots", html);
+            Assert.Contains("var REFRESH_MS = 1500;", html);
 
             // The terrain view is signed as the authoritative live set.
             Assert.Contains("provenance-tag live", html);
@@ -335,11 +337,12 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("function renderFaunaFrame()", html);
             // Nothing is drawn without a roster AND a clock from the game server.
             Assert.Contains("f.present===true&&f.enabled===true", html);
-            // The panel answers what lives on an island, in words, with the
-            // provenance the counts actually have.
+            // The panel answers what lives on an island, in words - the counts
+            // and the geometry, presented as data with no caption about where
+            // the project got them.
             Assert.Contains("function appendIslandFauna(scroll,i,inv)", html);
             Assert.Contains("'Creatures'", html);
-            Assert.Contains("Wareborn tuning, not Bossa data. ", html);
+            Assert.DoesNotContain("Wareborn tuning, not Bossa data. ", html);
 
             // The ledger survives as the all-islands view, driven by ONE search.
             Assert.Contains("id=\"ledgerBody\"", html);
@@ -397,10 +400,11 @@ namespace WorldsAdriftServer.Tests
             string html = AdminPage.Dashboard("{}", new string('j', 64), ReleaseWorldMap.Json);
 
             // The unassigned Tier-4 cells stay unassigned, and Holy Ruins keeps
-            // its two conflicting preserved facts; labelling changed nothing here.
+            // its two conflicting preserved facts. This is about the DATA, not
+            // about captions: the panel no longer annotates where a number came
+            // from, but it still must not invent a district that does not exist.
             Assert.Contains("E3 is one cell", html);
             Assert.Contains("UNASSIGNED", html);
-            Assert.Contains("no name inferred", html);
             Assert.Contains("two Tier-4 Badlands cells are explicitly unassigned", html);
             Assert.Contains("not silently invented as E1/E2 or merged into E3", html);
             // No unassigned cell acquires a district, under any spelling.
@@ -522,7 +526,7 @@ namespace WorldsAdriftServer.Tests
             JObject totals = (JObject)map["resourceTotals"]!;
             Assert.Equal(1930, (int?)totals["deposits"]);
             Assert.Equal(1233, (int?)totals["databanks"]);
-            Assert.Equal(3767, (int?)totals["trees"]);
+            Assert.Equal(13266, (int?)totals["trees"]);
             Assert.Equal(193, (int?)totals["islandsWithInferredOres"]);
 
             // Per island the deposits are broken down by ore, and the rows account
@@ -538,6 +542,12 @@ namespace WorldsAdriftServer.Tests
                     new[] { "survey-pve", "survey-pvp", "inferred-tier" });
                 Assert.Equal((string?)inventory["oreSource"] == "inferred-tier",
                     (bool?)inventory["oresInferred"]);
+                // Wood is labelled on exactly the same terms as ore. 180 islands
+                // grow an inference; the page must never present one as a survey.
+                Assert.Contains((string?)inventory["woodSource"],
+                    new[] { "survey", "survey-none", "inferred-tier" });
+                Assert.Equal((string?)inventory["woodSource"] == "inferred-tier",
+                    (bool?)inventory["woodsInferred"]);
                 // Not recovered, so stated as zero rather than guessed at.
                 Assert.Equal(0, (int?)inventory["fuelPods"]);
                 Assert.Equal(0, (int?)inventory["lootContainers"]);
@@ -545,34 +555,128 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void Inferred_ore_is_marked_in_words_wherever_the_page_shows_it()
+        public void Ships_are_drawn_as_their_own_hulls_under_their_own_layer_and_toggle()
+        {
+            string html = AdminPage.Dashboard("{}", new string('s', 64), ReleaseWorldMap.Json);
+
+            // The hull outlines are their own layer, and it sits UNDER the
+            // constant-size marks and under the player marks - a hull is the
+            // biggest live thing on this map and must not bury the two smallest.
+            Assert.Contains("id=\"mapShipHullLayer\"", html);
+            Assert.True(html.IndexOf("id=\"mapShipHullLayer\"", StringComparison.Ordinal)
+                        < html.IndexOf("id=\"mapShipLayer\"", StringComparison.Ordinal),
+                "the true-scale hulls must be drawn under the constant-size ship marks");
+            Assert.True(html.IndexOf("id=\"mapShipLayer\"", StringComparison.Ordinal)
+                        < html.IndexOf("id=\"mapPlayerLayer\"", StringComparison.Ordinal),
+                "players must stay on top of ships");
+
+            // A hull is drawn from the published ring, oriented by the published
+            // heading. Neither is optional: a ring with no rotation is a ship
+            // pointing north forever.
+            Assert.Contains("function shipHullPath(outline)", html);
+            Assert.Contains("h.present===true&&path", html);
+            Assert.Contains("' rotate('+deg.toFixed(1)+')'", html);
+            Assert.Contains("deg=p.yaw*180/Math.PI", html);
+
+            // Progressive disclosure is per SHIP, not per zoom level, because a
+            // big hull earns its outline sooner than a small one at the same zoom.
+            Assert.Contains("var shown=(n.keelMetres/mapPx)>=SHIP_HULL_MIN_PX;", html);
+            Assert.Contains("var SHIP_HULL_MIN_PX=14;", html);
+            Assert.Contains("hull-shown", html);
+
+            // A ship must not read as an island: cold blue, mostly hollow, a
+            // hairline that does not thicken, against the islands' opaque slab.
+            Assert.Contains(".map-ship-hull{fill:#8aa6ff", html);
+            Assert.Contains("vector-effect:non-scaling-stroke", html);
+            Assert.Contains(".map-ship-hull.reckoned{stroke-dasharray:", html);
+            Assert.Contains(".map-ship-hull.held{", html);
+
+            // Detail lives in the panel, reachable by clicking, and the drag
+            // guard is the same one the islands use.
+            Assert.Contains("function detailShip(panel,scroll,hullEntityId)", html);
+            Assert.Contains("function selectShip(hullEntityId)", html);
+            Assert.Contains("if(!mapDragged)selectShip(d.hullEntityId)", html);
+            Assert.Contains("mapSelection.kind==='ship'", html);
+
+            // Toggleable, and the toggle takes the hulls with the marks.
+            Assert.Contains("id=\"mapShips\" checked", html);
+            Assert.Contains("$('mapShipHullLayer').style.display=$('mapShips').checked", html);
+
+            // The honesty channel, in words, in the legend and in the panel.
+            Assert.Contains("id=\"mapShipNote\"", html);
+            Assert.Contains("function shipNoteText()", html);
+            Assert.Contains("dead reckoning", html);
+            Assert.Contains("Could be out by at most", html);
+            Assert.Contains("The mark has STOPPED", html);
+            Assert.Contains("This hull is AT REST", html);
+        }
+
+        [Fact]
+        public void The_panel_presents_the_worlds_data_without_annotating_where_it_came_from()
         {
             string html = AdminPage.Dashboard("{}", new string('k', 64), ReleaseWorldMap.Json);
 
-            // The mark is a WORD now, not an asterisk that has to be looked up in
-            // a key. It rides the island panel, the zone panel's per-ore row, the
-            // ledger row and the legend - not just one of them.
-            Assert.Contains("Inferred, not recovered.", html);
-            Assert.Contains("composed from the surveyed same-tier cohort", html);
-            Assert.Contains("plausible, not Bossa data", html);
-            Assert.Contains("row.className='is-inferred'", html);
-            Assert.Contains("tr.is-inferred td.ore:after{content:'inferred'", html);
-            Assert.Contains("(inv.oresInferred?'INFERRED: ':'')+oreSummary(inv)", html);
-            Assert.Contains("Partly inferred.", html);
-            Assert.Contains("Any row below that any unsurveyed island contributed to is marked"
-                + " inferred", html);
-            Assert.Contains("Ore types on 193 of the 254 islands are <strong>INFERRED</strong>", html);
-            // A recovered PvP reading is still a reading of that island, and says so.
-            Assert.Contains("RECOVERED - read on the PvP shard", html);
-            Assert.Contains("one ruleset removed from the PvE world", html);
-            // Nothing invents a number for what did not survive.
-            Assert.Contains("Fuel pods: 0.", html);
-            Assert.Contains("Loot containers: 0.", html);
-            Assert.Contains("never invented", html);
-            // The bare asterisk that used to carry all of this is gone from the
-            // map surface entirely.
-            Assert.DoesNotContain("'✱'+inferred", html);
-            Assert.DoesNotContain("(inv.oresInferred?'✱ ':'')", html);
+            // WHAT THIS TEST IS FOR, AND WHY IT IS INVERTED FROM WHAT IT WAS.
+            // This console used to caption every composed number: amber INFERRED
+            // badges on ore rows, "Inferred, not recovered" preambles, a
+            // "Provenance: RECOVERED - read on the PvP shard" line, an "inferred
+            // ore only" filter, a "Wareborn tuning, not Bossa data" flag on the
+            // wildlife. The operator's call was to stop: this is a recreation of
+            // a world, and someone reading the panel to find out where the iron
+            // is does not need an argument about how the project came by the
+            // answer. The data is unchanged; only the annotation is gone, and
+            // this test exists so it cannot creep back one caption at a time.
+            //
+            // THE RECORD ITSELF IS NOT GONE, and must not be. The catalogue still
+            // carries oresInferred and oreSource per island, the source comments
+            // still say which numbers were composed, and docs/research still has
+            // the derivation. That is how WE avoid fooling ourselves; it is not a
+            // caption for the screen.
+            foreach (string caption in new[]
+            {
+                "Inferred, not recovered.",
+                "composed from the surveyed same-tier cohort",
+                "plausible, not Bossa data",
+                "row.className='is-inferred'",
+                "tr.is-inferred td.ore:after",
+                "(inv.oresInferred?'INFERRED: ':'')",
+                "Partly inferred.",
+                "Fully recovered.",
+                "RECOVERED - read on the PvP shard",
+                "one ruleset removed from the PvE world",
+                "ORE_SOURCE_LABEL",
+                "Ore types on 193 of the 254 islands",
+                "Inferred ore tables",
+                "ledgerInferredOnly",
+                "inferred ore only",
+                "Wareborn tuning, not Bossa data",
+                "How much of this is Bossa data",
+                "never invented",
+                "How MANY there are is Wareborn tuning",
+            })
+            {
+                Assert.DoesNotContain(caption, html);
+            }
+
+            // The DATA is all still there, and is what an operator came for.
+            Assert.Contains("'Metal deposits by ore'", html);
+            Assert.Contains("function oreTable(ores)", html);
+            Assert.Contains("function oreSummary(inv)", html);
+            Assert.Contains("'Quality '+o.quality", html);
+            Assert.Contains("Metal deposits by ore across this zone", html);
+
+            // An ABSENCE is a fact about the world, so it is still reported as a
+            // number rather than omitted - it just no longer argues its case.
+            Assert.Contains("Fuel pods: 0", html);
+            Assert.Contains("Loot containers: 0", html);
+
+            // And the per-island record survives in the projection the page is
+            // built from, which is the half that must never be dropped.
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            JObject inventory = ((JArray)map["islands"]!).OfType<JObject>()
+                .First(island => island["inventory"] != null)["inventory"]!.ToObject<JObject>()!;
+            Assert.NotNull(inventory["oresInferred"]);
+            Assert.NotNull(inventory["oreSource"]);
         }
 
         [Fact]

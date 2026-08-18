@@ -23,7 +23,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void World_totals_are_1930_deposits_1233_databanks_and_3767_trees()
+        public void World_totals_are_1930_deposits_1233_databanks_and_13266_trees()
         {
             // The same numbers ReleaseWorldCatalogTests and ReleaseWorldTreeTests
             // pin on the catalogues themselves. Re-asserting them here is the point:
@@ -33,8 +33,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.Equal(254, totals.Islands);
             Assert.Equal(1930, totals.Deposits);
             Assert.Equal(1233, totals.Databanks);
-            Assert.Equal(3767, totals.Trees);
-            Assert.Equal(72, totals.WoodedIslands);
+            Assert.Equal(13266, totals.Trees);
+            // 251, not 252: Belial carries a record with zero seats, because its
+            // three-sample surface is already fully occupied by its own surveyed
+            // databanks. See ReleaseTreeCatalog's remarks.
+            Assert.Equal(251, totals.WoodedIslands);
             Assert.Equal(ReleaseTreeCatalog.TotalTrees, totals.Trees);
         }
 
@@ -103,6 +106,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             }
         }
 
+        /// <summary>
+        /// The wood half of the same guard, and the reason the tree gap could be
+        /// closed at all: 180 islands grow a species nobody ever recorded, and that
+        /// has to stay labelled all the way down to the row a reader looks at. If
+        /// this ever silently reported Recovered, the catalogue would be presenting
+        /// a composed guess in the same type as a surveyed observation.
+        /// </summary>
+        [Fact]
+        public void An_unsurveyed_islands_wood_is_marked_inferred_on_every_island()
+        {
+            IslandResourceTotals totals = IslandResourceInventoryCatalog.Totals;
+            Assert.Equal(180, totals.IslandsWithInferredWoods);
+            Assert.Equal(74, totals.IslandsWithRecoveredWoods);
+            Assert.Equal(totals.Islands, totals.IslandsWithInferredWoods + totals.IslandsWithRecoveredWoods);
+            Assert.Equal(9499, totals.InferredTrees);
+
+            foreach (IslandResourceInventory inventory in IslandResourceInventoryCatalog.All)
+            {
+                Assert.Equal(
+                    inventory.WoodsAreInferred
+                        ? ResourceProvenance.Inferred
+                        : ResourceProvenance.Recovered,
+                    inventory.WoodProvenance);
+            }
+
+            // The two islands the survey calls treeless are RECOVERED absences, not
+            // gaps, and must have no wood at all rather than an inferred list.
+            var treeless = IslandResourceInventoryCatalog.All
+                .Where(record => record.WoodSource == WoodTableSource.SurveyNone)
+                .ToList();
+            Assert.Equal(2, treeless.Count);
+            Assert.All(treeless, record => Assert.Equal(0, record.Trees));
+            Assert.All(treeless, record => Assert.Empty(record.TreeSpecies));
+            Assert.All(treeless, record =>
+                Assert.Equal(ResourceProvenance.Recovered, record.WoodProvenance));
+        }
+
         [Fact]
         public void A_pvp_reading_counts_as_recovered_and_only_an_absent_survey_is_inferred()
         {
@@ -136,7 +176,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 Assert.Equal(0, record.FuelPods);
                 Assert.Equal(0, record.LootContainers);
             });
-            Assert.Equal(182, IslandResourceInventoryCatalog.All.Count(record => record.Trees == 0));
+            // Three islands, and each for a stated reason: two the survey records as
+            // "No trees" (recovered absence) and Belial, whose three-sample surface
+            // is already fully taken by its own surveyed databanks (no room). It was
+            // 182 while an unsurveyed `trees: []` was being read as treeless.
+            Assert.Equal(3, IslandResourceInventoryCatalog.All.Count(record => record.Trees == 0));
+            Assert.All(
+                IslandResourceInventoryCatalog.All.Where(record => record.Trees == 0),
+                record => Assert.Contains(record.DisplayName,
+                    new[] { "Desert University", "The Carcass", "Belial" }));
         }
 
         [Fact]
@@ -176,7 +224,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.All(tierOne, Assert.NotNull);
             Assert.Equal(328, tierOne.Sum(record => record!.Deposits));
             Assert.Equal(215, tierOne.Sum(record => record!.Databanks));
-            Assert.Equal(727, tierOne.Sum(record => record!.Trees));
+            Assert.Equal(2394, tierOne.Sum(record => record!.Trees));
+            // THE POINT OF THE WHOLE CHANGE: not one tier-1 island a graduating
+            // player can be teleported to is barren. 32 of them used to have
+            // nothing to chop.
+            Assert.All(tierOne, record => Assert.True(record!.Trees > 0, record.DisplayName));
+            Assert.All(tierOne, record => Assert.True(record!.Deposits > 0, record.DisplayName));
         }
     }
 }

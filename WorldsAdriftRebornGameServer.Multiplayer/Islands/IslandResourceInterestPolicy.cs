@@ -9,8 +9,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// <summary>
     /// Pure island-specific policy used by resource checkout. It deliberately does
     /// not generalise ships, players and structures into a universal interest graph:
-    /// it only answers which island frame a resource belongs to and which resources
-    /// a peer changing islands must reconcile.
+    /// it only answers which island frame a resource belongs to.
+    ///
+    /// It used to also answer WHICH resources a peer holds, with a filter on the one
+    /// island the peer's 1073 said it was standing on. That is now
+    /// <see cref="IslandResourceCheckoutPolicy"/>'s job, and the difference is not
+    /// cosmetic: the old filter still handed its survivors to a 120 m player-centred
+    /// sphere, which is what left a player standing on a 735 m island holding 2 of
+    /// its 19 nodes.
     /// </summary>
     public static class IslandResourceInterestPolicy
     {
@@ -44,30 +50,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
             return best?.Id ?? throw new ArgumentException(
                 "at least one island is required to classify a resource", nameof(islands));
-        }
-
-        /// <summary>
-        /// Returns resources owned by the peer's active island plus already-loaded
-        /// resources from a previous island. Keeping the latter in the set is crucial:
-        /// hysteresis must see them once more in order to emit their Remove actions.
-        /// </summary>
-        public static IReadOnlyList<(long Id, FixedPointPosition Position)> ReconcileSet(
-            IslandId activeIsland,
-            IEnumerable<IslandResource> resources,
-            ISet<long> loaded)
-        {
-            if (resources == null) throw new ArgumentNullException(nameof(resources));
-            if (loaded == null) throw new ArgumentNullException(nameof(loaded));
-
-            List<(long Id, FixedPointPosition Position)> result = new();
-            foreach (IslandResource resource in resources)
-            {
-                if (resource.IslandId == activeIsland || loaded.Contains(resource.EntityId))
-                {
-                    result.Add((resource.EntityId, resource.Position));
-                }
-            }
-            return result;
         }
     }
 }
