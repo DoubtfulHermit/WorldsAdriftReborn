@@ -6,12 +6,45 @@
   </div>
   <div class="topbar-actions">
     <span class="pill" id="livePill">connecting&hellip;</span>
+    <button type="button" class="btn ghost" id="aboutToggle" aria-expanded="false" aria-controls="aboutPanel">About this map</button>
   </div>
 </div>
 
-<div class="card" style="padding:0;overflow:hidden">
-  <div class="md-stats" id="publicSummary" style="grid-template-columns:repeat(4,minmax(0,1fr))"></div>
-  <p class="muted" style="font-size:.72rem;padding:.9rem 1.1rem;margin:0">Ships and travellers are shown without names &mdash; where they are, never who they are. Wildlife is drawn by evaluating the game server&rsquo;s own movement against the clock it reports, so the creatures you see are moving exactly as they are in the world right now.</p>
+<div class="pub-strip" id="publicStrip" role="status" aria-live="polite"></div>
+
+<div class="pub-find">
+  <button type="button" class="btn ghost" id="travPrev" aria-label="Previous traveller">&lsaquo;</button>
+  <button type="button" class="btn" id="travFind">Find a traveller</button>
+  <button type="button" class="btn ghost" id="travNext" aria-label="Next traveller">&rsaquo;</button>
+  <span class="pub-find-state" id="travState">&nbsp;</span>
+</div>
+
+<div class="card pub-about" id="aboutPanel" hidden>
+  <h2>About this map</h2>
+  <p>This is the world of a fan-run Worlds Adrift server, drawn live. The islands, the weather walls and the zone colours come from the game's own map data. Everything moving on top of it is happening right now on the server.</p>
+
+  <div class="pub-about-cols">
+  <section>
+  <h3>Wildlife</h3>
+  <p>Manta rays circle each island. Jellyfish drift underneath by day and rise to deck height at night.</p>
+  <p>The server doesn't send us where each creature is. It sends a headcount per island and the time on its clock. Your browser then runs the same movement maths the server runs, from that clock. That's why the creatures glide instead of jumping every few seconds, and why what you see matches the game rather than approximating it.</p>
+  <p>Islands vary. Bigger ones support more animals, and populations rise and fall over time, so some islands are busy and some are nearly empty. That's the world, not a bug.</p>
+  </section>
+  <section>
+  <h3>Ships</h3>
+  <p>Each ship is drawn as the actual outline of the hull someone built, seen from above, pointing the way it's heading.</p>
+  <p>Positions arrive every few seconds. Between updates we move a ship along the speed the server last reported. A dashed outline means we're estimating; a solid one means that's exactly where the server put it. We stop estimating after a few seconds rather than let a guess drift.</p>
+  </section>
+  <section>
+  <h3>Travellers</h3>
+  <p>Players show up as plain dots. No names, no accounts, nothing that says who anyone is. The dots are given a scrambled id so a marker doesn't teleport between updates, and those ids are thrown away and remade every time the server restarts.</p>
+  </section>
+  <section>
+  <h3>Islands</h3>
+  <p>Click any island for what's on it: ore, trees, databanks, wildlife. Zoom in past a few kilometres and islands take on their real coastlines and names.</p>
+  </section>
+  </div>
+  <p class="muted">Unofficial and fan-run. Not affiliated with Bossa Studios.</p>
 </div>
 
 {{mapBody}}

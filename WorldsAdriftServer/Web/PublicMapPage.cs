@@ -88,7 +88,6 @@ namespace WorldsAdriftServer.Web
             ("mapTitle", "The world of Worlds Adrift"),
             ("mapProvenance", string.Empty),
             ("mapLegend", WebAssets.Fill(WebAssets.ReadTrimmed("public-map-legend.html"),
-                ("tierFillOpacity", MapTierPalette.FillOpacityCss),
                 ("wallLegend", MapWallPalette.LegendHtml()))),
             ("mapAuthenticity", string.Empty),
             ("mapLedger", WebAssets.ReadTrimmed("public-map-ledger.html")));

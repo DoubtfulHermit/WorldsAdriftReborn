@@ -250,3 +250,34 @@ footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);fo
 .map-cand.dead circle{stroke:rgba(240,128,128,.75);stroke-dasharray:3 4;}
 @media(max-width:980px){.peer-inspector{grid-template-columns:1fr}}
 .terrain-metric .n.warn-number{color:var(--danger);}
+
+/* ---- public map: status strip, traveller finder, about panel -------------
+   Appended rather than woven in: the public page is a second consumer of this
+   stylesheet and its chrome should be findable in one block. Nothing above is
+   changed. */
+.pub-strip{display:flex;flex-wrap:wrap;gap:.5rem;margin:.2rem 0 .9rem}
+.pub-chip{display:flex;align-items:baseline;gap:.4rem;padding:.5rem .8rem;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.pub-chip strong{font-size:1.05rem;font-weight:700;color:var(--text);line-height:1}
+.pub-chip span{font-size:.66rem;color:var(--text-faint);letter-spacing:.04em}
+.pub-chip.quiet{color:var(--text-faint);font-size:.78rem}
+.pub-find{display:flex;align-items:center;gap:.45rem;margin:0 0 1.15rem;flex-wrap:wrap}
+.pub-find button[disabled]{opacity:.4;cursor:not-allowed}
+.pub-find-state{font-size:.74rem;color:var(--text-faint)}
+.pub-about{margin:0 0 1.15rem}
+.pub-about h2{font-size:1rem;margin:0 0 .6rem}
+.pub-about h3{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:1.05rem 0 .35rem}
+.pub-about-cols{display:grid;grid-template-columns:1fr;gap:0 2.6rem}
+@media(min-width:900px){.pub-about-cols{grid-template-columns:1fr 1fr}}
+.pub-about section{break-inside:avoid}
+.pub-about p{font-size:.82rem;line-height:1.62;color:var(--text-soft);margin:0 0 .55rem;max-width:60ch}
+.pub-about p.muted{font-size:.72rem;margin-top:1.1rem}
+.legend-dash{color:var(--text-faint)}
+/* The traveller the finder is pointing at. Every live marker already carries
+   an .mk-ring circle for this sort of thing, so the highlight rides that
+   rather than resizing the mark - nothing jumps when one is picked. */
+.map-marker.found .mk-ring{opacity:1;stroke:#e8c06a;stroke-width:2.6;fill:none;vector-effect:non-scaling-stroke}
+.map-marker.found .map-player{filter:drop-shadow(0 0 3px rgba(232,192,106,.9))}
+@keyframes pubFound{from{opacity:.35}to{opacity:1}}
+@media(prefers-reduced-motion:no-preference){
+  .map-marker.found .mk-ring{animation:pubFound 1.1s ease-in-out infinite alternate}
+}
