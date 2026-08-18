@@ -39,6 +39,7 @@ namespace WorldsAdriftServer.Persistence
         private static CrewRepository? crews;
         private static SocialInviteRepository? socialInvites;
         private static AllianceRepository? alliances;
+        private static ViewerSampleRepository? viewerSamples;
 
         internal static Db Database => Ensure().db;
         internal static AccountRepository Repository => Ensure().accounts;
@@ -71,6 +72,17 @@ namespace WorldsAdriftServer.Persistence
         internal static AllianceRepository Alliances => Ensure().alliances;
 
         /// <summary>
+        /// How many people had the public map open, minute by minute - schema v9.
+        ///
+        /// The only repository here that is not about a player, and the only one
+        /// whose table has no column that could name one. Written by the sampler in
+        /// <see cref="PublicMap.ViewerSampler"/> once a minute and read by the map
+        /// and the operator console; see <c>docs/public-map-viewer-count.md</c> for
+        /// why it is aggregate-only by construction rather than by convention.
+        /// </summary>
+        internal static ViewerSampleRepository ViewerSamples => Ensure().viewerSamples;
+
+        /// <summary>
         /// Opens the database and applies the schema. Called once at startup so
         /// a bad connection string is a loud failure on the console rather than
         /// a player staring at a login form that never answers.
@@ -85,7 +97,7 @@ namespace WorldsAdriftServer.Persistence
                 + Repository.Count() + " account(s) registered.");
         }
 
-        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites, AllianceRepository alliances) Ensure()
+        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites, AllianceRepository alliances, ViewerSampleRepository viewerSamples) Ensure()
         {
             lock (gate)
             {
@@ -99,9 +111,10 @@ namespace WorldsAdriftServer.Persistence
                     crews = new CrewRepository(db);
                     socialInvites = new SocialInviteRepository(db);
                     alliances = new AllianceRepository(db);
+                    viewerSamples = new ViewerSampleRepository(db);
                 }
 
-                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!, alliances!);
+                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!, alliances!, viewerSamples!);
             }
         }
 

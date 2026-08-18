@@ -115,6 +115,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
             string body = WebAssets.Fill(WebAssets.Read("admin-body.html"),
                 ("csrfTokenAttr", HtmlEncode(csrfToken)),
+                // How many people have the PUBLIC map open - a fact about the
+                // website rather than about the world, so it sits under World
+                // beside the live game rather than in Operations.
+                ("viewersCard", WebAssets.ReadTrimmed("admin-viewers.html")),
                 ("mapBody", mapBody));
 
             // 1.5 s: the game server rewrites its snapshot every three, so a
@@ -157,10 +161,14 @@ variable to <code>username:hash</code> and restart the login server to enable th
             "map-fauna.js",
             "map-ships.js",
             "map-interaction.js",
+            "map-viewers.js",
             "admin-console.js",
             "admin-operator.js",
             "admin-topology.js",
             "admin-wiring.js",
+            // Last, and self-booting: it touches only its own card, so it needs
+            // nothing wired for it and adds no line to admin-wiring.js.
+            "admin-viewers.js",
         };
 
         /// <summary>Minimal HTML entity escaping for text interpolated into markup.</summary>

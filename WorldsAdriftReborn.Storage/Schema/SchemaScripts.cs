@@ -54,7 +54,7 @@ ON CONFLICT (only_row) DO NOTHING;
         /// Every script, oldest first. Index i takes the database from version i
         /// to version i+1, so <c>All.Count</c> is the current version.
         /// </summary>
-        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8 };
+        public static IReadOnlyList<string> All { get; } = new[] { V1, V2, V3, V4, V5, V6, V7, V8, V9 };
 
         /// <summary>
         /// v1 - accounts, sessions, characters.
@@ -679,6 +679,53 @@ CREATE TABLE alliance_members (
 );
 
 CREATE INDEX alliance_members_by_alliance ON alliance_members (alliance_id);
+";
+
+        /// <summary>
+        /// v9 - how many people had the public map open, over time.
+        ///
+        /// The odd one out in this file, and deliberately so: every other table
+        /// here is about a player, and this one is about NOBODY. It exists because
+        /// the map is worth knowing the audience of, and it is shaped so that
+        /// knowing the audience cannot turn into knowing the audience members.
+        ///
+        /// TWO COLUMNS, AND THAT IS THE WHOLE PRIVACY ARGUMENT. A row is an instant
+        /// and a number. There is no visitor column, no address column, no session
+        /// column, no country column and no foreign key to a person - not omitted
+        /// by policy but absent from the schema, so a future call site cannot write
+        /// one without an operator seeing a migration go by. Somebody who dumps
+        /// this table in five years learns how busy the map was and cannot learn
+        /// that any particular person was ever there.
+        ///
+        /// The grain is a MINUTE, keyed as the primary key so it cannot be finer.
+        /// That matters as much as the missing columns: at one row per request the
+        /// row TIMINGS would themselves be a visit log - arrivals and departures
+        /// legible in the gaps - even with no identifying column at all. Once a
+        /// minute, a visitor who reads the map for thirty seconds may leave no
+        /// trace whatsoever, which is the correct amount of trace for somebody who
+        /// looked at a web page.
+        ///
+        /// Cheap enough to keep forever: 1,440 rows a day, about half a million a
+        /// year, two fixed-width columns. There is no retention policy because
+        /// there is nothing here to expire - the usual reason to age data out is
+        /// that it identifies somebody, and this cannot.
+        /// </summary>
+        internal const string V9 = @"
+CREATE TABLE map_viewer_samples (
+    -- Truncated to the minute by the writer, and PRIMARY KEY so that a restart
+    -- inside the same minute updates the existing row instead of laying down a
+    -- second one. Two rows for one minute would make the series' own density a
+    -- signal about the server rather than about the audience.
+    sampled_at   TIMESTAMPTZ NOT NULL PRIMARY KEY,
+
+    -- Concurrent viewers at that instant. A count of browser tabs, so it is
+    -- allowed to be 0 and is not allowed to be negative; a negative here would
+    -- mean the census had gone wrong upstream and we would rather find out on
+    -- the INSERT than draw it.
+    viewer_count INTEGER     NOT NULL,
+
+    CONSTRAINT map_viewer_samples_count_not_negative CHECK (viewer_count >= 0)
+);
 ";
     }
 }

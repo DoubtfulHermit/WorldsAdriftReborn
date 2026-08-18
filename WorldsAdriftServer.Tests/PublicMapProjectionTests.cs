@@ -63,6 +63,12 @@ namespace WorldsAdriftServer.Tests
             "FAUNA-SENTINEL",         // an unexpected field inside fauna
             "ECOLOGY-SENTINEL",       // an unexpected field inside the v9 ecology block
             "424242",                 // the ecology's worldSeed: an operator knob, admin-only
+            // The public feed gained a "viewers" COUNT. The obvious way that
+            // becomes a leak is a future stats file carrying a viewers OBJECT
+            // with members in it, landing on a key the projection now publishes.
+            // Seeded here so it cannot happen quietly.
+            "VIEWERADDR-SENTINEL",    // an address inside a hypothetical viewers block
+            "VIEWERAGENT-SENTINEL",   // a user agent beside it
         };
 
         private const string CorpusJson = @"{
@@ -74,6 +80,9 @@ namespace WorldsAdriftServer.Tests
           ""totalConnects"":9,""totalDisconnects"":8,
           ""currentOnline"":1,""peakOnline"":3,
           ""operatorNote"":""ROOT-SENTINEL-keep-off-the-public-feed"",
+          ""viewers"":{""count"":9999,
+                     ""addresses"":[""VIEWERADDR-SENTINEL-203.0.113.9""],
+                     ""agents"":[""VIEWERAGENT-SENTINEL-Mozilla""]},
           ""players"":[{
             ""entityId"":987654321,
             ""peerId"":""PEER-SENTINEL-203.0.113.9:7779"",
@@ -330,9 +339,13 @@ namespace WorldsAdriftServer.Tests
                         "metalId", "metalQuality", "outline" },
                 ((JObject)ship["hull"]!).Properties().Select(p => p.Name).ToArray());
 
+            // "viewers" was ADMITTED DELIBERATELY: how many browser tabs have the
+            // public page open. It is an integer with no members - see the note
+            // on the field in PublicMapProjection - and the corpus below proves
+            // it cannot be filled from the stats file.
             Assert.Equal(
-                new[] { "reporting", "state", "ageSeconds", "stale", "currentOnline",
-                        "fauna", "players", "ships", "shipModel" },
+                new[] { "reporting", "state", "viewers", "ageSeconds", "stale",
+                        "currentOnline", "fauna", "players", "ships", "shipModel" },
                 o.Properties().Select(p => p.Name).ToArray());
 
             // The dead-reckoning model: physics constants only. The map cannot

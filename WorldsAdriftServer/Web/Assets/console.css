@@ -272,6 +272,18 @@ footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);fo
 .pub-about p{font-size:.82rem;line-height:1.62;color:var(--text-soft);margin:0 0 .55rem;max-width:60ch}
 .pub-about p.muted{font-size:.72rem;margin-top:1.1rem}
 .legend-dash{color:var(--text-faint)}
+/* The viewer-count sparkline, in the About panel and in the operator console.
+   No axes and no grid: it is there to show a shape, and the two numbers worth
+   reading are printed under it. preserveAspectRatio is none on the SVG itself,
+   so the line stretches to whatever width it is given. */
+.spark{margin:.55rem 0 .2rem;max-width:60ch}
+.spark-svg{display:block;width:100%;height:2.6rem}
+.spark-area{fill:var(--accent);opacity:.16}
+.spark-line{fill:none;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.spark-foot{display:flex;flex-wrap:wrap;align-items:baseline;gap:.3rem .55rem;margin:.35rem 0 0}
+.spark-foot strong{font-size:.95rem;font-weight:700;color:var(--text);line-height:1}
+.spark-foot span{font-size:.68rem;color:var(--text-faint);letter-spacing:.04em}
+.spark-empty{font-size:.75rem;color:var(--text-faint)}
 /* The traveller the finder is pointing at. Every live marker already carries
    an .mk-ring circle for this sort of thing, so the highlight rides that
    rather than resizing the mark - nothing jumps when one is picked. */

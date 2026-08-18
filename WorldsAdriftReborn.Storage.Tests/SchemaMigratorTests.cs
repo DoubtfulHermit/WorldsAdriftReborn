@@ -58,29 +58,32 @@ namespace WorldsAdriftReborn.Storage.Tests
         }
 
         [Fact]
-        public void The_shipped_schema_is_at_version_eight()
+        public void The_shipped_schema_is_at_version_nine()
         {
             // If this fails, a script was added: check it was APPENDED and that
             // no existing one was edited, then update the number.
             // v1 accounts/sessions/characters, v2 character_inventories,
             // v3 server_config, v4 character_progression, v5 character_positions,
             // v6 crews + crew_members, v7 social_invites,
-            // v8 alliances + alliance_ranks + alliance_members.
-            Assert.Equal(8, SchemaMigrator.TargetVersion(SchemaScripts.All));
+            // v8 alliances + alliance_ranks + alliance_members,
+            // v9 map_viewer_samples.
+            Assert.Equal(9, SchemaMigrator.TargetVersion(SchemaScripts.All));
         }
 
         [Fact]
-        public void A_database_at_version_seven_is_brought_forward_by_exactly_one_script()
+        public void A_database_at_version_seven_runs_alliances_and_then_the_viewer_series()
         {
-            // The upgrade a live server will actually run when alliances ship. It
-            // must not re-run v1..v7 against tables that exist - the whole reason
-            // the scripts are append-only.
+            // A database that has not been updated since before alliances shipped.
+            // It must not re-run v1..v7 against tables that exist - the whole
+            // reason the scripts are append-only - and it must run what it does
+            // owe in order.
             IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(7, SchemaScripts.All);
 
-            Assert.Single(pending);
+            Assert.Equal(2, pending.Count);
             Assert.Contains("alliances", pending[0]);
             Assert.Contains("alliance_ranks", pending[0]);
             Assert.Contains("alliance_members", pending[0]);
+            Assert.Contains("map_viewer_samples", pending[1]);
         }
 
         /// <summary>
@@ -107,7 +110,7 @@ namespace WorldsAdriftReborn.Storage.Tests
             // of these references characters, which only v1 creates).
             IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
 
-            Assert.Equal(7, pending.Count);
+            Assert.Equal(8, pending.Count);
             Assert.Contains("character_inventories", pending[0]);
             Assert.Contains("server_config", pending[1]);
             Assert.Contains("character_progression", pending[2]);
@@ -115,6 +118,93 @@ namespace WorldsAdriftReborn.Storage.Tests
             Assert.Contains("crews", pending[4]);
             Assert.Contains("social_invites", pending[5]);
             Assert.Contains("alliances", pending[6]);
+            Assert.Contains("map_viewer_samples", pending[7]);
+        }
+
+        [Fact]
+        public void A_database_at_version_eight_is_brought_forward_by_exactly_one_script()
+        {
+            // The upgrade a live server will actually run when the map viewer
+            // count ships. It must not re-run v1..v8 against tables that exist.
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(8, SchemaScripts.All);
+
+            Assert.Single(pending);
+            Assert.Contains("map_viewer_samples", pending[0]);
+        }
+
+        /// <summary>
+        /// v9 is purely ADDITIVE, like v8: one new table and nothing touched, so
+        /// it is safe against a live database with players connected.
+        /// </summary>
+        [Fact]
+        public void The_viewer_sample_script_only_creates_and_never_alters_or_drops()
+        {
+            string script = SchemaMigrator.ScriptsToApply(8, SchemaScripts.All)[0];
+
+            Assert.DoesNotContain("ALTER TABLE", script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("DROP ", script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("UPDATE ", script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("DELETE FROM", script, StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The privacy property of the recorded series, asserted against the SQL
+        /// itself rather than against a comment: the table it creates has exactly
+        /// two columns, an instant and a count.
+        ///
+        /// This is the tripwire for the recorded half of the viewer count. Adding
+        /// a column that could name a visitor - an address, a session, a country,
+        /// a user agent - fails here by name, and has to be a deliberate act with
+        /// this test edited alongside it.
+        /// </summary>
+        [Fact]
+        public void The_recorded_viewer_series_has_nowhere_to_put_a_visitor()
+        {
+            string script = SchemaMigrator.ScriptsToApply(8, SchemaScripts.All)[0];
+
+            Assert.Contains("sampled_at", script, StringComparison.Ordinal);
+            Assert.Contains("viewer_count", script, StringComparison.Ordinal);
+
+            foreach (string forbidden in new[]
+            {
+                "ip", "address", "addr", "host", "agent", "referer", "referrer",
+                "country", "region", "city", "geo", "session", "cookie", "token",
+                "fingerprint", "account", "character", "player", "visitor", "uid",
+            })
+            {
+                Assert.DoesNotContain(forbidden, ColumnNames(script), StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
+        /// The column names declared by a CREATE TABLE script, and nothing else -
+        /// not the prose around them, which legitimately discusses addresses at
+        /// length precisely because there are none in the table.
+        /// </summary>
+        private static string ColumnNames(string script)
+        {
+            System.Text.StringBuilder names = new System.Text.StringBuilder();
+
+            foreach (string rawLine in script.Split('\n'))
+            {
+                string line = rawLine.Trim();
+                if (line.Length == 0 || line.StartsWith("--", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (line.StartsWith("CREATE", StringComparison.OrdinalIgnoreCase)
+                    || line.StartsWith("CONSTRAINT", StringComparison.OrdinalIgnoreCase)
+                    || line.StartsWith(")", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                int space = line.IndexOf(' ');
+                names.Append(space > 0 ? line.Substring(0, space) : line).Append(' ');
+            }
+
+            return names.ToString();
         }
     }
 }

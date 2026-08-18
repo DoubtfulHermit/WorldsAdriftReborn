@@ -37,13 +37,16 @@ namespace WorldsAdriftServer.PublicMap
     ///   teleporting), rotated every server restart (so nobody can correlate a
     ///   marker across days), and not brute-forceable without the salt.
     ///
-    /// What the public feed carries: snapshot freshness, the online COUNT,
-    /// the fauna roster and clock (creature counts and a number of seconds -
-    /// no identity exists in them), anonymous positioned player markers, and
-    /// anonymous ship markers with pose/silhouette hints. What it never
-    /// carries: names, account or character ids, peer ids, RTT/health/packet
-    /// telemetry, connect times, pilot/aboard linkage, entity ids, or any
-    /// operator surface.
+    /// What the public feed carries: snapshot freshness, the online COUNT, the
+    /// map's own viewer COUNT, the fauna roster and clock (creature counts and a
+    /// number of seconds - no identity exists in them), anonymous positioned
+    /// player markers, and anonymous ship markers with pose/silhouette hints.
+    /// What it never carries: names, account or character ids, peer ids,
+    /// RTT/health/packet telemetry, connect times, pilot/aboard linkage, entity
+    /// ids, or any operator surface. And, new with the viewer count and worth
+    /// naming because it is the field somebody would reach for next: no source
+    /// address, no user agent, no referrer, no country, in any form, hashed or
+    /// otherwise - the server does not read them to build this payload at all.
     /// </summary>
     internal static class PublicMapProjection
     {
@@ -57,14 +60,46 @@ namespace WorldsAdriftServer.PublicMap
         /// Builds the public live payload. Pure: everything it reads arrives
         /// as a parameter, so tests can drive it with a fabricated snapshot
         /// and a fixed salt.
+        ///
+        /// <paramref name="viewers"/> is the map's own audience - see the note on
+        /// the <c>viewers</c> field below. It is a parameter rather than a read of
+        /// <see cref="ViewerCensus.Shared"/> so that this stays a pure function of
+        /// its arguments, which is the property the leak corpus depends on.
         /// </summary>
-        internal static JObject Project(GameStatsResult result, byte[] salt)
+        internal static JObject Project(GameStatsResult result, byte[] salt, int viewers = 0)
         {
             JObject root = new JObject
             {
                 ["reporting"] = result.State == GameStatsState.Ok,
                 ["state"] = result.State.ToString().ToLowerInvariant(),
             };
+
+            // ADMITTED DELIBERATELY: how many browser tabs have this page open.
+            //
+            // It belongs on a whitelist that otherwise refuses everything about
+            // people, so it is worth saying exactly why it is not the same kind of
+            // thing. It is a COUNT with no members: it is computed from ephemeral
+            // per-page-load tokens the browser mints and the server holds only as
+            // salted hashes for thirty seconds (see ViewerCensus), the server never
+            // reads a source address to produce it, and there is no companion array
+            // anywhere in this payload that a viewer appears in. Publishing the
+            // integer 4 tells a reader that four tabs are open and cannot be made
+            // to tell them whose - not by correlating it with the player markers
+            // (different salt kind, different population, no shared key), and not
+            // by watching it change, which is exactly as informative as watching a
+            // "4 travellers" chip change.
+            //
+            // The honest caveat: on a very quiet map, a count of 1 means the person
+            // reading it is probably alone, and a count that ticks from 1 to 2 tells
+            // them somebody else arrived. That is the irreducible content of any
+            // presence number and it is what was asked for.
+            //
+            // Set BEFORE the degraded branch, because it is a fact about the
+            // WEBSITE rather than about the game server: people are still looking at
+            // this page while the game server is down, and dropping the field during
+            // an outage would make the page unable to tell "nobody is here" from
+            // "we stopped counting".
+            root["viewers"] = Math.Max(0, viewers);
 
             if (result.State != GameStatsState.Ok || result.Snapshot == null)
             {
