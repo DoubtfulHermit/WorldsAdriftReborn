@@ -101,21 +101,32 @@ else
     dotnet build "$REPO/WorldsAdriftRebornGameServer" -c Release > "$RUN/server-build-$STAMP.log" 2>&1 \
         || { echo "[run-soak] server build FAILED, see $RUN/server-build-$STAMP.log"; exit 2; }
 
-    echo "[run-soak] staging server (worktree build + deployed native DLLs)..."
+    # NATIVE, not Wine. This used to stage the WINDOWS CoreSdkDll.dll from the
+    # old Wine deployment and run the server under wine. Production moved to a
+    # native Linux server months ago, and that Windows shim predates the
+    # channel-count export the server now calls on every connect - so the soak
+    # died with
+    #   EntryPointNotFoundException: ENet_EXP_PeerChannelCount in DLL 'CoreSdkDll'
+    # the instant a bot connected. The gate was measuring nothing and had been
+    # unable to measure anything since the native migration. run-ship-acceptance.sh
+    # already builds and runs natively; this now does the same thing.
+    echo "[run-soak] staging server (worktree build + native shim)..."
     rm -rf "$STAGE"; mkdir -p "$STAGE"
     cp -r "$REPO/WorldsAdriftRebornGameServer/bin/Release/net6.0/." "$STAGE/"
-    # The Windows-native shim and its runtime DLLs are not produced by the
-    # managed build on Linux; take them from the deployed server, which
-    # deploy-coresdk.sh keeps current with the same shim sources.
-    cp "$DEPLOYED"/CoreSdkDll.dll "$DEPLOYED"/lib*.dll "$DEPLOYED"/zlib1.dll "$STAGE/" 2>/dev/null
-    [ -f "$STAGE/CoreSdkDll.dll" ] || { echo "[run-soak] no CoreSdkDll.dll found at $DEPLOYED"; exit 2; }
+    if [ ! -f "$HERE/build-native/libCoreSdkDll.so" ]; then
+        echo "[run-soak] building the native shim (first run only)..."
+        "$HERE/build-coresdk-native.sh" > "$RUN/soak-native-build-$STAMP.log" 2>&1 \
+            || { echo "[run-soak] native shim build FAILED, see $RUN/soak-native-build-$STAMP.log"; exit 2; }
+    fi
+    cp "$HERE/build-native/libCoreSdkDll.so" "$STAGE/" \
+        || { echo "[run-soak] no libCoreSdkDll.so to stage"; exit 2; }
 
-    echo "[run-soak] starting the game server under Wine (log: $SERVER_LOG)..."
+    echo "[run-soak] starting the game server natively (log: $SERVER_LOG)..."
     (
         cd "$STAGE" || exit 1
-        WINEPREFIX="$HOME/Games/wa-prefix" WINEDEBUG=-all WAREBORN_GAME_PORT="$PORT" \
-            WAREBORN_RELAY_V2="$RELAY_V2" \
-            wine 'C:\dotnet6\dotnet.exe' WorldsAdriftRebornGameServer.dll > "$SERVER_LOG" 2>&1
+        WAREBORN_GAME_PORT="$PORT" WAREBORN_RELAY_V2="$RELAY_V2" \
+            DOTNET_ROLL_FORWARD=Major \
+            dotnet WorldsAdriftRebornGameServer.dll > "$SERVER_LOG" 2>&1
     ) &
     STARTED_SERVER=1
 
