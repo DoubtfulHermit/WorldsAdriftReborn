@@ -28,6 +28,14 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      The console's front-end assets: CSS, the shared map renderer's JavaScript
+      fragments, and each page's body markup. A GLOB, so adding a fragment (a
+      new page, a new panel) needs no csproj edit - see Web/WebAssets.cs for how
+      they are composed back into a page.
+    -->
+    <EmbeddedResource Include="Web\Assets\**\*" />
+
     <!-- Preserved release MapFile: static geography for the authenticated live map. -->
     <EmbeddedResource Include="..\docs\research\world-data\wamap-islands.json"
                       Link="WorldData\wamap-islands.json" />
