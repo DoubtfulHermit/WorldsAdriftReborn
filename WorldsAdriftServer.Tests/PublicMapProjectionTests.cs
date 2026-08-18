@@ -61,6 +61,8 @@ namespace WorldsAdriftServer.Tests
             "HULLOWNER-SENTINEL",     // the owner uid the hull block really carries
             "ROOT-SENTINEL",          // an operator field at the root
             "FAUNA-SENTINEL",         // an unexpected field inside fauna
+            "ECOLOGY-SENTINEL",       // an unexpected field inside the v9 ecology block
+            "424242",                 // the ecology's worldSeed: an operator knob, admin-only
         };
 
         private const string CorpusJson = @"{
@@ -119,7 +121,23 @@ namespace WorldsAdriftServer.Tests
               {""islandId"":""release-a"",""mantaRays"":4,""jellyFish"":6,
                ""keeper"":""FAUNA-SENTINEL-unexpected""},
               {""islandId"":""release-b"",""mantaRays"":5,""jellyFish"":8}
-            ]}
+            ],
+            ""ecology"":{
+              ""enabled"":true,""worldSeed"":424242,
+              ""islands"":[
+                {""islandId"":""release-a"",""quietFactor"":1.0,
+                 ""mantaCapacity"":5,""jellyCapacity"":7,
+                 ""mantaExpressed"":5,""jellyExpressed"":7,
+                 ""warden"":""ECOLOGY-SENTINEL-unexpected"",
+                 ""groups"":[{""species"":""manta"",""index"":0,""bloom"":0,
+                   ""members"":5,""behaviour"":""Cruise"",""epochSeconds"":0}],
+                 ""blooms"":[{""species"":""manta"",""index"":0,""amplitude"":0.5,
+                   ""sigma"":40.5,""annulusRadius"":445.25,""radialDrift"":18.5,
+                   ""angularDrift"":0.3,""omegaRadial"":0.011,""omegaAngular"":0.007,
+                   ""omegaMigration"":0.003,""phaseRadial"":2.1,""phaseAngular"":4.9,
+                   ""baseAngle"":1.2}]}
+              ]}
+            }
         }";
 
         /// <summary>Runs the corpus through the REAL read path, not a shortcut.</summary>
@@ -239,6 +257,36 @@ namespace WorldsAdriftServer.Tests
             Assert.Null(fauna["demand"]);
             Assert.Null(fauna["perPeerBudget"]);
             Assert.Null(fauna["poseIntervalMs"]);
+        }
+
+        [Fact]
+        public void EcologyGeometrySurvivesButTheSeedDoesNot()
+        {
+            // The v9 ecology is ADMITTED: bloom paths are world geometry (the
+            // fauna equivalent of a coastline) and the counts carry no identity.
+            // The worldSeed is an operator knob and stays admin-only - the
+            // browser derives nothing from it, since the blooms arrive as
+            // published numbers.
+            JObject ecology = (JObject)JObject.Parse(ProjectCorpus())["fauna"]!["ecology"]!;
+            Assert.True((bool?)ecology["enabled"]);
+            Assert.Null(ecology["worldSeed"]);
+
+            JObject island = (JObject)((JArray)ecology["islands"]!).Single();
+            Assert.Equal("release-a", (string?)island["islandId"]);
+            Assert.Equal(1.0, (double?)island["quietFactor"]);
+            Assert.Equal(5, (int?)island["mantaCapacity"]);
+            Assert.Equal(7, (int?)island["jellyExpressed"]);
+            Assert.Null(island["warden"]);
+
+            JObject group = (JObject)((JArray)island["groups"]!).Single();
+            Assert.Equal("manta", (string?)group["species"]);
+            Assert.Equal(5, (int?)group["members"]);
+            Assert.Equal("Cruise", (string?)group["behaviour"]);
+
+            JObject bloom = (JObject)((JArray)island["blooms"]!).Single();
+            Assert.Equal(40.5, (double?)bloom["sigma"]);
+            Assert.Equal(445.25, (double?)bloom["annulusRadius"]);
+            Assert.Equal(0.011, (double?)bloom["omegaRadial"]);
         }
 
         // ---- the whitelist is exact -----------------------------------------

@@ -115,6 +115,108 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
+        /// THE ECOLOGY'S PLAN: capacity-driven populations, quiet islands, and
+        /// real multi-group structure, under the same two rules as
+        /// <see cref="Build"/> - ids are allocated from each island's own FULL
+        /// block before any reduction, and an island is seeded whole or not at
+        /// all against the world budget.
+        ///
+        /// The id block is <see cref="IslandFaunaCapacity.IdBlockFor"/> - the
+        /// most the island could ever express - so the operator's quiet-, peer-
+        /// and world-budget knobs can only choose WHICH of an island's reserved
+        /// ids go live, never re-lay the map. A quiet island's whole block stays
+        /// unused; that is what a deliberate zero looks like at the id layer.
+        ///
+        /// Group structure: each species' clamped capacity is split over
+        /// <see cref="IslandFaunaCapacity.GroupCountFor"/> groups, remainder to
+        /// the front, and a group's members hold consecutive ids for the same
+        /// arrive-together reason <see cref="IslandFaunaPolicy.PopulationFor"/>
+        /// states.
+        /// </summary>
+        public static IReadOnlyList<FaunaPlacement> BuildEcology(
+            IReadOnlyList<ReleaseIslandRecord> islands, int maxConcurrent, int perPeerBudget)
+        {
+            if (islands == null)
+            {
+                throw new ArgumentNullException(nameof(islands));
+            }
+
+            List<FaunaPlacement> plan = new List<FaunaPlacement>();
+            long nextEntityId = IslandFaunaPolicy.FirstFaunaEntityId;
+
+            foreach (ReleaseIslandRecord island in islands)
+            {
+                int tier = island.Survey.Tier;
+                IslandId id = island.Definition.Id;
+                long blockStart = nextEntityId;
+                nextEntityId +=
+                    IslandFaunaCapacity.IdBlockFor(FaunaSpecies.MantaRay, tier, island.Envelope)
+                    + IslandFaunaCapacity.IdBlockFor(FaunaSpecies.JellyFish, tier, island.Envelope);
+
+                (int mantas, int jellies) = IslandFaunaCapacity.ClampedToPeerBudget(
+                    IslandFaunaCapacity.CapacityFor(FaunaSpecies.MantaRay, tier, island.Envelope, id),
+                    IslandFaunaCapacity.CapacityFor(FaunaSpecies.JellyFish, tier, island.Envelope, id),
+                    perPeerBudget);
+                int total = mantas + jellies;
+                if (total == 0 || maxConcurrent <= 0 || plan.Count + total > maxConcurrent)
+                {
+                    continue;
+                }
+
+                int index = 0;
+                AddEcologySchools(plan, FaunaSpecies.MantaRay, mantas, island, blockStart, ref index);
+                AddEcologySchools(plan, FaunaSpecies.JellyFish, jellies, island, blockStart, ref index);
+            }
+
+            return plan;
+        }
+
+        /// <summary>How many creatures the ecology WANTS world-wide, after quiet and the per-peer clamp.</summary>
+        public static int EcologyDemand(IReadOnlyList<ReleaseIslandRecord> islands, int perPeerBudget)
+        {
+            if (islands == null)
+            {
+                throw new ArgumentNullException(nameof(islands));
+            }
+            int demand = 0;
+            foreach (ReleaseIslandRecord island in islands)
+            {
+                (int mantas, int jellies) = IslandFaunaCapacity.ClampedToPeerBudget(
+                    IslandFaunaCapacity.CapacityFor(FaunaSpecies.MantaRay,
+                        island.Survey.Tier, island.Envelope, island.Definition.Id),
+                    IslandFaunaCapacity.CapacityFor(FaunaSpecies.JellyFish,
+                        island.Survey.Tier, island.Envelope, island.Definition.Id),
+                    perPeerBudget);
+                demand += mantas + jellies;
+            }
+            return demand;
+        }
+
+        private static void AddEcologySchools(List<FaunaPlacement> plan, FaunaSpecies species,
+            int count, ReleaseIslandRecord island, long blockStart, ref int index)
+        {
+            int groups = IslandFaunaCapacity.GroupCountFor(species, count);
+            if (groups <= 0)
+            {
+                return;
+            }
+            int baseSize = count / groups;
+            int remainder = count % groups;
+            for (int school = 0; school < groups; school++)
+            {
+                int size = baseSize + (school < remainder ? 1 : 0);
+                for (int member = 0; member < size; member++)
+                {
+                    plan.Add(new FaunaPlacement(
+                        new FaunaCreature(blockStart + index, species,
+                            island.Definition.Id, index, school, member),
+                        island.Definition, island.Envelope));
+                    index++;
+                }
+            }
+        }
+
+        /// <summary>
         /// How many distinct islands a plan actually populates. The one number that
         /// says whether the budget covered the world or a corner of it.
         /// </summary>

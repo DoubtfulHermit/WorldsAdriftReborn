@@ -271,6 +271,14 @@ namespace WorldsAdriftServer.Admin
                 ["goldenAngleRadians"] = c.GoldenAngleRadians,
                 ["goldenRatioFraction"] = c.GoldenRatioFraction,
                 ["schoolsPerIsland"] = c.SchoolsPerIsland,
+                // Ecology constants (v9). The per-island bloom parameters travel
+                // in the LIVE feed - they depend on the game server's world seed,
+                // which is that process's env and not this one's.
+                ["mantaCirculationSigmaRatio"] = c.MantaCirculationSigmaRatio,
+                ["jellyCirculationSigmaRatio"] = c.JellyCirculationSigmaRatio,
+                ["mantaOrbitSpeed"] = c.MantaOrbitMetresPerSecond,
+                ["jellyOrbitSpeed"] = c.JellyOrbitMetresPerSecond,
+                ["maxGroupSpread"] = c.MaxGroupSpread,
             };
         }
 

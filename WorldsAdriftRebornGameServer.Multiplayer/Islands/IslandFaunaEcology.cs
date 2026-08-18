@@ -339,10 +339,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         {
             (double bx, double bz) = BloomCentreAt(bloom, elapsedSeconds);
             double radius = GroupOrbitRadius(bloom, species, groupIndex);
-            double angularRate = OrbitMetresPerSecondFor(species) / Math.Max(radius, 1.0);
-            double angle = (angularRate * elapsedSeconds)
-                + (2.0 * Math.PI * IslandFaunaSchool.SchoolPhaseFraction(groupIndex));
+            double angle = 2.0 * Math.PI
+                * GroupOrbitFraction(bloom, species, groupIndex, elapsedSeconds);
             return (bx + (radius * Math.Sin(angle)), bz + (radius * Math.Cos(angle)));
+        }
+
+        /// <summary>
+        /// How far through one circulation of its bloom a group is, in [0,1).
+        ///
+        /// This is the ecology's equivalent of the old lap fraction, and it is
+        /// exposed - and consumed by <see cref="GroupCentreAt"/> itself, so the
+        /// two cannot disagree - because the manta's RECOVERED vertical band is
+        /// driven by the orbit angle: retail's patrol climbed from the island's
+        /// midpoint to its top once per lap
+        /// (<see cref="IslandFaunaMovement.MantaVerticalOffsetRatioAt"/>), and
+        /// under the ecology the animal still climbs and sinks once per circuit,
+        /// merely circling a moving maximum instead of the island's centre.
+        /// </summary>
+        public static double GroupOrbitFraction(
+            FaunaBloom bloom, FaunaSpecies species, int groupIndex, double elapsedSeconds)
+        {
+            double radius = GroupOrbitRadius(bloom, species, groupIndex);
+            double angularRate = OrbitMetresPerSecondFor(species) / Math.Max(radius, 1.0);
+            return IslandFaunaSchool.Fraction(
+                (angularRate * elapsedSeconds / (2.0 * Math.PI))
+                + IslandFaunaSchool.SchoolPhaseFraction(groupIndex));
         }
 
         /// <summary>

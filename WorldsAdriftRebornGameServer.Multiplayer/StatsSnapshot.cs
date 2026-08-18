@@ -359,7 +359,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 8;
+        // v9: the fauna section gained an `ecology` object (capacity, expressed,
+        // quiet factor, groups with their (behaviour, epoch) pair, and bloom
+        // parameters). Purely additive; a v8/v7 reader that ignores unknown
+        // fields keeps working, and GameStats parses all three tolerantly.
+        public const int SchemaVersion = 9;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -612,6 +616,81 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 Str(b, "islandId", island.IslandId); b.Append(',');
                 Num(b, "mantaRays", island.MantaRays); b.Append(',');
                 Num(b, "jellyFish", island.JellyFish);
+                b.Append('}');
+            }
+            b.Append(']'); b.Append(',');
+            AppendFaunaEcology(b, f.Ecology);
+            b.Append('}');
+        }
+
+        /// <summary>
+        /// The ecology sub-section (schema v9). Written unconditionally with an
+        /// explicit enabled flag, like every other section: absence must mean
+        /// "older game server", never "no ecology". Bloom parameters are the
+        /// SAME numbers the pose function derives from - published rather than
+        /// re-derived, so the two admin/public map consumers evaluate exactly
+        /// what the wire carries. Everything here is geometry and counts; no
+        /// identity of any kind has a route in.
+        /// </summary>
+        private static void AppendFaunaEcology(StringBuilder b, FaunaEcologyStat e)
+        {
+            Key(b, "ecology");
+            b.Append('{');
+            Bool(b, "enabled", e.Enabled); b.Append(',');
+            Num(b, "worldSeed", e.WorldSeed); b.Append(',');
+            Key(b, "islands"); b.Append('[');
+            for (int i = 0; i < e.Islands.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                FaunaEcologyIslandStat island = e.Islands[i];
+                b.Append('{');
+                Str(b, "islandId", island.IslandId); b.Append(',');
+                Num(b, "quietFactor", island.QuietFactor); b.Append(',');
+                Num(b, "mantaCapacity", island.MantaCapacity); b.Append(',');
+                Num(b, "jellyCapacity", island.JellyCapacity); b.Append(',');
+                Num(b, "mantaExpressed", island.MantaExpressed); b.Append(',');
+                Num(b, "jellyExpressed", island.JellyExpressed); b.Append(',');
+                Key(b, "groups"); b.Append('[');
+                for (int g = 0; g < island.Groups.Count; g++)
+                {
+                    if (g > 0) b.Append(',');
+                    FaunaGroupStat group = island.Groups[g];
+                    b.Append('{');
+                    Str(b, "species", group.Species); b.Append(',');
+                    Num(b, "index", group.Index); b.Append(',');
+                    Num(b, "bloom", group.BloomIndex); b.Append(',');
+                    Num(b, "members", group.Members); b.Append(',');
+                    Str(b, "behaviour", group.Behaviour); b.Append(',');
+                    Num(b, "epochSeconds", group.EpochSeconds);
+                    b.Append('}');
+                }
+                b.Append(']'); b.Append(',');
+                Key(b, "blooms"); b.Append('[');
+                for (int k = 0; k < island.Blooms.Count; k++)
+                {
+                    if (k > 0) b.Append(',');
+                    FaunaBloomStat bloom = island.Blooms[k];
+                    b.Append('{');
+                    Str(b, "species", bloom.Species); b.Append(',');
+                    Num(b, "index", bloom.Index); b.Append(',');
+                    Num(b, "amplitude", bloom.Amplitude); b.Append(',');
+                    Num(b, "sigma", bloom.SigmaMetres); b.Append(',');
+                    Num(b, "annulusRadius", bloom.AnnulusRadiusMetres); b.Append(',');
+                    Num(b, "radialDrift", bloom.RadialDriftMetres); b.Append(',');
+                    Num(b, "angularDrift", bloom.AngularDriftRadians); b.Append(',');
+                    // Frequencies and phases are NOT rounded, for the recorded
+                    // mantaLapSeconds reason: they multiply ELAPSED SECONDS, so a
+                    // trimmed digit becomes a position error that grows with
+                    // uptime.
+                    Num(b, "omegaRadial", bloom.OmegaRadial); b.Append(',');
+                    Num(b, "omegaAngular", bloom.OmegaAngular); b.Append(',');
+                    Num(b, "omegaMigration", bloom.OmegaMigration); b.Append(',');
+                    Num(b, "phaseRadial", bloom.PhaseRadial); b.Append(',');
+                    Num(b, "phaseAngular", bloom.PhaseAngular); b.Append(',');
+                    Num(b, "baseAngle", bloom.BaseAngleRadians);
+                    b.Append('}');
+                }
+                b.Append(']');
                 b.Append('}');
             }
             b.Append(']');

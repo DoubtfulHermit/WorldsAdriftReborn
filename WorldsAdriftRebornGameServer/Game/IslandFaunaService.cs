@@ -87,6 +87,24 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>How near an island a peer must be for its fauna to check out.</summary>
         internal const string RadiusEnv = IslandFaunaInterestPolicy.LoadRadiusEnvVar;
 
+        /// <summary>
+        /// The ecology switch: capacity-driven populations, quiet islands,
+        /// multiple groups, and field-following motion. OFF by default and a
+        /// typo fails safe to the classic motion, like every fauna flag. It is
+        /// read ONCE at boot - the pose function and the population plan are
+        /// chosen in the constructor and at Seed - so it cannot flip mid-process
+        /// and re-lay entity ids under a live session.
+        /// </summary>
+        internal const string EcologyEnv = "WAREBORN_ISLAND_FAUNA_ECOLOGY";
+
+        /// <summary>
+        /// The world seed the blooms are derived from. An integer; anything else
+        /// falls back to <see cref="IslandFaunaEcology.DefaultWorldSeed"/>.
+        /// Rerolling it re-lays the ecology's motion, never its entity ids -
+        /// the id blocks are a pure function of the catalogue.
+        /// </summary>
+        internal const string SeedEnv = "WAREBORN_ISLAND_FAUNA_SEED";
+
         private const uint TransformStateComponentId = 190602;
         private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan SendInterval = TimeSpan.FromMilliseconds(120);
@@ -124,6 +142,15 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
         private readonly HashSet<long> _held = new();
         private Func<ENetPeerHandle, IslandId, bool>? _terrainReady;
+        private readonly FaunaEcologyEvaluator? _ecology;
+
+        /// <summary>
+        /// The records the world was seeded from, kept ONLY when the ecology is
+        /// on: its telemetry lists quiet islands as deliberate zeros, and a quiet
+        /// island has no creatures, so it cannot be recovered from _byIsland.
+        /// </summary>
+        private IReadOnlyList<ReleaseIslandRecord> _seededFrom =
+            Array.Empty<ReleaseIslandRecord>();
         private long _sample;
 
         /// <summary>
@@ -140,21 +167,40 @@ namespace WorldsAdriftRebornGameServer.Game
                 IslandFaunaPolicy.ParseBudget(Environment.GetEnvironmentVariable(BudgetEnv)),
                 IslandFaunaInterestPolicy.LoadRadiusFrom(Environment.GetEnvironmentVariable(RadiusEnv)),
                 IslandFaunaInterestPolicy.ParsePerPeerBudget(
-                    Environment.GetEnvironmentVariable(PeerBudgetEnv)))
+                    Environment.GetEnvironmentVariable(PeerBudgetEnv)),
+                IslandFaunaPolicy.EnabledFrom(Environment.GetEnvironmentVariable(EcologyEnv)),
+                ParseSeed(Environment.GetEnvironmentVariable(SeedEnv)))
         {
         }
 
         internal IslandFaunaService(IClock clock, bool enabled, int? maxConcurrent,
-            double? loadRadius = null, int? perPeerBudget = null)
+            double? loadRadius = null, int? perPeerBudget = null,
+            bool ecologyEnabled = false, int? worldSeed = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _enabled = enabled;
             _loadRadius = loadRadius ?? IslandFaunaInterestPolicy.DefaultLoadRadiusMetres;
             _unloadRadius = IslandFaunaInterestPolicy.UnloadRadiusFor(_loadRadius);
             _peerBudget = perPeerBudget ?? IslandFaunaInterestPolicy.DefaultPerPeerCreatures;
+            // The pose function is chosen ONCE, here: the registry cannot tell
+            // the ecology from the classic patrol, and nothing downstream
+            // branches on the flag again.
+            _ecology = ecologyEnabled
+                ? new FaunaEcologyEvaluator(worldSeed ?? IslandFaunaEcology.DefaultWorldSeed)
+                : null;
             _registry = new IslandFaunaRegistry(clock,
-                IslandFaunaMovement.WorldTransformAt, maxConcurrent);
+                _ecology != null ? _ecology.WorldTransformAt : IslandFaunaMovement.WorldTransformAt,
+                maxConcurrent);
         }
+
+        /// <summary>An integer seed, or null for the default. A typo must not stop a boot.</summary>
+        internal static int? ParseSeed(string? raw) =>
+            int.TryParse(raw, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int seed)
+                ? seed : (int?)null;
+
+        /// <summary>Whether the ecology layer drives populations and motion.</summary>
+        internal bool EcologyEnabled => _ecology != null;
 
         /// <summary>Whether island fauna is switched on.</summary>
         internal bool Enabled => _enabled;
@@ -209,7 +255,94 @@ namespace WorldsAdriftRebornGameServer.Game
                 demand: _demand,
                 perPeerBudget: _peerBudget,
                 poseIntervalMs: (int)Math.Round(_registry.PoseInterval.TotalMilliseconds),
-                islands: islands);
+                islands: islands,
+                ecology: EcologyTelemetry());
+        }
+
+        /// <summary>
+        /// The ecology section: every seeded-from island (INCLUDING the quiet
+        /// ones - a deliberate zero must be visible), its capacities, what is
+        /// expressed now, its group structure and its bloom parameters. All of
+        /// it re-read from the same pure functions and the same memoised blooms
+        /// the pose path uses, so the map's numbers cannot be a second
+        /// derivation.
+        /// </summary>
+        private FaunaEcologyStat EcologyTelemetry()
+        {
+            if (_ecology == null)
+            {
+                return FaunaEcologyStat.Off;
+            }
+
+            List<FaunaEcologyIslandStat> islands =
+                new List<FaunaEcologyIslandStat>(_seededFrom.Count);
+            foreach (ReleaseIslandRecord record in _seededFrom)
+            {
+                IslandId id = record.Definition.Id;
+                int tier = record.Survey.Tier;
+                (int mantas, int jellies) = IslandFaunaCapacity.ClampedToPeerBudget(
+                    IslandFaunaCapacity.CapacityFor(
+                        FaunaSpecies.MantaRay, tier, record.Envelope, id),
+                    IslandFaunaCapacity.CapacityFor(
+                        FaunaSpecies.JellyFish, tier, record.Envelope, id),
+                    _peerBudget);
+
+                // What is LIVE right now - the world budget may have cut an
+                // island the capacity maths wanted, and expressed-vs-capacity is
+                // exactly the split the map exists to show.
+                int liveMantas = 0, liveJellies = 0;
+                List<FaunaGroupStat> groups = new List<FaunaGroupStat>();
+                if (_byIsland.TryGetValue(id, out IslandPopulation? population))
+                {
+                    Dictionary<(FaunaSpecies Species, int Index), int> members =
+                        new Dictionary<(FaunaSpecies Species, int Index), int>();
+                    foreach (long entityId in population.EntityIds)
+                    {
+                        if (!_planned.TryGetValue(entityId, out FaunaPlacement placement)) continue;
+                        FaunaCreature creature = placement.Creature;
+                        if (creature.Species == FaunaSpecies.MantaRay) liveMantas++;
+                        else liveJellies++;
+                        members.TryGetValue((creature.Species, creature.SchoolIndex), out int n);
+                        members[(creature.Species, creature.SchoolIndex)] = n + 1;
+                    }
+                    foreach (KeyValuePair<(FaunaSpecies Species, int Index), int> pair in members
+                        .OrderBy(p => p.Key.Species).ThenBy(p => p.Key.Index))
+                    {
+                        FaunaBloom[] blooms = _ecology.BloomsFor(
+                            id, pair.Key.Species, record.Envelope);
+                        groups.Add(new FaunaGroupStat(
+                            pair.Key.Species == FaunaSpecies.MantaRay ? "manta" : "jelly",
+                            pair.Key.Index,
+                            IslandFaunaEcology.BloomIndexFor(pair.Key.Index, blooms.Length),
+                            pair.Value,
+                            // Phase 4 wires behaviours; the constant pair keeps
+                            // the contract stable now.
+                            "Cruise", 0.0));
+                    }
+                }
+
+                List<FaunaBloomStat> bloomStats = new List<FaunaBloomStat>();
+                foreach (FaunaSpecies species in new[]
+                    { FaunaSpecies.MantaRay, FaunaSpecies.JellyFish })
+                {
+                    FaunaBloom[] blooms = _ecology.BloomsFor(id, species, record.Envelope);
+                    for (int i = 0; i < blooms.Length; i++)
+                    {
+                        bloomStats.Add(FaunaBloomStat.From(species, i, blooms[i]));
+                    }
+                }
+
+                islands.Add(new FaunaEcologyIslandStat(
+                    id.ToString(),
+                    IslandFaunaCapacity.QuietFactorFor(id),
+                    mantas, jellies,
+                    liveMantas, liveJellies,
+                    groups, bloomStats));
+            }
+            islands.Sort((left, right) =>
+                string.CompareOrdinal(left.IslandId, right.IslandId));
+
+            return new FaunaEcologyStat(enabled: true, _ecology.WorldSeed, islands);
         }
 
         /// <summary>
@@ -233,10 +366,21 @@ namespace WorldsAdriftRebornGameServer.Game
                 throw new ArgumentNullException(nameof(islands));
             }
 
-            int demand = IslandFaunaPlan.Demand(islands);
+            int demand = _ecology != null
+                ? IslandFaunaPlan.EcologyDemand(islands, _peerBudget)
+                : IslandFaunaPlan.Demand(islands);
             _demand = demand;
-            IReadOnlyList<FaunaPlacement> plan =
-                IslandFaunaPlan.Build(islands, _registry.MaxConcurrent);
+            _seededFrom = _ecology != null ? islands : Array.Empty<ReleaseIslandRecord>();
+            IReadOnlyList<FaunaPlacement> plan = _ecology != null
+                ? IslandFaunaPlan.BuildEcology(islands, _registry.MaxConcurrent, _peerBudget)
+                : IslandFaunaPlan.Build(islands, _registry.MaxConcurrent);
+            if (_ecology != null)
+            {
+                Console.WriteLine("[island-fauna] ECOLOGY ON (" + EcologyEnv + "): capacity-driven"
+                    + " populations from each island's own AABB, quiet islands deliberate, groups"
+                    + " circulating field maxima; world seed " + _ecology.WorldSeed
+                    + " (" + SeedEnv + ").");
+            }
 
             foreach (FaunaPlacement placement in plan)
             {

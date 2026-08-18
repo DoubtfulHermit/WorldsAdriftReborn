@@ -36,7 +36,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         double WeaveRadiansPerSecond,
         double GoldenAngleRadians,
         double GoldenRatioFraction,
-        int SchoolsPerIsland);
+        int SchoolsPerIsland,
+        // The ecology's compile-time constants (the per-island bloom PARAMETERS
+        // travel in the live feed instead - they depend on the game server's
+        // seed, which this projection cannot know across the process boundary).
+        double MantaCirculationSigmaRatio,
+        double JellyCirculationSigmaRatio,
+        double MantaOrbitMetresPerSecond,
+        double JellyOrbitMetresPerSecond,
+        double MaxGroupSpread);
 
     /// <summary>
     /// One island's motion geometry, in ISLAND-LOCAL metres, precomputed from its
@@ -116,7 +124,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             WeaveRadiansPerSecond: IslandFaunaSchool.WeaveRadiansPerSecond,
             GoldenAngleRadians: IslandFaunaSchool.GoldenAngleRadians,
             GoldenRatioFraction: IslandFaunaSchool.GoldenRatioFraction,
-            SchoolsPerIsland: IslandFaunaPolicy.SchoolsPerIsland);
+            SchoolsPerIsland: IslandFaunaPolicy.SchoolsPerIsland,
+            MantaCirculationSigmaRatio:
+                IslandFaunaEcology.CirculationSigmaRatioFor(FaunaSpecies.MantaRay),
+            JellyCirculationSigmaRatio:
+                IslandFaunaEcology.CirculationSigmaRatioFor(FaunaSpecies.JellyFish),
+            MantaOrbitMetresPerSecond:
+                IslandFaunaEcology.OrbitMetresPerSecondFor(FaunaSpecies.MantaRay),
+            JellyOrbitMetresPerSecond:
+                IslandFaunaEcology.OrbitMetresPerSecondFor(FaunaSpecies.JellyFish),
+            MaxGroupSpread: IslandFaunaEcology.MaxGroupSpread);
 
         /// <summary>
         /// One island's precomputed motion geometry. Every field is the movement's

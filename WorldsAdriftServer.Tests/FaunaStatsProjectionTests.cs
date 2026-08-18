@@ -127,6 +127,61 @@ namespace WorldsAdriftServer.Tests
             Assert.DoesNotContain("hunter2", s.Fauna.Json.ToString(Newtonsoft.Json.Formatting.None));
         }
 
+        [Fact]
+        public void A_v8_file_without_an_ecology_block_parses_to_a_defined_absent_ecology()
+        {
+            // The v8-and-earlier shape: a fauna section with no ecology object.
+            GameStatsSnapshot s = Parse(@"{""schemaVersion"":8," + Head + @"
+              ""fauna"":{""enabled"":true,""clockSeconds"":1.0,""liveCount"":1,
+                ""islands"":[{""islandId"":""release-a"",""mantaRays"":1,""jellyFish"":0}]}
+            }");
+
+            JObject ecology = (JObject)s.Fauna.Json["ecology"]!;
+            Assert.False((bool)ecology["enabled"]!);
+            Assert.Empty((JArray)ecology["islands"]!);
+        }
+
+        [Fact]
+        public void A_hostile_ecology_is_clamped_sanitized_and_stripped_of_surprises()
+        {
+            GameStatsSnapshot s = Parse(@"{""schemaVersion"":9," + Head + @"
+              ""fauna"":{""enabled"":true,""clockSeconds"":1.0,""liveCount"":1,
+                ""islands"":[{""islandId"":""release-a"",""mantaRays"":1,""jellyFish"":0}],
+                ""ecology"":{""enabled"":true,""worldSeed"":7,
+                  ""islands"":[{""islandId"":""release-a"",
+                    ""quietFactor"":99.5,
+                    ""mantaCapacity"":-3,""jellyCapacity"":999999,
+                    ""mantaExpressed"":2,""jellyExpressed"":3,
+                    ""operatorSecret"":""hunter2"",
+                    ""groups"":[{""species"":""kraken"",""index"":-1,""bloom"":2,
+                      ""members"":5,""behaviour"":""<script>alert(1)</script>"",
+                      ""epochSeconds"":""NaN""}],
+                    ""blooms"":[{""species"":""jelly"",""index"":0,
+                      ""sigma"":40.5,""annulusRadius"":445.25,""omegaRadial"":0.011,
+                      ""surprise"":""hunter2""}]}]}}
+            }");
+
+            JObject ecology = (JObject)s.Fauna.Json["ecology"]!;
+            string serialized = ecology.ToString(Newtonsoft.Json.Formatting.None);
+            Assert.DoesNotContain("hunter2", serialized);
+            Assert.DoesNotContain("script", serialized);
+
+            JObject island = (JObject)((JArray)ecology["islands"]!).Single();
+            Assert.Equal(1.0, (double)island["quietFactor"]!);       // clamped to [0,1]
+            Assert.Equal(0, (int)island["mantaCapacity"]!);           // negative floors
+            Assert.Equal(4096, (int)island["jellyCapacity"]!);        // absurd caps
+
+            JObject group = (JObject)((JArray)island["groups"]!).Single();
+            Assert.Equal("manta", (string?)group["species"]);         // unknown species defaults
+            Assert.Equal("Cruise", (string?)group["behaviour"]);      // malformed label defaults
+            Assert.Equal(0, (int)group["index"]!);
+
+            JObject bloom = (JObject)((JArray)island["blooms"]!).Single();
+            Assert.Equal("jelly", (string?)bloom["species"]);
+            Assert.Equal(40.5, (double)bloom["sigma"]!);
+            Assert.Equal(0.0, (double)bloom["radialDrift"]!);          // absent fields become 0, not undefined
+        }
+
         /// <summary>
         /// The console feeds these numbers into an animation loop, so a malformed
         /// snapshot has to come out as a smaller world rather than as a hung tab.

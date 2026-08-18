@@ -63,7 +63,51 @@
         ? {r:M.mantaSchoolRadius,v:M.mantaSchoolVerticalRadius}
         : {r:M.jellyShoalRadius,v:M.jellyShoalVerticalRadius};
     }
+    // ---- the ecology (schema v9): groups circulate MOVING FIELD MAXIMA ------
+    // The bloom parameters arrive per island in the LIVE feed (they depend on
+    // the game server's world seed); only the time part is restated here. The
+    // vertical laws are deliberately the RECOVERED ones above - the manta's
+    // midpoint-to-top band driven by its orbit fraction, the jelly's day/night
+    // blend - because altitude is a recovery and the field is tuning.
+    function bloomCentre(b,t){
+      var r=b.annulusRadius+b.radialDrift*Math.sin(b.omegaRadial*t+b.phaseRadial);
+      var a=b.baseAngle+b.omegaMigration*t
+           +b.angularDrift*Math.sin(b.omegaAngular*t+b.phaseAngular);
+      return {x:r*Math.sin(a),z:r*Math.cos(a)};
+    }
+    function groupOrbitRadius(b,species,schoolIndex){
+      var ratio=species==='manta'?M.mantaCirculationSigmaRatio:M.jellyCirculationSigmaRatio;
+      var spread=1+(M.maxGroupSpread-1)*fraction((schoolIndex+1)*M.goldenRatioFraction);
+      return b.sigma*ratio*spread;
+    }
+    function groupOrbitFraction(b,species,schoolIndex,t){
+      var r=groupOrbitRadius(b,species,schoolIndex);
+      var speed=species==='manta'?M.mantaOrbitSpeed:M.jellyOrbitSpeed;
+      return fraction((speed/Math.max(r,1))*t/(2*Math.PI)+schoolPhase(schoolIndex));
+    }
+    function ecologyCentre(p,b,species,schoolIndex,t){
+      var c=bloomCentre(b,t);
+      var r=groupOrbitRadius(b,species,schoolIndex);
+      var a=2*Math.PI*groupOrbitFraction(b,species,schoolIndex,t);
+      var y;
+      if(species==='manta'){
+        // The band keeps the ISLAND lap's pace, not the bloom orbit's: a bloom
+        // circuit is half a minute and the recovered climb takes a whole lap.
+        y=p.cy+p.halfHeight*mantaVertical(fraction(t/p.mantaLapSeconds+schoolPhase(schoolIndex)));
+      }else{
+        var d=dayness(t),nightY=p.minY+(p.maxY-p.minY)*M.walkableHeightFraction;
+        y=nightY+(p.minY-nightY)*d;
+      }
+      return {x:p.cx+c.x+r*Math.sin(a),y:y,z:p.cz+c.z+r*Math.cos(a)};
+    }
+    function bloomFor(p,species,schoolIndex){
+      var set=p.blooms&&p.blooms[species];
+      if(!set||!set.length)return null;
+      return set[((schoolIndex%set.length)+set.length)%set.length];
+    }
     function schoolCentre(p,species,schoolIndex,t){
+      var b=bloomFor(p,species,schoolIndex);
+      if(b)return ecologyCentre(p,b,species,schoolIndex,t);
       return species==='manta'?mantaCentre(p,schoolIndex,t):jellyCentre(p,schoolIndex,t);
     }
     function localPose(p,species,schoolIndex,memberIndex,t){
@@ -118,13 +162,37 @@
     if(predicted===null||Math.abs(predicted-reported)>2)
       faunaAnchor={clock:reported,perf:now};
     faunaRoster=[];
+    // The ecology join (schema v9): per-island bloom parameters and group
+    // structure ride the live feed. Attached onto a COPY of the static fauna
+    // params so the mirror sees one parameter object either way, and an older
+    // game server (no ecology block) leaves the roster exactly as before.
+    var eco={},ecoOn=false;
+    if(f.ecology&&f.ecology.enabled===true){
+      ecoOn=true;
+      (f.ecology.islands||[]).forEach(function(row){eco[row.islandId]=row;});
+    }
     (f.islands||[]).forEach(function(row){
       var node=faunaById[row.islandId];
       if(!node||!node.island||!node.island.fauna)return;
-      faunaRoster.push({node:node,p:node.island.fauna,
+      var p=node.island.fauna,mg=null,jg=null;
+      var e=ecoOn?eco[row.islandId]:null;
+      if(e&&(e.blooms||[]).length){
+        var blooms={manta:[],jelly:[]};
+        (e.blooms||[]).forEach(function(b){
+          (b.species==='jelly'?blooms.jelly:blooms.manta).push(b);
+        });
+        p=Object.assign({},p,{blooms:blooms});
+        mg=[];jg=[];
+        (e.groups||[]).forEach(function(g){
+          (g.species==='jelly'?jg:mg).push({index:Number(g.index)||0,
+            members:Math.max(1,Number(g.members)||1)});
+        });
+      }
+      faunaRoster.push({node:node,p:p,
         ox:Number(node.island.x),oz:-Number(node.island.z),
         manta:Math.max(0,Number(row.mantaRays)||0),
-        jelly:Math.max(0,Number(row.jellyFish)||0)});
+        jelly:Math.max(0,Number(row.jellyFish)||0),
+        mg:mg,jg:jg});
     });
     // The detail panel STATES what is alive, so it has to be rebuilt when that
     // changes - but only then. Re-rendering it every poll would throw away the
@@ -167,14 +235,25 @@
   }
   function faunaSpecies(out,row,kind,count,t,inView){
     if(count<=0)return;
+    var members=(FAUNA.cluster(kind).r/mapPx)>=FAUNA_MEMBER_PIXELS&&inView;
+    // Ecology group structure when the live feed carries it: each group has its
+    // own index (which selects its bloom and phase) and its own member count.
+    var groups=kind==='manta'?row.mg:row.jg;
+    if(groups&&groups.length){
+      for(var g=0;g<groups.length;g++){
+        if(!members){faunaPush(out,kind,row,groups[g].index,0,t,false);continue;}
+        for(var n=0;n<groups[g].members;n++)
+          faunaPush(out,kind,row,groups[g].index,n,t,true);
+      }
+      return;
+    }
     var schools=Math.max(1,Number(row.p.schools)||1);
-    if((FAUNA.cluster(kind).r/mapPx)<FAUNA_MEMBER_PIXELS){
+    if(!members){
+      // Members are only worth computing where they can be seen. Off-screen
+      // islands keep their schools, which cost two evaluations each.
       for(var s=0;s<schools;s++)faunaPush(out,kind,row,s,0,t,false);
       return;
     }
-    // Members are only worth computing where they can be seen. Off-screen
-    // islands keep their schools, which cost two evaluations each.
-    if(!inView){for(var q=0;q<schools;q++)faunaPush(out,kind,row,q,0,t,false);return;}
     var size=Math.max(1,Math.round(count/schools));
     for(var j=0;j<schools;j++)
       for(var m=0;m<size;m++)faunaPush(out,kind,row,j,m,t,true);
@@ -276,11 +355,20 @@
       if(r.jelly){minShoal=Math.min(minShoal,r.jelly);maxShoal=Math.max(maxShoal,r.jelly);}
     });
     function span(lo,hi){return lo>hi?'0':(lo===hi?String(lo):(lo+'-'+hi));}
-    return 'Wildlife (live): '+plural(mantas+jellies,'creature','creatures')+' on '
+    var note='Wildlife (live): '+plural(mantas+jellies,'creature','creatures')+' on '
       +plural(faunaRoster.length,'island','islands')+' - '+fmt(mantas)+' manta rays in schools of '
       +span(minSchool,maxSchool)+' orbiting their island, '+fmt(jellies)+' jellyfish in shoals of '
       +span(minShoal,maxShoal)+' on a '+fmtShort(Number((worldMap.faunaModel||{}).dayNightCycleSeconds)||0)
-      +' day/night cycle. '+faunaPhaseText(faunaElapsed())
+      +' day/night cycle. '+faunaPhaseText(faunaElapsed());
+    if(faunaStat.ecology&&faunaStat.ecology.enabled===true){
+      var quiet=0;
+      (faunaStat.ecology.islands||[]).forEach(function(r){if(Number(r.quietFactor)===0)quiet++;});
+      note+=' The ECOLOGY layer is on: populations follow each island’s own size and schools '
+        +'circulate drifting feeding grounds'
+        +(quiet?(', and '+plural(quiet,'island is','islands are')
+          +' deliberately quiet - a real zero, not missing data'):'')+'.';
+    }
+    return note
       +' These are not sampled positions: the browser evaluates the game server’s own movement '
       +'against the clock the server reports, which is why they move smoothly between snapshots.';
   }

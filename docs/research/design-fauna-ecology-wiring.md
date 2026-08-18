@@ -1,18 +1,42 @@
-# Wiring the fauna ecology: the plan for the step that is gated
+# Wiring the fauna ecology: the design, and how the wiring actually went
 
-2026-08-18, `feat/fauna-schools`, written at the end of Phase 2. The ecology
-maths (`IslandFaunaEcology`), the capacity model (`IslandFaunaCapacity`) and
-their tests are COMMITTED AND UNWIRED. This document is the complete design for
-the wiring step, which is gated on one fact outside this branch's control:
-**`WorldsAdriftServer/Web/AdminPage.cs` is being edited by the admin-map-ships
-workstream, and the fauna motion mirror lives inside it between the
-`// ==== FAUNA MOTION MIRROR BEGIN/END ====` markers, guarded by
-`AdminFaunaParityTests` at 1e-9 m.** Nothing below touches that file until the
-other workstream lands and the go is given.
+2026-08-18, `feat/fauna-schools`. Written at the end of Phase 2 as the plan for
+a then-gated wiring step; **the wiring has since LANDED** (the front-end
+extraction moved the mirror into `WorldsAdriftServer/Web/Assets/map-fauna.js`,
+shared by the admin console AND the live public map at `/map`, and the go was
+given). The design below is kept as written, with a dated addendum where
+reality differed.
 
-The point of writing the design now: the wiring commit should be a
-transcription, not a design session, and the parity test must never be red at
-any commit.
+## 0. WIRING ADDENDUM (post-landing corrections)
+
+- **Schema went 8 → 9, not 7 → 8**: ships-on-the-map and the operator fields
+  took v8 while this branch was staged. Everything else in section 5 holds.
+- **Two consumers, one mirror.** The mirror now serves the admin console and
+  the public map from the same `map-fauna.js`; the ecology block was ADMITTED
+  to the public projection deliberately (world geometry + counts, zero
+  identity), with one exception: **`worldSeed` stays admin-only** - an operator
+  knob the browser derives nothing from, since blooms arrive as published
+  numbers. The public leak corpus carries sentinels for both decisions.
+- **The manta's vertical band keeps the ISLAND LAP's pace, not the bloom
+  orbit's.** Measured during wiring: a bloom orbit is tens of metres across, a
+  circuit takes ~30 s, and a band tied to it pumped the manta's full climb at
+  up to 8 m/s of pure vertical - frantic, and over the pose budget. Retail's
+  band traversal took one patrol lap (minutes); `mantaLapSeconds` is the
+  recovered pace and is what both evaluators use.
+- **`MaxSizeScale` is 2.0, not 1.8.** At 1.8 the largest tier-1 island rounds
+  to 7 mantas against a group size of 4, so NO tier-1 island could ever carry
+  a second group - and layering was the point. 2.0 is exactly two full
+  baseline schools; the biggest island's worst case (8 + 12 = 20) still clears
+  the per-peer 24 without the clamp.
+- **Cross-flag id stability is scoped honestly**: ids are a pure function of
+  the catalogue (`IslandFaunaCapacity.IdBlockFor` reserves each island's
+  widest-case block, so quiet/peer/world knobs only choose WHICH reserved ids
+  go live), but the ecology flag itself selects a different plan shape. That
+  is safe because the flag is read once at boot and no client session survives
+  a restart.
+- Parity now covers the ecology at 1e-9 m
+  (`The_ecology_mirror_returns_the_same_metres_as_the_evaluator`), with bloom
+  parameters shaped exactly as the live feed publishes them.
 
 ---
 

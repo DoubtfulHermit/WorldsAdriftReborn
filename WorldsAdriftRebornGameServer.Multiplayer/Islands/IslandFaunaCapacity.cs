@@ -55,12 +55,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>
         /// How far size may swing a population, either way. WAREBORN TUNING:
         /// 0.4x keeps a tiny island's school above the "two lost animals"
-        /// floor once rounding is applied, and 1.8x keeps the biggest island's
-        /// whole population inside the per-peer budget with the group structure
-        /// intact.
+        /// floor once rounding is applied, and 2.0x is chosen as EXACTLY two
+        /// full baseline schools - which is what makes a second group reachable
+        /// inside tier 1 at all (a 1.8x ceiling rounds to 7 mantas against a
+        /// group size of 4, so no tier-1 island could ever layer, and layering
+        /// was the point). The biggest island's worst case, 8 + 12 = 20, still
+        /// clears the per-peer budget of 24 without the clamp.
         /// </summary>
         public const double MinSizeScale = 0.4;
-        public const double MaxSizeScale = 1.8;
+        public const double MaxSizeScale = 2.0;
 
         /// <summary>Fraction of islands that are EMPTY - see the quiet doctrine above. WAREBORN TUNING.</summary>
         public const double EmptyFraction = 0.08;
@@ -131,6 +134,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 : IslandFaunaPolicy.JellyFishCountFor(tier);
             int scaled = (int)Math.Round(baseline * SizeScaleFor(envelope) * quiet);
             return Math.Max(scaled, 2);
+        }
+
+        /// <summary>
+        /// The WIDTH of the entity-id block an island reserves for one species
+        /// under the ecology: the size-scaled capacity with NO quiet factor and
+        /// NO per-peer clamp - the most creatures the island could ever express.
+        ///
+        /// This is what keeps the operator's knobs off the id layout: the live
+        /// population is <see cref="CapacityFor"/> (quiet-scaled) clamped to the
+        /// per-peer budget, and both of those only ever REDUCE, so the live
+        /// count fits the block whatever the operator sets. The block itself is
+        /// a pure function of the catalogue, so ids are identical on every boot
+        /// of a given build. (Across BUILDS a tuning-constant change may re-lay
+        /// them, which is safe: the env is read once at boot and no client
+        /// session survives a server restart.)
+        /// </summary>
+        public static int IdBlockFor(FaunaSpecies species, int tier, IslandTerrainEnvelope envelope)
+        {
+            int baseline = species == FaunaSpecies.MantaRay
+                ? IslandFaunaPolicy.MantaCountFor(tier)
+                : IslandFaunaPolicy.JellyFishCountFor(tier);
+            return Math.Max((int)Math.Round(baseline * SizeScaleFor(envelope)), 2);
         }
 
         /// <summary>
