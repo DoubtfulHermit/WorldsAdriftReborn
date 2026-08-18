@@ -386,6 +386,18 @@ namespace WorldsAdriftRebornGameServer.Game
                 ? placement.Creature.Species : (FaunaSpecies?)null;
 
         /// <summary>
+        /// The whole creature record, or null for anything that is not one. The
+        /// identity-component branches (1177 gender, 4326 manta variant, 4322
+        /// jelly species) ask this: gender is a function of the member index and
+        /// the variant's biome and the jelly's species are functions of the
+        /// island, so the serializer needs the creature rather than three
+        /// separate questions.
+        /// </summary>
+        internal FaunaCreature? CreatureOf(long entityId) =>
+            _enabled && _planned.TryGetValue(entityId, out FaunaPlacement placement)
+                ? placement.Creature : (FaunaCreature?)null;
+
+        /// <summary>
         /// Guards component interest against the cross-channel unload race. Channel 5
         /// RemoveEntity and channel 2 interest are independent, so a request may
         /// arrive after the creature was unloaded; re-seeding it would leave native
@@ -526,7 +538,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
-            string prefab = IslandFaunaPolicy.PrefabNameFor(placement.Creature.Species);
+            // Creature-aware, not species-aware: a jelly's prefab is its ISLAND's
+            // jelly species (four retail prefabs, IslandFaunaPolicy.JellySpeciesFor),
+            // while a manta is always the one manta prefab.
+            string prefab = IslandFaunaPolicy.PrefabNameFor(placement.Creature);
             if (state.AssetRequestedFor != action.EntityId)
             {
                 // "notNeeded?" is the assetTYPE every other caller passes; the

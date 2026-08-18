@@ -1,20 +1,15 @@
 namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 {
     /// <summary>
-    /// The two creatures this server is willing to seed.
+    /// The two KINDS of creature this server is willing to seed - the kind is
+    /// what selects a movement law (<see cref="IslandFaunaMovement"/>), which is
+    /// why the four retail jelly SPECIES are not members here: they all drift
+    /// the same way, and which one an island gets is a separate, per-island
+    /// question answered by <see cref="IslandFaunaPolicy.JellySpeciesFor"/>.
     ///
-    /// Retail carried more: <c>SpeciesType.MantaRay</c> for the rays, and four
-    /// separate basic-species values for the jellies (<c>JellyFishSeed</c>,
-    /// <c>JellyFishFlower</c>, <c>JellyFishDesertA</c>, <c>JellyFishDesertB</c>).
-    /// Those four are deliberately collapsed to one here: the surviving player
-    /// client proves the NAMES existed but no surviving table proves which island
-    /// got which, so four enum members would be four claims this project cannot
-    /// support. One jelly is honest; four would be invention with better
-    /// typography.
-    ///
-    /// Both names resolve against the packaged client prefab census
-    /// (Ship/client-entity-prefabs.txt), so an AddEntity naming either one draws
-    /// something rather than throwing on the client.
+    /// Every prefab name this policy can emit resolves against the packaged
+    /// client prefab census (Ship/client-entity-prefabs.txt), so an AddEntity
+    /// naming any of them draws something rather than throwing on the client.
     /// </summary>
     public enum FaunaSpecies
     {
@@ -29,6 +24,52 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
         /// <summary>A perimeter-patrolling manta ray. Present for the whole of retail's life.</summary>
         MantaRay,
+    }
+
+    /// <summary>
+    /// WHICH jelly a shoal is made of. RECOVERED that all four exist and are
+    /// renderable: <c>BasicSpeciesType { JellyFishSeed, JellyFishFlower,
+    /// JellyFishDesertA, JellyFishDesertB }</c> is the complete retail enum
+    /// (gencode/Bossa.Travellers.Creatures.Basic/BasicSpeciesType.cs), and every
+    /// prefab named by <see cref="IslandFaunaPolicy.PrefabNameFor(FaunaJellySpecies)"/>
+    /// has a container key in the shipped client's globalgamemanagers and a
+    /// backing GameObject in resources.assets.
+    ///
+    /// A fifth prefab survives with NO enum member - <c>FlowerPodFireJelly</c>,
+    /// a late addition or a cut variant. It is deliberately not served: there is
+    /// no <c>BasicSpeciesType</c> value to seed component 4322 with, and an
+    /// unnameable species is a claim this project cannot make on the wire.
+    ///
+    /// The numeric order mirrors retail's enum order so a reader can map one to
+    /// the other without a table.
+    /// </summary>
+    public enum FaunaJellySpecies
+    {
+        /// <summary>Retail's <c>JellyFishSeed</c>; prefab <c>SeedPodJelly</c>.</summary>
+        Seed,
+
+        /// <summary>Retail's <c>JellyFishFlower</c>; prefab <c>FlowerPodJelly</c>.</summary>
+        Flower,
+
+        /// <summary>Retail's <c>JellyFishDesertA</c>; prefab <c>DesertPod</c>.</summary>
+        DesertA,
+
+        /// <summary>Retail's <c>JellyFishDesertB</c>; prefab <c>DesertPodB</c>.</summary>
+        DesertB,
+    }
+
+    /// <summary>
+    /// A creature's gender, as the retail wire vocabulary has it (component 1177
+    /// <c>GenderState</c>: None / Female / Male; recovered from
+    /// gencode/Bossa.Travellers.Creatures/GenderStateData.cs). <c>None</c> is
+    /// deliberately not a member here: a served creature always gets a real
+    /// gender, because gender is one of the two inputs the manta's tail-picking
+    /// callback needs before it will select a mesh at all.
+    /// </summary>
+    public enum FaunaGender
+    {
+        Female,
+        Male,
     }
 
     /// <summary>
@@ -226,6 +267,74 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             _ => throw new ArgumentOutOfRangeException(nameof(species),
                 "no client prefab is known for species '" + species + "'"),
         };
+
+        /// <summary>The client prefab for one jelly species. All four names are in the census.</summary>
+        public static string PrefabNameFor(FaunaJellySpecies species) => species switch
+        {
+            FaunaJellySpecies.Seed => "SeedPodJelly",
+            FaunaJellySpecies.Flower => "FlowerPodJelly",
+            FaunaJellySpecies.DesertA => "DesertPod",
+            FaunaJellySpecies.DesertB => "DesertPodB",
+            _ => throw new ArgumentOutOfRangeException(nameof(species),
+                "no client prefab is known for jelly species '" + species + "'"),
+        };
+
+        /// <summary>
+        /// THE prefab for one seeded creature: the manta prefab for a ray, and
+        /// the island's own jelly species' prefab for a jelly. This is the
+        /// overload <c>IslandFaunaService</c> streams from; the species-only
+        /// overload above survives for the callers that genuinely have no island.
+        /// </summary>
+        public static string PrefabNameFor(FaunaCreature creature) =>
+            creature.Species == FaunaSpecies.MantaRay
+                ? PrefabNameFor(FaunaSpecies.MantaRay)
+                : PrefabNameFor(JellySpeciesFor(creature.IslandId));
+
+        /// <summary>
+        /// WHICH jelly species an island's shoals are, decided per ISLAND.
+        ///
+        /// PROVENANCE, stated carefully because this is where invention would
+        /// hide. That four species EXISTED is RECOVERED
+        /// (<see cref="FaunaJellySpecies"/>). WHICH island carried WHICH is NOT
+        /// RECOVERED and never will be - retail's eligibility table lived in
+        /// GSim, and the only hint is the names (<c>DesertA/B</c> against
+        /// Biome4), which proves nothing and would not even discriminate here:
+        /// all 46 tier-1 islands are Biome1. So the ASSIGNMENT is WAREBORN
+        /// TUNING: a stable hash of the island's id spread evenly across the
+        /// four species, chosen per island rather than per member because a
+        /// mixed shoal would be a second unsupported claim on top of the first.
+        ///
+        /// FNV-1a rather than <c>string.GetHashCode</c>, and that is load-bearing:
+        /// .NET string hashing is RANDOMISED PER PROCESS, so a restarted server
+        /// would reroll every island's species and a reconnecting player would
+        /// watch the shoal change kind. FNV-1a over the id's characters is a
+        /// pure function of the name, forever.
+        /// </summary>
+        public static FaunaJellySpecies JellySpeciesFor(IslandId island)
+        {
+            const uint OffsetBasis = 2166136261;
+            const uint Prime = 16777619;
+            uint hash = OffsetBasis;
+            string id = island.ToString();
+            for (int i = 0; i < id.Length; i++)
+            {
+                hash = (hash ^ id[i]) * Prime;
+            }
+            return (FaunaJellySpecies)(hash % 4);
+        }
+
+        /// <summary>
+        /// A creature's gender: members alternate, Female first.
+        ///
+        /// WAREBORN TUNING, necessarily - retail's genders were assigned by GSim
+        /// breeding, which is not preserved - but the RULE is chosen for what it
+        /// guarantees rather than for convenience: alternation makes every school
+        /// of two or more carry BOTH genders, so the manta's male and female tail
+        /// meshes both actually appear in the world, and it is a pure function of
+        /// the member index, so a restart cannot re-gender an animal.
+        /// </summary>
+        public static FaunaGender GenderFor(int memberIndex) =>
+            memberIndex % 2 == 0 ? FaunaGender.Female : FaunaGender.Male;
 
         /// <summary>
         /// How many SCHOOLS of each species a single island carries.

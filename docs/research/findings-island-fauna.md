@@ -261,25 +261,33 @@ of 96 fauna transform updates a second.
 
 ## What is still unproven
 
-- THE SOAK GATE CANNOT SEE THIS FEATURE. `tools/relaybot/run-soak.sh` was run at
-  the full population (3,866 creatures, whole catalogue) and at the production
-  tier-1 population (460), with the bots stood inside a real island's envelope
-  via the new `--centre` flag. Every run reported VERDICT: FLAT with drift under
-  0.1 ms - and every run also reported "fauna: 0 creature checkout(s)". Optional
-  island terrain is never checked out to a bot ("[terrain-interest] added ..."
-  never appears) at a 1200 m terrain radius or at 12000 m, so the radius is not
-  the variable, and a creature is never sent to a peer that does not hold its
-  island. So the soak proves that a large fauna POPULATION does not perturb relay
-  staleness, and does NOT exercise the fauna checkout or pose path at all. Any
-  earlier soak figure quoting a fauna pose rate was measuring something else.
-  The per-peer rate bound is therefore held by `IslandFaunaInterestPolicy`'s cap
-  and its unit tests, not by the soak.
+- ~~THE SOAK GATE CANNOT SEE THIS FEATURE~~ **SOLVED 2026-08-18 (fauna Phase
+  0).** The blindness was an env variable: optional terrain is only
+  stream-managed for islands whose world entity id was BOUND when
+  `IslandTerrainInterestService` was constructed, ids are allocated lazily by
+  the first client to reach the spawn step, and only `WAREBORN_LOAD_BARRIER=1`
+  (`LoadBarrier.Prime`) binds them at boot - so a barrier-less test server
+  managed zero islands and `IsTerrainReady()` said no forever, at any radius.
+  Production runs with the barrier on. `run-soak.sh` now has `SOAK_FAUNA=1`
+  (production world recipe, island-standing bots, `--require-fauna` so a
+  creatureless run FAILS), and a verified run shows 40 creature checkouts,
+  18,602 fauna 190602 poses, VERDICT FLAT. Measured per-creature arrival:
+  median 333 ms (the ~50 ms poll loop quantises the 120 ms `SendInterval`), so
+  a 24-creature island streams in over ~7.7 s.
 - THE CLIENT'S OWN FLOCK READERS ARE UNTESTED. Schooling here is geometry only:
   no 1199 `FlockState` and no 1197 `InhabitantState` are put on the wire, so the
   client is never told that a group of creatures is a group. Whether the retail
   `FlockClientVisualiser` would add anything visible is unknown.
-- THE MANTA SPEED AND THE DAY/NIGHT CYCLE LENGTH ARE PURE INVENTION. 8 m/s and
-  1200 s have no surviving evidence behind them; only the SHAPES they drive do.
+- ~~THE MANTA SPEED AND THE DAY/NIGHT CYCLE LENGTH ARE PURE INVENTION~~
+  **UPGRADED 2026-08-18 (fauna Phase 1), both, with the honest caveats.** The
+  8 m/s is now RECOVERED-CORROBORATED: `WanderingConductVisualiser` hardcodes
+  `targetWanderVelocityMagnitude = 8f` - a plain field, not prefab data, so it
+  survives. It is retail's WANDER speed adopted for the patrol; the patrol's own
+  speed was PID-driven and is lost. The day length is now 600 s, a RECOVERED
+  CLIENT DEFAULT: `WorldStateVisualizer.cs:16` compiles in `_timeRate = 144f`
+  (86400/144 = 600 s) - but line 38 overwrites it from `WorldData.TimeRate`,
+  which was server data and is gone, so this is the value the client was built
+  with, not proof of the live one.
 - MANTA SCHOOLS ARE CONFIRMED IN A LIVE CLIENT (2026-08-18): a player saw four
   manta rays grouped in formation from the air and reported "it looks good". Four
   is exactly `MantaSchoolSizeAtTier1`, so the school-size path and the
@@ -315,6 +323,37 @@ references); the game-server side is thin glue. No client mod is involved.
   `SpeciesState` (rays) and 4322 `BasicCreatureState` (jellies).
 - One xUnit file per pure production file under
   `WorldsAdriftRebornGameServer.Multiplayer.Tests/Islands/`.
+
+PHASE 1 (2026-08-18, `feat/fauna-schools`) added the identity layer:
+
+- **The manta variant pair, 1177 `GenderState` + 4326 `MantaRayVariantState`,
+  is SERVED.** These are the two readers `MantaRayVariantClient` [Require]s;
+  its `PickTail` runs only from their update callbacks, and the generated
+  reader fires each callback once immediately on subscription with the seeded
+  value (`GenderState.Impl`'s event `add` does `value(Data.gender)` -
+  RECOVERED), so seeding is sufficient. Serving neither was the 383,632-NRE
+  storm (`MantaRayMaterialExpressionClient.UpdateMaterial` dereferencing a
+  never-set `MyVariantSettings`, 3.6 exceptions per rendered frame with 4 held
+  mantas, 97% of a 145 MB client log). Value vocabularies RECOVERED:
+  `GenderType { None, Female, Male }`, `BiomeType { Biome1..Biome4 }`,
+  `MantaRayVariantType { ARROWTAIL, FORKTAIL }` (vestigial - the client
+  subscribes only to `BiomeTypeUpdated`, so the Option is served EMPTY).
+- **The biome is a pure district join** (`Islands/IslandBiome.cs`): Bossa's own
+  Voronoi centres in wamap-islands.json agree with the island's district
+  254/254; biome == tier except Holy Ruins (A4, tier 3, Type 2); all tier-1
+  islands are Biome1. Asserted row-by-row by `IslandBiomeTests`.
+- **The four retail jelly species are SERVED** (`FaunaJellySpecies`):
+  `SeedPodJelly`, `FlowerPodJelly`, `DesertPod`, `DesertPodB`, each matching
+  its `BasicSpeciesType` in the 4322 seed. The per-island ASSIGNMENT is WAREBORN
+  TUNING (FNV-1a of the island id - stable across restarts, unlike
+  `string.GetHashCode`); which island retail gave which species is not
+  recoverable. `FlowerPodFireJelly` (a prefab with no enum member) is
+  deliberately not served.
+- **Gender rule**: members alternate Female/Male by member index - WAREBORN
+  TUNING (GSim breeding is lost), chosen so every school carries both tail
+  meshes.
+- **Day length 600 s** (recovered client default) and the **8 m/s wander
+  corroboration** - see the upgraded bullets under "What is still unproven".
 
 THE DESPAWN, DIAGNOSED AND FIXED (2026-08-18). The player reported "i have seen
 some manta rays here and there but they kinda despawn". Cause: fauna checked out
