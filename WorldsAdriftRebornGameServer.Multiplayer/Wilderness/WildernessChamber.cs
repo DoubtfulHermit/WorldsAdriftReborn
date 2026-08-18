@@ -192,6 +192,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         public const double ExclusionRadiusMetres = 22.0;
 
         /// <summary>
+        /// How far out from the chamber's axis the GROUND IS CLEARED, metres - the
+        /// building's own 22 m footprint plus an apron.
+        ///
+        /// The user asked for this, standing on the shelf: "this is a small island
+        /// attached to haven, empty the tree etc from it then place the tower here
+        /// properly". The shelf itself turned out to be the whole low starting area -
+        /// 885 measured surface samples spanning island-local x 105..257, z -46..76,
+        /// and it CONTAINS THE SPAWN POINT - so clearing "the island" would strip the
+        /// tutorial's own near-spawn wood. 35 m clears a 70 m circle around the tower
+        /// instead: it removes the trees the user was standing among (the one they
+        /// stood on is 25.3 m from the axis) and leaves the spawn, 55.6 m away, and
+        /// the rest of the shelf wooded.
+        ///
+        /// Enforced at GENERATION (<c>Resources.HavenSurface</c>), so the placement
+        /// field never contains the point and the boot count tells the truth.
+        /// </summary>
+        public const double ClearingRadiusMetres = 35.0;
+
+        /// <summary>Whether an island-local point is on ground the chamber clears.</summary>
+        public static bool Clears(double localX, double localZ)
+        {
+            double dx = localX - HavenLocalPlacement.X;
+            double dz = localZ - HavenLocalPlacement.Z;
+            return Math.Sqrt((dx * dx) + (dz * dz)) < ClearingRadiusMetres;
+        }
+
+        /// <summary>
         /// Whether an island-local point is inside the ground the chamber occupies.
         /// Horizontal only: the building spans 38 m vertically and anything at this
         /// (x, z) is either inside it or under it.

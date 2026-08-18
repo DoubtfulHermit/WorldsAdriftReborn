@@ -309,14 +309,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void Fuel_keeps_the_five_legacy_ids_then_spans_the_whole_island()
+        public void Fuel_keeps_the_four_legacy_ids_then_spans_the_whole_island()
         {
             Assert.Equal(global::WorldsAdriftRebornGameServer.Multiplayer.Resources.HavenSurface.FuelTargetCount,
                 FuelPods.HavenPlacements.Count);
 
-            double[] legacyX = { 192.0, 152.0, 176.0, 128.0, 184.0 };
-            double[] legacyY = { 7.13, 4.71, 6.39, 6.12, 3.10 };
-            double[] legacyZ = { 8.0, 0.0, -16.0, 0.0, -32.0 };
+            // FOUR, not five: the pod at (152.0, 4.71, 0.0) stood 33.0 m from the
+            // Revival Chamber's axis, on the ground the user asked to have cleared,
+            // and this table is hand-written so it bypasses the generator's
+            // exclusions - it had to be deleted rather than excluded. The remaining
+            // four keep their order, so their ids are unchanged.
+            double[] legacyX = { 192.0, 176.0, 128.0, 184.0 };
+            double[] legacyY = { 7.13, 6.39, 6.12, 3.10 };
+            double[] legacyZ = { 8.0, -16.0, 0.0, -32.0 };
             for (int i = 0; i < legacyX.Length; i++)
             {
                 Assert.Equal(legacyX[i], FuelPods.HavenPlacements[i].LocalX);

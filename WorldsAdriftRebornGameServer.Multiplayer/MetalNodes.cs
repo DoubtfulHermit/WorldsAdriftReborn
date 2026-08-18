@@ -213,7 +213,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             new Placement("titanium", 6, 128.0, 6.12, 0.0),
             new Placement("aurium", 5, 192.0, 5.68, 32.0),
             new Placement("iron", 6, -32.0, 11.33, 80.0),
-            new Placement("iron", 4, 151.7, 4.00, 48.0),
+            // REMOVED 2026-08-18: this node stood 18.0 m from the Revival
+            // Chamber's axis, i.e. INSIDE the building. The user asked for the
+            // shelf the chamber stands on to be cleared, so it is cleared here -
+            // deleted from the table rather than skipped at registration, so the
+            // boot resource count tells the truth. Was:
+            //   new Placement("iron", 4, 151.7, 4.00, 48.0)
             new Placement("iron", 7, 184.0, 3.10, -32.0),
             new Placement("copper", 5, 160.0, 1.10, 72.0),
             new Placement("bronze", 8, 232.0, 2.74, -16.0),
