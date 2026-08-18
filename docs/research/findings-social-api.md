@@ -731,3 +731,41 @@ the crew chat channel and the beacon, not the retail panel (which is HTTP).
 The clean fix is making `CrewService` re-read from Postgres rather than trusting
 its boot snapshot. It touches the path every Multiplayer test covers and deserves
 its own change.
+
+**Alliances do not have this problem**, and not by care: nothing in the game
+server knows what an alliance is, so there is no second process holding a stale
+copy. Every alliance row is written and read by the login server answering HTTP.
+If alliance chat is ever wired to SpatialOS, this gap arrives with it.
+
+## What remains unproven without a live client
+
+Everything above was recovered by reading the shipped client and verified against
+this server — over HTTP, end to end, on a spare port: create, the whole read
+chain, applications, invitations, rank permissions, succession, disband, and
+survival across a restart. What that cannot establish:
+
+- **That the retail UI renders it.** The shapes match what the client's parsers
+  read, field by field, but no Worlds Adrift client has been pointed at this yet.
+  The things that would fail visibly rather than loudly are a rank the panel
+  draws with the wrong permissions, and a `created` timestamp displayed as 1970
+  if the epoch unit guess (milliseconds, still INFERRED) is wrong.
+- **`SocialConstants` limits.** 100 members and 50 live requests are WAREBORN
+  TUNING. Retail's numbers are not in the shipped install and never will be.
+- **Whether an alliance larger than a page renders.** `ScrollPaginator` and
+  `_numberOfItemsPerPage` are set in the Unity prefab, not in code, so the page
+  size cannot be read from the decompile. The list is built dynamically per
+  member, so there is no fixed-widget crash of the kind crews have — but "does
+  paging work at 40 members" is a question only a client can answer.
+- **The alliance PubSub push.** `Bossa.Travellers.Alliance.PubSub` shows the
+  original service pushed change notifications through a SpatialOS command
+  (`CrewOrAllianceNotification`), which made the panel refresh itself when
+  somebody else acted. We do not send those, so a player sees another member's
+  change on their next refresh rather than immediately. The client's consumer
+  dereferences `changeList.*.uid` without null checks per event type, so sending
+  a partial one would be worse than sending none.
+- **The transport quirk found while testing, which is NOT ours and predates
+  this work**: a `PUT` carrying no `Content-Length` at all leaves the connection
+  waiting for a body. `PUT` with `Content-Length: 0` answers correctly, and
+  BestHTTP sets it, so the retail client is unaffected — but a hand-rolled
+  `curl -X PUT` with no `-d` will appear to hang. Worth knowing before it is
+  mistaken for an alliance bug.
