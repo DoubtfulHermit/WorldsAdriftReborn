@@ -4,41 +4,63 @@ using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
 {
     /// <summary>
-    /// THE REVIVAL CHAMBER, back on Haven - as the BUILDING the shrine stands in,
-    /// and nothing else. Scenery: 190602 and no 1210.
+    /// THE REVIVAL CHAMBER, back on Haven - as a TOWER STANDING ON THE GROUND.
+    /// Scenery: 190602 and no 1210.
     ///
-    /// WHY IT IS BACK. It was removed because its interaction plate is unreachable
-    /// (see <see cref="WildernessShrine"/>), and removing it cost the one thing it
-    /// was actually good at: being a 20 m landmark a new player can see from across
-    /// the island. Without it the shrine was a 1.2 m plate in a field and a live
-    /// player could not find it. The building and the interactable are therefore now
-    /// TWO ENTITIES: this one is the landmark and the room, and the shrine stands
-    /// inside it.
+    /// WHAT CHANGED, 2026-08-19, AND WHY. The user looked at it and said it was
+    /// "half in the ground, it's ridiculous". They were right to the metre, and the
+    /// burial was not an accident - it was the design. The previous doctrine buried
+    /// the origin until the prefab's own doorway sill met the terrain, so that the
+    /// room inside had Haven's own terrain as its floor and a player could walk in
+    /// through the authored door.
     ///
-    /// WHY IT WORKS AS A ROOM WHEN IT DID NOT WORK AS A DEVICE. Everything about
-    /// the prefab that made its own plate unusable is fine once the plate is not the
-    /// point:
+    /// The cost of that doctrine was never measured from OUTSIDE, and it is this:
     ///
-    ///   * Its collision shell is closed on 360/360 bearings from prefab-local
-    ///     y = -1.0 to y = 9.3, with ONE aperture: a corridor on the +x bearing,
-    ///     3.8 m wide (free channel |z| &lt;= 1.9 for local x 13..21), whose sill is at
-    ///     <see cref="DoorwaySillLocalY"/> and whose lintel is at
-    ///     <see cref="DoorwayLintelLocalY"/>. All measured off
-    ///     respawner_exterior_LOD0 / respawner_interior_LOD0 in resources.assets.
-    ///   * Bury the origin so that sill lands ON the terrain and everything below it
-    ///     - the sealed drum, the 9.7 m drop, the buried plate - is under the
-    ///     terrain mesh and can never be entered or fallen into. What is left above
-    ///     ground is a walled room with one door, whose FLOOR IS HAVEN'S OWN
-    ///     TERRAIN.
-    ///   * The interior is clear: at the player's standing band there is no chamber
-    ///     geometry within <see cref="InteriorClearRadiusMetres"/> of the centre
-    ///     (measured 10.0 m at the chosen site), and the ceiling is at prefab-local
-    ///     24.7, i.e. ~13 m of headroom.
+    ///   * <c>respawner_exterior_LOD0</c>, the mesh a player actually sees, spans
+    ///     prefab-local y <see cref="MeshBottomLocalY"/> .. <see cref="MeshTopLocalY"/>
+    ///     - <see cref="MeshHeightMetres"/> m of building.
+    ///   * The doorway sill is <see cref="DoorwaySillLocalY"/> m up that wall. Put the
+    ///     sill on the ground and 10.85 + 7.36 = 18.21 m of the mesh is underneath it.
+    ///   * Measured at the old placement (156, -6.45, 28) against Haven's 2 m LOD0
+    ///     surface: 18.59 m of 37.85 m below the terrain. FORTY-NINE PER CENT.
     ///
-    /// PROVENANCE. Every number here is RECOVERED (measured off the shipped prefab's
-    /// own collision meshes, or off Haven's extracted LOD0 surface). WHICH vertex
-    /// and WHICH yaw were chosen is WAREBORN TUNING - retail's own placement is not
-    /// recoverable, because everything Haven-specific was spawned by the GSim.
+    /// AND NO SITE FIXES IT. Every one of Haven's 3,863 flat fine surface samples was
+    /// swept against all 24 yaws under the old doctrine: 821 workable (site, yaw)
+    /// combinations, and the BEST of them stands 50.9% proud. The burial is a property
+    /// of the prefab, not of the ground - so "move it somewhere flatter" could only
+    /// ever have bought a few centimetres.
+    ///
+    /// SO IT IS STOOD UP. The origin now sits on <see cref="GroundLineLocalY"/> - the
+    /// prefab's own ground line, where the tapering foundation spike (r 8..11 m at
+    /// y -7.4, widening to r 16 by y -1) stops and the body begins, and where the
+    /// authored interior floor is. Only the foundation is buried; the tower stands
+    /// <see cref="ExposedHeightMetres"/> m proud, <see cref="ProudFraction"/> of itself.
+    ///
+    /// WHAT THAT COSTS, STATED PLAINLY. The room is no longer enterable. The prefab's
+    /// one aperture is 10.85 m up a sheer exterior wall and its own ramps
+    /// (<c>Ramp01</c> 9.50..10.66, <c>Ramp02</c> 10.57..10.66, both INSIDE the
+    /// corridor) do not reach the ground from outside - there was never a way in from
+    /// the terrain, only a way in from a terrain raised to meet the door. So the
+    /// chamber is now purely the LANDMARK, and the shrine stands at its foot instead
+    /// of at its centre: <see cref="ShrineSlotLocal"/>. That is the whole trade, and
+    /// it is the right way round - a 30 m tower you can see from the spawn point with
+    /// the pad at its base beats a 19 m drum you can walk inside.
+    ///
+    /// A CORRECTION WORTH KEEPING. The old code recorded the doorway on prefab-local
+    /// +x, with "a free channel |z| &lt;= 1.9 for local x 13..21". The prefab's own
+    /// collider tree says otherwise: <c>Ramp01</c> is a box at x -1.81..1.81,
+    /// z -14.17..-12.97 and <c>Ramp02</c> at x -1.81..1.81, z -14.72..-14.16, and
+    /// <c>Light By Door</c> hangs at (-0.09, 14.20, -5.96). The corridor runs on
+    /// -z, not +x - the same numbers with the two axes transposed. It did not bite,
+    /// because the ground at that site happened to be flat on both bearings, but the
+    /// yaw was being aimed by the wrong face of the building.
+    ///
+    /// PROVENANCE. Every prefab number here is RECOVERED, measured off
+    /// <c>HavenAncientRespawner</c> in the shipped client's resources.assets with
+    /// UnityPy (full TRS chains, not summed local positions). Every terrain number is
+    /// measured off Haven's extracted LOD0 surface. WHICH vertex and WHICH yaw were
+    /// chosen is WAREBORN TUNING - retail's own placement is not recoverable, because
+    /// everything Haven-specific was spawned by the GSim.
     /// </summary>
     public static class WildernessChamber
     {
@@ -57,44 +79,66 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         public const string WorldEntityKey = "wilderness-shrine-chamber";
 
         // ------------------------------------------------------------------
-        // THE PREFAB'S DOORWAY - measured, prefab-local metres.
-        //
-        // Found by sectioning respawner_exterior_LOD0 + respawner_interior_LOD0 at
-        // 0.1 m steps and casting 720 rays from the centre at each height: every
-        // bearing is blocked below 10.8, exactly 23 of 720 bearings (-5.5..+5.5 deg)
-        // are open from 10.9 to 15.2, and all are blocked again at 15.3.
+        // THE BUILDING'S OWN SHAPE - measured, prefab-local metres, off
+        // respawner_exterior_LOD0 (13,584 vertices) and the collider tree.
         // ------------------------------------------------------------------
 
-        /// <summary>Prefab-local height of the doorway sill: below this the shell is sealed.</summary>
+        /// <summary>
+        /// The bottom of the visible mesh: the tip of the foundation spike. Below
+        /// prefab-local -6 the mesh is only r 8..11 m wide, so this is a footing, not
+        /// a facade - it is MEANT to be under the ground.
+        /// </summary>
+        public const double MeshBottomLocalY = -7.36;
+
+        /// <summary>The top of the visible mesh - the roof.</summary>
+        public const double MeshTopLocalY = 30.49;
+
+        /// <summary>How much building there is, top to toe. 37.85 m.</summary>
+        public static double MeshHeightMetres => MeshTopLocalY - MeshBottomLocalY;
+
+        /// <summary>
+        /// THE PREFAB'S OWN GROUND LINE, and the number this whole placement is now
+        /// built around. At prefab-local 0 the foundation spike has finished widening
+        /// (r 12..16 by y -1), the body starts, and the authored interior floor sits
+        /// (<c>respawner_interior</c> has a floor at y -1..0 and the SpawnPad's top
+        /// plate at +0.39). Sit this on the terrain and the building stands the way it
+        /// was modelled to.
+        /// </summary>
+        public const double GroundLineLocalY = 0.0;
+
+        /// <summary>
+        /// Prefab-local height of the doorway sill. Kept because it is a measured
+        /// fact about the prefab and because it is the number that used to decide the
+        /// burial - not because anything walks through it any more. At the placement
+        /// below it lands nearly 10 m up a sheer wall.
+        /// </summary>
         public const double DoorwaySillLocalY = 10.85;
 
-        /// <summary>Prefab-local height of the doorway lintel: above this the shell is sealed again.</summary>
+        /// <summary>Prefab-local height of the doorway lintel.</summary>
         public const double DoorwayLintelLocalY = 15.25;
 
         /// <summary>The usable height of the aperture, metres. 4.40.</summary>
         public static double DoorwayApertureMetres => DoorwayLintelLocalY - DoorwaySillLocalY;
 
         /// <summary>
-        /// The corridor's free half-width, metres - measured |z| at which the
-        /// passage walls stand for local x 14..19. A 3.8 m wide door.
+        /// Which way the doorway faces in prefab-local terms, degrees measured as
+        /// <c>atan2(z, x)</c>. 270 = straight down -z. CORRECTED: the old code said
+        /// 0 (+x), which was the same measurement with x and z transposed.
+        /// Evidence: <c>Ramp01</c> box x -1.81..1.81 / z -14.17..-12.97,
+        /// <c>Ramp02</c> box x -1.81..1.81 / z -14.72..-14.16, and the whole entry
+        /// lobe of <c>respawner_interior_LOD0</c> reaching z = -29.6 at y 9..17.
         /// </summary>
-        public const double DoorwayHalfWidthMetres = 1.85;
-
-        /// <summary>Prefab-local x range of the entry corridor, used to sample the terrain it lands on.</summary>
-        public const double CorridorNearLocalX = 13.0;
-        public const double CorridorFarLocalX = 22.0;
+        public const double DoorwayBearingLocalDegrees = 270.0;
 
         /// <summary>
-        /// How much clear floor there is around the chamber's centre at the player's
-        /// standing band, metres. Measured 10.0 m at the chosen site by testing a
-        /// 2.2 m capsule against the prefab's collision meshes on a 1 m grid; stated
-        /// as 9.0 so the shrine's slot is checked against a value with margin in it.
+        /// The corridor's free half-width, metres - the Ramp01/Ramp02 collider boxes
+        /// measure |x| &lt;= 1.81 for local z -13.0..-14.7. A 3.6 m wide door.
         /// </summary>
-        public const double InteriorClearRadiusMetres = 9.0;
+        public const double DoorwayHalfWidthMetres = 1.81;
 
         /// <summary>
-        /// A player is 2.2 m tall; the doorway has to clear the highest terrain in
-        /// the corridor by at least this much or there is no way in.
+        /// A player is 2.2 m tall. Kept as the scale the "nobody can climb in" test
+        /// is stated against.
         /// </summary>
         public const double PlayerHeightMetres = 2.2;
 
@@ -103,80 +147,119 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Island-local metres. X and Z are a MEASURED Haven LOD0 surface vertex;
-        /// Y is BELOW ground on purpose - the burial depth, derived below.
+        /// Island-local metres. X and Z are a MEASURED Haven LOD0 surface vertex; Y
+        /// is the SEAT - the median terrain height on the ring the building's wall
+        /// stands on (72 probes at r = 11, 14 and 16 m), so the base meets the ground
+        /// all the way round instead of floating on one side and sinking on the other.
         ///
-        /// MOVED HERE 2026-08-18 BECAUSE THE USER ASKED, TWICE, AND WAS MEASURED.
-        /// They stood on the spot they meant and the server read it off the entity
-        /// they were carried by: Haven-local (168.00, 4.52, 8.00). The chamber was
-        /// 25.3 m away at (160, 4.18, 32) with its single doorway pointing 132 deg
-        /// AWAY from them, so from where they stood they were looking at its back.
+        /// Chosen by re-sweeping all 3,863 flat fine (2 m) Haven surface samples
+        /// against all 24 yaws under the STOOD-UP rules - the base ring seats, the
+        /// whole 36 x 40 m footprint is flat, the footprint clears the authored props
+        /// on the ground and overhead, and the shrine's slot at the foot is walkable.
+        /// 145 workable (site, yaw) combinations over 39 distinct sites; this is the
+        /// one nearest the spot the user physically stood on (Haven-local 168, 8)
+        /// whose front face also looks at the approach from spawn.
         ///
-        /// THE BUILDING CANNOT STAND ON THAT EXACT SPOT, and this says so rather
-        /// than quietly going somewhere else again. At (168, 8) the ground is clear
-        /// for only 12.4 m: the first authored structure is a camp pipe at 12.4 m,
-        /// there are 14 within 22 m and 33 within 26 m, and the camp's pieces there
-        /// span y 0.5..26.3 while this tower rises to 24.1. A 40 m x 36 m footprint
-        /// put there overlaps the ruined metal camp on the ground AND punches
-        /// through its platform deck overhead - the exact failure that trapped a
-        /// player at the very first placement.
+        /// Measured here, all island-local:
         ///
-        /// So this is the closest point that genuinely works, chosen by sweeping
-        /// every fine (2 m) surface sample within 70 m of the user's spot against
-        /// all 24 yaws - 317 workable (site, yaw) combinations, ranked by distance
-        /// to their spot and then by how squarely the doorway faces it:
-        ///
-        ///   * 23.3 m from (168, 8) - the nearest workable site is 20.0 m, so the
-        ///     absolute best available was 2 m closer than this with the door
-        ///     pointing sideways. This one trades those 2 m for the door.
-        ///   * doorway aimed 0.97 (about 14 deg off) straight at where they stand,
-        ///     instead of 132 deg away
-        ///   * corridor terrain 4.40, giving 4.40 m of clear doorway height against
-        ///     a 2.20 m player
-        ///   * interior floor 0.07 m ABOVE the sill - you step in dead level
-        ///   * terrain under the whole footprint spans 1.81 m; inside the room 0.40 m,
-        ///     the flattest of any candidate
-        ///   * 4.1 m of clearance from the nearest authored structure's footprint
-        ///
-        /// 57.3 m from the spawn point and 0.54 m below its ground vertex: still a
-        /// walk on one level.
-        ///
-        /// CAVEAT, stated because it is thinner than last time: only ONE fine
-        /// surface sample falls in the entry corridor here (the previous site had
-        /// four). The doorway height has 2.2 m of margin over a player, so a sample
-        /// or two of error is absorbed - but if the door lands buried or floating,
-        /// <see cref="CorridorGroundY"/> is the one number to change.
+        ///   * terrain on the wall ring 4.07 .. 5.45, seat 4.46 - dug in 0.98 m at
+        ///     the worst bearing, standing off 0.39 m at the best. The tower meets
+        ///     its ground; it neither floats nor sinks.
+        ///   * terrain under the whole 36 x 40 m footprint 4.01 .. 6.16, spanning
+        ///     2.15 m over 399 probes on a 2 m grid
+        ///   * mesh bottom -2.90, roof 34.95: it stands 29.51 .. 30.88 m proud,
+        ///     78.0% .. 81.6% of itself, against 49.2% at the placement the user
+        ///     complained about
+        ///   * 29.3 m from the nearest authored structure - 6.37 m of clear ground
+        ///     between the camp and the whole 36 x 40 m footprint rectangle - with
+        ///     nothing authored inside it and nothing overhead below the roof
+        ///   * 17.0 m from the spot the user measured out, against 23.3 m for the
+        ///     placement they complained about, and 54.4 m from the spawn point
         /// </summary>
         public static readonly (double X, double Y, double Z) HavenLocalPlacement =
-            (156.00, -6.45, 28.00);
+            (156.00, 4.46, 20.00);
 
         /// <summary>
-        /// The measured terrain height at the bottom of the entry corridor,
-        /// island-local metres. The burial depth is DERIVED from this and
-        /// <see cref="DoorwaySillLocalY"/>, not chosen: put the sill on the ground
-        /// the corridor actually lands on and the door is a door.
+        /// The median terrain height on the wall ring at the chosen site, island-local
+        /// - i.e. the ground the building is seated on. Equal to
+        /// <c>HavenLocalPlacement.Y</c> by construction; kept separately so a test can
+        /// say WHY that Y is that number.
         /// </summary>
-        public const double CorridorGroundY = 4.40;
+        public const double SeatGroundY = 4.46;
 
-        /// <summary>The highest terrain sample in the corridor. The aperture has to clear it.</summary>
-        public const double CorridorGroundMaxY = 4.40;
+        /// <summary>
+        /// How far the terrain rises above the seat at the worst of the 72 ring
+        /// probes, metres - how deep the tower is dug in on its highest side. This is
+        /// the number the old placement got wrong by a factor of eighteen.
+        /// </summary>
+        public const double SeatDugInMetres = 0.98;
+
+        /// <summary>
+        /// How far the terrain falls below the seat at the best of the ring probes,
+        /// metres - how far the wall stands off the ground on its lowest side. The
+        /// foundation reaches 7.36 m down at r &lt;= 11 and about 5 m down at r 12..16,
+        /// so anything under ~3 m here is covered by the prefab's own footing.
+        /// </summary>
+        public const double SeatStandOffMetres = 0.39;
+
+        /// <summary>Terrain spread under the whole 36 x 40 m footprint, metres.</summary>
+        public const double FootprintSpreadMetres = 2.15;
+
+        /// <summary>
+        /// How much of the building a player standing at its worst bearing can see,
+        /// metres. THE MEASUREMENT THAT WAS MISSING: every test the old placement
+        /// passed was about the doorway or the room, and not one of them asked what
+        /// the thing looks like from outside.
+        /// </summary>
+        public static double ExposedHeightMetres => MeshTopLocalY - SeatDugInMetres;
+
+        /// <summary>What fraction of the building stands above ground at its worst bearing.</summary>
+        public static double ProudFraction => ExposedHeightMetres / MeshHeightMetres;
+
+        /// <summary>
+        /// The gate. A building that shows less than this much of itself reads as a
+        /// hole, not a tower - the user's word for 49% was "ridiculous". 70% is below
+        /// the 77.9% this placement measures and far above anything the old buried
+        /// doctrine could reach anywhere on Haven (its ceiling was 50.9%), so it
+        /// fails every burial and passes this.
+        /// </summary>
+        public const double MinimumProudFraction = 0.70;
+
+        /// <summary>
+        /// What fraction of the building stands above a given island-local ground
+        /// height, at the current placement. Pure, so a test can feed it terrain read
+        /// straight out of the embedded Haven surface table rather than a constant.
+        /// </summary>
+        public static double ProudFractionAgainst(double groundY) =>
+            ProudFractionAgainst(HavenLocalPlacement.Y, groundY);
+
+        /// <summary>The same, for an arbitrary origin height - so dead placements can be shown to fail.</summary>
+        public static double ProudFractionAgainst(double originY, double groundY) =>
+            ((originY + MeshTopLocalY) - groundY) / MeshHeightMetres;
 
         /// <summary>
         /// Facing, degrees, in the convention this server already flies ships in:
         /// <c>ShipyardDockingPolicy.PackedYaw</c> builds a rotation about +Y and
         /// <c>FlightIntegrator</c> turns that yaw into a world heading of
-        /// <c>(sin yaw, cos yaw)</c> - so prefab local +x, which is where the
-        /// doorway is, ends up pointing at world <c>(cos yaw, -sin yaw)</c>.
+        /// <c>(sin yaw, cos yaw)</c> - so prefab local +x ends up pointing at world
+        /// <c>(cos yaw, -sin yaw)</c> and prefab local +z at <c>(sin yaw, cos yaw)</c>.
         ///
-        /// 300 deg is the only one of 24 yaws at this vertex whose corridor lands on
-        /// terrain we have enough samples to certify AND clears the authored props.
-        /// It points the doorway at world (+0.50, +0.87), which is about a quarter
-        /// turn from the line a player walks in on - they arrive at the tower and go
-        /// round one side to the door. Stated plainly because it is a real cost:
-        /// the alternative that faced the approach head-on had its interior floor
-        /// 3 m BELOW the sill, which is worse than a walk round.
+        /// 240 deg turns the building's FRONT - the -z face, the one carrying the
+        /// doorway and the entry lobe - to world (+0.87, +0.50), and puts the shrine's
+        /// slot at Haven-local (176.78, 32.00): 41.9 m out of spawn and only 25 deg
+        /// off the straight line from spawn to the tower, so a player walks to the pad
+        /// and the tower is 12 m further on and slightly to their left.
+        ///
+        /// The front is 47 deg off pointing at the spawn dead on (0.68), and the
+        /// reason it is not squarer is the ruined metal camp. The camp lies between
+        /// this site and the spawn, so every yaw that aims the front straight down the
+        /// approach lands the shrine's pad within 8 - 11 m of the camp's raised
+        /// platform decks - i.e. under a deck, which is the failure that trapped a
+        /// player at the very first placement. This yaw puts the pad 22.4 m clear of
+        /// anything authored. The old 45 deg was aimed with the +x face, which is a
+        /// blank wall.
         /// </summary>
-        public const double YawDegrees = 45.0;
+        public const double YawDegrees = 240.0;
 
         /// <summary>The 190602 localRotation seed, packed.</summary>
         public static uint PackedRotation =>
@@ -191,27 +274,69 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         }
 
         /// <summary>
-        /// Island-local height of the doorway sill, given the burial depth. This is
-        /// the number the whole placement is built around.
+        /// Island-local height of the doorway sill. Now nearly 10 m up a sheer wall:
+        /// a ruin's high entrance that reads as one from the ground and that nobody
+        /// on foot can reach, which is the point - a player who got THROUGH it would
+        /// be in a sealed drum with a 10.85 m drop and no way back out.
         /// </summary>
         public static double DoorwaySillIslandY => HavenLocalPlacement.Y + DoorwaySillLocalY;
 
         /// <summary>Island-local height of the doorway lintel.</summary>
         public static double DoorwayLintelIslandY => HavenLocalPlacement.Y + DoorwayLintelLocalY;
 
+        // ------------------------------------------------------------------
+        // THE SHRINE'S SLOT, and the ground the pair of them occupy.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Where the shrine stands, in PREFAB-LOCAL metres: 24 m straight out of the
+        /// building's front face, on the same -z bearing the doorway looks down.
+        ///
+        /// It used to be (0, 0) - the centre of the room - and this is the one thing
+        /// the user's fix costs them. 24 m is chosen, not free: the exterior mesh
+        /// reaches r ~16.5 m at ground level and its front lobe overhangs to z = -21.9
+        /// higher up, so 24 m clears the wall by 7.5 m and the overhang by 2 m, and
+        /// leaves the shrine's whole 4.5 m prompt ring on open ground.
+        ///
+        /// Rotated by <see cref="YawDegrees"/> and added to the chamber, so the two
+        /// can never drift apart: <see cref="ShrineSlotOn"/> is the only definition,
+        /// and <c>WildernessShrine.HavenLocalPlacement</c> reads its x/z from it.
+        /// </summary>
+        public static readonly (double X, double Z) ShrineSlotLocal = (0.00, -24.00);
+
+        /// <summary>
+        /// The shrine's slot in ISLAND-LOCAL metres - the chamber's own x/z plus its
+        /// slot turned by the chamber's yaw. Haven-local (176.78, 32.00).
+        /// </summary>
+        public static (double X, double Z) ShrineSlotOn()
+        {
+            double a = YawDegrees * Math.PI / 180.0;
+            double cos = Math.Cos(a), sin = Math.Sin(a);
+            return (HavenLocalPlacement.X + (ShrineSlotLocal.X * cos) + (ShrineSlotLocal.Z * sin),
+                    HavenLocalPlacement.Z - (ShrineSlotLocal.X * sin) + (ShrineSlotLocal.Z * cos));
+        }
+
+        /// <summary>How far out the shrine stands from the chamber's axis, metres. 24.</summary>
+        public static double ShrineSlotRadiusMetres =>
+            Math.Sqrt((ShrineSlotLocal.X * ShrineSlotLocal.X) + (ShrineSlotLocal.Z * ShrineSlotLocal.Z));
+
         /// <summary>
         /// How far out from the chamber's axis nothing else this server plants may
-        /// stand, metres. The building's above-ground collision reaches ~14 m for
-        /// the wall ring and ~21 m along the entry corridor, so 22 m is the disc it
-        /// occupies. Trees, nodes and deposits are scattered from the same measured
-        /// surface table the chamber was chosen from, so without this a tree grows
-        /// through the roof - one already did, at the first attempt at this site.
+        /// stand, metres. The building's own above-ground collision reaches ~21.9 m
+        /// along its front lobe, and the shrine now stands at 24 m with a 5 m prompt
+        /// ring around it, so 29 m is the disc the pair occupies.
+        ///
+        /// Widened from 22 m when the shrine moved out of the room: at 22 m the
+        /// deposit field could generate ore on top of the teleporter pad. Trees,
+        /// nodes and deposits are scattered from the same measured surface table the
+        /// chamber was chosen from, so without this a tree grows through the roof -
+        /// one already did, at the first attempt at the previous site.
         /// </summary>
-        public const double ExclusionRadiusMetres = 22.0;
+        public const double ExclusionRadiusMetres = 29.0;
 
         /// <summary>
         /// How far out from the chamber's axis the GROUND IS CLEARED, metres - the
-        /// building's own 22 m footprint plus an apron.
+        /// 29 m the building and its shrine occupy, plus an apron.
         ///
         /// The user asked for this, standing on the shelf: "this is a small island
         /// attached to haven, empty the tree etc from it then place the tower here
@@ -219,9 +344,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// 885 measured surface samples spanning island-local x 105..257, z -46..76,
         /// and it CONTAINS THE SPAWN POINT - so clearing "the island" would strip the
         /// tutorial's own near-spawn wood. 35 m clears a 70 m circle around the tower
-        /// instead: it removes the trees the user was standing among (the one they
-        /// stood on is 25.3 m from the axis) and leaves the spawn, 55.6 m away, and
-        /// the rest of the shelf wooded.
+        /// instead, and leaves the spawn, 54 m away, and the rest of the shelf wooded.
         ///
         /// Enforced at GENERATION (<c>Resources.HavenSurface</c>), so the placement
         /// field never contains the point and the boot count tells the truth.
@@ -258,10 +381,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         }
 
         /// <summary>
-        /// ONLY 190602. No 1210, and that is the point: the chamber is the room, and
-        /// the one thing in this world that answers an interact is the shrine
-        /// standing in it. Seeding 1210 here would re-create the sealed-well bug,
-        /// because the prefab's own visualizer is on the plate 11 m under the floor.
+        /// ONLY 190602. No 1210, and that is the point: the chamber is the landmark,
+        /// and the one thing in this world that answers an interact is the shrine
+        /// standing at its foot. Seeding 1210 here would re-create the sealed-well
+        /// bug, because the prefab's own visualizer is on the plate at the bottom of
+        /// the drum.
         /// </summary>
         public static readonly IReadOnlyList<uint> SeedComponents = new uint[] { 190602 };
     }

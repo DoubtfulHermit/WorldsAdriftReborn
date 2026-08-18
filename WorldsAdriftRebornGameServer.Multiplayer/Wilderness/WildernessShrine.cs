@@ -26,16 +26,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
     ///     <c>SpawnPad</c>, the plate at the bottom of the chamber.
     ///   * <c>respawner_exterior_LOD0</c>, its collision shell, is CLOSED on
     ///     360/360 bearings from prefab-local y = -1.0 all the way up to y = 9.3.
-    ///     The only aperture is a doorway on the +x bearing whose sill is at
-    ///     y = 9.35 (+-0.05), reached by <c>Ramp01</c>/<c>Ramp02</c> at y = 10.03
-    ///     and 10.57 - which is also where the <c>Barrier_Wall</c> (11.17) and both
-    ///     <c>Access-Ancient-Respawner-Trigger</c> boxes (9.09 and 11.06) sit.
-    ///   * So the plate stands at the bottom of a sealed 9.35 m well. Place the
-    ///     prefab with its origin at ground and the plate is walled in by a 9.35 m
-    ///     wall at radius 8.69 m. Bury the origin ~10 m so the authored doorway
-    ///     meets the terrain and the plate is then 10 m UNDER the terrain mesh,
-    ///     which fills the well and occludes it. There is no height at which a
-    ///     player can reach it.
+    ///     The only aperture is a doorway on the <b>-z</b> bearing whose sill is at
+    ///     y = 10.85, reached by <c>Ramp01</c> (a box at x -1.81..1.81,
+    ///     y 9.50..10.66, z -14.17..-12.97) and <c>Ramp02</c> (x -1.81..1.81,
+    ///     y 10.57..10.66, z -14.72..-14.16), which are INSIDE the entry corridor
+    ///     and do not descend to the ground. (CORRECTED 2026-08-19: this used to
+    ///     read "+x", which was the same measurement with x and z transposed.)
+    ///   * So the plate stands at the bottom of a sealed ~10.85 m well. Place the
+    ///     prefab with its origin at ground and the plate is walled in. Bury the
+    ///     origin ~10.85 m so the authored doorway meets the terrain and the plate
+    ///     is then 10 m UNDER the terrain mesh, which fills the well and occludes
+    ///     it. There is no height at which a player can reach it.
     ///   * On 2026-08-18 a player logged in, ended up inside that shell, saw the
     ///     interactive highlight (the range test passes near the buried plate) and
     ///     had to be rescued with the admin teleport. That is the well, observed.
@@ -94,11 +95,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         public const string TeleportReason = "graduation";
 
         /// <summary>
-        /// Where it stands, in Haven island-local metres: on the floor INSIDE the
-        /// Revival Chamber, at its exact centre.
+        /// The MEASURED Haven LOD0 surface height at the shrine's slot, island-local
+        /// metres - the ground the pad stands on. Nearest surface vertex 4.60; the
+        /// terrain across its whole 4.5 m prompt ring spans 4.28 .. 4.76, i.e. 0.48 m
+        /// over the entire circle a player can prompt from.
         ///
-        /// THIS IS THE THIRD PLACEMENT AND EACH ONE FAILED FOR A DIFFERENT REASON,
-        /// which is why it is spelled out.
+        /// This is the only part of the placement that is a free number. The x and z
+        /// are not: see <see cref="HavenLocalPlacement"/>.
+        /// </summary>
+        public const double SlotGroundY = 4.60;
+
+        /// <summary>
+        /// Where it stands, in Haven island-local metres: at the FOOT of the Revival
+        /// Chamber, 24 m out from its axis on the -z bearing its front face and
+        /// doorway look down. Haven-local (176.78, 4.60, 32.00).
+        ///
+        /// THIS IS THE FOURTH PLACEMENT AND EACH ONE FAILED FOR A DIFFERENT REASON,
+        /// which is why they are all spelled out.
         ///
         ///   * (176.00, 4.90, 16.00) put a 40 m prefab 13.7 m from the ruined metal
         ///     camp - i.e. through it. A player logged in inside the result and had
@@ -109,35 +122,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         ///   * (160.00, 4.18, 32.00) put it inside the chamber, but 25.3 m from the
         ///     spot the user had twice pointed at, with the chamber's one doorway
         ///     facing 132 deg away from them.
-        ///   * This one is INSIDE <see cref="WildernessChamber"/>, at chamber-local
-        ///     (0, 0) - which is where retail's own spawn plate sits, 11 m further
-        ///     down under the terrain. The 20 m tower is the landmark; the room is
-        ///     the "clean slot"; the plate you walk onto is in the middle of it.
+        ///   * (156.00, 4.16, 28.00) fixed the facing and the distance - and left the
+        ///     chamber 49% underground, which is what the user finally looked at and
+        ///     called ridiculous. Standing the tower up (see
+        ///     <see cref="WildernessChamber"/>) raises its one doorway to 10 m above
+        ///     the ground, so there is no longer a room to stand the shrine in.
+        ///   * This one is at the tower's FOOT, on the face it turns toward the
+        ///     approach: the 30 m tower is the landmark you see from spawn and the pad
+        ///     is the thing you walk up to at the bottom of it. 41.9 m from where you
+        ///     wake up - close to the 45 m that once drew "i cant find the teleporter
+        ///     now", and it is the 30 m tower 24 m behind it that answers that, which
+        ///     is the whole reason the building was brought back in the first place.
         ///
-        /// X and Z are the chamber's, exactly - the invariant is "the shrine is at
-        /// the centre of the chamber", not "the shrine is near the chamber", and
-        /// WildernessShrineTests pins it as an equality so the two can never drift.
-        /// Y is the MEASURED Haven LOD0 surface vertex there (4.18), because the
-        /// chamber's floor is Haven's own terrain: the building is buried so that
-        /// its doorway sill lands on the ground, and everything below - the sealed
-        /// drum, the 9.7 m internal drop, the unreachable plate - is under the
-        /// terrain mesh where nobody can reach or fall into it.
+        /// X AND Z ARE DERIVED, NOT WRITTEN DOWN. They are
+        /// <c>WildernessChamber.ShrineSlotOn()</c> - the chamber's own x/z plus its
+        /// slot offset turned by the chamber's own yaw - so moving the chamber moves
+        /// the shrine, exactly, and no edit can leave the two in different places.
+        /// That is strictly stronger than the equality this used to be pinned with.
         ///
-        /// Measured clearances at this point, all island-local:
+        /// Measured at this point, all island-local:
         ///
-        ///   * 10.0 m from the nearest chamber geometry at the player's standing
-        ///     band (2.2 m capsule tested against the prefab's collision meshes on a
-        ///     1 m grid) - the middle of a clear room, not a corner
-        ///   * the entry corridor is 12.7 m away in chamber-local +x and its terrain
-        ///     spans 0.11 m; the ramps and both quest trigger boxes are further out
-        ///     still and 11 m below the floor, buried
-        ///   * zero authored rocks within 12 m; the nearest authored structure is
-        ///     7.2 m clear of the chamber's whole 40 m x 36 m footprint
-        ///   * 55.6 m from the spawn point and 0.52 m below its ground vertex - a
-        ///     flat walk, reachable by a flood fill that never climbs more than 2 m
-        ///     per 8 m cell
+        ///   * ground 4.60; across the whole 4.5 m prompt ring 4.28 .. 4.76 (0.48 m)
+        ///   * 24.0 m from the tower's axis: 7.5 m clear of the exterior wall at
+        ///     ground level and 2 m clear of the front lobe that overhangs above it
+        ///   * 22.4 m from the nearest authored Haven structure. That number is what
+        ///     chose the yaw: aiming the front squarely at the spawn would have put
+        ///     the pad 8 m from the ruined camp's raised platform decks, i.e. under
+        ///     one of them.
+        ///   * 41.9 m from the spawn point, and only 25 deg off the straight line
+        ///     from spawn to the tower, so it is on the way rather than round the
+        ///     back; a flood fill over the fine 2 m surface that never climbs more
+        ///     than 2 m per 6 m cell walks it in 45.3 m
         /// </summary>
-        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (156.00, 4.16, 28.00);
+        public static (double X, double Y, double Z) HavenLocalPlacement
+        {
+            get
+            {
+                (double X, double Z) slot = WildernessChamber.ShrineSlotOn();
+                return (slot.X, SlotGroundY, slot.Z);
+            }
+        }
 
         /// <summary>Its global position, given the Haven definition it stands on.</summary>
         public static FixedPointPosition PositionOn(IslandDefinition haven)

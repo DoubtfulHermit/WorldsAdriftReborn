@@ -1,4 +1,5 @@
 using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+using WorldsAdriftRebornGameServer.Multiplayer.Resources;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using WorldsAdriftRebornGameServer.Multiplayer.Wilderness;
 using Xunit;
@@ -33,38 +34,135 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
-        /// The burial depth is DERIVED, not chosen: the doorway sill has to land on
-        /// the ground the entry corridor actually stands on. Get this wrong upward
-        /// and the door floats; wrong downward and the terrain fills the doorway.
+        /// THE TEST THAT WAS MISSING, and the reason this file exists in its present
+        /// shape. Every check the buried placement passed was about the doorway or the
+        /// room; not one of them asked what the building looks like from OUTSIDE. It
+        /// looked like a bunker: 18.59 m of a 37.85 m tower under the terrain, which
+        /// the user saw and called ridiculous.
+        ///
+        /// The terrain is read out of the embedded Haven surface table - the same data
+        /// the site was chosen from, recomputed here rather than trusted from a
+        /// constant - so a future edit that buries the thing again fails right here.
         /// </summary>
         [Fact]
-        public void The_doorway_sill_lands_on_the_corridors_own_ground()
+        public void The_building_stands_proud_of_the_ground_it_is_on()
         {
-            Assert.Equal(WildernessChamber.CorridorGroundY,
-                WildernessChamber.DoorwaySillIslandY, 2);
+            double worstGround = WorstGroundWithin(
+                WildernessChamber.HavenLocalPlacement.X,
+                WildernessChamber.HavenLocalPlacement.Z, 18.0);
+
+            double proud = WildernessChamber.ProudFractionAgainst(worstGround);
+
+            Assert.True(proud >= WildernessChamber.MinimumProudFraction,
+                "the chamber stands only " + (100 * proud).ToString("0.0")
+                + "% proud of the ground - it reads as a hole, not a tower");
+
+            // ...and the constant that documents it agrees with the measurement.
+            Assert.Equal(proud, WildernessChamber.ProudFraction, 1);
         }
 
         /// <summary>
-        /// ...and a player has to fit under the lintel at the WORST point of that
-        /// ground, not the average. The aperture is 4.40 m; the corridor terrain
-        /// spans 0.11 m; a player is 2.20 m.
+        /// EVERY PLACEMENT THAT HAS EVER SHIPPED FAILS IT. Not asserted from memory:
+        /// each dead origin is re-scored against the same embedded surface table, so
+        /// "restore the old placement" cannot pass this file.
+        ///
+        /// The four, with what they measure: (176, 16) 41.0%, (168, 24) 46.2%,
+        /// (160, 32) 48.1%, (156, 28) 49.2% - the one the user complained about.
+        /// The buried doctrine's ceiling anywhere on Haven was 50.9%, measured by
+        /// sweeping all 3,863 flat fine surface samples against all 24 yaws.
         /// </summary>
-        [Fact]
-        public void A_player_fits_through_the_doorway_at_its_tightest()
+        [Theory]
+        [InlineData(176.00, 16.00, -6.86)]
+        [InlineData(168.00, 24.00, -6.86)]
+        [InlineData(160.00, 32.00, -6.86)]
+        [InlineData(156.00, 28.00, -6.45)]
+        public void Every_placement_that_buried_the_building_fails_that_test(
+            double localX, double localZ, double originY)
         {
-            double clear = WildernessChamber.DoorwayLintelIslandY - WildernessChamber.CorridorGroundMaxY;
+            double proud = WildernessChamber.ProudFractionAgainst(
+                originY, WorstGroundWithin(localX, localZ, 18.0));
 
-            Assert.True(clear >= WildernessChamber.PlayerHeightMetres,
-                "the doorway is only " + clear.ToString("0.00") + " m clear at its tightest");
-            // And the sill is never above the ground it lands on, or there is a step
-            // into thin air where the door should be.
-            Assert.True(WildernessChamber.DoorwaySillIslandY <= WildernessChamber.CorridorGroundMaxY);
+            Assert.True(proud < WildernessChamber.MinimumProudFraction,
+                "the dead placement at (" + localX + ", " + localZ + ") scores "
+                + (100 * proud).ToString("0.0") + "%, so this test would not have caught it");
+
+            // ...and the chamber is not standing at any of them.
+            Assert.False(Math.Abs(WildernessChamber.HavenLocalPlacement.X - localX) < 0.5
+                && Math.Abs(WildernessChamber.HavenLocalPlacement.Z - localZ) < 0.5,
+                "the chamber is back at a dead placement");
+        }
+
+        /// <summary>The worst (highest) surface sample within a radius, island-local.</summary>
+        private static double WorstGroundWithin(double localX, double localZ, double radiusMetres)
+        {
+            double worst = double.NegativeInfinity;
+            int found = 0;
+            foreach (SurfaceSample sample in HavenSurface.Samples)
+            {
+                double dx = sample.LocalX - localX;
+                double dz = sample.LocalZ - localZ;
+                if ((dx * dx) + (dz * dz) > radiusMetres * radiusMetres) continue;
+                found++;
+                if (sample.LocalY > worst) worst = sample.LocalY;
+            }
+
+            // A placement measured against three samples is not measured at all.
+            Assert.True(found >= 8,
+                "only " + found + " surface samples under the footprint at ("
+                + localX + ", " + localZ + ")");
+            return worst;
         }
 
         /// <summary>
-        /// The measured aperture, pinned. 720-ray sections of the prefab's own
-        /// collision meshes at 0.1 m steps: every bearing blocked below 10.8, 23 of
-        /// 720 open from 10.9 to 15.2, all blocked again at 15.3.
+        /// The building sits on its own ground line, not on its doorway. That is the
+        /// whole change: prefab-local 0 is where the foundation spike has finished
+        /// widening and the authored interior floor sits, and the registration Y is
+        /// the measured terrain seat under the wall ring.
+        /// </summary>
+        [Fact]
+        public void The_registration_height_is_the_ground_the_wall_ring_stands_on()
+        {
+            Assert.Equal(0.0, WildernessChamber.GroundLineLocalY);
+            Assert.Equal(WildernessChamber.SeatGroundY,
+                WildernessChamber.HavenLocalPlacement.Y + WildernessChamber.GroundLineLocalY, 2);
+
+            // It is a seat, not a guess: the terrain neither piles up the wall nor
+            // drops away from under it by more than the prefab's own footing covers.
+            Assert.InRange(WildernessChamber.SeatDugInMetres, 0.0, 1.6);
+            Assert.InRange(WildernessChamber.SeatStandOffMetres, 0.0, 3.0);
+            Assert.InRange(WildernessChamber.FootprintSpreadMetres, 0.0, 4.0);
+        }
+
+        /// <summary>
+        /// NOBODY CAN GET INTO THE DRUM. That is the price of standing it up and it
+        /// has to be a deliberate, checked property rather than an accident: a player
+        /// who got through the door would be in a sealed shell with a 10.85 m drop
+        /// and no way back out - the exact trap that needed an admin rescue in August.
+        ///
+        /// The door has to be far enough above the ground at its foot that no jump,
+        /// no slope and no stack of terrain reaches it.
+        /// </summary>
+        [Fact]
+        public void The_doorway_is_out_of_reach_from_the_ground()
+        {
+            double groundAtFoot = WorstGroundWithin(
+                WildernessChamber.HavenLocalPlacement.X,
+                WildernessChamber.HavenLocalPlacement.Z, 24.0);
+
+            double aboveGround = WildernessChamber.DoorwaySillIslandY - groundAtFoot;
+
+            Assert.True(aboveGround > 3.0 * WildernessChamber.PlayerHeightMetres,
+                "the doorway sill is only " + aboveGround.ToString("0.00")
+                + " m above the ground - a player could get into a sealed drum");
+        }
+
+        /// <summary>
+        /// The measured aperture, pinned - and the bearing it is actually on. The
+        /// prefab's collider tree puts Ramp01 at x -1.81..1.81, z -14.17..-12.97 and
+        /// Ramp02 at x -1.81..1.81, z -14.72..-14.16: the corridor runs on -z, which
+        /// is 270 deg measured as atan2(z, x). The old value said +x - the same
+        /// numbers with the two axes transposed - and the yaw was being aimed with a
+        /// blank wall.
         /// </summary>
         [Fact]
         public void The_doorway_is_the_measured_prefab_aperture()
@@ -72,32 +170,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             Assert.Equal(10.85, WildernessChamber.DoorwaySillLocalY, 2);
             Assert.Equal(15.25, WildernessChamber.DoorwayLintelLocalY, 2);
             Assert.Equal(4.40, WildernessChamber.DoorwayApertureMetres, 2);
+            Assert.Equal(1.81, WildernessChamber.DoorwayHalfWidthMetres, 2);
+            Assert.Equal(270.0, WildernessChamber.DoorwayBearingLocalDegrees, 1);
         }
 
         /// <summary>
-        /// The room's floor is Haven's terrain, and the player has to STEP IN, not
-        /// fall in. The interior terrain at the chosen site measures 4.04..4.49
-        /// against a sill at 3.99: level to half a metre. A site whose interior sat
-        /// below the sill would be a walled pit with a door in its ceiling, which is
-        /// exactly the trap this design exists to avoid - one such site was measured
-        /// and rejected.
-        /// </summary>
-        [Fact]
-        public void The_room_floor_is_level_with_the_doorway_not_below_it()
-        {
-            double floor = WildernessShrine.HavenLocalPlacement.Y;
-            double sill = WildernessChamber.DoorwaySillIslandY;
-
-            Assert.True(floor >= sill - 0.5,
-                "the chamber floor is " + (sill - floor).ToString("0.00") + " m BELOW the doorway sill");
-            Assert.True(floor <= sill + 1.5,
-                "the chamber floor is " + (floor - sill).ToString("0.00") + " m above the doorway sill");
-        }
-
-        /// <summary>
-        /// It carries a real yaw. The prefab has exactly ONE doorway; leaving it at
-        /// the identity sentinel points that doorway at world +x whatever the ground
-        /// there looks like, which is how a building becomes a sealed drum again.
+        /// It carries a real yaw. The prefab has exactly ONE face worth showing;
+        /// leaving the rotation at the identity sentinel turns that face wherever
+        /// prefab -z happens to land, which is how a player ends up looking at a
+        /// blank wall and saying the tower is not where they asked.
         /// </summary>
         [Fact]
         public void The_chamber_is_turned_to_face_its_measured_approach()
@@ -127,7 +208,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
 
             // The footprint reaches 21.85 m from the centre at its longest, so the
             // nearest structure has to be beyond that plus a margin for the prop's
-            // own size.
+            // own size - the camp's platforms are metres across, and 25.9 m of axis
+            // clearance was enough to rule out an otherwise better site.
             Assert.True(clearance >= 28.0,
                 "the chamber is " + clearance.ToString("0.0") + " m from an authored Haven structure");
 
@@ -140,7 +222,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         {
             Assert.Equal(0, HavenStructures.CountNear(
                 WildernessChamber.HavenLocalPlacement.X,
-                WildernessShrine.HavenLocalPlacement.Y,   // the FLOOR height, not the buried origin
+                WildernessChamber.HavenLocalPlacement.Y,  // now the ground it stands on
                 WildernessChamber.HavenLocalPlacement.Z,
                 radiusMetres: 24.0, belowMetres: 4.0, aboveMetres: 40.0));
         }
@@ -221,28 +303,46 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
-        /// THE DOORWAY FACES THE APPROACH. The prefab has exactly one opening, and
-        /// the previous placement pointed it 132 deg away from the spot the user
-        /// stood on - so they were looking at a blank wall and said the tower was
-        /// not where they asked. The measured spot is Haven-local (168.0, 4.52, 8.0).
+        /// THE FRONT FACES THE APPROACH. The prefab has exactly one face worth
+        /// showing - the -z one, carrying the doorway, the entry lobe and now the
+        /// shrine at its foot - and an earlier placement pointed it 132 deg away from
+        /// the spot the user stood on, so they were looking at a blank wall and said
+        /// the tower was not where they asked.
+        ///
+        /// Measured against BOTH the spot the user physically stood on
+        /// (Haven-local 168, 4.52, 8) and the spawn point every player arrives from.
+        /// Neither is 1.00 and that is deliberate: the ruined camp sits between this
+        /// site and the spawn, and the yaws that aim the front dead at the approach
+        /// put the shrine's pad under the camp's platform decks.
         /// </summary>
         [Fact]
-        public void The_doorway_faces_the_ground_the_user_walks_in_from()
+        public void The_front_of_the_building_faces_the_ground_a_player_arrives_from()
         {
-            const double SpotX = 168.0, SpotZ = 8.0;
-
-            // Unity yaw: prefab local +x (the doorway) points at (cos yaw, -sin yaw).
+            // Unity yaw: prefab local +z points at (sin yaw, cos yaw), so the front,
+            // which is local -z, points at (-sin yaw, -cos yaw).
             double yaw = WildernessChamber.YawDegrees * Math.PI / 180.0;
-            double dx = Math.Cos(yaw), dz = -Math.Sin(yaw);
+            double dx = -Math.Sin(yaw), dz = -Math.Cos(yaw);
 
-            double ux = SpotX - WildernessChamber.HavenLocalPlacement.X;
-            double uz = SpotZ - WildernessChamber.HavenLocalPlacement.Z;
+            // The spot the user stood on: 0.26, i.e. they see a front quarter. Not
+            // square, and the threshold says so rather than pretending - what this
+            // pins is that they are never again looking at the BACK, which is what
+            // 132 deg away (-0.67) gave them.
+            Assert.True(Facing(dx, dz, 168.0, 8.0) > 0.0,
+                "the front is turned away from the spot the user stands on");
+
+            // The approach out of spawn, which is where every player arrives: 0.68.
+            FixedPointPosition spawn = SpawnPolicy.PlayerSpawnPosition;
+            FixedPointPosition island = IslandCatalog.Haven.GlobalOrigin;
+            Assert.True(Facing(dx, dz, spawn.MetresX - island.MetresX, spawn.MetresZ - island.MetresZ) > 0.60,
+                "the front is aimed away from the approach out of spawn");
+        }
+
+        private static double Facing(double dx, double dz, double towardX, double towardZ)
+        {
+            double ux = towardX - WildernessChamber.HavenLocalPlacement.X;
+            double uz = towardZ - WildernessChamber.HavenLocalPlacement.Z;
             double len = Math.Sqrt((ux * ux) + (uz * uz));
-
-            double facing = ((dx * ux) + (dz * uz)) / len;
-            Assert.True(facing > 0.85,
-                "the doorway is aimed " + (Math.Acos(facing) * 180.0 / Math.PI).ToString("0")
-                + " deg away from where the user stands");
+            return ((dx * ux) + (dz * uz)) / len;
         }
 
         /// <summary>
@@ -257,7 +357,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             double dx = WildernessChamber.HavenLocalPlacement.X - 168.0;
             double dz = WildernessChamber.HavenLocalPlacement.Z - 8.0;
 
-            Assert.InRange(Math.Sqrt((dx * dx) + (dz * dz)), 0.0, 26.0);
+            // 14.4 m: the closest any workable stood-up placement gets, and 8.9 m
+            // closer than the placement they complained about.
+            Assert.InRange(Math.Sqrt((dx * dx) + (dz * dz)), 0.0, 20.0);
         }
 
         [Fact]
@@ -266,7 +368,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             IslandLocation location = IslandLocationPolicy.Locate(
                 IslandCatalog.Haven.LocalToGlobal(
                     WildernessChamber.HavenLocalPlacement.X,
-                    WildernessShrine.HavenLocalPlacement.Y,
+                    WildernessChamber.HavenLocalPlacement.Y,
                     WildernessChamber.HavenLocalPlacement.Z),
                 IslandLocationPolicy.KnownWorld());
 
