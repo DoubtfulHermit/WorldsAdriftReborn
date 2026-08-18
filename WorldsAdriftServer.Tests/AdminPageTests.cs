@@ -522,7 +522,7 @@ namespace WorldsAdriftServer.Tests
             JObject totals = (JObject)map["resourceTotals"]!;
             Assert.Equal(1930, (int?)totals["deposits"]);
             Assert.Equal(1233, (int?)totals["databanks"]);
-            Assert.Equal(3767, (int?)totals["trees"]);
+            Assert.Equal(13266, (int?)totals["trees"]);
             Assert.Equal(193, (int?)totals["islandsWithInferredOres"]);
 
             // Per island the deposits are broken down by ore, and the rows account
@@ -538,6 +538,12 @@ namespace WorldsAdriftServer.Tests
                     new[] { "survey-pve", "survey-pvp", "inferred-tier" });
                 Assert.Equal((string?)inventory["oreSource"] == "inferred-tier",
                     (bool?)inventory["oresInferred"]);
+                // Wood is labelled on exactly the same terms as ore. 180 islands
+                // grow an inference; the page must never present one as a survey.
+                Assert.Contains((string?)inventory["woodSource"],
+                    new[] { "survey", "survey-none", "inferred-tier" });
+                Assert.Equal((string?)inventory["woodSource"] == "inferred-tier",
+                    (bool?)inventory["woodsInferred"]);
                 // Not recovered, so stated as zero rather than guessed at.
                 Assert.Equal(0, (int?)inventory["fuelPods"]);
                 Assert.Equal(0, (int?)inventory["lootContainers"]);

@@ -9,7 +9,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         int WoodedIslands,
         int IslandsWithRecoveredOres,
         int IslandsWithInferredOres,
-        int InferredDeposits);
+        int InferredDeposits,
+        int IslandsWithRecoveredWoods,
+        int IslandsWithInferredWoods,
+        int InferredTrees);
 
     /// <summary>
     /// Joins the release island catalogue to the tree catalogue and rolls each
@@ -82,6 +85,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                     record,
                     trees?.Points.Count ?? 0,
                     trees?.Woods ?? Array.Empty<string>(),
+                    // No record at all means the survey said "No trees" - that is the
+                    // only reason an island is absent from the tree catalogue, and it
+                    // is an observation, not a gap.
+                    trees?.WoodSource ?? WoodTableSource.SurveyNone,
                     TallyOres(record)));
             }
             return built;
@@ -120,6 +127,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 IslandsWithRecoveredOres: records.Count(record => !record.OresAreInferred),
                 IslandsWithInferredOres: records.Count(record => record.OresAreInferred),
                 InferredDeposits: records.Where(record => record.OresAreInferred)
-                    .Sum(record => record.Deposits));
+                    .Sum(record => record.Deposits),
+                IslandsWithRecoveredWoods: records.Count(record => !record.WoodsAreInferred),
+                IslandsWithInferredWoods: records.Count(record => record.WoodsAreInferred),
+                InferredTrees: records.Where(record => record.WoodsAreInferred)
+                    .Sum(record => record.Trees));
     }
 }

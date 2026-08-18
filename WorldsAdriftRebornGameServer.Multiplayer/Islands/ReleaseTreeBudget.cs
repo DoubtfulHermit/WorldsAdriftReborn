@@ -34,12 +34,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// instantiating too much world at once (docs/HANDOVER.md). Ungated, the
     /// largest tree island (734 cells) would ask for 652 trees by itself. In
     /// practice the ceiling, not the density, is what sets the world's tree budget:
-    /// 49 of the 72 wooded islands clamp to it. That is deliberate - it makes the
+    /// 167 of the 252 wooded islands clamp to it. That is deliberate - it makes the
     /// total predictable and bounded rather than a function of one huge island.
     ///
-    /// The resulting world is 3,767 trees over 72 islands, and it is scoped further
-    /// by the same WAREBORN_RELEASE_WORLD_DISTRICTS dial that already gates
-    /// deposits and databanks, so enabling only the tier-1 cells yields 727 trees.
+    /// The resulting world is 13,266 trees over 252 islands, and it is scoped
+    /// further by the same WAREBORN_RELEASE_WORLD_DISTRICTS dial that already gates
+    /// deposits and databanks, so enabling only the tier-1 cells yields 2,394 trees
+    /// over all 46 tier-1 islands.
+    ///
+    /// THE CEILING IS ALSO THE STREAMING BUDGET, and that is now the binding
+    /// constraint. Under island-envelope resource interest a peer arriving at an
+    /// island checks out that island's WHOLE resource set, at one lifecycle action
+    /// per peer per 120 ms and two actions per add - 0.24 s per entity. The worst
+    /// tier-1 island (Saborian cave ruin: 31 deposits, 31 atlas shards, 5
+    /// databanks, 60 trees) is therefore 127 entities and about 30 s to stream in
+    /// full. Lowering MaxTrees is the cheapest lever on that number if it has to
+    /// come down; ordering the stream by distance from the arriving peer is the
+    /// better one, because the four near-pad seats then arrive in the first second
+    /// and the far side of the island can take as long as it likes.
     ///
     /// This formula is duplicated in tools/world-import/generate-release-tree-placements.py.
     /// <c>ReleaseTreeCatalogTests</c> asserts that every shipped island's point
