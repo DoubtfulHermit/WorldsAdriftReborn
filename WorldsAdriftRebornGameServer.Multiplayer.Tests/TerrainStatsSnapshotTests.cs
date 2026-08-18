@@ -62,12 +62,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // ship-motion model, each ship's hull shape, heading and velocity, and
             // the durable character uid on each player row that lets an operator
             // command be addressed at a CHARACTER rather than at a recycled entity
-            // id. All of it rides ONE version bump: the two landed in the same
-            // release and a reader either has v8 or does not. The version is
-            // asserted here rather than compared to itself so a field added
-            // without a bump has to walk past a red test.
-            Assert.Equal(8, StatsSnapshot.SchemaVersion);
-            Assert.Equal(8, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // id. v10 adds the interest section (radii, budgets, gates and
+            // per-peer holdings); v9 was claimed by the concurrent ecology work
+            // and is deliberately skipped so two branches cannot both mean
+            // different things by the same number. The version is asserted here
+            // rather than compared to itself so a field added without a bump has
+            // to walk past a red test.
+            Assert.Equal(10, StatsSnapshot.SchemaVersion);
+            Assert.Equal(10, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

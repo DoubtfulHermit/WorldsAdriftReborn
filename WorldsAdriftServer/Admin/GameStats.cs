@@ -181,6 +181,14 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameShipModelStat ShipModel { get; private init; } = GameShipModelStat.Absent();
 
+        /// <summary>
+        /// The interest section (schema v10+). Never null: an older game server -
+        /// including the v8 and v9 files still in the field - projects to an
+        /// ABSENT section, which the streaming view renders as "not reported"
+        /// rather than as radii of zero.
+        /// </summary>
+        public GameInterestStat Interest { get; private init; } = GameInterestStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -236,6 +244,7 @@ namespace WorldsAdriftServer.Admin
                 Terrain = GameTerrainStat.Parse(o["terrain"] as JObject),
                 Fauna = GameFaunaStat.Parse(o["fauna"] as JObject),
                 ShipModel = GameShipModelStat.Parse(o["shipModel"] as JObject),
+                Interest = GameInterestStat.Parse(o["interest"] as JObject),
             };
         }
 
@@ -545,6 +554,163 @@ namespace WorldsAdriftServer.Admin
 
         private static int Clamp(int value, int maximum) =>
             value < 0 ? 0 : value > maximum ? maximum : value;
+    }
+
+    /// <summary>
+    /// The login server's view of the game server's interest section (schema v10+).
+    ///
+    /// Like every other projection here it REBUILDS an allowlisted object and
+    /// clamps what it passes on. The radii it forwards are drawn as circles in
+    /// world metres on the operator map, so a corrupt or hostile value would come
+    /// out as a ring the size of the world stretching the view - the magnitude
+    /// clamp is load-bearing, not belt-and-braces. A v8 or v9 file (no interest
+    /// section) parses to a defined absent state instead of throwing.
+    /// </summary>
+    internal sealed class GameInterestStat
+    {
+        /// <summary>
+        /// Metres. The widest configurable interest radius is bounded by the game
+        /// side's own InterestPolicy ceiling; anything past the world edge in a
+        /// file is not a radius, it is corruption.
+        /// </summary>
+        private const double MaxRadiusMetres = 100_000.0;
+
+        /// <summary>The most peers whose holdings are passed through.</summary>
+        private const int MaxPeers = 256;
+
+        /// <summary>Per-peer list caps, so a malformed file cannot become an unbounded DOM.</summary>
+        private const int MaxIslandsPerPeer = 512;
+        private const int MaxShipDomainsPerPeer = 256;
+
+        public bool Present { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>The projection for a game server whose schema has no interest section.</summary>
+        public static GameInterestStat Absent() => new GameInterestStat
+        {
+            Present = false,
+            Json = Build(null),
+        };
+
+        public static GameInterestStat Parse(JObject? i)
+        {
+            if (i == null) return Absent();
+            return new GameInterestStat
+            {
+                Present = (bool?)i["present"] ?? false,
+                Json = Build(i),
+            };
+        }
+
+        private static JObject Build(JObject? i)
+        {
+            JObject? resources = i?["resources"] as JObject;
+            JObject? fauna = i?["fauna"] as JObject;
+            JObject? ship = i?["ship"] as JObject;
+            JObject? gates = i?["gates"] as JObject;
+
+            JArray peers = new JArray();
+            if (i?["peers"] is JArray peerArray)
+            {
+                foreach (JToken token in peerArray)
+                {
+                    if (peers.Count >= MaxPeers) break;
+                    if (token is not JObject p) continue;
+                    peers.Add(BuildPeer(p));
+                }
+            }
+
+            return new JObject
+            {
+                ["present"] = i != null && ((bool?)i["present"] ?? false),
+                ["resources"] = new JObject
+                {
+                    ["enabled"] = (bool?)resources?["enabled"] ?? false,
+                    ["loadRadiusMetres"] = Radius((double?)resources?["loadRadiusMetres"] ?? 0),
+                    ["unloadRadiusMetres"] = Radius((double?)resources?["unloadRadiusMetres"] ?? 0),
+                    ["perPeerBudget"] = Count((int?)resources?["perPeerBudget"] ?? 0),
+                    ["connectRadiusMetres"] = Radius((double?)resources?["connectRadiusMetres"] ?? 0),
+                },
+                ["fauna"] = new JObject
+                {
+                    ["enabled"] = (bool?)fauna?["enabled"] ?? false,
+                    ["loadRadiusMetres"] = Radius((double?)fauna?["loadRadiusMetres"] ?? 0),
+                    ["unloadRadiusMetres"] = Radius((double?)fauna?["unloadRadiusMetres"] ?? 0),
+                },
+                ["ship"] = new JObject
+                {
+                    ["loadRadiusMetres"] = Radius((double?)ship?["loadRadiusMetres"] ?? 0),
+                    ["unloadRadiusMetres"] = Radius((double?)ship?["unloadRadiusMetres"] ?? 0),
+                    ["connectRadiusMetres"] = Radius((double?)ship?["connectRadiusMetres"] ?? 0),
+                },
+                ["terrainConnectRadiusMetres"] = Radius((double?)i?["terrainConnectRadiusMetres"] ?? 0),
+                ["gates"] = new JObject
+                {
+                    // Present as an explicit null when the section is absent:
+                    // "the barrier is off" and "this server never said" are
+                    // different operator answers, and the second must not
+                    // masquerade as the first.
+                    ["loadBarrier"] = gates?["loadBarrier"]?.Type == JTokenType.Boolean
+                        ? (bool?)gates["loadBarrier"] : null,
+                    ["spawnPaceMs"] = Math.Min(3_600_000, Count((int?)gates?["spawnPaceMs"] ?? 0)),
+                },
+                ["peers"] = peers,
+            };
+        }
+
+        private static JObject BuildPeer(JObject p)
+        {
+            JArray islands = new JArray();
+            if (p["resourceIslands"] is JArray islandArray)
+            {
+                foreach (JToken token in islandArray)
+                {
+                    if (islands.Count >= MaxIslandsPerPeer) break;
+                    if (token is not JObject island) continue;
+                    string id = Text((string?)island["islandId"]);
+                    if (id.Length == 0) continue;
+                    islands.Add(new JObject
+                    {
+                        ["islandId"] = id,
+                        ["checkedOut"] = Count((int?)island["checkedOut"] ?? 0),
+                    });
+                }
+            }
+
+            JArray shipDomains = new JArray();
+            if (p["shipDomainIds"] is JArray shipArray)
+            {
+                foreach (JToken token in shipArray)
+                {
+                    if (shipDomains.Count >= MaxShipDomainsPerPeer) break;
+                    string id = Text((string?)token);
+                    if (id.Length > 0) shipDomains.Add(id);
+                }
+            }
+
+            return new JObject
+            {
+                ["playerEntityId"] = (long?)p["playerEntityId"] ?? 0,
+                ["resourceCheckedOut"] = Count((int?)p["resourceCheckedOut"] ?? 0),
+                ["faunaCheckedOut"] = Count((int?)p["faunaCheckedOut"] ?? 0),
+                ["resourceIslands"] = islands,
+                ["shipDomainIds"] = shipDomains,
+            };
+        }
+
+        private static double Radius(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < 0) return 0;
+            return value > MaxRadiusMetres ? MaxRadiusMetres : value;
+        }
+
+        private static int Count(int value) => value < 0 ? 0 : value;
+
+        private static string Text(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            return value!.Length <= 96 ? value : value.Substring(0, 96);
+        }
     }
 
     internal sealed class GameRuntimeDomainStat

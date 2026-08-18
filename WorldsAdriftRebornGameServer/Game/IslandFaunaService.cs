@@ -159,6 +159,20 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>Whether island fauna is switched on.</summary>
         internal bool Enabled => _enabled;
 
+        /// <summary>The parsed load radius this boot decides with, for telemetry.</summary>
+        internal double LoadRadiusMetres => _loadRadius;
+
+        /// <summary>The derived unload radius, for telemetry.</summary>
+        internal double UnloadRadiusMetres => _unloadRadius;
+
+        /// <summary>
+        /// How many creatures this peer currently holds, for the interest
+        /// section of the stats snapshot. Zero for an untracked peer - which is
+        /// the truth: nothing has been streamed to them.
+        /// </summary>
+        internal int CheckedOutFor(ENetPeerHandle peer) =>
+            _peers.TryGetValue(peer, out PeerState? state) ? state.Loaded.Count : 0;
+
         /// <summary>How many creatures are live. Zero whenever the feature is off.</summary>
         internal int Count => _registry.Count;
 

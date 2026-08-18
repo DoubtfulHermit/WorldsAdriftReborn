@@ -40,7 +40,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
         internal double LoadRadiusMetres { get; } = ShipDomainInterestPolicy.LoadRadiusFrom(
             Environment.GetEnvironmentVariable(ShipDomainInterestPolicy.LoadRadiusEnvVar));
-        private double UnloadRadiusMetres { get; }
+        internal double UnloadRadiusMetres { get; }
 
         public ShipDomainInterestService(IClock clock, ShipDomainRegistry domains,
             WorldEntityRegistry registry)
@@ -129,6 +129,24 @@ namespace WorldsAdriftRebornGameServer.Game
                     count++;
             }
             return count;
+        }
+
+        /// <summary>
+        /// Which ship domains this peer's checkout ledger currently contains,
+        /// for the interest section of the stats snapshot. The membership test
+        /// is the SAME one <see cref="SubscriberCountFor"/> counts with - the
+        /// hull's presence in the peer's sent-entity ledger - so the per-peer
+        /// list and the per-hull subscriber count cannot disagree.
+        /// </summary>
+        public IReadOnlyList<string> CheckedOutDomainIdsFor(ENetPeerHandle peer)
+        {
+            List<string> ids = new();
+            foreach (ShipDomain domain in _domains.All.OrderBy(x => x.HullEntityId))
+            {
+                if (WorldsAdriftRebornGameServer.SentEntities.WasSent(peer, domain.HullEntityId))
+                    ids.Add(domain.Id.ToString());
+            }
+            return ids;
         }
 
         public bool MayServe(ENetPeerHandle peer, long entityId)

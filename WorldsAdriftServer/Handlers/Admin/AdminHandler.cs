@@ -475,6 +475,7 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["terrain"] = s.Terrain.Json;
             game["fauna"] = s.Fauna.Json;
             game["shipModel"] = s.ShipModel.Json;
+            game["interest"] = s.Interest.Json;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,
