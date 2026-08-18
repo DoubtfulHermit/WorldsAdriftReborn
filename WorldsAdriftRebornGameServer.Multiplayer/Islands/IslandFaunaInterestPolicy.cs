@@ -155,25 +155,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// The islands whose fauna this peer should hold, given where it is now and
         /// what it already holds.
         ///
-        /// TOTAL AND ORDER-INDEPENDENT: the result is a function of the candidates'
-        /// distances and the held set, never of the order they were enumerated in, so
-        /// a caller cannot change a peer's world by iterating a dictionary
-        /// differently. Ties break on island id for the same reason.
-        ///
-        /// THE THREE RULES, in the order they are applied:
-        /// <list type="number">
-        /// <item>a HELD island is retained until it is past
-        ///   <paramref name="unloadRadius"/>, and an unheld one is only considered
-        ///   inside <paramref name="loadRadius"/>. That is the hysteresis;</item>
-        /// <item>RETAINED ISLANDS ARE ADMITTED FIRST, nearest first, before any
-        ///   newcomer is considered. Without this a newly approached island could
-        ///   evict the one under the player's feet, which is the loudest possible
-        ///   version of the bug this type exists to fix;</item>
-        /// <item>an island is admitted WHOLE or not at all, while its population fits
-        ///   in the remaining budget. A population that does not fit is skipped and a
-        ///   later, smaller one may still be admitted - the same rule
-        ///   <see cref="IslandFaunaPlan"/> applies to the world budget.</item>
-        /// </list>
+        /// The rules - hysteresis, retention-first, whole-island-or-nothing - live in
+        /// <see cref="IslandInterestAdmissionPolicy.Admit"/>, which island RESOURCES
+        /// now share. They were written here first, for the manta despawn; a resource
+        /// field turned out to need exactly the same answer for the mirror-image
+        /// reason (the player moves rather than the entity), so the rule was lifted
+        /// out rather than copied. This method remains the fauna-shaped door onto it.
         /// </summary>
         public static IReadOnlyList<IslandId> Admit(
             IEnumerable<FaunaIslandCandidate> candidates,
@@ -183,42 +170,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             int perPeerBudget)
         {
             if (candidates == null) throw new ArgumentNullException(nameof(candidates));
-            if (held == null) throw new ArgumentNullException(nameof(held));
-            if (perPeerBudget <= 0 || loadRadius <= 0.0) return Array.Empty<IslandId>();
-
-            double load2 = loadRadius * loadRadius;
-            double unload2 = unloadRadius * unloadRadius;
-
-            List<FaunaIslandCandidate> retained = new List<FaunaIslandCandidate>();
-            List<FaunaIslandCandidate> arriving = new List<FaunaIslandCandidate>();
-            foreach (FaunaIslandCandidate candidate in candidates)
-            {
-                if (held.Contains(candidate.IslandId))
-                {
-                    if (candidate.DistanceSquared <= unload2) retained.Add(candidate);
-                }
-                else if (candidate.DistanceSquared <= load2)
-                {
-                    arriving.Add(candidate);
-                }
-            }
-
-            retained.Sort(Nearest);
-            arriving.Sort(Nearest);
-
-            List<IslandId> admitted = new List<IslandId>();
-            int spent = 0;
-            foreach (FaunaIslandCandidate candidate in retained.Concat(arriving))
-            {
-                if (candidate.Population <= 0
-                    || spent + candidate.Population > perPeerBudget)
-                {
-                    continue;
-                }
-                admitted.Add(candidate.IslandId);
-                spent += candidate.Population;
-            }
-            return admitted;
+            return IslandInterestAdmissionPolicy.Admit(
+                candidates.Select(candidate => new IslandInterestCandidate(
+                    candidate.IslandId, candidate.DistanceSquared, candidate.Population)),
+                held, loadRadius, unloadRadius, perPeerBudget);
         }
 
         /// <summary>
@@ -270,14 +225,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                     "a non-positive pose interval has no rate");
             }
             return perPeerBudget <= 0 ? 0.0 : perPeerBudget / poseInterval.TotalSeconds;
-        }
-
-        private static int Nearest(FaunaIslandCandidate a, FaunaIslandCandidate b)
-        {
-            int byDistance = a.DistanceSquared.CompareTo(b.DistanceSquared);
-            return byDistance != 0
-                ? byDistance
-                : string.CompareOrdinal(a.IslandId.ToString(), b.IslandId.ToString());
         }
     }
 }
