@@ -25,6 +25,13 @@
          resource-deposit field from real terrain with no runtime path dependency,
          keeping the assembly dependency-free. Reviewed DATA, diffable in git. -->
     <EmbeddedResource Include="Resources\haven-surface-1431299145.txt" />
+    <!-- The 253 AUTHORED STRUCTURE placements on Haven (the ruined metal camp and
+         the Saborian brick ruins), island-local metres, projected from
+         docs/research/world-data/haven/haven-props-resolved.json. Embedded so a
+         placement can be checked against what is ALREADY standing there instead of
+         against terrain alone - the miss that drove the Wilderness shrine through
+         the metal camp. See HavenStructures. Reviewed DATA, diffable in git. -->
+    <EmbeddedResource Include="Resources\haven-structure-props.txt" />
     <EmbeddedResource Include="Resources\trades-challenge-surface-1206286558.txt" />
     <EmbeddedResource Include="Islands\release-runtime-catalog.json" />
     <EmbeddedResource Include="Islands\release-tree-placements.json" />

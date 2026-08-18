@@ -907,9 +907,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 entries ?? new Improbable.Collections.List<InteractionEntry> { entry },
                                 false));
 
+                        // The RADIUS is logged because it is the field that decides
+                        // whether a prompt can appear at all and the only one with
+                        // no visible tell when it is wrong: the client's look test
+                        // is Distance(visualizer.transform, player) + 0.5 < radius,
+                        // measured to wherever the PREFAB puts its
+                        // InteractiveObjectVisualizer - which on the Revival Chamber
+                        // was 3.2 m under the plate you stand on, so a 3 m radius
+                        // described a sphere entirely underground. A radius that
+                        // cannot reach reads exactly like a missing component.
+                        // See Multiplayer.InteractReach.
                         Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
-                            + ") with verb " + verbName + ", available=" + available + ".");
+                            + ") with verb " + verbName + ", radius="
+                            + entry.radius.ToString("0.##") + "m, hold="
+                            + entry.timeToUse.ToString("0.##") + "s, available="
+                            + available + ".");
 
                         obj = interactiveData;
                     }

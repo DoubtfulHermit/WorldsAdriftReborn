@@ -1,7 +1,9 @@
 # The Wilderness shrine — graduating from Haven
 
-**Status:** implemented on `feat/wilderness-shrine`. Server-side only; no client
-mod change. Never deployed by this work.
+**Status:** server-side only; no client mod change. Never deployed by this work.
+Revised 2026-08-18 after live evidence: the object changed from the Revival Chamber
+(`HavenAncientRespawner`) to the Reviver platform (`Respawner01`) and the placement
+moved out of the ruined metal camp — see §2.1 for why the chamber cannot work.
 
 The mechanic in one line: **an interactable on Haven that sends a player to a
 random Tier-1 island — except that a crew arrives together, on their leader's
@@ -38,79 +40,193 @@ authored one, rebuilt on the transports this server actually has.
 
 | | |
 | --- | --- |
-| Prefab | `HavenAncientRespawner` — the Haven Revival Chamber |
+| Prefab | `Respawner01` — retail's Reviver **platform** |
 | Registration key | `wilderness-shrine` |
-| Position | Haven island-local **(176.00, 4.90, 16.00)** |
+| Position | Haven island-local **(168.00, 4.47, 24.00)** |
 | Seeded components | 190602 (transform), 1210 (interaction) |
+| Interaction | verb `Activate`, radius **5 m**, hold **1.5 s** |
 | Spawn order | `AfterPlayer` |
 | Kill switch | `WAREBORN_WILDERNESS_SHRINE=0` (default ON) |
 
-**PROVED — the prefab is real and loadable.** `havenancientrespawner` is line 80
-of `docs/research/world-data/prefab-keys.txt`, and it is line 80 of the *same*
-census embedded at
-`WorldsAdriftRebornGameServer.Multiplayer/Ship/client-entity-prefabs.txt` that
-`ClientEntityPrefabs` loads at runtime to refuse prefabs a client could not
-resolve. `docs/research/loop/data/prefab-names.tsv:81` records a client **and** a
-worker prefab for it. Exact casing (`HavenAncientRespawner_unityclient`) comes
-from `docs/research/world-data/haven/haven-prefabs2.json`.
+### 2.1 The Revival Chamber was tried, and it cannot work
 
-**PROVED — nothing better exists.** The island-prop library's `shrine1` /
-`shrine2` / `Plinth` (`.../haven/guidlut.json`) are *meshes baked into island
-bundles*, resolved by GUID. They are not in the entity-prefab census, so they
-cannot be a `WorldEntity.AssetName` at all. The only other monument-shaped
-loadable entity prefab is `TerritoryControlBeacon`, which has nothing to do with
-graduation.
+The first two builds of this feature used `HavenAncientRespawner`, the actual Haven
+Revival Chamber. It is the authentic object and it is unusable. **PROVED** by
+measuring the shipped prefab's own collision meshes out of `resources.assets` with
+UnityPy, and corroborated by a live player on 2026-08-18.
 
-**INFERRED — the placement.** Retail's own pad position is not recoverable:
-everything Haven-specific was spawned by the GSim, and `findings-haven.md` gives
-only a relative barrier/teleporter offset. The chosen point is derived from
-Haven's extracted LOD0 surface table
-(`docs/research/world-data/island-surfaces/1431299145.json`) under the same
-landing rule used for the Wilderness islands, restricted to a walkable band
-around the spawn point:
+**The interaction is at the bottom of a sealed well.**
 
-* normal `ny = 0.996`; all 8 neighbouring 8 m columns level within **1.42 m**
-* **34.2 m** from the spawn point, **0.20 m** above it — same shelf, no climb
-* nearest authored static prop **15.26 m** in 3D / 13.73 m horizontally; nothing
-  authored within 5 m horizontally from 2 m below to 15 m above
-* clear of everything the server itself puts on Haven (33 m from the databank,
-  32 m from the static dev ship frame)
+* The prefab's only `InteractiveObjectVisualizer` is on the deep child `SpawnPad`
+  (`…> Ancient_Respawner > respawner_interior > SpawnPad`), the plate the retail
+  quest text calls "the platform inside the Revival Chamber". Its `localPosition`
+  is `(0, −2.704, 0)`; the plate's collision top is at prefab-local `+0.39`, and
+  the decorative top plates reach `+0.50`.
+* `respawner_exterior_LOD0`, its collision shell, is **closed on 360/360 bearings**
+  from prefab-local `y = −1.0` continuously up to `y = 9.3`. Casting 360 rays from
+  the plate centre at 1° resolution finds a wall on every single bearing at radius
+  8.69–15 m, at every height in that band.
+* The **only** aperture is a doorway on the `+x` bearing (±10°) whose sill is at
+  `y = 9.35 ± 0.05` — closed at 9.3, open at 9.4. `Ramp01` (10.03–10.13) and
+  `Ramp02` (10.57–10.66) step up to it, the `Barrier_Wall` sits at 11.17–13.17, and
+  both `Access-Ancient-Respawner-Trigger` quest boxes bottom out at 9.09 and 11.06.
+  Everything player-scale in this prefab is at `y ≈ 9–13`.
+* Inside, a gallery runs at `y ≈ 9.67–10.24` for radius 9–14, and the chamber floor
+  with the plate is at `y = 0.0`. A ring sweep at radii 5/7/9/11/13 over 48 bearings
+  finds **no intermediate surface** between `y = 1` and `y = 9`: the gallery drops
+  9.7 m straight to the floor.
 
-Why not closer: the spawn point sits *inside* the ruined metal camp, and every
-flat sample within ~25 m has that camp's platforms overhead or the dev ship frame
-on top of it. Moving out to x = 176 leaves the camp while heading **toward** the
-island's local origin — which is where retail's own text puts the chamber, "at
-the center of the island".
+So there is no height at which the plate is reachable:
+
+* **Origin at ground** (what shipped) → the plate is a plate at grade, walled in by
+  a continuous 9.35 m wall at radius 8.69 m. A courtyard with no gate.
+* **Origin buried ~10 m** so the authored doorway meets the terrain → the player can
+  walk in, but the plate is now 10 m *under* the terrain mesh, which fills the well
+  and occludes it. The look raycast hits terrain, never the plate.
+
+**Observed, 2026-08-18 (PROVED):** a player logged in, ended up inside the shell,
+saw the interactive highlight, could not interact, and had to be rescued with the
+admin dashboard teleport. That highlight is itself informative — `PlayerLookingAt`
+sets `LookingAtInteractive` **and** paints the yellow `_interactiveColor` outline in
+the *same* branch, gated on the *same* `InRange` test, so a yellow outline means the
+range test passed. It passes near the buried plate and nowhere a player can normally
+stand. (This corrects a natural guess: the outline and the prompt are **not** two
+different gates.)
+
+**It also does not fit.** The chamber's collision AABB is 40 m × 36 m in plan, and in
+the body band above the authored grade it reaches 48 m across. Sweeping every
+measured Haven LOD0 surface vertex for a spot flat enough to hold that footprint and
+clear of the authored props returns **nothing** on the spawn shelf; the nearest
+candidate is 141 m away and 25 m higher.
+
+### 2.2 What is used instead
+
+`Respawner01` — retail's **Reviver platform**. It keeps the authored vocabulary
+("interact with the platform"), and it is the object
+`InteractiveObjectVisualizer.GetTutorialStep` maps to
+`TutorialStep.MOUSE_OVER_REVIVER` when the verb is `Activate`.
+
+**PROVED — it is loadable.** `respawner01` is line 223 of the entity-prefab census
+embedded at `WorldsAdriftRebornGameServer.Multiplayer/Ship/client-entity-prefabs.txt`,
+the same file `ClientEntityPrefabs` loads at runtime to refuse prefabs a client could
+not resolve. The client already precaches it: `PRECACHING: Respawner01` appears in
+`~/Games/WorldsAdrift/BepInEx/LogOutput.log`.
+
+**RECOVERED — its geometry is everything the chamber's was not.** Read from
+`resources.assets`:
+
+| | |
+| --- | --- |
+| `InteractiveObjectVisualizer` | on the prefab **ROOT**, offset `(0, 0, 0)` |
+| serialized `Verb` | `Activate` (1) |
+| root GameObject layer | 15 `Interactive` — inside `Layers.Interactables` |
+| collision extent | x/z `−0.60 … +0.60`, y `0.00 … 0.20` |
+
+The zero offset is the load-bearing property. The client measures interaction range
+to the *visualizer's* transform, so a visualizer on the root means range is measured
+to the entity origin — the same shape as the metal nugget's and the helm's, both of
+which are live-proven to prompt on this server. It is a ship part, like the static
+helm this server already stands up as its own world entity with the same
+190602 + 1210 seed; that is the precedent it is placed on.
+
+### 2.3 The reach — why the first build had NO prompt at all
+
+The client offers a prompt only while (`Assets.Scripts.Player.PlayerLookingAt.InRange`,
+decompile):
+
+```
+Vector3.Distance(visualizer.transform.position, player.transform.position) + 0.5f
+    < visualizer.InteractRange          // == the radius on OUR 1210 entry
+```
+
+measured to the **visualizer's own transform**, wherever the prefab author put it.
+The first build seeded the metal nugget's 3 m radius onto the chamber, whose
+visualizer is 3.204 m below the plate — a reachable sphere of usable radius 2.5 m
+centred 2.704 m underground, whose highest point is 0.204 m *below* the entity
+origin. No standable point in the world satisfied it, and nothing in any log said so.
+
+The rule now lives as a pure module, `Multiplayer.InteractReach`, so a radius can be
+checked against a prefab's measured geometry in a unit test.
+
+`Respawner01`'s radius is **5.0 m, RECOVERED rather than tuned**: it is the client's
+own default for an Activate interaction —
+`InteractiveObjectVisualizer._interaction` is field-initialised to
+`new InteractionEntry(InteractVerb.Activate, 5f, …, 1f)` — and it is the radius this
+server already serves for the mounted sail/lamp/horn Activate
+(`Ship.PartInteractionPolicy.ActivateRadius`). With the visualizer on the origin that
+leaves `sqrt(4.5² − 0.20²) = 4.50 m` of horizontal reach: the whole 1.2 m plate plus
+a 3.9 m walk-up ring, which is what a player has to find it with.
+
+The 1210 seed log line now prints the radius and the hold, because the radius is the
+one field with no visible tell when it is wrong.
+
+### 2.4 The placement, and the check that was missing
+
+**(168.00, 4.47, 24.00)**, island-local — a measured LOD0 surface vertex, the same
+source every other Haven placement on this server comes from.
+
+The previous point, `(176.00, 4.90, 16.00)`, was chosen against the surface table
+alone. Its nearest authored structure is **13.7 m** away: it is inside the ruined
+metal camp's footprint, and a 40 m prefab standing on it was driven straight through
+the camp's platforms. **Terrain flatness was never the missing check.**
+
+Haven's authored structures are now embedded as data
+(`Resources/haven-structure-props.txt`, the 253 `Ruins (Miscellaneous)` and
+`Ruins (Saborian)` placements projected from `haven-props-resolved.json`) and read by
+the pure `Islands.HavenStructures`, so a placement can be checked against what is
+already built there. Rocks, foliage, grass and VFX emitters are deliberately excluded:
+a monument may overlap a shrub without trapping anybody, and including them makes
+every spot on the island fail.
+
+The chosen vertex is the best of the 15 that clear all of:
+
+| | |
+| --- | --- |
+| surface normal | `ny = 1.000` |
+| 8 neighbouring 8 m columns level within | **0.43 m** |
+| nearest authored structure | **24.5 m** (was 13.7 m) |
+| authored structures overhead (8 m radius, −2 m … +25 m) | **0** |
+| from the spawn point | **44.7 m** horizontally; 0.23 m above the spawn's own ground vertex (the 6.70 spawn seed stands the player 2 m clear of it) |
+| from the Haven databank | 43.1 m |
+
+The overhead check matters on its own: the camp is multi-storey and the Haven spawn
+point itself sits under a platform 19.5 m up, so horizontal distance alone is not
+clearance. `HavenStructuresTests` pins that the spawn point *does* have the camp over
+it, which is what makes the shrine's zero meaningful.
+
+The CHOICE of vertex is **WAREBORN TUNING**; the vertex and every clearance number
+above are measured. Retail's own pad position is not recoverable — everything
+Haven-specific was spawned by the GSim.
 
 ### How a player interacts with it
 
-The 1210 / 1211 pair — the same proven path that already makes a placed
-shipyard's console and a metal nugget interactive. The server seeds 1210
-`InteractiveState` on the shrine; the client's `InteractiveObjectVisualizer`
-shows an E prompt (radius 3 m, hold **1.5 s** — longer than the shipyard's 0.5 s
-because this is the one action on Haven that cannot be undone in the next
-second); the completed interaction arrives as a 1211 `InteractWithObject` event
-on the *player's* entity, naming the shrine as its target.
+The 1210 / 1211 pair — the same proven path that already makes a placed shipyard's
+console and a metal nugget interactive. The server seeds 1210 `InteractiveState`; the
+client's `InteractiveObjectVisualizer` shows the prompt; the completed interaction
+arrives as a 1211 `InteractWithObject` event on the *player's* entity, naming the
+shrine as its target.
 
-**INFERRED, and hedged — the verb.** `InteractiveObjectVisualizer.OnEnable` does
-`Interactions.FirstOrDefault(i => i.verb == Verb)` **once**, against the verb the
-*prefab* baked. We have the class name and the quest text, not the prefab's
-serialized `Verb`. A wrong single guess is not a degraded prompt — it is *no
-prompt at all*, permanently, with nothing in any log to say why. So the shrine's
-1210 seed carries **one entry per plausible verb**: `Activate` (the quest text
-says "activate"), `Default` (the enum's zero, where an unset field lands) and
-`Man` (retail has the player *stand on* a platform, which is the verb the helm
-uses for taking a position). The visualizer takes the entry matching its own verb
-and ignores the rest, so the extras are inert. `PickUp` is deliberately absent: a
-monument is not portable and a PickUp prompt on it would be a lie.
+**RECOVERED — the verb is `Activate` (1)**, read from the prefab's serialized `Verb`
+field. The same 48-byte MonoBehaviour decode reads all **191**
+`InteractiveObjectVisualizer` instances in `resources.assets` and agrees with every
+independently known one (`Helm01` = Man, `Sail01` = Activate, `Stove01` = Craft,
+every container = Inventory), so the reading is cross-checked rather than asserted.
+The Revival Chamber's `SpawnPad` bakes the same verb, so the two agree.
+
+The seed nonetheless still carries **one entry per plausible verb** — `Activate`,
+`Default`, `Man` — because `OnEnable` resolves
+`Interactions.FirstOrDefault(i => i.verb == Verb)` **once** and `GetVerb(collider)`
+can be overridden per-collider by an `InteractiveObjectVerbOverrider` anywhere in the
+collider's parent chain. The extras cost two list elements and are inert. Drop them
+once a live client has been seen to send a 1211 naming Activate. `PickUp` is
+deliberately absent: the shrine is not portable and a PickUp prompt on it would be a
+lie.
 
 The interact dispatcher selects on the **target's registration key**, not on the
-verb, and short-circuits — so a helm interaction can never reach the shrine, and
-a shrine interaction never falls through to the helm or mounted-part paths. It is
+verb, and short-circuits — so a helm interaction can never reach the shrine, and a
+shrine interaction never falls through to the helm or mounted-part paths. It is
 owner-only: using the shrine moves the sender's character and can write their
 crewmates' home rows.
-
----
 
 ## 3. Where it sends you — the rule
 
@@ -340,10 +456,13 @@ drives it with real ENet peers. Its log shows the shrine all the way through:
 ```
 [info] spawn plan (24 steps): ... -> RequestAsset wilderness-shrine
        -> AddEntity wilderness-shrine -> ...
-[info] requesting the game to load HavenAncientRespawner for world entity 'wilderness-shrine'...
-[success] asset loaded for 'wilderness-shrine'. creating entity 11 at (17180.43, -313.769, -1118.167) m...
-[info] seeding 190602 for entity 11 (World 'wilderness-shrine' HavenAncientRespawner) ...
-[info] seeding 1210 for entity 11 ... with verb Activate/Default/Man (shrine hedge), available=True.
+[info] requesting the game to load Respawner01 for world entity 'wilderness-shrine'...
+[success] asset loaded for 'wilderness-shrine'. creating entity 11 at (...) m...
+[interest] entity 11 wants 2 component(s): [190602, 1210] (ALL-OR-NOTHING: ...)
+[info] seeding 190602 for entity 11 (World 'wilderness-shrine' Respawner01) ...
+[info] seeding 1210 for entity 11 ... with verb Activate/Default/Man (shrine hedge),
+       radius=5m, hold=1.5s, available=True.
+[success] initialized and serialized componentId 1210
 [warning] wilderness shrine stands on Haven but the Wilderness is CLOSED: no tier-1
           island is registered. ...
 ```
@@ -354,19 +473,50 @@ serializes and is sent without dropping the batch** — the one wire risk that a
 unit test could not settle. The gate itself still PASSes (2 pilots, coherent
 frames, legal re-entry).
 
-**Still needs a live client:**
+**PROVED on a live client (2026-08-18), against the OLD build:** a world entity
+spawned this way is checked out and its prefab resolves —
+`~/Games/WorldsAdrift/BepInEx/LogOutput.log` recorded
+`[WAReborn] compiled entity template 'HavenAncientRespawner_unityclient'` during
+the Haven load-in, emitted from the `GetEntityTemplate` prefix, i.e. while the
+client was processing the shrine's own `AddEntityOp`. The same session is where
+the player ended up inside the chamber shell, saw the interactive highlight, could
+not interact, and had to be rescued with the admin teleport (§2.1).
 
-1. **Does `HavenAncientRespawner` render** when spawned as its own entity rather
-   than by the GSim's Haven spawner? (The same open question `Databanks`
-   carries.)
-2. **Does the E prompt appear**, and on which of the three verbs? The multi-entry
-   seed is designed so that *one* of them works; the 1211 log line names the verb
-   the client actually sent back, so one session settles it and the other two
-   entries can then be dropped.
-3. **Is the 34 m walk from the spawn point actually clear** on the client's real
-   collision, and is the shrine visible from the spawn point?
-4. **Does the arrival land on solid ground** on each of the 46 islands. The
+**Still needs a live client — NOTHING in the current build has been walked to:**
+
+1. **Does `Respawner01` render** when spawned as its own standalone world entity
+   rather than as a mounted ship part? It is precached (`PRECACHING: Respawner01`)
+   and the static helm is the same shape of thing and does render, but that is a
+   precedent, not a sighting. It carries a `Rigidbody`, `ShipPartVisualizer` and
+   `PlacementRules`; if it behaves oddly loose, that is the first thing to look at.
+2. **Does the prompt appear?** The verb is RECOVERED, the visualizer is on the
+   root, and the radius is the client's own Activate default — but the prompt has
+   never been seen. The 1211 log line names the verb the client actually sent back,
+   so one session settles it and the other two hedge entries can then be dropped.
+3. **Is the 44.7 m walk from the spawn point clear on real collision?** It is on
+   the same shelf (0.23 m of height difference) and has nothing authored within
+   24.5 m, but it leaves the ruined metal camp and no one has walked it.
+   **Discoverability is a real risk**: this is now a 1.2 m plate 45 m from spawn,
+   not a 38 m tower. If players cannot find it, a marker is the follow-up — not a
+   bigger prefab.
+4. **Does the teleport itself fire?** 1211 → `WildernessGraduationService.Use` →
+   190607 has never run from a real client.
+5. **Does the arrival land on solid ground** on each of the 46 islands. The
    evidence is strong and uniform, but "measured surface sample" is not "stood on
    it". A visual acceptance pass over the 46 pads is the honest follow-up.
-5. **Does the crew feedback line render** for a message that is not about a crew
+6. **Does the crew rule work end to end?** It is unit-tested and unproven live, and
+   it is worth being precise about what it is: not retail's "everyone standing on
+   the platform goes at once", but *each member who uses the shrine resolves to the
+   same island*. Proving it needs two accounts in one crew.
+7. **Does the crew feedback line render** for a message that is not about a crew
    action.
+
+## 9. If the Revival Chamber is wanted back
+
+It is a genuinely better landmark and a genuinely unusable interactable. If it
+should stand on Haven as **scenery** — a 190602 seed and no 1210 — the one measured
+vertex that can hold its 44 m footprint is island-local **(80.00, 29.57, 64.00)**:
+`ny = 0.990`, terrain span 3.68 m across the footprint, 21.9 m from the nearest
+authored structure, 141 m from the spawn point and 24.9 m above it. Bury the origin
+about 10 m so its authored doorway (sill at prefab-local 9.35) meets the terrain,
+or it floats. That is a separate entity from the shrine and should stay one.

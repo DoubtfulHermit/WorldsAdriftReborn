@@ -1,0 +1,261 @@
+# Haven (island 1431299145) AUTHORED STRUCTURE props: island-local metres.
+# The 'Ruins (Miscellaneous)' metal camp and the 'Ruins (Saborian)' brick ruins - the only
+# authored props on Haven a player can stand on, walk under or get wedged inside. Rocks,
+# foliage, grass and VFX emitters are deliberately NOT here: they are scenery a monument may
+# overlap without trapping anybody.
+# Source: docs/research/world-data/haven/haven-props-resolved.json (1285 placements, fully resolved
+# from the 1347-entry IslandProps/guidlut table - see docs/research/findings-haven.md).
+# Format per line: localX localY localZ assetPath  (invariant-culture doubles, '#' = comment).
+-262.188 38.226 115.655 Ruins (Saborian)/Ornamental/angel1
+-153.014 93.569 153.767 Ruins (Saborian)/Ornamental/angel4
+-148.789 86.191 145.492 Ruins (Saborian)/Ornamental/angel3
+-128.189 65.8 115.709 Ruins (Saborian)/Stairs/Staircase 14
+-58.061 10.29 72.18 Ruins (Saborian)/Brick/Brick Wall 02
+-54.094 10.29 62.588 Ruins (Saborian)/Brick/Brick Wall 02
+-54.083 10.29 81.767 Ruins (Saborian)/Brick/Brick Wall 02
+-44.511 10.347 58.652 Ruins (Saborian)/Brick/Brick Wall Doorframe 02
+-44.491 10.29 85.734 Ruins (Saborian)/Brick/Brick Wall 02
+-44.392 14.173 80.46 Ruins (Saborian)/Lights/Saborian Light/Saborian Blue Light 01
+-44.386 9.964 83.079 Ruins (Saborian)/Ornamental/Father Statue 04
+-34.915 10.29 62.577 Ruins (Saborian)/Brick/Brick Wall 02
+-34.904 10.29 81.756 Ruins (Saborian)/Brick/Brick Wall 02
+-30.937 10.29 72.164 Ruins (Saborian)/Brick/Brick Wall 02
+2.096 41.663 99.925 Ruins (Saborian)/Ornamental/angel_nowings1
+2.408 52.023 19.096 Ruins (Saborian)/Brick/Large Individual Brick 04
+3.868 49.19 38.245 Ruins (Saborian)/Brick/Large Individual Brick 01
+5.265 49.705 30.476 Ruins (Saborian)/Brick/Large Individual Brick 04
+5.609 50.376 35.353 Ruins (Saborian)/Brick/Large Individual Brick 03
+10.09 49.985 27.249 Ruins (Saborian)/Brick/Large Individual Brick 04
+10.766 51.837 15.935 Ruins (Saborian)/Brick/Large Individual Brick 03
+11.339 48.322 39.987 Ruins (Saborian)/Brick/Large Individual Brick 02
+30.999 32.242 15.117 Ruins (Saborian)/Brick/Large Individual Brick 01
+36.464 31.269 34.475 Ruins (Saborian)/Brick/Large Individual Brick 03
+164.245 5.255 -8.575 Ruins (Miscellaneous)/Metal/Platform 01
+170.772 4.349 -23.848 Ruins (Miscellaneous)/Metal/Pipe (Broken)
+173.705 5.431 -7.177 Ruins (Miscellaneous)/Metal/Ladder 03
+177.899 15.618 -0.169 Ruins (Miscellaneous)/Metal/metal_ruin_beak
+177.929 13.846 0.63 Ruins (Miscellaneous)/Metal/Pipe (Corner)
+177.956 23.183 0.157 Ruins (Miscellaneous)/Metal/Pipe (Corner)
+177.983 19.079 0.329 Ruins (Miscellaneous)/Metal/Pipe (Short)
+178.134 7.375 -16.981 Ruins (Miscellaneous)/Metal/Platform 04
+178.193 3.537 -30.877 Ruins (Miscellaneous)/Metal/Platform 05
+183.112 22.012 -0.068 Ruins (Miscellaneous)/Metal/Walkway (Long) Bare
+184.438 16.979 -4.324 Ruins (Miscellaneous)/Metal/metal_ruin_wings
+184.582 13.794 -0.003 Ruins (Miscellaneous)/Metal/Pipe (Long)
+184.632 23.321 -0.136 Ruins (Miscellaneous)/Metal/Pipe (Long)
+184.787 3.338 -31.285 Ruins (Miscellaneous)/Metal/Ladder 04
+187.07 21.599 -6.313 Ruins (Miscellaneous)/Metal/Platform 04
+187.603 17.31 -5.908 Ruins (Miscellaneous)/Metal/Platform 04
+187.87 13.375 -5.57 Ruins (Miscellaneous)/Metal/Platform 04
+187.971 7.938 -5.066 Ruins (Miscellaneous)/Metal/Platform 04
+188.131 21.18 -20.002 Ruins (Miscellaneous)/Metal/Girder 02
+188.351 22.336 -0.543 Ruins (Miscellaneous)/Metal/Platform 04
+188.371 20.439 -18.066 Ruins (Miscellaneous)/Metal/Platform 04
+188.374 21.09 -12.26 Ruins (Miscellaneous)/Metal/Platform 04
+188.791 22.907 5.338 Ruins (Miscellaneous)/Metal/Platform 04
+188.88 16.788 -11.858 Ruins (Miscellaneous)/Metal/Platform 02
+188.886 23.187 11.256 Ruins (Miscellaneous)/Metal/Platform 01
+188.929 0.833 -14.559 Ruins (Miscellaneous)/Metal/Platform 04
+188.941 17.889 -0.142 Ruins (Miscellaneous)/Metal/Platform 04
+189.181 16.018 -17.519 Ruins (Miscellaneous)/Metal/Platform 04
+189.198 8.075 -11.031 Ruins (Miscellaneous)/Metal/Platform 04
+189.216 12.721 -11.373 Ruins (Miscellaneous)/Metal/Platform 04
+189.24 13.899 -0.056 Ruins (Miscellaneous)/Metal/Platform 04
+189.446 18.272 5.497 Ruins (Miscellaneous)/Metal/Platform 04
+189.721 8.316 0.319 Ruins (Miscellaneous)/Metal/Platform 04
+189.821 14.095 5.609 Ruins (Miscellaneous)/Metal/Platform 04
+190.243 0.538 -16.643 Ruins (Miscellaneous)/Metal/Platform 04
+190.342 23.461 0.015 Ruins (Miscellaneous)/Metal/Platform 06
+190.391 6.432 -17.027 Ruins (Miscellaneous)/Metal/Platform 04
+190.398 8.634 -20.116 Ruins (Miscellaneous)/Metal/Girder 04
+190.628 21.941 -17.729 Ruins (Miscellaneous)/Metal/Platform 03
+190.658 22.463 -11.754 Ruins (Miscellaneous)/Metal/Platform 06
+190.702 8.617 5.044 Ruins (Miscellaneous)/Metal/Platform 06
+190.731 22.975 -5.877 Ruins (Miscellaneous)/Metal/Platform 03
+190.814 18.541 10.934 Ruins (Miscellaneous)/Metal/Platform 04
+190.913 23.949 5.82 Ruins (Miscellaneous)/Metal/Platform 01
+191.225 19.054 -13.872 Ruins (Miscellaneous)/Metal/Platform 02
+191.235 14.183 10.724 Ruins (Miscellaneous)/Metal/Platform 04
+191.471 24.847 13.071 Ruins (Miscellaneous)/Metal/Junk 02
+191.69 14.708 -16.762 Ruins (Miscellaneous)/Metal/Platform 02
+191.709 17.523 -16.537 Ruins (Miscellaneous)/Metal/Pipe (Corner)
+191.731 9.136 10.664 Ruins (Miscellaneous)/Metal/Platform 06
+191.798 9.854 -16.227 Ruins (Miscellaneous)/Metal/Pipe (Long)
+191.807 1.788 -16.189 Ruins (Miscellaneous)/Metal/Junk 02
+191.97 12.127 -13.32 Ruins (Miscellaneous)/Metal/Platform 01
+191.999 6.993 6.237 Ruins (Miscellaneous)/Metal/Junk 01
+192.117 5.296 -12.574 Ruins (Miscellaneous)/Metal/Platform 03
+192.378 7.947 -11.563 Ruins (Miscellaneous)/Metal/Platform 03
+192.472 23.623 15.953 Ruins (Miscellaneous)/Metal/Platform 02
+192.6 8.668 10.321 Ruins (Miscellaneous)/Metal/Junk 01
+192.603 24.329 11.214 Ruins (Miscellaneous)/Metal/Platform 06
+192.813 18.74 15.926 Ruins (Miscellaneous)/Metal/Platform 04
+192.93 14.506 15.794 Ruins (Miscellaneous)/Metal/Platform 02
+193.241 9.583 15.588 Ruins (Miscellaneous)/Metal/Platform 06
+193.514 23.313 -0.13 Ruins (Miscellaneous)/Metal/Platform 02
+193.586 22.841 -6.132 Ruins (Miscellaneous)/Metal/Platform 06
+193.802 0.005 -25.233 Ruins (Miscellaneous)/Metal/Girder 02
+193.947 5.244 -12.06 Ruins (Miscellaneous)/Metal/Platform 04
+194.219 8.178 -11.935 Ruins (Miscellaneous)/Metal/Platform 06
+194.454 24.411 14.652 Ruins (Miscellaneous)/Metal/Platform 03
+194.914 0.883 -15.207 Ruins (Miscellaneous)/Metal/Platform 04
+195.88 22.316 -12.202 Ruins (Miscellaneous)/Metal/Platform 03
+195.942 5.202 -10.385 Ruins (Miscellaneous)/Metal/Platform 04
+196.051 24.079 20.365 Ruins (Miscellaneous)/Metal/Platform 04
+196.099 14.505 20.341 Ruins (Miscellaneous)/Metal/Platform 04
+196.118 18.861 20.46 Ruins (Miscellaneous)/Metal/Platform 01
+196.135 9.525 20.113 Ruins (Miscellaneous)/Metal/Platform 02
+196.18 6.624 -7.814 Ruins (Miscellaneous)/Metal/Platform 04
+196.437 21.546 -18.134 Ruins (Miscellaneous)/Metal/Platform 03
+196.89 24.87 17.92 Ruins (Miscellaneous)/Metal/Platform 03
+196.93 24.01 5.302 Ruins (Miscellaneous)/Metal/Platform 03
+197.196 11.883 -13.099 Ruins (Miscellaneous)/Metal/Platform 04
+197.329 19.034 -14.35 Ruins (Miscellaneous)/Metal/Platform 06
+197.449 24.496 11.089 Ruins (Miscellaneous)/Metal/Platform 04
+197.608 14.392 -17.392 Ruins (Miscellaneous)/Metal/Platform 02
+197.742 -0.454 -27.387 Ruins (Miscellaneous)/Metal/Platform 05
+197.859 9.563 -12.703 Ruins (Miscellaneous)/Metal/Platform 04
+198.089 4.56 -12.013 Ruins (Miscellaneous)/Metal/door
+198.104 24.98 16.821 Ruins (Miscellaneous)/Metal/Platform 03
+198.329 1.397 -9.688 Ruins (Miscellaneous)/Metal/Platform 04
+198.774 8.682 -6.553 Ruins (Miscellaneous)/Metal/Grid 1
+199.36 19.322 20.903 Ruins (Miscellaneous)/Metal/Junk 01
+199.539 8.057 -17.885 Ruins (Miscellaneous)/Metal/Platform 04
+200.18 8.281 -11.915 Ruins (Miscellaneous)/Metal/Platform 04
+200.285 5.331 -10.479 Ruins (Miscellaneous)/Metal/Platform 04
+200.449 24.293 23.813 Ruins (Miscellaneous)/Metal/Platform 04
+200.495 19.31 20.869 Ruins (Miscellaneous)/Metal/Junk 01
+200.505 9.513 23.616 Ruins (Miscellaneous)/Metal/Platform 04
+200.525 23.128 -11.145 Ruins (Miscellaneous)/Metal/Grid 6
+200.601 14.492 23.735 Ruins (Miscellaneous)/Metal/Platform 04
+200.879 0.965 -15.933 Ruins (Miscellaneous)/Metal/Platform 04
+201.038 25.079 21.392 Ruins (Miscellaneous)/Metal/Platform 03
+201.568 21.736 -14.865 Ruins (Miscellaneous)/Metal/Platform 02
+202.006 5.271 -12.795 Ruins (Miscellaneous)/Metal/Platform 04
+202.461 21.257 -18.776 Ruins (Miscellaneous)/Metal/Platform 06
+203.034 11.947 -13.454 Ruins (Miscellaneous)/Metal/Platform 04
+203.155 15.362 -15.276 Ruins (Miscellaneous)/Metal/Grid 3
+203.165 24.204 8.155 Ruins (Miscellaneous)/Metal/Platform 04
+203.185 19.044 -14.812 Ruins (Miscellaneous)/Metal/Platform 01
+203.414 24.578 10.363 Ruins (Miscellaneous)/Metal/Platform 04
+203.513 21.075 -16.366 Ruins (Miscellaneous)/Metal/Girder 02
+203.805 5.432 -13.681 Ruins (Miscellaneous)/Metal/Platform 04
+203.896 25.061 16.14 Ruins (Miscellaneous)/Metal/Platform 06
+203.964 -7.266 -11.458 Ruins (Miscellaneous)/Metal/Junk 01
+204.405 15.794 -13.997 Ruins (Miscellaneous)/Metal/door
+204.53 25.548 21.917 Ruins (Miscellaneous)/Metal/Platform 05
+205.568 9.4 26.188 Ruins (Miscellaneous)/Metal/Platform 05
+205.59 4.726 25.744 Ruins (Miscellaneous)/Metal/Platform 05
+205.65 24.374 26.496 Ruins (Miscellaneous)/Metal/Platform 02
+205.702 26.333 17.475 Ruins (Miscellaneous)/Metal/metal_ruin_vents
+205.777 14.564 26.422 Ruins (Miscellaneous)/Metal/Platform 02
+205.808 19.796 26.498 Ruins (Miscellaneous)/Metal/Platform 04
+206.005 0.463 -22.367 Ruins (Miscellaneous)/Metal/Platform 04
+206.144 8.362 -12.641 Ruins (Miscellaneous)/Metal/Platform 04
+206.244 25.353 24.217 Ruins (Miscellaneous)/Metal/Platform 03
+206.554 9.05 -17.109 Ruins (Miscellaneous)/Metal/metal_ruin_springy
+206.582 21.781 -15.401 Ruins (Miscellaneous)/Metal/Platform 02
+206.722 1.016 -16.512 Ruins (Miscellaneous)/Metal/Platform 03
+207.467 10.879 20.073 Ruins (Miscellaneous)/Metal/Junk 01
+207.491 22.203 21.354 Ruins (Miscellaneous)/Metal/Junk 01
+207.857 1.194 -16.871 Ruins (Miscellaneous)/Metal/Grid 7
+208.903 12.155 -13.66 Ruins (Miscellaneous)/Metal/Platform 03
+209.045 24.182 7.785 Ruins (Miscellaneous)/Metal/Platform 04
+209.127 19.037 -15.279 Ruins (Miscellaneous)/Metal/Platform 04
+209.258 24.629 9.784 Ruins (Miscellaneous)/Metal/Platform 03
+209.297 25.53 23.945 Ruins (Miscellaneous)/Metal/Platform 03
+209.777 25.115 15.57 Ruins (Miscellaneous)/Metal/Platform 04
+209.815 5.34 -14.303 Ruins (Miscellaneous)/Metal/Platform 05
+209.941 4.611 25.734 Ruins (Miscellaneous)/Metal/Platform 03
+209.999 14.534 25.865 Ruins (Miscellaneous)/Metal/Platform 02
+210.014 19.82 25.876 Ruins (Miscellaneous)/Metal/Platform 04
+210.088 24.33 25.967 Ruins (Miscellaneous)/Metal/Platform 02
+210.093 9.151 25.742 Ruins (Miscellaneous)/Metal/Platform 03
+210.432 25.599 21.302 Ruins (Miscellaneous)/Metal/Platform 03
+211.97 0.545 -23.093 Ruins (Miscellaneous)/Metal/Platform 04
+211.988 8.413 -13.22 Ruins (Miscellaneous)/Metal/Platform 03
+211.988 15.042 -13.22 Ruins (Miscellaneous)/Metal/Platform 03
+212.156 22.002 -17.272 Ruins (Miscellaneous)/Metal/Girder 02
+212.54 22.577 -14.224 Ruins (Miscellaneous)/Metal/Platform 02
+212.596 1.132 -17.308 Ruins (Miscellaneous)/Metal/Platform 06
+212.991 19.018 -15.238 Ruins (Miscellaneous)/Metal/Platform 05
+213.797 11.156 21.738 Ruins (Miscellaneous)/Metal/Junk 01
+213.86 25.393 20.035 Ruins (Miscellaneous)/Metal/Platform 03
+214.582 4.439 22.403 Ruins (Miscellaneous)/Metal/Platform 04
+214.658 19.781 22.552 Ruins (Miscellaneous)/Metal/Platform 03
+214.671 12.127 -14.226 Ruins (Miscellaneous)/Metal/Platform 06
+214.674 24.15 4.687 Ruins (Miscellaneous)/Metal/Platform 03
+214.705 8.676 -21.854 Ruins (Miscellaneous)/Metal/Grid 3
+214.709 8.532 22.376 Ruins (Miscellaneous)/Metal/Platform 04
+214.714 24.291 22.49 Ruins (Miscellaneous)/Metal/Platform 04
+214.838 14.38 22.468 Ruins (Miscellaneous)/Metal/Platform 06
+215.131 24.745 8.988 Ruins (Miscellaneous)/Metal/Platform 06
+215.408 22.79 -11.468 Ruins (Miscellaneous)/Metal/Platform 02
+215.718 0.506 -23.439 Ruins (Miscellaneous)/Metal/Platform 03
+215.765 25.233 14.765 Ruins (Miscellaneous)/Metal/Platform 05
+215.83 5.383 -14.752 Ruins (Miscellaneous)/Metal/Platform 02
+216.232 2.666 -18.643 Ruins (Miscellaneous)/Metal/Girder 03
+216.764 1.099 -17.602 Ruins (Miscellaneous)/Metal/Platform 04
+217.253 24.884 15.622 Ruins (Miscellaneous)/Metal/Platform 03
+217.265 6.307 17.993 Ruins (Miscellaneous)/Metal/Junk 01
+217.274 14.675 -19.748 Ruins (Miscellaneous)/Metal/Platform 06
+217.484 5.567 -14.706 Ruins (Miscellaneous)/Metal/Platform 02
+217.666 12.372 -14.691 Ruins (Miscellaneous)/Metal/Platform 03
+217.679 23.266 -7.263 Ruins (Miscellaneous)/Metal/Platform 02
+217.69 23.759 -1.417 Ruins (Miscellaneous)/Metal/Platform 02
+217.692 19.04 -15.953 Ruins (Miscellaneous)/Metal/Platform 05
+217.785 3.719 -26.025 Ruins (Miscellaneous)/Metal/Platform 06
+217.862 8.529 -14.016 Ruins (Miscellaneous)/Metal/Platform 06
+217.862 15.158 -14.016 Ruins (Miscellaneous)/Metal/Platform 06
+218.234 7.269 -26.198 Ruins (Miscellaneous)/Metal/Platform 02
+218.266 9.75 -12.634 Ruins (Miscellaneous)/Metal/Junk 01
+218.278 9.327 18.283 Ruins (Miscellaneous)/Metal/Platform 06
+218.288 19.301 18.266 Ruins (Miscellaneous)/Metal/Platform 04
+218.302 16.359 -12.548 Ruins (Miscellaneous)/Metal/Junk 01
+218.412 24.021 18.173 Ruins (Miscellaneous)/Metal/Platform 02
+218.453 14.269 18.341 Ruins (Miscellaneous)/Metal/Platform 02
+218.463 22.616 -14.907 Ruins (Miscellaneous)/Metal/Platform 02
+218.49 3.916 -20.148 Ruins (Miscellaneous)/Metal/Platform 06
+218.929 7.251 -20.287 Ruins (Miscellaneous)/Metal/Platform 06
+219.151 23.239 -9.047 Ruins (Miscellaneous)/Metal/Platform 04
+219.321 12.172 -20.545 Ruins (Miscellaneous)/Metal/Platform 02
+219.454 4.033 -14.27 Ruins (Miscellaneous)/Metal/Platform 06
+219.529 16.771 -20.692 Ruins (Miscellaneous)/Metal/Platform 04
+219.665 24.429 11.049 Ruins (Miscellaneous)/Metal/Platform 03
+219.767 23.815 -3.272 Ruins (Miscellaneous)/Metal/Platform 02
+219.842 7.713 -14.482 Ruins (Miscellaneous)/Metal/Platform 04
+220.211 24.491 8.52 Ruins (Miscellaneous)/Metal/Platform 04
+220.243 12.813 -14.736 Ruins (Miscellaneous)/Metal/Platform 06
+220.492 24.314 2.632 Ruins (Miscellaneous)/Metal/Platform 03
+220.502 7.703 -8.669 Ruins (Miscellaneous)/Metal/Platform 06
+220.542 17.543 -14.962 Ruins (Miscellaneous)/Metal/Platform 03
+220.59 6.638 8.54 Ruins (Miscellaneous)/Metal/Junk 01
+220.636 9.525 13.271 Ruins (Miscellaneous)/Metal/Platform 02
+220.759 21.858 -15.17 Ruins (Miscellaneous)/Metal/Platform 04
+220.855 14.505 13.2 Ruins (Miscellaneous)/Metal/Platform 04
+220.953 18.861 13.129 Ruins (Miscellaneous)/Metal/Platform 01
+221.181 23.826 13.36 Ruins (Miscellaneous)/Metal/Platform 04
+221.215 13.267 -8.91 Ruins (Miscellaneous)/Metal/Platform 02
+221.422 17.866 -9.057 Ruins (Miscellaneous)/Metal/Platform 04
+221.441 8.659 -3.188 Ruins (Miscellaneous)/Metal/Platform 02
+221.507 9.025 7.954 Ruins (Miscellaneous)/Metal/Platform 06
+221.578 22.45 -9.362 Ruins (Miscellaneous)/Metal/Platform 02
+221.729 8.066 2.627 Ruins (Miscellaneous)/Metal/Platform 04
+221.754 13.657 -3.127 Ruins (Miscellaneous)/Metal/Platform 04
+221.813 17.99 -3.279 Ruins (Miscellaneous)/Metal/Platform 01
+222.026 13.942 7.991 Ruins (Miscellaneous)/Metal/Platform 02
+222.189 18.974 8.062 Ruins (Miscellaneous)/Metal/Platform 04
+222.255 13.89 2.471 Ruins (Miscellaneous)/Metal/Platform 06
+222.407 22.98 -3.487 Ruins (Miscellaneous)/Metal/Platform 04
+222.554 19.286 2.56 Ruins (Miscellaneous)/Metal/Platform 03
+222.582 23.68 7.985 Ruins (Miscellaneous)/Metal/Platform 02
+222.813 23.377 2.363 Ruins (Miscellaneous)/Metal/Platform 04
+226.011 23.657 -4.356 Ruins (Miscellaneous)/Metal/Pipe (Long)
+226.266 14.22 -3.065 Ruins (Miscellaneous)/Metal/Pipe (Long)
+226.485 18.018 0.723 Ruins (Miscellaneous)/Metal/metal_ruin_wings
+227.557 22.377 -4.282 Ruins (Miscellaneous)/Metal/Walkway (Long) Bare
+229.146 3.913 -12.172 Ruins (Miscellaneous)/Metal/Pipe (Broken)
+232.675 23.588 -4.869 Ruins (Miscellaneous)/Metal/Pipe (Corner)
+232.688 16.029 -4.961 Ruins (Miscellaneous)/Metal/metal_ruin_beak
+232.734 19.442 -4.419 Ruins (Miscellaneous)/Metal/Pipe (Short)
+232.891 14.287 -3.942 Ruins (Miscellaneous)/Metal/Pipe (Corner)

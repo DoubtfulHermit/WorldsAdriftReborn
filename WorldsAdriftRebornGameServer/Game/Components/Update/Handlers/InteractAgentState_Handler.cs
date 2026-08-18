@@ -152,7 +152,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 {
                     // THE WILDERNESS SHRINE: the exit from Haven. Checked FIRST and
                     // short-circuited, because the shrine answers to three verbs
-                    // (its baked one is not decompiled - see WildernessShrine.Verbs)
+                    // (its baked one is Activate - RECOVERED from the prefab, see
+                    // WildernessShrine.Verbs for why the other two are still served)
                     // and two of them, Man and Activate, are also the helm's and the
                     // mounted part's. Letting a shrine interaction fall through to
                     // those would cost two ledger misses and a confusing log line;
