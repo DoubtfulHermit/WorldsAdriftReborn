@@ -356,6 +356,47 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(4, (int?)e3["type"]);
         }
 
+        [Fact]
+        public void World_map_legend_and_cells_cannot_disagree_about_tier_colour()
+        {
+            string html = AdminPage.Dashboard("{}", new string('a', 64));
+
+            foreach (MapTierColours tier in MapTierPalette.All)
+            {
+                // Same fill for the drawn cell and for the legend key, emitted once
+                // from MapTierPalette so they cannot drift.
+                Assert.Contains($".map-biome.type-{tier.Tier}{{fill:{tier.Fill}}}", html);
+                Assert.Contains($".map-swatch.tier-{tier.Tier}{{background:{tier.Fill}}}", html);
+                Assert.Contains($"map-swatch tier tier-{tier.Tier}", html);
+                Assert.Contains($"T{tier.Tier} ", html);
+            }
+
+            // The cell fill is drawn at full strength, so the legend swatch is
+            // literally the colour on the map. A layer opacity would make the
+            // legend a lie about the map.
+            Assert.DoesNotContain(".map-biome{stroke:#233a45;stroke-width:1;vector-effect:non-scaling-stroke;opacity:", html);
+
+            // Tier is never encoded by colour alone: the cell carries its tier as text.
+            Assert.Contains("tierLine.textContent='T'+b.type", html);
+            Assert.Contains("'class':'map-cell-label type-'+b.type", html);
+        }
+
+        [Fact]
+        public void World_map_no_longer_ships_the_colour_blind_hostile_palette()
+        {
+            string html = AdminPage.Dashboard("{}", new string('a', 64));
+
+            foreach (string retired in new[] { "#93c47d", "#6d9eeb", "#8e7cc3", "#f6b26b" })
+                Assert.DoesNotContain(retired, html);
+
+            // The old sand-storm wall sat dE00 8.5 from the old tier-4 swatch in the
+            // same legend; it now has its own clearly separated orange.
+            Assert.DoesNotContain(".map-wall.type-3{stroke:#d9b36b}", html);
+            Assert.DoesNotContain(".map-swatch.sand{background:#d9b36b}", html);
+            Assert.Contains(".map-wall.type-3{stroke:#e8963c}", html);
+            Assert.Contains(".map-swatch.sand{background:#e8963c}", html);
+        }
+
         private static string[] DistrictsForTier(IEnumerable<JObject> cells, int tier)
         {
             return cells.Where(cell => (int?)cell["type"] == tier)
