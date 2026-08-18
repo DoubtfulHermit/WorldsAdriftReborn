@@ -14,7 +14,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
     /// </summary>
     public sealed class ShrineInteractRoutingTests
     {
-        private const int Activate = 1;
+        private const int Activate = 1;   // still advertised, still accepted
 
         [Fact]
         public void The_shrines_own_key_with_its_own_verb_uses_it()
@@ -24,16 +24,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
-        /// PROVED from the prefab: `Respawner01_unityclient` has no
-        /// InteractiveObjectVerbOverrider anywhere in its hierarchy and its root
-        /// visualizer's serialized Verb is 1, so Activate is what a live client
-        /// sends however the prompt labels it.
+        /// PROVED from the prefab: `CraftingStation_unityclient` has no
+        /// InteractiveObjectVerbOverrider anywhere in its hierarchy and its ROOT
+        /// visualizer's serialized Verb decodes to 5, so Craft is what a live
+        /// client sends. The hedge still carries Activate/Default/Man, which cost
+        /// three list elements and are inert.
         /// </summary>
         [Fact]
-        public void Activate_is_the_verb_a_live_client_sends()
+        public void Craft_is_the_verb_a_live_client_sends()
         {
+            Assert.True(WildernessShrine.Accepts(WildernessShrine.VerbCraft));
+            Assert.Equal(5, WildernessShrine.VerbCraft);
             Assert.True(WildernessShrine.Accepts(WildernessShrine.VerbActivate));
-            Assert.Equal(1, WildernessShrine.VerbActivate);
         }
 
         [Fact]

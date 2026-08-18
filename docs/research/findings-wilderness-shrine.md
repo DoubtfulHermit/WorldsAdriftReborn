@@ -42,7 +42,7 @@ authored one, rebuilt on the transports this server actually has.
 
 | | |
 | --- | --- |
-| Prefab | `Respawner01` — retail's Reviver **platform** |
+| Prefab | `CraftingStation` — the placed Assembly Station's own prefab, live-proven here |
 | Registration key | `wilderness-shrine` |
 | Position | Haven island-local **(156.00, 4.16, 28.00)** — the centre of the chamber floor |
 | The building around it | `wilderness-shrine-chamber`, `HavenAncientRespawner`, scenery only — see §2.5 |
@@ -102,35 +102,91 @@ measured Haven LOD0 surface vertex for a spot flat enough to hold that footprint
 clear of the authored props returns **nothing** on the spawn shelf; the nearest
 candidate is 141 m away and 25 m higher.
 
-### 2.2 What is used instead
+### 2.2 What is used instead — and the rule that eliminated the alternatives
 
-`Respawner01` — retail's **Reviver platform**. It keeps the authored vocabulary
-("interact with the platform"), and it is the object
-`InteractiveObjectVisualizer.GetTutorialStep` maps to
-`TutorialStep.MOUSE_OVER_REVIVER` when the verb is `Activate`.
+**THE SHIP-PART RULE. PROVED on a live client, 2026-08-18.** With the player standing
+at the shrine (Haven-local `161.3, 4.3, 31.3`), every E press threw, seven times in
+one session:
 
-**PROVED — it is loadable.** `respawner01` is line 223 of the entity-prefab census
-embedded at `WorldsAdriftRebornGameServer.Multiplayer/Ship/client-entity-prefabs.txt`,
-the same file `ClientEntityPrefabs` loads at runtime to refuse prefabs a client could
-not resolve. The client already precaches it: `PRECACHING: Respawner01` appears in
-`~/Games/WorldsAdrift/BepInEx/LogOutput.log`.
+```
+NullReferenceException: Object reference not set to an instance of an object
+  ShipPartVisualizer.IsShipPartInFriendlyShip (String characterUid, ShipPartVisualizer)
+  InteractAgentObserver.CheckInteraction (InteractiveObjectVisualizer, Collider)
+  InteractAgentObserver.Update ()
+```
 
-**RECOVERED — its geometry is everything the chamber's was not.** Read from
-`resources.assets`:
+`CheckInteraction` aborts before `StartInteraction` — no hold, no ring, no 1211,
+nothing at the server. The client does:
+
+```csharp
+ShipPartVisualizer spv = ShipPartVisualizer.GetShipPartVisualizer(entityId);   // NON-null
+flag = !(spv != null) || ShipPartVisualizer.IsShipPartInFriendlyShip(playerId, spv);
+```
+```csharp
+Option<EntityId> shipRoot = shipPartVisualiser._shipRootStateReader.Data.shipRoot;  // reader is NULL
+```
+
+`ShipPartVisualizer` registers itself (so the lookup returns non-null) but carries
+**six `[Require]` readers**; a standalone world entity seeded with 190602 + 1210
+leaves them unsatisfied, so the visualizer never enables and the reader is null. The
+client dereferences it unconditionally.
+
+**There is no escape for a ship-part prefab.** Seed the six readers and the visualizer
+enables — then `IsShipPartInFriendlyShip` returns false for a part on no ship, which
+sets `flag2 = true` and makes the hold `interactTime + 10f`, i.e. **11.5 s**. Disabled
+gives an NRE; enabled gives an 11.5-second hold. So:
+
+> **Any prefab carrying a `ShipPartVisualizer` is unusable as a standalone
+> interactable on this server.**
+
+**The respawner family, swept against that rule.** The user asked, reasonably, "im
+pretty sure there is a respawner item why not use that?" — and they are right that one
+exists. It cannot carry a prompt:
+
+| prefab | ship part? | `InteractiveObjectVisualizer` | verdict |
+| --- | --- | --- | --- |
+| `AncientRespawner` | no | **none** | no interaction component at all |
+| `AncientRespawnerDouble` / `Triple` / `PoolWarmer` | no | **none** | as above |
+| `HavenRuinedShipRespawner` | no | **none** | as above |
+| **`KiokiRevivalChamberA`** — the "respawner item" (`Deployables` `personalReviver`) | no | **none** | a 31 × 49 × 41 m building shell; retail drove it from components/UI we do not serve |
+| `KiokiRevivalChamberB` | no | **none** | as above |
+| `HavenAncientRespawner` | no | on `SpawnPad`, depth 4, offset `(0, −2.704, 0)` | the sealed well of §2.1 |
+| `Respawner01` | **YES** | root, offset 0, Activate | the NRE trap above |
+| `TerritoryControlBeacon` | no | on `metal_ruin_beak`, offset `(0, +5.68, 0)` | Activate, but 5.68 m up a 29 m girder tower — too tall for the chamber |
+
+So of ten respawner/reviver-family prefabs, exactly **two** have any interaction
+component, and both are disqualified. **There is no non-ship-part respawner that can
+show a prompt.** That is the honest answer to the user's question.
+
+**What is used: `CraftingStation`.** Not a guess — it is the SAME prefab the placed
+Assembly Station uses (`Placement.Deployables` `"assemblyStation"`), and that
+station's Craft prompt is **live-proven on this server**: the user has built ships
+through it.
 
 | | |
 | --- | --- |
+| `ShipPartVisualizer` | **none** — clears the rule |
 | `InteractiveObjectVisualizer` | on the prefab **ROOT**, offset `(0, 0, 0)` |
-| serialized `Verb` | `Activate` (1) |
-| root GameObject layer | 15 `Interactive` — inside `Layers.Interactables` |
-| collision extent | x/z `−0.60 … +0.60`, y `0.00 … 0.20` |
+| serialized `Verb` | **Craft** (5) |
+| root layer | **15 Interactive** |
+| collider extent | x −1.16…1.16, y −0.57…1.26, z −1.16…0.99 — a 2.3 m console |
+| seed | `{190602, 1004, 1005, 1210}` — byte-for-byte the Assembly Station's proven `TransformAndCraftingStation` |
 
-The zero offset is the load-bearing property. The client measures interaction range
-to the *visualizer's* transform, so a visualizer on the root means range is measured
-to the entity origin — the same shape as the metal nugget's and the helm's, both of
-which are live-proven to prompt on this server. It is a ship part, like the static
-helm this server already stands up as its own world entity with the same
-190602 + 1210 seed; that is the precedent it is placed on.
+1004 + 1005 satisfy `CraftingStationBehaviour`'s two `[Require]` readers so the seed
+is the proven configuration; 1005 is seeded IDLE and this server never echoes the 1005
+`PlayerStartCrafting` for the shrine, so **no crafting UI opens** — the E press becomes
+a 1211 and nothing else. `Craft` is added to the advertised verbs; that is safe
+because the dispatcher selects on the **target key** first and short-circuits, so a
+Craft on the shrine can never reach the placed-station path or vice versa.
+
+**Residual risk, stated:** `HasCraftingStationButUseForbidden` gates Craft behind the
+client's `_isShipBuildingAware`, which defaults false until a UI event sets it. The
+placed Assembly Station uses this prefab and works here, so the gate does not bite our
+players — but a brand-new Haven player who has never become shipbuilding-aware could
+get *"no crafting yet"* instead of the prompt. `IsCraftingStation` reads a serialized
+field, not a reader, so it cannot NRE. If that gate does bite, `MakeshiftStorage`
+(non-ship-part, root visualizer at offset 0, layer 15, verb Inventory, no crafting
+gate) is the fallback with no gate at all.
 
 ### 2.3 The reach — why the first build had NO prompt at all
 

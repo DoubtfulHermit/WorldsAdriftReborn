@@ -34,7 +34,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         [Fact]
         public void The_shrine_seeds_only_the_transform_and_the_interaction()
         {
-            Assert.Equal(new uint[] { 190602, 1210 }, WildernessShrine.SeedComponents);
+            // The placed Assembly Station's proven set, exactly.
+            Assert.Equal(new uint[] { 190602, 1004, 1005, 1210 }, WildernessShrine.SeedComponents);
         }
 
         [Fact]
@@ -42,11 +43,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         {
             Assert.All(WildernessShrine.Verbs, verb => Assert.True(WildernessShrine.Accepts(verb)));
 
-            // PickUp (2) and Craft (5) are routed elsewhere by the interact
-            // dispatcher; a shrine that swallowed them would break station pickup
-            // for anybody standing next to it.
+            // Craft (5) IS advertised now - it is the verb the CraftingStation
+            // prefab bakes. Safe because the dispatcher selects on the TARGET KEY
+            // first and short-circuits, so a Craft on the shrine can never reach
+            // the placed-station path and vice versa.
+            Assert.True(WildernessShrine.Accepts(5));
+            // PickUp (2) is still routed elsewhere; a shrine that swallowed it
+            // would break station pickup for anybody standing next to it.
             Assert.False(WildernessShrine.Accepts(2));
-            Assert.False(WildernessShrine.Accepts(5));
         }
 
         [Fact]
@@ -109,10 +113,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         [Fact]
         public void The_plate_geometry_is_the_measured_prefab_geometry()
         {
-            // Visualizer offset 0.00 + plate collider top 0.20.
-            Assert.Equal(0.20f, WildernessShrine.PadTopAboveVisualiserMetres, 3);
-            // Collision extent: x and z both -0.60 .. +0.60.
-            Assert.Equal(0.60f, WildernessShrine.PadHalfWidthMetres, 3);
+            // Visualizer on the ROOT at offset 0, and you stand BESIDE the console
+            // rather than on it - so there is no vertical term at all.
+            Assert.Equal(0.00f, WildernessShrine.PadTopAboveVisualiserMetres, 3);
+            // Collision extent: x -1.16..1.16, z -1.16..0.99.
+            Assert.Equal(1.16f, WildernessShrine.PadHalfWidthMetres, 3);
         }
 
         /// <summary>
@@ -217,6 +222,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             // And never the Revival Chamber's own buried plate, which is what the
             // whole exercise proved unreachable.
             Assert.NotEqual("HavenAncientRespawner", WildernessShrine.AssetName);
+
+            // NEVER A SHIP PART AGAIN. Respawner01 was one, and the client's
+            // CheckInteraction dereferences a registered ShipPartVisualizer's
+            // ShipRootState reader unconditionally - which is null whenever the
+            // part is standalone, so EVERY E press threw a NullReferenceException
+            // inside InteractAgentObserver.Update and nothing was ever sent.
+            // Seeding the six readers to fix that only trades it for an 11.5 s
+            // hold, because a standalone part is never "in a friendly ship".
+            Assert.NotEqual("Respawner01", WildernessShrine.AssetName);
         }
 
         /// <summary>
@@ -229,7 +243,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         [Fact]
         public void The_shrine_prefab_carries_its_interaction_on_its_own_origin()
         {
-            Assert.Equal("Respawner01", WildernessShrine.AssetName);
+            Assert.Equal("CraftingStation", WildernessShrine.AssetName);
             // Visualizer offset zero => the plate top is the only vertical term.
             Assert.True(WildernessShrine.PadTopAboveVisualiserMetres < 1.0f);
         }
