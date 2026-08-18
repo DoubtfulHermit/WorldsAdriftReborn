@@ -194,6 +194,18 @@ namespace WorldsAdriftServer.Admin
                         $"Unhandled metal table source {inventory.MetalSource}."),
                 },
                 ["oresInferred"] = inventory.OresAreInferred,
+                // Wood carries its own provenance for the same reason ore does: 180
+                // islands grow a species composed from the tier cohort rather than
+                // one anybody recorded, and the page must be able to say so.
+                ["woodSource"] = inventory.WoodSource switch
+                {
+                    WoodTableSource.Survey => "survey",
+                    WoodTableSource.SurveyNone => "survey-none",
+                    WoodTableSource.InferredTier => "inferred-tier",
+                    _ => throw new InvalidOperationException(
+                        $"Unhandled wood table source {inventory.WoodSource}."),
+                },
+                ["woodsInferred"] = inventory.WoodsAreInferred,
                 ["workshopId"] = inventory.WorkshopId,
             };
         }

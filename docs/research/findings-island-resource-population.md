@@ -1,4 +1,4 @@
-# Populating metal on the 216 islands the survey never recorded
+# Populating the islands the survey never recorded — metal, then wood
 
 Tier 1 had metal on **four** of its 46 islands. World-wide, 354 deposits sat on 38 of
 254 islands and the other 216 had terrain, databanks and nothing to mine. This
@@ -11,6 +11,12 @@ atlas shard, each resolving through the production harvest lookup. 38 islands ke
 their own surveyed metals, 23 use the PvP table recorded for that same island, and
 193 are labelled `inferred-tier` in the catalogue, in the runtime type system and in
 the boot accounting.
+
+**Sections 1-6 are about metal. Section 7 is the same gap in the survey's `trees`
+field, found later and closed the same way**: 3767 trees on 72 islands became 13,266 on
+251, and every Tier-1 island a graduating player can be teleported onto now has both
+wood and ore within a short walk of its arrival pad. Read section 1 first — section 7's
+whole argument is that it is section 1 again, one field over.
 
 ---
 
@@ -334,8 +340,144 @@ Nothing below was proved with a real Unity client.
    (<https://worldsadrift.fandom.com/wiki/Islands>). Nothing here implements that; a mined
    island stays mined. `MetalRocksRequiredToRespawn` in component 1010 is the retail hook
    and is unimplemented.
+5. **That an inferred wood is the wood retail grew.** It cannot be: retail's per-island
+   species lists are gone for the 180 unsurveyed islands and nothing recovers them. The
+   claim this project makes is only that the species is *admissible at that tier*, which
+   the palette in section 7.3 derives from evidence. Anything stronger would be a lie.
+6. **That 30 s to stream the worst Tier-1 island is acceptable.** It is not, and the
+   fix — ordering an island's resource stream by distance from the arriving peer — is
+   not implemented. Until it is, `ReleaseTreeBudget.MaxTrees` is the only lever, and
+   lowering it costs wood everywhere to solve a problem on six large islands.
+7. **That 13,266 trees do not perturb relay staleness.** The soak gate has never been
+   run against a world this dense. Tier 1 alone is 2,475 activated trees at boot against
+   81 before.
 
-## 7. Sources
+## 7. The same gap in wood — 182 treeless islands, 32 of them Tier 1
+
+Everything above was written about `pveMetals`. The survey's `trees` array failed the
+same way, was read the same wrong way, and has now been fixed by the same method.
+
+### 7.1 The bug
+
+`tools/world-import/generate-release-tree-placements.py` opened with
+
+```python
+species = [s for s in island["trees"] if s != "No trees"]
+if not species:
+    continue
+```
+
+`trees: []` therefore meant "skip this island". 180 islands have an empty array, so
+the shipped world had trees on 72 islands and **nothing to chop on the other 182** —
+including 32 of the 46 Tier-1 islands the Wilderness shrine can graduate a player onto.
+The symptom that surfaced it: a player teleported to **Mount Spero** (`release-887053661`,
+tier 1, 275 LOD0 cells, 14 deposits) and found no wood at all. Mount Spero was absent
+from `release-tree-placements.json` entirely.
+
+### 7.2 It is a coverage gap, not geography — PROVED, four ways
+
+1. **`"No trees"` exists as a literal value** and is used on exactly two islands
+   (Desert University and The Carcass, both tier 4). If `[]` also meant *treeless*
+   nobody would have had a reason to type it.
+2. **The same PROVED coverage table in section 1.2** lists `trees` at 74/254 beside
+   `pveMetals` at 38/254. The metals gap is established there by five independent lines;
+   this is the same field-by-field partiality on the same fully-visited islands.
+3. **The surveyor backend serialises unfiltered** (section 1.1) and its own UI renders an
+   empty list as "No <x> data". The dataset's authors read their own empty arrays as
+   *nobody filed a report*.
+4. **The two fields fail independently.** 45 islands have metals but no trees; 58 have
+   trees but no metals. Independent failure on islands that all carry a surveyor name and
+   an exact databank count is coverage, not a world that is 72% bare rock.
+
+### 7.3 What replaced it
+
+| | before | after |
+| --- | ---: | ---: |
+| Trees (world) | 3767 | **13266** |
+| Wooded islands | 72 | **251** of 254 |
+| Trees (Tier 1) | 727 | **2394** |
+| Tier-1 islands with trees | 14 of 46 | **46 of 46** |
+
+`tools/world-import/wood_inference.py` is `metal_inference.py` for species, down to the
+splitmix64 draw and the monotone tier palette. Of the 117 species rows the survey
+records, cedar appears in none of the 22 tier-1 rows and hemlock in none of the 22
+tier-1 or 44 tier-2 rows, while between them they account for 22 of the 51 tier-3/4
+rows — so the palette ladder is as clean as the metal one. Tier 1 admits ash, birch,
+chestnut, elm, oak and palm; cedar joins at tier 2, hemlock at tier 3. Table size is the
+tier's median surveyed list length.
+
+Provenance is carried end to end exactly as `metalSource` is: `woodSource` in
+`release-tree-placements.json`, `WoodTableSource` in the runtime type system,
+`woodSource`/`woodsInferred` on the admin map. **72 islands `survey`, 180
+`inferred-tier`, 2 `survey-none`** — and `survey-none` is honoured, so neither of the
+two islands a volunteer confirmed as bare grows anything.
+
+Three islands end with zero trees: those two, and **Belial**, whose extracted surface is
+three samples wide and whose own five surveyed databanks already occupy all three. That
+is a measured refusal, not an omission — nothing was placed on unmeasured ground to
+avoid an empty column.
+
+### 7.4 The arrival pad is now a placement anchor — WAREBORN TUNING
+
+Coverage alone is not playability. Hash-ordered scattering is uniform over the whole
+surface and does not know where a graduating player lands, and it showed:
+
+| Tier-1, landing point to nearest ... | before | after |
+| --- | --- | --- |
+| tree | 32 islands had none at all; of the 14 that did, up to **50.6 m** | **6.4-35.8 m**, median 13.1 |
+| metal deposit | up to **256.0 m** (Isle of Lynerea), 10 islands over 100 m | **8.0-56.7 m**, median 28.0 |
+
+Both generators now fill their first seats from within 60 m of the island's `landing`
+point before scattering the rest, and both exclude a 6 m sphere around it — the global
+scatter was free to pick the pad's own surface sample and had put a trunk at exactly
+0.0 m on three Tier-1 islands. Every coordinate is still a measured LOD0 vertex; the
+rule changes *which* measured sample wins, never what a sample is. Deposit and databank
+totals are unchanged at 1930 and 1233, and the databank pass falls back to the
+unfiltered surface where the clearance would otherwise cost a *recovered* count.
+
+`ReleaseWorldTreeTests` asserts both bounds for all 46 Tier-1 islands, so this cannot
+regress silently.
+
+### 7.5 Load cost, and the number that now binds
+
+Measured headless boot, `WAREBORN_RELEASE_WORLD_DISTRICTS=tier1`, throwaway data
+directory, production interest env:
+
+```
+[release-world] LOCAL TEST enabled: selectors='tier1', terrains=47, regions=5.
+[world-directory] classified 3440 registrations: global=1, region=3439
+                  (haven-region=128, release-a2-region=806, release-a3-region=712,
+                   release-b2-region=892, release-b3-region=901), ship=0
+[domain-host] local-single-process islands=47 ships=0 owned=3390 globals=0
+              unowned=0 duplicates=0
+
+activated: 2475 tree - 328 deposit - 328 atlas shard - 215 databank
+           - 24 fuel canister - 20 metal node  (3390 boot resource entities)
+```
+
+1045 -> 3440 classified registrations. Zero unowned, zero duplicates, no warning beyond
+the four standard `WAREBORN_DB is not set` notices.
+
+The constraint that matters is no longer the registry total but the PER-ISLAND set,
+because island-envelope resource interest checks an arriving peer out of a whole island
+at once. At one lifecycle action per peer per 120 ms and two actions per add, that is
+**0.24 s per entity**:
+
+| | entities | seconds |
+| --- | ---: | ---: |
+| worst Tier-1 island (Saborian cave ruin: 31 deposits + 31 shards + 5 databanks + 60 trees) | 111 -> **127** | 26.6 -> **30.5** |
+| median Tier-1 island | 21 -> **76** | 5.0 -> **18.4** |
+| worst island in the world (Concealed Bastion) | 139 -> **139** | 33.4 -> 33.4 |
+
+**30 s is too long to call an island loaded**, and lowering `ReleaseTreeBudget.MaxTrees`
+is the blunt lever. The better one is to order an island's stream by distance from the
+arriving peer: the four near-pad seats and the two near-pad deposits then arrive inside
+the first two seconds and the far side of the island can take as long as it likes. That
+ordering does not exist yet — see section 6.
+
+---
+
+## 8. Sources
 
 - Decompile: `acs/IslandProxyVisualizer.cs`, `acs/IslandSurfaceData.cs`,
   `acs/LootablePerAreaDataVisualizer.cs`,

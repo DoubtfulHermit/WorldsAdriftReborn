@@ -144,6 +144,41 @@ LANDING_OVERRIDES = {
     "1143725558": [120.0, 34.26, -16.0],
 }
 
+# --- the arrival pad is also a resource anchor (WAREBORN TUNING) ------------
+# A graduating player is teleported onto `landing` and has to find ore from
+# there. Hash-ordered scattering is uniform over the whole surface and does not
+# know the pad exists: measured on the tier-1 set, the nearest deposit to an
+# arrival pad ran to 256 m (Isle of Lynerea) with ten islands over 100 m. The
+# first deposits an island fills are therefore drawn from an ANNULUS around its
+# pad. This selects among the island's OWN measured samples under the same
+# spacing and normal rules - it changes which sample wins, never what a sample is.
+LANDING_NEAR_RADIUS = 60.0      # what this project is willing to call "on arrival"
+LANDING_NEAR_DEPOSITS = 2       # enough for a first ore run, small next to the budget
+# Nothing may be seated in the spot the player materialises in. The surface table
+# is one representative sample per 8 m voxel, so this removes the pad's own sample
+# and its immediate neighbours and nothing else. Without it the global scatter is
+# free to pick the pad's own sample, and did: three tier-1 islands had a seat at
+# exactly 0.0 m from the arrival point.
+LANDING_CLEAR = 6.0
+
+
+def pad_distance(point, pad):
+    return math.sqrt((point[0] - pad["x"]) ** 2 + (point[1] - pad["y"]) ** 2
+                     + (point[2] - pad["z"]) ** 2)
+
+
+def seatable(points, pad):
+    """The island's measured samples minus the arrival spot itself."""
+    return [point for point in points if pad_distance(point, pad) >= LANDING_CLEAR]
+
+
+def within(points, pad, radius):
+    """The measured samples within `radius` of the arrival pad.
+
+    A FILTER over the island's own surface table - it selects, never synthesises.
+    """
+    return [point for point in points if pad_distance(point, pad) <= radius]
+
 
 def columns_of(points):
     """The HIGHEST sample at each (x, z). A column is what "is there ground
@@ -253,10 +288,23 @@ def main():
         # island exactly as it always applied to the surveyed 38.
         metals, metal_source = metals_for(profile, inference)
         deposit_count = math.ceil(cell_count * .05)
-        deposit_points = spaced(points, deposit_count, 35)
-        databank_points = spaced(points, profile["databanks"], 30, deposit_points)
-        aabb = surface["meta"]["localAABB"]
+        # The pad is chosen first because the deposits are now placed relative to
+        # it. It does not depend on them, so nothing is circular.
         pad = landing(points, LANDING_OVERRIDES.get(asset))
+        seats = seatable(points, pad) or points
+        near_deposits = spaced(within(seats, pad, LANDING_NEAR_RADIUS),
+                               min(LANDING_NEAR_DEPOSITS, deposit_count), 35)
+        deposit_points = near_deposits + spaced(
+            seats, deposit_count - len(near_deposits), 35, near_deposits)
+        databank_points = spaced(seats, profile["databanks"], 30, deposit_points)
+        if len(databank_points) < profile["databanks"]:
+            # The databank COUNT is recovered evidence - the survey counted them on
+            # all 254 islands - while the landing clearance is this project's own
+            # tuning. On a handful of rocks with barely more samples than banks the
+            # two collide, and evidence wins: those islands seat their full surveyed
+            # count over the unfiltered surface. Four banks across 254 islands.
+            databank_points = spaced(points, profile["databanks"], 30, deposit_points)
+        aabb = surface["meta"]["localAABB"]
         result.append({
             "asset": asset,
             "name": profile["name"],

@@ -57,11 +57,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             ReleaseIslandRecord record,
             int trees,
             IReadOnlyList<string> treeSpecies,
+            WoodTableSource woodSource,
             IReadOnlyList<IslandOreTally> ores)
         {
             Record = record ?? throw new ArgumentNullException(nameof(record));
             Trees = trees;
             TreeSpecies = treeSpecies;
+            WoodSource = woodSource;
             Ores = ores;
         }
 
@@ -95,11 +97,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>Seeded mineable metal deposits.</summary>
         public int Deposits => Record.Deposits.Count;
 
-        /// <summary>Seeded trees. Zero on the 182 islands with no recovered wood.</summary>
+        /// <summary>
+        /// Seeded trees. Zero on exactly three islands: the two the survey records
+        /// as "No trees", and Belial, whose three-sample surface has no room left
+        /// once its own surveyed databanks are placed.
+        /// </summary>
         public int Trees { get; }
 
         /// <summary>The wood species seeded here, lower-cased, in survey order.</summary>
         public IReadOnlyList<string> TreeSpecies { get; }
+
+        /// <summary>Where the effective wood list came from.</summary>
+        public WoodTableSource WoodSource { get; }
+
+        /// <summary>True when no survey of this island's species was ever recovered.</summary>
+        public bool WoodsAreInferred => WoodSource == WoodTableSource.InferredTier;
+
+        /// <summary>
+        /// The provenance every wood row on this island carries. Trees have no
+        /// equivalent of the PvP shard reading, so the ladder is shorter than the
+        /// ore one: the survey said it, or this project composed it.
+        /// </summary>
+        public ResourceProvenance WoodProvenance => ProvenanceOf(WoodSource);
 
         /// <summary>
         /// Fuel pods. Always 0: retail's per-island fuel-pod placements did not
@@ -160,6 +179,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             MetalTableSource.SurveyPve => "RECOVERED (PvE survey)",
             MetalTableSource.SurveyPvp => "RECOVERED (PvP survey)",
             MetalTableSource.InferredTier => "INFERRED (tier cohort)",
+            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
+        };
+
+        /// <summary>
+        /// The provenance of a wood list, by the rung <c>wood_inference.py</c>
+        /// recorded for it. "No trees" is an OBSERVATION of that island and is
+        /// therefore recovered, exactly as a surveyed species list is.
+        /// </summary>
+        public static ResourceProvenance ProvenanceOf(WoodTableSource source) => source switch
+        {
+            WoodTableSource.Survey => ResourceProvenance.Recovered,
+            WoodTableSource.SurveyNone => ResourceProvenance.Recovered,
+            WoodTableSource.InferredTier => ResourceProvenance.Inferred,
+            _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
+        };
+
+        /// <summary>The short label a UI shows for a wood list's rung.</summary>
+        public static string LabelOf(WoodTableSource source) => source switch
+        {
+            WoodTableSource.Survey => "RECOVERED (species survey)",
+            WoodTableSource.SurveyNone => "RECOVERED (surveyed treeless)",
+            WoodTableSource.InferredTier => "INFERRED (tier cohort)",
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, null),
         };
     }
