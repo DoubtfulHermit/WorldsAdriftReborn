@@ -131,7 +131,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
             // rather than excluded. Was:
             //   new GeneratedPlacement(152.0, 4.71, 0.0, 0.99),
             new GeneratedPlacement(176.0, 6.39, -16.0, 0.99),
-            new GeneratedPlacement(128.0, 6.12,   0.0, 0.99),
+            // REMOVED 2026-08-19: 34.4 m from the Revival Chamber's axis once the
+            // tower was stood up and moved to (156, 20), i.e. inside the 35 m of
+            // ground the building clears. Same reason as the 2026-08-18 deletion
+            // below it: this table is hand-written and bypasses the generator's
+            // exclusions, so an entry that lands on cleared ground has to be
+            // deleted rather than excluded. The generator fills the freed slot
+            // elsewhere on the island, so the canister count does not change. Was:
+            //   new GeneratedPlacement(128.0, 6.12,   0.0, 0.99),
             new GeneratedPlacement(184.0, 3.10, -32.0, 0.99),
         };
 
