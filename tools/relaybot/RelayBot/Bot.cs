@@ -80,6 +80,12 @@ namespace RelayBot
         private readonly ConcurrentDictionary<long, (double X, double Y, double Z)> _hullFrames = new();
         private readonly HashSet<long> _faunaEntities = new();
 
+        /// <summary>Sky whale entities this bot has been shown; the animal only.</summary>
+        private readonly HashSet<long> _whaleEntities = new();
+
+        /// <summary>Its invisible callers, tracked separately: they carry no pose stream.</summary>
+        private readonly HashSet<long> _callEntities = new();
+
         public long IslandEntityId { get; private set; } = -1;
         public long ShipHullEntityId { get; private set; } = -1;
         public long HelmEntityId { get; private set; } = -1;
@@ -88,6 +94,27 @@ namespace RelayBot
 
         /// <summary>Creature entities this bot was shown. Zero unless WAREBORN_ISLAND_FAUNA is on.</summary>
         public long FaunaEntitiesAdded { get; private set; }
+
+        /// <summary>How many times a sky whale was checked out to this bot.</summary>
+        public long WhaleEntitiesAdded { get; private set; }
+
+        /// <summary>How many 190602 poses arrived for a whale this bot holds.</summary>
+        public long WhalePoseUpdates { get; private set; }
+
+        /// <summary>
+        /// How many CALLS this bot was sent - one per checkout of the caller,
+        /// because a call IS a checkout: 4347's seeded playAudio is what makes the
+        /// sound, so there is no separate event to count.
+        /// </summary>
+        public long WhaleCallsHeard { get; private set; }
+
+        /// <summary>
+        /// How many of those calls arrived with their 4347 seed actually
+        /// serialized. A call whose 4347 never lands is a silent whale that looks
+        /// perfectly correct at the op level, which is exactly the failure this
+        /// harness exists to make visible.
+        /// </summary>
+        public long WhaleCallStatesSeeded { get; private set; }
 
         /// <summary>190602 updates received for those creatures - the fauna pose sender, observed.</summary>
         public long FaunaPoseUpdates { get; private set; }
@@ -380,6 +407,35 @@ namespace RelayBot
                 Log($"fauna {op.PrefabName} {op.EntityId}: requested 190602 + identity components.");
             }
 
+            // THE SKY WHALE. Separate from the fauna branch above on purpose: it
+            // is a separate feature with a separate flag and a separate budget,
+            // and the animal wants exactly ONE component where a creature wants
+            // four. Its CALLER is separate again - it carries no pose stream at
+            // all, so counting its checkouts is the only way to see a call.
+            if (SkyWhalePrefabs.IsWhale(op.PrefabName) || SkyWhalePrefabs.IsCall(op.PrefabName))
+            {
+                bool isCall = SkyWhalePrefabs.IsCall(op.PrefabName);
+                if (isCall)
+                {
+                    WhaleCallsHeard++;
+                    _callEntities.Add(op.EntityId);
+                }
+                else
+                {
+                    WhaleEntitiesAdded++;
+                    _whaleEntities.Add(op.EntityId);
+                }
+                var whaleInterest = new PbSendComponentInterest { EntityId = op.EntityId };
+                foreach (uint id in SkyWhalePrefabs.InterestSetFor(op.PrefabName))
+                {
+                    whaleInterest.Components.Add(new PbInterestOverride { ComponentId = id, IsInterested = true });
+                }
+                Enet.Send(_peer, Enet.ChSendComponentInterest, Wire.Encode(whaleInterest), Enet.FlagReliable);
+                Enet.Flush(_clientHost);
+                Log($"sky whale {op.PrefabName} {op.EntityId}: requested "
+                    + string.Join(", ", SkyWhalePrefabs.InterestSetFor(op.PrefabName)) + ".");
+            }
+
             if (op.PrefabName == "ShipFrame") ShipHullEntityId = op.EntityId;
             if (op.PrefabName == "Helm01") HelmEntityId = op.EntityId;
             if (op.PrefabName == "Deck01" && DeckEntityId < 0) DeckEntityId = op.EntityId;
@@ -418,6 +474,31 @@ namespace RelayBot
             PbComponentBatchOp batch = Wire.Decode<PbComponentBatchOp>(payload, length);
             Log($"seeded {batch.Components.Count} component(s) on entity {batch.EntityId}"
                 + $" [{string.Join(", ", batch.Components.Select(c => c.ComponentId))}]");
+
+            // THE SKY WHALE'S CALL, decoded through the game's own generated codec
+            // so "the server serves 4347" is proven at the BYTE level rather than
+            // at the op level. This is the only component on the whole feature
+            // whose SEED is the behaviour: BigCallVisualiser's reader fires its
+            // handler immediately on subscription with the seeded value, so
+            // playAudio=true is what makes the sound. A caller that checked out
+            // with an unserved or false 4347 is a silent whale that looks
+            // perfectly correct at every other level.
+            if (_callEntities.Contains(batch.EntityId))
+            {
+                foreach (PbComponentData component in batch.Components)
+                {
+                    if (component.ComponentId != 4347) continue;
+                    if (GameComponents.Deserialize(4347, GameComponents.TypeSnapshot,
+                            component.Data, component.Data.Length)
+                        is Bossa.Travellers.Creatures.Special.BigCallState.Data call)
+                    {
+                        if (call.Value.playAudio) WhaleCallStatesSeeded++;
+                        Log($"sky whale call on {batch.EntityId}: playAudio={call.Value.playAudio}"
+                            + $" at ({call.Value.coords.X:0.0}, {call.Value.coords.Y:0.0},"
+                            + $" {call.Value.coords.Z:0.0}).");
+                    }
+                }
+            }
 
             // FAUNA IDENTITY SEEDS, decoded through the game's own generated
             // codecs so "the server serves 1177/4326" is proven at the byte
@@ -515,6 +596,12 @@ namespace RelayBot
                 if (component.ComponentId == 190602 && _faunaEntities.Contains(batch.EntityId))
                 {
                     FaunaPoseUpdates++;
+                    continue;
+                }
+
+                if (component.ComponentId == 190602 && _whaleEntities.Contains(batch.EntityId))
+                {
+                    WhalePoseUpdates++;
                     continue;
                 }
 

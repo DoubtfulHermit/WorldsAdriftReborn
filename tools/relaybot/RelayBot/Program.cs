@@ -231,6 +231,22 @@ namespace RelayBot
             Console.WriteLine($"[soak] fauna: {faunaCheckouts} creature checkout(s),"
                 + $" {faunaPoses} 190602 pose update(s) received.");
 
+            // THE SKY WHALE, reported unconditionally for the same reason the
+            // fauna line is - but NOT gated, and that is deliberate. A whale laps
+            // its region in fifteen to twenty-four minutes, so a ten-minute soak
+            // that happens to miss the flyby is a correct run, not a broken one.
+            // The numbers say what was actually measured; nothing infers from
+            // their absence.
+            long whaleCheckouts = bots.Sum(b => b.WhaleEntitiesAdded);
+            long whalePoses = bots.Sum(b => b.WhalePoseUpdates);
+            long whaleCalls = bots.Sum(b => b.WhaleCallsHeard);
+            long whaleCallStates = bots.Sum(b => b.WhaleCallStatesSeeded);
+            Console.WriteLine($"[soak] sky whale: {whaleCheckouts} checkout(s),"
+                + $" {whalePoses} 190602 pose update(s), {whaleCalls} call checkout(s)"
+                + $" of which {whaleCallStates} carried a playing 4347 seed"
+                + (whaleCheckouts == 0
+                    ? " (no flyby in this window - a lap is 15-24 minutes)" : "."));
+
             // ARRIVAL COST, measured rather than derived. The plan costs fauna
             // arrival at 0.24 s per creature (two 120 ms SendInterval cadences);
             // this reports the real per-creature gap inside each arrival burst.
