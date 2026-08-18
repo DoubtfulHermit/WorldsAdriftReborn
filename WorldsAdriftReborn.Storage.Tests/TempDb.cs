@@ -53,6 +53,7 @@ namespace WorldsAdriftReborn.Storage.Tests
             Crews = new Repositories.CrewRepository(Db);
             SocialInvites = new Repositories.SocialInviteRepository(Db);
             Alliances = new Repositories.AllianceRepository(Db);
+            ViewerSamples = new Repositories.ViewerSampleRepository(Db);
         }
 
         internal Db Db { get; }
@@ -74,6 +75,8 @@ namespace WorldsAdriftReborn.Storage.Tests
         internal Repositories.SocialInviteRepository SocialInvites { get; }
 
         internal Repositories.AllianceRepository Alliances { get; }
+
+        internal Repositories.ViewerSampleRepository ViewerSamples { get; }
 
         /// <summary>A fixed instant, so nothing here depends on the wall clock.</summary>
         internal static readonly DateTimeOffset Now =

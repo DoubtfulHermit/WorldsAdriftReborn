@@ -112,6 +112,72 @@ namespace WorldsAdriftServer.Tests
             }
         }
 
+        /// <summary>
+        /// A fragment as the PUBLIC MAP composes it. The public page fills only
+        /// the refresh interval; it has no CSRF token, by construction.
+        /// </summary>
+        private static string AsPubliclyComposed(string fragment) =>
+            WebAssets.Read(fragment)
+                .Replace("{{refreshMs}}", PublicMapPage.RefreshMs, StringComparison.Ordinal);
+
+        [Fact]
+        public void EveryPublicFragmentIsInTheServedPageVerbatimAndInOrder()
+        {
+            // The same discipline as the dashboard's: the public map is a second
+            // composition of the same closure, and a fragment dropped from its
+            // load order would leave the page silently missing a feature while
+            // every test that reads the fragment file still passed.
+            string html = PublicMapPage.Html("{}", "{}");
+            Assert.Equal(1, Occurrences(html, "'use strict';"));
+
+            int previous = -1;
+            foreach (string fragment in PublicMapPage.ScriptFragments)
+            {
+                string body = AsPubliclyComposed(fragment);
+                int at = html.IndexOf(body, StringComparison.Ordinal);
+                Assert.True(at >= 0,
+                    "the public map does not carry '" + fragment + "' verbatim");
+                Assert.True(at > previous,
+                    "'" + fragment + "' is composed out of its declared order");
+                previous = at;
+            }
+        }
+
+        [Fact]
+        public void TheViewerTokenIsMintedBeforeTheFirstPollGoesOut()
+        {
+            // The fragments are one closure, so a function is visible everywhere,
+            // but a var is only INITIALISED when its fragment's top-level code
+            // runs - and public-map.js's last lines fire the first poll. If the
+            // viewer fragment loaded after it, every page load's first poll would
+            // carry an undefined token and go uncounted.
+            string[] order = PublicMapPage.ScriptFragments;
+            Assert.True(
+                Array.IndexOf(order, "public-map-viewers.js")
+                    < Array.IndexOf(order, "public-map.js"),
+                "public-map-viewers.js must be composed before public-map.js");
+        }
+
+        [Fact]
+        public void TheViewerCountExplainsItselfInTheAboutPanelAndNowhereElse()
+        {
+            // The page had a wall of explanatory text taken off it deliberately.
+            // Prose about the viewer count belongs behind the About button; the
+            // strip gets a number and a one-word label.
+            string html = PublicMapPage.Html("{}", "{}");
+            Assert.Contains(WebAssets.ReadTrimmed("public-map-about-viewers.html"),
+                html, StringComparison.Ordinal);
+
+            int about = html.IndexOf("aboutPanel", StringComparison.Ordinal);
+            int prose = html.IndexOf("Who&#39;s watching", StringComparison.Ordinal);
+            if (prose < 0)
+            {
+                prose = html.IndexOf("Who's watching", StringComparison.Ordinal);
+            }
+            Assert.True(about >= 0 && prose > about,
+                "the viewer-count explanation must sit inside the About panel");
+        }
+
         [Fact]
         public void NoAssetReachesForAnExternalHost()
         {
@@ -128,6 +194,8 @@ namespace WorldsAdriftServer.Tests
                 "admin-map-authenticity.html", "admin-map-ledger.html",
                 "public-map-body.html", "public-map.js",
                 "public-map-legend.html", "public-map-ledger.html",
+                "public-map-viewers.js", "public-map-about-viewers.html",
+                "admin-viewers.js", "admin-viewers.html",
             };
             foreach (string name in assets)
             {

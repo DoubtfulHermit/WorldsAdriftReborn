@@ -7,7 +7,7 @@ namespace WorldsAdriftServer.Tests
     /// The public map's routing table and its load-shedding cache.
     ///
     /// The routing matters because it is the list of what is reachable with
-    /// NO authentication: exactly three GET routes, and everything else under
+    /// NO authentication: exactly four GET routes, and everything else under
     /// /map is claimed-and-refused rather than left to fall through to some
     /// other handler. The cache matters because the endpoint is public: it is
     /// what keeps N viewers from becoming N stats-file reads per poll.
@@ -26,6 +26,11 @@ namespace WorldsAdriftServer.Tests
         [InlineData("GET", "/map/data?ts=123", "LiveData")]
         [InlineData("GET", "/map/world", "WorldData")]
         [InlineData("HEAD", "/map/data", "LiveData")]
+        [InlineData("GET", "/map/viewers", "Viewers")]
+        [InlineData("HEAD", "/map/viewers", "Viewers")]
+        // The viewer heartbeat rides the live poll, so a tokened URL must still
+        // route as the live feed and not as something new.
+        [InlineData("GET", "/map/data?v=0123456789abcdef", "LiveData")]
         public void KnownRoutesMatch(string method, string url, string expected)
         {
             Assert.Equal(expected, PublicMapRoutes.Match(method, url).ToString());
@@ -94,6 +99,27 @@ namespace WorldsAdriftServer.Tests
             // The game server rewrites the stats file every ~3 s; the public
             // TTL must stay under that so no viewer ever waits out two writes.
             Assert.True(PublicMapCache.Ttl < TimeSpan.FromSeconds(3));
+        }
+
+        [Fact]
+        public void ACacheMayBeGivenItsOwnWindowForASlowerSource()
+        {
+            // The viewer trend's rows only change once a minute, so caching it on
+            // the live payload's two seconds would mean sixty database round trips
+            // to produce sixty identical answers.
+            PublicMapCache slow = new PublicMapCache(TimeSpan.FromMinutes(1));
+            slow.Store("trend", T0);
+
+            Assert.True(slow.TryGet(T0 + TimeSpan.FromSeconds(59), out string hit));
+            Assert.Equal("trend", hit);
+            Assert.False(slow.TryGet(T0 + TimeSpan.FromSeconds(60), out _));
+
+            // And the default is unchanged for everybody who does not ask.
+            PublicMapCache normal = new PublicMapCache();
+            normal.Store("live", T0);
+            Assert.False(normal.TryGet(T0 + PublicMapCache.Ttl, out _));
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => new PublicMapCache(TimeSpan.Zero));
         }
     }
 }

@@ -7,8 +7,17 @@ using WorldsAdriftServer.PublicMap;
 namespace WorldsAdriftServer.Handlers.PublicMap
 {
     /// <summary>
-    /// The public map's HTTP surface: /map, /map/data and /map/world, all
-    /// unauthenticated by design.
+    /// The public map's HTTP surface: /map, /map/data, /map/world and
+    /// /map/viewers, all unauthenticated by design.
+    ///
+    /// Note what this file does NOT do with a request, which is the whole of the
+    /// viewer count's privacy argument at the HTTP layer: it never asks the
+    /// session for its remote endpoint, never reads a User-Agent, a Referer, a
+    /// Cookie or an X-Forwarded-For, and never writes a line about a request
+    /// anywhere. The only thing a request contributes to the count is an
+    /// ephemeral token the PAGE minted for itself (see
+    /// <see cref="PublicMap.ViewerToken"/>), and the only place it goes is a
+    /// salted-hash census that forgets it after thirty seconds.
     ///
     /// This is a SEPARATE class from <see cref="Admin.AdminHandler"/> on
     /// purpose, so the auth boundary is structural rather than an if-statement:
@@ -26,6 +35,14 @@ namespace WorldsAdriftServer.Handlers.PublicMap
     internal static class PublicMapHandler
     {
         private static readonly PublicMapCache Cache = new PublicMapCache();
+
+        /// <summary>
+        /// The viewer trend, cached for the sampling interval: the rows behind it
+        /// only change once a minute, so a shorter window would buy nothing and
+        /// spend a database query per unauthenticated request.
+        /// </summary>
+        private static readonly PublicMapCache ViewersCache =
+            new PublicMapCache(ViewerSampler.Interval);
 
         /// <summary>
         /// Handles any /map* request; returns true when it took the request.
@@ -54,8 +71,33 @@ namespace WorldsAdriftServer.Handlers.PublicMap
                     return true;
 
                 case PublicMapRoute.LiveData:
-                    Send(session, 200, "application/json", LivePayload(DateTimeOffset.UtcNow),
-                        "public, max-age=2", headOnly);
+                {
+                    // The poll doubles as the viewer heartbeat. The page appends
+                    // its ephemeral per-load token as ?v=...; anything else - a
+                    // third party embedding the open feed, a crawler, curl - has
+                    // no token, is simply not counted, and still gets the data.
+                    DateTimeOffset now = DateTimeOffset.UtcNow;
+                    string? token = ViewerToken.FromUrl(request.Url);
+                    if (token != null)
+                    {
+                        ViewerCensus.Shared.Beat(token, now);
+                    }
+
+                    // A heartbeat that a cache can answer is not a heartbeat, so a
+                    // tokened request is never stored. The token-free form keeps
+                    // its two-second cache, which is what the open feed is for.
+                    Send(session, 200, "application/json", LivePayload(now),
+                        token != null ? "no-store" : "public, max-age=2", headOnly);
+                    return true;
+                }
+
+                case PublicMapRoute.Viewers:
+                    // The trend readout behind the About panel. Aggregate counts
+                    // only - see ViewerHistory - and cached for a minute because
+                    // that is the sampling interval: asking more often cannot
+                    // produce a different answer.
+                    Send(session, 200, "application/json", ViewersPayload(DateTimeOffset.UtcNow),
+                        "public, max-age=60", headOnly);
                     return true;
 
                 case PublicMapRoute.WorldData:
@@ -85,9 +127,51 @@ namespace WorldsAdriftServer.Handlers.PublicMap
             }
 
             GameStatsResult stats = GameStats.Read(now);
-            JObject projected = PublicMapProjection.Project(stats, PublicMapProjection.ProcessSalt);
+            JObject projected = PublicMapProjection.Project(
+                stats, PublicMapProjection.ProcessSalt, ViewerCensus.Shared.Count(now));
             string payload = PublicMapProjection.Serialize(projected);
             Cache.Store(payload, now);
+            return payload;
+        }
+
+        /// <summary>
+        /// The public trend payload: the live count, the day's peak, and a day of
+        /// ten-minute buckets.
+        ///
+        /// Cached for the sampling interval, because a fresher answer does not
+        /// exist - the underlying rows only change once a minute - and because
+        /// this is the one public route that touches the database, so it must not
+        /// be a way to make an unauthenticated poll into a query per request.
+        ///
+        /// A database that is unreachable degrades to "the live count and a flat
+        /// line", not to a 500: the number in the strip comes from memory and is
+        /// still true, and a broken sparkline is not a reason to fail the page.
+        /// </summary>
+        private static string ViewersPayload(DateTimeOffset now)
+        {
+            if (ViewersCache.TryGet(now, out string cached))
+            {
+                return cached;
+            }
+
+            int live = ViewerCensus.Shared.Count(now);
+            DateTimeOffset to = ViewerHistory.FloorTo(now, ViewerHistory.PublicStep)
+                + ViewerHistory.PublicStep;
+            DateTimeOffset from = to - ViewerHistory.PublicStep * ViewerHistory.PublicBuckets;
+
+            IReadOnlyList<(DateTimeOffset At, int Count)> samples;
+            try
+            {
+                samples = Persistence.Accounts.ViewerSamples.Between(from, to);
+            }
+            catch (Exception)
+            {
+                samples = Array.Empty<(DateTimeOffset, int)>();
+            }
+
+            string payload = PublicMapProjection.Serialize(ViewerHistory.Payload(
+                live, samples, from, ViewerHistory.PublicStep, ViewerHistory.PublicBuckets));
+            ViewersCache.Store(payload, now);
             return payload;
         }
 

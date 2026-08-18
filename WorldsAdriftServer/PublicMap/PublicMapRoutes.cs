@@ -24,6 +24,12 @@ namespace WorldsAdriftServer.PublicMap
         /// <summary>GET /map/world - the static preserved-world catalogue.</summary>
         WorldData,
 
+        /// <summary>
+        /// GET /map/viewers - how many people have the map open, now and over the
+        /// last day, as counts and nothing else.
+        /// </summary>
+        Viewers,
+
         /// <summary>Anything else under /map - answered 404, never forwarded.</summary>
         NotFound,
     }
@@ -59,6 +65,7 @@ namespace WorldsAdriftServer.PublicMap
             {
                 "/map/data" => PublicMapRoute.LiveData,
                 "/map/world" => PublicMapRoute.WorldData,
+                "/map/viewers" => PublicMapRoute.Viewers,
                 _ => PublicMapRoute.NotFound,
             };
         }

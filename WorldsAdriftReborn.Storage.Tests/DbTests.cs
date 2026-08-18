@@ -97,11 +97,18 @@ namespace WorldsAdriftReborn.Storage.Tests
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema() AND table_name = 'alliance_members';"));
 
+            // v9 - the public map's audience, minute by minute. The only table
+            // here that is about nobody: two columns, an instant and a count.
+            Assert.Equal(1, db.Scalar<int>(
+                "SELECT COUNT(*) FROM information_schema.tables "
+                + "WHERE table_schema = current_schema() AND table_name = 'map_viewer_samples';"));
+
             // accounts, sessions, characters, character_inventories,
             // server_config, character_progression, character_positions, crews,
             // crew_members, social_invites, alliances, alliance_ranks,
-            // alliance_members, schema_version - and nothing else.
-            Assert.Equal(14, db.Scalar<int>(
+            // alliance_members, map_viewer_samples, schema_version - and nothing
+            // else.
+            Assert.Equal(15, db.Scalar<int>(
                 "SELECT COUNT(*) FROM information_schema.tables "
                 + "WHERE table_schema = current_schema();"));
         }
