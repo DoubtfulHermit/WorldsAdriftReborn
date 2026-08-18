@@ -44,7 +44,7 @@ authored one, rebuilt on the transports this server actually has.
 | --- | --- |
 | Prefab | `Respawner01` — retail's Reviver **platform** |
 | Registration key | `wilderness-shrine` |
-| Position | Haven island-local **(160.00, 4.18, 32.00)** — the centre of the chamber floor |
+| Position | Haven island-local **(156.00, 4.16, 28.00)** — the centre of the chamber floor |
 | The building around it | `wilderness-shrine-chamber`, `HavenAncientRespawner`, scenery only — see §2.5 |
 | Seeded components | 190602 (transform), 1210 (interaction) |
 | Interaction | verb `Activate`, radius **5 m**, hold **1.5 s** |
@@ -327,80 +327,82 @@ One press on a live client now answers it. **Until that press happens, which of 
 two remaining causes it is — the client not completing the hold, or our route missing
 the event — is UNPROVEN, and this document does not guess.**
 
-### 2.9 Where the tower goes: not a separate island — the shelf it is already on
+### 2.9 Where the tower goes — measured, and the constraint that decided it
 
-Asked first for "one of the small empty floating islands around Haven", then, when
-the user was standing there: *"look at where im standing this is a small island
-attached to haven, empty the tree etc from it then place the tower here properly"*.
+The user asked three times and was finally MEASURED. Standing on the spot they
+meant, the server read it off the entity carrying them
+(`carry-echo ... relativeTo 98` = `deposit-16`): **Haven-local (168.00, 4.52, 8.00)**.
+They had pointed at the same physical coordinate twice — it was `tree-45` the first
+time and `deposit-16` the second only because the tree field regenerated and keys are
+positional.
 
-**There is no separate island to move to, and it would not be reachable if there
-were.** Measured against the preserved Bossa MapFile
-(`docs/research/world-data/wamap-islands.json`, 266 islands) and the 254-island
-release catalogue, from Haven's origin `(17004.4, -318.7, -1134.2)`:
+**The building cannot stand on that spot, and here is exactly why.** Measured against
+the resolved Haven prop list:
 
-| distance | what it is |
+| from (168, 8) | authored structures |
 | --- | --- |
-| **2 962 m** | another **copy of Haven** (the 12-instance lane) |
-| **3 098 m** | another copy of Haven |
-| **3 845 m** | The Trades Challenge — 403 m across, 5 databanks, tier 3 |
-| 3 961 / 4 160 m | The Old Military Academy / Anchorage Isle — 300-400 m across |
+| within 12 m | **0** — the immediate ground is clear |
+| 12.4 m | first structure: a camp pipe at y 13.85 (9.3 m overhead) |
+| within 22 m | **14** |
+| within 26 m | **33** |
+| within 35 m | **78** |
 
-Nothing is small, nothing is empty, and nothing is closer than 3 km. A player on
-Haven has no ship and the shrine is their only exit, so they cannot walk, fly or
-grapple to any of them: moving the chamber there makes the teleporter unreachable,
-which is strictly worse than it looking wrong. What is visible "around" Haven is
-either those Haven copies at 3 km or the client-side distant-island silhouettes
-(`Patching/SpatialOS/DistantIslandShells.cs`).
+The chamber's collision footprint reaches **21.85 m** from its axis and it rises to
+**24.1 m** above ground, while the camp pieces within 40 m span **y 0.5 … 26.3**. A
+40 × 36 m building there overlaps the ruined metal camp on the ground *and* punches
+through its platform deck overhead — the exact failure that trapped a player at the
+very first placement. **Usable clear radius at the user's spot: 12.4 m, against the
+~22 m the building needs. Overhang: 9.5 m on its long side.**
 
-**The "small island attached to Haven" is the spawn shelf, and the chamber is already
-standing on it.** Flooding the fine 2 m surface samples from the tree the user was
-standing on — `tree-45` at island-local `(168.0, 4.52, 8.0)` — over a walkable step
-(≤1.5 m per ≤5 m) gives **885 samples spanning x 105…257, z −46…76, y −1.81…12.00**,
-and that region **contains the spawn point**. It is one broad low shelf, not a
-detached islet, and `(160, 4.18, 32)` — where `tree-46` stood, and where the chamber
-is — is in the middle of it.
+So it went to the closest point that genuinely works, chosen by sweeping every fine
+(2 m) surface sample within 70 m of their spot against all 24 yaws — **317 workable
+(site, yaw) combinations** — ranked by distance to the spot and then by how squarely
+the doorway faces it.
 
-So the chamber has NOT moved. What changed is the ground around it.
-
-### 2.10 Clearing the ground, properly
-
-The user asked for the trees to be **cleared**, and the previous build was skipping
-them at registration — which worked but lied: the boot banner counted resources the
-world never delivered. Now the keep-out happens at **generation**, so the placement
-field never contains the point:
-
-* `Resources.HavenSurface` gains a chamber keep-out applied to the tree, fuel and
-  deposit configs through the generator's existing `PlacementExclusion` seam — the
-  same mechanism that already keeps resources off the spawn and the ship.
-* Two hand-written tables bypass the generator and had to be **edited**: the metal
-  node `("iron", 4, 151.7, 4.00, 48.0)` (18.0 m from the axis, inside the walls) and
-  the legacy fuel canister at `(152.0, 4.71, 0.0)` (33.0 m, on the cleared ground).
-  Both are deleted with a comment recording why and that the user asked for it.
-* The registration-time skip is KEPT as a safety net and is now a **no-op**, pinned
-  by a test: if a future table puts something back inside the building, that test
-  fails instead of the world quietly losing a resource.
-
-**Two radii, because they answer different questions.**
+**Chamber: Haven-local (156.00, −6.45, 28.00), yaw 45°. Shrine: (156.00, 4.16, 28.00).**
 
 | | |
 | --- | --- |
-| `ExclusionRadiusMetres` = **22 m** | the building's own above-ground collision. Nothing may stand inside it — including ore. |
-| `ClearingRadiusMetres` = **35 m** | the cleared apron, for props a player looks at: trees and fuel canisters. |
+| distance to the user's measured spot | **23.3 m** (nearest workable site of any yaw was 20.0 m — those 2.7 m bought the doorway) |
+| doorway aiming | **0.97**, about **14° off** pointing straight at them. The previous placement pointed **132° away**: from where they stood they were looking at the back wall. |
+| corridor terrain | 4.40 → burial `origin Y = 4.40 − 10.85 = −6.45` |
+| doorway clear height | **4.40 m** against a 2.20 m player |
+| interior floor vs sill | **+0.07 m** — you step in dead level |
+| terrain under the footprint / inside the room | **1.81 m** / **0.40 m** (the flattest of any candidate) |
+| nearest authored structure to the footprint | **4.1 m** clear |
+| walk from spawn | **57.3 m**, 0.54 m below the spawn's ground vertex — one level |
 
-35 m and not "the whole shelf" on purpose: the shelf contains the spawn point 55.6 m
-away, and clearing it would strip the tutorial's own near-spawn wood. 35 m removes the
-trees the user was standing among — the one they stood on is 25.3 m from the axis —
-and leaves the spawn and the rest of the shelf wooded. Ore keeps its ground right up
-to the walls: clearing metal to 35 m would have cost the starting island three of its
-21 nodes to fix a look.
+**Caveat, thinner than last time:** only **one** fine surface sample falls in the entry
+corridor here (the previous site had four). The doorway has 2.2 m of margin over a
+player so a sample or two of error is absorbed, but if the door lands buried or
+floating, `WildernessChamber.CorridorGroundY` is the one number to change.
 
-**Boot resource count: 1,722 → 1,726** on identical settings
-(`WAREBORN_RELEASE_WORLD_DISTRICTS=tier1` with deposits, databanks, trees, metal and
-fuel all on). It went UP, not down, because the tree and fuel fields fill to a target
-count: excluding the apron does not delete those props, it re-seats them on other
-measured ground, and the two hand-written deletions are more than offset. The number
-that matters is that **nothing is skipped any more** — the registration guard now has
-nothing to do, which the test asserts.
+### 2.9.1 The topography, corrected
+
+An earlier round concluded "the small island IS the spawn shelf, so there is nothing
+to move to". That was wrong in the way that mattered, and the flood-fill threshold was
+why: **2 m per 8 m is a 25% grade and bridges saddles**. Redone on the fine 2 m samples
+with a 4 m neighbour radius, Haven's low ground does separate:
+
+| step threshold | tree-45's lobe contains the spawn? |
+| --- | --- |
+| 0.25 m | **no** |
+| 0.50 m | **no** |
+| 0.75 m | **no** |
+| **1.00 m** | yes — the neck bridges here |
+| 1.50 m | yes |
+
+So the split is real and sits between **0.75 m and 1.00 m** of rise per 4 m. At ≤0.5 m
+Haven resolves into 2,977 components, and the relevant two are:
+
+| lobe | samples | extent | largest solid rectangle | 40×36 fits? |
+| --- | --- | --- | --- | --- |
+| **A** — holds the user's spot AND the chamber | 368 | x 124…188 (64 m), z −46…68 (114 m) | **44 × 60 m** | **yes** |
+| **S** — the SPAWN's own lobe | 47 | x 196…216 (**20 m**), z −10…32 (42 m) | 20 × 20 m | **no** |
+
+Worth recording: the *spawn* sits on the small lobe; the user's spot and the chamber
+are both on the large one. So the chamber was always on the same landform the user was
+standing on — what was wrong was 25 m of offset and a doorway pointing the other way.
 
 ### How a player interacts with it
 

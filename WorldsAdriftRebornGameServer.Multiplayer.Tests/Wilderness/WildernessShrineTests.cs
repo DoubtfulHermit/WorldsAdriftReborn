@@ -211,6 +211,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             Assert.False(Math.Abs(here.X - 176.00) < 0.5 && Math.Abs(here.Z - 16.00) < 0.5);
             // (168, 4.47, 24): clear of the camp, but a bare plate nobody could find.
             Assert.False(Math.Abs(here.X - 168.00) < 0.5 && Math.Abs(here.Z - 24.00) < 0.5);
+            // (160, 4.18, 32): inside the chamber, but 25.3 m from the spot the user
+            // twice pointed at, with the one doorway facing away from them.
+            Assert.False(Math.Abs(here.X - 160.00) < 0.5 && Math.Abs(here.Z - 32.00) < 0.5);
             // And never the Revival Chamber's own buried plate, which is what the
             // whole exercise proved unreachable.
             Assert.NotEqual("HavenAncientRespawner", WildernessShrine.AssetName);

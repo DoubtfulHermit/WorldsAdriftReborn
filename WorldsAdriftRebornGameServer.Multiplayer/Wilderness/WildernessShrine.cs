@@ -104,6 +104,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         ///   * (168.00, 4.47, 24.00) cleared the camp by 24.5 m, but by then the
         ///     object was a bare 1.2 m plate 45 m from spawn and a live player could
         ///     not find it: "i cant find the teleporter now".
+        ///   * (160.00, 4.18, 32.00) put it inside the chamber, but 25.3 m from the
+        ///     spot the user had twice pointed at, with the chamber's one doorway
+        ///     facing 132 deg away from them.
         ///   * This one is INSIDE <see cref="WildernessChamber"/>, at chamber-local
         ///     (0, 0) - which is where retail's own spawn plate sits, 11 m further
         ///     down under the terrain. The 20 m tower is the landmark; the room is
@@ -132,7 +135,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         ///     flat walk, reachable by a flood fill that never climbs more than 2 m
         ///     per 8 m cell
         /// </summary>
-        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (160.00, 4.18, 32.00);
+        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (156.00, 4.16, 28.00);
 
         /// <summary>Its global position, given the Haven definition it stands on.</summary>
         public static FixedPointPosition PositionOn(IslandDefinition haven)

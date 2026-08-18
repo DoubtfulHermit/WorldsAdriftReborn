@@ -104,33 +104,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
 
         /// <summary>
         /// Island-local metres. X and Z are a MEASURED Haven LOD0 surface vertex;
-        /// Y is BELOW ground on purpose - see <see cref="HavenLocalPlacement"/>.
+        /// Y is BELOW ground on purpose - the burial depth, derived below.
         ///
-        /// Chosen by sweeping all 7,791 fine (2 m) Haven surface samples against,
-        /// for each of 24 yaws:
+        /// MOVED HERE 2026-08-18 BECAUSE THE USER ASKED, TWICE, AND WAS MEASURED.
+        /// They stood on the spot they meant and the server read it off the entity
+        /// they were carried by: Haven-local (168.00, 4.52, 8.00). The chamber was
+        /// 25.3 m away at (160, 4.18, 32) with its single doorway pointing 132 deg
+        /// AWAY from them, so from where they stood they were looking at its back.
         ///
-        ///   * reachable on foot from the spawn point - a flood fill over the
-        ///     contiguous 8 m surface grid that never climbs more than 2 m per 8 m
-        ///     cell. (This matters: the 141 m site this document used to name is on
-        ///     a plateau behind a 147% slope.)
-        ///   * no authored Haven structure within the rotated 40 m x 36 m footprint
-        ///     plus a 6 m per-prop pad (<see cref="HavenStructures"/>) - measured
-        ///     gap 7.2 m
-        ///   * the terrain under the whole footprint spanning 1.65 m
-        ///   * the terrain inside the room (radius 9 m) spanning 0.45 m
-        ///   * the terrain along the ENTRY CORRIDOR spanning 0.11 m (3.99..4.10)
-        ///   * and the one that decides it: the interior terrain landing 0.05..0.50 m
-        ///     ABOVE the doorway sill, so a player steps in level. Sites where the
-        ///     interior sits below the sill were rejected - that is a 3 m drop into
-        ///     a walled room, which is the trap this whole exercise exists to avoid.
-        ///   * no authored rock within 12 m of the centre
+        /// THE BUILDING CANNOT STAND ON THAT EXACT SPOT, and this says so rather
+        /// than quietly going somewhere else again. At (168, 8) the ground is clear
+        /// for only 12.4 m: the first authored structure is a camp pipe at 12.4 m,
+        /// there are 14 within 22 m and 33 within 26 m, and the camp's pieces there
+        /// span y 0.5..26.3 while this tower rises to 24.1. A 40 m x 36 m footprint
+        /// put there overlaps the ruined metal camp on the ground AND punches
+        /// through its platform deck overhead - the exact failure that trapped a
+        /// player at the very first placement.
         ///
-        /// 55.6 m from <c>SpawnPolicy.PlayerSpawnPosition</c>'s local (208, ., 4),
-        /// and 0.52 m BELOW the spawn's own ground vertex: a walk on the flat, no
-        /// climb.
+        /// So this is the closest point that genuinely works, chosen by sweeping
+        /// every fine (2 m) surface sample within 70 m of the user's spot against
+        /// all 24 yaws - 317 workable (site, yaw) combinations, ranked by distance
+        /// to their spot and then by how squarely the doorway faces it:
+        ///
+        ///   * 23.3 m from (168, 8) - the nearest workable site is 20.0 m, so the
+        ///     absolute best available was 2 m closer than this with the door
+        ///     pointing sideways. This one trades those 2 m for the door.
+        ///   * doorway aimed 0.97 (about 14 deg off) straight at where they stand,
+        ///     instead of 132 deg away
+        ///   * corridor terrain 4.40, giving 4.40 m of clear doorway height against
+        ///     a 2.20 m player
+        ///   * interior floor 0.07 m ABOVE the sill - you step in dead level
+        ///   * terrain under the whole footprint spans 1.81 m; inside the room 0.40 m,
+        ///     the flattest of any candidate
+        ///   * 4.1 m of clearance from the nearest authored structure's footprint
+        ///
+        /// 57.3 m from the spawn point and 0.54 m below its ground vertex: still a
+        /// walk on one level.
+        ///
+        /// CAVEAT, stated because it is thinner than last time: only ONE fine
+        /// surface sample falls in the entry corridor here (the previous site had
+        /// four). The doorway height has 2.2 m of margin over a player, so a sample
+        /// or two of error is absorbed - but if the door lands buried or floating,
+        /// <see cref="CorridorGroundY"/> is the one number to change.
         /// </summary>
         public static readonly (double X, double Y, double Z) HavenLocalPlacement =
-            (160.00, -6.86, 32.00);
+            (156.00, -6.45, 28.00);
 
         /// <summary>
         /// The measured terrain height at the bottom of the entry corridor,
@@ -138,10 +156,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// <see cref="DoorwaySillLocalY"/>, not chosen: put the sill on the ground
         /// the corridor actually lands on and the door is a door.
         /// </summary>
-        public const double CorridorGroundY = 3.99;
+        public const double CorridorGroundY = 4.40;
 
         /// <summary>The highest terrain sample in the corridor. The aperture has to clear it.</summary>
-        public const double CorridorGroundMaxY = 4.10;
+        public const double CorridorGroundMaxY = 4.40;
 
         /// <summary>
         /// Facing, degrees, in the convention this server already flies ships in:
@@ -158,7 +176,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// the alternative that faced the approach head-on had its interior floor
         /// 3 m BELOW the sill, which is worse than a walk round.
         /// </summary>
-        public const double YawDegrees = 300.0;
+        public const double YawDegrees = 45.0;
 
         /// <summary>The 190602 localRotation seed, packed.</summary>
         public static uint PackedRotation =>
