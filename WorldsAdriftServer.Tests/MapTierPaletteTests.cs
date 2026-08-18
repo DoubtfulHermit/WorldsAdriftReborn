@@ -343,10 +343,17 @@ namespace WorldsAdriftServer.Tests
                 Assert.Contains($".map-swatch.tier-{tier.Tier}{{background:{tier.Fill}}}", css);
                 Assert.Contains($".map-cell-label.type-{tier.Tier}{{fill:{tier.Ink};stroke:{tier.Halo}}}", css);
                 Assert.Contains($".map-cell-label.type-{tier.Tier} .tier{{fill:{tier.Ink}}}", css);
-                Assert.Contains($".map-cell-label.type-{tier.Tier} .stock{{fill:{tier.Ink}}}", css);
                 Assert.Contains($".tierchip.tier-{tier.Tier}{{background:{tier.Fill};color:{tier.Ink}}}", css);
                 Assert.Contains($".map-biome.type-{tier.Tier}.unassigned{{stroke:{tier.Ink}}}", css);
+                // Hover/selection outlines a zone in its own computed ink. It must
+                // never touch the fill: the legend swatch IS the fill, so an
+                // interaction that changed it would make the key a lie again.
+                Assert.Contains($".map-biome.type-{tier.Tier}.is-active{{stroke:{tier.Ink}}}", css);
+                Assert.DoesNotContain($".map-biome.type-{tier.Tier}.is-active{{fill:", css);
             }
+            // The per-cell statistics line that used to be stamped over the
+            // terrain is gone, and so is the rule that inked it.
+            Assert.DoesNotContain(".stock{fill:", css);
             Assert.DoesNotContain(".map-biome.type-0", css);
             Assert.DoesNotContain($".map-biome.type-{MapTierPalette.MaxTier + 1}", css);
         }

@@ -60,7 +60,10 @@ namespace WorldsAdriftServer.Admin
                 IslandResourceInventory? inventory =
                     IslandResourceInventoryCatalog.ByMapAsset(asset);
                 if (inventory != null)
+                {
                     projectedIsland["inventory"] = ProjectInventory(inventory);
+                    projectedIsland["shell"] = ProjectShell(inventory);
+                }
                 islands.Add(projectedIsland);
             }
 
@@ -130,6 +133,7 @@ namespace WorldsAdriftServer.Admin
                 ["islands"] = islands,
                 ["biomes"] = biomes,
                 ["walls"] = walls,
+                ["cells"] = ProjectCellRollups(),
             };
 
             using StringWriter output = new();
@@ -188,7 +192,74 @@ namespace WorldsAdriftServer.Admin
                         $"Unhandled metal table source {inventory.MetalSource}."),
                 },
                 ["oresInferred"] = inventory.OresAreInferred,
+                ["workshopId"] = inventory.WorkshopId,
             };
+        }
+
+        /// <summary>
+        /// The island's own preserved collision silhouette, as a flat
+        /// <c>[x0,z0,x1,z1,...]</c> ring in island-local metres.
+        ///
+        /// It is projected FLAT and rounded to a decimetre on purpose: 254 rings
+        /// of 16 points is the difference between a map that can draw the real
+        /// coastline when you zoom in and one that can only ever draw a generic
+        /// pin, and the flat form costs about a third of what an array of pairs
+        /// would. A decimetre is far below one screen pixel at every zoom the map
+        /// allows, so nothing visible is lost by rounding.
+        ///
+        /// The MapFile places islands by translation only - it carries x/y/z and
+        /// no rotation - so world position is the island's origin plus this ring,
+        /// with no orientation guesswork.
+        /// </summary>
+        private static JArray ProjectShell(IslandResourceInventory inventory)
+        {
+            JArray ring = new();
+            foreach (IslandShellPoint point in inventory.Record.Shell)
+            {
+                ring.Add(Math.Round(point.X, 1));
+                ring.Add(Math.Round(point.Z, 1));
+            }
+            return ring;
+        }
+
+        /// <summary>
+        /// Per-zone roll-ups, keyed by the same cell id the drawn tier cell
+        /// carries, so clicking a zone answers with arithmetic done once in
+        /// <see cref="IslandCellRollupCatalog"/> rather than re-summed in the
+        /// browser while it paints.
+        /// </summary>
+        private static JObject ProjectCellRollups()
+        {
+            JObject cells = new();
+            foreach (IslandCellRollup cell in IslandCellRollupCatalog.All)
+            {
+                JArray ores = new();
+                foreach (IslandOreTally ore in cell.Ores)
+                    ores.Add(new JObject
+                    {
+                        ["metal"] = ore.Metal,
+                        ["quality"] = ore.Quality,
+                        ["deposits"] = ore.Deposits,
+                        // Weakened to inferred if ANY contributing island's table
+                        // was composed - see IslandCellRollup for why.
+                        ["inferred"] = ore.Provenance == ResourceProvenance.Inferred,
+                    });
+
+                cells[cell.CellId] = new JObject
+                {
+                    ["islands"] = cell.Islands,
+                    ["databanks"] = cell.Databanks,
+                    ["deposits"] = cell.Deposits,
+                    ["trees"] = cell.Trees,
+                    ["woodedIslands"] = cell.WoodedIslands,
+                    ["islandsWithInferredOres"] = cell.IslandsWithInferredOres,
+                    ["islandsWithRecoveredOres"] = cell.IslandsWithRecoveredOres,
+                    ["inferredDeposits"] = cell.InferredDeposits,
+                    ["woods"] = new JArray(cell.TreeSpecies),
+                    ["ores"] = ores,
+                };
+            }
+            return cells;
         }
     }
 }
