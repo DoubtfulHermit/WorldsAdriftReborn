@@ -199,26 +199,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void A_standing_player_sees_one_arrival_and_one_departure_per_lap()
+        public void A_standing_player_sees_whole_flybys_rather_than_a_flickering_animal()
         {
             // THE ANTI-CHURN PROPERTY, and the reason whale interest is keyed on the
             // ANIMAL where fauna interest had to be keyed on the ISLAND. A manta
             // orbiting its island crossed a creature-keyed boundary repeatedly and
-            // that WAS the reported despawn bug. Walk a real circuit past a real
-            // island with the real hysteresis and count the transitions: two, which
-            // is one flyby, which is the feature.
+            // that WAS the reported despawn bug. Walk the real world route past a
+            // real island with the real hysteresis and count what a standing player
+            // actually gets.
+            //
+            // THE CLAIM CHANGED SHAPE WITH THE MIGRATION and is worth stating
+            // exactly. It used to be "two transitions a lap", because a region ring
+            // passed each of its islands once. A single world route can also fly a
+            // CROSSING over a cell it is leaving or entering, so an island can get a
+            // second, separate flyby in the same lap - and that is not churn, it is
+            // two events three quarters of an hour apart. What must still hold, and
+            // is what the manta bug actually was, is that every checkout is a WHOLE
+            // FLYBY: minutes long, not a flicker, and never more than a handful a
+            // lap.
             SkyWhalePlacement placement = SkyWhalePlan
-                .Build(ReleaseWorldRolloutPolicy.Select("tier1"))
-                .Single(candidate => candidate.Whale.Region.Value == "release-b3-region");
+                .Build(ReleaseWorldRolloutPolicy.Select("tier1"))!.Value;
             SkyWhaleCircuit circuit = placement.Circuit;
-            SkyWhaleWaypoint standingOn = circuit.Waypoints[0];
+            SkyWhaleWaypoint standingOn = circuit.Waypoints
+                .First(waypoint => !waypoint.IsTransit
+                    && waypoint.Region.Value == "release-b3-region");
 
             double load = SkyWhalePolicy.DefaultLoadRadiusMetres;
             double unload = SkyWhalePolicy.UnloadRadiusFor(load);
             HashSet<long> held = new HashSet<long>();
-            int transitions = 0;
+            List<double> flybys = new List<double>();
+            double heldSince = 0.0;
+            const double Step = 0.5;
 
-            for (double t = 0.0; t < circuit.CircuitSeconds; t += 0.5)
+            for (double t = 0.0; t < circuit.CircuitSeconds; t += Step)
             {
                 (double x, double y, double z) = circuit.PositionAtTime(t);
                 double dx = x - standingOn.X, dy = y - standingOn.Y, dz = z - standingOn.Z;
@@ -226,16 +239,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                     new[] { new SkyWhaleCandidate(1L, (dx * dx) + (dy * dy) + (dz * dz)) },
                     held, load, unload, 1);
                 bool wanted = admitted.Count > 0;
-                if (wanted != held.Contains(1L))
-                {
-                    transitions++;
-                    if (wanted) held.Add(1L); else held.Remove(1L);
-                }
+                if (wanted == held.Contains(1L)) continue;
+                if (wanted) { held.Add(1L); heldSince = t; }
+                else { held.Remove(1L); flybys.Add(t - heldSince); }
             }
+            if (held.Contains(1L)) flybys.Add(circuit.CircuitSeconds - heldSince);
 
-            _output.WriteLine("transitions over one " + (circuit.CircuitSeconds / 60.0)
-                .ToString("0.0") + " min lap: " + transitions);
-            Assert.Equal(2, transitions);
+            _output.WriteLine("over one " + (circuit.CircuitSeconds / 60.0).ToString("0.0")
+                + " min world lap, " + standingOn.IslandId + " gets "
+                + flybys.Count + " flyby(s): "
+                + string.Join(", ", flybys.Select(seconds => seconds.ToString("0") + " s")));
+
+            Assert.InRange(flybys.Count, 1, 3);
+            foreach (double seconds in flybys)
+            {
+                // A whole pass, never a flicker. The manta bug looked like seconds.
+                Assert.InRange(seconds, 60.0, 900.0);
+            }
         }
     }
 }

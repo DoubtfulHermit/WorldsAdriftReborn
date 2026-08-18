@@ -16,20 +16,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         double UnloadRadiusMetres,
         double CallRadiusMetres,
         double PoseIntervalSeconds,
-        int MinimumIslandsPerRegion,
+        int MinimumIslands,
         int PerPeerWhales);
 
     /// <summary>
-    /// One region's circuit, flattened so something other than this process can fly
-    /// the whale along it.
+    /// THE route, flattened so something other than this process can fly the whale
+    /// along it.
     ///
     /// THE WAYPOINTS TRAVEL, and that is the difference from the fauna projection.
     /// A creature's motion is derived from its ISLAND's envelope, which the map
     /// already draws, so <see cref="FaunaIslandMotion"/> can publish a handful of
-    /// scalars. A whale's path is a property of the whole REGION - which islands are
-    /// in it and where they are - and there is no smaller honest summary of that
-    /// than the ring itself. Eleven or twelve points per region is a few hundred
-    /// bytes.
+    /// scalars. A whale's path is a property of the whole WORLD - which islands
+    /// exist, which cell each is in and where they are - and there is no smaller
+    /// honest summary of that than the route itself. Fifty-odd island waypoints plus
+    /// the resampled crossings between zones is a couple of kilobytes, published
+    /// ONCE in a static block rather than in the live feed.
+    ///
+    /// THE MIGRATION IS ENTIRELY IN THIS DATA, which is the quiet win of the
+    /// single-whale rework: the browser's motion mirror did not change at all, and
+    /// could not have needed to, because zone-to-zone travel is expressed as control
+    /// points on the same closed spline rather than as an event a second evaluator
+    /// would have had to re-implement.
     ///
     /// WHAT IS AND IS NOT GUARANTEED IDENTICAL. The map's waypoints are built from
     /// the preserved MapFile's island placements; the game server's are built from
@@ -41,8 +48,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// is fed has two sources. That is the same split
     /// <see cref="IslandFaunaMapModel"/> already makes.
     /// </summary>
-    public readonly record struct SkyWhaleRegionMotion(
-        string RegionId,
+    public readonly record struct SkyWhaleRouteMotion(
+        string RouteId,
         double LengthMetres,
         double CircuitSeconds,
         double PhaseFraction,
@@ -70,18 +77,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 SkyWhalePolicy.DefaultLoadRadiusMetres),
             CallRadiusMetres: SkyWhalePolicy.DefaultCallRadiusMetres,
             PoseIntervalSeconds: SkyWhalePolicy.DefaultPoseInterval.TotalSeconds,
-            MinimumIslandsPerRegion: SkyWhalePolicy.MinimumIslandsPerRegion,
+            MinimumIslands: SkyWhalePolicy.MinimumIslands,
             PerPeerWhales: SkyWhalePolicy.DefaultPerPeerWhales);
 
         /// <summary>
-        /// One circuit, flattened. Every field is the circuit's own accessor,
-        /// called - never a re-derivation of it.
+        /// The route, flattened. Every field is the circuit's own accessor, called -
+        /// never a re-derivation of it.
         /// </summary>
-        public static SkyWhaleRegionMotion MotionFor(SkyWhaleCircuit circuit)
+        public static SkyWhaleRouteMotion MotionFor(SkyWhaleCircuit circuit)
         {
             if (circuit == null) throw new ArgumentNullException(nameof(circuit));
-            return new SkyWhaleRegionMotion(
-                RegionId: circuit.Region.ToString(),
+            return new SkyWhaleRouteMotion(
+                RouteId: circuit.RouteId,
                 LengthMetres: circuit.LengthMetres,
                 CircuitSeconds: circuit.CircuitSeconds,
                 PhaseFraction: circuit.PhaseFraction,

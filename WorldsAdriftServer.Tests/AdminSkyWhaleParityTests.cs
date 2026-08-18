@@ -25,12 +25,21 @@ namespace WorldsAdriftServer.Tests
     /// fauna's. The map's islands are placed by the preserved MapFile; the game
     /// server places them from its own runtime catalogue, and the two are allowed
     /// to differ. So this does NOT claim the browser puts the whale on the same
-    /// world coordinate the server does. It claims that GIVEN THE SAME RING both
+    /// world coordinate the server does. It claims that GIVEN THE SAME ROUTE both
     /// evaluate the same curve to a nanometre - the motion is ONE function, and
-    /// only the geometry fed to it has two sources. Everything about the ring that
-    /// is a DECISION rather than a placement - its order, its lap time, its phase -
-    /// is computed once by the server's own code and published, never re-derived in
-    /// the browser, which is what makes that narrower claim sufficient.
+    /// only the geometry fed to it has two sources. Everything about the route that
+    /// is a DECISION rather than a placement - the order of the zones, the order of
+    /// the islands inside them, where the crossings are cut, the lap time, the
+    /// phase - is computed once by the server's own code and published, never
+    /// re-derived in the browser, which is what makes that narrower claim
+    /// sufficient.
+    ///
+    /// THE MIGRATION DID NOT WIDEN THE MIRROR, and this suite is the evidence: the
+    /// browser's arithmetic is unchanged from the four-whale design, because
+    /// zone-to-zone travel is expressed as more control points on the same closed
+    /// spline rather than as an event a second evaluator would have to re-implement.
+    /// What changed is only WHICH points are published, which this suite checks
+    /// against the server's own plan.
     /// </summary>
     public class AdminSkyWhaleParityTests
     {
@@ -63,16 +72,19 @@ namespace WorldsAdriftServer.Tests
         {
             string html = AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json);
             string mirror = ExtractMirror(html);
-            JArray circuits = (JArray)EmbeddedWorldMap(html)["whaleCircuits"]!;
-            Assert.NotEmpty(circuits);
+            JArray routes = (JArray)EmbeddedWorldMap(html)["whaleRoutes"]!;
+            Assert.NotEmpty(routes);
 
             List<JObject> samples = new List<JObject>();
             List<(SkyWhaleWaypoint[] Ring, double CircuitSeconds, double Phase, double T, string Where)>
                 expected = new List<(SkyWhaleWaypoint[], double, double, double, string)>();
 
-            foreach (JObject circuit in SampleCircuits(circuits))
+            // EVERY published route, not a sample of them: they are the same curve
+            // over different control points, and the cheap one to get wrong is
+            // whichever one nobody looked at.
+            foreach (JObject circuit in routes.OfType<JObject>())
             {
-                string regionId = (string)circuit["regionId"]!;
+    string regionId = (string)circuit["routeId"]!;
                 double circuitSeconds = (double)circuit["circuitSeconds"]!;
                 double phase = (double)circuit["phaseFraction"]!;
                 (JArray ringJson, SkyWhaleWaypoint[] ring) = RingOf(circuit);
@@ -90,10 +102,13 @@ namespace WorldsAdriftServer.Tests
                         regionId + " at t=" + t.ToString(CultureInfo.InvariantCulture)));
                 }
 
-                // AND EVERY KNOT, either side. A Catmull-Rom implementation that
-                // got its segment indexing or its wrap-around wrong agrees
-                // everywhere except exactly here, which is where a whale would
-                // visibly jump on one map and not the other.
+                // AND EVERY KNOT, either side - all eighty-odd of them now, island
+                // and crossing alike. A Catmull-Rom implementation that got its
+                // segment indexing or its wrap-around wrong agrees everywhere except
+                // exactly here, which is where a whale would visibly jump on one map
+                // and not the other. The knots at either end of a CROSSING are the
+                // interesting new ones: they are where a zone hand-off happens, and
+                // a hand-off that was not C1 would show up here first.
                 for (int i = 0; i < ring.Length; i++)
                 {
                     foreach (double offset in new[] { -1e-6, 0.0, 1e-6 })
@@ -170,7 +185,7 @@ namespace WorldsAdriftServer.Tests
             {
                 "metresPerSecond", "altitudeAboveIslandMetres", "callIntervalSeconds",
                 "loadRadiusMetres", "unloadRadiusMetres", "callRadiusMetres",
-                "poseIntervalSeconds", "minimumIslandsPerRegion", "perPeerWhales",
+                "poseIntervalSeconds", "minimumIslands", "perPeerWhales",
             })
             {
                 Assert.True(model[field] != null,
@@ -186,43 +201,91 @@ namespace WorldsAdriftServer.Tests
         }
 
         /// <summary>
-        /// Every region the release world has must be published, with its ring in
-        /// TRAVEL ORDER and its lap time untrimmed. A region silently dropped is a
-        /// whale that exists in the game and nowhere on the map.
+        /// The world's ONE route must be published, in TRAVEL ORDER, with its lap
+        /// time untrimmed - and with each waypoint's zone and its island/crossing
+        /// flag, which is what lets the map draw the migration as a migration. A
+        /// waypoint silently dropped is a whale that flies one path in the game and
+        /// another on the map.
         /// </summary>
         [Fact]
-        public void Every_regions_circuit_is_published_exactly_as_the_server_computes_it()
+        public void The_rollouts_route_is_published_exactly_as_the_server_computes_it()
         {
+            // THE ONE THE PRODUCTION SERVER FLIES. The route is a function of which
+            // cells were rolled out, so the map publishes one per cell set a rollout
+            // can name in a word and the live whale joins by id; a map that carried
+            // only the full-catalogue route would draw a tier-1 server's whale on a
+            // 9-hour, 20-cell loop it is not on.
             JObject map = EmbeddedWorldMap(
                 AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json));
-            JArray published = (JArray)map["whaleCircuits"]!;
+            JArray routes = (JArray)map["whaleRoutes"]!;
 
-            IReadOnlyList<SkyWhalePlacement> plan = SkyWhalePlan.Build(ReleaseWorldCatalog.All);
-            Assert.Equal(plan.Count, published.Count);
+            SkyWhalePlacement placement =
+                SkyWhalePlan.Build(ReleaseWorldRolloutPolicy.Select("tier1"))!.Value;
+            JObject published = routes.OfType<JObject>().Single(
+                row => (string?)row["routeId"] == placement.Whale.RouteId);
 
-            for (int i = 0; i < plan.Count; i++)
+            Assert.Equal(placement.Circuit.IslandCount, (int)published["islandCount"]!);
+            List<string> zones = placement.Circuit.Regions
+                .Select(region => region.Value).ToList();
+            Assert.Equal(zones, ((JArray)published["regionIds"]!)
+                .Select(token => (string?)token));
+
+            // Exactly, not nearly: the circuit period DIVIDES elapsed seconds,
+            // so its error is multiplied by how long the server has been up -
+            // the same rule mantaLapSeconds is held to, and for the same reason.
+            Assert.Equal(placement.Circuit.CircuitSeconds, (double)published["circuitSeconds"]!);
+            Assert.Equal(placement.Circuit.PhaseFraction, (double)published["phaseFraction"]!);
+
+            JArray waypoints = (JArray)published["waypoints"]!;
+            Assert.Equal(placement.Circuit.Waypoints.Count, waypoints.Count);
+            for (int w = 0; w < waypoints.Count; w++)
             {
-                SkyWhalePlacement placement = plan[i];
-                JObject row = (JObject)published[i];
-                Assert.Equal(placement.Whale.Region.Value, (string?)row["regionId"]);
-
-                // Exactly, not nearly: the circuit period DIVIDES elapsed seconds,
-                // so its error is multiplied by how long the server has been up -
-                // the same rule mantaLapSeconds is held to, and for the same reason.
-                Assert.Equal(placement.Circuit.CircuitSeconds, (double)row["circuitSeconds"]!);
-                Assert.Equal(placement.Circuit.PhaseFraction, (double)row["phaseFraction"]!);
-
-                JArray waypoints = (JArray)row["waypoints"]!;
-                Assert.Equal(placement.Circuit.Waypoints.Count, waypoints.Count);
-                for (int w = 0; w < waypoints.Count; w++)
-                {
-                    // TRAVEL ORDER, island by island. The browser uses this order
-                    // verbatim rather than re-sorting, so if it were wrong here the
-                    // map would fly a different loop than the game.
-                    Assert.Equal(placement.Circuit.Waypoints[w].IslandId.Value,
-                        (string?)((JObject)waypoints[w])["islandId"]);
-                }
+                SkyWhaleWaypoint expected = placement.Circuit.Waypoints[w];
+                JObject row = (JObject)waypoints[w];
+                // TRAVEL ORDER, waypoint by waypoint. The browser uses this order
+                // verbatim rather than re-sorting, so if it were wrong here the
+                // map would fly a different migration than the game.
+                Assert.Equal(expected.IslandId.Value, (string?)row["islandId"]);
+                Assert.Equal(zones.IndexOf(expected.Region.Value), (int)row["z"]!);
+                // The crossing flag is INK, not arithmetic - the map dashes those
+                // legs - but a route that lost it would draw the whole migration as
+                // one indistinguishable scribble.
+                Assert.Equal(expected.IsTransit, row["t"] != null);
             }
+
+            // And the route really does span every cell, which is the whole change.
+            Assert.True(placement.Circuit.Regions.Count > 1,
+                "a single whale that never leaves one zone is not a migration");
+            Assert.Contains(placement.Circuit.Waypoints, waypoint => waypoint.IsTransit);
+        }
+
+        /// <summary>
+        /// DIFFERENT ROLLOUTS MUST BE DIFFERENT ROUTES WITH DIFFERENT NAMES, and
+        /// this is the test that stands in front of the failure the plural exists
+        /// for: a four-cell world and a twenty-cell world produce different orders,
+        /// different lap times and different phases, and a shared name would let a
+        /// map draw one while the game flew the other. It cannot be caught by any
+        /// amount of parity arithmetic, because both sides would be evaluating the
+        /// same function correctly on the wrong control points.
+        /// </summary>
+        [Fact]
+        public void A_rollouts_route_is_named_after_its_cells_and_never_collides_with_anothers()
+        {
+            SkyWhalePlacement tier1 =
+                SkyWhalePlan.Build(ReleaseWorldRolloutPolicy.Select("tier1"))!.Value;
+            SkyWhalePlacement all = SkyWhalePlan.Build(ReleaseWorldCatalog.All)!.Value;
+
+            Assert.NotEqual(tier1.Whale.RouteId, all.Whale.RouteId);
+            Assert.NotEqual(tier1.Circuit.CircuitSeconds, all.Circuit.CircuitSeconds);
+            Assert.Equal("release-route-a2-a3-b2-b3", tier1.Whale.RouteId);
+
+            JArray routes = (JArray)EmbeddedWorldMap(
+                AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json))["whaleRoutes"]!;
+            string[] ids = routes.OfType<JObject>()
+                .Select(row => (string)row["routeId"]!).ToArray();
+            Assert.Equal(ids.Length, ids.Distinct().Count());
+            Assert.Contains(tier1.Whale.RouteId, ids);
+            Assert.Contains(all.Whale.RouteId, ids);
         }
 
         /// <summary>
@@ -235,38 +298,30 @@ namespace WorldsAdriftServer.Tests
         {
             JObject map = EmbeddedWorldMap(
                 AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json));
-            JArray published = (JArray)map["whaleCircuits"]!;
-            IReadOnlyList<SkyWhalePlacement> plan = SkyWhalePlan.Build(ReleaseWorldCatalog.All);
+            SkyWhalePlacement plan = SkyWhalePlan.Build(ReleaseWorldCatalog.All)!.Value;
+            JObject published = ((JArray)map["whaleRoutes"]!).OfType<JObject>()
+                .Single(row => (string?)row["routeId"] == plan.Whale.RouteId);
 
-            for (int i = 0; i < plan.Count; i++)
+            JArray waypoints = (JArray)published["waypoints"]!;
+            for (int w = 0; w < waypoints.Count; w++)
             {
-                JArray waypoints = (JArray)((JObject)published[i])["waypoints"]!;
-                for (int w = 0; w < waypoints.Count; w++)
-                {
-                    SkyWhaleWaypoint expected = plan[i].Circuit.Waypoints[w];
-                    JObject row = (JObject)waypoints[w];
-                    FixedPointPosition origin = ReleaseWorldCatalog
-                        .ByIsland(expected.IslandId)!.Definition.GlobalOrigin;
+                SkyWhaleWaypoint expected = plan.Circuit.Waypoints[w];
+                JObject row = (JObject)waypoints[w];
+                // For a CROSSING point the island named here is its ANCHOR - the
+                // nearer of the two islands its leg runs between - and the same
+                // reconstruction has to hold for it, or a crossing would drift away
+                // from the rocks either side of it on a map that places them
+                // slightly differently.
+                FixedPointPosition origin = ReleaseWorldCatalog
+                    .ByIsland(expected.IslandId)!.Definition.GlobalOrigin;
 
-                    Assert.True(Math.Abs(
-                        (origin.MetresX + (double)row["lx"]!) - expected.X) <= 0.01);
-                    Assert.True(Math.Abs(
-                        (origin.MetresY + (double)row["ly"]!) - expected.Y) <= 0.01);
-                    Assert.True(Math.Abs(
-                        (origin.MetresZ + (double)row["lz"]!) - expected.Z) <= 0.01);
-                }
+                Assert.True(Math.Abs(
+                    (origin.MetresX + (double)row["lx"]!) - expected.X) <= 0.01);
+                Assert.True(Math.Abs(
+                    (origin.MetresY + (double)row["ly"]!) - expected.Y) <= 0.01);
+                Assert.True(Math.Abs(
+                    (origin.MetresZ + (double)row["lz"]!) - expected.Z) <= 0.01);
             }
-        }
-
-        /// <summary>Smallest, median and largest circuit, so the samples cover the extremes.</summary>
-        private static IEnumerable<JObject> SampleCircuits(JArray circuits)
-        {
-            List<JObject> ordered = circuits.OfType<JObject>()
-                .OrderBy(circuit => (double)circuit["circuitSeconds"]!)
-                .ToList();
-            yield return ordered[0];
-            yield return ordered[ordered.Count / 2];
-            yield return ordered[ordered.Count - 1];
         }
 
         /// <summary>
@@ -291,6 +346,53 @@ namespace WorldsAdriftServer.Tests
                 ring.Add(new SkyWhaleWaypoint(islandId, x, y, z));
             }
             return (json, ring.ToArray());
+        }
+
+        /// <summary>
+        /// EVERY island the route names must be an island the map actually DRAWS,
+        /// and this test is load-bearing in a way it was not before.
+        ///
+        /// The browser builds the drawn route by looking each waypoint's island up
+        /// in the map's own island index and adding the local offset to the MapFile
+        /// placement. A waypoint whose island is not on the map makes the ring
+        /// unbuildable, and the browser then draws NOTHING - because a partial route
+        /// would be a different migration, which is worse than no whale.
+        ///
+        /// With four region rings that failure was contained: one region's whale
+        /// vanished and three still flew. With ONE world route it is all or nothing,
+        /// so a single island that the map cannot resolve takes the entire feature
+        /// off both maps. That is exactly the kind of silent, total loss a test has
+        /// to stand in front of.
+        /// </summary>
+        [Fact]
+        public void Every_island_on_the_route_is_an_island_the_map_can_actually_draw()
+        {
+            JObject map = EmbeddedWorldMap(
+                AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json));
+
+            HashSet<string> drawable = new HashSet<string>(StringComparer.Ordinal);
+            foreach (JObject island in ((JArray)map["islands"]!).OfType<JObject>())
+            {
+                // The browser's index is keyed on the inventory's island id and is
+                // only populated for islands that carry a fauna block - the same two
+                // conditions map-render.js applies.
+                if (island["fauna"] == null || island["inventory"] == null) continue;
+                string? id = (string?)island["inventory"]!["islandId"];
+                if (!string.IsNullOrEmpty(id)) drawable.Add(id!);
+            }
+
+            foreach (JObject route in ((JArray)map["whaleRoutes"]!).OfType<JObject>())
+            {
+                foreach (JObject waypoint in ((JArray)route["waypoints"]!).OfType<JObject>())
+                {
+                    string id = (string)waypoint["islandId"]!;
+                    Assert.True(drawable.Contains(id),
+                        "the whale route '" + route["routeId"] + "' passes over '" + id
+                        + "', which the map does not draw - so the browser cannot build "
+                        + "the route and BOTH maps would silently stop drawing the whale "
+                        + "entirely");
+                }
+            }
         }
 
         private static string ExtractMirror(string html)

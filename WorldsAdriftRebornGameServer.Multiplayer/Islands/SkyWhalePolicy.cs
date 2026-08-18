@@ -44,13 +44,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// code path could fire them. Nothing in this file should be read as Bossa's
     /// design for how a sky whale moves, because Bossa shipped none.
     ///
-    /// ONE PER REGION, and the region is the MapFile cell - the same grouping
-    /// <see cref="RegionRegistry.CreateReleaseWorld"/> turns into
-    /// <c>release-&lt;cell&gt;-region</c>. That is deliberate scarcity, not a budget
-    /// accident: the prefab has 19,821 vertices across 35 renderers sharing one
-    /// material and NO LODs at all, so it is paid for in full at any distance. One
-    /// is an event; four in a cell would be wallpaper and would cost four times as
-    /// much to draw.
+    /// ONE WHALE IN THE WHOLE WORLD, migrating from zone to zone. It was one per
+    /// MapFile cell until 2026-08-19, which meant every cell had one at all times
+    /// and the animal was scenery rather than an event; the world now carries a
+    /// single whale on a single route through every island of every cell, so most
+    /// zones have no whale most of the time and finding it is the point. The route
+    /// is <see cref="SkyWhaleRoute"/>; the zone it is in at any instant is a
+    /// question for <see cref="SkyWhaleCircuit.WhereAt"/> and never a constant.
+    ///
+    /// The scarcity is also, incidentally, the cheapest thing this feature could
+    /// have been: the prefab has 19,821 vertices across 35 renderers sharing one
+    /// material and NO LODs at all, so it is paid for in full at any distance, and
+    /// there is now exactly one of them in existence rather than one per cell.
     /// </summary>
     public static class SkyWhalePolicy
     {
@@ -112,8 +117,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
         /// <summary>
         /// How many entity ids one whale consumes: the animal, then its caller.
-        /// Contiguous so a region's pair is a readable block in a log and so the
-        /// id arithmetic is a pure function of the region's index.
+        /// Contiguous so the pair is a readable block in a log.
+        ///
+        /// NOTHING READS THIS ANY MORE, and it is kept anyway. It used to be the
+        /// stride of a per-region id block; with one whale the ids are simply
+        /// <see cref="FirstWhaleEntityId"/> and the one above it, so the arithmetic
+        /// vanished. What has not vanished is the CLAIM - that the band is consumed
+        /// two ids at a time from its base - which is what a future second animal
+        /// would have to honour and what makes the band's headroom calculable
+        /// without reading the plan.
         /// </summary>
         public const int EntityIdsPerWhale = 2;
 
@@ -132,16 +144,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         ///   and reads as SEVEN TIMES SLOWER, which is what a creature this size
         ///   has to look like.</item>
         /// </list>
-        /// It also sets the two durations the feature is actually judged on, and
-        /// those are MEASURED against the preserved catalogue rather than estimated
-        /// (<c>SkyWhalePlanTests</c> prints and pins both). The four tier-1 cells'
-        /// circuits are 16.3 to 25.7 km, so a lap is 15.1 to 23.8 minutes and any
-        /// one island is visited three or four times an hour. A pass through the
-        /// 600 m island bubble a standing player has lasts 57 to 86 seconds across
-        /// all twelve islands of B3; a pass through the whale's own
-        /// <see cref="DefaultLoadRadiusMetres"/> checkout sphere is about twice
-        /// that. "A minute or two, three times an hour" is the shape being aimed
-        /// at, and this constant is the only knob that sets it.
+        /// It also sets the durations the feature is actually judged on, and those
+        /// are MEASURED against the preserved catalogue rather than estimated
+        /// (<c>SkyWhalePlanTests</c> prints and pins them). SINCE THE SINGLE-WHALE
+        /// REWORK the numbers are:
+        /// <list type="bullet">
+        /// <item>the world route is 46 islands plus 37 resampled crossing points,
+        ///   142.7 km, so a WORLD LAP is 132 minutes - and that is now how often a
+        ///   given island is visited, where four region whales visited each island
+        ///   three or four times an hour;</item>
+        /// <item>the animal is inside each of the four tier-1 cells for 16 to 18
+        ///   minutes of that lap, and crossing open sky between cells for the
+        ///   remaining half. The released cells are about as far apart as they are
+        ///   wide, so the even split is the world's geometry rather than a
+        ///   choice;</item>
+        /// <item>a pass through the 600 m island bubble a standing player has still
+        ///   lasts 52 to 153 seconds - UNCHANGED by the migration, which is the
+        ///   point of measuring it again. The visit feels exactly as it did; there
+        ///   is simply one of them per world lap instead of three an hour.</item>
+        /// </list>
+        /// "A minute or two overhead, about once every two hours, in a zone that has
+        /// it for a quarter of an hour at a time" is the shape being aimed at, and
+        /// this constant is the only knob that sets it.
         /// </summary>
         public const double MetresPerSecond = 18.0;
 
@@ -199,11 +223,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// the mantas - deliberately, because the two animals fail differently. A
         /// manta ORBITS its island, so a creature-keyed radius made every lap a
         /// remove/re-add cycle: the crossing was noise. A whale TRANSITS: it enters
-        /// a peer's sphere once and leaves once per circuit, roughly every twenty
-        /// minutes, and that single crossing IS the feature. Keying the whale on an
-        /// island instead would be worse in both directions - it would hold the
-        /// animal while it was ten kilometres away and drop it while it was
-        /// overhead but between islands.
+        /// a peer's sphere once or twice per WORLD lap - now a little over two hours
+        /// rather than every twenty minutes - and that crossing IS
+        /// the feature. Keying the whale on an island instead would be worse in both
+        /// directions: it would hold the animal while it was ten kilometres away and
+        /// drop it while it was overhead but between islands, and with one migrating
+        /// whale it would also have to answer "which island owns an animal that is
+        /// currently over open sky two cells away", which has no answer.
         /// </summary>
         public const double DefaultLoadRadiusMetres = 1200.0;
 
@@ -220,14 +246,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>
         /// How many whales one peer may hold at once. ONE.
         ///
-        /// This is the safety property, and it is exact rather than probabilistic.
-        /// A region is a MapFile cell several kilometres across and its whale never
-        /// leaves it, so a peer can only be near two whales at all standing on a
-        /// cell boundary; capping at one means the per-peer cost of this entire
-        /// feature is ONE entity and TWO transform updates a second, WHATEVER the
-        /// world's region count. World size and per-peer wire cost are decoupled by
-        /// construction, exactly as <see cref="IslandFaunaInterestPolicy"/> decoupled
-        /// them for the creatures.
+        /// This is the safety property, and since the single-whale rework it is not
+        /// merely exact but TRIVIAL: there is one whale in the world, so a cap of
+        /// one cannot bind. It is kept, and kept as a cap rather than deleted,
+        /// because it is the thing that stated the per-peer cost independently of
+        /// how many whales the world happens to have - ONE entity and TWO transform
+        /// updates a second, whatever a future world does. World size and per-peer
+        /// wire cost stay decoupled by construction, exactly as
+        /// <see cref="IslandFaunaInterestPolicy"/> decoupled them for the creatures.
         /// </summary>
         public const int DefaultPerPeerWhales = 1;
 
@@ -242,6 +268,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// direction it is coming from, and a player who turns and waits is
         /// rewarded about two and a half minutes later. Set this equal to the whale
         /// radius and the feature disappears even though every packet still flows.
+        ///
+        /// SINCE THE SINGLE-WHALE REWORK THIS IS ALSO THE ONLY WARNING THERE IS.
+        /// With one whale in the world most zones are empty most of the time, so a
+        /// call heard while the animal is still crossing open sky towards your cell
+        /// is frequently the first and last cue that it is coming at all. The radius
+        /// was NOT widened to compensate, deliberately: 4 km at
+        /// <see cref="MetresPerSecond"/> is a little over three and a half minutes
+        /// of warning, which is already long enough to stop what you are doing and
+        /// look up, and widening it would be an unmeasured change to the one number
+        /// that decides how the feature feels. It remains an operator knob
+        /// (<see cref="CallRadiusEnvVar"/>) and widening it is the first thing to
+        /// try if the migration turns out to be too easy to miss.
         /// </summary>
         public const double DefaultCallRadiusMetres = 4000.0;
 
@@ -262,19 +300,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public const double CallIntervalSeconds = 120.0;
 
         /// <summary>
-        /// The fewest islands a region needs before it gets a whale.
+        /// The fewest waypoints the WORLD needs before it gets a whale.
         ///
         /// THREE, and this is a structural requirement rather than a taste one: the
-        /// circuit is a CLOSED uniform Catmull-Rom spline through one waypoint per
-        /// island (<see cref="SkyWhaleCircuit"/>), and a closed spline through fewer
-        /// than three distinct control points is not a loop - it is a degenerate
-        /// segment with no tangent, so the animal would have no heading. A region
-        /// under this floor is reported at boot and simply carries no whale, which
-        /// is the state the world was in before this feature existed. Every tier-1
-        /// MapFile cell carries eleven or twelve islands, so no released region is
-        /// near it.
+        /// route is a CLOSED uniform Catmull-Rom spline (<see cref="SkyWhaleCircuit"/>),
+        /// and a closed spline through fewer than three distinct control points is
+        /// not a loop - it is a degenerate segment with no tangent, so the animal
+        /// would have no heading. A world under this floor is reported at boot and
+        /// simply carries no whale, which is the state the world was in before this
+        /// feature existed.
+        ///
+        /// IT IS NOW A WORLD-WIDE FLOOR RATHER THAN A PER-REGION ONE, and that is a
+        /// small feature rather than only a rename: a cell with one or two islands
+        /// used to be silently skipped by its own whale, and is now simply two more
+        /// control points on the world route. No cell can be left out of the
+        /// migration for being small. Every tier-1 MapFile cell carries eleven or
+        /// twelve islands, so the released world is nowhere near the floor.
         /// </summary>
-        public const int MinimumIslandsPerRegion = 3;
+        public const int MinimumIslands = 3;
+
+        /// <summary>
+        /// The most interior points one zone-to-zone crossing may be split into.
+        /// WAREBORN TUNING, and a guard rather than a target.
+        ///
+        /// <see cref="SkyWhaleRoute"/> resamples each crossing at the median
+        /// zone-internal leg length so uniform Catmull-Rom does not fly it at six
+        /// times the whale's speed; on the release catalogue that is a handful of
+        /// points per crossing. This bounds the pathological case - a cell holding a
+        /// single island on the far side of the map, whose crossing could be
+        /// hundreds of times the median hop - so a bad catalogue costs the published
+        /// route a few kilobytes rather than a few megabytes. Hitting it means the
+        /// whale crosses that one leg fast, which is a cosmetic failure; not having
+        /// it would mean the map payload is unbounded, which is not.
+        /// </summary>
+        public const int MaxTransitPointsPerLeg = 64;
 
         /// <summary>
         /// Whether the sky whale is switched on, from the operator's
@@ -307,26 +366,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 : Math.Min(loadRadius + UnloadMarginMetres, InterestPolicy.MaxRadiusMetres);
 
         /// <summary>
-        /// WHERE ON ITS CIRCUIT a region's whale starts, as a fraction of a lap.
+        /// WHERE ON ITS ROUTE the whale starts, as a fraction of a lap.
         ///
-        /// FNV-1a over the region id, and the choice of hash is load-bearing for the
+        /// FNV-1a over the route id, and the choice of hash is load-bearing for the
         /// same reason it is in <see cref="IslandFaunaPolicy.JellySpeciesFor"/>:
         /// .NET string hashing is RANDOMISED PER PROCESS, so a restarted server
-        /// would re-phase every whale and a reconnecting player would find the
-        /// animal somewhere else entirely. FNV-1a over the id's characters is a pure
+        /// would re-phase the whale and a reconnecting player would find the animal
+        /// somewhere else entirely. FNV-1a over the id's characters is a pure
         /// function of the name, forever - which is what makes the whole pose a
         /// replayable function of the clock.
         ///
-        /// Spreading the regions' phases is not cosmetic either: it stops every
-        /// whale in the world from being over an island at the same instant, so the
-        /// world-wide call schedule is spread rather than synchronised.
+        /// It also stops the animal being in the same zone at every boot, which with
+        /// four whales was merely tidy and with ONE decides which cell gets the whale
+        /// first after a restart.
         /// </summary>
-        public static double PhaseFractionFor(RegionId region)
+        public static double PhaseFractionFor(string routeId)
         {
             const uint OffsetBasis = 2166136261;
             const uint Prime = 16777619;
             uint hash = OffsetBasis;
-            string id = region.ToString();
+            string id = routeId ?? string.Empty;
             for (int i = 0; i < id.Length; i++)
             {
                 hash = (hash ^ id[i]) * Prime;

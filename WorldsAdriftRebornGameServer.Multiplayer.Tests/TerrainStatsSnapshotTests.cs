@@ -66,10 +66,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // per-peer holdings); v9 was claimed by the concurrent ecology work
             // and is deliberately skipped so two branches cannot both mean
             // different things by the same number. v11 adds the `skyWhale`
-            // section. The version is asserted here rather than compared to
-            // itself so a field added without a bump has to walk past a red test.
-            Assert.Equal(11, StatsSnapshot.SchemaVersion);
-            Assert.Equal(11, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // section; v12 reshapes it, because the sky whale went from one animal
+            // per region to ONE migrating animal and `regions` became `whales` -
+            // a reader that kept reading the old key would have drawn a whale per
+            // cell out of a feed that no longer means that. The version is asserted
+            // here rather than compared to itself so a field added without a bump
+            // has to walk past a red test.
+            Assert.Equal(12, StatsSnapshot.SchemaVersion);
+            Assert.Equal(12, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

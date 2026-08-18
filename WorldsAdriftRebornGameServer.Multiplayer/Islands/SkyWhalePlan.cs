@@ -3,41 +3,56 @@ using WorldsAdriftRebornGameServer.Multiplayer.Regions;
 namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 {
     /// <summary>
-    /// One region's whale, as a pair of wire identities.
+    /// THE whale, as a pair of wire identities.
     ///
     /// The CALLER IS PART OF THE ANIMAL, not a separate feature, which is why it
     /// gets an id here rather than from somewhere else: a call is meaningless
     /// without the whale it belongs to, and pairing the ids means a log line naming
-    /// 2_200_000_004 and one naming 2_200_000_005 are visibly the same creature.
+    /// 2_200_000_000 and one naming 2_200_000_001 are visibly the same creature.
+    ///
+    /// NO REGION. There used to be one, and its removal is the whole rework: the
+    /// animal belongs to the world and its zone is a function of the clock
+    /// (<see cref="SkyWhaleCircuit.WhereAt"/>), not a field. A record that still
+    /// carried a region would be the first place a reader - or a future feature -
+    /// would go looking for "the whale's cell", and would get an answer that stopped
+    /// being true a quarter of an hour after boot.
     /// </summary>
     /// <param name="EntityId">The animal. Inside the whale band; see
     /// <see cref="SkyWhalePolicy.FirstWhaleEntityId"/>.</param>
     /// <param name="CallEntityId">Its invisible caller, always
     /// <see cref="EntityId"/> + 1.</param>
-    /// <param name="Region">The region it never leaves.</param>
-    public readonly record struct SkyWhale(long EntityId, long CallEntityId, RegionId Region);
+    /// <param name="RouteId">The route it flies, named after the cells it covers.
+    /// See <see cref="SkyWhaleRoute.RouteIdFor"/> - the map joins its published
+    /// geometry to the live whale on exactly this string.</param>
+    public readonly record struct SkyWhale(long EntityId, long CallEntityId, string RouteId);
 
-    /// <summary>One region's whale and the circuit it flies.</summary>
+    /// <summary>The world's whale and the route it flies.</summary>
     public readonly record struct SkyWhalePlacement(SkyWhale Whale, SkyWhaleCircuit Circuit);
 
     /// <summary>
-    /// WHICH REGIONS GET A WHALE, and where its circuit's waypoints are.
+    /// WHERE THE WORLD'S ONE WHALE FLIES, and where its route's waypoints are.
     ///
     /// PURE AND TOTAL, and for the reason
     /// <see cref="IslandFaunaPolicy.PopulationFor"/> gives: this is a function of
     /// the selected island set and NOTHING else - no clock, no entropy, no
-    /// accumulated state - so a restarted server re-derives byte-identical entity
-    /// ids in byte-identical order, and a reconnecting player is not handed a whale
-    /// whose id used to mean something else. Nothing is persisted because nothing
-    /// needs to be.
+    /// accumulated state - so a restarted server re-derives a byte-identical route
+    /// and byte-identical entity ids, and a reconnecting player is not handed a
+    /// whale whose id used to mean something else. Nothing is persisted because
+    /// nothing needs to be.
     ///
-    /// A REGION IS A MAPFILE CELL. That is not this file's invention: it is
-    /// exactly the grouping <see cref="RegionRegistry.CreateReleaseWorld"/> already
-    /// turns into <c>release-&lt;cell&gt;-region</c>, and
+    /// A ZONE IS A MAPFILE CELL. That is not this file's invention: it is exactly
+    /// the grouping <see cref="RegionRegistry.CreateReleaseWorld"/> already turns
+    /// into <c>release-&lt;cell&gt;-region</c>, and
     /// <see cref="SkyWhalePolicy.RegionIdForCell"/> is the one place the name is
-    /// formed so the two cannot drift apart. Haven is deliberately not a region
-    /// here: it has one island, carries no surveyed release record, and a circuit
-    /// through one point is not a circuit.
+    /// formed so the two cannot drift apart. Haven is deliberately not a zone here:
+    /// it has one island and carries no surveyed release record.
+    ///
+    /// EVERY CELL IS ON THE ROUTE, including one that carries a single island. That
+    /// is a change: a cell used to need three islands to have a whale of its own and
+    /// was otherwise silently skipped, whereas the world route simply strings its
+    /// islands in with the rest. The three-waypoint floor is now the WORLD's, and it
+    /// is a structural property of a closed spline rather than a per-cell budget -
+    /// see <see cref="SkyWhalePolicy.MinimumIslands"/>.
     /// </summary>
     public static class SkyWhalePlan
     {
@@ -68,55 +83,71 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
-        /// Every whale the selected world carries, one per region that can hold a
-        /// circuit, in CELL ORDER.
+        /// The world's zones and their island waypoints, in CELL ORDER - the input
+        /// <see cref="SkyWhaleRoute.Build"/> then re-orders geographically.
         ///
-        /// Cell order is ordinal on the cell id, and it is what pins the entity ids:
-        /// the nth region gets <c>FirstWhaleEntityId + n * EntityIdsPerWhale</c>.
-        /// Ordinal rather than culture-aware for the same reason every other
-        /// stable-ordering comparison on this server is - a locale must not be able
-        /// to renumber the world.
-        ///
-        /// A region with fewer than <see cref="SkyWhalePolicy.MinimumIslandsPerRegion"/>
-        /// islands STILL CONSUMES ITS ID BLOCK even though it carries no whale. That
-        /// looks wasteful and is deliberate: it means adding a district to the
-        /// rollout cannot renumber the whale of a district that was already there,
-        /// which is the same "ids are a pure function of the catalogue, not of the
-        /// selection" property the fauna plan holds.
+        /// Cell order is ordinal on the cell id. Ordinal rather than culture-aware
+        /// for the same reason every other stable-ordering comparison on this server
+        /// is: a locale must not be able to reshape the world. Note that it does NOT
+        /// decide the travel order - the route orders zones by bearing about the
+        /// world centroid, so that a3 does not hand over to b2 across the diagonal -
+        /// it only makes this function's output independent of dictionary iteration.
         /// </summary>
-        public static IReadOnlyList<SkyWhalePlacement> Build(
+        public static IReadOnlyList<SkyWhaleZone> ZonesOf(
             IReadOnlyList<ReleaseIslandRecord> islands)
         {
             if (islands == null) throw new ArgumentNullException(nameof(islands));
 
-            List<SkyWhalePlacement> placements = new List<SkyWhalePlacement>();
-            int index = 0;
+            List<SkyWhaleZone> zones = new List<SkyWhaleZone>();
             foreach (IGrouping<string, ReleaseIslandRecord> cell in islands
                 .GroupBy(record => record.CellId, StringComparer.OrdinalIgnoreCase)
                 .OrderBy(group => group.Key, StringComparer.Ordinal))
             {
-                RegionId region = SkyWhalePolicy.RegionIdForCell(cell.Key);
-                long entityId = SkyWhalePolicy.FirstWhaleEntityId
-                    + ((long)index * SkyWhalePolicy.EntityIdsPerWhale);
-                index++;
-
-                SkyWhaleCircuit? circuit = SkyWhaleCircuit.Build(
-                    region, cell.Select(WaypointFor));
-                if (circuit == null)
-                {
-                    continue;
-                }
-
-                placements.Add(new SkyWhalePlacement(
-                    new SkyWhale(entityId, entityId + 1, region), circuit));
+                zones.Add(new SkyWhaleZone(
+                    SkyWhalePolicy.RegionIdForCell(cell.Key),
+                    cell.Select(WaypointFor).ToArray()));
             }
-            return placements.AsReadOnly();
+            return zones;
         }
 
         /// <summary>
-        /// How many regions the selected world has, whether or not each can carry a
-        /// whale. Reported at boot beside the seeded count so an operator is told
-        /// "3 of 4" rather than left to notice a silent region.
+        /// The world's whale, or null when the selected world cannot carry one.
+        ///
+        /// ONE placement, not a list, and the signature is the design: there is one
+        /// whale, its entity ids are the bottom of the band and never move, and no
+        /// caller can be written that iterates over "the whales" and quietly starts
+        /// working again if a second one ever appears. If a second whale is ever
+        /// wanted it should be a deliberate change to this signature, not a list
+        /// that silently grew.
+        /// </summary>
+        public static SkyWhalePlacement? Build(IReadOnlyList<ReleaseIslandRecord> islands)
+        {
+            if (islands == null) throw new ArgumentNullException(nameof(islands));
+
+            // NAMED AFTER THE CELLS IT COVERS, because the route IS a function of
+            // them - see SkyWhaleRoute.RouteIdFor for the map join this protects.
+            string routeId = SkyWhaleRoute.RouteIdFor(
+                islands.Select(record => record.CellId));
+
+            SkyWhaleCircuit? circuit = SkyWhaleCircuit.Build(
+                routeId, SkyWhaleRoute.Build(ZonesOf(islands)));
+            if (circuit == null)
+            {
+                return null;
+            }
+
+            return new SkyWhalePlacement(
+                new SkyWhale(
+                    SkyWhalePolicy.FirstWhaleEntityId,
+                    SkyWhalePolicy.FirstWhaleEntityId + 1,
+                    routeId),
+                circuit);
+        }
+
+        /// <summary>
+        /// How many zones the selected world has. Reported at boot beside the route's
+        /// own zone list so an operator is told what the migration covers rather than
+        /// left to count waypoints.
         /// </summary>
         public static int RegionCount(IReadOnlyList<ReleaseIslandRecord> islands)
         {

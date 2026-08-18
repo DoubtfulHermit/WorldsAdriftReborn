@@ -499,24 +499,40 @@
     // The loop starts for the WHALE too: its circuits are a separate static
     // block, so a build that shipped one model and not the other must still
     // animate whatever it does have rather than nothing.
-    if(!FAUNA&&!whaleCircuits().length)return;
+    if(!FAUNA&&!whaleRoutes().length)return;
     if(faunaFrame===null)faunaFrame=requestAnimationFrame(faunaTick);
   }
 
 
 
   // ---- the sky whale ------------------------------------------------------
-  // ONE ANIMAL PER REGION, and the same honesty rule the wildlife above
-  // follows: nothing here is drawn from a guess. The CIRCUIT is static
-  // geometry that ships in worldMap.whaleCircuits - computed once by the game
-  // server's own SkyWhalePlan, in TRAVEL ORDER, so the browser never re-derives
-  // the ring and cannot fly a different loop than the game does. WHICH regions
-  // actually carry a whale, and AT WHAT CLOCK, are live facts that arrive in the
-  // stats feed. No roster and no clock means no whale.
+  // ONE ANIMAL IN THE WHOLE WORLD, migrating from zone to zone, and the same
+  // honesty rule the wildlife above follows: nothing here is drawn from a guess.
+  // The ROUTES are static geometry that ships in worldMap.whaleRoutes - computed
+  // once by the game server's own SkyWhaleRoute, in TRAVEL ORDER, so the browser
+  // never re-derives the order of the zones or of the islands inside them and
+  // cannot draw a different migration than the game flies. WHETHER a whale is
+  // live, WHICH ROUTE it flies, WHERE it is in zone terms, and AT WHAT CLOCK, are
+  // live facts that arrive in the stats feed. No live row and no clock means no
+  // whale.
+  //
+  // ROUTES, PLURAL, AND THE JOIN IS EXACT. The route is a function of which cells
+  // the game server rolled out, so this file carries one route per cell set a
+  // rollout can name in a word and the live row says which one is being flown. A
+  // server whose cell set is not published here gets NO whale drawn and a note
+  // that says why - never the nearest route, which would put a 173 m animal
+  // confidently on the wrong side of the world.
+  //
+  // THE MOTION MIRROR BELOW DID NOT CHANGE when four whales became one, and that
+  // is the point of expressing the migration as control points rather than as an
+  // event: a zone-to-zone crossing is just more segments of the same closed
+  // spline, so there was nothing new for a second evaluator to get wrong.
   //
   // The waypoints arrive as ISLAND-LOCAL offsets, exactly as the preserved
   // coastlines do, and are added to the drawn MapFile placement - so the animal
-  // is always in the right relationship to the rocks it flies between.
+  // is always in the right relationship to the rocks it flies between. A
+  // CROSSING point is anchored to the nearer of the two islands its leg runs
+  // between, for the same reason.
 
   // ==== SKY WHALE MOTION MIRROR BEGIN ====
   function whaleMotion(){
@@ -561,33 +577,46 @@
   var WHALE=whaleMotion();
   var whaleAnchor=null;   // {clock,perf} - the server's whale clock on ours
   var whaleStat=null;     // the live section, or null when nothing may be drawn
-  var whaleRoster=[];     // [{regionId,ring,circuitSeconds,phaseFraction,call}]
+  var whaleLive=null;     // the live row: ids, call station, zone, next zone
+  var whaleRoute=null;    // {routeId,ring,transit[],regions[],circuitSeconds,phaseFraction}
   var whalePool=[],whalePathPool=[],whaleCallPool=[],whalePathKey='';
   // Two samples of the SAME path give the bearing, as the fauna glyphs do.
   var WHALE_HEADING_DT=0.6;
 
-  function whaleCircuits(){return (worldMap&&worldMap.whaleCircuits)||[];}
-  // The ring in DRAWN world metres: each waypoint's island-local offset added
-  // to the MapFile placement the map already draws that island at. Null when an
-  // island of the circuit is not on this map - a partial ring would be a
-  // different loop, and a different loop is worse than no whale.
-  function whaleRing(circuit){
-    var ring=[],points=circuit.waypoints||[];
+  function whaleRoutes(){return (worldMap&&worldMap.whaleRoutes)||[];}
+  // The published route the live whale is actually flying, by exact id. Null when
+  // this map carries no route for that cell set - see the header.
+  function whaleGeometry(routeId){
+    var routes=whaleRoutes();
+    for(var i=0;i<routes.length;i++)
+      if(String(routes[i].routeId||'')===String(routeId||''))return routes[i];
+    return null;
+  }
+  // The route in DRAWN world metres: each waypoint's island-local offset added
+  // to the MapFile placement the map already draws that island at. Null when any
+  // island of the route is not on this map - a partial route would be a
+  // DIFFERENT migration, and a different migration is worse than no whale.
+  function whaleRing(route){
+    var ring=[],transit=[],regions=[],points=(route&&route.waypoints)||[];
     for(var i=0;i<points.length;i++){
       var node=faunaById[points[i].islandId];
       if(!node||!node.island)return null;
       ring.push({x:Number(node.island.x)+Number(points[i].lx),
                  y:Number(node.island.y)+Number(points[i].ly),
                  z:Number(node.island.z)+Number(points[i].lz)});
+      transit.push(Number(points[i].t)===1);
+      // The zone as an INDEX into this route's own regionIds - only ever compared
+      // with another index, never used to name anything.
+      regions.push(Number(points[i].z));
     }
-    return ring.length>=3?ring:null;
+    return ring.length>=3?{ring:ring,transit:transit,regions:regions}:null;
   }
   function noteWhale(g){
     var w=(g&&g.skyWhale)||null;
-    var live=!!(w&&w.present===true&&w.enabled===true&&(w.regions||[]).length
+    var live=!!(w&&w.present===true&&w.enabled===true&&(w.whales||[]).length
                 &&g.reporting===true&&g.stale!==true);
     whaleStat=live?w:null;
-    if(!live){whaleAnchor=null;whaleRoster=[];return;}
+    if(!live){whaleAnchor=null;whaleLive=null;whaleRoute=null;return;}
 
     // Carried on OUR monotonic clock rather than the wall clock, and
     // re-anchored only on a real jump - the same rule and the same two cases
@@ -597,26 +626,30 @@
     if(predicted===null||Math.abs(predicted-reported)>2)
       whaleAnchor={clock:reported,perf:now};
 
-    var byRegion={};
-    whaleCircuits().forEach(function(c){byRegion[c.regionId]=c;});
-    whaleRoster=[];
-    (w.regions||[]).forEach(function(row){
-      var c=byRegion[row.regionId];if(!c)return;
-      var ring=whaleRing(c);if(!ring)return;
-      whaleRoster.push({regionId:row.regionId,ring:ring,
-        circuitSeconds:Number(c.circuitSeconds)||0,
-        phaseFraction:Number(c.phaseFraction)||0,
-        lengthMetres:Number(c.lengthMetres)||0,
-        callIndex:Number(row.callIndex)||0,
-        callX:Number(row.callX)||0,callY:Number(row.callY)||0,callZ:Number(row.callZ)||0});
-    });
+    var row=(w.whales||[])[0]||null;
+    whaleLive=null;whaleRoute=null;
+    if(!row)return;
+    // The live row NAMES the route it flies, and only that route may be drawn: a
+    // cell set this map does not carry means no whale, never a near miss.
+    var geometry=whaleGeometry(row.routeId);
+    if(!geometry)return;
+    var built=whaleRing(geometry);if(!built)return;
+
+    whaleLive=row;
+    whaleRoute={routeId:String(geometry.routeId||''),
+      ring:built.ring,transit:built.transit,regions:built.regions,
+      circuitSeconds:Number(geometry.circuitSeconds)||0,
+      phaseFraction:Number(geometry.phaseFraction)||0,
+      lengthMetres:Number(geometry.lengthMetres)||0,
+      islandCount:Number(geometry.islandCount)||0,
+      regionIds:(geometry.regionIds||[]).map(String)};
   }
   function whaleElapsed(){
     return whaleAnchor?whaleAnchor.clock+(faunaNow()-whaleAnchor.perf)/1000:0;
   }
   function whaleVisible(){
     var box=$('mapFauna');
-    return !!(whaleRoster.length&&box&&box.checked);
+    return !!(whaleRoute&&box&&box.checked);
   }
   function whaleNode(pool,index,cls,make){
     var n=pool[index];
@@ -624,25 +657,52 @@
       $('mapWhaleLayer').appendChild(n.el);}
     return n;
   }
-  // The circuit itself, drawn once per roster rather than once per frame: it is
-  // static geometry and repainting a 12-waypoint polyline sixty times a second
-  // would cost more than the animal on it.
+  // The route itself, drawn once per roster rather than once per frame: it is
+  // static geometry and repainting a sixty-waypoint polyline sixty times a
+  // second would cost more than the animal on it.
+  //
+  // TWO PATHS, NOT ONE, and this is the migration made visible. The legs inside
+  // a zone are drawn solid - that is the tour a player of that cell sees - and
+  // the CROSSINGS between zones are drawn dashed, because they are the part of
+  // the route during which nobody's sky has a whale in it. Drawn as one polyline
+  // the whole thing reads as a single scribble over the map and the fact that
+  // the animal LEAVES is invisible.
   function paintWhalePaths(){
-    var key=whaleRoster.map(function(r){return r.regionId;}).join('|');
+    var key=whaleRoute?whaleRoute.routeId+'|'+whaleRoute.ring.length:'';
     if(key===whalePathKey)return;
     whalePathKey=key;
     var i;
-    for(i=0;i<whaleRoster.length;i++){
-      var r=whaleRoster[i];
-      var n=whaleNode(whalePathPool,i,'whale-path',function(){return svgEl('path',{});});
-      var d='',steps=r.ring.length*16;
-      for(var s=0;s<=steps;s++){
-        var p=WHALE.positionAt(r.ring,s/steps);
-        d+=(s?'L':'M')+p.x.toFixed(1)+' '+(-p.z).toFixed(1)+' ';
+    if(whaleRoute){
+      var ring=whaleRoute.ring,n=ring.length,per=16;
+      var solid='',dashed='',lastSolid=false,lastDashed=false;
+      for(var seg=0;seg<n;seg++){
+        // A CROSSING is any segment that is not between two island waypoints of
+        // the same zone. Classified the same way the game server classifies it
+        // (SkyWhaleCircuit.WhereAt) - but only for INK: which zone the whale is
+        // in right now is never decided here, it arrives in the live row.
+        var crossing=whaleRoute.transit[seg]||whaleRoute.transit[(seg+1)%n]
+          ||whaleRoute.regions[seg]!==whaleRoute.regions[(seg+1)%n];
+        for(var step=0;step<=per;step++){
+          var p=WHALE.positionAt(ring,(seg+step/per)/n);
+          var xy=p.x.toFixed(1)+' '+(-p.z).toFixed(1)+' ';
+          if(crossing){dashed+=(lastDashed?'L':'M')+xy;lastDashed=true;lastSolid=false;}
+          else{solid+=(lastSolid?'L':'M')+xy;lastSolid=true;lastDashed=false;}
+        }
       }
-      n.el.setAttribute('d',d);
-      n.el.style.display='';
-    }
+      var tour=whaleNode(whalePathPool,0,'whale-path',function(){return svgEl('path',{});});
+      tour.el.setAttribute('d',solid);
+      tour.el.style.display='';
+      var cross=whaleNode(whalePathPool,1,'whale-path',function(){return svgEl('path',{});});
+      cross.el.setAttribute('d',dashed);
+      // Set here rather than in the stylesheet: this is the ONLY thing on the
+      // map that needs it, and a rule in a shared sheet would be a second file
+      // to keep in step with a single element.
+      cross.el.setAttribute('stroke-dasharray','14 10');
+      cross.el.setAttribute('vector-effect','non-scaling-stroke');
+      cross.el.style.opacity='.65';
+      cross.el.style.display='';
+      i=2;
+    }else{i=0;}
     for(;i<whalePathPool.length;i++)whalePathPool[i].el.style.display='none';
   }
   function renderWhaleFrame(){
@@ -653,63 +713,90 @@
     }
     if(layer.style.display==='none')layer.style.display='';
     paintWhalePaths();
-    var t=whaleElapsed(),i;
-    for(i=0;i<whaleRoster.length;i++){
-      var r=whaleRoster[i];
-      var a=WHALE.positionAt(r.ring,WHALE.lapAt(r,t));
-      var b=WHALE.positionAt(r.ring,WHALE.lapAt(r,t+WHALE_HEADING_DT));
-      // Screen space: x is world east, y is world NORTH NEGATED, as everything
-      // else on this map is. The glyph's nose is at -y.
-      var sx=b.x-a.x,sy=-(b.z-a.z);
-      var deg=(sx*sx+sy*sy)>1e-9?Math.atan2(sx,-sy)*180/Math.PI:0;
-      // Sized so a 173 m animal never outshouts the island it is passing, and
-      // never shrinks below a mark you can find at whole-world zoom.
-      var size=Math.round(Math.max(11,Math.min(26,172.88/mapPx))*2)/2;
-      var g=whaleNode(whalePool,i,'whale',function(){
-        var el=svgEl('g',{});el.appendChild(svgEl('use',{href:'#whaleSymbol'}));return el;});
-      var use=g.el.firstChild;
-      use.setAttribute('x',-size/2);use.setAttribute('y',-size/2);
-      use.setAttribute('width',size);use.setAttribute('height',size);
-      g.el.setAttribute('transform','translate('+a.x.toFixed(2)+' '+(-a.z).toFixed(2)
-        +') scale('+mapPx+') rotate('+deg.toFixed(1)+')');
-      g.el.style.display='';
+    var r=whaleRoute,t=whaleElapsed();
+    var a=WHALE.positionAt(r.ring,WHALE.lapAt(r,t));
+    var b=WHALE.positionAt(r.ring,WHALE.lapAt(r,t+WHALE_HEADING_DT));
+    // Screen space: x is world east, y is world NORTH NEGATED, as everything
+    // else on this map is. The glyph's nose is at -y.
+    var sx=b.x-a.x,sy=-(b.z-a.z);
+    var deg=(sx*sx+sy*sy)>1e-9?Math.atan2(sx,-sy)*180/Math.PI:0;
+    // Sized so a 173 m animal never outshouts the island it is passing, and
+    // never shrinks below a mark you can find at whole-world zoom.
+    var size=Math.round(Math.max(11,Math.min(26,172.88/mapPx))*2)/2;
+    var g=whaleNode(whalePool,0,'whale',function(){
+      var el=svgEl('g',{});el.appendChild(svgEl('use',{href:'#whaleSymbol'}));return el;});
+    var use=g.el.firstChild;
+    use.setAttribute('x',-size/2);use.setAttribute('y',-size/2);
+    use.setAttribute('width',size);use.setAttribute('height',size);
+    g.el.setAttribute('transform','translate('+a.x.toFixed(2)+' '+(-a.z).toFixed(2)
+      +') scale('+mapPx+') rotate('+deg.toFixed(1)+')');
+    g.el.style.display='';
 
-      // WHERE THE LAST CALL CAME FROM. Not derived here: the station rides the
-      // live feed, because it is a discrete event pinned to one place for two
-      // minutes and a second derivation could disagree with the wire.
-      var c=whaleNode(whaleCallPool,i,'whale-call',function(){return svgEl('circle',{});});
-      c.el.setAttribute('cx',r.callX.toFixed(2));
-      c.el.setAttribute('cy',(-r.callZ).toFixed(2));
-      c.el.setAttribute('r',(((worldMap.whaleModel||{}).callRadiusMetres)||0).toFixed(0));
-      c.el.style.display='';
-    }
-    for(;i<whalePool.length;i++){
+    // WHERE THE LAST CALL CAME FROM. Not derived here: the station rides the
+    // live feed, because it is a discrete event pinned to one place for two
+    // minutes and a second derivation could disagree with the wire. With one
+    // whale in the world this ring is often the only thing on the map telling a
+    // player of an empty zone that anything is coming.
+    var c=whaleNode(whaleCallPool,0,'whale-call',function(){return svgEl('circle',{});});
+    c.el.setAttribute('cx',(Number(whaleLive.callX)||0).toFixed(2));
+    c.el.setAttribute('cy',(-(Number(whaleLive.callZ)||0)).toFixed(2));
+    c.el.setAttribute('r',(((worldMap.whaleModel||{}).callRadiusMetres)||0).toFixed(0));
+    c.el.style.display='';
+
+    for(var i=1;i<whalePool.length;i++){
       whalePool[i].el.style.display='none';
       if(whaleCallPool[i])whaleCallPool[i].el.style.display='none';
     }
   }
+  // WHERE IT IS AND WHERE IT IS GOING, in words, because the glyph alone cannot
+  // say "and it is leaving your cell in four minutes". Every zone name and every
+  // countdown here is QUOTED from the live row - the game server classifies its
+  // own whereabouts once (SkyWhaleCircuit.WhereAt) and this never re-derives
+  // them, so the map and the game cannot disagree about the headline fact.
+  function whaleWhereText(){
+    if(!whaleLive)return '';
+    var here=String(whaleLive.regionId||''),next=String(whaleLive.nextRegionId||'');
+    var toNext=Number(whaleLive.nextRegionSeconds)||0;
+    var where=here
+      ? 'It is over '+here+' right now'
+        +(whaleLive.nextIslandId?(', reaching '+whaleLive.nextIslandId+' in '
+            +fmtShort(Number(whaleLive.nextIslandSeconds)||0)):'')
+      : 'It is CROSSING open sky between zones right now'
+        +(next?(', heading for '+next):'');
+    if(!next)return where+'. ';
+    return where+'. Next zone: '+next
+      +(whaleLive.nextRegionIslandId?(', entering it over '+whaleLive.nextRegionIslandId):'')
+      +' in '+fmtShort(toNext)+' - stand there and look up. ';
+  }
   function whaleNoteText(){
-    if(!whaleStat){
+    if(!whaleRoute){
       var w=(latestGame&&latestGame.skyWhale)||null;
       if(w&&w.present===true&&w.enabled!==true)
         return 'Sky whale: the game server has the feature and it is switched OFF, so none is drawn.';
+      if(w&&w.present===true&&(w.whales||[]).length)
+        return 'Sky whale: the game server has one, but it is flying a route over a set of map cells '
+          +'this map does not carry geometry for, so nothing is drawn rather than something wrong.';
       if(w&&w.present===true)
-        return 'Sky whale: switched on, but the server reports no whale - a region needs at least '
-          +(((worldMap.whaleModel||{}).minimumIslandsPerRegion)||3)+' islands to carry one.';
+        return 'Sky whale: switched on, but the server reports no whale - the world route needs at least '
+          +(((worldMap.whaleModel||{}).minimumIslands)||3)+' waypoints to exist.';
       return 'Sky whale: this game server predates the feature and reports no whale section, so none is drawn.';
     }
     var M=worldMap.whaleModel||{};
-    var laps=whaleRoster.map(function(r){return r.circuitSeconds;});
-    var lo=Math.min.apply(null,laps),hi=Math.max.apply(null,laps);
-    return 'Sky whale (live): '+plural(whaleRoster.length,'whale','whales')+', one per region, each on a '
-      +'closed circuit through every island of its own region - '
-      +(lo===hi?fmtShort(lo):(fmtShort(lo)+' to '+fmtShort(hi)))+' a lap at '
-      +(Number(M.metresPerSecond)||0)+' m/s average, '+(Number(M.altitudeAboveIslandMetres)||0)
-      +' m above each island it crosses. It calls every '+fmtShort(Number(M.callIntervalSeconds)||0)
+    var zones=whaleRoute.regionIds.length;
+    return 'Sky whale (live): ONE whale for the whole world, migrating between '
+      +plural(zones,'zone','zones')+' on a single closed route through all '
+      +whaleRoute.islandCount+' islands - '+fmtShort(whaleRoute.circuitSeconds)
+      +' for a full world lap at '+(Number(M.metresPerSecond)||0)+' m/s average, '
+      +(Number(M.altitudeAboveIslandMetres)||0)+' m above each island it crosses. '
+      +'Solid legs are the tour inside a zone; dashed legs are the crossings between them, '
+      +'during which no zone has a whale at all. '+whaleWhereText()
+      +'Any one island is passed ONCE a lap, so seeing it is meant to be an event. '
+      +'It calls every '+fmtShort(Number(M.callIntervalSeconds)||0)
       +'; the ring marks where the current call is sounding from, and it is '
       +fmt(Number(M.callRadiusMetres)||0)+' m across against a '+fmt(Number(M.loadRadiusMetres)||0)
-      +' m radius at which the animal itself becomes visible - which is why you hear it before you see it. '
-      +'The animal is a RECOVERED prefab (172.88 m long, one required component); its path, speed, '
-      +'altitude and call cadence are WAREBORN TUNING - Worlds Adrift cut the whale and shipped no '
-      +'behaviour for it at all.';
+      +' m radius at which the animal itself becomes visible - which is why you hear it before you see it, '
+      +'and why a call heard mid-crossing may be the only warning your zone gets. '
+      +'The animal is a RECOVERED prefab (172.88 m long, one required component); its route, the '
+      +'zone-migration order, speed, altitude and call cadence are WAREBORN TUNING - Worlds Adrift cut '
+      +'the whale and shipped no behaviour for it at all.';
   }

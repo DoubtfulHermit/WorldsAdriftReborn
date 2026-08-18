@@ -19,11 +19,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     /// player reported it as "they kinda despawn".
     ///
     /// A WHALE IS THE OPPOSITE ANIMAL. It does not orbit anything; it transits. Over
-    /// one circuit - about twenty minutes - it enters a given peer's sphere ONCE and
-    /// leaves ONCE, and that single crossing is not an artefact to be smoothed away,
-    /// it IS the feature: the animal arrives, passes overhead for a minute or two,
-    /// and goes. So the checkout event and the intended experience are the same
-    /// event, and keying on the animal is the only rule that expresses it.
+    /// one world lap - a little over two hours since it became a single migrating
+    /// animal - it enters a given peer's sphere once or twice, and that crossing is
+    /// not an artefact to be smoothed away, it IS the feature: the animal arrives,
+    /// passes overhead for a minute or two, and goes. So the checkout event and the
+    /// intended experience are the same event, and keying on the animal is the only
+    /// rule that expresses it.
+    ///
+    /// ONCE OR TWICE, not exactly twice, and the difference is worth naming because
+    /// the old design could promise the stronger number. A world route can fly a
+    /// CROSSING over a cell it is leaving or entering, so a given island sometimes
+    /// gets a second, separate flyby in the same lap. That is not churn - the two
+    /// are three quarters of an hour apart - and the property that actually matters,
+    /// the one the manta bug violated, still holds exactly: every checkout is a
+    /// WHOLE FLYBY of minutes rather than a flicker of seconds.
+    /// <c>SkyWhaleInterestPolicyTests</c> measures both.
     ///
     /// KEYING IT ON AN ISLAND WOULD BE WORSE IN BOTH DIRECTIONS, which is worth
     /// stating because it was the obvious thing to reuse. The whale belongs to a

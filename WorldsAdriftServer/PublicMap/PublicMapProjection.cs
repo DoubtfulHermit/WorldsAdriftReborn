@@ -157,40 +157,53 @@ namespace WorldsAdriftServer.PublicMap
         }
 
         /// <summary>
-        /// The sky whale section, ADMITTED DELIBERATELY (schema v11).
+        /// The sky whale section, ADMITTED DELIBERATELY (schema v11; reshaped in
+        /// v12 when four region whales became one migrating whale).
         ///
         /// It passes the same test the fauna roster and the ecology block pass:
-        /// everything in it is WORLD GEOGRAPHY and a clock. A region id is the name
-        /// of a MapFile cell, which is already drawn on this page; a call index is a
-        /// count of two-minute windows since the world booted; a call station is a
-        /// point in the sky. There is no player, account, peer or ship identity
-        /// anywhere in it, and none can arrive later without someone adding a line
-        /// to this method.
+        /// everything in it is WORLD GEOGRAPHY and a clock. A route id is the name
+        /// of a path through the map; a region id is the name of a MapFile cell,
+        /// which is already drawn on this page; an island id is already drawn on
+        /// this page too; a call index is a count of two-minute windows since the
+        /// world booted; a call station is a point in the sky. There is no player,
+        /// account, peer or ship identity anywhere in it, and none can arrive later
+        /// without someone adding a line to this method.
+        ///
+        /// THE MIGRATION FIELDS ARE ADMITTED for the same reason and re-checked
+        /// rather than waved through: "which cell is the whale over and which is it
+        /// heading to" is a fact about the world that every visitor to the map sees
+        /// identically at the same moment. It is not a fact about anybody.
         ///
         /// WHAT IS DROPPED, and why. The admin copy carries <c>entityId</c> and
         /// <c>callEntityId</c>, and those are exactly the "entity ids are small
         /// integers and neither may appear" rule in this type's remarks. They are
         /// not anonymized into tokens either, because unlike a player or a ship
-        /// marker there is nothing to correlate: the region id is a stable public
+        /// marker there is nothing to correlate: the route id is a stable public
         /// name for the same thing and is already the join key. The operator tuning
         /// (radii, pose cadence) is dropped for the same reason the fauna budgets
         /// are - the public page has no business knowing what this server is set to.
         /// </summary>
         private static JObject ProjectSkyWhale(GameSkyWhaleStat whale)
         {
-            JArray regions = new JArray();
-            if (whale.Json["regions"] is JArray rows)
+            JArray whales = new JArray();
+            if (whale.Json["whales"] is JArray rows)
             {
                 foreach (JToken token in rows)
                 {
-                    if (token is not JObject region) continue;
-                    regions.Add(new JObject
+                    if (token is not JObject row) continue;
+                    whales.Add(new JObject
                     {
-                        ["regionId"] = (string?)region["regionId"] ?? "",
-                        ["callIndex"] = (long?)region["callIndex"] ?? 0,
-                        ["callX"] = (double?)region["callX"] ?? 0,
-                        ["callY"] = (double?)region["callY"] ?? 0,
-                        ["callZ"] = (double?)region["callZ"] ?? 0,
+                        ["routeId"] = (string?)row["routeId"] ?? "",
+                        ["callIndex"] = (long?)row["callIndex"] ?? 0,
+                        ["callX"] = (double?)row["callX"] ?? 0,
+                        ["callY"] = (double?)row["callY"] ?? 0,
+                        ["callZ"] = (double?)row["callZ"] ?? 0,
+                        ["regionId"] = (string?)row["regionId"] ?? "",
+                        ["nextRegionId"] = (string?)row["nextRegionId"] ?? "",
+                        ["nextRegionIslandId"] = (string?)row["nextRegionIslandId"] ?? "",
+                        ["nextRegionSeconds"] = (double?)row["nextRegionSeconds"] ?? 0,
+                        ["nextIslandId"] = (string?)row["nextIslandId"] ?? "",
+                        ["nextIslandSeconds"] = (double?)row["nextIslandSeconds"] ?? 0,
                     });
                 }
             }
@@ -202,7 +215,7 @@ namespace WorldsAdriftServer.PublicMap
                 ["clockSeconds"] = (double?)whale.Json["clockSeconds"] ?? 0,
                 ["whaleCount"] = whale.WhaleCount,
                 ["callIntervalSeconds"] = (double?)whale.Json["callIntervalSeconds"] ?? 0,
-                ["regions"] = regions,
+                ["whales"] = whales,
             };
         }
 

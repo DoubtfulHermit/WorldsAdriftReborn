@@ -17,9 +17,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
         public SkyWhaleMotionTests(ITestOutputHelper output) => _output = output;
 
-        private static SkyWhaleCircuit Wilderness(string region) => SkyWhalePlan
-            .Build(ReleaseWorldRolloutPolicy.Select("tier1"))
-            .Single(placement => placement.Whale.Region.Value == region).Circuit;
+        /// <summary>
+        /// THE world's route, over the real preserved catalogue. There is one whale
+        /// and one route now, so every test below runs against the same curve the
+        /// server flies rather than against one cell of it.
+        /// </summary>
+        private static SkyWhaleCircuit Wilderness() =>
+            SkyWhalePlan.Build(ReleaseWorldRolloutPolicy.Select("tier1"))!.Value.Circuit;
 
         [Fact]
         public void The_whale_faces_the_way_it_is_travelling()
@@ -28,7 +32,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // was computed and the rotation was left at the client's identity
             // sentinel. Assert the relationship rather than the quaternion: the
             // rotation's own forward axis must be the direction of travel.
-            SkyWhaleCircuit circuit = Wilderness("release-b3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             for (int step = 0; step < 64; step++)
             {
                 double t = step * (circuit.CircuitSeconds / 64.0);
@@ -45,7 +49,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [Fact]
         public void The_rotation_is_a_unit_quaternion_at_every_instant()
         {
-            SkyWhaleCircuit circuit = Wilderness("release-a2-region");
+            SkyWhaleCircuit circuit = Wilderness();
             for (int step = 0; step < 200; step++)
             {
                 FaunaRotation r = SkyWhaleMotion.WorldTransformAt(
@@ -64,8 +68,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // gives the same pose in a fresh process. A month of uptime is included
             // because an error in a divisor of elapsed seconds is multiplied by how
             // long the server has been up.
-            SkyWhaleCircuit first = Wilderness("release-b2-region");
-            SkyWhaleCircuit second = Wilderness("release-b2-region");
+            SkyWhaleCircuit first = Wilderness();
+            SkyWhaleCircuit second = Wilderness();
             foreach (double t in new[] { 0.0, 1.0, 617.25, 3_600.0, 86_400.0, 2_592_000.0 })
             {
                 Assert.Equal(SkyWhaleMotion.WorldTransformAt(first, t),
@@ -79,7 +83,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // Skipping the computation while nobody is looking cannot make the
             // animal drift, because the pose is a function of absolute elapsed time
             // rather than of how often it was asked for.
-            SkyWhaleCircuit circuit = Wilderness("release-a3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             FaunaTransform straightTo = SkyWhaleMotion.WorldTransformAt(circuit, 5_000.0);
             for (double t = 0.0; t < 5_000.0; t += 250.0)
             {
@@ -95,7 +99,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // update more than a metre from where it already is (RECOVERED), so a
             // call cannot be slid along - it is an EVENT at a fixed place, and the
             // index is the only thing the service compares.
-            SkyWhaleCircuit circuit = Wilderness("release-b3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             double interval = SkyWhalePolicy.CallIntervalSeconds;
 
             Assert.Equal(0L, SkyWhaleMotion.CallAt(circuit, 0.0).Index);
@@ -107,7 +111,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [Fact]
         public void A_calls_station_is_where_the_whale_was_when_it_began()
         {
-            SkyWhaleCircuit circuit = Wilderness("release-b3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             double interval = SkyWhalePolicy.CallIntervalSeconds;
             for (long index = 0; index < 12; index++)
             {
@@ -126,7 +130,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // moves. At the tuned speed each call lands roughly two kilometres
             // further along the path than the last - never on top of it, and never
             // so far that the two are unrelated events.
-            SkyWhaleCircuit circuit = Wilderness("release-b3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             double interval = SkyWhalePolicy.CallIntervalSeconds;
             for (long index = 0; index < 8; index++)
             {
@@ -150,7 +154,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // must stay inside a band a player would read as one creature, and a
             // future retuning that widened it to, say, five times would be a bug
             // this pins.
-            SkyWhaleCircuit circuit = Wilderness("release-b3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             double slowest = double.MaxValue, fastest = 0.0;
             const double Step = 0.5;
             for (double t = 0.0; t < circuit.CircuitSeconds; t += Step)
@@ -191,7 +195,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             // FixedPointPosition.FromMetres truncates toward zero at 4096 units per
             // metre, exactly as the client does. A whale is 173 m long, so a quarter
             // of a millimetre is not the issue; matching the client's arithmetic is.
-            SkyWhaleCircuit circuit = Wilderness("release-b3-region");
+            SkyWhaleCircuit circuit = Wilderness();
             (double x, double y, double z) = circuit.PositionAtTime(1234.5);
             Assert.Equal(FixedPointPosition.FromMetres(x, y, z),
                 SkyWhaleMotion.WorldPositionAt(circuit, 1234.5));
