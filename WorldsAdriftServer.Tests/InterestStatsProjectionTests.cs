@@ -111,7 +111,7 @@ namespace WorldsAdriftServer.Tests
             GameStatsSnapshot parsed = GameStatsSnapshot.Parse(JObject.Parse(json));
 
             Assert.True(parsed.Interest.Present);
-            Assert.Equal(10, parsed.SchemaVersion);
+            Assert.Equal(11, parsed.SchemaVersion);
             Assert.True((bool)parsed.Interest.Json["gates"]!["loadBarrier"]!);
         }
     }

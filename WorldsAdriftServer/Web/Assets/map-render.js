@@ -941,7 +941,12 @@
     // The wildlife roster and its clock come from the same snapshot, and the
     // animation loop reads them; nothing is drawn on this pass.
     noteFauna(latestGame);
+    // The sky whale roster and its clock ride the same snapshot. Ordered after
+    // noteFauna because the whale's ring is built from the SAME island->node
+    // join the wildlife uses, and nothing is drawn on this pass either.
+    noteWhale(latestGame);
     text('mapFaunaNote',faunaNoteText());
+    text('mapWhaleNote',whaleNoteText());
     text('mapShipNote',shipNoteText());
     $('mapBiomeLayer').style.display=$('mapBiomes').checked?'':'none';
     $('mapIslandLayer').style.display=$('mapIslands').checked?'':'none';

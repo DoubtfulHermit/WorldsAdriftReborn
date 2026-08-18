@@ -65,11 +65,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // id. v10 adds the interest section (radii, budgets, gates and
             // per-peer holdings); v9 was claimed by the concurrent ecology work
             // and is deliberately skipped so two branches cannot both mean
-            // different things by the same number. The version is asserted here
-            // rather than compared to itself so a field added without a bump has
-            // to walk past a red test.
-            Assert.Equal(10, StatsSnapshot.SchemaVersion);
-            Assert.Equal(10, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // different things by the same number. v11 adds the `skyWhale`
+            // section. The version is asserted here rather than compared to
+            // itself so a field added without a bump has to walk past a red test.
+            Assert.Equal(11, StatsSnapshot.SchemaVersion);
+            Assert.Equal(11, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

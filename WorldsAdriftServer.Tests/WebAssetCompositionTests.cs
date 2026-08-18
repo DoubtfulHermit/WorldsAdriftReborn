@@ -143,6 +143,81 @@ namespace WorldsAdriftServer.Tests
             }
         }
 
+        /// <summary>
+        /// THE COMPOSED SCRIPT MUST PARSE - on both pages.
+        ///
+        /// Every fragment is concatenated into ONE shared closure
+        /// (<see cref="FragmentsAreLoadedInAnOrderThatKeepsOneSharedClosure"/>), so
+        /// an unbalanced brace anywhere in any of them does not break that
+        /// fragment - it breaks the WHOLE console, silently, in a browser nobody is
+        /// looking at during a test run. Every other test in this file compares
+        /// STRINGS, which a syntax error sails straight through.
+        ///
+        /// It PARSES rather than runs: <c>vm.Script</c> compiles the source without
+        /// executing a line of it, so this needs no DOM, no fetch and no fixture,
+        /// and it cannot be fooled by code that happens not to run on a test path.
+        /// </summary>
+        [NodeFact]
+        public void TheComposedScriptOfBothPagesParses()
+        {
+            Check("admin", AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json));
+            Check("public", PublicMapPage.Html("{}", ReleaseWorldMap.Json));
+
+            static void Check(string which, string html)
+            {
+                string source = ExtractScripts(html);
+                Assert.True(source.Length > 1000,
+                    "the " + which + " page composed no script at all");
+
+                string directory = Path.Combine(Path.GetTempPath(),
+                    "wareborn-script-parse-" + Guid.NewGuid().ToString("n"));
+                Directory.CreateDirectory(directory);
+                try
+                {
+                    string sourcePath = Path.Combine(directory, which + ".js");
+                    File.WriteAllText(sourcePath, source);
+                    string harnessPath = Path.Combine(directory, "parse.js");
+                    File.WriteAllText(harnessPath, @"
+const fs = require('fs'), vm = require('vm');
+new vm.Script(fs.readFileSync(process.argv[2], 'utf8'), {filename: process.argv[2]});
+process.stdout.write('ok');
+");
+                    Assert.Equal("ok", NodeFactAttribute.Run(harnessPath, sourcePath).Trim());
+                }
+                finally
+                {
+                    try { Directory.Delete(directory, true); } catch { }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Every executable script block of a served page, concatenated in order.
+        /// JSON blocks are skipped: they are data the page reads, not code, and
+        /// they are not JavaScript.
+        /// </summary>
+        private static string ExtractScripts(string html)
+        {
+            System.Text.StringBuilder source = new System.Text.StringBuilder();
+            int at = 0;
+            while (true)
+            {
+                int open = html.IndexOf("<script", at, StringComparison.Ordinal);
+                if (open < 0) break;
+                int openEnd = html.IndexOf('>', open);
+                int close = html.IndexOf("</script>", openEnd, StringComparison.Ordinal);
+                if (openEnd < 0 || close < 0) break;
+                string tag = html.Substring(open, openEnd - open);
+                if (!tag.Contains("application/json", StringComparison.Ordinal))
+                {
+                    source.Append(html, openEnd + 1, close - openEnd - 1);
+                    source.Append('\n');
+                }
+                at = close + 1;
+            }
+            return source.ToString();
+        }
+
         [Fact]
         public void AnUnfilledPlaceholderIsLoudRatherThanRenderedToABrowser()
         {
