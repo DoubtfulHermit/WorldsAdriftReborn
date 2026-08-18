@@ -58,6 +58,119 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
+        /// THE FIRST REGRESSION THAT SHIPPED: an interaction volume that never broke
+        /// the surface. The client measures range to the
+        /// InteractiveObjectVisualizer's OWN transform, so a prefab whose visualizer
+        /// sits below the plate can be given a radius that no standable point in the
+        /// world satisfies. This is the assertion that catches it: not "is the radius
+        /// non-zero" but "can anybody standing on the thing actually see the prompt".
+        /// </summary>
+        [Fact]
+        public void A_player_standing_anywhere_on_the_plate_is_offered_the_prompt()
+        {
+            // Dead centre.
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius, 0f, WildernessShrine.PadTopAboveVisualiserMetres));
+
+            // And out at the plate's own edge, which is the harder case.
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius,
+                WildernessShrine.PadHalfWidthMetres,
+                WildernessShrine.PadTopAboveVisualiserMetres));
+
+            // The Revival Chamber's plate was 3.204 m above its visualizer; the 3 m
+            // radius this shrine first shipped with could not reach it from anywhere.
+            Assert.False(InteractReach.IsReachable(3.0f, 0f, 3.204f));
+        }
+
+        /// <summary>
+        /// The prompt has to meet the player on the walk up, not only once both feet
+        /// are on a 1.2 m plate they have to find first. Three metres of walk-up ring
+        /// is the difference between "the shrine announced itself" and "I stood on it
+        /// and nothing happened".
+        /// </summary>
+        [Fact]
+        public void The_prompt_reaches_a_walk_up_ring_around_the_plate()
+        {
+            float ring = WildernessShrine.PadHalfWidthMetres + 3.0f;
+
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius, ring, WildernessShrine.PadTopAboveVisualiserMetres));
+        }
+
+        /// <summary>
+        /// The measurements themselves, pinned. They come from the shipped client's
+        /// own copy of the prefab and are the only reason the radius above works; an
+        /// edit here that is not an actual re-measurement is a bug.
+        ///
+        /// The ZERO is the load-bearing one: Respawner01's visualizer is on the
+        /// prefab ROOT, which is what makes a small radius reach at all.
+        /// </summary>
+        [Fact]
+        public void The_plate_geometry_is_the_measured_prefab_geometry()
+        {
+            // Visualizer offset 0.00 + plate collider top 0.20.
+            Assert.Equal(0.20f, WildernessShrine.PadTopAboveVisualiserMetres, 3);
+            // Collision extent: x and z both -0.60 .. +0.60.
+            Assert.Equal(0.60f, WildernessShrine.PadHalfWidthMetres, 3);
+        }
+
+        /// <summary>
+        /// THE SECOND REGRESSION THAT SHIPPED: the shrine was placed inside the
+        /// ruined metal camp. Its nearest authored structure was 13.7 m away and the
+        /// 40 m prefab standing there was driven through the camp's platforms; on
+        /// 2026-08-18 a player logged in inside it and had to be rescued with the
+        /// admin teleport.
+        ///
+        /// This recomputes the clearance from the embedded prop table rather than
+        /// trusting a number in a comment, so moving the shrine back into the camp
+        /// fails here.
+        /// </summary>
+        [Fact]
+        public void The_shrine_stands_clear_of_everything_already_built_on_haven()
+        {
+            double clearance = HavenStructures.ClearanceAt(
+                WildernessShrine.HavenLocalPlacement.X, WildernessShrine.HavenLocalPlacement.Z);
+
+            Assert.True(clearance >= 15.0,
+                "the shrine is " + clearance.ToString("0.0") + " m from an authored Haven structure");
+
+            // The old point, for contrast: it is INSIDE the camp, and this is the
+            // check that was missing when it was chosen.
+            Assert.True(HavenStructures.ClearanceAt(176.00, 16.00) < 15.0);
+        }
+
+        /// <summary>
+        /// Horizontal distance is not clearance on Haven. The camp is a multi-storey
+        /// ruin - the spawn point itself sits under a platform 19.5 m up - so a
+        /// placement also has to have nothing hanging over it.
+        /// </summary>
+        [Fact]
+        public void Nothing_authored_stands_over_the_shrine()
+        {
+            Assert.Equal(0, HavenStructures.CountNear(
+                WildernessShrine.HavenLocalPlacement.X,
+                WildernessShrine.HavenLocalPlacement.Y,
+                WildernessShrine.HavenLocalPlacement.Z,
+                radiusMetres: 8.0, belowMetres: 2.0, aboveMetres: 25.0));
+        }
+
+        /// <summary>
+        /// The prefab has to be one whose InteractiveObjectVisualizer is on the ROOT.
+        /// That is not a style preference: the client measures interaction range to
+        /// the visualizer's own transform, and the Revival Chamber failed precisely
+        /// because its visualizer was on a child at the bottom of a sealed well. A
+        /// zero offset is the property that makes a small radius work.
+        /// </summary>
+        [Fact]
+        public void The_shrine_prefab_carries_its_interaction_on_its_own_origin()
+        {
+            Assert.Equal("Respawner01", WildernessShrine.AssetName);
+            // Visualizer offset zero => the plate top is the only vertical term.
+            Assert.True(WildernessShrine.PadTopAboveVisualiserMetres < 1.0f);
+        }
+
+        /// <summary>
         /// It has to be findable from where a new player wakes up: a walk, not an
         /// expedition, and on the same shelf rather than up a cliff.
         /// </summary>

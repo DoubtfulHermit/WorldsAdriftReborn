@@ -6,58 +6,80 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
     /// THE OBJECT. One world entity on Haven that a player walks up to and
     /// activates to leave the tutorial island for the Wilderness.
     ///
-    /// WHY THIS PREFAB AND NOT AN INVENTED ONE. Retail's graduation from Haven was
-    /// not a ship and not a hidden trigger - it was a device, and we know which
-    /// one. The shipped Act 1 quest chain ends at quest 105, "Access the Revival
-    /// chamber located at the center of the island", and the shipped instruction
-    /// string is literally:
+    /// WHAT RETAIL AUTHORED. The shipped Act 1 quest chain ends at quest 105,
+    /// "Access the Revival chamber located at the center of the island", and the
+    /// shipped instruction string is literally:
     ///
     ///   "Interact with the platform inside the Revival Chamber to activate the
     ///    Revival Chamber Interface, and teleport - together with other players on
     ///    the platform - to The Wilderness."
     ///
     /// (docs/research/loop/findings-first-hour.md.) So the authored mechanic is a
-    /// Revival Chamber you interact with that teleports a GROUP to Tier 1 - which
-    /// is, to the word, the mechanic being built here. The client class behind it
-    /// is <c>AncientRespawner</c>, whose whole body is
-    /// <c>DisplayName = "Revival Chamber"</c>, and the Haven-specific prefab is
-    /// <see cref="AssetName"/>: it is line 80 of the entity-prefab census
-    /// (docs/research/world-data/prefab-keys.txt,
-    /// <c>entityprefabs/havenancientrespawner_unityclient</c>) and
-    /// docs/research/loop/data/prefab-names.tsv:81 records both a client and a
-    /// worker prefab for it. The census is the same file
-    /// <see cref="Ship.ClientEntityPrefabs"/> loads at runtime to refuse prefabs a
-    /// client could not resolve, so this name is EVIDENCED-loadable rather than
-    /// hoped-for. Nothing in the shipped island-prop library would have been better:
-    /// the two <c>shrine1</c>/<c>shrine2</c> meshes are island-bundle decoration
-    /// with no entity prefab and cannot be given to a <c>WorldEntity</c> at all.
+    /// PLATFORM you interact with that teleports a GROUP to Tier 1 - which is, to
+    /// the word, the mechanic being built here.
+    ///
+    /// WHY NOT <c>HavenAncientRespawner</c>, WHICH IS THE ACTUAL REVIVAL CHAMBER.
+    /// It was tried, it shipped, and it could not work - PROVED by measuring the
+    /// shipped prefab's own collision meshes (resources.assets, UnityPy):
+    ///
+    ///   * Its only <c>InteractiveObjectVisualizer</c> is on the deep child
+    ///     <c>SpawnPad</c>, the plate at the bottom of the chamber.
+    ///   * <c>respawner_exterior_LOD0</c>, its collision shell, is CLOSED on
+    ///     360/360 bearings from prefab-local y = -1.0 all the way up to y = 9.3.
+    ///     The only aperture is a doorway on the +x bearing whose sill is at
+    ///     y = 9.35 (+-0.05), reached by <c>Ramp01</c>/<c>Ramp02</c> at y = 10.03
+    ///     and 10.57 - which is also where the <c>Barrier_Wall</c> (11.17) and both
+    ///     <c>Access-Ancient-Respawner-Trigger</c> boxes (9.09 and 11.06) sit.
+    ///   * So the plate stands at the bottom of a sealed 9.35 m well. Place the
+    ///     prefab with its origin at ground and the plate is walled in by a 9.35 m
+    ///     wall at radius 8.69 m. Bury the origin ~10 m so the authored doorway
+    ///     meets the terrain and the plate is then 10 m UNDER the terrain mesh,
+    ///     which fills the well and occludes it. There is no height at which a
+    ///     player can reach it.
+    ///   * On 2026-08-18 a player logged in, ended up inside that shell, saw the
+    ///     interactive highlight (the range test passes near the buried plate) and
+    ///     had to be rescued with the admin teleport. That is the well, observed.
+    ///   * It is also 40 m x 36 m in plan, and its 44 m footprint does not fit
+    ///     anywhere on Haven's spawn shelf: the nearest measured spot that could
+    ///     hold it is 141 m away and 25 m up.
+    ///
+    /// WHAT IS USED INSTEAD. <see cref="AssetName"/> - <c>Respawner01</c>, retail's
+    /// REVIVER platform, the same authored vocabulary ("interact with the platform")
+    /// and the object <c>InteractiveObjectVisualizer.GetTutorialStep</c> maps to
+    /// <c>TutorialStep.MOUSE_OVER_REVIVER</c> for verb <c>Activate</c>. It is line
+    /// 223 of the entity-prefab census
+    /// (<see cref="Ship.ClientEntityPrefabs"/>), so it is EVIDENCED-loadable, and
+    /// its geometry is everything the chamber's was not:
+    ///
+    ///   * <c>InteractiveObjectVisualizer</c> on the prefab ROOT, offset (0, 0, 0) -
+    ///     the same shape as the metal nugget's and the helm's, both of which are
+    ///     live-proven to prompt on this server.
+    ///   * Verb <c>Activate</c> (serialized value 1), RECOVERED.
+    ///   * Root GameObject on layer 15 "Interactive", inside
+    ///     <c>Layers.Interactables</c>, so the look raycast can hit it.
+    ///   * Collision extent x/z +-0.60 m, y 0.00..0.20 m: a flat plate you walk onto
+    ///     with nothing to be enclosed by and nothing to clip into.
+    ///
+    /// It is a ship part, like the static helm this server already stands up as its
+    /// own world entity with the same 190602 + 1210 seed. That is the precedent it
+    /// is being placed on.
     ///
     /// WHAT WE ARE NOT DOING. The retail chamber also drove 8052
     /// <c>HavenTeleporterState</c>, a client-side barrier dome, and an 8056
     /// <c>LeaveHavenRequest</c> that has zero client references and was never
-    /// implemented. None of that is served here. The prefab is used as the physical
-    /// object and the interaction runs over 1210/1211, the same proven pair that
-    /// already makes a placed shipyard's console and a metal nugget interactive.
-    ///
-    /// WHAT IS INFERRED. Which <c>InteractVerb</c> this prefab bakes is NOT
-    /// evidenced - we have the class name and the quest text, not the prefab's
-    /// serialized <c>InteractiveObjectVisualizer.Verb</c>. That matters because the
-    /// visualizer resolves its entry ONCE, in <c>OnEnable</c>, with
-    /// <c>Interactions.FirstOrDefault(i =&gt; i.verb == Verb)</c>: serve the wrong
-    /// verb and the radius falls to zero and the prompt never appears, silently and
-    /// permanently. The hedge is <see cref="Verbs"/> - the seed carries an entry for
-    /// every plausible verb, which costs three list elements and makes the lookup
-    /// succeed whichever one the prefab baked. See <see cref="Verbs"/>.
+    /// implemented. None of that is served here. The interaction runs over
+    /// 1210/1211, the same proven pair that already makes a placed shipyard's
+    /// console and a metal nugget interactive.
     /// </summary>
     public static class WildernessShrine
     {
         /// <summary>
         /// The bare prefab name, as <c>WorldEntity.AssetName</c> wants it: no
         /// <c>_unityclient</c> suffix, the client appends its own worker suffix.
-        /// Case taken from docs/research/world-data/haven/haven-prefabs2.json, which
-        /// carries the string <c>HavenAncientRespawner_unityclient</c>.
+        /// Case taken from the prefab itself in resources.assets, which carries the
+        /// GameObject <c>Respawner01_unityclient</c>.
         /// </summary>
-        public const string AssetName = "HavenAncientRespawner";
+        public const string AssetName = "Respawner01";
 
         /// <summary>
         /// Its stable registration key. Singular and not a prefix: there is exactly
@@ -70,42 +92,49 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         public const string TeleportReason = "graduation";
 
         /// <summary>
-        /// Where it stands, in Haven island-local metres - the SURFACE sample; the
-        /// entity is placed exactly there, since a prop rests on the ground rather
-        /// than standing off it the way a player capsule does.
+        /// Where it stands, in Haven island-local metres - a MEASURED LOD0 surface
+        /// vertex, the same source every other Haven placement on this server comes
+        /// from, and now also clearance-checked against what is already built there.
         ///
-        /// Derived from the same extracted LOD0 surface table every other Haven
-        /// coordinate comes from (docs/research/world-data/island-surfaces/1431299145.json)
-        /// under the landing rule in tools/world-import/generate-release-runtime-catalog.py,
-        /// restricted to a walkable band around the spawn point:
+        /// THE PREVIOUS POINT, (176.00, 4.90, 16.00), IS WHY THIS ONE HAS TO EXPLAIN
+        /// ITSELF. It was picked against the surface table alone. Its nearest
+        /// authored structure is 13.7 m away - it sits INSIDE the ruined metal
+        /// camp's footprint - and the 40 m prefab standing on it was driven straight
+        /// through the camp. On 2026-08-18 a player logged in inside the result and
+        /// had to be rescued with the admin teleport. Terrain flatness was never the
+        /// missing check; <see cref="HavenStructures"/> was.
         ///
-        ///   * normal ny = 0.996, effectively flat
-        ///   * all 8 neighbouring 8 m columns level within 1.42 m - a plateau
-        ///   * 34.2 m from <see cref="SpawnPolicy.PlayerSpawnPosition"/>'s local
-        ///     (208.00, 4.70, 4.00), and 0.20 m above it: the same shelf, a short
-        ///     walk, no climb
-        ///   * nearest authored static prop 15.26 m away in 3D and 13.73 m
-        ///     horizontally, with NOTHING authored within 5 m horizontally anywhere
-        ///     from 2 m below to 15 m above it
-        ///   * clear of everything this server itself puts on Haven - 33 m from the
-        ///     databank, 32 m from the static dev ship frame - which
-        ///     WildernessShrineRegistrationTests checks against the whole registry
-        ///     rather than against a list somebody has to remember to update
+        /// This point is the best of the 15 measured Haven surface vertices that
+        /// clear ALL of:
         ///
-        /// WHY NOT CLOSER. The spawn point sits INSIDE the ruined metal camp, and
-        /// every flat sample within ~25 m of it has that camp's platforms and
-        /// walkways overhead or the dev ship frame on top of it. A monument buried
-        /// under scrap is not a monument. Moving out to x = 176 leaves the camp
-        /// while heading TOWARD the island's local origin - which is where retail's
-        /// own quest text puts the chamber, "at the center of the island".
+        ///   * surface normal ny = 1.000 - flat, not a slope read as flat
+        ///   * all 8 neighbouring 8 m columns level within 0.43 m - a real plateau
+        ///   * nearest authored structure 24.5 m
+        ///     (<see cref="HavenStructures.ClearanceAt"/>), against a plate 0.6 m
+        ///     across: the camp is 24 m away, not 13.7 m
+        ///   * NOTHING OVERHEAD - zero structures within 8 m horizontally anywhere
+        ///     from 2 m below to 25 m above it. The camp is multi-storey and the
+        ///     spawn point itself is under a platform 19.5 m up, so horizontal
+        ///     distance alone is not clearance
+        ///   * 44.7 m from <c>SpawnPolicy.PlayerSpawnPosition</c>'s local
+        ///     (208.00, 6.70, 4.00). The spawn seed stands the player 2 m over the
+        ///     ground so they do not spawn inside it; measured surface vertex to
+        ///     measured surface vertex the shrine is 0.23 m above the spawn's own
+        ///     ground. The same shelf, a walk, no climb.
+        ///   * 43.1 m from the Haven databank, and clear of everything else in the
+        ///     registry (WildernessShrineRegistrationTests checks the whole
+        ///     registry rather than a list somebody has to remember to update)
+        ///   * toward the island's local origin from the spawn point, which is where
+        ///     retail's own quest text puts the chamber, "at the center of the
+        ///     island"
         ///
         /// Retail's actual pad position is NOT recoverable - everything
         /// Haven-specific was spawned by the GSim, and findings-haven.md is explicit
-        /// that the barrier/teleporter geometry gives only a relative offset. So
-        /// this is OUR placement, chosen for a clear approach, and it is said so
-        /// here rather than dressed up as preserved.
+        /// that the barrier/teleporter geometry gives only a relative offset. So the
+        /// CHOICE of vertex is WAREBORN TUNING; the vertex itself, and every
+        /// clearance number above, is measured.
         /// </summary>
-        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (176.00, 4.90, 16.00);
+        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (168.00, 4.47, 24.00);
 
         /// <summary>Its global position, given the Haven definition it stands on.</summary>
         public static FixedPointPosition PositionOn(IslandDefinition haven)
@@ -115,12 +144,62 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
                 HavenLocalPlacement.X, HavenLocalPlacement.Y, HavenLocalPlacement.Z);
         }
 
+        // ------------------------------------------------------------------
+        // THE PREFAB'S OWN GEOMETRY - measured, not chosen.
+        //
+        // RECOVERED from resources.assets (the shipped client's own copy of
+        // EntityPrefabs/Respawner01_unityclient, read with UnityPy): the
+        // InteractiveObjectVisualizer is on the prefab ROOT at offset (0, 0, 0),
+        // the root GameObject is on layer 15 "Interactive", and the plate's
+        // collision extent is x/z -0.60..+0.60 with y 0.00..0.20.
+        //
+        // The offset being ZERO is the whole point of choosing this prefab. The
+        // client measures interaction range to the VISUALIZER's transform
+        // (Multiplayer.InteractReach), so a visualizer on the root means the range
+        // is measured to the entity origin - the geometry the metal nugget and the
+        // helm already prove works with a small radius on this server.
+        // ------------------------------------------------------------------
+
         /// <summary>
-        /// 1210 InteractionEntry.radius, metres. Matched to the shipyard console's,
-        /// the helm's and the nugget's 3 m so "how close do I have to be" has one
-        /// answer across every interaction this server seeds.
+        /// How far the standable top of the plate is ABOVE the
+        /// <c>InteractiveObjectVisualizer</c>'s own transform, metres. Measured:
+        /// 0.00 m (the visualizer's local offset) + 0.20 m (the top of the plate's
+        /// collider).
         /// </summary>
-        public const float InteractRadius = 3.0f;
+        public const float PadTopAboveVisualiserMetres = 0.20f;
+
+        /// <summary>
+        /// Half-width of the plate's collider, metres - how far out from the centre
+        /// a player can stand and still be ON it. Measured from the prefab's
+        /// collision extent (x and z both -0.60 .. +0.60).
+        /// </summary>
+        public const float PadHalfWidthMetres = 0.60f;
+
+        /// <summary>
+        /// 1210 InteractionEntry.radius, metres.
+        ///
+        /// RECOVERED, not tuned: 5 m is the client's OWN default for an Activate
+        /// interaction. <c>InteractiveObjectVisualizer._interaction</c> is field-
+        /// initialised to <c>new InteractionEntry(InteractVerb.Activate, 5f,
+        /// lockOnUse: false, "", "", "", exclusiveUse: false, 1f)</c>, which is what
+        /// the visualizer falls back on when no server entry matches. It is also the
+        /// radius this server already serves for the mounted sail/lamp/horn Activate
+        /// (<c>Ship.PartInteractionPolicy.ActivateRadius</c>), so "how close do I
+        /// have to be to Activate something" has ONE answer here.
+        ///
+        /// WHY THE NUMBER MATTERS AT ALL. The client offers a prompt only while
+        /// <c>Distance(visualizer.transform.position, player.transform.position)
+        /// + 0.5f &lt; radius</c> (<see cref="InteractReach"/>, RECOVERED from
+        /// <c>PlayerLookingAt.InRange</c>). The shrine's first build seeded 3.0 on a
+        /// prefab whose visualizer was 3.204 m below the plate, which described a
+        /// reachable sphere entirely underground - no prompt from any position in
+        /// the world, and nothing in any log to say why. Here the visualizer is ON
+        /// the entity origin, so 5 m leaves
+        /// <c>sqrt(4.5^2 - 0.20^2) = 4.50 m</c> of horizontal reach: the whole plate
+        /// plus a 3.9 m walk-up ring, which is what a player has to find this thing
+        /// with. WildernessShrineTests pins that against the measured geometry.
+        /// </summary>
+        public const float InteractRadius = 5.0f;
 
         /// <summary>
         /// 1210 InteractionEntry.timeToUse, seconds. Longer than the shipyard's
@@ -134,16 +213,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// Every verb the shrine answers to, and every verb its 1210 seed carries
         /// an entry for.
         ///
-        /// THE HEDGE, stated plainly. <c>InteractiveObjectVisualizer.OnEnable</c>
-        /// does <c>Interactions.FirstOrDefault(i =&gt; i.verb == Verb)</c> against the
-        /// verb the PREFAB baked, and we do not know which one
-        /// <c>HavenAncientRespawner</c> baked. A single wrong guess is not a
-        /// degraded prompt, it is no prompt at all, with nothing in any log to say
-        /// why. Serving one entry per plausible verb makes that lookup succeed
-        /// regardless: the visualizer takes the first entry MATCHING its own verb
-        /// and ignores the rest, so extra entries are inert.
+        /// RECOVERED, and no longer a guess: the baked verb is <c>Activate</c> (1).
+        /// <c>Respawner01_unityclient</c>'s root carries the only
+        /// <c>InteractiveObjectVisualizer</c> on the whole hierarchy and its
+        /// serialized <c>Verb</c> field reads 1 - as does the Revival Chamber's own
+        /// <c>SpawnPad</c>, so the two agree. Read straight out of the shipped
+        /// client's resources.assets; the same 48-byte MonoBehaviour layout decodes
+        /// all 191 <c>InteractiveObjectVisualizer</c> instances in that file and
+        /// agrees with every independently known one (Helm01 = Man, Sail01 =
+        /// Activate, Stove01 = Craft, every container = Inventory), so the reading
+        /// is cross-checked rather than asserted.
         ///
-        /// The three: <c>Activate</c> because the quest text says "activate";
+        /// THE HEDGE IS KEPT ANYWAY, and deliberately.
+        /// <c>InteractiveObjectVisualizer.OnEnable</c> does
+        /// <c>Interactions.FirstOrDefault(i =&gt; i.verb == Verb)</c> ONCE, and
+        /// <c>GetVerb(collider)</c> can be overridden per-collider by an
+        /// <c>InteractiveObjectVerbOverrider</c> anywhere in the collider's parent
+        /// chain. A wrong single entry is not a degraded prompt, it is no prompt at
+        /// all with nothing in any log to say why, and the extra entries cost two
+        /// list elements and nothing else: the visualizer takes the one MATCHING
+        /// its own verb and ignores the rest. Drop them once a live client has been
+        /// seen to send back a 1211 naming Activate.
+        ///
+        /// The three: <c>Activate</c>, recovered above and what the quest text says;
         /// <c>Default</c> because it is the enum's zero and an unset field lands
         /// there; <c>Man</c> because the retail flow has the player STAND ON a
         /// platform, which is the verb the helm uses for taking a position.
