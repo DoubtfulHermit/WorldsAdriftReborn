@@ -63,6 +63,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     public readonly struct ShipHullStat
     {
         private readonly Ship.ShipMapSilhouette? _silhouette;
+        private readonly Ship.ShipMapProfile? _profile;
+        private readonly IReadOnlyList<Ship.ShipPartMark>? _parts;
         private readonly string? _ownerCharacterUid;
         private readonly Materials.HullMaterials? _materials;
 
@@ -73,9 +75,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             Ship.ShipMapSilhouette? silhouette,
             string? ownerCharacterUid,
             bool docked,
-            Materials.HullMaterials? materials)
+            Materials.HullMaterials? materials,
+            Ship.ShipMapProfile? profile = null,
+            IReadOnlyList<Ship.ShipPartMark>? parts = null)
         {
             _silhouette = silhouette;
+            _profile = profile;
+            _parts = parts;
             _ownerCharacterUid = ownerCharacterUid;
             _materials = materials;
             Docked = docked;
@@ -86,6 +92,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         /// <summary>The derived plan-view ring and the measured hull behind it.</summary>
         public Ship.ShipMapSilhouette Silhouette => _silhouette ?? Ship.ShipMapSilhouette.Empty;
+
+        /// <summary>
+        /// The derived SIDE elevation and the decks behind it. Separately available
+        /// from <see cref="Silhouette"/>, and separately <see cref="ProfilePresent"/>:
+        /// the two are derived from the same bytes by different arithmetic, and a
+        /// reader must not be told a hull has an elevation because it has an outline.
+        /// </summary>
+        public Ship.ShipMapProfile Profile => _profile ?? Ship.ShipMapProfile.Empty;
+
+        /// <summary>Whether a real side elevation is carried.</summary>
+        public bool ProfilePresent => _profile != null && !_profile.IsEmpty;
+
+        /// <summary>
+        /// Every part mounted on this hull, at its hull-local place. EMPTY means
+        /// "nothing is mounted"; it cannot mean "not published", because a hull that
+        /// carries geometry at all carries this list with it.
+        /// </summary>
+        public IReadOnlyList<Ship.ShipPartMark> Parts =>
+            _parts ?? Array.Empty<Ship.ShipPartMark>();
 
         /// <summary>The owner's character uid, or empty for an unowned hull.</summary>
         public string OwnerCharacterUid => _ownerCharacterUid ?? string.Empty;
@@ -373,7 +398,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // they say and the reader is presence-keyed, so a v7/v8/v9 file still
         // parses - GameStats projects any missing section to an explicit ABSENT
         // rather than a default, so "never said" is distinguishable from "false".
-        public const int SchemaVersion = 10;
+        // v11: each hull gains a `geometry` block - the side elevation, the decks
+        // as levels, and the mounted parts at their hull-local places - plus the
+        // `geometryRevision` that identifies it. The block is STATIC per hull and
+        // is NOT part of any browser poll: it rides this file because this file is
+        // the only channel the two processes have, and the login server serves it
+        // from its own dedicated endpoint once per hull instead.
+        public const int SchemaVersion = 11;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -1112,7 +1143,116 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 b.Append(Trim(ring[i].Z).ToString("R", CultureInfo.InvariantCulture));
             }
             b.Append(']');
+            b.Append(',');
+
+            // The geometry block and the number that identifies it. The revision is
+            // a hash of the block's own text, so it changes when and only when the
+            // drawing would - a mounted part moved, a deck added, the hull recut -
+            // and a reader that already holds that revision needs no second copy.
+            StringBuilder geometry = new StringBuilder(256);
+            AppendHullGeometry(geometry, h);
+            Num(b, "geometryRevision", Revision(geometry)); b.Append(',');
+            Key(b, "geometry");
+            b.Append(geometry);
             b.Append('}');
+        }
+
+        /// <summary>
+        /// The hull's SIDE elevation, its decks as levels, and its mounted parts at
+        /// their hull-local places - everything a schematic of the ship needs that
+        /// the plan view alone cannot say.
+        ///
+        /// STATIC PER HULL, and published that way. It rides this file because the
+        /// file is the only channel the game server and the login server share, but
+        /// it is deliberately not part of any browser poll: the login server keeps
+        /// it out of the live payload and serves it from its own per-hull endpoint,
+        /// the way an island's coastline is served once rather than every three
+        /// seconds. Mounted parts are the one thing here that can change during a
+        /// session, and the revision above is what tells a reader when it has.
+        ///
+        /// The profile ring is a FLAT array of alternating z and y, and the parts a
+        /// flat array of objects, for the same reason the plan ring is flat: a third
+        /// of the bytes, and a centimetre is far below one screen pixel on a hull.
+        ///
+        /// Written unconditionally with an explicit <c>present</c>: absence must
+        /// read as "an older game server", never as "this ship has no shape".
+        /// </summary>
+        private static void AppendHullGeometry(StringBuilder b, ShipHullStat h)
+        {
+            b.Append('{');
+            Bool(b, "present", h.ProfilePresent); b.Append(',');
+
+            Ship.ShipMapProfile profile = h.Profile;
+            Num(b, "floorMetres", Trim(profile.FloorMetres)); b.Append(',');
+            Num(b, "headMetres", Trim(profile.HeadMetres)); b.Append(',');
+            Num(b, "heightMetres", Trim(profile.HeightMetres)); b.Append(',');
+            Num(b, "sectionCount", profile.SectionCount); b.Append(',');
+
+            Key(b, "profile"); b.Append('[');
+            IReadOnlyList<Ship.ShipProfilePoint> ring = profile.Outline;
+            for (int i = 0; i < ring.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                b.Append(Trim(ring[i].Z).ToString("R", CultureInfo.InvariantCulture));
+                b.Append(',');
+                b.Append(Trim(ring[i].Y).ToString("R", CultureInfo.InvariantCulture));
+            }
+            b.Append(']'); b.Append(',');
+
+            Key(b, "decks"); b.Append('[');
+            IReadOnlyList<Ship.ShipDeckLevel> decks = profile.Decks;
+            for (int i = 0; i < decks.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                b.Append('{');
+                Num(b, "deckNumber", decks[i].DeckNumber); b.Append(',');
+                Num(b, "floorMetres", Trim(decks[i].FloorMetres)); b.Append(',');
+                Num(b, "planeMetres", Trim(decks[i].PlaneMetres)); b.Append(',');
+                Num(b, "sternZMetres", Trim(decks[i].SternZMetres)); b.Append(',');
+                Num(b, "bowZMetres", Trim(decks[i].BowZMetres));
+                b.Append('}');
+            }
+            b.Append(']'); b.Append(',');
+
+            Key(b, "parts"); b.Append('[');
+            IReadOnlyList<Ship.ShipPartMark> parts = h.Parts;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                b.Append('{');
+                Str(b, "kind", parts[i].Kind ?? Ship.ShipPartKinds.Other); b.Append(',');
+                Str(b, "title", parts[i].Title ?? string.Empty); b.Append(',');
+                Num(b, "x", Trim(parts[i].X)); b.Append(',');
+                Num(b, "y", Trim(parts[i].Y)); b.Append(',');
+                Num(b, "z", Trim(parts[i].Z));
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
+        }
+
+        /// <summary>
+        /// The geometry block's identity: FNV-1a over its own serialized text,
+        /// folded into a positive 31-bit integer so it survives a JSON number and a
+        /// JavaScript comparison unchanged.
+        ///
+        /// Hashing the TEXT rather than the inputs is deliberate. It cannot go stale
+        /// when a new field is added here and someone forgets to fold it in, and two
+        /// hulls that draw identically get the same revision, which is correct - a
+        /// revision names a DRAWING, not a ship.
+        /// </summary>
+        private static long Revision(StringBuilder geometry)
+        {
+            unchecked
+            {
+                uint hash = 2166136261u;
+                for (int i = 0; i < geometry.Length; i++)
+                {
+                    hash ^= geometry[i];
+                    hash *= 16777619u;
+                }
+                return hash & 0x7fffffff;
+            }
         }
 
         /// <summary>

@@ -68,8 +68,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // different things by the same number. The version is asserted here
             // rather than compared to itself so a field added without a bump has
             // to walk past a red test.
-            Assert.Equal(10, StatsSnapshot.SchemaVersion);
-            Assert.Equal(10, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // v11 adds the per-hull `geometry` block (side elevation, decks,
+            // mounted parts) and its revision.
+            Assert.Equal(11, StatsSnapshot.SchemaVersion);
+            Assert.Equal(11, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

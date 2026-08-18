@@ -962,7 +962,38 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         private const double MaxHullMetres = 2000.0;
 
+        /// <summary>
+        /// The most profile points a hull may contribute, and the most parts. Same
+        /// job as <see cref="MaxOutlinePoints"/>: the cap only ever fires on a
+        /// malformed file, where it keeps one bad snapshot from becoming an
+        /// unbounded SVG path or an unbounded list of marks.
+        /// </summary>
+        private const int MaxProfilePoints = 512;
+        private const int MaxParts = 256;
+
         public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>
+        /// The hull's STATIC geometry - side elevation, decks, mounted parts - kept
+        /// OUT of <see cref="Json"/> on purpose.
+        ///
+        /// This is the half of a hull that does not change from one snapshot to the
+        /// next, and the live poll is read every 1.5 s by an operator and every 3 s
+        /// by every public viewer. Islands solved the same problem the same way:
+        /// their coastlines are served once from their own document rather than
+        /// re-sent with every position. So the geometry is parsed here, held here,
+        /// and served from its own per-hull endpoint - and a reader that already has
+        /// this hull's <see cref="GeometryRevision"/> never asks again.
+        /// </summary>
+        public JObject Geometry { get; private init; } = new JObject();
+
+        /// <summary>
+        /// Which version of <see cref="Geometry"/> this ship is on. Rides the live
+        /// poll (it is one integer) so a browser can tell that a part was mounted
+        /// and refetch, without the geometry itself riding the poll. Zero means the
+        /// game server published none.
+        /// </summary>
+        public long GeometryRevision { get; private init; }
 
         public static GameShipDomainStat Parse(JObject d)
         {
@@ -971,7 +1002,13 @@ namespace WorldsAdriftServer.Admin
             JArray aboard = new JArray();
             if (d["aboardPlayerEntityIds"] is JArray ids)
                 foreach (JToken id in ids) aboard.Add((long?)id ?? 0);
-            return new GameShipDomainStat { Json = new JObject
+            JObject? hull = d["hull"] as JObject;
+            long revision = Revision((long?)hull?["geometryRevision"] ?? 0);
+            return new GameShipDomainStat
+            {
+                Geometry = BuildGeometry(hull?["geometry"] as JObject),
+                GeometryRevision = revision,
+                Json = new JObject
             {
                 ["domainId"] = (string?)d["domainId"] ?? "",
                 ["hullEntityId"] = (long?)d["hullEntityId"] ?? 0,
@@ -1000,9 +1037,88 @@ namespace WorldsAdriftServer.Admin
                 ["vxMps"] = Finite((double?)d["vxMps"] ?? 0, MaxHullMetres),
                 ["vyMps"] = Finite((double?)d["vyMps"] ?? 0, MaxHullMetres),
                 ["vzMps"] = Finite((double?)d["vzMps"] ?? 0, MaxHullMetres),
-                ["hull"] = Hull(d["hull"] as JObject),
+                ["hull"] = Hull(hull, revision),
             }};
         }
+
+        /// <summary>
+        /// The hull's static geometry, rebuilt field by field like everything else
+        /// here, and clamped the same way: the profile ring reaches an SVG path and
+        /// the part marks reach SVG transforms, so lengths are capped, coordinates
+        /// are bounded, an odd-length ring is truncated rather than read past its
+        /// end, and a NaN never reaches an attribute (where it silently blanks the
+        /// element it was drawn into).
+        ///
+        /// An ABSENT block is an absent block: <c>present</c> false and empty
+        /// arrays, which the card reads as "this game server does not publish an
+        /// elevation" - never as "this ship has no decks".
+        /// </summary>
+        private static JObject BuildGeometry(JObject? g)
+        {
+            JArray profile = new JArray();
+            if (g?["profile"] is JArray ring)
+            {
+                int usable = Math.Min(ring.Count - (ring.Count % 2), MaxProfilePoints * 2);
+                for (int i = 0; i < usable; i++)
+                {
+                    profile.Add(Finite((double?)ring[i] ?? 0, MaxHullMetres));
+                }
+            }
+
+            JArray decks = new JArray();
+            if (g?["decks"] is JArray deckRows)
+            {
+                foreach (JToken token in deckRows)
+                {
+                    if (token is not JObject deck) continue;
+                    decks.Add(new JObject
+                    {
+                        ["deckNumber"] = (int?)deck["deckNumber"] ?? 0,
+                        ["floorMetres"] = Finite((double?)deck["floorMetres"] ?? 0, MaxHullMetres),
+                        ["planeMetres"] = Finite((double?)deck["planeMetres"] ?? 0, MaxHullMetres),
+                        ["sternZMetres"] = Finite((double?)deck["sternZMetres"] ?? 0, MaxHullMetres),
+                        ["bowZMetres"] = Finite((double?)deck["bowZMetres"] ?? 0, MaxHullMetres),
+                    });
+                    if (decks.Count >= MaxParts) break;
+                }
+            }
+
+            JArray parts = new JArray();
+            if (g?["parts"] is JArray partRows)
+            {
+                foreach (JToken token in partRows)
+                {
+                    if (token is not JObject part) continue;
+                    parts.Add(new JObject
+                    {
+                        ["kind"] = Text((string?)part["kind"]),
+                        ["title"] = Text((string?)part["title"]),
+                        ["x"] = Finite((double?)part["x"] ?? 0, MaxHullMetres),
+                        ["y"] = Finite((double?)part["y"] ?? 0, MaxHullMetres),
+                        ["z"] = Finite((double?)part["z"] ?? 0, MaxHullMetres),
+                    });
+                    if (parts.Count >= MaxParts) break;
+                }
+            }
+
+            return new JObject
+            {
+                // ANDed with a drawable ring rather than trusted alone, exactly as
+                // the outline's own `present` is: a file claiming an elevation it
+                // did not send must draw nothing, not a degenerate line.
+                ["present"] = (g != null) && ((bool?)g["present"] ?? false) && profile.Count >= 6,
+                ["floorMetres"] = Finite((double?)g?["floorMetres"] ?? 0, MaxHullMetres),
+                ["headMetres"] = Finite((double?)g?["headMetres"] ?? 0, MaxHullMetres),
+                ["heightMetres"] = Finite((double?)g?["heightMetres"] ?? 0, MaxHullMetres),
+                ["sectionCount"] = Count((int?)g?["sectionCount"] ?? 0),
+                ["profile"] = profile,
+                ["decks"] = decks,
+                ["parts"] = parts,
+            };
+        }
+
+        /// <summary>A revision is an opaque non-negative token; anything else is "none".</summary>
+        private static long Revision(long value) => value < 0 || value > int.MaxValue ? 0 : value;
 
         /// <summary>
         /// The hull's shape and description, rebuilt field by field.
@@ -1013,7 +1129,7 @@ namespace WorldsAdriftServer.Admin
         /// x,z encoding with a trailing x has no z, and a NaN in a path attribute
         /// silently blanks the element it was drawn into.
         /// </summary>
-        private static JObject Hull(JObject? h)
+        private static JObject Hull(JObject? h, long geometryRevision)
         {
             JArray outline = new JArray();
             if (h?["outline"] is JArray ring)
@@ -1047,6 +1163,12 @@ namespace WorldsAdriftServer.Admin
                 ["metalId"] = Text((string?)h?["metalId"]),
                 ["metalQuality"] = Count((int?)h?["metalQuality"] ?? 0),
                 ["outline"] = outline,
+                // The geometry itself is NOT here - see GameShipDomainStat.Geometry
+                // for why. What rides the poll is its revision, so a card that
+                // already drew this hull knows whether the drawing has changed. Zero
+                // means the game server publishes no geometry at all, which the card
+                // must report rather than paper over.
+                ["geometryRevision"] = geometryRevision,
             };
         }
 

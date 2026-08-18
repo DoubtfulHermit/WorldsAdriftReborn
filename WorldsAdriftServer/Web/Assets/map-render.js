@@ -204,8 +204,14 @@
   }
   function statTile(value,label){
     var t=el('div','md-stat');
-    var b=el('b','',fmt(value));
-    if(!Number(value))b.className='zero';
+    // A tile may legitimately have NO number: a hull whose shape is unavailable
+    // has no keel to print, and its card passes an em dash. That has to reach
+    // the page AS an em dash - running it through a number formatter turned it
+    // into "NaN", which is the console confidently reporting a measurement it
+    // does not have.
+    var numeric=value!==''&&value!==null&&value!==undefined&&isFinite(Number(value));
+    var b=el('b','',numeric?fmt(value):String(value));
+    if(!numeric||!Number(value))b.className='zero';
     t.appendChild(b);t.appendChild(el('span','',label));
     return t;
   }

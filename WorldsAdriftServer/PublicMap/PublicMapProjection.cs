@@ -311,6 +311,12 @@ namespace WorldsAdriftServer.PublicMap
                     ["z"] = (double?)ship.Json["z"] ?? 0,
                     ["active"] = (bool?)ship.Json["active"] ?? false,
                     ["deckCount"] = Math.Max(0, (int?)ship.Json["deckCount"] ?? 0),
+                    // How many parts are bolted to it. A count of things on a
+                    // ship, no different from its deck count - and admitted
+                    // deliberately because the public card was printing ZERO
+                    // beside a drawing showing ten of them, which is the one
+                    // thing this map must never do.
+                    ["mountedPartCount"] = Math.Max(0, (int?)ship.Json["mountedPartCount"] ?? 0),
                     // The motion terms the browser carries a hull forward with
                     // between snapshots. Geometry, not identity.
                     ["yawRadians"] = (double?)ship.Json["yawRadians"] ?? 0,
@@ -366,6 +372,92 @@ namespace WorldsAdriftServer.PublicMap
                 ["metalId"] = (string?)hull?["metalId"] ?? "",
                 ["metalQuality"] = Math.Max(0, (int?)hull?["metalQuality"] ?? 0),
                 ["outline"] = outline,
+                // Which drawing this ship is on. One integer, and the ONLY part
+                // of the static geometry that rides the live feed: it is what
+                // lets an open card notice that a part has been mounted and ask
+                // for the new drawing, instead of the drawing being re-sent to
+                // every viewer every three seconds. It names a shape, not a
+                // ship - two hulls that draw identically share a revision.
+                ["geometryRevision"] = Math.Max(0, (long?)hull?["geometryRevision"] ?? 0),
+            };
+        }
+
+        /// <summary>
+        /// The hull's STATIC GEOMETRY, admitted deliberately: the side elevation,
+        /// the decks as levels, and the mounted parts at their hull-local
+        /// places. Served from <see cref="Admin.ShipGeometryEndpoint"/> rather
+        /// than from the live feed, but through this same whitelist - there is
+        /// exactly one place where a field becomes public, and this is it.
+        ///
+        /// WHY THIS IS PUBLIC. It is the same judgement the plan-view
+        /// silhouette already passed and for the same reasons: an elevation is
+        /// the shape of a thing in the world, visible to anyone who flies past
+        /// it, and the parts on a deck are visible to anyone who walks it. It
+        /// carries no name, no owner, no account, and no linkage between a hull
+        /// and a person. The honest caveat is the silhouette's, unchanged: a
+        /// distinctive ship is recognisable to someone who has seen it, and
+        /// that is accepted because nothing here turns "that hull" into "that
+        /// person".
+        ///
+        /// WHAT IS DROPPED, and note that it is dropped rather than clamped:
+        /// the part TITLE. The operator's card prints the catalogue title the
+        /// game server published; the public card labels a mark by its KIND
+        /// instead, from the reader's own vocabulary. A title is a string that
+        /// originates outside this projection, and the public feed does not
+        /// need it to draw a helm - so it does not get it. If ships ever carry
+        /// player-authored text, this is already the line it will not cross.
+        /// </summary>
+        internal static JObject ProjectShipGeometry(JObject? geometry)
+        {
+            JArray profile = new JArray();
+            if (geometry?["profile"] is JArray ring)
+            {
+                foreach (JToken point in ring) profile.Add((double?)point ?? 0);
+            }
+
+            JArray decks = new JArray();
+            if (geometry?["decks"] is JArray deckRows)
+            {
+                foreach (JToken token in deckRows)
+                {
+                    if (token is not JObject deck) continue;
+                    decks.Add(new JObject
+                    {
+                        ["deckNumber"] = (int?)deck["deckNumber"] ?? 0,
+                        ["floorMetres"] = (double?)deck["floorMetres"] ?? 0,
+                        ["planeMetres"] = (double?)deck["planeMetres"] ?? 0,
+                        ["sternZMetres"] = (double?)deck["sternZMetres"] ?? 0,
+                        ["bowZMetres"] = (double?)deck["bowZMetres"] ?? 0,
+                    });
+                }
+            }
+
+            JArray parts = new JArray();
+            if (geometry?["parts"] is JArray partRows)
+            {
+                foreach (JToken token in partRows)
+                {
+                    if (token is not JObject part) continue;
+                    parts.Add(new JObject
+                    {
+                        ["kind"] = (string?)part["kind"] ?? "part",
+                        ["x"] = (double?)part["x"] ?? 0,
+                        ["y"] = (double?)part["y"] ?? 0,
+                        ["z"] = (double?)part["z"] ?? 0,
+                    });
+                }
+            }
+
+            return new JObject
+            {
+                ["present"] = (bool?)geometry?["present"] ?? false,
+                ["floorMetres"] = (double?)geometry?["floorMetres"] ?? 0,
+                ["headMetres"] = (double?)geometry?["headMetres"] ?? 0,
+                ["heightMetres"] = (double?)geometry?["heightMetres"] ?? 0,
+                ["sectionCount"] = Math.Max(0, (int?)geometry?["sectionCount"] ?? 0),
+                ["profile"] = profile,
+                ["decks"] = decks,
+                ["parts"] = parts,
             };
         }
 

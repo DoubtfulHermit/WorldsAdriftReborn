@@ -24,6 +24,14 @@ namespace WorldsAdriftServer.PublicMap
         /// <summary>GET /map/world - the static preserved-world catalogue.</summary>
         WorldData,
 
+        /// <summary>
+        /// GET /map/ship?id=&lt;token&gt; - one hull's static geometry: its side
+        /// elevation, its decks and its mounted parts. Served on demand rather
+        /// than in the live feed because it is static per hull; see
+        /// <see cref="Admin.ShipGeometryEndpoint"/>.
+        /// </summary>
+        ShipGeometry,
+
         /// <summary>Anything else under /map - answered 404, never forwarded.</summary>
         NotFound,
     }
@@ -59,6 +67,7 @@ namespace WorldsAdriftServer.PublicMap
             {
                 "/map/data" => PublicMapRoute.LiveData,
                 "/map/world" => PublicMapRoute.WorldData,
+                "/map/ship" => PublicMapRoute.ShipGeometry,
                 _ => PublicMapRoute.NotFound,
             };
         }

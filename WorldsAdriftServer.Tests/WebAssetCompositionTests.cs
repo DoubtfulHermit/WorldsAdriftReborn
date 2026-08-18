@@ -112,6 +112,36 @@ namespace WorldsAdriftServer.Tests
             }
         }
 
+        /// <summary>
+        /// THE GEOMETRY SEAM DEFAULTS TO THE ANONYMOUS ENDPOINT.
+        ///
+        /// The ship card fetches one hull's static geometry from a per-page URL
+        /// carried on MARKS, the same seam that decides whether a marker is
+        /// named. The DEFAULT must be the public map's endpoint and the
+        /// operator fragment must be what opts in to the authenticated one -
+        /// so a page that forgets to state its policy asks the endpoint that
+        /// cannot answer with an identity, and the public page cannot even
+        /// compose a reference to the admin one.
+        /// </summary>
+        [Fact]
+        public void TheShipGeometryUrlDefaultsToThePublicEndpoint()
+        {
+            string core = WebAssets.Read("console-core.js");
+            Assert.Contains("shipGeometryUrl:function(id,rev){", core, StringComparison.Ordinal);
+            Assert.Contains("'/map/ship?id='+encodeURIComponent(id)+'&rev='", core,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain("/admin/api/ship-geometry", core, StringComparison.Ordinal);
+
+            // The operator page overrides it, and is the ONLY page that does.
+            Assert.Contains("/admin/api/ship-geometry",
+                WebAssets.Read("admin-console.js"), StringComparison.Ordinal);
+            foreach (string fragment in PublicMapPage.ScriptFragments)
+            {
+                Assert.DoesNotContain("/admin/api/ship-geometry", WebAssets.Read(fragment),
+                    StringComparison.Ordinal);
+            }
+        }
+
         [Fact]
         public void NoAssetReachesForAnExternalHost()
         {

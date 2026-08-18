@@ -2493,8 +2493,55 @@ namespace WorldsAdriftRebornGameServer
         /// <see cref="ShipHullStat.Unavailable"/>. That is a mark the console draws
         /// plainly and labels; it is never a substitute shape.
         /// </summary>
-        private static readonly Dictionary<long, (byte[] Bytes, Multiplayer.Ship.ShipMapSilhouette Shape)>
-            hullSilhouettes = new Dictionary<long, (byte[], Multiplayer.Ship.ShipMapSilhouette)>();
+        private static readonly Dictionary<long, (byte[] Bytes, Multiplayer.Ship.ShipMapSilhouette Shape,
+            Multiplayer.Ship.ShipMapProfile Profile)>
+            hullSilhouettes = new Dictionary<long, (byte[], Multiplayer.Ship.ShipMapSilhouette,
+                Multiplayer.Ship.ShipMapProfile)>();
+
+        /// <summary>
+        /// Every part mounted on a hull, reduced to the place and the KIND a
+        /// schematic of the ship draws. Read fresh each snapshot rather than
+        /// memoised with the shape: a hull's bytes are immutable for its life, but
+        /// a player can bolt a lamp on at any moment, and a cached part list would
+        /// be a card that quietly stopped matching the ship.
+        ///
+        /// The offsets are the mount ledger's own hull-local metres, which is the
+        /// same frame the outline and the elevation are in - see
+        /// <see cref="Multiplayer.Ship.ShipPartMark"/> for why those are one frame
+        /// rather than two.
+        /// </summary>
+        private static List<Multiplayer.Ship.ShipPartMark> HullPartMarks(long hullEntityId)
+        {
+            List<Multiplayer.Ship.ShipPartMark> marks = new List<Multiplayer.Ship.ShipPartMark>();
+            foreach (KeyValuePair<long, Game.Crafting.MountedParts.Mount> entry
+                in Game.Crafting.MountedParts.OnHull(hullEntityId))
+            {
+                Game.Crafting.MountedParts.Mount mount = entry.Value;
+                marks.Add(new Multiplayer.Ship.ShipPartMark(
+                    Multiplayer.Ship.ShipPartKinds.Classify(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType),
+                    string.IsNullOrEmpty(mount.Title)
+                        ? Multiplayer.Ship.ShipPartKinds.Words(
+                            Multiplayer.Ship.ShipPartKinds.Classify(
+                                mount.ItemType, mount.PrefabName, mount.AttachmentType))
+                        : mount.Title,
+                    mount.LocalOffset.MetresX,
+                    mount.LocalOffset.MetresY,
+                    mount.LocalOffset.MetresZ));
+            }
+            // Deterministic order, so the geometry revision does not churn on a
+            // dictionary's enumeration order and make a reader refetch for nothing.
+            marks.Sort((a, b) =>
+            {
+                int byZ = a.Z.CompareTo(b.Z);
+                if (byZ != 0) return byZ;
+                int byX = a.X.CompareTo(b.X);
+                if (byX != 0) return byX;
+                int byY = a.Y.CompareTo(b.Y);
+                return byY != 0 ? byY : string.CompareOrdinal(a.Kind, b.Kind);
+            });
+            return marks;
+        }
 
         private static ShipHullStat HullStatFor(long hullEntityId)
         {
@@ -2516,17 +2563,26 @@ namespace WorldsAdriftRebornGameServer
                     null,
                     Game.Crafting.BuiltShips.OwnerFor(hullEntityId),
                     Game.Crafting.BuiltShips.IsHullDocked(hullEntityId),
-                    Game.Crafting.BuiltShips.MaterialsFor(hullEntityId));
+                    Game.Crafting.BuiltShips.MaterialsFor(hullEntityId),
+                    // No shape means no elevation either, but the parts are still
+                    // real and still mounted somewhere: the card can say where the
+                    // helm is on a hull whose outline it cannot draw.
+                    null,
+                    HullPartMarks(hullEntityId));
             }
 
             if (!hullSilhouettes.TryGetValue(hullEntityId, out var cached)
                 || !ReferenceEquals(cached.Bytes, bytes))
             {
-                Multiplayer.Ship.ShipMapSilhouette shape =
-                    Multiplayer.Ship.ShipPlanModel.TryDecode(bytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
-                        ? Multiplayer.Ship.ShipMapSilhouette.Of(plan)
-                        : Multiplayer.Ship.ShipMapSilhouette.Empty;
-                cached = (bytes, shape);
+                bool decoded = Multiplayer.Ship.ShipPlanModel.TryDecode(
+                    bytes, out Multiplayer.Ship.ShipPlanModel? plan, out _);
+                Multiplayer.Ship.ShipMapSilhouette shape = decoded
+                    ? Multiplayer.Ship.ShipMapSilhouette.Of(plan)
+                    : Multiplayer.Ship.ShipMapSilhouette.Empty;
+                Multiplayer.Ship.ShipMapProfile profile = decoded
+                    ? Multiplayer.Ship.ShipMapProfile.Of(plan)
+                    : Multiplayer.Ship.ShipMapProfile.Empty;
+                cached = (bytes, shape, profile);
                 hullSilhouettes[hullEntityId] = cached;
             }
 
@@ -2534,7 +2590,9 @@ namespace WorldsAdriftRebornGameServer
                 cached.Shape,
                 Game.Crafting.BuiltShips.OwnerFor(hullEntityId),
                 Game.Crafting.BuiltShips.IsHullDocked(hullEntityId),
-                Game.Crafting.BuiltShips.MaterialsFor(hullEntityId));
+                Game.Crafting.BuiltShips.MaterialsFor(hullEntityId),
+                cached.Profile,
+                HullPartMarks(hullEntityId));
         }
 
         /// <summary>Published appearance per player entity; read by the 1088

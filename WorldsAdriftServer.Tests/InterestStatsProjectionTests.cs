@@ -111,7 +111,8 @@ namespace WorldsAdriftServer.Tests
             GameStatsSnapshot parsed = GameStatsSnapshot.Parse(JObject.Parse(json));
 
             Assert.True(parsed.Interest.Present);
-            Assert.Equal(10, parsed.SchemaVersion);
+            Assert.Equal(WorldsAdriftRebornGameServer.Multiplayer.StatsSnapshot.SchemaVersion,
+                parsed.SchemaVersion);
             Assert.True((bool)parsed.Interest.Json["gates"]!["loadBarrier"]!);
         }
     }

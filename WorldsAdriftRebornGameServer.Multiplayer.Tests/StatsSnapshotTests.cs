@@ -264,6 +264,138 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(owner, hull.OwnerCharacterUid);
         }
 
+        // ---- the per-hull geometry block (v11) --------------------------------
+
+        /// <summary>The live 60-byte hull, decoded, as the two views and a mounted helm.</summary>
+        private static ShipHullStat LiveHullStat(params Multiplayer.Ship.ShipPartMark[] parts)
+        {
+            const string hex =
+                "020000000000e80000180000e8008e18008e0000000000ffff0000e80000180000e8"
+                + "00001800000000000001e80000180000e8007218007200000000";
+            byte[] bytes = new byte[hex.Length / 2];
+            for (int i = 0; i < bytes.Length; i++)
+            {
+                bytes[i] = Convert.ToByte(hex.Substring(i * 2, 2), 16);
+            }
+            Assert.True(Multiplayer.Ship.ShipPlanModel.TryDecode(bytes, out Multiplayer.Ship.ShipPlanModel? plan, out string? e), e);
+            return new ShipHullStat(
+                Multiplayer.Ship.ShipMapSilhouette.Of(plan), "owner", docked: false, materials: null,
+                profile: Multiplayer.Ship.ShipMapProfile.Of(plan), parts: parts);
+        }
+
+        private static JObject HullJson(ShipHullStat hull)
+        {
+            ShipDomainStat domain = new ShipDomainStat(
+                "ship:83", 83, 4, 91, 240, 35,
+                0, 0, 0, active: true, piloted: false, liveCadenceExpected: false,
+                pilotPlayerEntityId: null, aboardPlayerEntityIds: Array.Empty<long>(),
+                deckCount: 0, mountedPartCount: 0, subscriberCount: 0, hull: hull);
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain });
+            return (JObject)((JArray)((JObject)JObject.Parse(snapshot.ToJson())["runtime"]!)
+                ["shipDomains"]!)[0]!["hull"]!;
+        }
+
+        /// <summary>
+        /// The elevation, the decks and the mounted parts reach the wire in the
+        /// hull's own metres. This is the contract the login server parses and the
+        /// ship card draws; if the names or the units move, both ends break at once.
+        /// </summary>
+        [Fact]
+        public void The_hull_geometry_block_carries_the_elevation_decks_and_parts()
+        {
+            JObject hull = HullJson(LiveHullStat(
+                new Multiplayer.Ship.ShipPartMark(Multiplayer.Ship.ShipPartKinds.Helm, "Helm", 0, 3.4, 1)));
+            JObject geometry = (JObject)hull["geometry"]!;
+
+            Assert.True((bool)geometry["present"]!);
+            Assert.Equal(0.0, (double)geometry["floorMetres"]!);
+            Assert.Equal(3.4, (double)geometry["headMetres"]!);
+            Assert.Equal(3.4, (double)geometry["heightMetres"]!);
+            Assert.Equal(3, (int)geometry["sectionCount"]!);
+            // Three stations, two edges, flat z,y.
+            Assert.Equal(12, ((JArray)geometry["profile"]!).Count);
+
+            JObject deck = (JObject)((JArray)geometry["decks"]!).Single();
+            Assert.Equal(0, (int)deck["deckNumber"]!);
+            Assert.Equal(3.4, (double)deck["planeMetres"]!);
+            Assert.Equal(-6.0, (double)deck["sternZMetres"]!);
+            Assert.Equal(2.0, (double)deck["bowZMetres"]!);
+
+            JObject part = (JObject)((JArray)geometry["parts"]!).Single();
+            Assert.Equal("helm", (string)part["kind"]!);
+            Assert.Equal("Helm", (string)part["title"]!);
+            Assert.Equal(3.4, (double)part["y"]!);
+            Assert.Equal(1.0, (double)part["z"]!);
+        }
+
+        /// <summary>
+        /// THE REVISION NAMES THE DRAWING. It must be stable while the drawing is,
+        /// and must move the moment anything on it does - that is the whole reason
+        /// the geometry can stay out of the live poll: a reader refetches when, and
+        /// only when, this number changes.
+        /// </summary>
+        [Fact]
+        public void The_geometry_revision_is_stable_until_the_drawing_changes()
+        {
+            Multiplayer.Ship.ShipPartMark helm = new Multiplayer.Ship.ShipPartMark(Multiplayer.Ship.ShipPartKinds.Helm, "Helm", 0, 3.4, 1);
+            long first = (long)HullJson(LiveHullStat(helm))["geometryRevision"]!;
+            long again = (long)HullJson(LiveHullStat(helm))["geometryRevision"]!;
+            Assert.Equal(first, again);
+            Assert.True(first > 0, "a hull with a drawing must have a revision");
+
+            // A part MOVED by a metre is a different drawing.
+            long moved = (long)HullJson(LiveHullStat(
+                new Multiplayer.Ship.ShipPartMark(Multiplayer.Ship.ShipPartKinds.Helm, "Helm", 0, 3.4, 2)))["geometryRevision"]!;
+            Assert.NotEqual(first, moved);
+
+            // A part ADDED is a different drawing.
+            long added = (long)HullJson(LiveHullStat(helm,
+                new Multiplayer.Ship.ShipPartMark(Multiplayer.Ship.ShipPartKinds.Lamp, "Lamp", 2, 3.4, 1)))["geometryRevision"]!;
+            Assert.NotEqual(first, added);
+        }
+
+        /// <summary>
+        /// A hull with no shape publishes an ABSENT geometry block, not a missing
+        /// one. Absence must read as "an older game server"; an empty object that
+        /// says present:false reads as "this ship's shape is unavailable", which is
+        /// the true thing and the thing the card prints.
+        /// </summary>
+        [Fact]
+        public void An_undecodable_hull_publishes_an_absent_geometry_block_rather_than_none()
+        {
+            JObject hull = HullJson(new ShipHullStat(null, "owner", docked: true, materials: null));
+            JObject geometry = (JObject)hull["geometry"]!;
+
+            Assert.False((bool)hull["present"]!);
+            Assert.False((bool)geometry["present"]!);
+            Assert.Empty((JArray)geometry["profile"]!);
+            Assert.Empty((JArray)geometry["decks"]!);
+            Assert.Empty((JArray)geometry["parts"]!);
+            Assert.Equal(0.0, (double)geometry["heightMetres"]!);
+        }
+
+        /// <summary>
+        /// A hull whose SHAPE is unavailable can still say where its parts are. The
+        /// two facts have different availability, exactly as the owner does, and a
+        /// card that hid the helm because it could not draw the hull would be losing
+        /// information it actually has.
+        /// </summary>
+        [Fact]
+        public void A_shapeless_hull_still_reports_the_parts_mounted_on_it()
+        {
+            JObject geometry = (JObject)HullJson(new ShipHullStat(
+                null, "owner", docked: true, materials: null,
+                profile: null,
+                parts: new[] { new Multiplayer.Ship.ShipPartMark(Multiplayer.Ship.ShipPartKinds.Sail, "Sail", 0, 3.4, -1) }))
+                ["geometry"]!;
+
+            Assert.False((bool)geometry["present"]!);
+            JObject part = (JObject)((JArray)geometry["parts"]!).Single();
+            Assert.Equal("sail", (string)part["kind"]!);
+        }
+
         [Fact]
         public void Ship_domain_snapshot_reports_only_real_local_runtime_state()
         {

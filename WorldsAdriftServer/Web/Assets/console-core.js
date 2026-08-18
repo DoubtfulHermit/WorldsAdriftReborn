@@ -68,6 +68,27 @@
     mapStatusText:function(s){
       return s.islands+' islands · '+s.cells+' zones';},
     crewTile:null,
+    // Where a page asks for one hull's STATIC geometry - the side elevation,
+    // the decks and the mounted parts the ship card draws. Static per hull, so
+    // it is fetched once when a card opens rather than pushed with every poll,
+    // exactly as an island's coastline is served once rather than re-sent.
+    //
+    // THE REVISION IS IN THE URL, and that is not decoration. The response is
+    // cacheable - it has to be, or the point of keeping it out of the poll is
+    // lost - and the revision is a hash of the drawing itself, so a URL
+    // carrying it addresses CONTENT rather than a ship. Without it, mounting a
+    // lamp changed the drawing while the browser went on serving the previous
+    // one out of its own HTTP cache: measured, in a headless run that moved a
+    // helm on the server and watched the card not notice.
+    //
+    // The DEFAULT is the public map's endpoint, keyed on the same opaque marker
+    // token the public feed labels a ship with; the operator fragment overrides
+    // it with the authenticated one keyed on the real hull entity id. Same
+    // failure mode as every other default here: a page that forgets to state
+    // its policy asks the anonymous endpoint, which cannot answer with an
+    // identity it was never given.
+    shipGeometryUrl:function(id,rev){
+      return '/map/ship?id='+encodeURIComponent(id)+'&rev='+encodeURIComponent(rev);},
     shipBuiltHeading:'What it is built from',
     shipIdentityRows:function(){return [];},
     shipBuiltNote:'Hull materials are the dominant wood and metal the craft consumed; '

@@ -58,6 +58,30 @@ namespace WorldsAdriftServer.Handlers.PublicMap
                         "public, max-age=2", headOnly);
                     return true;
 
+                case PublicMapRoute.ShipGeometry:
+                    // CONTENT-ADDRESSED, so it may be cached properly. The page
+                    // puts the drawing's revision in the query, and a revision
+                    // is a hash of the drawing - so this URL names a SHAPE, not
+                    // a ship, and the answer for it cannot go stale. Mount a
+                    // lamp and the page asks a different URL.
+                    //
+                    // Keyed on the SHIP instead, any cache at all would be a
+                    // lie for as long as it lasted. That was the first cut, and
+                    // a headless run that moved a helm on the server caught the
+                    // browser going on drawing the old one out of its own HTTP
+                    // cache - which is what put the revision in the query.
+                    //
+                    // Not cached server-side: it is one small object built from
+                    // a snapshot already in hand, and it is asked for when a
+                    // reader opens a ship rather than on a timer.
+                    Send(session, 200, "application/json",
+                        PublicMapProjection.Serialize(ShipGeometryEndpoint.ForPublic(
+                            GameStats.Read(DateTimeOffset.UtcNow),
+                            ShipGeometryEndpoint.Selector(request.Url, ShipGeometryEndpoint.TokenKey),
+                            PublicMapProjection.ProcessSalt)),
+                        "public, max-age=300", headOnly);
+                    return true;
+
                 case PublicMapRoute.WorldData:
                     // The preserved-release catalogue: static for the lifetime
                     // of a build, and by far the heavier payload, so browsers

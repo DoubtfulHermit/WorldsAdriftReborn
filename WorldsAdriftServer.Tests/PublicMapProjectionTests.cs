@@ -63,6 +63,11 @@ namespace WorldsAdriftServer.Tests
             "FAUNA-SENTINEL",         // an unexpected field inside fauna
             "ECOLOGY-SENTINEL",       // an unexpected field inside the v9 ecology block
             "424242",                 // the ecology's worldSeed: an operator knob, admin-only
+            // the v11 hull GEOMETRY block, served from its own endpoint but
+            // through this same whitelist
+            "PARTTITLE-SENTINEL",     // the catalogue title of a mounted part
+            "PARTOWNER-SENTINEL",     // the uid of whoever bolted a part on
+            "GEOMETRY-SENTINEL",      // an unexpected field inside the geometry block
         };
 
         private const string CorpusJson = @"{
@@ -102,7 +107,18 @@ namespace WorldsAdriftServer.Tests
                 ""keelIsLongestAxis"":true,
                 ""woodId"":""pine"",""woodQuality"":3,
                 ""metalId"":""iron"",""metalQuality"":2,
-                ""outline"":[0,11.5,4.25,3,4.25,-10.75,-4.25,-10.75,-4.25,3]},
+                ""outline"":[0,11.5,4.25,3,4.25,-10.75,-4.25,-10.75,-4.25,3],
+                ""geometryRevision"":1234567,
+                ""geometry"":{""present"":true,
+                  ""floorMetres"":0,""headMetres"":6.8,""heightMetres"":6.8,
+                  ""sectionCount"":7,
+                  ""shipwright"":""GEOMETRY-SENTINEL-unexpected"",
+                  ""profile"":[-10.75,6.8,0,6.8,11.5,6.8,11.5,0,0,0,-10.75,0],
+                  ""decks"":[{""deckNumber"":0,""floorMetres"":0,""planeMetres"":3.4,
+                             ""sternZMetres"":-10.75,""bowZMetres"":11.5}],
+                  ""parts"":[{""kind"":""helm"",""title"":""PARTTITLE-SENTINEL-Wheel of Ravenmoor"",
+                              ""ownerCharacterUid"":""PARTOWNER-SENTINEL-deadbeef"",
+                              ""x"":0,""y"":3.4,""z"":6.5}]}},
               ""authorityGeneration"":5,""replicationSequence"":2000,
               ""cadenceMs"":240,""deliveryAgeMs"":100,
               ""x"":17220.5,""y"":-310.75,""z"":-1084.25,
@@ -212,6 +228,10 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(-1084.25, (double?)ship["z"]);
             Assert.True((bool?)ship["active"]);
             Assert.Equal(6, (int?)ship["deckCount"]);
+            // What is bolted to a ship is a fact about the ship, and the card
+            // draws every one of them - a tile saying zero beside ten marks
+            // would be the map contradicting itself.
+            Assert.Equal(4, (int?)ship["mountedPartCount"]);
             // The renderer keys ships by hullEntityId, so it is present - but
             // it is the opaque token, not the entity id the server knows.
             Assert.Equal((string?)ship["id"], (string?)ship["hullEntityId"]);
@@ -317,7 +337,8 @@ namespace WorldsAdriftServer.Tests
             string[] shipKeys = ship.Properties().Select(p => p.Name).ToArray();
             Assert.Equal(
                 new[] { "hullEntityId", "id", "x", "y", "z", "active", "deckCount",
-                        "yawRadians", "yawRateRadPerSec", "vxMps", "vyMps", "vzMps", "hull" },
+                        "mountedPartCount", "yawRadians", "yawRateRadPerSec",
+                        "vxMps", "vyMps", "vzMps", "hull" },
                 shipKeys.Where(k => k != "headingDegrees").ToArray());
 
             // The hull block is the silhouette the public map draws. Every key
@@ -327,7 +348,7 @@ namespace WorldsAdriftServer.Tests
                 new[] { "present", "docked", "beamMetres", "keelMetres", "deckPlaneMetres",
                         "bowLocalZMetres", "sternLocalZMetres", "cellCount", "hullDeckCount",
                         "sectionCount", "keelIsLongestAxis", "woodId", "woodQuality",
-                        "metalId", "metalQuality", "outline" },
+                        "metalId", "metalQuality", "outline", "geometryRevision" },
                 ((JObject)ship["hull"]!).Properties().Select(p => p.Name).ToArray());
 
             Assert.Equal(
@@ -378,6 +399,134 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal("missing", (string?)o["state"]);
             Assert.Empty((JArray)o["players"]!);
             Assert.Empty((JArray)o["ships"]!);
+        }
+
+        // ---- the per-hull geometry endpoint ---------------------------------
+
+        /// <summary>The public geometry answer for the corpus's one ship.</summary>
+        private static JObject PublicGeometry()
+        {
+            GameStatsResult result = ReadCorpus();
+            string token = PublicMapProjection.AnonymousId(
+                "ship", (string?)Assert.Single(result.Snapshot!.ShipDomains).Json["domainId"] ?? "", SaltA);
+            return ShipGeometryEndpoint.ForPublic(result, token, SaltA);
+        }
+
+        [Fact]
+        public void TheGeometryEndpointLeaksNothingTheLiveFeedWouldNot()
+        {
+            // The endpoint is a SECOND doorway out of the snapshot, so it gets
+            // the same corpus treatment the live feed does. If it ever forwards
+            // the parsed object instead of rebuilding it, these fail by name.
+            string json = PublicMapProjection.Serialize(PublicGeometry());
+            foreach (string sentinel in SensitiveSentinels)
+            {
+                Assert.DoesNotContain(sentinel, json, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        [Fact]
+        public void TheGeometryLeakTestItselfBites()
+        {
+            // The corpus really does carry the geometry sentinels in the
+            // positions the endpoint reads, and the OPERATOR answer shows them -
+            // otherwise the test above would pass on an empty payload.
+            GameStatsResult result = ReadCorpus();
+            string operatorJson = ShipGeometryEndpoint
+                .ForOperator(result, "918273645").ToString();
+            Assert.Contains("PARTTITLE-SENTINEL", operatorJson, StringComparison.Ordinal);
+            // ...but even the operator answer is a rebuild, so an unexpected
+            // field inside the block never reaches either page.
+            Assert.DoesNotContain("GEOMETRY-SENTINEL", operatorJson, StringComparison.Ordinal);
+            Assert.DoesNotContain("PARTOWNER-SENTINEL", operatorJson, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void TheGeometryShapeIsExactlyTheWhitelist()
+        {
+            JObject answer = PublicGeometry();
+            Assert.Equal(new[] { "ok", "id", "revision", "geometry" },
+                answer.Properties().Select(p => p.Name).ToArray());
+            Assert.True((bool?)answer["ok"]);
+            Assert.Equal(1234567L, (long?)answer["revision"]);
+
+            JObject geometry = (JObject)answer["geometry"]!;
+            Assert.Equal(
+                new[] { "present", "floorMetres", "headMetres", "heightMetres",
+                        "sectionCount", "profile", "decks", "parts" },
+                geometry.Properties().Select(p => p.Name).ToArray());
+
+            JObject deck = (JObject)((JArray)geometry["decks"]!).Single();
+            Assert.Equal(
+                new[] { "deckNumber", "floorMetres", "planeMetres", "sternZMetres", "bowZMetres" },
+                deck.Properties().Select(p => p.Name).ToArray());
+
+            // A part on the public feed is a KIND at a PLACE. The title the
+            // operator sees is dropped rather than clamped: the public card
+            // labels a mark from its own vocabulary, so no string that
+            // originated outside this projection has to be trusted.
+            JObject part = (JObject)((JArray)geometry["parts"]!).Single();
+            Assert.Equal(new[] { "kind", "x", "y", "z" },
+                part.Properties().Select(p => p.Name).ToArray());
+            Assert.Equal("helm", (string?)part["kind"]);
+            Assert.Equal(6.5, (double?)part["z"]);
+        }
+
+        [Fact]
+        public void TheGeometryEndpointRefusesByNameRatherThanBlankly()
+        {
+            // Three different nothings, and the card prints which: a blank
+            // panel would say none of them.
+            GameStatsResult result = ReadCorpus();
+            Assert.Equal("no-ship-selected",
+                (string?)ShipGeometryEndpoint.ForPublic(result, null, SaltA)["reason"]);
+            Assert.Equal("unknown-ship",
+                (string?)ShipGeometryEndpoint.ForPublic(result, "deadbeefcafe", SaltA)["reason"]);
+            Assert.Equal("not-reporting",
+                (string?)ShipGeometryEndpoint.ForPublic(
+                    GameStatsResult.Missing(), "deadbeefcafe", SaltA)["reason"]);
+            Assert.Equal("unknown-ship",
+                (string?)ShipGeometryEndpoint.ForOperator(result, "1")["reason"]);
+        }
+
+        [Fact]
+        public void TheGeometryTokenIsTheSameOneTheLiveFeedPublishes()
+        {
+            // The public card asks with the token it was drawn with; if the two
+            // ever derived differently, clicking a ship would answer
+            // "unknown-ship" forever.
+            JObject ship = (JObject)((JArray)JObject.Parse(ProjectCorpus())["ships"]!).Single();
+            GameStatsResult result = ReadCorpus();
+            JObject answer = ShipGeometryEndpoint.ForPublic(
+                result, (string?)ship["hullEntityId"], SaltA);
+            Assert.True((bool?)answer["ok"]);
+            Assert.Equal((long?)ship["hull"]!["geometryRevision"], (long?)answer["revision"]);
+        }
+
+        [Fact]
+        public void AQuerySelectorIsReadOrRefusedButNeverDecoded()
+        {
+            Assert.Equal("918273645",
+                ShipGeometryEndpoint.Selector("/admin/api/ship-geometry?hull=918273645", "hull"));
+            Assert.Equal("a1b2c3d4e5f6",
+                ShipGeometryEndpoint.Selector("/map/ship?other=1&id=a1b2c3d4e5f6", "id"));
+            Assert.Null(ShipGeometryEndpoint.Selector("/map/ship", "id"));
+            Assert.Null(ShipGeometryEndpoint.Selector("/map/ship?id=", "id"));
+            Assert.Null(ShipGeometryEndpoint.Selector("/map/ship?hull=1", "id"));
+            // Anything a selector has no business containing is refused rather
+            // than unescaped: there is no legitimate id that needs a percent.
+            Assert.Null(ShipGeometryEndpoint.Selector("/map/ship?id=%2e%2e%2f", "id"));
+            Assert.Null(ShipGeometryEndpoint.Selector("/map/ship?id=" + new string('x', 65), "id"));
+        }
+
+        [Fact]
+        public void TheShipGeometryRouteIsClaimedByThePublicMapNamespace()
+        {
+            Assert.Equal(PublicMapRoute.ShipGeometry,
+                PublicMapRoutes.Match("GET", "/map/ship?id=a1b2c3d4e5f6"));
+            Assert.Equal(PublicMapRoute.ShipGeometry, PublicMapRoutes.Match("HEAD", "/map/ship"));
+            // Still no write surface anywhere under /map.
+            Assert.Equal(PublicMapRoute.NotFound, PublicMapRoutes.Match("POST", "/map/ship"));
         }
 
         [Fact]

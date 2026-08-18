@@ -68,28 +68,51 @@ STUB = """<script>
     }catch(e){roster=[];}
     return roster;
   }
-  // The two fixture hulls. Every number in `hull` is what the game server
-  // publishes for a real ShipPlan: 4243 is the 60-byte hull off the live save,
-  // 4242 a four-cell hull tapered to a fine bow. The rings are hull-local
-  // metres, flat x,z, exactly as the wire carries them.
+  // The two fixture hulls, and EVERY number about their shape is a real
+  // derivation rather than a typed-in figure: the plan rings below are what
+  // ShipMapSilhouette returns and the geometry blocks are what ShipMapProfile
+  // returns, both run over real ShipPlan bytes and pasted here (the generator
+  // lives beside this file's own history - see the seed program the shipcard
+  // work used). 4243 is the 60-byte hull off the live save; 4242 is a
+  // four-cell hull tapered to a fine bow, round-tripped through the real
+  // encoder so its half-widths are ones the wire can actually carry.
+  //
+  // The GEOMETRY block is what the live console fetches per hull from
+  // /admin/api/ship-geometry when a ship's card is opened - static per hull,
+  // deliberately not part of the poll - so the stub answers that route too and
+  // the frozen preview draws the same schematic the live console draws.
+  // ---- generated from the real derivations ----
+  var PREVIEW_RING={
+    4242:[4.28,-3.8,6.8,2,8.06,6,6.3,10,2.52,16.8,-2.52,16.8,-6.3,10,-8.06,6,-6.8,2,-4.28,-3.8],
+    4243:[6.05,-6,6.05,-2,6.05,2,-6.05,2,-6.05,-2,-6.05,-6]
+  };
+  var PREVIEW_GEOM={
+    4242:{present:true,floorMetres:0,headMetres:3.4,heightMetres:3.4,sectionCount:5,profile:[-3.8,3.4,2,3.4,6,3.4,10,3.4,16.8,3.4,14,0,10,0,6,0,2,0,-2,0],decks:[{deckNumber:0,floorMetres:0,planeMetres:3.4,sternZMetres:-3.8,bowZMetres:16.8}],parts:[{kind:'helm',title:'Helm',x:0,y:3.4,z:8},{kind:'sail',title:'Sail',x:0,y:3.4,z:2},{kind:'engine',title:'Procedural Engine',x:-3.4,y:1.8,z:-2},{kind:'engine',title:'Procedural Engine',x:3.4,y:1.8,z:-2},{kind:'lamp',title:'Lamp',x:-2,y:3.4,z:12},{kind:'lamp',title:'Lamp',x:2,y:3.4,z:12}]},
+    4243:{present:true,floorMetres:0,headMetres:3.4,heightMetres:3.4,sectionCount:3,profile:[-6,3.4,-2,3.4,2,3.4,-1.59,0,-2,0,-2.41,0],decks:[{deckNumber:0,floorMetres:0,planeMetres:3.4,sternZMetres:-6,bowZMetres:2}],parts:[{kind:'helm',title:'Helm',x:0,y:3.4,z:0.8},{kind:'sail',title:'Sail',x:0,y:3.4,z:-1.5},{kind:'lamp',title:'Lamp',x:-2.4,y:3.4,z:-2.5},{kind:'lamp',title:'Lamp',x:2.4,y:3.4,z:-2.5}]}
+  };
+  // A revision NAMES a drawing. These never change inside a frozen file, which
+  // is exactly right: the console fetches each hull's geometry once and holds
+  // it while the revision is unchanged.
+  var PREVIEW_REV={4242:1,4243:2};
   var HULLS=[
     {id:4242,cx:-14150,cz:-6560,r:100,speed:8.4,piloted:true,
      hull:{present:true,ownerCharacterUid:'preview-owner-1',docked:false,
-           beamMetres:16,keelMetres:20.6,deckPlaneMetres:3.4,
+           beamMetres:16.13,keelMetres:20.6,deckPlaneMetres:3.4,
            bowLocalZMetres:16.8,sternLocalZMetres:-3.8,
            cellCount:4,hullDeckCount:1,sectionCount:5,keelIsLongestAxis:true,
            woodId:'birch',woodQuality:6,metalId:'iron',metalQuality:4,
-           outline:[4.4,-3.8,6.8,2,8,6,6.4,10,2.4,16.8,-2.4,16.8,
-                    -6.4,10,-8,6,-6.8,2,-4.4,-3.8]},
-     deckCount:14,mountedPartCount:6},
+           geometryRevision:PREVIEW_REV[4242],
+           outline:PREVIEW_RING[4242]},
+     deckCount:14,mountedPartCount:PREVIEW_GEOM[4242].parts.length},
     {id:4243,cx:-14280,cz:-6670,r:85,speed:-5.5,piloted:false,
      hull:{present:true,ownerCharacterUid:'preview-owner-2',docked:false,
            beamMetres:12.09,keelMetres:8,deckPlaneMetres:3.4,
            bowLocalZMetres:2,sternLocalZMetres:-6,
            cellCount:2,hullDeckCount:1,sectionCount:3,keelIsLongestAxis:false,
            woodId:'birch',woodQuality:3,metalId:'iron',metalQuality:3,
-           outline:[6.05,-6,6.05,-2,6.05,2,-6.05,2,-6.05,-2,-6.05,-6]},
-     deckCount:6,mountedPartCount:4}];
+           geometryRevision:PREVIEW_REV[4243],
+           outline:PREVIEW_RING[4243]},
+     deckCount:6,mountedPartCount:PREVIEW_GEOM[4243].parts.length}];
   // A circle, so the reported velocity is the exact derivative of the reported
   // position at every instant - which is the only thing that makes the
   // console's dead reckoning a fair demonstration rather than a cartoon.
@@ -148,7 +171,17 @@ STUB = """<script>
     if(opts&&String(opts.method||'GET').toUpperCase()!=='GET')
       return Promise.resolve(new Response(JSON.stringify({error:'offline preview'}),
         {status:403,headers:{'Content-Type':'application/json'}}));
-    var body=u.indexOf('/stats')>=0?stats():{};
+    var body={};
+    if(u.indexOf('/stats')>=0){
+      body=stats();
+    }else if(u.indexOf('/ship-geometry')>=0){
+      // One hull's static geometry, answered exactly as the live endpoint
+      // answers it - including the refusal, which the card prints by name.
+      var m=/hull=([0-9]+)/.exec(u),id=m?Number(m[1]):0;
+      body=PREVIEW_GEOM[id]
+        ? {ok:true,id:String(id),revision:PREVIEW_REV[id],geometry:PREVIEW_GEOM[id]}
+        : {ok:false,reason:'unknown-ship'};
+    }
     return Promise.resolve(new Response(JSON.stringify(body),
       {status:200,headers:{'Content-Type':'application/json'}}));
   };
@@ -164,8 +197,10 @@ the two authenticated reads with an empty world &mdash; no players, no terrain &
 wildlife roster the preserved catalogue&rsquo;s own seeding rule places on the tier-1 world, and
 two ships. The creatures really are moving, on the game server&rsquo;s own movement maths, and the
 ships really are the hulls their outlines say they are &mdash; one is the 60-byte hull off the live
-save &mdash; but both are anchored to <em>this file&rsquo;s</em> clock rather than a running
-server&rsquo;s, and where the two ships are is made up here.
+save. Click either one and its card draws the same plan-and-profile schematic the live console
+draws, off the same derivations. But both are anchored to <em>this file&rsquo;s</em> clock rather
+than a running server&rsquo;s, and where the two ships are, and which parts are bolted to them, is
+made up here.
 </div>
 """
 

@@ -281,3 +281,47 @@ footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);fo
 @media(prefers-reduced-motion:no-preference){
   .map-marker.found .mk-ring{animation:pubFound 1.1s ease-in-out infinite alternate}
 }
+
+/* ---- the hull schematic in the ship card ---------------------------------
+   A general-arrangement drawing: plan above, profile below, one scale, bow to
+   the right. Everything inside it is authored in the SVG's own units by
+   map-ships.js and the viewBox does the fitting, so the drawing keeps its
+   proportions at a phone width without a media query.
+
+   The ink is the same family the map draws hulls in (.map-ship-hull), because
+   it is the same ship: a reader who has just clicked a pale blue outline on
+   the map should recognise what opens beside it. Strokes are non-scaling so a
+   sixty-metre freighter and a twelve-metre sloop are drawn with the same pen. */
+.ship-schematic{display:block;width:100%;height:auto;margin:.1rem 0 .15rem;overflow:visible}
+.ship-schematic .sc-hull{fill:#8aa6ff;fill-opacity:.2;stroke:#cfdcff;stroke-width:1.4;
+  stroke-linejoin:round;vector-effect:non-scaling-stroke}
+/* The centreline and the decks are ANNOTATION, not hull: dashed and lighter, so
+   nothing on the drawing that is a line we added can be mistaken for a line the
+   player built. */
+.ship-schematic .sc-centre{fill:none;stroke:#9fb3d6;stroke-width:1;opacity:.5;
+  stroke-dasharray:5 4;vector-effect:non-scaling-stroke}
+.ship-schematic .sc-deck{fill:none;stroke:#9fb3d6;stroke-width:1.5;opacity:.85;
+  stroke-dasharray:7 4;vector-effect:non-scaling-stroke}
+.ship-schematic .sc-bar,.ship-schematic .sc-bow{fill:none;stroke:#aab9c0;stroke-width:1.2;
+  stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.ship-schematic text{font:inherit;fill:#71838d;font-size:8px;letter-spacing:.04em}
+.ship-schematic .sc-view{font-size:6px;letter-spacing:.16em;text-transform:uppercase;fill:#71838d}
+.ship-schematic .sc-axis{font-size:7px;fill:#aab9c0;font-variant-numeric:tabular-nums}
+/* One SHAPE per kind, not just one colour, so the schematic still reads for
+   anyone who cannot tell the colours apart. */
+.ship-schematic .sc-glyph{fill:#0e171f;stroke:#edf3f5;stroke-width:1.3;
+  stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.ship-schematic .sc-spoke{fill:none;stroke:#edf3f5;stroke-width:1.2;
+  stroke-linecap:round;vector-effect:non-scaling-stroke}
+/* Only THREE inks, and the shapes carry the rest. Eight glyph colours would be
+   eight more things to tell apart on a 15 px mark, would collide with the map's
+   own tier and wall keys, and would leave the drawing unreadable to anyone who
+   cannot separate them - so the helm (the part a reader is usually looking for)
+   takes the console accent, a lamp is warm because it is a light, and every
+   other part is drawn in the hull's own ink. */
+.ship-schematic .sc-k-helm .sc-glyph,.ship-schematic .sc-k-helm .sc-spoke{stroke:#74c9cf}
+.ship-schematic .sc-k-lamp .sc-glyph{fill:#e8c06a;stroke:#e8c06a}
+.ship-schematic .sc-part{pointer-events:auto}
+.sc-legend{display:flex;flex-wrap:wrap;gap:.3rem .85rem;margin:.5rem 0 .1rem}
+.sc-key{display:inline-flex;align-items:center;gap:.3rem;font-size:.62rem;color:var(--text-soft)}
+.sc-swatch{width:15px;height:15px;flex:0 0 15px;margin:0}

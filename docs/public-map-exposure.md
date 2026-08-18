@@ -16,6 +16,7 @@ none of the admin command bridge:
 | `GET /map` | The public map page: the console's own renderer, composed without any operator fragment, with the live anonymized payload embedded for the first paint. Self-contained - no external host of any kind. | `no-cache` (it carries live data; the heavy catalogue beside it is cached instead) |
 | `GET /map/data` | Anonymized live snapshot: fauna clock/roster, anonymous traveller markers, anonymous ship markers with real hull outlines and the dead-reckoning model. Rebuilt at most once per 2 s regardless of viewer count; the raw stats file is never served. Viewers poll it every 3 s. | `public, max-age=2` |
 | `GET /map/world` | The static preserved-release world catalogue (the heavy one, ~island shells and inventories). Static per build. | `public, max-age=3600` |
+| `GET /map/ship?id=<token>&rev=<n>` | ONE hull's static geometry: its side elevation, its decks as levels, and the kinds of part mounted on it with their hull-local places. Asked for only when a viewer opens a ship's card, keyed on the same opaque marker token the live feed labels that ship with. Deliberately NOT part of `/map/data`: a hull's shape does not change from poll to poll, so re-sending it to every viewer every 3 s would be pure waste - the same reason island coastlines live in `/map/world`. The `rev` is the drawing's own hash, carried in the query so the URL addresses CONTENT and the answer cannot go stale; mount a part and the page asks a different URL. | `public, max-age=300` |
 
 Everything else under `/map` is answered 404 by the login server itself, so no
 other route can shadow the public prefix.
@@ -84,7 +85,9 @@ behind it.
 They CAN see: the world's islands, zones, walls and coastlines; what each
 island holds (databanks, ore, trees, wildlife); the wildlife moving in real
 time; how many travellers are aloft; where each positioned traveller is; where
-each ship is, which way it is heading, and the real outline of its hull.
+each ship is, which way it is heading, the real outline of its hull, and -
+when they open a ship - its side elevation, how many decks it has, and where
+the helm, sails, engines, wings, lamps and sky core sit on it.
 
 They CANNOT see: any player name, account, or character id; any peer id or IP;
 anyone's latency, packet loss or connection health; how long anyone has been
@@ -100,3 +103,12 @@ has seen it in game, so it is a weak fingerprint in a way a generic triangle
 would not be. If that trade is ever unwanted, dropping the hull block from
 `PublicMapProjection.ProjectShips` is a one-line change and the renderer falls
 back to a plain ship mark on its own.
+
+The same judgement was made again for the per-hull geometry behind
+`/map/ship`, and one thing was DROPPED rather than carried: a mounted part's
+catalogue TITLE. The operator's card prints the title the game server
+published; the public card labels a mark from its own vocabulary
+("Helm", "Sail"). The title is a string that originates outside the
+projection and the public page does not need it to draw a helm, so it does
+not get it - which is the line already drawn for the day ships or parts carry
+player-authored text.

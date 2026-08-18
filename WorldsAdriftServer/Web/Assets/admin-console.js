@@ -20,6 +20,12 @@
   MARKS.shipCrewWords=function(d){return [d.piloted?'Piloted':'No pilot'];};
   MARKS.crewTile=function(stats,d,statTile){
     stats.appendChild(statTile((d.aboardPlayerEntityIds||[]).length,'Players aboard'));};
+  // The authenticated per-hull geometry endpoint, keyed on the real hull entity
+  // id this page already knows. Same drawing as the public map's, plus the
+  // catalogue title of each mounted part, which the anonymous projection drops.
+  MARKS.shipGeometryUrl=function(id,rev){
+    return '/admin/api/ship-geometry?hull='+encodeURIComponent(id)
+      +'&rev='+encodeURIComponent(rev);};
   MARKS.shipBuiltHeading='What it is and who owns it';
   MARKS.shipIdentityRows=function(d,h){return [
     ['Owner character uid',h.ownerCharacterUid?h.ownerCharacterUid:'unowned'],

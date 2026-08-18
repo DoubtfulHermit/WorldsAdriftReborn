@@ -101,6 +101,24 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            // One hull's STATIC geometry - elevation, decks, mounted parts - asked
+            // for when an operator opens a ship's card rather than pushed with every
+            // poll. See ShipGeometryEndpoint for why it is not in the live payload.
+            if (path == "/admin/api/ship-geometry" && method == "GET")
+            {
+                if (!authed)
+                {
+                    Json(session, 401, "{\"error\":\"unauthenticated\"}");
+                    return true;
+                }
+
+                Json(session, 200, ShipGeometryEndpoint.ForOperator(
+                    GameStats.Read(DateTimeOffset.UtcNow),
+                    ShipGeometryEndpoint.Selector(url, ShipGeometryEndpoint.HullKey))
+                    .ToString(Newtonsoft.Json.Formatting.None));
+                return true;
+            }
+
             // The operator command surface. It takes the whole
             // /admin/api/operator/ namespace, including paths it does not serve,
             // so a GUI calling a wrong endpoint gets a JSON refusal naming the
