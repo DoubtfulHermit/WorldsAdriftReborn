@@ -211,38 +211,57 @@ visit.
 
 ## What is still unproven
 
-- **THE SOAK GATE STILL CANNOT SEE ISLAND CHECKOUT, and now we know exactly why.**
-  Running the soak with the tier-1 release world enabled and both bots stood at
-  Mount Spero's landing point, the server logs the island frame change
-  (`changed island frame haven -> release-887053661`), queues the island's whole
-  resource set, and then defers **every single one** of them:
-  `[resource-interest] deferred 'deposit-release-887053661-9' because terrain for
-  island release-887053661 is not ready`. 319 such lines, **0** terrain additions,
-  **0** resource additions.
+- **RESOLVED, 2026-08-18: the "terrain never ready" blocker was an artifact of
+  the TEST environment, not a bug.** The earlier revision of this document
+  reported that with the release world on, `IsTerrainReady` stayed false for
+  every non-Haven island forever, and flagged it as unreconciled with
+  production. The reconciliation: production runs **`WAREBORN_LOAD_BARRIER=1`**
+  (it lives only in a systemd dropin on the VPS, which is why a locally-composed
+  env missed it), and `LoadBarrier.Prime` - called at
+  `WorldsAdriftRebornGameServer.cs:4066`, BEFORE the
+  `IslandTerrainInterestService` constructor at 4129 - deliberately calls the
+  ALLOCATING `registry.EntityIdFor(entity)` on **every** registration:
+  "Allocate/bind the shared id now so it can be named before its AddEntity
+  runs." With the barrier on, every island terrain id is bound at construction
+  time, candidacy is `Managed = true`, and the terrain gate works. A bisect
+  confirms `WAREBORN_LOAD_BARRIER=1` ALONE flips the boot from
+  `50 world registration(s) have no entity id yet` to `unowned=0`.
 
-  The cause is upstream of this change and PRE-EXISTING - a boot of `0a8c1e8`
-  with identical settings produces the identical state.
-  `IslandTerrainInterestService`'s constructor computes each island's candidacy
-  once, and `registered`/`locallyOwned` both require
-  `WorldEntityRegistry.BoundEntityIdFor(island.WorldEntityKey)` to be non-null.
-  Entity ids are allocated lazily on first AddEntityOp, so at boot - before any
-  peer has connected - **no island terrain has an id yet**. The boot log says so
-  directly: `50 world registration(s) have no entity id yet ...: global, island,
-  island-beautiful-wildlands, ...`. Every release island is therefore
-  `managed = false`, `_entityByIsland` is empty, and `IsTerrainReady` returns
-  false for every non-Haven island for the whole process lifetime.
+  **The full chain is now proven under the exact production environment** (the
+  complete WAREBORN_* set from the live unit, minus the DB), ten minutes, both
+  bots at Mount Spero's landing point:
 
-  **This has not been reconciled with production**, which demonstrably does add
-  and remove Mount Spero deposits. Either production's configuration differs or
-  the candidacy is refreshed on a path not found here. It must be resolved before
-  this branch is deployed, and it is tracked separately because it is not caused
-  by, and does not affect the correctness of, the change in this document.
+  - `[terrain-interest] added release-887053661 terrain 3224 to peer ...` -
+    OPTIONAL island terrain checked out to a bot (via the bounded ack fallback,
+    since bots do not send correlated asset acks);
+  - **166 resource additions, every one of them Mount Spero's**, including
+    `tree-release-887053661-*` from the new tier-1 tree coverage - **83 distinct
+    keys x 2 peers, each added EXACTLY ONCE per peer. Zero removes and zero
+    re-adds on the island: no churn**;
+  - the only 30 removals were the connect-time Haven set being correctly
+    unloaded after the bots' interest centre moved to Spero;
+  - the soak also exercised FAUNA checkout for the first time (20 creature
+    checkouts, 40,611 pose updates received), closing the harness gap
+    `findings-island-fauna.md` documents;
+  - **VERDICT FLAT**, drift -0.1 ms, 0 gaps, 0 disconnects, 0 decode errors.
+    Delivery read 95.9% matched (vs 100% in the quiet-world runs) with the
+    fauna pose stream sharing the wire; staleness p50 50.48 ms, in line with
+    every other barrier-on run.
 
-- **NO RETAIL CLIENT HAS SEEN THE FIX.** The Haven A/B above proves the whole
-  server path end to end against real bots over real ENet - 15 entities becomes
-  106 - and the unit tests prove the policy against the real catalogue. What is
-  not proved is a PLAYER walking a fully dressed RELEASE island, because the
-  terrain-readiness blocker above stops a bot getting there.
+  Consequence for operators: island terrain interest - and therefore island
+  resource checkout on release islands - REQUIRES the load barrier's boot-time
+  id binding. A deployment that enables `WAREBORN_TERRAIN_INTEREST_ENABLED=1`
+  without `WAREBORN_LOAD_BARRIER=1` reproduces the dead-terrain state described
+  above. No code changed for this finding; whether terrain candidacy should
+  bind its own ids instead of inheriting the barrier's side effect is a
+  separate hardening question, deliberately not folded into this fix.
+
+- **NO RETAIL CLIENT HAS SEEN THE FIX.** The prod-env soak above proves the
+  whole server path on a RELEASE island - terrain checkout, island-keyed
+  admission, the full 83-key set streamed once per peer, no churn - and the
+  Haven A/B proves the before/after (15 entities becomes 106). What remains
+  unproven is only the retail CLIENT side: a player walking a fully dressed
+  island in the real renderer.
 
 - **THE 600 m RADIUS AND THE 512 BUDGET ARE WAREBORN TUNING.** The measurements
   behind them are real; the choice of where to sit relative to those measurements
