@@ -250,6 +250,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = logSeed.Value;
                         }
 
+                        // A CREATURE is not in the registry either, and for the same
+                        // reason a log is not: its id comes from the disjoint fauna
+                        // band above 2_100_000_000, not from the world entity id
+                        // allocator. Without this override TransformSeedFor hands a
+                        // manta the PLAYER SPAWN, so the peer checking it out finds
+                        // the animal on its own head until the first pose lands. The
+                        // pose asked for here is the LIVE one - fauna positions are a
+                        // closed-form function of elapsed time, so a peer arriving
+                        // mid-orbit is seeded where the creature already is rather
+                        // than being snapped there a quarter of a second later.
+                        Multiplayer.FixedPointPosition? faunaSeed =
+                            WorldsAdriftRebornGameServer.Fauna.PositionOf(entityId);
+                        if (faunaSeed.HasValue)
+                        {
+                            seed = faunaSeed.Value;
+                        }
+
                         // A depleted metal node stays in the registry (rule 1) and is
                         // still seeded to a late joiner - but SUNK, so the joiner sees
                         // it gone exactly as everyone already present does. Sink() is
@@ -3313,6 +3330,55 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     // EntityId.IsValidEntityId(DrivingEntityId), so had the chain ever been
                     // reordered the player would have been permanently "driving" and unable to
                     // move. Removed rather than left as a trap.
+                    // ------------------------------------------------------------------
+                    // ISLAND FAUNA IDENTITY. 1182 SpeciesState and 4322 BasicCreatureState
+                    // are the two components that say WHAT a creature is, and retail split
+                    // them by kind rather than by preference: a manta ray was a
+                    // SpeciesType, while the jellies were BasicSpeciesType values on a
+                    // separate basic-creature component (see docs/research/findings-island-
+                    // fauna.md). Serving the wrong one is not a near miss - the client's
+                    // visualizers activate only once all their required readers are
+                    // injected, so a jelly given a SpeciesType reader and no basic-creature
+                    // reader stays an inert shell.
+                    //
+                    // Both branches are guarded on Fauna.SpeciesOf rather than on the id
+                    // band, because the band is a policy constant and the ledger is the
+                    // only thing that actually knows a creature exists.
+                    //
+                    // FULLY QUALIFIED ON PURPOSE. `using Bossa.Travellers.Player;` at the
+                    // top of this file already binds the unqualified names HealthState and
+                    // HealthStateData to the PLAYER components (1077, seeded above);
+                    // importing Bossa.Travellers.Creatures would make those ambiguous and
+                    // break the build. The 1035/1036 tree branches qualify for the same
+                    // reason.
+                    else if (componentId == 1182
+                        && WorldsAdriftRebornGameServer.Fauna.SpeciesOf(entityId)
+                            == Multiplayer.Islands.FaunaSpecies.MantaRay)
+                    {
+                        obj = new Bossa.Travellers.Creatures.SpeciesState.Data(
+                            Bossa.Travellers.Creatures.SpeciesType.MantaRay);
+                    }
+                    else if (componentId == 4322
+                        && WorldsAdriftRebornGameServer.Fauna.SpeciesOf(entityId)
+                            == Multiplayer.Islands.FaunaSpecies.JellyFish)
+                    {
+                        // THE SPAWNER IS THE CREATURE ITSELF, and that is a choice worth
+                        // naming. Retail's jellies were spawned by a BasicCreatureSpawner
+                        // (4321) entity and pointed back at it; this server has no
+                        // spawners, so there is no honest id to give. EntityId(0) is
+                        // INVALID on the client - the same trap EntityIdAllocator.FirstEntityId
+                        // documents - and a reader that resolved it would find nothing.
+                        // Naming the creature's own id keeps the reference resolvable
+                        // against an entity the peer definitely holds.
+                        //
+                        // The four retail jelly species are collapsed to one by
+                        // IslandFaunaPolicy (the names survived, the per-island
+                        // eligibility did not); JellyFishSeed is the one this server
+                        // presents.
+                        obj = new Bossa.Travellers.Creatures.Basic.BasicCreatureState.Data(
+                            new EntityId(entityId),
+                            Bossa.Travellers.Creatures.Basic.BasicSpeciesType.JellyFishSeed);
+                    }
                     else if (componentId == Multiplayer.TeleportPolicy.TeleportRequestStateComponentId)
                     {
                         // 190607 TeleportRequestState. Everything about this seed -
