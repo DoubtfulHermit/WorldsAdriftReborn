@@ -215,6 +215,55 @@ namespace WorldsAdriftServer.Tests
         }
     }
 
+    /// <summary>
+    /// The stats file is a contract between two processes that are deployed
+    /// separately, so a login server WILL at some point read a game server older
+    /// than itself. The v8 fields the operator surface needs must therefore be
+    /// absent-tolerant, and absent must read as "not published" rather than as a
+    /// value.
+    /// </summary>
+    public class OperatorStatsToleranceTests
+    {
+        private const string V7 = @"{""schemaVersion"":7,""bootTimeUnixMs"":1,""generatedAtUnixMs"":1,
+            ""uptimeSeconds"":1,""relayMode"":""raw"",""relayHz"":0,""build"":""x"",
+            ""totalConnects"":1,""totalDisconnects"":0,""currentOnline"":1,""peakOnline"":1,
+            ""wireHealthWarning"":false,""secondIslandRegistered"":false,""firstRegionTerrainCount"":0,
+            ""players"":[{""entityId"":7,""peerId"":""0x1"",""connectedAtUnixMs"":1,
+                ""position"":null,""health"":null}],
+            ""runtime"":{""shipDomains"":[{""domainId"":""ship:9"",""hullEntityId"":9}]}}";
+
+        private static GameStatsSnapshot Parse(string json)
+        {
+            string path = Path.Combine(Path.GetTempPath(),
+                "wareborn-operator-test-" + Guid.NewGuid().ToString("n") + ".json");
+            File.WriteAllText(path, json);
+            try
+            {
+                GameStatsResult result = GameStats.ReadFrom(path, DateTimeOffset.UnixEpoch.AddSeconds(2));
+                Assert.Equal(GameStatsState.Ok, result.State);
+                return result.Snapshot!;
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        [Fact]
+        public void A_v7_snapshot_with_no_operator_fields_still_parses()
+        {
+            GameStatsSnapshot s = Parse(V7);
+
+            Assert.Equal(7, s.SchemaVersion);
+            Assert.Single(s.Players);
+            // Absent, therefore "" - which OperatorTargetPolicy treats as "no
+            // identity yet" and refuses to match, rather than as a uid.
+            Assert.Equal(string.Empty, s.Players[0].CharacterUid);
+            Assert.Equal(string.Empty,
+                (string?)s.ShipDomains[0].Json["ownerCharacterUid"]);
+        }
+    }
+
     public class OperatorRequestPolicyTests
     {
         private const string Uid = "66666666-6666-6666-6666-666666666666";
