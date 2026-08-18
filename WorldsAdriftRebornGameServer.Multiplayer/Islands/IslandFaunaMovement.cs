@@ -82,17 +82,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>
         /// How fast a school of mantas travels along its patrol, in metres per second.
         ///
-        /// WAREBORN TUNING for the magnitude; CONSTANT SPEED rather than constant lap
-        /// time is RECOVERED. Retail advanced the patrol target by ten degrees when the
-        /// creature REACHED the previous one, so lap time was a consequence of how big
-        /// the island was and how fast the animal swam - never a fixed number. The
-        /// previous "144 seconds per lap regardless of island" got this backwards and
-        /// it showed at the extremes: on the catalogue's largest island that works out
-        /// to 23 m/s, a manta ray moving at 84 km/h.
+        /// RECOVERED WANDER SPEED, ADOPTED FOR THE PATROL - an upgrade from the
+        /// "pure invention" this number was first labelled as. The decompiled
+        /// client hardcodes <c>targetWanderVelocityMagnitude = 8f</c> in
+        /// acs/WanderingConductVisualiser.cs - a plain field, not
+        /// <c>[SerializeField]</c> prefab data, so it genuinely survives. Stated
+        /// precisely: 8 m/s is retail's creature WANDER speed; retail's PATROL
+        /// speed came from the movement PID and is lost, so using the wander
+        /// figure for the patrol is a choice, but the number itself is now read
+        /// from a file rather than made up.
         ///
-        /// Eight metres a second is a brisk glide. It gives the smallest tier-1 island
-        /// about a minute a lap and the largest about eight, which is the spread a
-        /// fixed speed is supposed to produce.
+        /// CONSTANT SPEED rather than constant lap time is RECOVERED separately:
+        /// retail advanced the patrol target by ten degrees when the creature
+        /// REACHED the previous one, so lap time was a consequence of how big the
+        /// island was and how fast the animal swam - never a fixed number. The
+        /// previous "144 seconds per lap regardless of island" got this backwards
+        /// and it showed at the extremes: on the catalogue's largest island that
+        /// works out to 23 m/s, a manta ray moving at 84 km/h.
+        ///
+        /// Eight metres a second is a brisk glide. It gives the smallest tier-1
+        /// island about a minute a lap and the largest about eight, which is the
+        /// spread a fixed speed is supposed to produce.
         /// </summary>
         public const double MantaMetresPerSecond = 8.0;
 
@@ -122,13 +132,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public const double IslandWalkableHeightFraction = 0.75;
 
         /// <summary>
-        /// Length of a full fauna day/night cycle, in seconds. WAREBORN TUNING: retail
-        /// read <c>TimeKeeperVisualizer</c>'s shared world time, which is not
-        /// preserved, so the cycle length is stated here instead of guessed at each
-        /// call site. Twenty minutes gives a player a chance to see both jelly
-        /// behaviours in one session.
+        /// Length of a full fauna day/night cycle, in seconds.
+        ///
+        /// RECOVERED CLIENT DEFAULT - a stronger claim than the invented 1200 s
+        /// this replaced, and a weaker one than "retail's live value", stated
+        /// exactly: acs/Assets.Visualizers/WorldStateVisualizer.cs:16 compiles in
+        /// <c>private float _timeRate = 144f</c> and line 67 computes
+        /// <c>timeForFullCycle = 86400f / _timeRate</c> - 600 seconds, a
+        /// ten-minute day. THE HONEST CAVEAT: line 38 immediately overwrites the
+        /// field from <c>_worldData.TimeRate</c>, which was server data and is
+        /// lost, so 600 s is the value the retail client was BUILT WITH and falls
+        /// back to, not proof of what the live server sent. A compiled-in client
+        /// default is adopted knowingly over a number this project made up.
+        ///
+        /// At 600 s a player sees roughly two jelly transitions per visit instead
+        /// of at most one, which is the difference between a behaviour and a
+        /// rumour of one.
         /// </summary>
-        public const double DayNightCycleSeconds = 1200.0;
+        public const double DayNightCycleSeconds = 600.0;
 
         /// <summary>
         /// Where in the normalised cycle day begins. RECOVERED EXACTLY from
@@ -149,8 +170,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// Retail's threshold was a hard boolean, but retail creatures were steered:
         /// flipping the desired direction made a jelly turn around over some seconds,
         /// it did not move the jelly. A closed form has no such inertia, so without a
-        /// ramp the same boolean becomes a teleport. Six percent of twenty minutes is
-        /// about seventy seconds of dawn, which is a drift rather than a snap.
+        /// ramp the same boolean becomes a teleport. Six percent of the recovered
+        /// ten-minute day is thirty-six seconds of dawn, which is a drift rather
+        /// than a snap.
         /// </summary>
         public const double PhaseTransitionFraction = 0.06;
 

@@ -106,6 +106,29 @@ namespace RelayBot
         /// <summary>Snapshot of the fauna arrival instants, for the end-of-soak report.</summary>
         public long[] FaunaArrivalTimesNs { get { lock (_faunaArrivalNs) return _faunaArrivalNs.ToArray(); } }
 
+        /// <summary>
+        /// The IDENTITY seeds the server answered for creatures, decoded through
+        /// the game's own generated codecs - the wire-level proof that the manta
+        /// variant fix serializes and carries real values. Keys are human
+        /// summaries ("1177 gender=Female", "4326 biome=Biome1 variant=unset",
+        /// "4322 species=JellyFishFlower"), values are how often each was seen.
+        /// </summary>
+        private readonly Dictionary<string, int> _faunaIdentitySeeds = new();
+
+        public KeyValuePair<string, int>[] FaunaIdentitySeeds
+        {
+            get { lock (_faunaIdentitySeeds) return _faunaIdentitySeeds.ToArray(); }
+        }
+
+        private void CountFaunaIdentity(string summary)
+        {
+            lock (_faunaIdentitySeeds)
+            {
+                _faunaIdentitySeeds.TryGetValue(summary, out int count);
+                _faunaIdentitySeeds[summary] = count + 1;
+            }
+        }
+
         public long HelmWakeUpdates { get; private set; }
         public long RemoteAboardFrames { get; private set; }
         public long RemoteInvalidRelativeFrames { get; private set; }
@@ -348,13 +371,13 @@ namespace RelayBot
                 lock (_faunaArrivalNs) _faunaArrivalNs.Add(NowNs());
                 _faunaEntities.Add(op.EntityId);
                 var faunaInterest = new PbSendComponentInterest { EntityId = op.EntityId };
-                foreach (uint id in new[] { 190602u, IslandFaunaPrefabs.IdentityComponentFor(op.PrefabName) })
+                foreach (uint id in IslandFaunaPrefabs.InterestSetFor(op.PrefabName))
                 {
                     faunaInterest.Components.Add(new PbInterestOverride { ComponentId = id, IsInterested = true });
                 }
                 Enet.Send(_peer, Enet.ChSendComponentInterest, Wire.Encode(faunaInterest), Enet.FlagReliable);
                 Enet.Flush(_clientHost);
-                Log($"fauna {op.PrefabName} {op.EntityId}: requested 190602 + identity component.");
+                Log($"fauna {op.PrefabName} {op.EntityId}: requested 190602 + identity components.");
             }
 
             if (op.PrefabName == "ShipFrame") ShipHullEntityId = op.EntityId;
@@ -395,6 +418,46 @@ namespace RelayBot
             PbComponentBatchOp batch = Wire.Decode<PbComponentBatchOp>(payload, length);
             Log($"seeded {batch.Components.Count} component(s) on entity {batch.EntityId}"
                 + $" [{string.Join(", ", batch.Components.Select(c => c.ComponentId))}]");
+
+            // FAUNA IDENTITY SEEDS, decoded through the game's own generated
+            // codecs so "the server serves 1177/4326" is proven at the byte
+            // level, not at the op level. A summary counter per distinct value,
+            // reported at the end of the soak.
+            if (_faunaEntities.Contains(batch.EntityId))
+            {
+                foreach (PbComponentData component in batch.Components)
+                {
+                    switch (component.ComponentId)
+                    {
+                        case 1177:
+                            if (GameComponents.Deserialize(1177, GameComponents.TypeSnapshot,
+                                    component.Data, component.Data.Length)
+                                is Bossa.Travellers.Creatures.GenderState.Data gender)
+                            {
+                                CountFaunaIdentity($"1177 gender={gender.Value.gender}");
+                            }
+                            break;
+                        case 4326:
+                            if (GameComponents.Deserialize(4326, GameComponents.TypeSnapshot,
+                                    component.Data, component.Data.Length)
+                                is Bossa.Travellers.Creatures.Variants.MantaRayVariantState.Data variant)
+                            {
+                                CountFaunaIdentity("4326 biome=" + variant.Value.biomeType
+                                    + " variant=" + (variant.Value.mantaRayVariantType.HasValue
+                                        ? variant.Value.mantaRayVariantType.Value.ToString() : "unset"));
+                            }
+                            break;
+                        case 4322:
+                            if (GameComponents.Deserialize(4322, GameComponents.TypeSnapshot,
+                                    component.Data, component.Data.Length)
+                                is Bossa.Travellers.Creatures.Basic.BasicCreatureState.Data basic)
+                            {
+                                CountFaunaIdentity($"4322 species={basic.Value.speciesType}");
+                            }
+                            break;
+                    }
+                }
+            }
 
             if (batch.EntityId != MyEntityId)
             {

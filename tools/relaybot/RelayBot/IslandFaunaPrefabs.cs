@@ -15,11 +15,17 @@ namespace RelayBot
                 or "SeedPodJelly" or "FlowerPodJelly" or "DesertPod" or "DesertPodB";
 
         /// <summary>
-        /// The identity component a creature prefab's visualisers read: 1182
-        /// SpeciesState for the manta, 4322 BasicCreatureState for every jelly
-        /// (retail split them by kind - see docs/research/findings-island-fauna.md).
+        /// The identity components a creature prefab's visualisers read, plus the
+        /// transform. Retail split identity by kind (1182 SpeciesState for the
+        /// manta, 4322 BasicCreatureState for every jelly - see
+        /// docs/research/findings-island-fauna.md), and the manta additionally
+        /// carries the VARIANT PAIR its tail-picker requires: 1177 GenderState and
+        /// 4326 MantaRayVariantState. Requesting those here is what turns the
+        /// soak into a wire-level check that the variant fix serializes.
         /// </summary>
-        public static uint IdentityComponentFor(string prefabName) =>
-            prefabName == "MantaRay" ? 1182u : 4322u;
+        public static uint[] InterestSetFor(string prefabName) =>
+            prefabName == "MantaRay"
+                ? new[] { 190602u, 1182u, 1177u, 4326u }
+                : new[] { 190602u, 4322u };
     }
 }

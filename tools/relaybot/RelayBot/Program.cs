@@ -254,6 +254,24 @@ namespace RelayBot
                     + $" ({arrivalGapsMs.Count} gap(s), max {arrivalGapsMs[^1]:0} ms)"
                     + $" -> a {24}-creature island streams in over ~{median * 23 / 1000.0:0.0} s.");
             }
+
+            // The identity seeds, decoded through the generated codecs: the
+            // wire-level evidence for the manta variant fix (1177/4326) and the
+            // per-island jelly species (4322).
+            var identity = new SortedDictionary<string, int>();
+            foreach (Bot b in bots)
+            {
+                foreach ((string summary, int count) in b.FaunaIdentitySeeds)
+                {
+                    identity.TryGetValue(summary, out int total);
+                    identity[summary] = total + count;
+                }
+            }
+            if (identity.Count > 0)
+            {
+                Console.WriteLine("[soak] fauna identity seeds: "
+                    + string.Join("; ", identity.Select(pair => $"{pair.Key} x{pair.Value}")));
+            }
             Console.WriteLine($"[soak] gaps>1s: {verdict.GapCount}, disconnects: {verdict.DisconnectCount}, bot deaths: {verdict.BotDeaths}"
                 + $", decode errors: {verdict.DecodeErrors}"
                 + (rewritten1073 ? $", 1073 timeline violations: {verdict.TimelineViolations}" : ""));
