@@ -109,7 +109,8 @@
       interestRow(body,'Wildlife','island envelope distance','—','—','—',faunaCap,absent,'warn');
     }
     if(interest&&interest.ship){
-      interestRow(body,'Ship domains','spatial distance to hull','—','—',
+      interestRow(body,'Ship domains','spatial distance to hull',
+        metres(interest.ship.loadRadiusMetres),metres(interest.ship.unloadRadiusMetres),
         metres(interest.ship.connectRadiusMetres),'whole domains','on','ok');
     }else{
       interestRow(body,'Ship domains','spatial distance to hull','—','—','—','—',absent,'warn');
@@ -184,19 +185,26 @@
       if(String(latestPlayers[i].entityId)===selectedPeerEntity)return latestPlayers[i];
     return null;
   }
-  function ring(x,y,r,cls,label){
+  // side: where this system's label anchors on its ring - 'top', 'bottom' or
+  // 'right'. Distinct anchors per system, because two systems configured to
+  // the SAME radius (resources and wildlife both ship 600/800) would
+  // otherwise write their labels onto each other.
+  function ring(x,y,r,cls,label,side){
     interestLayer.appendChild(svgEl('circle',
       {cx:x,cy:y,r:r,'class':'map-interest-ring '+cls}));
     if(label){
-      var t=svgEl('text',{x:x,y:y-r-18,'text-anchor':'middle','class':'map-interest-label'});
+      var ax=x,ay=y,tx=0,ty=-6,anchor='middle';
+      if(side==='bottom'){ay=y+r;ty=14;}
+      else if(side==='right'){ax=x+r;ty=4;tx=8;anchor='start';}
+      else{ay=y-r;}
+      var t=svgEl('text',{x:tx,y:ty,'text-anchor':anchor,'class':'map-interest-label'});
       t.textContent=label;
       // Constant screen size: the label group carries scale(mapPx) like every
       // other piece of map furniture.
       var wrap=svgEl('g',{});wrap.appendChild(t);
       interestLayer.appendChild(wrap);
-      mapMarkers.push({node:wrap,x:x,y:y-r});
-      wrap.setAttribute('transform','translate('+x+' '+(y-r)+') scale('+mapPx+')');
-      t.setAttribute('x',0);t.setAttribute('y',-6);
+      mapMarkers.push({node:wrap,x:ax,y:ay});
+      wrap.setAttribute('transform','translate('+ax+' '+ay+') scale('+mapPx+')');
     }
   }
   function renderInterestRings(g,reporting){
@@ -213,15 +221,15 @@
     var interest=interestOf(g);
     if(t&&t.present===true&&t.mode==='on'){
       ring(x,y,Number(t.unloadRadiusMetres)||0,'terrain unload',null);
-      ring(x,y,Number(t.loadRadiusMetres)||0,'terrain','terrain '+metres(t.loadRadiusMetres)+' / '+metres(t.unloadRadiusMetres));
+      ring(x,y,Number(t.loadRadiusMetres)||0,'terrain','terrain '+metres(t.loadRadiusMetres)+' / '+metres(t.unloadRadiusMetres),'top');
     }
     if(interest&&interest.resources&&interest.resources.enabled){
       ring(x,y,Number(interest.resources.unloadRadiusMetres)||0,'resource unload',null);
-      ring(x,y,Number(interest.resources.loadRadiusMetres)||0,'resource','resources '+metres(interest.resources.loadRadiusMetres)+' / '+metres(interest.resources.unloadRadiusMetres));
+      ring(x,y,Number(interest.resources.loadRadiusMetres)||0,'resource','resources '+metres(interest.resources.loadRadiusMetres)+' / '+metres(interest.resources.unloadRadiusMetres),'bottom');
     }
     if(interest&&interest.fauna&&interest.fauna.enabled){
       ring(x,y,Number(interest.fauna.unloadRadiusMetres)||0,'fauna unload',null);
-      ring(x,y,Number(interest.fauna.loadRadiusMetres)||0,'fauna','wildlife '+metres(interest.fauna.loadRadiusMetres)+' / '+metres(interest.fauna.unloadRadiusMetres));
+      ring(x,y,Number(interest.fauna.loadRadiusMetres)||0,'fauna','wildlife '+metres(interest.fauna.loadRadiusMetres)+' / '+metres(interest.fauna.unloadRadiusMetres),'right');
     }
   }
   function holdingsBlock(box,heading){

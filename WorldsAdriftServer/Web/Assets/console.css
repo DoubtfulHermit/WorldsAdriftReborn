@@ -242,7 +242,7 @@ footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);fo
 .map-interest-ring.unload{stroke-dasharray:6 5;opacity:.55;}
 .map-interest-ring.terrain{stroke:#74c9cf;}
 .map-interest-ring.resource{stroke:#eed059;}
-.map-interest-ring.fauna{stroke:#e9a4d8;}
+.map-interest-ring.fauna{stroke:#e9a4d8;stroke-dasharray:2 5;}
 .map-interest-label{font:600 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace;fill:var(--text-faint);paint-order:stroke;stroke:#0a131a;stroke-width:3px;pointer-events:none;}
 .map-cand{pointer-events:none;}
 .map-cand circle{fill:none;stroke-width:2px;vector-effect:non-scaling-stroke;}
