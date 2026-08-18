@@ -6,11 +6,17 @@
   MARKS.playerPairs=function(p){return [['Entity',String(p.entityId)]];};
   MARKS.shipTitle=function(d){return 'Ship - hull entity '+d.hullEntityId;};
   MARKS.shipIdRow=function(d){return (d.domainId||'no domain id')+'  \u00b7  hull entity '+d.hullEntityId;};
-  MARKS.mapStatusLead='Static map evidence: release MapFile · ';
-  MARKS.liveOverlayWords=function(domains,ships,players,age){
-    return domains+' simulated island domains · '+ships+' ships · '+players
-      +' positioned players · '+Math.round(age||0)+'s snapshot age';};
-  MARKS.notReportingWords='game server not reporting';
+  MARKS.worldKicker='Preserved release world';
+  MARKS.islandKicker='Release island';
+  MARKS.mapStatusText=function(s){
+    return 'Static map evidence: release MapFile · '+s.islands+' islands · '+s.cells
+      +' tier cells ('+s.namedCells+' named, '+(s.cells-s.namedCells)+' unassigned) · '
+      +s.walls+' wall segments.'+s.seeded+' Live overlay: '
+      +(s.reporting
+        ? (s.domains+' simulated island domains · '+s.ships+' ships · '+s.players
+           +' positioned players · '+Math.round(s.ageSeconds||0)+'s snapshot age')
+        : 'game server not reporting');};
+  MARKS.showsMethod=true;
   MARKS.shipCrewWords=function(d){return [d.piloted?'Piloted':'No pilot'];};
   MARKS.crewTile=function(stats,d,statTile){
     stats.appendChild(statTile((d.aboardPlayerEntityIds||[]).length,'Players aboard'));};

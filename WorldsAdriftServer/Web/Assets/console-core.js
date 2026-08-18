@@ -56,11 +56,17 @@
     shipCrewWords:function(){return [];},
     // The console leads this line with where the geometry came from; the
     // public map just says what is on the map. Same numbers either way.
-    mapStatusLead:'The world: ',
-    liveOverlayWords:function(domains,ships,players,age){
-      return ships+' ship'+(ships===1?'':'s')+' · '+players+' traveller'
-        +(players===1?'':'s')+' aloft · seen '+Math.round(age||0)+'s ago';},
-    notReportingWords:'the world is quiet right now',
+    // Whether panels explain HOW the map knows what it knows. Off by default:
+    // the operator wants the caveats, a reader wants the world. The public
+    // page keeps the same material in its About panel, in plainer words.
+    showsMethod:false,
+    wildlifeLine:'Manta rays circle each island. Jellyfish drift below by day and rise at night.',
+    worldKicker:'The world',
+    islandKicker:'Island',
+    // Short by default. The live numbers already have a home in the page's
+    // own strip, so the map itself does not need to repeat them in a sentence.
+    mapStatusText:function(s){
+      return s.islands+' islands · '+s.cells+' zones';},
     crewTile:null,
     shipBuiltHeading:'What it is built from',
     shipIdentityRows:function(){return [];},

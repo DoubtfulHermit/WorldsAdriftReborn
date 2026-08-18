@@ -289,8 +289,9 @@
       head.appendChild(subLine(['Hull entity '+hullEntityId]));
       panel.appendChild(head);
       var gone=mdBlock('What happened');
-      gone.appendChild(el('p','md-p','This hull was in the last snapshot but is not in this one. '
-        +'It has been deleted, salvaged, or its domain has been torn down. Nothing is drawn for it.'));
+      gone.appendChild(el('p','md-p',MARKS.showsMethod?('This hull was in the last snapshot but is not in this one. '
+        +'It has been deleted, salvaged, or its domain has been torn down. Nothing is drawn for it.')
+        :'This ship is no longer here.'));
       scroll.appendChild(gone);
       return;
     }
@@ -317,12 +318,14 @@
 
     var shape=mdBlock('The shape on the map');
     if(h.present){
-      shape.appendChild(el('p','md-p','The outline drawn for this ship is the plan view of the hull '
-        +'its owner built. The game server decodes the ShipPlan bytes this hull was crafted from '
-        +'and takes the widest point of each of its '
-        +plural(Number(h.sectionCount)||0,'section','sections')+', at the game’s own hull scale, '
-        +'in metres - so the taper, the curve of a section pulled outboard and the rake of an '
-        +'overhanging prow on the map are the ones on the ship.'));
+      shape.appendChild(el('p','md-p',MARKS.showsMethod
+        ? ('The outline drawn for this ship is the plan view of the hull '
+           +'its owner built. The game server decodes the ShipPlan bytes this hull was crafted from '
+           +'and takes the widest point of each of its '
+           +plural(Number(h.sectionCount)||0,'section','sections')+', at the game’s own hull scale, '
+           +'in metres - so the taper, the curve of a section pulled outboard and the rake of an '
+           +'overhanging prow on the map are the ones on the ship.')
+        : 'The real outline of this hull, seen from above.'));
       shape.appendChild(kv([
         ['Keel, stern to bow',(Number(h.keelMetres)||0).toFixed(2)+' m'],
         ['Beam, port to starboard',(Number(h.beamMetres)||0).toFixed(2)+' m'],
@@ -333,16 +336,18 @@
         ['Hull decks',String(Number(h.hullDeckCount)||0)],
         ['Sections in the outline',String(Number(h.sectionCount)||0)]]));
       if(h.keelIsLongestAxis!==true){
-        shape.appendChild(el('p','md-p','This hull is WIDER THAN IT IS LONG - its beam exceeds its '
+        if(MARKS.showsMethod)shape.appendChild(el('p','md-p','This hull is WIDER THAN IT IS LONG - its beam exceeds its '
           +'keel - so its bow runs across its short side. That is the design, not a drawing error: '
           +'a stock hull cell is twelve metres of beam to four of keel, so a short ship really is '
           +'broader than it is long, and the outline shows it that way.'));
       }
     }else{
-      shape.appendChild(el('p','md-p','No hull shape is published for this ship, so it is drawn as a '
-        +'plain mark and nothing about its size is shown. That means the game server could not find '
-        +'or could not decode the ShipPlan bytes for this hull. A substitute shape is deliberately '
-        +'NOT drawn: a made-up outline on a map of real ones would be worse than no outline.'));
+      shape.appendChild(el('p','md-p',MARKS.showsMethod
+        ? ('No hull shape is published for this ship, so it is drawn as a '
+           +'plain mark and nothing about its size is shown. That means the game server could not find '
+           +'or could not decode the ShipPlan bytes for this hull. A substitute shape is deliberately '
+           +'NOT drawn: a made-up outline on a map of real ones would be worse than no outline.')
+        : 'We do not have this hull’s shape, so it is drawn as a plain mark.'));
     }
     scroll.appendChild(shape);
 
@@ -357,15 +362,17 @@
         +'  Z '+s.vz.toFixed(2)+' m/s'],
       ['Turn rate reported',(s.yawRate*180/Math.PI).toFixed(2)+' °/s']]));
     if(shipIsMeasuredExactly(s)){
-      where.appendChild(el('p','md-p','This hull is AT REST: the server reports exactly zero on every '
-        +'axis, so the mark on the map is the measurement itself. Nothing about its position has '
-        +'been smoothed, extrapolated or guessed.'));
+      where.appendChild(el('p','md-p',MARKS.showsMethod
+        ? ('This hull is AT REST: the server reports exactly zero on every '
+           +'axis, so the mark on the map is the measurement itself. Nothing about its position has '
+           +'been smoothed, extrapolated or guessed.')
+        : 'Sitting still.'));
     }else if(SHIPS){
       where.appendChild(kv([
         ['Drawn position','X '+p.x.toFixed(1)+'  Z '+p.z.toFixed(1)],
         ['Carried forward by',reck.toFixed(2)+' s of dead reckoning'],
         ['Could be out by at most',SHIPS.errorBound(reck).toFixed(1)+' m']]));
-      where.appendChild(el('p','md-p','This hull is UNDER WAY, so the mark is not purely a '
+      if(MARKS.showsMethod)where.appendChild(el('p','md-p','This hull is UNDER WAY, so the mark is not purely a '
         +'measurement. The browser carries it along the velocity the server itself reported - the '
         +'same thing the game client does between two control points - and stops after '
         +SHIPS.windowSeconds.toFixed(1)+' s, which is where the server’s own acceleration '
@@ -373,13 +380,13 @@
         +(Number((shipModel()||{}).toleratedErrorMetres)||0).toFixed(0)+' m out. Its outline is '
         +'drawn DASHED for exactly as long as it is being carried.'));
       if(age>reck+0.05){
-        where.appendChild(el('p','md-p','The mark has STOPPED. The last measurement is now '
+        if(MARKS.showsMethod)where.appendChild(el('p','md-p','The mark has STOPPED. The last measurement is now '
           +age.toFixed(1)+' s old, past the '+SHIPS.windowSeconds.toFixed(1)+' s this browser is '
           +'allowed to carry it, so the hull is being held where the budget ran out rather than '
           +'drawn gliding on nothing. The real ship has kept moving.'));
       }
     }else{
-      where.appendChild(el('p','md-p','This game server publishes no ship-motion model, so nothing is '
+      if(MARKS.showsMethod)where.appendChild(el('p','md-p','This game server publishes no ship-motion model, so nothing is '
         +'carried forward at all: the mark is the last measured position and it will step when the '
         +'next snapshot lands.'));
     }
