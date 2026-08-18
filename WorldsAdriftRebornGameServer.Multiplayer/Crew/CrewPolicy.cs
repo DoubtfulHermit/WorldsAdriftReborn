@@ -22,6 +22,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crew
         UnknownPlayer,
         CannotInviteYourself,
         AlreadyInvited,
+
+        /// <summary>
+        /// The crew already has as many outstanding offers as it has seats to
+        /// fill, or as the Social Sheet can draw. See <see cref="CrewRosterLimits"/>.
+        /// </summary>
+        InviteLimitMet,
     }
 
     /// <summary>
@@ -66,6 +72,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crew
                 if (crew.Members.Contains(inviteeUid)) return CrewVerdict.AlreadyInThisCrew;
                 if (crew.IsFull) return CrewVerdict.CrewIsFull;
                 if (ledger.HasInviteFrom(inviteeUid, crew.Id)) return CrewVerdict.AlreadyInvited;
+
+                // Outstanding offers occupy the panel exactly like seated members
+                // do - the client concatenates both into one list and draws it
+                // into a fixed set of widgets. Counting seats alone let a leader
+                // alone in a crew send unlimited invites and index past the end of
+                // that set, taking the whole Social Sheet down. See
+                // CrewRosterLimits.
+                if (!CrewRosterLimits.MayHoldAnotherInvite(
+                        crew.NumSlots, crew.Members.Count, ledger.LiveInvitesFor(crew.Id)))
+                {
+                    return CrewVerdict.InviteLimitMet;
+                }
             }
 
             if (ledger.CrewOf(inviteeUid) != null) return CrewVerdict.AlreadyInAnotherCrew;
@@ -149,6 +167,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Crew
             CrewVerdict.UnknownPlayer => "No such player.",
             CrewVerdict.CannotInviteYourself => "You cannot invite yourself.",
             CrewVerdict.AlreadyInvited => "They already have an invite from your crew.",
+            CrewVerdict.InviteLimitMet => "Your crew has as many invites out as it has seats. Cancel one first.",
             _ => "That did not work.",
         };
     }

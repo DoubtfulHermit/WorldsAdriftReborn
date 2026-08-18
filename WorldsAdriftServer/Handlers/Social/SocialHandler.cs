@@ -48,6 +48,20 @@ namespace WorldsAdriftServer.Handlers.Social
             // From here on the request belongs to us, whether or not we can serve
             // it. Falling through to the router's 404 would reach the player as a
             // network error dialog.
+            // Parsed out here so the catch below can still refuse in the shape the
+            // route's own reader understands. Pure string work, and None on
+            // anything unrecognised, so it cannot itself be the thing that throws.
+            SocialRouteKind kind = SocialRouteKind.None;
+            try
+            {
+                kind = SocialRoute.Parse(request.Method ?? "GET", url).Kind;
+            }
+            catch
+            {
+                // Deliberately swallowed: an unparseable URL is a refusal, not a
+                // crash, and kind stays None.
+            }
+
             try
             {
                 Answer(session, Resolve(request, url));
@@ -58,12 +72,16 @@ namespace WorldsAdriftServer.Handlers.Social
                 // NetCoreServer would become a dropped connection, which the
                 // client reports as the same unhelpful transport modal.
                 Console.WriteLine("[error] social request " + request.Method + " " + url + " failed: " + e);
-                Answer(session, SocialEnvelope.Error("dynamo_read"));
+                Answer(session, SocialRefusal.For(kind, SocialErrorCodes.StoreUnavailable));
             }
 
             return true;
         }
 
+        /// <summary>
+        /// Thin glue: read the two headers and the account - the only parts that
+        /// need I/O - then let SocialGate decide, and serve if it says so.
+        /// </summary>
         private static JObject Resolve(HttpRequest request, string url)
         {
             string? token = Accounts.HeaderValue(request, Accounts.SecurityHeader);
@@ -79,33 +97,29 @@ namespace WorldsAdriftServer.Handlers.Social
                 ? Array.Empty<Guid>()
                 : OwnedCharacters(account.AccountId);
 
-            SocialIdentityPolicy.Outcome identity = SocialIdentityPolicy.Authorize(
+            SocialGate.Decision decision = SocialGate.Evaluate(
+                method: request.Method ?? "GET",
+                url: url,
                 hasSecurityHeader: token != null,
                 hasLiveSession: account != null,
                 claimedCharacterUid: claimed,
                 charactersOnAccount: owned);
 
-            if (!identity.Authorized)
+            if (!decision.Serve)
             {
-                return SocialEnvelope.Error(identity.ErrorCode!);
-            }
+                if (decision.Route.Kind == SocialRouteKind.None)
+                {
+                    Console.WriteLine("[info] social endpoint not implemented: "
+                        + request.Method + " " + url);
+                }
 
-            SocialRoute route = SocialRoute.Parse(request.Method ?? "GET", url);
-            if (route.Kind == SocialRouteKind.None)
-            {
-                // A social URL we do not implement - every alliance endpoint past
-                // listing and searching. Refused deliberately and in band rather
-                // than faked: a plausible-looking alliance the UI half-accepts is
-                // worse for a player than a clear refusal.
-                Console.WriteLine("[info] social endpoint not implemented: "
-                    + request.Method + " " + url);
-                return SocialEnvelope.Error("dynamo_read");
+                return decision.Refusal!;
             }
 
             SocialService service = new SocialService(
                 Accounts.Characters, Accounts.Crews, Accounts.SocialInvites, Region);
 
-            return service.Handle(route, identity.Character, url, request.Body);
+            return service.Handle(decision.Route, decision.Character, url, request.Body);
         }
 
         private static IReadOnlyList<Guid> OwnedCharacters(long accountId)

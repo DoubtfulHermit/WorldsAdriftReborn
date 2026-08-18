@@ -344,6 +344,108 @@ The patcher deliberately does **not** force `REST_AlliancesUrl`
 hardcoded duplicate one layer down, and would clobber an operator's split on every
 patch run. A test asserts the key stays absent.
 
+## The sheet must not be destructible by data
+
+Two more defects sat behind the URL bug. Neither stopped the sheet loading, so
+both survived the first fix; one of them destroys the sheet outright once a crew
+grows.
+
+### Outstanding invites shared the members' widgets, and nothing counted them
+
+`CrewClient.GetCrewMembers` builds ONE list: the crew's members, then every
+invite whose `status` is `"new"`, appended to the same list. `CrewScreen`
+pre-builds exactly `MaxCrewSlots` = **5** non-leader widgets and draws the leader
+into its own, so the list may hold at most **six** entries. The sixth non-leader
+entry indexes past the end, and the throw lands in
+`SocialCharacterSheet.TriggerAllianceExceptionHandler` — shared with alliances.
+One over-invited crew therefore kills the WHOLE sheet, both tabs, with the same
+*"Can't retrieve alliance or crew data"* the localhost URL produced.
+
+`CrewPolicy.MayInvite` counted seated members and stopped there, and `Hydrate()`
+built the ledger from `crews` + `crew_members` without ever loading invites — so
+nothing anywhere could count a crew's outstanding offers. `invite_limit_met` was
+defined in `SocialErrorCodes` and never once referenced. A leader alone in a
+four-seat crew could send offers without limit.
+
+**Retail's own number is not recoverable, and was not invented.** The client's
+GameDB schema does carry `SocialConstants.MAX_INVITES` — proof a limit existed —
+but it has **zero consumers** anywhere in the decompile, its only defined row key
+is `ALLIANCE` rather than crew, and the row data lived in Bossa's GameDB: the
+string `MAX_INVITES` appears in the shipped install only inside
+`Assembly-CSharp.dll`, as the schema's own field name, with no value anywhere.
+There is no crew constants table at all.
+
+What IS recoverable is the client's arithmetic, and that is what
+`CrewRosterLimits` encodes:
+
+    live invites <= min(numSlots, 6) - members
+
+Both ceilings are load-bearing. `numSlots - members` is the game rule — never
+offer a seat that does not exist. `6` is the client rule, and it is not
+redundant: `CrewPolicy.MaxSlots` is 8, so a crew configured above six seats would
+pass the game rule and still crash the panel. Refusals return the client's own
+`invite_limit_met`, so the player reads the sentence retail wrote.
+
+The emitters clamp as well as the policy. A cap stops a crew growing, but it
+cannot heal rows written before it existed, so `CrewMembers` and `CrewInvites`
+truncate to what the sheet can draw — invites yielding first, because a truncated
+pending list is a nuisance and a member missing from their own crew panel is a
+bug report.
+
+### A refusal has to be written in the dialect its reader parses
+
+This client has **two** response checkers and they disagree about where a
+failure's text lives. The general one reads `errorCode` and looks it up in the
+closed `ServerErrorCodesTable`. The character-search one,
+`SocialRequest.CheckSearchResponseModelForErrors` (`:114-124`), ignores
+`errorCode` entirely and throws `SocialServerResponseErrorException(model.desc)`.
+
+`SocialHandler` refused route-blind — auth failures, unimplemented routes and the
+catch-all around a database fault all emitted `errorCode` only, because they ran
+*before* the route was parsed. On the search path that reached the player as a
+dialog whose text was the .NET default for a null message: the name of an
+exception class.
+
+There were **two** independent triggers, not one:
+
+1. any refusal on `screenname/find/{term}` — auth, store failure, or the catch-all;
+2. a **whitespace-only** search term. `CrewScreen` guards the invite field with
+   `IsNullOrEmpty` and trims only afterwards (`:308-310`), so a field of spaces
+   sends an empty term and the client builds `screenname/find/`. The route
+   required three path segments, so that fell through to "unknown route" — which
+   also meant `SocialService`'s own `"No name was given to search for."` branch,
+   the one place a refusal correctly carried `desc`, **could never be reached**.
+
+The fix is `SocialRefusal`: the refusal is built for the reader, and which routes
+read `desc` is enumerated rather than defaulted, so a route added later has to be
+a deliberate decision instead of silently inheriting the wrong shape.
+
+### Two latent hazards closed while in there
+
+- **`"data": null` is not null to the client.** `data` is typed `JToken`, and
+  Json.NET turns a JSON null into a `JValue` of type Null, not a C# `null` — so
+  an explicit null walks straight past the `dataFieldExpected && model.data ==
+  null` guard that exists to catch it and NREs deeper in. `SocialEnvelope.Ok` now
+  **omits** the key instead; an absent key does deserialize to C# null and trips
+  the guard correctly.
+- **`message` / `messages` are still not emitted, deliberately.** They are read
+  only by `ParseTechnicalError`, which runs only on a non-200 — which we never
+  send. Worth knowing that its fallback is `"Unknown error : " +
+  originalResponseData`, i.e. the whole response body shown to the player, if a
+  success envelope's data shape is ever wrong.
+
+### The test gap that let all of this through
+
+Nothing tested `SocialHandler`. The social tests called `SocialService.Handle`
+with the actor already resolved — *behind* the boundary — and were
+`[PostgresFact]`, skipped on any machine without a database. The boundary
+decision now lives in `SocialGate`: strings and flags in, an envelope or a route
+out, no session and no repositories, so `SocialGateTests` and
+`SocialRefusalTests` assert it exhaustively as plain facts. Writing them
+immediately caught a third bug that had never run — `SocialRoute` is a class, so
+the refusal path's `default` route was null and the first `Kind` read on any
+refusal would have thrown.
+
 ## Known gap
 
 **HTTP-driven crew changes do not reach the game server's in-memory ledger
