@@ -4149,8 +4149,11 @@ namespace WorldsAdriftRebornGameServer
             if (TerrainInterest.Enabled)
             {
                 ResourceInterest.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
-                // A creature must never outrun the island it flies around.
+                // A creature must never outrun the island it flies around - which
+                // makes the terrain radius a ceiling on the fauna radius, so the
+                // fauna service is given the chance to say so at boot.
                 Fauna.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
+                Fauna.WarnIfPastTerrainRadius(TerrainInterest.LoadRadiusMetres);
                 Console.WriteLine("[terrain-interest] ON: optional island terrain uses "
                     + TerrainInterest.LoadRadiusMetres.ToString("0.#") + " m load / "
                     + TerrainInterest.UnloadRadiusMetres.ToString("0.#")

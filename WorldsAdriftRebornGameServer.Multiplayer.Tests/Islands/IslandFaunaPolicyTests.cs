@@ -234,6 +234,76 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.Contains(FaunaSpecies.JellyFish, seen);
         }
 
+        // --- Schools, which is what "the wildlife should move in schools" means here.
+
+        [Fact]
+        public void Every_creature_belongs_to_a_school_with_a_contiguous_member_run()
+        {
+            // The structure the movement maths depends on: a school's members must be
+            // numbered 0..n-1 with no gaps, because IslandFaunaSchool spreads them by
+            // MemberIndex and a gap would leave a hole in the cluster. And a school's
+            // ENTITY ids must be contiguous, because that is what makes it arrive on a
+            // client together rather than interleaved with another island's.
+            foreach (int tier in new[] { 1, 2, 3, 4 })
+            {
+                ReleaseIslandRecord island = AnyIsland(tier);
+                IReadOnlyList<FaunaCreature> population = IslandFaunaPolicy
+                    .PopulationFor(island, IslandFaunaPolicy.FirstFaunaEntityId);
+
+                foreach (IGrouping<(FaunaSpecies, int), FaunaCreature> school in population
+                    .GroupBy(creature => (creature.Species, creature.SchoolIndex)))
+                {
+                    FaunaCreature[] members = school.OrderBy(c => c.MemberIndex).ToArray();
+                    Assert.Equal(IslandFaunaPolicy.SchoolSizeFor(school.Key.Item1, tier),
+                        members.Length);
+
+                    for (int i = 0; i < members.Length; i++)
+                    {
+                        Assert.Equal(i, members[i].MemberIndex);
+                        if (i > 0)
+                        {
+                            Assert.Equal(members[i - 1].EntityId + 1, members[i].EntityId);
+                        }
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void A_school_is_big_enough_to_read_as_a_group_at_every_tier()
+        {
+            // The reported complaint was that the wildlife was lone animals. Two is
+            // "two animals that happen to be near each other"; the counts are WAREBORN
+            // TUNING, but the floor below which the word "school" is a lie is not.
+            foreach (int tier in new[] { 1, 2, 3, 4 })
+            {
+                Assert.True(IslandFaunaPolicy.SchoolSizeFor(FaunaSpecies.MantaRay, tier) >= 4,
+                    "a manta school must have at least four members at tier " + tier);
+                Assert.True(IslandFaunaPolicy.SchoolSizeFor(FaunaSpecies.JellyFish, tier) >= 6,
+                    "a jelly shoal is a DENSITY effect and needs more bodies than a school");
+            }
+
+            // Jellies never flocked in retail, so their shoal has to be looser AND
+            // denser than a manta school to read as one at all.
+            Assert.True(
+                IslandFaunaPolicy.SchoolSizeFor(FaunaSpecies.JellyFish, 1)
+                > IslandFaunaPolicy.SchoolSizeFor(FaunaSpecies.MantaRay, 1));
+        }
+
+        [Fact]
+        public void Every_island_now_carries_far_more_than_the_lone_creatures_it_used_to()
+        {
+            // Regression guard on the actual complaint. The old shape was two mantas
+            // and ONE jelly per tier-1 island - and, under the old world-wide cap, on
+            // only eight of the forty-six.
+            foreach (ReleaseIslandRecord island in ReleaseWorldCatalog.All)
+            {
+                Assert.True(IslandFaunaPolicy
+                    .PopulationFor(island, IslandFaunaPolicy.FirstFaunaEntityId).Count >= 10,
+                    island.Definition.Id + " carries fewer than ten creatures");
+            }
+        }
+
         /// <summary>
         /// A real release-world island of the requested tier. Real records rather
         /// than hand-built ones, because the population function reads the surveyed

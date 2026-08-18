@@ -26,31 +26,40 @@ namespace WorldsAdriftRebornGameServer.Game
     /// is the price of the disjoint id band, and it is deliberately the same shape
     /// as <see cref="ResourceInterestService"/>'s so the two behave alike.
     ///
+    /// INTEREST IS KEYED ON THE ISLAND, NOT ON THE ANIMAL, and that is the fix for
+    /// the reported despawn. The reasoning, the measurement and the rejected
+    /// alternatives are all in <see cref="IslandFaunaInterestPolicy"/>; the short
+    /// version is that a creature's distance to a standing player oscillates by
+    /// design, so checking out on it made every orbit a remove/re-add cycle. An
+    /// island's distance does not oscillate, so keying on it cannot flicker.
+    ///
     /// WIRE SHAPE, per creature, per peer (the multiplayer-safety contract):
     /// <list type="bullet">
     /// <item>OUT, once per checkout: an AssetLoadRequest one cadence before an
-    ///   AddEntity, to peers inside <c>Interest.RadiusMetres</c> of the creature's
-    ///   LIVE position, whose island terrain is already checked out, and which can
-    ///   receive RemoveEntity. Nothing else is seeded; the client asks for the
-    ///   components its own prefab wants over SEND_COMPONENT_INTEREST.</item>
+    ///   AddEntity, to peers inside the fauna radius of the creature's ISLAND, whose
+    ///   island terrain is already checked out, and which can receive RemoveEntity.
+    ///   Nothing else is seeded; the client asks for the components its own prefab
+    ///   wants over SEND_COMPONENT_INTEREST.</item>
     /// <item>OUT, 4/s while checked out: one 190602 TransformState carrying the
     ///   complete absolute position. 190602 is UNRELIABLE by
     ///   <c>MirrorSendPolicy.RelayReliabilityFor</c> and this stream supersedes -
     ///   every update is the whole pose - so a loss costs one frame of smoothness.</item>
-    /// <item>OUT, once: RemoveEntity on channel 5 past the unload radius.</item>
+    /// <item>OUT, once: RemoveEntity on channel 5 once the ISLAND leaves the unload
+    ///   radius. A creature is never removed while its island is held, so a school
+    ///   arrives and departs as one thing.</item>
     /// <item>IN: nothing. No client sends anything about a creature; there is no
     ///   update handler, and there is nothing to interact with yet.</item>
     /// </list>
     ///
-    /// THE WORST CASE, stated so it can be checked rather than trusted. The registry
-    /// caps the world at <see cref="IslandFaunaPolicy.DefaultMaxConcurrent"/> (24)
-    /// live creatures and pushes each at <see cref="IslandFaunaRegistry.DefaultPoseInterval"/>
-    /// (250 ms), so a peer that could somehow see EVERY creature at once receives
-    /// 24 x 4 = 96 fauna transform updates a second - under a fifth of one 20 Hz
-    /// avatar relay. In practice a peer sees one island's population, so the real
-    /// figure is a handful a second. Raising <see cref="BudgetEnv"/> raises that
-    /// ceiling proportionally; it is an operator decision, and the boot line says
-    /// what the world would have wanted.
+    /// THE WORST CASE, stated so it can be checked rather than trusted, and now
+    /// INDEPENDENT OF HOW BIG THE WORLD IS. A peer may hold at most
+    /// <see cref="IslandFaunaInterestPolicy.DefaultPerPeerCreatures"/> (24) creatures,
+    /// each pushed at <see cref="IslandFaunaRegistry.DefaultPoseInterval"/> (250 ms),
+    /// so the ceiling is 24 x 4 = 96 fauna transform updates a second - under a fifth
+    /// of one 20 Hz avatar relay, and the same ceiling the soak gate already measured
+    /// FLAT. <see cref="BudgetEnv"/> now bounds only how much wildlife EXISTS, which
+    /// costs a dictionary entry and a closed-form pose; <see cref="PeerBudgetEnv"/> is
+    /// the knob that moves the wire, and it is the one to be careful with.
     ///
     /// ONLY PEERS THAT CAN RECEIVE RemoveEntity ARE EVER SHOWN A CREATURE. Channel 5
     /// is a negotiated capability, and a peer that lacks it could never unload the
@@ -63,10 +72,20 @@ namespace WorldsAdriftRebornGameServer.Game
         internal const string EnableEnv = IslandFaunaPolicy.EnabledEnvVar;
 
         /// <summary>
-        /// How many creatures may be live world-wide. 0 is a second kill switch.
+        /// How many creatures may EXIST world-wide. 0 is a second kill switch.
         /// Named like <c>WAREBORN_TREE_FALL_MAX</c> because it does the same job.
+        /// This is no longer the wire bound; see <see cref="PeerBudgetEnv"/>.
         /// </summary>
         internal const string BudgetEnv = "WAREBORN_ISLAND_FAUNA_MAX";
+
+        /// <summary>
+        /// How many creatures ONE PEER may hold at once. THE wire bound, and the
+        /// number the multiplayer-safety rule is about.
+        /// </summary>
+        internal const string PeerBudgetEnv = IslandFaunaInterestPolicy.PerPeerBudgetEnvVar;
+
+        /// <summary>How near an island a peer must be for its fauna to check out.</summary>
+        internal const string RadiusEnv = IslandFaunaInterestPolicy.LoadRadiusEnvVar;
 
         private const uint TransformStateComponentId = 190602;
         private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMilliseconds(500);
@@ -76,6 +95,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private sealed class PeerState
         {
             public readonly HashSet<long> Loaded = new();
+            public readonly HashSet<IslandId> Islands = new();
             public readonly Queue<ResourceStreamAction> Pending = new();
             public TimeSpan NextReconcile;
             public TimeSpan NextSend;
@@ -85,25 +105,45 @@ namespace WorldsAdriftRebornGameServer.Game
             public bool ConnectPlanComplete;
         }
 
+        /// <summary>One island's fauna, grouped so interest can be decided per island.</summary>
+        private sealed class IslandPopulation
+        {
+            public IslandDefinition Island = null!;
+            public IslandTerrainEnvelope Envelope;
+            public readonly List<long> EntityIds = new();
+        }
+
         private readonly IClock _clock;
         private readonly bool _enabled;
+        private readonly double _loadRadius;
+        private readonly double _unloadRadius;
+        private readonly int _peerBudget;
         private readonly IslandFaunaRegistry _registry;
         private readonly Dictionary<long, FaunaPlacement> _planned = new();
+        private readonly Dictionary<IslandId, IslandPopulation> _byIsland = new();
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
+        private readonly HashSet<long> _held = new();
         private Func<ENetPeerHandle, IslandId, bool>? _terrainReady;
         private long _sample;
 
         internal IslandFaunaService(IClock clock)
             : this(clock,
                 IslandFaunaPolicy.EnabledFrom(Environment.GetEnvironmentVariable(EnableEnv)),
-                IslandFaunaPolicy.ParseBudget(Environment.GetEnvironmentVariable(BudgetEnv)))
+                IslandFaunaPolicy.ParseBudget(Environment.GetEnvironmentVariable(BudgetEnv)),
+                IslandFaunaInterestPolicy.LoadRadiusFrom(Environment.GetEnvironmentVariable(RadiusEnv)),
+                IslandFaunaInterestPolicy.ParsePerPeerBudget(
+                    Environment.GetEnvironmentVariable(PeerBudgetEnv)))
         {
         }
 
-        internal IslandFaunaService(IClock clock, bool enabled, int? maxConcurrent)
+        internal IslandFaunaService(IClock clock, bool enabled, int? maxConcurrent,
+            double? loadRadius = null, int? perPeerBudget = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _enabled = enabled;
+            _loadRadius = loadRadius ?? IslandFaunaInterestPolicy.DefaultLoadRadiusMetres;
+            _unloadRadius = IslandFaunaInterestPolicy.UnloadRadiusFor(_loadRadius);
+            _peerBudget = perPeerBudget ?? IslandFaunaInterestPolicy.DefaultPerPeerCreatures;
             _registry = new IslandFaunaRegistry(clock,
                 IslandFaunaMovement.WorldPoseAt, maxConcurrent);
         }
@@ -152,15 +192,32 @@ namespace WorldsAdriftRebornGameServer.Game
                     continue;
                 }
                 _planned[placement.Creature.EntityId] = placement;
+
+                if (!_byIsland.TryGetValue(placement.Creature.IslandId, out IslandPopulation? population))
+                {
+                    population = new IslandPopulation
+                    {
+                        Island = placement.Island,
+                        Envelope = placement.Envelope,
+                    };
+                    _byIsland[placement.Creature.IslandId] = population;
+                }
+                population.EntityIds.Add(placement.Creature.EntityId);
             }
 
             Console.WriteLine("[island-fauna] ON: seeded " + _registry.Count + " creature(s) across "
                 + IslandFaunaPlan.IslandCount(plan) + " of " + islands.Count + " island(s); the world"
                 + " wanted " + demand + " and the world-wide budget is " + _registry.MaxConcurrent
-                + " (" + BudgetEnv + "). Pose cadence "
-                + _registry.PoseInterval.TotalMilliseconds.ToString("0") + " ms, so the worst case a"
-                + " single peer can receive is " + WorstCaseUpdatesPerSecond().ToString("0")
-                + " fauna transform update(s) a second.");
+                + " (" + BudgetEnv + ").");
+            Console.WriteLine("[island-fauna] interest is ISLAND-KEYED at "
+                + _loadRadius.ToString("0") + " m load / " + _unloadRadius.ToString("0")
+                + " m unload to the island envelope (" + RadiusEnv + "), capped at "
+                + _peerBudget + " creature(s) per peer (" + PeerBudgetEnv + "). At a "
+                + _registry.PoseInterval.TotalMilliseconds.ToString("0")
+                + " ms pose cadence the worst case ONE peer can receive is "
+                + IslandFaunaInterestPolicy.WorstCaseUpdatesPerSecond(
+                    _peerBudget, _registry.PoseInterval).ToString("0")
+                + " fauna transform update(s) a second, whatever the world's population.");
 
             // NAME the populated islands. "8 of 46" tells an operator the budget bit;
             // it does not tell a player where to go to see the feature at all, and a
@@ -173,8 +230,13 @@ namespace WorldsAdriftRebornGameServer.Game
             }
             if (populated.Count > 0)
             {
+                // Elided past a dozen: naming every island was useful when eight of
+                // forty-six carried anything and is noise now that all of them do.
+                const int NameLimit = 12;
                 Console.WriteLine("[island-fauna] populated island(s): "
-                    + string.Join(", ", populated) + ".");
+                    + string.Join(", ", populated.Take(NameLimit))
+                    + (populated.Count > NameLimit
+                        ? " and " + (populated.Count - NameLimit) + " more." : "."));
             }
 
             if (demand > _registry.MaxConcurrent)
@@ -193,6 +255,39 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         internal void AttachTerrainReadiness(Func<ENetPeerHandle, IslandId, bool> terrainReady) =>
             _terrainReady = terrainReady ?? throw new ArgumentNullException(nameof(terrainReady));
+
+        /// <summary>
+        /// Warns if the fauna radius reaches past the terrain radius, in which case
+        /// the wildlife beyond it is invisible for a reason nothing else reports.
+        ///
+        /// A CREATURE MUST NOT OUTRUN ITS ISLAND - <see cref="Execute"/> drops any add
+        /// for an island the peer does not hold. That guard is correct and stays, but
+        /// it makes the terrain radius a silent CEILING on the fauna radius: an
+        /// operator who raises <see cref="RadiusEnv"/> past
+        /// <c>WAREBORN_TERRAIN_LOAD_RADIUS_M</c> gets creatures that are admitted,
+        /// queued, dropped and requeued forever, and NO log line anywhere says why the
+        /// animals never arrive. It cost a debugging round to find once; the boot line
+        /// exists so it cannot cost a second.
+        ///
+        /// It warns rather than clamping: the terrain radius is read by another
+        /// service and a fauna service that silently rewrote another subsystem's
+        /// configuration would be a worse surprise than the one it is reporting.
+        /// </summary>
+        internal void WarnIfPastTerrainRadius(double terrainLoadRadiusMetres)
+        {
+            if (!_enabled || _loadRadius <= 0.0 || terrainLoadRadiusMetres <= 0.0
+                || _loadRadius <= terrainLoadRadiusMetres)
+            {
+                return;
+            }
+
+            Console.WriteLine("[island-fauna] WARNING: the fauna radius ("
+                + _loadRadius.ToString("0") + " m, " + RadiusEnv + ") reaches PAST the island"
+                + " terrain radius (" + terrainLoadRadiusMetres.ToString("0") + " m, "
+                + IslandTerrainInterestPolicy.LoadRadiusEnvVar + "). A creature is never sent to a"
+                + " peer that does not hold its island, so every creature between the two radii"
+                + " will be silently withheld. Raise the terrain radius or lower the fauna one.");
+        }
 
         /// <summary>
         /// Hands lifecycle over from the connect spawn plan. A creature is never in
@@ -260,14 +355,6 @@ namespace WorldsAdriftRebornGameServer.Game
 
         internal void Forget(ENetPeerHandle peer) => _peers.Remove(peer);
 
-        /// <summary>
-        /// The most fauna transform updates one peer could receive per second if it
-        /// somehow held every live creature at once. Reported at boot so the sender
-        /// budget is a stated number rather than a claim.
-        /// </summary>
-        private double WorstCaseUpdatesPerSecond() =>
-            _registry.Count / _registry.PoseInterval.TotalSeconds;
-
         private void TickCheckout()
         {
             TimeSpan now = _clock.Elapsed;
@@ -287,34 +374,47 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// Rebuilds this peer's pending work against the creatures' LIVE positions.
+        /// Rebuilds this peer's pending work from WHICH ISLANDS it is near.
         ///
-        /// The reconciliation itself is <c>ResourceInterestPolicy.Reconcile</c> - the
-        /// same pure geometry, hysteresis and nearest-first ordering the resource
-        /// stream uses. Fauna deliberately does not get its own copy of that
-        /// arithmetic; the only thing different about a creature is that its
-        /// position is asked for every time instead of read off a registration.
+        /// Two pure steps and no geometry of its own:
+        /// <see cref="IslandFaunaInterestPolicy.Admit"/> decides which islands'
+        /// populations the peer should hold, and
+        /// <see cref="IslandFaunaInterestPolicy.Reconcile"/> turns that into the
+        /// add/remove work. The creature positions the previous version of this method
+        /// sampled every 500 ms are not consulted at all any more - that sampling WAS
+        /// the despawn bug, because it made a creature's checkout a function of where
+        /// it happened to be in its orbit.
         /// </summary>
         private void Reconcile(ENetPeerHandle peer, PeerState state)
         {
             FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
-            List<(long Id, FixedPointPosition Position)> live =
-                new List<(long, FixedPointPosition)>(_registry.Count);
-            foreach (long entityId in _registry.Live)
+
+            List<FaunaIslandCandidate> candidates = new List<FaunaIslandCandidate>(_byIsland.Count);
+            foreach ((IslandId islandId, IslandPopulation population) in _byIsland)
             {
-                FixedPointPosition? position = _registry.PositionOf(entityId);
-                if (position.HasValue) live.Add((entityId, position.Value));
+                candidates.Add(new FaunaIslandCandidate(islandId,
+                    population.Envelope.DistanceSquaredTo(center, population.Island),
+                    population.EntityIds.Count));
+            }
+
+            IReadOnlyList<IslandId> admitted = IslandFaunaInterestPolicy.Admit(
+                candidates, state.Islands, _loadRadius,
+                // A peer with no channel 5 can never unload, so it must never be told
+                // to: an infinite unload radius means "retain what you have".
+                state.RemoveSupported ? _unloadRadius : double.PositiveInfinity,
+                _peerBudget);
+
+            state.Islands.Clear();
+            List<long> desired = new List<long>();
+            foreach (IslandId islandId in admitted)
+            {
+                state.Islands.Add(islandId);
+                desired.AddRange(_byIsland[islandId].EntityIds);
             }
 
             ResourceInterestPolicy.ReplacePending(
                 state.Pending,
-                ResourceInterestPolicy.Reconcile(
-                    center, live, state.Loaded, Interest.RadiusMetres,
-                    // A peer with no channel 5 can never unload, so it must never be
-                    // told to: an infinite unload radius means "retain what you have".
-                    state.RemoveSupported
-                        ? WorldsAdriftRebornGameServer.ResourceInterest.UnloadRadiusMetres
-                        : double.PositiveInfinity),
+                IslandFaunaInterestPolicy.Reconcile(desired, state.Loaded),
                 MaxQueuedPerPeer);
         }
 
@@ -416,7 +516,17 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
-            IReadOnlyList<FaunaPose> poses = _registry.DuePoses();
+            // Only the creatures SOMEBODY is holding are worth the trigonometry. The
+            // world may now carry the whole catalogue while a peer holds a couple of
+            // dozen, so this union is what keeps a fully populated world's per-turn
+            // cost proportional to what is actually being watched.
+            _held.Clear();
+            foreach (PeerState state in _peers.Values)
+            {
+                _held.UnionWith(state.Loaded);
+            }
+
+            IReadOnlyList<FaunaPose> poses = _registry.DuePoses(_held.Contains);
             if (poses.Count == 0)
             {
                 return;

@@ -138,7 +138,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.True(first >= IslandFaunaPolicy.FirstFaunaEntityId);
             Assert.True(first > TreeFall.FirstLogEntityId);
             Assert.True(second > first);
-            Assert.True(Add(registry, new FaunaCreature(second, FaunaSpecies.MantaRay, TestIslandId, 0)));
+            Assert.True(Add(registry, new FaunaCreature(second, FaunaSpecies.MantaRay, TestIslandId, 0, 0, 0)));
             Assert.True(registry.Remove(second));
             // A packet still in flight for the retired creature must never be able to
             // name a new one, so the counter does not wind back.
@@ -217,9 +217,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
 
         private static FaunaCreature[] Creatures() => new[]
         {
-            new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId, FaunaSpecies.MantaRay, TestIslandId, 0),
-            new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId + 1, FaunaSpecies.MantaRay, TestIslandId, 1),
-            new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId + 2, FaunaSpecies.JellyFish, TestIslandId, 2),
+            new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId, FaunaSpecies.MantaRay, TestIslandId, 0, 0, 0),
+            new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId + 1, FaunaSpecies.MantaRay, TestIslandId, 1, 0, 1),
+            new FaunaCreature(IslandFaunaPolicy.FirstFaunaEntityId + 2, FaunaSpecies.JellyFish, TestIslandId, 2, 0, 0),
         };
 
         private static readonly IslandId TestIslandId = new IslandId("fauna-registry-test");

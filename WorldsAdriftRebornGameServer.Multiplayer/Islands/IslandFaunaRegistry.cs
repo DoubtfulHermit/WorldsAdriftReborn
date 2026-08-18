@@ -227,7 +227,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// turn; it allocates NOTHING when nothing is due, which is the common case
         /// between intervals and the whole case on a world with no fauna.
         /// </summary>
-        public IReadOnlyList<FaunaPose> DuePoses()
+        public IReadOnlyList<FaunaPose> DuePoses() => DuePoses(null);
+
+        /// <summary>
+        /// The same, but only for creatures <paramref name="isWatched"/> accepts.
+        ///
+        /// THE SCHEDULE STILL ADVANCES FOR EVERYONE, and that is the whole subtlety.
+        /// An unwatched creature is skipped for the COMPUTATION and for the result,
+        /// but its <c>NextPoseAt</c> moves on exactly as if it had been sent. Anything
+        /// else would let an unwatched creature accumulate an overdue schedule and
+        /// then fire a burst the instant somebody walked into range - which is the
+        /// same shape as the desync spiral this feature is audited against. It costs
+        /// nothing to keep correct because a pose is a closed form of absolute elapsed
+        /// time: skipping the computation cannot make the creature drift.
+        ///
+        /// This exists because the world-wide population is now allowed to be the
+        /// whole catalogue while a peer holds at most a couple of dozen creatures.
+        /// Computing several thousand trigonometric poses four times a second to
+        /// discard almost all of them would be pure waste, and the filter is the one
+        /// line that avoids it.
+        /// </summary>
+        public IReadOnlyList<FaunaPose> DuePoses(Func<long, bool>? isWatched)
         {
             if (_creatures.Count == 0)
             {
@@ -246,6 +266,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 }
 
                 entry.NextPoseAt = now + _poseInterval;
+                if (isWatched != null && !isWatched(pair.Key))
+                {
+                    continue;
+                }
+
                 (poses ??= new List<FaunaPose>()).Add(new FaunaPose(pair.Key,
                     entry.Creature.Species, entry.Creature.IslandId, PoseOf(entry, now)));
             }
