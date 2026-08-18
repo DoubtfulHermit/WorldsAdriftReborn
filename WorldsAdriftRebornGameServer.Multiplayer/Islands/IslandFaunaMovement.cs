@@ -189,6 +189,103 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public const double JellySecondsPerRevolution = 600.0;
 
         /// <summary>
+        /// How far ahead the path is sampled to find which way a creature is going,
+        /// in seconds.
+        ///
+        /// FACING IS DERIVED FROM THE POSITION FUNCTION ITSELF, by finite difference,
+        /// rather than from a hand-written derivative of each path. That is the one
+        /// property that makes it impossible for a creature's pose and its heading to
+        /// disagree: if the path changes, the facing changes with it, automatically
+        /// and by construction. A hand-differentiated heading would silently keep
+        /// pointing along the OLD path the first time somebody edited the geometry -
+        /// which is exactly the class of bug that put the wildlife underground.
+        ///
+        /// A tenth of a second is short enough that a manta's 8 m/s lap is locally
+        /// straight and long enough that double precision has plenty of signal.
+        /// </summary>
+        public const double HeadingSampleSeconds = 0.1;
+
+        /// <summary>
+        /// How steeply a manta banks, in radians of roll per radian-per-second of
+        /// yaw.
+        ///
+        /// WAREBORN TUNING, and it has to be: retail's bank came from
+        /// <c>_settings.turnBankingScale</c>, a <c>[SerializeField]</c> baked into the
+        /// creature prefab, and the prefab binaries are not in the decompile. Only
+        /// the SHAPE is RECOVERED (see <see cref="IslandFaunaOrientation.BankedUp"/>).
+        ///
+        /// On a circular patrol the yaw rate is just speed over radius, so the bank
+        /// this produces is <c>MantaBankScale * MantaMetresPerSecond / orbitRadius</c>
+        /// and it falls off as an island gets bigger - which is the right direction:
+        /// a tight little island is a hard turn and a huge one is a lazy one. Ten is
+        /// chosen against the REAL catalogue rather than against a round number.
+        /// Across the tier-1 islands the orbit radius runs 84 m to 626 m (median
+        /// 301 m), giving 30 degrees on the tightest, about 15 at the median and
+        /// about 7 on the largest. Clearly visible on a body as broad as a manta at
+        /// every size, and never absurd at either end.
+        /// </summary>
+        public const double MantaBankScale = 10.0;
+
+        /// <summary>
+        /// The steepest a manta may bank, in radians (30 degrees).
+        ///
+        /// Retail's own bank was bounded too - <c>Vector3.Slerp</c> clamps at t = 1,
+        /// which is a 90 degree roll onto the creature's side. A third of that is the
+        /// limit here because retail only ever approached its clamp under PID
+        /// overshoot on a hard steer, whereas this server's bank is a smooth function
+        /// of the lap and would SIT at the limit for the whole orbit of a small
+        /// island. A patrolling animal held on its edge for a minute at a time reads
+        /// as broken; a firm 30 degree lean reads as a turn.
+        /// </summary>
+        public const double MantaMaximumBankRadians = Math.PI / 6.0;
+
+        /// <summary>
+        /// How much each school member's heading is jittered off the school's, in
+        /// radians.
+        ///
+        /// RECOVERED MAGNITUDE, which is a pleasant surprise. Retail's fifth boid
+        /// rule is
+        /// <c>Quaternion.AngleAxis(Mathf.Sin(Mathf.Repeat(Time.time, 2*PI)), transform.up) * transform.forward</c>:
+        /// <c>AngleAxis</c> takes DEGREES, and the sine of anything is at most 1, so
+        /// retail's wander term perturbed a creature's heading by AT MOST ONE DEGREE.
+        /// It is a shimmer, not a scatter. One degree is what is used here.
+        ///
+        /// It matters because it is the difference between a school that reads as
+        /// animals and one that reads as a rigid formation, and because it is small
+        /// enough not to fight the alignment described on
+        /// <see cref="MantaSchoolRotationAt"/>.
+        /// </summary>
+        public const double SchoolHeadingJitterRadians = Math.PI / 180.0;
+
+        /// <summary>
+        /// How fast a jelly's unconstrained yaw drifts, in radians per second.
+        ///
+        /// WAREBORN TUNING for the rate; the FREEDOM is RECOVERED. A jelly's only
+        /// rotational constraint in retail was <c>targetUpPID</c> -
+        /// <c>BasicMovementController</c> has no heading PID at all - so its yaw was
+        /// driven by nothing but a decorative twist torque and angular drag. A slow
+        /// drift is the closed-form stand-in for "nothing was holding it".
+        /// </summary>
+        public const double JellyYawDriftRadiansPerSecond = 0.06;
+
+        /// <summary>
+        /// How far a jelly's bell rocks off vertical as it pulses, in radians.
+        ///
+        /// RECOVERED SHAPE AND SCALE. <c>JellyFishMovement</c> sets its target up to
+        /// <c>Slerp(AngleAxis(targetAngle * 2f * Rad2Deg, Cross(direction, up)) * Vector3.up, Vector3.up, verticalness)</c>,
+        /// where <c>targetAngle</c> is sampled from <c>xRotationAnimationCurve</c> -
+        /// a curve baked from an animation clip's <c>localRotation.x</c>, so its
+        /// values are quaternion components of a small angle and the resulting tilt
+        /// is a few degrees about the axis ACROSS the direction of travel. Four
+        /// degrees is in that band. The curve itself is prefab data and is lost, so
+        /// the exact number is WAREBORN TUNING.
+        /// </summary>
+        public const double JellyPulseTiltRadians = 4.0 * Math.PI / 180.0;
+
+        /// <summary>Seconds per jelly pulse, which the bell's rocking follows. WAREBORN TUNING.</summary>
+        public const double JellyPulseSeconds = 3.5;
+
+        /// <summary>
         /// Which half of the day/night cycle <paramref name="elapsedSeconds"/> falls
         /// in, using the RECOVERED 0.2/0.8 thresholds.
         ///
@@ -330,6 +427,173 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
+        /// WHICH WAY A CREATURE IS FACING at <paramref name="elapsedSeconds"/>.
+        ///
+        /// THE BUG THIS FIXES. Until now every fauna pose went out with
+        /// <c>Quaternion32Packing.Identity</c> - the client's 1023 sentinel - because
+        /// no rotation was ever computed. That is not a neutral choice. The client's
+        /// <c>AbstractLerpTransformBehaviour.DoUpdate</c> calls <c>SetPosition</c> and
+        /// <c>SetRotation</c> TOGETHER whenever the position moved past its
+        /// threshold, and <c>LerpLocalTransformBehaviour.SetRotation</c> assigns
+        /// straight to <c>CachedTransform.rotation</c>. So identity was actively
+        /// re-slamming every creature to "nose along world +Z" four times a second,
+        /// no matter which way it was actually travelling. A manta on a circular
+        /// patrol therefore flew sideways and backwards for most of its lap, which is
+        /// what the player saw and reported.
+        ///
+        /// ISLAND-LOCAL AND WORLD ROTATION ARE THE SAME THING here, so there is no
+        /// world conversion to do: <see cref="IslandDefinition.LocalToGlobal"/> is a
+        /// pure TRANSLATION - it adds the island's origin and nothing else - so an
+        /// island cannot be rotated relative to the world and a local heading is
+        /// already a world heading. Worth stating, because the day an island gains a
+        /// yaw this function acquires a bug.
+        /// </summary>
+        public static FaunaRotation RotationAt(
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
+        {
+            return creature.Species == FaunaSpecies.MantaRay
+                ? MantaSchoolRotationAt(creature, envelope, elapsedSeconds)
+                : JellyShoalRotationAt(creature, envelope, elapsedSeconds);
+        }
+
+        /// <summary>
+        /// A manta's facing: nose along the SCHOOL's direction of travel, held level,
+        /// banked into the turn, with a degree of per-member shimmer.
+        ///
+        /// FOUR RECOVERED FACTS, each from the decompiled client:
+        ///
+        /// NOSE IS +Z AND BACK IS +Y. <c>RigidbodyX.CalculateTorqueForTargetHeading</c>
+        /// steers <c>transform.forward</c> onto the look direction and
+        /// <c>CalculateTorqueForTargetUp</c> steers <c>transform.up</c> onto the up
+        /// direction, so a look-rotation of (heading, up) is exactly the pose retail's
+        /// physics converged on. No axis-correction quaternion exists anywhere in the
+        /// client for any creature - searched for and not found.
+        ///
+        /// THE HEADING IS HELD LEVEL. <c>MovementController.UpdateAngle</c> does
+        /// <c>_lookDirection = Vector3.Scale(_lookDirection, new Vector3(1f, 0f, 1f))</c> -
+        /// it ZEROES the vertical component. A retail manta never pitched its nose up
+        /// or down from its steering vector; all of its off-horizontal attitude came
+        /// from the up-direction term. So the climb and dive of the vertical patrol
+        /// band must NOT tilt the nose, and this flattens the heading for that reason
+        /// rather than for convenience.
+        ///
+        /// THE SCHOOL SHARES ONE HEADING, and that is recovered rather than chosen.
+        /// Retail's boid set carries an explicit ALIGNMENT rule - "mean rigidbody
+        /// velocity of the other boids", weight 1.5 - alongside a flock-seek rule at
+        /// weight 15 pulling every member at the same single attractor. Two rules out
+        /// of five actively drive members onto a COMMON heading, and none drives them
+        /// apart. Taking the heading from the SCHOOL CENTRE's motion rather than from
+        /// each member's own instantaneous tangent reproduces that, and it is also
+        /// the only version that looks like a shoal: a member's cluster weave is a
+        /// slow circulation, so differentiating each member individually would have
+        /// animals at the front and back of the school facing measurably different
+        /// ways while flying in formation.
+        ///
+        /// BANKING IS PROPORTIONAL TO STEERING EFFORT. Retail banked on
+        /// <c>_torqueToAdd.y</c>, the yaw PID's output - how hard the creature is
+        /// trying to turn. This server has no PID, and the closed-form equivalent of
+        /// what that PID is chasing is the YAW RATE of the path itself, which is what
+        /// is used.
+        /// </summary>
+        public static FaunaRotation MantaSchoolRotationAt(
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
+        {
+            (double X, double Y, double Z) before =
+                MantaSchoolCentreAt(creature, envelope, elapsedSeconds);
+            (double X, double Y, double Z) after =
+                MantaSchoolCentreAt(creature, envelope, elapsedSeconds + HeadingSampleSeconds);
+            (double X, double Y, double Z) heading = IslandFaunaOrientation.Flatten(
+                (after.X - before.X, after.Y - before.Y, after.Z - before.Z));
+
+            // The yaw the school turns through per second, signed: positive is a
+            // right-hand turn, which banks the creature to its right.
+            (double X, double Y, double Z) later =
+                MantaSchoolCentreAt(creature, envelope, elapsedSeconds + (2.0 * HeadingSampleSeconds));
+            double yawRate = IslandFaunaOrientation.SignedYawBetween(
+                heading, (later.X - after.X, later.Y - after.Y, later.Z - after.Z))
+                / HeadingSampleSeconds;
+
+            double bank = Math.Clamp(yawRate * MantaBankScale,
+                -MantaMaximumBankRadians, MantaMaximumBankRadians);
+
+            // Per-member shimmer, deterministic from the member index so a restart
+            // reproduces it, and phase-shifted per member so the school does not
+            // shimmer in unison - which would just be the whole school yawing.
+            double jitter = SchoolHeadingJitterRadians * Math.Sin(
+                (elapsedSeconds * 0.7)
+                + (creature.MemberIndex * IslandFaunaSchool.GoldenAngleRadians));
+            heading = IslandFaunaOrientation.YawBy(heading, jitter);
+
+            return IslandFaunaOrientation.LookRotation(
+                heading, IslandFaunaOrientation.BankedUp(heading, bank));
+        }
+
+        /// <summary>
+        /// A jelly's attitude: BELL UP, yaw free, rocking gently as it pulses.
+        ///
+        /// THIS IS DELIBERATELY NOT THE MANTA RULE, and the decompile is unusually
+        /// clear about why. A jelly ran <c>BasicMovementController</c>, never
+        /// <c>MovementController</c> - <c>JellyFishPreprocessor</c> installs the
+        /// basic one - and <c>BasicMovementController</c>'s ENTIRE rotational
+        /// surface is <c>SetTargetUpDirection</c> plus a raw <c>AddTorque</c>. There
+        /// is no heading PID, no look direction, and no reference to
+        /// <c>transform.forward</c> anywhere in it or in <c>JellyFishMovement</c>.
+        ///
+        /// So a retail jelly DID NOT SWIM NOSE-FIRST. Its only constrained axis was
+        /// <c>transform.up</c>, held at world up by <c>targetUpPID</c>, and its yaw
+        /// was left entirely free - perturbed only by
+        /// <c>AddTorque(transform.up * targetForwardSpeed * twistTorqueScale)</c>,
+        /// a torque about its own bell axis with no target, which just made it twist
+        /// slowly back and forth. Thrust was applied in WORLD space
+        /// (<c>SetTargetVelocity</c> feeds a world-space force), so body attitude and
+        /// travel direction were completely decoupled: a jelly drifted sideways as
+        /// happily as forwards. The client agrees - <c>JellyFishAnimationClient</c>
+        /// syncs its pulse on <c>Vector3.Dot(_inferedAcceleration, transform.up) > 0</c>,
+        /// which only makes sense for a bell-up animal squirting downward.
+        ///
+        /// Pointing a jelly along its travel direction would therefore be a bigger
+        /// error than leaving it at identity. What is modelled instead is exactly
+        /// what retail constrained: up is world up, rocked by a few degrees about the
+        /// axis ACROSS the direction of travel in time with the pulse, and yaw drifts.
+        /// </summary>
+        public static FaunaRotation JellyShoalRotationAt(
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
+        {
+            (double X, double Y, double Z) before =
+                JellyShoalCentreAt(creature, envelope, elapsedSeconds);
+            (double X, double Y, double Z) after =
+                JellyShoalCentreAt(creature, envelope, elapsedSeconds + HeadingSampleSeconds);
+            (double X, double Y, double Z) travel =
+                (after.X - before.X, after.Y - before.Y, after.Z - before.Z);
+
+            // Free yaw: a deterministic slow drift, phase-separated per member so a
+            // shoal does not rotate as one body.
+            double yaw = (elapsedSeconds * JellyYawDriftRadiansPerSecond)
+                + (creature.MemberIndex * IslandFaunaSchool.GoldenAngleRadians);
+            (double X, double Y, double Z) facing =
+                IslandFaunaOrientation.YawBy((0.0, 0.0, 1.0), yaw);
+
+            // The pulse rock, about the horizontal axis ACROSS travel - retail's
+            // Cross(direction, up). Scaled down as the jelly's travel turns vertical,
+            // matching retail's Slerp toward pure world up on verticalness.
+            double tilt = JellyPulseTiltRadians * Math.Sin(
+                2.0 * Math.PI * elapsedSeconds / JellyPulseSeconds
+                + (creature.MemberIndex * IslandFaunaSchool.GoldenAngleRadians));
+            (double X, double Y, double Z) flat = IslandFaunaOrientation.Flatten(travel);
+            double flatLength = Math.Sqrt((flat.X * flat.X) + (flat.Z * flat.Z));
+            double travelLength = Math.Sqrt(
+                (travel.X * travel.X) + (travel.Y * travel.Y) + (travel.Z * travel.Z));
+            double horizontalness = travelLength > 0.0 ? flatLength / travelLength : 0.0;
+
+            (double X, double Y, double Z) up = flatLength > 0.0
+                ? IslandFaunaOrientation.BankedUp(
+                    IslandFaunaOrientation.YawBy(flat, Math.PI / 2.0), tilt * horizontalness)
+                : (0.0, 1.0, 0.0);
+
+            return IslandFaunaOrientation.LookRotation(facing, up);
+        }
+
+        /// <summary>
         /// The same pose in WORLD coordinates, converted with
         /// <see cref="IslandDefinition.LocalToGlobal"/> so a creature uses the exact
         /// island-local-to-global arithmetic every other placement on this server uses.
@@ -344,6 +608,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             }
             (double x, double y, double z) = LocalPoseAt(creature, envelope, elapsedSeconds);
             return island.LocalToGlobal(x, y, z);
+        }
+
+        /// <summary>
+        /// WHERE A CREATURE IS AND WHICH WAY IT FACES, from ONE evaluation.
+        ///
+        /// This is the function the registry actually drives, and it exists as a
+        /// single call rather than two so that a pose and its heading are physically
+        /// incapable of describing different instants. Two separate calls would be
+        /// correct today and would rot the moment anything cached, batched or
+        /// rescheduled one of them.
+        /// </summary>
+        public static FaunaTransform WorldTransformAt(
+            FaunaCreature creature, IslandDefinition island,
+            IslandTerrainEnvelope envelope, double elapsedSeconds)
+        {
+            if (island == null)
+            {
+                throw new ArgumentNullException(nameof(island));
+            }
+            (double x, double y, double z) = LocalPoseAt(creature, envelope, elapsedSeconds);
+            return new FaunaTransform(
+                island.LocalToGlobal(x, y, z),
+                RotationAt(creature, envelope, elapsedSeconds));
         }
 
         /// <summary>

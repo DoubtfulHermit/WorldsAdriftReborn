@@ -336,6 +336,268 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             }
         }
 
+        // --- Orientation. The wildlife used to fly sideways because every pose went
+        // --- out with the client's identity sentinel and no rotation was computed.
+
+        [Fact]
+        public void Manta_points_its_nose_along_the_schools_direction_of_travel()
+        {
+            // The whole bug, as one assertion. RECOVERED: retail steered
+            // transform.forward onto the look direction
+            // (RigidbodyX.CalculateTorqueForTargetHeading), so +Z is the nose.
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
+            {
+                foreach (double seconds in Revolution(envelope))
+                {
+                    (double X, double Y, double Z) travel = SchoolTravel(envelope, seconds);
+                    (double X, double Y, double Z) nose = IslandFaunaOrientation.ForwardOf(
+                        IslandFaunaMovement.RotationAt(Manta(0), envelope, seconds));
+
+                    double off = IslandFaunaOrientation.AngleBetween(
+                        IslandFaunaOrientation.Flatten(travel), nose);
+                    Assert.True(off < 0.05,
+                        "a manta must face where it is going; it was "
+                            + (off * 180.0 / Math.PI).ToString("0.0") + " degrees off at t=" + seconds);
+                }
+            }
+        }
+
+        [Fact]
+        public void Manta_keeps_its_nose_level_even_while_the_patrol_climbs()
+        {
+            // RECOVERED, and easy to get wrong: MovementController.UpdateAngle does
+            // _lookDirection = Vector3.Scale(_lookDirection, new Vector3(1f, 0f, 1f))
+            // - it ZEROES the vertical. A retail manta never pitched its nose from
+            // its steering vector, so the vertical patrol band must not tilt it.
+            IslandTerrainEnvelope envelope = Normal();
+            bool climbed = false;
+
+            foreach (double seconds in Revolution(envelope))
+            {
+                (double X, double Y, double Z) travel = SchoolTravel(envelope, seconds);
+                if (Math.Abs(travel.Y) > 0.01) climbed = true;
+
+                (double X, double Y, double Z) nose = IslandFaunaOrientation.ForwardOf(
+                    IslandFaunaMovement.RotationAt(Manta(0), envelope, seconds));
+                Assert.True(Math.Abs(nose.Y) < 1e-6,
+                    "the nose pitched to " + nose.Y + " at t=" + seconds);
+            }
+
+            Assert.True(climbed,
+                "this island's patrol never changed altitude, so the fact proved nothing");
+        }
+
+        [Fact]
+        public void Manta_banks_into_its_turn_toward_the_island_it_is_circling()
+        {
+            // RECOVERED SHAPE: retail tilted the up vector toward the horizontal
+            // RIGHT by an amount proportional to yaw effort. On a closed orbit the
+            // inside of the turn IS the island, so a correctly banked manta leans its
+            // back toward the rock - and a sign error would lean it away, which is
+            // the one failure mode that still looks deliberate.
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
+            {
+                double leaned = 0.0;
+                foreach (double seconds in Revolution(envelope))
+                {
+                    (double X, double Y, double Z) back = IslandFaunaOrientation.UpOf(
+                        IslandFaunaMovement.RotationAt(Manta(0), envelope, seconds));
+                    (double X, double Y, double Z) centre =
+                        IslandFaunaMovement.MantaSchoolCentreAt(Manta(0), envelope, seconds);
+
+                    double toCentreX = IslandFaunaMovement.CentreXOf(envelope) - centre.X;
+                    double toCentreZ = IslandFaunaMovement.CentreZOf(envelope) - centre.Z;
+                    double lean = (back.X * toCentreX) + (back.Z * toCentreZ);
+                    Assert.True(lean > 0.0,
+                        "the manta banked AWAY from the island it is circling at t=" + seconds);
+
+                    leaned = Math.Max(leaned, IslandFaunaOrientation.AngleBetween(
+                        back, (0.0, 1.0, 0.0)));
+                }
+
+                // 1e-5 rather than 0: FaunaRotation stores floats, so the angle
+                // recovered from the quaternion carries single-precision error.
+                Assert.True(leaned <= IslandFaunaMovement.MantaMaximumBankRadians + 1e-5,
+                    "the bank exceeded its own clamp on " + envelope.IslandId
+                        + " (" + (leaned * 180.0 / Math.PI).ToString("0.000") + " degrees)");
+            }
+        }
+
+        [Fact]
+        public void Bank_is_visible_on_every_island_the_release_world_actually_has()
+        {
+            // The synthetic Huge() shape above is an 8 km island - far larger than
+            // anything that exists - and it correctly banks about a degree, because
+            // bank falls off as speed-over-radius. That is right, but it means the
+            // "is it visible" question has to be asked of the REAL catalogue.
+            //
+            // Across the tier-1 world the orbit radius runs 84 m to 626 m, so this
+            // pins both ends: a manta must lean enough to read at the largest island
+            // and must not be stuck on its edge at the smallest.
+            foreach (ReleaseIslandRecord island in ReleaseWorldRolloutPolicy.Select("tier1"))
+            {
+                double worst = 0.0;
+                foreach (double seconds in Revolution(island.Envelope))
+                {
+                    worst = Math.Max(worst, IslandFaunaOrientation.AngleBetween(
+                        IslandFaunaOrientation.UpOf(
+                            IslandFaunaMovement.RotationAt(Manta(0), island.Envelope, seconds)),
+                        (0.0, 1.0, 0.0)));
+                }
+
+                Assert.True(worst > 5.0 * Math.PI / 180.0,
+                    island.Definition.Id + " banks only "
+                        + (worst * 180.0 / Math.PI).ToString("0.0") + " degrees - too flat to read");
+                Assert.True(worst <= IslandFaunaMovement.MantaMaximumBankRadians + 1e-5,
+                    island.Definition.Id + " banks "
+                        + (worst * 180.0 / Math.PI).ToString("0.0") + " degrees - past the clamp");
+            }
+        }
+
+        [Fact]
+        public void School_members_face_the_same_way_as_each_other()
+        {
+            // RECOVERED, not a judgement call. Retail's boid set has an explicit
+            // ALIGNMENT rule (mean neighbour velocity, weight 1.5) and a flock-seek
+            // rule at weight 15 pulling every member onto ONE attractor: two of the
+            // five rules actively drive a common heading and none drives them apart.
+            // Taking the heading from the SCHOOL rather than from each member's own
+            // tangent is what reproduces that.
+            IslandTerrainEnvelope envelope = Normal();
+            foreach (double seconds in Revolution(envelope))
+            {
+                (double X, double Y, double Z) lead = IslandFaunaOrientation.ForwardOf(
+                    IslandFaunaMovement.RotationAt(Manta(0), envelope, seconds));
+
+                for (int member = 1; member < 8; member++)
+                {
+                    (double X, double Y, double Z) other = IslandFaunaOrientation.ForwardOf(
+                        IslandFaunaMovement.RotationAt(Manta(member), envelope, seconds));
+                    double spread = IslandFaunaOrientation.AngleBetween(lead, other);
+
+                    Assert.True(spread <= (2.0 * IslandFaunaMovement.SchoolHeadingJitterRadians) + 1e-6,
+                        "member " + member + " faced " + (spread * 180.0 / Math.PI).ToString("0.00")
+                            + " degrees off the school at t=" + seconds);
+                }
+            }
+        }
+
+        [Fact]
+        public void School_members_are_not_frozen_into_one_identical_heading()
+        {
+            // The other half of the same question: a school that is bit-identical
+            // across its members reads as a towed model. RECOVERED MAGNITUDE -
+            // retail's wander rule is AngleAxis(Mathf.Sin(...), up), and AngleAxis
+            // takes DEGREES, so its heading shimmer was at most ONE degree.
+            IslandTerrainEnvelope envelope = Normal();
+            bool anyDifference = false;
+
+            foreach (double seconds in Revolution(envelope))
+            {
+                (double X, double Y, double Z) lead = IslandFaunaOrientation.ForwardOf(
+                    IslandFaunaMovement.RotationAt(Manta(0), envelope, seconds));
+                (double X, double Y, double Z) other = IslandFaunaOrientation.ForwardOf(
+                    IslandFaunaMovement.RotationAt(Manta(3), envelope, seconds));
+                if (IslandFaunaOrientation.AngleBetween(lead, other) > 1e-4) anyDifference = true;
+            }
+
+            Assert.True(anyDifference, "every member held the identical heading forever");
+        }
+
+        [Fact]
+        public void Jelly_stays_bell_up_and_does_not_swim_nose_first()
+        {
+            // RECOVERED, and deliberately NOT the manta rule. A jelly ran
+            // BasicMovementController, whose entire rotational surface is
+            // SetTargetUpDirection plus a raw AddTorque - no heading PID, no look
+            // direction, no reference to transform.forward anywhere in it or in
+            // JellyFishMovement. Its bell axis was pinned to world up and its yaw was
+            // left completely free. Pointing a jelly along its travel would be a
+            // BIGGER error than leaving it at identity.
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
+            {
+                double worstTilt = 0.0;
+                double widestYawSpread = 0.0;
+                (double X, double Y, double Z)? firstOffset = null;
+
+                for (int step = 0; step <= 240; step++)
+                {
+                    double seconds = step * IslandFaunaMovement.DayNightCycleSeconds / 240.0;
+                    FaunaRotation q = IslandFaunaMovement.RotationAt(Jelly(0), envelope, seconds);
+
+                    double tilt = IslandFaunaOrientation.AngleBetween(
+                        IslandFaunaOrientation.UpOf(q), (0.0, 1.0, 0.0));
+                    worstTilt = Math.Max(worstTilt, tilt);
+
+                    (double X, double Y, double Z) nose = IslandFaunaOrientation.ForwardOf(q);
+                    firstOffset ??= nose;
+                    widestYawSpread = Math.Max(widestYawSpread,
+                        IslandFaunaOrientation.AngleBetween(firstOffset.Value, nose));
+                }
+
+                // The bell stays up, rocking only by the recovered few degrees.
+                Assert.True(worstTilt <= IslandFaunaMovement.JellyPulseTiltRadians + 1e-6,
+                    "a jelly rolled " + (worstTilt * 180.0 / Math.PI).ToString("0.0")
+                        + " degrees off vertical on " + envelope.IslandId);
+
+                // And the yaw really is free rather than pinned to anything.
+                Assert.True(widestYawSpread > Math.PI / 2.0,
+                    "a jelly's yaw is unconstrained in retail and must actually drift");
+            }
+        }
+
+        [Fact]
+        public void Every_creature_rotation_is_a_usable_unit_quaternion_on_the_wire()
+        {
+            foreach (IslandTerrainEnvelope envelope in EveryShape())
+            {
+                foreach (FaunaCreature creature in new[] { Manta(0), Manta(5), Jelly(0), Jelly(4) })
+                {
+                    for (int step = 0; step <= 120; step++)
+                    {
+                        double seconds = step * IslandFaunaMovement.DayNightCycleSeconds / 120.0;
+                        FaunaRotation q = IslandFaunaMovement.RotationAt(creature, envelope, seconds);
+
+                        double length = Math.Sqrt((q.W * q.W) + (q.X * q.X)
+                            + (q.Y * q.Y) + (q.Z * q.Z));
+                        Assert.True(Math.Abs(length - 1.0) < 1e-5,
+                            creature.Species + " produced a non-unit quaternion of " + length);
+                        Assert.False(float.IsNaN(q.W) || float.IsNaN(q.X)
+                            || float.IsNaN(q.Y) || float.IsNaN(q.Z));
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void Rotation_never_snaps_and_is_a_pure_function_of_its_arguments()
+        {
+            // Same promise as the position: a heading that jumps reads as a creature
+            // flicking round on the spot, and a rotation that is not reproducible
+            // would make a restart visibly disagree with itself.
+            const double StepSeconds = 0.25;
+            IslandTerrainEnvelope envelope = Normal();
+
+            foreach (FaunaCreature creature in new[] { Manta(0), Manta(2), Jelly(0), Jelly(3) })
+            {
+                FaunaRotation previous = IslandFaunaMovement.RotationAt(creature, envelope, 0.0);
+                for (double t = StepSeconds; t <= IslandFaunaMovement.DayNightCycleSeconds; t += StepSeconds)
+                {
+                    FaunaRotation now = IslandFaunaMovement.RotationAt(creature, envelope, t);
+
+                    Assert.Equal(now, IslandFaunaMovement.RotationAt(creature, envelope, t));
+
+                    double turned = IslandFaunaOrientation.AngleBetween(
+                        IslandFaunaOrientation.ForwardOf(previous),
+                        IslandFaunaOrientation.ForwardOf(now));
+                    Assert.True(turned < 0.35,
+                        creature.Species + " snapped " + (turned * 180.0 / Math.PI).ToString("0.0")
+                            + " degrees in a quarter second at t=" + t);
+                    previous = now;
+                }
+            }
+        }
+
         // --- Continuity: a closed form is allowed to teleport, and must not
 
         [Fact]
@@ -438,7 +700,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         {
             // The method group must satisfy the delegate the registry declares; if the
             // signatures ever drift this line stops compiling, which is the point.
-            FaunaPoseFunction pose = IslandFaunaMovement.WorldPoseAt;
+            FaunaPoseFunction pose = IslandFaunaMovement.WorldTransformAt;
 
             IslandTerrainEnvelope envelope = Normal();
             IslandDefinition island = Island(envelope.IslandId);
@@ -455,6 +717,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 Assert.Equal(
                     IslandFaunaMovement.WorldPoseAt(creature, island, envelope, seconds),
                     published.Position);
+                // And the ROTATION rides the same publication, from the same instant.
+                Assert.Equal(
+                    IslandFaunaMovement.RotationAt(creature, envelope, seconds),
+                    published.Rotation);
                 clock.Elapsed += registry.PoseInterval;
             }
         }
@@ -482,6 +748,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             double dx = x - IslandFaunaMovement.CentreXOf(envelope);
             double dz = z - IslandFaunaMovement.CentreZOf(envelope);
             return Math.Sqrt((dx * dx) + (dz * dz));
+        }
+
+        /// <summary>The school centre's displacement over one heading sample window.</summary>
+        private static (double X, double Y, double Z) SchoolTravel(
+            IslandTerrainEnvelope envelope, double seconds)
+        {
+            (double X, double Y, double Z) before =
+                IslandFaunaMovement.MantaSchoolCentreAt(Manta(0), envelope, seconds);
+            (double X, double Y, double Z) after = IslandFaunaMovement.MantaSchoolCentreAt(
+                Manta(0), envelope, seconds + IslandFaunaMovement.HeadingSampleSeconds);
+            return (after.X - before.X, after.Y - before.Y, after.Z - before.Z);
         }
 
         /// <summary>How far a point sits from the island's lateral centre.</summary>

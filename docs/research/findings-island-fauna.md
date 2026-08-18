@@ -154,6 +154,111 @@ what those boid rules settle into, with the cluster RADIUS anchored between the
 two recovered distances above. Group sizes are WAREBORN TUNING and are labelled
 as such at every constant.
 
+## Creature orientation: recovered per species
+
+Recovered 2026-08-18, after the wildlife was seen in a live client and reported
+as "pointing the wrong direction".
+
+WHAT WAS BEING SENT: nothing. Every fauna pose went out with
+`Quaternion32Packing.Identity` - the client's 1023 identity sentinel - because no
+rotation was ever computed. That is NOT a neutral default. The client's
+`AbstractLerpTransformBehaviour.DoUpdate` calls `SetPosition` and `SetRotation`
+TOGETHER whenever the position moved past its threshold, and
+`LerpLocalTransformBehaviour.SetRotation` assigns straight to
+`CachedTransform.rotation`. So identity was actively re-slamming every creature to
+"nose along world +Z" four times a second regardless of travel. A manta on a
+circular patrol flew sideways and backwards for most of its lap.
+
+The packing was NOT at fault: `Quaternion32Packing.Encode(w, x, y, z)` builds its
+component array w-first, matching the client's own `Quaternion32Util`, which does
+`new float[4] { rawQuaternion.w, .x, .y, .z }`. That was checked before anything
+was changed, because a w/x swap produces an axis permutation that looks identical
+to the reported symptom.
+
+### Manta rays - PROVED
+
+- NOSE IS +Z, BACK IS +Y. `RigidbodyX.CalculateTorqueForTargetHeading` steers
+  `transform.forward` onto the look direction; `CalculateTorqueForTargetUp`
+  steers `transform.up` onto the up direction. No axis-correction quaternion
+  exists for any creature anywhere in the client - searched for and not found -
+  so a plain `LookRotation(heading, up)` is the pose retail's physics converged on.
+- THE HEADING IS HELD LEVEL. `MovementController.UpdateAngle` does
+  `_lookDirection = Vector3.Scale(_lookDirection, new Vector3(1f, 0f, 1f))`. A
+  retail manta never pitched its nose from its steering vector; all off-horizontal
+  attitude came from the up term. So the vertical patrol band must not tilt the nose.
+- ORIENTATION FOLLOWED THE DESIRED STEERING VECTOR, not `rigidbody.velocity`,
+  which is never read for rotation. In flocking mode
+  `naturalLookDirection = _updateVector`, the weighted boid sum. Retail also gated
+  thrust on `Clamp01(Dot(forceToApply, transform.forward))`, so a manta had to turn
+  before it could accelerate - which is why its velocity ended up parallel to its
+  nose anyway, and why differentiating the path is a faithful stand-in.
+- BANKING EXISTED AND WAS DELIBERATE:
+  `_upDirection = Vector3.Slerp(Vector3.up, Vector3.Cross(Vector3.up, transform.forward) * Mathf.Sign(torque.y), torque.y * turnBankingScale)`,
+  driven by the yaw PID's OUTPUT (steering effort), not by angular velocity.
+  `turnBankingScale` is prefab `[SerializeField]` data and is LOST.
+- THE CLIENT RENDERS THE BANK FROM WHAT WE SEND.
+  `MantaRayAnimationClient` sets its banking animator layer weight to
+  `(1f - Clamp01(Dot(Vector3.up, transform.up))) * 2f`. With identity that weight
+  is zero and the wing-tilt animation is dead; sending a real banked up switches
+  it on for free.
+- A RETAIL BUG, deliberately NOT reproduced. `Vector3.Slerp` clamps its
+  interpolant to [0,1], so a LEFT turn gave t < 0, clamped to 0, and no bank at
+  all - retail mantas only banked on right-hand turns. An island picks its patrol
+  sense with `counterClockwise = UnityEngine.Random.value > 0.5f`, so replicating
+  the clamp would leave HALF of all islands with mantas that never bank. This
+  banks both ways.
+
+### Jellyfish - PROVED, and NOT the manta rule
+
+- A jelly ran `BasicMovementController`, never `MovementController`
+  (`JellyFishPreprocessor` installs the basic one). That controller's ENTIRE
+  rotational surface is `SetTargetUpDirection` plus a raw `AddTorque`: no heading
+  PID, no look direction, and no reference to `transform.forward` anywhere in it
+  or in `JellyFishMovement`.
+- So a retail jelly DID NOT SWIM NOSE-FIRST. Its only constrained axis was
+  `transform.up`, held at world up by `targetUpPID`. Its YAW WAS FREE, perturbed
+  only by `AddTorque(transform.up * targetForwardSpeed * twistTorqueScale)` - a
+  torque about its own bell axis with no target.
+- Thrust was applied in WORLD space (`SetTargetVelocity` feeds a world-space
+  force), so body attitude and travel direction were fully decoupled: a jelly
+  drifted sideways as happily as forwards. The client agrees -
+  `JellyFishAnimationClient` syncs its pulse on
+  `Dot(_inferedAcceleration, transform.up) > 0`, which only makes sense bell-up.
+- The bell rocked a few degrees about the axis ACROSS travel, in time with the
+  pulse: `Slerp(AngleAxis(targetAngle * 2f * Rad2Deg, Cross(direction, up)) * Vector3.up, Vector3.up, verticalness)`.
+  `xRotationAnimationCurve` is prefab data and is lost, but the `* 2f * Rad2Deg`
+  idiom means the curve holds quaternion x-components of a small angle, so the
+  tilt is single-digit degrees rather than a flip.
+
+POINTING A JELLY ALONG ITS TRAVEL WOULD BE A BIGGER ERROR THAN IDENTITY. What is
+modelled is exactly what retail constrained: bell up, a few degrees of pulse rock,
+and a slow free yaw drift.
+
+### Do school members align with each other? RECOVERED: yes
+
+Not a judgement call. Retail's boid set carries an explicit ALIGNMENT rule - mean
+neighbour rigidbody velocity, weight 1.5 - alongside a flock-seek rule at weight
+15 pulling every member at ONE shared attractor. Two of the five rules actively
+drive a common heading and none drives them apart. Taking each member's heading
+from the SCHOOL's motion rather than from its own instantaneous tangent
+reproduces that, and it is also the only version that looks like a shoal: a
+member's cluster weave is a slow circulation, so differentiating members
+individually would have animals at the front and back of one school facing
+measurably different ways while flying in formation.
+
+The per-member shimmer that stops it reading as a rigid rank has a RECOVERED
+MAGNITUDE. Retail's fifth boid rule is
+`Quaternion.AngleAxis(Mathf.Sin(Mathf.Repeat(Time.time, 2*PI)), transform.up) * transform.forward`.
+`AngleAxis` takes DEGREES and a sine is at most 1, so retail's wander perturbed a
+heading by AT MOST ONE DEGREE. One degree is what is used.
+
+### What the wire cost changed by: nothing
+
+Rotation rides the 190602 `localRotation` that every fauna pose already carried
+and already set. Same component, same single-component `SendComponentUpdateOp`,
+same cadence, same per-peer cap. The boot line still reports the same worst case
+of 96 fauna transform updates a second.
+
 ## What is still unproven
 
 - THE SOAK GATE CANNOT SEE THIS FEATURE. `tools/relaybot/run-soak.sh` was run at
@@ -175,9 +280,18 @@ as such at every constant.
   `FlockClientVisualiser` would add anything visible is unknown.
 - THE MANTA SPEED AND THE DAY/NIGHT CYCLE LENGTH ARE PURE INVENTION. 8 m/s and
   1200 s have no surviving evidence behind them; only the SHAPES they drive do.
-- NO IN-GAME VISUAL CONFIRMATION. Nothing here has been looked at with a client.
-  The claim that a school is now visible from an island rests on arithmetic
-  against the extracted AABBs, not on a screenshot.
+- MANTA SCHOOLS ARE CONFIRMED IN A LIVE CLIENT (2026-08-18): a player saw four
+  manta rays grouped in formation from the air and reported "it looks good". Four
+  is exactly `MantaSchoolSizeAtTier1`, so the school-size path and the
+  golden-angle cluster are confirmed for mantas. JELLYFISH SHOALS REMAIN UNSEEN -
+  nobody has reported one, and by day a shoal hangs under the island's underside,
+  so a daytime sighting from above is not expected in the first place.
+- THE ORIENTATION FIX ITSELF IS NOT VISUALLY CONFIRMED. The recovery is strong and
+  the maths is unit-tested against hand-computed rotations and through the real
+  32-bit wire encoding, but no one has yet seen a banked manta in a client.
+- THE BANK ANGLE IS WAREBORN TUNING. `turnBankingScale` was prefab data and is
+  lost; the scale here is chosen against the real catalogue (30 degrees on the
+  tightest tier-1 island, about 15 at the median, about 7 on the largest).
 
 ## Implementation status
 
