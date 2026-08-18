@@ -592,33 +592,38 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>
-        /// Which call this peer should be hearing: the nearest whale's current call,
-        /// if its STATION is inside the call radius. Zero for "none".
+        /// Which call this peer should be hearing. The rule - nearest station,
+        /// hysteretic, keyed on the (caller, index) PAIR rather than on the entity
+        /// alone - lives in <see cref="SkyWhaleInterestPolicy.AdmitCall"/>, which is
+        /// pure and separately tested; this only measures the distances.
         ///
-        /// The station rather than the animal, deliberately. A call is a fixed place
-        /// in the world for its whole two-minute window; a peer flying away from a
-        /// call it can no longer plausibly hear should stop holding it, and a peer
-        /// flying toward one should pick it up - both of which are questions about
-        /// where the SOUND is, not about where the whale has got to since.
+        /// The STATION rather than the animal, deliberately. A call is a fixed place
+        /// in the world for its whole window; a peer flying away from a call it can
+        /// no longer plausibly hear should stop holding it, and a peer flying toward
+        /// one should pick it up - both of which are questions about where the SOUND
+        /// is, not about where the whale has got to since.
         /// </summary>
         private (long EntityId, long Index) DesiredCallFor(ENetPeerHandle peer, PeerState state)
         {
-            if (_callRadius <= 0.0) return (0L, 0L);
+            if (_callRadius <= 0.0 || _whales.Count == 0) return (0L, 0L);
 
             FixedPointPosition centre = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
-            double best = _callRadius * _callRadius;
-            long bestEntity = 0L;
-            long bestIndex = 0L;
+            List<SkyWhaleInterestPolicy.SkyWhaleCallCandidate> candidates =
+                new List<SkyWhaleInterestPolicy.SkyWhaleCallCandidate>(_whales.Count);
             foreach (SkyWhalePlacement placement in _whales.Values)
             {
                 SkyWhaleCall call = CurrentCall(placement);
-                double distance = SkyWhaleMotion.DistanceSquared(centre, call.Position);
-                if (distance > best) continue;
-                best = distance;
-                bestEntity = placement.Whale.CallEntityId;
-                bestIndex = call.Index;
+                candidates.Add(new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(
+                    placement.Whale.CallEntityId, call.Index,
+                    SkyWhaleMotion.DistanceSquared(centre, call.Position)));
             }
-            return (bestEntity, bestIndex);
+
+            return SkyWhaleInterestPolicy.AdmitCall(candidates,
+                state.CallEntityId, state.CallIndex, _callRadius,
+                // A peer with no channel 5 can never take a call back, so it must
+                // never be asked to: retain whatever it was given.
+                state.RemoveSupported
+                    ? SkyWhalePolicy.UnloadRadiusFor(_callRadius) : double.PositiveInfinity);
         }
 
         /// <summary>Which call one whale is on right now. A pure step function of the clock.</summary>

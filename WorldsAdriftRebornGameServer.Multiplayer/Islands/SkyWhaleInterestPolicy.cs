@@ -109,6 +109,67 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
+        /// One CALL as an interest candidate: which caller entity it belongs to,
+        /// which call it is, and how far this peer is from the place the sound is
+        /// coming from.
+        /// </summary>
+        public readonly record struct SkyWhaleCallCandidate(
+            long EntityId, long Index, double DistanceSquared);
+
+        /// <summary>
+        /// WHICH CALL A PEER SHOULD BE HEARING: the nearest station inside the call
+        /// radius, or (0, 0) for none.
+        ///
+        /// SEPARATE FROM <see cref="Admit"/> BECAUSE A CALL IS NOT AN ANIMAL. Its
+        /// identity is a PAIR - the caller entity and which call it is - because the
+        /// entity id is reused for every call that whale ever makes, and it is the
+        /// INDEX changing that means "this is a new event". A rule keyed on the
+        /// entity alone would hold call 12 forever and never sound call 13.
+        ///
+        /// AND IT IS HYSTERETIC, which matters more here than anywhere else in this
+        /// feature. Every other boundary is crossed by something MOVING FAST: the
+        /// whale crosses its own radius at 18 m/s and is through the margin in
+        /// eleven seconds, so it cannot dither. A call station DOES NOT MOVE AT ALL
+        /// for two minutes, so the only thing crossing its boundary is the PLAYER -
+        /// who is free to hover a ship exactly on it. Without hysteresis that is a
+        /// remove/re-add every send cadence, and a re-add is a fresh 4347 seed,
+        /// which is a fresh CALL: a player parked on the line would be machine-
+        /// gunned with whale song. The margin buys a band a hovering ship cannot sit
+        /// still inside.
+        /// </summary>
+        public static (long EntityId, long Index) AdmitCall(
+            IEnumerable<SkyWhaleCallCandidate> candidates,
+            long heldEntityId,
+            long heldIndex,
+            double loadRadius,
+            double unloadRadius)
+        {
+            if (candidates == null) throw new ArgumentNullException(nameof(candidates));
+            if (loadRadius <= 0.0) return (0L, 0L);
+
+            double load = loadRadius * loadRadius;
+            double retain = double.IsPositiveInfinity(unloadRadius)
+                ? double.PositiveInfinity : unloadRadius * unloadRadius;
+
+            double best = double.MaxValue;
+            long bestEntity = 0L;
+            long bestIndex = 0L;
+            foreach (SkyWhaleCallCandidate candidate in candidates)
+            {
+                bool held = candidate.EntityId == heldEntityId && candidate.Index == heldIndex;
+                if (candidate.DistanceSquared > (held ? retain : load)) continue;
+                // Ties broken by entity id so two equidistant callers cannot swap
+                // back and forth on dictionary iteration order.
+                if (candidate.DistanceSquared > best) continue;
+                if (candidate.DistanceSquared == best && candidate.EntityId >= bestEntity) continue;
+                best = candidate.DistanceSquared;
+                bestEntity = candidate.EntityId;
+                bestIndex = candidate.Index;
+            }
+            return (bestEntity, bestIndex);
+        }
+
+        /// <summary>
         /// The lifecycle work that turns <paramref name="loaded"/> into
         /// <paramref name="desired"/>.
         ///

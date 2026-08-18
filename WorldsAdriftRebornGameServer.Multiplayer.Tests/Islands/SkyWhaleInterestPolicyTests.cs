@@ -113,6 +113,92 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
+        public void The_nearest_call_inside_the_radius_is_the_one_heard()
+        {
+            (long entity, long index) = SkyWhaleInterestPolicy.AdmitCall(
+                new[]
+                {
+                    new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(11L, 7L, 3000.0 * 3000.0),
+                    new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(13L, 2L, 1000.0 * 1000.0),
+                },
+                heldEntityId: 0, heldIndex: 0, loadRadius: 4000.0, unloadRadius: 4200.0);
+            Assert.Equal(13L, entity);
+            Assert.Equal(2L, index);
+        }
+
+        [Fact]
+        public void A_call_beyond_the_radius_is_not_heard()
+        {
+            Assert.Equal((0L, 0L), SkyWhaleInterestPolicy.AdmitCall(
+                new[] { new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(11L, 7L, 5000.0 * 5000.0) },
+                heldEntityId: 0, heldIndex: 0, loadRadius: 4000.0, unloadRadius: 4200.0));
+        }
+
+        [Fact]
+        public void A_player_hovering_on_the_call_boundary_is_not_machine_gunned()
+        {
+            // THE ONE BOUNDARY ON THIS FEATURE THAT A PLAYER CAN SIT STILL ON. A
+            // call station does not move for two minutes, so unlike every other
+            // radius here the crossing is entirely the player's doing - and a
+            // re-add is a fresh 4347 seed, which is a fresh CALL. Without
+            // hysteresis, hovering on the line is eight calls a second.
+            const double Load = 4000.0, Unload = 4200.0;
+            long heldEntity = 0, heldIndex = 0;
+            int rings = 0;
+
+            // Drift outward across the line and back, at a metre a step, the way a
+            // ship holding position actually wanders.
+            foreach (double metres in new[]
+            {
+                3990.0, 4001.0, 3999.0, 4002.0, 3998.0, 4050.0, 4100.0, 4150.0,
+                4199.0, 4150.0, 4100.0, 4001.0, 3999.0,
+            })
+            {
+                (long entity, long index) = SkyWhaleInterestPolicy.AdmitCall(
+                    new[]
+                    {
+                        new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(
+                            11L, 7L, metres * metres),
+                    },
+                    heldEntity, heldIndex, Load, Unload);
+                if (entity != heldEntity || index != heldIndex)
+                {
+                    rings++;
+                    heldEntity = entity;
+                    heldIndex = index;
+                }
+            }
+
+            _output.WriteLine("call checkouts while hovering on the boundary: " + rings);
+            Assert.Equal(1, rings);
+        }
+
+        [Fact]
+        public void A_new_call_from_the_same_whale_replaces_the_old_one()
+        {
+            // The caller's ENTITY ID is reused for every call that whale ever
+            // makes, so a rule keyed on the entity alone would hold call 7 forever
+            // and never sound call 8. It is the INDEX that means "new event".
+            (long entity, long index) = SkyWhaleInterestPolicy.AdmitCall(
+                new[] { new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(11L, 8L, 100.0) },
+                heldEntityId: 11L, heldIndex: 7L, loadRadius: 4000.0, unloadRadius: 4200.0);
+            Assert.Equal(11L, entity);
+            Assert.Equal(8L, index);
+        }
+
+        [Fact]
+        public void A_peer_that_cannot_unload_keeps_the_call_it_was_given()
+        {
+            // Infinite unload radius is how the service says "no channel 5". A
+            // second AddEntity for an id the client still holds would corrupt its
+            // entity map, so such a peer must never be asked to swap.
+            Assert.Equal((11L, 7L), SkyWhaleInterestPolicy.AdmitCall(
+                new[] { new SkyWhaleInterestPolicy.SkyWhaleCallCandidate(11L, 7L, 9e12) },
+                heldEntityId: 11L, heldIndex: 7L,
+                loadRadius: 4000.0, unloadRadius: double.PositiveInfinity));
+        }
+
+        [Fact]
         public void A_standing_player_sees_one_arrival_and_one_departure_per_lap()
         {
             // THE ANTI-CHURN PROPERTY, and the reason whale interest is keyed on the
