@@ -98,6 +98,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Alliance
             Assert.Equal(AllianceVerdict.Ok, AlliancePolicy.MayEditMessageOfTheDay(ledger, Alice, Id));
         }
 
+        /// <summary>
+        /// The EMBLEM is WAREBORN TUNING and rides on <c>edit_group</c> - the same
+        /// permission as the description, because that is the closest thing the
+        /// recovered vocabulary has to "may change how this alliance presents
+        /// itself". Retail had no rule to recover: the client has no emblem
+        /// control at all.
+        ///
+        /// Deliberately NOT the MOTD's permission. That one is <c>leader_chat</c>
+        /// rather than <c>edit_message_of_the_day</c> because the retail client
+        /// reads its own gate off the wrong string, a bug this server reproduces
+        /// on purpose - and there is no client-side emblem gate for this one to
+        /// have to agree with, so it gets the honest permission.
+        /// </summary>
+        [Fact]
+        public void The_emblem_rides_on_edit_group_and_not_on_the_motds_permission()
+        {
+            AllianceLedger ledger = WithAlliance(out Multiplayer.Alliance.Alliance alliance);
+
+            alliance.AddRank(new AllianceRank(
+                "rank:herald", "Herald", true, AllianceRank.TypeMember,
+                new[] { AlliancePermissions.EditGroup }));
+            ledger.Join(Bob, Id, "rank:herald");
+
+            alliance.AddRank(new AllianceRank(
+                "rank:crier", "Crier", true, AllianceRank.TypeMember,
+                new[] { AlliancePermissions.LeaderChat }));
+            ledger.Join(Cara, Id, "rank:crier");
+
+            Assert.Equal(AllianceVerdict.Ok, AlliancePolicy.MayEditEmblem(ledger, Bob, Id));
+            Assert.Equal(AllianceVerdict.NotPermitted, AlliancePolicy.MayEditEmblem(ledger, Cara, Id));
+
+            // ... and the founder always may, whatever their rank lists.
+            Assert.Equal(AllianceVerdict.Ok, AlliancePolicy.MayEditEmblem(ledger, Alice, Id));
+        }
+
+        [Fact]
+        public void Nobody_outside_an_alliance_may_change_its_emblem()
+        {
+            AllianceLedger ledger = WithAlliance(out _);
+
+            Assert.Equal(AllianceVerdict.NotAMember, AlliancePolicy.MayEditEmblem(ledger, Dan, Id));
+            Assert.Equal(AllianceVerdict.NoSuchAlliance, AlliancePolicy.MayEditEmblem(ledger, Alice, Other));
+        }
+
         [Fact]
         public void A_plain_member_may_not_invite_boot_or_edit_the_group()
         {

@@ -83,5 +83,55 @@ namespace WorldsAdriftServer.Web
         {
             return CookieName + "=; Path=" + CookiePath + "; HttpOnly; SameSite=Lax; Max-Age=0";
         }
+
+        /// <summary>The hidden form field the CSRF token is posted back in.</summary>
+        public const string CsrfField = "csrf";
+
+        /// <summary>
+        /// A CSRF token bound to one player session.
+        ///
+        /// It arrived with the account page, which is the first thing behind this
+        /// cookie that CHANGES something - the download gate only ever read. The
+        /// SameSite=Lax cookie already blocks a cross-site POST on its own, so
+        /// this is the second lock rather than the only one, and it is worth
+        /// having because "Lax blocks it" is a browser behaviour and not something
+        /// this server can assert.
+        ///
+        /// Derived rather than stored, exactly as
+        /// <see cref="WorldsAdriftServer.Admin.AdminAuthPolicy.CsrfTokenForSession"/>
+        /// is: no second table to expire in step with the session, and a token
+        /// that dies with the session by construction. The domain string differs
+        /// from the admin one ON PURPOSE - the two must not be interchangeable, or
+        /// a token minted for a player page would be accepted by an operator
+        /// endpoint that shared a session token format.
+        /// </summary>
+        public static string CsrfTokenForSession(string? sessionToken)
+        {
+            if (string.IsNullOrWhiteSpace(sessionToken)) return string.Empty;
+
+            byte[] bytes = System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes("wareborn-player-csrf-v1:" + sessionToken));
+            return Convert.ToHexString(bytes).ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Whether a presented token belongs to this session. Compared in fixed
+        /// time, and false for either half missing - an absent token must never
+        /// compare equal to an absent expectation.
+        /// </summary>
+        public static bool VerifyCsrf(string? sessionToken, string? presented)
+        {
+            if (string.IsNullOrWhiteSpace(sessionToken) || string.IsNullOrWhiteSpace(presented))
+            {
+                return false;
+            }
+
+            string expected = CsrfTokenForSession(sessionToken);
+            byte[] left = System.Text.Encoding.ASCII.GetBytes(expected);
+            byte[] right = System.Text.Encoding.ASCII.GetBytes(presented!);
+
+            return left.Length == right.Length
+                && System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(left, right);
+        }
     }
 }
