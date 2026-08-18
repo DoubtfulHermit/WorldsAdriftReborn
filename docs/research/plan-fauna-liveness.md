@@ -98,6 +98,14 @@ than a school that is there when you fly in. Any proposal that pushes an island 
 roughly 24-30 creatures must either shorten `SendInterval` for fauna, batch the
 asset-request step, or accept a visibly slow arrival.
 
+> **MEASURED, Phase 0 (2026-08-18), and WORSE than the estimate above.** Through
+> the repaired soak harness (`SOAK_FAUNA=1`, 36 inter-arrival gaps across two
+> bots): **median 333 ms per creature, max 336 ms** — not the derived 240 ms.
+> The extra ~90 ms is the main loop's ~50 ms poll granularity quantising each
+> 120 ms `SendInterval` boundary to ~3.3 turns (2 × ~167 ms ≈ 333 ms). A
+> 24-creature island therefore streams in over **~7.7 s** as things stand. The
+> table above understates every row by ~40%.
+
 ### 1.4 Client frame cost — MEASURED, and the premise has changed
 
 The brief said "frame cost demonstrably tracks entity count". That **was** true, and
@@ -209,6 +217,23 @@ not by the soak.
 
 Any proposal below that raises the per-peer creature count ships ungated until this is
 fixed. That is why it is Phase 0.
+
+> **SOLVED, Phase 0 (2026-08-18), and the root cause was an env variable, not the
+> harness.** Optional terrain is only stream-managed for islands whose world
+> entity id was BOUND when `IslandTerrainInterestService`'s constructor asked
+> `BoundEntityIdFor` at boot. Entity ids are allocated lazily by the first
+> client to reach the entity's AddEntity spawn step — after the constructor —
+> so without the loading barrier the service registered ZERO managed islands and
+> `IsTerrainReady()` answered false forever, which is exactly the gap recorded
+> above. **`WAREBORN_LOAD_BARRIER=1` fixes it structurally**: `LoadBarrier.Prime`
+> binds every world entity id before the service is constructed. Production runs
+> with the barrier on, so the gate now matches production. A/B on this worktree:
+> barrier off → `fauna: 0 creature checkout(s)` (radius 1200 m and 12000 m
+> alike); barrier on → **40 checkouts, 18,602 fauna 190602 poses, VERDICT FLAT**
+> (3-minute runs, two bots on Beautiful Wildlands). `run-soak.sh` now has a
+> first-class `SOAK_FAUNA=1` mode (production world recipe + island-standing
+> bots + `--require-fauna`, under which a creatureless run FAILS), and the bots
+> measure per-creature arrival (1.3).
 
 ### 1.7 The budget, in one table
 
@@ -942,7 +967,100 @@ spent on one shape and never on variety.
 
 ---
 
+## 4b. THE AGREED TARGET ARCHITECTURE (2026-08-18, user's design + amendments)
+
+This section is the design the user chose after reading sections 1-4, and it is
+BINDING on the implementation phases below. It reorganises the proposals into a
+layered ecology: **island capacity → ecological fields → population rhythm →
+groups/schools → individuals.** Where it conflicts with the original section 5
+phasing, this section wins.
+
+Core principles, all binding:
+
+1. **Everything stays (piecewise) closed-form.** Position =
+   `f(islandId, species, groupId, worldTime)`. The ONLY state permitted is a
+   published `(behaviour, epoch)` pair per group — between epochs everything is a
+   pure function of the clock. This preserves the three properties everything
+   else here is built on: the measured 1% server CPU (1.1), exact browser
+   evaluation on the admin map, and the `AdminFaunaParityTests` discipline.
+2. **Ecological fields.** Per-island scalar fields built from a handful of
+   analytic Gaussians — food blooms
+   `F(x,t) = Σ aᵢ·exp(−|x−pᵢ(t)|²/2σᵢ²)` with slowly moving centres `pᵢ(t)` that
+   are themselves analytic paths seeded from `hash(worldSeed, islandId, day)`.
+   Creature target velocity `v = α∇F + β(ŷ×∇F)` — attraction plus circulation,
+   so groups orbit MAXIMA IN THE ECOLOGY, not the island. Per-species
+   coefficients (jellies follow food strongly, mantas follow thermals, etc.),
+   not bespoke AI. PROVENANCE: WAREBORN TUNING in shape; the character — motion
+   that is irregular because it chases something — is the recovered character of
+   retail's reached-waypoint patrol (proposal F).
+3. **Population rhythm.** NOT literal Lotka–Volterra (ODEs break closed-form).
+   A hidden state machine per island per species —
+   Dormant → Growing → Bloom → Collapse → Recovery — with procedural phase
+   lengths derived from `hash(seed, islandId, epoch)`, so "which phase, how far
+   through" is computable at any t by anyone. Predator lag = the same rhythm
+   with a phase offset. `R(t)` composed of incommensurate-period sines is fine.
+   PROVENANCE: WAREBORN TUNING; the recovered gesture is
+   `PopulationManagementState`'s critically-low timer and `LibidoState`'s
+   cease-breeding brake (proposal J) — retail populations really did swing.
+4. **Capacity, not count.** Island size (AABB — spans 8.4× within tier 1, and
+   retail sized habitats off the same measure, 2.5) drives carrying capacity;
+   the rhythm decides what fraction is expressed now. A big island can feel
+   empty; a small one can occasionally teem. That irregularity is the point.
+5. **NO real Kuramoto coupling** (ODEs) — independent sines with slowly drifting
+   shared phases give the same synchronized-but-not-identical read at zero
+   state.
+6. **Dive/Rise as streaming LOD.** A school "under the island" needs no members
+   streamed — disappearance is both believability and the fix for the
+   0.24 s/creature arrival cost (1.3).
+7. **Reaction to players is a LATER phase** and is only ever an epoch transition
+   (`behaviour=Scatter, epoch=now`), never simulation. Not built yet.
+8. **Mod-side visual multiplication is DEFERRED** — not built.
+
+### The implementation phases that follow from it
+
+- **PHASE 0 — prove the ground.** Make the soak gate genuinely exercise the
+  fauna path (fix the K1 blindness: bots never obtain island terrain, and fauna
+  gates on terrain readiness), and re-measure the arrival cost through that
+  harness. The production gate stays intact.
+- **PHASE 1 — free wins, all recovered.** A (manta 1177 GenderState + 4326
+  MantaRayVariantState — kills the 383,632-NRE storm and turns on tails/gender
+  variety), C (four jelly species), B (day length 600 s), and the recovered
+  8 m/s wander speed.
+- **PHASE 2 — ecological field + capacity + layers.** Fields (principle 2),
+  size-driven capacity (principle 4), multiple groups per island at different
+  altitudes/orbits (retail ran a separate orbit phase per species —
+  `HabitatPatrolState`, proposal E), and the perfect circle broken by motion
+  following field maxima. Telemetry contract: the stats file grows bloom
+  parameters, population phase per island/species and group epochs, so the
+  admin map can render the ecology.
+- **PHASE 3 — population rhythm** (principle 3), with capacity expression and
+  gradual convergence `N_{t+1} = N_t + λ(N* − N_t)` so streamed populations
+  drift rather than snap.
+- **PHASE 4 — school behaviours** (cruise/feed/dive/rise/migrate as published
+  `(behaviour, epoch)` pairs, principle 1's one permitted piece of state).
+
+Each phase commits separately and passes the full gate (build, Multiplayer.Tests,
+acceptance, soak — after Phase 0 the soak must ALSO show real fauna checkout
+numbers) before the next begins. The per-peer wire ceiling stays 96 transform
+updates/s (`WAREBORN_ISLAND_FAUNA_PEER_MAX=24` at 250 ms); more creatures may
+EXIST, but a peer never holds more than the cap, retention-first, whole groups
+preferred over truncated ones. Non-fauna world lines stay byte-identical with
+fauna OFF.
+
+PROVENANCE LABELLING RULE, restated for the new layers: fields, rhythm and
+capacity-fractions are WAREBORN TUNING and are labelled so in code and docs.
+Species, variants, day length, wander speed, per-species orbit phases and
+habitat-from-AABB are RECOVERED, with citations. The codebase keeps its
+provenance labels even though the admin UI no longer displays provenance (the
+user's decision: UI shows plain data; the code keeps its memory).
+
+---
+
 ## 5. Recommended phased plan
+
+> SUPERSEDED IN PART, 2026-08-18: section 4b is the agreed plan. This section is
+> kept because its per-proposal reasoning is still the costing behind 4b; where
+> the phase groupings disagree, 4b wins.
 
 Each phase is independently shippable and independently valuable, so the choice can stop
 at any phase boundary.

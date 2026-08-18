@@ -92,6 +92,20 @@ namespace RelayBot
         /// <summary>190602 updates received for those creatures - the fauna pose sender, observed.</summary>
         public long FaunaPoseUpdates { get; private set; }
 
+        /// <summary>
+        /// When each creature ARRIVED (AddEntity received), in this process's
+        /// monotonic nanoseconds. The plan costed fauna arrival at 0.24 s per
+        /// creature from the server's 120 ms SendInterval x two sends
+        /// (AssetLoadRequest, then AddEntity one cadence later); this is the
+        /// measurement that checks that claim through the real pipeline instead
+        /// of trusting it. Consecutive deltas within one island's stream are the
+        /// per-creature arrival cost.
+        /// </summary>
+        private readonly List<long> _faunaArrivalNs = new();
+
+        /// <summary>Snapshot of the fauna arrival instants, for the end-of-soak report.</summary>
+        public long[] FaunaArrivalTimesNs { get { lock (_faunaArrivalNs) return _faunaArrivalNs.ToArray(); } }
+
         public long HelmWakeUpdates { get; private set; }
         public long RemoteAboardFrames { get; private set; }
         public long RemoteInvalidRelativeFrames { get; private set; }
@@ -328,12 +342,13 @@ namespace RelayBot
             // sender is silent". Declare 190602 plus the one identity component
             // that species uses (retail split them: SpeciesType for the rays,
             // BasicSpeciesType for the jellies) and count what comes back.
-            if (op.PrefabName == "MantaRay" || op.PrefabName == "JellyFish")
+            if (IslandFaunaPrefabs.IsCreature(op.PrefabName))
             {
                 FaunaEntitiesAdded++;
+                lock (_faunaArrivalNs) _faunaArrivalNs.Add(NowNs());
                 _faunaEntities.Add(op.EntityId);
                 var faunaInterest = new PbSendComponentInterest { EntityId = op.EntityId };
-                foreach (uint id in new[] { 190602u, op.PrefabName == "MantaRay" ? 1182u : 4322u })
+                foreach (uint id in new[] { 190602u, IslandFaunaPrefabs.IdentityComponentFor(op.PrefabName) })
                 {
                     faunaInterest.Components.Add(new PbInterestOverride { ComponentId = id, IsInterested = true });
                 }
