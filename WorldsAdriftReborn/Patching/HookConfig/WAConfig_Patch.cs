@@ -274,6 +274,23 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
         /// </summary>
         private static bool ForcedString(string key, out string value)
         {
+            // The login screen's two outbound links. LandingScreen.CreateAccount
+            // and LandingScreen.ForgotPassword are both a single
+            // Application.OpenURL(WAConfig.Get<string>(key)) call, so redirecting
+            // the key redirects the button - no patch on the screen needed at
+            // all. Both defaults were S3 redirect pages that Bossa took down.
+            if (key == "BossaNet.CreateAccountUrl")
+            {
+                value = ModSettings.createAccountUrl.Value;
+                return true;
+            }
+
+            if (key == "BossaNet.ResetPasswordUrl")
+            {
+                value = ModSettings.passwordResetUrl.Value;
+                return true;
+            }
+
             string alliancesUrl = AlliancesUrlKey();
             if (alliancesUrl != null && key == alliancesUrl)
             {

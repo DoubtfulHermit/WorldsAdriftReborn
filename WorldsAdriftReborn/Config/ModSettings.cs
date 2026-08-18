@@ -18,6 +18,9 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> restServerUrl { get; set; }
         public static ConfigEntry<string> restServerDeploymentUrl { get; set; }
         public static ConfigEntry<string> alliancesServerUrl { get; set; }
+        public static ConfigEntry<string> createAccountUrl { get; set; }
+        public static ConfigEntry<string> passwordResetUrl { get; set; }
+        public static ConfigEntry<string> mapUrl { get; set; }
         public static ConfigEntry<string> NTPServerUrl { get; set; }
         public static ConfigEntry<string> localAssetPath { get; set; }
         public static ConfigEntry<string> gameServerHost { get; set; }
@@ -135,6 +138,35 @@ namespace WorldsAdriftReborn.Config
                                                     "REST_AlliancesUrl",
                                                     RestUrlPolicy.FollowRestServerUrl,
                                                     "Sets the URL for the social/alliances server - the host that answers the Social Sheet's alliance and CREW requests. Leave blank (the default) to use the same host as REST_ServerUrl, which is what our server does. Set it only to point the social API at a DIFFERENT host. No trailing slash.");
+
+            // The landing screen's three outbound links.
+            //
+            // All of them pointed at hosts that have been dead for years: the
+            // account and password pages at an S3 redirect bucket Bossa took
+            // down, and FORUMS at worldsadrift.com. A button that opens a dead
+            // page is worse than one that is missing, because the player assumes
+            // they did something wrong.
+            //
+            // These are settings rather than constants because an operator
+            // running their own instance has their own site, the same reason
+            // REST_ServerUrl is a setting.
+            createAccountUrl = modConfig.Bind<string>("Links",
+                                                    "Links_CreateAccountUrl",
+                                                    "https://wareborn.ratlabs.cc/",
+                                                    "Where the CREATE ACCOUNT button on the login screen goes. Opens in the player's browser.");
+
+            // No password reset exists yet, so this goes to the same place as
+            // CREATE ACCOUNT rather than to the dead Bossa reset page. Point it
+            // at a real reset endpoint once there is one.
+            passwordResetUrl = modConfig.Bind<string>("Links",
+                                                    "Links_PasswordResetUrl",
+                                                    "https://wareborn.ratlabs.cc/",
+                                                    "Where the FORGOT PASSWORD button on the login screen goes. There is no self-service reset yet, so this points at the site.");
+
+            mapUrl = modConfig.Bind<string>("Links",
+                                                    "Links_MapUrl",
+                                                    "https://wareborn.ratlabs.cc/map",
+                                                    "Where the MAP button on the login screen goes. This is the button the retail client labelled FORUMS.");
 
             appliedConfigMigrations = modConfig.Bind<string>("Internal",
                                                     "Internal_AppliedMigrations",
