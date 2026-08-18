@@ -94,6 +94,13 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         internal static bool Use(long playerEntityId)
         {
+            // ENTRY, unconditionally. Every path out of this method already logs,
+            // but only from here on: before this line existed, "the dispatcher never
+            // called Use" and "Use ran and refused" looked identical in the log, and
+            // that ambiguity cost a live debugging session.
+            Console.WriteLine("[info] " + WildernessShrine.TeleportReason
+                + ": entity " + playerEntityId + " used the shrine; deciding.");
+
             string actorUid = CharacterOwnership.UidForEntity(playerEntityId);
             IReadOnlyList<WildernessDestination> open = Open();
 

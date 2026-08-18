@@ -172,6 +172,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             }
         }
 
+        /// <summary>
+        /// AND THE SKIP IS NOW A NO-OP. The keep-out is enforced at GENERATION
+        /// (HavenSurface.ChamberExclusion, plus one hand-written nugget deleted from
+        /// MetalNodes), so by the time registration runs there is nothing left to
+        /// skip. That matters beyond tidiness: while the skip was doing the work,
+        /// Haven reported 1,526 boot resource entities and delivered 1,521, and the
+        /// five missing ones appeared nowhere.
+        ///
+        /// If a future table puts something back inside the building, this fails
+        /// instead of the world quietly losing a resource again.
+        /// </summary>
+        [Fact]
+        public void The_registration_time_skip_has_nothing_left_to_skip()
+        {
+            // TREES and FUEL are cleared to the apron: not one inside 35 m.
+            foreach ((double X, double Y, double Z) local in WorldEntities.DistributedTreeLocals)
+            {
+                Assert.False(WildernessChamber.Clears(local.X, local.Z),
+                    "a tree is still generated on the cleared ground");
+            }
+
+            foreach (FuelPods.Placement p in FuelPods.HavenPlacements)
+            {
+                Assert.False(WildernessChamber.Clears(p.LocalX, p.LocalZ),
+                    "a fuel canister is still generated on the cleared ground");
+            }
+
+            // METAL keeps its ground right up to the walls - clearing ore to 35 m
+            // would cost the starting island a third of its metal to fix a look -
+            // but nothing may stand INSIDE the building.
+            foreach (MetalNodes.Placement p in MetalNodes.HavenPlacements)
+            {
+                Assert.False(WildernessChamber.Covers(p.LocalX, p.LocalZ),
+                    "a metal node is still inside the chamber walls");
+            }
+
+            // ...and therefore the registration-time guard has nothing to do.
+            WorldEntityRegistry registry = WorldEntities.Default(new EntityIdAllocator());
+            foreach (WorldEntity e in registry.Registrations)
+            {
+                if (e.Key == WildernessChamber.WorldEntityKey) continue;
+                if (e.Key == WildernessShrine.WorldEntityKey) continue;
+                if (e.AssetName.Contains("Island", StringComparison.Ordinal)) continue;
+                Assert.False(WildernessChamber.Covers(e.Position, IslandCatalog.Haven),
+                    e.Key + " is still being skipped at registration");
+            }
+        }
+
         [Fact]
         public void The_chamber_stands_on_haven()
         {

@@ -124,7 +124,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         public static readonly IReadOnlyList<GeneratedPlacement> LegacyFuelLocals = new[]
         {
             new GeneratedPlacement(192.0, 7.13,   8.0, 0.99),
-            new GeneratedPlacement(152.0, 4.71,   0.0, 0.99),
+            // REMOVED 2026-08-18: 33.0 m from the Revival Chamber's axis, i.e. on
+            // the ground the user asked to have cleared ("empty the tree etc from
+            // it then place the tower here properly"). This table is hand-written
+            // and bypasses the generator's exclusions, so it has to be deleted
+            // rather than excluded. Was:
+            //   new GeneratedPlacement(152.0, 4.71, 0.0, 0.99),
             new GeneratedPlacement(176.0, 6.39, -16.0, 0.99),
             new GeneratedPlacement(128.0, 6.12,   0.0, 0.99),
             new GeneratedPlacement(184.0, 3.10, -32.0, 0.99),
@@ -182,6 +187,43 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 exclusions: FuelExclusions());
         }
 
+        /// <summary>
+        /// The Revival Chamber's keep-out disc. Nothing this server scatters may be
+        /// generated inside the building, and this is where that is enforced: at
+        /// GENERATION, so the placement field never contains the point at all.
+        ///
+        /// It used to be a skip at registration time, which worked but was a lie in
+        /// the boot count - Haven reported 1,526 resource entities and delivered
+        /// 1,521, with the five missing ones silently dropped. The user asked for the
+        /// trees on that shelf to be CLEARED, not hidden, so they are cleared here.
+        ///
+        /// Radius from <see cref="Wilderness.WildernessChamber.ClearingRadiusMetres"/>,
+        /// so the disc can never drift from the building it protects.
+        /// </summary>
+        private static PlacementExclusion ChamberExclusion(double radiusMetres)
+        {
+            return new PlacementExclusion(
+                Wilderness.WildernessChamber.HavenLocalPlacement.X,
+                Wilderness.WildernessChamber.HavenLocalPlacement.Z,
+                radiusMetres);
+        }
+
+        /// <summary>
+        /// The CLEARED APRON, for props a player sees: trees and fuel canisters. A
+        /// tree growing out of an ancient tower is what the user was looking at when
+        /// they asked for this.
+        /// </summary>
+        private static PlacementExclusion ChamberClearing() =>
+            ChamberExclusion(Wilderness.WildernessChamber.ClearingRadiusMetres);
+
+        /// <summary>
+        /// The BUILDING ITSELF, for things a player needs: deposits stay out of the
+        /// walls but keep their ground right up to them. Clearing ore to 35 m would
+        /// cost the starting island a third of its metal to fix a look.
+        /// </summary>
+        private static PlacementExclusion ChamberFootprint() =>
+            ChamberExclusion(Wilderness.WildernessChamber.ExclusionRadiusMetres);
+
         private static IReadOnlyList<PlacementExclusion> FuelExclusions()
         {
             List<PlacementExclusion> ex = new List<PlacementExclusion>();
@@ -197,6 +239,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 ship.MetresX - island.MetresX,
                 ship.MetresZ - island.MetresZ,
                 ShipClearance));
+
+            // Keep everything out of the Revival Chamber - see ChamberExclusion.
+            ex.Add(ChamberClearing());
             return ex;
         }
 
@@ -230,6 +275,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 ex.Add(new PlacementExclusion(tree.LocalX, tree.LocalZ, TreeClearance));
             }
 
+
+            // Keep everything out of the Revival Chamber - see ChamberExclusion.
+            ex.Add(ChamberFootprint());
             return ex;
         }
 
@@ -258,6 +306,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
                 ProvenDepositLocal.LocalX,
                 ProvenDepositLocal.LocalZ,
                 TreeClearance));
+
+            // Keep everything out of the Revival Chamber - see ChamberExclusion.
+            ex.Add(ChamberClearing());
             return ex;
         }
 

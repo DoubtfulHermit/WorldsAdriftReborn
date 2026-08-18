@@ -263,6 +263,145 @@ The walk is on one level. It was checked with a flood fill over Haven's contiguo
 the site this document used to name at `(80, 29.57, 64)`: that one is 141 m away
 behind a **147% slope**, i.e. a cliff.
 
+### 2.7 "Register", and what the client actually sends (2026-08-18, live)
+
+A player walked to it and the game showed the plate rendering, a yellow interactive
+outline, and a prompt reading **"Hold E — Register"**. So `Respawner01` renders as a
+standalone world entity, the prompt appears, and the placement, burial, radius, root
+visualizer and layer are all CONFIRMED in a live client. Then: *"nothing happens when
+i hold e"*.
+
+**"Register" is not a verb.** `Bossa.Travellers.Interact.InteractVerb` decompiles to
+exactly `{ Default, Activate, PickUp, Man, Inventory, Craft, Harvest, Forced, Design,
+ReclaimShip, ShipBoost }` — there is no `Register`. It is a UI label chosen for the
+object, and the object is retail's Reviver: `InteractiveObjectVisualizer.GetTutorialStep`
+maps `Activate` + a non-null `RespawnerVisualizer` to `TutorialStep.MOUSE_OVER_REVIVER`.
+I could NOT find the literal string in the shipped assets (`localization.bytes` is a
+5 KB stub and `resources.assets` has no matching literal), so *where* the word is
+composed is UNPROVEN — but it is not the verb.
+
+**The verb the client sends is `Activate` (1). PROVED.** `Respawner01_unityclient` has
+**no `InteractiveObjectVerbOverrider` anywhere in its hierarchy** (walked, every
+GameObject, every MonoBehaviour), so `GetVerb(collider)` returns the root visualizer's
+serialized field, and that field decodes to 1 — the same 48-byte layout that reads all
+191 instances in `resources.assets` correctly. `WildernessShrine.Accepts(1)` is true,
+so the verb is not the blocker and the three-entry hedge is not masking anything.
+
+**The +10 s hold penalty is RULED OUT.** `InteractAgentObserver.CheckInteraction`
+computes `time = flag2 ? interactTime + 10f : interactTime`, where `flag2` is true when
+the object is a ship part on no friendly ship — and `Respawner01` *is* a ship part.
+But `ShipPartVisualizer` carries **six `[Require]` readers**, starting with
+`ShipRootState.Reader`, and this server seeds only 190602 + 1210. So the visualizer
+never enables, never registers itself, and
+`ShipPartVisualizer.GetShipPartVisualizer(entityId)` returns null — which makes
+`flag` true, `flag2` false, and the hold exactly the **1.5 s** we seed. Worth writing
+down because it was the best theory and it is wrong.
+
+### 2.8 What was actually broken: nothing said anything
+
+Measured on live production while the player held E: 1211 arriving at frame rate
+(`rx 780 (1073:596 190602:166 1211:18)` in one 5 s window), and **zero** log lines
+mentioning `graduation`. That is enough to say `WildernessGraduationService` never
+ran. It is NOT enough to say the client sent an *interaction*: 1211 is a per-frame
+look/slot stream and the rate counter cannot tell an update carrying a
+`TriggerInteractWithObject` event from one carrying only "what am I looking at" — and
+the handler returns early, in silence, when the event lists are empty.
+
+So the three cases — **the client sent nothing**, **the client sent something we
+ignored**, and **we matched and refused** — were indistinguishable in the log. That is
+the bug behind the bug, and it is fixed:
+
+* `Multiplayer.Wilderness.ShrineInteractRouting` is now a pure decision with a NAMED
+  outcome (`NotTheShrine` / `NotOwner` / `WrongVerb` / `Use`) and a sentence for each.
+* The handler logs **one line per completed interaction in the world**, naming the
+  target id, the world-entity key it resolved to (or "not a world entity"), the verb
+  and its numeric value, and ownership. Interact events are rare — the per-frame 1211
+  stream returns long before this — so this is not a rate concern.
+* Anything that named the shrine and was refused says which gate refused it, and does
+  not fall through to the helm or mounted-part paths to pick up a second, more
+  confusing line.
+* `WildernessGraduationService.Use` logs on ENTRY, so "the dispatcher never called it"
+  and "it ran and refused" can never look the same again.
+
+One press on a live client now answers it. **Until that press happens, which of the
+two remaining causes it is — the client not completing the hold, or our route missing
+the event — is UNPROVEN, and this document does not guess.**
+
+### 2.9 Where the tower goes: not a separate island — the shelf it is already on
+
+Asked first for "one of the small empty floating islands around Haven", then, when
+the user was standing there: *"look at where im standing this is a small island
+attached to haven, empty the tree etc from it then place the tower here properly"*.
+
+**There is no separate island to move to, and it would not be reachable if there
+were.** Measured against the preserved Bossa MapFile
+(`docs/research/world-data/wamap-islands.json`, 266 islands) and the 254-island
+release catalogue, from Haven's origin `(17004.4, -318.7, -1134.2)`:
+
+| distance | what it is |
+| --- | --- |
+| **2 962 m** | another **copy of Haven** (the 12-instance lane) |
+| **3 098 m** | another copy of Haven |
+| **3 845 m** | The Trades Challenge — 403 m across, 5 databanks, tier 3 |
+| 3 961 / 4 160 m | The Old Military Academy / Anchorage Isle — 300-400 m across |
+
+Nothing is small, nothing is empty, and nothing is closer than 3 km. A player on
+Haven has no ship and the shrine is their only exit, so they cannot walk, fly or
+grapple to any of them: moving the chamber there makes the teleporter unreachable,
+which is strictly worse than it looking wrong. What is visible "around" Haven is
+either those Haven copies at 3 km or the client-side distant-island silhouettes
+(`Patching/SpatialOS/DistantIslandShells.cs`).
+
+**The "small island attached to Haven" is the spawn shelf, and the chamber is already
+standing on it.** Flooding the fine 2 m surface samples from the tree the user was
+standing on — `tree-45` at island-local `(168.0, 4.52, 8.0)` — over a walkable step
+(≤1.5 m per ≤5 m) gives **885 samples spanning x 105…257, z −46…76, y −1.81…12.00**,
+and that region **contains the spawn point**. It is one broad low shelf, not a
+detached islet, and `(160, 4.18, 32)` — where `tree-46` stood, and where the chamber
+is — is in the middle of it.
+
+So the chamber has NOT moved. What changed is the ground around it.
+
+### 2.10 Clearing the ground, properly
+
+The user asked for the trees to be **cleared**, and the previous build was skipping
+them at registration — which worked but lied: the boot banner counted resources the
+world never delivered. Now the keep-out happens at **generation**, so the placement
+field never contains the point:
+
+* `Resources.HavenSurface` gains a chamber keep-out applied to the tree, fuel and
+  deposit configs through the generator's existing `PlacementExclusion` seam — the
+  same mechanism that already keeps resources off the spawn and the ship.
+* Two hand-written tables bypass the generator and had to be **edited**: the metal
+  node `("iron", 4, 151.7, 4.00, 48.0)` (18.0 m from the axis, inside the walls) and
+  the legacy fuel canister at `(152.0, 4.71, 0.0)` (33.0 m, on the cleared ground).
+  Both are deleted with a comment recording why and that the user asked for it.
+* The registration-time skip is KEPT as a safety net and is now a **no-op**, pinned
+  by a test: if a future table puts something back inside the building, that test
+  fails instead of the world quietly losing a resource.
+
+**Two radii, because they answer different questions.**
+
+| | |
+| --- | --- |
+| `ExclusionRadiusMetres` = **22 m** | the building's own above-ground collision. Nothing may stand inside it — including ore. |
+| `ClearingRadiusMetres` = **35 m** | the cleared apron, for props a player looks at: trees and fuel canisters. |
+
+35 m and not "the whole shelf" on purpose: the shelf contains the spawn point 55.6 m
+away, and clearing it would strip the tutorial's own near-spawn wood. 35 m removes the
+trees the user was standing among — the one they stood on is 25.3 m from the axis —
+and leaves the spawn and the rest of the shelf wooded. Ore keeps its ground right up
+to the walls: clearing metal to 35 m would have cost the starting island three of its
+21 nodes to fix a look.
+
+**Boot resource count: 1,722 → 1,726** on identical settings
+(`WAREBORN_RELEASE_WORLD_DISTRICTS=tier1` with deposits, databanks, trees, metal and
+fuel all on). It went UP, not down, because the tree and fuel fields fill to a target
+count: excluding the apron does not delete those props, it re-seats them on other
+measured ground, and the two hand-written deletions are more than offset. The number
+that matters is that **nothing is skipped any more** — the registration guard now has
+nothing to do, which the test asserts.
+
 ### How a player interacts with it
 
 The 1210 / 1211 pair — the same proven path that already makes a placed shipyard's

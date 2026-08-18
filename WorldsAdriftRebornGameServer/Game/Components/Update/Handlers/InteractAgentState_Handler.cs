@@ -165,12 +165,45 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     // Owner-only. It moves the SENDER's character - and, on a fresh
                     // crew island, writes their crewmates' home rows - so a peer
                     // must never be able to fire it for somebody else's entity.
-                    if (ownsPlayer
-                        && Multiplayer.Wilderness.WildernessShrine.Accepts((int)man.verb)
-                        && WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(man.target.Id)?.Key
-                            == Multiplayer.Wilderness.WildernessShrine.WorldEntityKey)
+                    string? targetKey =
+                        WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(man.target.Id)?.Key;
+
+                    // EVERY completed interaction gets ONE line naming what the
+                    // client actually sent. This costs one log line per E press in
+                    // the whole world, and it is the line that was missing on
+                    // 2026-08-18 when a player held E on the shrine and the server
+                    // could not say whether it had received an interaction at all,
+                    // let alone which verb or which target. Interact events are
+                    // rare - the per-frame 1211 look/slot stream returns long before
+                    // here - so this is not a rate concern.
+                    Console.WriteLine("[interact] entity " + entityId + " -> target "
+                        + man.target.Id + " (" + (targetKey ?? "not a world entity") + ")"
+                        + " verb " + man.verb + "(" + (int)man.verb + ")"
+                        + " owns=" + ownsPlayer + ".");
+
+                    Multiplayer.Wilderness.ShrineInteractOutcome shrine =
+                        Multiplayer.Wilderness.ShrineInteractRouting.Decide(
+                            ownsPlayer, (int)man.verb, targetKey);
+
+                    if (Multiplayer.Wilderness.ShrineInteractRouting.IsAboutTheShrine(shrine))
+                    {
+                        // Aimed at the shrine, so it gets an answer either way. A
+                        // refusal that logs nothing is what made this bug invisible.
+                        Console.WriteLine("[interact] shrine: "
+                            + Multiplayer.Wilderness.ShrineInteractRouting.Explain(shrine) + ".");
+                    }
+
+                    if (shrine == Multiplayer.Wilderness.ShrineInteractOutcome.Use)
                     {
                         WildernessGraduationService.Use(entityId);
+                        continue;
+                    }
+
+                    if (Multiplayer.Wilderness.ShrineInteractRouting.IsAboutTheShrine(shrine))
+                    {
+                        // It named the shrine and was refused; do NOT let it fall
+                        // through to the helm or mounted-part paths and pick up a
+                        // second, more confusing log line.
                         continue;
                     }
 
