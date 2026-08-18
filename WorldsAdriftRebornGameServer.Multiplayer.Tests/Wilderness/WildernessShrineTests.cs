@@ -141,18 +141,79 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
-        /// Horizontal distance is not clearance on Haven. The camp is a multi-storey
-        /// ruin - the spawn point itself sits under a platform 19.5 m up - so a
-        /// placement also has to have nothing hanging over it.
+        /// THE THIRD REGRESSION, and the one a live player reported: "i cant find
+        /// the teleporter now". A bare 1.2 m plate in an empty field 45 m from spawn
+        /// is unfindable. The shrine now stands INSIDE the Revival Chamber, at its
+        /// centre - the 20 m tower is the landmark and the room is the slot.
+        ///
+        /// Pinned as an EQUALITY on x/z, not a distance: "near the chamber" would
+        /// let the two drift apart one edit at a time until the shrine is outside
+        /// the wall again.
         /// </summary>
         [Fact]
-        public void Nothing_authored_stands_over_the_shrine()
+        public void The_shrine_stands_at_the_centre_of_the_chamber()
         {
-            Assert.Equal(0, HavenStructures.CountNear(
-                WildernessShrine.HavenLocalPlacement.X,
-                WildernessShrine.HavenLocalPlacement.Y,
-                WildernessShrine.HavenLocalPlacement.Z,
-                radiusMetres: 8.0, belowMetres: 2.0, aboveMetres: 25.0));
+            Assert.Equal(WildernessChamber.HavenLocalPlacement.X,
+                WildernessShrine.HavenLocalPlacement.X, 3);
+            Assert.Equal(WildernessChamber.HavenLocalPlacement.Z,
+                WildernessShrine.HavenLocalPlacement.Z, 3);
+        }
+
+        /// <summary>
+        /// ...and the centre is a place a player can stand. The chamber's interior
+        /// is clear for 9 m around its axis at the standing band (measured 10.0 m);
+        /// the plate plus the walk-up ring the prompt covers has to fit inside that,
+        /// or the prompt reaches into a wall.
+        /// </summary>
+        [Fact]
+        public void The_shrine_and_its_prompt_fit_inside_the_clear_floor()
+        {
+            double dx = WildernessShrine.HavenLocalPlacement.X - WildernessChamber.HavenLocalPlacement.X;
+            double dz = WildernessShrine.HavenLocalPlacement.Z - WildernessChamber.HavenLocalPlacement.Z;
+            double offCentre = Math.Sqrt(dx * dx + dz * dz);
+
+            Assert.True(offCentre + WildernessShrine.InteractRadius
+                <= WildernessChamber.InteriorClearRadiusMetres,
+                "the prompt radius reaches the chamber wall");
+        }
+
+        /// <summary>
+        /// A player standing on the plate INSIDE the chamber still satisfies the
+        /// client's range rule. The chamber changes where the shrine is, never how
+        /// the interaction works: the visualizer is on the prefab root, so the only
+        /// vertical term is the plate's own 0.20 m.
+        /// </summary>
+        [Fact]
+        public void The_prompt_still_reaches_from_the_chamber_floor()
+        {
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius,
+                WildernessShrine.PadHalfWidthMetres,
+                WildernessShrine.PadTopAboveVisualiserMetres));
+
+            // ...and from anywhere on the clear floor within the prompt's reach.
+            double reach = Math.Sqrt(
+                Math.Pow(WildernessShrine.InteractRadius - InteractReach.LookRangePenaltyMetres, 2)
+                - Math.Pow(WildernessShrine.PadTopAboveVisualiserMetres, 2));
+            Assert.True(reach >= 4.0, "the walk-up ring inside the room is only " + reach.ToString("0.0") + " m");
+        }
+
+        /// <summary>
+        /// REGRESSION PIN: never again at the buried plate. Both dead placements are
+        /// named so a future edit that "restores" one fails loudly.
+        /// </summary>
+        [Fact]
+        public void The_shrine_is_not_back_at_either_dead_placement()
+        {
+            (double X, double Y, double Z) here = WildernessShrine.HavenLocalPlacement;
+
+            // (176, 4.90, 16): inside the ruined metal camp, 40 m prefab through it.
+            Assert.False(Math.Abs(here.X - 176.00) < 0.5 && Math.Abs(here.Z - 16.00) < 0.5);
+            // (168, 4.47, 24): clear of the camp, but a bare plate nobody could find.
+            Assert.False(Math.Abs(here.X - 168.00) < 0.5 && Math.Abs(here.Z - 24.00) < 0.5);
+            // And never the Revival Chamber's own buried plate, which is what the
+            // whole exercise proved unreachable.
+            Assert.NotEqual("HavenAncientRespawner", WildernessShrine.AssetName);
         }
 
         /// <summary>
@@ -184,7 +245,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             double dz = shrine.MetresZ - spawn.MetresZ;
             double horizontal = Math.Sqrt(dx * dx + dz * dz);
 
-            Assert.InRange(horizontal, 10.0, 50.0);
+            // Widened from 50 m when the shrine moved inside the Revival Chamber:
+            // the chamber needs a 44 m clear footprint and the only measured spot on
+            // Haven's spawn shelf that has one, is reachable on the flat, and lands
+            // its doorway on level ground is 55.6 m out. It is still a walk on one
+            // level, not an expedition - and it is now a 20 m tower you can see.
+            Assert.InRange(horizontal, 10.0, 70.0);
             // No climb: the server has no pathing and cannot promise a route, so
             // the least it can do is not put the thing on a different level.
             Assert.InRange(Math.Abs(shrine.MetresY - spawn.MetresY), 0.0, 3.0);

@@ -1,9 +1,11 @@
 # The Wilderness shrine — graduating from Haven
 
 **Status:** server-side only; no client mod change. Never deployed by this work.
-Revised 2026-08-18 after live evidence: the object changed from the Revival Chamber
-(`HavenAncientRespawner`) to the Reviver platform (`Respawner01`) and the placement
-moved out of the ruined metal camp — see §2.1 for why the chamber cannot work.
+Revised twice on 2026-08-18 after live evidence. The interactable is no longer the
+Revival Chamber (§2.1: its plate is at the bottom of a sealed well) but the Reviver
+platform `Respawner01`; and the chamber is back as a SEPARATE scenery entity, buried
+so its authored doorway meets the ground, with the platform standing in the middle of
+its floor (§2.5). Two entities: a landmark you can see, and a plate you can use.
 
 The mechanic in one line: **an interactable on Haven that sends a player to a
 random Tier-1 island — except that a crew arrives together, on their leader's
@@ -42,7 +44,8 @@ authored one, rebuilt on the transports this server actually has.
 | --- | --- |
 | Prefab | `Respawner01` — retail's Reviver **platform** |
 | Registration key | `wilderness-shrine` |
-| Position | Haven island-local **(168.00, 4.47, 24.00)** |
+| Position | Haven island-local **(160.00, 4.18, 32.00)** — the centre of the chamber floor |
+| The building around it | `wilderness-shrine-chamber`, `HavenAncientRespawner`, scenery only — see §2.5 |
 | Seeded components | 190602 (transform), 1210 (interaction) |
 | Interaction | verb `Activate`, radius **5 m**, hold **1.5 s** |
 | Spawn order | `AfterPlayer` |
@@ -160,43 +163,105 @@ a 3.9 m walk-up ring, which is what a player has to find it with.
 The 1210 seed log line now prints the radius and the hold, because the radius is the
 one field with no visible tell when it is wrong.
 
-### 2.4 The placement, and the check that was missing
+### 2.4 The placement — three attempts, and what each one taught
 
-**(168.00, 4.47, 24.00)**, island-local — a measured LOD0 surface vertex, the same
-source every other Haven placement on this server comes from.
+| | outcome |
+| --- | --- |
+| `(176.00, 4.90, 16.00)`, Revival Chamber | nearest authored structure **13.7 m** — a 40 m prefab driven through the ruined metal camp. A player logged in inside it and was rescued with the admin teleport. |
+| `(168.00, 4.47, 24.00)`, bare `Respawner01` | cleared the camp by 24.5 m, but a 1.2 m plate 45 m from spawn in an empty field. Live report: *"i cant find the teleporter now"*. |
+| **`(160.00, 4.18, 32.00)`, inside the chamber** | the current design: the chamber is the landmark and the room, the plate stands at its centre. |
 
-The previous point, `(176.00, 4.90, 16.00)`, was chosen against the surface table
-alone. Its nearest authored structure is **13.7 m** away: it is inside the ruined
-metal camp's footprint, and a 40 m prefab standing on it was driven straight through
-the camp's platforms. **Terrain flatness was never the missing check.**
+Terrain flatness was never the missing check. Haven's authored structures are now
+embedded as data (`Resources/haven-structure-props.txt`, the 253
+`Ruins (Miscellaneous)` and `Ruins (Saborian)` placements projected from
+`haven-props-resolved.json`) and read by the pure `Islands.HavenStructures`, so a
+placement is checked against what is already built there. Rocks, foliage, grass and
+VFX emitters are deliberately excluded: a monument may overlap a shrub without
+trapping anybody, and including them makes every spot on the island fail.
 
-Haven's authored structures are now embedded as data
-(`Resources/haven-structure-props.txt`, the 253 `Ruins (Miscellaneous)` and
-`Ruins (Saborian)` placements projected from `haven-props-resolved.json`) and read by
-the pure `Islands.HavenStructures`, so a placement can be checked against what is
-already built there. Rocks, foliage, grass and VFX emitters are deliberately excluded:
-a monument may overlap a shrub without trapping anybody, and including them makes
-every spot on the island fail.
+### 2.5 The chamber as the room — the "clean slot"
 
-The chosen vertex is the best of the 15 that clear all of:
+**PROVED.** Everything that made the chamber unusable as a *device* is fine once it
+is only the *building*, provided it is buried to exactly the right depth.
+
+**The doorway, measured.** Sectioning `respawner_exterior_LOD0` +
+`respawner_interior_LOD0` at 0.1 m steps and casting 720 rays from the centre at
+each height: every bearing blocked below **10.8**, exactly **23 of 720** bearings
+(−5.5°…+5.5°) open from **10.9 to 15.2**, all blocked again at **15.3**. So the
+sill is at prefab-local **10.85 ± 0.05**, the lintel at **15.25 ± 0.05**, and the
+aperture is **4.40 m** tall. Scanning the free channel along the passage gives
+|z| ≤ **1.85 m** for local x 14…19 — a **3.8 m wide** corridor running from the
+outer face at x ≈ 21 to the room at x ≈ 13.
+
+**The burial depth is derived, not chosen.** Put the sill on the ground the corridor
+actually lands on:
+
+```
+chamber origin Y  =  corridor ground (3.99)  −  sill (10.85)  =  −6.86
+```
+
+i.e. **11.04 m below the (160, 32) surface vertex**. Everything under the sill — the
+sealed drum, the 9.7 m internal drop, the unreachable plate — is then under Haven's
+terrain mesh, where nobody can enter it or fall into it. What is left above ground is
+**a walled room with one door whose floor is Haven's own terrain**.
+
+Checks, all from the fine 2 m re-extraction of Haven's LOD0 surface (7,791 samples,
+regenerated with the repo's own `tools/sweep_one.py`):
 
 | | |
 | --- | --- |
-| surface normal | `ny = 1.000` |
-| 8 neighbouring 8 m columns level within | **0.43 m** |
-| nearest authored structure | **24.5 m** (was 13.7 m) |
-| authored structures overhead (8 m radius, −2 m … +25 m) | **0** |
-| from the spawn point | **44.7 m** horizontally; 0.23 m above the spawn's own ground vertex (the 6.70 spawn seed stands the player 2 m clear of it) |
-| from the Haven databank | 43.1 m |
+| corridor terrain (4 samples, local x 14.4…17.9, \|z\| ≤ 1.4) | **3.99 … 4.10** (spans 0.11 m) |
+| doorway clear height at its tightest | **4.29 m** (needs 2.2) |
+| interior terrain, radius ≤ 9 m | **4.04 … 4.49** → prefab-local 10.90…11.35 |
+| interior floor vs the sill | **0.05…0.50 m ABOVE it** — you step in level |
+| clear floor around the axis at the standing band | **10.0 m** (2.2 m capsule vs the prefab meshes, 1 m grid) |
+| ceiling | prefab-local 24.7 → **~13 m of headroom** |
+| terrain under the whole 40×36 m footprint | spans **1.65 m** |
+| nearest authored structure to the footprint | **7.2 m** clear |
+| authored rocks within 12 m of the centre | **0** |
 
-The overhead check matters on its own: the camp is multi-storey and the Haven spawn
-point itself sits under a platform 19.5 m up, so horizontal distance alone is not
-clearance. `HavenStructuresTests` pins that the spawn point *does* have the camp over
-it, which is what makes the shrine's zero meaningful.
+**The step-in-level test is the one that decides a site.** A candidate at
+`(188, 64)` faced the spawn almost head-on (3° off) and had better prop clearance —
+and its interior terrain measured 1.6–3.1 m *below* the sill, i.e. a walled pit with
+a door in its ceiling. Rejected. That is the same trap in a new costume.
 
-The CHOICE of vertex is **WAREBORN TUNING**; the vertex and every clearance number
-above are measured. Retail's own pad position is not recoverable — everything
-Haven-specific was spawned by the GSim.
+**Facing.** The prefab has exactly one doorway, on its local +x, so the entity
+carries a real yaw: **300°**, in the convention this server already flies ships in
+(`ShipyardDockingPolicy.PackedYaw` builds a rotation about +Y; `FlightIntegrator`
+turns that yaw into a heading of `(sin yaw, cos yaw)`, so local +x points at
+`(cos yaw, −sin yaw)`). 300° puts the door at world (+0.50, +0.87) — about a quarter
+turn from the line a player walks in on. Stated plainly because it is a real cost:
+of 24 yaws at this vertex it is the only one whose corridor lands on ground there
+are enough samples to certify *and* clears the authored props.
+
+**A building clears its own ground.** Trees, nuggets, canisters, deposits and
+databanks are scattered from the *same* measured surface table the chamber was sited
+on, so `WorldEntities.Default` now skips any of them the chamber stands on
+(`WildernessChamber.Covers`, a 22 m disc). Without it a tree grows through the roof
+and a nugget sits on the floor — both happened, and the tests named them
+(`the shrine is inside tree-46`, then `metal-12 stands inside the Revival Chamber`).
+Skipped rather than moved: those tables are generated fields and a hand-nudged entry
+would be a lie about where the ground is.
+
+### 2.6 The slot
+
+`Respawner01` stands at chamber-local **(0, 0)** — island-local
+**(160.00, 4.18, 32.00)**, the same x/z as the chamber, pinned as an *equality* so
+the two can never drift apart one edit at a time. That is where retail's own spawn
+plate sits, 11 m further down under the terrain.
+
+| | |
+| --- | --- |
+| to the nearest chamber geometry at standing height | **10.0 m** |
+| to the entry corridor | 12.7 m (chamber-local +x) |
+| to the ramps and both quest trigger boxes | further still, and 11 m below the floor, buried |
+| prompt reach on the floor | `sqrt(4.5² − 0.20²) = 4.50 m` horizontally, inside a 9 m clear radius |
+| walk from the spawn point | **55.6 m**, **0.52 m below** the spawn's ground vertex |
+
+The walk is on one level. It was checked with a flood fill over Haven's contiguous
+8 m surface grid that never climbs more than 2 m per 8 m cell — which also rules out
+the site this document used to name at `(80, 29.57, 64)`: that one is 141 m away
+behind a **147% slope**, i.e. a cliff.
 
 ### How a player interacts with it
 
@@ -449,74 +514,69 @@ closed, or open with a count of islands.
 
 ## 8. Evidence, and what still needs a live client
 
-**PROVED on a real wire.** The two-peer acceptance harness
-(`tools/relaybot/run-ship-acceptance.sh`) boots the native server build and
-drives it with real ENet peers. Its log shows the shrine all the way through:
+**PROVED on a real wire.** `tools/relaybot/run-ship-acceptance.sh` boots the native
+server build and drives it with real ENet peers. Both entities go out, in order,
+with the rotation:
 
 ```
-[info] spawn plan (24 steps): ... -> RequestAsset wilderness-shrine
+[info] spawn plan (26 steps): ... -> RequestAsset wilderness-shrine-chamber
+       -> AddEntity wilderness-shrine-chamber -> RequestAsset wilderness-shrine
        -> AddEntity wilderness-shrine -> ...
+[info] requesting the game to load HavenAncientRespawner for world entity 'wilderness-shrine-chamber'...
+[info] seeding 190602 for entity 11 (World 'wilderness-shrine-chamber' HavenAncientRespawner)
+       at (17164.43, -325.529, -1102.167) m rot=535976447.
 [info] requesting the game to load Respawner01 for world entity 'wilderness-shrine'...
-[success] asset loaded for 'wilderness-shrine'. creating entity 11 at (...) m...
-[interest] entity 11 wants 2 component(s): [190602, 1210] (ALL-OR-NOTHING: ...)
-[info] seeding 190602 for entity 11 (World 'wilderness-shrine' Respawner01) ...
-[info] seeding 1210 for entity 11 ... with verb Activate/Default/Man (shrine hedge),
-       radius=5m, hold=1.5s, available=True.
-[success] initialized and serialized componentId 1210
-[warning] wilderness shrine stands on Haven but the Wilderness is CLOSED: no tier-1
-          island is registered. ...
+[info] seeding 190602 for entity 12 (World 'wilderness-shrine' Respawner01)
+       at (17164.43, -314.489, -1102.167) m.
+[info] seeding 1210 for entity 12 (World 'wilderness-shrine' Respawner01)
+       with verb Activate/Default/Man (shrine hedge), radius=5m, hold=1.5s, available=True.
 ```
 
-So: it is in the spawn plan, the asset request goes out before the AddEntity, the
-entity is created at the derived position, and the **multi-entry 1210 seed
-serializes and is sent without dropping the batch** — the one wire risk that a
-unit test could not settle. The gate itself still PASSes (2 pilots, coherent
-frames, legal re-entry).
+The two are at the same x/z and exactly **11.04 m** apart in Y — the burial depth,
+on the wire. The rotation is a real packed quaternion, not the 1023 identity
+sentinel. The gate itself still PASSes.
 
-**PROVED on a live client (2026-08-18), against the OLD build:** a world entity
+**PROVED on a live client (2026-08-18), against earlier builds:** a world entity
 spawned this way is checked out and its prefab resolves —
-`~/Games/WorldsAdrift/BepInEx/LogOutput.log` recorded
-`[WAReborn] compiled entity template 'HavenAncientRespawner_unityclient'` during
-the Haven load-in, emitted from the `GetEntityTemplate` prefix, i.e. while the
-client was processing the shrine's own `AddEntityOp`. The same session is where
-the player ended up inside the chamber shell, saw the interactive highlight, could
-not interact, and had to be rescued with the admin teleport (§2.1).
+`[WAReborn] compiled entity template 'HavenAncientRespawner_unityclient'` in
+`~/Games/WorldsAdrift/BepInEx/LogOutput.log`, emitted while the client processed the
+shrine's own `AddEntityOp`. The same sessions gave us both failure reports: the
+player stuck inside the shell, and then "i cant find the teleporter now".
 
 **Still needs a live client — NOTHING in the current build has been walked to:**
 
-1. **Does `Respawner01` render** when spawned as its own standalone world entity
-   rather than as a mounted ship part? It is precached (`PRECACHING: Respawner01`)
-   and the static helm is the same shape of thing and does render, but that is a
-   precedent, not a sighting. It carries a `Rigidbody`, `ShipPartVisualizer` and
-   `PlacementRules`; if it behaves oddly loose, that is the first thing to look at.
-2. **Does the prompt appear?** The verb is RECOVERED, the visualizer is on the
-   root, and the radius is the client's own Activate default — but the prompt has
-   never been seen. The 1211 log line names the verb the client actually sent back,
-   so one session settles it and the other two hedge entries can then be dropped.
-3. **Is the 44.7 m walk from the spawn point clear on real collision?** It is on
-   the same shelf (0.23 m of height difference) and has nothing authored within
-   24.5 m, but it leaves the ruined metal camp and no one has walked it.
-   **Discoverability is a real risk**: this is now a 1.2 m plate 45 m from spawn,
-   not a 38 m tower. If players cannot find it, a marker is the follow-up — not a
-   bigger prefab.
-4. **Does the teleport itself fire?** 1211 → `WildernessGraduationService.Use` →
+1. **Does the chamber render, and does the doorway actually land on the ground?**
+   The burial depth is derived from four fine surface samples in the corridor. Four
+   is enough to bound the span at 0.11 m and it is the best evidence the extracted
+   terrain can give, but it is four samples, and the real collision mesh is not the
+   thinned sample set. If the door is buried or floating, this is the number to
+   change — `WildernessChamber.CorridorGroundY` — and nothing else.
+2. **Is the room actually walk-in-able?** The doorway is 3.8 m wide and 4.29 m clear
+   at its tightest by measurement; whether a player capsule and the real terrain
+   agree with that is unwitnessed.
+3. **Does `Respawner01` render** as a standalone world entity, and does the prompt
+   appear? Verb, root visualizer, layer and radius are all recovered or measured;
+   the prompt has never been seen.
+4. **Is the 55.6 m walk clear on real collision?** It is on one level (0.52 m of
+   height difference) and reachable by a flood fill that never climbs more than 2 m
+   per 8 m cell, but nobody has walked it.
+5. **Does the teleport itself fire?** 1211 -> `WildernessGraduationService.Use` ->
    190607 has never run from a real client.
-5. **Does the arrival land on solid ground** on each of the 46 islands. The
-   evidence is strong and uniform, but "measured surface sample" is not "stood on
-   it". A visual acceptance pass over the 46 pads is the honest follow-up.
-6. **Does the crew rule work end to end?** It is unit-tested and unproven live, and
-   it is worth being precise about what it is: not retail's "everyone standing on
-   the platform goes at once", but *each member who uses the shrine resolves to the
-   same island*. Proving it needs two accounts in one crew.
-7. **Does the crew feedback line render** for a message that is not about a crew
+6. **Does the crew rule work end to end?** Unit-tested, unproven live, and narrower
+   than the phrase suggests: not "everyone on the platform goes at once", but *each
+   member who uses the shrine resolves to the same island*. Proving it needs two
+   accounts in one crew.
+7. **Does the arrival land on solid ground** on each of the 46 islands.
+8. **Does the crew feedback line render** for a message that is not about a crew
    action.
 
-## 9. If the Revival Chamber is wanted back
+## 9. Things deliberately NOT done, and why
 
-It is a genuinely better landmark and a genuinely unusable interactable. If it
-should stand on Haven as **scenery** — a 190602 seed and no 1210 — the one measured
-vertex that can hold its 44 m footprint is island-local **(80.00, 29.57, 64.00)**:
-`ny = 0.990`, terrain span 3.68 m across the footprint, 21.9 m from the nearest
-authored structure, 141 m from the spawn point and 24.9 m above it. Bury the origin
-about 10 m so its authored doorway (sill at prefab-local 9.35) meets the terrain,
-or it floats. That is a separate entity from the shrine and should stay one.
+* **No client-mod change.** Everything here is server-side; the patcher does not
+  need updating.
+* **The chamber is not made interactive.** Seeding 1210 on it would re-create the
+  sealed-well bug with the plate now 11 m under the floor.
+* **The scattered tables were not edited.** Trees, nuggets, canisters, deposits and
+  databanks the chamber stands on are SKIPPED at registration, not moved. Those
+  tables are generated from measured terrain and a hand-nudged entry in one would be
+  a lie about where the ground is.
