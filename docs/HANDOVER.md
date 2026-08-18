@@ -127,7 +127,7 @@ changes.
   approach stutter - our own offline-asset patch had made retail's async loader
   blocking), the reconstructed Bossa social/crew HTTP API, spawn terrain
   preloading, tree felling, material-driven ship mass, tier-1 world activation,
-  inferred island metals (354 -> 1930 deposits), 3,767 trees, the Wilderness
+  inferred island metals (354 -> 1930 deposits), 13,266 trees, the Wilderness
   shrine, the pure fauna core, and stock knowledge values.
   It **migrated the production database from v6 to v7**, adding `social_invites`;
   verified after restart as `version = 7` with the table present and the other ten

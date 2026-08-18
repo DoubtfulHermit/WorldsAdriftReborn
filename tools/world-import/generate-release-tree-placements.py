@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generate release-tree-placements.json - harvestable tree seats for every
-release island the Cardinal Guild survey says had trees.
+release island that is not explicitly recorded as treeless.
 
 WHY THIS EXISTS AT ALL. Not one of the 465,571 props baked into the 255 island
 bundles is a tree (docs/research/loop/findings-harvestable-world.md). Every
@@ -14,10 +14,19 @@ evidence the deposit/databank generator uses.
 WHAT IS EVIDENCE AND WHAT IS CALIBRATION - read this before changing anything.
 
   EVIDENCE (do not invent, do not widen):
-    * WHICH islands have trees, and WHICH species. From the Cardinal Guild
-      survey, carried on every island of release-runtime-catalog.json as
-      `trees`. 72 islands carry a real species list; 2 say literally
-      "No trees"; 180 are empty. Only the 72 are populated here.
+    * WHICH species an island grows, WHERE the survey recorded one. From the
+      Cardinal Guild survey, carried on every island of
+      release-runtime-catalog.json as `trees`. 72 islands carry a real species
+      list; 2 say literally "No trees" and are honoured as treeless; 180 are
+      EMPTY, which means unsurveyed. See wood_inference.py for why, and for what
+      those 180 get instead - a tier-cohort inference stamped
+      `woodSource: "inferred-tier"`, exactly as metal_inference.py already does
+      for the 193 islands whose ore table was never read.
+
+      This is the fix for the bug that made a graduating player teleport onto a
+      tier-1 island with nothing to chop: `if not species: continue` treated a
+      coverage gap as geography, and 32 of the 46 tier-1 islands - Mount Spero
+      among them - fell through it.
     * WHERE a tree may stand. From that island's extracted TRS-correct
       collision surface, docs/research/world-data/island-surfaces/<asset>.json,
       filtered by the same upward-normal and spacing rules that produced
@@ -49,6 +58,10 @@ import json
 import math
 import os
 import sys
+from collections import Counter
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from wood_inference import WoodInference, woods_for  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 SURFACES = os.path.join(ROOT, "docs", "research", "world-data", "island-surfaces")
@@ -82,10 +95,27 @@ TREE_MIN_SPACING = 15.0
 # inside a metal deposit is a tree you cannot shoot. They are passed as
 # occupied anchors exactly as the existing generator passes deposits when it
 # places databanks, and the tree spacing rule above is what keeps them clear.
+
+# --- The arrival pad is a first-class anchor (WAREBORN TUNING) --------------
+# A player who graduates from the Wilderness shrine is teleported onto the
+# island's `landing` point and has to find wood from there. Hash-ordered
+# scattering alone is uniform over the WHOLE surface, so on a 600-cell island the
+# nearest of 60 trees was measured at 50.6 m and could as easily have been 300 m.
+# The first seats an island fills are therefore drawn from an ANNULUS around its
+# arrival pad, from the same measured surface table and by the same rules - this
+# changes WHICH measured samples win, never what a sample is.
 #
-# The eight woods, lower-cased. The survey's species vocabulary is exactly this
-# set (verified: sorted(set(...)) over all 72 islands).
-KNOWN_WOODS = {"ash", "birch", "cedar", "chestnut", "elm", "hemlock", "oak", "palm"}
+# LANDING_CLEAR keeps a trunk out of the spot the player materialises in - the
+# global scatter has no idea the pad exists and was picking the pad's own sample
+# on three tier-1 islands, putting a tree at exactly 0.0 m. The surface table is
+# one representative sample per 8 m voxel, so 6 m removes that sample and nothing
+# beyond its immediate neighbours. LANDING_NEAR_RADIUS is what this project is
+# willing to call "on arrival"; both mirror the runtime-catalogue generator.
+LANDING_CLEAR = 6.0
+LANDING_NEAR_RADIUS = 60.0
+# Four is one visible stand of trees rather than a token single trunk, and it is
+# small enough that the remaining budget still covers the rest of the island.
+LANDING_NEAR_TREES = 4
 
 
 def budget(cells):
@@ -140,12 +170,16 @@ def spaced(points, target, spacing, occupied, min_normal):
     relaxes one constraint at a time and the ladder is fixed, so the outcome
     stays reproducible.
     """
+    # The floor is 5 m and never 0. ReleaseTreeCatalogTests asserts that no two
+    # shipped seats are closer than 5 m, and a rung that can violate the
+    # generator's own asserted invariant is a trap waiting for the first island
+    # steep enough to reach it. The last rung relaxes the NORMAL, not the spacing.
     ladder = [
         (spacing, min_normal),
         (spacing * 0.7, min_normal),
         (spacing * 0.4, 0.80),
         (5.0, 0.55),
-        (0.0, 0.40),
+        (5.0, 0.40),
     ]
     best = []
     for rung_spacing, rung_normal in ladder:
@@ -157,26 +191,47 @@ def spaced(points, target, spacing, occupied, min_normal):
     return best
 
 
+def pad_distance(point, pad):
+    return math.sqrt((point[0] - pad["x"]) ** 2 + (point[1] - pad["y"]) ** 2
+                     + (point[2] - pad["z"]) ** 2)
+
+
+def seatable(points, pad):
+    """The island's measured samples minus the arrival spot itself."""
+    return [point for point in points if pad_distance(point, pad) >= LANDING_CLEAR]
+
+
+def within(points, pad, radius):
+    """The measured samples within `radius` of the arrival pad.
+
+    A FILTER over the island's own surface table - it selects, never synthesises.
+    """
+    return [point for point in points if pad_distance(point, pad) <= radius]
+
+
 def main():
     with open(CATALOG, encoding="utf-8") as handle:
         catalog = json.load(handle)
 
+    # The catalogue carries the survey's `trees` array verbatim on every island,
+    # plus its tier and its workshop id, so the cohort rule is derived from the
+    # same artefact the seats are written against - no second source to drift.
+    profiles = [{"workshopId": island["asset"], "tier": island["tier"],
+                 "trees": island["trees"]} for island in catalog["islands"]]
+    inference = WoodInference(profiles)
+    by_asset = {profile["workshopId"]: profile for profile in profiles}
+
     islands = []
     total = 0
     short = []
+    sources = Counter()
+    near_misses = []
     for island in catalog["islands"]:
-        species = [s for s in island["trees"] if s != "No trees"]
-        if not species:
+        woods, wood_source = woods_for(by_asset[island["asset"]], inference)
+        if woods is None:
+            # "No trees", verbatim from a volunteer who stood on it. Honoured.
+            sources["survey-none"] += 1
             continue
-
-        woods = []
-        for name in species:
-            wood = name.strip().lower()
-            if wood not in KNOWN_WOODS:
-                sys.exit("island %s: unknown surveyed species %r - refusing to "
-                         "guess a wood" % (island["asset"], name))
-            if wood not in woods:
-                woods.append(wood)
 
         surface_path = os.path.join(SURFACES, island["asset"] + ".json")
         with open(surface_path, encoding="utf-8") as handle:
@@ -192,26 +247,46 @@ def main():
         anchors = [(d["x"], d["y"], d["z"]) for d in island["deposits"]]
         anchors += [(d["x"], d["y"], d["z"]) for d in island["databankPoints"]]
 
-        picked = spaced(surface["points"], target, TREE_MIN_SPACING, anchors,
-                        TREE_MIN_UPWARD_NORMAL)
+        # Pass 1: the stand a graduating player walks into. Pass 2: the rest of
+        # the island, with pass 1 held as occupied so the two never overlap.
+        # Both draw from the SAME measured table under the SAME rules; only the
+        # candidate set differs.
+        pad = island["landing"]
+        seats = seatable(surface["points"], pad)
+        near_target = min(LANDING_NEAR_TREES, target)
+        near = spaced(within(seats, pad, LANDING_NEAR_RADIUS),
+                      near_target, TREE_MIN_SPACING, anchors, TREE_MIN_UPWARD_NORMAL)
+        picked = near + spaced(seats, target - len(near), TREE_MIN_SPACING,
+                               anchors + [p[:3] for p in near], TREE_MIN_UPWARD_NORMAL)
         if len(picked) < target:
             short.append((island["name"], len(picked), target))
+        if not near:
+            near_misses.append(island["name"])
 
         islands.append({
             "asset": island["asset"],
             "name": island["name"],
             "cells": cells,
             "woods": woods,
+            "woodSource": wood_source,
             "points": [[round(p[0], 3), round(p[1], 3), round(p[2], 3)] for p in picked],
         })
         total += len(picked)
+        sources[wood_source] += 1
 
-    payload = {"schema": 1, "islands": islands}
+    payload = {"schema": 2, "islands": islands}
     with open(OUTPUT, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, separators=(",", ":"))
         handle.write("\n")
 
     print("%d islands, %d trees" % (len(islands), total))
+    for source in sorted(sources):
+        print("  %-14s %3d islands, %5d trees"
+              % (source, sources[source],
+                 sum(len(x["points"]) for x in islands if x["woodSource"] == source)))
+    if near_misses:
+        print("no seat within %.0f m of the arrival pad (%d islands): %s"
+              % (LANDING_NEAR_RADIUS, len(near_misses), ", ".join(near_misses)))
     if short:
         print("under target (surface too small or too steep):")
         for name, got, want in short:

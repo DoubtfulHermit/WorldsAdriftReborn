@@ -126,38 +126,105 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
     public sealed class ReleaseTreeCatalogTests
     {
         [Fact]
-        public void Shipped_catalogue_covers_exactly_the_wooded_islands()
+        public void Shipped_catalogue_covers_every_island_the_survey_does_not_call_treeless()
         {
-            Assert.Equal(72, ReleaseTreeCatalog.All.Count);
-            Assert.Equal(3767, ReleaseTreeCatalog.TotalTrees);
-            Assert.Equal(72, ReleaseTreeCatalog.All.Select(x => x.WorkshopId).Distinct().Count());
+            Assert.Equal(252, ReleaseTreeCatalog.All.Count);
+            Assert.Equal(13266, ReleaseTreeCatalog.TotalTrees);
+            Assert.Equal(252, ReleaseTreeCatalog.All.Select(x => x.WorkshopId).Distinct().Count());
+            Assert.Equal(254, ReleaseWorldCatalog.All.Count);
         }
 
         /// <summary>
-        /// Every wooded island in the survey must have seats, and no island the
-        /// survey calls treeless may have any. "No trees" is a literal survey value
-        /// on two islands and must be honoured as emphatically as an empty list.
+        /// THE REGRESSION GUARD FOR THE BUG THIS FILE EXISTS TO FIX.
+        ///
+        /// The generator used to skip any island whose survey `trees` array was
+        /// empty, which is 180 islands - including 32 of the 46 a graduating player
+        /// can be teleported to. An empty array is UNSURVEYED, not treeless; the
+        /// evidence is in tools/world-import/wood_inference.py. The only islands
+        /// that may carry no wood are the two the survey names explicitly.
         /// </summary>
         [Fact]
-        public void Catalogue_matches_the_survey_exactly()
+        public void Only_an_explicit_No_trees_survey_leaves_an_island_without_wood()
         {
             foreach (ReleaseIslandRecord island in ReleaseWorldCatalog.All)
             {
-                List<string> species = island.Survey.Trees
-                    .Where(name => !string.Equals(name, "No trees", StringComparison.OrdinalIgnoreCase))
-                    .ToList();
+                bool surveyedTreeless = island.Survey.Trees
+                    .Any(name => string.Equals(name, "No trees", StringComparison.OrdinalIgnoreCase));
                 ReleaseTreeIsland? seats = ReleaseTreeCatalog.ForWorkshopId(island.Survey.WorkshopId);
 
-                if (species.Count == 0)
+                if (surveyedTreeless)
                 {
                     Assert.Null(seats);
                     continue;
                 }
 
                 Assert.NotNull(seats);
-                Assert.Equal(
-                    species.Select(name => name.ToLowerInvariant()).Distinct().OrderBy(x => x),
-                    seats!.Woods.OrderBy(x => x));
+                Assert.NotEmpty(seats!.Woods);
+            }
+
+            Assert.Equal(2, ReleaseWorldCatalog.All.Count(island => island.Survey.Trees
+                .Any(name => string.Equals(name, "No trees", StringComparison.OrdinalIgnoreCase))));
+        }
+
+        /// <summary>
+        /// A surveyed island grows exactly what the survey recorded, and says so.
+        /// An unsurveyed one grows an inference and says THAT - the label is what
+        /// stops a composed species being read back later as evidence.
+        /// </summary>
+        [Fact]
+        public void Surveyed_islands_keep_their_own_species_and_the_rest_are_labelled_inferred()
+        {
+            int surveyed = 0;
+            int inferred = 0;
+            foreach (ReleaseTreeIsland seats in ReleaseTreeCatalog.All)
+            {
+                ReleaseIslandRecord island = ReleaseWorldCatalog.All
+                    .Single(x => x.Survey.WorkshopId == seats.WorkshopId);
+                List<string> species = island.Survey.Trees
+                    .Select(name => name.ToLowerInvariant())
+                    .Distinct()
+                    .ToList();
+
+                if (species.Count > 0)
+                {
+                    Assert.Equal(WoodTableSource.Survey, seats.WoodSource);
+                    Assert.Equal(species.OrderBy(x => x), seats.Woods.OrderBy(x => x));
+                    surveyed++;
+                }
+                else
+                {
+                    Assert.Equal(WoodTableSource.InferredTier, seats.WoodSource);
+                    Assert.NotEmpty(seats.Woods);
+                    inferred++;
+                }
+
+                // Whatever the rung, the vocabulary is still exactly the eight
+                // authored woods - the inference draws from the survey's palette
+                // and can never mint a ninth name.
+                Assert.All(seats.Woods, wood => Assert.NotNull(ReleaseTreeSpecies.PrefabForWood(wood)));
+            }
+
+            Assert.Equal(72, surveyed);
+            Assert.Equal(180, inferred);
+        }
+
+        /// <summary>
+        /// The tier palette derived in wood_inference.py is monotone: a wood seen in
+        /// the shallows is available deeper, never the reverse. Cedar was never
+        /// observed on a tier-1 island and hemlock never on tier 1 or 2, so an
+        /// INFERRED wilderness island must not grow either. Surveyed islands are
+        /// exempt - evidence outranks the rule derived from it.
+        /// </summary>
+        [Fact]
+        public void An_inferred_tier_one_island_grows_only_woods_observed_at_tier_one()
+        {
+            string[] tierOnePalette = { "ash", "birch", "chestnut", "elm", "oak", "palm" };
+            foreach (ReleaseIslandRecord island in ReleaseWorldRolloutPolicy.Select("tier1"))
+            {
+                ReleaseTreeIsland seats = ReleaseTreeCatalog.ForWorkshopId(island.Survey.WorkshopId)!;
+                Assert.NotNull(seats);
+                if (seats.WoodSource != WoodTableSource.InferredTier) continue;
+                Assert.All(seats.Woods, wood => Assert.Contains(wood, tierOnePalette));
             }
         }
 
@@ -166,12 +233,72 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         /// generator - so this asserts they agree on every shipped island. Without
         /// it the two drift apart silently and the calibration documented in
         /// ReleaseTreeBudget stops describing the file that actually ships.
+        ///
+        /// The budget is a CEILING, not a promise: a surface may be too small or
+        /// too steep to seat what the formula asks for. Exactly one island is in
+        /// that state - Belial, three surface samples wide, all three already taken
+        /// by its own surveyed databanks - and the count of exceptions is pinned so
+        /// a regression that starts under-filling islands shows up here.
         /// </summary>
         [Fact]
         public void Shipped_seat_counts_match_the_budget_formula()
         {
             Assert.All(ReleaseTreeCatalog.All, island =>
-                Assert.Equal(ReleaseTreeBudget.CountFor(island.Lod0Cells), island.Points.Count));
+                Assert.InRange(island.Points.Count, 0, ReleaseTreeBudget.CountFor(island.Lod0Cells)));
+            Assert.Equal(251, ReleaseTreeCatalog.All.Count(
+                island => island.Points.Count == ReleaseTreeBudget.CountFor(island.Lod0Cells)));
+            Assert.Equal(new[] { "Belial" }, ReleaseTreeCatalog.All
+                .Where(island => island.Points.Count != ReleaseTreeBudget.CountFor(island.Lod0Cells))
+                .Select(island => island.Name)
+                .ToArray());
+        }
+
+        /// <summary>
+        /// THE ACCEPTANCE CRITERION FOR THE WILDERNESS, and the reason the generator
+        /// draws its first seats from an annulus around the island's arrival pad
+        /// rather than scattering uniformly.
+        ///
+        /// A player graduating from the Wilderness shrine is teleported onto
+        /// `Landing` and has to find wood from there. Hash-ordered scattering does
+        /// not know the pad exists: before this rule the nearest of Monkees Greenful
+        /// Hills' 60 trees was 50.6 m away and nothing bounded it. It also has to be
+        /// bounded BELOW, because the scatter was free to pick the pad's own surface
+        /// sample and put a trunk at 0.0 m on three tier-1 islands.
+        /// </summary>
+        [Fact]
+        public void Every_tier_one_island_has_wood_within_a_short_walk_of_its_arrival_pad()
+        {
+            foreach (ReleaseIslandRecord island in ReleaseWorldRolloutPolicy.Select("tier1"))
+            {
+                ReleaseTreeIsland seats = ReleaseTreeCatalog.ForWorkshopId(island.Survey.WorkshopId)!;
+                Assert.NotNull(seats);
+                Assert.NotEmpty(seats.Points);
+
+                double nearest = seats.Points.Min(seat => Math.Sqrt(
+                    Math.Pow(seat.X - island.Landing.LocalX, 2)
+                    + Math.Pow(seat.Y - island.Landing.LocalY, 2)
+                    + Math.Pow(seat.Z - island.Landing.LocalZ, 2)));
+                Assert.InRange(nearest, 6.0, 60.0);
+            }
+        }
+
+        /// <summary>The same guarantee for ore, from the runtime catalogue.</summary>
+        [Fact]
+        public void Every_tier_one_island_has_ore_within_a_short_walk_of_its_arrival_pad()
+        {
+            foreach (ReleaseIslandRecord island in ReleaseWorldRolloutPolicy.Select("tier1"))
+            {
+                Assert.NotEmpty(island.Deposits);
+                // Deposits are stored already lifted into world fixed point, so the
+                // pad is lifted the same way rather than the deposits pushed back.
+                FixedPointPosition pad = island.Definition.LocalToGlobal(
+                    island.Landing.LocalX, island.Landing.LocalY, island.Landing.LocalZ);
+                double nearest = island.Deposits.Min(deposit => Math.Sqrt(
+                    Math.Pow((deposit.Position.X - pad.X) / 4096.0, 2)
+                    + Math.Pow((deposit.Position.Y - pad.Y) / 4096.0, 2)
+                    + Math.Pow((deposit.Position.Z - pad.Z) / 4096.0, 2)));
+                Assert.InRange(nearest, 6.0, 60.0);
+            }
         }
 
         /// <summary>
@@ -312,12 +439,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         /// stays off on Haven: here it is reconstruction, there it would be taste.
         /// </summary>
         [Fact]
-        public void An_island_grows_only_its_own_surveyed_species()
+        public void An_island_grows_only_its_own_catalogued_species()
         {
             foreach (ReleaseIslandRecord island in ReleaseWorldCatalog.All)
             {
                 ReleaseTreeIsland? seats = ReleaseTreeCatalog.ForWorkshopId(island.Survey.WorkshopId);
-                if (seats == null)
+                if (seats == null || seats.Points.Count == 0)
                 {
                     Assert.Empty(ReleaseWorldTrees.For(island));
                     continue;

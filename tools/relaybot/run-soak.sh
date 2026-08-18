@@ -43,18 +43,19 @@ BOT_FLAGS=""
 # zero creatures is not a fauna gate, and this repo has produced one.
 #   SOAK_BOT_EXTRA="--centre 7376.4,25.2,6231.7" tools/relaybot/run-soak.sh 10 7804
 #
-# KNOWN GAP, measured 2026-08-18 and NOT yet fixed. Even with --centre standing
-# the bots inside an island's envelope - the server agrees, and logs
-# "[resource-interest] peer ... changed island frame haven -> beautiful-wildlands"
-# - OPTIONAL ISLAND TERRAIN is never checked out to a bot. No
-# "[terrain-interest] added ..." line is ever produced, at a 1200 m terrain
-# radius or at 12000 m, so the radius is not the variable. Everything gated on
-# terrain readiness is therefore invisible to this harness: island fauna is
-# never streamed to a bot, and the soak's "fauna: N creature checkout(s)" line
-# reads 0 no matter how the server is configured. Any past soak that claimed a
-# fauna pose rate was reporting something else. Until that is fixed, this gate
-# measures whether a large fauna population perturbs RELAY STALENESS (it does
-# not) and NOT the fauna checkout path itself.
+# FORMER KNOWN GAP, root-caused 2026-08-18: optional island terrain was "never
+# checked out to a bot" because the soak env lacked WAREBORN_LOAD_BARRIER=1.
+# LoadBarrier.Prime is what binds every world entity id at boot (it calls the
+# allocating EntityIdFor on each registration); without it, island terrain has
+# no bound id when IslandTerrainInterestService computes candidacy in its
+# constructor, every release island is Managed=false, and IsTerrainReady stays
+# false for the whole process lifetime - no radius can help. Production runs
+# the barrier (systemd dropin, easy to miss locally). With the full production
+# environment exported and --centre on an island's landing point, this harness
+# DOES exercise the whole chain: "[terrain-interest] added ..." fires via the
+# bounded ack fallback, island-keyed resources stream (each key exactly once
+# per peer), and the fauna line reports real creature checkouts. A soak run
+# WITHOUT the barrier still measures relay staleness only.
 BOT_EXTRA="${SOAK_BOT_EXTRA:-}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"

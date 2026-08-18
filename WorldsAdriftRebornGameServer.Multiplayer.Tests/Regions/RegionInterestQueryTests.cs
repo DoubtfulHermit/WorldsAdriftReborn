@@ -67,20 +67,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
                 entity == trades ? IslandCatalog.TradesChallengeId : IslandCatalog.HavenId))
                 .ToArray();
 
-            IReadOnlyList<(long Id, FixedPointPosition Position)> before =
-                IslandResourceInterestPolicy.ReconcileSet(
-                    IslandCatalog.HavenId, oldInput, loaded);
+            HashSet<IslandId> admitted = new() { IslandCatalog.HavenId };
+            IReadOnlyList<(long Id, FixedPointPosition Position, bool Desired)> before =
+                IslandResourceCheckoutPolicy.Desire(oldInput, admitted);
             HashSet<string> retainedKeys = loaded
                 .Select(id => ids.Single(pair => pair.Value == id).Key)
                 .ToHashSet(StringComparer.Ordinal);
             IReadOnlyList<WorldEntity> routed = Query(offered).Candidates(
                 RegionCatalog.HavenRegionId, offered, retainedKeys);
-            IReadOnlyList<(long Id, FixedPointPosition Position)> after =
-                IslandResourceInterestPolicy.ReconcileSet(
-                    IslandCatalog.HavenId,
+            IReadOnlyList<(long Id, FixedPointPosition Position, bool Desired)> after =
+                IslandResourceCheckoutPolicy.Desire(
                     routed.Select(entity => oldInput.Single(resource =>
                         resource.EntityId == ids[entity.Key])),
-                    loaded);
+                    admitted);
 
             Assert.Equal(before, after);
         }
@@ -104,19 +103,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Regions
             RegionInterestQuery query = new(WorldDirectory.Build(registry, islands, regions));
 
             // Region routing intentionally offers both islands. Exact island
-            // lifecycle remains the old IslandResourceInterestPolicy's job.
+            // lifecycle remains IslandResourceCheckoutPolicy's job.
             IReadOnlyList<WorldEntity> offered = query.Candidates(
                 sharedId, new[] { haven, trades });
-            IReadOnlyList<(long Id, FixedPointPosition Position)> result =
-                IslandResourceInterestPolicy.ReconcileSet(
-                    IslandCatalog.HavenId,
+            IReadOnlyList<(long Id, FixedPointPosition Position, bool Desired)> result =
+                IslandResourceCheckoutPolicy.Desire(
                     offered.Select(entity => new IslandResource(
                         entity == haven ? 21 : 22,
                         entity.Position,
                         entity == haven ? IslandCatalog.HavenId : IslandCatalog.TradesChallengeId)),
-                    new HashSet<long>());
+                    new HashSet<IslandId> { IslandCatalog.HavenId });
 
-            Assert.Equal(new[] { 21L }, result.Select(candidate => candidate.Id));
+            Assert.Equal(new[] { 21L },
+                result.Where(candidate => candidate.Desired).Select(candidate => candidate.Id));
         }
 
         [Fact]

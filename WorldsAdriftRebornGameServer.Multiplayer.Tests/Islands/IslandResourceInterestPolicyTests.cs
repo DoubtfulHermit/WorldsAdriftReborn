@@ -20,7 +20,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void Active_island_candidates_exclude_unvisited_distant_resources()
+        public void Only_admitted_islands_resources_are_desired()
         {
             var resources = new[]
             {
@@ -28,15 +28,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 new IslandResource(2, IslandCatalog.TradesChallenge.LocalToGlobal(10, 0, 0), IslandCatalog.TradesChallengeId),
             };
 
-            IReadOnlyList<(long Id, FixedPointPosition Position)> result =
-                IslandResourceInterestPolicy.ReconcileSet(
-                    IslandCatalog.HavenId, resources, new HashSet<long>());
+            IReadOnlyList<(long Id, FixedPointPosition Position, bool Desired)> result =
+                IslandResourceCheckoutPolicy.Desire(
+                    resources, new HashSet<IslandId> { IslandCatalog.HavenId });
 
-            Assert.Equal(new[] { 1L }, result.Select(x => x.Id));
+            Assert.Equal(new[] { 1L }, result.Where(x => x.Desired).Select(x => x.Id));
+            Assert.Equal(new[] { 2L }, result.Where(x => !x.Desired).Select(x => x.Id));
         }
 
+        /// <summary>
+        /// The whole point of leaving a departed island's already-loaded resources in
+        /// the offered set: they come back Desired = false and that is what emits
+        /// their Remove. Drop them from the set and the peer keeps them forever.
+        /// </summary>
         [Fact]
-        public void Previously_loaded_old_island_resources_remain_candidates_for_removal()
+        public void Previously_loaded_old_island_resources_are_removed_when_it_is_not_admitted()
         {
             var resources = new[]
             {
@@ -44,21 +50,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 new IslandResource(2, IslandCatalog.TradesChallenge.LocalToGlobal(10, 0, 0), IslandCatalog.TradesChallengeId),
             };
 
-            IReadOnlyList<(long Id, FixedPointPosition Position)> candidates =
-                IslandResourceInterestPolicy.ReconcileSet(
-                    IslandCatalog.TradesChallengeId, resources, new HashSet<long> { 1 });
             IReadOnlyList<ResourceStreamAction> actions = ResourceInterestPolicy.Reconcile(
                 IslandCatalog.TradesChallenge.GlobalOrigin,
-                candidates,
-                new HashSet<long> { 1 },
-                loadRadius: 100,
-                unloadRadius: 150);
+                IslandResourceCheckoutPolicy.Desire(
+                    resources, new HashSet<IslandId> { IslandCatalog.TradesChallengeId }),
+                new HashSet<long> { 1 });
 
             Assert.Equal(new[]
             {
                 new ResourceStreamAction(ResourceStreamActionKind.Remove, 1),
                 new ResourceStreamAction(ResourceStreamActionKind.Add, 2),
             }, actions);
+        }
+
+        /// <summary>
+        /// The regression this whole change exists for, in miniature: a node 400 m
+        /// from the player, far outside the 120 m bubble, on the island the player is
+        /// standing on. It used to be dropped; it must now be held.
+        /// </summary>
+        [Fact]
+        public void A_node_far_across_the_island_the_player_stands_on_is_still_held()
+        {
+            var resources = new[]
+            {
+                new IslandResource(1, IslandCatalog.Haven.LocalToGlobal(400, 0, 0), IslandCatalog.HavenId),
+            };
+
+            Assert.Equal(new[] { new ResourceStreamAction(ResourceStreamActionKind.Add, 1) },
+                ResourceInterestPolicy.Reconcile(
+                    IslandCatalog.Haven.GlobalOrigin,
+                    IslandResourceCheckoutPolicy.Desire(
+                        resources, new HashSet<IslandId> { IslandCatalog.HavenId }),
+                    new HashSet<long>()));
+
+            Assert.Empty(ResourceInterestPolicy.Reconcile(
+                IslandCatalog.Haven.GlobalOrigin,
+                resources.Select(r => (r.EntityId, r.Position)),
+                new HashSet<long>(),
+                loadRadius: 120,
+                unloadRadius: 155));
         }
 
         [Fact]
