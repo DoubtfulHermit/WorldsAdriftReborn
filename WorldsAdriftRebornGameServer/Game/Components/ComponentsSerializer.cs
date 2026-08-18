@@ -895,9 +895,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // no visible tell when it is wrong: the client's look test
                         // is Distance(visualizer.transform, player) + 0.5 < radius,
                         // measured to wherever the PREFAB puts its
-                        // InteractiveObjectVisualizer, which on the Wilderness
-                        // shrine is 3.2 m under the plate you stand on. A radius
-                        // that cannot reach reads exactly like a missing component.
+                        // InteractiveObjectVisualizer - which on the Revival Chamber
+                        // was 3.2 m under the plate you stand on, so a 3 m radius
+                        // described a sphere entirely underground. A radius that
+                        // cannot reach reads exactly like a missing component.
                         // See Multiplayer.InteractReach.
                         Console.WriteLine("[info] seeding 1210 for entity " + entityId + " ("
                             + WorldsAdriftRebornGameServer.WorldEntities.Describe(entityId)
