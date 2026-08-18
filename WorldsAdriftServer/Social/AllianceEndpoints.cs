@@ -1105,7 +1105,15 @@ namespace WorldsAdriftServer.Social
             alliance.MessageOfTheDay,
             SocialWire.Uid(alliance.LeaderUid),
             nameOf(alliance.LeaderUid) ?? string.Empty,
-            alliance.EmblemUrl,
+            // The COLUMN holds a marker ("wareborn:emblem:<code>"), an operator's
+            // hand-set external URL, or nothing; the WIRE always gets an absolute
+            // image URL. Resolving here rather than at save time keeps the public
+            // host name in configuration instead of baked into every row, and
+            // gives an alliance that never opened the builder a crest of its own
+            // rather than the client's shared grey placeholder. See
+            // WorldsAdriftServer.Emblems.EmblemUrlPolicy.
+            Emblems.EmblemUrlPolicy.Resolve(
+                Emblems.EmblemImages.BaseUrl, alliance.AllianceId, alliance.EmblemUrl),
             alliances.MembersOf(alliance.AllianceId).Count,
             alliance.CreatedAt,
             alliance.UpdatedAt);
@@ -1184,90 +1192,8 @@ namespace WorldsAdriftServer.Social
         /// name free" spans every alliance, and "may A invite B" depends on B's
         /// alliance as much as A's. A community server holds tens of these.
         /// </summary>
-        private AllianceLedger Hydrate()
-        {
-            AllianceLedger ledger = new AllianceLedger();
+        private AllianceLedger Hydrate() => AllianceLedgerBuilder.Build(alliances, invites);
 
-            Dictionary<Guid, List<AllianceRankRecord>> ranksByAlliance = new();
-            foreach (AllianceRankRecord rank in alliances.AllRanks())
-            {
-                if (!ranksByAlliance.TryGetValue(rank.AllianceId, out List<AllianceRankRecord>? bucket))
-                {
-                    bucket = new List<AllianceRankRecord>();
-                    ranksByAlliance[rank.AllianceId] = bucket;
-                }
-
-                bucket.Add(rank);
-            }
-
-            HashSet<Guid> built = new HashSet<Guid>();
-            foreach (AllianceRecord alliance in alliances.AllAlliances())
-            {
-                if (!ranksByAlliance.TryGetValue(alliance.AllianceId, out List<AllianceRankRecord>? ranks))
-                {
-                    // An alliance with no ranks cannot be represented - the ledger
-                    // needs both defaults to answer any permission question - and
-                    // it cannot be opened by the client either. Skipped rather than
-                    // half-built, so it behaves as "no such alliance" everywhere at
-                    // once instead of differently per endpoint.
-                    continue;
-                }
-
-                AllianceRank? leaderRank = null;
-                AllianceRank? memberRank = null;
-                List<AllianceRank> others = new List<AllianceRank>();
-
-                foreach (AllianceRankRecord rank in ranks)
-                {
-                    AllianceRank pure = Pure(rank);
-                    if (pure.IsDefaultLeader) leaderRank = pure;
-                    else if (pure.IsDefaultMember) memberRank = pure;
-                    else others.Add(pure);
-                }
-
-                if (leaderRank == null || memberRank == null) continue;
-
-                Alliance seated = ledger.Create(
-                    AllianceWire.Uid(alliance.AllianceId),
-                    Key(alliance.LeaderUid),
-                    alliance.Name,
-                    leaderRank,
-                    memberRank);
-
-                foreach (AllianceRank other in others) seated.AddRank(other);
-                built.Add(alliance.AllianceId);
-            }
-
-            foreach (AllianceMemberRecord member in alliances.AllMembers())
-            {
-                if (!built.Contains(member.AllianceId)) continue;
-
-                ledger.Join(
-                    Key(member.CharacterUid),
-                    AllianceWire.Uid(member.AllianceId),
-                    AllianceWire.Uid(member.RankId));
-            }
-
-            // Live offers, without which the ledger is only half the truth: nothing
-            // could count how many seats an alliance has already promised, and a
-            // player could hold two live applications to the same one.
-            foreach (SocialInviteRecord invite in invites.AllLive())
-            {
-                if (invite.TargetType != SocialTargetType.Alliance) continue;
-                if (ledger.ById(invite.TargetId) == null) continue;
-
-                ledger.Request(Key(invite.CharacterUid), invite.TargetId);
-            }
-
-            return ledger;
-        }
-
-        private static AllianceRank Pure(AllianceRankRecord rank) => new AllianceRank(
-            AllianceWire.Uid(rank.RankId),
-            rank.Name,
-            rank.Editable,
-            rank.RankType,
-            AllianceWire.UnpackPermissions(rank.Permissions));
 
         /// <summary>
         /// A fresh alliance id that the ledger does not already hold.
