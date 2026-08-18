@@ -63,6 +63,7 @@ namespace WorldsAdriftServer.Admin
                 {
                     projectedIsland["inventory"] = ProjectInventory(inventory);
                     projectedIsland["shell"] = ProjectShell(inventory);
+                    projectedIsland["fauna"] = ProjectFauna(inventory);
                 }
                 islands.Add(projectedIsland);
             }
@@ -128,6 +129,7 @@ namespace WorldsAdriftServer.Admin
                     ["islandsWithInferredOres"] = totals.IslandsWithInferredOres,
                     ["inferredDeposits"] = totals.InferredDeposits,
                 },
+                ["faunaModel"] = ProjectFaunaModel(),
                 ["worldEdgeLength"] = edge,
                 ["havenSeparatorX"] = havenSeparatorX,
                 ["islands"] = islands,
@@ -220,6 +222,92 @@ namespace WorldsAdriftServer.Admin
                 ring.Add(Math.Round(point.Z, 1));
             }
             return ring;
+        }
+
+        /// <summary>
+        /// Every NUMBER the browser needs to evaluate the game server's own fauna
+        /// movement, read from <see cref="IslandFaunaMapModel.Constants"/>.
+        ///
+        /// This is the whole reason the console can draw the wildlife moving
+        /// smoothly off a three-second snapshot: the browser is not given
+        /// positions, it is given the same closed form. Nothing here is a literal -
+        /// every field is the game server's own constant - so retuning a manta's
+        /// speed moves the map with it and cannot be forgotten. What the browser
+        /// does restate is the SHAPE of the formulas, and
+        /// AdminFaunaParityTests pins that against the C# at fixed timestamps.
+        /// </summary>
+        private static JObject ProjectFaunaModel()
+        {
+            FaunaMapConstants c = IslandFaunaMapModel.Constants;
+            return new JObject
+            {
+                ["dayNightCycleSeconds"] = c.DayNightCycleSeconds,
+                ["dayBeginsAtCycleFraction"] = c.DayBeginsAtCycleFraction,
+                ["dayEndsAtCycleFraction"] = c.DayEndsAtCycleFraction,
+                ["phaseTransitionFraction"] = c.PhaseTransitionFraction,
+                ["jellyDayRadiusRatio"] = c.JellyDayRadiusRatio,
+                ["jellyNightRadiusRatio"] = c.JellyNightRadiusRatio,
+                ["jellySecondsPerRevolution"] = c.JellySecondsPerRevolution,
+                ["walkableHeightFraction"] = c.IslandWalkableHeightFraction,
+                ["mantaVerticalSpanRatio"] = c.MantaVerticalSpanRatio,
+                ["mantaMetresPerSecond"] = c.MantaMetresPerSecond,
+                ["mantaSchoolRadius"] = c.MantaSchoolRadiusMetres,
+                ["mantaSchoolVerticalRadius"] = c.MantaSchoolVerticalRadiusMetres,
+                ["jellyShoalRadius"] = c.JellyShoalRadiusMetres,
+                ["jellyShoalVerticalRadius"] = c.JellyShoalVerticalRadiusMetres,
+                ["weaveRadiansPerSecond"] = c.WeaveRadiansPerSecond,
+                ["goldenAngleRadians"] = c.GoldenAngleRadians,
+                ["goldenRatioFraction"] = c.GoldenRatioFraction,
+                ["schoolsPerIsland"] = c.SchoolsPerIsland,
+            };
+        }
+
+        /// <summary>
+        /// One island's fauna geometry and its seeding plan, in ISLAND-LOCAL
+        /// metres - the same frame the preserved coastline above is projected in,
+        /// so a creature is always drawn in the right relationship to the rock
+        /// under it.
+        ///
+        /// Everything shape-dependent is derived HERE by
+        /// <see cref="IslandFaunaMapModel.MotionFor"/>, which calls the movement's
+        /// own accessors; the browser is left only the part that depends on time.
+        /// A half-diagonal computed twice is a half-diagonal that can differ.
+        ///
+        /// The counts are the SURVEY tier's, not the MapFile cell tier's, because
+        /// that is the tier <c>IslandFaunaPolicy.PopulationFor</c> reads. On the
+        /// islands where the two preserved tiers disagree the panel says so.
+        /// </summary>
+        private static JObject ProjectFauna(IslandResourceInventory inventory)
+        {
+            FaunaIslandMotion motion = IslandFaunaMapModel.MotionFor(inventory.Record.Envelope);
+            FaunaIslandPopulation population =
+                IslandFaunaMapModel.PopulationFor(inventory.SurveyTier);
+
+            return new JObject
+            {
+                ["cx"] = Math.Round(motion.CentreX, 2),
+                ["cy"] = Math.Round(motion.CentreY, 2),
+                ["cz"] = Math.Round(motion.CentreZ, 2),
+                ["minY"] = Math.Round(motion.MinY, 2),
+                ["maxY"] = Math.Round(motion.MaxY, 2),
+                ["halfHeight"] = Math.Round(motion.HalfHeightMetres, 3),
+                ["mantaOrbitRadius"] = Math.Round(motion.MantaOrbitRadiusMetres, 3),
+                // NOT ROUNDED, and that is a correctness rule rather than a
+                // preference. Every other field here is an offset, so trimming it
+                // costs a fixed millimetre. The lap time divides ELAPSED SECONDS,
+                // so its error is multiplied by how long the server has been up: a
+                // millisecond of rounding is a tenth of a metre after ten minutes
+                // and nineteen metres after a day, which on a small island is the
+                // far side of the orbit. A server that has been up for a week must
+                // not draw its wildlife somewhere else.
+                ["mantaLapSeconds"] = motion.MantaLapSeconds,
+                ["jellyLateralRadius"] = Math.Round(motion.JellyLateralRadiusMetres, 3),
+                ["manta"] = population.MantaRays,
+                ["jelly"] = population.JellyFish,
+                ["schools"] = population.Schools,
+                ["mantaSchoolSize"] = population.MantaSchoolSize,
+                ["jellyShoalSize"] = population.JellyShoalSize,
+            };
         }
 
         /// <summary>

@@ -2415,7 +2415,11 @@ namespace WorldsAdriftRebornGameServer
                 // snapshot says "off" rather than inventing one.
                 terrain: TerrainInterest?.Snapshot(
                     ResourceInterest.ResourceNodeCountFor,
-                    ResourceInterest.CheckedOutResourceCountFor));
+                    ResourceInterest.CheckedOutResourceCountFor),
+                // Same poll thread, same reasoning as terrain above. The clock it
+                // carries is what lets the operator console draw the wildlife
+                // MOVING without anybody streaming positions.
+                fauna: Fauna.Telemetry());
         }
 
         /// <summary>Published appearance per player entity; read by the 1088

@@ -165,6 +165,14 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameTerrainStat Terrain { get; private init; } = GameTerrainStat.Absent();
 
+        /// <summary>
+        /// The island-fauna section (schema v7+). Never null: an older game server
+        /// that never writes it parses to an ABSENT projection, which the console
+        /// renders as "this server predates fauna telemetry" - and, crucially,
+        /// draws no wildlife rather than drawing it at a guessed clock.
+        /// </summary>
+        public GameFaunaStat Fauna { get; private init; } = GameFaunaStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -218,6 +226,7 @@ namespace WorldsAdriftServer.Admin
                 RuntimeDomains = runtimeDomains,
                 ShipDomains = domains,
                 Terrain = GameTerrainStat.Parse(o["terrain"] as JObject),
+                Fauna = GameFaunaStat.Parse(o["fauna"] as JObject),
             };
         }
 
@@ -429,6 +438,104 @@ namespace WorldsAdriftServer.Admin
 
         private static string Allowed(string? value, string[] known) =>
             value != null && Array.IndexOf(known, value) >= 0 ? value : "unknown";
+    }
+
+    /// <summary>
+    /// The login server's view of the game server's island-fauna section.
+    ///
+    /// Like <see cref="GameTerrainStat"/> this REBUILDS an allowlisted object
+    /// rather than forwarding what the file contained, and it CLAMPS every number
+    /// it passes on. That matters more here than elsewhere: the console feeds these
+    /// values into an animation loop, and a negative lap count or a nonsense
+    /// creature count would come out as a browser hang rather than as a wrong
+    /// number on a page.
+    ///
+    /// A v6 file (no fauna section at all) and a v7 file with a truncated one both
+    /// parse to a defined, absent state instead of throwing.
+    /// </summary>
+    internal sealed class GameFaunaStat
+    {
+        /// <summary>
+        /// The most islands whose roster is passed through. The release catalogue
+        /// is 254 islands and the tier-1 world is 46; a file naming thousands is
+        /// not a world this console has to draw, and the cap keeps a malformed
+        /// snapshot from becoming an unbounded DOM.
+        /// </summary>
+        private const int MaxIslands = 512;
+
+        /// <summary>Per-island creature counts are clamped to this. See the type remarks.</summary>
+        private const int MaxCreaturesPerIsland = 4096;
+
+        public bool Present { get; private init; }
+        public bool Enabled { get; private init; }
+        public int LiveCount { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>The projection for a game server whose schema has no fauna section.</summary>
+        public static GameFaunaStat Absent() => new GameFaunaStat
+        {
+            Present = false,
+            Enabled = false,
+            LiveCount = 0,
+            Json = Build(null),
+        };
+
+        public static GameFaunaStat Parse(JObject? f)
+        {
+            if (f == null) return Absent();
+            return new GameFaunaStat
+            {
+                Present = true,
+                Enabled = (bool?)f["enabled"] ?? false,
+                LiveCount = Clamp((int?)f["liveCount"] ?? 0, MaxIslands * MaxCreaturesPerIsland),
+                Json = Build(f),
+            };
+        }
+
+        private static JObject Build(JObject? f)
+        {
+            JArray islands = new JArray();
+            if (f?["islands"] is JArray islandArray)
+            {
+                foreach (JToken token in islandArray)
+                {
+                    if (islands.Count >= MaxIslands) break;
+                    if (token is not JObject island) continue;
+                    string id = (string?)island["islandId"] ?? "";
+                    if (id.Length == 0) continue;
+                    islands.Add(new JObject
+                    {
+                        ["islandId"] = id,
+                        ["mantaRays"] = Clamp((int?)island["mantaRays"] ?? 0, MaxCreaturesPerIsland),
+                        ["jellyFish"] = Clamp((int?)island["jellyFish"] ?? 0, MaxCreaturesPerIsland),
+                    });
+                }
+            }
+
+            // clockSeconds is the one field a reader MUST NOT invent: without it
+            // the console cannot place a creature, and placing one at zero would
+            // draw every animal on this server at the pose it held the instant the
+            // process booted. Absent stays 0 and `present:false` is what gates the
+            // drawing, never the number itself.
+            double clock = (double?)f?["clockSeconds"] ?? 0;
+            if (double.IsNaN(clock) || double.IsInfinity(clock) || clock < 0) clock = 0;
+
+            return new JObject
+            {
+                ["present"] = f != null,
+                ["enabled"] = (bool?)f?["enabled"] ?? false,
+                ["clockSeconds"] = clock,
+                ["liveCount"] = Clamp((int?)f?["liveCount"] ?? 0, MaxIslands * MaxCreaturesPerIsland),
+                ["budget"] = Clamp((int?)f?["budget"] ?? 0, int.MaxValue),
+                ["demand"] = Clamp((int?)f?["demand"] ?? 0, int.MaxValue),
+                ["perPeerBudget"] = Clamp((int?)f?["perPeerBudget"] ?? 0, int.MaxValue),
+                ["poseIntervalMs"] = Clamp((int?)f?["poseIntervalMs"] ?? 0, 3_600_000),
+                ["islands"] = islands,
+            };
+        }
+
+        private static int Clamp(int value, int maximum) =>
+            value < 0 ? 0 : value > maximum ? maximum : value;
     }
 
     internal sealed class GameRuntimeDomainStat

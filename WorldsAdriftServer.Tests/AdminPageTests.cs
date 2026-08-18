@@ -319,6 +319,28 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("'Metal deposits'", html);
             Assert.Contains("'Trees'", html);
 
+            // LIVE WILDLIFE. It is its own layer with its own toggle, it is drawn
+            // BENEATH the ship and player overlays so scenery never covers an
+            // operator's actual subject, and it is never on the drawing surface as
+            // text.
+            Assert.Contains("id=\"mapFaunaLayer\"", html);
+            Assert.Contains("id=\"mapFauna\" checked>wildlife", html);
+            Assert.Contains("id=\"mantaSymbol\"", html);
+            Assert.Contains("id=\"jellySymbol\"", html);
+            Assert.True(html.IndexOf("id=\"mapFaunaLayer\"", StringComparison.Ordinal)
+                        < html.IndexOf("id=\"mapShipLayer\"", StringComparison.Ordinal),
+                "wildlife must be drawn under the live ship and player markers");
+            Assert.Contains("function faunaMotion(M)", html);
+            Assert.Contains("function noteFauna(g)", html);
+            Assert.Contains("function renderFaunaFrame()", html);
+            // Nothing is drawn without a roster AND a clock from the game server.
+            Assert.Contains("f.present===true&&f.enabled===true", html);
+            // The panel answers what lives on an island, in words, with the
+            // provenance the counts actually have.
+            Assert.Contains("function appendIslandFauna(scroll,i,inv)", html);
+            Assert.Contains("'Creatures'", html);
+            Assert.Contains("Wareborn tuning, not Bossa data. ", html);
+
             // The ledger survives as the all-islands view, driven by ONE search.
             Assert.Contains("id=\"ledgerBody\"", html);
             Assert.Contains("function renderIslandLedger()", html);
