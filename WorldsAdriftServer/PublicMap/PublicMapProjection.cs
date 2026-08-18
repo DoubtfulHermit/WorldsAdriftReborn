@@ -196,6 +196,13 @@ namespace WorldsAdriftServer.PublicMap
                         ["jellyCapacity"] = (int?)island["jellyCapacity"] ?? 0,
                         ["mantaExpressed"] = (int?)island["mantaExpressed"] ?? 0,
                         ["jellyExpressed"] = (int?)island["jellyExpressed"] ?? 0,
+                        // The rhythm's phase: a fact about the WORLD's ecology
+                        // ("the jellies here are collapsing"), the exact thing a
+                        // public map of a living world is for, and identity-free.
+                        ["mantaPhase"] = (string?)island["mantaPhase"] ?? "Bloom",
+                        ["mantaPhaseFraction"] = (double?)island["mantaPhaseFraction"] ?? 0,
+                        ["jellyPhase"] = (string?)island["jellyPhase"] ?? "Bloom",
+                        ["jellyPhaseFraction"] = (double?)island["jellyPhaseFraction"] ?? 0,
                         ["groups"] = groups,
                         ["blooms"] = blooms,
                     });

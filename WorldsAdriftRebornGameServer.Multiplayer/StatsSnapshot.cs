@@ -650,6 +650,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 Num(b, "jellyCapacity", island.JellyCapacity); b.Append(',');
                 Num(b, "mantaExpressed", island.MantaExpressed); b.Append(',');
                 Num(b, "jellyExpressed", island.JellyExpressed); b.Append(',');
+                Str(b, "mantaPhase", island.MantaPhase); b.Append(',');
+                Num(b, "mantaPhaseFraction", island.MantaPhaseFraction); b.Append(',');
+                Str(b, "jellyPhase", island.JellyPhase); b.Append(',');
+                Num(b, "jellyPhaseFraction", island.JellyPhaseFraction); b.Append(',');
                 Key(b, "groups"); b.Append('[');
                 for (int g = 0; g < island.Groups.Count; g++)
                 {

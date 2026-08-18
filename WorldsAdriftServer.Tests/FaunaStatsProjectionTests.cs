@@ -152,6 +152,8 @@ namespace WorldsAdriftServer.Tests
                     ""quietFactor"":99.5,
                     ""mantaCapacity"":-3,""jellyCapacity"":999999,
                     ""mantaExpressed"":2,""jellyExpressed"":3,
+                    ""mantaPhase"":""<b>Collapse</b>"",""mantaPhaseFraction"":7.5,
+                    ""jellyPhase"":""Collapse"",""jellyPhaseFraction"":0.5,
                     ""operatorSecret"":""hunter2"",
                     ""groups"":[{""species"":""kraken"",""index"":-1,""bloom"":2,
                       ""members"":5,""behaviour"":""<script>alert(1)</script>"",
@@ -170,6 +172,10 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(1.0, (double)island["quietFactor"]!);       // clamped to [0,1]
             Assert.Equal(0, (int)island["mantaCapacity"]!);           // negative floors
             Assert.Equal(4096, (int)island["jellyCapacity"]!);        // absurd caps
+            Assert.Equal("Bloom", (string?)island["mantaPhase"]);     // markup defaults away
+            Assert.Equal(1.0, (double)island["mantaPhaseFraction"]!); // fraction clamps to [0,1]
+            Assert.Equal("Collapse", (string?)island["jellyPhase"]);  // a clean label passes
+            Assert.Equal(0.5, (double)island["jellyPhaseFraction"]!);
 
             JObject group = (JObject)((JArray)island["groups"]!).Single();
             Assert.Equal("manta", (string?)group["species"]);         // unknown species defaults

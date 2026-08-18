@@ -87,7 +87,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             int mantaCapacity, int jellyCapacity,
             int mantaExpressed, int jellyExpressed,
             IReadOnlyList<FaunaGroupStat>? groups,
-            IReadOnlyList<FaunaBloomStat>? blooms)
+            IReadOnlyList<FaunaBloomStat>? blooms,
+            string? mantaPhase = null, double mantaPhaseFraction = 0,
+            string? jellyPhase = null, double jellyPhaseFraction = 0)
         {
             IslandId = islandId ?? string.Empty;
             QuietFactor = quietFactor < 0 ? 0 : quietFactor > 1 ? 1 : quietFactor;
@@ -97,6 +99,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             JellyExpressed = jellyExpressed < 0 ? 0 : jellyExpressed;
             Groups = groups ?? Array.Empty<FaunaGroupStat>();
             Blooms = blooms ?? Array.Empty<FaunaBloomStat>();
+            MantaPhase = mantaPhase ?? nameof(FaunaPopulationPhase.Bloom);
+            MantaPhaseFraction = Fraction01(mantaPhaseFraction);
+            JellyPhase = jellyPhase ?? nameof(FaunaPopulationPhase.Bloom);
+            JellyPhaseFraction = Fraction01(jellyPhaseFraction);
         }
 
         public string IslandId { get; }
@@ -107,6 +113,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public int JellyExpressed { get; }
         public IReadOnlyList<FaunaGroupStat> Groups { get; }
         public IReadOnlyList<FaunaBloomStat> Blooms { get; }
+
+        /// <summary>
+        /// Where each species' population rhythm is (Phase 3). The predator
+        /// reports its LAGGED phase - during the jellies' collapse the rays are
+        /// honestly still in their bloom.
+        /// </summary>
+        public string MantaPhase { get; }
+        public double MantaPhaseFraction { get; }
+        public string JellyPhase { get; }
+        public double JellyPhaseFraction { get; }
+
+        private static double Fraction01(double value) =>
+            double.IsNaN(value) || value < 0 ? 0 : value > 1 ? 1 : value;
     }
 
     /// <summary>

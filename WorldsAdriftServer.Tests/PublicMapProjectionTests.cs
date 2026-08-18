@@ -128,6 +128,8 @@ namespace WorldsAdriftServer.Tests
                 {""islandId"":""release-a"",""quietFactor"":1.0,
                  ""mantaCapacity"":5,""jellyCapacity"":7,
                  ""mantaExpressed"":5,""jellyExpressed"":7,
+                 ""mantaPhase"":""Bloom"",""mantaPhaseFraction"":0.25,
+                 ""jellyPhase"":""Collapse"",""jellyPhaseFraction"":0.75,
                  ""warden"":""ECOLOGY-SENTINEL-unexpected"",
                  ""groups"":[{""species"":""manta"",""index"":0,""bloom"":0,
                    ""members"":5,""behaviour"":""Cruise"",""epochSeconds"":0}],
@@ -276,6 +278,8 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(1.0, (double?)island["quietFactor"]);
             Assert.Equal(5, (int?)island["mantaCapacity"]);
             Assert.Equal(7, (int?)island["jellyExpressed"]);
+            Assert.Equal("Collapse", (string?)island["jellyPhase"]);
+            Assert.Equal(0.75, (double?)island["jellyPhaseFraction"]);
             Assert.Null(island["warden"]);
 
             JObject group = (JObject)((JArray)island["groups"]!).Single();

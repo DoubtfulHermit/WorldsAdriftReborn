@@ -1,0 +1,160 @@
+using WorldsAdriftRebornGameServer.Multiplayer.Islands;
+using Xunit;
+
+namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
+{
+    /// <summary>
+    /// The rhythm decides how many animals EXIST from one moment to the next,
+    /// so its failure modes are wire failure modes: a kink in the expression
+    /// curve is a burst of AddEntity, a fraction outside [trough, 1] is an
+    /// island flickering empty, and any nondeterminism is two peers being told
+    /// two different worlds. Each of those is what gets tested, plus the two
+    /// properties that make it an ECOLOGY rather than a dimmer switch: the five
+    /// phases genuinely occur, and the predator genuinely lags its prey.
+    /// </summary>
+    public sealed class IslandFaunaRhythmTests
+    {
+        private const int Seed = 1;
+        private static readonly IslandId Island = new IslandId("beautiful-wildlands");
+
+        [Fact]
+        public void The_rhythm_is_deterministic()
+        {
+            foreach (double t in new[] { 0.0, 61.5, 3600.0, 86_400.0, 2_592_000.0 })
+            {
+                Assert.Equal(
+                    IslandFaunaRhythm.At(Seed, Island, t),
+                    IslandFaunaRhythm.At(Seed, Island, t));
+                Assert.Equal(
+                    IslandFaunaRhythm.PreyExpressionAt(Seed, Island, t),
+                    IslandFaunaRhythm.PreyExpressionAt(Seed, Island, t));
+            }
+        }
+
+        [Fact]
+        public void Phases_advance_in_order_with_fractions_inside_one_phase()
+        {
+            FaunaPopulationPhase previous = FaunaPopulationPhase.Dormant;
+            int cycles = 0;
+            for (double t = 0.0; t < 7200.0; t += 5.0)
+            {
+                (FaunaPopulationPhase phase, double fraction, int cycle) =
+                    IslandFaunaRhythm.At(Seed, Island, t);
+                Assert.InRange(fraction, 0.0, 1.0);
+                if (phase != previous)
+                {
+                    // Either the next phase in the enum, or the wrap back to
+                    // Dormant when a new cycle begins.
+                    FaunaPopulationPhase expected = previous == FaunaPopulationPhase.Recovery
+                        ? FaunaPopulationPhase.Dormant
+                        : (FaunaPopulationPhase)((int)previous + 1);
+                    Assert.Equal(expected, phase);
+                    previous = phase;
+                }
+                cycles = cycle;
+            }
+            Assert.True(cycles >= 2, "two hours should span several ~24-minute cycles");
+        }
+
+        [Fact]
+        public void Phase_durations_stay_inside_the_documented_swing()
+        {
+            for (int cycle = 0; cycle < 20; cycle++)
+            {
+                for (int phase = 0; phase < IslandFaunaRhythm.BasePhaseSeconds.Count; phase++)
+                {
+                    double duration = IslandFaunaRhythm.PhaseDuration(Seed, Island, cycle, phase);
+                    double baseSeconds = IslandFaunaRhythm.BasePhaseSeconds[phase];
+                    Assert.InRange(duration, baseSeconds * 0.7, baseSeconds * 1.3);
+                }
+            }
+        }
+
+        [Fact]
+        public void Expression_is_continuous_bounded_and_visits_the_whole_range()
+        {
+            // The kink test: at half-second samples the steepest legal slope is
+            // the Collapse ramp over its shortest duration - about 0.011 per
+            // second - so any step over 0.01 is a discontinuity, and on the wire
+            // a discontinuity is a burst of arrivals.
+            double previous = IslandFaunaRhythm.PreyExpressionAt(Seed, Island, 0.0);
+            double lowest = previous, highest = previous;
+            for (double t = 0.5; t < 7200.0; t += 0.5)
+            {
+                double expression = IslandFaunaRhythm.PreyExpressionAt(Seed, Island, t);
+                Assert.InRange(expression, IslandFaunaRhythm.TroughLevel, 1.0);
+                Assert.True(Math.Abs(expression - previous) <= 0.01,
+                    "expression stepped by " + Math.Abs(expression - previous) + " at t=" + t);
+                lowest = Math.Min(lowest, expression);
+                highest = Math.Max(highest, expression);
+                previous = expression;
+            }
+            Assert.Equal(IslandFaunaRhythm.TroughLevel, lowest, 3);
+            Assert.Equal(1.0, highest, 3);
+        }
+
+        [Fact]
+        public void The_predator_is_exactly_its_preys_past()
+        {
+            double lag = IslandFaunaRhythm.PredatorLagSeconds(Seed, Island);
+            Assert.InRange(lag, 120.0, 360.0);
+            foreach (double t in new[] { 500.0, 1234.5, 7200.0 })
+            {
+                Assert.Equal(
+                    IslandFaunaRhythm.PreyExpressionAt(Seed, Island, t - lag),
+                    IslandFaunaRhythm.PredatorExpressionAt(Seed, Island, t));
+            }
+        }
+
+        [Fact]
+        public void Islands_swing_out_of_step_with_each_other()
+        {
+            // Synchronised islands would read as a world on one dimmer. Two real
+            // islands must disagree about their phase somewhere in one cycle.
+            IslandId other = new IslandId("roxborough-isle");
+            bool differed = false;
+            for (double t = 0.0; t < 2400.0 && !differed; t += 30.0)
+            {
+                differed = IslandFaunaRhythm.At(Seed, Island, t).Phase
+                    != IslandFaunaRhythm.At(Seed, other, t).Phase;
+            }
+            Assert.True(differed, "two islands never disagreed about their phase");
+        }
+
+        [Fact]
+        public void Negative_time_is_the_start_of_the_world_not_an_exception()
+        {
+            // The predator lag asks about t < 0 during the first minutes of a
+            // boot; the answer is the start of cycle zero.
+            (FaunaPopulationPhase phase, double fraction, int cycle) =
+                IslandFaunaRhythm.At(Seed, Island, -500.0);
+            Assert.Equal(FaunaPopulationPhase.Dormant, phase);
+            Assert.Equal(0.0, fraction);
+            Assert.Equal(0, cycle);
+        }
+
+        [Theory]
+        [InlineData(0, 1.0, 0)]    // an empty island stays empty at any fraction
+        [InlineData(1, 0.15, 1)]   // capacity one floors at one, not two
+        [InlineData(4, 0.15, 2)]   // the two-animal floor: never a lone animal
+        [InlineData(4, 1.0, 4)]    // full bloom is full capacity
+        [InlineData(12, 0.25, 3)]  // plain rounding in between
+        [InlineData(12, 5.0, 12)]  // a hostile fraction cannot exceed capacity
+        public void Expressed_counts_floor_at_two_and_cap_at_capacity(
+            int capacity, double fraction, int expected) =>
+            Assert.Equal(expected, IslandFaunaRhythm.ExpressedCount(capacity, fraction));
+
+        [Fact]
+        public void The_phase_report_shows_the_predators_lagged_truth()
+        {
+            double lag = IslandFaunaRhythm.PredatorLagSeconds(Seed, Island);
+            double t = 1000.0;
+            Assert.Equal(
+                IslandFaunaRhythm.At(Seed, Island, t - lag).Phase,
+                IslandFaunaRhythm.PhaseFor(Seed, Island, FaunaSpecies.MantaRay, t).Phase);
+            Assert.Equal(
+                IslandFaunaRhythm.At(Seed, Island, t).Phase,
+                IslandFaunaRhythm.PhaseFor(Seed, Island, FaunaSpecies.JellyFish, t).Phase);
+        }
+    }
+}

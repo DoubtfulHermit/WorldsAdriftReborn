@@ -361,11 +361,18 @@
       +span(minShoal,maxShoal)+' on a '+fmtShort(Number((worldMap.faunaModel||{}).dayNightCycleSeconds)||0)
       +' day/night cycle. '+faunaPhaseText(faunaElapsed());
     if(faunaStat.ecology&&faunaStat.ecology.enabled===true){
-      var quiet=0;
-      (faunaStat.ecology.islands||[]).forEach(function(r){if(Number(r.quietFactor)===0)quiet++;});
+      var quiet=0,phases={};
+      (faunaStat.ecology.islands||[]).forEach(function(r){
+        if(Number(r.quietFactor)===0){quiet++;return;}
+        var p=String(r.jellyPhase||'');
+        if(p)phases[p]=(phases[p]||0)+1;
+      });
+      var swing=Object.keys(phases).sort().map(function(k){return phases[k]+' '+k;}).join(', ');
       note+=' The ECOLOGY layer is on: populations follow each island’s own size and schools '
         +'circulate drifting feeding grounds'
-        +(quiet?(', and '+plural(quiet,'island is','islands are')
+        +(swing?('; the population rhythm has '+swing
+          +' (the rays trail the jellies by a couple of minutes)'):'')
+        +(quiet?('; '+plural(quiet,'island is','islands are')
           +' deliberately quiet - a real zero, not missing data'):'')+'.';
     }
     return note

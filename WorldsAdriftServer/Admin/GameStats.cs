@@ -620,6 +620,16 @@ namespace WorldsAdriftServer.Admin
                         ["jellyCapacity"] = Clamp((int?)island["jellyCapacity"] ?? 0, MaxCreaturesPerIsland),
                         ["mantaExpressed"] = Clamp((int?)island["mantaExpressed"] ?? 0, MaxCreaturesPerIsland),
                         ["jellyExpressed"] = Clamp((int?)island["jellyExpressed"] ?? 0, MaxCreaturesPerIsland),
+                        // The population rhythm's state (Phase 3). Unknown or
+                        // malformed labels default to Bloom - the reading that
+                        // matches a pre-rhythm world where everything was
+                        // always fully expressed.
+                        ["mantaPhase"] = Label((string?)island["mantaPhase"], "Bloom"),
+                        ["mantaPhaseFraction"] = Fraction01(
+                            Finite((double?)island["mantaPhaseFraction"] ?? 0)),
+                        ["jellyPhase"] = Label((string?)island["jellyPhase"], "Bloom"),
+                        ["jellyPhaseFraction"] = Fraction01(
+                            Finite((double?)island["jellyPhaseFraction"] ?? 0)),
                         ["groups"] = groups,
                         ["blooms"] = blooms,
                     });
@@ -641,14 +651,17 @@ namespace WorldsAdriftServer.Admin
             value == "jelly" ? "jelly" : "manta";
 
         /// <summary>
-        /// A behaviour label: short and alphanumeric or it becomes the default.
-        /// The set will grow in Phase 4; the map treats an unknown label as
-        /// Cruise, so passing a well-formed new one through is forward-safe
+        /// A short alphanumeric label, or the given default. Behaviour and phase
+        /// vocabularies will grow; the map treats an unknown label as its
+        /// default, so passing a well-formed new one through is forward-safe
         /// while a malformed one cannot reach the DOM.
         /// </summary>
-        private static string Label(string? value) =>
+        private static string Label(string? value, string fallback = "Cruise") =>
             value != null && value.Length is > 0 and <= 24
-                && value.All(char.IsLetterOrDigit) ? value : "Cruise";
+                && value.All(char.IsLetterOrDigit) ? value : fallback;
+
+        private static double Fraction01(double value) =>
+            value < 0 ? 0 : value > 1 ? 1 : value;
 
         private static double Finite(double value) =>
             double.IsNaN(value) || double.IsInfinity(value) ? 0 : value;
