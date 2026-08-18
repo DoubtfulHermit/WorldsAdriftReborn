@@ -827,7 +827,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     Str(b, "behaviour", group.Behaviour); b.Append(',');
                     Num(b, "epochSeconds", group.EpochSeconds); b.Append(',');
                     Num(b, "durationSeconds", group.DurationSeconds); b.Append(',');
-                    Num(b, "toBloom", group.ToBloom);
+                    Num(b, "toBloom", group.ToBloom); b.Append(',');
+                    // The family pairing (Phase 5): member index and the adult
+                    // slot it trails. Written unconditionally, so an empty array
+                    // means "juveniles off" rather than "older server".
+                    Key(b, "calves"); b.Append('[');
+                    for (int c = 0; c < group.Calves.Count; c++)
+                    {
+                        if (c > 0) b.Append(',');
+                        b.Append('{');
+                        Num(b, "member", group.Calves[c].MemberIndex); b.Append(',');
+                        Num(b, "mother", group.Calves[c].MotherMemberIndex);
+                        b.Append('}');
+                    }
+                    b.Append(']');
                     b.Append('}');
                 }
                 b.Append(']'); b.Append(',');

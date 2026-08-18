@@ -153,7 +153,7 @@ svg.zoom-near .map-marker .map-island{opacity:.28}svg.zoom-near .map-marker.hot 
    manta is a swept dart that points along its travel and a jelly is a fringed
    bell that does not - and the thin dark stroke keeps both readable over a
    pale Tier 4 cell as well as over open ocean. */
-.map-whale-layer{pointer-events:none}.whale{fill:#9fd8ff;stroke:#08141b;stroke-width:.9;vector-effect:non-scaling-stroke}.whale-path{fill:none;stroke:#9fd8ff;stroke-opacity:.28;stroke-width:1.1;stroke-dasharray:6 7;vector-effect:non-scaling-stroke}.whale-call{fill:none;stroke:#9fd8ff;stroke-opacity:.3;stroke-width:1;stroke-dasharray:3 6;vector-effect:non-scaling-stroke}.map-fauna-layer{pointer-events:none}.fauna{pointer-events:none;stroke:#08141b;stroke-width:.85;vector-effect:non-scaling-stroke}.fauna.manta{fill:#ff9e7a}.fauna.jelly{fill:#f0a8e2}.fauna.school{opacity:.96}.fauna.member{opacity:.9}svg.zoom-far .fauna.school{opacity:.8}
+.map-whale-layer{pointer-events:none}.whale{fill:#9fd8ff;stroke:#08141b;stroke-width:.9;vector-effect:non-scaling-stroke}.whale-path{fill:none;stroke:#9fd8ff;stroke-opacity:.28;stroke-width:1.1;stroke-dasharray:6 7;vector-effect:non-scaling-stroke}.whale-call{fill:none;stroke:#9fd8ff;stroke-opacity:.3;stroke-width:1;stroke-dasharray:3 6;vector-effect:non-scaling-stroke}.map-fauna-layer{pointer-events:none}.fauna{pointer-events:none;stroke:#08141b;stroke-width:.85;vector-effect:non-scaling-stroke}.fauna.manta{fill:#ff9e7a}.fauna.jelly{fill:#f0a8e2}.fauna.school{opacity:.96}.fauna.member{opacity:.9}.fauna.calf{opacity:1;stroke-width:.6}svg.zoom-far .fauna.school{opacity:.8}
 .map-hover{position:absolute;z-index:12;pointer-events:none;max-width:17rem;padding:.5rem .62rem;border:1px solid rgba(116,201,207,.4);border-radius:8px;background:rgba(8,17,24,.96);box-shadow:0 12px 30px rgba(0,0,0,.45);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}.map-hover.show{opacity:1;transform:none}.map-hover b{display:block;font-size:.72rem;font-weight:620;letter-spacing:-.01em}.map-hover .hv-meta{display:block;margin-top:.16rem;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}.map-hover .hv-facts{display:block;margin-top:.3rem;font-size:.62rem;color:var(--text-soft);line-height:1.5}.map-hover .hv-cta{display:block;margin-top:.34rem;padding-top:.3rem;border-top:1px solid rgba(56,76,88,.7);font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
 .map-compass{position:absolute;right:.85rem;top:.85rem;width:2.1rem;height:2.1rem;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;background:rgba(7,15,21,.82);font-size:.58rem;font-weight:750;color:var(--text-soft);pointer-events:none}.map-scalebar{position:absolute;right:.85rem;bottom:.85rem;display:flex;flex-direction:column;align-items:flex-end;gap:.18rem;pointer-events:none}.map-scalebar .bar{height:.34rem;min-width:1.5rem;border:1px solid rgba(214,232,238,.8);border-top:0;background:linear-gradient(90deg,rgba(214,232,238,.22),rgba(214,232,238,.05))}.map-scalebar .lbl{color:var(--text-soft);font-size:.55rem;font-variant-numeric:tabular-nums}.map-zoomlevel{position:absolute;left:.85rem;top:.85rem;padding:.22rem .5rem;border:1px solid var(--line);border-radius:999px;background:rgba(7,15,21,.82);color:var(--text-faint);font-size:.54rem;letter-spacing:.09em;text-transform:uppercase;pointer-events:none}.map-hint{position:absolute;left:.85rem;bottom:.85rem;padding:.3rem .6rem;border:1px solid var(--line);border-radius:999px;background:rgba(7,15,21,.82);color:var(--text-faint);font-size:.56rem;pointer-events:none;transition:opacity .4s}.map-hint.faded{opacity:.28}.world-map-stage .map-empty{position:absolute;left:50%;bottom:3.2rem;transform:translateX(-50%);padding:.3rem .6rem;border-radius:999px;background:rgba(7,15,21,.86);color:var(--text-faint);font-size:.58rem;pointer-events:none}
 .map-detail{display:flex;flex-direction:column;min-width:0;height:100%;min-height:0;background:linear-gradient(180deg,#0c1721,#0a131a);overflow:hidden}.md-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain}.md-head{position:sticky;top:0;z-index:2;padding:.95rem 1.05rem .8rem;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#101d28,#0c1721)}.md-back{display:inline-flex;align-items:center;gap:.3rem;margin:0 0 .5rem;padding:.2rem .5rem .2rem .38rem;border:1px solid var(--line);border-radius:999px;background:none;color:var(--text-soft);font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;min-height:0;cursor:pointer;transition:border-color .12s,color .12s}.md-back:hover{border-color:var(--accent);color:var(--text)}.md-kicker{font-size:.53rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-faint)}.md-title{margin:.24rem 0 0;font-size:1.18rem;font-weight:620;letter-spacing:-.015em;line-height:1.15}.md-sub{margin-top:.34rem;display:flex;flex-wrap:wrap;align-items:center;gap:.34rem .5rem;font-size:.63rem;color:var(--text-soft)}.md-sub .dot{width:2px;height:2px;border-radius:50%;background:var(--text-faint)}.md-id{margin-top:.42rem;font:500 .57rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text-faint);word-break:break-all}
@@ -250,3 +250,34 @@ footer{margin-top:2.5rem;padding-top:1.25rem;border-top:1px solid var(--line);fo
 .map-cand.dead circle{stroke:rgba(240,128,128,.75);stroke-dasharray:3 4;}
 @media(max-width:980px){.peer-inspector{grid-template-columns:1fr}}
 .terrain-metric .n.warn-number{color:var(--danger);}
+
+/* ---- public map: status strip, traveller finder, about panel -------------
+   Appended rather than woven in: the public page is a second consumer of this
+   stylesheet and its chrome should be findable in one block. Nothing above is
+   changed. */
+.pub-strip{display:flex;flex-wrap:wrap;gap:.5rem;margin:.2rem 0 .9rem}
+.pub-chip{display:flex;align-items:baseline;gap:.4rem;padding:.5rem .8rem;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.pub-chip strong{font-size:1.05rem;font-weight:700;color:var(--text);line-height:1}
+.pub-chip span{font-size:.66rem;color:var(--text-faint);letter-spacing:.04em}
+.pub-chip.quiet{color:var(--text-faint);font-size:.78rem}
+.pub-find{display:flex;align-items:center;gap:.45rem;margin:0 0 1.15rem;flex-wrap:wrap}
+.pub-find button[disabled]{opacity:.4;cursor:not-allowed}
+.pub-find-state{font-size:.74rem;color:var(--text-faint)}
+.pub-about{margin:0 0 1.15rem}
+.pub-about h2{font-size:1rem;margin:0 0 .6rem}
+.pub-about h3{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:1.05rem 0 .35rem}
+.pub-about-cols{display:grid;grid-template-columns:1fr;gap:0 2.6rem}
+@media(min-width:900px){.pub-about-cols{grid-template-columns:1fr 1fr}}
+.pub-about section{break-inside:avoid}
+.pub-about p{font-size:.82rem;line-height:1.62;color:var(--text-soft);margin:0 0 .55rem;max-width:60ch}
+.pub-about p.muted{font-size:.72rem;margin-top:1.1rem}
+.legend-dash{color:var(--text-faint)}
+/* The traveller the finder is pointing at. Every live marker already carries
+   an .mk-ring circle for this sort of thing, so the highlight rides that
+   rather than resizing the mark - nothing jumps when one is picked. */
+.map-marker.found .mk-ring{opacity:1;stroke:#e8c06a;stroke-width:2.6;fill:none;vector-effect:non-scaling-stroke}
+.map-marker.found .map-player{filter:drop-shadow(0 0 3px rgba(232,192,106,.9))}
+@keyframes pubFound{from{opacity:.35}to{opacity:1}}
+@media(prefers-reduced-motion:no-preference){
+  .map-marker.found .mk-ring{animation:pubFound 1.1s ease-in-out infinite alternate}
+}

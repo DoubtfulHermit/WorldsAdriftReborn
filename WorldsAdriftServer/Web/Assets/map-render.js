@@ -269,7 +269,7 @@
   function detailWorld(panel,scroll){
     var rt=worldMap.resourceTotals||{};
     var head=el('div','md-head');
-    head.appendChild(el('div','md-kicker','Preserved release world'));
+    head.appendChild(el('div','md-kicker',MARKS.worldKicker));
     head.appendChild(el('h3','md-title','World overview'));
     if(!rt.islands){
       head.appendChild(subLine(['Catalogue not loaded']));
@@ -312,13 +312,14 @@
       if(!x.fauna)return;
       plannedIslands++;planned+=(Number(x.fauna.manta)||0)+(Number(x.fauna.jelly)||0);
     });
-    wild.appendChild(el('p','md-p',
+    if(!MARKS.showsMethod)wild.appendChild(el('p','md-p',MARKS.wildlifeLine));
+    if(MARKS.showsMethod)wild.appendChild(el('p','md-p',
       'Manta rays patrol each island’s perimeter and jellyfish drift under it by day and rise to '
       +'walking height at night. Across the whole catalogue the seeding rule would place '
       +fmt(planned)+' creatures on '+plural(plannedIslands,'island','islands')
       +'; how many actually exist depends on the world the game server booted and its creature '
       +'budget. Open any island for its own roster.'));
-    wild.appendChild(el('p','md-p',faunaNoteText()));
+    if(MARKS.showsMethod)wild.appendChild(el('p','md-p',faunaNoteText()));
     scroll.appendChild(wild);
 
     var zones=mdBlock('Zones');
@@ -342,15 +343,15 @@
     }else{
       head.appendChild(backButton('Whole world',function(){selectWorld();}));
     }
-    head.appendChild(el('div','md-kicker',inv?'Release island':'Haven starter placement'));
+    head.appendChild(el('div','md-kicker',inv?MARKS.islandKicker:'Haven starter placement'));
     head.appendChild(el('h3','md-title',inv?inv.name:'Haven starter island'));
     if(inv){
       var info=biomeInfo(inv.cellTier);
       head.appendChild(subLine([tierChip(inv.cellTier),info.name,cultureName(inv),'Zone '+inv.cell]));
-      head.appendChild(el('div','md-id',inv.islandId+'  ·  asset '+(i.asset||'unknown')));
+      if(MARKS.showsMethod)head.appendChild(el('div','md-id',inv.islandId+'  ·  asset '+(i.asset||'unknown')));
     }else{
       head.appendChild(subLine(['Haven reserve corridor','Hand-tuned, not surveyed']));
-      head.appendChild(el('div','md-id','asset '+(i.asset||'unknown')));
+      if(MARKS.showsMethod)head.appendChild(el('div','md-id','asset '+(i.asset||'unknown')));
     }
     panel.appendChild(head);
 
@@ -384,7 +385,7 @@
       trees.appendChild(el('p','md-p',plural(inv.trees,'tree','trees')+' are seeded here.'));
       if(inv.woods&&inv.woods.length){
         trees.appendChild(chipRow(inv.woods.map(function(w){return w.charAt(0).toUpperCase()+w.slice(1);})));
-        trees.appendChild(el('p','md-p','The survey records WHICH woods grow on this island but not how many of each, and the seats cycle through the species above - so no per-species split is published here rather than a made-up one.'));
+        if(MARKS.showsMethod)trees.appendChild(el('p','md-p','The survey records WHICH woods grow on this island but not how many of each, and the seats cycle through the species above - so no per-species split is published here rather than a made-up one.'));
       }
     }else{
       trees.appendChild(el('p','md-p','No trees. The Cardinal Guild survey records none on this island, and none are seeded.'));
@@ -401,6 +402,7 @@
     if(flags.length)notes.appendChild(chipRow(flags,'warn'));
     if(Number(inv.surveyTier)!==Number(inv.cellTier)){
       var conflict=el('div','md-flag plain');
+      if(!MARKS.showsMethod)conflict.style.display='none';
       conflict.appendChild(el('strong','','Two preserved tiers disagree. '));
       conflict.appendChild(document.createTextNode(
         'The MapFile puts this island in a Tier '+inv.cellTier+' zone, but the Cardinal Guild survey recorded it as Tier '
@@ -409,7 +411,9 @@
       notes.appendChild(conflict);
     }
     if(!flags.length&&Number(inv.surveyTier)===Number(inv.cellTier))
-      notes.appendChild(el('p','md-p','Nothing further was flagged: no revival chamber, no turrets, not marked dangerous, and the survey tier agrees with the MapFile cell tier.'));
+      notes.appendChild(el('p','md-p',MARKS.showsMethod
+        ? ('Nothing further was flagged: no revival chamber, no turrets, not marked dangerous, and the survey tier agrees with the MapFile cell tier.')
+        : 'Nothing unusual here: no revival chamber, no turrets, nothing marked dangerous.'));
     scroll.appendChild(notes);
 
     var absent=mdBlock('Not present on this island');
@@ -422,10 +426,9 @@
       ['World X',Number(i.x).toFixed(1)],
       ['World Y',Number(i.y).toFixed(1)+' (altitude)'],
       ['World Z',Number(i.z).toFixed(1)],
-      ['MapFile zone',inv.cell],
-      ['Island id',inv.islandId],
-      ['Workshop asset',i.asset||'unknown']
-    ]));
+      ['Zone',inv.cell]].concat(MARKS.showsMethod
+        ? [['Island id',inv.islandId],['Workshop asset',i.asset||'unknown']]
+        : [])));
     var zoomBtn=el('button','md-back','Zoom to this island');zoomBtn.type='button';
     zoomBtn.style.marginTop='.65rem';zoomBtn.style.marginBottom='0';
     zoomBtn.textContent='⊕ Zoom to this island';
@@ -449,29 +452,39 @@
     block.appendChild(el('p','md-p',
       plural(manta,'manta ray','manta rays')+' in '+plural(schools,'school','schools')
       +' and '+plural(jelly,'jellyfish','jellyfish')+' in '+plural(schools,'shoal','shoals')
-      +' - '+plural(manta+jelly,'creature','creatures')+' in all. The seeding rule reads this '
-      +'island’s Cardinal Guild SURVEY tier, which is Tier '+inv.surveyTier
-      +(Number(inv.surveyTier)===Number(inv.cellTier)
-        ? '.' : ', not the Tier '+inv.cellTier+' its MapFile cell carries.')));
+      +' - '+plural(manta+jelly,'creature','creatures')+' in all.'
+      +(MARKS.showsMethod
+        ? (' The seeding rule reads this island’s Cardinal Guild SURVEY tier, which is Tier '
+           +inv.surveyTier
+           +(Number(inv.surveyTier)===Number(inv.cellTier)
+             ? '.' : ', not the Tier '+inv.cellTier+' its MapFile cell carries.'))
+        : '')));
     block.appendChild(chipRow(['Manta ray','Jellyfish']));
 
     var live=faunaLiveOn(inv.islandId),state=el('p','md-p');
     if(!faunaStat){
-      state.textContent='The game server is not reporting an island-fauna roster, so nothing is '
-        +'claimed about what is alive here right now. The counts above are what the seeding rule '
-        +'places when it runs.';
+      state.textContent=MARKS.showsMethod
+        ? ('The game server is not reporting an island-fauna roster, so nothing is '
+           +'claimed about what is alive here right now. The counts above are what the seeding '
+           +'rule places when it runs.')
+        : 'No live wildlife reported right now.';
     }else if(!live){
-      state.textContent='The game server is reporting island fauna and this island is NOT in its '
-        +'roster, so nothing is alive here this run - normally the world-wide creature budget '
-        +'running out before this island was reached.';
+      state.textContent=MARKS.showsMethod
+        ? ('The game server is reporting island fauna and this island is NOT in its '
+           +'roster, so nothing is alive here this run - normally the world-wide creature budget '
+           +'running out before this island was reached.')
+        : 'Nothing living here at the moment.';
     }else{
       state.appendChild(el('strong','','Live now. '));
       state.appendChild(document.createTextNode(
         plural(Number(live.mantaRays)||0,'manta ray','manta rays')+' and '
         +plural(Number(live.jellyFish)||0,'jellyfish','jellyfish')
-        +' are on this island on the running game server, and the map is drawing them where the '
-        +'server has them: it evaluates the server’s own movement against the clock the '
-        +'server reports, rather than sampling positions.'));
+        +' on this island'
+        +(MARKS.showsMethod
+          ? ' on the running game server, and the map is drawing them where the '
+            +'server has them: it evaluates the server’s own movement against the clock the '
+            +'server reports, rather than sampling positions.'
+          : ' right now.')));
     }
     block.appendChild(state);
 
@@ -492,7 +505,7 @@
     head.appendChild(el('div','md-kicker','Map zone'));
     head.appendChild(el('h3','md-title',zoneTitle(b)));
     head.appendChild(subLine([tierChip(b.type),info.name,info.terrain,Number(b.civilization)===1?'Kioki':'Saborian']));
-    head.appendChild(el('div','md-id','cell '+b.cellId+'  ·  source cell '+(z.index+1)+' of '+(worldMap.biomes||[]).length));
+    if(MARKS.showsMethod)head.appendChild(el('div','md-id','cell '+b.cellId+'  ·  source cell '+(z.index+1)+' of '+(worldMap.biomes||[]).length));
     panel.appendChild(head);
 
     if(!roll){
@@ -863,7 +876,10 @@
     body.appendChild(frag);
     var empty=$('ledgerEmpty');if(empty)empty.hidden=shown>0;
     text('ledgerStatus',shown===all.length
-      ? ('All '+all.length+' catalogued islands, sorted by zone then name. Haven’s 12 hand-tuned placements are not in the release catalogue and are not listed here.')
+      ? (MARKS.showsMethod
+          ? ('All '+all.length+' catalogued islands, sorted by zone then name. Haven’s 12 '
+             +'hand-tuned placements are not in the release catalogue and are not listed here.')
+          : ('All '+all.length+' islands, sorted by zone then name.'))
       : (shown+' of '+all.length+' islands match the search.'));
     var foot=$('ledgerFoot');
     if(foot){
@@ -944,8 +960,17 @@
     var namedCells=(worldMap.biomes||[]).filter(function(b){return typeof b.district==='string'&&b.district.trim().length>0;}).length;
     var rt=worldMap.resourceTotals||{};
     var seeded=rt.islands?(' Seeded on them: '+rt.deposits+' metal deposits, '+rt.databanks+' databanks, '+rt.trees+' trees across '+rt.woodedIslands+' wooded islands.'):'';
-    text('mapStatus',MARKS.mapStatusLead+(worldMap.islands||[]).length+' islands · '+(worldMap.biomes||[]).length+' tier cells ('+namedCells+' named, '+((worldMap.biomes||[]).length-namedCells)+' unassigned) · '+(worldMap.walls||[]).length+' wall segments.'+seeded+' Live overlay: '
-      +(reporting?MARKS.liveOverlayWords(runtimeIslands.length,latestDomains.length,positioned.length,ageSeconds):MARKS.notReportingWords));
+    text('mapStatus',MARKS.mapStatusText({
+      islands:(worldMap.islands||[]).length,
+      cells:(worldMap.biomes||[]).length,
+      namedCells:namedCells,
+      walls:(worldMap.walls||[]).length,
+      seeded:seeded,
+      reporting:reporting,
+      domains:runtimeIslands.length,
+      ships:latestDomains.length,
+      players:positioned.length,
+      ageSeconds:ageSeconds}));
     var note=$('mapLiveNote');note.style.display=(live||!reporting)?'none':'block';
     if(unknown){note.style.display='block';note.textContent=unknown+' connected player'+(unknown===1?' has':'s have')+' no authoritative world position yet.';}
     else note.textContent='No live positions reported.';

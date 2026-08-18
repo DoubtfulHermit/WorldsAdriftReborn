@@ -58,6 +58,35 @@
         *Math.sin((memberIndex+1)*M.goldenAngleRadians*0.5+weave*0.6);
       return {x:radial*Math.cos(angle),y:vertical,z:radial*Math.sin(angle)};
     }
+    // ---- the family (Phase 5): a calf takes its mother's place, shifted -----
+    // WHICH slots are calves and WHICH adult each trails is seed-derived, so it
+    // arrives per group in the LIVE feed as g.calves = [{member,mother}] and is
+    // never re-derived here. Only the two lengths and the geometry are restated,
+    // and the parity test holds them to a nanometre. No feed, or juveniles off,
+    // means no calves array and every member takes its own offset - which is why
+    // flag-off draws exactly what it drew before.
+    function motherOf(g,memberIndex){
+      var c=g&&g.calves;
+      if(!c)return -1;
+      for(var i=0;i<c.length;i++){if(c[i].member===memberIndex)return c[i].mother;}
+      return -1;
+    }
+    // Behind and below, in the CLUSTER's own rotating frame - the unit tangent at
+    // the mother's angle a is (-sin a, 0, cos a), so trailing is its negative.
+    // The displacement does not scale with the mother's radius: every calf sits
+    // exactly the recovered pair standoff from its mother.
+    function calfOffset(motherIndex,radius,verticalRadius,t){
+      var o=memberOffset(motherIndex,radius,verticalRadius,t);
+      var a=motherIndex*M.goldenAngleRadians+t*M.weaveRadiansPerSecond;
+      return {x:o.x+M.calfTrailMetres*Math.sin(a),
+              y:o.y-M.calfDropMetres,
+              z:o.z-M.calfTrailMetres*Math.cos(a)};
+    }
+    function familyOffset(memberIndex,radius,verticalRadius,t,g){
+      var mother=motherOf(g,memberIndex);
+      return mother<0?memberOffset(memberIndex,radius,verticalRadius,t)
+                     :calfOffset(mother,radius,verticalRadius,t);
+    }
     function cluster(species){
       return species==='manta'
         ? {r:M.mantaSchoolRadius,v:M.mantaSchoolVerticalRadius}
@@ -157,11 +186,11 @@
     }
     function localPose(p,species,schoolIndex,memberIndex,t,g){
       var c=schoolCentre(p,species,schoolIndex,t,g),k=cluster(species);
-      var o=memberOffset(memberIndex,k.r,k.v,t);
+      var o=familyOffset(memberIndex,k.r,k.v,t,g);
       return {x:c.x+o.x,y:c.y+o.y,z:c.z+o.z};
     }
     return {localPose:localPose,schoolCentre:schoolCentre,cluster:cluster,
-            dayness:dayness,cycleFraction:cycleFraction};
+            dayness:dayness,cycleFraction:cycleFraction,motherOf:motherOf};
   }
   // ==== FAUNA MOTION MIRROR END ====
 
@@ -236,7 +265,13 @@
             epochSeconds:Number(g.epochSeconds)||0,
             durationSeconds:Number(g.durationSeconds)||0,
             bloom:Number(g.bloom)||0,
-            toBloom:Number(g.toBloom)||0});
+            toBloom:Number(g.toBloom)||0,
+            // The family pairing, handed to the mirror as-is. Absent on an
+            // older game server and on one with juveniles off, and in both
+            // cases the mirror falls back to every member's own offset.
+            calves:(g.calves||[]).map(function(c){
+              return {member:Number(c.member),mother:Number(c.mother)};
+            })});
         });
       }
       faunaRoster.push({node:node,p:p,
@@ -282,6 +317,12 @@
     var sx=b.x-a.x,sy=-(b.z-a.z);
     out.push({kind:kind,row:row,member:member,x:row.ox+a.x,y:row.oz-a.z,
       cluster:FAUNA.cluster(kind).r/mapPx,
+      // A CALF IS DRAWN SMALLER, because the console's whole claim is that it
+      // shows what the server has - and what the server has is an animal the
+      // client will render at a quarter scale. Not a quarter of the glyph
+      // though: below about three pixels a mark stops being a mark, so the
+      // glyph shrinks by a readable amount rather than by the physical ratio.
+      calf:member&&FAUNA.motherOf(g,memberIndex)>=0,
       deg:(sx*sx+sy*sy)>1e-9?Math.atan2(sx,-sy)*180/Math.PI:0});
   }
   function faunaSpecies(out,row,kind,count,t,inView){
@@ -338,7 +379,7 @@
     var i;
     for(i=0;i<list.length;i++){
       var e=list[i],n=faunaNode(i);
-      var cls='fauna '+e.kind+(e.member?' member':' school');
+      var cls='fauna '+e.kind+(e.member?' member':' school')+(e.calf?' calf':'');
       if(n.cls!==cls){n.g.setAttribute('class',cls);n.cls=cls;}
       // SIZED SO IT NEVER OUTSHOUTS THE ISLAND IT BELONGS TO. At whole-world
       // zoom an island marker is thirteen pixels and a school mark sitting on
@@ -355,6 +396,7 @@
       var ceiling=e.kind==='manta'?10:9;
       var size=e.member?Math.max(4.5,Math.min(ceiling,e.cluster*0.85))
                        :(far?7:(e.kind==='manta'?10:8.5));
+      if(e.calf)size=Math.max(3,size*0.6);
       size=Math.round(size*2)/2;
       var shape=e.kind+size;
       if(n.shape!==shape){

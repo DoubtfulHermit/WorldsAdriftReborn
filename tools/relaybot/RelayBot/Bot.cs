@@ -536,6 +536,28 @@ namespace RelayBot
                                 CountFaunaIdentity($"4322 species={basic.Value.speciesType}");
                             }
                             break;
+                        case 1166:
+                            // THE SCALE THE REAL CLIENT WOULD DRAW, computed here
+                            // with the client's own arithmetic and the RECOVERED
+                            // prefab endpoints (birthScale 0.25, fullyGrownScale
+                            // 1.0) rather than reported as raw seconds. That makes
+                            // the soak line answer the question that actually
+                            // matters - "did any manta shrink that should not
+                            // have" - at a glance.
+                            if (GameComponents.Deserialize(1166, GameComponents.TypeSnapshot,
+                                    component.Data, component.Data.Length)
+                                is Bossa.Travellers.Creatures.AgeState.Data age)
+                            {
+                                int grown = age.Value.secondsTillFullyGrown;
+                                double ratio = grown <= 0 ? 1.0
+                                    : Math.Clamp((double)age.Value.secondsOld / grown, 0.0, 1.0);
+                                double scale = 0.25 + (0.75 * ratio);
+                                CountFaunaIdentity(scale >= 1.0
+                                    ? "1166 adult scale=1.00"
+                                    : "1166 CALF scale=" + scale.ToString("0.00",
+                                        System.Globalization.CultureInfo.InvariantCulture));
+                            }
+                            break;
                     }
                 }
             }

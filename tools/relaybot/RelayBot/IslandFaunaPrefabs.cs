@@ -22,10 +22,19 @@ namespace RelayBot
         /// carries the VARIANT PAIR its tail-picker requires: 1177 GenderState and
         /// 4326 MantaRayVariantState. Requesting those here is what turns the
         /// soak into a wire-level check that the variant fix serializes.
+        ///
+        /// 1166 AgeState IS IN THE MANTA SET BECAUSE THE REAL CLIENT ASKS FOR IT.
+        /// The shipped MantaRay prefab's [Require] closure is fourteen components
+        /// and AgeVisualizer's AgeStateReader is one of them, so a client checking
+        /// out a manta requests 1166 on every checkout - it simply used to come
+        /// back "[ToDo] unhandled". This harness sends a hand-written interest
+        /// set rather than a prefab-derived one, so anything omitted here is a
+        /// branch the soak cannot see: without this line a juveniles run would
+        /// report a confident FLAT while never once serializing a calf's age.
         /// </summary>
         public static uint[] InterestSetFor(string prefabName) =>
             prefabName == "MantaRay"
-                ? new[] { 190602u, 1182u, 1177u, 4326u }
+                ? new[] { 190602u, 1182u, 1177u, 4326u, 1166u }
                 : new[] { 190602u, 4322u };
     }
 }
