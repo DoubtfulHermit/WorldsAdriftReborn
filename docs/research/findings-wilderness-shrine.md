@@ -40,7 +40,7 @@ authored one, rebuilt on the transports this server actually has.
 | --- | --- |
 | Prefab | `HavenAncientRespawner` — the Haven Revival Chamber |
 | Registration key | `wilderness-shrine` |
-| Position | Haven island-local **(176.00, 4.90, 16.00)** |
+| Position | Haven island-local **(176.00, 4.90, 16.00)** — the prefab origin, which is also (within 0.5 m) the top of its spawn plate |
 | Seeded components | 190602 (transform), 1210 (interaction) |
 | Spawn order | `AfterPlayer` |
 | Kill switch | `WAREBORN_WILDERNESS_SHRINE=0` (default ON) |
@@ -87,22 +87,91 @@ the center of the island".
 The 1210 / 1211 pair — the same proven path that already makes a placed
 shipyard's console and a metal nugget interactive. The server seeds 1210
 `InteractiveState` on the shrine; the client's `InteractiveObjectVisualizer`
-shows an E prompt (radius 3 m, hold **1.5 s** — longer than the shipyard's 0.5 s
-because this is the one action on Haven that cannot be undone in the next
-second); the completed interaction arrives as a 1211 `InteractWithObject` event
-on the *player's* entity, naming the shrine as its target.
+shows an E prompt (radius **7 m** — see §2.1, hold **1.5 s**, longer than the
+shipyard's 0.5 s because this is the one action on Haven that cannot be undone in
+the next second); the completed interaction arrives as a 1211 `InteractWithObject`
+event on the *player's* entity, naming the shrine as its target.
 
-**INFERRED, and hedged — the verb.** `InteractiveObjectVisualizer.OnEnable` does
-`Interactions.FirstOrDefault(i => i.verb == Verb)` **once**, against the verb the
-*prefab* baked. We have the class name and the quest text, not the prefab's
-serialized `Verb`. A wrong single guess is not a degraded prompt — it is *no
-prompt at all*, permanently, with nothing in any log to say why. So the shrine's
-1210 seed carries **one entry per plausible verb**: `Activate` (the quest text
-says "activate"), `Default` (the enum's zero, where an unset field lands) and
-`Man` (retail has the player *stand on* a platform, which is the verb the helm
-uses for taking a position). The visualizer takes the entry matching its own verb
-and ignores the rest, so the extras are inert. `PickUp` is deliberately absent: a
-monument is not portable and a PickUp prompt on it would be a lie.
+**RECOVERED — the verb is `Activate` (1).** Read out of the shipped client's own
+`resources.assets`: the prefab's only `InteractiveObjectVisualizer` is on the
+`SpawnPad` child and its serialized `Verb` field is 1. The same 48-byte
+MonoBehaviour layout decodes all **191** `InteractiveObjectVisualizer` instances
+in that file and agrees with every independently known one (`Helm01` = Man,
+`Sail01` = Activate, `Stove01` = Craft, every container = Inventory), so the
+reading is cross-checked rather than asserted.
+
+The seed nonetheless still carries **one entry per plausible verb** — `Activate`,
+`Default` (the enum's zero) and `Man` — because `OnEnable` resolves
+`Interactions.FirstOrDefault(i => i.verb == Verb)` **once** and `GetVerb(collider)`
+can be overridden per-collider by an `InteractiveObjectVerbOverrider` anywhere in
+the collider's parent chain. The extras cost two list elements and are inert.
+Drop them once a live client has been seen to send a 1211 naming Activate.
+`PickUp` is deliberately absent: a monument is not portable and a PickUp prompt on
+it would be a lie.
+
+### 2.1 The reach — why the shrine shipped with NO prompt at all
+
+**PROVED (arithmetic over recovered geometry).** The first build of the shrine
+copied the metal nugget's 3 m interaction radius. That radius could never produce
+a prompt from any position in the world.
+
+The client offers a prompt only while
+(`Assets.Scripts.Player.PlayerLookingAt.InRange`, decompile):
+
+```
+Vector3.Distance(visualizer.transform.position, player.transform.position) + 0.5f
+    < visualizer.InteractRange          // == the radius on OUR 1210 entry
+```
+
+The distance is measured to the **visualizer's own transform**, wherever the
+prefab author put that component — not to the entity origin and not to the
+collider being looked at. On `HavenAncientRespawner_unityclient` that component is
+on
+
+```
+HavenAncientRespawner_unityclient
+  > HavenAncientRespawner > Ancient_Respawner > respawner_interior
+    > SpawnPad          <- InteractiveObjectVisualizer, Verb = Activate
+```
+
+whose `localPosition` is `(0, -2.704, 0)` on an identity scale chain, i.e.
+**2.704 m below the entity origin, inside the plinth**. Its own collision mesh
+(`Respawner_Plate`, convex) tops out at prefab-local `y = +0.39` and the
+decorative top plates at `+0.50`, so the surface a player stands on is
+**3.204 m above** the transform the range test measures to. Plate half-width:
+**3.57 m**.
+
+With radius 3, the reachable set is a sphere of usable radius `3 - 0.5 = 2.5 m`
+centred 2.704 m underground. Its highest point is `-0.204 m` — still **below the
+entity origin**, i.e. below the ground the shrine stands on. **No standable point
+in the world satisfied it.** Not a wrong verb, not a missing component, not an
+unresolvable prefab: an interaction volume that never broke the surface, and
+nothing in any log to say so.
+
+Every other 1210 this server seeds happens to be on a prefab whose visualizer sits
+on or above the entity origin — nugget and helm on the prefab **root** (offset 0),
+the placed shipyard on its `Crafting_Station` child at **+1.299 m** — which is
+exactly why 3 m worked for them and only for them.
+
+The rule now lives as a pure module, `Multiplayer.InteractReach`, so a radius can
+be checked against a prefab's measured geometry in a unit test:
+
+| | |
+| --- | --- |
+| `PadTopAboveVisualiserMetres` | **3.204** (2.704 offset + 0.500 plate top) |
+| `PadHalfWidthMetres` | **3.57** (`Respawner_Plate` local AABB) |
+| `ApproachRingMetres` | **2.0** (WAREBORN TUNING — one stride of walk-up) |
+| `InteractRadius` | `InteractReach.RadiusToCover(3.57 + 2.0, 3.204)` = **7.0** |
+
+7 m reads large next to the nugget's 3 m and is not comparable to it: 3.204 m of
+it is spent going straight down to the visualizer and 0.5 m to the client's own
+penalty, leaving `sqrt(6.5² − 3.204²) = 5.66 m` of horizontal reach from the plate
+centre — about two metres past its own edge. A prompt still only appears while the
+player is **looking at** a collider under `SpawnPad`, so the radius widens how
+close you must be, never what counts as the shrine.
+
+The 1210 seed log line now prints the radius and the hold, because the radius is
+the one field with no visible tell when it is wrong.
 
 The interact dispatcher selects on the **target's registration key**, not on the
 verb, and short-circuits — so a helm interaction can never reach the shrine, and
@@ -342,8 +411,11 @@ drives it with real ENet peers. Its log shows the shrine all the way through:
        -> AddEntity wilderness-shrine -> ...
 [info] requesting the game to load HavenAncientRespawner for world entity 'wilderness-shrine'...
 [success] asset loaded for 'wilderness-shrine'. creating entity 11 at (17180.43, -313.769, -1118.167) m...
+[interest] entity 11 wants 2 component(s): [190602, 1210] (ALL-OR-NOTHING: ...)
 [info] seeding 190602 for entity 11 (World 'wilderness-shrine' HavenAncientRespawner) ...
-[info] seeding 1210 for entity 11 ... with verb Activate/Default/Man (shrine hedge), available=True.
+[info] seeding 1210 for entity 11 ... with verb Activate/Default/Man (shrine hedge),
+       radius=7m, hold=1.5s, available=True.
+[success] initialized and serialized componentId 1210
 [warning] wilderness shrine stands on Haven but the Wilderness is CLOSED: no tier-1
           island is registered. ...
 ```
@@ -354,17 +426,33 @@ serializes and is sent without dropping the batch** — the one wire risk that a
 unit test could not settle. The gate itself still PASSes (2 pilots, coherent
 frames, legal re-entry).
 
+**PROVED on a live client (2026-08-18):** the entity is checked out and its
+prefab resolves. `~/Games/WorldsAdrift/BepInEx/LogOutput.log` records
+`[WAReborn] compiled entity template 'HavenAncientRespawner_unityclient'` during
+the Haven load-in, which is emitted from the `GetEntityTemplate` prefix — i.e.
+while the client was processing the shrine's own `AddEntityOp`. So questions 1
+and 3 below are about *rendering and approach*, not about existence.
+
 **Still needs a live client:**
 
 1. **Does `HavenAncientRespawner` render** when spawned as its own entity rather
    than by the GSim's Haven spawner? (The same open question `Databanks`
-   carries.)
-2. **Does the E prompt appear**, and on which of the three verbs? The multi-entry
-   seed is designed so that *one* of them works; the 1211 log line names the verb
-   the client actually sent back, so one session settles it and the other two
-   entries can then be dropped.
-3. **Is the 34 m walk from the spawn point actually clear** on the client's real
-   collision, and is the shrine visible from the spawn point?
+   carries.) The template compiles; nothing yet confirms the mesh is on screen.
+2. **Does the E prompt appear now that the radius reaches?** The verb is
+   RECOVERED (§2.1) and the reach is now derived from measured geometry, but
+   neither has been seen on a live client. The 1211 log line names the verb the
+   client actually sent back, so one session settles it and the other two entries
+   can then be dropped.
+3. **Is the 34 m walk from the spawn point actually clear**, and — the open
+   question the geometry raises — **can the player physically reach the plate?**
+   The prefab is a ~38 m tower (`respawner_exterior` collision mesh spans
+   prefab-local `y −7.36 .. +30.49`) and the plate sits at its base. Sampling the
+   exterior collision mesh in the standing band `y ∈ [−1.0, 2.4)` puts the nearest
+   wall geometry 7–15 m out from the plate centre with roughly a third of the 5°
+   sectors carrying no geometry at all, which reads as an open floor with gaps —
+   but "reads as" is INFERRED from vertex sampling, not walked. If the shell turns
+   out to be closed at ground level, no radius helps and the placement (or the
+   prefab) has to change.
 4. **Does the arrival land on solid ground** on each of the 46 islands. The
    evidence is strong and uniform, but "measured surface sample" is not "stood on
    it". A visual acceptance pass over the 46 pads is the honest follow-up.

@@ -115,12 +115,84 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
                 HavenLocalPlacement.X, HavenLocalPlacement.Y, HavenLocalPlacement.Z);
         }
 
+        // ------------------------------------------------------------------
+        // THE PREFAB'S OWN GEOMETRY - measured, not chosen.
+        //
+        // RECOVERED from resources.assets (the shipped client's own copy of
+        // EntityPrefabs/HavenAncientRespawner_unityclient, read with UnityPy):
+        // the prefab's ONLY InteractiveObjectVisualizer is not on the root. It is
+        // on the deep child
+        //
+        //   HavenAncientRespawner_unityclient
+        //     > HavenAncientRespawner > Ancient_Respawner > respawner_interior
+        //       > SpawnPad            <- InteractiveObjectVisualizer, Verb = Activate
+        //
+        // which is the "platform inside the Revival Chamber" the retail quest text
+        // names. SpawnPad's localPosition is (0, -2.704, 0) with an identity scale
+        // chain, so its transform sits 2.704 m BELOW the entity origin, INSIDE the
+        // plinth. Its own collision mesh (Respawner_Plate, convex) tops out at
+        // prefab-local y = +0.39 and the decorative top plates at +0.50, so the
+        // surface a player actually stands on is 3.204 m ABOVE the transform the
+        // client measures range to. The plate's half-width is 3.57 m.
+        //
+        // This is why the shrine shipped with no prompt at all - see InteractRadius
+        // below, and Multiplayer.InteractReach for the client rule it violates.
+        // ------------------------------------------------------------------
+
         /// <summary>
-        /// 1210 InteractionEntry.radius, metres. Matched to the shipyard console's,
-        /// the helm's and the nugget's 3 m so "how close do I have to be" has one
-        /// answer across every interaction this server seeds.
+        /// How far the standable top of the spawn plate is ABOVE the
+        /// <c>InteractiveObjectVisualizer</c>'s own transform, metres. Measured:
+        /// 2.704 m (the visualizer's local offset) + 0.500 m (the highest point of
+        /// the plate's collision meshes).
         /// </summary>
-        public const float InteractRadius = 3.0f;
+        public const float PadTopAboveVisualiserMetres = 3.204f;
+
+        /// <summary>
+        /// Half-width of the spawn plate's collider, metres - how far out from the
+        /// centre a player can stand and still be ON it. Measured from
+        /// Respawner_Plate's local AABB (x and z both -3.57 .. +3.57).
+        /// </summary>
+        public const float PadHalfWidthMetres = 3.57f;
+
+        /// <summary>
+        /// WAREBORN TUNING: how far BEYOND the plate's edge the prompt should still
+        /// be offered, metres, so the shrine announces itself as you walk up to it
+        /// rather than only once both feet are on the plate. Two metres is about
+        /// one stride.
+        /// </summary>
+        public const float ApproachRingMetres = 2.0f;
+
+        /// <summary>
+        /// 1210 InteractionEntry.radius, metres.
+        ///
+        /// THIS USED TO BE 3.0, COPIED FROM THE NUGGET, AND THAT IS THE BUG THAT
+        /// MADE THE SHRINE SILENT. The client offers a prompt only while
+        /// <c>Distance(visualizer.transform.position, player.transform.position)
+        /// + 0.5f &lt; radius</c> (<see cref="InteractReach"/>, RECOVERED from
+        /// <c>PlayerLookingAt.InRange</c>). The visualizer's transform is 3.204 m
+        /// below the plate a player stands on, so a 3 m radius describes a sphere
+        /// of usable radius 2.5 m centred 2.7 m underground: its highest point is
+        /// still 0.2 m BELOW the entity origin, i.e. below the ground the shrine
+        /// stands on. No position in the world satisfied it. Not a wrong verb, not
+        /// a missing component - an interaction volume that never broke the surface.
+        ///
+        /// Derived instead of guessed: the radius that covers standing anywhere on
+        /// the plate (<see cref="PadHalfWidthMetres"/>) plus one stride of approach
+        /// (<see cref="ApproachRingMetres"/>) at the plate's standing height
+        /// (<see cref="PadTopAboveVisualiserMetres"/>).
+        /// <c>InteractReach.RadiusToCover(3.57 + 2.0, 3.204) = 7.0</c>, pinned by
+        /// <c>WildernessShrineTests</c> so a future edit to any of the three
+        /// measurements re-derives it rather than drifting away from it.
+        ///
+        /// It reads large next to the nugget's 3 m and it is not comparable to it:
+        /// 3.204 m of it is spent going straight down to the visualizer, and 0.5 m
+        /// to the client's own penalty, leaving
+        /// <c>sqrt(6.5^2 - 3.204^2) = 5.66 m</c> of horizontal reach from the plate
+        /// centre - about two metres past its own edge. A prompt still only appears
+        /// while the player is LOOKING at a collider under the SpawnPad, so the
+        /// radius widens how close you must be, never what counts as the shrine.
+        /// </summary>
+        public const float InteractRadius = 7.0f;
 
         /// <summary>
         /// 1210 InteractionEntry.timeToUse, seconds. Longer than the shipyard's
@@ -134,16 +206,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         /// Every verb the shrine answers to, and every verb its 1210 seed carries
         /// an entry for.
         ///
-        /// THE HEDGE, stated plainly. <c>InteractiveObjectVisualizer.OnEnable</c>
-        /// does <c>Interactions.FirstOrDefault(i =&gt; i.verb == Verb)</c> against the
-        /// verb the PREFAB baked, and we do not know which one
-        /// <c>HavenAncientRespawner</c> baked. A single wrong guess is not a
-        /// degraded prompt, it is no prompt at all, with nothing in any log to say
-        /// why. Serving one entry per plausible verb makes that lookup succeed
-        /// regardless: the visualizer takes the first entry MATCHING its own verb
-        /// and ignores the rest, so extra entries are inert.
+        /// RECOVERED, and no longer a guess: the baked verb is <c>Activate</c> (1).
+        /// The prefab's <c>SpawnPad</c> child carries the only
+        /// <c>InteractiveObjectVisualizer</c> on the whole hierarchy and its
+        /// serialized <c>Verb</c> field reads 1. Read straight out of the shipped
+        /// client's resources.assets; the same 48-byte MonoBehaviour layout decodes
+        /// all 191 <c>InteractiveObjectVisualizer</c> instances in that file and
+        /// agrees with every independently known one (Helm01 = Man, Sail01 =
+        /// Activate, Stove01 = Craft, every container = Inventory), so the reading
+        /// is cross-checked rather than asserted.
         ///
-        /// The three: <c>Activate</c> because the quest text says "activate";
+        /// THE HEDGE IS KEPT ANYWAY, and deliberately.
+        /// <c>InteractiveObjectVisualizer.OnEnable</c> does
+        /// <c>Interactions.FirstOrDefault(i =&gt; i.verb == Verb)</c> ONCE, and
+        /// <c>GetVerb(collider)</c> can be overridden per-collider by an
+        /// <c>InteractiveObjectVerbOverrider</c> anywhere in the collider's parent
+        /// chain. A wrong single entry is not a degraded prompt, it is no prompt at
+        /// all with nothing in any log to say why, and the extra entries cost two
+        /// list elements and nothing else: the visualizer takes the one MATCHING
+        /// its own verb and ignores the rest. Drop them once a live client has been
+        /// seen to send back a 1211 naming Activate.
+        ///
+        /// The three: <c>Activate</c>, recovered above and what the quest text says;
         /// <c>Default</c> because it is the enum's zero and an unset field lands
         /// there; <c>Man</c> because the retail flow has the player STAND ON a
         /// platform, which is the verb the helm uses for taking a position.

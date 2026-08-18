@@ -58,6 +58,80 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         }
 
         /// <summary>
+        /// THE REGRESSION THAT SHIPPED. The shrine's InteractiveObjectVisualizer is
+        /// on the SpawnPad child, 3.204 m BELOW the plate a player stands on, and
+        /// the client measures range to that transform. The original 3 m radius -
+        /// copied from the nugget, whose visualizer is on its root - described a
+        /// sphere whose highest point was still underground. This is the assertion
+        /// that would have caught it: not "is the radius non-zero" but "can anybody
+        /// standing on the thing actually see the prompt".
+        /// </summary>
+        [Fact]
+        public void A_player_standing_anywhere_on_the_spawn_plate_is_offered_the_prompt()
+        {
+            // Dead centre.
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius, 0f, WildernessShrine.PadTopAboveVisualiserMetres));
+
+            // And out at the plate's own edge, which is the harder case.
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius,
+                WildernessShrine.PadHalfWidthMetres,
+                WildernessShrine.PadTopAboveVisualiserMetres));
+
+            // The 3 m this used to be could not do either.
+            Assert.False(InteractReach.IsReachable(
+                3.0f, 0f, WildernessShrine.PadTopAboveVisualiserMetres));
+        }
+
+        /// <summary>
+        /// The prompt should meet the player on the walk up, not only once both
+        /// feet are on the plate - and the radius must be DERIVED from the three
+        /// measured numbers, so that correcting a measurement corrects the radius
+        /// instead of quietly disagreeing with it.
+        /// </summary>
+        [Fact]
+        public void The_radius_is_the_one_the_measured_geometry_asks_for()
+        {
+            float derived = InteractReach.RadiusToCover(
+                WildernessShrine.PadHalfWidthMetres + WildernessShrine.ApproachRingMetres,
+                WildernessShrine.PadTopAboveVisualiserMetres);
+
+            Assert.Equal(derived, WildernessShrine.InteractRadius);
+
+            Assert.True(InteractReach.IsReachable(
+                WildernessShrine.InteractRadius,
+                WildernessShrine.PadHalfWidthMetres + WildernessShrine.ApproachRingMetres,
+                WildernessShrine.PadTopAboveVisualiserMetres));
+        }
+
+        /// <summary>
+        /// The measurements themselves, pinned. They come from the shipped client's
+        /// own copy of the prefab and are the only reason the radius above is what
+        /// it is; an edit here that is not an actual re-measurement is a bug.
+        /// </summary>
+        [Fact]
+        public void The_pad_geometry_is_the_measured_prefab_geometry()
+        {
+            // SpawnPad.localPosition.y = -2.704, top of its collision meshes at
+            // prefab-local +0.500.
+            Assert.Equal(3.204f, WildernessShrine.PadTopAboveVisualiserMetres, 3);
+            // Respawner_Plate local AABB: x and z both -3.57 .. +3.57.
+            Assert.Equal(3.57f, WildernessShrine.PadHalfWidthMetres, 3);
+        }
+
+        /// <summary>
+        /// Activate is now RECOVERED from the prefab rather than guessed, so
+        /// whatever else the hedge carries, that one has to be in it.
+        /// </summary>
+        [Fact]
+        public void The_seed_carries_the_verb_the_prefab_actually_bakes()
+        {
+            Assert.Contains(WildernessShrine.VerbActivate, WildernessShrine.Verbs);
+            Assert.True(WildernessShrine.Accepts(WildernessShrine.VerbActivate));
+        }
+
+        /// <summary>
         /// It has to be findable from where a new player wakes up: a walk, not an
         /// expedition, and on the same shelf rather than up a cliff.
         /// </summary>
