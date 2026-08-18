@@ -57,6 +57,18 @@ namespace WorldsAdriftServer.Handlers
                     return;
                 }
 
+                // The alliance crest PNG (/alliance-emblem/<uid>.png?e=<code>).
+                // Unauthenticated on purpose: the game client fetches it with a
+                // bare SpriteDownloader GET that carries no headers at all, and
+                // the picture is a pure function of the code already in the URL.
+                // Checked here, before the player routes, because it owns its own
+                // namespace and must answer every URL in it WITH AN IMAGE - a 404
+                // reaches the client as a garbage texture it then displays.
+                if (Handlers.Emblem.EmblemHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 // The browser sign-in page and endpoint (/login, POST /login).
                 // Checked here, before the player-facing routes below, and
                 // self-contained: it owns the wa_player cookie the download gate
@@ -72,6 +84,15 @@ namespace WorldsAdriftServer.Handlers
                 // /login. The exe is served off the host downloads dir by this
                 // native process, for the same reason the patch files are.
                 if (DownloadHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
+                // The signed-in player's account area (/account) and the alliance
+                // crest builder behind it. Gated on the same wa_player cookie the
+                // download page uses, and the only player-facing route that
+                // CHANGES anything - hence the CSRF token on its one form.
+                if (Handlers.Account.AccountHandler.TryHandle(this, request))
                 {
                     return;
                 }

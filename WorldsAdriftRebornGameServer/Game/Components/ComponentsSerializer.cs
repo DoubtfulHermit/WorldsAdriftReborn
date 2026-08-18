@@ -267,6 +267,26 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             seed = faunaSeed.Value;
                         }
 
+                        // A SKY WHALE, and its invisible CALLER, are not in the
+                        // registry either, for the third time and for the same
+                        // reason: the whale id band starts at 2_200_000_000, well
+                        // clear of both the fauna band and the falling-log band.
+                        // Without this override a 173 m animal is seeded at the
+                        // PLAYER SPAWN. The whale's seed is its LIVE pose, so a peer
+                        // checking it out mid-transit is placed where the animal
+                        // already is; the CALLER's seed is its call STATION, which
+                        // is deliberately NOT where the whale is now - the sound
+                        // comes from where the animal was two minutes ago, which is
+                        // somewhere the player cannot see yet. Serving the live
+                        // whale position here would silently delete the entire
+                        // "hear it before you see it" property.
+                        Multiplayer.FixedPointPosition? whaleSeed =
+                            WorldsAdriftRebornGameServer.SkyWhale.PositionOf(entityId);
+                        if (whaleSeed.HasValue)
+                        {
+                            seed = whaleSeed.Value;
+                        }
+
                         // A depleted metal node stays in the registry (rule 1) and is
                         // still seeded to a late joiner - but SUNK, so the joiner sees
                         // it gone exactly as everyone already present does. Sink() is
@@ -3503,6 +3523,38 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             age.SecondsTillNaturalDeath,
                             age.MaxMassKilograms,
                             age.MinMassKilograms);
+                    }
+                    // ------------------------------------------------------------------
+                    // 4347 BigCallState - THE SKY WHALE'S CALL, and the one component
+                    // on this server whose SEED is the whole behaviour rather than a
+                    // starting value.
+                    //
+                    // RECOVERED, from gencode/Bossa.Travellers.Creatures.Special/
+                    // BigCallState.cs: the generated reader's event `add` is
+                    // `{ ComponentUpdated.Add(...); value(Data.playAudio); }`, so
+                    // subscribing invokes the handler IMMEDIATELY with the seeded
+                    // value. BigCallVisualiser.OnEnable subscribes; its handler posts
+                    // the Wwise event Big_DistantCall when the value is true and
+                    // replays it once more after a hardcoded 15 s. So seeding true
+                    // here IS the call - no follow-up update, and no race between an
+                    // AddEntity and a component push.
+                    //
+                    // The coordinates are the same call station 190602 was seeded
+                    // with, deliberately: OnCoordsUpdated assigns the transform only
+                    // when the new coordinates are within ONE METRE of where it
+                    // already is, so a station that matches the transform seed passes
+                    // that test at a distance of zero, and one that did not would
+                    // silently leave the sound at the origin.
+                    //
+                    // nextCallTimecode is left EMPTY. Retail's timecode came from
+                    // GSim's clock, which is not preserved, and nothing in the
+                    // shipped client reads the field - an invented value would be a
+                    // claim on the wire for no benefit.
+                    else if (componentId == Game.SkyWhaleService.BigCallStateComponentId
+                        && WorldsAdriftRebornGameServer.SkyWhale.CallDataOf(entityId)
+                            is Bossa.Travellers.Creatures.Special.BigCallState.Data call)
+                    {
+                        obj = call;
                     }
                     else if (componentId == Multiplayer.TeleportPolicy.TeleportRequestStateComponentId)
                     {

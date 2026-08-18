@@ -247,6 +247,7 @@ namespace WorldsAdriftRebornGameServer
             ShipInterest.Forget(peer);
             TerrainInterest?.Forget(peer);
             Fauna.Forget(peer);
+            SkyWhale.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
@@ -669,6 +670,22 @@ namespace WorldsAdriftRebornGameServer
         /// </remarks>
         internal static readonly Game.IslandFaunaService Fauna =
             new Game.IslandFaunaService(ServerClock);
+
+        /// <summary>
+        /// The one sky whale each region carries, and its invisible caller.
+        /// Internal because <see cref="Game.Components.ComponentsSerializer"/>
+        /// resolves both entities' live 190602 pose and the caller's 4347 seed off
+        /// it - like a creature and like a felled log, a whale is deliberately not a
+        /// world registration (the whale id band starts at 2_200_000_000), so this
+        /// is the only thing that knows one exists.
+        /// </summary>
+        /// <remarks>
+        /// Declared after <see cref="ServerClock"/> for the same textual-order
+        /// reason as <see cref="Fauna"/>. It is seeded later, in Main, once the
+        /// release-island selection is known; until then it is empty and OFF.
+        /// </remarks>
+        internal static readonly Game.SkyWhaleService SkyWhale =
+            new Game.SkyWhaleService(ServerClock);
 
         /// <summary>
         /// Once per main-loop turn: applies every cut whose timer has elapsed
@@ -2469,6 +2486,7 @@ namespace WorldsAdriftRebornGameServer
                 // carries is what lets the operator console draw the wildlife
                 // MOVING without anybody streaming positions.
                 fauna: Fauna.Telemetry(),
+                skyWhale: SkyWhale.Telemetry(),
                 // The LIVE flight tuning, not the compiled default: the console
                 // solves how far it may carry a hull past its last measurement
                 // from this acceleration, and a deployment that retuned it must
@@ -3869,6 +3887,7 @@ namespace WorldsAdriftRebornGameServer
                             if (!ResourceInterest.MayServe(keyValuePair.Key, entityId)
                                 || !ShipInterest.MayServe(keyValuePair.Key, entityId)
                                 || !Fauna.MayServe(keyValuePair.Key, entityId)
+                                || !SkyWhale.MayServe(keyValuePair.Key, entityId)
                                 || !(TerrainInterest?.MayServe(keyValuePair.Key, entityId) ?? true))
                             {
                                 Console.WriteLine("[interest] ignored late component request for unloaded streamed"
@@ -4315,6 +4334,15 @@ namespace WorldsAdriftRebornGameServer
             Fauna.Seed(ReleaseWorldEnabled
                 ? Multiplayer.Islands.ReleaseWorldRolloutPolicy.Select(ReleaseWorldDistricts)
                 : Array.Empty<Multiplayer.Islands.ReleaseIslandRecord>());
+            // THE SKY WHALE. Seeded from the same final island selection and for
+            // the same reason: a region is a MapFile cell, so a world with no
+            // release islands has no regions and therefore no whale. Its own flag,
+            // its own id band, its own per-peer budget - see Game.SkyWhaleService
+            // for the wire-shape contract and the stated worst-case update rate.
+            SkyWhale.Seed(ReleaseWorldEnabled
+                ? Multiplayer.Islands.ReleaseWorldRolloutPolicy.Select(ReleaseWorldDistricts)
+                : Array.Empty<Multiplayer.Islands.ReleaseIslandRecord>());
+            SkyWhale.WarnIfEmpty();
             if (Fauna.Enabled && Fauna.Count == 0)
             {
                 Console.WriteLine("[island-fauna] ON but nothing was seeded: island fauna needs the"
@@ -4563,6 +4591,12 @@ namespace WorldsAdriftRebornGameServer
                 // Game.IslandFaunaService for the wire-shape contract and the
                 // stated worst-case update rate.
                 Fauna.Tick();
+                // THE SKY WHALE: at most one animal per peer, its 2 Hz pose, and the
+                // remove/re-add that is the only way its invisible caller can move.
+                // Off unless WAREBORN_SKY_WHALE=1; cheap when off (one bool) and when
+                // idle (an empty-dictionary walk that allocates nothing). See
+                // Game.SkyWhaleService for the wire-shape contract.
+                SkyWhale.Tick();
                 // Fire any due one-shot "seed in-progress then flip" completions on the main
                 // loop: the shipyard fold-out flip (1205 deployed=true), the crafted-part
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
@@ -4793,6 +4827,7 @@ namespace WorldsAdriftRebornGameServer
                         ShipInterest.NoteConnectPlanComplete(keyValuePair.Key);
                         TerrainInterest?.NoteConnectPlanComplete(keyValuePair.Key);
                         Fauna.NoteConnectPlanComplete(keyValuePair.Key);
+                        SkyWhale.NoteConnectPlanComplete(keyValuePair.Key);
                         PrepareRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                         DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }

@@ -277,6 +277,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Alliance
         public static AllianceVerdict MayEditMessageOfTheDay(AllianceLedger ledger, string actorUid, string allianceId) =>
             RequiresIn(ledger, actorUid, allianceId, AlliancePermissions.MotdIsReadFrom);
 
+        /// <summary>
+        /// May the actor change the alliance's EMBLEM?
+        ///
+        /// WAREBORN TUNING, and it has to be: retail had no answer to this
+        /// question because retail had no way to ask it. <c>emblemUrl</c> is
+        /// read-only in the client - it is GET-ed by <c>SpriteDownloader</c> and
+        /// never sent, there is no picker anywhere in the decompile, and neither
+        /// POST nor PATCH alliance carries the field
+        /// (docs/research/findings-social-api.md). So there is no recovered
+        /// permission to match and one had to be chosen.
+        ///
+        /// It is <see cref="AlliancePermissions.EditGroup"/> - the same permission
+        /// that governs the DESCRIPTION - because that is the closest thing the
+        /// recovered vocabulary has to "may change how this alliance presents
+        /// itself", and because a founder who hands an officer the description
+        /// almost certainly means them to have the crest too. Note that it is
+        /// NOT the MOTD's permission: that one is <c>leader_chat</c> rather than
+        /// the obvious <c>edit_message_of_the_day</c>, a retail client bug this
+        /// server reproduces on purpose (see
+        /// <see cref="AlliancePermissions.MotdIsReadFrom"/>) - and copying that
+        /// quirk here would be spreading a mistake into a feature that does not
+        /// have to inherit it. The client has no emblem gate of its own to
+        /// disagree with, which is exactly why the honest permission is available
+        /// here where it was not available for the MOTD.
+        ///
+        /// The founder short-circuit in <c>Requires</c> means a leader always
+        /// passes, whatever their rank lists.
+        /// </summary>
+        public static AllianceVerdict MayEditEmblem(AllianceLedger ledger, string actorUid, string allianceId) =>
+            RequiresIn(ledger, actorUid, allianceId, AlliancePermissions.EditGroup);
+
         /// <summary>May the actor create, change or delete ranks?</summary>
         public static AllianceVerdict MayEditRanks(AllianceLedger ledger, string actorUid, string allianceId) =>
             RequiresIn(ledger, actorUid, allianceId, AlliancePermissions.EditRanks);

@@ -41,15 +41,28 @@ namespace WorldsAdriftServer.Web
             "map-fauna.js",
             "map-ships.js",
             "map-interaction.js",
+            // The viewer sparkline, shared for the same reason the map is: the
+            // console draws the same series over a longer window, and a second
+            // copy of the drawing would drift away from this one.
+            "map-viewers.js",
         };
 
         /// <summary>
         /// This page's script, in load order: the shared renderer, then the
         /// public page's own bootstrap and wiring. No operator fragment
         /// appears here, and a test asserts none ever does.
+        ///
+        /// public-map-viewers.js sits BEFORE public-map.js rather than after it,
+        /// which matters: the fragments are one closure, so a function declared
+        /// anywhere in it is visible everywhere, but a <c>var</c> is only
+        /// INITIALISED when its fragment's top-level code runs. The viewer token
+        /// is such a var and public-map.js's last lines fire the first poll, so a
+        /// later fragment would mean the first poll of every page load went out
+        /// with an undefined token and was not counted.
         /// </summary>
         internal static readonly string[] ScriptFragments =
-            SharedRendererFragments.Concat(new[] { "public-map.js" }).ToArray();
+            SharedRendererFragments
+                .Concat(new[] { "public-map-viewers.js", "public-map.js" }).ToArray();
 
         /// <summary>
         /// How often a viewer's browser asks for a fresh snapshot.
@@ -105,7 +118,12 @@ namespace WorldsAdriftServer.Web
 <meta name=""description"" content=""A live map of the Worlds Adrift Reborn world: islands, zones, wildlife, and the ships and travellers currently aloft."">
 <title>Live world map - Worlds Adrift Reborn</title>" + AdminPage.Style + @"</head>
 <body><div class=""wrap"">
-" + WebAssets.Fill(WebAssets.Read("public-map-body.html"), ("mapBody", MapBody()))
+" + WebAssets.Fill(WebAssets.Read("public-map-body.html"),
+        ("mapBody", MapBody()),
+        // The viewer count's explanation, in the About panel with the rest of
+        // the prose. Nothing about it goes on the page itself beyond the chip:
+        // this page shows the world rather than describing its own methods.
+        ("viewersAbout", WebAssets.ReadTrimmed("public-map-about-viewers.html")))
    + @"<script id=""bootstrap"" type=""application/json"">" + bootstrapJson + @"</script>
 <script id=""releaseWorldMap"" type=""application/json"">" + worldMapJson + @"</script>
 <script>

@@ -235,7 +235,7 @@ placement is checked against what is already built there. Rocks, foliage, grass 
 VFX emitters are deliberately excluded: a monument may overlap a shrub without
 trapping anybody, and including them makes every spot on the island fail.
 
-### 2.5 The chamber as the room — the "clean slot"
+### 2.5 The chamber as the room — the "clean slot" *(RETIRED 2026-08-19 — see 2.9.2)*
 
 **PROVED.** Everything that made the chamber unusable as a *device* is fine once it
 is only the *building*, provided it is buried to exactly the right depth.
@@ -299,7 +299,7 @@ and a nugget sits on the floor — both happened, and the tests named them
 Skipped rather than moved: those tables are generated fields and a hand-nudged entry
 would be a lie about where the ground is.
 
-### 2.6 The slot
+### 2.6 The slot *(SUPERSEDED 2026-08-19 — the shrine now stands at the tower's foot, see 2.9.3)*
 
 `Respawner01` stands at chamber-local **(0, 0)** — island-local
 **(160.00, 4.18, 32.00)**, the same x/z as the chamber, pinned as an *equality* so
@@ -383,7 +383,7 @@ One press on a live client now answers it. **Until that press happens, which of 
 two remaining causes it is — the client not completing the hold, or our route missing
 the event — is UNPROVEN, and this document does not guess.**
 
-### 2.9 Where the tower goes — measured, and the constraint that decided it
+### 2.9 Where the tower goes — measured, and the constraint that decided it *(SUPERSEDED by 2.9.3)*
 
 The user asked three times and was finally MEASURED. Standing on the spot they
 meant, the server read it off the entity carrying them
@@ -432,6 +432,111 @@ the doorway faces it.
 corridor here (the previous site had four). The doorway has 2.2 m of margin over a
 player so a sample or two of error is absorbed, but if the door lands buried or
 floating, `WildernessChamber.CorridorGroundY` is the one number to change.
+
+### 2.9.2 The tower was half in the ground, and no site could fix that (2026-08-19)
+
+The user looked at the result and said: *"put the tower in Haven somewhere else where
+it makes sense, not where it is right now — it's half in the ground, it's ridiculous."*
+
+**They were right to the metre.** `respawner_exterior_LOD0` — the mesh a player sees —
+spans prefab-local y **−7.36 … +30.49**, i.e. **37.85 m** of building. The doorway sill
+is **10.85 m** up that wall, so putting the sill on the ground puts
+`10.85 + 7.36 = 18.21 m` of the mesh underneath it. Measured at (156, −6.45, 28)
+against Haven's 2 m LOD0 surface (441 probes on the footprint):
+
+| | |
+| --- | --- |
+| terrain under the whole 36 × 40 m footprint | 3.83 … 10.46 (**6.64 m**, not the 1.81 m recorded before) |
+| mesh bottom / roof, island-local | −13.81 / 24.04 |
+| mean terrain | 4.78 |
+| **buried** | **18.59 m of 37.85 m = 49%** |
+| exposed height at the perimeter | 18.1 … 19.8 m |
+
+**And it is the doctrine, not the site.** All 3,863 flat fine surface samples were
+re-swept against all 24 yaws under the buried rules (door on the ground, floor at or
+above the sill, footprint clear of authored props): **821 workable (site, yaw)
+combinations, and the best of them stands 50.9% proud.** Every burial anywhere on
+Haven is roughly half a building. Moving it could only ever have bought centimetres.
+
+**Two measurement bugs found on the way:**
+
+1. **The doorway is on prefab-local −z, not +x.** The prefab's own collider tree:
+   `Ramp01` is a box at x −1.81…1.81, **z −14.17…−12.97**; `Ramp02` at x −1.81…1.81,
+   **z −14.72…−14.16**; `Light By Door` hangs at (−0.09, 14.20, −5.96); and the entry
+   lobe of `respawner_interior_LOD0` reaches **z = −29.6** at y 9…17. The old record —
+   "free channel |z| ≤ 1.9 for local x 13…21" — is the same numbers with the two axes
+   transposed. `CorridorGroundY` was therefore sampled against a **solid wall**. It did
+   not bite (the ground was flat on both bearings: 4.36…4.72 along the real corridor
+   against a 4.21 corridor floor) but the yaw was being aimed by the wrong face.
+2. **The ramps never reached the ground.** Both ramp boxes live at y 9.50…10.66,
+   *inside* the corridor. There was never a way in from the terrain — only a way in
+   from a terrain raised to meet the door.
+
+### 2.9.3 Standing it up — the placement that shipped instead
+
+`GroundLineLocalY = 0` — the prefab's own ground line, where the foundation spike has
+finished widening (r 8…11 m at y −7.4, r 12…16 by y −1) and the authored interior floor
+sits. Only the footing is buried.
+
+**Chamber: Haven-local (156.00, 4.46, 20.00), yaw 240°. Shrine: (176.78, 4.60, 32.00).**
+
+Chosen by re-sweeping the same 3,863 samples × 24 yaws under stood-up rules — the base
+ring seats, the footprint is flat and clear on the ground and overhead, the shrine's
+slot at the foot is walkable — giving **145 workable (site, yaw) combinations over 39
+distinct sites**, then filtering on the two clearance pins the tests already hold.
+
+| | |
+| --- | --- |
+| seat: terrain on the wall ring (72 probes, r = 11/14/16 m) | 4.07 … 5.45, median **4.46** |
+| dug in at the worst bearing / standing off at the best | **0.98 m** / **0.39 m** |
+| terrain under the whole 36 × 40 m footprint (399 probes) | 4.01 … 6.16, spanning **2.15 m** |
+| mesh bottom / roof | −2.90 / 34.95 |
+| **exposed height** | **29.51 … 30.88 m — it stands 78.0% … 81.6% proud** |
+| nearest authored structure to the axis | **29.3 m** (6.37 m clear of the footprint rectangle) |
+| authored structures inside the footprint / overhead below the roof | **0** / **0** |
+| doorway sill | island y 15.31 — **9.87 m above the ground at its foot** |
+| to the spot the user measured out (168, 8) | **17.0 m** (was 23.3 m) |
+| from the spawn point | 54.4 m |
+
+**The cost, stated plainly: the room is gone.** The one aperture is now ~10 m up a sheer
+wall, so the shrine cannot stand inside it. It stands at the tower's **foot** instead —
+prefab-local (0, −24), on the −z face the doorway looks down, rotated by the chamber's
+own yaw so the two can never drift apart. Haven-local (176.78, 4.60, 32.00):
+
+| | |
+| --- | --- |
+| ground across its whole 4.5 m prompt ring | 4.28 … 4.76 (**0.48 m**) |
+| out from the tower's axis | 24.0 m — 7.5 m clear of the wall at ground level, 2 m clear of the front lobe overhead |
+| nearest authored structure | **22.4 m** |
+| from the spawn point | **41.9 m**, and only 25° off the straight line from spawn to the tower |
+| flood fill spawn → pad, ≤ 2 m rise per 6 m cell | **REACHABLE, 45.3 m walk** |
+
+**Why the yaw is 240° and not the 300° that aims the front dead at the approach:** the
+ruined metal camp lies between this site and the spawn, so every square-on yaw lands the
+pad 8 – 11 m from the camp's raised platform decks — under a deck, which is the failure
+that trapped a player at the very first placement. 240° trades 47° of facing for 22.4 m
+of clearance.
+
+**The test that was missing.** Every check the buried placement passed was about the
+doorway or the room; none asked what the building looks like from outside.
+`WildernessChamberTests.The_building_stands_proud_of_the_ground_it_is_on` reads the
+terrain out of the embedded Haven surface table and requires **≥ 70%** of the mesh above
+it. Re-scored against that same table, every placement that has ever shipped fails:
+
+| placement | proud |
+| --- | --- |
+| (176, 16) | 41.0% |
+| (168, 24) | 46.2% |
+| (160, 32) | 48.1% |
+| (156, 28) — the one the user complained about | 49.2% |
+| **(156, 20), stood up** | **78.4%** |
+
+**Still unproven until somebody walks to it:** how the 30 m tower reads in the client at
+this seat (the seat is a median over 72 probes, so up to 0.98 m of terrain climbs the
+wall on one bearing and 0.39 m falls away on another), and whether the doorway 9.87 m up
+reads as a ruin's high entrance or as a mistake. Nothing can be reached through it on
+foot, which is deliberate: a player who got in would be in a sealed drum with a 10.85 m
+drop and no way out.
 
 ### 2.9.1 The topography, corrected
 

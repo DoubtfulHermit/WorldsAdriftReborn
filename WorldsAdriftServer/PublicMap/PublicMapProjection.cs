@@ -37,13 +37,16 @@ namespace WorldsAdriftServer.PublicMap
     ///   teleporting), rotated every server restart (so nobody can correlate a
     ///   marker across days), and not brute-forceable without the salt.
     ///
-    /// What the public feed carries: snapshot freshness, the online COUNT,
-    /// the fauna roster and clock (creature counts and a number of seconds -
-    /// no identity exists in them), anonymous positioned player markers, and
-    /// anonymous ship markers with pose/silhouette hints. What it never
-    /// carries: names, account or character ids, peer ids, RTT/health/packet
-    /// telemetry, connect times, pilot/aboard linkage, entity ids, or any
-    /// operator surface.
+    /// What the public feed carries: snapshot freshness, the online COUNT, the
+    /// map's own viewer COUNT, the fauna roster and clock (creature counts and a
+    /// number of seconds - no identity exists in them), anonymous positioned
+    /// player markers, and anonymous ship markers with pose/silhouette hints.
+    /// What it never carries: names, account or character ids, peer ids,
+    /// RTT/health/packet telemetry, connect times, pilot/aboard linkage, entity
+    /// ids, or any operator surface. And, new with the viewer count and worth
+    /// naming because it is the field somebody would reach for next: no source
+    /// address, no user agent, no referrer, no country, in any form, hashed or
+    /// otherwise - the server does not read them to build this payload at all.
     /// </summary>
     internal static class PublicMapProjection
     {
@@ -57,14 +60,46 @@ namespace WorldsAdriftServer.PublicMap
         /// Builds the public live payload. Pure: everything it reads arrives
         /// as a parameter, so tests can drive it with a fabricated snapshot
         /// and a fixed salt.
+        ///
+        /// <paramref name="viewers"/> is the map's own audience - see the note on
+        /// the <c>viewers</c> field below. It is a parameter rather than a read of
+        /// <see cref="ViewerCensus.Shared"/> so that this stays a pure function of
+        /// its arguments, which is the property the leak corpus depends on.
         /// </summary>
-        internal static JObject Project(GameStatsResult result, byte[] salt)
+        internal static JObject Project(GameStatsResult result, byte[] salt, int viewers = 0)
         {
             JObject root = new JObject
             {
                 ["reporting"] = result.State == GameStatsState.Ok,
                 ["state"] = result.State.ToString().ToLowerInvariant(),
             };
+
+            // ADMITTED DELIBERATELY: how many browser tabs have this page open.
+            //
+            // It belongs on a whitelist that otherwise refuses everything about
+            // people, so it is worth saying exactly why it is not the same kind of
+            // thing. It is a COUNT with no members: it is computed from ephemeral
+            // per-page-load tokens the browser mints and the server holds only as
+            // salted hashes for thirty seconds (see ViewerCensus), the server never
+            // reads a source address to produce it, and there is no companion array
+            // anywhere in this payload that a viewer appears in. Publishing the
+            // integer 4 tells a reader that four tabs are open and cannot be made
+            // to tell them whose - not by correlating it with the player markers
+            // (different salt kind, different population, no shared key), and not
+            // by watching it change, which is exactly as informative as watching a
+            // "4 travellers" chip change.
+            //
+            // The honest caveat: on a very quiet map, a count of 1 means the person
+            // reading it is probably alone, and a count that ticks from 1 to 2 tells
+            // them somebody else arrived. That is the irreducible content of any
+            // presence number and it is what was asked for.
+            //
+            // Set BEFORE the degraded branch, because it is a fact about the
+            // WEBSITE rather than about the game server: people are still looking at
+            // this page while the game server is down, and dropping the field during
+            // an outage would make the page unable to tell "nobody is here" from
+            // "we stopped counting".
+            root["viewers"] = Math.Max(0, viewers);
 
             if (result.State != GameStatsState.Ok || result.Snapshot == null)
             {
@@ -78,6 +113,7 @@ namespace WorldsAdriftServer.PublicMap
             root["stale"] = result.Stale;
             root["currentOnline"] = s.CurrentOnline;
             root["fauna"] = ProjectFauna(s.Fauna);
+            root["skyWhale"] = ProjectSkyWhale(s.SkyWhale);
             root["players"] = ProjectPlayers(s.Players, salt);
             root["ships"] = ProjectShips(s.ShipDomains, salt);
             root["shipModel"] = ProjectShipModel(s.ShipModel);
@@ -117,6 +153,69 @@ namespace WorldsAdriftServer.PublicMap
                 ["liveCount"] = fauna.LiveCount,
                 ["islands"] = islands,
                 ["ecology"] = ProjectEcology(fauna.Json["ecology"] as JObject),
+            };
+        }
+
+        /// <summary>
+        /// The sky whale section, ADMITTED DELIBERATELY (schema v11; reshaped in
+        /// v12 when four region whales became one migrating whale).
+        ///
+        /// It passes the same test the fauna roster and the ecology block pass:
+        /// everything in it is WORLD GEOGRAPHY and a clock. A route id is the name
+        /// of a path through the map; a region id is the name of a MapFile cell,
+        /// which is already drawn on this page; an island id is already drawn on
+        /// this page too; a call index is a count of two-minute windows since the
+        /// world booted; a call station is a point in the sky. There is no player,
+        /// account, peer or ship identity anywhere in it, and none can arrive later
+        /// without someone adding a line to this method.
+        ///
+        /// THE MIGRATION FIELDS ARE ADMITTED for the same reason and re-checked
+        /// rather than waved through: "which cell is the whale over and which is it
+        /// heading to" is a fact about the world that every visitor to the map sees
+        /// identically at the same moment. It is not a fact about anybody.
+        ///
+        /// WHAT IS DROPPED, and why. The admin copy carries <c>entityId</c> and
+        /// <c>callEntityId</c>, and those are exactly the "entity ids are small
+        /// integers and neither may appear" rule in this type's remarks. They are
+        /// not anonymized into tokens either, because unlike a player or a ship
+        /// marker there is nothing to correlate: the route id is a stable public
+        /// name for the same thing and is already the join key. The operator tuning
+        /// (radii, pose cadence) is dropped for the same reason the fauna budgets
+        /// are - the public page has no business knowing what this server is set to.
+        /// </summary>
+        private static JObject ProjectSkyWhale(GameSkyWhaleStat whale)
+        {
+            JArray whales = new JArray();
+            if (whale.Json["whales"] is JArray rows)
+            {
+                foreach (JToken token in rows)
+                {
+                    if (token is not JObject row) continue;
+                    whales.Add(new JObject
+                    {
+                        ["routeId"] = (string?)row["routeId"] ?? "",
+                        ["callIndex"] = (long?)row["callIndex"] ?? 0,
+                        ["callX"] = (double?)row["callX"] ?? 0,
+                        ["callY"] = (double?)row["callY"] ?? 0,
+                        ["callZ"] = (double?)row["callZ"] ?? 0,
+                        ["regionId"] = (string?)row["regionId"] ?? "",
+                        ["nextRegionId"] = (string?)row["nextRegionId"] ?? "",
+                        ["nextRegionIslandId"] = (string?)row["nextRegionIslandId"] ?? "",
+                        ["nextRegionSeconds"] = (double?)row["nextRegionSeconds"] ?? 0,
+                        ["nextIslandId"] = (string?)row["nextIslandId"] ?? "",
+                        ["nextIslandSeconds"] = (double?)row["nextIslandSeconds"] ?? 0,
+                    });
+                }
+            }
+
+            return new JObject
+            {
+                ["present"] = whale.Present,
+                ["enabled"] = whale.Enabled,
+                ["clockSeconds"] = (double?)whale.Json["clockSeconds"] ?? 0,
+                ["whaleCount"] = whale.WhaleCount,
+                ["callIntervalSeconds"] = (double?)whale.Json["callIntervalSeconds"] ?? 0,
+                ["whales"] = whales,
             };
         }
 

@@ -63,7 +63,13 @@ namespace WorldsAdriftServer.Tests
             "FAUNA-SENTINEL",         // an unexpected field inside fauna
             "ECOLOGY-SENTINEL",       // an unexpected field inside the v9 ecology block
             "424242",                 // the ecology's worldSeed: an operator knob, admin-only
-            // the v11 hull GEOMETRY block, served from its own endpoint but
+            // The public feed gained a "viewers" COUNT. The obvious way that
+            // becomes a leak is a future stats file carrying a viewers OBJECT
+            // with members in it, landing on a key the projection now publishes.
+            // Seeded here so it cannot happen quietly.
+            "VIEWERADDR-SENTINEL",    // an address inside a hypothetical viewers block
+            "VIEWERAGENT-SENTINEL",   // a user agent beside it
+            // the v13 hull GEOMETRY block, served from its own endpoint but
             // through this same whitelist
             "PARTTITLE-SENTINEL",     // the catalogue title of a mounted part
             "PARTOWNER-SENTINEL",     // the uid of whoever bolted a part on
@@ -79,6 +85,9 @@ namespace WorldsAdriftServer.Tests
           ""totalConnects"":9,""totalDisconnects"":8,
           ""currentOnline"":1,""peakOnline"":3,
           ""operatorNote"":""ROOT-SENTINEL-keep-off-the-public-feed"",
+          ""viewers"":{""count"":9999,
+                     ""addresses"":[""VIEWERADDR-SENTINEL-203.0.113.9""],
+                     ""agents"":[""VIEWERAGENT-SENTINEL-Mozilla""]},
           ""players"":[{
             ""entityId"":987654321,
             ""peerId"":""PEER-SENTINEL-203.0.113.9:7779"",
@@ -156,6 +165,19 @@ namespace WorldsAdriftServer.Tests
                    ""omegaMigration"":0.003,""phaseRadial"":2.1,""phaseAngular"":4.9,
                    ""baseAngle"":1.2}]}
               ]}
+            },
+            ""skyWhale"":{
+              ""enabled"":true,""clockSeconds"":4321.5,""whaleCount"":1,
+              ""loadRadiusMetres"":1200,""callRadiusMetres"":4000,
+              ""poseIntervalMs"":500,""callIntervalSeconds"":120,
+              ""whales"":[{""routeId"":""release-world-route"",
+                          ""entityId"":2200000000,""callEntityId"":2200000001,
+                          ""callIndex"":36,""callX"":7000.5,""callY"":480.25,""callZ"":-6100.75,
+                          ""regionId"":""release-b3-region"",
+                          ""nextRegionId"":""release-b2-region"",
+                          ""nextRegionIslandId"":""camps-daurats"",
+                          ""nextRegionSeconds"":1830.5,
+                          ""nextIslandId"":""the-three"",""nextIslandSeconds"":72.25}]
             }
         }";
 
@@ -207,6 +229,52 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(86420u, player.RttMs);
             GameShipDomainStat ship = Assert.Single(result.Snapshot!.ShipDomains);
             Assert.Contains("918273645", (string?)ship.Json["domainId"]);
+        }
+
+        [Fact]
+        public void TheWhalesEntityIdsAreDroppedButItsGeographyIsNot()
+        {
+            // The sky whale block is admitted to the public feed deliberately -
+            // a region name, a call index and a point in the sky are world
+            // geography, and the map cannot draw the animal without them. What
+            // is NOT admitted is the pair of entity ids the admin copy carries,
+            // because "entity ids are small integers and neither may appear" is
+            // this projection's own rule and a new section does not get an
+            // exemption from it. This test is what makes admitting one a
+            // deliberate act rather than a copy-paste.
+            JObject o = PublicMapProjection.Project(ReadCorpus(), SaltA);
+            JObject whale = (JObject)o["skyWhale"]!;
+
+            Assert.True((bool)whale["present"]!);
+            Assert.True((bool)whale["enabled"]!);
+            Assert.Equal(4321.5, (double)whale["clockSeconds"]!);
+
+            Assert.Equal(
+                new[] { "present", "enabled", "clockSeconds", "whaleCount",
+                        "callIntervalSeconds", "whales" },
+                whale.Properties().Select(p => p.Name).ToArray());
+
+            JObject region = (JObject)((JArray)whale["whales"]!)[0];
+            // The migration fields are admitted DELIBERATELY and the whole set is
+            // pinned, so a future field cannot ride in unexamined: every one of
+            // these is a fact about the world that every visitor sees identically.
+            Assert.Equal(
+                new[] { "routeId", "callIndex", "callX", "callY", "callZ", "regionId",
+                        "nextRegionId", "nextRegionIslandId", "nextRegionSeconds",
+                        "nextIslandId", "nextIslandSeconds" },
+                region.Properties().Select(p => p.Name).ToArray());
+            Assert.Equal("release-world-route", (string?)region["routeId"]);
+            Assert.Equal("release-b3-region", (string?)region["regionId"]);
+            Assert.Equal("release-b2-region", (string?)region["nextRegionId"]);
+            Assert.Equal(1830.5, (double)region["nextRegionSeconds"]!);
+            Assert.Equal(7000.5, (double)region["callX"]!);
+
+            // And the ids really are gone from the serialized bytes, not merely
+            // absent from the object model.
+            string json = PublicMapProjection.Serialize(o);
+            Assert.DoesNotContain("2200000000", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("2200000001", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("entityId", json, StringComparison.Ordinal);
         }
 
         // ---- what the public feed DOES carry --------------------------------
@@ -351,9 +419,13 @@ namespace WorldsAdriftServer.Tests
                         "metalId", "metalQuality", "outline", "geometryRevision" },
                 ((JObject)ship["hull"]!).Properties().Select(p => p.Name).ToArray());
 
+            // "viewers" was ADMITTED DELIBERATELY: how many browser tabs have the
+            // public page open. It is an integer with no members - see the note
+            // on the field in PublicMapProjection - and the corpus below proves
+            // it cannot be filled from the stats file.
             Assert.Equal(
-                new[] { "reporting", "state", "ageSeconds", "stale", "currentOnline",
-                        "fauna", "players", "ships", "shipModel" },
+                new[] { "reporting", "state", "viewers", "ageSeconds", "stale",
+                        "currentOnline", "fauna", "skyWhale", "players", "ships", "shipModel" },
                 o.Properties().Select(p => p.Name).ToArray());
 
             // The dead-reckoning model: physics constants only. The map cannot

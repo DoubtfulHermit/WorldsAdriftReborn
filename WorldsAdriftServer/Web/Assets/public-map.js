@@ -59,6 +59,10 @@
     box.appendChild(chip(fmt(ships),ships===1?'ship':'ships'));
     box.appendChild(chip(fmt(live),live===1?'creature':'creatures'));
     if(wilds)box.appendChild(chip(fmt(wilds),wilds===1?'island with wildlife':'islands with wildlife'));
+    // The map's own audience, after the world's own numbers because it is a
+    // fact about the page rather than about the world. Before the day/night
+    // chip, which tickStrip finds by being the LAST child.
+    box.appendChild(viewerChip());
     var dn=dayNightChip();
     if(dn)box.appendChild(dn);
   }
@@ -175,7 +179,10 @@
   }
 
   function publicRefresh(){
-    fetch('/map/data',{headers:{'Accept':'application/json'}})
+    // The poll carries this tab's ephemeral token, which is how the server
+    // counts open tabs without knowing anything about them. See
+    // public-map-viewers.js.
+    fetch('/map/data'+viewerQuery(),{headers:{'Accept':'application/json'}})
       .then(function(r){return r.ok?r.json():null;})
       .then(function(d){if(d)publicRender(d);})
       .catch(function(){});
@@ -197,6 +204,7 @@
   }
 
   wireMapInteraction();
+  viewerBoot();
   publicBoot();
   publicRefresh();
   setInterval(publicRefresh,REFRESH_MS);

@@ -6,7 +6,7 @@ time, by hand.
 
 ## What the login server already serves
 
-The login server (TCP 8085, host process `wareborn-login`) answers three
+The login server (TCP 8085, host process `wareborn-login`) answers four
 unauthenticated routes, all handled by `PublicMapHandler` - a class that is
 structurally separate from the admin console, reads no cookies, and can reach
 none of the admin command bridge:
@@ -17,6 +17,7 @@ none of the admin command bridge:
 | `GET /map/data` | Anonymized live snapshot: fauna clock/roster, anonymous traveller markers, anonymous ship markers with real hull outlines and the dead-reckoning model. Rebuilt at most once per 2 s regardless of viewer count; the raw stats file is never served. Viewers poll it every 3 s. | `public, max-age=2` |
 | `GET /map/world` | The static preserved-release world catalogue (the heavy one, ~island shells and inventories). Static per build. | `public, max-age=3600` |
 | `GET /map/ship?id=<token>&rev=<n>` | ONE hull's static geometry: its side elevation, its decks as levels, and the kinds of part mounted on it with their hull-local places. Asked for only when a viewer opens a ship's card, keyed on the same opaque marker token the live feed labels that ship with. Deliberately NOT part of `/map/data`: a hull's shape does not change from poll to poll, so re-sending it to every viewer every 3 s would be pure waste - the same reason island coastlines live in `/map/world`. The `rev` is the drawing's own hash, carried in the query so the URL addresses CONTENT and the answer cannot go stale; mount a part and the page asks a different URL. | `public, max-age=300` |
+| `GET /map/viewers` | How many people have the map open: a live count, a 24 h peak, and 144 ten-minute buckets. Counts and nothing else - see [public-map-viewer-count.md](public-map-viewer-count.md). | `public, max-age=60` |
 
 Everything else under `/map` is answered 404 by the login server itself, so no
 other route can shadow the public prefix.
@@ -87,13 +88,19 @@ island holds (databanks, ore, trees, wildlife); the wildlife moving in real
 time; how many travellers are aloft; where each positioned traveller is; where
 each ship is, which way it is heading, the real outline of its hull, and -
 when they open a ship - its side elevation, how many decks it has, and where
-the helm, sails, engines, wings, lamps and sky core sit on it.
+the helm, sails, engines, wings, lamps and sky core sit on it; and how many
+browser tabs have the map open right now, plus the shape of that number over
+the last day.
 
 They CANNOT see: any player name, account, or character id; any peer id or IP;
 anyone's latency, packet loss or connection health; how long anyone has been
 online; who owns, pilots or is riding any ship; any entity id; or any operator
 surface. Marker tokens are salted hashes that change on every server restart,
-so a marker cannot be followed across days.
+so a marker cannot be followed across days. The viewer count is a count with
+no members: it is built from ephemeral per-page-load tokens the browser mints,
+held only as salted digests for 30 seconds, and no source address is read to
+produce it - see [public-map-viewer-count.md](public-map-viewer-count.md) for
+what it does and does not make knowable.
 
 The one judgement call, recorded so it can be revisited: ships are drawn with
 their REAL hull silhouettes. A hull is a shape in the world - the thing worth

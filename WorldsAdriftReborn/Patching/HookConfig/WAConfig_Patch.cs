@@ -181,9 +181,71 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
         /// WorldsAdriftServer serves that API now, and the redirect below points
         /// the client at it.
         /// </summary>
+        private static string useSteamKey;
+        private static bool useSteamKeyResolved;
+
+        /// <summary>
+        /// The client's own key for "this build talks to Steam".
+        ///
+        /// Unlike the alliances keys this one is a plain literal in ConfigKeys
+        /// rather than a forward into SharedConfigKeys, so the literal below is
+        /// recoverable by reading (ConfigKeys.cs:48). It is still resolved by
+        /// reflection first, with the read value as the fallback, because a
+        /// forcing that silently stops matching is exactly the failure this file
+        /// keeps being bitten by and the cost of checking is one field read.
+        /// </summary>
+        internal static string UseSteamKey()
+        {
+            return ConfigKeyLiteral("UseSteam", ref useSteamKey, ref useSteamKeyResolved)
+                ?? "Bootstrap.UseSteam";
+        }
+
+        /// <summary>
+        /// Steam is off, permanently.
+        ///
+        /// SteamChecker.IsUsingSteam is nothing but WAConfig.Get&lt;bool&gt;(ConfigKeys.UseSteam)
+        /// and ConfigDefaults sets it true, which is what makes a delisted 2019
+        /// game refuse to start without a running store client. Forcing it false
+        /// takes the client's OWN no-Steam branch - the one Bossa built for
+        /// non-Steam builds - so every consumer is already written to cope:
+        ///
+        ///   ConnectToNeededServersState.ConnectToSteam   returns a resolved
+        ///     promise instead of SteamManager.Authenticate, which is the call
+        ///     that hangs the boot;
+        ///   ConnectToNeededServersState.CheckSteamBranchAndConfig  and
+        ///     SteamChecker.GetSteamBranch  stop calling SteamApps.GetCurrentBetaName;
+        ///   ConnectToAnalytics  resolves without touching Steam;
+        ///   Improbable.Bootstrap.GetUserName  reads PlayerPrefs/Environment
+        ///     instead of SteamManager.SteamUsername;
+        ///   DeploymentChooser  skips the GeoLocationLookup that wants a steam id
+        ///     and ticket;
+        ///   LobbySystem.ConnectToGameServer / DebugLobbyState.SetupMetadata
+        ///     build LoginMetadata.TestingMetadata instead of SteamMetadata.
+        ///
+        /// That last one is the only change of shape on the wire, and it is safe
+        /// here: it swaps UserId, Credentials and Platform in the SpatialOS
+        /// connect metadata, and nothing in WorldsAdriftRebornCoreSdk or
+        /// WorldsAdriftRebornGameServer reads those three keys. The fields that
+        /// do matter - playerName, bossaId, bossaNetGameClientToken, characterUid -
+        /// are filled afterwards by CompleteConnect from BossaNetBootstrap,
+        /// identically on both branches. In-game identity is a server-side stub
+        /// (LocalPlayerIdentity.PlayerId = "id") served in component 1086, not a
+        /// steam id.
+        ///
+        /// It also removes an NRE that was waiting to happen: SteamMetadata does
+        /// SteamManager.HexAuthTicket.ToUpper() with no null check, and
+        /// HexAuthTicket is null until a Steam auth ticket callback arrives -
+        /// which for a delisted appid it never does.
+        /// </summary>
         private static bool ForcedBool(string key, out bool value)
         {
             if (key == "VOIP.Enabled")
+            {
+                value = false;
+                return true;
+            }
+
+            if (key == UseSteamKey())
             {
                 value = false;
                 return true;
@@ -212,6 +274,23 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
         /// </summary>
         private static bool ForcedString(string key, out string value)
         {
+            // The login screen's two outbound links. LandingScreen.CreateAccount
+            // and LandingScreen.ForgotPassword are both a single
+            // Application.OpenURL(WAConfig.Get<string>(key)) call, so redirecting
+            // the key redirects the button - no patch on the screen needed at
+            // all. Both defaults were S3 redirect pages that Bossa took down.
+            if (key == "BossaNet.CreateAccountUrl")
+            {
+                value = ModSettings.createAccountUrl.Value;
+                return true;
+            }
+
+            if (key == "BossaNet.ResetPasswordUrl")
+            {
+                value = ModSettings.passwordResetUrl.Value;
+                return true;
+            }
+
             string alliancesUrl = AlliancesUrlKey();
             if (alliancesUrl != null && key == alliancesUrl)
             {
@@ -248,16 +327,52 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             }
         }
 
+        /// <summary>
+        /// The two-argument <c>WAConfig.GetOrDefault&lt;T&gt;(string key, T defaultValue)</c>,
+        /// closed over <typeparamref name="T"/>.
+        ///
+        /// It cannot be found with <c>AccessTools.Method(type, name, new[] { typeof(string), typeof(bool) })</c>.
+        /// The second parameter of the generic DEFINITION is the open type
+        /// parameter <c>T</c>, not <c>bool</c> or <c>string</c>, so matching on a
+        /// concrete type finds nothing, AccessTools returns null, and
+        /// <c>MakeGenericMethod</c> then throws a NullReferenceException out of
+        /// GetTargetMethod.
+        ///
+        /// That is exactly what happened: both WithFallback classes threw, and
+        /// because the mod used to patch the whole assembly in one call, the
+        /// first one to be processed aborted every patch class Harmony had not
+        /// yet reached. Matching on arity instead cannot hit that trap.
+        /// </summary>
+        private static MethodBase GetOrDefaultWithFallback(Type closedOver)
+        {
+            Type waConfig = AccessTools.TypeByName("WAConfig");
+            if (waConfig == null)
+            {
+                throw new InvalidOperationException(
+                    "[WAReborn] WAConfig type not found; cannot patch GetOrDefault.");
+            }
+
+            foreach (MethodInfo candidate in AccessTools.GetDeclaredMethods(waConfig))
+            {
+                if (candidate.Name != "GetOrDefault") continue;
+                if (!candidate.IsGenericMethodDefinition) continue;
+                if (candidate.GetParameters().Length != 2) continue;
+                return candidate.MakeGenericMethod(closedOver);
+            }
+
+            throw new InvalidOperationException(
+                "[WAReborn] WAConfig.GetOrDefault<T>(string, T) not found. The client's config "
+                + "API has changed shape; the URL and feature-flag redirects that hang off it "
+                + "need rechecking.");
+        }
+
         [HarmonyPatch()]
         class GetOrDefault_String_WithFallback
         {
             [HarmonyTargetMethod]
             public static MethodBase GetTargetMethod()
             {
-                return AccessTools.Method(
-                    AccessTools.TypeByName("WAConfig"),
-                    "GetOrDefault",
-                    new Type[] { typeof(string), typeof(string) }).MakeGenericMethod(typeof(string));
+                return GetOrDefaultWithFallback(typeof(string));
             }
 
             [HarmonyPrefix]
@@ -301,10 +416,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             [HarmonyTargetMethod]
             public static MethodBase GetTargetMethod()
             {
-                return AccessTools.Method(
-                    AccessTools.TypeByName("WAConfig"),
-                    "GetOrDefault",
-                    new Type[] { typeof(string), typeof(bool) }).MakeGenericMethod(typeof(bool));
+                return GetOrDefaultWithFallback(typeof(bool));
             }
 
             [HarmonyPrefix]

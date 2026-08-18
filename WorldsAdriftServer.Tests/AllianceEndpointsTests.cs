@@ -984,21 +984,38 @@ namespace WorldsAdriftServer.Tests
 
         /// <summary>
         /// PROVED, and it is the whole answer to "the crest could not be changed":
-        /// the client never sends an emblem. The Create Alliance panel has exactly
+        /// the client never SENDS an emblem. The Create Alliance panel has exactly
         /// three input fields - name, description, message of the day - and the
-        /// emblem is a read-only URL the client GETs and turns into a sprite. So
-        /// the field is always emitted, and always empty unless an operator sets
-        /// it, which leaves the client's own placeholder in place.
+        /// emblem is a read-only URL the client GETs and turns into a sprite.
+        ///
+        /// What the field CONTAINS is ours, and it changed when the crest builder
+        /// landed: it used to be empty (leaving the client's own grey placeholder
+        /// in place) and is now always an absolute URL into this server's
+        /// /alliance-emblem route. A brand new alliance that has never opened the
+        /// builder gets the crest generated from its own uid, so the stored column
+        /// staying empty is still true - see the emblem tests - while every
+        /// alliance nonetheless wears something of its own.
         /// </summary>
         [Fact]
-        public void The_emblem_url_is_always_emitted_and_starts_empty()
+        public void The_emblem_url_is_always_emitted_and_defaults_to_a_generated_crest()
         {
             World world = new World();
             Guid founder = world.Character("Rattus");
             JObject created = (JObject)world.Found(founder, "Rat Corp")["data"]!;
 
+            string emblem = created.Value<string>("emblemUrl")!;
+
             Assert.NotNull(created["emblemUrl"]);
-            Assert.Equal(string.Empty, created.Value<string>("emblemUrl"));
+            Assert.Contains("/alliance-emblem/", emblem, StringComparison.Ordinal);
+            Assert.Contains(created.Value<string>("uid")!, emblem, StringComparison.Ordinal);
+
+            // Absolute, because the client hands it to new Uri(...) with no base.
+            Assert.True(Uri.TryCreate(emblem, UriKind.Absolute, out _));
+
+            // The COLUMN is still empty: nothing was written at create time.
+            AllianceRecord stored = world.Alliances.FindAlliance(
+                Guid.Parse(created.Value<string>("uid")!))!;
+            Assert.Equal(string.Empty, stored.EmblemUrl);
         }
 
         /// <summary>

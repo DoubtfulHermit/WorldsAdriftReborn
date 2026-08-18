@@ -148,38 +148,52 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         /// <summary>
         /// THE THIRD REGRESSION, and the one a live player reported: "i cant find
         /// the teleporter now". A bare 1.2 m plate in an empty field 45 m from spawn
-        /// is unfindable. The shrine now stands INSIDE the Revival Chamber, at its
-        /// centre - the 20 m tower is the landmark and the room is the slot.
+        /// is unfindable. The answer is the same as it was - the tower is the
+        /// landmark - but the shrine now stands at its FOOT rather than in its room,
+        /// because standing the tower up (so that it stops being 49% underground)
+        /// puts its one doorway 10 m off the ground.
         ///
-        /// Pinned as an EQUALITY on x/z, not a distance: "near the chamber" would
-        /// let the two drift apart one edit at a time until the shrine is outside
-        /// the wall again.
+        /// Pinned as an EQUALITY against the chamber's own slot, not a distance:
+        /// "near the chamber" would let the two drift apart one edit at a time. The
+        /// x/z are not even written down in this class - they are computed from the
+        /// chamber's position and yaw - so moving the tower moves the pad, exactly.
         /// </summary>
         [Fact]
-        public void The_shrine_stands_at_the_centre_of_the_chamber()
+        public void The_shrine_stands_at_the_foot_of_the_chamber()
         {
-            Assert.Equal(WildernessChamber.HavenLocalPlacement.X,
-                WildernessShrine.HavenLocalPlacement.X, 3);
-            Assert.Equal(WildernessChamber.HavenLocalPlacement.Z,
-                WildernessShrine.HavenLocalPlacement.Z, 3);
+            (double X, double Z) slot = WildernessChamber.ShrineSlotOn();
+
+            Assert.Equal(slot.X, WildernessShrine.HavenLocalPlacement.X, 3);
+            Assert.Equal(slot.Z, WildernessShrine.HavenLocalPlacement.Z, 3);
+
+            // ...and the slot is on the face the building shows, at the radius that
+            // clears it: 24 m out on prefab-local -z.
+            Assert.Equal(0.0, WildernessChamber.ShrineSlotLocal.X, 3);
+            Assert.True(WildernessChamber.ShrineSlotLocal.Z < 0.0,
+                "the shrine is behind the building, not in front of it");
+            Assert.Equal(24.0, WildernessChamber.ShrineSlotRadiusMetres, 2);
         }
 
         /// <summary>
-        /// ...and the centre is a place a player can stand. The chamber's interior
-        /// is clear for 9 m around its axis at the standing band (measured 10.0 m);
-        /// the plate plus the walk-up ring the prompt covers has to fit inside that,
-        /// or the prompt reaches into a wall.
+        /// ...and the foot is a place a player can stand. The exterior mesh reaches
+        /// r ~16.5 m at ground level and its front lobe overhangs to 21.9 m higher
+        /// up, so the pad plus the whole ring the prompt covers has to sit outside
+        /// both, or the player is standing in a wall to use it.
         /// </summary>
         [Fact]
-        public void The_shrine_and_its_prompt_fit_inside_the_clear_floor()
+        public void The_shrine_and_its_prompt_stand_clear_of_the_building()
         {
             double dx = WildernessShrine.HavenLocalPlacement.X - WildernessChamber.HavenLocalPlacement.X;
             double dz = WildernessShrine.HavenLocalPlacement.Z - WildernessChamber.HavenLocalPlacement.Z;
-            double offCentre = Math.Sqrt(dx * dx + dz * dz);
+            double outFromAxis = Math.Sqrt(dx * dx + dz * dz);
 
-            Assert.True(offCentre + WildernessShrine.InteractRadius
-                <= WildernessChamber.InteriorClearRadiusMetres,
-                "the prompt radius reaches the chamber wall");
+            const double OverhangMetres = 21.9;
+            Assert.True(outFromAxis - WildernessShrine.PadHalfWidthMetres > OverhangMetres,
+                "the shrine stands under the building's own overhang");
+
+            // ...and it is not so far out that the tower stops being its landmark.
+            Assert.True(outFromAxis < WildernessChamber.ExclusionRadiusMetres,
+                "the shrine is outside the ground the chamber keeps clear for it");
         }
 
         /// <summary>
@@ -189,7 +203,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
         /// vertical term is the plate's own 0.20 m.
         /// </summary>
         [Fact]
-        public void The_prompt_still_reaches_from_the_chamber_floor()
+        public void The_prompt_still_reaches_from_the_ground_at_the_towers_foot()
         {
             Assert.True(InteractReach.IsReachable(
                 WildernessShrine.InteractRadius,
@@ -219,6 +233,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             // (160, 4.18, 32): inside the chamber, but 25.3 m from the spot the user
             // twice pointed at, with the one doorway facing away from them.
             Assert.False(Math.Abs(here.X - 160.00) < 0.5 && Math.Abs(here.Z - 32.00) < 0.5);
+            // (156, 4.16, 28): the centre of a chamber that was 49% underground.
+            // "it's half in the ground, it's ridiculous."
+            Assert.False(Math.Abs(here.X - 156.00) < 0.5 && Math.Abs(here.Z - 28.00) < 0.5);
             // And never the Revival Chamber's own buried plate, which is what the
             // whole exercise proved unreachable.
             Assert.NotEqual("HavenAncientRespawner", WildernessShrine.AssetName);
@@ -262,11 +279,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Wilderness
             double dz = shrine.MetresZ - spawn.MetresZ;
             double horizontal = Math.Sqrt(dx * dx + dz * dz);
 
-            // Widened from 50 m when the shrine moved inside the Revival Chamber:
-            // the chamber needs a 44 m clear footprint and the only measured spot on
-            // Haven's spawn shelf that has one, is reachable on the flat, and lands
-            // its doorway on level ground is 55.6 m out. It is still a walk on one
-            // level, not an expedition - and it is now a 20 m tower you can see.
+            // 39.4 m, and it is a 30 m tower standing 24 m behind it that makes that
+            // findable - the 45 m version that drew "i cant find the teleporter now"
+            // was a bare plate in an empty field. Still a walk on one level: a flood
+            // fill over the fine 2 m surface that never climbs more than 2 m per 6 m
+            // cell walks spawn to pad in 46.2 m.
             Assert.InRange(horizontal, 10.0, 70.0);
             // No climb: the server has no pathing and cannot promise a route, so
             // the least it can do is not put the thing on a different level.

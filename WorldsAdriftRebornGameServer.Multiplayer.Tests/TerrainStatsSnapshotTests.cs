@@ -65,13 +65,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // id. v10 adds the interest section (radii, budgets, gates and
             // per-peer holdings); v9 was claimed by the concurrent ecology work
             // and is deliberately skipped so two branches cannot both mean
-            // different things by the same number. The version is asserted here
-            // rather than compared to itself so a field added without a bump has
-            // to walk past a red test.
-            // v11 adds the per-hull `geometry` block (side elevation, decks,
-            // mounted parts) and its revision.
-            Assert.Equal(11, StatsSnapshot.SchemaVersion);
-            Assert.Equal(11, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // different things by the same number. v11 adds the `skyWhale`
+            // section; v12 reshapes it, because the sky whale went from one animal
+            // per region to ONE migrating animal and `regions` became `whales` -
+            // a reader that kept reading the old key would have drawn a whale per
+            // cell out of a feed that no longer means that. v13 adds the per-hull
+            // `geometry` block (side elevation, decks, mounted parts) and its
+            // revision; it is 13 rather than 12 because it was written against a
+            // v10 base and 11 and 12 were spoken for by the time it landed. The
+            // version is asserted here rather than compared to itself so a field
+            // added without a bump has to walk past a red test.
+            Assert.Equal(13, StatsSnapshot.SchemaVersion);
+            Assert.Equal(13, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

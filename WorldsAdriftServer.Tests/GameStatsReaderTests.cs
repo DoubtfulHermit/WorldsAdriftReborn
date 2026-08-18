@@ -180,6 +180,80 @@ namespace WorldsAdriftServer.Tests
             finally { File.Delete(path); }
         }
 
+        /// <summary>
+        /// A v12 FILE FROM A GAME SERVER THAT PREDATES THE GEOMETRY MUST STILL
+        /// PARSE, AND MUST SAY SO.
+        ///
+        /// v12 is what production ran while the ship-card work sat on a branch:
+        /// the sky-whale rework's number, written by a game server that knows
+        /// nothing about hull geometry. The two binaries are shipped coupled, but
+        /// a file on disk outlives a restart, so the login server reads v12 files
+        /// on the way past every deploy.
+        ///
+        /// The doctrine this repo holds to is that a missing section projects to
+        /// an explicit ABSENT rather than to a default - "never said" has to stay
+        /// distinguishable from "said no". So the hull below carries everything a
+        /// v12 hull carries and no `geometry` and no `geometryRevision`, and what
+        /// comes back must be a geometry block that reports itself absent with
+        /// empty arrays, not a hull with zero decks and no parts. The card reads
+        /// the difference: absent prints "this server publishes no elevation",
+        /// where an empty drawing would be a claim about the ship.
+        /// </summary>
+        [Fact]
+        public void A_v12_snapshot_parses_with_its_ship_geometry_explicitly_absent()
+        {
+            string path = TempFile();
+            string json = ValidJson.TrimEnd().TrimEnd('}').Replace(
+                @"""schemaVersion"":1", @"""schemaVersion"":12") + @",
+              ""runtime"":{""hostMode"":""local-single-process"",""hostId"":""local:primary"",
+                ""ownedEntityCount"":1,""globalEntityCount"":1,""unownedEntityCount"":0,
+                ""ownershipIssueCount"":0,""domains"":[],""shipDomains"":[{
+                ""domainId"":""ship:83"",""hullEntityId"":83,""authorityGeneration"":4,
+                ""replicationSequence"":91,""cadenceMs"":240,""deliveryAgeMs"":35,
+                ""x"":1.5,""y"":2.5,""z"":3.5,""active"":true,""piloted"":false,
+                ""liveCadenceExpected"":true,""pilotPlayerEntityId"":null,
+                ""aboardPlayerEntityIds"":[],""deckCount"":8,""mountedPartCount"":3,
+                ""subscriberCount"":0,""staleDelivery"":false,""aboardCheckoutWarning"":false,
+                ""hull"":{""present"":true,""beamMetres"":12.1,""keelMetres"":20.6,
+                  ""deckPlaneMetres"":3.4,""bowLocalZMetres"":16.8,""sternLocalZMetres"":-3.8,
+                  ""cellCount"":4,""hullDeckCount"":1,""sectionCount"":5,
+                  ""keelIsLongestAxis"":true,""outline"":[1,2,3,4,5,6]}}]}}";
+            File.WriteAllText(path, json);
+            try
+            {
+                GameStatsResult result = GameStats.ReadFrom(path, Now);
+                Assert.Equal(GameStatsState.Ok, result.State);
+
+                GameStatsSnapshot s = result.Snapshot!;
+                Assert.Equal(12, s.SchemaVersion);
+                Assert.Single(s.ShipDomains);
+
+                // The v12 hull itself still reads: the outline is older than the
+                // geometry and must not be collateral damage.
+                GameShipDomainStat ship = s.ShipDomains[0];
+                Assert.Equal(83, (long)ship.Json["hullEntityId"]!);
+                Assert.True((bool)ship.Json["hull"]!["present"]!);
+
+                // ABSENT, stated - not a default, and not an empty ship.
+                Assert.False((bool)ship.Geometry["present"]!);
+                Assert.Empty((Newtonsoft.Json.Linq.JArray)ship.Geometry["profile"]!);
+                Assert.Empty((Newtonsoft.Json.Linq.JArray)ship.Geometry["decks"]!);
+                Assert.Empty((Newtonsoft.Json.Linq.JArray)ship.Geometry["parts"]!);
+
+                // Revision zero is the "never published" value, and it is what
+                // stops a card asking the geometry endpoint for a drawing that
+                // cannot exist.
+                Assert.Equal(0, ship.GeometryRevision);
+                Assert.Equal(0, (long)ship.Json["hull"]!["geometryRevision"]!);
+
+                // The parts COUNT is a v8 field and survives independently of the
+                // drawing: the tile may honestly say three where the card says it
+                // has no elevation to draw them on.
+                Assert.Equal(3, (int)ship.Json["mountedPartCount"]!);
+            }
+            finally { File.Delete(path); }
+        }
+
         [Theory]
         [InlineData("not json at all")]
         [InlineData("")]

@@ -206,7 +206,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             new Placement("iron", 5, 16.0, 4.89, -120.0),
             new Placement("iron", 6, 192.0, 1.22, 64.0),
             new Placement("copper", 4, 192.0, 7.13, 8.0),
-            new Placement("bronze", 7, 152.0, 4.71, 0.0),
+            // REMOVED 2026-08-19: 20.4 m from the Revival Chamber's axis once the
+            // tower was stood up and moved to (156, 20) - i.e. inside the building's
+            // own 21.9 m footprint, a nugget on the floor of a sealed drum. Deleted
+            // from the table rather than skipped at registration, so the boot
+            // resource count tells the truth. Was:
+            //   new Placement("bronze", 7, 152.0, 4.71, 0.0)
             new Placement("tin", 5, -40.0, 11.61, 60.0),
             new Placement("aluminium", 8, 136.0, 4.06, -40.0),
             new Placement("cobalt", 7, 176.0, 6.39, -16.0),

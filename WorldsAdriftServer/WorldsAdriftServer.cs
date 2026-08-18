@@ -32,6 +32,11 @@ namespace WorldsAdriftServer
                 return;
             }
 
+            // After the database is open, because it writes to it; before the
+            // socket, so the first minute of an audience is recorded rather than
+            // missed. Never throws: see ViewerSampler.Tick.
+            PublicMap.ViewerSampler.Start();
+
             Console.WriteLine("[info] login/REST server listening on TCP " + restPort + ".");
             Console.WriteLine("[info] sign-up page at http://<this host>:" + restPort + "/signup");
 

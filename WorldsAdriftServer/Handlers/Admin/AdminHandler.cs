@@ -5,6 +5,7 @@ using WorldsAdriftReborn.Storage.Policy;
 using WorldsAdriftReborn.Storage.Records;
 using WorldsAdriftServer.Admin;
 using WorldsAdriftServer.Persistence;
+using WorldsAdriftServer.PublicMap;
 using WorldsAdriftServer.Web;
 
 namespace WorldsAdriftServer.Handlers.Admin
@@ -116,6 +117,27 @@ namespace WorldsAdriftServer.Handlers.Admin
                     GameStats.Read(DateTimeOffset.UtcNow),
                     ShipGeometryEndpoint.Selector(url, ShipGeometryEndpoint.HullKey))
                     .ToString(Newtonsoft.Json.Formatting.None));
+                return true;
+            }
+
+            // The map's audience, at the length an authenticated operator may
+            // legitimately see: a month of hourly buckets and the all-time peak,
+            // where the public page gets a day and today's peak.
+            //
+            // "Longer" is the ONLY thing being authenticated here. There is no
+            // per-viewer detail behind this door for it to unlock, because none
+            // exists anywhere - it is the same two-column aggregate table the
+            // public feed reads, over a wider window. See
+            // docs/public-map-viewer-count.md.
+            if (path == "/admin/api/viewers" && method == "GET")
+            {
+                if (!authed)
+                {
+                    Json(session, 401, "{\"error\":\"unauthenticated\"}");
+                    return true;
+                }
+
+                Json(session, 200, AdminViewerReport.Json(DateTimeOffset.UtcNow));
                 return true;
             }
 
@@ -494,6 +516,7 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["fauna"] = s.Fauna.Json;
             game["shipModel"] = s.ShipModel.Json;
             game["interest"] = s.Interest.Json;
+            game["skyWhale"] = s.SkyWhale.Json;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,
