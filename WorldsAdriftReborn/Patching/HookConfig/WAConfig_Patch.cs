@@ -181,9 +181,71 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
         /// WorldsAdriftServer serves that API now, and the redirect below points
         /// the client at it.
         /// </summary>
+        private static string useSteamKey;
+        private static bool useSteamKeyResolved;
+
+        /// <summary>
+        /// The client's own key for "this build talks to Steam".
+        ///
+        /// Unlike the alliances keys this one is a plain literal in ConfigKeys
+        /// rather than a forward into SharedConfigKeys, so the literal below is
+        /// recoverable by reading (ConfigKeys.cs:48). It is still resolved by
+        /// reflection first, with the read value as the fallback, because a
+        /// forcing that silently stops matching is exactly the failure this file
+        /// keeps being bitten by and the cost of checking is one field read.
+        /// </summary>
+        internal static string UseSteamKey()
+        {
+            return ConfigKeyLiteral("UseSteam", ref useSteamKey, ref useSteamKeyResolved)
+                ?? "Bootstrap.UseSteam";
+        }
+
+        /// <summary>
+        /// Steam is off, permanently.
+        ///
+        /// SteamChecker.IsUsingSteam is nothing but WAConfig.Get&lt;bool&gt;(ConfigKeys.UseSteam)
+        /// and ConfigDefaults sets it true, which is what makes a delisted 2019
+        /// game refuse to start without a running store client. Forcing it false
+        /// takes the client's OWN no-Steam branch - the one Bossa built for
+        /// non-Steam builds - so every consumer is already written to cope:
+        ///
+        ///   ConnectToNeededServersState.ConnectToSteam   returns a resolved
+        ///     promise instead of SteamManager.Authenticate, which is the call
+        ///     that hangs the boot;
+        ///   ConnectToNeededServersState.CheckSteamBranchAndConfig  and
+        ///     SteamChecker.GetSteamBranch  stop calling SteamApps.GetCurrentBetaName;
+        ///   ConnectToAnalytics  resolves without touching Steam;
+        ///   Improbable.Bootstrap.GetUserName  reads PlayerPrefs/Environment
+        ///     instead of SteamManager.SteamUsername;
+        ///   DeploymentChooser  skips the GeoLocationLookup that wants a steam id
+        ///     and ticket;
+        ///   LobbySystem.ConnectToGameServer / DebugLobbyState.SetupMetadata
+        ///     build LoginMetadata.TestingMetadata instead of SteamMetadata.
+        ///
+        /// That last one is the only change of shape on the wire, and it is safe
+        /// here: it swaps UserId, Credentials and Platform in the SpatialOS
+        /// connect metadata, and nothing in WorldsAdriftRebornCoreSdk or
+        /// WorldsAdriftRebornGameServer reads those three keys. The fields that
+        /// do matter - playerName, bossaId, bossaNetGameClientToken, characterUid -
+        /// are filled afterwards by CompleteConnect from BossaNetBootstrap,
+        /// identically on both branches. In-game identity is a server-side stub
+        /// (LocalPlayerIdentity.PlayerId = "id") served in component 1086, not a
+        /// steam id.
+        ///
+        /// It also removes an NRE that was waiting to happen: SteamMetadata does
+        /// SteamManager.HexAuthTicket.ToUpper() with no null check, and
+        /// HexAuthTicket is null until a Steam auth ticket callback arrives -
+        /// which for a delisted appid it never does.
+        /// </summary>
         private static bool ForcedBool(string key, out bool value)
         {
             if (key == "VOIP.Enabled")
+            {
+                value = false;
+                return true;
+            }
+
+            if (key == UseSteamKey())
             {
                 value = false;
                 return true;
