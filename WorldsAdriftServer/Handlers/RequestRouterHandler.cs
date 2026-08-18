@@ -34,6 +34,18 @@ namespace WorldsAdriftServer.Handlers
                     return;
                 }
 
+                // The PUBLIC live world map (/map, /map/data, /map/world).
+                // Deliberately unauthenticated and deliberately a separate
+                // handler from the admin console: everything it serves has
+                // passed the anonymizing whitelist in PublicMapProjection, and
+                // nothing in it can reach a session or the command bridge. It
+                // claims the whole /map namespace so no other route can answer
+                // beneath the public prefix.
+                if (Handlers.PublicMap.PublicMapHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 // The patch manifest and files are static bytes read off the host
                 // patch dir. They are served HERE, by this native process, because
                 // the Caddy in front of the public host is a container that cannot
