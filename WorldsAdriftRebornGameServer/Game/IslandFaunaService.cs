@@ -105,6 +105,25 @@ namespace WorldsAdriftRebornGameServer.Game
         /// </summary>
         internal const string SeedEnv = "WAREBORN_ISLAND_FAUNA_SEED";
 
+        /// <summary>
+        /// The JUVENILES switch (Phase 5): mother-and-calf offsets and
+        /// quarter-scale calves. OFF by default and a typo fails safe, like every
+        /// fauna flag, and with it off the wire is BYTE-IDENTICAL - the serializer
+        /// is handed no age (so 1166 falls through to the unhandled path it takes
+        /// today) and the evaluator is handed no family (so every member offset is
+        /// the function it has always been).
+        ///
+        /// IT REQUIRES THE ECOLOGY, and that is a design statement rather than an
+        /// implementation limit. A calf's age is the inverse of the population
+        /// rhythm's expression ramp; with no ecology there is no rhythm, no
+        /// expression and therefore no birth. A calf slot that is ALWAYS present
+        /// at a frozen size is a mesh variant, which is exactly the reading the
+        /// juvenile proposal exists to avoid. So this flag is ANDed with
+        /// <see cref="EcologyEnv"/> and says so at boot when an operator sets one
+        /// without the other.
+        /// </summary>
+        internal const string JuvenilesEnv = IslandFaunaAge.EnabledEnvVar;
+
         private const uint TransformStateComponentId = 190602;
         private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan SendInterval = TimeSpan.FromMilliseconds(120);
@@ -152,6 +171,7 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly HashSet<long> _held = new();
         private Func<ENetPeerHandle, IslandId, bool>? _terrainReady;
         private readonly FaunaEcologyEvaluator? _ecology;
+        private readonly bool _juveniles;
 
         /// <summary>
         /// The records the world was seeded from, kept ONLY when the ecology is
@@ -178,13 +198,15 @@ namespace WorldsAdriftRebornGameServer.Game
                 IslandFaunaInterestPolicy.ParsePerPeerBudget(
                     Environment.GetEnvironmentVariable(PeerBudgetEnv)),
                 IslandFaunaPolicy.EnabledFrom(Environment.GetEnvironmentVariable(EcologyEnv)),
-                ParseSeed(Environment.GetEnvironmentVariable(SeedEnv)))
+                ParseSeed(Environment.GetEnvironmentVariable(SeedEnv)),
+                IslandFaunaPolicy.EnabledFrom(Environment.GetEnvironmentVariable(JuvenilesEnv)))
         {
         }
 
         internal IslandFaunaService(IClock clock, bool enabled, int? maxConcurrent,
             double? loadRadius = null, int? perPeerBudget = null,
-            bool ecologyEnabled = false, int? worldSeed = null)
+            bool ecologyEnabled = false, int? worldSeed = null,
+            bool juvenilesEnabled = false)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _enabled = enabled;
@@ -194,9 +216,18 @@ namespace WorldsAdriftRebornGameServer.Game
             // The pose function is chosen ONCE, here: the registry cannot tell
             // the ecology from the classic patrol, and nothing downstream
             // branches on the flag again.
+            // Juveniles ride on the ecology's rhythm, so they cannot exist without
+            // it; see JuvenilesEnv. Decided ONCE, here, like the ecology itself.
+            _juveniles = juvenilesEnabled && ecologyEnabled;
             _ecology = ecologyEnabled
                 ? new FaunaEcologyEvaluator(worldSeed ?? IslandFaunaEcology.DefaultWorldSeed)
                 : null;
+            if (juvenilesEnabled && !ecologyEnabled)
+            {
+                Console.WriteLine("[island-fauna] " + JuvenilesEnv + " is set but " + EcologyEnv
+                    + " is not; juveniles need the population rhythm to have a birth to be aged"
+                    + " from, so they stay OFF this run.");
+            }
             _registry = new IslandFaunaRegistry(clock,
                 _ecology != null ? _ecology.WorldTransformAt : IslandFaunaMovement.WorldTransformAt,
                 maxConcurrent);
@@ -576,6 +607,69 @@ namespace WorldsAdriftRebornGameServer.Game
         /// island, so the serializer needs the creature rather than three
         /// separate questions.
         /// </summary>
+        /// <summary>Whether calf slots and their offsets are live this run.</summary>
+        internal bool JuvenilesEnabled => _juveniles;
+
+        /// <summary>
+        /// THE AGE ONE CREATURE IS SERVED IN COMPONENT 1166, or null for anything
+        /// that must not receive the component at all.
+        ///
+        /// NULL IS THE FLAG-OFF PATH AND IT MUST STAY THAT WAY. The serializer's
+        /// 1166 branch is guarded on this returning a value, so with juveniles off
+        /// - or on a jelly, or on an entity that is not a creature - the component
+        /// falls through to the same unhandled path it takes today and the wire is
+        /// byte-identical.
+        ///
+        /// EVERY OTHER ANSWER IS AN ADULT UNLESS IT ARGUES OTHERWISE. Serving 1166
+        /// activates <c>AgeVisualizer</c> on EVERY manta it reaches, and the
+        /// visualiser assigns a scale unconditionally, so the policy is total by
+        /// construction: <see cref="IslandFaunaAge.Adult"/> is the default and the
+        /// juvenile case is the narrow exception. See
+        /// <see cref="IslandFaunaAge"/>'s remarks - this is Hazard 0.
+        /// </summary>
+        internal FaunaAgeState? AgeStateFor(long entityId)
+        {
+            if (!_enabled || !_juveniles) return null;
+            if (!_planned.TryGetValue(entityId, out FaunaPlacement placement)) return null;
+
+            // Jellies have NO scale path at all - no AgeVisualizer and no size
+            // field on any component in the basic-creature stack - so 1166 on a
+            // jelly has no consumer. Serving it would be traffic that draws
+            // nothing, and a claim the client cannot honour.
+            if (placement.Creature.Species != FaunaSpecies.MantaRay) return null;
+
+            return AgeOf(placement.Creature, _clock.Elapsed.TotalSeconds);
+        }
+
+        /// <summary>
+        /// The age policy applied to one planned creature at one instant. Split
+        /// out so a test can drive it without a peer, a socket or a clock.
+        /// </summary>
+        private FaunaAgeState AgeOf(FaunaCreature creature, double nowSeconds)
+        {
+            if (_ecology == null
+                || !_byIsland.TryGetValue(creature.IslandId, out IslandPopulation? population))
+            {
+                return IslandFaunaAge.Adult;
+            }
+
+            // The species' OWN capacity and this creature's OWN rank in it, READ
+            // off the seeded id list rather than re-derived. A second derivation
+            // of either would be a second thing that can disagree with the prefix
+            // the checkout layer actually walks.
+            int rank = population.MantaIds.IndexOf(creature.EntityId);
+            if (rank < 0) return IslandFaunaAge.Adult;
+
+            // NO CALF SLOTS EXIST AT THIS COMMIT. Turning 1166 on is a change to
+            // the whole species - the visualiser activates on every manta the
+            // moment the component is answered - so the adult case ships and is
+            // proved on its own first. The juvenile commit passes the family's
+            // answer here instead of false.
+            return IslandFaunaAge.StateFor(
+                _ecology.WorldSeed, creature.IslandId, FaunaSpecies.MantaRay,
+                population.MantaIds.Count, rank, isCalfSlot: false, nowSeconds);
+        }
+
         internal FaunaCreature? CreatureOf(long entityId) =>
             _enabled && _planned.TryGetValue(entityId, out FaunaPlacement placement)
                 ? placement.Creature : (FaunaCreature?)null;

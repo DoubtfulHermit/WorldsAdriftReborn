@@ -3463,6 +3463,47 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 Bossa.Travellers.Creatures.Variants.MantaRayVariantType>),
                             (Bossa.Travellers.Biomes.BiomeType)biome);
                     }
+                    // ------------------------------------------------------------------
+                    // 1166 AgeState - THE MANTA'S SIZE, and the one component in this
+                    // file whose absence is load-bearing.
+                    //
+                    // The shipped MantaRay_unityclient prefab carries AgeVisualizer,
+                    // whose single [Require] is an AgeStateReader. It is inert today
+                    // ONLY because nobody answers 1166: EntityVisualizers.UpdateActivation
+                    // never activates a visualiser whose readers are not injected, so the
+                    // creature renders at prefab default with no error and no NRE. The
+                    // instant this branch exists, the visualiser activates on EVERY manta
+                    // it reaches and unconditionally assigns
+                    //   localScale = Vector3.one * Lerp(0.25, 1.0, secondsOld/secondsTillFullyGrown)
+                    // to the ENTITY ROOT. There is no "leave it alone" value, so an adult
+                    // must be sent an explicit secondsOld >= secondsTillFullyGrown or the
+                    // whole world's mantas shrink to a quarter at once. That total policy
+                    // lives in IslandFaunaAge; this branch only carries its answer.
+                    //
+                    // Guarded on Fauna.AgeStateFor returning a value rather than on the
+                    // species, because that ONE call is where the feature flag is
+                    // consulted: with juveniles off it returns null, this branch does not
+                    // fire, and 1166 falls through to the unhandled path it takes today -
+                    // which is what "flag off is byte-identical on the wire" means.
+                    //
+                    // ZERO NEW TRAFFIC. This rides the AddEntity component seed the client
+                    // already asks for (the manta requests 14 components and we answer 8;
+                    // 1166 is one of the six that come back [ToDo] unhandled). No update is
+                    // ever pushed: AgeVisualizer subscribes only to SecondsOldUpdated, and
+                    // its GrowRoutine reapplies the last ratio every 60 s, so a correctly
+                    // seeded age is right from the first frame and stays right.
+                    // ------------------------------------------------------------------
+                    else if (componentId == 1166
+                        && WorldsAdriftRebornGameServer.Fauna.AgeStateFor(entityId)
+                            is Multiplayer.Islands.FaunaAgeState age)
+                    {
+                        obj = new Bossa.Travellers.Creatures.AgeState.Data(
+                            age.SecondsOld,
+                            age.SecondsTillFullyGrown,
+                            age.SecondsTillNaturalDeath,
+                            age.MaxMassKilograms,
+                            age.MinMassKilograms);
+                    }
                     else if (componentId == Multiplayer.TeleportPolicy.TeleportRequestStateComponentId)
                     {
                         // 190607 TeleportRequestState. Everything about this seed -
