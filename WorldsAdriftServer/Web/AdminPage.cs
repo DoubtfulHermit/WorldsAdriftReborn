@@ -144,6 +144,14 @@ svg.zoom-near .map-cell-label{opacity:.34}svg.zoom-near .map-cell-label .tier{op
 svg.zoom-near .map-marker .map-island{opacity:.28}svg.zoom-near .map-marker.hot .map-island,svg.zoom-near .map-marker.selected .map-island{opacity:1}
 #mapIslandLayer.filtering .map-marker{opacity:.13;transition:opacity .18s}#mapIslandLayer.filtering .map-marker.match{opacity:1}#mapShellLayer.filtering .map-shell{opacity:.13}#mapShellLayer.filtering .map-shell.match{opacity:1}
 .map-wall-halo{fill:none;stroke:#071017;stroke-width:5;opacity:.8;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:2.5;opacity:.98;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-runtime-island{fill:none;stroke:#71d0a5;stroke-width:2.5;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#f3f7ff;stroke-width:.7}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edfff7;stroke-width:.7}
+/* Live wildlife. Warm hues on purpose: every other live mark on this map is
+   cool (ship blue, player and island-domain green) and the tier fills are the
+   Nightfall greens, blues, violets and yellows, so coral and pink are the two
+   families nothing else here occupies. Colour is never the only channel - a
+   manta is a swept dart that points along its travel and a jelly is a fringed
+   bell that does not - and the thin dark stroke keeps both readable over a
+   pale Tier 4 cell as well as over open ocean. */
+.map-fauna-layer{pointer-events:none}.fauna{pointer-events:none;stroke:#08141b;stroke-width:.85;vector-effect:non-scaling-stroke}.fauna.manta{fill:#ff9e7a}.fauna.jelly{fill:#f0a8e2}.fauna.school{opacity:.96}.fauna.member{opacity:.9}svg.zoom-far .fauna.school{opacity:.8}
 .map-hover{position:absolute;z-index:12;pointer-events:none;max-width:17rem;padding:.5rem .62rem;border:1px solid rgba(116,201,207,.4);border-radius:8px;background:rgba(8,17,24,.96);box-shadow:0 12px 30px rgba(0,0,0,.45);opacity:0;transform:translateY(3px);transition:opacity .12s,transform .12s}.map-hover.show{opacity:1;transform:none}.map-hover b{display:block;font-size:.72rem;font-weight:620;letter-spacing:-.01em}.map-hover .hv-meta{display:block;margin-top:.16rem;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase;color:var(--text-faint)}.map-hover .hv-facts{display:block;margin-top:.3rem;font-size:.62rem;color:var(--text-soft);line-height:1.5}.map-hover .hv-cta{display:block;margin-top:.34rem;padding-top:.3rem;border-top:1px solid rgba(56,76,88,.7);font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
 .map-compass{position:absolute;right:.85rem;top:.85rem;width:2.1rem;height:2.1rem;border:1px solid var(--line-strong);border-radius:50%;display:grid;place-items:center;background:rgba(7,15,21,.82);font-size:.58rem;font-weight:750;color:var(--text-soft);pointer-events:none}.map-scalebar{position:absolute;right:.85rem;bottom:.85rem;display:flex;flex-direction:column;align-items:flex-end;gap:.18rem;pointer-events:none}.map-scalebar .bar{height:.34rem;min-width:1.5rem;border:1px solid rgba(214,232,238,.8);border-top:0;background:linear-gradient(90deg,rgba(214,232,238,.22),rgba(214,232,238,.05))}.map-scalebar .lbl{color:var(--text-soft);font-size:.55rem;font-variant-numeric:tabular-nums}.map-zoomlevel{position:absolute;left:.85rem;top:.85rem;padding:.22rem .5rem;border:1px solid var(--line);border-radius:999px;background:rgba(7,15,21,.82);color:var(--text-faint);font-size:.54rem;letter-spacing:.09em;text-transform:uppercase;pointer-events:none}.map-hint{position:absolute;left:.85rem;bottom:.85rem;padding:.3rem .6rem;border:1px solid var(--line);border-radius:999px;background:rgba(7,15,21,.82);color:var(--text-faint);font-size:.56rem;pointer-events:none;transition:opacity .4s}.map-hint.faded{opacity:.28}.world-map-stage .map-empty{position:absolute;left:50%;bottom:3.2rem;transform:translateX(-50%);padding:.3rem .6rem;border-radius:999px;background:rgba(7,15,21,.86);color:var(--text-faint);font-size:.58rem;pointer-events:none}
 .map-detail{display:flex;flex-direction:column;min-width:0;height:100%;min-height:0;background:linear-gradient(180deg,#0c1721,#0a131a);overflow:hidden}.md-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain}.md-head{position:sticky;top:0;z-index:2;padding:.95rem 1.05rem .8rem;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#101d28,#0c1721)}.md-back{display:inline-flex;align-items:center;gap:.3rem;margin:0 0 .5rem;padding:.2rem .5rem .2rem .38rem;border:1px solid var(--line);border-radius:999px;background:none;color:var(--text-soft);font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;min-height:0;cursor:pointer;transition:border-color .12s,color .12s}.md-back:hover{border-color:var(--accent);color:var(--text)}.md-kicker{font-size:.53rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-faint)}.md-title{margin:.24rem 0 0;font-size:1.18rem;font-weight:620;letter-spacing:-.015em;line-height:1.15}.md-sub{margin-top:.34rem;display:flex;flex-wrap:wrap;align-items:center;gap:.34rem .5rem;font-size:.63rem;color:var(--text-soft)}.md-sub .dot{width:2px;height:2px;border-radius:50%;background:var(--text-faint)}.md-id{margin-top:.42rem;font:500 .57rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text-faint);word-break:break-all}
@@ -156,7 +164,7 @@ table.md-table{width:100%;border-collapse:collapse;font-size:.67rem}table.md-tab
 .md-list{display:flex;flex-direction:column;margin:0 -1.05rem -.85rem;border-top:1px solid rgba(38,54,65,.55)}.md-list .row{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:.5rem;width:100%;padding:.44rem 1.05rem;border:0;border-bottom:1px solid rgba(38,54,65,.4);border-radius:0;background:none;color:var(--text);text-align:left;text-transform:none;letter-spacing:0;font-size:.67rem;font-weight:560;min-height:0;cursor:pointer;transition:background .12s}.md-list .row:hover,.md-list .row:focus-visible{background:var(--accent-soft);outline:none}.md-list .row em{font-style:normal;font-weight:500;font-size:.57rem;color:var(--text-faint);white-space:nowrap;font-variant-numeric:tabular-nums}.md-list .row .mark{color:#e8c06a}
 .md-empty{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:2rem 1.4rem;text-align:center}.md-empty .glyph{width:2.6rem;height:2.6rem;border:1px dashed var(--line-strong);border-radius:50%;display:grid;place-items:center;color:var(--text-faint);font-size:1rem}.md-empty p{margin:0;font-size:.66rem;line-height:1.6;color:var(--text-faint);max-width:20rem}
 .tierchip{display:inline-block;min-width:1.5rem;padding:.1rem .42rem;border-radius:4px;text-align:center;font-weight:670;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase}
-.world-map-legend{display:flex;flex-wrap:wrap;gap:.5rem .9rem;padding:.7rem .95rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem;align-items:center}.map-legend-break{flex-basis:100%;height:0}.world-map-legend .legend-lead{flex-basis:100%;color:var(--text-soft);font-weight:650;letter-spacing:.04em}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.tier{height:.62rem;width:1.05rem;border-radius:2px;border:1px solid #6f7d85}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-swatch.runtime{width:.5rem;height:.5rem;border-radius:50%;background:transparent;border:1px solid #71d0a5}.world-map-legend .legend-inferred{color:#e8c06a}.world-map-legend .legend-inferred strong{color:#e8c06a}
+.world-map-legend{display:flex;flex-wrap:wrap;gap:.5rem .9rem;padding:.7rem .95rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem;align-items:center}.map-legend-break{flex-basis:100%;height:0}.world-map-legend .legend-lead{flex-basis:100%;color:var(--text-soft);font-weight:650;letter-spacing:.04em}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.tier{height:.62rem;width:1.05rem;border-radius:2px;border:1px solid #6f7d85}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-swatch.runtime{width:.5rem;height:.5rem;border-radius:50%;background:transparent;border:1px solid #71d0a5}.map-swatch.manta{width:.46rem;height:.46rem;background:#ff9e7a;clip-path:polygon(50% 0,100% 100%,50% 74%,0 100%)}.map-swatch.jelly{width:.46rem;height:.46rem;border-radius:50% 50% 34% 34%;background:#e9a4d8}.world-map-legend .legend-fauna{flex-basis:100%;color:var(--text-soft)}.world-map-legend .legend-inferred{color:#e8c06a}.world-map-legend .legend-inferred strong{color:#e8c06a}
 .map-provenance{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .8rem;padding:.6rem .95rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.045);color:var(--text-faint);font-size:.62rem;line-height:1.6}.map-provenance strong{color:var(--text-soft)}.map-provenance-text{flex:1 1 24rem;min-width:0}
 @media(max-width:1180px){.world-map-body{grid-template-columns:1fr;height:auto}.world-map-stage{border-right:0;border-bottom:1px solid var(--line);height:clamp(24rem,58vh,40rem)}.map-detail{height:auto;max-height:38rem}}
 @media(prefers-reduced-motion:reduce){.map-marker .mk,.map-shell,.map-island,.map-hover,.map-shell-layer{transition:none}}
@@ -321,6 +329,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
         <label class=""map-toggle""><input type=""checkbox"" id=""mapWalls"" checked>walls</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapShips"" checked>ships</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapPlayers"" checked>players</label>
+        <label class=""map-toggle""><input type=""checkbox"" id=""mapFauna"" checked>wildlife</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""ledgerInferredOnly"">inferred ore only</label>
         <button type=""button"" id=""mapZoomIn"" aria-label=""Zoom map in"">+</button><button type=""button"" id=""mapZoomOut"" aria-label=""Zoom map out"">&minus;</button><button type=""button"" id=""mapReset"">Whole world</button>
       </div>
@@ -331,10 +340,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
       <span class=""count-reconcile"" id=""mapReconcile"">Reconciling island counts&hellip;</span>
     </div>
     <div class=""world-map-body"">
-    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Preserved release-world map evidence - tiered biome cells, Haven corridor, weather walls and island placements - with a live overlay of authoritative ships, players and currently simulated island domains""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -145 112 98 0 58 -112 98Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapShellLayer"" class=""map-shell-layer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-hover"" id=""mapHover"" role=""tooltip""></div><div class=""map-compass"">N</div><div class=""map-zoomlevel"" id=""mapZoomLevel"">whole world</div><div class=""map-scalebar""><div class=""bar"" id=""mapScaleBar""></div><div class=""lbl"" id=""mapScale"">6 km</div></div><div class=""map-hint"" id=""mapHint"">Drag to pan &middot; scroll to zoom &middot; click an island for its full inventory</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
+    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Preserved release-world map evidence - tiered biome cells, Haven corridor, weather walls and island placements - with a live overlay of authoritative ships, players and currently simulated island domains""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -145 112 98 0 58 -112 98Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><symbol id=""mantaSymbol"" viewBox=""-100 -100 200 200""><path d=""M0 -76 C30 -50 60 -6 74 34 C44 26 20 18 0 18 C-20 18 -44 26 -74 34 C-60 -6 -30 -50 0 -76 Z""></path><path d=""M-5 14 L5 14 L2 90 L-2 90 Z""></path></symbol><symbol id=""jellySymbol"" viewBox=""-100 -100 200 200""><path d=""M0 -58 C38 -58 60 -30 60 0 C60 10 52 18 40 20 C20 24 -20 24 -40 20 C-52 18 -60 10 -60 0 C-60 -30 -38 -58 0 -58 Z""></path><path d=""M-34 20 L-24 20 L-18 78 L-30 70 Z M-6 22 L6 22 L4 90 L-4 90 Z M24 20 L34 20 L30 70 L18 78 Z"" opacity="".78""></path></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapShellLayer"" class=""map-shell-layer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapFaunaLayer"" class=""map-fauna-layer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-hover"" id=""mapHover"" role=""tooltip""></div><div class=""map-compass"">N</div><div class=""map-zoomlevel"" id=""mapZoomLevel"">whole world</div><div class=""map-scalebar""><div class=""bar"" id=""mapScaleBar""></div><div class=""lbl"" id=""mapScale"">6 km</div></div><div class=""map-hint"" id=""mapHint"">Drag to pan &middot; scroll to zoom &middot; click an island for its full inventory</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
     <aside class=""map-detail"" id=""mapDetail"" aria-live=""polite"" aria-label=""Selected map feature""></aside>
     </div>
-    <div class=""world-map-legend""><span class=""legend-lead"">Island tier, low to high &mdash; one hue per tier, painted as a translucent zone over the world at " + MapTierPalette.FillOpacityCss + @" opacity. Each key below is the <em>composited</em> colour the cell actually shows, not the undimmed hex; every cell also prints its own tier, so colour is never the only channel:</span><span><i class=""map-swatch tier tier-1""></i>T1 Wilderness &middot; temperate</span><span><i class=""map-swatch tier tier-2""></i>T2 Expanse &middot; highlands</span><span><i class=""map-swatch tier tier-3""></i>T3 Remnants &middot; ice</span><span><i class=""map-swatch tier tier-4""></i>T4 Badlands &middot; desert</span><span class=""map-legend-break""></span><span><i class=""map-swatch haven""></i>Haven corridor</span>" + MapWallPalette.LegendHtml() + @"<span><i class=""map-swatch ship""></i>Ship (live)</span><span><i class=""map-swatch player""></i>Player (live)</span><span><i class=""map-swatch runtime""></i>Currently simulated island domain (live)</span><span>Every other mark is preserved map evidence</span><span class=""map-legend-break""></span><span class=""legend-lead"">Nothing is written on the terrain. Hover any island or zone for a quick read, click it for the full panel on the right, and zoom in past a few kilometres to get island names and their real preserved coastlines.</span><span class=""legend-inferred"">Ore types on 193 of the 254 islands are <strong>INFERRED</strong>, not recovered: those islands were never surveyed for metal, so their ore table is composed from the surveyed same-tier cohort. Every place the panel shows one, it says so in words.</span><span>Fuel pods and loot chests are reported as 0 because retail&rsquo;s per-island placements did not survive; none were invented.</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
+    <div class=""world-map-legend""><span class=""legend-lead"">Island tier, low to high &mdash; one hue per tier, painted as a translucent zone over the world at " + MapTierPalette.FillOpacityCss + @" opacity. Each key below is the <em>composited</em> colour the cell actually shows, not the undimmed hex; every cell also prints its own tier, so colour is never the only channel:</span><span><i class=""map-swatch tier tier-1""></i>T1 Wilderness &middot; temperate</span><span><i class=""map-swatch tier tier-2""></i>T2 Expanse &middot; highlands</span><span><i class=""map-swatch tier tier-3""></i>T3 Remnants &middot; ice</span><span><i class=""map-swatch tier tier-4""></i>T4 Badlands &middot; desert</span><span class=""map-legend-break""></span><span><i class=""map-swatch haven""></i>Haven corridor</span>" + MapWallPalette.LegendHtml() + @"<span><i class=""map-swatch ship""></i>Ship (live)</span><span><i class=""map-swatch player""></i>Player (live)</span><span><i class=""map-swatch runtime""></i>Currently simulated island domain (live)</span><span><i class=""map-swatch manta""></i>Manta ray school (live)</span><span><i class=""map-swatch jelly""></i>Jellyfish shoal (live)</span><span>Every other mark is preserved map evidence</span><span class=""map-legend-break""></span><span class=""legend-fauna"" id=""mapFaunaNote"">Wildlife: waiting for the game server&rsquo;s fauna roster&hellip;</span><span class=""map-legend-break""></span><span class=""legend-lead"">Nothing is written on the terrain. Hover any island or zone for a quick read, click it for the full panel on the right, and zoom in past a few kilometres to get island names and their real preserved coastlines.</span><span class=""legend-inferred"">Ore types on 193 of the 254 islands are <strong>INFERRED</strong>, not recovered: those islands were never surveyed for metal, so their ore table is composed from the surveyed same-tier cohort. Every place the panel shows one, it says so in words.</span><span>Fuel pods and loot chests are reported as 0 because retail&rsquo;s per-island placements did not survive; none were invented.</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
     <div class=""map-authenticity""><strong>Release MapFile geometry.</strong> The map contains 20 distinct tier/biome cells: 18 have authored district IDs and two Tier-4 Badlands cells are explicitly unassigned. E3 is one cell; the adjacent unnamed cells are not silently invented as E1/E2 or merged into E3. Haven is inside the 36&times;36 km boundary, east of the authored separator, with 12 preserved starter-island placements. None of this geometry is read from the running game server, and none of it is evidence that any of these islands is currently simulated.</div>
     <div class=""island-ledger"">
       <div class=""island-ledger-bar"">
@@ -998,6 +1007,23 @@ variable to <code>username:hash</code> and restart the login server to enable th
     none.appendChild(el('p','md-p',NOT_PRESENT_LOOT));
     scroll.appendChild(none);
 
+    var wild=mdBlock('Wildlife');
+    var planned=0,plannedIslands=0;
+    (worldMap.islands||[]).forEach(function(x){
+      if(!x.fauna)return;
+      plannedIslands++;planned+=(Number(x.fauna.manta)||0)+(Number(x.fauna.jelly)||0);
+    });
+    wild.appendChild(el('p','md-p',
+      'Manta rays patrol each island’s perimeter and jellyfish drift under it by day and rise to '
+      +'walking height at night. Across the whole catalogue the seeding rule would place '
+      +fmt(planned)+' creatures on '+plural(plannedIslands,'island','islands')
+      +'; how many actually exist depends on the world the game server booted and its creature '
+      +'budget. This is a Wareborn reconstruction: retail’s ecology lived in GSim, which is not '
+      +'preserved, so every COUNT is this project’s tuning and only the shape of the paths is '
+      +'recovered. Open any island for its own roster.'));
+    wild.appendChild(el('p','md-p',faunaNoteText()));
+    scroll.appendChild(wild);
+
     var zones=mdBlock('Zones');
     var list=el('div','md-list');
     mapZoneNodes.slice().sort(function(a,b){
@@ -1045,6 +1071,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     stats.appendChild(statTile(inv.databanks,'Databanks'));
     stats.appendChild(statTile(inv.deposits,'Metal deposits'));
     stats.appendChild(statTile(inv.trees,'Trees'));
+    if(i.fauna)stats.appendChild(statTile(Number(i.fauna.manta)+Number(i.fauna.jelly),'Creatures'));
     scroll.appendChild(stats);
 
     var ore=mdBlock('Metal deposits by ore');
@@ -1068,6 +1095,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
       trees.appendChild(el('p','md-p','No trees. The Cardinal Guild survey records none on this island, and none are seeded.'));
     }
     scroll.appendChild(trees);
+
+    appendIslandFauna(scroll,i,inv);
 
     var notes=mdBlock('Survey notes');
     var flags=[];
@@ -1108,6 +1137,71 @@ variable to <code>username:hash</code> and restart the login server to enable th
     zoomBtn.addEventListener('click',function(){flyTo(Number(i.x),-Number(i.z),5000);});
     place.appendChild(zoomBtn);
     scroll.appendChild(place);
+  }
+  // WHAT LIVES ON THIS ROCK. The roster is per-island and derived from the
+  // island's own surveyed tier, so stating it costs nothing - and it closes a
+  // question the panel could not answer at all before, which is whether there
+  // is anything alive out there.
+  function appendIslandFauna(scroll,i,inv){
+    var f=i.fauna,model=worldMap.faunaModel||{};
+    var block=mdBlock('Wildlife');
+    if(!f){
+      block.appendChild(el('p','md-p','No fauna geometry is published for this placement, '
+        +'so nothing is claimed about what lives on it.'));
+      scroll.appendChild(block);return;
+    }
+    var manta=Number(f.manta)||0,jelly=Number(f.jelly)||0,schools=Math.max(1,Number(f.schools)||1);
+    block.appendChild(el('p','md-p',
+      plural(manta,'manta ray','manta rays')+' in '+plural(schools,'school','schools')
+      +' and '+plural(jelly,'jellyfish','jellyfish')+' in '+plural(schools,'shoal','shoals')
+      +' - '+plural(manta+jelly,'creature','creatures')+' in all. The seeding rule reads this '
+      +'island’s Cardinal Guild SURVEY tier, which is Tier '+inv.surveyTier
+      +(Number(inv.surveyTier)===Number(inv.cellTier)
+        ? '.' : ', not the Tier '+inv.cellTier+' its MapFile cell carries.')));
+    block.appendChild(chipRow(['Manta ray','Jellyfish']));
+
+    var live=faunaLiveOn(inv.islandId),state=el('p','md-p');
+    if(!faunaStat){
+      state.textContent='The game server is not reporting an island-fauna roster, so nothing is '
+        +'claimed about what is alive here right now. The counts above are what the seeding rule '
+        +'places when it runs.';
+    }else if(!live){
+      state.textContent='The game server is reporting island fauna and this island is NOT in its '
+        +'roster, so nothing is alive here this run - normally the world-wide creature budget '
+        +'running out before this island was reached.';
+    }else{
+      state.appendChild(el('strong','','Live now. '));
+      state.appendChild(document.createTextNode(
+        plural(Number(live.mantaRays)||0,'manta ray','manta rays')+' and '
+        +plural(Number(live.jellyFish)||0,'jellyfish','jellyfish')
+        +' are on this island on the running game server, and the map is drawing them where the '
+        +'server has them: it evaluates the server’s own movement against the clock the '
+        +'server reports, rather than sampling positions.'));
+    }
+    block.appendChild(state);
+
+    block.appendChild(kv([
+      ['Manta orbit',fmt(Math.round(f.mantaOrbitRadius))+' m out, one lap in '+fmtShort(f.mantaLapSeconds)],
+      ['Shoal drift',fmt(Math.round(f.jellyLateralRadius*(Number(model.jellyNightRadiusRatio)||0)))
+        +' m at night to '+fmt(Math.round(f.jellyLateralRadius*(Number(model.jellyDayRadiusRatio)||0)))+' m by day'],
+      ['Day/night cycle',fmtShort(Number(model.dayNightCycleSeconds)||0)],
+      ['Manta speed',(Number(model.mantaMetresPerSecond)||0)+' m/s, constant']
+    ]));
+
+    var flag=el('div','md-flag plain');
+    flag.appendChild(el('strong','','Wareborn tuning, not Bossa data. '));
+    flag.appendChild(document.createTextNode(
+      'How many creatures a school holds was never recoverable: retail’s flock component carries '
+      +'two unbounded member lists and no size, minimum, maximum or density anywhere, and the '
+      +'bookkeeping that filled them lived in GSim, which is not preserved. These counts are this '
+      +'project’s choice. That they RISE with the tier is taken from the fandom Biome and '
+      +'Creatures pages, not from Bossa data. What IS recovered is the shape of the paths: the '
+      +'orbit radius above is the island’s own horizontal half-diagonal plus a ten-metre '
+      +'standoff, read exactly off the decompiled patrol visualiser, and the day/night split is '
+      +'its recovered 0.2/0.8 threshold. The motion itself is an analytical reconstruction, '
+      +'because retail steered these animals with physics this server does not run.'));
+    block.appendChild(flag);
+    scroll.appendChild(block);
   }
   function detailZone(panel,scroll,z){
     var b=z.biome,info=biomeInfo(b.type),roll=(worldMap.cells||{})[b.cellId];
@@ -1273,7 +1367,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
   function renderStaticWorldMap(){
     var grid=$('mapGrid'),walls=$('mapWallLayer'),islands=$('mapIslandLayer'),biomes=$('mapBiomeLayer'),haven=$('mapHavenLayer'),shells=$('mapShellLayer');
     clear(grid);clear(walls);clear(islands);clear(biomes);clear(haven);clear(shells);
-    mapMarkers=[];mapIslandNodes=[];mapZoneNodes=[];
+    mapMarkers=[];mapIslandNodes=[];mapZoneNodes=[];faunaById={};
     var edge=Math.max(1,Number(worldMap.worldEdgeLength)||36000),half=edge/2,separator=Number(worldMap.havenSeparatorX)||15943.6523;
     ['mapOcean','mapWorldBoundary','worldClipRect'].forEach(function(id){var node=$(id);node.setAttribute('x',-half);node.setAttribute('y',-half);node.setAttribute('width',edge);node.setAttribute('height',edge);});
 
@@ -1359,9 +1453,17 @@ variable to <code>username:hash</code> and restart the login server to enable th
       group.addEventListener('pointerleave',function(){group.classList.remove('hot');if(node.shell)node.shell.classList.remove('hot');});
       attachHover(group,function(){return islandHoverCard(node);});
       mapIslandNodes.push(node);
+      // The wildlife roster arrives keyed by island id, so the join to the
+      // drawn placement is built once here rather than searched 460 times a
+      // frame.
+      if(inv&&inv.islandId&&i.fauna)faunaById[inv.islandId]=node;
     });
 
     renderIslandLedger();
+    // Before selectWorld, because the world panel states what the wildlife is
+    // doing and a panel built while the evaluator was still null said the model
+    // had failed to load.
+    startFauna();
     selectWorld();
     resetMapView();
   }
@@ -1563,6 +1665,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
         pairs:[['Entity',String(p.entityId)],['World X',x.toFixed(1)],['World Y',Number(p.y).toFixed(1)],
                ['World Z',Number(p.z).toFixed(1)]]});
     });
+    // The wildlife roster and its clock come from the same snapshot, and the
+    // animation loop reads them; nothing is drawn on this pass.
+    noteFauna(latestGame);
+    text('mapFaunaNote',faunaNoteText());
     $('mapBiomeLayer').style.display=$('mapBiomes').checked?'':'none';
     $('mapIslandLayer').style.display=$('mapIslands').checked?'':'none';
     $('mapShellLayer').style.display=$('mapIslands').checked?'':'none';
@@ -1579,6 +1685,312 @@ variable to <code>username:hash</code> and restart the login server to enable th
     var note=$('mapLiveNote');note.style.display=(live||!reporting)?'none':'block';
     if(unknown){note.style.display='block';note.textContent=unknown+' connected player'+(unknown===1?' has':'s have')+' no authoritative world position yet.';}
     else note.textContent='No live positions reported.';
+  }
+
+  // ---- live wildlife -----------------------------------------------------
+  // WHY THIS IS NOT A POSITION FEED. Every creature on the game server moves on
+  // a CLOSED FORM of the clock: a manta's perimeter orbit and a jellyfish
+  // shoal's day/night drift are functions of elapsed seconds, with no
+  // integration, no entropy and no remembered pose (IslandFaunaMovement). The
+  // stats snapshot lands every three seconds, so pushing 460 positions through
+  // it would cost bandwidth AND still teleport every animal three times a
+  // minute. What the server sends instead is the ROSTER - who is alive, on
+  // which island - and its own fauna CLOCK, and this browser evaluates the same
+  // function. The result is smooth at any frame rate and is the pose the server
+  // actually holds, not an interpolation between two stale samples.
+  //
+  // NONE OF THE NUMBERS ARE RESTATED HERE. worldMap.faunaModel is a projection
+  // of IslandFaunaMapModel.Constants and each island's `fauna` block is
+  // precomputed from its envelope by IslandFaunaMapModel.MotionFor, so retuning
+  // a manta's speed or an island's geometry moves this map with it. What IS
+  // restated is the SHAPE of the formulas below, and that is guarded:
+  // AdminFaunaParityTests extracts the marked block, runs it against the C# at
+  // fixed timestamps, and fails if the two disagree by a millimetre.
+  //
+  // Positions are ISLAND-LOCAL and added to the MapFile placement, exactly as
+  // the preserved coastline above is, so a creature is always drawn in the
+  // right relationship to the rock beneath it.
+
+  // ==== FAUNA MOTION MIRROR BEGIN ====
+  function faunaMotion(M){
+    function fraction(v){var f=v-Math.floor(v);return f<0?f+1:(f>=1?0:f);}
+    function smoothStep(t){return t<=0?0:(t>=1?1:t*t*(3-2*t));}
+    function schoolPhase(schoolIndex){return fraction(schoolIndex*M.goldenRatioFraction);}
+    function cycleFraction(t){return fraction(t/M.dayNightCycleSeconds);}
+    // How DAYTIME it is, 0..1, ramped across dawn and dusk. The ramp is what
+    // keeps a shoal drifting rather than teleporting at the phase boundary.
+    function dayness(t){
+      var c=cycleFraction(t),ramp=M.phaseTransitionFraction;
+      return Math.min(smoothStep((c-M.dayBeginsAtCycleFraction)/ramp),
+                      smoothStep((M.dayEndsAtCycleFraction-c)/ramp));
+    }
+    function mantaVertical(lap){return M.mantaVerticalSpanRatio*Math.sin(fraction(lap)*Math.PI);}
+    function mantaCentre(p,schoolIndex,t){
+      var lap=fraction(t/p.mantaLapSeconds+schoolPhase(schoolIndex)),th=lap*2*Math.PI;
+      return {x:p.cx+p.mantaOrbitRadius*Math.sin(th),
+              y:p.cy+p.halfHeight*mantaVertical(lap),
+              z:p.cz+p.mantaOrbitRadius*Math.cos(th)};
+    }
+    function jellyCentre(p,schoolIndex,t){
+      var d=dayness(t);
+      var th=fraction(t/M.jellySecondsPerRevolution+schoolPhase(schoolIndex))*2*Math.PI;
+      var r=p.jellyLateralRadius
+        *(M.jellyNightRadiusRatio+(M.jellyDayRadiusRatio-M.jellyNightRadiusRatio)*d);
+      var nightY=p.minY+(p.maxY-p.minY)*M.walkableHeightFraction;
+      return {x:p.cx+r*Math.sin(th),y:nightY+(p.minY-nightY)*d,z:p.cz+r*Math.cos(th)};
+    }
+    function memberOffset(memberIndex,radius,verticalRadius,t){
+      var weave=t*M.weaveRadiansPerSecond;
+      var angle=memberIndex*M.goldenAngleRadians+weave;
+      var radial=radius*Math.sqrt(fraction((memberIndex+1)*M.goldenRatioFraction));
+      var vertical=verticalRadius
+        *Math.sin((memberIndex+1)*M.goldenAngleRadians*0.5+weave*0.6);
+      return {x:radial*Math.cos(angle),y:vertical,z:radial*Math.sin(angle)};
+    }
+    function cluster(species){
+      return species==='manta'
+        ? {r:M.mantaSchoolRadius,v:M.mantaSchoolVerticalRadius}
+        : {r:M.jellyShoalRadius,v:M.jellyShoalVerticalRadius};
+    }
+    function schoolCentre(p,species,schoolIndex,t){
+      return species==='manta'?mantaCentre(p,schoolIndex,t):jellyCentre(p,schoolIndex,t);
+    }
+    function localPose(p,species,schoolIndex,memberIndex,t){
+      var c=schoolCentre(p,species,schoolIndex,t),k=cluster(species);
+      var o=memberOffset(memberIndex,k.r,k.v,t);
+      return {x:c.x+o.x,y:c.y+o.y,z:c.z+o.z};
+    }
+    return {localPose:localPose,schoolCentre:schoolCentre,cluster:cluster,
+            dayness:dayness,cycleFraction:cycleFraction};
+  }
+  // ==== FAUNA MOTION MIRROR END ====
+
+  var FAUNA=null;        // the evaluator, built once the model has loaded
+  var faunaAnchor=null;  // {clock,perf} - the server's fauna clock carried on ours
+  var faunaStat=null;    // the live section, or null when nothing may be drawn
+  var faunaRoster=[];    // [{node,p,ox,oz,manta,jelly}] joined to the drawn islands
+  var faunaById={};      // islandId -> drawn island node
+  var faunaPool=[];      // reused SVG groups: this repaints up to 60 times a second
+  var faunaFrame=null,faunaLastDrawMs=-1e9,faunaLastNoteMs=-1e9,faunaSignature='';
+  // Members are separated only once a school is big enough on screen to have
+  // members worth separating. A manta school is 12 m across, which at
+  // whole-world zoom is a third of a pixel: four darts stacked on one dot say
+  // nothing a single moving mark does not, and cost 460 nodes to say it.
+  var FAUNA_MEMBER_PIXELS=5;
+  // Two samples of the SAME path give the bearing. Far enough apart to be well
+  // above floating-point noise, short enough that it is the tangent.
+  var FAUNA_HEADING_DT=0.35;
+  var FAUNA_REDUCED_MOTION_MS=1000, FAUNA_IDLE_MS=400;
+
+  function faunaNow(){
+    return (window.performance&&performance.now)?performance.now():Date.now();
+  }
+  // Carry the server's fauna clock on OUR monotonic one rather than on the wall
+  // clock, so a browser whose time is thirty seconds out still draws the
+  // creatures where the server has them. Re-anchoring on every poll would make
+  // the whole world twitch once every four seconds by however much the two
+  // clocks disagree; re-anchoring only on a real jump catches the two cases
+  // that matter - a restarted game server, and a tab that was suspended.
+  function noteFauna(g){
+    var f=(g&&g.fauna)||null;
+    var live=!!(f&&f.present===true&&f.enabled===true&&(f.islands||[]).length
+                &&g.reporting===true&&g.stale!==true);
+    var was=faunaSignature;
+    faunaStat=live?f:null;
+    if(!live){
+      faunaAnchor=null;faunaRoster=[];faunaSignature='';
+      if(was!==faunaSignature)renderMapDetail();
+      return;
+    }
+    var now=faunaNow(),reported=Number(f.clockSeconds)||0;
+    var predicted=faunaAnchor?faunaAnchor.clock+(now-faunaAnchor.perf)/1000:null;
+    if(predicted===null||Math.abs(predicted-reported)>2)
+      faunaAnchor={clock:reported,perf:now};
+    faunaRoster=[];
+    (f.islands||[]).forEach(function(row){
+      var node=faunaById[row.islandId];
+      if(!node||!node.island||!node.island.fauna)return;
+      faunaRoster.push({node:node,p:node.island.fauna,
+        ox:Number(node.island.x),oz:-Number(node.island.z),
+        manta:Math.max(0,Number(row.mantaRays)||0),
+        jelly:Math.max(0,Number(row.jellyFish)||0)});
+    });
+    // The detail panel STATES what is alive, so it has to be rebuilt when that
+    // changes - but only then. Re-rendering it every poll would throw away the
+    // reader's scroll position four times a minute.
+    faunaSignature=faunaRoster.length+':'+f.liveCount;
+    if(was!==faunaSignature)renderMapDetail();
+  }
+  function faunaElapsed(){
+    return faunaAnchor?faunaAnchor.clock+(faunaNow()-faunaAnchor.perf)/1000:0;
+  }
+  function faunaLiveOn(islandId){
+    if(!faunaStat)return null;
+    var rows=faunaStat.islands||[];
+    for(var i=0;i<rows.length;i++)if(rows[i].islandId===islandId)return rows[i];
+    return null;
+  }
+  function faunaVisible(){
+    var box=$('mapFauna');
+    return !!(FAUNA&&faunaRoster.length&&box&&box.checked);
+  }
+  function faunaInView(row){
+    var pad=Math.max(600,mapView.w*0.06);
+    var x=row.ox+row.p.cx,y=row.oz-row.p.cz;
+    return x>=mapView.x-pad&&x<=mapView.x+mapView.w+pad
+        &&y>=mapView.y-pad&&y<=mapView.y+mapView.h+pad;
+  }
+  function faunaPush(out,kind,row,schoolIndex,memberIndex,t,member){
+    var p=row.p;
+    var a=member?FAUNA.localPose(p,kind,schoolIndex,memberIndex,t)
+                :FAUNA.schoolCentre(p,kind,schoolIndex,t);
+    var b=member?FAUNA.localPose(p,kind,schoolIndex,memberIndex,t+FAUNA_HEADING_DT)
+                :FAUNA.schoolCentre(p,kind,schoolIndex,t+FAUNA_HEADING_DT);
+    // Screen space: x is world east, y is world NORTH NEGATED, as everything
+    // else on this map is. The glyph's nose is at -y, so the rotation that
+    // aims it along (sx,sy) is atan2(sx,-sy).
+    var sx=b.x-a.x,sy=-(b.z-a.z);
+    out.push({kind:kind,row:row,member:member,x:row.ox+a.x,y:row.oz-a.z,
+      cluster:FAUNA.cluster(kind).r/mapPx,
+      deg:(sx*sx+sy*sy)>1e-9?Math.atan2(sx,-sy)*180/Math.PI:0});
+  }
+  function faunaSpecies(out,row,kind,count,t,inView){
+    if(count<=0)return;
+    var schools=Math.max(1,Number(row.p.schools)||1);
+    if((FAUNA.cluster(kind).r/mapPx)<FAUNA_MEMBER_PIXELS){
+      for(var s=0;s<schools;s++)faunaPush(out,kind,row,s,0,t,false);
+      return;
+    }
+    // Members are only worth computing where they can be seen. Off-screen
+    // islands keep their schools, which cost two evaluations each.
+    if(!inView){for(var q=0;q<schools;q++)faunaPush(out,kind,row,q,0,t,false);return;}
+    var size=Math.max(1,Math.round(count/schools));
+    for(var j=0;j<schools;j++)
+      for(var m=0;m<size;m++)faunaPush(out,kind,row,j,m,t,true);
+  }
+  function faunaDrawList(t){
+    var out=[];
+    for(var i=0;i<faunaRoster.length;i++){
+      var row=faunaRoster[i],inView=faunaInView(row);
+      faunaSpecies(out,row,'manta',row.manta,t,inView);
+      // Jellies join from mid zoom. A shoal turns once in ten minutes and
+      // breathes in and out over twenty, so at 40 m a pixel it is a stationary
+      // dot beside every island - clutter, not life. The mantas lap in minutes
+      // and are what reads as alive at that distance.
+      if(mapZoomFactor>=2.2)faunaSpecies(out,row,'jelly',row.jelly,t,inView);
+    }
+    return out;
+  }
+  function faunaNode(index){
+    var n=faunaPool[index];
+    if(!n){
+      var g=svgEl('g',{});
+      var use=svgEl('use',{});
+      g.appendChild(use);
+      $('mapFaunaLayer').appendChild(g);
+      n=faunaPool[index]={g:g,use:use,cls:'',shape:'',hidden:false};
+    }
+    return n;
+  }
+  function paintFauna(list){
+    var i;
+    for(i=0;i<list.length;i++){
+      var e=list[i],n=faunaNode(i);
+      var cls='fauna '+e.kind+(e.member?' member':' school');
+      if(n.cls!==cls){n.g.setAttribute('class',cls);n.cls=cls;}
+      // SIZED SO IT NEVER OUTSHOUTS THE ISLAND IT BELONGS TO. At whole-world
+      // zoom an island marker is thirteen pixels and a school mark sitting on
+      // its shoulder at the same size reads as a second island, which is worse
+      // than not drawing it - so a distant school is deliberately small, and it
+      // grows once there is room. Members appear only when you are close enough
+      // that the island is far larger than any of them.
+      // A MEMBER IS SIZED TO ITS OWN SCHOOL. Members appear as soon as the
+      // cluster is five pixels across, which is early enough to be useful, and
+      // a fixed ten-pixel glyph in a five-pixel cluster is a blob rather than
+      // four animals - so the glyph grows with the room it has, to a ceiling
+      // that keeps a manta from pretending to be fifty metres long.
+      var far=mapZoomFactor<2.2;
+      var ceiling=e.kind==='manta'?10:9;
+      var size=e.member?Math.max(4.5,Math.min(ceiling,e.cluster*0.85))
+                       :(far?7:(e.kind==='manta'?10:8.5));
+      size=Math.round(size*2)/2;
+      var shape=e.kind+size;
+      if(n.shape!==shape){
+        n.use.setAttribute('href',e.kind==='manta'?'#mantaSymbol':'#jellySymbol');
+        n.use.setAttribute('x',-size/2);n.use.setAttribute('y',-size/2);
+        n.use.setAttribute('width',size);n.use.setAttribute('height',size);
+        n.shape=shape;
+      }
+      n.g.setAttribute('transform','translate('+e.x.toFixed(2)+' '+e.y.toFixed(2)
+        +') scale('+mapPx+')'+(e.kind==='manta'?(' rotate('+e.deg.toFixed(1)+')'):''));
+      if(n.hidden){n.g.style.display='';n.hidden=false;}
+    }
+    for(;i<faunaPool.length;i++){
+      var spare=faunaPool[i];
+      if(!spare.hidden){spare.g.style.display='none';spare.hidden=true;}
+    }
+  }
+  function renderFaunaFrame(){
+    var layer=$('mapFaunaLayer');if(!layer)return;
+    if(!faunaVisible()){
+      if(layer.style.display!=='none')layer.style.display='none';
+      return;
+    }
+    if(layer.style.display==='none')layer.style.display='';
+    paintFauna(faunaDrawList(faunaElapsed()));
+  }
+  function fmtShort(seconds){
+    seconds=Math.max(0,Math.round(seconds));
+    var m=Math.floor(seconds/60),s=seconds%60;
+    return m?(m+'m '+(s<10?'0':'')+s+'s'):(s+'s');
+  }
+  function faunaPhaseText(t){
+    var M=worldMap.faunaModel||{},c=FAUNA.cycleFraction(t);
+    var day=c>M.dayBeginsAtCycleFraction&&c<M.dayEndsAtCycleFraction;
+    var target=day?M.dayEndsAtCycleFraction:M.dayBeginsAtCycleFraction;
+    var until=((target-c)%1+1)%1*M.dayNightCycleSeconds;
+    return day
+      ? ('It is fauna DAY: the shoals have pushed out past the rim and sunk to the underside of the rock. Night in '+fmtShort(until)+'.')
+      : ('It is fauna NIGHT: the shoals have drawn back in and risen to the height a player walks at. Day in '+fmtShort(until)+'.');
+  }
+  function faunaNoteText(){
+    if(!FAUNA)return 'Wildlife: the fauna movement model did not load, so no creature is drawn.';
+    if(!faunaStat)
+      return 'Wildlife: the game server is not reporting an island-fauna roster, so none is drawn. '
+        +'Nothing on this map is animated from a guess - no roster and no clock means no creatures.';
+    var mantas=0,jellies=0,minSchool=1e9,maxSchool=0,minShoal=1e9,maxShoal=0;
+    faunaRoster.forEach(function(r){
+      mantas+=r.manta;jellies+=r.jelly;
+      if(r.manta){minSchool=Math.min(minSchool,r.manta);maxSchool=Math.max(maxSchool,r.manta);}
+      if(r.jelly){minShoal=Math.min(minShoal,r.jelly);maxShoal=Math.max(maxShoal,r.jelly);}
+    });
+    function span(lo,hi){return lo>hi?'0':(lo===hi?String(lo):(lo+'-'+hi));}
+    return 'Wildlife (live): '+plural(mantas+jellies,'creature','creatures')+' on '
+      +plural(faunaRoster.length,'island','islands')+' - '+fmt(mantas)+' manta rays in schools of '
+      +span(minSchool,maxSchool)+' orbiting their island, '+fmt(jellies)+' jellyfish in shoals of '
+      +span(minShoal,maxShoal)+' on a '+fmtShort(Number((worldMap.faunaModel||{}).dayNightCycleSeconds)||0)
+      +' day/night cycle. '+faunaPhaseText(faunaElapsed())
+      +' These are not sampled positions: the browser evaluates the game server’s own movement '
+      +'against the clock the server reports, which is why they move smoothly between snapshots. '
+      +'How MANY there are is Wareborn tuning, not Bossa data.';
+  }
+  function faunaTick(now){
+    faunaFrame=requestAnimationFrame(faunaTick);
+    var idle=!faunaVisible();
+    // Reduced motion still MOVES the wildlife - it is a live fact and freezing
+    // it would be a lie - but it steps once a second rather than once a frame,
+    // so nothing on the page animates continuously.
+    var minimum=idle?FAUNA_IDLE_MS:(prefersReducedMotion()?FAUNA_REDUCED_MOTION_MS:0);
+    if(now-faunaLastDrawMs<minimum)return;
+    faunaLastDrawMs=now;
+    renderFaunaFrame();
+    if(now-faunaLastNoteMs>=1000){faunaLastNoteMs=now;text('mapFaunaNote',faunaNoteText());}
+  }
+  function startFauna(){
+    var model=worldMap.faunaModel;
+    if(!model||!model.dayNightCycleSeconds)return;
+    FAUNA=faunaMotion(model);
+    if(faunaFrame===null)faunaFrame=requestAnimationFrame(faunaTick);
   }
 
   // ---- island-count reconciliation -------------------------------------
@@ -2133,7 +2545,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(latestTerrain)renderAcceptance(latestTerrain,gameReporting);
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
-  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);});});
+  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers','mapFauna'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);renderFaunaFrame();});});
   // ONE search drives the map and the ledger. A second box under the table was
   // a second thing to notice and a second thing to keep in sync.
   ['ledgerFilter','ledgerInferredOnly'].forEach(function(id){var e=$(id);if(e){e.addEventListener('input',applyMapFilter);e.addEventListener('change',applyMapFilter);}});

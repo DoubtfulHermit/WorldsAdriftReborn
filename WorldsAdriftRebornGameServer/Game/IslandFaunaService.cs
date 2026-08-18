@@ -126,6 +126,14 @@ namespace WorldsAdriftRebornGameServer.Game
         private Func<ENetPeerHandle, IslandId, bool>? _terrainReady;
         private long _sample;
 
+        /// <summary>
+        /// How many creatures the world wanted at <see cref="Seed"/> time, before
+        /// the budget was applied. Remembered rather than recomputed because the
+        /// operator console reports it, and because it is the one number that says
+        /// whether the budget covered the world or a corner of it.
+        /// </summary>
+        private int _demand;
+
         internal IslandFaunaService(IClock clock)
             : this(clock,
                 IslandFaunaPolicy.EnabledFrom(Environment.GetEnvironmentVariable(EnableEnv)),
@@ -155,6 +163,56 @@ namespace WorldsAdriftRebornGameServer.Game
         internal int Count => _registry.Count;
 
         /// <summary>
+        /// The operator console's view of the world's wildlife: what is live, on
+        /// which islands, and AT WHAT CLOCK.
+        ///
+        /// The clock is the point. Every pose this service sends is a closed form
+        /// of the same <c>_clock.Elapsed</c> that is reported here, so a console
+        /// holding this number and an island's envelope can place every creature
+        /// exactly where this server has it - without anybody streaming 460
+        /// positions three times a minute and calling the result live.
+        ///
+        /// READ-ONLY and allocating only the island list. It is called from the
+        /// same authoritative poll thread that owns every field it touches, on the
+        /// stats writer's few-second cadence, so it needs no lock and costs
+        /// nothing measurable.
+        /// </summary>
+        internal FaunaRuntimeStat Telemetry()
+        {
+            if (!_enabled)
+            {
+                return FaunaRuntimeStat.Off;
+            }
+
+            List<FaunaIslandStat> islands = new List<FaunaIslandStat>(_byIsland.Count);
+            foreach (KeyValuePair<IslandId, IslandPopulation> pair in _byIsland)
+            {
+                int mantas = 0, jellies = 0;
+                foreach (long entityId in pair.Value.EntityIds)
+                {
+                    if (!_planned.TryGetValue(entityId, out FaunaPlacement placement)) continue;
+                    if (placement.Creature.Species == FaunaSpecies.MantaRay) mantas++;
+                    else jellies++;
+                }
+                islands.Add(new FaunaIslandStat(pair.Key.ToString(), mantas, jellies));
+            }
+            // Sorted by id so the file diffs readably and the console's island
+            // order does not depend on dictionary iteration.
+            islands.Sort((left, right) =>
+                string.CompareOrdinal(left.IslandId, right.IslandId));
+
+            return new FaunaRuntimeStat(
+                enabled: true,
+                clockSeconds: _clock.Elapsed.TotalSeconds,
+                liveCount: _registry.Count,
+                budget: _registry.MaxConcurrent,
+                demand: _demand,
+                perPeerBudget: _peerBudget,
+                poseIntervalMs: (int)Math.Round(_registry.PoseInterval.TotalMilliseconds),
+                islands: islands);
+        }
+
+        /// <summary>
         /// Takes the world's creatures live, once, at boot.
         ///
         /// The population is derived rather than persisted (see
@@ -176,6 +234,7 @@ namespace WorldsAdriftRebornGameServer.Game
             }
 
             int demand = IslandFaunaPlan.Demand(islands);
+            _demand = demand;
             IReadOnlyList<FaunaPlacement> plan =
                 IslandFaunaPlan.Build(islands, _registry.MaxConcurrent);
 

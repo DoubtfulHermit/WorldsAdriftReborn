@@ -185,7 +185,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 6;
+        public const int SchemaVersion = 7;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -224,6 +224,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public TerrainRuntimeStat Terrain { get; }
 
+        /// <summary>
+        /// The live island fauna and, critically, the clock that places it
+        /// (schema v7+). Always a fully built value: a server with fauna off
+        /// reports <see cref="FaunaRuntimeStat.Off"/> rather than an absent
+        /// section, so a reader distinguishes "off" from "older server".
+        /// </summary>
+        public FaunaRuntimeStat Fauna { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -252,7 +260,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int runtimeUnownedEntityCount = 0,
             int runtimeOwnershipIssueCount = 0,
             int firstRegionTerrainCount = 0,
-            TerrainRuntimeStat? terrain = null)
+            TerrainRuntimeStat? terrain = null,
+            FaunaRuntimeStat? fauna = null)
         {
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
@@ -274,6 +283,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             RuntimeOwnershipIssueCount = runtimeOwnershipIssueCount;
             FirstRegionTerrainCount = Math.Max(0, firstRegionTerrainCount);
             Terrain = terrain ?? TerrainRuntimeStat.Off;
+            Fauna = fauna ?? FaunaRuntimeStat.Off;
         }
 
         /// <summary>
@@ -359,9 +369,48 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             b.Append(',');
 
             AppendTerrain(b, Terrain);
+            b.Append(',');
+            AppendFauna(b, Fauna);
 
             b.Append('}');
             return b.ToString();
+        }
+
+        /// <summary>
+        /// The island-fauna section. Written unconditionally for the same reason
+        /// the terrain section is: absence must mean "older game server", never
+        /// "no wildlife".
+        ///
+        /// The island list is COUNTS BY SPECIES and nothing else. It is small - one
+        /// short id and two integers per populated island, about two kilobytes for
+        /// the whole tier-1 world - because the expensive half of the answer, WHERE
+        /// each creature is, is a function of <c>clockSeconds</c> that the reader
+        /// evaluates for itself rather than a payload anyone has to ship at 4 Hz.
+        /// </summary>
+        private static void AppendFauna(StringBuilder b, FaunaRuntimeStat f)
+        {
+            Key(b, "fauna");
+            b.Append('{');
+            Bool(b, "enabled", f.Enabled); b.Append(',');
+            Num(b, "clockSeconds", f.ClockSeconds); b.Append(',');
+            Num(b, "liveCount", f.LiveCount); b.Append(',');
+            Num(b, "budget", f.Budget); b.Append(',');
+            Num(b, "demand", f.Demand); b.Append(',');
+            Num(b, "perPeerBudget", f.PerPeerBudget); b.Append(',');
+            Num(b, "poseIntervalMs", f.PoseIntervalMs); b.Append(',');
+            Key(b, "islands"); b.Append('[');
+            for (int i = 0; i < f.Islands.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                FaunaIslandStat island = f.Islands[i];
+                b.Append('{');
+                Str(b, "islandId", island.IslandId); b.Append(',');
+                Num(b, "mantaRays", island.MantaRays); b.Append(',');
+                Num(b, "jellyFish", island.JellyFish);
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
         }
 
         /// <summary>

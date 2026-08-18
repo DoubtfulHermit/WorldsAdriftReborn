@@ -461,6 +461,7 @@ namespace WorldsAdriftServer.Handlers.Admin
             game["firstRegionTerrainCount"] = s.FirstRegionTerrainCount;
             game["schemaVersion"] = s.SchemaVersion;
             game["terrain"] = s.Terrain.Json;
+            game["fauna"] = s.Fauna.Json;
             game["runtime"] = new JObject
             {
                 ["hostMode"] = s.RuntimeHostMode,
