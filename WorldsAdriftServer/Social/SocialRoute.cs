@@ -55,6 +55,68 @@ namespace WorldsAdriftServer.Social
 
         /// <summary>GET alliance/search/{region}?term=...</summary>
         SearchAlliances,
+
+        // ---- alliances -----------------------------------------------------
+        //
+        // Seventeen endpoints, and the irregularities in them are worse than the
+        // crew side's. Three that matter, all reproduced rather than tidied:
+        //
+        //   - "alliance/find/{region}/{uid}" takes a CHARACTER uid, while
+        //     "alliance/{region}/{uid}" takes an ALLIANCE uid. Same prefix, same
+        //     shape, different subject.
+        //   - ranks are addressed as a top-level "rank"/"ranks" resource with no
+        //     region and no alliance in the path; the alliance is carried in the
+        //     BODY on create and inferred from the rank on modify and delete.
+        //   - "memberships/character/{characterUid}/{allianceUid}" reverses the
+        //     usual order: the character comes first and the group second, the
+        //     opposite of "memberships/alliance/{allianceUid}/{characterUid}"
+        //     three lines below it in the same client file.
+
+        /// <summary>POST alliance - found one.</summary>
+        CreateAlliance,
+
+        /// <summary>GET alliance/find/{region}/{characterUid} - the alliance a
+        /// CHARACTER belongs to.</summary>
+        FindAllianceForCharacter,
+
+        /// <summary>GET alliance/{region}/{allianceUid}</summary>
+        GetAlliance,
+
+        /// <summary>PATCH alliance/{region}/{allianceUid} - description and MOTD.</summary>
+        UpdateAlliance,
+
+        /// <summary>DELETE alliance/{region}/{allianceUid}</summary>
+        DisbandAlliance,
+
+        /// <summary>POST alliance/{region}/batch - body {"batch":[uids]}.</summary>
+        AllianceBatch,
+
+        /// <summary>GET memberships/alliance/{allianceUid}</summary>
+        AllianceMembers,
+
+        /// <summary>GET memberships/invites/alliance/{allianceUid}</summary>
+        AllianceInvites,
+
+        /// <summary>POST memberships/join - apply to an alliance.</summary>
+        ApplyToAlliance,
+
+        /// <summary>PATCH memberships/character/{characterUid}/{allianceUid}</summary>
+        UpdateAllianceMembership,
+
+        /// <summary>DELETE memberships/alliance/{allianceUid}/{characterUid} - leave AND boot.</summary>
+        RemoveAllianceMember,
+
+        /// <summary>GET ranks/{allianceUid}</summary>
+        AllianceRanks,
+
+        /// <summary>POST rank</summary>
+        CreateAllianceRank,
+
+        /// <summary>PUT rank/{rankUid}</summary>
+        UpdateAllianceRank,
+
+        /// <summary>DELETE rank/{rankUid}</summary>
+        DeleteAllianceRank,
     }
 
     /// <summary>
@@ -175,12 +237,68 @@ namespace WorldsAdriftServer.Social
                 case "alliances" when s.Length == 2 && verb == "GET":
                     return new SocialRoute(SocialRouteKind.ListAlliances, s[1]);
 
-                case "alliance" when s.Length == 3 && s[1] == "search" && verb == "GET":
-                    return new SocialRoute(SocialRouteKind.SearchAlliances, s[2]);
+                case "alliance":
+                    return ParseAlliance(verb, s);
+
+                // Ranks are a top-level resource with no region and no alliance in
+                // the path. Singular is the collection you POST to, plural is the
+                // one you list - the exact inverse of "crew"/"crews", in the same
+                // service.
+                case "rank" when s.Length == 1 && verb == "POST":
+                    return new SocialRoute(SocialRouteKind.CreateAllianceRank);
+                case "rank" when s.Length == 2 && verb == "PUT":
+                    return new SocialRoute(SocialRouteKind.UpdateAllianceRank, s[1]);
+                case "rank" when s.Length == 2 && verb == "DELETE":
+                    return new SocialRoute(SocialRouteKind.DeleteAllianceRank, s[1]);
+
+                case "ranks" when s.Length == 2 && verb == "GET":
+                    return new SocialRoute(SocialRouteKind.AllianceRanks, s[1]);
 
                 default:
                     return NoMatch;
             }
+        }
+
+        private static SocialRoute ParseAlliance(string verb, string[] s)
+        {
+            // POST alliance - the founding call, and the one that used to fall
+            // through to "not implemented" and reach the player as the client's
+            // generic E00001 dialog.
+            if (s.Length == 1 && verb == "POST")
+                return new SocialRoute(SocialRouteKind.CreateAlliance);
+
+            // alliance/search/{region}?term= must be tested BEFORE the generic
+            // alliance/{region}/{uid} below it: both are three segments, and a
+            // region literally called "search" is not a thing but a uid literally
+            // called "search" would be, so ordering is what disambiguates them.
+            if (s.Length == 3 && s[1] == "search" && verb == "GET")
+                return new SocialRoute(SocialRouteKind.SearchAlliances, s[2]);
+
+            // alliance/find/{region}/{characterUid} - four segments, and the last
+            // one is a CHARACTER, not an alliance. Same trap as above: "find" has
+            // to be matched before the three-segment form can claim it.
+            if (s.Length == 4 && s[1] == "find" && verb == "GET")
+                return new SocialRoute(SocialRouteKind.FindAllianceForCharacter, s[2], s[3]);
+
+            // alliance/{region}/batch - a POST whose last segment is a literal, so
+            // it must be matched before the id form.
+            if (s.Length == 3 && s[2] == "batch" && verb == "POST")
+                return new SocialRoute(SocialRouteKind.AllianceBatch, s[1]);
+
+            if (s.Length == 3)
+            {
+                switch (verb)
+                {
+                    case "GET":
+                        return new SocialRoute(SocialRouteKind.GetAlliance, s[1], s[2]);
+                    case "PATCH":
+                        return new SocialRoute(SocialRouteKind.UpdateAlliance, s[1], s[2]);
+                    case "DELETE":
+                        return new SocialRoute(SocialRouteKind.DisbandAlliance, s[1], s[2]);
+                }
+            }
+
+            return NoMatch;
         }
 
         private static SocialRoute ParseMemberships(string verb, string[] s)
@@ -188,6 +306,28 @@ namespace WorldsAdriftServer.Social
             // memberships/character/{uid}
             if (s.Length == 3 && s[1] == "character" && verb == "GET")
                 return new SocialRoute(SocialRouteKind.CharacterMemberships, s[2]);
+
+            // memberships/character/{characterUid}/{allianceUid} - note the order:
+            // character FIRST, group second. Its neighbour four lines down,
+            // memberships/alliance/{allianceUid}/{characterUid}, puts them the
+            // other way round. Both are in the same client file
+            // (AllianceServerImpl.cs:169 and :177) and matching one to the other's
+            // shape would silently swap the two ids.
+            if (s.Length == 4 && s[1] == "character" && verb == "PATCH")
+                return new SocialRoute(SocialRouteKind.UpdateAllianceMembership, s[2], s[3]);
+
+            // memberships/alliance/{allianceUid}
+            if (s.Length == 3 && s[1] == "alliance" && verb == "GET")
+                return new SocialRoute(SocialRouteKind.AllianceMembers, s[2]);
+
+            // memberships/alliance/{allianceUid}/{characterUid} - LEAVE and BOOT,
+            // exactly as the crew twin above is.
+            if (s.Length == 4 && s[1] == "alliance" && verb == "DELETE")
+                return new SocialRoute(SocialRouteKind.RemoveAllianceMember, s[2], s[3]);
+
+            // memberships/join - an APPLICATION, the mirror of memberships/invite.
+            if (s.Length == 2 && s[1] == "join" && verb == "POST")
+                return new SocialRoute(SocialRouteKind.ApplyToAlliance);
 
             // memberships/crew/{crewUid}
             if (s.Length == 3 && s[1] == "crew" && verb == "GET")
@@ -221,6 +361,8 @@ namespace WorldsAdriftServer.Social
                     return new SocialRoute(SocialRouteKind.InvitesForCharacter, s[3]);
                 if (s[2] == "crew")
                     return new SocialRoute(SocialRouteKind.CrewInvites, s[3]);
+                if (s[2] == "alliance")
+                    return new SocialRoute(SocialRouteKind.AllianceInvites, s[3]);
             }
 
             return NoMatch;

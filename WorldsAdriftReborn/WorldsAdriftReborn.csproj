@@ -28,6 +28,16 @@
       <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Generated.Code.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!--
+      uGUI. Not part of the UnityEngine.Modules package above, which is the
+      engine core only, so it has to come from the install like Assembly-CSharp
+      does. Needed by the patches that touch UI components directly rather than
+      through a game type - the loading spinner takes an Image.
+    -->
+    <Reference Include="UnityEngine.UI">
+      <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\UnityEngine.UI.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <Reference Include="Improbable.UnityDll, Version=10.4.3.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>$(WorldsAdriftGameDir)\UnityClient@Windows_Data\Managed\Improbable.UnityDll.dll</HintPath>
       <SpecificVersion>False</SpecificVersion>

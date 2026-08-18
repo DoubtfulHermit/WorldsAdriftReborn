@@ -58,42 +58,63 @@ namespace WorldsAdriftReborn.Storage.Tests
         }
 
         [Fact]
-        public void The_shipped_schema_is_at_version_seven()
+        public void The_shipped_schema_is_at_version_eight()
         {
             // If this fails, a script was added: check it was APPENDED and that
             // no existing one was edited, then update the number.
             // v1 accounts/sessions/characters, v2 character_inventories,
             // v3 server_config, v4 character_progression, v5 character_positions,
-            // v6 crews + crew_members, v7 social_invites.
-            Assert.Equal(7, SchemaMigrator.TargetVersion(SchemaScripts.All));
+            // v6 crews + crew_members, v7 social_invites,
+            // v8 alliances + alliance_ranks + alliance_members.
+            Assert.Equal(8, SchemaMigrator.TargetVersion(SchemaScripts.All));
         }
 
         [Fact]
-        public void A_database_at_version_six_is_brought_forward_by_exactly_one_script()
+        public void A_database_at_version_seven_is_brought_forward_by_exactly_one_script()
         {
-            // The upgrade an operator who already has a v6 database will actually
-            // run when the social API ships. It must not re-run v1..v6 against
-            // tables that exist.
-            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(6, SchemaScripts.All);
+            // The upgrade a live server will actually run when alliances ship. It
+            // must not re-run v1..v7 against tables that exist - the whole reason
+            // the scripts are append-only.
+            IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(7, SchemaScripts.All);
 
             Assert.Single(pending);
-            Assert.Contains("social_invites", pending[0]);
+            Assert.Contains("alliances", pending[0]);
+            Assert.Contains("alliance_ranks", pending[0]);
+            Assert.Contains("alliance_members", pending[0]);
+        }
+
+        /// <summary>
+        /// v8 is purely ADDITIVE. It creates three tables and touches nothing that
+        /// already exists, which is what makes it safe to run against a live
+        /// database that players are connected to.
+        /// </summary>
+        [Fact]
+        public void The_alliance_script_only_creates_and_never_alters_or_drops()
+        {
+            string script = SchemaMigrator.ScriptsToApply(7, SchemaScripts.All)[0];
+
+            Assert.DoesNotContain("ALTER TABLE", script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("DROP ", script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("UPDATE ", script, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("DELETE FROM", script, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
         public void A_database_at_version_one_still_runs_the_later_scripts_in_order()
         {
-            // An older database jumps five versions; the order is load-bearing
+            // An older database jumps six versions; the order is load-bearing
             // (a script must never see a table a later script creates - every one
             // of these references characters, which only v1 creates).
             IReadOnlyList<string> pending = SchemaMigrator.ScriptsToApply(1, SchemaScripts.All);
 
-            Assert.Equal(6, pending.Count);
+            Assert.Equal(7, pending.Count);
             Assert.Contains("character_inventories", pending[0]);
             Assert.Contains("server_config", pending[1]);
             Assert.Contains("character_progression", pending[2]);
             Assert.Contains("character_positions", pending[3]);
             Assert.Contains("crews", pending[4]);
+            Assert.Contains("social_invites", pending[5]);
+            Assert.Contains("alliances", pending[6]);
         }
     }
 }

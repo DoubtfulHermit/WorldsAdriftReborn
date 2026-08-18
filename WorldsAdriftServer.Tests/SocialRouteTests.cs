@@ -132,21 +132,85 @@ namespace WorldsAdriftServer.Tests
         }
 
         /// <summary>
-        /// An unimplemented alliance endpoint must NOT resolve to a route. It is
-        /// still ours (IsSocialUrl above), so the handler refuses it in band -
-        /// but silently matching it to something adjacent would be worse than a
-        /// refusal, which is the whole "do not fake it" rule.
+        /// All seventeen alliance endpoints, pinned to the kind they must resolve
+        /// to.
+        ///
+        /// This list USED to assert the opposite - that none of them resolved -
+        /// because alliances were unimplemented and refused in band. POST /alliance
+        /// in particular parsed to nothing, was answered "not implemented", and
+        /// reached the player as the client's generic E00001 dialog. Writing the
+        /// shape down twice, once as a matcher and once here, is the only defence
+        /// against a transcription slip in a contract recovered from a decompiler.
         /// </summary>
         [Theory]
-        [InlineData("POST", "/alliance")]
-        [InlineData("PATCH", "/alliance/community_server/a1")]
-        [InlineData("POST", "/rank")]
-        [InlineData("PUT", "/rank/r1")]
-        [InlineData("GET", "/ranks/a1")]
-        [InlineData("POST", "/memberships/join")]
-        [InlineData("GET", "/memberships/alliance/a1")]
-        [InlineData("GET", "/memberships/invites/alliance/a1")]
-        public void DoesNotInventARouteForUnimplementedAllianceEndpoints(string method, string url)
+        [InlineData("POST", "/alliance", SocialRouteKind.CreateAlliance)]
+        [InlineData("GET", "/alliance/find/community_server/c1", SocialRouteKind.FindAllianceForCharacter)]
+        [InlineData("GET", "/alliance/community_server/a1", SocialRouteKind.GetAlliance)]
+        [InlineData("PATCH", "/alliance/community_server/a1", SocialRouteKind.UpdateAlliance)]
+        [InlineData("DELETE", "/alliance/community_server/a1", SocialRouteKind.DisbandAlliance)]
+        [InlineData("POST", "/alliance/community_server/batch", SocialRouteKind.AllianceBatch)]
+        [InlineData("GET", "/alliances/community_server", SocialRouteKind.ListAlliances)]
+        [InlineData("GET", "/alliance/search/community_server?term=x", SocialRouteKind.SearchAlliances)]
+        [InlineData("GET", "/memberships/alliance/a1", SocialRouteKind.AllianceMembers)]
+        [InlineData("DELETE", "/memberships/alliance/a1/c1", SocialRouteKind.RemoveAllianceMember)]
+        [InlineData("GET", "/memberships/invites/alliance/a1", SocialRouteKind.AllianceInvites)]
+        [InlineData("POST", "/memberships/join", SocialRouteKind.ApplyToAlliance)]
+        [InlineData("PATCH", "/memberships/character/c1/a1", SocialRouteKind.UpdateAllianceMembership)]
+        [InlineData("GET", "/ranks/a1", SocialRouteKind.AllianceRanks)]
+        [InlineData("POST", "/rank", SocialRouteKind.CreateAllianceRank)]
+        [InlineData("PUT", "/rank/r1", SocialRouteKind.UpdateAllianceRank)]
+        [InlineData("DELETE", "/rank/r1", SocialRouteKind.DeleteAllianceRank)]
+        internal void EveryAllianceEndpointResolves(string method, string url, SocialRouteKind expected)
+        {
+            Assert.Equal(expected, SocialRoute.Parse(method, url).Kind);
+        }
+
+        /// <summary>
+        /// Three pairs of URLs that are the same shape and mean different things.
+        /// Each of these is a place where matching the wrong one swaps two ids
+        /// silently rather than failing.
+        /// </summary>
+        [Fact]
+        public void TheAmbiguousAlliancePathsCaptureTheRightSegments()
+        {
+            // find takes a CHARACTER; the bare form takes an ALLIANCE. Same prefix.
+            SocialRoute find = SocialRoute.Parse("GET", "/alliance/community_server/find/x");
+            Assert.NotEqual(SocialRouteKind.FindAllianceForCharacter, find.Kind);
+
+            SocialRoute byCharacter = SocialRoute.Parse("GET", "/alliance/find/community_server/c1");
+            Assert.Equal(SocialRouteKind.FindAllianceForCharacter, byCharacter.Kind);
+            Assert.Equal("c1", byCharacter.Segments[1]);
+
+            SocialRoute byAlliance = SocialRoute.Parse("GET", "/alliance/community_server/a1");
+            Assert.Equal("a1", byAlliance.Segments[1]);
+
+            // The membership pair is written CHARACTER-first here and
+            // ALLIANCE-first one line below, in the same client file.
+            SocialRoute patch = SocialRoute.Parse("PATCH", "/memberships/character/c1/a1");
+            Assert.Equal("c1", patch.Segments[0]);
+            Assert.Equal("a1", patch.Segments[1]);
+
+            SocialRoute remove = SocialRoute.Parse("DELETE", "/memberships/alliance/a1/c1");
+            Assert.Equal("a1", remove.Segments[0]);
+            Assert.Equal("c1", remove.Segments[1]);
+
+            // "batch" is a literal last segment on a POST; an alliance id is not.
+            Assert.Equal(SocialRouteKind.AllianceBatch,
+                SocialRoute.Parse("POST", "/alliance/community_server/batch").Kind);
+        }
+
+        /// <summary>
+        /// Verbs the client never sends must still not resolve to something
+        /// adjacent. Silently matching is worse than a refusal.
+        /// </summary>
+        [Theory]
+        [InlineData("PUT", "/alliance/community_server/a1")]
+        [InlineData("DELETE", "/alliances/community_server")]
+        [InlineData("GET", "/rank/r1")]
+        [InlineData("POST", "/ranks/a1")]
+        [InlineData("GET", "/alliance")]
+        [InlineData("PATCH", "/memberships/character/c1")]
+        public void UnknownAllianceVerbCombinationsDoNotResolve(string method, string url)
         {
             Assert.Equal(SocialRouteKind.None, SocialRoute.Parse(method, url).Kind);
         }

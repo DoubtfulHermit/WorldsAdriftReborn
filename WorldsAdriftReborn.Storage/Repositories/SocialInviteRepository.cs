@@ -12,7 +12,7 @@ namespace WorldsAdriftReborn.Storage.Repositories
     /// crews there is no in-memory ledger to seed - the login server answers each
     /// HTTP request straight from here.
     /// </summary>
-    public sealed class SocialInviteRepository
+    public sealed class SocialInviteRepository : ISocialInviteStore
     {
         private readonly Db db;
 

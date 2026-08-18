@@ -37,7 +37,7 @@ namespace WorldsAdriftServer.Tests
             {
                 Db = new TempDb();
                 Service = new SocialService(
-                    Db.Characters, Db.Crews, Db.SocialInvites, Region, () => Now);
+                    Db.Characters, Db.Crews, Db.SocialInvites, Db.Alliances, Region, () => Now);
             }
 
             internal Guid Character(string name)
@@ -427,11 +427,52 @@ namespace WorldsAdriftServer.Tests
 
             world.Delete("/crew/" + Region + "/" + crewId, leader);
 
+            // Gone from the invitee's list entirely, not merely marked cancelled
+            // in it. This used to assert the opposite - one entry with
+            // status "cancelled" - on the reasoning that the client filters on
+            // "new" itself. The CREW reader does; the two ALLIANCE readers of this
+            // same endpoint do not, and one of them decides whether the APPLY
+            // button is offered at all, so a resolved row left in the list bars
+            // that player from ever applying again. See InvitesForCharacter.
             JArray theirs = (JArray)world.Get(
                 "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!;
 
-            Assert.Single(theirs);
-            Assert.Equal("cancelled", theirs[0].Value<string>("status"));
+            Assert.Empty(theirs);
+
+            // Cancelled rather than deleted, though: the row is still there, and
+            // it still records that the offer was made and withdrawn.
+            IReadOnlyList<SocialInviteRecord> stored = world.Db.SocialInvites.ForCharacter(invitee);
+            Assert.Single(stored);
+            Assert.Equal(SocialInviteStatus.Cancelled, stored[0].Status);
+        }
+
+        /// <summary>
+        /// The same rule from the other direction: an invite the player REJECTED
+        /// must leave their list, or the alliance UI keeps offering them a JOIN
+        /// that answers invite_not_found and keeps refusing them a fresh APPLY.
+        /// </summary>
+        [PostgresFact]
+        public void ARejectedInviteLeavesTheInviteesList()
+        {
+            using World world = new World();
+            Guid leader = world.Character("Billy");
+            Guid invitee = world.Character("Bones");
+            string crewId = world.Post("/crews", leader)["data"]!.Value<string>("uid")!;
+
+            string inviteId = world.Post("/memberships/invite", leader, new JObject
+            {
+                ["targetId"] = crewId,
+                ["character"] = U(invitee),
+                ["targetType"] = "crew_member",
+            }.ToString())["data"]!.Value<string>("id")!;
+
+            Assert.Single((JArray)world.Get(
+                "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!);
+
+            world.Put("/memberships/invite/reject/" + inviteId + "/" + U(invitee), invitee);
+
+            Assert.Empty((JArray)world.Get(
+                "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!);
         }
 
         /// <summary>
@@ -522,6 +563,168 @@ namespace WorldsAdriftServer.Tests
             world.Put("/memberships/invite/accept/" + inviteId + "/" + U(member) + "/" + Region, member);
 
             return (leader, member, crewId);
+        }
+
+        // ------------------------------------------ the shared alliance seams
+
+        /// <summary>
+        /// The four endpoints alliances SHARE with crews, driven through
+        /// SocialService rather than through AllianceEndpoints directly.
+        ///
+        /// AllianceEndpointsTests covers the seventeen alliance-only routes with no
+        /// database at all, which is where the detail lives. What it cannot cover
+        /// is the DISPATCH: SocialService owns memberships/invite and the
+        /// accept/reject/cancel trio, and hands alliance-shaped rows across on the
+        /// strength of one field. This is that hand-off, against real rows.
+        /// </summary>
+        [PostgresFact]
+        public void AnAllianceInviteGoesThroughTheSharedEndpointsAndSeatsTheInvitee()
+        {
+            using World world = new World();
+            Guid founder = world.Character("Billy");
+            Guid invitee = world.Character("Bones");
+
+            string allianceId = world.Post("/alliance", founder, new JObject
+            {
+                ["leaderCharacterUid"] = U(founder),
+                ["name"] = "Rat Corp",
+                ["region"] = Region,
+            }.ToString())["data"]!.Value<string>("uid")!;
+
+            // Same endpoint as a crew invite; only targetType differs.
+            JObject sent = world.Post("/memberships/invite", founder, new JObject
+            {
+                ["targetId"] = allianceId,
+                ["character"] = U(invitee),
+                ["targetType"] = "alliance_member",
+                ["inviter"] = U(founder),
+            }.ToString());
+
+            Assert.True(sent.Value<bool>("success"));
+            Assert.Equal("alliance_member", sent["data"]!.Value<string>("targetType"));
+            Assert.Equal("Rat Corp", sent["data"]!.Value<string>("targetName"));
+
+            string inviteId = sent["data"]!.Value<string>("id")!;
+
+            // The invitee sees it in their own list, with the alliance named.
+            JArray theirs = (JArray)world.Get(
+                "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!;
+            Assert.Single(theirs);
+            Assert.Equal("Rat Corp", ((JObject)theirs[0]).Value<string>("targetName"));
+
+            Assert.True(world.Put(
+                "/memberships/invite/accept/" + inviteId + "/" + U(invitee) + "/" + Region, invitee)
+                .Value<bool>("success"));
+
+            // Seated, and reporting the alliance on the request the sheet opens on.
+            JObject memberships = world.Get("/memberships/character/" + U(invitee), invitee);
+            Assert.Equal(allianceId, memberships["data"]!["alliance"]!.Value<string>("targetId"));
+        }
+
+        /// <summary>
+        /// REGRESSION. An OFFICER accepting an application passes the APPLICANT's
+        /// uid in the URL, not their own. Requiring the two to match reads as a
+        /// sound identity check and refuses every application ever accepted; it
+        /// was invisible while alliances had no store to hold one.
+        /// </summary>
+        [PostgresFact]
+        public void TheFounderCanAcceptAnApplicationMadeBySomebodyElse()
+        {
+            using World world = new World();
+            Guid founder = world.Character("Billy");
+            Guid applicant = world.Character("Bones");
+
+            string allianceId = world.Post("/alliance", founder, new JObject
+            {
+                ["leaderCharacterUid"] = U(founder),
+                ["name"] = "Rat Corp",
+                ["region"] = Region,
+            }.ToString())["data"]!.Value<string>("uid")!;
+
+            string applicationId = world.Post("/memberships/join", applicant, new JObject
+            {
+                ["targetId"] = allianceId,
+                ["character"] = U(applicant),
+                ["targetType"] = "alliance_member",
+                ["region"] = Region,
+            }.ToString())["data"]!.Value<string>("id")!;
+
+            // The FOUNDER calls accept, and the uid in the path is the APPLICANT's.
+            JObject accepted = world.Put(
+                "/memberships/invite/accept/" + applicationId + "/" + U(applicant) + "/" + Region,
+                founder);
+
+            Assert.True(accepted.Value<bool>("success"));
+
+            JArray members = (JArray)world.Get(
+                "/memberships/alliance/" + allianceId, founder)["data"]!["items"]!;
+            Assert.Equal(2, members.Count);
+        }
+
+        /// <summary>
+        /// The other half of that rule: a stranger still may not answer somebody
+        /// else's application, and an invite may still only be answered by the
+        /// person invited.
+        /// </summary>
+        [PostgresFact]
+        public void AStrangerCanAnswerNeitherAnApplicationNorAnInvite()
+        {
+            using World world = new World();
+            Guid founder = world.Character("Billy");
+            Guid applicant = world.Character("Bones");
+            Guid stranger = world.Character("Silver");
+
+            string allianceId = world.Post("/alliance", founder, new JObject
+            {
+                ["leaderCharacterUid"] = U(founder),
+                ["name"] = "Rat Corp",
+                ["region"] = Region,
+            }.ToString())["data"]!.Value<string>("uid")!;
+
+            string applicationId = world.Post("/memberships/join", applicant, new JObject
+            {
+                ["targetId"] = allianceId,
+                ["character"] = U(applicant),
+                ["targetType"] = "alliance_member",
+            }.ToString())["data"]!.Value<string>("id")!;
+
+            JObject refused = world.Put(
+                "/memberships/invite/accept/" + applicationId + "/" + U(applicant) + "/" + Region,
+                stranger);
+
+            Assert.False(refused.Value<bool>("success"));
+            Assert.Equal("auth_failed", refused.Value<string>("errorCode"));
+
+            // And the founder may withdraw the alliance's own outstanding offer,
+            // which for an alliance is a rank permission rather than leadership.
+            Assert.True(world.Put(
+                "/memberships/invite/cancel/" + applicationId + "/" + U(applicant) + "/" + Region,
+                founder).Value<bool>("success"));
+        }
+
+        /// <summary>
+        /// A targetType outside the client's closed two-value vocabulary. It cannot
+        /// have come from the retail UI, and it must not be stored - the client
+        /// THROWS on an unknown value rather than skipping the row, so one would
+        /// break the whole invite list.
+        /// </summary>
+        [PostgresFact]
+        public void AnUnknownTargetTypeIsRefusedRatherThanStored()
+        {
+            using World world = new World();
+            Guid one = world.Character("Billy");
+            Guid two = world.Character("Bones");
+
+            JObject refused = world.Post("/memberships/invite", one, new JObject
+            {
+                ["targetId"] = "guild:1",
+                ["character"] = U(two),
+                ["targetType"] = "guild_member",
+            }.ToString());
+
+            Assert.False(refused.Value<bool>("success"));
+            Assert.Equal("invalid_entity_pair", refused.Value<string>("errorCode"));
+            Assert.Empty(world.Db.SocialInvites.ForCharacter(two));
         }
     }
 }
