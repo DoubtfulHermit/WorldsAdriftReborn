@@ -452,6 +452,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// Only Growing and Recovery rise, so only they can carry a crossing.
         /// Dormant and Bloom hold and Collapse falls, so a crossing inside them
         /// is arithmetically impossible and the walk simply steps past.
+        ///
+        /// COST: exactly <see cref="IslandFaunaRhythm.At"/>'s, which is the price
+        /// of procedural phase lengths and is already paid twice a second per
+        /// island. A week of uptime is a few hundred iterations of trivial
+        /// arithmetic and an age is computed once per creature per checkout, not
+        /// per pose. The ring buffer is stack-allocated so the walk allocates
+        /// nothing.
         /// </summary>
         private static double? CrossingElapsedSeconds(
             int worldSeed, IslandId islandId, double tau, double threshold,

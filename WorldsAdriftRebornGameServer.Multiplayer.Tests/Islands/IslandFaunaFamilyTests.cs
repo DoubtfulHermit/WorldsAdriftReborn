@@ -141,6 +141,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
+        public void A_calf_can_never_be_expressed_without_its_mother()
+        {
+            // The population is a PREFIX of the slot list, and every mother index
+            // is strictly below every calf index (mothers are drawn from the adult
+            // slots, which come first). So a prefix long enough to contain a calf
+            // always already contains its mother - which is what stops the wire
+            // ever carrying an orphan hanging in empty air where an adult should
+            // be. Not luck: the ordering guarantees it, and this is where that is
+            // written down.
+            for (int members = 4; members <= 24; members++)
+            {
+                for (int group = 0; group < 4; group++)
+                {
+                    foreach (FaunaCalfSlot slot in IslandFaunaFamily.SlotsFor(
+                        Island, FaunaSpecies.MantaRay, group, members))
+                    {
+                        Assert.True(slot.MotherMemberIndex < slot.MemberIndex,
+                            "calf slot " + slot.MemberIndex + " trails member "
+                            + slot.MotherMemberIndex + ", which the prefix reaches later");
+                    }
+                }
+            }
+        }
+
+        [Fact]
         public void The_mother_is_not_the_same_animal_on_every_island()
         {
             // The design's named caution: alternation makes member 0 always
@@ -263,6 +288,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                         IslandFaunaSchool.MemberOffset(member, 12.0, 4.0, t, 0.05, -1));
                 }
             }
+        }
+
+        [Fact]
+        public void Turning_juveniles_on_moves_the_calves_and_nothing_else()
+        {
+            // THE BLAST RADIUS, measured rather than asserted in prose. Two
+            // evaluators over the same seed, one with juveniles and one without:
+            // every adult must be in the same place to the bit, and every calf
+            // must have moved by exactly the recovered pair standoff. Anything
+            // else means the flag reaches further than the family.
+            const int GroupMembers = 8;
+            FaunaEcologyEvaluator plain =
+                new FaunaEcologyEvaluator(IslandFaunaEcology.DefaultWorldSeed);
+            FaunaEcologyEvaluator withCalves = new FaunaEcologyEvaluator(
+                IslandFaunaEcology.DefaultWorldSeed, juveniles: true);
+
+            int adults = 0, calves = 0;
+            ReleaseIslandRecord record = ReleaseWorldCatalog.All[0];
+            for (int member = 0; member < GroupMembers; member++)
+            {
+                foreach (double t in new[] { 0.0, 61.0, 900.0, 86_400.0 })
+                {
+                    FaunaCreature creature = new FaunaCreature(
+                        IslandFaunaPolicy.FirstFaunaEntityId + member, FaunaSpecies.MantaRay,
+                        record.Definition.Id, member, 0, member, GroupMembers);
+                    (double ax, double ay, double az) =
+                        plain.LocalPoseAt(creature, record.Envelope, t);
+                    (double bx, double by, double bz) =
+                        withCalves.LocalPoseAt(creature, record.Envelope, t);
+                    double moved = Math.Sqrt(((bx - ax) * (bx - ax))
+                        + ((by - ay) * (by - ay)) + ((bz - az) * (bz - az)));
+
+                    if (IslandFaunaFamily.IsCalfSlot(creature))
+                    {
+                        calves++;
+                        Assert.True(moved > 1.0,
+                            "calf slot " + member + " did not move when juveniles came on");
+                    }
+                    else
+                    {
+                        adults++;
+                        Assert.Equal(ax, bx);
+                        Assert.Equal(ay, by);
+                        Assert.Equal(az, bz);
+                    }
+                }
+            }
+            Assert.True(adults > 0 && calves > 0);
         }
 
         [Fact]

@@ -213,12 +213,12 @@ namespace WorldsAdriftRebornGameServer.Game
             _loadRadius = loadRadius ?? IslandFaunaInterestPolicy.DefaultLoadRadiusMetres;
             _unloadRadius = IslandFaunaInterestPolicy.UnloadRadiusFor(_loadRadius);
             _peerBudget = perPeerBudget ?? IslandFaunaInterestPolicy.DefaultPerPeerCreatures;
+            // Juveniles ride on the ecology's rhythm, so they cannot exist
+            // without it; see JuvenilesEnv.
+            _juveniles = juvenilesEnabled && ecologyEnabled;
             // The pose function is chosen ONCE, here: the registry cannot tell
             // the ecology from the classic patrol, and nothing downstream
             // branches on the flag again.
-            // Juveniles ride on the ecology's rhythm, so they cannot exist without
-            // it; see JuvenilesEnv. Decided ONCE, here, like the ecology itself.
-            _juveniles = juvenilesEnabled && ecologyEnabled;
             _ecology = ecologyEnabled
                 ? new FaunaEcologyEvaluator(
                     worldSeed ?? IslandFaunaEcology.DefaultWorldSeed, _juveniles)
@@ -386,8 +386,8 @@ namespace WorldsAdriftRebornGameServer.Game
                             // The pairing, published because the browser mirror
                             // cannot derive it (it does not hold the world seed)
                             // and because a map that drew a calf at its own
-                            // golden-angle position would be five metres from
-                            // where the wire actually has it.
+                            // golden-angle position would be metres from where
+                            // the wire actually has it.
                             _juveniles && slots.TryGetValue(pair.Key, out int groupSlots)
                                 ? IslandFaunaFamily.SlotsFor(
                                     id, pair.Key.Species, pair.Key.Index, groupSlots)

@@ -317,6 +317,12 @@
     var sx=b.x-a.x,sy=-(b.z-a.z);
     out.push({kind:kind,row:row,member:member,x:row.ox+a.x,y:row.oz-a.z,
       cluster:FAUNA.cluster(kind).r/mapPx,
+      // A CALF IS DRAWN SMALLER, because the console's whole claim is that it
+      // shows what the server has - and what the server has is an animal the
+      // client will render at a quarter scale. Not a quarter of the glyph
+      // though: below about three pixels a mark stops being a mark, so the
+      // glyph shrinks by a readable amount rather than by the physical ratio.
+      calf:member&&FAUNA.motherOf(g,memberIndex)>=0,
       deg:(sx*sx+sy*sy)>1e-9?Math.atan2(sx,-sy)*180/Math.PI:0});
   }
   function faunaSpecies(out,row,kind,count,t,inView){
@@ -373,7 +379,7 @@
     var i;
     for(i=0;i<list.length;i++){
       var e=list[i],n=faunaNode(i);
-      var cls='fauna '+e.kind+(e.member?' member':' school');
+      var cls='fauna '+e.kind+(e.member?' member':' school')+(e.calf?' calf':'');
       if(n.cls!==cls){n.g.setAttribute('class',cls);n.cls=cls;}
       // SIZED SO IT NEVER OUTSHOUTS THE ISLAND IT BELONGS TO. At whole-world
       // zoom an island marker is thirteen pixels and a school mark sitting on
@@ -390,6 +396,7 @@
       var ceiling=e.kind==='manta'?10:9;
       var size=e.member?Math.max(4.5,Math.min(ceiling,e.cluster*0.85))
                        :(far?7:(e.kind==='manta'?10:8.5));
+      if(e.calf)size=Math.max(3,size*0.6);
       size=Math.round(size*2)/2;
       var shape=e.kind+size;
       if(n.shape!==shape){
