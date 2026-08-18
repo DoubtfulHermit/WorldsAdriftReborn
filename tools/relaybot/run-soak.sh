@@ -200,7 +200,7 @@ else
         cd "$STAGE" || exit 1
         WAREBORN_GAME_PORT="$PORT" WAREBORN_RELAY_V2="$RELAY_V2" \
             DOTNET_ROLL_FORWARD=Major \
-            dotnet WorldsAdriftRebornGameServer.dll > "$SERVER_LOG" 2>&1
+            exec dotnet WorldsAdriftRebornGameServer.dll > "$SERVER_LOG" 2>&1
     ) &
     STARTED_SERVER=1
 

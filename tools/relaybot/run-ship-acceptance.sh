@@ -93,7 +93,7 @@ echo "[ship-acceptance] starting isolated native server on UDP $port..."
     WAREBORN_LOAD_BARRIER=0 \
     WAREBORN_RELAY_V2=1 \
     DOTNET_ROLL_FORWARD=Major \
-    dotnet WorldsAdriftRebornGameServer.dll > "$server_log" 2>&1
+    exec dotnet WorldsAdriftRebornGameServer.dll > "$server_log" 2>&1
 ) &
 server_pid="$!"
 
