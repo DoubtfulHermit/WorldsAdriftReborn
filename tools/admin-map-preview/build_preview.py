@@ -18,8 +18,16 @@ What it changes, and nothing else:
     the map animate exactly as it does live. The roster is read out of the page's
     OWN embedded catalogue - the counts the seeding rule places on the tier-1
     world - so no number in it is invented here;
-  * a banner says what this file is, and says the wildlife is driven by this
-    file's own clock, so a screenshot of it is never mistaken for a live console.
+  * TWO SHIPS are supplied, because the ship overlay is the other thing on this
+    map a file can honestly reproduce. Their HULLS are the real thing: the rings
+    below are what ShipMapSilhouette derives from real ShipPlan bytes - one of
+    them the 60-byte hull pulled byte for byte off the live save - so the shapes
+    a reader sees are the shapes the game has. Where they are is a fixture: this
+    file has no game server to ask, so the two hulls fly a circle at a stated
+    speed and the console dead-reckons them exactly as it does live;
+  * a banner says what this file is, and says the wildlife and the ships are
+    driven by this file's own clock, so a screenshot of it is never mistaken for
+    a live console.
 
 Usage:
     ./build_preview.py <served-admin.html> <out.html>
@@ -60,9 +68,53 @@ STUB = """<script>
     }catch(e){roster=[];}
     return roster;
   }
+  // The two fixture hulls. Every number in `hull` is what the game server
+  // publishes for a real ShipPlan: 4243 is the 60-byte hull off the live save,
+  // 4242 a four-cell hull tapered to a fine bow. The rings are hull-local
+  // metres, flat x,z, exactly as the wire carries them.
+  var HULLS=[
+    {id:4242,cx:-14150,cz:-6560,r:100,speed:8.4,piloted:true,
+     hull:{present:true,ownerCharacterUid:'preview-owner-1',docked:false,
+           beamMetres:16,keelMetres:20.6,deckPlaneMetres:3.4,
+           bowLocalZMetres:16.8,sternLocalZMetres:-3.8,
+           cellCount:4,hullDeckCount:1,sectionCount:5,keelIsLongestAxis:true,
+           woodId:'birch',woodQuality:6,metalId:'iron',metalQuality:4,
+           outline:[4.4,-3.8,6.8,2,8,6,6.4,10,2.4,16.8,-2.4,16.8,
+                    -6.4,10,-8,6,-6.8,2,-4.4,-3.8]},
+     deckCount:14,mountedPartCount:6},
+    {id:4243,cx:-14280,cz:-6670,r:85,speed:-5.5,piloted:false,
+     hull:{present:true,ownerCharacterUid:'preview-owner-2',docked:false,
+           beamMetres:12.09,keelMetres:8,deckPlaneMetres:3.4,
+           bowLocalZMetres:2,sternLocalZMetres:-6,
+           cellCount:2,hullDeckCount:1,sectionCount:3,keelIsLongestAxis:false,
+           woodId:'birch',woodQuality:3,metalId:'iron',metalQuality:3,
+           outline:[6.05,-6,6.05,-2,6.05,2,-6.05,2,-6.05,-2,-6.05,-6]},
+     deckCount:6,mountedPartCount:4}];
+  // A circle, so the reported velocity is the exact derivative of the reported
+  // position at every instant - which is the only thing that makes the
+  // console's dead reckoning a fair demonstration rather than a cartoon.
+  function ships(t){
+    return HULLS.map(function(s){
+      var w=s.speed/s.r,a=w*t;
+      return {domainId:'preview:ship:'+s.id,hullEntityId:s.id,
+        authorityGeneration:1,replicationSequence:Math.round(t*4),
+        cadenceMs:240,deliveryAgeMs:120,
+        x:s.cx+s.r*Math.cos(a),y:210,z:s.cz+s.r*Math.sin(a),
+        active:true,piloted:s.piloted,liveCadenceExpected:true,
+        pilotPlayerEntityId:s.piloted?7001:null,
+        aboardPlayerEntityIds:s.piloted?[7001]:[],
+        deckCount:s.deckCount,mountedPartCount:s.mountedPartCount,
+        subscriberCount:s.piloted?1:0,staleDelivery:false,aboardCheckoutWarning:false,
+        yawRadians:Math.atan2(-s.r*w*Math.sin(a),s.r*w*Math.cos(a)),
+        yawRateRadPerSec:w,
+        vxMps:-s.r*w*Math.sin(a),vyMps:0,vzMps:s.r*w*Math.cos(a),
+        hull:s.hull};
+    });
+  }
   function stats(){
     var live=readRoster(),total=0;
     for(var i=0;i<live.length;i++)total+=live[i].mantaRays+live[i].jellyFish;
+    var t=(Date.now()-t0)/1000;
     return {serverName:'Offline preview \\u2014 no game server behind this file',
       game:{reporting:true,state:'ok',ageSeconds:0,stale:false,
             uptimeSeconds:Math.round((Date.now()-t0)/1000),
@@ -81,9 +133,12 @@ STUB = """<script>
                      stateCounts:{},players:[],islands:[],events:[]},
             runtime:{hostMode:'offline preview',hostId:'offline-preview',
                      ownedEntityCount:0,globalEntityCount:0,unownedEntityCount:0,
-                     ownershipIssueCount:0,domains:[],shipDomains:[]},
+                     ownershipIssueCount:0,domains:[],shipDomains:ships(t)},
+            shipModel:{present:true,accelMps2:4,maxSpeedMps:12,
+                       windowSeconds:3.1622776601683795,maxWindowSeconds:8,
+                       toleratedErrorMetres:20},
             fauna:{present:true,enabled:true,
-                   clockSeconds:(Date.now()-t0)/1000,
+                   clockSeconds:t,
                    liveCount:total,budget:4000,demand:total,perPeerBudget:24,
                    poseIntervalMs:250,islands:live}},
       accounts:{available:false,reason:'offline preview'}};
@@ -105,10 +160,12 @@ STUB = """<script>
 server rendered it, frozen to a file. The map, the detail panel, hover, zoom, search and the island
 ledger all work, and every control that would change something is refused.
 <strong style="color:#74c9cf">Nothing here is a live server:</strong> a stub inside this file answers
-the two authenticated reads with an EMPTY world &mdash; no players, no ships, no terrain &mdash; plus
-the wildlife roster the preserved catalogue&rsquo;s own seeding rule places on the tier-1 world.
-The creatures really are moving, on the game server&rsquo;s own movement maths, but anchored to
-<em>this file&rsquo;s</em> clock rather than a running server&rsquo;s.
+the two authenticated reads with an empty world &mdash; no players, no terrain &mdash; plus the
+wildlife roster the preserved catalogue&rsquo;s own seeding rule places on the tier-1 world, and
+two ships. The creatures really are moving, on the game server&rsquo;s own movement maths, and the
+ships really are the hulls their outlines say they are &mdash; one is the 60-byte hull off the live
+save &mdash; but both are anchored to <em>this file&rsquo;s</em> clock rather than a running
+server&rsquo;s, and where the two ships are is made up here.
 </div>
 """
 

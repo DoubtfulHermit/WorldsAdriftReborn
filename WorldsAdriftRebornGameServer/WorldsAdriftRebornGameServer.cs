@@ -2311,7 +2311,12 @@ namespace WorldsAdriftRebornGameServer
                     aboardPlayers,
                     Game.Crafting.BuiltShips.DecksForHull(domain.HullEntityId).Count,
                     Game.Crafting.MountedParts.OnHull(domain.HullEntityId).Count(),
-                    ShipInterest.SubscriberCountFor(domain.HullEntityId)));
+                    ShipInterest.SubscriberCountFor(domain.HullEntityId),
+                    // The heading and both derivatives were already in the pose
+                    // this loop reads and were simply never written down.
+                    pose.YawRadians, pose.YawRateRadPerSec,
+                    pose.VxMps, pose.VyMps, pose.VzMps,
+                    HullStatFor(domain.HullEntityId)));
             }
 
             // Operator topology: the ownership-only host is the source of truth for
@@ -2419,7 +2424,57 @@ namespace WorldsAdriftRebornGameServer
                 // Same poll thread, same reasoning as terrain above. The clock it
                 // carries is what lets the operator console draw the wildlife
                 // MOVING without anybody streaming positions.
-                fauna: Fauna.Telemetry());
+                fauna: Fauna.Telemetry(),
+                // The LIVE flight tuning, not the compiled default: the console
+                // solves how far it may carry a hull past its last measurement
+                // from this acceleration, and a deployment that retuned it must
+                // move the console with it.
+                shipModel: new ShipMapRuntimeStat(
+                    Flight.Tuning.AccelMps2, Flight.Tuning.MaxSpeedMps));
+        }
+
+        /// <summary>
+        /// A hull's SHAPE for the operator map, memoised on its own bytes.
+        ///
+        /// The outline is derived from the player's ShipPlan, which is immutable
+        /// for the life of a hull - so deriving it again every three seconds would
+        /// be the same answer at the same cost forever. The cache is keyed on the
+        /// byte ARRAY the ledger holds rather than on the entity id alone: the id
+        /// is reused across a delete and a rebuild in the same process, and a
+        /// stale silhouette would be a ship drawn as the shape of a ship that no
+        /// longer exists.
+        ///
+        /// A hull with no bytes, or bytes that will not decode, reports
+        /// <see cref="ShipHullStat.Unavailable"/>. That is a mark the console draws
+        /// plainly and labels; it is never a substitute shape.
+        /// </summary>
+        private static readonly Dictionary<long, (byte[] Bytes, Multiplayer.Ship.ShipMapSilhouette Shape)>
+            hullSilhouettes = new Dictionary<long, (byte[], Multiplayer.Ship.ShipMapSilhouette)>();
+
+        private static ShipHullStat HullStatFor(long hullEntityId)
+        {
+            byte[]? bytes = Game.Crafting.BuiltShips.HullBytesFor(hullEntityId);
+            if (bytes == null)
+            {
+                return ShipHullStat.Unavailable;
+            }
+
+            if (!hullSilhouettes.TryGetValue(hullEntityId, out var cached)
+                || !ReferenceEquals(cached.Bytes, bytes))
+            {
+                Multiplayer.Ship.ShipMapSilhouette shape =
+                    Multiplayer.Ship.ShipPlanModel.TryDecode(bytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
+                        ? Multiplayer.Ship.ShipMapSilhouette.Of(plan)
+                        : Multiplayer.Ship.ShipMapSilhouette.Empty;
+                cached = (bytes, shape);
+                hullSilhouettes[hullEntityId] = cached;
+            }
+
+            return new ShipHullStat(
+                cached.Shape,
+                Game.Crafting.BuiltShips.OwnerFor(hullEntityId),
+                Game.Crafting.BuiltShips.IsHullDocked(hullEntityId),
+                Game.Crafting.BuiltShips.MaterialsFor(hullEntityId));
         }
 
         /// <summary>Published appearance per player entity; read by the 1088

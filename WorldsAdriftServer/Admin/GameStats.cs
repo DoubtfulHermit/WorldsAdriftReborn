@@ -173,6 +173,14 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameFaunaStat Fauna { get; private init; } = GameFaunaStat.Absent();
 
+        /// <summary>
+        /// The ship-motion model (schema v8+). Never null: an older game server
+        /// projects to an ABSENT model, which the console renders as "this server
+        /// predates ship geometry" and, crucially, draws no reckoned position from
+        /// - rather than as a fleet standing still.
+        /// </summary>
+        public GameShipModelStat ShipModel { get; private init; } = GameShipModelStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -227,6 +235,7 @@ namespace WorldsAdriftServer.Admin
                 ShipDomains = domains,
                 Terrain = GameTerrainStat.Parse(o["terrain"] as JObject),
                 Fauna = GameFaunaStat.Parse(o["fauna"] as JObject),
+                ShipModel = GameShipModelStat.Parse(o["shipModel"] as JObject),
             };
         }
 
@@ -562,8 +571,81 @@ namespace WorldsAdriftServer.Admin
         };
     }
 
+    /// <summary>
+    /// The login server's view of the game server's ship-motion model (schema v8+).
+    ///
+    /// Like every other projection here it REBUILDS an allowlisted object and
+    /// clamps what it passes on, and here that is load-bearing rather than
+    /// belt-and-braces: the console feeds these numbers into a per-frame
+    /// extrapolation, so a negative acceleration or a nonsense window would come
+    /// out as hulls flying off the map rather than as a wrong figure in a table.
+    /// </summary>
+    internal sealed class GameShipModelStat
+    {
+        /// <summary>
+        /// A ceiling on the published flight numbers. The game server's own
+        /// tuning clamps max speed at 60 m/s; anything past that in a file is not
+        /// a tuning, it is a corrupt or hostile snapshot.
+        /// </summary>
+        private const double MaxFlightNumber = 1000.0;
+
+        public bool Present { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>The projection for a game server whose schema has no ship model.</summary>
+        public static GameShipModelStat Absent() => new GameShipModelStat
+        {
+            Present = false,
+            Json = Build(null),
+        };
+
+        public static GameShipModelStat Parse(JObject? s)
+        {
+            if (s == null) return Absent();
+            return new GameShipModelStat { Present = true, Json = Build(s) };
+        }
+
+        private static JObject Build(JObject? s) => new JObject
+        {
+            ["present"] = s != null && ((bool?)s["present"] ?? false),
+            ["accelMps2"] = Finite((double?)s?["accelMps2"] ?? 0),
+            ["maxSpeedMps"] = Finite((double?)s?["maxSpeedMps"] ?? 0),
+            // The window is what actually bounds the console's arithmetic, so a
+            // zero or absent one must mean "reckon nothing", never "reckon
+            // forever". Zero is the safe reading of a missing value here: it
+            // draws the measured pose, which is always defensible.
+            ["windowSeconds"] = Finite((double?)s?["windowSeconds"] ?? 0),
+            // The hard ceiling, forwarded rather than restated here. The console
+            // caps the window with it, so a snapshot claiming a ten-minute window
+            // still only ever gets the game server's own maximum.
+            ["maxWindowSeconds"] = Finite((double?)s?["maxWindowSeconds"] ?? 0),
+            ["toleratedErrorMetres"] = Finite((double?)s?["toleratedErrorMetres"] ?? 0),
+        };
+
+        private static double Finite(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < 0) return 0;
+            return value > MaxFlightNumber ? MaxFlightNumber : value;
+        }
+    }
+
     internal sealed class GameShipDomainStat
     {
+        /// <summary>
+        /// The most outline points a hull may contribute. A ShipPlan's sections
+        /// are two points each and the editor cannot build anything near this, so
+        /// the cap only ever fires on a malformed file - where its job is to keep
+        /// one bad snapshot from becoming an unbounded SVG path.
+        /// </summary>
+        private const int MaxOutlinePoints = 512;
+
+        /// <summary>
+        /// Metres. A hull is tens of metres; the world is thousands. A coordinate
+        /// past this is not a hull, and letting one through would stretch the map's
+        /// own view box around a ship that does not exist.
+        /// </summary>
+        private const double MaxHullMetres = 2000.0;
+
         public JObject Json { get; private init; } = new JObject();
 
         public static GameShipDomainStat Parse(JObject d)
@@ -594,7 +676,85 @@ namespace WorldsAdriftServer.Admin
                 ["subscriberCount"] = (int?)d["subscriberCount"] ?? 0,
                 ["staleDelivery"] = (bool?)d["staleDelivery"] ?? false,
                 ["aboardCheckoutWarning"] = (bool?)d["aboardCheckoutWarning"] ?? false,
+                ["yawRadians"] = Finite((double?)d["yawRadians"] ?? 0, Math.PI * 4),
+                ["yawRateRadPerSec"] = Finite((double?)d["yawRateRadPerSec"] ?? 0, Math.PI * 4),
+                ["vxMps"] = Finite((double?)d["vxMps"] ?? 0, MaxHullMetres),
+                ["vyMps"] = Finite((double?)d["vyMps"] ?? 0, MaxHullMetres),
+                ["vzMps"] = Finite((double?)d["vzMps"] ?? 0, MaxHullMetres),
+                ["hull"] = Hull(d["hull"] as JObject),
             }};
+        }
+
+        /// <summary>
+        /// The hull's shape and description, rebuilt field by field.
+        ///
+        /// The outline is the one array here that reaches an SVG path, so it is
+        /// capped in LENGTH and every coordinate is clamped in MAGNITUDE, and an
+        /// odd-length array is truncated rather than read past its end - a flat
+        /// x,z encoding with a trailing x has no z, and a NaN in a path attribute
+        /// silently blanks the element it was drawn into.
+        /// </summary>
+        private static JObject Hull(JObject? h)
+        {
+            JArray outline = new JArray();
+            if (h?["outline"] is JArray ring)
+            {
+                int usable = Math.Min(ring.Count - (ring.Count % 2), MaxOutlinePoints * 2);
+                for (int i = 0; i < usable; i++)
+                {
+                    outline.Add(Finite((double?)ring[i] ?? 0, MaxHullMetres));
+                }
+            }
+
+            return new JObject
+            {
+                // present is the console's gate on drawing a real shape at all. It
+                // is ANDed with a non-empty ring rather than trusted alone, so a
+                // file claiming a shape it did not send draws the plain mark.
+                ["present"] = (h != null) && ((bool?)h["present"] ?? false) && outline.Count >= 6,
+                ["ownerCharacterUid"] = Text((string?)h?["ownerCharacterUid"]),
+                ["docked"] = (bool?)h?["docked"] ?? false,
+                ["beamMetres"] = Finite((double?)h?["beamMetres"] ?? 0, MaxHullMetres),
+                ["keelMetres"] = Finite((double?)h?["keelMetres"] ?? 0, MaxHullMetres),
+                ["deckPlaneMetres"] = Finite((double?)h?["deckPlaneMetres"] ?? 0, MaxHullMetres),
+                ["bowLocalZMetres"] = Finite((double?)h?["bowLocalZMetres"] ?? 0, MaxHullMetres),
+                ["sternLocalZMetres"] = Finite((double?)h?["sternLocalZMetres"] ?? 0, MaxHullMetres),
+                ["cellCount"] = Count((int?)h?["cellCount"] ?? 0),
+                ["hullDeckCount"] = Count((int?)h?["hullDeckCount"] ?? 0),
+                ["sectionCount"] = Count((int?)h?["sectionCount"] ?? 0),
+                ["keelIsLongestAxis"] = (bool?)h?["keelIsLongestAxis"] ?? false,
+                ["woodId"] = Text((string?)h?["woodId"]),
+                ["woodQuality"] = Count((int?)h?["woodQuality"] ?? 0),
+                ["metalId"] = Text((string?)h?["metalId"]),
+                ["metalQuality"] = Count((int?)h?["metalQuality"] ?? 0),
+                ["outline"] = outline,
+            };
+        }
+
+        /// <summary>
+        /// A signed number that is finite and inside a stated magnitude. Signed,
+        /// unlike the counts: a port coordinate, a westward velocity and a
+        /// left-hand turn are all legitimately negative.
+        /// </summary>
+        private static double Finite(double value, double magnitude)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return 0;
+            if (value > magnitude) return magnitude;
+            if (value < -magnitude) return -magnitude;
+            return value;
+        }
+
+        private static int Count(int value) => value < 0 ? 0 : value > 4096 ? 4096 : value;
+
+        /// <summary>
+        /// A short identifier bounded in length. These are printed into the panel;
+        /// the page escapes on write, and this stops a pathological file from
+        /// pushing a megabyte of text through it.
+        /// </summary>
+        private static string Text(string? value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            return value!.Length <= 96 ? value : value.Substring(0, 96);
         }
     }
 
