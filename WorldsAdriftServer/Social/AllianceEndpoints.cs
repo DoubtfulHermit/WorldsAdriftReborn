@@ -600,6 +600,18 @@ namespace WorldsAdriftServer.Social
             Alliance? alliance = ledger.ById(allianceId);
             if (alliance == null) return SocialEnvelope.Error(SocialErrorCodes.InvalidEntityId);
 
+            // The alliance in the PATH has to be the one the actor is acting on.
+            // Both policy questions below resolve the alliance from the actor
+            // rather than from the URL, so without this an actor in alliance X
+            // sending a path naming alliance Y would be answered about X - a boot
+            // that succeeds against a group the caller never named. The client
+            // derives this segment from its own cached alliance data, so a
+            // mismatch means it is acting on one it is no longer in.
+            if (!alliance.Holds(actorKey))
+            {
+                return SocialEnvelope.Error(SocialErrorCodes.InvalidEntityPair);
+            }
+
             AllianceVerdict verdict = actor == target
                 ? AlliancePolicy.MayLeave(ledger, actorKey)
                 : AlliancePolicy.MayBoot(ledger, actorKey, targetKey);

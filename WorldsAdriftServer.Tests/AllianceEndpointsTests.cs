@@ -761,6 +761,33 @@ namespace WorldsAdriftServer.Tests
             Assert.Single(members);
         }
 
+        /// <summary>
+        /// The alliance in the PATH has to be the one being acted on. Both policy
+        /// questions behind this route resolve the alliance from the ACTOR rather
+        /// than from the URL, so without the check an actor in one alliance
+        /// sending a path naming another would be answered about their own - a
+        /// boot that succeeds against a group the caller never named.
+        /// </summary>
+        [Fact]
+        public void A_boot_addressed_to_the_wrong_alliance_is_refused()
+        {
+            World world = new World();
+            Guid founder = world.Character("Rattus");
+            Guid member = world.Character("Mus");
+            Guid stranger = world.Character("Sorex");
+            string mine = Uid(world.Found(founder, "Rat Corp"));
+            string theirs = Uid(world.Found(stranger, "Sky Rats"));
+            Seat(world, mine, member);
+
+            JObject response = world.Delete("/memberships/alliance/" + theirs + "/" + U(member), founder);
+
+            Assert.False(response.Value<bool>("success"));
+            Assert.Equal("invalid_entity_pair", response.Value<string>("errorCode"));
+
+            // ... and the member is still where they were.
+            Assert.Equal(2, ((JArray)world.Get("/memberships/alliance/" + mine, founder)["data"]!["items"]!).Count);
+        }
+
         [Fact]
         public void A_plain_member_cannot_boot_anybody()
         {
