@@ -78,12 +78,20 @@ namespace RelayBot
         private readonly ConcurrentQueue<long> _removedEntities = new();
         private readonly ConcurrentQueue<long> _readdedEntities = new();
         private readonly ConcurrentDictionary<long, (double X, double Y, double Z)> _hullFrames = new();
+        private readonly HashSet<long> _faunaEntities = new();
 
         public long IslandEntityId { get; private set; } = -1;
         public long ShipHullEntityId { get; private set; } = -1;
         public long HelmEntityId { get; private set; } = -1;
         public long DeckEntityId { get; private set; } = -1;
         public long HullMotionUpdates { get; private set; }
+
+        /// <summary>Creature entities this bot was shown. Zero unless WAREBORN_ISLAND_FAUNA is on.</summary>
+        public long FaunaEntitiesAdded { get; private set; }
+
+        /// <summary>190602 updates received for those creatures - the fauna pose sender, observed.</summary>
+        public long FaunaPoseUpdates { get; private set; }
+
         public long HelmWakeUpdates { get; private set; }
         public long RemoteAboardFrames { get; private set; }
         public long RemoteInvalidRelativeFrames { get; private set; }
@@ -296,6 +304,26 @@ namespace RelayBot
             // first non-player entity instead of guessing that name.
             if (IslandEntityId < 0 && op.PrefabContext != "Player" && op.PrefabContext != "Default")
                 IslandEntityId = op.EntityId;
+            // ISLAND FAUNA. A creature is the only world entity whose transform the
+            // server drives without any client ever asking about it, so a bot that
+            // never declares interest cannot tell "the sender works" from "the
+            // sender is silent". Declare 190602 plus the one identity component
+            // that species uses (retail split them: SpeciesType for the rays,
+            // BasicSpeciesType for the jellies) and count what comes back.
+            if (op.PrefabName == "MantaRay" || op.PrefabName == "JellyFish")
+            {
+                FaunaEntitiesAdded++;
+                _faunaEntities.Add(op.EntityId);
+                var faunaInterest = new PbSendComponentInterest { EntityId = op.EntityId };
+                foreach (uint id in new[] { 190602u, op.PrefabName == "MantaRay" ? 1182u : 4322u })
+                {
+                    faunaInterest.Components.Add(new PbInterestOverride { ComponentId = id, IsInterested = true });
+                }
+                Enet.Send(_peer, Enet.ChSendComponentInterest, Wire.Encode(faunaInterest), Enet.FlagReliable);
+                Enet.Flush(_clientHost);
+                Log($"fauna {op.PrefabName} {op.EntityId}: requested 190602 + identity component.");
+            }
+
             if (op.PrefabName == "ShipFrame") ShipHullEntityId = op.EntityId;
             if (op.PrefabName == "Helm01") HelmEntityId = op.EntityId;
             if (op.PrefabName == "Deck01" && DeckEntityId < 0) DeckEntityId = op.EntityId;
@@ -388,6 +416,12 @@ namespace RelayBot
 
             foreach (PbComponentData component in batch.Components)
             {
+                if (component.ComponentId == 190602 && _faunaEntities.Contains(batch.EntityId))
+                {
+                    FaunaPoseUpdates++;
+                    continue;
+                }
+
                 if (batch.EntityId == ShipHullEntityId && component.ComponentId == PredictedMotionStateId)
                 {
                     if (GameComponents.Deserialize(PredictedMotionStateId, GameComponents.TypeUpdate,

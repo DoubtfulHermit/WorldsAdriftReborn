@@ -197,6 +197,11 @@ namespace RelayBot
                 + (rewritten1073 ? $", heartbeats: {verdict.Heartbeats} (timestampless re-sends, not matchable by design)" : ""));
             Console.WriteLine($"[soak] staleness overall: p50 {verdict.OverallP50:0.##} ms, p95 {verdict.OverallP95:0.##} ms, max {verdict.OverallMax:0.##} ms");
             Console.WriteLine($"[soak] {verdict.Detail}");
+            // ISLAND FAUNA, reported unconditionally so a run where the feature was
+            // meant to be on and produced nothing says so, instead of looking like a
+            // clean soak. Both numbers are zero on every world without fauna.
+            Console.WriteLine($"[soak] fauna: {bots.Sum(b => b.FaunaEntitiesAdded)} creature checkout(s),"
+                + $" {bots.Sum(b => b.FaunaPoseUpdates)} 190602 pose update(s) received.");
             Console.WriteLine($"[soak] gaps>1s: {verdict.GapCount}, disconnects: {verdict.DisconnectCount}, bot deaths: {verdict.BotDeaths}"
                 + $", decode errors: {verdict.DecodeErrors}"
                 + (rewritten1073 ? $", 1073 timeline violations: {verdict.TimelineViolations}" : ""));

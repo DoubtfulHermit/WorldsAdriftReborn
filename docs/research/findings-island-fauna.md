@@ -81,11 +81,10 @@ become worker/domain boundaries.
 
 ## Implementation status
 
-Stages 1 and 2 above are implemented as a pure, engine-free, server-owned core
-inside `WorldsAdriftRebornGameServer.Multiplayer`. Stages 3 and 4 are not
-started. Six files carry the work; no client mod, game-server, csproj, engine
-glue or prefab-manifest file is involved, and the Multiplayer assembly keeps its
-zero external references.
+Stages 1 and 2 above are implemented and WIRED. Stages 3 and 4 are not started.
+The decision logic is a pure, engine-free core inside
+`WorldsAdriftRebornGameServer.Multiplayer` (which keeps its zero external
+references); the game-server side is thin glue. No client mod is involved.
 
 - `Islands/IslandFaunaPolicy.cs` - `FaunaSpecies`, the prefab-name mapping onto
   the existing `JellyFish`/`MantaRay` census entries, `FaunaCreature`, the
@@ -93,8 +92,41 @@ zero external references.
 - `Islands/IslandFaunaMovement.cs` - closed-form manta orbit and jelly day/night
   drift.
 - `Islands/IslandFaunaRegistry.cs` - the clock-driven bounded pose registry.
-- One xUnit file per production file under
+- `Islands/IslandFaunaPlan.cs` - which creatures a world actually gets once the
+  world is bigger than the budget, and the id-stability rule that makes the
+  budget safe to tune.
+- `Game/IslandFaunaService.cs` (game server) - boot seeding, per-peer checkout
+  and the pose push.
+- `ComponentsSerializer` - the 190602 live-pose override plus 1182
+  `SpeciesState` (rays) and 4322 `BasicCreatureState` (jellies).
+- One xUnit file per pure production file under
   `WorldsAdriftRebornGameServer.Multiplayer.Tests/Islands/`.
+
+A CREATURE IS NOT A WORLD REGISTRATION, and that is forced rather than chosen.
+`IslandFaunaRegistry.Add` refuses any id below the 2,100,000,000 fauna band
+while `WorldEntityRegistry` ids come from `EntityIdAllocator` counting up from
+1, so the two id schemes are mutually exclusive. A creature therefore cannot
+ride `ResourceInterestService`, whose entire input is the registration list, and
+a `fauna-` prefix in `ResourceInterestPolicy.IsStreamedResourceKey` would be
+dead code because a creature has no registration key to match. `IslandFaunaService`
+carries its own per-peer checkout instead, reusing `ResourceInterestPolicy`'s
+pure geometry rather than copying it. Measured consequence: a tier 1 headless
+boot with fauna on and off produces byte-identical registration, boot-resource
+and ownership-audit lines.
+
+THE BUDGET AND THE POPULATION RULE DISAGREE AT RELEASE SCALE, and the server
+says so rather than hiding it. Tier 1 is 46 Wilderness islands wanting three
+creatures each - 138 - against a default world-wide cap of 24. Eight islands are
+populated whole and the other 38 carry nothing; `WAREBORN_ISLAND_FAUNA_MAX`
+raises the cap and the boot line restates the worst-case update rate that
+follows. Only release-catalogue islands can carry fauna at all: the population
+is a function of the surveyed tier and Haven has none, so a Haven-only world
+seeds nothing.
+
+WHAT IS ACTUALLY AUTHORITATIVE. The server owns each creature's transform and
+its species, and nothing else. There is no health, mortality, age, gender,
+flock, habitat, contact damage or manta variant - a creature cannot be hurt,
+cannot hurt a player, and cannot die. That is stage 3.
 
 The decisions worth reading back before extending this:
 

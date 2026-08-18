@@ -246,6 +246,7 @@ namespace WorldsAdriftRebornGameServer
             ResourceInterest.Forget(peer);
             ShipInterest.Forget(peer);
             TerrainInterest?.Forget(peer);
+            Fauna.Forget(peer);
 
             // The peer's spawn-pacing metronome. Left behind, a reused handle would
             // inherit a stale nextDue and mis-pace the next joiner on that slot.
@@ -652,6 +653,22 @@ namespace WorldsAdriftRebornGameServer
         /// </remarks>
         internal static readonly Game.Gathering.FallingLogService FallingLogs =
             new Game.Gathering.FallingLogService(ServerClock);
+
+        /// <summary>
+        /// Every jellyfish and manta ray this server puts on an island. Internal
+        /// because <see cref="Game.Components.ComponentsSerializer"/> resolves a
+        /// creature's live pose and its species off it - like a felled log, a
+        /// creature is deliberately not a world registration (the fauna id band
+        /// starts at 2_100_000_000 and the registry refuses anything below it), so
+        /// this is the only thing that knows a creature exists.
+        /// </summary>
+        /// <remarks>
+        /// Declared after <see cref="ServerClock"/> for the same textual-order
+        /// reason as <see cref="FallingLogs"/>. It is seeded later, in Main, once
+        /// the release-island selection is known; until then it is empty and OFF.
+        /// </remarks>
+        internal static readonly Game.IslandFaunaService Fauna =
+            new Game.IslandFaunaService(ServerClock);
 
         /// <summary>
         /// Once per main-loop turn: applies every cut whose timer has elapsed
@@ -3674,6 +3691,7 @@ namespace WorldsAdriftRebornGameServer
                             // entities and interest-disabled mode fail open.
                             if (!ResourceInterest.MayServe(keyValuePair.Key, entityId)
                                 || !ShipInterest.MayServe(keyValuePair.Key, entityId)
+                                || !Fauna.MayServe(keyValuePair.Key, entityId)
                                 || !(TerrainInterest?.MayServe(keyValuePair.Key, entityId) ?? true))
                             {
                                 Console.WriteLine("[interest] ignored late component request for unloaded streamed"
@@ -4110,9 +4128,29 @@ namespace WorldsAdriftRebornGameServer
                 entityId => DomainHost.OwnerOf(entityId) != null,
                 enabled: TerrainInterestFeatureEnabled,
                 releaseWorldRolloutActive: ReleaseWorldEnabled);
+            // ISLAND FAUNA. Seeded here, after the island selection is final and
+            // before any peer can connect, because the population is derived from
+            // the selected islands rather than persisted. A world with no release
+            // islands (Haven-only, or the rollout safely disabled) has no surveyed
+            // tiers and therefore no fauna: IslandFaunaPolicy.PopulationFor reads a
+            // ReleaseIslandRecord, and inventing a tier for Haven would be inventing
+            // an ecology retail never told us about.
+            Fauna.Seed(ReleaseWorldEnabled
+                ? Multiplayer.Islands.ReleaseWorldRolloutPolicy.Select(ReleaseWorldDistricts)
+                : Array.Empty<Multiplayer.Islands.ReleaseIslandRecord>());
+            if (Fauna.Enabled && Fauna.Count == 0)
+            {
+                Console.WriteLine("[island-fauna] ON but nothing was seeded: island fauna needs the"
+                    + " release-world rollout (WAREBORN_RELEASE_WORLD_DISTRICTS), because the"
+                    + " population is a function of an island's surveyed tier and only release"
+                    + " islands carry one.");
+            }
+
             if (TerrainInterest.Enabled)
             {
                 ResourceInterest.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
+                // A creature must never outrun the island it flies around.
+                Fauna.AttachTerrainReadiness(TerrainInterest.IsTerrainReady);
                 Console.WriteLine("[terrain-interest] ON: optional island terrain uses "
                     + TerrainInterest.LoadRadiusMetres.ToString("0.#") + " m load / "
                     + TerrainInterest.UnloadRadiusMetres.ToString("0.#")
@@ -4338,6 +4376,13 @@ namespace WorldsAdriftRebornGameServer
                 // Cheap when nothing is falling: two empty-dictionary walks. See
                 // Game.Gathering.FallingLogService for the wire-shape contract.
                 FallingLogs.Tick();
+                // ISLAND FAUNA: per-peer creature checkout plus the 4 Hz absolute
+                // pose push for whatever the registry says is due. Off unless
+                // WAREBORN_ISLAND_FAUNA=1; cheap when off (one bool) and when idle
+                // (an empty-dictionary walk that allocates nothing). See
+                // Game.IslandFaunaService for the wire-shape contract and the
+                // stated worst-case update rate.
+                Fauna.Tick();
                 // Fire any due one-shot "seed in-progress then flip" completions on the main
                 // loop: the shipyard fold-out flip (1205 deployed=true), the crafted-part
                 // materialize flip (1013 spawning=false), and timed station-craft completions.
@@ -4567,6 +4612,7 @@ namespace WorldsAdriftRebornGameServer
                         ResourceInterest.NoteConnectPlanComplete(keyValuePair.Key);
                         ShipInterest.NoteConnectPlanComplete(keyValuePair.Key);
                         TerrainInterest?.NoteConnectPlanComplete(keyValuePair.Key);
+                        Fauna.NoteConnectPlanComplete(keyValuePair.Key);
                         PrepareRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                         DrainRuntimeEntityCatchup(keyValuePair.Key, pStatus);
                     }
