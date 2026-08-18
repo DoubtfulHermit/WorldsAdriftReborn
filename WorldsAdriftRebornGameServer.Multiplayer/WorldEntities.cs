@@ -771,6 +771,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>
+        /// THE REVIVAL CHAMBER as SCENERY: the 20 m landmark the shrine stands in.
+        ///
+        /// <see cref="Wilderness.WildernessChamber"/> holds every value and every
+        /// piece of provenance; this is only the registration.
+        ///
+        /// It carries a ROTATION, which almost nothing else here does: the prefab
+        /// has exactly one doorway, on its local +x, and the yaw is what points that
+        /// doorway at ground the player can walk in on.
+        ///
+        /// 190602 ONLY. No 1210 - the prefab's own interaction visualizer is on a
+        /// plate at the bottom of a sealed well 11 m under the floor, and seeding
+        /// 1210 here would advertise a prompt nobody could ever reach. The one thing
+        /// in this room that answers an interact is
+        /// <see cref="WildernessShrineEntity"/>.
+        ///
+        /// AfterPlayer: it is a building, and a building must never be able to delay
+        /// somebody's spawn.
+        /// </summary>
+        public static WorldEntity WildernessChamberEntity(IslandDefinition haven)
+        {
+            return new WorldEntity(
+                Wilderness.WildernessChamber.WorldEntityKey,
+                Wilderness.WildernessChamber.AssetName,
+                DefaultAssetContext,
+                Wilderness.WildernessChamber.PositionOn(haven),
+                seedComponents: Wilderness.WildernessChamber.SeedComponents,
+                order: SpawnOrder.AfterPlayer,
+                packedRotation: Wilderness.WildernessChamber.PackedRotation);
+        }
+
         /// <summary>A scannable databank with an island-specific stable key and pose.</summary>
         public static WorldEntity DatabankEntity(string key, FixedPointPosition position)
         {
@@ -987,6 +1018,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             registry.Register(Island(islands.Require(IslandCatalog.HavenId)));
 
+            // A BUILDING CLEARS ITS OWN GROUND. Everything this server scatters on
+            // Haven - trees, nuggets, canisters, deposits, databanks - is drawn from
+            // the SAME measured LOD0 surface table the Revival Chamber was sited on,
+            // so without this a tree grows through its roof and a nugget sits in the
+            // middle of its floor. Both happened, and the registration test named
+            // them: "the shrine is inside tree-46", then "metal-12 stands inside the
+            // Revival Chamber". SKIPPED, not moved: those tables are generated
+            // fields and a hand-nudged entry in one would be a lie about where the
+            // ground is. An atlas shard is registered straight after its host
+            // deposit and shares its position, so skipping the deposit skips it too.
+            IslandDefinition chamberHaven = islands.Require(IslandCatalog.HavenId);
+            void RegisterClearOfChamber(WorldEntity entity)
+            {
+                if (includeWildernessShrine
+                    && Wilderness.WildernessChamber.Covers(entity.Position, chamberHaven))
+                {
+                    return;
+                }
+
+                registry.Register(entity);
+            }
+
             // Terrain expansion is deliberately independent from the older Trades
             // resource flag. It adds only a bounded, evidenced prefix of release-map
             // terrain; candidate resources remain disabled until each island profile
@@ -1056,7 +1109,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 registry.Register(HavenTree());
                 foreach (WorldEntity tree in DistributedTrees(varyTreeSpecies).Take(treeTotal - 1))
                 {
-                    registry.Register(tree);
+                    RegisterClearOfChamber(tree);
                 }
             }
 
@@ -1070,7 +1123,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
                 foreach (MetalNode node in MetalNodes.Haven(oreCount))
                 {
-                    registry.Register(MetalNodeEntity(node));
+                    RegisterClearOfChamber(MetalNodeEntity(node));
                 }
             }
 
@@ -1095,7 +1148,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 IReadOnlyList<MetalNode> deposits = MetalDeposits.Haven(depositCount);
                 foreach (MetalNode node in deposits)
                 {
-                    registry.Register(DepositEntity(node));
+                    RegisterClearOfChamber(DepositEntity(node));
                 }
 
                 // ATLAS SHARDS, one lodged in each deposit the spawn rule selects. ALL
@@ -1115,7 +1168,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     {
                         if (AtlasSpawnPolicy.DepositCarriesShard(i, oneInDeposits))
                         {
-                            registry.Register(AtlasShardEntity(i, deposits[i].Position));
+                            RegisterClearOfChamber(AtlasShardEntity(i, deposits[i].Position));
                         }
                     }
                 }
@@ -1133,16 +1186,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 {
                     MetalNode node = Resources.TradesChallengeResources.DepositByKey(
                         Resources.TradesChallengeResources.DepositKeyFor(i))!;
-                    registry.Register(DepositEntity(node));
+                    RegisterClearOfChamber(DepositEntity(node));
                     if (includeAtlasShard)
                     {
-                        registry.Register(AtlasShardEntity(node.Key, node.Position));
+                        RegisterClearOfChamber(AtlasShardEntity(node.Key, node.Position));
                     }
                 }
 
                 for (int i = 0; i < Resources.TradesChallengeResources.DatabankCount; i++)
                 {
-                    registry.Register(DatabankEntity(
+                    RegisterClearOfChamber(DatabankEntity(
                         Resources.TradesChallengeResources.DatabankKeyFor(i),
                         Resources.TradesChallengeResources.DatabankPositionAt(i)));
                 }
@@ -1174,15 +1227,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 for (int i = 0; i < island.Deposits.Count; i++)
                 {
                     MetalNode deposit = island.Deposits[i];
-                    registry.Register(DepositEntity(deposit));
+                    RegisterClearOfChamber(DepositEntity(deposit));
                     if (includeAtlasShard
                         && AtlasSpawnPolicy.DepositCarriesShard(i, releaseOneInDeposits))
                     {
-                        registry.Register(AtlasShardEntity(deposit.Key, deposit.Position));
+                        RegisterClearOfChamber(AtlasShardEntity(deposit.Key, deposit.Position));
                     }
                 }
                 for (int i = 0; i < island.Databanks.Count; i++)
-                    registry.Register(DatabankEntity(
+                    RegisterClearOfChamber(DatabankEntity(
                         Resources.ReleaseWorldResources.DatabankKeyFor(island, i),
                         island.Databanks[i]));
                 foreach (WorldEntity tree in Islands.ReleaseWorldTrees.For(island))
@@ -1199,7 +1252,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int fuelPodCount = FuelPods.CountFrom(fuelPodCountEnv);
                 for (int i = 0; i < fuelPodCount; i++)
                 {
-                    registry.Register(FuelPodEntity(i));
+                    RegisterClearOfChamber(FuelPodEntity(i));
                 }
             }
 
@@ -1213,7 +1266,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 int databankCount = Databanks.CountFrom(databankCountEnv);
                 for (int i = 0; i < databankCount; i++)
                 {
-                    registry.Register(DatabankEntity(i));
+                    RegisterClearOfChamber(DatabankEntity(i));
                 }
             }
 
@@ -1223,7 +1276,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // whether it exists. A door that says "not tonight" is better than a
             // missing door, because the second one reads as a bug.
             if (includeWildernessShrine)
+            {
+                // The CHAMBER first, then the shrine that stands inside it. Order is
+                // cosmetic (both are AfterPlayer and neither depends on the other's
+                // entity id) but it is the order they read in, and it keeps the
+                // spawn plan legible.
+                registry.Register(WildernessChamberEntity(islands.Require(IslandCatalog.HavenId)));
                 registry.Register(WildernessShrineEntity(islands.Require(IslandCatalog.HavenId)));
+            }
 
             return registry;
         }

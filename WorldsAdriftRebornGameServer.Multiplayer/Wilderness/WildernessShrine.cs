@@ -92,49 +92,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         public const string TeleportReason = "graduation";
 
         /// <summary>
-        /// Where it stands, in Haven island-local metres - a MEASURED LOD0 surface
-        /// vertex, the same source every other Haven placement on this server comes
-        /// from, and now also clearance-checked against what is already built there.
+        /// Where it stands, in Haven island-local metres: on the floor INSIDE the
+        /// Revival Chamber, at its exact centre.
         ///
-        /// THE PREVIOUS POINT, (176.00, 4.90, 16.00), IS WHY THIS ONE HAS TO EXPLAIN
-        /// ITSELF. It was picked against the surface table alone. Its nearest
-        /// authored structure is 13.7 m away - it sits INSIDE the ruined metal
-        /// camp's footprint - and the 40 m prefab standing on it was driven straight
-        /// through the camp. On 2026-08-18 a player logged in inside the result and
-        /// had to be rescued with the admin teleport. Terrain flatness was never the
-        /// missing check; <see cref="HavenStructures"/> was.
+        /// THIS IS THE THIRD PLACEMENT AND EACH ONE FAILED FOR A DIFFERENT REASON,
+        /// which is why it is spelled out.
         ///
-        /// This point is the best of the 15 measured Haven surface vertices that
-        /// clear ALL of:
+        ///   * (176.00, 4.90, 16.00) put a 40 m prefab 13.7 m from the ruined metal
+        ///     camp - i.e. through it. A player logged in inside the result and had
+        ///     to be rescued with the admin teleport.
+        ///   * (168.00, 4.47, 24.00) cleared the camp by 24.5 m, but by then the
+        ///     object was a bare 1.2 m plate 45 m from spawn and a live player could
+        ///     not find it: "i cant find the teleporter now".
+        ///   * This one is INSIDE <see cref="WildernessChamber"/>, at chamber-local
+        ///     (0, 0) - which is where retail's own spawn plate sits, 11 m further
+        ///     down under the terrain. The 20 m tower is the landmark; the room is
+        ///     the "clean slot"; the plate you walk onto is in the middle of it.
         ///
-        ///   * surface normal ny = 1.000 - flat, not a slope read as flat
-        ///   * all 8 neighbouring 8 m columns level within 0.43 m - a real plateau
-        ///   * nearest authored structure 24.5 m
-        ///     (<see cref="HavenStructures.ClearanceAt"/>), against a plate 0.6 m
-        ///     across: the camp is 24 m away, not 13.7 m
-        ///   * NOTHING OVERHEAD - zero structures within 8 m horizontally anywhere
-        ///     from 2 m below to 25 m above it. The camp is multi-storey and the
-        ///     spawn point itself is under a platform 19.5 m up, so horizontal
-        ///     distance alone is not clearance
-        ///   * 44.7 m from <c>SpawnPolicy.PlayerSpawnPosition</c>'s local
-        ///     (208.00, 6.70, 4.00). The spawn seed stands the player 2 m over the
-        ///     ground so they do not spawn inside it; measured surface vertex to
-        ///     measured surface vertex the shrine is 0.23 m above the spawn's own
-        ///     ground. The same shelf, a walk, no climb.
-        ///   * 43.1 m from the Haven databank, and clear of everything else in the
-        ///     registry (WildernessShrineRegistrationTests checks the whole
-        ///     registry rather than a list somebody has to remember to update)
-        ///   * toward the island's local origin from the spawn point, which is where
-        ///     retail's own quest text puts the chamber, "at the center of the
-        ///     island"
+        /// X and Z are the chamber's, exactly - the invariant is "the shrine is at
+        /// the centre of the chamber", not "the shrine is near the chamber", and
+        /// WildernessShrineTests pins it as an equality so the two can never drift.
+        /// Y is the MEASURED Haven LOD0 surface vertex there (4.18), because the
+        /// chamber's floor is Haven's own terrain: the building is buried so that
+        /// its doorway sill lands on the ground, and everything below - the sealed
+        /// drum, the 9.7 m internal drop, the unreachable plate - is under the
+        /// terrain mesh where nobody can reach or fall into it.
         ///
-        /// Retail's actual pad position is NOT recoverable - everything
-        /// Haven-specific was spawned by the GSim, and findings-haven.md is explicit
-        /// that the barrier/teleporter geometry gives only a relative offset. So the
-        /// CHOICE of vertex is WAREBORN TUNING; the vertex itself, and every
-        /// clearance number above, is measured.
+        /// Measured clearances at this point, all island-local:
+        ///
+        ///   * 10.0 m from the nearest chamber geometry at the player's standing
+        ///     band (2.2 m capsule tested against the prefab's collision meshes on a
+        ///     1 m grid) - the middle of a clear room, not a corner
+        ///   * the entry corridor is 12.7 m away in chamber-local +x and its terrain
+        ///     spans 0.11 m; the ramps and both quest trigger boxes are further out
+        ///     still and 11 m below the floor, buried
+        ///   * zero authored rocks within 12 m; the nearest authored structure is
+        ///     7.2 m clear of the chamber's whole 40 m x 36 m footprint
+        ///   * 55.6 m from the spawn point and 0.52 m below its ground vertex - a
+        ///     flat walk, reachable by a flood fill that never climbs more than 2 m
+        ///     per 8 m cell
         /// </summary>
-        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (168.00, 4.47, 24.00);
+        public static readonly (double X, double Y, double Z) HavenLocalPlacement = (160.00, 4.18, 32.00);
 
         /// <summary>Its global position, given the Haven definition it stands on.</summary>
         public static FixedPointPosition PositionOn(IslandDefinition haven)

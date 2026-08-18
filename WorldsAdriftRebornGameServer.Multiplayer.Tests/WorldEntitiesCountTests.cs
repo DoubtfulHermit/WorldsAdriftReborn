@@ -1,5 +1,6 @@
 using System.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer;
+using WorldsAdriftRebornGameServer.Multiplayer.Wilderness;
 using Xunit;
 
 namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
@@ -36,12 +37,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             return r.Registrations.Count(e => e.AssetName == MetalNodes.AssetName);
         }
 
+        /// <summary>
+        /// How many of a scattered table the Revival Chamber stands on. Those are
+        /// skipped at registration - a building clears its own ground - so "the full
+        /// placed set" is the table minus these, and saying so here keeps the count
+        /// tests about COUNTING rather than about the chamber.
+        /// </summary>
+        private static int CoveredByChamber(IEnumerable<(double X, double Y, double Z)> locals)
+        {
+            return locals.Count(p => Multiplayer.Wilderness.WildernessChamber.Covers(p.X, p.Z));
+        }
+
         [Fact]
         public void UnsetCountsGiveTheFullPlacedSet()
         {
             WorldEntityRegistry r = Build(null, null);
-            Assert.Equal(1 + WorldEntities.DistributedTreeLocals.Count, TreeCountIn(r));
-            Assert.Equal(MetalNodes.HavenPlacements.Count, OreCountIn(r));
+            Assert.Equal(1 + WorldEntities.DistributedTreeLocals.Count
+                - CoveredByChamber(WorldEntities.DistributedTreeLocals), TreeCountIn(r));
+            Assert.Equal(MetalNodes.HavenPlacements.Count
+                - MetalNodes.HavenPlacements.Count(
+                    p => Multiplayer.Wilderness.WildernessChamber.Covers(p.LocalX, p.LocalZ)), OreCountIn(r));
         }
 
         [Fact]
@@ -86,8 +101,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         public void OverLargeCountsClampToWhatIsPlaced()
         {
             WorldEntityRegistry r = Build("999", "999");
-            Assert.Equal(1 + WorldEntities.DistributedTreeLocals.Count, TreeCountIn(r));
-            Assert.Equal(MetalNodes.HavenPlacements.Count, OreCountIn(r));
+            Assert.Equal(1 + WorldEntities.DistributedTreeLocals.Count
+                - CoveredByChamber(WorldEntities.DistributedTreeLocals), TreeCountIn(r));
+            Assert.Equal(MetalNodes.HavenPlacements.Count
+                - MetalNodes.HavenPlacements.Count(
+                    p => Multiplayer.Wilderness.WildernessChamber.Covers(p.LocalX, p.LocalZ)), OreCountIn(r));
         }
 
         [Fact]
