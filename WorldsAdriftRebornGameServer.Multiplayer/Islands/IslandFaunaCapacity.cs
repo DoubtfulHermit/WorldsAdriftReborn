@@ -65,6 +65,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public const double MinSizeScale = 0.4;
         public const double MaxSizeScale = 2.0;
 
+        /// <summary>
+        /// How much MORE than the flat pre-ecology population an island's
+        /// capacity is, before size, quiet and the rhythm reduce it.
+        ///
+        /// THE ARITHMETIC THIS EXISTS FOR, learned from a live regression
+        /// (2026-08-18). Capacity is a CEILING that the rhythm expresses a
+        /// fraction of - time-weighted, about 0.75 - and the quiet doctrine
+        /// removes another ~15% of the world's islands or half their
+        /// population. Setting capacity equal to the old flat count therefore
+        /// guaranteed a world systematically emptier than the one it replaced:
+        /// measured, 250 live against the old 460, about 6 creatures on the
+        /// average island against a flat 10. The player saw exactly that and
+        /// said so.
+        ///
+        /// 1.5 puts the AVERAGE island's expressed population at or above the
+        /// flat count it replaced, while keeping the spread that is the point:
+        /// small islands land near 6, the largest are clamped by the per-peer
+        /// budget at 24, and a Bloom on a big island is now visibly a crowd.
+        /// WAREBORN TUNING, like every count in this feature.
+        /// </summary>
+        public const double EcologyDensityScale = 1.5;
+
         /// <summary>Fraction of islands that are EMPTY - see the quiet doctrine above. WAREBORN TUNING.</summary>
         public const double EmptyFraction = 0.08;
 
@@ -132,7 +154,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             int baseline = species == FaunaSpecies.MantaRay
                 ? IslandFaunaPolicy.MantaCountFor(tier)
                 : IslandFaunaPolicy.JellyFishCountFor(tier);
-            int scaled = (int)Math.Round(baseline * SizeScaleFor(envelope) * quiet);
+            int scaled = (int)Math.Round(
+                baseline * EcologyDensityScale * SizeScaleFor(envelope) * quiet);
             return Math.Max(scaled, 2);
         }
 
@@ -155,7 +178,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             int baseline = species == FaunaSpecies.MantaRay
                 ? IslandFaunaPolicy.MantaCountFor(tier)
                 : IslandFaunaPolicy.JellyFishCountFor(tier);
-            return Math.Max((int)Math.Round(baseline * SizeScaleFor(envelope)), 2);
+            return Math.Max((int)Math.Round(
+                baseline * EcologyDensityScale * SizeScaleFor(envelope)), 2);
         }
 
         /// <summary>

@@ -34,7 +34,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [Fact]
         public void Phases_advance_in_order_with_fractions_inside_one_phase()
         {
-            FaunaPopulationPhase previous = FaunaPopulationPhase.Dormant;
+            // Seeded from the FIRST observation, not from Dormant: an island no
+            // longer starts its walk at the beginning of the cycle (each has its
+            // own start offset - see the desync regression test below).
+            FaunaPopulationPhase previous = IslandFaunaRhythm.At(Seed, Island, 0.0).Phase;
             int cycles = 0;
             for (double t = 0.0; t < 7200.0; t += 5.0)
             {
@@ -121,26 +124,174 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
             Assert.True(differed, "two islands never disagreed about their phase");
         }
 
+        /// <summary>
+        /// THE REGRESSION TEST FOR THE LIVE BUG OF 2026-08-18, and the one that
+        /// would have caught it before a player did.
+        ///
+        /// The walk's phase LENGTHS were per-island but its STARTING POINT was
+        /// not, so every island began in Dormant at t=0 and the whole world sat
+        /// at its emptiest together for the first minutes of every boot -
+        /// "2 rays and 2 jellyfish on all islands". Pairwise disagreement (the
+        /// test above) does not catch that: it passes as soon as the durations
+        /// have pulled two islands apart, which takes about ten minutes.
+        ///
+        /// So this asserts the property that actually matters - AT EVERY
+        /// SAMPLED INSTANT, INCLUDING BOOT, THE WORLD IS SPREAD ACROSS THE
+        /// STATE MACHINE - and it samples t=0 first, because that is the moment
+        /// the old code was uniform and the moment a player arrives after a
+        /// restart.
+        /// </summary>
+        [Fact]
+        public void The_whole_world_is_never_in_one_phase_together_least_of_all_at_boot()
+        {
+            IReadOnlyList<ReleaseIslandRecord> world = ReleaseWorldCatalog.All
+                .Where(record => record.Survey.Tier == 1).ToList();
+            Assert.True(world.Count >= 40, "the tier-1 world should be dozens of islands");
+
+            foreach (double t in new[] { 0.0, 1.0, 60.0, 300.0, 600.0, 1200.0, 3600.0, 86_400.0 })
+            {
+                foreach (FaunaSpecies species in Enum.GetValues<FaunaSpecies>())
+                {
+                    Dictionary<FaunaPopulationPhase, int> spread =
+                        new Dictionary<FaunaPopulationPhase, int>();
+                    foreach (ReleaseIslandRecord island in world)
+                    {
+                        FaunaPopulationPhase phase = IslandFaunaRhythm
+                            .PhaseFor(Seed, island.Definition.Id, species, t).Phase;
+                        spread.TryGetValue(phase, out int count);
+                        spread[phase] = count + 1;
+                    }
+
+                    // All five phases present, and no single phase holding more
+                    // than 60% of the world: either failure is the world moving
+                    // as one body, which is what the player saw. 60% rather than
+                    // 50% because Bloom is deliberately the dominant state
+                    // (about 39% of a cycle by duration), so an honest world
+                    // clusters there - what must never recur is the 100% the
+                    // bug produced.
+                    Assert.True(spread.Count == 5,
+                        species + " at t=" + t + ": the world occupied only "
+                        + spread.Count + " of the five phases ("
+                        + string.Join(", ", spread.Select(p => p.Key + ":" + p.Value)) + ")");
+                    Assert.True(spread.Values.Max() <= world.Count * 0.6,
+                        species + " at t=" + t + ": "
+                        + spread.OrderByDescending(p => p.Value).First()
+                        + " holds more than 60% of the world");
+                }
+            }
+        }
+
+        [Fact]
+        public void An_islands_start_offset_is_its_own_and_covers_the_cycle()
+        {
+            // The offsets must SPREAD, not merely differ: offsets bunched into
+            // one corner of the cycle would resynchronise the world.
+            List<double> offsets = ReleaseWorldCatalog.All
+                .Where(record => record.Survey.Tier == 1)
+                .Select(record =>
+                    IslandFaunaRhythm.StartOffsetSeconds(Seed, record.Definition.Id))
+                .ToList();
+
+            foreach (double offset in offsets)
+            {
+                Assert.InRange(offset, 0.0, IslandFaunaRhythm.NominalCycleSeconds);
+            }
+            // Every fifth of the cycle is occupied by somebody.
+            for (int fifth = 0; fifth < 5; fifth++)
+            {
+                double low = IslandFaunaRhythm.NominalCycleSeconds * fifth / 5.0;
+                double high = IslandFaunaRhythm.NominalCycleSeconds * (fifth + 1) / 5.0;
+                Assert.True(offsets.Any(o => o >= low && o < high),
+                    "no island starts in the " + fifth + "th fifth of the cycle");
+            }
+        }
+
+        /// <summary>
+        /// The world must not be systematically emptier than the flat
+        /// pre-ecology population it replaced - the second half of the live
+        /// regression. Capacity is a CEILING the rhythm expresses a fraction of,
+        /// so the density scale has to carry the average island back over the
+        /// old flat count. Asserted against the REAL catalogue at sampled
+        /// instants, in the same units a player experiences: creatures per
+        /// populated island.
+        /// </summary>
+        [Fact]
+        public void The_average_populated_island_is_at_least_as_inhabited_as_the_flat_world_was()
+        {
+            const int FlatPreEcologyPopulation = 10; // 4 mantas + 6 jellies, every tier-1 island
+            IReadOnlyList<ReleaseIslandRecord> world = ReleaseWorldCatalog.All
+                .Where(record => record.Survey.Tier == 1).ToList();
+
+            List<double> perIslandAtEachInstant = new List<double>();
+            foreach (double t in new[] { 0.0, 60.0, 600.0, 1200.0, 3600.0, 7200.0, 86_400.0 })
+            {
+                int live = 0, populated = 0;
+                foreach (ReleaseIslandRecord island in world)
+                {
+                    IslandId id = island.Definition.Id;
+                    (int capM, int capJ) = IslandFaunaCapacity.ClampedToPeerBudget(
+                        IslandFaunaCapacity.CapacityFor(
+                            FaunaSpecies.MantaRay, island.Survey.Tier, island.Envelope, id),
+                        IslandFaunaCapacity.CapacityFor(
+                            FaunaSpecies.JellyFish, island.Survey.Tier, island.Envelope, id),
+                        IslandFaunaInterestPolicy.DefaultPerPeerCreatures);
+                    if (capM + capJ == 0) continue;
+                    populated++;
+                    live += IslandFaunaRhythm.ExpressedCount(capM,
+                                IslandFaunaRhythm.ExpressionAt(Seed, id, FaunaSpecies.MantaRay, t))
+                          + IslandFaunaRhythm.ExpressedCount(capJ,
+                                IslandFaunaRhythm.ExpressionAt(Seed, id, FaunaSpecies.JellyFish, t));
+                }
+
+                double perIsland = (double)live / populated;
+                perIslandAtEachInstant.Add(perIsland);
+
+                // NO INSTANT MAY COLLAPSE. The bug put the world at 4.0 per
+                // island; a breathing world may dip somewhat below the old flat
+                // count at a given moment - that is the rhythm doing its job -
+                // but never to a fraction of it.
+                Assert.True(perIsland >= FlatPreEcologyPopulation * 0.8,
+                    "at t=" + t + " the average populated island carried only "
+                    + perIsland.ToString("0.0") + " creatures against the flat world's "
+                    + FlatPreEcologyPopulation);
+            }
+
+            // AND THE WORLD IS NOT SYSTEMATICALLY EMPTIER THAN THE ONE IT
+            // REPLACED: across the sampled instants the average island carries
+            // at least the flat population. This is the assertion the density
+            // scale exists to satisfy.
+            double mean = perIslandAtEachInstant.Average();
+            Assert.True(mean >= FlatPreEcologyPopulation,
+                "the average populated island carries " + mean.ToString("0.0")
+                + " creatures over time, against the flat world's " + FlatPreEcologyPopulation);
+        }
+
         [Fact]
         public void Negative_time_is_the_start_of_the_world_not_an_exception()
         {
             // The predator lag asks about t < 0 during the first minutes of a
-            // boot; the answer is the start of cycle zero.
-            (FaunaPopulationPhase phase, double fraction, int cycle) =
-                IslandFaunaRhythm.At(Seed, Island, -500.0);
-            Assert.Equal(FaunaPopulationPhase.Dormant, phase);
-            Assert.Equal(0.0, fraction);
-            Assert.Equal(0, cycle);
+            // boot. The answer must be DEFINED and identical to t=0 - which is
+            // the island's own start offset into the cycle, not necessarily
+            // Dormant, since every island now begins somewhere different.
+            Assert.Equal(
+                IslandFaunaRhythm.At(Seed, Island, 0.0),
+                IslandFaunaRhythm.At(Seed, Island, -500.0));
+            Assert.InRange(IslandFaunaRhythm.At(Seed, Island, -500.0).PhaseFraction, 0.0, 1.0);
         }
 
         [Theory]
         [InlineData(0, 1.0, 0)]    // an empty island stays empty at any fraction
         [InlineData(1, 0.15, 1)]   // capacity one floors at one, not two
-        [InlineData(4, 0.15, 2)]   // the two-animal floor: never a lone animal
+        [InlineData(4, 0.05, 2)]   // the two-animal floor: never a lone animal
         [InlineData(4, 1.0, 4)]    // full bloom is full capacity
-        [InlineData(12, 0.25, 3)]  // plain rounding in between
+        [InlineData(12, 0.6, 7)]   // plain rounding in between
         [InlineData(12, 5.0, 12)]  // a hostile fraction cannot exceed capacity
-        public void Expressed_counts_floor_at_two_and_cap_at_capacity(
+        // THE PROPORTIONAL FLOOR (the live-regression fix): a big island's worst
+        // day is still a group. 12 x TroughLevel = 4, so a starved fraction
+        // floors at four rather than at the flat two that read as broken.
+        [InlineData(12, 0.05, 4)]
+        [InlineData(20, 0.0, 6)]
+        public void Expressed_counts_floor_proportionally_and_cap_at_capacity(
             int capacity, double fraction, int expected) =>
             Assert.Equal(expected, IslandFaunaRhythm.ExpressedCount(capacity, fraction));
 

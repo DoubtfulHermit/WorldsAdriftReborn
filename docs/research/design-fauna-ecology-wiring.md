@@ -64,6 +64,49 @@ reality differed.
   migration - was narrowed to the authority-flavoured phrasings, because a
   school migrating between feeding grounds is wildlife, not topology.
 
+### The live regression of 2026-08-18, and what it changed
+
+The ecology was enabled on production and the world read as **"2 rays and 2
+jellyfish on all islands"** - 165 creatures where the flat world had 460. Two
+independent defects, both now fixed:
+
+1. **THE RHYTHM WAS GLOBALLY SYNCHRONISED AT BOOT.** The phase LENGTHS were
+   hashed per island but the STARTING POINT was not: every island began at
+   cycle 0, phase 0, so the whole world sat in Dormant together for the first
+   minutes of every boot and only drifted apart as the duration jitter
+   accumulated (measured: ~10 minutes to scatter). Reproduced exactly with
+   production code - at t=60 s the probe returns `Dormant:46 / Dormant:46,
+   live=165`, matching the reported telemetry to the creature. **Fix:**
+   `IslandFaunaRhythm.StartOffsetSeconds` advances each island's clock by a
+   hashed offset spread over a full nominal cycle, so the world is scattered
+   across all five phases at *any* instant including t=0.
+   *(Note on the report's "20 minutes after boot": at t=1200 the old code
+   already showed a spread, so the sampled server had been up ~1 minute -
+   most likely restarted when the flag was set. The defect is the same either
+   way, and it is worst exactly when a player arrives after a restart.)*
+2. **THE WORLD WAS SYSTEMATICALLY EMPTIER THAN THE ONE IT REPLACED.** Capacity
+   is a ceiling the rhythm expresses a *fraction* of (time-weighted 0.595 as
+   shipped), and the quiet doctrine removes ~15% more - so setting capacity
+   equal to the old flat count guaranteed a thinner world: ~250 live, ~6 per
+   island against a flat 10. **Fixes:** `DormantLevel` 0.25 → 0.55 and
+   `TroughLevel` 0.15 → 0.30 (a lean season, not a broken spawner), Bloom
+   lengthened to dominate the cycle (mean expression now 0.752), and
+   `IslandFaunaCapacity.EcologyDensityScale = 1.5` so the AVERAGE island's
+   expressed population lands at or above the flat count it replaced.
+   `ExpressedCount`'s floor became PROPORTIONAL (`TroughLevel` of the island's
+   own capacity) - a flat floor of two said the same thing about a two-animal
+   rock and a twelve-animal island, and "2 of 12" is what reads as broken.
+
+Measured after the fix, from the real seeding path: **529 seeded across 41 of
+46 islands; live 401–436 over sampled instants; per island min 4, max 24, mean
+~10.3** (the flat world was exactly 10 everywhere), with all five phases
+occupied at every instant.
+
+Two tests now pin this: `The_whole_world_is_never_in_one_phase_together_least_of_all_at_boot`
+(all five phases present, none holding >60% of the world, sampled from t=0)
+and `The_average_populated_island_is_at_least_as_inhabited_as_the_flat_world_was`
+(no instant below 80% of the flat count; the mean at or above it).
+
 ---
 
 ## 1. What is already built (staged, unwired)
