@@ -166,7 +166,7 @@ namespace WorldsAdriftRebornGameServer.Game
         /// transform would make the crew rule depend on who happened to be logged
         /// in, which is the one thing it must not do.
         /// </summary>
-        private static IslandId? HomeOf(string uid)
+        internal static IslandId? HomeOf(string uid)
         {
             if (!Guid.TryParse(uid, out Guid parsed)) return null;
             return WildernessGraduationPolicy.HomeIslandOf(

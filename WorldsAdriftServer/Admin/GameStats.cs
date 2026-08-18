@@ -577,6 +577,9 @@ namespace WorldsAdriftServer.Admin
             {
                 ["domainId"] = (string?)d["domainId"] ?? "",
                 ["hullEntityId"] = (long?)d["hullEntityId"] ?? 0,
+                // "" on an older game server that does not publish it. The operator
+                // surface reads that as "owner unknown", never as "owned by nobody".
+                ["ownerCharacterUid"] = (string?)d["ownerCharacterUid"] ?? "",
                 ["authorityGeneration"] = (long?)d["authorityGeneration"] ?? 0,
                 ["replicationSequence"] = (long?)d["replicationSequence"] ?? 0,
                 ["cadenceMs"] = (int?)d["cadenceMs"] ?? 0,
@@ -602,6 +605,14 @@ namespace WorldsAdriftServer.Admin
     {
         public long EntityId { get; private init; }
         public string PeerId { get; private init; } = "";
+
+        /// <summary>
+        /// The durable character behind this row, or "" on a game server that does
+        /// not publish it (schema &lt; 8) or before the uid has arrived. It is the
+        /// only identifier here that survives a reconnect, which is why the
+        /// operator surface prefers it.
+        /// </summary>
+        public string CharacterUid { get; private init; } = "";
         public DateTimeOffset ConnectedAt { get; private init; }
         public bool HasHealth { get; private init; }
         public uint RttMs { get; private init; }
@@ -624,6 +635,7 @@ namespace WorldsAdriftServer.Admin
             {
                 EntityId = (long?)p["entityId"] ?? 0,
                 PeerId = (string?)p["peerId"] ?? "",
+                CharacterUid = (string?)p["characterUid"] ?? "",
                 ConnectedAt = GameStatsSnapshot.FromUnixMs((long?)p["connectedAtUnixMs"] ?? 0),
                 HasHealth = h != null,
                 RttMs = (uint?)(h?["rttMs"]) ?? 0,

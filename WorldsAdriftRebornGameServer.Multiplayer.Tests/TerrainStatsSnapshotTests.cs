@@ -58,11 +58,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         [Fact]
         public void The_schema_version_records_that_terrain_telemetry_exists()
         {
-            // v6 added terrain; v7 added the island-fauna section. The version is
+            // v6 added terrain; v7 added the island-fauna section; v8 added the
+            // durable character uid on each player row and the owner uid on each
+            // ship domain, which is what lets an operator command be addressed at a
+            // character rather than at a recycled entity id. The version is
             // asserted here rather than compared to itself so a field added
             // without a bump has to walk past a red test.
-            Assert.Equal(7, StatsSnapshot.SchemaVersion);
-            Assert.Equal(7, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            Assert.Equal(8, StatsSnapshot.SchemaVersion);
+            Assert.Equal(8, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]

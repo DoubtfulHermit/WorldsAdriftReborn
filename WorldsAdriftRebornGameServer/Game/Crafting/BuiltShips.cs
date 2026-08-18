@@ -215,6 +215,19 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
         internal static int Count => HullBytesByEntityId.Count;
 
         /// <summary>
+        /// Every live built hull, ascending. Ordered rather than in dictionary
+        /// order because the operator surface reports "this character owns hulls
+        /// 70, 71" back to a human, and a list that reshuffles between two reads of
+        /// the same unchanged world reads as a bug.
+        /// </summary>
+        internal static IReadOnlyList<long> AllHullIds()
+        {
+            List<long> ids = new List<long>(HullBytesByEntityId.Keys);
+            ids.Sort();
+            return ids;
+        }
+
+        /// <summary>
         /// Records a built hull's persistent index (its position in the persisted
         /// <c>BuiltShips</c> list). Called by the runtime build and the boot restore so a
         /// mount committed on this hull can be persisted against the ship's durable index.

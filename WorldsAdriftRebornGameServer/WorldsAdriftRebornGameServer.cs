@@ -2273,7 +2273,10 @@ namespace WorldsAdriftRebornGameServer
                     out FixedPointPosition worldPosition)
                         ? worldPosition
                         : (FixedPointPosition?)null;
-                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health, position));
+                players.Add(new PlayerStat(entityId, peerId, connectedAtMs, health, position,
+                    // The durable identity, so an operator can address a command at
+                    // the CHARACTER rather than at a recycled entity or peer id.
+                    Game.CharacterOwnership.UidForEntity(entityId)));
             }
 
             List<ShipDomainStat> shipDomains = new List<ShipDomainStat>();
@@ -2311,7 +2314,8 @@ namespace WorldsAdriftRebornGameServer
                     aboardPlayers,
                     Game.Crafting.BuiltShips.DecksForHull(domain.HullEntityId).Count,
                     Game.Crafting.MountedParts.OnHull(domain.HullEntityId).Count(),
-                    ShipInterest.SubscriberCountFor(domain.HullEntityId)));
+                    ShipInterest.SubscriberCountFor(domain.HullEntityId),
+                    Game.Crafting.BuiltShips.OwnerFor(domain.HullEntityId)));
             }
 
             // Operator topology: the ownership-only host is the source of truth for

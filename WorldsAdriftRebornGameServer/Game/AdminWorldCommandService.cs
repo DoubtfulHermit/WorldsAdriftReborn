@@ -44,6 +44,18 @@ namespace WorldsAdriftRebornGameServer.Game
                 return;
             }
 
+            // The versioned operator format first, and it is decided by the LINE
+            // PREFIX rather than by "did the legacy parser fail". A line that claims
+            // wa-op/1 and then does not parse has to be reported as a bad operator
+            // command, not silently retried as a legacy verb and reported as an
+            // unknown one - the second reading sends whoever wrote it looking in the
+            // wrong file.
+            if (Multiplayer.Operator.OperatorCommandWire.IsOperatorLine(text))
+            {
+                RunOperatorLine(text);
+                return;
+            }
+
             if (!AdminWorldCommandPolicy.TryParse(text, out AdminWorldCommand command,
                     out string parseError))
             {
@@ -83,6 +95,49 @@ namespace WorldsAdriftRebornGameServer.Game
                     Complete("unknown", null, false, "Unsupported command kind.");
                     break;
             }
+        }
+
+        /// <summary>
+        /// Runs one <c>wa-op/1</c> line: parse with the SHARED wire type (the same
+        /// one the login server formatted it with), execute, and write the result
+        /// the operator surface reads back.
+        ///
+        /// The action label in the result is the VERB, so the operator sees
+        /// "teleport" or "summon-ship" rather than the transport's name.
+        /// </summary>
+        private void RunOperatorLine(string text)
+        {
+            if (!Multiplayer.Operator.OperatorCommandWire.TryParse(
+                    text, out Multiplayer.Operator.OperatorCommand command, out string parseError))
+            {
+                Complete("operator", null, false, "Rejected operator command: " + parseError);
+                return;
+            }
+
+            string action = command.Kind == Multiplayer.Operator.OperatorCommandKind.Teleport
+                ? Multiplayer.Operator.OperatorCommandWire.TeleportVerb
+                : Multiplayer.Operator.OperatorCommandWire.SummonShipVerb;
+
+            bool ok;
+            string message;
+            try
+            {
+                ok = OperatorCommandExecutor.Execute(command, out message);
+            }
+            catch (Exception e)
+            {
+                // An operator command must not be able to take the world down. The
+                // exception text is the most useful thing anybody has here, so it
+                // goes into the result rather than only into the log.
+                ok = false;
+                message = "The command failed inside the game server: " + e.Message;
+            }
+
+            Complete(action, command.Kind == Multiplayer.Operator.OperatorCommandKind.SummonShip
+                && command.Hull.Kind == Multiplayer.Operator.OperatorHullKind.Hull
+                    ? command.Hull.HullEntityId
+                    : (long?)null,
+                ok, message);
         }
 
         private static bool TryRecall(long hullId, long playerEntityId, out string message)

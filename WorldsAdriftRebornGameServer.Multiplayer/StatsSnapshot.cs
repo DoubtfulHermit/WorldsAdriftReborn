@@ -68,13 +68,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public int MountedPartCount { get; }
         public int SubscriberCount { get; }
 
+        /// <summary>
+        /// The character uid this hull belongs to, or "" when the owner is not
+        /// known to this boot. Published so the operator surface can answer "the
+        /// ship this player owns" without a second index; it is READ from the one
+        /// owner record and never written back.
+        /// </summary>
+        public string OwnerCharacterUid { get; }
+
         public ShipDomainStat(string domainId, long hullEntityId, long authorityGeneration,
             long replicationSequence, int cadenceMs, long deliveryAgeMs,
             double x, double y, double z, bool active, bool piloted,
             bool liveCadenceExpected, long? pilotPlayerEntityId,
             IReadOnlyList<long> aboardPlayerEntityIds, int deckCount,
-            int mountedPartCount, int subscriberCount)
+            int mountedPartCount, int subscriberCount, string? ownerCharacterUid = null)
         {
+            OwnerCharacterUid = ownerCharacterUid ?? string.Empty;
             DomainId = domainId ?? string.Empty;
             HullEntityId = hullEntityId;
             AuthorityGeneration = authorityGeneration;
@@ -150,14 +159,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public EnetPeerHealth? Health { get; }
         public FixedPointPosition? Position { get; }
 
+        /// <summary>
+        /// The DURABLE identity behind this row, as the canonical uid string, or ""
+        /// when no character uid has arrived for this entity yet.
+        ///
+        /// Everything else in this row is per-session: an entity id and a peer
+        /// handle are both recycled, so a dashboard that lets an operator act on a
+        /// row is letting them act on an identifier that may already mean somebody
+        /// else by the time the click lands. This field is what an operator command
+        /// can be addressed to instead - it is the same key ship ownership, the
+        /// shipyard registration and the stored position all join on.
+        ///
+        /// "" rather than null, and read as "no identity yet" rather than as an
+        /// identity: two rows with "" are two unknowns, not one player. See
+        /// OperatorTargetPolicy, which refuses on both zero and multiple matches.
+        /// </summary>
+        public string CharacterUid { get; }
+
         public PlayerStat(long entityId, ulong peerId, long connectedAtUnixMs,
-            EnetPeerHealth? health, FixedPointPosition? position = null)
+            EnetPeerHealth? health, FixedPointPosition? position = null,
+            string? characterUid = null)
         {
             EntityId = entityId;
             PeerId = peerId;
             ConnectedAtUnixMs = connectedAtUnixMs;
             Health = health;
             Position = position;
+            CharacterUid = characterUid ?? string.Empty;
         }
 
         /// <summary>Whether this player's RTT is spiralling. False when health is unreadable.</summary>
@@ -185,7 +213,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
         /// </summary>
-        public const int SchemaVersion = 7;
+        public const int SchemaVersion = 8;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -619,6 +647,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             b.Append('{');
             Str(b, "domainId", d.DomainId); b.Append(',');
             Num(b, "hullEntityId", d.HullEntityId); b.Append(',');
+            // Whose ship this is, as the same canonical character uid the player
+            // rows carry. Read-only information: nothing in the operator surface
+            // writes it, and moving a hull never changes it.
+            Str(b, "ownerCharacterUid", d.OwnerCharacterUid); b.Append(',');
             Num(b, "authorityGeneration", d.AuthorityGeneration); b.Append(',');
             Num(b, "replicationSequence", d.ReplicationSequence); b.Append(',');
             Num(b, "cadenceMs", d.CadenceMs); b.Append(',');
@@ -653,6 +685,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // and because a 64-bit pointer value is not safely a JSON number.
             Str(b, "peerId", "0x" + p.PeerId.ToString("x")); b.Append(',');
             Num(b, "connectedAtUnixMs", p.ConnectedAtUnixMs); b.Append(',');
+            // The durable identity an operator command can be addressed to. Always
+            // written, "" when unknown, so an older reader sees a field it can
+            // ignore and a newer one can tell "not published" from "not known".
+            Str(b, "characterUid", p.CharacterUid); b.Append(',');
 
             Key(b, "position");
             if (p.Position.HasValue)

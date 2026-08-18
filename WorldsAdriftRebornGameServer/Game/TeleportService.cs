@@ -337,18 +337,36 @@ namespace WorldsAdriftRebornGameServer.Game
         /// takes an already-built <see cref="TeleportDestination"/> so it cannot
         /// grow a second opinion about where anybody goes.
         /// </summary>
-        public bool Graduate(long entityId, TeleportDestination destination)
+        public bool Graduate(long entityId, TeleportDestination destination) =>
+            DispatchTo(entityId, destination, Multiplayer.Wilderness.WildernessShrine.TeleportReason);
+
+        /// <summary>
+        /// OPERATOR ENTRY POINT: moves one already-identified player to one
+        /// already-built destination, through the same terrain gate as everything
+        /// else in this file.
+        ///
+        /// It exists so the operator command surface does not have to reach for
+        /// <see cref="Graduate"/> (which would mislabel every log line as a shrine
+        /// use) and so it CANNOT reach for <see cref="Send"/> (which is the gateless
+        /// door, and the one the logout restore's original bug went through). The
+        /// reason string is the caller's, the gate is not negotiable.
+        ///
+        /// The target is a player ENTITY id because resolution - uid to entity,
+        /// with its refusals for "nobody" and "more than one" - has already
+        /// happened in <c>OperatorTargetPolicy</c>. Nothing here re-resolves
+        /// anything.
+        /// </summary>
+        public bool DispatchTo(long entityId, TeleportDestination destination, string reason)
         {
             foreach ((ulong peerId, long candidate) in WorldsAdriftRebornGameServer.Players.All())
             {
                 if (candidate == entityId)
                 {
-                    return DispatchWithTerrainGate(
-                        peerId, entityId, destination, Multiplayer.Wilderness.WildernessShrine.TeleportReason);
+                    return DispatchWithTerrainGate(peerId, entityId, destination, reason);
                 }
             }
 
-            Console.WriteLine("[info] " + Multiplayer.Wilderness.WildernessShrine.TeleportReason
+            Console.WriteLine("[info] " + reason
                 + ": entity " + entityId + " is no longer a connected player, nothing to move.");
             return false;
         }

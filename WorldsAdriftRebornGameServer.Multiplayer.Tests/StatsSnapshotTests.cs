@@ -37,6 +37,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 peakOnline: 4,
                 players: players);
 
+        /// <summary>
+        /// The DURABLE identity on a player row - v8 - and the field an operator
+        /// command should be addressed to.
+        ///
+        /// Every other identifier in this row is recycled, so a dashboard that
+        /// only publishes entity and peer ids can only offer an operator a target
+        /// that may already mean somebody else by the time they click it. It is
+        /// always written, "" when unknown, so a reader can tell "this server does
+        /// not publish it" from "this player has none yet".
+        /// </summary>
+        [Fact]
+        public void A_player_row_carries_the_durable_character_uid()
+        {
+            JObject o = JObject.Parse(Snapshot(
+                new PlayerStat(7, 0x1f, 1_723_200_000_000, Health(30), null,
+                    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")).ToJson());
+
+            Assert.Equal("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                (string?)o["players"]![0]!["characterUid"]);
+        }
+
+        [Fact]
+        public void A_player_with_no_uid_yet_publishes_an_empty_string_not_a_missing_field()
+        {
+            JObject o = JObject.Parse(Snapshot(
+                new PlayerStat(7, 0x1f, 1_723_200_000_000, Health(30))).ToJson());
+
+            Assert.NotNull(o["players"]![0]!["characterUid"]);
+            Assert.Equal("", (string?)o["players"]![0]!["characterUid"]);
+        }
+
         [Fact]
         public void Empty_snapshot_is_valid_json_with_the_expected_scalars()
         {

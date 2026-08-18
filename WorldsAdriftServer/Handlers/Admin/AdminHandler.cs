@@ -101,6 +101,18 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            // The operator command surface. It takes the whole
+            // /admin/api/operator/ namespace, including paths it does not serve,
+            // so a GUI calling a wrong endpoint gets a JSON refusal naming the
+            // right ones rather than the HTML login page the fallback below would
+            // hand it. Auth is re-decided inside, by OperatorGate, so that every
+            // combination of missing session, header and CSRF is assertable
+            // without a socket.
+            if (OperatorEndpoints.TryHandle(session, request, path, authed, sessionToken))
+            {
+                return true;
+            }
+
             if (path == "/admin/api/command" && method == "POST")
             {
                 if (!authed)
@@ -482,6 +494,11 @@ namespace WorldsAdriftServer.Handlers.Admin
                 {
                     ["entityId"] = p.EntityId,
                     ["peerId"] = p.PeerId,
+                    // The durable selector a GUI should send an operator command
+                    // with. "" means the game server has not published one for this
+                    // row yet; a GUI must then fall back to entity:<id> and accept
+                    // that the row may go stale under it.
+                    ["characterUid"] = p.CharacterUid,
                     ["connectedForSeconds"] = connectedForSeconds,
                     ["hasHealth"] = p.HasHealth,
                 };

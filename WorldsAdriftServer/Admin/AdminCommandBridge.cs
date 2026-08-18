@@ -111,6 +111,30 @@ namespace WorldsAdriftServer.Admin
             return false;
         }
 
+        /// <summary>
+        /// Queues one already-formatted <c>wa-op/1</c> operator line.
+        ///
+        /// It goes into the SAME world-admin trigger file as the legacy verbs, and
+        /// therefore inherits the same one-at-a-time discipline: the game server
+        /// reads and deletes, and a second command arriving before the first is
+        /// consumed is refused with a visible busy result rather than silently
+        /// overwriting it. That property is the whole reason this file was not
+        /// replaced with something more comfortable - an operator surface where two
+        /// quick clicks can lose the first one is worse than a quarter-second of
+        /// latency.
+        ///
+        /// The line is FORMATTED by the shared wire type, not here. Nothing in this
+        /// class knows the grammar any more; it knows the path and the write.
+        /// </summary>
+        internal static bool TryQueueOperatorLine(
+            string line, string action, long? targetEntityId, string detail, out string error)
+        {
+            AdminCommandRequest command = new AdminCommandRequest(
+                action, targetEntityId, detail, line,
+                TriggerPath("WAREBORN_WORLD_ADMIN_FILE", DefaultWorldAdminFile));
+            return TryQueue(command, out error);
+        }
+
         internal static bool TryQueue(AdminCommandRequest command, out string error)
         {
             error = string.Empty;

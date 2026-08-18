@@ -58,6 +58,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Wilderness
         }
 
         /// <summary>
+        /// The landing point for ANY catalogued island, Tier 1 or not.
+        ///
+        /// <see cref="For"/> is the shrine's door and applies the Wilderness tier
+        /// rule deliberately; this is the same landing arithmetic with that rule
+        /// lifted, for the operator surface, which may send a player to a tier-3
+        /// island the shrine would never draw. It is the SAME method underneath
+        /// rather than a second copy: the stand-off, the local-to-global conversion
+        /// and the provenance sentence must not be able to drift between "where the
+        /// shrine puts you" and "where an operator puts you".
+        ///
+        /// <paramref name="registered"/> is this boot's registry definition when
+        /// there is one, for the reason <see cref="Open"/> gives: the registry is
+        /// what the terrain entity was actually spawned from.
+        /// </summary>
+        public static WildernessDestination? Landing(
+            IslandId islandId, IslandDefinition? registered = null)
+        {
+            ReleaseIslandRecord? record = ReleaseWorldCatalog.ByIsland(islandId);
+            return record == null ? null : DestinationFor(record, registered);
+        }
+
+        /// <summary>
         /// The Tier-1 destinations available on THIS boot: the intersection of the
         /// Wilderness with the islands whose terrain is actually registered.
         ///
