@@ -189,6 +189,14 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameInterestStat Interest { get; private init; } = GameInterestStat.Absent();
 
+        /// <summary>
+        /// The sky whale section (schema v11+). Never null: an older game server
+        /// projects to an ABSENT section, which the maps render as "this server
+        /// predates the sky whale" and, crucially, draw NO animal from - rather
+        /// than one flying at a guessed clock.
+        /// </summary>
+        public GameSkyWhaleStat SkyWhale { get; private init; } = GameSkyWhaleStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -245,6 +253,7 @@ namespace WorldsAdriftServer.Admin
                 Fauna = GameFaunaStat.Parse(o["fauna"] as JObject),
                 ShipModel = GameShipModelStat.Parse(o["shipModel"] as JObject),
                 Interest = GameInterestStat.Parse(o["interest"] as JObject),
+                SkyWhale = GameSkyWhaleStat.Parse(o["skyWhale"] as JObject),
             };
         }
 
@@ -676,6 +685,123 @@ namespace WorldsAdriftServer.Admin
 
         private static double Finite(double value) =>
             double.IsNaN(value) || double.IsInfinity(value) ? 0 : value;
+
+        private static int Clamp(int value, int maximum) =>
+            value < 0 ? 0 : value > maximum ? maximum : value;
+    }
+
+    /// <summary>
+    /// The login server's view of the game server's SKY WHALE section (schema
+    /// v11+).
+    ///
+    /// Like every other projection in this file it REBUILDS an allowlisted object
+    /// rather than forwarding what it was handed, and clamps what it passes on:
+    /// this JSON reaches a browser that draws with it, so a corrupt or hostile
+    /// value would come out as a mark somewhere absurd or as a NaN that silently
+    /// stops the whole animation loop.
+    ///
+    /// THE DISTINCTION THAT MATTERS is the same one <see cref="GameFaunaStat"/>
+    /// makes: <c>present</c> false means "this game server predates the feature",
+    /// <c>enabled</c> false means "it has the feature and it is switched off".
+    /// A map that draws nothing must still be able to say which it is looking at,
+    /// and neither is allowed to masquerade as the other.
+    ///
+    /// <c>clockSeconds</c> is the one field a reader MUST NOT invent. Without it
+    /// the maps cannot place the animal, and placing it at zero would draw every
+    /// whale at the pose it held the instant the process booted. Absent stays 0 and
+    /// <c>present</c> is what gates the drawing, never the number itself.
+    /// </summary>
+    internal sealed class GameSkyWhaleStat
+    {
+        /// <summary>
+        /// The most regions whose whale is passed through. The release world has
+        /// twenty MapFile cells; a file naming hundreds is not a world this console
+        /// has to draw, and the cap keeps a malformed snapshot from becoming an
+        /// unbounded DOM.
+        /// </summary>
+        private const int MaxRegions = 64;
+
+        /// <summary>
+        /// The largest world coordinate a call station may claim, in metres. The
+        /// release world edge is about 40 km; anything past this is a corrupt file,
+        /// and a mark at 1e300 would stretch the map's view to nothing.
+        /// </summary>
+        private const double MaxWorldMetres = 1_000_000.0;
+
+        public bool Present { get; private init; }
+        public bool Enabled { get; private init; }
+        public int WhaleCount { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>The projection for a game server whose schema has no whale section.</summary>
+        public static GameSkyWhaleStat Absent() => new GameSkyWhaleStat
+        {
+            Present = false,
+            Enabled = false,
+            WhaleCount = 0,
+            Json = Build(null),
+        };
+
+        public static GameSkyWhaleStat Parse(JObject? w)
+        {
+            if (w == null) return Absent();
+            return new GameSkyWhaleStat
+            {
+                Present = true,
+                Enabled = (bool?)w["enabled"] ?? false,
+                WhaleCount = Clamp((int?)w["whaleCount"] ?? 0, MaxRegions),
+                Json = Build(w),
+            };
+        }
+
+        private static JObject Build(JObject? w)
+        {
+            JArray regions = new JArray();
+            if (w?["regions"] is JArray rows)
+            {
+                foreach (JToken token in rows)
+                {
+                    if (regions.Count >= MaxRegions) break;
+                    if (token is not JObject region) continue;
+                    string id = (string?)region["regionId"] ?? "";
+                    if (id.Length == 0) continue;
+                    regions.Add(new JObject
+                    {
+                        ["regionId"] = id,
+                        ["entityId"] = (long?)region["entityId"] ?? 0,
+                        ["callEntityId"] = (long?)region["callEntityId"] ?? 0,
+                        ["callIndex"] = (long?)region["callIndex"] ?? 0,
+                        ["callX"] = Metres((double?)region["callX"] ?? 0),
+                        ["callY"] = Metres((double?)region["callY"] ?? 0),
+                        ["callZ"] = Metres((double?)region["callZ"] ?? 0),
+                    });
+                }
+            }
+
+            double clock = (double?)w?["clockSeconds"] ?? 0;
+            if (double.IsNaN(clock) || double.IsInfinity(clock) || clock < 0) clock = 0;
+
+            return new JObject
+            {
+                ["present"] = w != null,
+                ["enabled"] = (bool?)w?["enabled"] ?? false,
+                ["clockSeconds"] = clock,
+                ["whaleCount"] = Clamp((int?)w?["whaleCount"] ?? 0, MaxRegions),
+                ["loadRadiusMetres"] = Metres((double?)w?["loadRadiusMetres"] ?? 0),
+                ["callRadiusMetres"] = Metres((double?)w?["callRadiusMetres"] ?? 0),
+                ["poseIntervalMs"] = Clamp((int?)w?["poseIntervalMs"] ?? 0, 3_600_000),
+                ["callIntervalSeconds"] = Metres((double?)w?["callIntervalSeconds"] ?? 0),
+                ["regions"] = regions,
+            };
+        }
+
+        /// <summary>A world coordinate that is finite and inside the world. See the type remarks.</summary>
+        private static double Metres(double value)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value)) return 0;
+            return value < -MaxWorldMetres ? -MaxWorldMetres
+                : value > MaxWorldMetres ? MaxWorldMetres : value;
+        }
 
         private static int Clamp(int value, int maximum) =>
             value < 0 ? 0 : value > maximum ? maximum : value;

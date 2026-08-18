@@ -140,6 +140,14 @@ namespace WorldsAdriftServer.Tests
                    ""omegaMigration"":0.003,""phaseRadial"":2.1,""phaseAngular"":4.9,
                    ""baseAngle"":1.2}]}
               ]}
+            },
+            ""skyWhale"":{
+              ""enabled"":true,""clockSeconds"":4321.5,""whaleCount"":1,
+              ""loadRadiusMetres"":1200,""callRadiusMetres"":4000,
+              ""poseIntervalMs"":500,""callIntervalSeconds"":120,
+              ""regions"":[{""regionId"":""release-b3-region"",
+                            ""entityId"":2200000000,""callEntityId"":2200000001,
+                            ""callIndex"":36,""callX"":7000.5,""callY"":480.25,""callZ"":-6100.75}]
             }
         }";
 
@@ -191,6 +199,43 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(86420u, player.RttMs);
             GameShipDomainStat ship = Assert.Single(result.Snapshot!.ShipDomains);
             Assert.Contains("918273645", (string?)ship.Json["domainId"]);
+        }
+
+        [Fact]
+        public void TheWhalesEntityIdsAreDroppedButItsGeographyIsNot()
+        {
+            // The sky whale block is admitted to the public feed deliberately -
+            // a region name, a call index and a point in the sky are world
+            // geography, and the map cannot draw the animal without them. What
+            // is NOT admitted is the pair of entity ids the admin copy carries,
+            // because "entity ids are small integers and neither may appear" is
+            // this projection's own rule and a new section does not get an
+            // exemption from it. This test is what makes admitting one a
+            // deliberate act rather than a copy-paste.
+            JObject o = PublicMapProjection.Project(ReadCorpus(), SaltA);
+            JObject whale = (JObject)o["skyWhale"]!;
+
+            Assert.True((bool)whale["present"]!);
+            Assert.True((bool)whale["enabled"]!);
+            Assert.Equal(4321.5, (double)whale["clockSeconds"]!);
+
+            Assert.Equal(
+                new[] { "present", "enabled", "clockSeconds", "whaleCount",
+                        "callIntervalSeconds", "regions" },
+                whale.Properties().Select(p => p.Name).ToArray());
+
+            JObject region = (JObject)((JArray)whale["regions"]!)[0];
+            Assert.Equal(new[] { "regionId", "callIndex", "callX", "callY", "callZ" },
+                region.Properties().Select(p => p.Name).ToArray());
+            Assert.Equal("release-b3-region", (string?)region["regionId"]);
+            Assert.Equal(7000.5, (double)region["callX"]!);
+
+            // And the ids really are gone from the serialized bytes, not merely
+            // absent from the object model.
+            string json = PublicMapProjection.Serialize(o);
+            Assert.DoesNotContain("2200000000", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("2200000001", json, StringComparison.Ordinal);
+            Assert.DoesNotContain("entityId", json, StringComparison.Ordinal);
         }
 
         // ---- what the public feed DOES carry --------------------------------
@@ -332,7 +377,7 @@ namespace WorldsAdriftServer.Tests
 
             Assert.Equal(
                 new[] { "reporting", "state", "ageSeconds", "stale", "currentOnline",
-                        "fauna", "players", "ships", "shipModel" },
+                        "fauna", "skyWhale", "players", "ships", "shipModel" },
                 o.Properties().Select(p => p.Name).ToArray());
 
             // The dead-reckoning model: physics constants only. The map cannot

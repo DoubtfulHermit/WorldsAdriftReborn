@@ -373,7 +373,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // they say and the reader is presence-keyed, so a v7/v8/v9 file still
         // parses - GameStats projects any missing section to an explicit ABSENT
         // rather than a default, so "never said" is distinguishable from "false".
-        public const int SchemaVersion = 10;
+        // v11: adds the `skyWhale` section (the one animal per region, the clock
+        // its circuit is a function of, and where each whale's current call is
+        // coming from).
+        public const int SchemaVersion = 11;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -436,6 +439,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public InterestRuntimeStat Interest { get; }
 
+        /// <summary>
+        /// The sky whale and, critically, the clock that places it (schema v11+).
+        /// Always a fully built value: a server with the whale off reports
+        /// <see cref="SkyWhaleRuntimeStat.Off"/> rather than an absent section, so
+        /// a reader distinguishes "off" from "older server".
+        /// </summary>
+        public SkyWhaleRuntimeStat SkyWhale { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -467,7 +478,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             TerrainRuntimeStat? terrain = null,
             FaunaRuntimeStat? fauna = null,
             ShipMapRuntimeStat shipModel = default,
-            InterestRuntimeStat interest = default)
+            InterestRuntimeStat interest = default,
+            SkyWhaleRuntimeStat? skyWhale = null)
         {
             ShipModel = shipModel;
             Interest = interest;
@@ -492,6 +504,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             FirstRegionTerrainCount = Math.Max(0, firstRegionTerrainCount);
             Terrain = terrain ?? TerrainRuntimeStat.Off;
             Fauna = fauna ?? FaunaRuntimeStat.Off;
+            SkyWhale = skyWhale ?? SkyWhaleRuntimeStat.Off;
         }
 
         /// <summary>
@@ -583,6 +596,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendShipModel(b, ShipModel);
             b.Append(',');
             AppendInterest(b, Interest);
+            b.Append(',');
+            AppendSkyWhale(b, SkyWhale);
 
             b.Append('}');
             return b.ToString();
@@ -720,6 +735,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
             b.Append(']'); b.Append(',');
             AppendFaunaEcology(b, f.Ecology);
+            b.Append('}');
+        }
+
+        /// <summary>
+        /// The sky whale section (schema v11).
+        ///
+        /// Written unconditionally with an explicit enabled flag, like every other
+        /// section here: absence must mean "an older game server", never "no
+        /// whale". One row per region, and the rows are TINY - an id, an entity
+        /// pair and one call station each - because the expensive half of the
+        /// answer, WHERE the animal is, is a function of <c>clockSeconds</c> that
+        /// the reader evaluates for itself.
+        ///
+        /// The call station IS carried, unlike any creature position, because a
+        /// call is a discrete event pinned to one place for two minutes rather than
+        /// a pose that moves between snapshots. See
+        /// <see cref="SkyWhaleRegionStat"/>.
+        /// </summary>
+        private static void AppendSkyWhale(StringBuilder b, SkyWhaleRuntimeStat w)
+        {
+            Key(b, "skyWhale");
+            b.Append('{');
+            Bool(b, "enabled", w.Enabled); b.Append(',');
+            Num(b, "clockSeconds", w.ClockSeconds); b.Append(',');
+            Num(b, "whaleCount", w.WhaleCount); b.Append(',');
+            Num(b, "loadRadiusMetres", w.LoadRadiusMetres); b.Append(',');
+            Num(b, "callRadiusMetres", w.CallRadiusMetres); b.Append(',');
+            Num(b, "poseIntervalMs", w.PoseIntervalMs); b.Append(',');
+            Num(b, "callIntervalSeconds", w.CallIntervalSeconds); b.Append(',');
+            Key(b, "regions"); b.Append('[');
+            for (int i = 0; i < w.Regions.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                SkyWhaleRegionStat region = w.Regions[i];
+                b.Append('{');
+                Str(b, "regionId", region.RegionId); b.Append(',');
+                Num(b, "entityId", region.EntityId); b.Append(',');
+                Num(b, "callEntityId", region.CallEntityId); b.Append(',');
+                Num(b, "callIndex", region.CallIndex); b.Append(',');
+                Num(b, "callX", region.CallX); b.Append(',');
+                Num(b, "callY", region.CallY); b.Append(',');
+                Num(b, "callZ", region.CallZ);
+                b.Append('}');
+            }
+            b.Append(']');
             b.Append('}');
         }
 

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Islands;
 
 namespace WorldsAdriftServer.Admin
@@ -130,6 +131,8 @@ namespace WorldsAdriftServer.Admin
                     ["inferredDeposits"] = totals.InferredDeposits,
                 },
                 ["faunaModel"] = ProjectFaunaModel(),
+                ["whaleModel"] = ProjectSkyWhaleModel(),
+                ["whaleCircuits"] = ProjectSkyWhaleCircuits(),
                 ["worldEdgeLength"] = edge,
                 ["havenSeparatorX"] = havenSeparatorX,
                 ["islands"] = islands,
@@ -283,6 +286,88 @@ namespace WorldsAdriftServer.Admin
                 ["feedRadiusPinch"] = c.FeedRadiusPinch,
                 ["diveBelowFloorFraction"] = c.DiveBelowFloorFraction,
             };
+        }
+
+        /// <summary>
+        /// Every NUMBER the browser needs to fly the sky whale, read from
+        /// <see cref="SkyWhaleMapModel.Constants"/>. Same discipline as
+        /// <see cref="ProjectFaunaModel"/>: no literals, so retuning the animal's
+        /// speed or altitude moves the map with it and cannot be forgotten.
+        /// </summary>
+        private static JObject ProjectSkyWhaleModel()
+        {
+            SkyWhaleMapConstants c = SkyWhaleMapModel.Constants;
+            return new JObject
+            {
+                ["metresPerSecond"] = c.MetresPerSecond,
+                ["altitudeAboveIslandMetres"] = c.AltitudeAboveIslandMetres,
+                ["callIntervalSeconds"] = c.CallIntervalSeconds,
+                ["loadRadiusMetres"] = c.LoadRadiusMetres,
+                ["unloadRadiusMetres"] = c.UnloadRadiusMetres,
+                ["callRadiusMetres"] = c.CallRadiusMetres,
+                ["poseIntervalSeconds"] = c.PoseIntervalSeconds,
+                ["minimumIslandsPerRegion"] = c.MinimumIslandsPerRegion,
+                ["perPeerWhales"] = c.PerPeerWhales,
+            };
+        }
+
+        /// <summary>
+        /// Every region's whale circuit, IN TRAVEL ORDER, as island-local offsets -
+        /// the same frame the preserved coastline and the fauna geometry are
+        /// projected in, so the animal is drawn in the right relationship to the
+        /// rocks it flies between.
+        ///
+        /// THE RING ORDER IS THE SERVER'S, NOT THE BROWSER'S, and that is the one
+        /// decision here that matters. <see cref="SkyWhaleCircuit"/> orders its
+        /// waypoints by bearing about the region's centroid; a browser re-deriving
+        /// that from MapFile placements could get a different answer wherever the
+        /// MapFile and the runtime catalogue disagree about where an island is, and
+        /// a whale flying a different loop on the map than in the game would be a
+        /// worse lie than not drawing it. So the order, the lap time and the phase
+        /// are computed ONCE, here, by the same code the game server runs, and the
+        /// browser is left only the part that depends on time.
+        ///
+        /// EVERY region is published, not only the ones a given rollout selects: the
+        /// map file is static and shared, and which regions actually carry a whale
+        /// is a LIVE fact that arrives in the stats feed's roster. A circuit with no
+        /// live whale is simply not drawn.
+        ///
+        /// <c>circuitSeconds</c> is deliberately NOT ROUNDED, for exactly the reason
+        /// <c>mantaLapSeconds</c> is not: it DIVIDES elapsed seconds, so its error is
+        /// multiplied by how long the server has been up. A millisecond of rounding
+        /// is metres after a day and hundreds of metres after a week.
+        /// </summary>
+        private static JArray ProjectSkyWhaleCircuits()
+        {
+            JArray circuits = new();
+            foreach (SkyWhalePlacement placement in SkyWhalePlan.Build(ReleaseWorldCatalog.All))
+            {
+                JArray waypoints = new();
+                foreach (SkyWhaleWaypoint waypoint in placement.Circuit.Waypoints)
+                {
+                    ReleaseIslandRecord? record = ReleaseWorldCatalog.ByIsland(waypoint.IslandId);
+                    if (record == null) continue;
+                    FixedPointPosition origin = record.Definition.GlobalOrigin;
+                    waypoints.Add(new JObject
+                    {
+                        ["islandId"] = waypoint.IslandId.Value,
+                        // Offsets, so a fixed centimetre of rounding costs a fixed
+                        // centimetre - unlike the lap time above.
+                        ["lx"] = Math.Round(waypoint.X - origin.MetresX, 2),
+                        ["ly"] = Math.Round(waypoint.Y - origin.MetresY, 2),
+                        ["lz"] = Math.Round(waypoint.Z - origin.MetresZ, 2),
+                    });
+                }
+                circuits.Add(new JObject
+                {
+                    ["regionId"] = placement.Whale.Region.Value,
+                    ["lengthMetres"] = Math.Round(placement.Circuit.LengthMetres, 1),
+                    ["circuitSeconds"] = placement.Circuit.CircuitSeconds,
+                    ["phaseFraction"] = placement.Circuit.PhaseFraction,
+                    ["waypoints"] = waypoints,
+                });
+            }
+            return circuits;
         }
 
         /// <summary>
