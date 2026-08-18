@@ -120,7 +120,33 @@ changes.
 
 ### Exact deployed revisions
 
-- **Game server:** `958c8e1`, deployed and restarted at 2026-08-18 00:07 CEST.
+- **Game server:** `b652034`, deployed and restarted at 2026-08-18 08:05 CEST.
+  **Login/admin server:** `b652034`, same pass. **Client manifest
+  `2026.08.18-2`**, 54/54 public payloads verified, one payload changed.
+  This deploy carries: asynchronous island bundle loading (the real cause of the
+  approach stutter - our own offline-asset patch had made retail's async loader
+  blocking), the reconstructed Bossa social/crew HTTP API, spawn terrain
+  preloading, tree felling, material-driven ship mass, tier-1 world activation,
+  inferred island metals (354 -> 1930 deposits), 3,767 trees, the Wilderness
+  shrine, the pure fauna core, and stock knowledge values.
+  It **migrated the production database from v6 to v7**, adding `social_invites`;
+  verified after restart as `version = 7` with the table present and the other ten
+  unchanged. Dumped first to `pre-b652034-20260818T060351Z/wareborn-db-pre-v7.sql`.
+  Boot reports all four per-character stores ON, restore unchanged at 4/4
+  deployables, 5/7 hulls, 16/16 mounted and 3/3 loose, `owned=543 unowned=0
+  duplicates=0`, and zero errors.
+  **The relay soak gate was repaired in this pass and passes FLAT** - see
+  `tools/relaybot/run-soak.sh`. It had been unable to measure anything since the
+  native migration because it ran the server under Wine against a Windows shim
+  predating `ENet_EXP_PeerChannelCount`, so it reported "setup failed" rather than
+  a verdict. First green run: 21,606 sends, 100% delivered, drift 0 ms, trend
+  -0.01 ms, zero disconnects or timeline violations.
+  Production still runs the temporary `WAREBORN_RELEASE_WORLD_DISTRICTS=C6`
+  config, so **the Wilderness is CLOSED and the shrine refuses with a message**
+  rather than moving anyone. Set `tier1` to open it.
+  Rollback: `/opt/wareborn/backups/pre-b652034-20260818T060351Z/{game,login,patch,live-data}`
+  plus the SQL dump. v7 is additive; rolling the binary back needs no database action.
+  The previous deployment was `958c8e1` at 2026-08-18 00:07 CEST.
   **Login/admin server:** `958c8e1`, same pass. This deploy carries the solid
   hazed compact island shell, the revived CREW system, and the client authority
   grant without which crews are silently unreachable. It **migrated the
