@@ -66,6 +66,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         }
 
         /// <summary>
+        /// A group's CURRENT behaviour segment (Phase 4) - the published
+        /// (behaviour, epoch) descriptor, derived from the deterministic
+        /// schedule. Exposed because three consumers must agree on it: the pose
+        /// path below, the service's streaming filter (a deep-dived group is
+        /// not streamed), and the telemetry that publishes it to both maps.
+        /// </summary>
+        public FaunaGroupBehaviour SegmentFor(
+            IslandId islandId, FaunaSpecies species, IslandTerrainEnvelope envelope,
+            int groupIndex, double elapsedSeconds)
+        {
+            FaunaBloom[] blooms = BloomsFor(islandId, species, envelope);
+            return IslandFaunaBehaviour.SegmentAt(
+                _worldSeed, islandId, species, groupIndex, envelope,
+                blooms.Length, elapsedSeconds);
+        }
+
+        /// <summary>
         /// A creature's island-LOCAL pose under the ecology, in metres: its
         /// group's field-following centre plus its member offset.
         ///
@@ -90,11 +107,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public (double X, double Y, double Z) LocalPoseAt(
             FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
         {
-            FaunaBloom bloom = BloomForGroup(
-                creature.IslandId, creature.Species, envelope, creature.SchoolIndex);
+            (double x, double y, double z) = GroupPoseAt(creature, envelope, elapsedSeconds);
 
+            (double radius, double verticalRadius) =
+                IslandFaunaSchool.ClusterFor(creature.Species);
+            (double ox, double oy, double oz) = IslandFaunaSchool.MemberOffset(
+                creature.MemberIndex, radius, verticalRadius, elapsedSeconds,
+                IslandFaunaSchool.WeaveRadiansPerSecond);
+
+            return (x + ox, y + oy, z + oz);
+        }
+
+        /// <summary>
+        /// The GROUP centre with the Phase 4 behaviour applied: the schedule's
+        /// current segment picks the bloom (migrations move a group's home), a
+        /// Feed pinches the orbit radius, a Migrate blends between the two
+        /// blooms' centres, and a Dive pulls the altitude toward the island's
+        /// underside. Every excursion is neutral at its edges, so this function
+        /// is C1 across every segment boundary by construction.
+        /// </summary>
+        private (double X, double Y, double Z) GroupPoseAt(
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
+        {
+            FaunaBloom[] blooms = BloomsFor(creature.IslandId, creature.Species, envelope);
+            FaunaGroupBehaviour segment = IslandFaunaBehaviour.SegmentAt(
+                _worldSeed, creature.IslandId, creature.Species, creature.SchoolIndex,
+                envelope, blooms.Length, elapsedSeconds);
+
+            double multiplier = IslandFaunaBehaviour.RadiusMultiplier(segment, elapsedSeconds);
             (double gx, double gz) = IslandFaunaEcology.GroupCentreAt(
-                bloom, creature.Species, creature.SchoolIndex, elapsedSeconds);
+                blooms[segment.FromBloom], creature.Species, creature.SchoolIndex,
+                elapsedSeconds, multiplier);
+
+            double blend = IslandFaunaBehaviour.MigrationBlend(segment, elapsedSeconds);
+            if (blend > 0.0)
+            {
+                (double tx, double tz) = IslandFaunaEcology.GroupCentreAt(
+                    blooms[segment.ToBloom], creature.Species, creature.SchoolIndex,
+                    elapsedSeconds, multiplier);
+                gx += (tx - gx) * blend;
+                gz += (tz - gz) * blend;
+            }
 
             double x = IslandFaunaMovement.CentreXOf(envelope) + gx;
             double z = IslandFaunaMovement.CentreZOf(envelope) + gz;
@@ -105,13 +158,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                             MantaBandFraction(creature, envelope, elapsedSeconds)))
                 : IslandFaunaMovement.JellyAltitudeAt(envelope, elapsedSeconds);
 
-            (double radius, double verticalRadius) =
-                IslandFaunaSchool.ClusterFor(creature.Species);
-            (double ox, double oy, double oz) = IslandFaunaSchool.MemberOffset(
-                creature.MemberIndex, radius, verticalRadius, elapsedSeconds,
-                IslandFaunaSchool.WeaveRadiansPerSecond);
+            double dive = IslandFaunaBehaviour.DiveFraction(segment, elapsedSeconds);
+            if (dive > 0.0)
+            {
+                y += (IslandFaunaBehaviour.DivedAltitude(envelope) - y) * dive;
+            }
 
-            return (x + ox, y + oy, z + oz);
+            return (x, y, z);
         }
 
         /// <summary>
@@ -162,24 +215,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// The GROUP's centre (no member offset) at an instant, which is what the
         /// heading rules differentiate - a member's own cluster weave is a slow
         /// circulation, and differentiating it would have animals at the front
-        /// and back of one school facing measurably different ways.
+        /// and back of one school facing measurably different ways. The SAME
+        /// behaviour-applied path as the pose, so a feeding school noses along
+        /// its pinched circle and a diving one pitches nothing (the manta rule
+        /// flattens the heading - the recovered attitude law survives the dive).
         /// </summary>
         private (double X, double Y, double Z) GroupCentreWorldish(
-            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
-        {
-            FaunaBloom bloom = BloomForGroup(
-                creature.IslandId, creature.Species, envelope, creature.SchoolIndex);
-            (double gx, double gz) = IslandFaunaEcology.GroupCentreAt(
-                bloom, creature.Species, creature.SchoolIndex, elapsedSeconds);
-            double y = creature.Species == FaunaSpecies.MantaRay
-                ? IslandFaunaMovement.CentreYOf(envelope)
-                    + (IslandFaunaMovement.HalfHeightOf(envelope)
-                        * IslandFaunaMovement.MantaVerticalOffsetRatioAt(
-                            MantaBandFraction(creature, envelope, elapsedSeconds)))
-                : IslandFaunaMovement.JellyAltitudeAt(envelope, elapsedSeconds);
-            return (IslandFaunaMovement.CentreXOf(envelope) + gx, y,
-                IslandFaunaMovement.CentreZOf(envelope) + gz);
-        }
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds) =>
+            GroupPoseAt(creature, envelope, elapsedSeconds);
 
         /// <summary>
         /// How far through the vertical band a manta group is: the island's OWN

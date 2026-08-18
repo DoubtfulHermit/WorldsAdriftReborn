@@ -169,6 +169,8 @@ namespace WorldsAdriftServer.Tests
 
                 foreach (FaunaSpecies species in new[] { FaunaSpecies.MantaRay, FaunaSpecies.JellyFish })
                 {
+                    FaunaBloom[] blooms = evaluator.BloomsFor(
+                        island.Definition.Id, species, island.Envelope);
                     for (int group = 0; group < 2; group++)
                     {
                         for (int member = 0; member < 3; member++)
@@ -180,6 +182,23 @@ namespace WorldsAdriftServer.Tests
                                     island.Definition.Id, member, group, member);
                                 JObject sample = Sample(parameters, species, member, t);
                                 sample["school"] = group;
+                                // The (behaviour, epoch) descriptor the live feed
+                                // would publish for this instant - the mirror
+                                // evaluates the PUBLISHED pair, never the
+                                // schedule (it has no seed), and the timestamps
+                                // land inside feeds, dives and migrations as the
+                                // schedule happens to place them.
+                                FaunaGroupBehaviour segment = IslandFaunaBehaviour.SegmentAt(
+                                    IslandFaunaEcology.DefaultWorldSeed, island.Definition.Id,
+                                    species, group, island.Envelope, blooms.Length, t);
+                                sample["g"] = new JObject
+                                {
+                                    ["behaviour"] = segment.Behaviour.ToString(),
+                                    ["epochSeconds"] = segment.EpochSeconds,
+                                    ["durationSeconds"] = segment.DurationSeconds,
+                                    ["bloom"] = segment.FromBloom,
+                                    ["toBloom"] = segment.ToBloom,
+                                };
                                 samples.Add(sample);
                                 expected.Add((creature, island.Envelope, t));
                             }
@@ -274,6 +293,8 @@ namespace WorldsAdriftServer.Tests
                 // the mirror must read the published copy, not restate them.
                 "mantaCirculationSigmaRatio", "jellyCirculationSigmaRatio",
                 "mantaOrbitSpeed", "jellyOrbitSpeed", "maxGroupSpread",
+                // The behaviour excursions' shape constants (Phase 4).
+                "excursionRamp", "feedRadiusPinch", "diveBelowFloorFraction",
             })
             {
                 Assert.True(mirror.Contains("M." + field, StringComparison.Ordinal),
@@ -439,7 +460,7 @@ namespace WorldsAdriftServer.Tests
 const input = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8'));
 const motion = faunaMotion(input.model);
 process.stdout.write(JSON.stringify(input.samples.map(function(s){
-  const pose = motion.localPose(s.p, s.species, s.school, s.member, s.t);
+  const pose = motion.localPose(s.p, s.species, s.school, s.member, s.t, s.g);
   return [pose.x, pose.y, pose.z];
 })));
 ");

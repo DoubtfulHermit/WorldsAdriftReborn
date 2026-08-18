@@ -582,6 +582,8 @@ namespace WorldsAdriftServer.Admin
                                 ["members"] = Clamp((int?)group["members"] ?? 0, MaxCreaturesPerIsland),
                                 ["behaviour"] = Label((string?)group["behaviour"]),
                                 ["epochSeconds"] = Finite((double?)group["epochSeconds"] ?? 0),
+                                ["durationSeconds"] = Finite((double?)group["durationSeconds"] ?? 0),
+                                ["toBloom"] = Clamp((int?)group["toBloom"] ?? 0, MaxBloomsPerIsland),
                             });
                         }
                     }

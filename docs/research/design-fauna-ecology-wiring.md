@@ -38,6 +38,32 @@ reality differed.
   (`The_ecology_mirror_returns_the_same_metres_as_the_evaluator`), with bloom
   parameters shaped exactly as the live feed publishes them.
 
+### Phases 3 and 4, landed on top of this wiring
+
+- **Phase 3 (rhythm)**: `IslandFaunaRhythm` - the Dormant→Growing→Bloom→
+  Collapse→Recovery walk, prey/predator lag, prefix expression. The v9 ecology
+  block gained per-species `mantaPhase`/`jellyPhase` (+fractions); no
+  mirror-marker change (poses do not depend on expression).
+- **Phase 4 (behaviours)**: `IslandFaunaBehaviour` - Cruise/Feed/Dive/Migrate
+  as a deterministic hash-walk schedule whose CURRENT segment is published as
+  the (behaviour, epoch, duration, bloom→toBloom) descriptor on each group.
+  The architecture's state budget is spent on LESS than it allowed: the pair
+  reports a pure schedule, and true epoch-transitions stay banked for player
+  reaction (deferred). Design rules that carry it: every excursion is NEUTRAL
+  AT ITS EDGES (zero value and slope), so the motion is C1 across boundaries
+  and a stale map descriptor agrees with the live server at the handoff; the
+  orbit ANGLE never changes rate (a feed pinches radius only); a migration's
+  duration is floored by its crossing distance (7.2 x clearance floor / species
+  speed) so the blend's peak speed stays near half of cruise; and a deep dive
+  UNSTREAMS its whole group - the streaming LOD that makes "under the island"
+  both believable and free on the wire. The mirror consumes the published
+  descriptor only (it has no seed), and parity drives both evaluators with the
+  same descriptors at 1e-9 m.
+- One test-suite conflict resolved deliberately: AdminPageTests' blanket
+  DoesNotContain("migrate") - a guard against claims of WORKER/AUTHORITY
+  migration - was narrowed to the authority-flavoured phrasings, because a
+  school migrating between feeding grounds is wildlife, not topology.
+
 ---
 
 ## 1. What is already built (staged, unwired)

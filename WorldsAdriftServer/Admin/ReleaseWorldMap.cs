@@ -279,6 +279,9 @@ namespace WorldsAdriftServer.Admin
                 ["mantaOrbitSpeed"] = c.MantaOrbitMetresPerSecond,
                 ["jellyOrbitSpeed"] = c.JellyOrbitMetresPerSecond,
                 ["maxGroupSpread"] = c.MaxGroupSpread,
+                ["excursionRamp"] = c.ExcursionRampFraction,
+                ["feedRadiusPinch"] = c.FeedRadiusPinch,
+                ["diveBelowFloorFraction"] = c.DiveBelowFloorFraction,
             };
         }
 

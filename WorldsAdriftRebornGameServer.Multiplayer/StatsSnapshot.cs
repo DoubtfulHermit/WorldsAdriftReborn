@@ -665,7 +665,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     Num(b, "bloom", group.BloomIndex); b.Append(',');
                     Num(b, "members", group.Members); b.Append(',');
                     Str(b, "behaviour", group.Behaviour); b.Append(',');
-                    Num(b, "epochSeconds", group.EpochSeconds);
+                    Num(b, "epochSeconds", group.EpochSeconds); b.Append(',');
+                    Num(b, "durationSeconds", group.DurationSeconds); b.Append(',');
+                    Num(b, "toBloom", group.ToBloom);
                     b.Append('}');
                 }
                 b.Append(']'); b.Append(',');

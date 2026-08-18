@@ -157,7 +157,8 @@ namespace WorldsAdriftServer.Tests
                     ""operatorSecret"":""hunter2"",
                     ""groups"":[{""species"":""kraken"",""index"":-1,""bloom"":2,
                       ""members"":5,""behaviour"":""<script>alert(1)</script>"",
-                      ""epochSeconds"":""NaN""}],
+                      ""epochSeconds"":""NaN"",""durationSeconds"":""Infinity"",
+                      ""toBloom"":-4}],
                     ""blooms"":[{""species"":""jelly"",""index"":0,
                       ""sigma"":40.5,""annulusRadius"":445.25,""omegaRadial"":0.011,
                       ""surprise"":""hunter2""}]}]}}
@@ -181,6 +182,8 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal("manta", (string?)group["species"]);         // unknown species defaults
             Assert.Equal("Cruise", (string?)group["behaviour"]);      // malformed label defaults
             Assert.Equal(0, (int)group["index"]!);
+            Assert.Equal(0.0, (double)group["durationSeconds"]!);     // Infinity floors to 0
+            Assert.Equal(0, (int)group["toBloom"]!);                  // negative floors
 
             JObject bloom = (JObject)((JArray)island["blooms"]!).Single();
             Assert.Equal("jelly", (string?)bloom["species"]);

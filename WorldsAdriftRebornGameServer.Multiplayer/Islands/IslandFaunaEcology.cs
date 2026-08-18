@@ -335,10 +335,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// species has its own bloom set and its own speed.
         /// </summary>
         public static (double X, double Z) GroupCentreAt(
-            FaunaBloom bloom, FaunaSpecies species, int groupIndex, double elapsedSeconds)
+            FaunaBloom bloom, FaunaSpecies species, int groupIndex, double elapsedSeconds) =>
+            GroupCentreAt(bloom, species, groupIndex, elapsedSeconds, radiusMultiplier: 1.0);
+
+        /// <summary>
+        /// The same centre with the orbit radius SCALED - how a Feed pinches the
+        /// school onto its bloom. THE ANGLE IS COMPUTED FROM THE UNSCALED
+        /// RADIUS, deliberately: the angle is a linear function of the clock
+        /// only while its rate is constant, and a rate that followed the pinch
+        /// would make the angle an integral of history - the state this feature
+        /// refuses to hold. A multiplier below one can only pull the school
+        /// INWARD, so it cannot touch the clearance floor arithmetic either.
+        /// </summary>
+        public static (double X, double Z) GroupCentreAt(
+            FaunaBloom bloom, FaunaSpecies species, int groupIndex, double elapsedSeconds,
+            double radiusMultiplier)
         {
             (double bx, double bz) = BloomCentreAt(bloom, elapsedSeconds);
-            double radius = GroupOrbitRadius(bloom, species, groupIndex);
+            double radius = GroupOrbitRadius(bloom, species, groupIndex) * radiusMultiplier;
             double angle = 2.0 * Math.PI
                 * GroupOrbitFraction(bloom, species, groupIndex, elapsedSeconds);
             return (bx + (radius * Math.Sin(angle)), bz + (radius * Math.Cos(angle)));

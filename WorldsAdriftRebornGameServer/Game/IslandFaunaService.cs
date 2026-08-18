@@ -317,16 +317,20 @@ namespace WorldsAdriftRebornGameServer.Game
                     foreach (KeyValuePair<(FaunaSpecies Species, int Index), int> pair in members
                         .OrderBy(p => p.Key.Species).ThenBy(p => p.Key.Index))
                     {
-                        FaunaBloom[] blooms = _ecology.BloomsFor(
-                            id, pair.Key.Species, record.Envelope);
+                        // The LIVE descriptor: the same schedule the pose path
+                        // and the streaming filter read, so a map animating from
+                        // this pair is animating what the wire is doing.
+                        FaunaGroupBehaviour segment = _ecology.SegmentFor(
+                            id, pair.Key.Species, record.Envelope, pair.Key.Index, nowSeconds);
                         groups.Add(new FaunaGroupStat(
                             pair.Key.Species == FaunaSpecies.MantaRay ? "manta" : "jelly",
                             pair.Key.Index,
-                            IslandFaunaEcology.BloomIndexFor(pair.Key.Index, blooms.Length),
+                            segment.FromBloom,
                             pair.Value,
-                            // Phase 4 wires behaviours; the constant pair keeps
-                            // the contract stable now.
-                            "Cruise", 0.0));
+                            segment.Behaviour.ToString(),
+                            segment.EpochSeconds,
+                            segment.DurationSeconds,
+                            segment.ToBloom));
                     }
                 }
 
@@ -652,10 +656,16 @@ namespace WorldsAdriftRebornGameServer.Game
                 // and the prefix rule means the same animals extend or trim -
                 // the checkout layer streams the difference at its own pace,
                 // which is the closed-form version of gradual convergence.
+                // A deep-dived group is then filtered OUT whole: a school under
+                // the island needs no members on any peer's wire (the Dive
+                // behaviour's streaming-LOD half), and it departs and returns as
+                // one thing through the ordinary remove/add machinery.
                 IslandPopulation population = _byIsland[islandId];
                 (int mantas, int jellies) = ExpressedFor(islandId, population, now);
-                desired.AddRange(population.MantaIds.Take(mantas));
-                desired.AddRange(population.JellyIds.Take(jellies));
+                AddStreamed(desired, population, population.MantaIds, mantas,
+                    FaunaSpecies.MantaRay, islandId, now);
+                AddStreamed(desired, population, population.JellyIds, jellies,
+                    FaunaSpecies.JellyFish, islandId, now);
             }
 
             ResourceInterestPolicy.ReplacePending(
@@ -854,6 +864,40 @@ namespace WorldsAdriftRebornGameServer.Game
                 IslandFaunaRhythm.ExpressedCount(population.JellyIds.Count,
                     IslandFaunaRhythm.ExpressionAt(_ecology.WorldSeed, islandId,
                         FaunaSpecies.JellyFish, nowSeconds)));
+        }
+
+        /// <summary>
+        /// Appends the expressed prefix of one species' ids, minus any group the
+        /// behaviour schedule has deep-dived. The streamed decision is computed
+        /// once per group per call - the same SegmentFor the pose path and the
+        /// telemetry read, so what a peer holds is what the maps say exists.
+        /// </summary>
+        private void AddStreamed(List<long> desired, IslandPopulation population,
+            List<long> ids, int expressed, FaunaSpecies species, IslandId islandId, double now)
+        {
+            if (_ecology == null)
+            {
+                desired.AddRange(ids.Take(expressed));
+                return;
+            }
+            Dictionary<int, bool>? streamedByGroup = null;
+            for (int i = 0; i < expressed && i < ids.Count; i++)
+            {
+                if (!_planned.TryGetValue(ids[i], out FaunaPlacement placement)) continue;
+                int group = placement.Creature.SchoolIndex;
+                streamedByGroup ??= new Dictionary<int, bool>();
+                if (!streamedByGroup.TryGetValue(group, out bool streamed))
+                {
+                    streamed = IslandFaunaBehaviour.IsStreamed(
+                        _ecology.SegmentFor(islandId, species, population.Envelope, group, now),
+                        now);
+                    streamedByGroup[group] = streamed;
+                }
+                if (streamed)
+                {
+                    desired.Add(ids[i]);
+                }
+            }
         }
 
         private bool AnyPeerHoldsFauna()

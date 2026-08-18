@@ -160,6 +160,8 @@ namespace WorldsAdriftServer.PublicMap
                                 ["members"] = (int?)group["members"] ?? 0,
                                 ["behaviour"] = (string?)group["behaviour"] ?? "Cruise",
                                 ["epochSeconds"] = (double?)group["epochSeconds"] ?? 0,
+                                ["durationSeconds"] = (double?)group["durationSeconds"] ?? 0,
+                                ["toBloom"] = (int?)group["toBloom"] ?? 0,
                             });
                         }
                     }

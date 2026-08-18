@@ -132,7 +132,8 @@ namespace WorldsAdriftServer.Tests
                  ""jellyPhase"":""Collapse"",""jellyPhaseFraction"":0.75,
                  ""warden"":""ECOLOGY-SENTINEL-unexpected"",
                  ""groups"":[{""species"":""manta"",""index"":0,""bloom"":0,
-                   ""members"":5,""behaviour"":""Cruise"",""epochSeconds"":0}],
+                   ""members"":5,""behaviour"":""Dive"",""epochSeconds"":120.5,
+                   ""durationSeconds"":300,""toBloom"":1}],
                  ""blooms"":[{""species"":""manta"",""index"":0,""amplitude"":0.5,
                    ""sigma"":40.5,""annulusRadius"":445.25,""radialDrift"":18.5,
                    ""angularDrift"":0.3,""omegaRadial"":0.011,""omegaAngular"":0.007,
@@ -285,7 +286,12 @@ namespace WorldsAdriftServer.Tests
             JObject group = (JObject)((JArray)island["groups"]!).Single();
             Assert.Equal("manta", (string?)group["species"]);
             Assert.Equal(5, (int?)group["members"]);
-            Assert.Equal("Cruise", (string?)group["behaviour"]);
+            // The full (behaviour, epoch) descriptor: what the public page
+            // animates a dive or migration from.
+            Assert.Equal("Dive", (string?)group["behaviour"]);
+            Assert.Equal(120.5, (double?)group["epochSeconds"]);
+            Assert.Equal(300.0, (double?)group["durationSeconds"]);
+            Assert.Equal(1, (int?)group["toBloom"]);
 
             JObject bloom = (JObject)((JArray)island["blooms"]!).Single();
             Assert.Equal(40.5, (double?)bloom["sigma"]);

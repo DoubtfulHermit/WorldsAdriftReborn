@@ -117,23 +117,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
-        public void The_manta_keeps_its_recovered_vertical_band()
+        public void The_manta_keeps_its_recovered_vertical_band_except_while_diving()
         {
             // Midpoint to top, never below - the recovery whose earlier
             // misreading put the wildlife under the island where nobody saw it.
+            // A DIVE is the one deliberate exception (Phase 4): the school sinks
+            // below the island's floor and is not streamed while deep, so the
+            // instants a dive is in progress are exempted rather than the band
+            // widened - and the dive itself must never sink past its own
+            // documented depth.
             FaunaEcologyEvaluator evaluator =
                 new FaunaEcologyEvaluator(IslandFaunaEcology.DefaultWorldSeed);
             ReleaseIslandRecord island = Island();
             FaunaCreature creature = Creature(FaunaSpecies.MantaRay);
             double midpoint = IslandFaunaMovement.CentreYOf(island.Envelope);
             double margin = IslandFaunaSchool.MantaSchoolVerticalRadiusMetres + 1e-9;
+            double divedFloor = IslandFaunaBehaviour.DivedAltitude(island.Envelope) - margin;
 
             for (double t = 0.0; t <= 3600.0; t += 7.0)
             {
                 (double _, double y, double _2) =
                     evaluator.LocalPoseAt(creature, island.Envelope, t);
-                Assert.True(y >= midpoint - margin,
-                    "a manta sank below the island midpoint at t=" + t);
+                FaunaGroupBehaviour segment = evaluator.SegmentFor(
+                    creature.IslandId, creature.Species, island.Envelope,
+                    creature.SchoolIndex, t);
+                bool diving = IslandFaunaBehaviour.DiveFraction(segment, t) > 0.0;
+                Assert.True(y >= (diving ? divedFloor : midpoint - margin),
+                    "a manta sank out of bounds at t=" + t);
                 Assert.True(y <= island.Envelope.MaxY + margin,
                     "a manta climbed above the island top at t=" + t);
             }
@@ -142,13 +152,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [Fact]
         public void The_jelly_keeps_its_recovered_daynight_altitude()
         {
+            // Instants chosen deep in the day and deep in the night AND outside
+            // any dive: the recovered altitude law is asserted where it governs,
+            // and a Phase 4 dive - the one deliberate exception - is skipped
+            // rather than blurred into the tolerance.
             FaunaEcologyEvaluator evaluator =
                 new FaunaEcologyEvaluator(IslandFaunaEcology.DefaultWorldSeed);
             ReleaseIslandRecord island = Island();
             FaunaCreature creature = Creature(FaunaSpecies.JellyFish);
 
+            bool NotDiving(double t) => IslandFaunaBehaviour.DiveFraction(
+                evaluator.SegmentFor(creature.IslandId, creature.Species,
+                    island.Envelope, creature.SchoolIndex, t), t) <= 0.0;
+
             // Deep day (cycle fraction 0.5): the shoal hangs at the underside.
             double day = IslandFaunaMovement.DayNightCycleSeconds * 0.5;
+            while (!NotDiving(day)) day += IslandFaunaMovement.DayNightCycleSeconds;
             (double _, double dayY, double _2) =
                 evaluator.LocalPoseAt(creature, island.Envelope, day);
             Assert.True(Math.Abs(dayY - island.Envelope.MinY)
@@ -159,6 +178,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
                 + ((island.Envelope.MaxY - island.Envelope.MinY)
                     * IslandFaunaMovement.IslandWalkableHeightFraction);
             double night = IslandFaunaMovement.DayNightCycleSeconds * 2.0;
+            while (!NotDiving(night)) night += IslandFaunaMovement.DayNightCycleSeconds;
             (double _3, double atNight, double _4) =
                 evaluator.LocalPoseAt(creature, island.Envelope, night);
             Assert.True(Math.Abs(atNight - nightY)

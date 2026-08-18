@@ -61,18 +61,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     }
 
     /// <summary>
-    /// One live group and its published (behaviour, epoch) pair - THE one piece
-    /// of state the target architecture permits. Until Phase 4 wires behaviours
-    /// the pair is the constant ("Cruise", 0): published now so the contract is
-    /// stable and the map can already key on it.
+    /// One live group and its published (behaviour, epoch) descriptor - the
+    /// architecture's one permitted piece of state, live since Phase 4. The
+    /// descriptor is SELF-DESCRIBING: epoch + duration let a reader compute how
+    /// far through the segment the group is, and because every excursion is
+    /// neutral at its edges, a reader holding a stale descriptor degrades to
+    /// the cruise pose instead of extrapolating into a teleport.
     /// </summary>
+    /// <param name="BloomIndex">The bloom the group rides NOW - its round-robin
+    /// start plus every migration completed, so it moves over a session.</param>
+    /// <param name="ToBloom">Where a Migrate segment is heading; equals
+    /// <paramref name="BloomIndex"/> for everything else.</param>
     public readonly record struct FaunaGroupStat(
         string Species,
         int Index,
         int BloomIndex,
         int Members,
         string Behaviour,
-        double EpochSeconds);
+        double EpochSeconds,
+        double DurationSeconds = 0,
+        int ToBloom = 0);
 
     /// <summary>
     /// One island's ecology: what it could carry, what it expresses, whether it

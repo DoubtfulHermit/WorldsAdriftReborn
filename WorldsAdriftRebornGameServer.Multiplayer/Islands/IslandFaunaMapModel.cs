@@ -44,7 +44,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         double JellyCirculationSigmaRatio,
         double MantaOrbitMetresPerSecond,
         double JellyOrbitMetresPerSecond,
-        double MaxGroupSpread);
+        double MaxGroupSpread,
+        // The behaviour excursions' shape constants (Phase 4). The per-group
+        // (behaviour, epoch) descriptors travel in the live feed.
+        double ExcursionRampFraction,
+        double FeedRadiusPinch,
+        double DiveBelowFloorFraction);
 
     /// <summary>
     /// One island's motion geometry, in ISLAND-LOCAL metres, precomputed from its
@@ -133,7 +138,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 IslandFaunaEcology.OrbitMetresPerSecondFor(FaunaSpecies.MantaRay),
             JellyOrbitMetresPerSecond:
                 IslandFaunaEcology.OrbitMetresPerSecondFor(FaunaSpecies.JellyFish),
-            MaxGroupSpread: IslandFaunaEcology.MaxGroupSpread);
+            MaxGroupSpread: IslandFaunaEcology.MaxGroupSpread,
+            ExcursionRampFraction: IslandFaunaBehaviour.ExcursionRampFraction,
+            FeedRadiusPinch: IslandFaunaBehaviour.FeedRadiusPinch,
+            DiveBelowFloorFraction: IslandFaunaBehaviour.DiveBelowFloorFraction);
 
         /// <summary>
         /// One island's precomputed motion geometry. Every field is the movement's

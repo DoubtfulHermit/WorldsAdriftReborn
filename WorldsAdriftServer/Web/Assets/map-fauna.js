@@ -85,9 +85,12 @@
       var speed=species==='manta'?M.mantaOrbitSpeed:M.jellyOrbitSpeed;
       return fraction((speed/Math.max(r,1))*t/(2*Math.PI)+schoolPhase(schoolIndex));
     }
-    function ecologyCentre(p,b,species,schoolIndex,t){
+    function ecologyCentre(p,b,species,schoolIndex,t,radiusMultiplier){
       var c=bloomCentre(b,t);
-      var r=groupOrbitRadius(b,species,schoolIndex);
+      // The ANGLE always comes from the unscaled radius: a rate that followed
+      // a feed's pinch would make the angle an integral of history.
+      var r=groupOrbitRadius(b,species,schoolIndex)
+        *(radiusMultiplier===undefined?1:radiusMultiplier);
       var a=2*Math.PI*groupOrbitFraction(b,species,schoolIndex,t);
       var y;
       if(species==='manta'){
@@ -105,13 +108,55 @@
       if(!set||!set.length)return null;
       return set[((schoolIndex%set.length)+set.length)%set.length];
     }
-    function schoolCentre(p,species,schoolIndex,t){
-      var b=bloomFor(p,species,schoolIndex);
-      if(b)return ecologyCentre(p,b,species,schoolIndex,t);
-      return species==='manta'?mantaCentre(p,schoolIndex,t):jellyCentre(p,schoolIndex,t);
+    // ---- behaviours (Phase 4): the published (behaviour, epoch) descriptor --
+    // g = {behaviour,epochSeconds,durationSeconds,bloom,toBloom} from the live
+    // feed. Every excursion is NEUTRAL AT ITS EDGES (the bump envelope is zero
+    // with zero slope at both ends; a migration ends fully at its destination),
+    // so a descriptor up to one poll stale still agrees with the server at the
+    // segment boundary - by construction, not by luck.
+    function segmentFraction(g,t){
+      if(!g||!(g.durationSeconds>0))return 1;
+      var f=(t-g.epochSeconds)/g.durationSeconds;
+      return f<0?0:(f>1?1:f);
     }
-    function localPose(p,species,schoolIndex,memberIndex,t){
-      var c=schoolCentre(p,species,schoolIndex,t),k=cluster(species);
+    function bump(f){
+      return Math.min(smoothStep(f/M.excursionRamp),smoothStep((1-f)/M.excursionRamp));
+    }
+    function behaviourRadiusMultiplier(g,t){
+      return g&&g.behaviour==='Feed'?1-M.feedRadiusPinch*bump(segmentFraction(g,t)):1;
+    }
+    function diveFraction(g,t){
+      return g&&g.behaviour==='Dive'?bump(segmentFraction(g,t)):0;
+    }
+    function ecologyGroupBloom(p,species,g,schoolIndex,which){
+      var set=p.blooms&&p.blooms[species];
+      if(!set||!set.length)return null;
+      var idx=g?(which==='to'?g.toBloom:g.bloom):schoolIndex;
+      return set[((idx%set.length)+set.length)%set.length];
+    }
+    function schoolCentre(p,species,schoolIndex,t,g){
+      var b=g?ecologyGroupBloom(p,species,g,schoolIndex,'from')
+             :bloomFor(p,species,schoolIndex);
+      if(!b)return species==='manta'?mantaCentre(p,schoolIndex,t):jellyCentre(p,schoolIndex,t);
+      var mult=behaviourRadiusMultiplier(g,t);
+      var c=ecologyCentre(p,b,species,schoolIndex,t,mult);
+      if(g&&g.behaviour==='Migrate'&&g.toBloom!==g.bloom){
+        var b2=ecologyGroupBloom(p,species,g,schoolIndex,'to');
+        if(b2){
+          var c2=ecologyCentre(p,b2,species,schoolIndex,t,mult);
+          var m=smoothStep(segmentFraction(g,t));
+          c={x:c.x+(c2.x-c.x)*m,y:c.y+(c2.y-c.y)*m,z:c.z+(c2.z-c.z)*m};
+        }
+      }
+      var dive=diveFraction(g,t);
+      if(dive>0){
+        var divedY=p.minY-(p.maxY-p.minY)*M.diveBelowFloorFraction;
+        c.y=c.y+(divedY-c.y)*dive;
+      }
+      return c;
+    }
+    function localPose(p,species,schoolIndex,memberIndex,t,g){
+      var c=schoolCentre(p,species,schoolIndex,t,g),k=cluster(species);
       var o=memberOffset(memberIndex,k.r,k.v,t);
       return {x:c.x+o.x,y:c.y+o.y,z:c.z+o.z};
     }
@@ -185,7 +230,13 @@
         mg=[];jg=[];
         (e.groups||[]).forEach(function(g){
           (g.species==='jelly'?jg:mg).push({index:Number(g.index)||0,
-            members:Math.max(1,Number(g.members)||1)});
+            members:Math.max(1,Number(g.members)||1),
+            // The (behaviour, epoch) descriptor, handed to the mirror as-is.
+            behaviour:String(g.behaviour||'Cruise'),
+            epochSeconds:Number(g.epochSeconds)||0,
+            durationSeconds:Number(g.durationSeconds)||0,
+            bloom:Number(g.bloom)||0,
+            toBloom:Number(g.toBloom)||0});
         });
       }
       faunaRoster.push({node:node,p:p,
@@ -219,12 +270,12 @@
     return x>=mapView.x-pad&&x<=mapView.x+mapView.w+pad
         &&y>=mapView.y-pad&&y<=mapView.y+mapView.h+pad;
   }
-  function faunaPush(out,kind,row,schoolIndex,memberIndex,t,member){
+  function faunaPush(out,kind,row,schoolIndex,memberIndex,t,member,g){
     var p=row.p;
-    var a=member?FAUNA.localPose(p,kind,schoolIndex,memberIndex,t)
-                :FAUNA.schoolCentre(p,kind,schoolIndex,t);
-    var b=member?FAUNA.localPose(p,kind,schoolIndex,memberIndex,t+FAUNA_HEADING_DT)
-                :FAUNA.schoolCentre(p,kind,schoolIndex,t+FAUNA_HEADING_DT);
+    var a=member?FAUNA.localPose(p,kind,schoolIndex,memberIndex,t,g)
+                :FAUNA.schoolCentre(p,kind,schoolIndex,t,g);
+    var b=member?FAUNA.localPose(p,kind,schoolIndex,memberIndex,t+FAUNA_HEADING_DT,g)
+                :FAUNA.schoolCentre(p,kind,schoolIndex,t+FAUNA_HEADING_DT,g);
     // Screen space: x is world east, y is world NORTH NEGATED, as everything
     // else on this map is. The glyph's nose is at -y, so the rotation that
     // aims it along (sx,sy) is atan2(sx,-sy).
@@ -241,9 +292,10 @@
     var groups=kind==='manta'?row.mg:row.jg;
     if(groups&&groups.length){
       for(var g=0;g<groups.length;g++){
-        if(!members){faunaPush(out,kind,row,groups[g].index,0,t,false);continue;}
-        for(var n=0;n<groups[g].members;n++)
-          faunaPush(out,kind,row,groups[g].index,n,t,true);
+        var desc=groups[g];
+        if(!members){faunaPush(out,kind,row,desc.index,0,t,false,desc);continue;}
+        for(var n=0;n<desc.members;n++)
+          faunaPush(out,kind,row,desc.index,n,t,true,desc);
       }
       return;
     }
