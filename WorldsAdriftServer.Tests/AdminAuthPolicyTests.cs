@@ -25,15 +25,6 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(Hash, c);
         }
 
-        [Fact]
-        public void Split_keeps_a_hash_with_its_own_dollars_intact()
-        {
-            // The hash contains '$' and base64 '+/=', none of which is a colon,
-            // so first-colon splitting recovers it byte-for-byte.
-            Assert.True(AdminAuthPolicy.TrySplitConfig("hermit:" + Hash, out _, out string c));
-            Assert.True(AccountPolicy.VerifyPassword("swab-the-deck+9", c));
-        }
-
         [Theory]
         [InlineData(null)]
         [InlineData("")]

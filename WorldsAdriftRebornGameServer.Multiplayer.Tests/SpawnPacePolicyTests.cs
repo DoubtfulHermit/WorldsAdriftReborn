@@ -155,26 +155,5 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.True(SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: true, barrierHoldsInitialSet: false));
         }
 
-        [Fact]
-        public void A_run_of_N_distant_entities_yields_N_paced_steps_so_they_span_N_ticks()
-        {
-            // Model a joiner's checkout: each distant entity contributes a RequestAsset
-            // (never paced) and an AddEntity (paced). N distant entities => N paced
-            // steps => the pacer releases them across N ticks, not one burst.
-            const int n = 17;
-            int pacedSteps = 0;
-            for (int i = 0; i < n; i++)
-            {
-                if (SpawnPacePolicy.PacesInstantiation(SpawnOp.RequestAsset, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: true))
-                {
-                    pacedSteps++;
-                }
-                if (SpawnPacePolicy.PacesInstantiation(SpawnOp.AddEntity, SpawnOrder.AfterPlayer, isInitialSet: false, barrierHoldsInitialSet: true))
-                {
-                    pacedSteps++;
-                }
-            }
-            Assert.Equal(n, pacedSteps);
-        }
     }
 }

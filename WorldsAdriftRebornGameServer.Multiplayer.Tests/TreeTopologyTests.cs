@@ -76,18 +76,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         {
             // Trunk is 0 -> 1 -> 2 -> 3 -> 4 -> 6 -> 8 -> 9 -> 10, with limb 11
             // off 9. So cutting 8 takes 8, 9, 10 and 11.
+            //
+            // And NOTHING ELSE - which is the whole reason a tree is not a single
+            // chain. Limb 5 hangs off 4 and limb 7 off 6, both below 8; a naive
+            // "everything with a higher id" would take them and would be wrong.
+            // The exact-equality assertion below is what rules them out.
             int falling = Tree().FallingMaskFor(8, Trees.FullSectionMask);
             Assert.Equal(Mask(8, 9, 10, 11), falling);
-        }
-
-        [Fact]
-        public void Walking_from_a_trunk_section_leaves_the_limbs_BELOW_it_standing()
-        {
-            // The whole reason a tree is not a single chain. Limb 5 hangs off 4 and
-            // limb 7 off 6, both below 8; a naive "everything with a higher id"
-            // would take them and would be wrong.
-            int falling = Tree().FallingMaskFor(8, Trees.FullSectionMask);
-            Assert.Equal(0, falling & Mask(5, 7));
         }
 
         [Fact]

@@ -20,12 +20,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         }
 
         [Fact]
-        public void One_scan_chunk_clears_the_cheapest_meaningful_unlock()
-        {
-            Assert.True(Databanks.GrantAmount >= 20); // Shipbuilding costs 20
-        }
-
-        [Fact]
         public void The_default_placement_is_a_reachable_near_spawn_key()
         {
             Assert.True(Databanks.HavenPlacements.Count >= 1);

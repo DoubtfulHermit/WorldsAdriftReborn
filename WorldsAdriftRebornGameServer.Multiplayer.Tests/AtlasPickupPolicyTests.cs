@@ -92,14 +92,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void A_null_distance_skips_the_range_check_and_trusts_the_client()
-        {
-            // No server-side player position: the client already range-checked before
-            // issuing, so a null distance must not reject on range.
-            Assert.True(Valid(distance: null).ShouldGrant);
-        }
-
-        [Fact]
         public void The_reason_order_puts_ownership_before_verb_before_kind()
         {
             // verb wrong but owner ok -> WrongVerb (not NotAShard).

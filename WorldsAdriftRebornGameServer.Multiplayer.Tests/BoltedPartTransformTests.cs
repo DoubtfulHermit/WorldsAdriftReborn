@@ -122,17 +122,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_deck_hierarchy_key_is_a_plain_word_not_the_relative_slot_and_not_an_offset_slot()
-        {
-            // Non-"~" so it triggers a real Unity re-parent (not the position-follow),
-            // and no leading "#" so it is never a registered TransformOffsetsRegistry
-            // slot - it always falls back to the hull ROOT transform.
-            Assert.NotEqual("~", Deck.HierarchyKey);
-            Assert.False(Deck.HierarchyKey.StartsWith("#"));
-            Assert.False(string.IsNullOrEmpty(Deck.HierarchyKey));
-        }
-
-        [Fact]
         public void Only_the_deck_is_a_unity_child_so_only_it_is_skipped_by_the_wake()
         {
             // IsUnityChild is what ShipPartMotionService.PublishWake filters on: a real

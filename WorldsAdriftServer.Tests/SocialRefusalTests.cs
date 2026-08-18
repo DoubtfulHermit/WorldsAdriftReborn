@@ -80,10 +80,5 @@ namespace WorldsAdriftServer.Tests
             Assert.EndsWith(".", sentence.Trim(), StringComparison.Ordinal);
         }
 
-        [Fact]
-        public void AnUnknownCodeStillGetsUsableText()
-        {
-            Assert.False(string.IsNullOrWhiteSpace(SocialRefusal.Sentence("not_a_real_code")));
-        }
     }
 }

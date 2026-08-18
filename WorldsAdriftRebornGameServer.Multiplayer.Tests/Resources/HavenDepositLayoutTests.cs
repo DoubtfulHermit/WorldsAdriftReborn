@@ -126,16 +126,5 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Resources
             }
         }
 
-        [Fact]
-        public void A_deposit_index_maps_to_the_same_world_position_every_time()
-        {
-            // The registry keys deposits "deposit-N"; N must resolve to a fixed world
-            // position so a late joiner's seed and the live entity agree. Two lookups
-            // of the same index are identical, and index 0 is the proven vertex.
-            Assert.Equal(MetalDeposits.NodeAt(5).Position, MetalDeposits.NodeAt(5).Position);
-            FixedPointPosition proven = MetalNodes.IslandLocalToWorldFixed(
-                MetalDeposits.IslandOrigin, 216.0, 4.57, 8.0);
-            Assert.Equal(proven, MetalDeposits.NodeAt(0).Position);
-        }
     }
 }

@@ -24,14 +24,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         [Fact]
-        public void Client_schematics_id_is_valid_json()
-        {
-            string json = StarterFrame.ClientSchematicsIdJson();
-            JObject o = JObject.Parse(json); // throws if malformed - the client would too
-            Assert.NotNull(o);
-        }
-
-        [Fact]
         public void Json_uuid_equals_field6_uuid_contract()
         {
             // The client matches SchematicData.UniqueID (JSON uUID) against

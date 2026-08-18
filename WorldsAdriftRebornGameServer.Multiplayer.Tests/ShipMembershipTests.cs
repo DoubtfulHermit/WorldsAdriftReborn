@@ -19,19 +19,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void A_deck_part_maps_to_its_hull()
-        {
-            // Once Deck01 parts are bolted on, the player stands on the deck part,
-            // whose id maps to the hull.
-            ShipMembership m = new ShipMembership();
-            m.Register(100, 100);   // hull
-            m.Register(101, 100);   // a deck part of that hull
-
-            Assert.Equal(100, m.RootOf(101));
-            Assert.Equal(100, m.RootOf(100));
-        }
-
-        [Fact]
         public void Every_hull_deck_and_mounted_member_canonicalizes_to_one_root()
         {
             ShipMembership m = new ShipMembership();

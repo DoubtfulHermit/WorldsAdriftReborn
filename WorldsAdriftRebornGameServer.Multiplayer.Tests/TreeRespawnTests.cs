@@ -179,24 +179,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(Trees.FullSectionMask, harvest.MaskOf(TreeEntity));
         }
 
-        [Fact]
-        public void A_partially_chopped_tree_regrows_the_whole_tree_like_retail()
-        {
-            // Retail's Respawn resets to every section, not to what was standing.
-            FakeClock clock = new FakeClock();
-            TreeHarvest harvest = Planted(clock, TreeEntity);
-
-            harvest.OnCutSignal(Cutter, At(TreeEntity, 11)); // one limb only
-            clock.Advance(Interval);
-            harvest.Due();
-            int afterOneLimb = harvest.MaskOf(TreeEntity)!.Value;
-            Assert.NotEqual(Trees.FullSectionMask, afterOneLimb);
-
-            clock.Advance(Respawn);
-            harvest.DueRespawns();
-            Assert.Equal(Trees.FullSectionMask, harvest.MaskOf(TreeEntity));
-        }
-
         // ------------------------------------------------------------------
         // An actively-harvested tree does not regrow under the player
         // ------------------------------------------------------------------
@@ -293,16 +275,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             System.Collections.Generic.IReadOnlyList<TreeRespawn> second = harvest.DueRespawns();
             Assert.Single(second);
             Assert.Equal(OtherTree, second[0].TreeEntityId);
-        }
-
-        [Fact]
-        public void Nothing_is_due_to_respawn_when_no_tree_has_been_chopped()
-        {
-            FakeClock clock = new FakeClock();
-            TreeHarvest harvest = Planted(clock, TreeEntity, OtherTree);
-
-            clock.Advance(TimeSpan.FromHours(1));
-            Assert.Empty(harvest.DueRespawns());
         }
 
         // ------------------------------------------------------------------

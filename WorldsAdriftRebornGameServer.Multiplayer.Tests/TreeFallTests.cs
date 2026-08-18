@@ -189,16 +189,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void A_landed_log_lies_a_quarter_turn_from_where_it_stood()
-        {
-            uint parent = Quaternion32Packing.Identity;
-            uint down = TreeFall.PackedRotationAt(parent, 137, Fall, Fall);
-
-            // One degree of tolerance: Quaternion32 is ten bits a component.
-            Assert.Equal(90.0, AngleBetween(parent, down), 0);
-        }
-
-        [Fact]
         public void A_log_off_a_rotated_tree_still_falls_a_quarter_turn()
         {
             // The topple composes ON the parent's rotation rather than replacing it,

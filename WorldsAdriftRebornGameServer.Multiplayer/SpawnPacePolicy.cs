@@ -14,13 +14,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     /// bundle loads with no frame yield between them is the first-load hitch.
     ///
     /// The fix is not interest streaming (that is the documented long-term item);
-    /// it is a floor on how OFTEN a new AfterPlayer entity is allowed to START
-    /// loading. Spacing each entity's RequestAsset by a few tens of milliseconds
-    /// turns "one long hitch" into "the world fades in over a second or two",
-    /// which is what a player reads as normal. Only the RequestAsset that BEGINS
-    /// each AfterPlayer entity is paced; its AddEntity follows on the client's ack
-    /// exactly as before, and the player's OWN avatar and every BeforePlayer
-    /// entity (the ground) are never paced - they gate the loading screen.
+    /// it is a floor on how OFTEN a new AfterPlayer entity is allowed to appear.
+    /// Spacing them by a few tens of milliseconds turns "one long hitch" into "the
+    /// world fades in over a second or two", which is what a player reads as
+    /// normal. The player's OWN avatar and every BeforePlayer entity (the ground)
+    /// are never paced - they gate the loading screen.
+    ///
+    /// WHICH OP IS PACED: AddEntity, not RequestAsset. An earlier version of this
+    /// paragraph said the opposite and was wrong; see
+    /// <see cref="PacesInstantiation"/> for the measurement that settled it -
+    /// pacing RequestAsset did not throttle anything, because a client with the
+    /// bundle already cached acks the load instantly and the AddEntity followed
+    /// unpaced.
     ///
     /// The metronome itself is <see cref="CadenceTimer"/>, reused verbatim: "at
     /// most one release per interval, and NO burst catch-up after a stall" is

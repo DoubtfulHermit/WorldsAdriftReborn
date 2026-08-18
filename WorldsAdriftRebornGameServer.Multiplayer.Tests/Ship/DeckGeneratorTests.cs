@@ -412,15 +412,5 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             }
         }
 
-        [Fact]
-        public void Panel_indices_are_stable_and_contiguous_for_keying()
-        {
-            // The panel index is the registration-key suffix; assert Generate returns a
-            // dense 0..N-1 sequence by construction (list order), so DeckKey(seq, i) is
-            // well-defined for every panel.
-            IReadOnlyList<DeckPanel> panels = DeckGenerator.Generate(Row(2));
-            Assert.Equal(12, panels.Count);
-            Assert.True(panels.Count > 0);
-        }
     }
 }

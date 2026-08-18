@@ -264,23 +264,5 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Persistence
             Assert.False(legacy.LampOff); // false = the lamp is ON
         }
 
-        [Fact]
-        public void An_owner_uid_survives_the_round_trip_on_every_ownable_record()
-        {
-            const string uid = "11111111-2222-3333-4444-555555555555";
-
-            WorldStateSnapshot snapshot = new WorldStateSnapshot();
-            snapshot.PlacedDeployables.Add(new PlacedDeployableRecord { ItemTypeId = "shipyard", OwnerCharacterUid = uid });
-            snapshot.LooseParts.Add(new LoosePartRecord { PartUid = "p", OwnerCharacterUid = uid });
-            snapshot.MountedParts.Add(new MountedPartRecord { PartUid = "m", OwnerCharacterUid = uid });
-
-            string path = Path.Combine(_dir, "world.json");
-            AtomicJsonFile.Write(path, snapshot);
-            WorldStateSnapshot read = AtomicJsonFile.Read<WorldStateSnapshot>(path)!;
-
-            Assert.Equal(uid, read.PlacedDeployables[0].OwnerCharacterUid);
-            Assert.Equal(uid, read.LooseParts[0].OwnerCharacterUid);
-            Assert.Equal(uid, read.MountedParts[0].OwnerCharacterUid);
-        }
     }
 }

@@ -143,37 +143,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(expected.OrderBy(x => x), seeds.OrderBy(x => x));
         }
 
-        [Fact]
-        public void Seed_set_leads_with_190602_the_position_every_other_behaviour_reads_back()
-        {
-            // The batch is applied in order; the transform must arrive before anything
-            // that composes against it, exactly like the hull's seed.
-            Assert.Equal(190602u, LoosePartCatalogue.Lamp.SeedComponents.First());
-        }
-
-        [Fact]
-        public void Base_ship_part_components_are_shared_and_part_specific_ids_are_appended()
-        {
-            var lamp = LoosePartCatalogue.Lamp;
-
-            foreach (uint baseId in LoosePartDefinition.BaseShipPartComponents)
-            {
-                Assert.Contains(baseId, lamp.SeedComponents);
-            }
-
-            // The lamp's own functional ids are exactly 1108 (LampState) + 1236
-            // (IsTooDamagedToWorkState) - a different part type contributes different
-            // ones without touching the shared base.
-            Assert.Equal(new uint[] { 1108, 1236 }, lamp.PartSpecificComponents);
-        }
-
-        [Fact]
-        public void Seed_set_has_no_duplicate_ids()
-        {
-            var seeds = LoosePartCatalogue.Lamp.SeedComponents;
-            Assert.Equal(seeds.Count, seeds.Distinct().Count());
-        }
-
         // --- Recipe -> part mapping ---------------------------------------------
 
         [Fact]

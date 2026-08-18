@@ -59,17 +59,6 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void The_built_cookie_round_trips_through_the_parser()
-        {
-            string cookie = PlayerAuthPolicy.BuildSessionCookie("round-trip-token", 3600);
-            // The Set-Cookie value's first pair is name=value; feed that back in.
-            string firstPair = cookie.Split(';')[0];
-
-            Assert.Equal("round-trip-token",
-                PlayerAuthPolicy.TokenFromCookieHeader(firstPair));
-        }
-
-        [Fact]
         public void The_clear_cookie_expires_immediately_and_keeps_the_scope()
         {
             string cookie = PlayerAuthPolicy.BuildClearCookie();

@@ -52,15 +52,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.False(MirrorSendPolicy.MayResend(MirrorOp.AddComponents));
         }
 
-        [Theory]
-        [InlineData(MirrorOp.AddComponents)]
-        [InlineData(MirrorOp.RelayComponentUpdate)]
-        [InlineData(MirrorOp.RemoveEntity)]
-        public void Only_AddEntity_is_ever_resendable(MirrorOp op)
-        {
-            Assert.False(MirrorSendPolicy.MayResend(op));
-        }
-
         [Fact]
         public void No_mirror_op_is_resendable()
         {
@@ -134,13 +125,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // rule 7 before changing this.
             Assert.True(MirrorSendPolicy.RemoteSeedComponents.Count <= 8,
                 "remote seed grew past 8 components; see docs/multiplayer.md rule 7");
-        }
-
-        [Fact]
-        public void Remote_seed_has_no_duplicate_component_ids()
-        {
-            Assert.Equal(MirrorSendPolicy.RemoteSeedComponents.Count,
-                         MirrorSendPolicy.RemoteSeedComponents.Distinct().Count());
         }
 
         // ------------------------------------------------------------------

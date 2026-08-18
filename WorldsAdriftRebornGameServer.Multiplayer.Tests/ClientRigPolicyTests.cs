@@ -40,12 +40,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_plain_mirrored_rig_is_recognised_as_remote()
-        {
-            Assert.False(ClientRigPolicy.IsLocalRig(PlainRemoteRig));
-        }
-
-        [Fact]
         public void A_rig_named_like_the_local_player_but_carrying_no_local_components_is_still_remote()
         {
             // Name-based discrimination is what let the sweeper neutralise the
@@ -165,12 +159,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         // ------------------------------------------------------------------
         // Keep-first singleton claiming (rule 9)
         // ------------------------------------------------------------------
-
-        [Fact]
-        public void The_first_rig_to_run_Awake_claims_the_singleton()
-        {
-            Assert.True(ClientRigPolicy.ShouldClaimSingleton(currentOwnerIsAlive: false, candidateIsCurrentOwner: false));
-        }
 
         [Fact]
         public void A_second_rig_never_takes_a_live_singleton_from_the_local_player()

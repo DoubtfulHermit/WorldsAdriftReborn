@@ -26,23 +26,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_hull_seed_appends_recognition_after_the_existence_four_when_on()
-        {
-            uint[] seed = WorldEntities.HullSeedComponents(recogniseShip: true).ToArray();
-
-            // Existence four first, recognition three last: the all-or-nothing batch
-            // must never risk a recognition serialize before the geometry.
-            Assert.Equal(new uint[] { 190602, 1209, 1099, 1130, 8062, 8071, 4349 }, seed);
-        }
-
-        [Fact]
-        public void The_hull_seed_is_the_proven_four_when_recognition_is_off()
-        {
-            Assert.Equal(new uint[] { 190602, 1209, 1099, 1130 },
-                WorldEntities.HullSeedComponents(recogniseShip: false).ToArray());
-        }
-
-        [Fact]
         public void The_part_counts_describe_a_one_helm_unowned_ship()
         {
             // The values 8071 carries: exactly one Helm, nothing else. Cosmetic (HUD

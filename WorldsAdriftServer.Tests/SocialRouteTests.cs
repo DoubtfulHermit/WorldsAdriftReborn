@@ -22,11 +22,14 @@ namespace WorldsAdriftServer.Tests
         // than silently comparing two wrong things.
         [InlineData("GET", "/memberships/character/abc", "CharacterMemberships")]
         [InlineData("GET", "/memberships/invites/character/abc", "InvitesForCharacter")]
+        // The next two differ only in SEGMENT COUNT: listing a crew's members and
+        // removing one of them are the same path with a uid appended.
         [InlineData("GET", "/memberships/crew/crew:1", "CrewMembers")]
         [InlineData("GET", "/memberships/invites/crew/crew:1", "CrewInvites")]
         [InlineData("POST", "/memberships/invite", "SendInvite")]
         [InlineData("DELETE", "/memberships/crew/crew:1/abc", "RemoveCrewMember")]
         [InlineData("POST", "/crews", "CreateCrew")]
+        // The next two differ only in METHOD: one URL, two endpoints.
         [InlineData("GET", "/crew/community_server/crew:1", "GetCrew")]
         [InlineData("DELETE", "/crew/community_server/crew:1", "DisbandCrew")]
         [InlineData("GET", "/screenname/find/Billy", "CharacterSearch")]
@@ -78,24 +81,6 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(SocialRouteKind.CharacterSearch, escaped.Kind);
             Assert.Equal("Billy Bones", plain.Segments[0]);
             Assert.Equal("Billy Bones", escaped.Segments[0]);
-        }
-
-        [Fact]
-        public void MethodDecidesBetweenTwoEndpointsOnOneUrl()
-        {
-            Assert.Equal(SocialRouteKind.GetCrew,
-                SocialRoute.Parse("GET", "/crew/r/c1").Kind);
-            Assert.Equal(SocialRouteKind.DisbandCrew,
-                SocialRoute.Parse("DELETE", "/crew/r/c1").Kind);
-        }
-
-        [Fact]
-        public void SegmentCountDecidesBetweenListingAndRemoving()
-        {
-            Assert.Equal(SocialRouteKind.CrewMembers,
-                SocialRoute.Parse("GET", "/memberships/crew/c1").Kind);
-            Assert.Equal(SocialRouteKind.RemoveCrewMember,
-                SocialRoute.Parse("DELETE", "/memberships/crew/c1/u1").Kind);
         }
 
         /// <summary>

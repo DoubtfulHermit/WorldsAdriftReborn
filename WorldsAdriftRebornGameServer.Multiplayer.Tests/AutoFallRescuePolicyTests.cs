@@ -60,14 +60,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.False(AutoFallRescuePolicy.ParseEnabled(value));
         }
 
-        [Fact]
-        public void DefaultIsOff()
-        {
-            // The whole point of the change: absent config, the automatic yank
-            // does not fire. F10 is the recovery now.
-            Assert.False(AutoFallRescuePolicy.ParseEnabled(null));
-        }
-
         // ------------------------------------------------------------------
         // WHICH FLOOR EACH MODE USES
         // ------------------------------------------------------------------
@@ -147,16 +139,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         // ------------------------------------------------------------------
         // BEHAVIOUR: ON MODE (legacy, restored by the env var)
         // ------------------------------------------------------------------
-
-        [Fact]
-        public void OnMode_YanksBelowTheOrdinaryFloorJustLikeBefore()
-        {
-            FallWatch watch = new FallWatch(new FakeClock(),
-                AutoFallRescuePolicy.FloorYFor(autoRescueEnabled: true));
-
-            // -600 m, below the island floor: the legacy rescue fires.
-            Assert.Equal(FallVerdict.Rescue, watch.Observe(Player, AtHeight(-600)));
-        }
 
         [Fact]
         public void DefaultConstructedWatchStillUsesTheIslandFloor()

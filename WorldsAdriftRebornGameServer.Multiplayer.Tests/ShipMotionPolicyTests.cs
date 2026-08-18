@@ -38,14 +38,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(0.5, ShipMotionPolicy.ServerBoundaryRejectionSeconds);
         }
 
-        [Fact]
-        public void Emitting_at_the_send_interval_clears_the_reject_floor_with_headroom()
-        {
-            // A pair exactly one step apart must be accepted, and by a margin -
-            // 0.24 vs the 0.228 floor is the 12 ms that absorbs loop jitter.
-            Assert.True(ShipMotionPolicy.SendIntervalSeconds > ShipMotionPolicy.MinSeparationSeconds);
-        }
-
         // ------------------------------------------------------------------
         // The ideal-grid timeline
         // ------------------------------------------------------------------

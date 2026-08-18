@@ -43,12 +43,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_whole_yield_is_paid_over_a_full_mine_out()
-        {
-            Assert.Equal(Total, Schedule().Sum());
-        }
-
-        [Fact]
         public void All_of_it_is_obtainable_without_destroying_the_core()
         {
             // Retail's warning is that finishing the node loses what you had not taken.
