@@ -180,6 +180,35 @@ claim stated as a measurement rather than an argument.
   disconnects, 0 decode errors, 0 1073 timeline violations.
 - `tools/relaybot/run-ship-acceptance.sh 17781`: **PASS**.
 
+Re-run after merging `fix/tier1-resource-coverage`, which gives every tier-1
+island wood and takes the world from 1723 to **3390** boot resource entities:
+
+```
+[resource-interest] island-keyed checkout: 3390 resource(s) across 47 island(s);
+  load 600 m / unload 800 m to the island ENVELOPE; per-peer budget 512 entities;
+  largest island 127; worst-case 30.5 s to stream one island at 8.3 action/s.
+```
+
+- builds 0 errors; `Multiplayer.Tests` **3253 / 0 / 0**,
+  `WorldsAdriftServer.Tests` 326/0/21, `Storage.Tests` 52/0/122.
+- `run-soak.sh 10 7816` on that world, both bots at Mount Spero: **VERDICT FLAT**,
+  drift -0.04 ms, trend +0.02 ms, 21606 sends / 21608 matched relays (100%
+  delivered), 0 gaps, 0 disconnects, 0 decode errors.
+- `run-ship-acceptance.sh 17783`: **PASS**.
+- No budget warning: the largest island is 127 against a 512 ceiling, so doubling
+  the world's resource count did not bring the whole-island rule anywhere near
+  its bound.
+
+The two changes complete each other. Thirty seconds is only an acceptable
+whole-island stream because additions are ordered NEAREST-FIRST, and the tree
+generator deliberately seats four trees and two deposits within 60 m of each
+island's landing pad. On Mount Spero specifically that is now **60 oak** (an
+INFERRED tier-1 wood, stamped `woodSource: inferred-tier`) and 14 deposits, with
+the nearest deposit **17.9 m** and the nearest tree **28.8 m** from where the
+shrine puts the player - both inside the first four seconds of the stream. The
+island is 93 resource entities and the peer holds all of them for the whole
+visit.
+
 ## What is still unproven
 
 - **THE SOAK GATE STILL CANNOT SEE ISLAND CHECKOUT, and now we know exactly why.**
