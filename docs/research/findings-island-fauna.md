@@ -78,3 +78,61 @@ Wareborn does not yet implement the corresponding creature-material economy.
 
 Fauna belongs to an island simulation domain. Individual creatures should not
 become worker/domain boundaries.
+
+## Implementation status
+
+Stages 1 and 2 above are implemented as a pure, engine-free, server-owned core
+inside `WorldsAdriftRebornGameServer.Multiplayer`. Stages 3 and 4 are not
+started. Six files carry the work; no client mod, game-server, csproj, engine
+glue or prefab-manifest file is involved, and the Multiplayer assembly keeps its
+zero external references.
+
+- `Islands/IslandFaunaPolicy.cs` - `FaunaSpecies`, the prefab-name mapping onto
+  the existing `JellyFish`/`MantaRay` census entries, `FaunaCreature`, the
+  opt-in gate, a budget parser and the deterministic per-island population.
+- `Islands/IslandFaunaMovement.cs` - closed-form manta orbit and jelly day/night
+  drift.
+- `Islands/IslandFaunaRegistry.cs` - the clock-driven bounded pose registry.
+- One xUnit file per production file under
+  `WorldsAdriftRebornGameServer.Multiplayer.Tests/Islands/`.
+
+The decisions worth reading back before extending this:
+
+- OFF BY DEFAULT. `WAREBORN_ISLAND_FAUNA` accepts `1`/`true`/`yes`
+  case-insensitively and nothing else, matching
+  `IslandTerrainInterestPolicy.EnabledFrom`. Fauna transforms are a new relayed
+  sender, so the standing multiplayer-safety rule applies: the feature arrives
+  off and is switched on deliberately.
+- A DISJOINT ENTITY-ID BAND. Creatures count upwards from `2_100_000_000L`,
+  a hundred million clear of `TreeFall.FirstLogEntityId` at `2_000_000_000L`.
+  The bands must not overlap: a fauna pose and a falling-log pose naming the
+  same entity would corrupt the client's entity table in a way that reads as a
+  protocol bug. Like a log, a creature is deliberately not a world registration.
+- BOUNDED, AND SLOWER THAN SHIPS. The registry refuses past a world-wide
+  concurrent cap rather than throwing, emits complete absolute poses that
+  supersede rather than deltas, is silent when nothing is due, and pushes at a
+  cadence deliberately below the 20 Hz ship/log rate because fauna drifts rather
+  than falls.
+- RESTART-REPRODUCIBLE BY CONSTRUCTION. Population is a function of the surveyed
+  tier; a pose is a closed-form function of (creature, elapsed seconds). No
+  `Random`, no `DateTime`, no accumulated physics state, nothing persisted. A
+  rebuilt registry on a fresh clock replays the same ids and the same poses.
+- GEOMETRY DERIVED AS RATIOS. Manta lateral radius and vertical half-height come
+  from the `IslandTerrainEnvelope` extents rather than from absolute metres, so
+  a tiny, huge or anisotropic island rescales instead of putting the creature
+  inside the rock; island-local results reach world space through
+  `IslandDefinition.LocalToGlobal`.
+
+PROVENANCE, kept explicit because this is where invention is tempting. Every
+COUNT is WAREBORN TUNING - GSim owned population bookkeeping and GSim is not
+preserved, so no surviving artefact states how many creatures an island carried.
+The DIRECTION those counts move in is WIKI-SOURCED, from the
+worldsadrift.fandom.com Biome and Creatures pages placing tier 1 Wilderness at
+the calm end and tier 4 Badlands at the hostile end. The movement constants are
+RECOVERED, from `acs/PatrolVisualiser.cs` for the manta perimeter orbit and
+`acs/JellyFishMovement.cs` for the jelly day/night rules. The four retail jelly
+basic-species values are collapsed to one `JellyFish` member: the names survived,
+the per-island eligibility did not, and four members would be four claims this
+project cannot support. Seeding jellyfish at all is an explicit era choice -
+they were discontinued late in retail's life, so their presence presents the
+earlier world rather than the last one.
