@@ -10,24 +10,42 @@ namespace WorldsAdriftServer.Admin
     /// The admin world map's tier colours, and the WCAG maths that picks a
     /// readable label colour for each of them.
     ///
-    /// Tier is an *ordered* quantity (1..4), so the fills are a sequential
-    /// perceptually-uniform ramp, not an arbitrary categorical palette: they are
-    /// cividis sampled at t = 0.06 / 0.34 / 0.62 / 0.90 and then mixed 85/15 with
-    /// the map's ocean so the console keeps its dark character. Cividis is chosen
-    /// because it varies along the blue-yellow axis, which is the axis red-green
-    /// colour deficiency preserves, and because its lightness is monotone - so the
-    /// ramp still reads in order under protanopia, deuteranopia, tritanopia and in
-    /// plain greyscale.
+    /// Tier is CATEGORICAL here, not a ramp. Each tier keeps its own hue - green
+    /// Wilderness, blue Expanse, violet Remnants, gold Badlands - because that is
+    /// the identity operators already read the map by, and because every cell
+    /// prints its own "T&lt;n&gt; - Name" so colour is never the only channel. A
+    /// single-axis sequential ramp was tried and rejected: it measured beautifully
+    /// and looked like a heatmap of nothing.
     ///
-    /// Measured on the shipped values (CIEDE2000 between the two closest tiers):
-    /// normal 18.2, protanopia 18.2, deuteranopia 20.0, tritanopia 16.8.
-    /// Relative luminance is strictly increasing (0.024, 0.086, 0.214, 0.445).
+    /// What *is* computed rather than picked is where each hue sits in lightness.
+    /// Under protanopia and deuteranopia the four hues collapse into two families:
+    /// green and gold both land on the yellow side, blue and violet both on the
+    /// blue side. Two colours in the same family can then only be told apart by
+    /// lightness. Gold has to be the light member of its family (a dark yellow is
+    /// an olive), which forces green dark; violet is placed dark and blue light for
+    /// the same reason. That is the whole derivation of these four values:
+    ///
+    ///   T1 Wilderness  #134e26  OKLCh L .376  h 150  deep forest green
+    ///   T2 Expanse     #4f89c1  OKLCh L .615  h 249  mid slate blue
+    ///   T3 Remnants    #694189  OKLCh L .454  h 308  deep violet
+    ///   T4 Badlands    #cdb236  OKLCh L .766  h  96  gold
+    ///
+    /// Chroma is held in a narrow band (.090 - .140, rising only where the hue
+    /// needs it to stay saturated at that lightness), which is what makes four
+    /// unrelated hues read as one designed set instead of four defaults.
+    ///
+    /// Measured on the shipped values (CIEDE2000 between the two closest tiers,
+    /// Machado 2009 simulation at severity 1.0): normal 30.7, protanopia 22.6,
+    /// deuteranopia 17.4, tritanopia 26.6. The previous categorical palette
+    /// collapsed to 2.1 under protanopia; the rejected ramp reached 18.2 but at
+    /// the cost of the map's looks. Greyscale is the one axis this trades away -
+    /// T1 and T3 sit 5.1 apart there - which is deliberate, and covered by the
+    /// tier text printed on every cell.
     ///
     /// The label colour is *computed*, never hand-picked: whichever of the light
     /// and dark inks has the greater contrast ratio against the fill wins, and
-    /// <see cref="MinimumInkContrast"/> is enforced by the unit tests. The crossover
-    /// sits at relative luminance ~0.178, so tiers 1-2 take light ink and 3-4 take
-    /// dark ink.
+    /// <see cref="MinimumInkContrast"/> is enforced by the unit tests. Here that
+    /// puts light ink on T1/T3 and dark ink on T2/T4.
     /// </summary>
     internal static class MapTierPalette
     {
@@ -44,19 +62,22 @@ namespace WorldsAdriftServer.Admin
         internal const double MinimumInkContrast = 4.5;
 
         /// <summary>
-        /// Minimum WCAG contrast between adjacent tiers. Above 1 it guarantees the
-        /// ramp is separable by lightness alone, i.e. in greyscale and for any
-        /// colour deficiency at all.
+        /// The floor for the closest pair of tier fills under normal vision and
+        /// under each simulated colour deficiency. 10 is "comfortably a different
+        /// colour at a glance"; the palette is not asked to go further, because
+        /// chasing a bigger number is exactly what produced an ugly map last time,
+        /// and the tier text on every cell already carries the value losslessly.
+        /// Greyscale is excluded on purpose - see the type comment.
         /// </summary>
-        internal const double MinimumAdjacentContrast = 1.7;
+        internal const double MinimumTierDifference = 10.0;
 
         // Ordered low tier -> high tier. Index 0 is tier 1.
         private static readonly string[] TierFills =
         {
-            "#01295d", // T1 Wilderness  L* 17.4
-            "#4d5361", // T2 Expanse     L* 35.3
-            "#848069", // T3 Remnants    L* 53.3
-            "#c4b34a", // T4 Badlands    L* 72.5
+            "#134e26", // T1 Wilderness  green   L* 28.7
+            "#4f89c1", // T2 Expanse     blue    L* 55.5
+            "#694189", // T3 Remnants    violet  L* 35.2
+            "#cdb236", // T4 Badlands    gold    L* 73.0
         };
 
         internal static IReadOnlyList<MapTierColours> All { get; } = BuildAll();

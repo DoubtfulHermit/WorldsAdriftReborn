@@ -4,14 +4,19 @@ using Xunit;
 namespace WorldsAdriftServer.Tests
 {
     /// <summary>
-    /// The admin map colours tier by an ordered quantity, so these tests pin the
-    /// three properties that make an ordinal encoding legible: the ramp is
-    /// monotone in lightness, adjacent steps stay apart, and the label ink on each
-    /// swatch clears WCAG AA. They are the guard against someone dropping a
-    /// pretty-but-categorical palette back in.
+    /// The admin map colours tier categorically - one hue per tier - so these tests
+    /// pin the properties that keep a categorical palette honest: every pair of
+    /// tiers stays apart under normal vision AND under each colour deficiency, the
+    /// label ink on each swatch clears WCAG AA and is chosen by measurement rather
+    /// than by hand, and the cell, the label and the legend swatch all come out of
+    /// one list so they cannot drift apart. They are the guard against someone
+    /// dropping four unmeasured default swatches back in.
     /// </summary>
     public class MapTierPaletteTests
     {
+        private static IReadOnlyList<string> Fills
+            => MapTierPalette.All.Select(tier => tier.Fill).ToList();
+
         [Fact]
         public void Relative_luminance_matches_the_wcag_reference_points()
         {
@@ -62,29 +67,73 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void The_fills_are_a_sequential_ramp_not_a_categorical_palette()
+        public void Every_pair_of_tiers_stays_apart_under_every_colour_deficiency()
         {
-            // Strictly increasing luminance is what makes the encoding ordinal: it
-            // survives greyscale printing and every form of colour deficiency,
-            // because lightness is never the channel that is lost.
-            for (int tier = MapTierPalette.MinTier; tier < MapTierPalette.MaxTier; tier++)
+            // The failure this exists to prevent: the original green/orange pair sat
+            // dE00 2.1 apart under protanopia, i.e. one colour for roughly one man
+            // in twelve. Greyscale is excluded deliberately - this palette is
+            // categorical, and the tier text on every cell carries the value.
+            foreach (ColourVision vision in MapColourMetrics.AllVisions)
             {
-                double lower = MapTierPalette.RelativeLuminance(MapTierPalette.For(tier).Fill);
-                double higher = MapTierPalette.RelativeLuminance(MapTierPalette.For(tier + 1).Fill);
-                Assert.True(higher > lower,
-                    $"Tier {tier + 1} must be lighter than tier {tier} ({higher} vs {lower}).");
+                if (vision == ColourVision.Greyscale) continue;
+                double closest = MapColourMetrics.ClosestPair(Fills, vision);
+                Assert.True(closest >= MapTierPalette.MinimumTierDifference,
+                    $"Under {vision} the closest two tiers are only dE00 {closest:0.0} apart.");
             }
         }
 
         [Fact]
-        public void Adjacent_tiers_stay_apart_by_lightness_alone()
+        public void Each_tier_keeps_its_own_hue_rather_than_a_place_on_one_ramp()
         {
-            for (int tier = MapTierPalette.MinTier; tier < MapTierPalette.MaxTier; tier++)
+            // A sequential ramp would have every fill on one hue and differ only in
+            // lightness. Requiring the hues themselves to be far apart is what stops
+            // the map from silently becoming a heatmap again.
+            var hues = Fills.Select(fill =>
             {
-                double ratio = MapTierPalette.ContrastRatio(
-                    MapTierPalette.For(tier).Fill, MapTierPalette.For(tier + 1).Fill);
-                Assert.True(ratio >= MapTierPalette.MinimumAdjacentContrast,
-                    $"Tiers {tier} and {tier + 1} are only {ratio:0.00}:1 apart.");
+                (double _, double a, double b) = MapColourMetrics.Lab(fill);
+                double deg = Math.Atan2(b, a) * 180 / Math.PI;
+                return deg < 0 ? deg + 360 : deg;
+            }).ToList();
+
+            for (int i = 0; i < hues.Count; i++)
+                for (int j = i + 1; j < hues.Count; j++)
+                {
+                    double gap = Math.Abs(hues[i] - hues[j]);
+                    if (gap > 180) gap = 360 - gap;
+                    Assert.True(gap >= 30,
+                        $"Tiers {i + 1} and {j + 1} share a hue ({gap:0.0} degrees apart).");
+                }
+        }
+
+        [Fact]
+        public void No_tier_is_mistakable_for_the_weather_wall_drawn_over_it()
+        {
+            // The walls are stroked straight across the tier cells, so a wall that
+            // matches the fill under it disappears. These are the shipped wall
+            // colours from the map's own stylesheet.
+            var walls = new (string Name, string Colour)[]
+            {
+                ("Wind Rift", "#74c9cf"), ("Storm Rift", "#9b86d8"), ("Typhon", "#d48388"),
+                ("Sand Storm", "#e8963c"), ("Ice Storm", "#a9d6ed"), ("World End", "#ec8f88"),
+            };
+            foreach (MapTierColours tier in MapTierPalette.All)
+                foreach ((string name, string colour) in walls)
+                {
+                    double d = MapColourMetrics.Difference(tier.Fill, colour, ColourVision.Normal);
+                    Assert.True(d >= MapTierPalette.MinimumTierDifference,
+                        $"Tier {tier.Tier} {tier.Fill} is only dE00 {d:0.0} from the {name} wall.");
+                }
+        }
+
+        [Fact]
+        public void Every_tier_is_distinguishable_from_the_ocean_it_is_drawn_on()
+        {
+            const string ocean = "#09151d";
+            foreach (MapTierColours tier in MapTierPalette.All)
+            {
+                double d = MapColourMetrics.Difference(tier.Fill, ocean, ColourVision.Normal);
+                Assert.True(d >= 15.0,
+                    $"Tier {tier.Tier} {tier.Fill} is only dE00 {d:0.0} from the ocean.");
             }
         }
 
@@ -117,12 +166,13 @@ namespace WorldsAdriftServer.Tests
         public void Ink_flips_across_the_luminance_crossover()
         {
             // Both inks are fixed, so the crossover is a single luminance value.
-            // Below it light ink wins, above it dark ink does.
+            // Below it light ink wins, above it dark ink does. With a categorical
+            // palette the flips follow the hues, not the tier order.
             Assert.Equal(MapTierPalette.LightInk, MapTierPalette.InkFor("#000000"));
             Assert.Equal(MapTierPalette.DarkInk, MapTierPalette.InkFor("#ffffff"));
             Assert.Equal(MapTierPalette.LightInk, MapTierPalette.For(1).Ink);
-            Assert.Equal(MapTierPalette.LightInk, MapTierPalette.For(2).Ink);
-            Assert.Equal(MapTierPalette.DarkInk, MapTierPalette.For(3).Ink);
+            Assert.Equal(MapTierPalette.DarkInk, MapTierPalette.For(2).Ink);
+            Assert.Equal(MapTierPalette.LightInk, MapTierPalette.For(3).Ink);
             Assert.Equal(MapTierPalette.DarkInk, MapTierPalette.For(4).Ink);
         }
 
@@ -140,10 +190,10 @@ namespace WorldsAdriftServer.Tests
         public void The_shipped_values_are_the_measured_ones()
         {
             // Pinned so a palette change has to be a deliberate, re-measured act.
-            Assert.Equal("#01295d", MapTierPalette.For(1).Fill);
-            Assert.Equal("#4d5361", MapTierPalette.For(2).Fill);
-            Assert.Equal("#848069", MapTierPalette.For(3).Fill);
-            Assert.Equal("#c4b34a", MapTierPalette.For(4).Fill);
+            Assert.Equal("#134e26", MapTierPalette.For(1).Fill);
+            Assert.Equal("#4f89c1", MapTierPalette.For(2).Fill);
+            Assert.Equal("#694189", MapTierPalette.For(3).Fill);
+            Assert.Equal("#cdb236", MapTierPalette.For(4).Fill);
         }
 
         [Fact]
@@ -163,14 +213,39 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void The_retired_categorical_palette_is_gone()
+        public void The_retired_palettes_are_gone()
         {
-            // The old Google-Sheets swatches: green/blue/purple/orange. Under
-            // deuteranopia the blue and purple collapsed to dE00 3.5, and under
-            // protanopia the green and orange collapsed to dE00 1.9.
             string css = MapTierPalette.Css();
+            // The unchosen Google-Sheets defaults: green/blue/purple/orange, drawn
+            // at 38% so the legend never matched the map. Protanopia collapsed the
+            // green and the orange to dE00 2.1.
             foreach (string retired in new[] { "#93c47d", "#6d9eeb", "#8e7cc3", "#f6b26b" })
                 Assert.DoesNotContain(retired, css);
+            // The cividis ramp that replaced them: measured well, looked like a
+            // heatmap, and threw away the per-tier hue identity operators read by.
+            foreach (string retired in new[] { "#01295d", "#4d5361", "#848069", "#c4b34a" })
+                Assert.DoesNotContain(retired, css);
+        }
+
+        [Fact]
+        public void The_deficiency_simulation_agrees_with_its_reference_behaviour()
+        {
+            // Anchors, so a broken matrix cannot quietly inflate the separation
+            // figures the palette is signed off on.
+            foreach (ColourVision vision in MapColourMetrics.AllVisions)
+            {
+                Assert.Equal("#ffffff", MapColourMetrics.Simulate("#ffffff", vision));
+                Assert.Equal("#000000", MapColourMetrics.Simulate("#000000", vision));
+                Assert.Equal(0.0, MapColourMetrics.Difference("#336699", "#336699", vision), 6);
+            }
+            Assert.Equal("#336699", MapColourMetrics.Simulate("#336699", ColourVision.Normal));
+            // Protanopia and deuteranopia are red-green: pure red and pure green
+            // stop being different colours.
+            Assert.True(MapColourMetrics.Difference("#ff0000", "#00ff00", ColourVision.Normal) > 80);
+            Assert.True(MapColourMetrics.Difference("#ff0000", "#00ff00", ColourVision.Deuteranopia) < 30);
+            // CIELAB anchors: white is L* 100 with no chroma, black is L* 0.
+            Assert.Equal(100.0, MapColourMetrics.Lab("#ffffff").L, 3);
+            Assert.Equal(0.0, MapColourMetrics.Lab("#000000").L, 3);
         }
     }
 }

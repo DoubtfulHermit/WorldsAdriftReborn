@@ -320,9 +320,20 @@ namespace WorldsAdriftServer.Tests
             Assert.DoesNotContain("\"district\":\"E2\"", html);
             Assert.DoesNotContain("District E1", html);
             Assert.DoesNotContain("District E2", html);
-            // Holy Ruins keeps its two conflicting preserved facts: nothing on
-            // this page reconciles the survey tier with the authored A4 cell.
-            Assert.DoesNotContain("Holy Ruins", html);
+            // Holy Ruins keeps its two conflicting preserved facts. The island is
+            // named now that the map carries per-island inventory, so the rule is
+            // no longer "never mention it" but the stronger one: BOTH tiers are
+            // published side by side and neither is quietly dropped to make the
+            // other consistent.
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            JObject holyRuins = ((JArray)map["islands"]!).OfType<JObject>()
+                .Single(island => (string?)island["inventory"]?["name"] == "Holy Ruins");
+            Assert.Equal("A4", (string?)holyRuins["inventory"]!["cell"]);
+            Assert.Equal(2, (int?)holyRuins["inventory"]!["cellTier"]);
+            Assert.Equal(3, (int?)holyRuins["inventory"]!["surveyTier"]);
+            Assert.NotEqual((int?)holyRuins["inventory"]!["cellTier"],
+                            (int?)holyRuins["inventory"]!["surveyTier"]);
+            Assert.Contains("surveyTier", html);
         }
 
         [Fact]
@@ -379,6 +390,87 @@ namespace WorldsAdriftServer.Tests
             // Tier is never encoded by colour alone: the cell carries its tier as text.
             Assert.Contains("tierLine.textContent='T'+b.type", html);
             Assert.Contains("'class':'map-cell-label type-'+b.type", html);
+        }
+
+        [Fact]
+        public void Every_release_island_carries_its_seeded_inventory_onto_the_map()
+        {
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            List<JObject> islands = ((JArray)map["islands"]!).OfType<JObject>().ToList();
+
+            // 266 MapFile placements: 254 ordinary islands plus 12 Haven reserve
+            // placements, which are hand-tuned and carry no surveyed inventory.
+            Assert.Equal(266, islands.Count);
+            Assert.Equal(254, islands.Count(island => island["inventory"] != null));
+            Assert.Equal(12, islands.Count(island => (bool?)island["haven"] == true));
+            Assert.All(islands.Where(island => (bool?)island["haven"] == true),
+                island => Assert.Null(island["inventory"]));
+
+            // World totals, so the page never re-derives a count by hand.
+            JObject totals = (JObject)map["resourceTotals"]!;
+            Assert.Equal(1930, (int?)totals["deposits"]);
+            Assert.Equal(1233, (int?)totals["databanks"]);
+            Assert.Equal(3767, (int?)totals["trees"]);
+            Assert.Equal(193, (int?)totals["islandsWithInferredOres"]);
+
+            // Per island the deposits are broken down by ore, and the rows account
+            // for every deposit - an ore breakdown that does not add up would be a
+            // fabricated one.
+            foreach (JObject island in islands.Where(island => island["inventory"] != null))
+            {
+                JObject inventory = (JObject)island["inventory"]!;
+                int deposits = (int?)inventory["deposits"] ?? -1;
+                Assert.Equal(deposits, ((JArray)inventory["ores"]!).Sum(ore => (int?)ore["deposits"] ?? 0));
+                Assert.NotNull((string?)inventory["name"]);
+                Assert.Contains((string?)inventory["oreSource"],
+                    new[] { "survey-pve", "survey-pvp", "inferred-tier" });
+                Assert.Equal((string?)inventory["oreSource"] == "inferred-tier",
+                    (bool?)inventory["oresInferred"]);
+                // Not recovered, so stated as zero rather than guessed at.
+                Assert.Equal(0, (int?)inventory["fuelPods"]);
+                Assert.Equal(0, (int?)inventory["lootContainers"]);
+            }
+        }
+
+        [Fact]
+        public void Inferred_ore_is_marked_wherever_the_page_shows_it()
+        {
+            string html = AdminPage.Dashboard("{}", new string('k', 64), ReleaseWorldMap.Json);
+
+            // The mark rides the ore line itself, the provenance line, and the
+            // per-cell roll-up - not just one of the three.
+            Assert.Contains("(inv.oresInferred?'✱ ':'')+'Ore: '", html);
+            Assert.Contains("(inv.oresInferred?'✱ ':'')+'Ore provenance: '", html);
+            Assert.Contains("have an INFERRED ore table", html);
+            // The legend explains the mark and names the provenance rung.
+            Assert.Contains("&#10033; marks an <strong>INFERRED</strong> ore table", html);
+            Assert.Contains("composed from the surveyed same-tier cohort", html);
+            // A recovered PvP reading is still a reading of that island, and says so.
+            Assert.Contains("RECOVERED · read on the PvP shard", html);
+            // Nothing invents a number for what did not survive.
+            Assert.Contains("Fuel pods and loot chests are shown as 0", html);
+        }
+
+        [Fact]
+        public void Every_drawn_tier_cell_can_be_joined_to_the_islands_inside_it()
+        {
+            // The cell roll-up is only possible because the projection names each
+            // cell the same way the runtime catalogue does, including Bossa's two
+            // null districts.
+            JObject map = JObject.Parse(ReleaseWorldMap.Json);
+            var cellIds = ((JArray)map["biomes"]!).OfType<JObject>()
+                .Select(cell => (string?)cell["cellId"]).ToList();
+
+            Assert.Equal(20, cellIds.Count);
+            Assert.Equal(20, cellIds.Distinct().Count());
+            Assert.Contains("unassigned-t4-1", cellIds);
+            Assert.Contains("unassigned-t4-2", cellIds);
+
+            var islandCells = ((JArray)map["islands"]!).OfType<JObject>()
+                .Where(island => island["inventory"] != null)
+                .Select(island => (string?)island["inventory"]!["cell"])
+                .Distinct().ToList();
+            Assert.All(islandCells, cell => Assert.Contains(cell, cellIds));
         }
 
         [Fact]
