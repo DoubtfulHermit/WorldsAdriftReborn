@@ -144,6 +144,43 @@ svg.zoom-near .map-cell-label{opacity:.34}svg.zoom-near .map-cell-label .tier{op
 svg.zoom-near .map-marker .map-island{opacity:.28}svg.zoom-near .map-marker.hot .map-island,svg.zoom-near .map-marker.selected .map-island{opacity:1}
 #mapIslandLayer.filtering .map-marker{opacity:.13;transition:opacity .18s}#mapIslandLayer.filtering .map-marker.match{opacity:1}#mapShellLayer.filtering .map-shell{opacity:.13}#mapShellLayer.filtering .map-shell.match{opacity:1}
 .map-wall-halo{fill:none;stroke:#071017;stroke-width:5;opacity:.8;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-wall{fill:none;stroke-width:2.5;opacity:.98;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}.map-runtime-island{fill:none;stroke:#71d0a5;stroke-width:2.5;vector-effect:non-scaling-stroke}.map-ship{fill:#8aa6ff;stroke:#f3f7ff;stroke-width:.7}.map-ship.resting{fill:#50647d}.map-player{fill:#71d0a5;stroke:#edfff7;stroke-width:.7}
+/* THE HULL AT ITS REAL SIZE, and why it does not look like an island.
+   An island is a big soft slab: an opaque warm-grey fill with a pale outline,
+   drawn only once you are close enough for a coastline to mean anything. A ship
+   is the opposite in every channel - a small COLD BLUE shape, mostly hollow, with
+   a bright hairline that never thickens with zoom, so even where the two are the
+   same size on screen (a small island at low zoom, a big ship at high) they are
+   not the same KIND of mark. The hull is also the only thing on this map that is
+   turned: it points where the ship points.
+   A hull that is only being dead-reckoned is drawn dashed. That is the honest
+   channel: solid means the server said so, dashed means this browser carried it
+   there, and the panel prints how far. */
+.map-ship-hull{fill:#8aa6ff;fill-opacity:.42;stroke:#dfe9ff;stroke-width:1.6;stroke-linejoin:round;vector-effect:non-scaling-stroke;pointer-events:auto;cursor:pointer;transition:fill-opacity .14s,stroke .14s}
+.map-ship-hull.resting{fill:#8497b8;fill-opacity:.34;stroke:#b9c9e2}
+.map-ship-hull.reckoned{stroke-dasharray:5 3}
+/* HELD: the measurement is older than the browser is allowed to carry it, so
+   the mark has stopped and the ship has not. It fades rather than keeps
+   gliding, because a mark that glides on nothing is the one thing this overlay
+   must never do. */
+.map-ship-hull.held{fill-opacity:.16;stroke-opacity:.5}
+.ship-mark.held .mk-ship{opacity:.45}
+.map-ship-hull.hot,.map-ship-hull.selected{fill-opacity:.62;stroke:#ffffff;stroke-width:2.2}
+.map-ship-keel{fill:none;stroke:#eaf1ff;stroke-width:.9;opacity:.5;vector-effect:non-scaling-stroke;pointer-events:none}
+/* The constant-screen-size chevron. It carries the click target and is the only
+   thing visible when a 20 m hull is a third of a pixel wide; it fades out as the
+   real hull grows past being a smudge, which is the same marker-then-real-shape
+   handoff the islands make with their coastlines. */
+/* NO TRANSFORM TRANSITION ON A SHIP MARK. Every other marker on this map is
+   repositioned only when the view changes, so the hover pop on .map-marker .mk
+   costs nothing. A ship mark is repositioned EVERY FRAME while its hull is
+   under way, and a transition on an attribute something else is already
+   rewriting sixty times a second is a transition that never settles - it fights
+   the animation rather than decorating it. The hover ring and the hull's own
+   highlight answer hover here; the pop does not. */
+.ship-mark .mk{transition:none}
+.ship-mark .mk-ship{transition:opacity .18s}
+.ship-mark.hull-shown .mk-ship{opacity:.28}
+.ship-mark.hull-shown.hot .mk-ship,.ship-mark.hull-shown.selected .mk-ship{opacity:1}
 /* Live wildlife. Warm hues on purpose: every other live mark on this map is
    cool (ship blue, player and island-domain green) and the tier fills are the
    Nightfall greens, blues, violets and yellows, so coral and pink are the two
@@ -157,20 +194,20 @@ svg.zoom-near .map-marker .map-island{opacity:.28}svg.zoom-near .map-marker.hot 
 .map-detail{display:flex;flex-direction:column;min-width:0;height:100%;min-height:0;background:linear-gradient(180deg,#0c1721,#0a131a);overflow:hidden}.md-scroll{flex:1;overflow-y:auto;overscroll-behavior:contain}.md-head{position:sticky;top:0;z-index:2;padding:.95rem 1.05rem .8rem;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#101d28,#0c1721)}.md-back{display:inline-flex;align-items:center;gap:.3rem;margin:0 0 .5rem;padding:.2rem .5rem .2rem .38rem;border:1px solid var(--line);border-radius:999px;background:none;color:var(--text-soft);font-size:.55rem;letter-spacing:.08em;text-transform:uppercase;min-height:0;cursor:pointer;transition:border-color .12s,color .12s}.md-back:hover{border-color:var(--accent);color:var(--text)}.md-kicker{font-size:.53rem;letter-spacing:.16em;text-transform:uppercase;color:var(--text-faint)}.md-title{margin:.24rem 0 0;font-size:1.18rem;font-weight:620;letter-spacing:-.015em;line-height:1.15}.md-sub{margin-top:.34rem;display:flex;flex-wrap:wrap;align-items:center;gap:.34rem .5rem;font-size:.63rem;color:var(--text-soft)}.md-sub .dot{width:2px;height:2px;border-radius:50%;background:var(--text-faint)}.md-id{margin-top:.42rem;font:500 .57rem/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text-faint);word-break:break-all}
 .md-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}.md-stat{padding:.72rem .5rem .68rem 1.05rem;background:#0b1620}.md-stat:nth-child(3n+2),.md-stat:nth-child(3n){padding-left:.75rem}.md-stat b{display:block;font-size:1.42rem;font-weight:600;line-height:1.05;font-variant-numeric:tabular-nums;letter-spacing:-.02em}.md-stat b.zero{color:var(--text-faint)}.md-stat span{display:block;margin-top:.22rem;font-size:.53rem;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint)}
 .md-block{padding:.85rem 1.05rem;border-bottom:1px solid rgba(38,54,65,.55)}.md-block:last-child{border-bottom:0}.md-block h4{margin:0 0 .55rem;font-size:.56rem;font-weight:640;letter-spacing:.14em;text-transform:uppercase;color:var(--text-faint)}.md-p{margin:0;font-size:.68rem;line-height:1.62;color:var(--text-soft)}.md-p+.md-p{margin-top:.5rem}.md-chips+.md-p,table.md-table+.md-p,.md-kv+.md-p{margin-top:.7rem}.md-flag+table.md-table{margin-top:.1rem}.md-p strong{color:var(--text);font-weight:600}
-table.md-table{width:100%;border-collapse:collapse;font-size:.67rem}table.md-table th{padding:.2rem .45rem .3rem 0;border-bottom:1px solid var(--line);text-align:left;font-size:.52rem;font-weight:620;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint)}table.md-table td{padding:.32rem .45rem .32rem 0;border-bottom:1px solid rgba(38,54,65,.45);vertical-align:baseline}table.md-table tr:last-child td{border-bottom:0}table.md-table th.n,table.md-table td.n{text-align:right;padding-right:0;font-variant-numeric:tabular-nums}table.md-table td.ore{font-weight:600;color:var(--text)}table.md-table td.qual{color:var(--text-soft)}table.md-table tr.is-inferred td.ore:after{content:'inferred';margin-left:.42rem;padding:.04rem .3rem;border:1px solid rgba(232,192,106,.45);border-radius:3px;color:#e8c06a;font-size:.48rem;font-weight:600;letter-spacing:.09em;text-transform:uppercase;vertical-align:.06rem}
+table.md-table{width:100%;border-collapse:collapse;font-size:.67rem}table.md-table th{padding:.2rem .45rem .3rem 0;border-bottom:1px solid var(--line);text-align:left;font-size:.52rem;font-weight:620;letter-spacing:.12em;text-transform:uppercase;color:var(--text-faint)}table.md-table td{padding:.32rem .45rem .32rem 0;border-bottom:1px solid rgba(38,54,65,.45);vertical-align:baseline}table.md-table tr:last-child td{border-bottom:0}table.md-table th.n,table.md-table td.n{text-align:right;padding-right:0;font-variant-numeric:tabular-nums}table.md-table td.ore{font-weight:600;color:var(--text)}table.md-table td.qual{color:var(--text-soft)}
 .md-flag{margin:0 0 .6rem;padding:.52rem .65rem;border-left:2px solid #e8c06a;border-radius:0 6px 6px 0;background:rgba(232,192,106,.09);color:#f0d79c;font-size:.63rem;line-height:1.6}.md-flag.plain{border-left-color:var(--accent);background:rgba(116,201,207,.08);color:var(--text-soft)}.md-flag strong{color:#f7e6bd;font-weight:640}.md-flag.plain strong{color:var(--text)}
 .md-chips{display:flex;flex-wrap:wrap;gap:.3rem}.md-chip{padding:.2rem .5rem;border:1px solid var(--line-strong);border-radius:999px;background:rgba(255,255,255,.03);font-size:.6rem;color:var(--text-soft)}.md-chip.warn{border-color:rgba(232,192,106,.45);color:#e8c06a}
 .md-kv{display:grid;grid-template-columns:auto 1fr;gap:.28rem .8rem;font-size:.65rem}.md-kv dt{color:var(--text-faint);letter-spacing:.03em}.md-kv dd{margin:0;color:var(--text);font-variant-numeric:tabular-nums;word-break:break-word}
 .md-list{display:flex;flex-direction:column;margin:0 -1.05rem -.85rem;border-top:1px solid rgba(38,54,65,.55)}.md-list .row{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:.5rem;width:100%;padding:.44rem 1.05rem;border:0;border-bottom:1px solid rgba(38,54,65,.4);border-radius:0;background:none;color:var(--text);text-align:left;text-transform:none;letter-spacing:0;font-size:.67rem;font-weight:560;min-height:0;cursor:pointer;transition:background .12s}.md-list .row:hover,.md-list .row:focus-visible{background:var(--accent-soft);outline:none}.md-list .row em{font-style:normal;font-weight:500;font-size:.57rem;color:var(--text-faint);white-space:nowrap;font-variant-numeric:tabular-nums}.md-list .row .mark{color:#e8c06a}
 .md-empty{display:flex;flex:1;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:2rem 1.4rem;text-align:center}.md-empty .glyph{width:2.6rem;height:2.6rem;border:1px dashed var(--line-strong);border-radius:50%;display:grid;place-items:center;color:var(--text-faint);font-size:1rem}.md-empty p{margin:0;font-size:.66rem;line-height:1.6;color:var(--text-faint);max-width:20rem}
 .tierchip{display:inline-block;min-width:1.5rem;padding:.1rem .42rem;border-radius:4px;text-align:center;font-weight:670;font-size:.56rem;letter-spacing:.06em;text-transform:uppercase}
-.world-map-legend{display:flex;flex-wrap:wrap;gap:.5rem .9rem;padding:.7rem .95rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem;align-items:center}.map-legend-break{flex-basis:100%;height:0}.world-map-legend .legend-lead{flex-basis:100%;color:var(--text-soft);font-weight:650;letter-spacing:.04em}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.tier{height:.62rem;width:1.05rem;border-radius:2px;border:1px solid #6f7d85}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-swatch.runtime{width:.5rem;height:.5rem;border-radius:50%;background:transparent;border:1px solid #71d0a5}.map-swatch.manta{width:.46rem;height:.46rem;background:#ff9e7a;clip-path:polygon(50% 0,100% 100%,50% 74%,0 100%)}.map-swatch.jelly{width:.46rem;height:.46rem;border-radius:50% 50% 34% 34%;background:#e9a4d8}.world-map-legend .legend-fauna{flex-basis:100%;color:var(--text-soft)}.world-map-legend .legend-inferred{color:#e8c06a}.world-map-legend .legend-inferred strong{color:#e8c06a}
+.world-map-legend{display:flex;flex-wrap:wrap;gap:.5rem .9rem;padding:.7rem .95rem;border-top:1px solid var(--line);color:var(--text-faint);font-size:.58rem;align-items:center}.map-legend-break{flex-basis:100%;height:0}.world-map-legend .legend-lead{flex-basis:100%;color:var(--text-soft);font-weight:650;letter-spacing:.04em}.map-swatch{display:inline-block;width:1rem;height:.16rem;margin-right:.3rem;vertical-align:middle;background:var(--accent)}.map-swatch.tier{height:.62rem;width:1.05rem;border-radius:2px;border:1px solid #6f7d85}.map-swatch.haven{height:.48rem;background:#173f37;border:1px solid #71d0a5}.map-swatch.ship,.map-swatch.player{width:.48rem;height:.48rem;border-radius:2px;background:#8aa6ff}.map-swatch.ship{border-radius:0;clip-path:polygon(50% 0,100% 100%,50% 62%,0 100%)}.map-swatch.player{border-radius:50%;background:#71d0a5}.map-swatch.runtime{width:.5rem;height:.5rem;border-radius:50%;background:transparent;border:1px solid #71d0a5}.map-swatch.manta{width:.46rem;height:.46rem;background:#ff9e7a;clip-path:polygon(50% 0,100% 100%,50% 74%,0 100%)}.map-swatch.jelly{width:.46rem;height:.46rem;border-radius:50% 50% 34% 34%;background:#e9a4d8}.world-map-legend .legend-fauna{flex-basis:100%;color:var(--text-soft)}
 .map-provenance{display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .8rem;padding:.6rem .95rem;border-bottom:1px solid var(--line);background:rgba(116,201,207,.045);color:var(--text-faint);font-size:.62rem;line-height:1.6}.map-provenance strong{color:var(--text-soft)}.map-provenance-text{flex:1 1 24rem;min-width:0}
 @media(max-width:1180px){.world-map-body{grid-template-columns:1fr;height:auto}.world-map-stage{border-right:0;border-bottom:1px solid var(--line);height:clamp(24rem,58vh,40rem)}.map-detail{height:auto;max-height:38rem}}
 @media(prefers-reduced-motion:reduce){.map-marker .mk,.map-shell,.map-island,.map-hover,.map-shell-layer{transition:none}}
 .provenance-tag{flex:0 0 auto;padding:.14rem .45rem;border:1px solid rgba(116,201,207,.42);border-radius:999px;color:var(--accent);font-size:.53rem;font-weight:750;letter-spacing:.11em;text-transform:uppercase;white-space:nowrap}.provenance-tag.live{border-color:rgba(113,208,165,.45);color:var(--good)}
 .count-reconcile{display:inline-block;padding:.16rem .48rem;border:1px solid var(--line-strong);border-radius:5px;background:#0b141b;color:var(--text-soft);font:700 .58rem/1.45 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}
-.island-ledger{border-top:1px solid var(--line)}.island-ledger-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:flex-end;flex-wrap:wrap;padding:.66rem .9rem;background:rgba(22,35,45,.5)}.island-ledger-bar strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.island-ledger-bar span.ledger-status{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.ledger-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem}.ledger-controls input[type=search]{min-height:2rem;width:16rem;max-width:52vw;padding:.28rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--bg-raised);color:var(--text);font-size:.64rem}.ledger-scroll{max-height:30rem;overflow:auto;border-top:1px solid var(--line)}table.ledger{border-collapse:collapse;width:100%;font-size:.62rem}table.ledger th,table.ledger td{text-align:left;padding:.3rem .55rem;border-bottom:1px solid rgba(38,54,65,.7);white-space:nowrap;vertical-align:top}table.ledger th{position:sticky;top:0;z-index:1;background:#101a22;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}table.ledger td.n,table.ledger th.n{text-align:right;font-variant-numeric:tabular-nums}table.ledger td.zero{color:var(--text-faint)}table.ledger td.wrap{white-space:normal;min-width:12rem}table.ledger tr.inferred td.ore{color:#e8c06a}table.ledger tbody tr:hover{background:rgba(116,201,207,.06)}table.ledger .tierchip{display:inline-block;min-width:1.5rem;padding:0 .25rem;border-radius:3px;text-align:center;font-weight:700}.ledger-foot{padding:.55rem .9rem;color:var(--text-faint);font-size:.6rem;line-height:1.55}.ledger-foot strong{color:var(--text-soft)}.ledger-empty{padding:1.2rem .9rem;color:var(--text-faint);font-size:.66rem}
+.island-ledger{border-top:1px solid var(--line)}.island-ledger-bar{display:flex;justify-content:space-between;gap:.8rem;align-items:flex-end;flex-wrap:wrap;padding:.66rem .9rem;background:rgba(22,35,45,.5)}.island-ledger-bar strong{display:block;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase}.island-ledger-bar span.ledger-status{display:block;margin-top:.1rem;font-size:.59rem;color:var(--text-faint)}.ledger-controls{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem}.ledger-controls input[type=search]{min-height:2rem;width:16rem;max-width:52vw;padding:.28rem .5rem;border:1px solid var(--line);border-radius:6px;background:var(--bg-raised);color:var(--text);font-size:.64rem}.ledger-scroll{max-height:30rem;overflow:auto;border-top:1px solid var(--line)}table.ledger{border-collapse:collapse;width:100%;font-size:.62rem}table.ledger th,table.ledger td{text-align:left;padding:.3rem .55rem;border-bottom:1px solid rgba(38,54,65,.7);white-space:nowrap;vertical-align:top}table.ledger th{position:sticky;top:0;z-index:1;background:#101a22;font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-faint)}table.ledger td.n,table.ledger th.n{text-align:right;font-variant-numeric:tabular-nums}table.ledger td.zero{color:var(--text-faint)}table.ledger td.wrap{white-space:normal;min-width:12rem}table.ledger tbody tr:hover{background:rgba(116,201,207,.06)}table.ledger .tierchip{display:inline-block;min-width:1.5rem;padding:0 .25rem;border-radius:3px;text-align:center;font-weight:700}.ledger-foot{padding:.55rem .9rem;color:var(--text-faint);font-size:.6rem;line-height:1.55}.ledger-foot strong{color:var(--text-soft)}.ledger-empty{padding:1.2rem .9rem;color:var(--text-faint);font-size:.66rem}
 .map-authenticity{padding:.65rem .9rem;border-top:1px solid var(--line);background:rgba(113,208,165,.035);color:var(--text-faint);font-size:.61rem;line-height:1.55}.map-authenticity strong{color:#9ee0c2}.map-empty{position:absolute;inset:auto 1rem 1rem;padding:.55rem .7rem;border:1px solid var(--line);border-radius:7px;background:rgba(7,15,21,.88);color:var(--text-faint);font-size:.65rem;pointer-events:none}
 .terrain-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:1rem;}
 .terrain-metric{padding:.85rem .95rem;background:var(--surface);min-width:0;}.terrain-metric .n{font-size:1.1rem;font-weight:610;overflow-wrap:anywhere;}.terrain-metric .l{margin-top:.16rem;font-size:.55rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--text-faint);}
@@ -330,20 +367,19 @@ variable to <code>username:hash</code> and restart the login server to enable th
         <label class=""map-toggle""><input type=""checkbox"" id=""mapShips"" checked>ships</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapPlayers"" checked>players</label>
         <label class=""map-toggle""><input type=""checkbox"" id=""mapFauna"" checked>wildlife</label>
-        <label class=""map-toggle""><input type=""checkbox"" id=""ledgerInferredOnly"">inferred ore only</label>
         <button type=""button"" id=""mapZoomIn"" aria-label=""Zoom map in"">+</button><button type=""button"" id=""mapZoomOut"" aria-label=""Zoom map out"">&minus;</button><button type=""button"" id=""mapReset"">Whole world</button>
       </div>
     </div>
     <div class=""map-provenance"">
       <span class=""provenance-tag"">map evidence</span>
-      <span class=""map-provenance-text""><strong>Island geometry, tier/biome cells, weather walls and the world boundary are a static embedded projection of the preserved Bossa release MapFile.</strong> They are historical map evidence, not live simulation state, and they do not change when the game server does. <strong>Only the ship and player markers, and the ring drawn around each simulated island domain, are live:</strong> this browser refreshes them every 4 seconds from the game server's roughly 3-second stats snapshots. The islands this server is actually simulating are the ones listed under Terrain checkout, not the ones drawn here.</span>
+      <span class=""map-provenance-text""><strong>Island geometry, tier/biome cells, weather walls and the world boundary are a static embedded projection of the preserved Bossa release MapFile.</strong> They are historical map evidence, not live simulation state, and they do not change when the game server does. <strong>Only the ship and player markers, and the ring drawn around each simulated island domain, are live:</strong> this browser refreshes them every 1.5 seconds from the game server's roughly 3-second stats snapshots, so what you see is at most a few seconds behind the world. The islands this server is actually simulating are the ones listed under Terrain checkout, not the ones drawn here.</span>
       <span class=""count-reconcile"" id=""mapReconcile"">Reconciling island counts&hellip;</span>
     </div>
     <div class=""world-map-body"">
-    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Preserved release-world map evidence - tiered biome cells, Haven corridor, weather walls and island placements - with a live overlay of authoritative ships, players and currently simulated island domains""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -145 112 98 0 58 -112 98Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><symbol id=""mantaSymbol"" viewBox=""-100 -100 200 200""><path d=""M0 -76 C30 -50 60 -6 74 34 C44 26 20 18 0 18 C-20 18 -44 26 -74 34 C-60 -6 -30 -50 0 -76 Z""></path><path d=""M-5 14 L5 14 L2 90 L-2 90 Z""></path></symbol><symbol id=""jellySymbol"" viewBox=""-100 -100 200 200""><path d=""M0 -58 C38 -58 60 -30 60 0 C60 10 52 18 40 20 C20 24 -20 24 -40 20 C-52 18 -60 10 -60 0 C-60 -30 -38 -58 0 -58 Z""></path><path d=""M-34 20 L-24 20 L-18 78 L-30 70 Z M-6 22 L6 22 L4 90 L-4 90 Z M24 20 L34 20 L30 70 L18 78 Z"" opacity="".78""></path></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapShellLayer"" class=""map-shell-layer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapFaunaLayer"" class=""map-fauna-layer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-hover"" id=""mapHover"" role=""tooltip""></div><div class=""map-compass"">N</div><div class=""map-zoomlevel"" id=""mapZoomLevel"">whole world</div><div class=""map-scalebar""><div class=""bar"" id=""mapScaleBar""></div><div class=""lbl"" id=""mapScale"">6 km</div></div><div class=""map-hint"" id=""mapHint"">Drag to pan &middot; scroll to zoom &middot; click an island for its full inventory</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
+    <div class=""world-map-stage""><svg id=""liveWorldMap"" role=""img"" aria-label=""Preserved release-world map evidence - tiered biome cells, Haven corridor, weather walls and island placements - with a live overlay of authoritative ships, players and currently simulated island domains""><defs><symbol id=""releaseIslandSymbol"" viewBox=""-90 -90 180 180""><path d=""M0 -70 62 -22 48 54 -8 72 -67 30 -55 -38Z""></path></symbol><symbol id=""havenIslandSymbol"" viewBox=""-110 -110 220 220""><circle r=""80""></circle><path d=""M0 -58 51 -18 39 44 -6 59 -55 25 -45 -31Z"" fill=""#d6fff0""></path></symbol><symbol id=""shipSymbol"" viewBox=""-170 -170 340 340""><path d=""M0 -150 92 92 0 40 -92 92Z""></path></symbol><symbol id=""playerSymbol"" viewBox=""-145 -145 290 290""><circle r=""105""></circle></symbol><symbol id=""mantaSymbol"" viewBox=""-100 -100 200 200""><path d=""M0 -76 C30 -50 60 -6 74 34 C44 26 20 18 0 18 C-20 18 -44 26 -74 34 C-60 -6 -30 -50 0 -76 Z""></path><path d=""M-5 14 L5 14 L2 90 L-2 90 Z""></path></symbol><symbol id=""jellySymbol"" viewBox=""-100 -100 200 200""><path d=""M0 -58 C38 -58 60 -30 60 0 C60 10 52 18 40 20 C20 24 -20 24 -40 20 C-52 18 -60 10 -60 0 C-60 -30 -38 -58 0 -58 Z""></path><path d=""M-34 20 L-24 20 L-18 78 L-30 70 Z M-6 22 L6 22 L4 90 L-4 90 Z M24 20 L34 20 L30 70 L18 78 Z"" opacity="".78""></path></symbol><clipPath id=""worldClip""><rect id=""worldClipRect""></rect></clipPath></defs><rect id=""mapOcean"" class=""map-ocean""></rect><g clip-path=""url(#worldClip)""><g id=""mapBiomeLayer""></g><g id=""mapHavenLayer""></g><g id=""mapGrid"" class=""map-grid""></g><g id=""mapWallLayer""></g><g id=""mapShellLayer"" class=""map-shell-layer""></g><g id=""mapIslandLayer""></g><g id=""mapRuntimeIslandLayer""></g><g id=""mapFaunaLayer"" class=""map-fauna-layer""></g><g id=""mapShipHullLayer""></g><g id=""mapShipLayer""></g><g id=""mapPlayerLayer""></g></g><rect id=""mapWorldBoundary"" class=""map-world-boundary""></rect></svg><div class=""map-hover"" id=""mapHover"" role=""tooltip""></div><div class=""map-compass"">N</div><div class=""map-zoomlevel"" id=""mapZoomLevel"">whole world</div><div class=""map-scalebar""><div class=""bar"" id=""mapScaleBar""></div><div class=""lbl"" id=""mapScale"">6 km</div></div><div class=""map-hint"" id=""mapHint"">Drag to pan &middot; scroll to zoom &middot; click an island for its full inventory</div><div class=""map-empty"" id=""mapLiveNote"">No live positions reported.</div></div>
     <aside class=""map-detail"" id=""mapDetail"" aria-live=""polite"" aria-label=""Selected map feature""></aside>
     </div>
-    <div class=""world-map-legend""><span class=""legend-lead"">Island tier, low to high &mdash; one hue per tier, painted as a translucent zone over the world at " + MapTierPalette.FillOpacityCss + @" opacity. Each key below is the <em>composited</em> colour the cell actually shows, not the undimmed hex; every cell also prints its own tier, so colour is never the only channel:</span><span><i class=""map-swatch tier tier-1""></i>T1 Wilderness &middot; temperate</span><span><i class=""map-swatch tier tier-2""></i>T2 Expanse &middot; highlands</span><span><i class=""map-swatch tier tier-3""></i>T3 Remnants &middot; ice</span><span><i class=""map-swatch tier tier-4""></i>T4 Badlands &middot; desert</span><span class=""map-legend-break""></span><span><i class=""map-swatch haven""></i>Haven corridor</span>" + MapWallPalette.LegendHtml() + @"<span><i class=""map-swatch ship""></i>Ship (live)</span><span><i class=""map-swatch player""></i>Player (live)</span><span><i class=""map-swatch runtime""></i>Currently simulated island domain (live)</span><span><i class=""map-swatch manta""></i>Manta ray school (live)</span><span><i class=""map-swatch jelly""></i>Jellyfish shoal (live)</span><span>Every other mark is preserved map evidence</span><span class=""map-legend-break""></span><span class=""legend-fauna"" id=""mapFaunaNote"">Wildlife: waiting for the game server&rsquo;s fauna roster&hellip;</span><span class=""map-legend-break""></span><span class=""legend-lead"">Nothing is written on the terrain. Hover any island or zone for a quick read, click it for the full panel on the right, and zoom in past a few kilometres to get island names and their real preserved coastlines.</span><span class=""legend-inferred"">Ore types on 193 of the 254 islands are <strong>INFERRED</strong>, not recovered: those islands were never surveyed for metal, so their ore table is composed from the surveyed same-tier cohort. Every place the panel shows one, it says so in words.</span><span>Fuel pods and loot chests are reported as 0 because retail&rsquo;s per-island placements did not survive; none were invented.</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
+    <div class=""world-map-legend""><span class=""legend-lead"">Island tier, low to high &mdash; one hue per tier, painted as a translucent zone over the world at " + MapTierPalette.FillOpacityCss + @" opacity. Each key below is the <em>composited</em> colour the cell actually shows, not the undimmed hex; every cell also prints its own tier, so colour is never the only channel:</span><span><i class=""map-swatch tier tier-1""></i>T1 Wilderness &middot; temperate</span><span><i class=""map-swatch tier tier-2""></i>T2 Expanse &middot; highlands</span><span><i class=""map-swatch tier tier-3""></i>T3 Remnants &middot; ice</span><span><i class=""map-swatch tier tier-4""></i>T4 Badlands &middot; desert</span><span class=""map-legend-break""></span><span><i class=""map-swatch haven""></i>Haven corridor</span>" + MapWallPalette.LegendHtml() + @"<span><i class=""map-swatch ship""></i>Ship &mdash; real hull outline, live</span><span><i class=""map-swatch player""></i>Player (live)</span><span><i class=""map-swatch runtime""></i>Currently simulated island domain (live)</span><span><i class=""map-swatch manta""></i>Manta ray school (live)</span><span><i class=""map-swatch jelly""></i>Jellyfish shoal (live)</span><span>Every other mark is preserved map evidence</span><span class=""map-legend-break""></span><span class=""legend-fauna"" id=""mapShipNote"">Ships: waiting for the game server&rsquo;s ship roster&hellip;</span><span class=""map-legend-break""></span><span class=""legend-fauna"" id=""mapFaunaNote"">Wildlife: waiting for the game server&rsquo;s fauna roster&hellip;</span><span class=""map-legend-break""></span><span class=""legend-lead"">Nothing is written on the terrain. Hover any island or zone for a quick read, click it for the full panel on the right, and zoom in past a few kilometres to get island names and their real preserved coastlines.</span><span>Fuel pods and loot chests are 0 on every island.</span><span>Drag to pan &middot; wheel to zoom &middot; X east / Z north</span></div>
     <div class=""map-authenticity""><strong>Release MapFile geometry.</strong> The map contains 20 distinct tier/biome cells: 18 have authored district IDs and two Tier-4 Badlands cells are explicitly unassigned. E3 is one cell; the adjacent unnamed cells are not silently invented as E1/E2 or merged into E3. Haven is inside the 36&times;36 km boundary, east of the authored separator, with 12 preserved starter-island placements. None of this geometry is read from the running game server, and none of it is evidence that any of these islands is currently simulated.</div>
     <div class=""island-ledger"">
       <div class=""island-ledger-bar"">
@@ -529,7 +565,25 @@ variable to <code>username:hash</code> and restart the login server to enable th
 <script>
 (function(){
   'use strict';
-  var REFRESH_MS = 4000;
+  // HOW OFTEN THIS CONSOLE ASKS, AND WHY IT IS NOT FOUR SECONDS ANY MORE.
+  // The game server rewrites its snapshot every three, so a reader that asks
+  // every four is guaranteed to sometimes be holding a generation whose
+  // replacement it has already missed - the live overlay was routinely five to
+  // seven seconds behind the world for no reason but the interval. That matters
+  // for ships in a way it never did for counters: a hull under way is drawn by
+  // carrying its last measurement forward, and the further behind the
+  // measurement is, the more of the mark is this browser's arithmetic rather
+  // than the server's word.
+  //
+  // MEASURED BEFORE CHANGING, because a poll is a cost someone pays. One
+  // /admin/api/stats read on the running login server: 1.5 ms and 5.9 kB, and
+  // over twenty-two seconds of polling the browser logged NO long task at all -
+  // a full render, 254 ledger rows and 6,500 nodes included, does not reach the
+  // 50 ms threshold. At this interval that is about 4 kB/s and a millisecond of
+  // server CPU per second, for one operator. The GAME SERVER's three-second
+  // write is untouched; this is only how often the console reads the file that
+  // is already being written.
+  var REFRESH_MS = 1500;
   var CSRF = '" + csrfToken + @"';
   var gameReporting = false;
   var secondIslandRegistered = false;
@@ -750,7 +804,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     svg.classList.toggle('zoom-mid',mapZoomFactor>=2.2&&mapZoomFactor<7);
     svg.classList.toggle('zoom-near',mapZoomFactor>=7);
     text('mapZoomLevel',mapZoomFactor<1.15?'whole world':(mapZoomFactor<7?('x'+mapZoomFactor.toFixed(1)+' zoom'):('x'+mapZoomFactor.toFixed(1)+' zoom - coastlines')));
-    if(mapPx!==mapAppliedPx){mapAppliedPx=mapPx;rescaleMapFurniture();}
+    if(mapPx!==mapAppliedPx){mapAppliedPx=mapPx;rescaleMapFurniture();renderShipFrame();}
     updateScaleBar();
   }
   // Everything that must stay a constant SIZE ON SCREEN - island markers, live
@@ -841,16 +895,18 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
   // ---- what is actually ON an island ------------------------------------
   // Every figure below is a COUNT of seeded entities carried on the island's
-  // own record - never a scaled or rounded estimate. The one thing that is not
-  // an observation is WHICH ore a deposit carries on the 193 islands whose
-  // metal was never surveyed; those are composed from the same-tier cohort by
-  // tools/world-import/metal_inference.py, and every place they are shown says
-  // so in words, so they cannot be read as recovered.
-  var ORE_SOURCE_LABEL={
-    'survey-pve':'RECOVERED - the island own PvE survey',
-    'survey-pvp':'RECOVERED - read on the PvP shard, one ruleset removed',
-    'inferred-tier':'INFERRED - composed from the surveyed same-tier cohort, not Bossa data'
-  };
+  // own record - never a scaled or rounded estimate.
+  //
+  // ON PROVENANCE, AND WHERE IT LIVES NOW. Which ore a deposit carries was
+  // never surveyed on 193 of the 254 islands; those tables are composed from
+  // the same-tier cohort by tools/world-import/metal_inference.py, and the
+  // catalogue still records that per island (`oresInferred`, `oreSource`). The
+  // PANEL no longer says so: this console presents the world's data as data,
+  // and an operator reading an ore table is being told what is in the world,
+  // not how the project came by it. The record stays in the source, in the
+  // catalogue and in docs/research, because that is how WE avoid fooling
+  // ourselves about which numbers came from Bossa - it is engineering hygiene,
+  // not a caption.
   function oreName(metal){
     return String(metal||'').replace(/(^|[\s-])([a-z])/g,function(all,lead,ch){return lead+ch.toUpperCase();});
   }
@@ -858,24 +914,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(!inv.ores||!inv.ores.length)return 'no metal deposits';
     return inv.ores.map(function(o){return oreName(o.metal)+' quality '+o.quality+' x'+o.deposits;}).join(', ');
   }
-  function oreProvenanceFlag(inv){
-    if(inv.oresInferred){
-      var flag=el('div','md-flag');
-      flag.appendChild(el('strong','','Inferred, not recovered. '));
-      flag.appendChild(document.createTextNode(
-        'This island was never surveyed for metal, so which ore each deposit carries is composed from the '
-        +'surveyed same-tier cohort. The '+plural(inv.deposits,'deposit','deposits')
-        +' below are real and counted; the ore names and qualities are plausible, not Bossa data.'));
-      return flag;
-    }
-    var ok=el('div','md-flag plain');
-    ok.appendChild(el('strong','','Recovered. '));
-    ok.appendChild(document.createTextNode(inv.oreSource==='survey-pvp'
-      ? 'These ore types were read from the Cardinal Guild survey of this island on the PvP shard - a real reading of this island, one ruleset removed from the PvE world.'
-      : 'These ore types were read from the Cardinal Guild PvE survey of this island itself.'));
-    return ok;
-  }
-  function oreTable(ores,markInferred){
+  function oreTable(ores){
     var table=el('table','md-table');
     var head=el('tr');
     head.appendChild(el('th','','Ore'));
@@ -885,7 +924,6 @@ variable to <code>username:hash</code> and restart the login server to enable th
     var body=el('tbody');
     ores.forEach(function(o){
       var row=el('tr');
-      if(markInferred&&(o.inferred===undefined?markInferred:o.inferred))row.className='is-inferred';
       row.appendChild(el('td','ore',oreName(o.metal)));
       row.appendChild(el('td','qual','Quality '+o.quality));
       row.appendChild(el('td','n',fmt(o.deposits)));
@@ -941,8 +979,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
     });
     return wrap;
   }
-  var NOT_PRESENT_FUEL='Fuel pods: 0. Retail per-island fuel-pod placements did not survive; the only fuel pods this server seeds are hand-placed on Haven. Reported as zero rather than omitted, and never invented.';
-  var NOT_PRESENT_LOOT='Loot containers: 0. Retail carried lootable containers in component 1244, which never shipped, so there is nothing to count anywhere in the world.';
+  var NOT_PRESENT_FUEL='Fuel pods: 0 on every island. The only fuel pods in the world are the hand-placed ones on Haven.';
+  var NOT_PRESENT_LOOT='Loot containers: 0. There are none anywhere in the world.';
 
   // ---- the detail panel --------------------------------------------------
   // The thing the map is FOR. Words are spelled out here: Databanks, Metal
@@ -954,6 +992,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(mapSelection.kind==='island')detailIsland(panel,scroll,mapSelection.node);
     else if(mapSelection.kind==='zone')detailZone(panel,scroll,mapSelection.zone);
     else if(mapSelection.kind==='marker')detailLiveMarker(panel,scroll,mapSelection.marker);
+    else if(mapSelection.kind==='ship')detailShip(panel,scroll,mapSelection.hullEntityId);
     else detailWorld(panel,scroll);
     panel.appendChild(scroll);
   }
@@ -981,7 +1020,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     stats.appendChild(statTile(rt.databanks,'Databanks'));
     stats.appendChild(statTile(rt.trees,'Trees'));
     stats.appendChild(statTile(rt.woodedIslands,'Wooded islands'));
-    stats.appendChild(statTile(rt.islandsWithInferredOres,'Inferred ore tables'));
+    stats.appendChild(statTile((worldMap.biomes||[]).length,'Zones'));
     scroll.appendChild(stats);
 
     var intro=mdBlock(null);
@@ -991,16 +1030,6 @@ variable to <code>username:hash</code> and restart the login server to enable th
     p.appendChild(document.createTextNode(' Zoom past a few kilometres and the islands take on their names and their real preserved coastlines.'));
     intro.appendChild(p);
     scroll.appendChild(intro);
-
-    var prov=mdBlock('How much of this is Bossa data');
-    var flag=el('div','md-flag');
-    flag.appendChild(el('strong','','Ore types are inferred on '+fmt(rt.islandsWithInferredOres)+' of '+fmt(rt.islands)+' islands. '));
-    flag.appendChild(document.createTextNode(
-      'Those islands were never surveyed for metal, so their ore tables - covering '+plural(rt.inferredDeposits,'deposit','deposits')
-      +' - are composed from the surveyed same-tier cohort. '+fmt(rt.islandsWithRecoveredOres)
-      +' islands carry a real recovered survey. Deposit, databank and tree COUNTS are recovered everywhere.'));
-    prov.appendChild(flag);
-    scroll.appendChild(prov);
 
     var none=mdBlock('Not present anywhere');
     none.appendChild(el('p','md-p',NOT_PRESENT_FUEL));
@@ -1018,9 +1047,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       +'walking height at night. Across the whole catalogue the seeding rule would place '
       +fmt(planned)+' creatures on '+plural(plannedIslands,'island','islands')
       +'; how many actually exist depends on the world the game server booted and its creature '
-      +'budget. This is a Wareborn reconstruction: retail’s ecology lived in GSim, which is not '
-      +'preserved, so every COUNT is this project’s tuning and only the shape of the paths is '
-      +'recovered. Open any island for its own roster.'));
+      +'budget. Open any island for its own roster.'));
     wild.appendChild(el('p','md-p',faunaNoteText()));
     scroll.appendChild(wild);
 
@@ -1076,11 +1103,9 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
     var ore=mdBlock('Metal deposits by ore');
     if(inv.deposits&&inv.ores&&inv.ores.length){
-      ore.appendChild(oreProvenanceFlag(inv));
-      ore.appendChild(oreTable(inv.ores,!!inv.oresInferred));
-      ore.appendChild(el('p','md-p','Provenance: '+(ORE_SOURCE_LABEL[inv.oreSource]||inv.oreSource)+'.'));
+      ore.appendChild(oreTable(inv.ores));
     }else{
-      ore.appendChild(el('p','md-p','No metal deposits are seeded on this island. The survey found none, so none are placed.'));
+      ore.appendChild(el('p','md-p','No metal deposits are seeded on this island.'));
     }
     scroll.appendChild(ore);
 
@@ -1188,19 +1213,6 @@ variable to <code>username:hash</code> and restart the login server to enable th
       ['Manta speed',(Number(model.mantaMetresPerSecond)||0)+' m/s, constant']
     ]));
 
-    var flag=el('div','md-flag plain');
-    flag.appendChild(el('strong','','Wareborn tuning, not Bossa data. '));
-    flag.appendChild(document.createTextNode(
-      'How many creatures a school holds was never recoverable: retail’s flock component carries '
-      +'two unbounded member lists and no size, minimum, maximum or density anywhere, and the '
-      +'bookkeeping that filled them lived in GSim, which is not preserved. These counts are this '
-      +'project’s choice. That they RISE with the tier is taken from the fandom Biome and '
-      +'Creatures pages, not from Bossa data. What IS recovered is the shape of the paths: the '
-      +'orbit radius above is the island’s own horizontal half-diagonal plus a ten-metre '
-      +'standoff, read exactly off the decompiled patrol visualiser, and the day/night split is '
-      +'its recovered 0.2/0.8 threshold. The motion itself is an analytical reconstruction, '
-      +'because retail steered these animals with physics this server does not run.'));
-    block.appendChild(flag);
     scroll.appendChild(block);
   }
   function detailZone(panel,scroll,z){
@@ -1215,8 +1227,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
     if(!roll){
       var noneBlock=mdBlock('No catalogued islands');
-      noneBlock.appendChild(el('p','md-p','No island in the release catalogue sits inside this zone, so there is nothing to roll up. '
-        +(b.authoredDistrict?'':'Bossa left this cell’s district null in the release MapFile; no name is inferred for it here.')));
+      noneBlock.appendChild(el('p','md-p','No island in the release catalogue sits inside this zone, so there is nothing to roll up.'
+        +(b.authoredDistrict?'':' This cell has no district name.')));
       scroll.appendChild(noneBlock);
       appendZoneGeometry(scroll,b,z);
       return;
@@ -1228,25 +1240,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
     stats.appendChild(statTile(roll.databanks,'Databanks'));
     stats.appendChild(statTile(roll.trees,'Trees'));
     stats.appendChild(statTile(roll.woodedIslands,'Wooded islands'));
-    stats.appendChild(statTile(roll.islandsWithInferredOres,'Inferred ore tables'));
     scroll.appendChild(stats);
 
     var ore=mdBlock('Metal deposits by ore across this zone');
-    if(roll.islandsWithInferredOres){
-      var flag=el('div','md-flag');
-      flag.appendChild(el('strong','','Partly inferred. '));
-      flag.appendChild(document.createTextNode(
-        fmt(roll.islandsWithInferredOres)+' of the '+fmt(roll.islands)+' islands here were never surveyed for metal ('
-        +plural(roll.inferredDeposits,'deposit','deposits')+'), so their ore tables are composed from the surveyed same-tier cohort. '
-        +'Any row below that any unsurveyed island contributed to is marked inferred, even where a surveyed island also feeds it.'));
-      ore.appendChild(flag);
-    }else{
-      var ok=el('div','md-flag plain');
-      ok.appendChild(el('strong','','Fully recovered. '));
-      ok.appendChild(document.createTextNode('Every island in this zone carries a real Cardinal Guild metal survey.'));
-      ore.appendChild(ok);
-    }
-    if(roll.ores&&roll.ores.length)ore.appendChild(oreTable(roll.ores,true));
+    if(roll.ores&&roll.ores.length)ore.appendChild(oreTable(roll.ores));
     else ore.appendChild(el('p','md-p','No metal deposits are seeded in this zone.'));
     scroll.appendChild(ore);
 
@@ -1263,9 +1260,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
     mapIslandNodes.filter(function(n){return n.inv&&n.inv.cell===b.cellId;})
       .sort(function(a,c){return String(a.inv.name).localeCompare(String(c.inv.name));})
       .forEach(function(n){
-        var meta=plural(n.inv.deposits,'deposit','deposits')+' · '+plural(n.inv.databanks,'databank','databanks')
-          +(n.inv.oresInferred?' · inferred ore':'');
-        list.appendChild(listRow(n.inv.name,meta,!!n.inv.oresInferred,function(){focusIsland(n);}));
+        var meta=plural(n.inv.deposits,'deposit','deposits')+' · '+plural(n.inv.databanks,'databank','databanks');
+        list.appendChild(listRow(n.inv.name,meta,false,function(){focusIsland(n);}));
       });
     islands.appendChild(list);
     scroll.appendChild(islands);
@@ -1276,7 +1272,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       ['Centre X',Number(b.x).toFixed(1)],
       ['Centre Z',Number(b.z).toFixed(1)],
       ['Tier','Tier '+b.type+' - '+biomeInfo(b.type).name],
-      ['District',b.authoredDistrict?b.district:'null in the release MapFile - no name inferred'],
+      ['District',b.authoredDistrict?b.district:'none'],
       ['Source cell',(z.index+1)+' of '+(worldMap.biomes||[]).length]
     ]));
     scroll.appendChild(geom);
@@ -1290,7 +1286,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     panel.appendChild(head);
     var block=mdBlock(m.heading);
     block.appendChild(kv(m.pairs));
-    block.appendChild(el('p','md-p','Read from the game server’s own stats snapshot, refreshed every 4 seconds. Unlike everything else on this map, this is live and will change.'));
+    block.appendChild(el('p','md-p','Read from the game server’s own stats snapshot, refreshed every 1.5 seconds. Unlike everything else on this map, this is live and will change.'));
     scroll.appendChild(block);
   }
 
@@ -1305,6 +1301,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
       if(n.shell)n.shell.classList.remove('selected');
     });
     mapZoneNodes.forEach(function(z){z.path.classList.remove('is-active');});
+    shipNodes.forEach(function(n){
+      n.mark.classList.remove('selected');
+      if(n.path)n.path.classList.remove('selected');
+    });
   }
   function selectWorld(){mapSelection={kind:'world'};clearMapHighlights();renderMapDetail();}
   function selectIsland(node){
@@ -1480,21 +1480,18 @@ variable to <code>username:hash</code> and restart the login server to enable th
     return [inv.name,inv.cell,'t'+inv.cellTier,'tier '+inv.cellTier,biomeInfo(inv.cellTier).name,cultureName(inv),
             (inv.woods||[]).join(' '),
             (inv.ores||[]).map(function(o){return o.metal+' q'+o.quality;}).join(' '),
-            inv.oresInferred?'inferred':'recovered',inv.oreSource,
             inv.revival?'revival':'',inv.turrets?'turrets':'',inv.dangerous?'dangerous':''
            ].join(' ').toLowerCase();
   }
 
   // ---- search: one filter for the map and the ledger ---------------------
   function mapSearchQuery(){return (($('ledgerFilter')||{}).value||'').trim().toLowerCase();}
-  function mapInferredOnly(){return !!(($('ledgerInferredOnly')||{}).checked);}
   function islandMatches(node){
     var q=mapSearchQuery();
-    if(mapInferredOnly()&&!(node.inv&&node.inv.oresInferred))return false;
     return !q||node.hay.indexOf(q)>=0;
   }
   function applyMapFilter(){
-    var q=mapSearchQuery(),active=!!q||mapInferredOnly();
+    var q=mapSearchQuery(),active=!!q;
     $('mapIslandLayer').classList.toggle('filtering',active);
     $('mapShellLayer').classList.toggle('filtering',active);
     var matches=[];
@@ -1543,8 +1540,11 @@ variable to <code>username:hash</code> and restart the login server to enable th
 
   // ---- the ledger: every catalogued island, in one table -----------------
   // The map answers where something is; a 254-row table answers what we have,
-  // which no amount of clicking a map ever does. Provenance travels with a row:
-  // an inferred ore table is marked in the row it is in, not only in a footnote.
+  // which no amount of clicking a map ever does. Every column is data about the
+  // world: the catalogue still records which ore tables were composed rather
+  // than surveyed, but that is a fact about this project's sources, not about
+  // the world, and it does not belong in a row an operator is reading to find
+  // out where the iron is.
   function ledgerNotes(inv){
     var notes=[];
     if(inv.revival)notes.push('revival chamber');
@@ -1561,14 +1561,12 @@ variable to <code>username:hash</code> and restart the login server to enable th
       return String(a.inv.cell).localeCompare(String(b.inv.cell))
           || String(a.inv.name).localeCompare(String(b.inv.name));});
     var frag=document.createDocumentFragment();
-    var shown=0,db=0,dep=0,tr=0,inf=0;
+    var shown=0,db=0,dep=0,tr=0;
     all.forEach(function(node){
       if(!islandMatches(node))return;
       var inv=node.inv;
       shown++;db+=Number(inv.databanks||0);dep+=Number(inv.deposits||0);tr+=Number(inv.trees||0);
-      if(inv.oresInferred)inf++;
       var row=document.createElement('tr');
-      if(inv.oresInferred)row.className='inferred';
       row.tabIndex=0;
       row.addEventListener('click',function(){focusIsland(node);});
       row.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' '){e.preventDefault();focusIsland(node);}});
@@ -1586,7 +1584,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       cell(row,inv.trees,'n'+(Number(inv.trees)?'':' zero'));
       cell(row,(inv.woods&&inv.woods.length)?inv.woods.join(', '):'—',
            'wrap'+((inv.woods&&inv.woods.length)?'':' zero'));
-      cell(row,(inv.oresInferred?'INFERRED: ':'')+oreSummary(inv),'wrap ore');
+      cell(row,oreSummary(inv),'wrap ore');
       cell(row,inv.fuelPods,'n zero');
       cell(row,inv.lootContainers,'n zero');
       cell(row,ledgerNotes(inv)||'—','wrap'+(ledgerNotes(inv)?'':' zero'));
@@ -1595,7 +1593,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
     body.appendChild(frag);
     var empty=$('ledgerEmpty');if(empty)empty.hidden=shown>0;
     text('ledgerStatus',shown===all.length
-      ? ('All '+all.length+' catalogued islands, sorted by zone then name. Haven’s 12 hand-tuned placements are not in the release catalogue and are deliberately absent.')
+      ? ('All '+all.length+' catalogued islands, sorted by zone then name. Haven’s 12 hand-tuned placements are not in the release catalogue and are not listed here.')
       : (shown+' of '+all.length+' islands match the search.'));
     var foot=$('ledgerFoot');
     if(foot){
@@ -1606,14 +1604,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
       strong.textContent=shown+' islands · '+db+' databanks · '+dep+' metal deposits · '+tr+' trees';
       totals.appendChild(strong);
       totals.appendChild(document.createTextNode(
-        '. Counts are lengths of lists in the catalogue the game server seeds from — nothing here is scaled, rounded or estimated.'));
+        '. Counts are lengths of lists in the catalogue the game server seeds from.'));
       foot.appendChild(totals);
-      var prov=document.createElement('div');
-      prov.className='legend-inferred';
-      prov.textContent=inf+' of the '+shown+' rows shown carry an INFERRED ore table: which metal a deposit holds was never recovered for those islands, so the table is composed from the surveyed same-tier cohort. The deposit COUNT is real; the ore names are plausible, not Bossa data.';
-      foot.appendChild(prov);
       var none=document.createElement('div');
-      none.textContent='Fuel pods and loot containers are 0 for every island because retail shipped neither per-island: fuel pods exist only as hand-placed Haven statics, and the lootable-container component never shipped at all. Reported as zero rather than omitted, and never invented.';
+      none.textContent='Fuel pods and loot containers are 0 for every island. The only fuel pods in the world are the hand-placed ones on Haven.';
       foot.appendChild(none);
     }
   }
@@ -1647,15 +1641,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       runtimeLayer.appendChild(svgEl('circle',{cx:Number(i.x),cy:-Number(i.z),r:155,'class':'map-runtime-island'},
         (i.label||i.domainId)+' · currently simulated island domain, resident on this host · live position '+Number(i.x).toFixed(1)+', '+Number(i.z).toFixed(1)));
     });
-    latestDomains.forEach(function(s){
-      var x=Number(s.x),y=-Number(s.z);
-      liveMarker(shipLayer,'map-ship'+(s.active?'':' resting'),'#shipSymbol',15,x,y,'Ship '+s.hullEntityId,{
-        kicker:'Live ship',title:'Ship '+s.hullEntityId,heading:'Authoritative ship state',
-        summary:(s.piloted?'Piloted':'Resting')+' · X '+x.toFixed(1)+' Z '+Number(s.z).toFixed(1),
-        pairs:[['Hull entity',String(s.hullEntityId)],['World X',x.toFixed(1)],['World Y',Number(s.y).toFixed(1)],
-               ['World Z',Number(s.z).toFixed(1)],['Helm',s.piloted?'piloted':'resting'],
-               ['Affinity',s.affinityDomainId||'none']]});
-    });
+    buildShips(latestDomains,ageSeconds);
     var positioned=latestPlayers.filter(function(p){return p.hasPosition;});
     positioned.forEach(function(p){
       var x=Number(p.x),y=-Number(p.z);
@@ -1669,17 +1655,19 @@ variable to <code>username:hash</code> and restart the login server to enable th
     // animation loop reads them; nothing is drawn on this pass.
     noteFauna(latestGame);
     text('mapFaunaNote',faunaNoteText());
+    text('mapShipNote',shipNoteText());
     $('mapBiomeLayer').style.display=$('mapBiomes').checked?'':'none';
     $('mapIslandLayer').style.display=$('mapIslands').checked?'':'none';
     $('mapShellLayer').style.display=$('mapIslands').checked?'':'none';
     runtimeLayer.style.display=$('mapIslands').checked?'':'none';
     $('mapWallLayer').style.display=$('mapWalls').checked?'':'none';
     shipLayer.style.display=$('mapShips').checked?'':'none';
+    $('mapShipHullLayer').style.display=$('mapShips').checked?'':'none';
     playerLayer.style.display=$('mapPlayers').checked?'':'none';
     var unknown=latestPlayers.length-positioned.length,live=latestDomains.length+positioned.length;
     var namedCells=(worldMap.biomes||[]).filter(function(b){return typeof b.district==='string'&&b.district.trim().length>0;}).length;
     var rt=worldMap.resourceTotals||{};
-    var seeded=rt.islands?(' Seeded on them: '+rt.deposits+' metal deposits, '+rt.databanks+' databanks, '+rt.trees+' trees across '+rt.woodedIslands+' wooded islands; '+rt.islandsWithInferredOres+' of '+rt.islands+' catalogued islands have an INFERRED ore table ('+rt.inferredDeposits+' deposits).'):'';
+    var seeded=rt.islands?(' Seeded on them: '+rt.deposits+' metal deposits, '+rt.databanks+' databanks, '+rt.trees+' trees across '+rt.woodedIslands+' wooded islands.'):'';
     text('mapStatus','Static map evidence: release MapFile · '+(worldMap.islands||[]).length+' islands · '+(worldMap.biomes||[]).length+' tier cells ('+namedCells+' named, '+((worldMap.biomes||[]).length-namedCells)+' unassigned) · '+(worldMap.walls||[]).length+' wall segments.'+seeded+' Live overlay: '
       +(reporting?(runtimeIslands.length+' simulated island domains · '+latestDomains.length+' ships · '+positioned.length+' positioned players · '+Math.round(ageSeconds||0)+'s snapshot age'):'game server not reporting'));
     var note=$('mapLiveNote');note.style.display=(live||!reporting)?'none':'block';
@@ -1971,8 +1959,7 @@ variable to <code>username:hash</code> and restart the login server to enable th
       +span(minShoal,maxShoal)+' on a '+fmtShort(Number((worldMap.faunaModel||{}).dayNightCycleSeconds)||0)
       +' day/night cycle. '+faunaPhaseText(faunaElapsed())
       +' These are not sampled positions: the browser evaluates the game server’s own movement '
-      +'against the clock the server reports, which is why they move smoothly between snapshots. '
-      +'How MANY there are is Wareborn tuning, not Bossa data.';
+      +'against the clock the server reports, which is why they move smoothly between snapshots.';
   }
   function faunaTick(now){
     faunaFrame=requestAnimationFrame(faunaTick);
@@ -1991,6 +1978,412 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(!model||!model.dayNightCycleSeconds)return;
     FAUNA=faunaMotion(model);
     if(faunaFrame===null)faunaFrame=requestAnimationFrame(faunaTick);
+  }
+
+
+  // ---- live ships, drawn as the hulls their owners built ------------------
+  // WHY THIS ONE IS A POSITION FEED WHEN THE WILDLIFE IS NOT. Every creature on
+  // this map moves on a CLOSED FORM of the clock, so the browser evaluates the
+  // server's own function and draws the pose the server actually holds. A SHIP
+  // has no such function: it moves under a player's hands and under the flight
+  // integrator, and no formula outside that loop knows what the stick did. So a
+  // ship's position is a MEASUREMENT, and it arrives with the three-second stats
+  // snapshot like everything else here.
+  //
+  // WHAT IS MEASURED AND WHAT IS SMOOTHED, kept separate on purpose. Between
+  // snapshots the hull is carried along the VELOCITY THE SERVER ITSELF REPORTED -
+  // dead reckoning, which is what the game client does between two control
+  // points, not an interpolation between two stale samples. It is allowed to run
+  // only as long as the server's own acceleration limit keeps the guess under
+  // twenty metres, and then the mark STOPS. A hull being reckoned is drawn
+  // DASHED and its panel prints how long ago it was measured and how far the
+  // reckoning could be out; a hull at rest reports exactly zero on every axis and
+  // is drawn solid, because that mark is the measurement.
+  //
+  // THE SHAPE IS THE PLAYER'S OWN HULL. Not a boat icon: the game server decodes
+  // the ShipPlan bytes the player built and publishes the plan-view ring off its
+  // section geometry, so the taper, the curve bulge and the raked prow are all
+  // the ones in the game, at the client's own hull scale, in metres. A ship
+  // whose bytes will not decode is drawn as a plain mark and says so - never as a
+  // substitute shape.
+  //
+  // NONE OF THE MOTION NUMBERS ARE RESTATED HERE. The window, the acceleration
+  // and the error budget all come off the RUNNING server's flight tuning, and
+  // AdminShipParityTests cuts the marked mirror below out of the real served page
+  // and asserts it returns what ShipMapMotion.PoseAt returns.
+
+  // ==== SHIP MOTION MIRROR BEGIN ====
+  function shipMotion(M){
+    var cap=Math.max(0,Number(M.maxWindowSeconds)||0);
+    var win=Math.max(0,Number(M.windowSeconds)||0);
+    if(win>cap)win=cap;
+    var accel=Math.max(0,Number(M.accelMps2)||0);
+    // The seconds actually applied: the age, floored at zero and capped at the
+    // window. A negative age - two hosts, one of them under Wine, and one clock
+    // that ran backwards - draws the measurement rather than reckoning into the
+    // past.
+    function reckoned(age){
+      if(!(age>0))return 0;
+      return age>win?win:age;
+    }
+    function poseAt(s,age){
+      var t=reckoned(age);
+      return {x:s.x+s.vx*t,z:s.z+s.vz*t,yaw:s.yaw+s.yawRate*t};
+    }
+    // How far the reckoning could be out after `seconds`, at the integrator's
+    // acceleration limit. Quadratic, because that is what a bounded acceleration
+    // gives; a linear figure would be a much weaker claim than the server
+    // actually supports.
+    function errorBound(seconds){
+      if(!(accel>0)||!(seconds>0))return 0;
+      return 0.5*accel*seconds*seconds;
+    }
+    return {reckoned:reckoned,poseAt:poseAt,errorBound:errorBound,windowSeconds:win};
+  }
+  // ==== SHIP MOTION MIRROR END ====
+
+  var SHIPS=null;          // the evaluator, or null when no model was published
+  var shipNodes=[];        // [{d,state,mark,markUse,hull,path,keel,keelMetres}]
+  var shipAnchor=null;     // {age,perf} - the snapshot's age carried on our clock
+  var shipFrame=null,shipLastDrawMs=-1e9;
+
+  // How many screen pixels of keel a hull needs before its real outline is worth
+  // more than the chevron. Below this a 20 m ship at whole-world zoom is a smear
+  // two pixels long, and drawing it there would be a mark that says nothing while
+  // pretending to say everything.
+  var SHIP_HULL_MIN_PX=14;
+  var SHIP_REDUCED_MOTION_MS=1000, SHIP_IDLE_MS=400;
+
+  function shipNow(){
+    return (window.performance&&performance.now)?performance.now():Date.now();
+  }
+  function shipModel(){
+    var g=latestGame,m=g&&g.shipModel;
+    return (m&&m.present===true)?m:null;
+  }
+  function shipAge(){
+    if(!shipAnchor)return 0;
+    return shipAnchor.age+(shipNow()-shipAnchor.perf)/1000;
+  }
+  function shipState(d){
+    return {x:Number(d.x)||0,z:Number(d.z)||0,yaw:Number(d.yawRadians)||0,
+            vx:Number(d.vxMps)||0,vz:Number(d.vzMps)||0,
+            yawRate:Number(d.yawRateRadPerSec)||0};
+  }
+  function shipIsMeasuredExactly(s){return s.vx===0&&s.vz===0&&s.yawRate===0;}
+  function shipMoving(){
+    for(var i=0;i<shipNodes.length;i++)if(!shipIsMeasuredExactly(shipNodes[i].state))return true;
+    return false;
+  }
+  function shipHullPath(outline){
+    if(!outline||outline.length<6)return null;
+    // Hull-local metres, flat x,z. The map's own frame is X east and Z north
+    // drawn upward, so a hull-local z becomes a negative y exactly as an island
+    // shell's does.
+    var d='M';
+    for(var k=0;k+1<outline.length;k+=2)
+      d+=' '+Number(outline[k])+' '+(-Number(outline[k+1]))+(k+3<outline.length?' L':'');
+    return d+' Z';
+  }
+  function shipTitle(d){return 'Ship - hull entity '+d.hullEntityId;}
+  function shipSummary(d,s){
+    var speed=Math.sqrt(s.vx*s.vx+s.vz*s.vz);
+    return (d.piloted?'Piloted':(d.hull&&d.hull.docked?'Docked in a shipyard':'Resting'))
+      +(speed>0.05?(' - making '+speed.toFixed(1)+' m/s'):'')
+      +' - X '+s.x.toFixed(1)+' Z '+s.z.toFixed(1);
+  }
+  function shipHullSize(d){
+    var h=d.hull;
+    if(!h||!h.present)return 0;
+    return Math.max(Number(h.keelMetres)||0,Number(h.beamMetres)||0);
+  }
+
+  function buildShips(domains,ageSeconds){
+    var hullLayer=$('mapShipHullLayer'),markLayer=$('mapShipLayer');
+    if(!hullLayer||!markLayer)return;
+    clear(hullLayer);
+    shipNodes=[];
+    // The snapshot's age at the moment it was READ, carried forward on this
+    // browser's monotonic clock. Not the wall clock: a machine that resyncs
+    // mid-session would otherwise teleport every hull.
+    shipAnchor={age:Math.max(0,Number(ageSeconds)||0),perf:shipNow()};
+    var model=shipModel();
+    SHIPS=model?shipMotion(model):null;
+
+    (domains||[]).forEach(function(d){
+      var s=shipState(d),h=d.hull||{},size=shipHullSize(d);
+      var node={d:d,state:s,hull:null,path:null,keel:null,keelMetres:size,
+                markT:'',useT:'',hullT:''};
+
+      var path=shipHullPath(h.outline);
+      if(h.present===true&&path){
+        var g=svgEl('g',{});
+        var body=svgEl('path',{d:path,'class':'map-ship-hull'});
+        g.appendChild(body);
+        // A keel line from stern to bow. A short hull is wider than it is long -
+        // a stock cell is twelve metres of beam to four of keel - so without it
+        // a stubby ship's outline gives no clue which way it is pointing, and
+        // which way it is pointing is real data on this map.
+        var bow=Number(h.bowLocalZMetres)||0,stern=Number(h.sternLocalZMetres)||0;
+        if(bow>stern){
+          g.appendChild(svgEl('path',{d:'M 0 '+(-stern)+' L 0 '+(-bow),'class':'map-ship-keel'}));
+        }
+        hullLayer.appendChild(g);
+        node.hull=g;node.path=body;
+        body.addEventListener('click',function(e){e.stopPropagation();if(!mapDragged)selectShip(d.hullEntityId);});
+        body.addEventListener('pointerenter',function(){body.classList.add('hot');});
+        body.addEventListener('pointerleave',function(){body.classList.remove('hot');});
+        attachHover(body,function(){return shipHoverCard(node);});
+      }
+
+      var mark=svgEl('g',{'class':'map-marker ship-mark',tabindex:'0',role:'button','aria-label':shipTitle(d)});
+      var inner=svgEl('g',{'class':'mk'});
+      inner.appendChild(svgEl('circle',{r:12,'class':'mk-hit'}));
+      inner.appendChild(svgEl('circle',{r:9,'class':'mk-ring'}));
+      var use=svgEl('use',{href:'#shipSymbol',x:-7.5,y:-7.5,width:15,height:15,
+                           'class':'map-ship mk-ship'+(d.active?'':' resting')});
+      inner.appendChild(use);
+      var t=document.createElementNS(SVG_NS,'title');t.textContent=shipTitle(d);mark.appendChild(t);
+      mark.appendChild(inner);
+      markLayer.appendChild(mark);
+      mark.addEventListener('click',function(e){e.stopPropagation();if(!mapDragged)selectShip(d.hullEntityId);});
+      mark.addEventListener('pointerenter',function(){mark.classList.add('hot');if(node.path)node.path.classList.add('hot');});
+      mark.addEventListener('pointerleave',function(){mark.classList.remove('hot');if(node.path)node.path.classList.remove('hot');});
+      attachHover(mark,function(){return shipHoverCard(node);});
+      node.mark=mark;node.markUse=use;
+      shipNodes.push(node);
+    });
+
+    renderShipFrame();
+    if(shipFrame===null)shipFrame=requestAnimationFrame(shipTick);
+  }
+
+  function shipHoverCard(node){
+    var d=node.d,s=node.state;
+    return [shipTitle(d),
+            (d.hull&&d.hull.present)?'Live ship - real hull outline':'Live ship - hull shape unavailable',
+            shipSummary(d,s),
+            'Click for live detail'];
+  }
+
+  // Paint every hull at the pose the model says it holds RIGHT NOW. Cheap by
+  // construction: five ships is five transform writes, and the outline path is
+  // built once per poll rather than per frame.
+  function renderShipFrame(){
+    if(!shipNodes.length)return;
+    var age=shipAge(),selected=mapSelection.kind==='ship'?String(mapSelection.hullEntityId):null;
+    for(var i=0;i<shipNodes.length;i++){
+      var n=shipNodes[i],s=n.state;
+      var p=SHIPS?SHIPS.poseAt(s,age):{x:s.x,z:s.z,yaw:s.yaw};
+      var sx=p.x,sy=-p.z,deg=p.yaw*180/Math.PI;
+      var here='translate('+sx.toFixed(2)+' '+sy.toFixed(2)+')';
+      // Only write what changed. A resting hull holds one pose for its whole
+      // life, and rewriting the same attribute sixty times a second is both
+      // wasted work and a standing invitation to the compositor.
+      var markT=here+' scale('+mapPx+')';
+      if(n.markT!==markT){n.mark.setAttribute('transform',markT);n.markT=markT;}
+      var useT='rotate('+deg.toFixed(1)+')';
+      if(n.useT!==useT){n.markUse.setAttribute('transform',useT);n.useT=useT;}
+      var isSelected=selected!==null&&String(n.d.hullEntityId)===selected;
+      n.mark.classList.toggle('selected',isSelected);
+      if(!n.hull)continue;
+      var hullT=here+' rotate('+deg.toFixed(1)+')';
+      if(n.hullT!==hullT){n.hull.setAttribute('transform',hullT);n.hullT=hullT;}
+      // PROGRESSIVE DISCLOSURE, per ship rather than per zoom level, because
+      // ships are not all the same size: a big hull earns its outline sooner
+      // than a small one, at the same zoom.
+      var shown=(n.keelMetres/mapPx)>=SHIP_HULL_MIN_PX;
+      n.hull.style.display=shown?'':'none';
+      n.mark.classList.toggle('hull-shown',shown);
+      var carrying=!!SHIPS&&!shipIsMeasuredExactly(s);
+      var held=carrying&&age>SHIPS.reckoned(age)+0.05;
+      n.path.classList.toggle('reckoned',carrying&&SHIPS.reckoned(age)>0);
+      n.path.classList.toggle('held',held);
+      n.mark.classList.toggle('held',held);
+      n.path.classList.toggle('resting',!n.d.active);
+      n.path.classList.toggle('selected',isSelected);
+    }
+  }
+  function shipTick(now){
+    shipFrame=requestAnimationFrame(shipTick);
+    // Nothing to animate when every hull is at rest: the mark is the
+    // measurement, and repainting it sixty times a second would move nothing.
+    var idle=!shipNodes.length||!shipMoving()||!$('mapShips').checked;
+    var minimum=idle?SHIP_IDLE_MS:(prefersReducedMotion()?SHIP_REDUCED_MOTION_MS:0);
+    if(now-shipLastDrawMs<minimum)return;
+    shipLastDrawMs=now;
+    renderShipFrame();
+  }
+
+  function shipNoteText(){
+    var g=latestGame;
+    if(!g||g.reporting!==true)
+      return 'Ships: the game server is not reporting, so none is drawn.';
+    if(!shipModel())
+      return 'Ships: this game server predates ship geometry telemetry (stats schema '
+        +(g.schemaVersion||'unknown')+'), so hulls are drawn at their last reported '
+        +'position with no shape and no motion between snapshots.';
+    if(!shipNodes.length)
+      return 'Ships: the game server reports no built ships in the world, so none is drawn.';
+    var shaped=0,moving=0,docked=0;
+    shipNodes.forEach(function(n){
+      if(n.d.hull&&n.d.hull.present)shaped++;
+      if(!shipIsMeasuredExactly(n.state))moving++;
+      if(n.d.hull&&n.d.hull.docked)docked++;
+    });
+    var m=shipModel(),age=shipAge(),t=SHIPS?SHIPS.reckoned(age):0;
+    return 'Ships (live): '+plural(shipNodes.length,'built ship','built ships')+' - '
+      +shaped+' drawn as the real hull their owner built, '+(shipNodes.length-shaped)
+      +' with no decodable hull shape, '+docked+' docked in a shipyard, '+moving+' under way. '
+      +'Position is MEASURED - it arrives with the game server’s stats snapshot like everything '
+      +'else live on this map - and this browser '
+      +'carries a moving hull forward along the velocity the server itself reported, for at most '
+      +(Number(m.windowSeconds)||0).toFixed(1)+' s - the point at which the server’s own '
+      +(Number(m.accelMps2)||0).toFixed(1)+' m/s² acceleration limit could have put it '
+      +(Number(m.toleratedErrorMetres)||0).toFixed(0)+' m out. Right now the last measurement is '
+      +age.toFixed(1)+' s old and '+t.toFixed(1)+' s of that is being carried; a dashed outline '
+      +'is a hull this browser moved, a solid one is a hull the server placed.';
+  }
+
+  function selectShip(hullEntityId){
+    mapSelection={kind:'ship',hullEntityId:hullEntityId};
+    clearMapHighlights();
+    renderShipFrame();
+    renderMapDetail();
+  }
+  function shipByHull(hullEntityId){
+    for(var i=0;i<latestDomains.length;i++)
+      if(String(latestDomains[i].hullEntityId)===String(hullEntityId))return latestDomains[i];
+    return null;
+  }
+  function shipMaterialText(h){
+    var parts=[];
+    if(h.woodId)parts.push(h.woodId+' (quality '+(Number(h.woodQuality)||1)+')');
+    if(h.metalId)parts.push(h.metalId+' (quality '+(Number(h.metalQuality)||1)+')');
+    return parts.length?parts.join(' and '):'not recorded';
+  }
+  function detailShip(panel,scroll,hullEntityId){
+    var d=shipByHull(hullEntityId);
+    var head=el('div','md-head');
+    head.appendChild(backButton('Whole world',function(){selectWorld();}));
+    head.appendChild(el('div','md-kicker','Live ship'));
+    if(!d){
+      head.appendChild(el('h3','md-title','Ship no longer reported'));
+      head.appendChild(subLine(['Hull entity '+hullEntityId]));
+      panel.appendChild(head);
+      var gone=mdBlock('What happened');
+      gone.appendChild(el('p','md-p','This hull was in the last snapshot but is not in this one. '
+        +'It has been deleted, salvaged, or its domain has been torn down. Nothing is drawn for it.'));
+      scroll.appendChild(gone);
+      return;
+    }
+    var h=d.hull||{},s=shipState(d);
+    var speed=Math.sqrt(s.vx*s.vx+s.vz*s.vz);
+    head.appendChild(el('h3','md-title','Ship '+d.hullEntityId));
+    head.appendChild(subLine([d.piloted?'Piloted':'No pilot',
+      h.docked?'Docked in a shipyard':'Not docked',
+      d.active?'Live cadence':'Resting']));
+    head.appendChild(el('div','md-id',(d.domainId||'no domain id')+'  ·  hull entity '+d.hullEntityId));
+    panel.appendChild(head);
+
+    var stats=el('div','md-stats');
+    stats.appendChild(statTile(h.present?(Number(h.keelMetres)||0).toFixed(1):'—','Keel, metres'));
+    stats.appendChild(statTile(h.present?(Number(h.beamMetres)||0).toFixed(1):'—','Beam, metres'));
+    stats.appendChild(statTile(d.deckCount||0,'Deck panels'));
+    stats.appendChild(statTile(d.mountedPartCount||0,'Mounted parts'));
+    stats.appendChild(statTile((d.aboardPlayerEntityIds||[]).length,'Players aboard'));
+    stats.appendChild(statTile(speed.toFixed(1),'Speed, m/s'));
+    scroll.appendChild(stats);
+
+    var shape=mdBlock('The shape on the map');
+    if(h.present){
+      shape.appendChild(el('p','md-p','The outline drawn for this ship is the plan view of the hull '
+        +'its owner built. The game server decodes the ShipPlan bytes this hull was crafted from '
+        +'and takes the widest point of each of its '
+        +plural(Number(h.sectionCount)||0,'section','sections')+', at the game’s own hull scale, '
+        +'in metres - so the taper, the curve of a section pulled outboard and the rake of an '
+        +'overhanging prow on the map are the ones on the ship.'));
+      shape.appendChild(kv([
+        ['Keel, stern to bow',(Number(h.keelMetres)||0).toFixed(2)+' m'],
+        ['Beam, port to starboard',(Number(h.beamMetres)||0).toFixed(2)+' m'],
+        ['Deck plane above the keel',(Number(h.deckPlaneMetres)||0).toFixed(2)+' m'],
+        ['Bow, hull-local',(Number(h.bowLocalZMetres)||0).toFixed(2)+' m'],
+        ['Stern, hull-local',(Number(h.sternLocalZMetres)||0).toFixed(2)+' m'],
+        ['Hull cells',String(Number(h.cellCount)||0)],
+        ['Hull decks',String(Number(h.hullDeckCount)||0)],
+        ['Sections in the outline',String(Number(h.sectionCount)||0)]]));
+      if(h.keelIsLongestAxis!==true){
+        shape.appendChild(el('p','md-p','This hull is WIDER THAN IT IS LONG - its beam exceeds its '
+          +'keel - so its bow runs across its short side. That is the design, not a drawing error: '
+          +'a stock hull cell is twelve metres of beam to four of keel, so a short ship really is '
+          +'broader than it is long, and the outline shows it that way.'));
+      }
+    }else{
+      shape.appendChild(el('p','md-p','No hull shape is published for this ship, so it is drawn as a '
+        +'plain mark and nothing about its size is shown. That means the game server could not find '
+        +'or could not decode the ShipPlan bytes for this hull. A substitute shape is deliberately '
+        +'NOT drawn: a made-up outline on a map of real ones would be worse than no outline.'));
+    }
+    scroll.appendChild(shape);
+
+    var where=mdBlock('Where it is, and how sure that is');
+    var age=shipAge(),reck=SHIPS?SHIPS.reckoned(age):0;
+    var p=SHIPS?SHIPS.poseAt(s,age):{x:s.x,z:s.z,yaw:s.yaw};
+    where.appendChild(kv([
+      ['Measured position','X '+s.x.toFixed(1)+'  Y '+(Number(d.y)||0).toFixed(1)+'  Z '+s.z.toFixed(1)],
+      ['Measured heading',(((s.yaw*180/Math.PI)%360+360)%360).toFixed(1)+'° from north'],
+      ['Measured '+(reck>0?'':'and drawn '),age.toFixed(1)+' s ago'],
+      ['Velocity reported by the server','X '+s.vx.toFixed(2)+'  Y '+(Number(d.vyMps)||0).toFixed(2)
+        +'  Z '+s.vz.toFixed(2)+' m/s'],
+      ['Turn rate reported',(s.yawRate*180/Math.PI).toFixed(2)+' °/s']]));
+    if(shipIsMeasuredExactly(s)){
+      where.appendChild(el('p','md-p','This hull is AT REST: the server reports exactly zero on every '
+        +'axis, so the mark on the map is the measurement itself. Nothing about its position has '
+        +'been smoothed, extrapolated or guessed.'));
+    }else if(SHIPS){
+      where.appendChild(kv([
+        ['Drawn position','X '+p.x.toFixed(1)+'  Z '+p.z.toFixed(1)],
+        ['Carried forward by',reck.toFixed(2)+' s of dead reckoning'],
+        ['Could be out by at most',SHIPS.errorBound(reck).toFixed(1)+' m']]));
+      where.appendChild(el('p','md-p','This hull is UNDER WAY, so the mark is not purely a '
+        +'measurement. The browser carries it along the velocity the server itself reported - the '
+        +'same thing the game client does between two control points - and stops after '
+        +SHIPS.windowSeconds.toFixed(1)+' s, which is where the server’s own acceleration '
+        +'limit could have put the guess more than '
+        +(Number((shipModel()||{}).toleratedErrorMetres)||0).toFixed(0)+' m out. Its outline is '
+        +'drawn DASHED for exactly as long as it is being carried.'));
+      if(age>reck+0.05){
+        where.appendChild(el('p','md-p','The mark has STOPPED. The last measurement is now '
+          +age.toFixed(1)+' s old, past the '+SHIPS.windowSeconds.toFixed(1)+' s this browser is '
+          +'allowed to carry it, so the hull is being held where the budget ran out rather than '
+          +'drawn gliding on nothing. The real ship has kept moving.'));
+      }
+    }else{
+      where.appendChild(el('p','md-p','This game server publishes no ship-motion model, so nothing is '
+        +'carried forward at all: the mark is the last measured position and it will step when the '
+        +'next snapshot lands.'));
+    }
+    scroll.appendChild(where);
+
+    var built=mdBlock('What it is and who owns it');
+    built.appendChild(kv([
+      ['Owner character uid',h.ownerCharacterUid?h.ownerCharacterUid:'unowned'],
+      ['Hull materials',shipMaterialText(h)],
+      ['Docked in a shipyard',h.docked?'yes':'no'],
+      ['Pilot entity',d.pilotPlayerEntityId==null?'none':String(d.pilotPlayerEntityId)],
+      ['Players aboard',(d.aboardPlayerEntityIds||[]).length
+        ?(d.aboardPlayerEntityIds||[]).join(', '):'none'],
+      ['Deck panels',String(d.deckCount||0)],
+      ['Mounted parts',String(d.mountedPartCount||0)],
+      ['Checkout subscribers',String(d.subscriberCount||0)],
+      ['Authority generation',String(d.authorityGeneration||0)],
+      ['Replication','sequence '+(d.replicationSequence||0)+' at '+(d.cadenceMs||0)+' ms'],
+      ['Last delivery',(Number(d.deliveryAgeMs)<0)?'never':((d.deliveryAgeMs||0)+' ms ago')]]));
+    built.appendChild(el('p','md-p','Ships carry no name anywhere in this game, so a hull is '
+      +'identified by its entity id and its owner’s character uid, both read from the server’s '
+      +'own build ledger. Hull materials are the dominant wood and metal the craft consumed; a '
+      +'ship built before materials were recorded reads as birch and iron.'));
+    scroll.appendChild(built);
   }
 
   // ---- island-count reconciliation -------------------------------------
@@ -2545,10 +2938,10 @@ variable to <code>username:hash</code> and restart the login server to enable th
     if(latestTerrain)renderAcceptance(latestTerrain,gameReporting);
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
-  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers','mapFauna'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,0);renderFaunaFrame();});});
+  ['mapBiomes','mapIslands','mapWalls','mapShips','mapPlayers','mapFauna'].forEach(function(id){$(id).addEventListener('change',function(){renderLiveWorldMap(gameReporting,latestGame?latestGame.ageSeconds:0);renderFaunaFrame();renderShipFrame();});});
   // ONE search drives the map and the ledger. A second box under the table was
   // a second thing to notice and a second thing to keep in sync.
-  ['ledgerFilter','ledgerInferredOnly'].forEach(function(id){var e=$(id);if(e){e.addEventListener('input',applyMapFilter);e.addEventListener('change',applyMapFilter);}});
+  ['ledgerFilter'].forEach(function(id){var e=$(id);if(e){e.addEventListener('input',applyMapFilter);e.addEventListener('change',applyMapFilter);}});
   $('ledgerFilter').addEventListener('focus',function(){if(mapSearchQuery())applyMapFilter();});
   document.addEventListener('click',function(e){
     if(!e.target.closest||!e.target.closest('.map-search'))closeSearchResults();});

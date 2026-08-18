@@ -208,6 +208,62 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal("tag with \"quotes\" and \\slash", (string)o["build"]!);
         }
 
+        /// <summary>
+        /// The ship domain's top-level owner is a SECOND SPELLING of the hull's,
+        /// not a second copy.
+        ///
+        /// Two owner fields that can drift apart is the exact hazard this merge
+        /// had to avoid: the map's ship detail panel reads
+        /// <c>hull.ownerCharacterUid</c> and the operator surface's "summon the
+        /// ship this player owns" reads the top-level one, and a ship that
+        /// belonged to two different people depending on which panel you opened
+        /// would be unexplainable. There is one storage location and this pins it.
+        /// </summary>
+        [Fact]
+        public void The_ship_domains_owner_is_the_hulls_owner_and_cannot_disagree()
+        {
+            const string owner = "77777777-7777-7777-7777-777777777777";
+            ShipHullStat hull = new ShipHullStat(null, owner, docked: false, materials: null);
+            ShipDomainStat domain = new ShipDomainStat(
+                "ship:83", 83, 4, 91, 240, 35,
+                0, 0, 0, active: true, piloted: false, liveCadenceExpected: false,
+                pilotPlayerEntityId: null, aboardPlayerEntityIds: Array.Empty<long>(),
+                deckCount: 0, mountedPartCount: 0, subscriberCount: 0,
+                hull: hull);
+
+            Assert.Equal(owner, domain.OwnerCharacterUid);
+            Assert.Equal(domain.Hull.OwnerCharacterUid, domain.OwnerCharacterUid);
+
+            // And both spellings reach the wire agreeing, because a reader may use
+            // either one.
+            StatsSnapshot snapshot = new StatsSnapshot(
+                0, 0, 0, "raw", 0, "test", 0, 0, 0, 0,
+                Array.Empty<PlayerStat>(), shipDomains: new[] { domain });
+            JObject d = (JObject)((JArray)((JObject)JObject.Parse(snapshot.ToJson())["runtime"]!)
+                ["shipDomains"]!)[0];
+
+            Assert.Equal(owner, (string?)d["ownerCharacterUid"]);
+            Assert.Equal(owner, (string?)d["hull"]!["ownerCharacterUid"]);
+        }
+
+        /// <summary>
+        /// A hull whose bytes are missing has NO SHAPE but still has an OWNER.
+        ///
+        /// Those are different facts kept in different places, and conflating them
+        /// would make "summon the ship this player owns" answer "they own nothing"
+        /// about a ship that exists, is owned and flies - the silent wrong answer
+        /// the whole operator surface is built to refuse to give.
+        /// </summary>
+        [Fact]
+        public void A_hull_with_no_silhouette_still_reports_its_owner()
+        {
+            const string owner = "88888888-8888-8888-8888-888888888888";
+            ShipHullStat hull = new ShipHullStat(null, owner, docked: true, materials: null);
+
+            Assert.False(hull.Present);
+            Assert.Equal(owner, hull.OwnerCharacterUid);
+        }
+
         [Fact]
         public void Ship_domain_snapshot_reports_only_real_local_runtime_state()
         {
