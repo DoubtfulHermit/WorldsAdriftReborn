@@ -122,6 +122,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         }
 
         [Fact]
+        public void The_boot_log_can_name_where_and_when_to_stand()
+        {
+            // A feature nobody can find is indistinguishable from one that is
+            // broken, and a whale is the worst case of that - one animal, one
+            // region, a minute overhead at a time. The boot log says where to
+            // stand; this pins that the arithmetic behind it is right, by walking
+            // the circuit forward and checking the whale really IS over the named
+            // island when it said it would be.
+            foreach (SkyWhalePlacement placement in SkyWhalePlan.Build(TierOne()))
+            {
+                SkyWhaleCircuit circuit = placement.Circuit;
+                (IslandId island, double seconds) = circuit.NextArrivalAfter(0.0);
+                _output.WriteLine(placement.Whale.Region.Value + ": stand on " + island
+                    + ", look up in " + seconds.ToString("0") + " s");
+
+                // Never "now", never more than a lap away.
+                Assert.InRange(seconds, 0.0, circuit.CircuitSeconds);
+
+                SkyWhaleWaypoint expected =
+                    circuit.Waypoints.Single(waypoint => waypoint.IslandId == island);
+                (double x, double y, double z) = circuit.PositionAtTime(seconds);
+                Assert.Equal(expected.X, x, 3);
+                Assert.Equal(expected.Y, y, 3);
+                Assert.Equal(expected.Z, z, 3);
+
+                // And the NEXT answer from just after that arrival is a DIFFERENT
+                // island - so the line advances round the ring instead of sticking.
+                (IslandId after, double _) = circuit.NextArrivalAfter(seconds + 1.0);
+                Assert.NotEqual(island, after);
+            }
+        }
+
+        [Fact]
         public void The_whale_clears_every_island_it_flies_over()
         {
             // The animal's mesh hangs about 28 m BELOW the transform this server

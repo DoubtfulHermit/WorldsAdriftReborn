@@ -239,6 +239,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             Fraction((elapsedSeconds / CircuitSeconds) + PhaseFraction);
 
         /// <summary>
+        /// WHICH ISLAND THE WHALE REACHES NEXT, and how many seconds away it is.
+        ///
+        /// This exists for the boot log, and the reason is the one
+        /// <c>IslandFaunaService</c> learned the hard way when it started naming
+        /// its populated islands: "4 whales across 4 regions" tells an operator the
+        /// seeding worked and tells a PLAYER nothing at all, and a feature nobody
+        /// can find is indistinguishable from one that is broken. A whale is the
+        /// worst case of that - it is one animal in a region several kilometres
+        /// across and it is only overhead for about a minute at a time - so the
+        /// server says where to stand and when.
+        ///
+        /// The whale is exactly over waypoint i at lap i/N (Catmull-Rom
+        /// interpolates its control points), so this is arithmetic rather than a
+        /// search.
+        /// </summary>
+        public (IslandId IslandId, double Seconds) NextArrivalAfter(double elapsedSeconds)
+        {
+            double lap = LapAt(elapsedSeconds);
+            int n = _waypoints.Length;
+            // The next INDEX strictly ahead, wrapping. Exactly on a knot counts as
+            // arrived, so the answer is the one after it rather than "in 0 s".
+            int next = (int)Math.Floor(lap * n) + 1;
+            double untilLaps = Fraction(((double)next / n) - lap);
+            return (_waypoints[next % n].IslandId, untilLaps * CircuitSeconds);
+        }
+
+        /// <summary>
         /// THE CURVE, as a static over an explicit ring, so a second evaluator can
         /// be tested against exactly this function with the waypoints the wire
         /// carried rather than against a rebuilt circuit.

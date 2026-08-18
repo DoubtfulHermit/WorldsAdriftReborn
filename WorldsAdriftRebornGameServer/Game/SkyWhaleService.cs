@@ -252,6 +252,13 @@ namespace WorldsAdriftRebornGameServer.Game
                     + " min a lap at " + SkyWhalePolicy.MetresPerSecond.ToString("0")
                     + " m/s average), starting at lap fraction "
                     + placement.Circuit.PhaseFraction.ToString("0.000") + ".");
+                // WHERE TO STAND, said out loud. See SkyWhaleCircuit.NextArrivalAfter.
+                (IslandId first, double seconds) =
+                    placement.Circuit.NextArrivalAfter(_clock.Elapsed.TotalSeconds);
+                Console.WriteLine("[sky-whale] " + placement.Whale.Region.Value
+                    + ": to SEE it, stand on " + first + " and look up in about "
+                    + seconds.ToString("0") + " s; it passes each island of the region in"
+                    + " turn, about a minute overhead each time.");
             }
 
             Console.WriteLine("[sky-whale] ON (" + EnableEnv + "): " + _whales.Count
