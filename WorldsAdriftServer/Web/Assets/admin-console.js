@@ -459,6 +459,10 @@
     // After the travel controls and the player selector, because the acceptance
     // panel reports THEIR live prerequisites rather than duplicating them.
     renderTerrain(g,reporting);
+    // The interest-and-streaming view renders off the same snapshot; declared
+    // in admin-topology.js, which is later in the load order but hoists into
+    // this one shared closure.
+    renderTopologyView();
     // Both provenance labels state the SAME reconciled pair of counts, so the
     // map and the terrain inventory can never appear to disagree.
     renderIslandReconciliation();

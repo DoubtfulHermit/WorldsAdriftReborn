@@ -2397,6 +2397,44 @@ namespace WorldsAdriftRebornGameServer
                 build = "unknown";
             }
 
+            // The interest picture (schema v10): the radii, budgets and gates
+            // every streaming decision on this boot is actually made with -
+            // read off the LIVE services, not re-parsed from the environment -
+            // plus what each peer currently holds. Terrain per-peer state
+            // stays in the terrain section; this adds the systems that had no
+            // telemetry at all (resources, wildlife counts, ship checkout) and
+            // the two boot gates whose absence has produced real incidents.
+            List<InterestPeerStat> interestPeers = new List<InterestPeerStat>();
+            foreach ((ulong peerId, long entityId) in Players.All())
+            {
+                ENetPeerHandle? peerHandle =
+                    PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peerHandle == null) continue;
+                interestPeers.Add(new InterestPeerStat(
+                    entityId,
+                    ResourceInterest.HoldingsFor(peerHandle),
+                    Fauna.CheckedOutFor(peerHandle),
+                    ShipInterest.CheckedOutDomainIdsFor(peerHandle)));
+            }
+            InterestRuntimeStat interest = new InterestRuntimeStat(
+                resourcesEnabled: ResourceInterest.Enabled,
+                resourceLoadRadiusMetres: ResourceInterest.IslandLoadRadiusMetres,
+                resourceUnloadRadiusMetres: ResourceInterest.IslandUnloadRadiusMetres,
+                resourcePerPeerBudget: ResourceInterest.PerPeerResourceBudget,
+                resourceConnectRadiusMetres: Game.Interest.InitialRadiusMetres,
+                faunaEnabled: Fauna.Enabled,
+                faunaLoadRadiusMetres: Fauna.LoadRadiusMetres,
+                faunaUnloadRadiusMetres: Fauna.UnloadRadiusMetres,
+                shipLoadRadiusMetres: ShipInterest.LoadRadiusMetres,
+                shipUnloadRadiusMetres: ShipInterest.UnloadRadiusMetres,
+                // The terrain step of the connect plan is the terrain load
+                // radius; before the post-restore bootstrap there is no terrain
+                // service and no step, and zero says so.
+                terrainConnectRadiusMetres: TerrainInterest?.LoadRadiusMetres ?? 0,
+                loadBarrier: Game.LoadBarrier.Enabled,
+                spawnPaceMs: (int)SpawnPaceInterval.TotalMilliseconds,
+                peers: interestPeers);
+
             return new StatsSnapshot(
                 bootTimeUnixMs: Stats.BootTime.ToUnixTimeMilliseconds(),
                 generatedAtUnixMs: nowMs,
@@ -2436,7 +2474,8 @@ namespace WorldsAdriftRebornGameServer
                 // from this acceleration, and a deployment that retuned it must
                 // move the console with it.
                 shipModel: new ShipMapRuntimeStat(
-                    Flight.Tuning.AccelMps2, Flight.Tuning.MaxSpeedMps));
+                    Flight.Tuning.AccelMps2, Flight.Tuning.MaxSpeedMps),
+                interest: interest);
         }
 
         /// <summary>

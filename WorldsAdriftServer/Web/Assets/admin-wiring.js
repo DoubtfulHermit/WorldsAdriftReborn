@@ -16,6 +16,8 @@
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(button){button.addEventListener('click',function(){domainFilter=button.dataset.domainFilter;Array.prototype.forEach.call(document.querySelectorAll('[data-domain-filter]'),function(other){other.classList.toggle('active',other===button);});renderDomainInventory();});});
   wireMapInteraction();
+  wireOperator();
+  wireTopology();
   boot();
   refresh();
   setInterval(refresh,REFRESH_MS);

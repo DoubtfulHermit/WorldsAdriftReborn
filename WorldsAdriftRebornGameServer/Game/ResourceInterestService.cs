@@ -241,6 +241,30 @@ namespace WorldsAdriftRebornGameServer.Game
         /// RemoveEntity succeeds and Loaded is cleared, a late interest packet cannot
         /// recreate native components for an entity the client no longer owns.
         /// </summary>
+        /// <summary>
+        /// What this peer currently holds, counted per island, for the interest
+        /// section of the stats snapshot. Counted from <c>Loaded</c> - the nodes
+        /// the peer has actually been sent - rather than from the island checkout
+        /// set, because "holds the island" and "has received its nodes" differ
+        /// exactly while a checkout is streaming in, and the operator debugging a
+        /// budget wants the delivered number.
+        /// </summary>
+        public IReadOnlyList<InterestPeerIslandStat> HoldingsFor(ENetPeerHandle peer)
+        {
+            if (!_peers.TryGetValue(peer, out PeerState? state) || state.Loaded.Count == 0)
+                return Array.Empty<InterestPeerIslandStat>();
+            Dictionary<IslandId, int> counts = new();
+            foreach (long entityId in state.Loaded)
+            {
+                if (!_resourceIslands.TryGetValue(entityId, out IslandId island)) continue;
+                counts[island] = counts.TryGetValue(island, out int held) ? held + 1 : 1;
+            }
+            return counts
+                .OrderBy(pair => pair.Key)
+                .Select(pair => new InterestPeerIslandStat(pair.Key.Value, pair.Value))
+                .ToList();
+        }
+
         public bool MayServe(ENetPeerHandle peer, long entityId)
         {
             WorldEntity? entity = _registry.ByEntityId(entityId);

@@ -358,12 +358,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// changes, so a login server reading an older game server's file can
         /// tell rather than mis-parse. Independent of the database schema
         /// version.
+        ///
+        /// v10 adds the interest section. v9 is deliberately SKIPPED here: it
+        /// was claimed by the concurrent ecology work, and two branches both
+        /// writing "9" with different shapes would be exactly the mis-parse
+        /// this number exists to prevent. The reader keys on field presence,
+        /// not on this value, so either order of merge stays readable.
         /// </summary>
         // v9: the fauna section gained an `ecology` object (capacity, expressed,
         // quiet factor, groups with their (behaviour, epoch) pair, and bloom
-        // parameters). Purely additive; a v8/v7 reader that ignores unknown
-        // fields keeps working, and GameStats parses all three tolerantly.
-        public const int SchemaVersion = 9;
+        // parameters).
+        // v10: adds the `interest` section (radii, budgets, gates and per-peer
+        // holdings). Both landed on concurrent branches; v9 and v10 mean what
+        // they say and the reader is presence-keyed, so a v7/v8/v9 file still
+        // parses - GameStats projects any missing section to an explicit ABSENT
+        // rather than a default, so "never said" is distinguishable from "false".
+        public const int SchemaVersion = 10;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -418,6 +428,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public ShipMapRuntimeStat ShipModel { get; }
 
+        /// <summary>
+        /// The interest picture: radii, budgets, gates and per-peer holdings
+        /// (schema v10+). <see cref="InterestRuntimeStat.Present"/> false means
+        /// the game server predates it, which a reader renders as "not
+        /// reported" rather than as any number.
+        /// </summary>
+        public InterestRuntimeStat Interest { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -448,9 +466,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             int firstRegionTerrainCount = 0,
             TerrainRuntimeStat? terrain = null,
             FaunaRuntimeStat? fauna = null,
-            ShipMapRuntimeStat shipModel = default)
+            ShipMapRuntimeStat shipModel = default,
+            InterestRuntimeStat interest = default)
         {
             ShipModel = shipModel;
+            Interest = interest;
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
             UptimeSeconds = uptimeSeconds;
@@ -561,9 +581,89 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendFauna(b, Fauna);
             b.Append(',');
             AppendShipModel(b, ShipModel);
+            b.Append(',');
+            AppendInterest(b, Interest);
 
             b.Append('}');
             return b.ToString();
+        }
+
+        /// <summary>
+        /// The interest section: the streaming radii, budgets and gates this
+        /// boot decides with, and what each peer currently holds. Written
+        /// unconditionally with an explicit <c>present</c>, for the reason every
+        /// other section here is: absence must read as "an older game server",
+        /// never as "nothing is streamed".
+        /// </summary>
+        private static void AppendInterest(StringBuilder b, InterestRuntimeStat s)
+        {
+            Key(b, "interest");
+            b.Append('{');
+            Bool(b, "present", s.Present); b.Append(',');
+
+            Key(b, "resources");
+            b.Append('{');
+            Bool(b, "enabled", s.ResourcesEnabled); b.Append(',');
+            Num(b, "loadRadiusMetres", s.ResourceLoadRadiusMetres); b.Append(',');
+            Num(b, "unloadRadiusMetres", s.ResourceUnloadRadiusMetres); b.Append(',');
+            Num(b, "perPeerBudget", s.ResourcePerPeerBudget); b.Append(',');
+            Num(b, "connectRadiusMetres", s.ResourceConnectRadiusMetres);
+            b.Append('}'); b.Append(',');
+
+            Key(b, "fauna");
+            b.Append('{');
+            Bool(b, "enabled", s.FaunaEnabled); b.Append(',');
+            Num(b, "loadRadiusMetres", s.FaunaLoadRadiusMetres); b.Append(',');
+            Num(b, "unloadRadiusMetres", s.FaunaUnloadRadiusMetres);
+            b.Append('}'); b.Append(',');
+
+            Key(b, "ship");
+            b.Append('{');
+            Num(b, "loadRadiusMetres", s.ShipLoadRadiusMetres); b.Append(',');
+            Num(b, "unloadRadiusMetres", s.ShipUnloadRadiusMetres); b.Append(',');
+            // The ship step of the connect plan IS the load radius; a second
+            // name would be a second value to let drift.
+            Num(b, "connectRadiusMetres", s.ShipLoadRadiusMetres);
+            b.Append('}'); b.Append(',');
+
+            Num(b, "terrainConnectRadiusMetres", s.TerrainConnectRadiusMetres); b.Append(',');
+
+            Key(b, "gates");
+            b.Append('{');
+            Bool(b, "loadBarrier", s.LoadBarrier); b.Append(',');
+            Num(b, "spawnPaceMs", s.SpawnPaceMs);
+            b.Append('}'); b.Append(',');
+
+            Key(b, "peers"); b.Append('[');
+            for (int i = 0; i < s.Peers.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                InterestPeerStat peer = s.Peers[i];
+                b.Append('{');
+                Num(b, "playerEntityId", peer.PlayerEntityId); b.Append(',');
+                Num(b, "resourceCheckedOut", peer.ResourceCheckedOut); b.Append(',');
+                Num(b, "faunaCheckedOut", peer.FaunaCheckedOut); b.Append(',');
+                Key(b, "resourceIslands"); b.Append('[');
+                for (int j = 0; j < peer.ResourceIslands.Count; j++)
+                {
+                    if (j > 0) b.Append(',');
+                    b.Append('{');
+                    Str(b, "islandId", peer.ResourceIslands[j].IslandId); b.Append(',');
+                    Num(b, "checkedOut", peer.ResourceIslands[j].CheckedOut);
+                    b.Append('}');
+                }
+                b.Append(']'); b.Append(',');
+                Key(b, "shipDomainIds"); b.Append('[');
+                for (int j = 0; j < peer.ShipDomainIds.Count; j++)
+                {
+                    if (j > 0) b.Append(',');
+                    AppendJsonString(b, peer.ShipDomainIds[j]);
+                }
+                b.Append(']');
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
         }
 
         /// <summary>

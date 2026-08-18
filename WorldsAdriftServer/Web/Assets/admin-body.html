@@ -6,7 +6,7 @@
   </div>
   <form method="post" action="/admin/logout"><input type="hidden" name="csrf" value="{{csrfTokenAttr}}"><button class="btn ghost" type="submit">Sign out</button></form>
 </div>
-<nav class="nav" aria-label="Control panel sections"><a href="#world">World</a><a href="#simulation">Simulation</a><a href="#terrain">Terrain checkout</a><a href="#operations">Operations</a><a href="#system">System</a></nav>
+<nav class="nav" aria-label="Control panel sections"><a href="#world">World</a><a href="#simulation">Simulation</a><a href="#streaming">Streaming</a><a href="#terrain">Terrain checkout</a><a href="#operator">Operator</a><a href="#operations">Operations</a><a href="#system">System</a></nav>
 
 <div class="banner" id="spiralBanner"><strong>Wire-health warning</strong><span id="spiralText"></span></div>
 <div class="banner" id="downBanner"><strong>Game server not reporting</strong><span id="downText"></span></div>
@@ -63,6 +63,42 @@
     <aside class="domain-detail" aria-live="polite"><div class="detail-empty" id="domainDetailEmpty">Select a domain from the topology or inventory to inspect authority, affinity, replication and membership.</div><div class="detail-content" id="domainDetail"><div class="detail-head"><div class="detail-head-top"><div><h3 id="detailTitle">Domain</h3><div class="island-id" id="detailId"></div></div><span class="pill" id="detailStatus"></span></div></div><div class="detail-grid" id="detailGrid"></div><div class="detail-note" id="detailNote"></div></div></aside>
   </div>
   <p class="muted" id="noDomains" style="display:none;font-size:.78rem">No runtime topology is available. An older game server may still be writing schema-v2 ship telemetry.</p>
+</div>
+
+<div class="section-head" id="streaming">Interest &amp; streaming</div>
+<div class="card">
+  <div class="row"><div class="grow"><h2>How this boot streams the world <span class="provenance-tag live">live simulation state</span></h2></div><div class="fit"><span class="pill warn" id="intPresence">waiting&hellip;</span></div></div>
+  <p class="lede" style="margin-top:0">Nothing is streamed to everyone. Each peer is streamed the world by distance: terrain, resources and wildlife load when the peer nears an island&rsquo;s envelope and unload when they leave, inside per-peer budgets. This card shows the radii, budgets and gates this boot is actually running with, which islands can receive terrain at all, and exactly what a selected peer holds right now.</p>
+  <div class="banner" id="candidacyBanner"><strong>Terrain candidacy failure</strong><span id="candidacyBannerText"></span></div>
+  <div class="terrain-strip">
+    <div class="terrain-metric"><div class="n" id="intLoadBarrier">&mdash;</div><div class="l">Load barrier</div></div>
+    <div class="terrain-metric"><div class="n" id="intSpawnPace">&mdash;</div><div class="l">Spawn pacing</div></div>
+    <div class="terrain-metric"><div class="n" id="intTerrainMode">&mdash;</div><div class="l">Terrain checkout</div></div>
+    <div class="terrain-metric"><div class="n" id="intCandidates">&mdash;</div><div class="l">Terrain candidates</div></div>
+    <div class="terrain-metric"><div class="n" id="intResourceBudget">&mdash;</div><div class="l">Resource budget</div></div>
+    <div class="terrain-metric"><div class="n" id="intFaunaCap">&mdash;</div><div class="l">Wildlife cap</div></div>
+    <div class="terrain-metric"><div class="n" id="intConnectSteps">&mdash;</div><div class="l">Connect steps (res / ship / terrain)</div></div>
+    <div class="terrain-metric"><div class="n" id="intTrackedPeers">&mdash;</div><div class="l">Tracked peers</div></div>
+  </div>
+  <div class="interest-table-wrap">
+    <table class="interest-table"><thead><tr><th>Interest system</th><th>Keyed by</th><th class="num">Load</th><th class="num">Unload</th><th class="num">At connect</th><th class="num">Per-peer budget</th><th>State</th></tr></thead><tbody id="interestSystems"></tbody></table>
+  </div>
+  <div class="terrain-panel" style="margin-top:1rem">
+    <div class="terrain-panel-head"><strong>Terrain candidacy this boot</strong><label class="map-toggle" style="font-size:.62rem"><input type="checkbox" id="candidacyMapToggle" checked>mark on the map</label></div>
+    <p class="muted" style="margin:0;padding:.6rem .9rem;font-size:.72rem;line-height:1.6" id="candidacySummary">Waiting for the live terrain roster&hellip;</p>
+    <div class="candidacy-chips" id="candidacyChips" style="padding:.2rem .9rem .8rem"></div>
+  </div>
+  <div class="peer-inspector">
+    <div>
+      <div class="field">
+        <label for="peerInspect">Inspect a peer</label>
+        <select id="peerInspect"><option value="">No connected peer</option></select>
+      </div>
+      <label class="map-toggle" style="font-size:.68rem"><input type="checkbox" id="peerRingsToggle" checked>draw this peer&rsquo;s interest rings on the map, at true scale</label>
+      <p class="muted" style="font-size:.68rem;margin-top:.6rem">Rings are drawn in world metres around the peer&rsquo;s authoritative position on the map above: solid is the load radius, dashed the unload radius. Radii that this game server does not report are not drawn.</p>
+    </div>
+    <div class="peer-holdings" id="peerHoldings" aria-live="polite"><p class="muted">Select a connected peer to see exactly what this boot has streamed to them.</p></div>
+  </div>
 </div>
 
 <div class="section-head" id="terrain">Terrain checkout</div>
@@ -122,6 +158,96 @@
       <li>Record what you saw. Nothing on this page is evidence that the visuals were correct.</li>
     </ol>
     <p class="note" id="acceptanceNote">Both steps dispatch the same allowlisted, CSRF-bound travel commands as the Operations panel.</p>
+  </div>
+</div>
+
+<div class="section-head" id="operator">Operator commands</div>
+<div class="card">
+  <div class="row">
+    <div class="grow"><h2>Send anyone anywhere <span class="provenance-tag live">acts on the live world</span></h2></div>
+    <div class="fit"><span class="pill warn" id="opFreshness">no roster yet</span> <button class="btn ghost" type="button" id="opRefreshTargets">Refresh roster</button></div>
+  </div>
+  <p class="lede" style="margin-top:0">Teleport any player to any surveyed island, exact coordinates, another player, their home or spawn &mdash; or summon a ship for them. Targets and destinations are the exact selector strings the game reported, so this panel cannot invent an invalid one. Every command is reviewed before it is sent, and every answer &mdash; acceptance, warnings, refusal &mdash; is shown verbatim.</p>
+  <div class="banner" id="opUnavailable"><strong>Operator roster unavailable</strong><span id="opUnavailableText"></span></div>
+  <div class="banner" id="opBridge"><strong>Command bridge busy</strong><span>The game server has not yet consumed the previous command. Commands are one at a time by design; wait a moment and try again.</span></div>
+
+  <div style="overflow-x:auto;margin-top:.4rem">
+  <table id="opRosterTable">
+    <thead><tr><th>Character</th><th>Command identity</th><th class="num">Entity</th><th>Peer</th><th class="num">Position (m)</th><th></th></tr></thead>
+    <tbody id="opRoster"></tbody>
+  </table>
+  </div>
+  <p class="muted" id="noOpPlayers" style="display:none;font-size:.85rem">Nobody is connected, so there is nobody to act on. Islands can still be browsed below.</p>
+
+  <div class="op-builder">
+    <div class="op-form">
+      <div class="field">
+        <label for="opTarget">Target player</label>
+        <select id="opTarget"><option value="">No connected player</option></select>
+      </div>
+      <div class="field">
+        <label for="opTargetCustom">Advanced selector (overrides the pick above)</label>
+        <input id="opTargetCustom" autocomplete="off" spellcheck="false" placeholder="name:Bligh &middot; uid:&lt;guid&gt; &middot; entity:&lt;id&gt; &middot; peer:0x&lt;hex&gt;">
+        <p class="muted" id="opTargetCustomNote" style="display:none;font-size:.68rem;margin:.3rem 0 0">Free text: the server validates it and refuses with a reason if it is wrong or ambiguous. Clear this box to use the roster pick again.</p>
+      </div>
+      <div class="field">
+        <label>Action</label>
+        <div class="segmented" role="group" aria-label="Operator action"><button type="button" class="active" data-op-action="teleport">Teleport</button><button type="button" data-op-action="summon-ship">Summon ship</button></div>
+      </div>
+      <div id="opDestBlock">
+        <div class="field">
+          <label>Destination</label>
+          <div class="segmented" role="group" aria-label="Destination kind"><button type="button" class="active" data-op-dest="island">Island</button><button type="button" data-op-dest="coord">Coordinates</button><button type="button" data-op-dest="player">Player</button><button type="button" data-op-dest="home">Home</button><button type="button" data-op-dest="spawn">Spawn</button></div>
+        </div>
+        <div id="opDestIsland">
+          <div class="field">
+            <label for="opIslandSearch">Search the surveyed world <span class="muted" id="opIslandCount" style="font-weight:400"></span></label>
+            <input id="opIslandSearch" type="search" autocomplete="off" placeholder="Island name, id, zone or tier&hellip;">
+          </div>
+          <div class="field">
+            <label for="opIsland">Destination island</label>
+            <select id="opIsland"><option value="">Select an island</option></select>
+          </div>
+        </div>
+        <div id="opDestCoord" style="display:none">
+          <div class="field"><label>World coordinates (metres)</label>
+            <div class="op-coords"><input id="opX" inputmode="decimal" placeholder="x"><input id="opY" inputmode="decimal" placeholder="y"><input id="opZ" inputmode="decimal" placeholder="z"></div>
+            <p class="muted" style="font-size:.68rem;margin:.3rem 0 0">No ground is promised at raw coordinates; the target may fall.</p>
+          </div>
+        </div>
+        <div id="opDestPlayerWrap" style="display:none">
+          <div class="field">
+            <label for="opDestPlayer">Send the target to this player</label>
+            <select id="opDestPlayer"><option value="">No connected player</option></select>
+            <p class="muted" style="font-size:.68rem;margin:.3rem 0 0">Resolved on the game server against the live roster at dispatch, not against this page.</p>
+          </div>
+        </div>
+        <p class="muted" id="opDestFixed" style="display:none;font-size:.74rem"><span id="opDestFixedText"></span></p>
+      </div>
+      <div id="opHullBlock" style="display:none">
+        <div class="field">
+          <label>Which ship</label>
+          <div class="segmented" role="group" aria-label="Hull choice"><button type="button" class="active" data-op-hull="owned">Their own ship</button><button type="button" data-op-hull="exact">Exact hull</button></div>
+        </div>
+        <div id="opHullExactWrap" style="display:none">
+          <div class="field">
+            <label for="opHull">Exact hull</label>
+            <select id="opHull"><option value="">No registered ship</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="button-row"><button type="button" id="opReview">Review command&hellip;</button></div>
+    </div>
+    <div class="op-side">
+      <div class="op-confirm" id="opConfirm">
+        <h3>Confirm before it is sent</h3>
+        <p id="opConfirmSentence"></p>
+        <pre class="op-echo" id="opConfirmPayload"></pre>
+        <div class="button-row"><button type="button" class="danger-button" id="opSend">Confirm &middot; send now</button><button type="button" class="btn ghost" id="opCancel">Cancel</button></div>
+      </div>
+      <div class="op-outcome" id="opOutcome" role="status" aria-live="polite"></div>
+      <p class="muted" style="font-size:.68rem">Acceptance records dispatch, not gameplay completion &mdash; the receipt under Operations shows what the world actually did. Commands are one at a time; a busy bridge refuses rather than queueing silently.</p>
+    </div>
   </div>
 </div>
 
