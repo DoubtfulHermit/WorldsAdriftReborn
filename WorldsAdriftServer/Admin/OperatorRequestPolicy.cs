@@ -59,8 +59,11 @@ namespace WorldsAdriftServer.Admin
         internal static OperatorRequestOutcome BuildTeleport(
             string? target, string? destination, NameLookup? lookup)
         {
-            OperatorRequestOutcome resolved = ResolveTarget(target, lookup);
-            if (!resolved.Ok) return resolved;
+            if (!TryResolveTarget(target, lookup, out OperatorTarget who,
+                    out OperatorRequestOutcome refusal))
+            {
+                return refusal;
+            }
 
             if (!OperatorDestinationPolicy.TryParse(
                     destination, out OperatorDestinationSpec spec, out string error))
@@ -86,15 +89,17 @@ namespace WorldsAdriftServer.Admin
                     "The destination player could not be read: " + playerError);
             }
 
-            return OperatorRequestOutcome.Accept(
-                OperatorCommand.Teleport(TargetOf(resolved), spec));
+            return OperatorRequestOutcome.Accept(OperatorCommand.Teleport(who, spec));
         }
 
         internal static OperatorRequestOutcome BuildSummonShip(
             string? target, string? hull, NameLookup? lookup)
         {
-            OperatorRequestOutcome resolved = ResolveTarget(target, lookup);
-            if (!resolved.Ok) return resolved;
+            if (!TryResolveTarget(target, lookup, out OperatorTarget who,
+                    out OperatorRequestOutcome refusal))
+            {
+                return refusal;
+            }
 
             // An absent hull means "the ship they own". It is the default because
             // it is the request the operator actually has ("summon a ship for
@@ -108,56 +113,61 @@ namespace WorldsAdriftServer.Admin
                 return OperatorRequestOutcome.Refuse(OperatorErrorCodes.BadTarget, error);
             }
 
-            return OperatorRequestOutcome.Accept(
-                OperatorCommand.SummonShip(TargetOf(resolved), parsed));
+            return OperatorRequestOutcome.Accept(OperatorCommand.SummonShip(who, parsed));
         }
 
         /// <summary>
         /// Parses the target selector and, when it is a name, turns it into a uid.
-        /// The successful outcome carries the resolved target on a placeholder
-        /// teleport command; <see cref="TargetOf"/> reads it back.
+        /// Returns false with the refusal already built.
         /// </summary>
-        private static OperatorRequestOutcome ResolveTarget(string? target, NameLookup? lookup)
+        private static bool TryResolveTarget(
+            string? target,
+            NameLookup? lookup,
+            out OperatorTarget resolved,
+            out OperatorRequestOutcome refusal)
         {
+            resolved = default;
+            refusal = default;
+
             if (!OperatorTargetPolicy.TryParse(target, out OperatorTarget parsed, out string error))
             {
-                return OperatorRequestOutcome.Refuse(OperatorErrorCodes.BadTarget, error);
+                refusal = OperatorRequestOutcome.Refuse(OperatorErrorCodes.BadTarget, error);
+                return false;
             }
 
             if (parsed.Kind != OperatorTargetKind.CharacterName)
             {
-                return OperatorRequestOutcome.Accept(
-                    OperatorCommand.Teleport(parsed, OperatorDestinationSpec.SpawnSpec));
+                resolved = parsed;
+                return true;
             }
 
             if (lookup == null)
             {
-                return OperatorRequestOutcome.Refuse(
+                refusal = OperatorRequestOutcome.Refuse(
                     OperatorErrorCodes.GameUnavailable,
                     "The character store is not reachable, so a name cannot be looked up. "
                     + "Use uid:<guid> or entity:<id>.");
+                return false;
             }
 
             string? uid = lookup(parsed.Value);
             if (string.IsNullOrWhiteSpace(uid))
             {
-                return OperatorRequestOutcome.Refuse(
+                refusal = OperatorRequestOutcome.Refuse(
                     OperatorErrorCodes.TargetNotFound,
                     "No character is named '" + parsed.Value + "'.");
+                return false;
             }
 
-            if (!OperatorTargetPolicy.TryParse("uid:" + uid, out OperatorTarget byUid, out error))
+            if (!OperatorTargetPolicy.TryParse("uid:" + uid, out resolved, out error))
             {
-                return OperatorRequestOutcome.Refuse(
+                refusal = OperatorRequestOutcome.Refuse(
                     OperatorErrorCodes.BadTarget,
                     "The character store returned an unusable uid for '" + parsed.Value + "': " + error);
+                return false;
             }
 
-            return OperatorRequestOutcome.Accept(
-                OperatorCommand.Teleport(byUid, OperatorDestinationSpec.SpawnSpec));
+            return true;
         }
-
-        private static OperatorTarget TargetOf(OperatorRequestOutcome outcome) =>
-            outcome.Command.Target;
     }
 }
