@@ -105,6 +105,10 @@
              Link="Patching\Multiplayer\Islands\IslandBundleLoadPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Ship\Flight\HelmYawResponsePolicy.cs"
              Link="Patching\Flight\HelmYawResponsePolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Config\RestUrlPolicy.cs"
+             Link="Config\RestUrlPolicy.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Config\ConfigMigrationLedger.cs"
+             Link="Config\ConfigMigrationLedger.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->

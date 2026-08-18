@@ -74,4 +74,52 @@ public sealed class WarebornConnectionConfigTests
         Assert.DoesNotContain("127.0.0.1", result);
         Assert.False(WarebornConnectionConfig.NeedsUpdateText(result));
     }
+
+    [Fact]
+    public void The_alliances_url_is_left_entirely_to_the_mod()
+    {
+        // The patcher must not force REST_AlliancesUrl. The mod's default is blank,
+        // meaning "same origin as REST_ServerUrl", resolved at read time; forcing a
+        // literal here would restore the hardcoded duplicate that broke the Social
+        // Sheet for every player, and would clobber a deliberate operator split on
+        // every patch run.
+        string fresh = WarebornConnectionConfig.Merge(string.Empty);
+        Assert.DoesNotContain("REST_AlliancesUrl", fresh);
+    }
+
+    [Fact]
+    public void An_operators_explicit_alliances_host_survives_a_patch_run()
+    {
+        const string original = """
+            [REST]
+            REST_ServerUrl = http://127.0.0.1:8080
+            REST_ServerDeploymentUrl = http://127.0.0.1:8080/deploymentStatus
+            REST_AlliancesUrl = http://social.example.test:9100
+            """;
+
+        string result = WarebornConnectionConfig.Merge(original);
+
+        Assert.Contains("REST_AlliancesUrl = http://social.example.test:9100", result);
+        Assert.Contains("REST_ServerUrl = http://62.171.161.19:8085", result);
+    }
+
+    [Fact]
+    public void A_blank_alliances_url_is_not_filled_in()
+    {
+        // Blank is the correct, self-healing state: it follows REST_ServerUrl.
+        const string original = """
+            [GameServer]
+            GameServer_Host = 62.171.161.19
+            GameServer_Port = 7779
+
+            [REST]
+            REST_ServerUrl = http://62.171.161.19:8085
+            REST_ServerDeploymentUrl = http://62.171.161.19:8085/deploymentStatus
+            REST_AlliancesUrl =
+            """;
+
+        // A blank alliances key is not a reason to rewrite the file.
+        Assert.False(WarebornConnectionConfig.NeedsUpdateText(original));
+        Assert.Contains("REST_AlliancesUrl =", WarebornConnectionConfig.Merge(original));
+    }
 }

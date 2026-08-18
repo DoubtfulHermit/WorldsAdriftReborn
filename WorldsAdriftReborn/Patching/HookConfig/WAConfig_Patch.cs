@@ -58,7 +58,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
                 }
                 else if (key == "BossaNet.DeploymentStatusUrl")
                 {
-                    __result = ModSettings.restServerDeploymentUrl.Value;
+                    __result = ModSettings.DeploymentStatusUrl();
                     return false;
                 }
                 else if (key == "Bootstrap.NtpServer")
@@ -215,7 +215,10 @@ namespace WorldsAdriftReborn.Patching.Dynamic.HookConfig
             string alliancesUrl = AlliancesUrlKey();
             if (alliancesUrl != null && key == alliancesUrl)
             {
-                value = ModSettings.alliancesServerUrl.Value;
+                // Resolved, not raw: the setting's default is BLANK, meaning
+                // "same origin as REST_ServerUrl". Handing the raw value over
+                // would send the Social Sheet at "" on a default install.
+                value = ModSettings.AlliancesUrl();
                 return true;
             }
 

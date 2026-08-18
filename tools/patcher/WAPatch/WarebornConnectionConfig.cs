@@ -11,12 +11,25 @@ internal static class WarebornConnectionConfig
 {
     internal const string RelativePath = "BepInEx/config/WorldsAdriftReborn.cfg";
 
+    /// <summary>The public server. Written once so the URLs below cannot drift apart.</summary>
+    private const string PublicHost = "62.171.161.19";
+    private const string PublicRestOrigin = "http://" + PublicHost + ":8085";
+
     private static readonly (string Section, string Key, string Value)[] Values =
     {
-        ("GameServer", "GameServer_Host", "62.171.161.19"),
+        ("GameServer", "GameServer_Host", PublicHost),
         ("GameServer", "GameServer_Port", "7779"),
-        ("REST", "REST_ServerUrl", "http://62.171.161.19:8085"),
-        ("REST", "REST_ServerDeploymentUrl", "http://62.171.161.19:8085/deploymentStatus"),
+        ("REST", "REST_ServerUrl", PublicRestOrigin),
+        ("REST", "REST_ServerDeploymentUrl", PublicRestOrigin + "/deploymentStatus"),
+
+        // REST_AlliancesUrl is deliberately NOT forced here, and adding it would
+        // be a regression. Its default is now blank, meaning "same origin as
+        // REST_ServerUrl", and the mod resolves it at read time (RestUrlPolicy);
+        // an install that already took the old localhost default is repaired by
+        // the mod's own one-time migration on next launch. Forcing a literal here
+        // would re-hardcode the very duplicate that broke the Social Sheet, and
+        // would clobber, on every patch run, the explicit value an operator sets
+        // when they genuinely split the social API onto another host.
     };
 
     internal sealed record Result(bool Changed, string Path, string? BackupPath);

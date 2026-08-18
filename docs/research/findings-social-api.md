@@ -272,6 +272,78 @@ no-self-invite CHECK, and a partial unique index on
 `(character_uid, target_id) WHERE status='new'` so a race cannot produce two live
 invites while a rejection still permits a later one.
 
+## The default that broke every install
+
+Shipping the API was not enough: the first build that carried it broke the Social
+Sheet for **every** player, and the cause was one line of config.
+
+`REST_AlliancesUrl` was introduced as its own key — correctly, because retail
+really did split `ConfigKeys.AlliancesUrl` from `ConfigKeys.RestServerUrl`, and an
+operator who splits them should not have to patch code. Its comment said the
+default was "the same origin because ours does not split them". The default was
+in fact the literal `http://127.0.0.1:8080`, a copy of the *development* REST
+default, not a reference to REST_ServerUrl. A copy cannot track what it copies.
+
+That is only a latent bug on a fresh install, but this was a **new key**, and
+BepInEx materialises a new key into every **existing** config file using the
+shipped default. So every player who had long since pointed `REST_ServerUrl` at
+production silently got a localhost social host written into their config on
+update. Both tabs fetch through it, the failure lands in the shared
+`SocialCharacterSheet.TriggerAllianceExceptionHandler`, and the whole sheet dies
+with *"An error occurred — Can't retrieve alliance or crew data"* — including the
+CREW tab, which renders and offers CREATE but never loads.
+
+The symptom is indistinguishable from a broken server. The tell that it is not:
+the production login server's journal shows **zero** social traffic. The requests
+never left the player's machine.
+
+### The rule now
+
+"Same origin" is expressed as a **sentinel, not a copy**:
+
+| `REST_AlliancesUrl` | meaning |
+| --- | --- |
+| blank (**the shipped default**) | same origin as `REST_ServerUrl`, re-resolved every read, so it follows if that moves |
+| anything else | an explicit operator override, used verbatim — the retail split, still available |
+
+Resolution lives in `RestUrlPolicy` (engine-free, in the multiplayer project,
+linked into the net35 mod and unit tested), which also enforces the
+no-trailing-slash rule on the *resolved* value rather than trusting the operator
+to — the client joins with `"/" + endpoint` (`SocialRequest.cs:69`).
+
+`REST_ServerDeploymentUrl` had the same shape (a hardcoded localhost copy of the
+REST origin with a path glued on) and got the same treatment. It never hurt
+anyone only because it is an **old** key that installs already had set. That is
+the whole lesson: a derived URL with a literal default is a landmine that goes
+off the day it becomes a new key.
+
+### Healing the installs that already took it
+
+Fixing the default does nothing for a config that already has the bad value —
+BepInEx never rewrites an existing key. A one-time migration
+(`alliances-url-follows-rest`, recorded in `Internal_AppliedMigrations`) resets it
+to blank, but only when all three hold:
+
+1. the stored value is the shipped legacy literal **exactly**, not merely some
+   loopback URL — a developer running a local social server points at the port it
+   actually listens on, not the stale `8080` in that literal;
+2. `REST_ServerUrl` is a real **remote** host — a local dev has REST on loopback
+   too and is left completely alone. "Production REST + loopback social" is not a
+   deployment anyone runs, because one server answers both;
+3. it has never run before, so a developer who deliberately re-enters that exact
+   literal afterwards keeps it.
+
+A deliberate `http://127.0.0.1:8080` is byte-identical to the accident, so these
+cannot be told apart with certainty. The conservative option was taken and the
+residual risk is stated rather than hidden: a developer whose first launch after
+the fix has production REST plus a hand-typed `http://127.0.0.1:8080` loses that
+one setting, once, with a warning logged.
+
+The patcher deliberately does **not** force `REST_AlliancesUrl`
+(`WarebornConnectionConfig`). Forcing a literal there would re-create the same
+hardcoded duplicate one layer down, and would clobber an operator's split on every
+patch run. A test asserts the key stays absent.
+
 ## Known gap
 
 **HTTP-driven crew changes do not reach the game server's in-memory ledger

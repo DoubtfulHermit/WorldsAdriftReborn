@@ -1,6 +1,7 @@
 using BepInEx;
 using BepInEx.Configuration;
 using System.Runtime.InteropServices;
+using WorldsAdriftRebornGameServer.Multiplayer.Config;
 
 namespace WorldsAdriftReborn.Config
 {
@@ -23,6 +24,62 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> gameServerPort { get; set; }
         public static ConfigEntry<int> perfSpikeThresholdMs { get; set; }
         public static ConfigEntry<string> stationPickupKey { get; set; }
+        public static ConfigEntry<string> appliedConfigMigrations { get; set; }
+
+        /// <summary>The social/alliances host to call, with the blank-means-REST default applied.</summary>
+        public static string AlliancesUrl()
+        {
+            return RestUrlPolicy.ResolveAlliancesUrl(alliancesServerUrl.Value, restServerUrl.Value);
+        }
+
+        /// <summary>The deploymentStatus endpoint, with the blank-means-REST default applied.</summary>
+        public static string DeploymentStatusUrl()
+        {
+            return RestUrlPolicy.ResolveDeploymentUrl(restServerDeploymentUrl.Value, restServerUrl.Value);
+        }
+
+        /// <summary>
+        /// Repairs a config that already took the broken localhost alliances
+        /// default, once.
+        ///
+        /// Fixing the shipped default is not enough on its own: BepInEx never
+        /// rewrites a key that is already present, so every install that was
+        /// updated while the bad default was live keeps the dead
+        /// http://127.0.0.1:8080 forever. The decision of whether a stored value
+        /// is the accident or a deliberate choice lives in RestUrlPolicy, which
+        /// is conservative about it; this is only the glue that applies it and
+        /// records that it ran.
+        /// </summary>
+        private static void HealLocalhostAlliancesUrl()
+        {
+            bool alreadyApplied = ConfigMigrationLedger.Contains(
+                appliedConfigMigrations.Value, RestUrlPolicy.AlliancesHealMigrationId);
+
+            if (!RestUrlPolicy.ShouldHealAlliancesUrl(
+                    alliancesServerUrl.Value, restServerUrl.Value, alreadyApplied))
+            {
+                return;
+            }
+
+            string was = alliancesServerUrl.Value;
+            alliancesServerUrl.Value = RestUrlPolicy.FollowRestServerUrl;
+            appliedConfigMigrations.Value = ConfigMigrationLedger.Add(
+                appliedConfigMigrations.Value, RestUrlPolicy.AlliancesHealMigrationId);
+
+            // Explicit, though SaveOnConfigSet is on by default: if the ledger
+            // entry did not reach disk the repair would run again next launch and
+            // stop being one-time, which is the whole guard against clobbering a
+            // deliberate setting. WAConfig_Patch also Reload()s this file every
+            // 5 s, so an unsaved in-memory value would simply be read back over.
+            modConfig.Save();
+
+            UnityEngine.Debug.LogWarning(
+                "[WAReborn] REST_AlliancesUrl was the old localhost default (" + was
+                + ") while REST_ServerUrl points at " + restServerUrl.Value
+                + ". The Social Sheet cannot reach that, so it has been reset to follow"
+                + " REST_ServerUrl. Set it explicitly if you meant to split the two hosts;"
+                + " this repair runs only once.");
+        }
 
         public static void InitConfig()
         {
@@ -45,10 +102,12 @@ namespace WorldsAdriftReborn.Config
                                                     "REST_ServerUrl",
                                                     "http://127.0.0.1:8080",
                                                     "Sets the URL for the REST server that the game queries once the main menu is reached.");
+            // Blank means REST_ServerUrl + /deploymentStatus. See the alliances
+            // key below for why a derived URL must not ship as a hardcoded literal.
             restServerDeploymentUrl = modConfig.Bind<string>("REST",
                                                     "REST_ServerDeploymentUrl",
-                                                    "http://127.0.0.1:8080/deploymentStatus",
-                                                    "Sets the URL for the REST server that the game queries once the main menu is reached. It is the endpoint where server status informations are retrieved from.");
+                                                    RestUrlPolicy.FollowRestServerUrl,
+                                                    "Sets the URL for the REST server that the game queries once the main menu is reached. It is the endpoint where server status informations are retrieved from. Leave blank to use REST_ServerUrl with /deploymentStatus appended.");
 
             // The dead Bossa alliances host, redirected at our login server.
             //
@@ -56,15 +115,33 @@ namespace WorldsAdriftReborn.Config
             // really did run these as two services - ConfigKeys.AlliancesUrl and
             // ConfigKeys.RestServerUrl are separate keys pointing at separate
             // hosts - and an operator who splits them should not have to patch
-            // code. The default is the same origin because ours does not split
-            // them: WorldsAdriftServer serves both.
+            // code. Ours does not split them: WorldsAdriftServer serves both.
+            //
+            // "Same origin" is therefore the BLANK default, not a copy of the
+            // REST default. It used to be the literal "http://127.0.0.1:8080",
+            // and that broke every player: this is a NEW key, BepInEx writes a
+            // new key into every EXISTING config using the shipped default, so
+            // players who had long since pointed REST_ServerUrl at production
+            // silently got a localhost alliances host. Both Social Sheet tabs
+            // fetch through it, and the failure lands in the shared
+            // SocialCharacterSheet.TriggerAllianceExceptionHandler, so the whole
+            // sheet died with "Can't retrieve alliance or crew data". A blank
+            // default cannot drift from REST_ServerUrl the way a copy did.
             //
             // No trailing slash: the client joins this with "/" + endpoint
             // (SocialRequest.cs:69), so a trailing slash produces a double one.
+            // RestUrlPolicy strips one rather than trusting the operator to.
             alliancesServerUrl = modConfig.Bind<string>("REST",
                                                     "REST_AlliancesUrl",
-                                                    "http://127.0.0.1:8080",
-                                                    "Sets the URL for the social/alliances server - the host that answers the Social Sheet's alliance and CREW requests. Ours is the same server as REST_ServerUrl. No trailing slash.");
+                                                    RestUrlPolicy.FollowRestServerUrl,
+                                                    "Sets the URL for the social/alliances server - the host that answers the Social Sheet's alliance and CREW requests. Leave blank (the default) to use the same host as REST_ServerUrl, which is what our server does. Set it only to point the social API at a DIFFERENT host. No trailing slash.");
+
+            appliedConfigMigrations = modConfig.Bind<string>("Internal",
+                                                    "Internal_AppliedMigrations",
+                                                    "",
+                                                    "Bookkeeping: one-time config repairs that have already been applied, comma separated. Do not edit unless you want one to run again.");
+
+            HealLocalhostAlliancesUrl();
 
             NTPServerUrl = modConfig.Bind<string>("NTP",
                                                     "NTP_ServerUrl",
