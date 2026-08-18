@@ -174,6 +174,25 @@ namespace WorldsAdriftServer.Social
             JArray items = new JArray();
             foreach (SocialInviteRecord invite in invites.ForCharacter(uid))
             {
+                // LIVE offers only. This used to emit resolved rows too, on the
+                // reasoning - true for crews - that the client filters on
+                // status == "new" itself (CrewClient.GetInvite). The ALLIANCE
+                // readers of this same endpoint do not:
+                //
+                //   - GetPlayerFromAllianceInvitations filters by request type and
+                //     target type and NOT by status, so an alliance invite the
+                //     player declined would sit in their invitations list for
+                //     ever, offering a JOIN that answers invite_not_found;
+                //   - PlayerHasMembershipChangeRequestWithAlliance, which decides
+                //     whether the APPLY button is offered at all, matches on
+                //     target id alone - so one rejected application would
+                //     permanently bar that player from ever applying again.
+                //
+                // Filtering here is correct for every reader: the crew ones filter
+                // again and see no difference, and the alliance ones stop acting
+                // on history as though it were pending.
+                if (invite.Status != SocialInviteStatus.New) continue;
+
                 items.Add(Wire(invite));
             }
 

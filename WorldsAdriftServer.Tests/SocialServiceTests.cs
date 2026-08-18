@@ -427,11 +427,52 @@ namespace WorldsAdriftServer.Tests
 
             world.Delete("/crew/" + Region + "/" + crewId, leader);
 
+            // Gone from the invitee's list entirely, not merely marked cancelled
+            // in it. This used to assert the opposite - one entry with
+            // status "cancelled" - on the reasoning that the client filters on
+            // "new" itself. The CREW reader does; the two ALLIANCE readers of this
+            // same endpoint do not, and one of them decides whether the APPLY
+            // button is offered at all, so a resolved row left in the list bars
+            // that player from ever applying again. See InvitesForCharacter.
             JArray theirs = (JArray)world.Get(
                 "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!;
 
-            Assert.Single(theirs);
-            Assert.Equal("cancelled", theirs[0].Value<string>("status"));
+            Assert.Empty(theirs);
+
+            // Cancelled rather than deleted, though: the row is still there, and
+            // it still records that the offer was made and withdrawn.
+            IReadOnlyList<SocialInviteRecord> stored = world.Db.SocialInvites.ForCharacter(invitee);
+            Assert.Single(stored);
+            Assert.Equal(SocialInviteStatus.Cancelled, stored[0].Status);
+        }
+
+        /// <summary>
+        /// The same rule from the other direction: an invite the player REJECTED
+        /// must leave their list, or the alliance UI keeps offering them a JOIN
+        /// that answers invite_not_found and keeps refusing them a fresh APPLY.
+        /// </summary>
+        [PostgresFact]
+        public void ARejectedInviteLeavesTheInviteesList()
+        {
+            using World world = new World();
+            Guid leader = world.Character("Billy");
+            Guid invitee = world.Character("Bones");
+            string crewId = world.Post("/crews", leader)["data"]!.Value<string>("uid")!;
+
+            string inviteId = world.Post("/memberships/invite", leader, new JObject
+            {
+                ["targetId"] = crewId,
+                ["character"] = U(invitee),
+                ["targetType"] = "crew_member",
+            }.ToString())["data"]!.Value<string>("id")!;
+
+            Assert.Single((JArray)world.Get(
+                "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!);
+
+            world.Put("/memberships/invite/reject/" + inviteId + "/" + U(invitee), invitee);
+
+            Assert.Empty((JArray)world.Get(
+                "/memberships/invites/character/" + U(invitee), invitee)["data"]!["items"]!);
         }
 
         /// <summary>
