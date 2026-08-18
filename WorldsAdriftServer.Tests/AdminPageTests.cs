@@ -36,7 +36,14 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("rows.slice(0,250)", html);
             Assert.DoesNotContain("class=\"domain-grid\"", html);
             Assert.DoesNotContain("Worker A", html);
-            Assert.DoesNotContain("migrate", html, StringComparison.OrdinalIgnoreCase);
+            // The guard's intent is "no AUTHORITY migration claim" - this server
+            // never moves an island between workers. The bare word had to be
+            // narrowed when the fauna gained its (recovered-vocabulary) Migrate
+            // behaviour: a school crossing between feeding grounds is wildlife,
+            // not topology.
+            Assert.DoesNotContain("authority migrat", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("migrates authority", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("worker migrat", html, StringComparison.OrdinalIgnoreCase);
         }
 
         [Fact]
@@ -110,11 +117,15 @@ namespace WorldsAdriftServer.Tests
             Assert.Contains("rows.slice(0,200)", html);
             Assert.Contains("(t.events||[]).slice(0,40)", html);
 
-            // Local authority only - no worker/migration claim.
+            // Local authority only - no worker/migration claim. Narrowed from
+            // the bare word when fauna gained its Migrate behaviour (schools
+            // crossing between feeding grounds - wildlife, not topology).
             Assert.Contains("local:primary", html);
             Assert.Contains("does not move island authority", html);
             Assert.Contains("describes no remote worker", html);
-            Assert.DoesNotContain("migrate", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("authority migrat", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("migrates authority", html, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("worker migrat", html, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("distributed", html, StringComparison.OrdinalIgnoreCase);
         }
 

@@ -540,8 +540,133 @@ namespace WorldsAdriftServer.Admin
                 ["perPeerBudget"] = Clamp((int?)f?["perPeerBudget"] ?? 0, int.MaxValue),
                 ["poseIntervalMs"] = Clamp((int?)f?["poseIntervalMs"] ?? 0, 3_600_000),
                 ["islands"] = islands,
+                ["ecology"] = BuildEcology(f?["ecology"] as JObject),
             };
         }
+
+        /// <summary>
+        /// The v9 ecology block, rebuilt allowlisted and clamped like everything
+        /// else here. A v7/v8 file has no such object and parses to
+        /// enabled:false with empty islands - the same defined-absent shape the
+        /// fauna section itself takes on a v6 file. Every number feeds the map's
+        /// animation loop, so NaN and infinity are floored rather than passed:
+        /// an omega of NaN is a creature that silently stops being drawn.
+        /// </summary>
+        private static JObject BuildEcology(JObject? e)
+        {
+            const int MaxGroupsPerIsland = 16;
+            const int MaxBloomsPerIsland = 8;
+
+            JArray islands = new JArray();
+            if (e?["islands"] is JArray rows)
+            {
+                foreach (JToken token in rows)
+                {
+                    if (islands.Count >= MaxIslands) break;
+                    if (token is not JObject island) continue;
+                    string id = (string?)island["islandId"] ?? "";
+                    if (id.Length == 0) continue;
+
+                    JArray groups = new JArray();
+                    if (island["groups"] is JArray groupRows)
+                    {
+                        foreach (JToken groupToken in groupRows)
+                        {
+                            if (groups.Count >= MaxGroupsPerIsland) break;
+                            if (groupToken is not JObject group) continue;
+                            groups.Add(new JObject
+                            {
+                                ["species"] = Species((string?)group["species"]),
+                                ["index"] = Clamp((int?)group["index"] ?? 0, MaxGroupsPerIsland),
+                                ["bloom"] = Clamp((int?)group["bloom"] ?? 0, MaxBloomsPerIsland),
+                                ["members"] = Clamp((int?)group["members"] ?? 0, MaxCreaturesPerIsland),
+                                ["behaviour"] = Label((string?)group["behaviour"]),
+                                ["epochSeconds"] = Finite((double?)group["epochSeconds"] ?? 0),
+                                ["durationSeconds"] = Finite((double?)group["durationSeconds"] ?? 0),
+                                ["toBloom"] = Clamp((int?)group["toBloom"] ?? 0, MaxBloomsPerIsland),
+                            });
+                        }
+                    }
+
+                    JArray blooms = new JArray();
+                    if (island["blooms"] is JArray bloomRows)
+                    {
+                        foreach (JToken bloomToken in bloomRows)
+                        {
+                            if (blooms.Count >= MaxBloomsPerIsland) break;
+                            if (bloomToken is not JObject bloom) continue;
+                            JObject rebuilt = new JObject
+                            {
+                                ["species"] = Species((string?)bloom["species"]),
+                                ["index"] = Clamp((int?)bloom["index"] ?? 0, MaxBloomsPerIsland),
+                            };
+                            foreach (string field in new[]
+                            {
+                                "amplitude", "sigma", "annulusRadius", "radialDrift",
+                                "angularDrift", "omegaRadial", "omegaAngular",
+                                "omegaMigration", "phaseRadial", "phaseAngular", "baseAngle",
+                            })
+                            {
+                                rebuilt[field] = Finite((double?)bloom[field] ?? 0);
+                            }
+                            blooms.Add(rebuilt);
+                        }
+                    }
+
+                    double quiet = Finite((double?)island["quietFactor"] ?? 0);
+                    islands.Add(new JObject
+                    {
+                        ["islandId"] = id,
+                        ["quietFactor"] = quiet < 0 ? 0 : quiet > 1 ? 1 : quiet,
+                        ["mantaCapacity"] = Clamp((int?)island["mantaCapacity"] ?? 0, MaxCreaturesPerIsland),
+                        ["jellyCapacity"] = Clamp((int?)island["jellyCapacity"] ?? 0, MaxCreaturesPerIsland),
+                        ["mantaExpressed"] = Clamp((int?)island["mantaExpressed"] ?? 0, MaxCreaturesPerIsland),
+                        ["jellyExpressed"] = Clamp((int?)island["jellyExpressed"] ?? 0, MaxCreaturesPerIsland),
+                        // The population rhythm's state (Phase 3). Unknown or
+                        // malformed labels default to Bloom - the reading that
+                        // matches a pre-rhythm world where everything was
+                        // always fully expressed.
+                        ["mantaPhase"] = Label((string?)island["mantaPhase"], "Bloom"),
+                        ["mantaPhaseFraction"] = Fraction01(
+                            Finite((double?)island["mantaPhaseFraction"] ?? 0)),
+                        ["jellyPhase"] = Label((string?)island["jellyPhase"], "Bloom"),
+                        ["jellyPhaseFraction"] = Fraction01(
+                            Finite((double?)island["jellyPhaseFraction"] ?? 0)),
+                        ["groups"] = groups,
+                        ["blooms"] = blooms,
+                    });
+                }
+            }
+
+            return new JObject
+            {
+                ["enabled"] = (bool?)e?["enabled"] ?? false,
+                // Display-only: the browser derives nothing from the seed (the
+                // blooms arrive as published numbers), so any integer is honest.
+                ["worldSeed"] = (int?)e?["worldSeed"] ?? 0,
+                ["islands"] = islands,
+            };
+        }
+
+        /// <summary>Only the two species labels the renderer knows may pass.</summary>
+        private static string Species(string? value) =>
+            value == "jelly" ? "jelly" : "manta";
+
+        /// <summary>
+        /// A short alphanumeric label, or the given default. Behaviour and phase
+        /// vocabularies will grow; the map treats an unknown label as its
+        /// default, so passing a well-formed new one through is forward-safe
+        /// while a malformed one cannot reach the DOM.
+        /// </summary>
+        private static string Label(string? value, string fallback = "Cruise") =>
+            value != null && value.Length is > 0 and <= 24
+                && value.All(char.IsLetterOrDigit) ? value : fallback;
+
+        private static double Fraction01(double value) =>
+            value < 0 ? 0 : value > 1 ? 1 : value;
+
+        private static double Finite(double value) =>
+            double.IsNaN(value) || double.IsInfinity(value) ? 0 : value;
 
         private static int Clamp(int value, int maximum) =>
             value < 0 ? 0 : value > maximum ? maximum : value;

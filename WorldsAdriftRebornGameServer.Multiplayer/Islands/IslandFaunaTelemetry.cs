@@ -31,6 +31,135 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     }
 
     /// <summary>
+    /// One bloom's published parameters - everything a second evaluator needs to
+    /// place the moving maximum, nothing else. Field names in the JSON mirror
+    /// <see cref="FaunaBloom"/> one to one so nobody has to keep a mapping table.
+    /// </summary>
+    public readonly record struct FaunaBloomStat(
+        string Species,
+        int Index,
+        double Amplitude,
+        double SigmaMetres,
+        double AnnulusRadiusMetres,
+        double RadialDriftMetres,
+        double AngularDriftRadians,
+        double OmegaRadial,
+        double OmegaAngular,
+        double OmegaMigration,
+        double PhaseRadial,
+        double PhaseAngular,
+        double BaseAngleRadians)
+    {
+        /// <summary>The projection of one computed bloom, labelled for the wire.</summary>
+        public static FaunaBloomStat From(FaunaSpecies species, int index, FaunaBloom bloom) =>
+            new FaunaBloomStat(
+                species == FaunaSpecies.MantaRay ? "manta" : "jelly", index,
+                bloom.Amplitude, bloom.SigmaMetres, bloom.AnnulusRadiusMetres,
+                bloom.RadialDriftMetres, bloom.AngularDriftRadians,
+                bloom.OmegaRadial, bloom.OmegaAngular, bloom.OmegaMigration,
+                bloom.PhaseRadial, bloom.PhaseAngular, bloom.BaseAngleRadians);
+    }
+
+    /// <summary>
+    /// One live group and its published (behaviour, epoch) descriptor - the
+    /// architecture's one permitted piece of state, live since Phase 4. The
+    /// descriptor is SELF-DESCRIBING: epoch + duration let a reader compute how
+    /// far through the segment the group is, and because every excursion is
+    /// neutral at its edges, a reader holding a stale descriptor degrades to
+    /// the cruise pose instead of extrapolating into a teleport.
+    /// </summary>
+    /// <param name="BloomIndex">The bloom the group rides NOW - its round-robin
+    /// start plus every migration completed, so it moves over a session.</param>
+    /// <param name="ToBloom">Where a Migrate segment is heading; equals
+    /// <paramref name="BloomIndex"/> for everything else.</param>
+    public readonly record struct FaunaGroupStat(
+        string Species,
+        int Index,
+        int BloomIndex,
+        int Members,
+        string Behaviour,
+        double EpochSeconds,
+        double DurationSeconds = 0,
+        int ToBloom = 0);
+
+    /// <summary>
+    /// One island's ecology: what it could carry, what it expresses, whether it
+    /// is deliberately quiet, and the field its groups follow. `Expressed`
+    /// equals capacity until the Phase 3 rhythm wires; the split exists NOW so
+    /// the admin map can render "capacity vs expressed" without a schema change
+    /// later.
+    /// </summary>
+    public readonly struct FaunaEcologyIslandStat
+    {
+        public FaunaEcologyIslandStat(string islandId, double quietFactor,
+            int mantaCapacity, int jellyCapacity,
+            int mantaExpressed, int jellyExpressed,
+            IReadOnlyList<FaunaGroupStat>? groups,
+            IReadOnlyList<FaunaBloomStat>? blooms,
+            string? mantaPhase = null, double mantaPhaseFraction = 0,
+            string? jellyPhase = null, double jellyPhaseFraction = 0)
+        {
+            IslandId = islandId ?? string.Empty;
+            QuietFactor = quietFactor < 0 ? 0 : quietFactor > 1 ? 1 : quietFactor;
+            MantaCapacity = mantaCapacity < 0 ? 0 : mantaCapacity;
+            JellyCapacity = jellyCapacity < 0 ? 0 : jellyCapacity;
+            MantaExpressed = mantaExpressed < 0 ? 0 : mantaExpressed;
+            JellyExpressed = jellyExpressed < 0 ? 0 : jellyExpressed;
+            Groups = groups ?? Array.Empty<FaunaGroupStat>();
+            Blooms = blooms ?? Array.Empty<FaunaBloomStat>();
+            MantaPhase = mantaPhase ?? nameof(FaunaPopulationPhase.Bloom);
+            MantaPhaseFraction = Fraction01(mantaPhaseFraction);
+            JellyPhase = jellyPhase ?? nameof(FaunaPopulationPhase.Bloom);
+            JellyPhaseFraction = Fraction01(jellyPhaseFraction);
+        }
+
+        public string IslandId { get; }
+        public double QuietFactor { get; }
+        public int MantaCapacity { get; }
+        public int JellyCapacity { get; }
+        public int MantaExpressed { get; }
+        public int JellyExpressed { get; }
+        public IReadOnlyList<FaunaGroupStat> Groups { get; }
+        public IReadOnlyList<FaunaBloomStat> Blooms { get; }
+
+        /// <summary>
+        /// Where each species' population rhythm is (Phase 3). The predator
+        /// reports its LAGGED phase - during the jellies' collapse the rays are
+        /// honestly still in their bloom.
+        /// </summary>
+        public string MantaPhase { get; }
+        public double MantaPhaseFraction { get; }
+        public string JellyPhase { get; }
+        public double JellyPhaseFraction { get; }
+
+        private static double Fraction01(double value) =>
+            double.IsNaN(value) || value < 0 ? 0 : value > 1 ? 1 : value;
+    }
+
+    /// <summary>
+    /// The world's ecology, or the explicit statement that it is off. Written
+    /// unconditionally inside the fauna section for the standing reason: absence
+    /// must mean "older server", never "no ecology".
+    /// </summary>
+    public readonly struct FaunaEcologyStat
+    {
+        public FaunaEcologyStat(bool enabled, int worldSeed,
+            IReadOnlyList<FaunaEcologyIslandStat>? islands)
+        {
+            Enabled = enabled;
+            WorldSeed = worldSeed;
+            Islands = islands ?? Array.Empty<FaunaEcologyIslandStat>();
+        }
+
+        public bool Enabled { get; }
+        public int WorldSeed { get; }
+        public IReadOnlyList<FaunaEcologyIslandStat> Islands { get; }
+
+        public static FaunaEcologyStat Off =>
+            new FaunaEcologyStat(enabled: false, worldSeed: 0, islands: null);
+    }
+
+    /// <summary>
     /// The whole world's live fauna, and THE CLOCK THAT PLACES IT.
     ///
     /// <see cref="ClockSeconds"/> is the load-bearing field and the reason this
@@ -56,7 +185,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
     {
         public FaunaRuntimeStat(bool enabled, double clockSeconds, int liveCount,
             int budget, int demand, int perPeerBudget, int poseIntervalMs,
-            IReadOnlyList<FaunaIslandStat>? islands)
+            IReadOnlyList<FaunaIslandStat>? islands,
+            FaunaEcologyStat? ecology = null)
         {
             Enabled = enabled;
             ClockSeconds = clockSeconds;
@@ -66,6 +196,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             PerPeerBudget = perPeerBudget < 0 ? 0 : perPeerBudget;
             PoseIntervalMs = poseIntervalMs < 0 ? 0 : poseIntervalMs;
             Islands = islands ?? Array.Empty<FaunaIslandStat>();
+            Ecology = ecology ?? FaunaEcologyStat.Off;
         }
 
         /// <summary>Whether the operator switched island fauna on.</summary>
@@ -95,6 +226,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
         /// <summary>Every populated island, in seeding order.</summary>
         public IReadOnlyList<FaunaIslandStat> Islands { get; }
+
+        /// <summary>The ecological layer, or its explicit Off. Schema v9+.</summary>
+        public FaunaEcologyStat Ecology { get; }
 
         /// <summary>What a server with fauna switched off reports.</summary>
         public static FaunaRuntimeStat Off => new FaunaRuntimeStat(

@@ -518,19 +518,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// is used.
         /// </summary>
         public static FaunaRotation MantaSchoolRotationAt(
-            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds) =>
+            MantaRotationAlong(creature, elapsedSeconds,
+                t => MantaSchoolCentreAt(creature, envelope, t));
+
+        /// <summary>
+        /// The manta facing rule with the PATH INJECTED, so the ecology's
+        /// field-following centre gets the identical recovered attitude
+        /// treatment - nose along travel, held level, banked into the turn,
+        /// per-member shimmer - without a second copy of the rule to rot. The
+        /// classic overload above delegates here with the perimeter patrol.
+        /// </summary>
+        public static FaunaRotation MantaRotationAlong(
+            FaunaCreature creature, double elapsedSeconds,
+            Func<double, (double X, double Y, double Z)> centreAt)
         {
-            (double X, double Y, double Z) before =
-                MantaSchoolCentreAt(creature, envelope, elapsedSeconds);
-            (double X, double Y, double Z) after =
-                MantaSchoolCentreAt(creature, envelope, elapsedSeconds + HeadingSampleSeconds);
+            if (centreAt == null)
+            {
+                throw new ArgumentNullException(nameof(centreAt));
+            }
+            (double X, double Y, double Z) before = centreAt(elapsedSeconds);
+            (double X, double Y, double Z) after = centreAt(elapsedSeconds + HeadingSampleSeconds);
             (double X, double Y, double Z) heading = IslandFaunaOrientation.Flatten(
                 (after.X - before.X, after.Y - before.Y, after.Z - before.Z));
 
             // The yaw the school turns through per second, signed: positive is a
             // right-hand turn, which banks the creature to its right.
             (double X, double Y, double Z) later =
-                MantaSchoolCentreAt(creature, envelope, elapsedSeconds + (2.0 * HeadingSampleSeconds));
+                centreAt(elapsedSeconds + (2.0 * HeadingSampleSeconds));
             double yawRate = IslandFaunaOrientation.SignedYawBetween(
                 heading, (later.X - after.X, later.Y - after.Y, later.Z - after.Z))
                 / HeadingSampleSeconds;
@@ -579,12 +594,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// axis ACROSS the direction of travel in time with the pulse, and yaw drifts.
         /// </summary>
         public static FaunaRotation JellyShoalRotationAt(
-            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds)
+            FaunaCreature creature, IslandTerrainEnvelope envelope, double elapsedSeconds) =>
+            JellyRotationAlong(creature, elapsedSeconds,
+                t => JellyShoalCentreAt(creature, envelope, t));
+
+        /// <summary>
+        /// The jelly attitude rule with the PATH INJECTED - same reasoning as
+        /// <see cref="MantaRotationAlong"/>: bell up, free yaw, pulse rock about
+        /// the axis across travel, whatever path the travel comes from.
+        /// </summary>
+        public static FaunaRotation JellyRotationAlong(
+            FaunaCreature creature, double elapsedSeconds,
+            Func<double, (double X, double Y, double Z)> centreAt)
         {
-            (double X, double Y, double Z) before =
-                JellyShoalCentreAt(creature, envelope, elapsedSeconds);
-            (double X, double Y, double Z) after =
-                JellyShoalCentreAt(creature, envelope, elapsedSeconds + HeadingSampleSeconds);
+            if (centreAt == null)
+            {
+                throw new ArgumentNullException(nameof(centreAt));
+            }
+            (double X, double Y, double Z) before = centreAt(elapsedSeconds);
+            (double X, double Y, double Z) after = centreAt(elapsedSeconds + HeadingSampleSeconds);
             (double X, double Y, double Z) travel =
                 (after.X - before.X, after.Y - before.Y, after.Z - before.Z);
 
@@ -724,13 +752,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
             double radius = lateral * Lerp(JellyNightRadiusRatio, JellyDayRadiusRatio, dayness);
 
+            return (CentreXOf(envelope) + (radius * Math.Sin(theta)),
+                JellyAltitudeAt(envelope, elapsedSeconds),
+                CentreZOf(envelope) + (radius * Math.Cos(theta)));
+        }
+
+        /// <summary>
+        /// The jelly's RECOVERED altitude law on its own: underside of the rock
+        /// by day (<c>BoundsMin.y</c>, the recovered day station), the measured
+        /// walkable band by night, blended on <see cref="DaynessAt"/>.
+        ///
+        /// Extracted from <see cref="JellyShoalCentreAt"/> - which now calls it,
+        /// so the two cannot drift - because the ecology path
+        /// (<see cref="FaunaEcologyEvaluator"/>) replaces the LATERAL law with
+        /// field-following while keeping this vertical law verbatim: the altitude
+        /// is a recovery and the field is tuning, and a tuned term must not
+        /// overwrite a recovered one.
+        /// </summary>
+        public static double JellyAltitudeAt(IslandTerrainEnvelope envelope, double elapsedSeconds)
+        {
             double nightY = envelope.MinY
                 + ((envelope.MaxY - envelope.MinY) * IslandWalkableHeightFraction);
-            double y = Lerp(nightY, envelope.MinY, dayness);
-
-            return (CentreXOf(envelope) + (radius * Math.Sin(theta)),
-                y,
-                CentreZOf(envelope) + (radius * Math.Cos(theta)));
+            return Lerp(nightY, envelope.MinY, DaynessAt(elapsedSeconds));
         }
 
         /// <summary>Linear interpolation, with <paramref name="t"/> already in [0,1].</summary>

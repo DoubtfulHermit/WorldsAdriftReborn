@@ -116,6 +116,105 @@ namespace WorldsAdriftServer.PublicMap
                 ["clockSeconds"] = (double?)fauna.Json["clockSeconds"] ?? 0,
                 ["liveCount"] = fauna.LiveCount,
                 ["islands"] = islands,
+                ["ecology"] = ProjectEcology(fauna.Json["ecology"] as JObject),
+            };
+        }
+
+        /// <summary>
+        /// The ecology block, ADMITTED DELIBERATELY (schema v9). Everything in
+        /// it is world geometry (bloom paths - the fauna equivalent of an
+        /// island's coastline), creature counts, and behaviour labels the game
+        /// derives from its own clock; there is no player, account, peer or
+        /// entity identity anywhere in the section, which is the same test the
+        /// fauna roster above already passed. The shared renderer needs the
+        /// blooms and groups to animate field-following motion, and the
+        /// capacity/expressed/quiet numbers are what lets the page say "this
+        /// island is deliberately quiet" instead of looking broken - a public
+        /// visitor is exactly who would otherwise report it as a bug.
+        ///
+        /// Rebuilt field by field, like everything here, even though the source
+        /// (<see cref="GameFaunaStat"/>'s own allowlisted rebuild) is already
+        /// sanitized: the projection's whitelist must never depend on an
+        /// upstream one staying strict.
+        /// </summary>
+        private static JObject ProjectEcology(JObject? e)
+        {
+            JArray islands = new JArray();
+            if (e?["islands"] is JArray rows)
+            {
+                foreach (JToken token in rows)
+                {
+                    if (token is not JObject island) continue;
+
+                    JArray groups = new JArray();
+                    if (island["groups"] is JArray groupRows)
+                    {
+                        foreach (JToken groupToken in groupRows)
+                        {
+                            if (groupToken is not JObject group) continue;
+                            groups.Add(new JObject
+                            {
+                                ["species"] = (string?)group["species"] ?? "manta",
+                                ["index"] = (int?)group["index"] ?? 0,
+                                ["bloom"] = (int?)group["bloom"] ?? 0,
+                                ["members"] = (int?)group["members"] ?? 0,
+                                ["behaviour"] = (string?)group["behaviour"] ?? "Cruise",
+                                ["epochSeconds"] = (double?)group["epochSeconds"] ?? 0,
+                                ["durationSeconds"] = (double?)group["durationSeconds"] ?? 0,
+                                ["toBloom"] = (int?)group["toBloom"] ?? 0,
+                            });
+                        }
+                    }
+
+                    JArray blooms = new JArray();
+                    if (island["blooms"] is JArray bloomRows)
+                    {
+                        foreach (JToken bloomToken in bloomRows)
+                        {
+                            if (bloomToken is not JObject bloom) continue;
+                            JObject rebuilt = new JObject
+                            {
+                                ["species"] = (string?)bloom["species"] ?? "manta",
+                                ["index"] = (int?)bloom["index"] ?? 0,
+                            };
+                            foreach (string field in new[]
+                            {
+                                "amplitude", "sigma", "annulusRadius", "radialDrift",
+                                "angularDrift", "omegaRadial", "omegaAngular",
+                                "omegaMigration", "phaseRadial", "phaseAngular", "baseAngle",
+                            })
+                            {
+                                rebuilt[field] = (double?)bloom[field] ?? 0;
+                            }
+                            blooms.Add(rebuilt);
+                        }
+                    }
+
+                    islands.Add(new JObject
+                    {
+                        ["islandId"] = (string?)island["islandId"] ?? "",
+                        ["quietFactor"] = (double?)island["quietFactor"] ?? 0,
+                        ["mantaCapacity"] = (int?)island["mantaCapacity"] ?? 0,
+                        ["jellyCapacity"] = (int?)island["jellyCapacity"] ?? 0,
+                        ["mantaExpressed"] = (int?)island["mantaExpressed"] ?? 0,
+                        ["jellyExpressed"] = (int?)island["jellyExpressed"] ?? 0,
+                        // The rhythm's phase: a fact about the WORLD's ecology
+                        // ("the jellies here are collapsing"), the exact thing a
+                        // public map of a living world is for, and identity-free.
+                        ["mantaPhase"] = (string?)island["mantaPhase"] ?? "Bloom",
+                        ["mantaPhaseFraction"] = (double?)island["mantaPhaseFraction"] ?? 0,
+                        ["jellyPhase"] = (string?)island["jellyPhase"] ?? "Bloom",
+                        ["jellyPhaseFraction"] = (double?)island["jellyPhaseFraction"] ?? 0,
+                        ["groups"] = groups,
+                        ["blooms"] = blooms,
+                    });
+                }
+            }
+
+            return new JObject
+            {
+                ["enabled"] = (bool?)e?["enabled"] ?? false,
+                ["islands"] = islands,
             };
         }
 

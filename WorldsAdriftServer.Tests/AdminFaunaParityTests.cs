@@ -135,6 +135,133 @@ namespace WorldsAdriftServer.Tests
         }
 
         /// <summary>
+        /// THE ECOLOGY'S PARITY (schema v9). Same discipline as the classic
+        /// motion: the mirror's field-following school centre - a bloom's
+        /// wandering maximum plus the group's circulation orbit, with the
+        /// recovered vertical laws on top - must return the metres
+        /// <see cref="FaunaEcologyEvaluator.LocalPoseAt"/> returns, to a
+        /// nanometre, with the bloom parameters shaped EXACTLY as the live feed
+        /// publishes them (the sanitized wire keys), because that is the object
+        /// the page actually hands the mirror.
+        /// </summary>
+        [NodeFact]
+        public void The_ecology_mirror_returns_the_same_metres_as_the_evaluator()
+        {
+            string html = AdminPage.Dashboard("{}", new string('a', 64), ReleaseWorldMap.Json);
+            string mirror = ExtractMirror(html);
+            JObject model = (JObject)EmbeddedWorldMap(html)["faunaModel"]!;
+
+            FaunaEcologyEvaluator evaluator =
+                new FaunaEcologyEvaluator(IslandFaunaEcology.DefaultWorldSeed);
+
+            List<JObject> samples = new List<JObject>();
+            List<(FaunaCreature Creature, IslandTerrainEnvelope Envelope, double T)> expected =
+                new List<(FaunaCreature, IslandTerrainEnvelope, double)>();
+
+            foreach (ReleaseIslandRecord island in SampleIslands())
+            {
+                JObject parameters = ExactFauna(island.Envelope);
+                parameters["blooms"] = new JObject
+                {
+                    ["manta"] = BloomsJson(evaluator, island, FaunaSpecies.MantaRay),
+                    ["jelly"] = BloomsJson(evaluator, island, FaunaSpecies.JellyFish),
+                };
+
+                foreach (FaunaSpecies species in new[] { FaunaSpecies.MantaRay, FaunaSpecies.JellyFish })
+                {
+                    FaunaBloom[] blooms = evaluator.BloomsFor(
+                        island.Definition.Id, species, island.Envelope);
+                    for (int group = 0; group < 2; group++)
+                    {
+                        for (int member = 0; member < 3; member++)
+                        {
+                            foreach (double t in Moments)
+                            {
+                                FaunaCreature creature = new FaunaCreature(
+                                    IslandFaunaPolicy.FirstFaunaEntityId + member, species,
+                                    island.Definition.Id, member, group, member);
+                                JObject sample = Sample(parameters, species, member, t);
+                                sample["school"] = group;
+                                // The (behaviour, epoch) descriptor the live feed
+                                // would publish for this instant - the mirror
+                                // evaluates the PUBLISHED pair, never the
+                                // schedule (it has no seed), and the timestamps
+                                // land inside feeds, dives and migrations as the
+                                // schedule happens to place them.
+                                FaunaGroupBehaviour segment = IslandFaunaBehaviour.SegmentAt(
+                                    IslandFaunaEcology.DefaultWorldSeed, island.Definition.Id,
+                                    species, group, island.Envelope, blooms.Length, t);
+                                sample["g"] = new JObject
+                                {
+                                    ["behaviour"] = segment.Behaviour.ToString(),
+                                    ["epochSeconds"] = segment.EpochSeconds,
+                                    ["durationSeconds"] = segment.DurationSeconds,
+                                    ["bloom"] = segment.FromBloom,
+                                    ["toBloom"] = segment.ToBloom,
+                                };
+                                samples.Add(sample);
+                                expected.Add((creature, island.Envelope, t));
+                            }
+                        }
+                    }
+                }
+            }
+
+            JArray actual = Evaluate(mirror, model, samples);
+            Assert.Equal(samples.Count, actual.Count);
+
+            for (int i = 0; i < expected.Count; i++)
+            {
+                (FaunaCreature creature, IslandTerrainEnvelope envelope, double t) = expected[i];
+                (double x, double y, double z) = evaluator.LocalPoseAt(creature, envelope, t);
+                JArray got = (JArray)actual[i];
+                string where = "ecology " + creature.Species + " group " + creature.SchoolIndex
+                    + " member " + creature.MemberIndex + " on " + envelope.IslandId
+                    + " at t=" + t.ToString(CultureInfo.InvariantCulture);
+
+                Assert.True(Math.Abs(x - (double)got[0]!) <= ExactTolerance,
+                    where + ": X was " + got[0] + ", the evaluator says " + x);
+                Assert.True(Math.Abs(y - (double)got[1]!) <= ExactTolerance,
+                    where + ": Y was " + got[1] + ", the evaluator says " + y);
+                Assert.True(Math.Abs(z - (double)got[2]!) <= ExactTolerance,
+                    where + ": Z was " + got[2] + ", the evaluator says " + z);
+            }
+        }
+
+        /// <summary>
+        /// A species' blooms in the LIVE FEED's wire shape - the keys
+        /// StatsSnapshot writes and GameStats/PublicMapProjection pass through -
+        /// so the parity claim covers the object the page actually receives.
+        /// </summary>
+        private static JArray BloomsJson(
+            FaunaEcologyEvaluator evaluator, ReleaseIslandRecord island, FaunaSpecies species)
+        {
+            JArray result = new JArray();
+            FaunaBloom[] blooms = evaluator.BloomsFor(
+                island.Definition.Id, species, island.Envelope);
+            for (int i = 0; i < blooms.Length; i++)
+            {
+                result.Add(new JObject
+                {
+                    ["species"] = species == FaunaSpecies.MantaRay ? "manta" : "jelly",
+                    ["index"] = i,
+                    ["amplitude"] = blooms[i].Amplitude,
+                    ["sigma"] = blooms[i].SigmaMetres,
+                    ["annulusRadius"] = blooms[i].AnnulusRadiusMetres,
+                    ["radialDrift"] = blooms[i].RadialDriftMetres,
+                    ["angularDrift"] = blooms[i].AngularDriftRadians,
+                    ["omegaRadial"] = blooms[i].OmegaRadial,
+                    ["omegaAngular"] = blooms[i].OmegaAngular,
+                    ["omegaMigration"] = blooms[i].OmegaMigration,
+                    ["phaseRadial"] = blooms[i].PhaseRadial,
+                    ["phaseAngular"] = blooms[i].PhaseAngular,
+                    ["baseAngle"] = blooms[i].BaseAngleRadians,
+                });
+            }
+            return result;
+        }
+
+        /// <summary>
         /// The mirror must be CUT OUT of the served page, not read from a copy.
         /// A parity test against a second copy of the JavaScript would pass
         /// happily while the page shipped something else.
@@ -161,6 +288,13 @@ namespace WorldsAdriftServer.Tests
                 "mantaSchoolRadius", "mantaSchoolVerticalRadius", "jellyShoalRadius",
                 "jellyShoalVerticalRadius", "weaveRadiansPerSecond", "goldenAngleRadians",
                 "goldenRatioFraction",
+                // The ecology's constants (v9). Their bloom PARAMETERS travel in
+                // the live feed, but these ratios and speeds are compile-time and
+                // the mirror must read the published copy, not restate them.
+                "mantaCirculationSigmaRatio", "jellyCirculationSigmaRatio",
+                "mantaOrbitSpeed", "jellyOrbitSpeed", "maxGroupSpread",
+                // The behaviour excursions' shape constants (Phase 4).
+                "excursionRamp", "feedRadiusPinch", "diveBelowFloorFraction",
             })
             {
                 Assert.True(mirror.Contains("M." + field, StringComparison.Ordinal),
@@ -326,7 +460,7 @@ namespace WorldsAdriftServer.Tests
 const input = JSON.parse(require('fs').readFileSync(process.argv[2], 'utf8'));
 const motion = faunaMotion(input.model);
 process.stdout.write(JSON.stringify(input.samples.map(function(s){
-  const pose = motion.localPose(s.p, s.species, s.school, s.member, s.t);
+  const pose = motion.localPose(s.p, s.species, s.school, s.member, s.t, s.g);
   return [pose.x, pose.y, pose.z];
 })));
 ");

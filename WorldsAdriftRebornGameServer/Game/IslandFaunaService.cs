@@ -87,6 +87,24 @@ namespace WorldsAdriftRebornGameServer.Game
         /// <summary>How near an island a peer must be for its fauna to check out.</summary>
         internal const string RadiusEnv = IslandFaunaInterestPolicy.LoadRadiusEnvVar;
 
+        /// <summary>
+        /// The ecology switch: capacity-driven populations, quiet islands,
+        /// multiple groups, and field-following motion. OFF by default and a
+        /// typo fails safe to the classic motion, like every fauna flag. It is
+        /// read ONCE at boot - the pose function and the population plan are
+        /// chosen in the constructor and at Seed - so it cannot flip mid-process
+        /// and re-lay entity ids under a live session.
+        /// </summary>
+        internal const string EcologyEnv = "WAREBORN_ISLAND_FAUNA_ECOLOGY";
+
+        /// <summary>
+        /// The world seed the blooms are derived from. An integer; anything else
+        /// falls back to <see cref="IslandFaunaEcology.DefaultWorldSeed"/>.
+        /// Rerolling it re-lays the ecology's motion, never its entity ids -
+        /// the id blocks are a pure function of the catalogue.
+        /// </summary>
+        internal const string SeedEnv = "WAREBORN_ISLAND_FAUNA_SEED";
+
         private const uint TransformStateComponentId = 190602;
         private static readonly TimeSpan ReconcileInterval = TimeSpan.FromMilliseconds(500);
         private static readonly TimeSpan SendInterval = TimeSpan.FromMilliseconds(120);
@@ -105,12 +123,21 @@ namespace WorldsAdriftRebornGameServer.Game
             public bool ConnectPlanComplete;
         }
 
-        /// <summary>One island's fauna, grouped so interest can be decided per island.</summary>
+        /// <summary>
+        /// One island's fauna, grouped so interest can be decided per island.
+        /// The per-species lists are kept in SEEDING ORDER (school-major,
+        /// contiguous ids) because the rhythm expresses a PREFIX of each: growth
+        /// appends at the tail and decline removes from it, so a change of
+        /// expression can never reshuffle which animals exist, only extend or
+        /// trim the same stable sequence.
+        /// </summary>
         private sealed class IslandPopulation
         {
             public IslandDefinition Island = null!;
             public IslandTerrainEnvelope Envelope;
             public readonly List<long> EntityIds = new();
+            public readonly List<long> MantaIds = new();
+            public readonly List<long> JellyIds = new();
         }
 
         private readonly IClock _clock;
@@ -124,6 +151,15 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly Dictionary<ENetPeerHandle, PeerState> _peers = new();
         private readonly HashSet<long> _held = new();
         private Func<ENetPeerHandle, IslandId, bool>? _terrainReady;
+        private readonly FaunaEcologyEvaluator? _ecology;
+
+        /// <summary>
+        /// The records the world was seeded from, kept ONLY when the ecology is
+        /// on: its telemetry lists quiet islands as deliberate zeros, and a quiet
+        /// island has no creatures, so it cannot be recovered from _byIsland.
+        /// </summary>
+        private IReadOnlyList<ReleaseIslandRecord> _seededFrom =
+            Array.Empty<ReleaseIslandRecord>();
         private long _sample;
 
         /// <summary>
@@ -140,21 +176,40 @@ namespace WorldsAdriftRebornGameServer.Game
                 IslandFaunaPolicy.ParseBudget(Environment.GetEnvironmentVariable(BudgetEnv)),
                 IslandFaunaInterestPolicy.LoadRadiusFrom(Environment.GetEnvironmentVariable(RadiusEnv)),
                 IslandFaunaInterestPolicy.ParsePerPeerBudget(
-                    Environment.GetEnvironmentVariable(PeerBudgetEnv)))
+                    Environment.GetEnvironmentVariable(PeerBudgetEnv)),
+                IslandFaunaPolicy.EnabledFrom(Environment.GetEnvironmentVariable(EcologyEnv)),
+                ParseSeed(Environment.GetEnvironmentVariable(SeedEnv)))
         {
         }
 
         internal IslandFaunaService(IClock clock, bool enabled, int? maxConcurrent,
-            double? loadRadius = null, int? perPeerBudget = null)
+            double? loadRadius = null, int? perPeerBudget = null,
+            bool ecologyEnabled = false, int? worldSeed = null)
         {
             _clock = clock ?? throw new ArgumentNullException(nameof(clock));
             _enabled = enabled;
             _loadRadius = loadRadius ?? IslandFaunaInterestPolicy.DefaultLoadRadiusMetres;
             _unloadRadius = IslandFaunaInterestPolicy.UnloadRadiusFor(_loadRadius);
             _peerBudget = perPeerBudget ?? IslandFaunaInterestPolicy.DefaultPerPeerCreatures;
+            // The pose function is chosen ONCE, here: the registry cannot tell
+            // the ecology from the classic patrol, and nothing downstream
+            // branches on the flag again.
+            _ecology = ecologyEnabled
+                ? new FaunaEcologyEvaluator(worldSeed ?? IslandFaunaEcology.DefaultWorldSeed)
+                : null;
             _registry = new IslandFaunaRegistry(clock,
-                IslandFaunaMovement.WorldTransformAt, maxConcurrent);
+                _ecology != null ? _ecology.WorldTransformAt : IslandFaunaMovement.WorldTransformAt,
+                maxConcurrent);
         }
+
+        /// <summary>An integer seed, or null for the default. A typo must not stop a boot.</summary>
+        internal static int? ParseSeed(string? raw) =>
+            int.TryParse(raw, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int seed)
+                ? seed : (int?)null;
+
+        /// <summary>Whether the ecology layer drives populations and motion.</summary>
+        internal bool EcologyEnabled => _ecology != null;
 
         /// <summary>Whether island fauna is switched on.</summary>
         internal bool Enabled => _enabled;
@@ -184,16 +239,14 @@ namespace WorldsAdriftRebornGameServer.Game
                 return FaunaRuntimeStat.Off;
             }
 
+            // EXPRESSED counts, not seeded ones: the roster is what the map
+            // draws and what a player can actually be shown, and under the
+            // rhythm those are the same number by construction.
+            double now = _clock.Elapsed.TotalSeconds;
             List<FaunaIslandStat> islands = new List<FaunaIslandStat>(_byIsland.Count);
             foreach (KeyValuePair<IslandId, IslandPopulation> pair in _byIsland)
             {
-                int mantas = 0, jellies = 0;
-                foreach (long entityId in pair.Value.EntityIds)
-                {
-                    if (!_planned.TryGetValue(entityId, out FaunaPlacement placement)) continue;
-                    if (placement.Creature.Species == FaunaSpecies.MantaRay) mantas++;
-                    else jellies++;
-                }
+                (int mantas, int jellies) = ExpressedFor(pair.Key, pair.Value, now);
                 islands.Add(new FaunaIslandStat(pair.Key.ToString(), mantas, jellies));
             }
             // Sorted by id so the file diffs readably and the console's island
@@ -209,7 +262,109 @@ namespace WorldsAdriftRebornGameServer.Game
                 demand: _demand,
                 perPeerBudget: _peerBudget,
                 poseIntervalMs: (int)Math.Round(_registry.PoseInterval.TotalMilliseconds),
-                islands: islands);
+                islands: islands,
+                ecology: EcologyTelemetry());
+        }
+
+        /// <summary>
+        /// The ecology section: every seeded-from island (INCLUDING the quiet
+        /// ones - a deliberate zero must be visible), its capacities, what is
+        /// expressed now, its group structure and its bloom parameters. All of
+        /// it re-read from the same pure functions and the same memoised blooms
+        /// the pose path uses, so the map's numbers cannot be a second
+        /// derivation.
+        /// </summary>
+        private FaunaEcologyStat EcologyTelemetry()
+        {
+            if (_ecology == null)
+            {
+                return FaunaEcologyStat.Off;
+            }
+
+            List<FaunaEcologyIslandStat> islands =
+                new List<FaunaEcologyIslandStat>(_seededFrom.Count);
+            foreach (ReleaseIslandRecord record in _seededFrom)
+            {
+                IslandId id = record.Definition.Id;
+                int tier = record.Survey.Tier;
+                (int mantas, int jellies) = IslandFaunaCapacity.ClampedToPeerBudget(
+                    IslandFaunaCapacity.CapacityFor(
+                        FaunaSpecies.MantaRay, tier, record.Envelope, id),
+                    IslandFaunaCapacity.CapacityFor(
+                        FaunaSpecies.JellyFish, tier, record.Envelope, id),
+                    _peerBudget);
+
+                // What is EXPRESSED right now - the rhythm's fraction of the
+                // seeded capacity, counted over the same prefix Reconcile
+                // desires, so the map's group sizes are exactly what a player
+                // standing there would be shown.
+                double nowSeconds = _clock.Elapsed.TotalSeconds;
+                int liveMantas = 0, liveJellies = 0;
+                List<FaunaGroupStat> groups = new List<FaunaGroupStat>();
+                if (_byIsland.TryGetValue(id, out IslandPopulation? population))
+                {
+                    (liveMantas, liveJellies) = ExpressedFor(id, population, nowSeconds);
+                    Dictionary<(FaunaSpecies Species, int Index), int> members =
+                        new Dictionary<(FaunaSpecies Species, int Index), int>();
+                    foreach (long entityId in population.MantaIds.Take(liveMantas)
+                        .Concat(population.JellyIds.Take(liveJellies)))
+                    {
+                        if (!_planned.TryGetValue(entityId, out FaunaPlacement placement)) continue;
+                        FaunaCreature creature = placement.Creature;
+                        members.TryGetValue((creature.Species, creature.SchoolIndex), out int n);
+                        members[(creature.Species, creature.SchoolIndex)] = n + 1;
+                    }
+                    foreach (KeyValuePair<(FaunaSpecies Species, int Index), int> pair in members
+                        .OrderBy(p => p.Key.Species).ThenBy(p => p.Key.Index))
+                    {
+                        // The LIVE descriptor: the same schedule the pose path
+                        // and the streaming filter read, so a map animating from
+                        // this pair is animating what the wire is doing.
+                        FaunaGroupBehaviour segment = _ecology.SegmentFor(
+                            id, pair.Key.Species, record.Envelope, pair.Key.Index, nowSeconds);
+                        groups.Add(new FaunaGroupStat(
+                            pair.Key.Species == FaunaSpecies.MantaRay ? "manta" : "jelly",
+                            pair.Key.Index,
+                            segment.FromBloom,
+                            pair.Value,
+                            segment.Behaviour.ToString(),
+                            segment.EpochSeconds,
+                            segment.DurationSeconds,
+                            segment.ToBloom));
+                    }
+                }
+
+                (FaunaPopulationPhase mantaPhase, double mantaFraction) =
+                    IslandFaunaRhythm.PhaseFor(_ecology.WorldSeed, id,
+                        FaunaSpecies.MantaRay, nowSeconds);
+                (FaunaPopulationPhase jellyPhase, double jellyFraction) =
+                    IslandFaunaRhythm.PhaseFor(_ecology.WorldSeed, id,
+                        FaunaSpecies.JellyFish, nowSeconds);
+
+                List<FaunaBloomStat> bloomStats = new List<FaunaBloomStat>();
+                foreach (FaunaSpecies species in new[]
+                    { FaunaSpecies.MantaRay, FaunaSpecies.JellyFish })
+                {
+                    FaunaBloom[] blooms = _ecology.BloomsFor(id, species, record.Envelope);
+                    for (int i = 0; i < blooms.Length; i++)
+                    {
+                        bloomStats.Add(FaunaBloomStat.From(species, i, blooms[i]));
+                    }
+                }
+
+                islands.Add(new FaunaEcologyIslandStat(
+                    id.ToString(),
+                    IslandFaunaCapacity.QuietFactorFor(id),
+                    mantas, jellies,
+                    liveMantas, liveJellies,
+                    groups, bloomStats,
+                    mantaPhase.ToString(), mantaFraction,
+                    jellyPhase.ToString(), jellyFraction));
+            }
+            islands.Sort((left, right) =>
+                string.CompareOrdinal(left.IslandId, right.IslandId));
+
+            return new FaunaEcologyStat(enabled: true, _ecology.WorldSeed, islands);
         }
 
         /// <summary>
@@ -233,10 +388,21 @@ namespace WorldsAdriftRebornGameServer.Game
                 throw new ArgumentNullException(nameof(islands));
             }
 
-            int demand = IslandFaunaPlan.Demand(islands);
+            int demand = _ecology != null
+                ? IslandFaunaPlan.EcologyDemand(islands, _peerBudget)
+                : IslandFaunaPlan.Demand(islands);
             _demand = demand;
-            IReadOnlyList<FaunaPlacement> plan =
-                IslandFaunaPlan.Build(islands, _registry.MaxConcurrent);
+            _seededFrom = _ecology != null ? islands : Array.Empty<ReleaseIslandRecord>();
+            IReadOnlyList<FaunaPlacement> plan = _ecology != null
+                ? IslandFaunaPlan.BuildEcology(islands, _registry.MaxConcurrent, _peerBudget)
+                : IslandFaunaPlan.Build(islands, _registry.MaxConcurrent);
+            if (_ecology != null)
+            {
+                Console.WriteLine("[island-fauna] ECOLOGY ON (" + EcologyEnv + "): capacity-driven"
+                    + " populations from each island's own AABB, quiet islands deliberate, groups"
+                    + " circulating field maxima; world seed " + _ecology.WorldSeed
+                    + " (" + SeedEnv + ").");
+            }
 
             foreach (FaunaPlacement placement in plan)
             {
@@ -262,6 +428,9 @@ namespace WorldsAdriftRebornGameServer.Game
                     _byIsland[placement.Creature.IslandId] = population;
                 }
                 population.EntityIds.Add(placement.Creature.EntityId);
+                (placement.Creature.Species == FaunaSpecies.MantaRay
+                    ? population.MantaIds : population.JellyIds)
+                    .Add(placement.Creature.EntityId);
             }
 
             Console.WriteLine("[island-fauna] ON: seeded " + _registry.Count + " creature(s) across "
@@ -459,13 +628,15 @@ namespace WorldsAdriftRebornGameServer.Game
         private void Reconcile(ENetPeerHandle peer, PeerState state)
         {
             FixedPointPosition center = WorldsAdriftRebornGameServer.ResourceInterest.CenterFor(peer);
+            double now = _clock.Elapsed.TotalSeconds;
 
             List<FaunaIslandCandidate> candidates = new List<FaunaIslandCandidate>(_byIsland.Count);
             foreach ((IslandId islandId, IslandPopulation population) in _byIsland)
             {
+                (int mantas, int jellies) = ExpressedFor(islandId, population, now);
                 candidates.Add(new FaunaIslandCandidate(islandId,
                     population.Envelope.DistanceSquaredTo(center, population.Island),
-                    population.EntityIds.Count));
+                    mantas + jellies));
             }
 
             IReadOnlyList<IslandId> admitted = IslandFaunaInterestPolicy.Admit(
@@ -480,7 +651,21 @@ namespace WorldsAdriftRebornGameServer.Game
             foreach (IslandId islandId in admitted)
             {
                 state.Islands.Add(islandId);
-                desired.AddRange(_byIsland[islandId].EntityIds);
+                // The EXPRESSED prefix, not the seeded roll: under the rhythm an
+                // island shows the fraction of its capacity the cycle allows,
+                // and the prefix rule means the same animals extend or trim -
+                // the checkout layer streams the difference at its own pace,
+                // which is the closed-form version of gradual convergence.
+                // A deep-dived group is then filtered OUT whole: a school under
+                // the island needs no members on any peer's wire (the Dive
+                // behaviour's streaming-LOD half), and it departs and returns as
+                // one thing through the ordinary remove/add machinery.
+                IslandPopulation population = _byIsland[islandId];
+                (int mantas, int jellies) = ExpressedFor(islandId, population, now);
+                AddStreamed(desired, population, population.MantaIds, mantas,
+                    FaunaSpecies.MantaRay, islandId, now);
+                AddStreamed(desired, population, population.JellyIds, jellies,
+                    FaunaSpecies.JellyFish, islandId, now);
             }
 
             ResourceInterestPolicy.ReplacePending(
@@ -654,6 +839,63 @@ namespace WorldsAdriftRebornGameServer.Game
                     SendOPHelper.SendComponentUpdateOp(peer, pose.EntityId,
                         new List<uint> { TransformStateComponentId },
                         new List<object> { update });
+                }
+            }
+        }
+
+        /// <summary>
+        /// How many of each species this island EXPRESSES right now: the whole
+        /// seeded roll without the ecology, the rhythm's fraction of it with.
+        /// The seeded per-species counts ARE the island's clamped capacities -
+        /// the plan built them from exactly that arithmetic - so no second
+        /// capacity derivation exists to disagree with the first.
+        /// </summary>
+        private (int Mantas, int Jellies) ExpressedFor(
+            IslandId islandId, IslandPopulation population, double nowSeconds)
+        {
+            if (_ecology == null)
+            {
+                return (population.MantaIds.Count, population.JellyIds.Count);
+            }
+            return (
+                IslandFaunaRhythm.ExpressedCount(population.MantaIds.Count,
+                    IslandFaunaRhythm.ExpressionAt(_ecology.WorldSeed, islandId,
+                        FaunaSpecies.MantaRay, nowSeconds)),
+                IslandFaunaRhythm.ExpressedCount(population.JellyIds.Count,
+                    IslandFaunaRhythm.ExpressionAt(_ecology.WorldSeed, islandId,
+                        FaunaSpecies.JellyFish, nowSeconds)));
+        }
+
+        /// <summary>
+        /// Appends the expressed prefix of one species' ids, minus any group the
+        /// behaviour schedule has deep-dived. The streamed decision is computed
+        /// once per group per call - the same SegmentFor the pose path and the
+        /// telemetry read, so what a peer holds is what the maps say exists.
+        /// </summary>
+        private void AddStreamed(List<long> desired, IslandPopulation population,
+            List<long> ids, int expressed, FaunaSpecies species, IslandId islandId, double now)
+        {
+            if (_ecology == null)
+            {
+                desired.AddRange(ids.Take(expressed));
+                return;
+            }
+            Dictionary<int, bool>? streamedByGroup = null;
+            for (int i = 0; i < expressed && i < ids.Count; i++)
+            {
+                if (!_planned.TryGetValue(ids[i], out FaunaPlacement placement)) continue;
+                int group = placement.Creature.SchoolIndex;
+                streamedByGroup ??= new Dictionary<int, bool>();
+                if (!streamedByGroup.TryGetValue(group, out bool streamed))
+                {
+                    streamed = IslandFaunaBehaviour.IsStreamed(
+                        _ecology.SegmentFor(islandId, species, population.Envelope, group, now),
+                        now);
+                    streamedByGroup[group] = streamed;
+                }
+                if (streamed)
+                {
+                    desired.Add(ids[i]);
                 }
             }
         }

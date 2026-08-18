@@ -62,12 +62,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             // ship-motion model, each ship's hull shape, heading and velocity, and
             // the durable character uid on each player row that lets an operator
             // command be addressed at a CHARACTER rather than at a recycled entity
-            // id. All of it rides ONE version bump: the two landed in the same
-            // release and a reader either has v8 or does not. The version is
-            // asserted here rather than compared to itself so a field added
-            // without a bump has to walk past a red test.
-            Assert.Equal(8, StatsSnapshot.SchemaVersion);
-            Assert.Equal(8, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
+            // id; v9 added the fauna ECOLOGY object (capacity/expressed/quiet per
+            // island, groups with their (behaviour, epoch) pair, and bloom
+            // parameters). The version is asserted here rather than compared to
+            // itself so a field added without a bump has to walk past a red test.
+            Assert.Equal(9, StatsSnapshot.SchemaVersion);
+            Assert.Equal(9, (int)JObject.Parse(Snapshot(null).ToJson())["schemaVersion"]!);
         }
 
         [Fact]
