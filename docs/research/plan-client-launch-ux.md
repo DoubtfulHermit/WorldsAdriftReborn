@@ -182,9 +182,48 @@ test suites at or above their measured baselines
 `Storage.Tests` 57 passed / 146 skipped). Stage a patcher release without
 publishing it.
 
+## Outcome
+
+All six phases landed. The client was launched afterwards, with Steam running
+and available, and the new log says:
+
+```
+Patching completed successfully: 91 method(s) patched across 84 class(es).
+```
+
+against the old log's `Unhandled exception occurred while patching the game`
+and no success line at all. Zero failed classes, zero errors, zero exceptions
+in the whole boot.
+
+The word "steam" appears three times in the entire log. One is our own
+`ConfigKeys.UseSteam resolves to 'Bootstrap.UseSteam'`, one is the game logging
+the *name* of the `CheckSteamBranchAndConfig` boot step, and one is a config read.
+There is no `[SteamManager] Steam Username`, no `Steam User Id`, no
+`Steam App Id`, no `[SteamChecker] Trying to fetching steam branch name`, and no
+`SteamAuthTimeoutException` - all of which the previous log had. Steam was
+running and the client never once spoke to it.
+
+The boot then ran straight through
+`CheckSteamBranchAndConfig -> ConnectToAnalytics -> InitializeEACClient ->
+ValidateClientVersion -> ConnectToGameDB -> SplashScreenState` in about nine
+seconds, where before it hung fifteen and looped.
+
+`[WAReborn] PvE card 'PvE Server' greyed out; it is not a server we run.` also
+appears, so the card-root walk found the right object and Phase 3 is confirmed
+live rather than only by reading.
+
 ## What cannot be verified here
 
-The only real proof is a launch with Steam closed. At the time of writing the
-player's own client is running (pid 3891035) and Steam is running (pid 38400);
-neither may be killed. Whatever cannot be confirmed by launching will be
-reported as statically verified, and said so plainly.
+Steam could not be closed for the test - it belongs to the player and was left
+alone. The launch above is arguably the stronger evidence anyway: Steam was up
+and reachable and the client still never called it, which is a claim "Steam was
+absent so nothing could call it" cannot make.
+
+The landing screen itself was not reached. Getting past the splash screen needs
+a CONTINUE press, and this project does not drive game UI with synthetic input.
+So Phase 2 (the login dialog), Phase 4 (the links and copy) and Phase 5 (the
+Island Creator, shop and connection-error messages) are verified by reading the
+decompile and by their patch classes applying cleanly - 84 of 84, none failed -
+but not by eye. Each of those patches logs which replacement landed and warns by
+name about any that did not, so the next real launch will say so in the log
+without anyone having to go looking.
