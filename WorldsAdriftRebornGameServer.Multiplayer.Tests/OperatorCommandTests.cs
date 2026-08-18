@@ -532,6 +532,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_teleport_to_another_player_does_not_cry_wolf_about_a_fall()
+        {
+            // The destination is wherever a live player is standing, which is
+            // usually solid ground - the server just cannot attribute it to an
+            // island. Reusing the generic no-terrain "expect a fall" line here
+            // would be wrong far more often than right, and a warning that cries
+            // wolf is one an operator stops reading.
+            IReadOnlyList<string> warnings = OperatorSafetyPolicy.TeleportWarnings(
+                OperatorDestinationKind.Player,
+                landsOnLoadedGround: false,
+                namesRequiredTerrain: false,
+                targetIsAboardAShip: false);
+
+            Assert.Single(warnings);
+            Assert.Contains("beside the destination player", warnings[0]);
+            Assert.DoesNotContain("rather than a landing", warnings[0]);
+        }
+
+        [Fact]
         public void An_island_teleport_with_registered_terrain_warns_about_nothing()
         {
             IReadOnlyList<string> warnings = OperatorSafetyPolicy.TeleportWarnings(

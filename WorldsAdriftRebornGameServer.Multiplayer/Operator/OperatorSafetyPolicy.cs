@@ -106,17 +106,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Operator
                     + "cannot run and nothing guarantees there is ground there. Expect a fall "
                     + "unless you surveyed the point yourself.");
             }
+            else if (destinationKind == OperatorDestinationKind.Player)
+            {
+                // Deliberately NOT the generic no-terrain sentence below. The
+                // destination is wherever a live player is standing, which is
+                // usually solid ground - the server simply cannot ATTRIBUTE that
+                // point to an island without a terrain query, so it cannot gate the
+                // arrival. Saying "expect a fall" here would be wrong far more
+                // often than it was right, and a warning that cries wolf is a
+                // warning an operator stops reading.
+                warnings.Add("Arriving beside the destination player, "
+                    + BesidePlayerMetres.ToString("0.#") + " m to one side, so the two "
+                    + "characters do not occupy the same point. The server cannot tell "
+                    + "which island they are on, so the arrival is ungated: if they are "
+                    + "aboard a ship or over open sky, this is a fall.");
+            }
             else if (!landsOnLoadedGround && !namesRequiredTerrain)
             {
                 warnings.Add("This destination has no registered terrain behind it; "
                     + "the arrival is a fall rather than a landing.");
-            }
-
-            if (destinationKind == OperatorDestinationKind.Player)
-            {
-                warnings.Add("Arriving beside the destination player, "
-                    + BesidePlayerMetres.ToString("0.#") + " m to one side, so the two "
-                    + "characters do not occupy the same point.");
             }
 
             return warnings;
