@@ -77,6 +77,17 @@ namespace WorldsAdriftRebornGameServer.Game
         private readonly Dictionary<long, FlightControlInput> _inputs =
             new Dictionary<long, FlightControlInput>();
 
+        /// <summary>
+        /// Who was last at each hull's helm. Exists to close a staleness hole this
+        /// service cannot fix at the source: <c>ShipFlightService</c> clears its own
+        /// held input when a pilot DISMOUNTS, inside a file this branch does not
+        /// modify. Without this, a pilot who parks with the throttle forward, gets
+        /// off, and later re-mans would find flight starting from neutral while
+        /// fuel's mirror still read "full ahead" - and fuel would burn for thrust
+        /// nobody is getting.
+        /// </summary>
+        private readonly Dictionary<long, long> _lastPilotByHull = new Dictionary<long, long>();
+
         private TimeSpan _lastBurnAt;
         private bool _started;
 
@@ -152,7 +163,14 @@ namespace WorldsAdriftRebornGameServer.Game
         }
 
         /// <summary>The ship itself is gone. Drop the tank entirely.</summary>
-        internal void OnHullRemoved(long hullEntityId) => _ledger.Forget(hullEntityId);
+        internal void OnHullRemoved(long hullEntityId)
+        {
+            if (_lastPilotByHull.Remove(hullEntityId, out long pilot))
+            {
+                _inputs.Remove(pilot);
+            }
+            _ledger.Forget(hullEntityId);
+        }
 
         // ------------------------------------------------------------------
         // Refuelling: the Activate on the sky core
@@ -262,7 +280,16 @@ namespace WorldsAdriftRebornGameServer.Game
             return _ledger.AnyDry && PilotsADryHull(playerEntityId) ? 0f : throttle;
         }
 
-        /// <summary>A pilot disconnected or left the helm. Drop the mirror.</summary>
+        /// <summary>
+        /// A pilot is gone - disconnected, released the helm, or their ship retired.
+        /// Drops the mirrored input.
+        ///
+        /// MUST be called wherever <c>ShipFlightService</c> clears its own
+        /// <c>_inputs</c>, or the two hold different opinions of a stick nobody is
+        /// touching and fuel's opinion is the one that burns. That is the same
+        /// invisible-per-life-state leak the flight service's own OnPlayerGone
+        /// comment warns about.
+        /// </summary>
         internal void ForgetPlayer(long playerEntityId) => _inputs.Remove(playerEntityId);
 
         private bool PilotsADryHull(long playerEntityId)
@@ -312,6 +339,24 @@ namespace WorldsAdriftRebornGameServer.Game
             foreach (long hullEntityId in hulls)
             {
                 long? pilot = WorldsAdriftRebornGameServer.Flight.PilotEntityOf(hullEntityId);
+
+                // Whoever was here before and is not here now has left the helm, and
+                // flight has already dropped their held input. Drop ours in the same
+                // breath, so a re-man starts both sides from neutral.
+                if (_lastPilotByHull.TryGetValue(hullEntityId, out long previous)
+                    && previous != (pilot ?? 0L))
+                {
+                    _inputs.Remove(previous);
+                }
+                if (pilot.HasValue)
+                {
+                    _lastPilotByHull[hullEntityId] = pilot.Value;
+                }
+                else
+                {
+                    _lastPilotByHull.Remove(hullEntityId);
+                }
+
                 double throttle = pilot.HasValue
                     && _inputs.TryGetValue(pilot.Value, out FlightControlInput input)
                         ? input.Throttle

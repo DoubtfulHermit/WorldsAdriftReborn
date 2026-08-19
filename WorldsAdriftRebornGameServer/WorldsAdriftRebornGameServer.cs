@@ -205,6 +205,12 @@ namespace WorldsAdriftRebornGameServer
                 // exists to prevent.
                 Flight.OnPlayerGone(ownEntity.Value);
 
+                // Fuel MIRRORS that same 1111 throttle stream, so it must forget the
+                // player wherever flight does or the two hold different opinions of a
+                // stick nobody is touching - and fuel's opinion is the one that burns.
+                // Same "invisible per-life state" class as the fall watch below.
+                ShipFuel.ForgetPlayer(ownEntity.Value);
+
                 // The fall watch keyed by the same entity. Left behind, the record
                 // would still be counting rescue attempts for somebody who has
                 // logged out - harmless in itself, but ForgetPeer's contract is

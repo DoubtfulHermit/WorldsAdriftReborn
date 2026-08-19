@@ -128,6 +128,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         /// <summary>
+        /// Fuel mirrors flight's 1111 stream, so it must forget a player wherever
+        /// flight forgets one. Two opinions of a stick nobody is touching, and the
+        /// one that burns fuel is the wrong one to leave stale.
+        /// </summary>
+        [Fact]
+        public void ADisconnectingPlayerIsForgottenByFuelToo()
+        {
+            string server = Source("WorldsAdriftRebornGameServer", "WorldsAdriftRebornGameServer.cs");
+
+            Contains(server, "Flight.OnPlayerGone(ownEntity.Value);",
+                "The anchor: fuel's cleanup must sit with flight's, not somewhere else that a later "
+                + "refactor can separate them.");
+            Contains(server, "ShipFuel.ForgetPlayer(ownEntity.Value);",
+                "A disconnected pilot's mirrored throttle would otherwise keep burning fuel for a ship "
+                + "flight has already settled to rest.");
+        }
+
+        /// <summary>
         /// Losing the core must make the hull unmetered again. Without this a ship
         /// whose core was lifted keeps burning fuel it can no longer be given - the
         /// one way this feature could genuinely strand somebody.
