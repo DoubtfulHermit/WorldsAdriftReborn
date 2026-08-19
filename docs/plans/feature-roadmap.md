@@ -1755,7 +1755,7 @@ can land on the canonical shared body and fire for
 **CLIENT MOD, therefore a PATCHER RELEASE**, and it is unverified: nothing
 headless runs a placement preview.
 
-### 11.11 The component-init errors in the live log, and why they are NOT §11.2
+### 11.12 The component-init errors in the live log, and why they are NOT §11.2
 
 **Added 2026-08-19, branch `fix/component-init`.** The live game server had been
 printing `[error] failed to initialize component NNNN of entity NN` continuously
