@@ -501,6 +501,78 @@ In the 98. Zero references. With `LockEquip` and components 1217/1218/1220/1221.
 **In a PvP game with boardable ships, "can I lock my ship" is not a
 decoration question.**
 
+
+### 2.4 THE BAR PIPE QUESTION, ANSWERED
+
+This was the highest-value open item when the document started, and it is now
+closed enough to act on. **PROVED, from four decompiled files.**
+
+**First: there is nothing to read off the prefab.** `acs/PlacementRules.cs` is
+a *runtime overlap-exception helper* — a list of `Func<IEntityObject,bool>`
+and a `CanOverlapWith`. It holds **no serialized surface data at all**. So the
+plan of "read `PlacementRules` off the instrument prefabs and compare with
+BarPipe" cannot work, and no amount of asset extraction will make it work.
+
+**Second: the surface is a server refdata string, and its vocabulary is
+CLOSED.** `BuilderVisualizer.AttachmentType` has exactly nine values:
+
+```
+None · Side · Deck · DeckGrid · Engine · ShipSurfaces · DeckForward · Wing · CoreModule
+```
+
+`ShipPartPlacement` maps each onto a `PlacementLocationType` flag. So retail's
+attachment string for an instrument is **one of nine known values**, not an
+unknown. Our catalogue's admission that *"their exact retail server-refdata
+strings are unavailable"* is correct — they never shipped — but the search
+space is nine, and it can be settled by elimination.
+
+**Third, and this is the answer:** `ShipPartPlacement.IsClipping` treats
+`ShipSurfaces` uniquely —
+
+```csharp
+case PlacementLocationType.ShipSurfaces:
+    return false;          // ShipSurfaces placement NEVER counts as clipping
+```
+
+— every other surface type has a real geometric test. A `ShipSurfaces` part
+may be placed against *any* collider it can raycast, overlapping anything.
+That is the behaviour of *"a small instrument you stick onto whatever is
+there"*, and it is the only one of the nine that behaves that way.
+
+Now join it to what `LoosePartCatalogue` already recorded about the bar pipe:
+
+> *ShipPartPreprocessor gives it colliders on layer 0 Default, Untagged,
+> which is inside `Layers.Environment` and therefore **exactly what a
+> shipSurfaces instrument raycast is looking for**.*
+
+**So the reconstruction is:** instruments were `ShipSurfaces` in retail; a
+`ShipSurfaces` raycast hits `Layers.Environment`; **the bar pipe is the part
+that puts Environment-layer geometry on a ship**; and our generated hulls
+expose almost none, which is precisely why `shipSurfaces` produced the
+"instrument only mounts in ONE spot" symptom that led to the `ShipDeck`
+workaround in the first place.
+
+**The workaround was correct at the time and is now the wrong configuration.**
+With bar pipes shipped, the retail-faithful setting for the five instruments
+is `shipSurfaces`, not `ShipDeck` — and `ShipInstruments.MountSurface` is a
+single constant, already config-overridable.
+
+Two honest caveats, because this is a reconstruction and not a recovered
+string:
+
+- It is **INFERRED**, from a closed vocabulary plus an elimination argument
+  plus our own recorded collider observation. It is not a retail string, and
+  no retail string exists to find.
+- **It needs one live-client test**, and it is cheap: place a bar pipe, set
+  the instruments to `shipSurfaces`, and see whether a fuel gauge lands on the
+  pipe. If it does, that is the answer. If it does not, `Deck` remains correct
+  and this section is wrong — which is why nothing here should be changed on
+  the document's say-so.
+
+The maintainer's original observation stands on its own regardless: the bar
+pipe's collider pad is 0.4375 m wide, **exactly** the Fuel Gauge's width. Parts
+do not match to four decimal places by accident.
+
 ---
 
 ## 3. CATEGORY: DEPLOYABLES, PROPS AND TOOLS
@@ -1366,7 +1438,7 @@ thing renders on machinery we already have.
 | 4 | **Cooking** | **68 food icons**, 4 item rows, 9 named knowledge nodes, `schematic_icon_cooking`; no hunger meter and a closed 6-verb buff vocabulary (§4.9) | 1264, 1012 | item rows + schematics + a `Stove01`/`Campfire` that cooks. Largest content-on-disk item in the client, and **cheaper than it looks**: the effect half is a lookup table, and ingredients can come from scrap piles as they did at retail |
 | 5 | **Personal weapons — eight whole branches** | `knowledge-tree.json`: `1hblade`, `1hblunt`, `2hblade`, `2hblunt`, `rifle`, `pistol`, `sniperrifle`, `shotgun` — **86 nodes** (§4.7.1) | the shooting stack, ~10 | large. Ranked here because **no document in this repo has ever listed these branches**, and they are named in a file we already load |
 | 6 | **Ship weapons — cannon and swivel gun** | `ModularCannon`/`ModularSwivelGun` in the 98, 9 procedural tier icons, 2 category icons, 24 knowledge nodes, **ammo item rows already exist**, 1173/4445 | ~8 (shooting stack) | shares the stack with #5. The ammunition, the materials model and 4444 `MountedGunShotState` are already in place |
-| 7 | **Instrument mounting — is the bar pipe the shelf?** | BarPipe is now in `LoosePartCatalogue`, but `LoosePartCatalogue.cs:353` admits *"their exact retail server-refdata strings are unavailable"* and mounts all five instruments on `ShipDeck` | none | **verification, not construction.** The single cheapest high-value item here: read `PlacementRules` off the instrument prefabs and off `BarPipe`, and stop guessing |
+| 7 | **Instrument mounting — set the five instruments back to `shipSurfaces`** | §2.4: the attachment vocabulary is a closed 9-value enum; `ShipSurfaces` is the only one that never counts as clipping; BarPipe is the part that puts `Layers.Environment` geometry on a ship | **none** | **one constant** (`ShipInstruments.MountSurface`) plus **one live-client test**. The cheapest high-value item in the document, and the only one where the work is smaller than the write-up |
 | 8 | **Ship-part furniture — 17 parts, 0 rows** | 17 icons + 16 prefabs + `schematic_icon_furnciture` | **none** | catalogue rows + schematics. Inert props on a base that already works. **Best count-for-effort on the list** |
 | 9 | **Ship locking** | `Lock`/`LockEquip` + 1217/1218/1220/1221 | 4 | in a PvP game with boardable ships this is a safety feature, not a convenience |
 | 10 | **Fuel's source chain** | `FuelDeposit` + `FuelExtractor` + `FuelEggSpawnerEquip` + 1022, and the client's own placement algorithm in `IslandSurfaceData.cs` (§6.5) | 1022 | today fuel is loot. **This is the generator miss one link upstream** |
@@ -1824,11 +1896,13 @@ forces the creature correction at §5.3.1.
 Stated rather than guessed. Each line says what would settle it.
 
 1. **Whether the bar pipe is actually the instrument mounting surface.**
-   This document proves bar pipes *exist* and that our instruments currently
-   mount on `ShipDeck` by our own admission. It does **not** prove the pipe is
-   what retail attached them to. Settling it needs the `PlacementRules`
-   typetree read off the ten instrument prefabs and off `BarPipe`. That is the
-   highest-value open question here and it is a read, not a build.
+   §2.4 takes this as far as static analysis can: `PlacementRules` holds no
+   surface data, the attachment vocabulary is a closed 9-value enum, and
+   `ShipSurfaces` is the only member that never counts as clipping — which,
+   with the bar pipe's Environment-layer colliders, makes `shipSurfaces` the
+   reconstructed answer. **It is INFERRED, not recovered, and no retail string
+   exists to recover.** One live-client test settles it, and nobody has run
+   one.
 
 2. **Whether `LoosePartCatalogue`'s 38 rows are 38 *working* parts.** This
    document counts catalogue rows, not live behaviour. Several rows carry
