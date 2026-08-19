@@ -148,6 +148,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
             Assert.Equal(250, ShipFuelBunkerPolicy.TotalOf(plan));
         }
 
+        // ---- ShouldDraw: the WIRE rule ----
+
+        [Fact]
+        public void ABunkerFeedsTheTankOnceACanistersWorthOfRoomExists()
+        {
+            // 25 = the recovered 8+8+9 canister. Every draw pushes a container's 1081
+            // on an entity riding a moving ship, so the threshold is what keeps this
+            // feature out of the traffic class that caused the desync spiral.
+            Assert.Equal(25, ShipFuelBunkerPolicy.MinimumDrawUnits);
+
+            Assert.False(ShipFuelBunkerPolicy.ShouldDraw(250.0, 250.0));  // full
+            Assert.False(ShipFuelBunkerPolicy.ShouldDraw(226.0, 250.0));  // 24 short
+            Assert.True(ShipFuelBunkerPolicy.ShouldDraw(225.0, 250.0));   // 25 short
+            Assert.True(ShipFuelBunkerPolicy.ShouldDraw(0.0, 250.0));     // empty
+        }
+
+        [Fact]
+        public void ANearlyFullTankDoesNotPushAContainerEveryFewSeconds()
+        {
+            // At 0.25 fuel/s a hull opens one unit of room every four seconds. Without
+            // the threshold that is a 1081 push per container at ~0.25 Hz for the
+            // whole flight; with it, one per canister burned.
+            for (int shortBy = 1; shortBy < 25; shortBy++)
+            {
+                Assert.False(ShipFuelBunkerPolicy.ShouldDraw(250.0 - shortBy, 250.0),
+                    "a tank " + shortBy + " unit(s) short must wait rather than push");
+            }
+        }
+
+        [Fact]
+        public void AnEmptyTankCanNeverBeBlockedByTheThreshold()
+        {
+            // The threshold must not be able to strand a ship: an empty tank has the
+            // whole capacity free, which is ten canisters.
+            Assert.True(ShipFuelBunkerPolicy.ShouldDraw(0.0, 250.0));
+            Assert.True(ShipFuelBunkerPolicy.ShouldDraw(0.0, ShipFuelBunkerPolicy.MinimumDrawUnits));
+        }
+
+        [Fact]
+        public void AnUnmeteredHullNeverDraws()
+        {
+            Assert.False(ShipFuelBunkerPolicy.ShouldDraw(0.0, 0.0));
+        }
+
         [Fact]
         public void TotalOfIsZeroForNothing()
         {

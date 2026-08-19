@@ -99,6 +99,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
             Contains(service, "ShipFuelBunkerPolicy.Plan(",
                 "The split across containers must come from the pure policy, or the invariant that a "
                 + "plan's units sum to exactly what the tank can take is asserted nowhere.");
+            Contains(service, "ShipFuelBunkerPolicy.ShouldDraw(",
+                "The WIRE rule. Without this first line the drain walks a hull's containers and pushes "
+                + "1081 every few seconds of flight, on entities riding a moving ship - the traffic "
+                + "class that caused this project's desync spiral.");
             Contains(service, "ShipContainerService.IsContainer(",
                 "Only a CONTAINER is a bunker. Without this gate the drain would walk every mounted "
                 + "part, and InventoryService.ForEntity's DefaultModel fallback would hand a railing "

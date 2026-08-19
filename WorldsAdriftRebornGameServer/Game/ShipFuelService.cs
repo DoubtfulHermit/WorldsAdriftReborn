@@ -206,11 +206,15 @@ namespace WorldsAdriftRebornGameServer.Game
         private int DrainBunkers(long hullEntityId)
         {
             FuelReading tank = _ledger.Read(hullEntityId);
-            int free = ShipFuelBunkerPolicy.FreeUnits(tank.Level, tank.Capacity);
-            if (free <= 0)
+            if (!ShipFuelBunkerPolicy.ShouldDraw(tank.Level, tank.Capacity))
             {
+                // Parked, or not yet a canister short. This is the line that keeps a
+                // world full of ships free: no walk of mounted parts, no inventory
+                // read, no 1081. See ShipFuelBunkerPolicy.MinimumDrawUnits for why
+                // the threshold is a WIRE rule.
                 return 0;
             }
+            int free = ShipFuelBunkerPolicy.FreeUnits(tank.Level, tank.Capacity);
 
             List<ShipFuelBunkerPolicy.Draw>? stock = null;
             foreach (KeyValuePair<long, Crafting.MountedParts.Mount> mounted

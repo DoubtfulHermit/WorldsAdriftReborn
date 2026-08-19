@@ -68,6 +68,34 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         }
 
         /// <summary>
+        /// The tank must have at least a CANISTER's worth of room before the bunker
+        /// feeds it - one full 8+8+9 pod, the one recovered number in this subsystem.
+        ///
+        /// THIS IS A WIRE RULE, not a fuel rule, and it is the standing
+        /// multiplayer-safety audit applied to this feature. Every draw pushes that
+        /// container's 1081, on an entity that RIDES A MOVING SHIP - the exact class
+        /// of traffic that caused this project's desync spiral. Without a threshold a
+        /// hull at full throttle (0.25 fuel/s) opens a unit of room every four
+        /// seconds and would push 1081 at ~0.25 Hz per container for the whole
+        /// flight. With it, a bunker feeds the tank once per canister burned - about
+        /// one push per 100 s of continuous full throttle - and the player sees the
+        /// same needle either way, because the client delays it 2 s regardless.
+        ///
+        /// It cannot strand anybody: an empty tank has the whole capacity free, which
+        /// is ten canisters, so the threshold is only ever reached by a tank that is
+        /// already nearly full.
+        /// </summary>
+        public static int MinimumDrawUnits => WorldsAdriftRebornGameServer.Multiplayer.FuelCanisterYield.TotalFuel;
+
+        /// <summary>
+        /// Whether a tank at this level should ask its bunker for anything at all.
+        /// The cheap first line of the drain, so a parked or nearly-full ship costs
+        /// one subtraction and no walk of its mounted parts.
+        /// </summary>
+        public static bool ShouldDraw(double level, double capacity) =>
+            FreeUnits(level, capacity) >= MinimumDrawUnits;
+
+        /// <summary>
         /// How much room the tank has, in whole units, for a level/capacity pair.
         /// Floored, never negative - a tank 0.4 units short cannot accept a whole
         /// canister unit, and offering to take one would round fuel away.
