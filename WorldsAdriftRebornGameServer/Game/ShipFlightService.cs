@@ -980,9 +980,12 @@ namespace WorldsAdriftRebornGameServer.Game
         /// v1 sent it per point): the hull's own 190602 timeline advance (the
         /// moving pose + the next shared stamp) and one 190602 wake per mounted
         /// "~" part carrying its UNCHANGED hull-local offset/rotation at the same
-        /// stamp. Deck panels are real Unity children - never woken (waking them
-        /// would re-fire ParentUpdated and churn a destroy/re-add, the exact trap
-        /// ShipPartMotionService documents).
+        /// stamp. Real Unity children - the built ship's decks, and any mounted part
+        /// <see cref="Multiplayer.Ship.MountedPartHierarchy.IsUnityChild"/> names (the
+        /// bar pipes) - are never woken: they ride the hull through the scene graph,
+        /// and waking them would re-fire ParentUpdated and churn an unparent/reparent
+        /// plus a rigidbody destroy/re-add, the exact trap ShipPartMotionService
+        /// documents for the static deck.
         /// </summary>
         private static ShipPartWakeBundle BuildHullAndPartWakes(
             long hullEntityId, FlightEmit emit)
@@ -998,6 +1001,21 @@ namespace WorldsAdriftRebornGameServer.Game
             var members = new List<ShipDomainComponentUpdate>();
             foreach ((long partEntityId, Crafting.MountedParts.Mount mount) in Crafting.MountedParts.OnHull(hullEntityId))
             {
+                // A mounted part seeded as a REAL Unity CHILD of the hull (a bar pipe) is
+                // dragged along by the hull's own transform and needs no wake. Sending one
+                // is actively harmful: the wake carries the parent field, every
+                // ParentUpdated runs TransformChildHierarchyBehaviour.OnParentUpdated,
+                // and that begins by UN-parenting (CachedTransform.parent =
+                // OriginalParentTransform, decompile :254-292) before re-parenting. At
+                // this cadence that is an unparent/reparent several times a second - the
+                // rigidbody destroy/re-add churn the roadmap names as risk 1, and what a
+                // player would report as jitter. "~" followers still MUST be woken: their
+                // follow-visualizer sleeps a second after its last transform change.
+                if (Multiplayer.Ship.MountedPartHierarchy.IsUnityChild(mount.ItemType))
+                {
+                    continue;
+                }
+
                 var wake = ShipPartTransform.BuildWakeUpdate(
                     mount.LocalOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp,
                     new Improbable.Corelibrary.Math.Quaternion32(mount.PackedRotation));

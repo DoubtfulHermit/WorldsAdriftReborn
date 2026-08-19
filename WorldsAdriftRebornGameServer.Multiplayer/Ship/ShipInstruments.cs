@@ -114,6 +114,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// one filter, and it fixes FIVE separate client walks at once. This string is
         /// the last step of that change, not a substitute for it.
         ///
+        /// **STATUS: the first half of SC5 has LANDED, and this string still does not
+        /// move yet.** <see cref="MountedPartHierarchy"/> now seeds the two BAR PIPES a
+        /// real hierarchy key at all three mounted-part transform sites, so the Unity
+        /// walk <c>flag4</c> depends on can climb from a mounted pipe to the hull. Two
+        /// things still stand between that and this line, and both need a live client,
+        /// not another read of the decompile:
+        /// <list type="number">
+        /// <item>The parenting itself rests on two PREFAB-BAKED flags that are invisible
+        ///   offline - BarPipe's authored <c>GameObjectCanBeParented</c> and
+        ///   <c>ShouldRemoveRigidbodyOnParented</c>. They fail SAFE (an unparentable
+        ///   prefab ignores the key and behaves exactly as today), which also means the
+        ///   server cannot tell whether they held. Only a player craft-and-bolt shows
+        ///   it.</item>
+        /// <item>Even with pipes working, <c>shipSurfaces</c> still LOSES the deck: its
+        ///   mask is <c>Layers.Environment</c> and the deck collider is
+        ///   <c>ShipAttachmentSolid</c>. So the flip is not purely additive - it MOVES
+        ///   instruments from the deck onto pipes and railings, which is retail's
+        ///   layout but is a design call for the maintainer, not a bug fix.</item>
+        /// </list>
+        /// What the flip buys, and why it is still worth doing after a live confirm: the
+        /// <c>shipSurfaces</c> branch of <c>PlacementPreview.PositionOnShip</c> poses off
+        /// <c>Quaternion.LookRotation(forward, hitNormal)</c>, whereas the <c>deck</c>
+        /// branch throws the hit normal away for <c>LookRotation(ship.forward,
+        /// +/-Vector3.up)</c>. That discarded normal is exactly why a gauge bolted to a
+        /// horizontal rail stood upright facing the sky.
+        ///
         /// AND THE CHOICE ITSELF CARRIES NO FIDELITY RISK, which is worth knowing before
         /// anyone agonises over it: <c>attachmentType</c> has nine legal values and an
         /// exhaustive search of all six shipped asset containers plus

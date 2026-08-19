@@ -403,9 +403,19 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         }
 
                         // A MOUNTED loose part (attached to a BUILT ship via the 1070 flow):
-                        // re-seed it already riding the hull - Parent(hullId, "~") + the
+                        // re-seed it already riding the hull - Parent(hullId, key) + the
                         // stored hull-local offset - so a re-checkout shows it bolted on
                         // rather than loose. VALUE-equivalent to the wake the commit sent.
+                        //
+                        // The KEY is per-part, from the one policy the mount commit and the
+                        // in-flight wake also read (MountedPartHierarchy.HierarchyKeyFor):
+                        // "~" for the position-follow every mounted part has always had, and
+                        // a REAL word for a BAR PIPE, which makes the client re-parent it as
+                        // a genuine Unity CHILD of the hull. That is what lets the client's
+                        // five parent walks - NeedToBeOnShip, flag4/CanPlace, the ownership
+                        // check, AttachedShip and HasParentEntity - find a ship above it, so
+                        // an instrument can be bolted TO the pipe. See MountedPartHierarchy
+                        // for the walk-by-walk citations and for why the list is two rows.
                         if (!parent.HasValue && Game.Crafting.MountedParts.Is(entityId))
                         {
                             Game.Crafting.MountedParts.Mount? mount = Game.Crafting.MountedParts.MountFor(entityId);
@@ -413,10 +423,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             {
                                 localSeed = mount.Value.LocalOffset;
                                 mountedPartRotation = mount.Value.PackedRotation;
+                                string mountKey = Multiplayer.Ship.MountedPartHierarchy
+                                    .HierarchyKeyFor(mount.Value.ItemType);
                                 parent = ShipPartTransform.RelativeParent(
-                                    mount.Value.HullEntityId, Multiplayer.BoltedPartTransform.RelativeSlotKey);
+                                    mount.Value.HullEntityId, mountKey);
                                 Console.WriteLine("[info] seeding 190602 for MOUNTED part " + entityId
-                                    + " parent=~ of hull " + mount.Value.HullEntityId
+                                    + " (" + mount.Value.ItemType + ") parent=" + mountKey
+                                    + (Multiplayer.Ship.MountedPartHierarchy.IsUnityChild(mount.Value.ItemType)
+                                        ? " (Unity child)" : "")
+                                    + " of hull " + mount.Value.HullEntityId
                                     + " at local offset " + localSeed + ".");
                             }
                         }
