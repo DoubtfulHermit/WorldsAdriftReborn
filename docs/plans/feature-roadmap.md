@@ -1477,3 +1477,359 @@ Stated rather than guessed, in the style of §9.
    modules; only the chain as a whole has been live-confirmed.
 5. **Whether `PartGraphicsVariationByMaterial` on `Window01` has a baked
    `_metalPrefab`.** SC0's named risk.
+
+---
+
+## 12. FUEL — how it worked, and how it works here
+
+**Owner: `feat/ship-fuel`.** Written from the decompile
+(`/home/ttanurhan/Games/WAReborn-decompiled`) and the shipped client asset
+census, because before this section nobody on this project knew. Every claim
+below carries a provenance label. The wiki is the **weakest** source here and is
+used only where it is the sole survivor; where it disagrees with the decompile,
+the decompile wins.
+
+### 12.1 The answer, plainly: how fuelling worked in retail
+
+**PROVED, end to end, from the client:**
+
+1. **Fuel grew on islands as pods.** `IslandProxyVisualizer.cs:160-175` asks the
+   island for a `GenerateFuelDepositSpawnRequest()` and spawns a fabric entity
+   literally named **`"Egg"`** at the deposit location. `EggPreprocessor.cs`
+   makes it a `RawMaterialBreakOnImpactVisualizer` on the client and a
+   `FuelPod` (kinematic while lodged) on the worker.
+2. **You salvaged them with the gauntlet**, exactly like a metal node, and got
+   the raw material `"fuel"` — one of the three raw materials in the game
+   (`InventoryItemManager.cs:18`: `{ "Metal", "Wood", "Fuel" }`). Recovered
+   yield: 3 shots, 8 + 8 + 9 = **25 fuel per canister** (WIKI, already encoded
+   verbatim in `FuelCanisterYield`).
+3. **A ship carried one or more FUEL TANK entities.** Each held
+   `1106 FuelTankState { capacity, fuel, subtanks }`. `subtanks` is an int, so a
+   tank was **expandable** — you bolted sub-tanks on to raise capacity. The ship
+   root aggregated them: `AccumulatedData.field5_fuel_tanks` is a
+   `Map<EntityId, FuelData{capacity, fuel}>` — total ship fuel is the sum over
+   its tanks.
+4. **You refuelled by walking up to the tank and holding E.**
+   `ShipFuelTankPreprocessor.ExportProcess` adds
+   `InteractiveObjectVisualizer` with **`InteractVerb.Activate`** — the same
+   generic verb as the lamp and the sail. **There is no `Refuel` verb**; the
+   `InteractVerb` enum is `{ Default, Activate, PickUp, Man, Inventory, Craft,
+   Harvest, Forced, Design, ReclaimShip, ShipBoost }` and that is all of it.
+   The client sends only `(targetEntityId, InteractVerb.Activate)` — **no item
+   reference at all** (`InteractAgentObserver.IssueInteraction`). The "you must
+   be holding fuel" rule rode on `InteractionEntry.activatedByItem`, a string
+   the server puts on `1210 InteractiveState` and which **the shipped client
+   never reads** (zero non-gencode references). So the entire refuel decision —
+   what it costs, how much moves, whether you are allowed — lived on the
+   server. The player's verb is *hold E on the tank*, and nothing more.
+5. **Engines were the consumers.** Each engine carried
+   `1104 FuelConsumerState { fuelTankId: EntityId, attached: bool }` — an engine
+   was **bound to one specific tank entity by id**, not to a global ship pool,
+   and `attached` said whether that binding was live. Burn rate rode on
+   `1116 ShipEngineState.field4_consumption` (per engine) and
+   `1113 ShipControlState.field4_fuel_consumption` (per ship). Consumption was
+   **continuous and throttle-driven**, not per-action: `ShipEngineState` carries
+   `throttle`, `power`, `spinup`, `currentPercentSpin` and `consumption` as
+   separate live floats, and the client scales its engine audio by
+   `4f * consumption * throttle` (`EngineVisualizer.GetInefficiency` →
+   `UpdateAudio`'s `EngineLoad`/`EngineDamage` Wwise params). A thirstier
+   engine literally sounded more laboured.
+6. **How thirsty an engine was, was a CRAFTING STAT.** `fuelEfficiency`
+   (`SchematicData.cs`, display name "Fuel Efficiency", cipher colour Yellow) is
+   rolled by an engine's **Mechanical Internals** and **Propeller** slots. So
+   fuel economy was something you crafted for.
+7. **The gauge was a separate instrument with its own component.**
+   `1105 FuelGaugeState { capacity, fuel }` on the gauge part — the server
+   aggregated the tanks and pushed the totals to each gauge. The gauge is
+   read-only: **none of `1104`/`1105`/`1106` has a single event or command.**
+   Fuel was pure server-authoritative state; there was nothing for a client to
+   ask for.
+8. **AI ships cheated.** `1067 RefuelShip
+   { refuel_interval_seconds, refuel_amount }` lives in
+   `Bossa.Travellers.Player.Ai` — NPC ships topped themselves up on a timer.
+   Not a player mechanic.
+
+**What happened at EMPTY. PROVED (by absence, three ways):** there is **no**
+`fuel == 0` branch anywhere in the client. No warning light, no sound, no UI
+message, no localization key — `LocalizationSchema.cs` has zero fuel keys, and
+the strings `"Out of fuel"`, `"Low fuel"`, `"Refuel"`, `"Fuel Tank"` do not
+exist in the binary. The needle simply pins at empty and the odometer reads
+zero. And the client cannot make the ship fall on its own: it **replays**
+server-supplied motion (1130) and never simulates it. So running dry is
+**a resource sink, not a death trap** — the engines stop pushing and the ship
+drifts to a halt. It does not lose altitude. Lift in Worlds Adrift comes from
+the sky core (`ShipLiftState 1258`), which fuel never touched.
+
+**RECOVERED but not reproducible: the fuel efficiency numbers.** Everything
+about *actually moving fuel* — the transfer amount, the depletion loop, tank
+capacities, per-engine burn rates, the value of one fuel unit — lived on the
+GSim (Scala), which is gone. `ShipConfiguration.cs` ships ~40 flight tunables
+and **not one fuel entry**; `ConfigKeys.cs` has no fuel key; every fuel schema
+field defaults to proto zero. The only preserved number in the whole subsystem
+is the 8/8/9 canister yield. **Everything else this server picks is WAREBORN
+TUNING and is labelled as such in §12.5.**
+
+### 12.2 The three components, exactly
+
+All in namespace `Bossa.Travellers.Ship`. All fields optional, all
+`IsRequired=false`; floats are `fixed32`, `EntityId` is an int64 varint.
+**No events. No commands. On any of them.**
+
+| id | name | fields |
+|---|---|---|
+| **1104** | `FuelConsumerState` | `1 fuelTankId: EntityId`, `2 attached: bool` — on the ENGINE |
+| **1105** | `FuelGaugeState` | `1 capacity: float`, `2 fuel: float` — on the GAUGE |
+| **1106** | `FuelTankState` | `1 capacity: float`, `2 fuel: float`, `3 subtanks: int` — on the TANK |
+| — | `FuelData` (custom type) | `1 capacity`, `2 fuel` — the map value in `AccumulatedData.fuelTanks` |
+| 1067 | `RefuelShip` | `1 refuelIntervalSeconds: int`, `2 refuelAmount: int` — AI only |
+| 1116 | `ShipEngineState` | `4 consumption: float` is the fuel coupling; also `power/throttle/forward/spinup/overheatLimit/boost` |
+
+`8068 DeprecatedBossaRigidbodyEngineData` is an empty marker with zero fields
+and nothing to do with fuel. `190302/190303 EngineLatency*` are game-engine
+metrics — a name collision, not propulsion.
+
+### 12.3 The gauge: what was wrong, and what fixes it
+
+**CONFIRMED — §11.5 was right, and here is the whole file.**
+`acs/Assets.Scripts.Visualisers.Ship/FuelGaugeVisualizer.cs` has exactly one
+`[Require]`:
+
+```csharp
+[Require] private FuelGaugeStateReader _fuelGauge;   // component 1105
+```
+
+and it never reads anything else off SpatialOS. It subscribes
+`_fuelGauge.FuelUpdated += OnFuelUpdated` in `OnEnable` and polls
+`_fuelGauge.Capacity` every frame. The catalogue seeds the gauge **1236**, which
+that prefab has no reader for. A Unity visualiser does not enable until every
+`[Require]` resolves and logs **nothing** when it does not — so the gauge is
+craftable, placeable, visible, and its needle can never move. Same silent-failure
+shape as the loom (`1264`) and the ship containers (`1081`+`1236`).
+
+Enumerated **before** assuming one component is enough, per the standing rule:
+
+| fuel-related client behaviour | its `[Require]` set | verdict |
+|---|---|---|
+| `FuelGaugeVisualizer` (the instrument) | **1105 only** | serve 1105 and it works |
+| `FuelVisualizer` (added to every ship ROOT by `ShipPreprocessor.cs:77`) | **1106 only** | its one method `GetFuelPercent()` has **zero callers in the entire decompile**. Dead hook for a cut HUD readout. Serving 1106 on the hull buys nothing |
+| `FuelTankShakeVisualizer` | none (walks `GetComponentInParent<ShipControlInputVisualizer>`) | shake is **throttle**-driven, not fuel-driven |
+| `EngineVisualizer` | 1116, 1235, 1252, 1251 — **no fuel reader** | reads `ShipEngineState.consumption` for AUDIO ONLY; never gates thrust |
+| `FuelPodVisualiser_fsim` | 2102 `LodgeableState` | worker-only; already served |
+
+**So exactly one serve moves the needle: `1105` on the gauge part.** Nothing
+else in the shipped client reads a fuel number for any purpose.
+
+The gauge's own arithmetic, for what the player will see:
+
+```csharp
+Quaternion.AngleAxis(Mathf.Lerp(135f, -135f, Mathf.Clamp01(current / Mathf.Max(total, 1f))), Vector3.forward)
+```
+
+a **270° sweep, +135° at empty to −135° at full**, plus four odometer digits and
+a magnitude roller in powers of 1000. Two smoothing stages sit in front of it: a
+`DelayedInterpolator` with **`Delay = 2.0` seconds**, then
+`Mathf.Lerp(current, target, 2f * Time.deltaTime)`. **The needle is meant to lag
+about two seconds behind the wire.** That is retail behaviour, not a bug, and it
+is why a 1 Hz server push is more than enough.
+
+### 12.4 The two hard constraints this server has, that retail did not
+
+**Constraint 1 — THERE IS NO FUEL TANK PREFAB.** The 349-name client entity
+prefab census (`Ship/client-entity-prefabs.txt`, extracted from the shipped
+`resources.assets` and re-verified against the ResourceManager container map)
+contains `fuelgauge`, `fueldeposit`, `fuelextractor`, `fueleggspawnerequip` and
+`egg` — and **no ship fuel tank**. The retail tank was a real entity carrying
+1106, and we cannot spawn one: a name the client cannot resolve means the
+materials are eaten and nothing appears. So the retail topology (per-tank 1106,
+per-engine 1104 bound by tank id) is **not reproducible here**. Fuel must be
+per-HULL state, which is what retail's own `AccumulatedData.fuelTanks`
+aggregation did anyway, one level up.
+
+**Constraint 2 — A VERB CANNOT BE INVENTED.** `InteractiveObjectVisualizer`
+caches `Interactions.FirstOrDefault(i => i.verb == Verb)` **once**, in
+`OnEnable`, where `Verb` is baked into the prefab at export time. Serving an
+`Activate` entry to a prefab that has no `InteractiveObjectVisualizer` produces
+no prompt at all. Of our 37 rows, only these prefabs bake one:
+helm (`Man`), sail/lamp/horn (`Activate`), the four containers (`Inventory`),
+`personalReviver` (`Activate`) and **`atlasSkyCore` (`Activate`,
+`ShipCorePreprocessor.cs`)**. Of those, the sky core is the only one whose verb
+is baked, unused and unclaimed by another feature.
+
+**Therefore: the refuel point on this server is the ATLAS SKY CORE.** §11.4
+records that we deliberately serve it `None` because "the shipped client has no
+consumer for the resulting interact". This gives it one. It is a deviation from
+retail (retail refuelled at the tank), it is stated as such, and it is the only
+door the shipped client leaves open.
+
+### 12.5 The numbers, and why
+
+All WAREBORN TUNING unless marked. Every one is env-overridable, because none of
+them is recoverable and the first live flight is the only real test.
+
+| quantity | value | reasoning |
+|---|---|---|
+| one canister | **25 fuel** (8+8+9) | **WIKI/RECOVERED** — already in `FuelCanisterYield`, untouched |
+| ship capacity | **250 fuel** | ten canisters. Large enough that refuelling is an errand, small enough that one salvage trip fills you. `WAREBORN_FUEL_CAPACITY` |
+| burn at full throttle | **0.25 fuel/s** | a full tank is 1000 s ≈ **16 minutes of continuous full throttle**; one canister ≈ 100 s. `WAREBORN_FUEL_BURN_RATE` |
+| burn shape | **proportional to abs(throttle)** | retail's `consumption` and `throttle` are separate live floats and the client's own audio scales load by their product. Half throttle costs half. Idling costs nothing |
+| one refuel press | **everything that fits** | retail's per-press amount is unrecoverable. Moving the whole overlap in one hold beats making the player mash E |
+| tank on introduction | **FULL** | see the risk note below |
+| gauge push | **≤1 Hz, and only on a ≥1-unit change** | the client already delays the needle 2 s and lerps it; anything faster is invisible traffic |
+
+**Why tanks start full, and why the gate is conditional.** Ships already fly on
+this server. Shipping "no fuel, no thrust" against a live world would ground
+every existing ship the moment it deployed, for a reason no player consented to.
+Two decisions prevent that:
+
+- a hull's tank is created **full** the first time it is seen;
+- **a hull has a fuel system at all only if it has a mounted `atlasSkyCore`.**
+  No core, no refuel door — so no core, no burn and no gate. A ship that cannot
+  be refuelled can never be stranded by this feature. The core is the ship's
+  power plant; that reading is thematically right and it is also the only
+  non-punitive rule available.
+
+### 12.6 The seam with `feat/ship-flight` — what this branch expects from theirs
+
+This branch does **not** touch `ShipFlightService`, `FlightIntegrator`,
+`FlightSession`, `FlightTuning` or `HullMassCalculator`. It meets flight at two
+public seams only, and here is exactly what it wants:
+
+1. **Today (this branch's own machinery).** `ShipControlInput_Handler` (1111)
+   already forwards throttle deltas to `Flight.OnControlInput`. This branch
+   mirrors the same delta into its own ledger using the **same production
+   `FlightControlInput.Merge`**, so a held stick — which is *silent* on the wire
+   — is still counted as burning. When a hull runs dry, the fuel service issues
+   one ordinary `Flight.OnControlInput(pilot, throttle: 0f, …)`, the existing
+   public API, and the handler clamps any later throttle command to zero while
+   dry. The ship decelerates on its normal curve and stops. **No flight file is
+   modified.**
+2. **What we would rather have, from `feat/ship-flight`.** Two things, in
+   preference order:
+   - **`FlightIntegrator.Step` / `FlightSession.Advance` gain an `enginesLit`
+     (or `fuelScale`) parameter**, exactly the shape `unfurledSails` already
+     has, defaulting to the current behaviour. A dry ship should lose **engine**
+     propulsion and keep **sail** propulsion — sails are wind, engines are fuel.
+     Today's blunt throttle clamp kills both, which is wrong and is stated here
+     as a known inaccuracy rather than hidden.
+   - **A read-only "commanded throttle for this hull" accessor** on
+     `ShipFlightService`, so the fuel service can stop mirroring the 1111
+     stream. The mirror is small and uses their own merge type, but two copies
+     of a truth is two copies.
+   - Longer term, when engines are more than scenery: burn should scale with the
+     **number of mounted engines** and with each engine's crafted
+     `fuelEfficiency` stat, which is where retail put it. This branch keeps the
+     rate flat and says so.
+
+### 12.7 The phased plan
+
+Same contract as §5 and §11.8: what it delivers · what a player can newly DO ·
+dependencies · schema migration · networked state (soak gate) · main risk.
+
+---
+
+#### PHASE F1 — The needle moves, and fuel is real
+
+- **Delivers:** the whole vertical slice, server-only.
+  1. `ShipFuelPolicy` + `ShipFuelLedger` (pure, in `Multiplayer/Ship/Fuel/`):
+     per-hull capacity and level, deposit, throttle-proportional burn, the dry
+     transition.
+  2. **`1105 FuelGaugeState` served on the `fuelGauge` part**, reading the hull
+     the gauge is mounted on. Replaces the §11.5 defect. `1236` stays alongside
+     it — it is served correctly and removing it is a separate, unrelated risk.
+  3. **Refuel**: `Activate` on a mounted `atlasSkyCore` moves every unit of
+     `"fuel"` in the player's inventory that fits into the hull's tank, using
+     the same `CraftingPolicy` drawdown idiom the crafting path uses, then
+     `InventoryPush.Push`.
+  4. **Burn**: `ShipFuelService.Tick()` on the main loop, burning
+     `rate × |throttle| × dt` for every hull under power.
+  5. **Gate**: at zero, one `OnControlInput(throttle: 0)` and a clamp on later
+     commands, per §12.6.
+  6. **Gauge push**: 1105 broadcast to every mounted `fuelGauge` on that hull,
+     rate-limited per §12.5.
+- **Player can newly do:** salvage fuel canisters, walk up to their ship's sky
+  core, hold E, and **watch the fuel gauge needle climb**. Then fly, and watch
+  it fall. Then run out, and coast to a stop.
+- **Depends on:** nothing. `atlasSkyCore`, `fuelGauge` and the `"fuel"` item
+  all already exist and already work.
+- **Migration:** **no.** Fuel lives in memory for the session; a restart
+  refills. Deliberate — see F3.
+- **SOAK: YES.** A per-ship level ticking continuously with a periodic 1105
+  broadcast is exactly the new networked state the standing rule names.
+- **CLIENT MOD: no.** Every piece is a component the stock client already
+  reads, on a prefab it already resolves.
+- **Main risk:** the sky-core prompt reads as the generic *Activate*, not
+  "Refuel" — `InteractionEntry.description` is transmitted and **never rendered**
+  by the shipped client (§12.1), so there is no way to label it. A player who
+  does not read patch notes will not discover refuelling. Second risk: a ship
+  with no sky core silently has no fuel system; that is the deliberate
+  non-punitive rule, but it means two ships can behave differently for reasons
+  the player cannot see.
+
+---
+
+#### PHASE F2 — Fuel is visible without a gauge
+
+- **Delivers:** a chat/toast line on refuel ("Refuelled: 250/250") and a low-fuel
+  warning at 10%, both on the existing native toast path
+  (`HarvestReward`'s 8060). Retail had neither, and retail also had a tank you
+  could walk up to and a gauge on every ship; we have one instrument and an
+  unlabelled prompt.
+- **Player can newly do:** find out they are nearly dry without having crafted
+  and mounted a fuel gauge.
+- **Depends on:** F1.
+- **Migration:** no. **SOAK:** no — one-shot toasts on an existing path.
+  **CLIENT MOD:** no.
+- **Main risk:** toast spam if the threshold has no hysteresis.
+
+---
+
+#### PHASE F3 — Fuel survives a restart
+
+- **LOUD:** this is isolated into its own phase **on purpose**. It is an
+  additive `double Fuel` property on `BuiltShipRecord` in **`world-state.json`**
+  — plain JSON, game-server only, whose default `0` must be read as "legacy,
+  fill it" and not as "empty". It is **NOT** a Postgres migration and does
+  **NOT** require a login-server deploy. The same additive-default discipline
+  `MountedPartRecord.LampOff` documents (stored inverted so the JSON default
+  means the legacy state) applies here, and the legacy sentinel must be chosen
+  before a line is written.
+- **Delivers:** a tank level that persists across a server restart.
+- **Depends on:** F1.
+- **Migration:** **JSON only, additive, no DB.** **SOAK:** no. **CLIENT MOD:** no.
+- **Main risk:** reading a legacy `0` as an empty tank and grounding every ship
+  in the world on the first restart after deploy. Use a nullable/sentinel, not a
+  bare double.
+
+---
+
+#### PHASE F4 — Engines matter
+
+- **Delivers:** burn scaled by mounted engine count and by each engine's crafted
+  `fuelEfficiency` stat (the retail location for it, §12.1); `1104
+  FuelConsumerState` served on each engine so `attached` is honest; the
+  `enginesLit` seam of §12.6 replacing the throttle clamp.
+- **Player can newly do:** craft an economical engine and get more range out of
+  the same canister — the reason `fuelEfficiency` exists.
+- **Depends on:** **`feat/ship-flight`** shipping the `enginesLit` parameter,
+  and on engines being more than scenery.
+- **Migration:** no. **SOAK:** yes — 1104 is new per-engine state.
+- **Main risk:** it is not this branch's to sequence.
+
+### 12.8 What only a live flight can settle
+
+1. **Whether the needle actually moves.** Nothing headless renders a
+   `GaugeRoller`. Craft a Fuel Gauge, mount it, refuel, and watch. The needle
+   lags ~2 s by design (§12.3); it is **not** broken if it is late.
+2. **Whether the sky core shows an E prompt at all.** The verb is baked
+   (`ShipCorePreprocessor`), but this server has never served the core an
+   `Activate` entry before, and `IsSeededInteractionAvailable` gates it on
+   *mounted*. A loose core must show nothing; a mounted one must show a prompt.
+3. **What the prompt says.** Predicted: the generic Activate glyph with no text,
+   because `description` is never rendered. If it reads anything else, §12.1 is
+   wrong about the client.
+4. **Whether a dry ship coasts or stops dead.** The clamp goes through the
+   normal deceleration curve, so it should glide to a halt over several seconds.
+   A hard stop would mean the clamp is landing somewhere it should not.
+5. **Whether a dry ship holds altitude.** It must. Fuel never touched
+   `ShipLiftState 1258` in retail and does not here. If a ship sinks, that is a
+   flight bug this feature revealed, not a fuel behaviour.
