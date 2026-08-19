@@ -1,9 +1,12 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 535 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 538 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 48 commits
+## 2026-08-19 | 52 commits
 
+* 46ea3ff Compress the object catalogue, which just became a megabyte
+* 7c9fffc Give the object panel groups a player can browse rather than one long list
+* 01ac220 Put the two hundred traced objects in front of the player
 * daecd01 Correct the production claim: the release world IS on, and the numbers decompose
 * 35a0317 Kill a creature with the beam, not with a weapons system
 * 5febf4b Size phase 7 from evidence, and withdraw the corpse-grounding plan
@@ -23,6 +26,7 @@ Every commit, newest first. 535 of them since 2026-08-07. Merges are left out - 
 * e73cefa Ask before Delete all throws the layers away
 * a7cf2d0 Give the portal tabs, and the emblem a layered editor
 * 5a69250 Show the log that falls, and make the trunk break up piece by piece
+* a1dafdd Trace 200 more emblem objects, without touching the frozen fifty
 * 0a7506c Record the 2026.08.19-2 release that unbreaks the patcher
 * 0fc418e Say in the journal why a portal action was refused
 * d7d00bf Record the PLAY-hang outage and its cause
@@ -578,4 +582,4 @@ Every commit, newest first. 535 of them since 2026-08-07. Merges are left out - 
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 135 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 136 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
