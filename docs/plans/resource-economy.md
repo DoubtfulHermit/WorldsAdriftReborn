@@ -25,7 +25,7 @@ decompile or shipped data), **RECOVERED** (reconstructed from a retail artefact)
 | 4 — The loom | not started; scope grew, see the phase |
 | 5 — Scrapping | not started |
 | 6 — Cooking routing | not started |
-| 7 — Creature lifecycle | not started; 7a-iii unsized pending investigation |
+| 7 — Creature lifecycle | not started; now SIZED, and the cheapest win moved to the front |
 
 **Gates on 1–3.** Multiplayer suite **3737 passed / 0 failed** (baseline 3694 —
 the 43 added are this branch's). `WorldsAdriftServer.Tests` **1107 passed / 26
@@ -668,6 +668,50 @@ metal node and a creature corpse resolve through the same table. That is worth
 building once, deliberately, rather than growing a second creature-shaped yield
 path beside the one Phases 1–3 just finished.
 
+#### 7a-0 — Seed `1171` and `1099` on a creature. Do this first.
+
+**Delivers.** A creature that can be declared dead, and when it is: the death
+pose, the blood particles stopping, the body dropping to the ground, and the
+salvage beam accepting it. All of that is client code that already ships and is
+waiting on one boolean.
+
+**A player can newly DO.** Nothing yet by their own hand — but the maintainer can
+be shown the whole "it died, it fell, I salvaged it" sequence from an admin
+command, before any weapon exists. That is the point of putting it first: every
+later piece of Phase 7 is currently unobservable, and this makes it observable.
+
+**How.** Two component seeds on the fauna entity, which today serves
+`{190602, 1182, 1177, 4326, 1166}`:
+
+- **`1171 MortalityState`** = `{isDead, timeOfDeath, causeOfDeath, dieImmediately,`
+  `activeConductOnDeath}`. No commands, no events — flipping `isDead` is the
+  entire death signal.
+- **`1099 SalvageAndRepairState`**, with `originalMaterials` populated.
+  `acs/Salvageable.cs:10` `[Require]`s it, so **without it `MeatSourceBehaviour`
+  never injects even with 1171 present** — 1171 alone gets you a dead body you
+  cannot salvage. `originalMaterials` IS the yield; the client contributes no
+  yield logic of its own.
+
+Plus an admin path to flip `isDead` on a named creature, for verification.
+
+**Depends on.** Nothing. Independent of the weapon work and of the kill ledger.
+
+**Schema migration.** No.
+
+**Soak.** **Yes.** This adds components to a relayed entity class and a new state
+transition on it. Standing rule.
+
+**What could go wrong.**
+- *Corpses falling out of the world.* Nothing catches a creature killed over
+  water or over the void. Retail presumably behaved the same; if it matters it is
+  a gameplay decision, not a grounding bug.
+- *The all-or-nothing seed batch*, as in Phase 4: an id with no serialiser branch
+  drops the whole batch including `190602`, which would put creatures at the
+  world origin rather than merely un-killable.
+- *Population accounting.* Until 7a's kill ledger exists, a creature declared
+  dead is still expressed by the rhythm, so it will keep being posed. Fine for a
+  demo, not fine to ship — which is what 7a is for.
+
 #### 7a — Mortality, without breaking the closed-form fauna model
 
 **The design problem, stated honestly.** Our fauna are deliberately stateless:
@@ -732,75 +776,130 @@ relayed entity class. Standing rule applies.
 **Schema migration.** No — the kill ledger is in-memory and rebuilt from the
 rhythm on restart, exactly as the rest of fauna is.
 
-#### 7a-ii — The corpse falls. **REUSE the log grounding; do not build a second one.**
+#### 7a-ii — The corpse falls. **The client already does it. Do nothing.**
 
-The maintainer's *"they would die and fall to the ground"* is the same problem
-`fix/log-grounding` has just solved for a felled tree trunk coming to rest, and
-that agent has baked a **ground-height profile for all 13,266 tree seats** — 8
-bearings per seat, measured off the island meshes, so the server can answer "what
-does the terrain do around this point" with **no runtime raycast**. Constants
-`MIN_T = 8.0`, `DECK_BAND = 6.0`, unknown sentinel `-128`.
+I planned to reuse `fix/log-grounding`'s baked ground profile for this, and
+flagged the two caveats that would come with it. **That was wrong, and the
+correction is the single best piece of news in Phase 7: the corpse fall is
+already implemented, in the shipped client, and it is eight lines.**
 
-**A second grounding mechanism must not be written.** Two caveats inherited from
-that work, both of which change the design rather than decorate it:
+`acs/Assets.Scripts.Visualisers.Creatures/MortalityBehaviour.cs:22-33` — when
+`MortalityState.isDead` goes true the client does exactly this:
 
-1. **The profile is baked AT TREE SEATS.** It answers "what is the ground like
-   near a tree", not "at an arbitrary point on this island" — and a creature can
-   die anywhere, including over water, over a cliff, or over a ship's deck. So
-   the honest position is: **the existing data probably does not generalise, and
-   corpse landing likely needs its own sampling.** Establish that before
-   assuming either way. What is certainly reusable is the *method* and the
-   `IslandSurfaceData` the profile was generated from, not necessarily the baked
-   table.
-2. **About one bearing in nine is UNKNOWN (`-128`).** Whatever corpses do, the
-   unknown case must degrade to **resting on the surface**, never to **skipping
-   grounding**. Skipping is exactly the floating-in-the-air / clipping-the-
-   mountain bug the maintainer reported for logs, and reintroducing it for
-   corpses would be the same bug with a new name.
+```
+GetOrAddComponent<Rigidbody>();   drag = 0.1f;   isKinematic = false;
+```
 
-`TreeFall.cs`, `TreeHarvest.cs` and `FallingLogService.cs` belong to that agent
-and are not to be edited from here. **What this phase needs from them** is a
-callable, entity-agnostic "ground this point" seam — given an island and a world
-position, return a resting height and a surface normal, with the unknown case
-resolved to the surface rather than to a null. If their module exposes that,
-corpse landing is a caller. If it only exposes tree-seat lookups, say so and this
-becomes its own small piece of work rather than a silent divergence.
+The creature stops being kinematic and Unity's own physics drops it onto the
+terrain. **No server grounding, no ground-height profile, no resting transform,
+no raycast.** The maintainer's *"they would die and fall to the ground or
+something"* is a client behaviour they were remembering correctly, and it costs
+us nothing.
 
-**Open, and worth checking rather than assuming:** whether the corpse needs to
-fall *on the server at all*. The client ragdolls a dying creature itself
-(`CreaturePreprocessor` attaches the death visuals), so it is possible the server
-only has to publish the death and a final resting transform, with the fall being
-cosmetic. If so this sub-phase collapses to "pick a resting point", which is a
-much smaller thing than a physics fall. Establish which before building either.
+So: **do not reuse the log grounding here, and do not build a second one
+either.** The two caveats I inherited from that work — that the profile is baked
+at tree seats rather than arbitrary points, and that one bearing in nine is
+UNKNOWN — do not apply, because no server-side grounding happens at all. The
+log-grounding agent's files stay entirely theirs and this phase needs nothing
+from them.
 
-#### 7a-iii — The trigger. What is actually missing between firing and a corpse.
+Flipping `isDead` also buys, free and already shipped:
 
-The maintainer confirms from the live client that **weapon schematics exist and
-are visible in the crafting UI**, so the crafting side is not the gap. That moves
-the question rather than removing it, and the accurate phrasing is not "weapons
-do not exist" but: *does a crafted weapon fire, and does anything it fires deal
-damage?*
+| what | where |
+|---|---|
+| the ragdoll fall | `MortalityBehaviour.cs:22-33` |
+| the death pose / `KillAnimator()` | `MortalityVisualiser.cs:55-80`, `MortalityClientReader.cs:10-18` |
+| blood particles stopping | `CreatureDamageVisuals.cs:96,151` |
+| the salvage gate opening | `MeatSourceBehaviour.cs:15-18` |
 
-Three things to establish, in order, before this sub-phase can be sized:
+**The one thing to watch:** a creature killed over water or over the void will
+fall out of the world, because nothing catches it. Retail presumably had the
+same behaviour. If it turns out to matter, that is a gameplay decision (refuse
+the kill, or despawn the body) and not a grounding problem.
 
-1. **The recipes.** Which weapon schematics we serve, and whether their inputs are
-   honest. This plan has already found five recipes whose label and consumed
-   material disagree; a weapon whose slot silently eats `iron` is the same bug
-   class and is worth fixing in the same pass as Phase 6's.
-2. **Firing.** What the client publishes when a weapon is used, and whether we
-   have a handler for it. This is the seam most likely to be a stub.
-3. **Damage reaching a target.** Whether *any* damage-to-an-entity path exists
-   today. If a player-versus-object or ship-versus-ship path already carries
-   damage, then creature damage is "give fauna a health component and subscribe",
-   not "build a weapons system" — a completely different size of job.
+#### 7a-iii — The trigger. Investigated; here is exactly what is missing.
 
-**Ship cannons are a separate question and must be established separately.** The
-maintainer named them apart from hand weapons, and they are ship *parts*, which
-on this codebase is a different code path (mounted parts, `InteractVerb.Man`,
-their own interaction policy). Do not assume one answer covers both.
+The maintainer confirmed weapon schematics are visible in the crafting UI, so
+crafting is not the gap. The investigation says where the gap really is, and the
+answer reorders this sub-phase substantially.
 
-Until 1–3 are answered this sub-phase has no size, and the plan should not
-pretend otherwise.
+**The pistol is the only hand weapon retail had.**
+`gencode/Bossa.Travellers.Shooting/RangedWeaponTypes.cs` has exactly two members:
+`Undefined`, `Pistol`.
+
+**Its recipes are fine.** `pistol`, `pistolBullets`, `cannonball`, `cannonShell`
+and `swivelGunShell` all consume the **`Metal` category**, which is a legitimate
+family match (`Multiplayer/Crafting/SchematicRecord.cs:43-51`,
+`CraftingPolicy.cs:298`), not the label/name bug. **Correction to this plan's own
+earlier framing:** that bug is real but it is not on weapons — it is on **seven
+sky-core modules** whose slot reads "Atlas Shards" and consumes `iron`, plus the
+food rows in Phase 6.
+
+**The ordered list of what is missing, cheapest first:**
+
+| # | Missing | Kind |
+|---|---|---|
+| 1 | **1096 `PistolState`, 1247 `ShotValidationRequestState`, 1249 `PlayerPistolState` on the player** | components we never seed |
+| 2 | a handler for **1247** | handler that does not exist |
+| 3 | a **1248 `ShotValidationResponseState`** reply | handler + component |
+| 4 | any damage model at all | nothing to stub — but see below |
+| 5 | **1171 `MortalityState`** on a creature | component we never seed |
+| 6 | **1099 `SalvageAndRepairState`** on a creature | component we never seed |
+| 7 | a raw meat item, and `mantaSteak` consuming it | content + the label/name bug |
+
+**#1 is the hard floor, and it is why nothing here is currently observable.**
+SpatialOS injects a behaviour only when *every* `[Require]` is satisfied, and
+`PlayerPistolBehaviour` needs a 1249 reader plus a 1096 writer
+(`acs/PlayerPistolBehaviour.cs:30-34`) while `ShotValidationBehaviour` needs a
+1247 writer (`:13-14`). None are seeded. So **today pulling the trigger produces
+no network traffic whatsoever — not even a muzzle flash on another player's
+screen.** You cannot tell a broken damage model from a broken trigger, because
+the trigger emits nothing. It is also the cheapest item on the list: three seed
+branches in `ComponentsSerializer` and the authority grants.
+
+**#4 is smaller than it sounds.** There is genuinely no damage path anywhere on
+this server today — no PvP, no player-versus-object, no ship-versus-ship; a
+repo-wide search for damage functions returns nothing. But `OnSalvageShot`
+(`WorldsAdriftRebornGameServer.cs:853-936`) is already a four-way ledger dispatch
+that drops a creature id silently at `:876`, and `MetalDeposits`' 2000 HP /
+200-per-shot / 10-shot curve is a working precedent. A per-species constant
+against accumulated shots needs **no new component at all**.
+
+**#5 + #6 are the best value in the whole of Phase 7, and they are independent of
+the weapon work.** Two component seeds on a creature buy the death pose, the
+blood-VFX stop, the ragdoll fall and the salvage gate — all of it already shipped
+client code. **If the maintainer wants to see "it died, it fell, I salvaged it"
+before any weapon exists, that is reachable today by flipping `isDead` from an
+admin command.** I would do that first: it de-risks everything downstream and
+gives something to look at.
+
+**Two traps found while looking:**
+
+- **There are TWO components called `HealthState`.** `1160` in
+  `Bossa.Travellers.Creatures` is the *creature's*
+  (`{Option<float> currentHealth, Option<float> maxHealth}`); `1077` in
+  `Bossa.Travellers.Player` is the *player's*, with a completely different shape.
+  Same type name, different namespace. `1161 HealthStateFSIM` is the damage
+  inbox. Confusing 1160 for 1077 is a mistake this repo has already flagged once.
+- **Our fauna serve set is `{190602, 1182, 1177, 4326, 1166}`** — no 1160, no
+  1171, no 1099.
+
+**SHIP CANNONS ARE A SEPARATE BUILD. Do not fold them in.** The investigation
+found **three unrelated fire paths**, sharing only `InteractVerb.Man` and the
+1112 input component:
+
+| weapon | how it fires | authority |
+|---|---|---|
+| hand pistol | 1247 request → 1248 response | server validates, then damages |
+| modular cannon | 1112 `Shoot` → **1089 `ProjectileShooterState`**, spawns a 1090 projectile entity | server-authored; damage numbers live on the component |
+| swivel gun | 1112 `Shoot` → **4444 `MountedGunShotState`** | **client** simulates 32 pellets and sets `applyDamage` itself |
+
+On our side 1112 is seeded and then **explicitly filtered out of relay**
+(`ComponentsSerializer.cs:1095-1106`, `MirrorSendPolicy.cs:628`), 4444 is seeded
+bare and read by nobody, 4445 and 1089/1090 do not exist, and **there is no
+Cannon or SwivelGun ship-part schematic in the 60-entry catalogue at all.** So
+ship cannons are content plus two more subsystems, not a variant of the pistol
+work, and they belong in their own plan.
 
 #### 7b — Biome-tiered creature yields
 
@@ -927,19 +1026,28 @@ change. It is its own workstream and should not be folded into a resource phase.
 | 4 | Loom activates + Clothing routes | wearables | **medium** | no | no |
 | 5 | Scrapping | 134 inert scrap rows | low | no | no |
 | 6 | Cooking routes + recipe honesty | food, once meat exists | low | no | no |
-| 7a | Creature mortality (kill ledger) | corpses | **high** | no | **yes** |
-| 7a-ii | The corpse falls and rests | corpses you can reach | medium | no | inherits |
-| 7a-iii | Firing and damage | a way to kill anything | **UNSIZED** | no | inherits |
+| 7a-0 | **Seed 1171 + 1099 on a creature** | death pose, ragdoll fall, salvage gate | **low** | no | **yes** |
+| 7a | Creature mortality (kill ledger) | population that respects a kill | **high** | no | inherits |
+| 7a-ii | The corpse falls | **nothing to do — the client already does it** | none | no | none |
+| 7a-iii | Firing and damage (pistol) | a way to kill anything | medium | no | inherits |
 | 7b | Biome-tiered creature yields | meat, chitin, clusters | medium | no | inherits |
 | 7c | Beetles | beetle materials | **high** | no | inherits |
+| — | Ship cannons | — | **own plan** | no | own |
 
-7a-iii is deliberately marked UNSIZED rather than given a guess. Weapon
-schematics exist in the crafting UI, but whether a crafted weapon fires and
-whether anything it fires deals damage are both unestablished, and the answer
-changes the job by an order of magnitude: if a damage path to an entity already
-exists, creature damage is a health component and a subscription; if it does not,
-it is a weapons system. That question is out for investigation and the plan
-should not pretend to a number before it comes back.
+**7a-0 is new, and it is the change the investigation forced.** Two component
+seeds on a creature buy the death pose, the ragdoll fall and the salvage gate
+outright, because all of that is shipped client code waiting on `isDead`. It is
+independent of the weapon work and reachable from an admin command, so it is both
+the cheapest item in Phase 7 and the one that makes everything after it
+observable. It should go first, not the kill ledger.
+
+7a-ii is now a no-op: `MortalityBehaviour.cs:22-33` un-kinematics the creature on
+death and Unity drops it. No server grounding is needed, and the log-grounding
+reuse this plan previously called for is withdrawn.
+
+Ship cannons left the table entirely. They are three unrelated fire paths away
+from the pistol, need two subsystems we do not have, and have no ship-part
+schematic at all — a separate plan, not a row here.
 
 Phase 1 is first because it is the smallest change with the widest reach: it is
 the difference between crafted stats meaning something and meaning nothing, it
