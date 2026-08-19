@@ -242,6 +242,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // magnitude (~2 m/s, under 4 knots, less for a heavy hull) and for
                 // why we aim it along the heading instead of downwind.
                 //
+                // NOT gated on the ship having a sky core, and that is a decision
+                // rather than an oversight. Retail's gate is `IsFloatingShip`, i.e.
+                // a core that is not overloaded - but retail could afford it,
+                // because a coreless ship there FELL, so "no core" already meant
+                // "not flying". We implement no lift and no gravity at all: a
+                // coreless hull hovers here regardless. Gating the wind on a core we
+                // do not otherwise honour would invent a stranded class of ship for
+                // no gameplay in return - and two of the five hulls in the live
+                // world have no core mounted. When F2 makes lift real, the core gate
+                // belongs WITH it, in the same change, so that losing your core
+                // costs you altitude and motion together rather than motion alone.
+                //
                 // Gated on the pilot ASKING for drive. An unmanned hull left with
                 // the lever centred settles to rest as it does today, because a
                 // world where every abandoned hull drifts for ever is a world where
