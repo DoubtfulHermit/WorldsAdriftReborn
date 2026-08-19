@@ -128,8 +128,8 @@ relative to the repo root unless absolute.
 | — per-island metal table | **LIVE — but read the nuance** | The table is **not** unused. `Multiplayer/Islands/release-runtime-catalog.json` holds **254 islands, 1,930 deposits, 15 distinct metals**, qualities 1–10, with a `metalSource` provenance ladder (38 `survey-pve`, 23 `survey-pvp`, 193 `inferred-tier`), stamped onto each deposit at `ReleaseWorldCatalog.cs:150-157`. **The trap:** at *default* config the release world is off and every reachable deposit is hardcoded iron (`Multiplayer/MetalDeposits.cs:223` `=> "iron"`, quality 6; `Game/Gathering/DepositHandshakeSpawner.cs:42,45`). **Production is not at default** — it runs `tier1`, so 328 catalogued deposits with real per-island metals ARE reachable, while Haven's own 40 remain iron. Corrected by `resource-economy` §0.1; commit `058877d` fixes the Haven/handshake paths. |
 | — island survey metal *lists* | **MISSING** | `Survey.Metals`/`PveMetals`/`PvpMetals` have **zero non-test readers**; only the boolean `MetalsAreInferred` is consumed. Deposit-level data is wired; island-level menus are not. |
 | **Wood** | **LIVE** | 13,266 tree seats over 252 islands (`Multiplayer/Islands/ReleaseTreeBudget.cs:40`, `ReleaseTreeCatalog.cs:76`). Felling shipped in game-server `5a69250` (2026-08-19). Log grounding merged to main as `2cc9f02`. 8 wood item rows. |
-| **Fuel** | **LIVE as a material; MISSING as a fuel** | Canisters are a **salvage target, not a pickup** — `Multiplayer/FuelPods.cs:10-17,60,87`; recovered per-shot yield 8/8/9 = 25 (`Multiplayer/FuelCanister.cs:65`), arriving on the same `2106` beam path as metal (`WorldsAdriftRebornGameServer.cs:870-875`). Consumed by 6 real recipes (torch, hipLamp, headTorch, campFire, stove, lamp). **Nothing burns it:** no production code matches `combustion\|burn\|fuelLevel\|FuelTank`, and `1104 FuelConsumerState` / `1105 FuelGaugeState` / `1106 FuelTankState` are unserved. Engines do not consume fuel. |
-| — dangling doc reference | **housekeeping** | `docs/research/findings-combustion-fuel.md` is cited from four code sites (`FuelPods.cs:48`, `WorldsAdriftRebornGameServer.cs:1526,2941,3148`) and **does not exist on main**. |
+| **Fuel** | **LIVE end to end (`feat/ship-fuel`, §12)** | Canisters are a **salvage target, not a pickup** — `Multiplayer/FuelPods.cs:10-17,60,87`; recovered per-shot yield 8/8/9 = 25 (`Multiplayer/FuelCanister.cs:65`), arriving on the same `2106` beam path as metal. Consumed by 6 real recipes. **And now BURNED:** a hull carrying a mounted `atlasSkyCore` has a tank (`Multiplayer/Ship/Fuel/ShipFuelLedger.cs`), Activate on that core refuels it from the player's inventory, throttle burns it, and **`1105 FuelGaugeState` is served on the `fuelGauge` part so the needle finally moves**. `1104`/`1106` remain unserved and are honestly unreproducible — there is no fuel-tank prefab in the client census, so fuel is per-hull here. See §12. |
+| — dangling doc reference | **DONE** | `docs/research/findings-combustion-fuel.md` now exists and is indexed; it was cited from five code sites and was not in the tree. |
 | **Atlas Shard** | **LIVE** | `Multiplayer/AtlasShardCatalogue.cs:57` (`ItemTypeId = "atlasShard"`); every release deposit registers a shard, gated by `WAREBORN_SPAWN_ATLAS`/`WAREBORN_ATLAS_RATE`. 328 shards live in tier 1. **One data defect:** `atlasShard` is categorised `"Metal"` in `itemData.json`. `resource-economy` deliberately unbundled that fix, so it is **open** — see §4.1. |
 | **Update 27 second economy** (plant fibre, berries, meat, leather, chitin, cloth, pigment, glass) | **PARTIAL, in flight** | `clothMakeshift` ("Makeshift Cloth") is the only `Component` row in `itemData.json`. Plant fibre and berries are **landed on `feat/resource-economy`** (commit `0aa0fe8`, paid off the same cut that pays wood). Meat is blocked on creature mortality (their Phase 7). Leather/chitin/pigment/glass: **MISSING**, and note `loot-containers` §0.3 **corrects the audit** — the recovered scrap `rewards` are metals, woods and fuel, *not* cloth/leather/glass/pigment. |
 | **`YieldRule` quality defaults to 0** | **PARTLY FIXED, in flight — and there is a second cause** | Confirmed at `Multiplayer/Gathering/YieldRule.cs:26,53`, with all five registration sites omitting the argument. Fixed on `feat/resource-economy` `d756972`. **Two things that fix does not cover, both still open:** (a) the yield table is keyed by **metal name, not by node** (`Multiplayer/Gathering/HarvestYield.cs:36,50-64` — `_rules[sourceKey] = rule` *overwrites*), so two iron nodes of different quality clobber each other; (b) **crafted output quality is hardcoded to `0`** independent of inputs at `Handlers/PlayerCraftingInteractionState_Handler.cs:297`, and `SchematicRecord.CraftingRequirement` has no quality field at all. Quality is served to the client and honoured for stacking, so the plumbing exists — only the values are zero. Confirm with that branch which of these it claims. |
@@ -1078,7 +1078,7 @@ prefab's own interest declares it.
 | 28 | `horn` | Horn01 | deck → ShipDeck | `HornVisualizer` → **1107** | 1107 | **yes** | **yes** — `Activate` (honk) | flat deck only |
 | 29 | `lamp` | Lamp01 | deck → ShipDeck | `LampVisualizer` → **1108 + 1236 + 1099** | 1108, 1236 | **yes** | **yes** — `Activate` (switch) | flat deck only |
 | 30 | `altimeter` | Altimeter | deck → ShipDeck | `AltimeterVisualiser` → **1236** | 1236 | **yes** | no — **correct**, retail made it a local readout | flat deck only |
-| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1236 — the wrong id. §11.5** | **yes, but the needle is dead** | no | flat deck only |
+| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1105 + 1236 — fixed on `feat/ship-fuel`, §12.3** | **yes** | no | flat deck only |
 | 32 | `headingIndicator` | HeadingIndicator | deck → ShipDeck | `HeadingIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 33 | `artificialHorizon` | ArtificialHorizon | deck → ShipDeck | `ArtificialHorizonVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 34 | `airspeedIndicator` | AirspeedIndicator | deck → ShipDeck | `AirspeedIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
@@ -1216,9 +1216,12 @@ visible and its needle can never move.** RECOVERED from the decompile; the
 catalogue's own comment groups all five instruments together, which is where the
 mistake entered.
 
-It is also the one instrument whose fix is blocked on something real: nothing in
-this server burns fuel (§2.1), so a served `1105` would read zero forever. Wire
-it with combustion, not before.
+It was also the one instrument whose fix was blocked on something real: nothing
+in this server burned fuel, so a served `1105` would have read zero forever.
+**That blocker is gone.** `feat/ship-fuel` builds the burn, the tank and the
+refuel alongside the serve, exactly as "wire it with combustion, not before"
+demanded — see **§12**, which also enumerates every other fuel-related
+visualiser and what each `[Require]`s, because one component is rarely enough.
 
 ### 11.6 Symptom 3 — placement, and what retail actually did
 
@@ -1366,9 +1369,11 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 #### PHASE SC1 — The fuel gauge stops lying, and the audit tool grows up
 
-- **Delivers:** (a) re-point `fuelGauge` at `1105 FuelGaugeState`, or —
-  preferably — **mark it explicitly dormant** until something burns fuel, so the
-  catalogue stops implying it works; (b) widen the prefab `[Require]` census from
+- **(a) is DONE, and better than proposed.** `feat/ship-fuel` did not mark the
+  gauge dormant; it built the fuel to put behind it (**§12, phase F1**), so the
+  row now seeds `1105 + 1236` and the needle reads a real tank. (b) and (c)
+  below are still open.
+- **Delivers:** (b) widen the prefab `[Require]` census from
   7 prefabs to all 36 and commit the generated table, so the next agent does not
   re-derive §11.2; (c) fold the **verb** check into the same tool, because
   `[Require]` coverage alone would have passed all four containers.
