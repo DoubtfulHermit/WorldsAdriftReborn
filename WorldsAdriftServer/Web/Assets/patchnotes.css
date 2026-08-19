@@ -65,6 +65,42 @@
   background:var(--line-strong);}
 .pn-list li:last-child{margin-bottom:0;}
 
+/* THE COMMIT LOG. A commit is two fields, not a sentence, so the rows are a
+   two-column grid and every sha lines up - the whole point of showing them. The
+   hairline between rows comes from the row itself rather than a wrapper, so a
+   day with one commit gets no stray rule.
+
+   The reading measure deliberately does NOT apply here (see .pn-release li
+   above, which this overrides): a subject line is one short line, and capping
+   the grid at 44rem would strand the subjects against a wide card. */
+.pn-commits{list-style:none;margin:.2rem 0 0;padding:0;}
+.pn-commits li{display:grid;grid-template-columns:5rem minmax(0,1fr);gap:.2rem 1rem;
+  align-items:baseline;max-width:none;margin:0;padding:.44rem .5rem;
+  border-top:1px solid var(--line);border-radius:5px;
+  color:var(--text-soft);font-size:.86rem;line-height:1.55;}
+.pn-commits li:first-child{border-top:0;}
+.pn-commits li:hover{background:var(--surface-2);}
+
+/* The sha drops the boxed treatment .pn-release code carries. Five hundred
+   bordered chips down a page is noise; the monospace and the accent are already
+   enough to read it as an identifier.
+
+   Written as `.pn-release .pn-sha` and not `.pn-sha`: the rule it has to beat
+   is `.pn-release code`, which is a class AND an element and therefore wins
+   against a bare class. A single class here loses silently and the boxes stay. */
+.pn-release .pn-sha{padding:0;border:0;background:none;color:var(--accent);
+  font:500 .78rem/1.55 ui-monospace,SFMono-Regular,Consolas,monospace;
+  letter-spacing:.01em;-webkit-user-select:all;user-select:all;}
+.pn-subject{min-width:0;overflow-wrap:anywhere;}
+
+@media (max-width:34rem){
+  /* The sha goes ABOVE its subject rather than shrinking the column: at this
+     width a fixed sha column leaves the subject about twenty characters, and a
+     commit subject wrapped four times is unreadable. */
+  .pn-commits li{grid-template-columns:minmax(0,1fr);padding:.5rem .4rem;}
+  .pn-sha{font-size:.72rem;}
+}
+
 .pn-empty p{margin:0;color:var(--text-soft);font-size:.88rem;}
 
 /* The contents rail. Sticky on a tall screen, and it simply stops being sticky

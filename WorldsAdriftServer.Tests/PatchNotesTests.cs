@@ -424,5 +424,122 @@ namespace WorldsAdriftServer.Tests
             Assert.False(PatchNotesSource.IsStorable("   \n "));
             Assert.True(PatchNotesSource.IsStorable("## 2026-08-18 | x"));
         }
+
+        [Fact]
+        public void ACommitRowSplitsIntoAShaAndASubject()
+        {
+            Assert.True(PatchNotesCommit.TryParse(
+                "153728a Record the 2026.08.19-1 patcher release", out PatchNotesCommit commit));
+            Assert.Equal("153728a", commit.Sha);
+            Assert.Equal("Record the 2026.08.19-1 patcher release", commit.Subject);
+        }
+
+        [Fact]
+        public void OnlySomethingShapedLikeAShaIsACommit()
+        {
+            // The "* " marker has to stay usable for anything else, so the sha
+            // test is what decides - not the marker. A line that fails it must
+            // fall through to prose rather than render as a commit whose sha
+            // column contains a word.
+            Assert.False(PatchNotesCommit.TryParse("nothex1 a subject", out _));
+            Assert.False(PatchNotesCommit.TryParse("abc a subject", out _));   // too short
+            Assert.False(PatchNotesCommit.TryParse("153728a", out _));         // no subject
+            Assert.False(PatchNotesCommit.TryParse("153728a    ", out _));     // blank subject
+            Assert.False(PatchNotesCommit.TryParse(null, out _));
+        }
+
+        [Fact]
+        public void ARunOfCommitsBecomesOneCommitBlock()
+        {
+            PatchNotesDocument document = PatchNotesDocument.Parse(
+                "## 2026-08-19 | 2 commits\n\n* 153728a First\n* 1621a28 Second\n");
+
+            PatchNotesBlock block = Assert.Single(document.Releases[0].Blocks);
+            Assert.Equal(PatchNotesBlockKind.Commits, block.Kind);
+            Assert.Equal(2, block.Items.Count);
+        }
+
+        [Fact]
+        public void ACommitLineThatIsNotOneDoesNotVanish()
+        {
+            // The failure this guards against is silent: a line the parser
+            // refuses as a commit and then forgets to keep is a line missing
+            // from a page that claims to list everything.
+            PatchNotesDocument document = PatchNotesDocument.Parse(
+                "## 2026-08-19 | x\n\n* not-a-sha but still a sentence\n");
+
+            PatchNotesBlock block = Assert.Single(document.Releases[0].Blocks);
+            Assert.Equal(PatchNotesBlockKind.Paragraph, block.Kind);
+            Assert.Contains("still a sentence", block.Text, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void TheShippedNotesAreACommitLog()
+        {
+            // The page's whole claim is that it lists real commits, so the
+            // committed file has to actually be that and not prose that drifted
+            // back in.
+            PatchNotesDocument document = PatchNotesDocument.Parse(Shipped());
+
+            int commits = 0;
+            foreach (PatchNotesRelease release in document.Releases)
+            {
+                foreach (PatchNotesBlock block in release.Blocks)
+                {
+                    if (block.Kind == PatchNotesBlockKind.Commits)
+                    {
+                        commits += block.Items.Count;
+                    }
+                }
+            }
+
+            Assert.True(commits > 100, "the shipped notes carry only " + commits + " commit rows");
+
+            // Every row must survive the round trip the renderer performs.
+            foreach (PatchNotesRelease release in document.Releases)
+            {
+                foreach (PatchNotesBlock block in release.Blocks)
+                {
+                    if (block.Kind != PatchNotesBlockKind.Commits) continue;
+                    foreach (string item in block.Items)
+                    {
+                        Assert.True(PatchNotesCommit.TryParse(item, out _),
+                            "commit row does not parse: " + item);
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public void TheHeaderStripCountsCommitsNotDays()
+        {
+            // "14 releases" both misnames the calendar days and reports the less
+            // interesting number.
+            string html = PatchNotesPage.Html(Shipped());
+            Assert.Contains(" commits", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(" releases &middot;", html, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void ACommitRendersAsAShaAndASubject()
+        {
+            string html = PatchNotesPage.Html(
+                "## 2026-08-19 | 1 commit\n\n* 153728a Record the release\n");
+
+            Assert.Contains("pn-commits", html, StringComparison.Ordinal);
+            Assert.Contains("<code class=\"pn-sha\">153728a</code>", html, StringComparison.Ordinal);
+            Assert.Contains("Record the release", html, StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void TheContentsRailLeadsWithTheDate()
+        {
+            // The titles on a changelog are counts, and a rail of "23 commits /
+            // 101 commits" is unnavigable. The date is what a reader scans for.
+            string html = PatchNotesPage.Html(Shipped());
+            int lead = html.IndexOf("<span class=\"pn-index-title\">19 August 2026</span>",
+                StringComparison.Ordinal);
+            Assert.True(lead > 0, "the rail does not lead with the newest date");
+        }
     }
 }
