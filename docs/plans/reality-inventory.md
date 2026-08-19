@@ -445,7 +445,44 @@ instrument, decor, storage and furniture groups, plus `ModularCannon`,
 `Panel02` · `Panel03` · `PowerGenerator01` · `RailingCorner` ·
 `RailingStraight` · `Respawner01` · `Sail01` · `Stairs1` · `Window01`
 
-### 2.3 THE DIFF — 60 ship parts the client ships and we do not
+### 2.3 THE DIFF — the exact 58
+
+**All evidence here is E1** (resolvable entity prefabs in the 353) — this is
+the most solid category in the document.
+
+Of the 98, we carry **38** in `LoosePartCatalogue` and two more (`Loom01`,
+`Stove01`) as ground deployables rather than ship parts. **58 remain.**
+
+```
+AllianceRadio01     BossaFlag           ChairMarauder01     ChairMetal01
+ChairMetal02        ChairWood01         ControlButton       ControlLever
+CrowsNest           CrowsNest_wood      DiscoWhale          FigureHeadFounder01
+FigureHeadKioki01   FigureHeadKioki02   FigureHeadPekoe01   FigureHeadPekoe02
+FigureHeadPioneer01 FigureHeadSaborian01 FigureHeadSaborian02 FlagFounder01
+FlagFounder02       GabenFlag           HelmFounder01       ImprobableFlag
+Jack_O_Lantern01    LampChristmas01     LampKioki01         LampMarauder01
+LampPekoe01         LampSaborian01      LanternPioneer01    Lock
+MarauderMask01      MarauderMask02      ModularCannon       ModularSwivelGun
+NailAndGearFlag     PictureFrame01      PictureFrame02      PictureFrame03
+PirateFlag          PlaqueFounder01     SailFounder01       ShelfMetal01
+ShelfWood01         StoolMarauder01     StoolMetal01        StoolWood01
+StoolWood02         StoolWood03         TableMarauder       TableMetal01
+TableMetal02        TableWood01         TableWood02         WoodPanel01
+WoodPanel02         WoodPanel03
+```
+
+**One correction this exact list forces on §2.3.A below:** `WoodPanel01/02/03`
+are **separate entity prefabs**, not a material tint on `Panel01/02/03`. We
+implement the three metal panels and none of the three wooden ones. So the
+wood/metal split is *partly* real prefabs and *partly* icon variants, and each
+pair has to be checked individually rather than assumed.
+
+**And two of the 58 are traps, not work:** `DiscoWhale` carries the ship-part
+stack as a joke figurehead, and `ControlButton`/`ControlLever` carry it too
+while having **no class anywhere in the decompile** — consistent with WIKI
+listing them as removed alpha parts (§3.3). Treat those three as E1-shipped
+but functionally inert.
+
 
 Grouped by what a player would say about it, not by asset type.
 
