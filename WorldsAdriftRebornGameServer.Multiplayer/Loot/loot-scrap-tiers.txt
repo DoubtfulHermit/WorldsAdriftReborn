@@ -102,6 +102,7 @@ scrapItem-saborianflyingwings	1	1	4
 scrapItem-saborianhowitzerbits	4	3	1,2
 scrapItem-saborianshoulderclasp	1	1	1
 scrapItem-saborianweights	3	2	2,4
+scrapItem-selenistswoodenorrery	3	2	4
 scrapItem-sewingmachine	3	2	4
 scrapItem-shardofmooncraft	2	3	4
 scrapItem-shatteredseismometer	2	2	3
