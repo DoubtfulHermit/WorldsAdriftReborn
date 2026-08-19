@@ -37,6 +37,37 @@ names live purely in asset data; they never appear in code. A code search for
 from now on — is to enumerate contents, not to test hypotheses.** You cannot
 fail to think of a name that is printed in a list in front of you.
 
+### 0.0 The fuel tank was there all along, spelled `FuelTank01`
+
+Late in this pass, chasing an unrelated community lead, the extraction turned
+up a **fifth oracle nobody had used: Unity's own asset paths**, still present
+as plain strings in `resources.assets`. **1,099 of them.** And in that list:
+
+```
+Assets/EntityPrefabs/Ship Parts/FuelTanks/FuelTank01.prefab
+```
+
+**A folder called `FuelTanks`, containing `FuelTank01`.** It is the source
+asset that `PowerGenerator01_unityclient` is built from — Bossa renamed the
+*entity prefab* and never renamed the *file*.
+
+So the original search was not merely unlucky. **It was looking in the one
+table where the word could not appear** (the entity-prefab name table, where
+it is `PowerGenerator01`) while the word sat, spelled exactly as searched, in
+a table nobody had extracted. A `grep -i fueltank` over the asset-path list
+would have ended that investigation in one second, years ago.
+
+Two things follow, and they are the practical takeaway of this whole document:
+
+1. **A negative result is only as wide as the tables you searched.** "I
+   searched `resources.assets` for a fuel tank prefab" sounded exhaustive and
+   covered one of at least five enumerable name spaces in the same file.
+2. **Enumerate the oracles before enumerating the content.** Nobody had ever
+   counted how many closed lists of retail content this project was already
+   sitting on. The answer turned out to be five, and two of them
+   (`knowledge-tree.json`, §4.7; the asset paths, §0.2) had never been read as
+   lists at all.
+
 ### 0.1 Provenance key
 
 The repo's existing labels, unchanged.
@@ -49,9 +80,9 @@ The repo's existing labels, unchanged.
 | **WIKI** | community sources. Weakest. Their job here is to say *what to look for*; the client then confirms it |
 | **WAREBORN TUNING** | ours. Not Bossa's. Never to be cited as recovered |
 
-### 0.2 The four enumeration oracles
+### 0.2 The five enumeration oracles
 
-Everything below is diffed against one of four complete, closed lists. Each
+Everything below is diffed against one of five lists. Each
 was independently re-derived for this document rather than trusted.
 
 | oracle | count | what it is | provenance |
@@ -60,11 +91,42 @@ was independently re-derived for this document rather than trusted.
 | **the icon catalogue** | **1,010** | every icon path in the client's own icon atlas, `docs/research/valid-icons.txt` | **PROVED** — extracted from the shipped atlas; already used as a test oracle by `ReferenceDataCrashSafetyTests` |
 | **the component index** | **444** | `component-map.tsv` — every SpatialOS component id the game's ECS defines | **PROVED** — from the decompile |
 | **the knowledge tree** | **228** | `knowledge-tree.json` — 20 branches of things retail let you *learn to make*, in plain English | **RECOVERED** — Bossa data already in this repo, never read as an enumeration until now (§4.7) |
+| **the Unity asset paths** | **1,099+** | `Assets/**/*.prefab` strings surviving in `resources.assets` — Bossa's own source-tree layout, including **pre-rename filenames** | **PROVED**, but a **partial** extraction (§0.2.1) |
 
 The knowledge tree was in this repo the whole time and was never read as a
-list — see §4.7. It is included here because *the number of oracles is itself
-a finding*: nobody had counted how many closed enumerations of retail content
-we were already sitting on.
+list — see §4.7. Both it and the asset paths are included because *the number
+of oracles is itself a finding*: nobody had counted how many enumerations of
+retail content this project was already sitting on.
+
+#### 0.2.1 The asset-path oracle, and its one honest caveat
+
+The first four oracles are **closed** — 353, 1,010, 443, 228 are complete
+counts. **The asset-path list is not.** It was extracted with `strings -n 8`,
+which only recovers paths stored as contiguous printable runs; the true count
+is higher than 1,099. **So an absence from the asset-path list proves
+nothing**, while a presence is as strong as evidence gets.
+
+What it is uniquely good for is exactly the case that started this document:
+**it preserves names from before a rename**, and it groups things into Bossa's
+own folders.
+
+| folder | paths recovered |
+|---|---:|
+| `Assets/Resources/IslandProps` | 327 |
+| `Assets/Prefabs/Ruins` | 286 |
+| `Assets/Resources/CharacterCustomisation` | 143 |
+| `Assets/EntityPrefabs/Environment` | 70 |
+| `Assets/Resources/IslandPropsDev` | 54 |
+| `Assets/Prefabs/_PrefabsToSort` | 40 |
+| **`Assets/Resources/ModularShipComponents`** | **38** |
+| `Assets/EntityPrefabs/Ship Parts` | 20 |
+| `Assets/EntityPrefabs/Creatures` | 9 |
+| `Assets/EntityPrefabs/Items` | 8 |
+| `Assets/EntityPrefabs/Ship Frames`, `/AncientRespawners` | 3 each |
+
+**327 island props and 286 ruin prefabs** is a world-content library an order
+of magnitude larger than the 353 entity prefabs, and no part of this project
+has ever enumerated it. It is out of scope here and flagged in §12.
 
 An icon is weaker evidence than a prefab, but it is *not weak*. An artist
 authored, named, sized and shipped a 2×2 sprite called
@@ -469,10 +531,18 @@ And one of the stated reasons is out of date — see §7.3 on 1081.
 | `ControlButton`, `ControlLever` | **zero references** each. Searched both spellings plus `control button`, `lever`. These are the *inputs* a wiring kit wires up. |
 
 `WiringKit` + `ControlButton` + `ControlLever` + 1213 `WiringKitState` +
-1214/1215/1216 `Wireable`/`ShipWires`/`WireTrigger` is a **complete, coherent
-subsystem that nothing in this repo has ever mentioned.** It is the clearest
-example in the document of the failure mode this exercise exists to catch:
-nobody searched for it because nobody knew the word.
+1214/1215/1216 `Wireable`/`ShipWires`/`WireTrigger` is a **coherent subsystem
+that nothing in this repo has ever mentioned.** It is the clearest example in
+the document of the failure mode this exercise exists to catch: nobody
+searched for it because nobody knew the word.
+
+**One caveat, and it splits the group.** WIKI lists `Control Button` and
+`Control Lever` among **alpha ship parts that were removed**. The client is
+consistent with that: both are prefabs with **no class anywhere in the
+decompile**. `WiringKit` is *not* in that position — it has a live component
+(1213) and a generated `WiringKitState.cs`. So the honest reading is **a
+wiring system that outlived its two original input devices**, and what it
+drove at shutdown is unestablished (§12).
 
 ### 3.4 Turrets — and a correction that changes the work
 
@@ -649,7 +719,8 @@ subtracting those, the substantive ones:
 | `item_gasmask` | **icon only**. Searched prefabs, decompile, item rows | ties to the Blight? unconfirmed |
 | `item_camera` + `PhotoCamera` + 1024–1028 | prefab + 5 components + icon | §3.6 |
 | `item_tct` | **icon only** — but `TerritoryControlBeacon` exists. "TCT" = territory control tool | the beacon's placing tool |
-| `atlas_compressor`, `atlas_injector`, `beltseparator` | **icon only** for the first two; `beltseparator` appears in `acs/ScannableData.cs` | atlas-processing devices; the strongest lead in this row |
+| `atlas_compressor`, `atlas_injector` | icons only in the client — but **WIKI identifies them**: the two T3/T4 drops (Kioki biomes and Saborian biomes respectively) that U31's **20 Legendary Engines** required. The `Legendary` rarity tier is confirmed in the client (`LegendaryRarityDefault`, `RarityFrameLegendary`, `schematic_capsule_legendary`); the **20 engine names were never published by Bossa** |
+| `beltseparator` | icon + one decompile hit in `acs/ScannableData.cs`. **Still unexplained** — the strongest genuinely open lead in the document |
 | `item_fuel_extractor`, `item_fuel_crystal`, `item_fuel_tank` | icons + prefabs | §6.5 |
 
 ### 4.5 Ciphers — a whole progression system, stubbed
@@ -724,9 +795,9 @@ relay) activates.
 | `Glider` | **partial** | `glider` item row + deploy relay; 1151/1152 unserved |
 | `LightSource` | **partial** | `hipLamp` "Hip Lamp" and `headTorch` "Head Torch" item rows exist |
 | `Weapon` | **no** | the whole combat pillar, §7.2 |
-| **`AtlasBoots`** | **no** | class has a `greavesRenderer` — and the unreferenced icon is `crafted items/3x3_rhegus_greaves`. **INFERRED, strongly: the Rhegus Greaves *are* the Atlas Boots.** Another item-name / class-name collision, exactly like the generator |
-| **`InertiaPack`** | **no** | class fields: `trails`, `energyMeter`, `minHeightFromGroundToActivate`, `energyLossPerSecond`/`energyGainPerSecond`. **A fall/momentum utility with a rechargeable energy budget** |
-| **`StasisPack`** | **no** | same energy model plus a `ParticleSystem vfx` and `minHeightFromGroundToActivate` |
+| **`AtlasBoots`** | **no** | **CONFIRMED three ways.** The class has a `greavesRenderer`; `resources.assets` carries `rhegus_greaves_male`, `_female` and `_maleAvatar` meshes for the icon `crafted items/3x3_rhegus_greaves`; and the wiki files that item's picture under the filename **`Atlas boots.png`**. **The Rhegus Greaves ARE the Atlas Boots** — an item-name / class-name collision of exactly the generator's shape |
+| **`InertiaPack`** | **no** | class fields: `trails`, `energyMeter`, `minHeightFromGroundToActivate`, `energyLossPerSecond`/`energyGainPerSecond`. **A fall/momentum utility with a rechargeable energy budget.** WIKI gives its retail name: **Epheremus Drifter** (also spelled *Ephemerus*), filed under `Inertia pack.png` |
+| **`StasisPack`** | **no** | same energy model plus a `ParticleSystem vfx`. WIKI retail name: **Immobilator**, filed under `Stasis pack.png` |
 
 Both packs gate on `minHeightFromGroundToActivate` and drain an energy bar.
 **INFERRED:** these are the air-mobility items — what you use after you step
@@ -960,6 +1031,33 @@ This is the clearest case in the document of a category that **looks** near-
 complete on a prefab count and is near-empty on a gameplay count. Any future
 inventory should count both.
 
+#### 5.3.1 A correction that changes what "restoring" creatures means
+
+**WIKI, from Bossa's own Update 31 notes, quoted verbatim:** *"Creatures are
+gone. Forever… The resources that were salvageable from them have been added
+to scrap piles."*
+
+Two independent community passes found the same line in the original U31
+Google Doc. And our client build is **post-U31** — proved independently at
+§11.6, from the U31 stat renames (`airBrake`, `Boost`, `Range`,
+`Fragmentation`) appearing in `SchematicData.cs` and `CipherIconUtil.cs` while
+the pre-U31 names (`Pivot Speed`, `Spin Up`, `Capacity`) appear nowhere.
+
+**So the 12 fauna prefabs and 61 creature components in our client are dead
+code from an earlier build.** Retail, at shutdown, had **zero** live creatures.
+
+This does not make the gap smaller — it changes its *label*. Serving the
+creature stack is not **restoration** of the shipped game; it is a
+**WAREBORN** decision to revive a system Bossa cut. That is a legitimate
+choice, and this project has already made it (the fauna work is live). It just
+must not be described as recovery.
+
+It also has a real consequence for §4.1: **retail's final build had no meat
+source either.** Bossa moved creature drops to scrap piles. So cooking can be
+unblocked *without* creature combat, by following retail's own last decision —
+which is a materially cheaper path than the dependency chain at §8 #3→#4
+assumes. Worth costing before committing to the harder one.
+
 `pets/3x3_basher` — a single icon in its own `pets/` folder, and the only
 member. **PROVED (icon only).** No `Basher` prefab, no `Basher` string
 anywhere in the decompile. Searched: prefab table, decompile tree, icon
@@ -996,7 +1094,8 @@ auditing our table.
 | **our `MaterialCatalog`** | **17** | aluminium, **aurium**, bronze, **cobalt**, copper, epilar, eternium, gold, iron, lead, nickel, orthite, silver, steel, tin, titanium, tungsten |
 
 - **Shipped and missing from us (3):** `magnesium`, `palladium`, `platinum`.
-  Each has an authored, named, shipped icon. **PROVED (icon).**
+  Each has an authored, named, shipped icon. **PROVED (icon)** — but see the
+  correction below.
 - **In our table with no client icon (2):** `aurium`, `cobalt`. **Settled, and
   the file says so itself:** `MaterialCatalog.cs:143-151` marks both
   `retail: false` with the comment *"NO source covers them: every number is
@@ -1006,11 +1105,20 @@ auditing our table.
   placements each: no release-world deposit, no `HavenRing` slot, no scrap
   reward.
 
-**The net position is worth stating plainly: we invented two metals that draw
-as two other metals, while three metals Bossa actually shipped art for are
-absent.** Nothing here is wrong — the labelling is honest — but if the roster
-is ever revisited, swapping the two invented ones for `magnesium`,
-`palladium` and `platinum` costs the same and is recovery instead of tuning.
+**WIKI correction, and it inverts the recommendation:** two independent
+community passes report that `magnesium`, `palladium` and `platinum` were
+**removed from the game after Alpha 5.3**, and that `orthite`, `epilar` and
+`eternium` were **added in U29** as their replacements. Our catalogue carries
+all three of the additions. So the three "missing" metals are **cut content
+whose icons were never deleted**, and adding them would be *reverting* a Bossa
+decision, not recovering one.
+
+Which leaves the net position: we invented two metals that draw as two other
+metals, and the three real metals we lack are ones retail deliberately
+dropped. **Nothing here needs fixing.** It is recorded because the icon
+evidence alone said the opposite, and that is worth knowing about icon
+evidence: **an icon proves a thing was authored, never that it was still in
+the game at shutdown.**
 
 ### 6.3 Woods
 
@@ -1020,9 +1128,16 @@ is ever revisited, swapping the two invented ones for `magnesium`,
 | **our `TreeSpecies` / `MaterialCatalog`** | **8** | ash, birch, cedar, chestnut, elm, hemlock, oak, palm |
 
 **Five wood types shipped and unimplemented:** `ebony`, `ironwood`,
-`mahogany`, `maple`, plus the `palm2` variant. **PROVED (icon).** Given
-`MaterialCatalog` already carries per-material quality/mass properties, these
-are table rows plus a tree-species→wood mapping, not a system.
+`mahogany`, `maple`, plus the `palm2` variant. **PROVED (icon).**
+
+**WIKI correction, same shape as §6.2:** `ironwood`, `mahogany`, `ebony` and
+`maple` were **removed after Alpha 5.3**. Our eight woods are retail's final
+eight. This is not a gap — it is four orphaned icons, and our roster is
+already correct.
+
+The genuinely useful finding in this category is §4.10 instead: all eight of
+our woods are registered and **only birch is actually harvestable from a
+tree.**
 
 ### 6.4 Metal deposits and harvestables
 
@@ -1631,7 +1746,30 @@ unshipped casing bank.
   **Saborian uniform** — which supports the wiki's note that it is culture
   iconography rather than a distinct part.
 
-### 11.6 The honest limits of the community pass
+### 11.6 CONFIRMED — five more naming traps, and the build's own date
+
+Each of these came from a community source and was then checked against the
+client. All five hold.
+
+| WIKI claim | what the client says |
+|---|---|
+| **`reaver` is the internal name for the Marauder faction** — nothing in-game is ever called "reaver" | **223 `reaver` strings in `resources.assets`** and **17 `head_reaver*` rows** in `itemData.json`. Confirmed. A search for `marauder` finds the display names and misses the data entirely |
+| Rhegus Greaves are filed as `Atlas boots.png` | `rhegus_greaves_male/_female/_maleAvatar` meshes in `resources.assets`, and `AtlasBoots.greavesRenderer` in the decompile (§4.6). Confirmed |
+| Epheremus Drifter / Immobilator are the Inertia and Stasis packs | the classes are `InertiaPack` and `StasisPack`; neither retail name appears in any asset. Confirmed by inference, not by string |
+| The Shipyard ships 5 starter frames: **Dinghy, Tug, Skiff, Spear, Skipper** | `Assets/EntityPrefabs/Ship Parts/DinghyCore.prefab` is in the asset paths. **Only `Dinghy` is confirmed** — `Skiff` and `Skipper` return zero. Partial |
+| U31 added a **Legendary** rarity above Exotic | `LegendaryRarityDefault`, `LegendaryRaritySelected`, `RarityFrameLegendary` and `schematic_capsule_legendary` all present. Confirmed |
+
+**And the client build dates itself.** U31 renamed four stats: Spin-Up→**Boost**,
+Pivot Speed→**Air Brake**, cannon Power→**Range**, Capacity→**Fragmentation**/
+**Choke**. `CipherIconUtil` and `SchematicData` carry **the new names**;
+`"Spin Up"`, `"Pivot Speed"` and `"Capacity"` appear in **neither the
+decompile nor any asset file**.
+
+**Our client is a post-Update-31 build — the final retail one.** That is a
+load-bearing fact this document did not have when it started, and it is what
+forces the creature correction at §5.3.1.
+
+### 11.7 The honest limits of the community pass
 
 - **The Steam discussion search rate-limited after ~40 queries. The pool was
   not exhausted.** Anything this document records as "not found in the
@@ -1642,6 +1780,9 @@ unshipped casing bank.
   296 announcements and 24 guides — only category words (`sweets`, `syrup`),
   `Bandages`, `Booze`, and marketing prose (`manta steaks`,
   `Thuntomite burgers`, the latter from a sale line rather than a patch note).
+- **The 327 island props and 286 ruin prefabs** in the asset-path oracle
+  (§0.2.1) are a world-content library nobody here has enumerated. Out of
+  scope for this pass, and the single largest unopened box.
 - **One lead was found and NOT pursued:** the official December 2018 tutorial
   video demonstrates the cooking UI on screen. Recipe names would be **readable
   in the video frames**, not in any text source. That is the most promising
@@ -1705,6 +1846,11 @@ Stated rather than guessed. Each line says what would settle it.
     hard constraint on this task. Every "the player sees X" statement here is
     static analysis.
 
-12. **`.resS` streaming blobs were not scanned.** They hold raw texture and
+12. **The 327 island props, 286 ruin prefabs and 143 character-customisation
+    prefabs in the asset-path oracle were not enumerated.** They are the
+    largest unopened content library found by this pass and deserve their own
+    document (§0.2.1).
+
+13. **`.resS` streaming blobs were not scanned.** They hold raw texture and
     mesh payloads with no name tables, so this should not hide any name — but
     it is an unscanned region and is recorded as such.
