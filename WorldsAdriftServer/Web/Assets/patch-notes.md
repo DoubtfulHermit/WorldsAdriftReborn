@@ -1,9 +1,11 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 548 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 544 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 64 commits
+## 2026-08-19 | 67 commits
 
+* 68ae843 Record salvage confirmed in a live client
+* f11990f Record the live-client confirmation of chests, felling and tree yields
 * 01d2848 Record Phase 5, and correct the plan's reading of the .1 reward keys
 * 2ee83ff Pin the reward field names: a "tidy" rename binds them to nothing
 * 6556b97 Two itemData.json defects that made two scrap items unsalvageable
@@ -15,6 +17,7 @@ Every commit, newest first. 548 of them since 2026-08-07. Merges are left out - 
 * 46ea3ff Compress the object catalogue, which just became a megabyte
 * 7c9fffc Give the object panel groups a player can browse rather than one long list
 * 01ac220 Put the two hundred traced objects in front of the player
+* 150b57a Audit every wiki feature against the code, and phase the gap
 * 70c67a3 Allocate the destination item id only once a move is certain
 * 593fc73 Show loot containers on the operator map, and not on the public one
 * daecd01 Correct the production claim: the release world IS on, and the numbers decompose
@@ -547,7 +550,7 @@ Every commit, newest first. 548 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 39 commits
+## 2026-08-07 | 32 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -581,14 +584,7 @@ Every commit, newest first. 548 of them since 2026-08-07. Merges are left out - 
 * 3ffe069 Fix rig tamer freezing the LOCAL player
 * a984cfa Client: stop remote rigs from simulating - display only
 * aeef3a7 Shrink remote avatar seed to the minimum the body-builder requires
-* edc1348 Seed remote avatars with the game's own second-stage player component set
-* d7ea4b4 Client: keep the camera on the first Traveller rig that claims it
-* be36bed Client: disable cameras and audio listeners on remote player rigs
-* ae8971b Client: never let a second Traveller steal the local-player singletons
-* de6124f Client: let only the first CameraBinder drive the camera
-* 892cfee Seed remote avatars with TransformState only, and document component ids
-* f6b0cff Support multiple simultaneous players
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 138 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 145 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
