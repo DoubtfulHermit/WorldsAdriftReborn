@@ -138,6 +138,9 @@ Important game-server variables include:
 | `WAREBORN_DISTANT_ISLAND_SHELLS_ENABLED` | opt-in client-only retail low-LOD island silhouettes; requires the matching managed client patch |
 | `WAREBORN_RELEASE_WORLD_DISTRICTS` | local-only rollout: `all` or exact MapFile cells such as `B3,C6`; ignored unless resource and terrain interest are both enabled |
 | `WAREBORN_DEPOSIT_VARIANT` | optional global diagnostic override for the normal stable 01/02/03 deposit-shape cycle |
+| `WAREBORN_TREE_FALL` | felled logs; on unless set to exactly `0`, which restores the old vanishing cut |
+| `WAREBORN_TREE_FALL_MAX` | how many logs may be live at once; default 24, and `0` is a second kill switch |
+| `WAREBORN_TREE_FALL_LIFT` | metres a resting log sits above the ground; default `0.4`, a reconstructed trunk radius. Raise it if felled trunks look sunk into the ground, lower it if they look to be hovering — it is the one number here that only an eye on a real log can settle |
 | `WAREBORN_WORLD_ADMIN_FILE` | authenticated admin command bridge; default `/tmp/wareborn-world-admin` |
 | `WAREBORN_WORLD_ADMIN_RESULT_FILE` | atomic game-completion receipt consumed by `/admin`; default `/tmp/wareborn-world-admin.result` |
 

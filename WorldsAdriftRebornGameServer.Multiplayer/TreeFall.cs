@@ -53,14 +53,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     ///   timer.</item>
     /// </list>
     ///
+    /// THE LOG DOES COME TO REST ON THE GROUND, which the two bullets that used to
+    /// stand here said it did not. It lands flat only where the ground IS flat;
+    /// elsewhere it finishes its arc at the angle the slope under it calls for and
+    /// sits a trunk's radius clear of it. That is <see cref="LogGrounding"/>, and it
+    /// is arithmetic over ground measured offline rather than a terrain query - this
+    /// server has none and is not getting one. It costs nothing on the wire: both
+    /// the angle and the height fold into the pose these logs already stream.
+    ///
     /// WHAT IS STILL NOT RETAIL, stated rather than faked:
     /// <list type="bullet">
-    /// <item>The fall is AUTHORED, not simulated. It cannot bounce off a ship, come
-    ///   to rest on a slope, or land differently twice.</item>
+    /// <item>The fall is AUTHORED, not simulated. It cannot bounce off a ship, slide,
+    ///   roll down a slope, or land differently twice - and it is not meant to. It
+    ///   comes to rest sensibly, once, and stops.</item>
     /// <item>It cannot CRUSH anybody. There is no damage authority on this server at
     ///   all, so a log passing through a player does nothing.</item>
-    /// <item>The log does not come to rest ON anything. It lands flat at the height
-    ///   its parent stood at, so a trunk felled on a slope will not lie along it.</item>
+    /// <item>Grounding is only as good as what was extracted. An island whose surface
+    ///   was never swept, or a tree not standing on an authored seat, gets the flat
+    ///   topple with the lift and nothing more.</item>
     /// </list>
     ///
     /// THE LOG IS CHOPPABLE, and the note that used to stand here saying it could not
@@ -265,6 +275,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// The angle a log swings through when the ground under it is flat, or when
+        /// nothing is known about the ground under it: ninety degrees, dead level.
+        ///
+        /// It is named rather than written as a literal because
+        /// <see cref="LogGrounding"/> now moves the finishing angle either side of
+        /// it, and "90" appearing in three files with two different meanings is how
+        /// a grounded log quietly stops being grounded.
+        /// </summary>
+        public const double FlatRestAngleDegrees = 90.0;
+
+        /// <summary>
         /// The angle a log has swung through, in degrees, <paramref name="elapsed"/>
         /// into a fall of <paramref name="duration"/>. 0 at the moment of the cut,
         /// 90 once it is down, and clamped to 90 for ever after.
@@ -276,9 +297,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public static double FallAngleDegrees(TimeSpan elapsed, TimeSpan duration)
         {
+            return FallAngleDegrees(elapsed, duration, FlatRestAngleDegrees);
+        }
+
+        /// <summary>
+        /// The same arc, finishing at <paramref name="restAngleDegrees"/> instead of
+        /// flat - the one hook grounding needs.
+        ///
+        /// THE SHAPE IS UNCHANGED AND THAT IS THE POINT. The topple is still the same
+        /// accelerating quadratic over the same duration; only where it STOPS moves,
+        /// so a log settling on a slope takes exactly as long and looks exactly as
+        /// heavy as one settling on the flat. Grounding is a resting place, not a
+        /// different animation, and nothing about the timing, the cadence or the
+        /// landed repeats changes with it.
+        /// </summary>
+        public static double FallAngleDegrees(TimeSpan elapsed, TimeSpan duration, double restAngleDegrees)
+        {
             if (duration <= TimeSpan.Zero)
             {
-                return 90.0;
+                return restAngleDegrees;
             }
             if (elapsed <= TimeSpan.Zero)
             {
@@ -286,11 +323,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
             if (elapsed >= duration)
             {
-                return 90.0;
+                return restAngleDegrees;
             }
 
             double t = elapsed.TotalSeconds / duration.TotalSeconds;
-            return 90.0 * t * t;
+            return restAngleDegrees * t * t;
         }
 
         /// <summary>
@@ -394,8 +431,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static uint PackedRotationAt(uint parentPackedRotation, double headingDegrees,
             TimeSpan elapsed, TimeSpan duration)
         {
-            double angle = FallAngleDegrees(elapsed, duration);
-            if (angle <= 0.0)
+            return PackedRotationAt(parentPackedRotation, headingDegrees, elapsed, duration,
+                FlatRestAngleDegrees);
+        }
+
+        /// <summary>
+        /// The same rotation, finishing at <paramref name="restAngleDegrees"/> - what
+        /// a GROUNDED log is actually served.
+        ///
+        /// ONLY THE ANGLE MOVES. The axis, the sign of the heading term and the
+        /// compose order are untouched, and deliberately so: both of the errors those
+        /// can carry are conjugations that leave the swept angle at exactly ninety
+        /// degrees, so every angle-based assertion is blind to them and only the
+        /// yawed-tree tests can see them at all. Grounding had no business anywhere
+        /// near that arithmetic, so it stays on this side of the call.
+        /// </summary>
+        public static uint PackedRotationAt(uint parentPackedRotation, double headingDegrees,
+            TimeSpan elapsed, TimeSpan duration, double restAngleDegrees)
+        {
+            double angle = FallAngleDegrees(elapsed, duration, restAngleDegrees);
+            if (angle == 0.0)
             {
                 return parentPackedRotation;
             }
@@ -465,8 +520,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     {
         public FelledLog(long logEntityId, long treeEntityId, string assetName, string assetContext,
             FixedPointPosition position, uint packedRotation, int sectionMask, int sectionCount,
-            string woodType, double headingDegrees)
+            string woodType, double headingDegrees, GroundedRest ground = default)
         {
+            Ground = ground;
             LogEntityId = logEntityId;
             TreeEntityId = treeEntityId;
             AssetName = assetName;
@@ -515,11 +571,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>The bearing this log goes over towards. See <see cref="TreeFall.FallHeadingDegrees"/>.</summary>
         public double HeadingDegrees { get; }
 
+        /// <summary>
+        /// How the ground under this log was read: the angle its topple finishes at
+        /// and how far it was lifted clear. Carried so the server can SAY so on the
+        /// felling line.
+        ///
+        /// That is not decoration. The previous tree-fall defect was invisible in
+        /// production for five live cuts because nothing in the log said which way
+        /// the decision had gone; "shown to 0 peer(s)" is what eventually found it.
+        /// A cut that reports "(flat)" on an island that should have profiles is the
+        /// same kind of evidence, available on the first cut instead of the sixth.
+        /// </summary>
+        public GroundedRest Ground { get; }
+
         public override string ToString()
         {
             return "log " + LogEntityId + " off tree " + TreeEntityId
                 + " mask=" + Convert.ToString(SectionMask, 2)
-                + " heading=" + HeadingDegrees.ToString("0") + " deg";
+                + " heading=" + HeadingDegrees.ToString("0") + " deg "
+                + Ground;
         }
     }
 
@@ -555,6 +625,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             public TimeSpan NextPoseAt;
 
             /// <summary>
+            /// The angle this log's topple FINISHES at - 90 on flat ground, less
+            /// leaning up a hill, more following a slope down. See
+            /// <see cref="LogGrounding"/>.
+            ///
+            /// Per-log because it is a property of the ground this particular tree
+            /// stood on, and because a piece broken off a log inherits its parent's
+            /// settled rotation directly rather than recomputing anything - which is
+            /// how grounding reaches the sub-pieces for free.
+            /// </summary>
+            public double RestAngle = TreeFall.FlatRestAngleDegrees;
+
+            /// <summary>
             /// When the linger starts counting from. Reset by <see cref="Touch"/>
             /// every time somebody cuts this log, so a trunk being actively taken
             /// apart never expires under the player mid-swing.
@@ -587,9 +669,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         private readonly Dictionary<long, Log> _logs = new Dictionary<long, Log>();
         private long _nextEntityId = TreeFall.FirstLogEntityId;
 
+        /// <summary>
+        /// Where the ground under a tree comes from. Defaults to the real one, and
+        /// that default is the whole design: grounding is not something a caller
+        /// switches on, it is something this registry already does, so there is no
+        /// wiring in <c>FallingLogService</c> that can be left out while every test
+        /// still passes. It is injectable ONLY so tests can describe a hillside
+        /// without owning an island.
+        /// </summary>
+        private readonly Func<FixedPointPosition, GroundProfile?> _groundProfiles;
+
+        private readonly double _lift;
+
         public FallingLogs(IClock clock, TimeSpan? fallDuration = null, TimeSpan? lingerDuration = null,
-            int? maxConcurrent = null, TimeSpan? poseInterval = null, int? landedRepeats = null)
+            int? maxConcurrent = null, TimeSpan? poseInterval = null, int? landedRepeats = null,
+            Func<FixedPointPosition, GroundProfile?>? groundProfiles = null, double? liftMetres = null)
         {
+            _groundProfiles = groundProfiles ?? Islands.TreeGroundProfiles.For;
+            _lift = liftMetres ?? LogGrounding.DefaultLiftMetres;
+            if (_lift < 0.0 || double.IsNaN(_lift) || double.IsInfinity(_lift))
+            {
+                throw new ArgumentOutOfRangeException(nameof(liftMetres),
+                    "a log cannot rest below the ground it is being lifted clear of");
+            }
+
             _landedRepeats = landedRepeats ?? TreeFall.LandedRepeats;
             if (_landedRepeats < 0)
             {
@@ -739,7 +842,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             return TreeFall.PackedRotationAt(log.ParentRotation, log.Heading,
-                now - log.DroppedAt, log.FallDuration);
+                now - log.DroppedAt, log.FallDuration, log.RestAngle);
         }
 
         /// <summary>Every live log, so a caller can clean up on shutdown.</summary>
@@ -777,6 +880,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double heading = TreeFall.FallHeadingDegrees(change.TreeEntityId, change.SectionId);
             TimeSpan now = _clock.Elapsed;
 
+            // WHERE IT COMES TO REST, decided here rather than by the caller.
+            //
+            // A PIECE BROKEN OFF A LOG IS ALREADY GROUNDED and must not be grounded
+            // again. It is seeded with its parent's CURRENT position and rotation -
+            // both of which already carry the parent's lift and resting tilt - and it
+            // never swings, so re-applying either would lift it a second trunk-radius
+            // into the air and tip it a second time. Grounding reaches every
+            // sub-piece through the parent it was cut from, which is also why the
+            // cheap, common case costs nothing: no lookup, no arithmetic, no wire.
+            GroundedRest ground = alreadyDown
+                ? new GroundedRest(TreeFall.FlatRestAngleDegrees, 0.0, false)
+                : LogGrounding.Rest(_groundProfiles(position), heading, _lift);
+
+            FixedPointPosition resting = LogGrounding.Raise(position, ground.LiftMetres);
+
             // A PIECE BROKEN OFF SOMETHING ALREADY ON THE GROUND DOES NOT TOPPLE.
             // Only the first fall - off a rooted tree - has ninety degrees to swing
             // through. A sub-piece is seeded at its parent log's CURRENT pose and is
@@ -791,8 +909,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 TreeEntityId = change.TreeEntityId,
                 AssetName = assetName ?? string.Empty,
                 AssetContext = assetContext ?? string.Empty,
-                Position = position,
+                Position = resting,
                 ParentRotation = parentRotation,
+                RestAngle = ground.RestAngleDegrees,
                 Heading = heading,
                 SectionMask = change.LogMask,
                 SectionCount = sectionCount,
@@ -808,8 +927,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             });
 
             return new FelledLog(logEntityId, change.TreeEntityId,
-                assetName ?? string.Empty, assetContext ?? string.Empty, position, parentRotation,
-                change.LogMask, sectionCount, change.WoodType ?? string.Empty, heading);
+                assetName ?? string.Empty, assetContext ?? string.Empty, resting, parentRotation,
+                change.LogMask, sectionCount, change.WoodType ?? string.Empty, heading, ground);
         }
 
         /// <summary>
@@ -885,7 +1004,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
                 uint rotation = log.FallDuration <= TimeSpan.Zero
                     ? log.ParentRotation
-                    : TreeFall.PackedRotationAt(log.ParentRotation, log.Heading, sample, log.FallDuration);
+                    : TreeFall.PackedRotationAt(log.ParentRotation, log.Heading, sample,
+                        log.FallDuration, log.RestAngle);
 
                 log.NextPoseAt = now + _poseInterval;
                 if (landed)

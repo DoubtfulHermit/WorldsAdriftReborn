@@ -40,6 +40,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         private static readonly TimeSpan Linger = TimeSpan.FromSeconds(12);
         private static readonly TimeSpan Pose = TimeSpan.FromSeconds(0.05);
         private static readonly FixedPointPosition Where = FixedPointPosition.FromMetres(208, 6.7, 4);
+
+        /// <summary>
+        /// Where the log actually ends up: <see cref="Where"/> lifted clear of the
+        /// ground by <see cref="LogGrounding"/>.
+        ///
+        /// Derived by CALLING production rather than by writing the lifted number
+        /// out, because a constant here would keep agreeing with itself if the lift
+        /// were ever dropped from <c>FallingLogs.Drop</c> - which is precisely the
+        /// regression these assertions are meant to notice.
+        /// </summary>
+        private static readonly FixedPointPosition Resting =
+            LogGrounding.Raise(Where, LogGrounding.DefaultLiftMetres);
+
         private const string Asset = "Tree";
         private const string Context = "Default";
 
@@ -239,7 +252,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.NotNull(log);
             Assert.Equal(change.LogMask, log!.Value.SectionMask);
             Assert.Equal(Tree, log.Value.TreeEntityId);
-            Assert.Equal(Where, log.Value.Position);
+            Assert.Equal(Resting, log.Value.Position);
             Assert.Equal(Trees.SectionCount, log.Value.SectionCount);
             Assert.Equal(Trees.WoodType, log.Value.WoodType);
             Assert.Equal(Asset, log.Value.AssetName);
@@ -377,7 +390,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             FallingLogPose pose = Assert.Single(logs.DuePoses());
 
             Assert.Equal(LogId, pose.LogEntityId);
-            Assert.Equal(Where, pose.Position);
+            Assert.Equal(Resting, pose.Position);
             Assert.Equal(Quaternion32Packing.Identity, pose.PackedRotation);
             Assert.False(pose.Landed);
         }
@@ -771,7 +784,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
 
             Assert.Equal("TreePalm1", logs.AssetNameOf(LogId));
             Assert.Equal(Context, logs.AssetContextOf(LogId));
-            Assert.Equal(Where, logs.PositionOf(LogId));
+            Assert.Equal(Resting, logs.PositionOf(LogId));
             Assert.Equal(13, logs.SectionCountOf(LogId));
         }
 

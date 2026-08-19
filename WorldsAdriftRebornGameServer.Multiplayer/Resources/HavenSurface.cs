@@ -27,6 +27,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         /// <summary>The extracted surface table this Haven layout is derived from.</summary>
         public const string SurfaceResourceName = "haven-surface-1431299145.txt";
 
+        /// <summary>
+        /// Haven's Steam Workshop id. Haven is NOT a release-catalogue island, so
+        /// this is the only handle anything outside this class has on "which island
+        /// these samples describe" - <c>TreeGroundProfiles</c> needs it to tell
+        /// Haven's live surface apart from an island that has only baked rows.
+        /// </summary>
+        public const string WorkshopId = "1431299145";
+
         // ------------------------------------------------------------------
         // THE TUNABLE KNOBS for Haven's metal-deposit field, in one reviewed place.
         // Density is deliberately GENEROUS - the world should feel resource-rich -

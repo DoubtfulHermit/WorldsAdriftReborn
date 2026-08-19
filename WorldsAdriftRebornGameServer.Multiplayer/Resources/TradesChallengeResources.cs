@@ -14,6 +14,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
     public static class TradesChallengeResources
     {
         public const string SurfaceResourceName = "trades-challenge-surface-1206286558.txt";
+
+        /// <summary>
+        /// The Steam Workshop id, i.e. the join key against the release catalogue
+        /// and the baked tree tables. Named rather than left inside
+        /// <see cref="SurfaceResourceName"/> because this island is the one place
+        /// where an embedded surface and a baked ground-profile row describe the
+        /// same ground, which is what lets <c>TreeGroundProfiles</c> be checked
+        /// against its own generator.
+        /// </summary>
+        public const string WorkshopId = "1206286558";
         public const string DepositKeyPrefix = "deposit-the-trades-challenge-";
         public const string DatabankKeyPrefix = "databank-the-trades-challenge-";
         public const string MetalType = "aluminium";
@@ -92,7 +102,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
             return IslandCatalog.TradesChallenge.LocalToGlobal(p.LocalX, p.LocalY, p.LocalZ);
         }
 
-        private static IReadOnlyList<SurfaceSample> Samples => _samples ??= LoadSamples();
+        /// <summary>
+        /// This island's extracted LOD0 surface. Public because felled logs are
+        /// grounded against it directly (<c>TreeGroundProfiles</c>) rather than only
+        /// through the placement generator.
+        /// </summary>
+        public static IReadOnlyList<SurfaceSample> Samples => _samples ??= LoadSamples();
 
         private static IReadOnlyList<SurfaceSample> LoadSamples()
         {
