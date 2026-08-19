@@ -155,11 +155,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// </summary>
         public static bool IsSeededInteractionAvailable(string? itemType, bool isMounted)
         {
+            return IsMountOperated(itemType) ? isMounted : !isMounted;
+        }
+
+        /// <summary>
+        /// Whether this part's seeded interaction only works once it is bolted down -
+        /// and therefore whether the mount and unmount commits must BROADCAST an
+        /// availability flip on its 1210.
+        ///
+        /// THIS EXISTS BECAUSE THE SET WAS WRITTEN OUT BY HAND IN THREE PLACES AND
+        /// IMMEDIATELY DRIFTED. <c>PartMountService</c> tested
+        /// <c>Man || Activate</c> at both the mount and the unmount seam, so the first
+        /// container to gain the Inventory verb was seeded correctly, prompted
+        /// correctly, and stayed <c>available=false</c> forever - a chest that could
+        /// never be opened, with every test green and nothing logged. One predicate,
+        /// consumed by all three, is the only shape that cannot do that again.
+        /// </summary>
+        public static bool IsMountOperated(string? itemType)
+        {
             PartVerb verb = SeedVerbFor(itemType);
-            return verb == PartVerb.Man || verb == PartVerb.Activate
-                || verb == PartVerb.Inventory
-                ? isMounted
-                : !isMounted;
+            return verb == PartVerb.Man
+                || verb == PartVerb.Activate
+                || verb == PartVerb.Inventory;
         }
     }
 }

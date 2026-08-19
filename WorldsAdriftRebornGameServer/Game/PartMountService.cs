@@ -247,12 +247,13 @@ namespace WorldsAdriftRebornGameServer.Game
             ShipPublisher.Broadcast(partEntityId, 1099u,
                 new SalvageAndRepairState.Update().SetIsSalvageable(true));
 
-            // Helm/sail/lamp/horn keep their prefab-baked interaction entry from
-            // initial checkout, but it is usable only while mounted. The client caches
-            // that entry at OnEnable, so change availability rather than replacing the
-            // interaction list after the fact.
-            if (PartInteractionPolicy.SeedVerbFor(priorMount.ItemType) == PartVerb.Man
-                || PartInteractionPolicy.SeedVerbFor(priorMount.ItemType) == PartVerb.Activate)
+            // Helm/sail/lamp/horn/storage keep their prefab-baked interaction entry
+            // from initial checkout, but it is usable only while mounted. The client
+            // caches that entry at OnEnable, so change availability rather than
+            // replacing the interaction list after the fact. The SET is the policy's
+            // to name, not this file's: spelled out here it silently omitted storage
+            // the moment containers gained a verb.
+            if (PartInteractionPolicy.IsMountOperated(priorMount.ItemType))
             {
                 ShipPublisher.Broadcast(partEntityId, 1210u,
                     new InteractiveState.Update().SetAvailable(false));
@@ -427,11 +428,14 @@ namespace WorldsAdriftRebornGameServer.Game
                     break;
             }
 
-            // The correct Man/Activate entry was seeded while loose (unavailable),
-            // because InteractiveObjectVisualizer only caches it in OnEnable. Mounting
-            // now needs exactly one value flip to make the already-cached verb usable.
+            // The correct Man/Activate/Inventory entry was seeded while loose
+            // (unavailable), because InteractiveObjectVisualizer only caches it in
+            // OnEnable. Mounting now needs exactly one value flip to make the
+            // already-cached verb usable. WITHOUT THIS FLIP the part is a prompt that
+            // never appears - which is what a bolted trunk was for as long as this
+            // condition was a hand-written Man||Activate list.
             PartVerb seededInteraction = PartInteractionPolicy.SeedVerbFor(def?.ItemType);
-            if (seededInteraction == PartVerb.Man || seededInteraction == PartVerb.Activate)
+            if (PartInteractionPolicy.IsMountOperated(def?.ItemType))
             {
                 ShipPublisher.Broadcast(partEntityId, 1210u,
                     new InteractiveState.Update().SetAvailable(true));

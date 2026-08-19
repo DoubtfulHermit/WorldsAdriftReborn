@@ -174,6 +174,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         /// <summary>
+        /// THE FLIP. A container is seeded with its Inventory entry while still loose
+        /// and <c>available=false</c>, because the client caches the entry once at
+        /// OnEnable. Mounting must broadcast the flip or the prompt never appears -
+        /// and this seam tested a hand-written <c>Man || Activate</c> list, so the
+        /// first container to gain a verb was invisible on a green suite. The
+        /// predicate is now the policy's, and both the mount and the unmount seam
+        /// must use it rather than re-spelling the set.
+        /// </summary>
+        [Fact]
+        public void MountingAContainerFlipsItsPromptOn()
+        {
+            string mount = Source("WorldsAdriftRebornGameServer", "Game", "PartMountService.cs");
+
+            Assert.Equal(2, CountOf(mount, "PartInteractionPolicy.IsMountOperated("));
+            Assert.Equal(0, CountOf(mount, "== PartVerb.Man"));
+            Assert.Equal(0, CountOf(mount, "== PartVerb.Activate"));
+        }
+
+        private static int CountOf(string haystack, string needle)
+        {
+            int count = 0;
+            int at = haystack.IndexOf(needle, StringComparison.Ordinal);
+            while (at >= 0)
+            {
+                count++;
+                at = haystack.IndexOf(needle, at + needle.Length, StringComparison.Ordinal);
+            }
+            return count;
+        }
+
+        /// <summary>
         /// <c>ItemCount</c> must not BIND. If asking a container what it holds created
         /// its inventory, the salvage path would bind every container it shot at -
         /// including, on the very first shot, one that had never been checked out.

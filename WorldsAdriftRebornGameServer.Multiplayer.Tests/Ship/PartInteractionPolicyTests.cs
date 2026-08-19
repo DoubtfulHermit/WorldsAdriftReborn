@@ -224,6 +224,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable("deck", true));
         }
 
+        /// <summary>
+        /// The set whose availability DEPENDS on being mounted is exactly the set the
+        /// mount and unmount commits must broadcast a 1210 flip for. These were two
+        /// hand-written lists in three files and they drifted the first time a verb
+        /// was added: a container was seeded, prompted and then left permanently
+        /// unavailable, which is a chest that can never be opened with every test
+        /// green. Asserting the predicate AGREES with the availability function is
+        /// what makes one of them the source of truth.
+        /// </summary>
+        [Theory]
+        [InlineData("helm", true)]
+        [InlineData("sail", true)]
+        [InlineData("lamp", true)]
+        [InlineData("horn", true)]
+        [InlineData("trunk", true)]
+        [InlineData("mountedBox", true)]
+        [InlineData("storageContainer", true)]
+        [InlineData("shippingContainer", true)]
+        [InlineData("deck", false)]
+        [InlineData("altimeter", false)]
+        public void MountOperatedPartsAreExactlyThoseAvailableOnlyWhenMounted(
+            string itemType, bool mountOperated)
+        {
+            Assert.Equal(mountOperated, PartInteractionPolicy.IsMountOperated(itemType));
+            Assert.Equal(mountOperated,
+                PartInteractionPolicy.IsSeededInteractionAvailable(itemType, isMounted: true));
+            Assert.Equal(!mountOperated,
+                PartInteractionPolicy.IsSeededInteractionAvailable(itemType, isMounted: false));
+        }
+
+        /// <summary>
+        /// Walked over the REAL catalogue, so a new row cannot slip past the theory
+        /// above by not being listed in it.
+        /// </summary>
+        [Fact]
+        public void EveryMountOperatedRowInTheCatalogueAgreesWithItsAvailability()
+        {
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                Assert.Equal(
+                    PartInteractionPolicy.IsMountOperated(part.ItemType),
+                    PartInteractionPolicy.IsSeededInteractionAvailable(part.ItemType, isMounted: true));
+            }
+        }
+
         /// <summary>The wire values mirrored from the decompiled InteractVerb enum.</summary>
         [Fact]
         public void VerbWireValuesMatchTheClientEnum()
