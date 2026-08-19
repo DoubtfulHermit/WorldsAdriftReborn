@@ -126,6 +126,66 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **Game server:** `8eb4639`, deployed and restarted at 2026-08-19 12:41 CEST.
+  **Login server:** `8068a0b`, same afternoon. Four merges landed between them;
+  none carried a schema migration, which is the only reason the two were allowed
+  to move independently.
+  Carries, in merge order:
+  * **log grounding** (`2cc9f02`) - a felled log rests on the slope instead of
+    floating or clipping. Half the bug had nothing to do with slopes: a tree's
+    origin is on its trunk AXIS, so a 90-degree topple buried the lower half of
+    every log even on flat ground. `WAREBORN_TREE_FALL_LIFT` retunes the 0.4 m
+    clearance without a rebuild - the trunk radius is RECONSTRUCTED, not measured.
+  * **resource economy phases 1-3** (`9c25c81`) - mined metal carries its node's
+    quality, deposits draw from their island's table, a tree cut pays plant fibre
+    and berries. The deposit model is PROVED: `MetalRockStateData` carries
+    `metalTypeId` and `quality`, so a deposit is a generic rock and the metal is
+    data on the node.
+  * **200 traced emblem objects** (`05798a6`) - catalogue 83 -> 283.
+  * **loot containers phase 1** (`8eb4639`) - 409 activated on tier-1, gated by
+    `WAREBORN_SPAWN_LOOT=1` (drop-in `loot.conf`, added this deploy).
+  Post-deploy checks PASSED: zero `persistence is OFF`, zero `[error]`/`[fatal]`,
+  and the world activates 2475 trees / 409 loot / 368 deposits / 216 databanks /
+  110 atlas / 24 fuel.
+  Soak run before each of the two game-server merges: **FLAT** both times.
+  Rollbacks: `/opt/wareborn/backups/pre-loground-20260819T101448Z/game`,
+  `pre-economy-20260819T102629Z/game`, `pre-loot-20260819T104115Z/game`.
+
+  **Corrections to earlier entries and to the resource audit, all evidence-backed:**
+  * "Every deposit is iron" was WRONG as a general claim. The 328 release-world
+    nodes were always stamped with per-node metal and quality; only Haven's 40 are
+    hardcoded iron, deliberately, so a new player's nearest rock is the starter
+    metal. What was broken on all 368 was QUALITY - and worse than "defaults to
+    zero", because the yield table is keyed by metal NAME, so two iron nodes
+    overwrote each other.
+  * "The per-island metal table is unused" was WRONG - it is reachable, because
+    production runs `WAREBORN_RELEASE_WORLD_DISTRICTS=tier1`.
+  * "Scrap salvages into cloth/leather/glass/pigment" is WRONG. All 133
+    salvageable `scrapItem-*` rows yield metals, woods and fuel ONLY. The Update
+    27 economy therefore has no recovered bootstrap; anything we add there is
+    ours and must be labelled WAREBORN TUNING.
+  * "1081 InventoryState is the single blocker for containers" was INCOMPLETE.
+    `InWorldInventoryVisualiser` requires BOTH `1081` and `1210`, and a Unity
+    visualiser does not enable until every requirement resolves - the same bug
+    shape as the loom's unseeded `1264`. The general case: **16 of 18 deployables
+    seed only a transform.** Nobody owns that audit yet.
+  * `WAREBORN_METAL_COUNT` is VESTIGIAL - read only by the disabled handshake
+    path. The variable that matters is `WAREBORN_DEPOSIT_COUNT`, and if it were
+    ever unset it defaults to 1 and Haven would show one deposit.
+  * `WAREBORN_BUILD` had drifted to `f212e70` while the binary was current. It is
+    now set from the deployed commit at deploy time. It is a LABEL - trust the
+    binary's mtime over it.
+
+  **Trap for whoever serves `1081` next:** `InventoryService.ForEntity` falls back
+  to `InventoryWire.DefaultModel`, the player starter kit, and `Bind` runs its
+  factory once - so serving it on a non-player entity without a specific model
+  gives that entity a permanent inventory full of gauntlets.
+
+  **Unverified until someone plays:** that a chest shows its E prompt and opens
+  (headless soak bots run no visualisers, so the 1210/1081 serve and interact
+  echo rest on unit tests and the decompile); that mined metal shows real quality;
+  that a tree pays fibre and berries; that a log on a real slope lies along it.
+
 - **Game server:** `5a69250`, deployed and restarted at 2026-08-19 10:59 CEST.
   First game-server deploy of the day; the login server had moved four times
   without it, which was safe because none of those carried a migration and this
