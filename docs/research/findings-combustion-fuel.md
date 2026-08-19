@@ -58,7 +58,7 @@ the client: `ShipConfiguration.cs` ships ~40 flight tunables and no fuel entry;
 proto default of zero.
 
 Everything this server picks is therefore **WAREBORN TUNING**, listed with its
-reasoning in roadmap §12.5.
+reasoning in roadmap §13.5.
 
 ## 4. What this server can and cannot reproduce
 
@@ -82,7 +82,7 @@ catalogue seeded that row **1236**, which the prefab has no reader for, so the
 visualiser never enabled and the needle could never move — silently, because a
 Unity visualiser logs nothing when a `[Require]` is unsatisfied. Fixed on
 `feat/ship-fuel`: the row now seeds `1105, 1236` and `ComponentsSerializer`
-serves 1105 from the hull's tank. Roadmap §12.3 enumerates every fuel-related
+serves 1105 from the hull's tank. Roadmap §13.3 enumerates every fuel-related
 visualiser and what each requires, because "one component is enough" is the
 assumption that has cost this repo four dead props.
 

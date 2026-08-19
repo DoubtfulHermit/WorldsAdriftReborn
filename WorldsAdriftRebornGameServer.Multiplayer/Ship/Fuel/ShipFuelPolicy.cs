@@ -15,7 +15,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
     ///
     /// So every value below is <b>WAREBORN TUNING</b>, with its reasoning attached
     /// and an env override, because the first live flight is the only real test.
-    /// See docs/plans/feature-roadmap.md 12.5.
+    /// See docs/plans/feature-roadmap.md 13.6.
     ///
     /// WHAT RETAIL DOES PIN, and what this module reproduces in shape if not in
     /// magnitude: consumption was CONTINUOUS and THROTTLE-DRIVEN, not per-action.

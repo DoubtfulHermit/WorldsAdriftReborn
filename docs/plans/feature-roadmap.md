@@ -128,7 +128,7 @@ relative to the repo root unless absolute.
 | — per-island metal table | **LIVE — but read the nuance** | The table is **not** unused. `Multiplayer/Islands/release-runtime-catalog.json` holds **254 islands, 1,930 deposits, 15 distinct metals**, qualities 1–10, with a `metalSource` provenance ladder (38 `survey-pve`, 23 `survey-pvp`, 193 `inferred-tier`), stamped onto each deposit at `ReleaseWorldCatalog.cs:150-157`. **The trap:** at *default* config the release world is off and every reachable deposit is hardcoded iron (`Multiplayer/MetalDeposits.cs:223` `=> "iron"`, quality 6; `Game/Gathering/DepositHandshakeSpawner.cs:42,45`). **Production is not at default** — it runs `tier1`, so 328 catalogued deposits with real per-island metals ARE reachable, while Haven's own 40 remain iron. Corrected by `resource-economy` §0.1; commit `058877d` fixes the Haven/handshake paths. |
 | — island survey metal *lists* | **MISSING** | `Survey.Metals`/`PveMetals`/`PvpMetals` have **zero non-test readers**; only the boolean `MetalsAreInferred` is consumed. Deposit-level data is wired; island-level menus are not. |
 | **Wood** | **LIVE** | 13,266 tree seats over 252 islands (`Multiplayer/Islands/ReleaseTreeBudget.cs:40`, `ReleaseTreeCatalog.cs:76`). Felling shipped in game-server `5a69250` (2026-08-19). Log grounding merged to main as `2cc9f02`. 8 wood item rows. |
-| **Fuel** | **LIVE end to end (`feat/ship-fuel`, §12)** | Canisters are a **salvage target, not a pickup** — `Multiplayer/FuelPods.cs:10-17,60,87`; recovered per-shot yield 8/8/9 = 25 (`Multiplayer/FuelCanister.cs:65`), arriving on the same `2106` beam path as metal. Consumed by 6 real recipes. **And now BURNED:** a hull carrying a mounted `atlasSkyCore` has a tank (`Multiplayer/Ship/Fuel/ShipFuelLedger.cs`), Activate on that core refuels it from the player's inventory, throttle burns it, and **`1105 FuelGaugeState` is served on the `fuelGauge` part so the needle finally moves**. `1104`/`1106` remain unserved and are honestly unreproducible — there is no fuel-tank prefab in the client census, so fuel is per-hull here. See §12. |
+| **Fuel** | **LIVE end to end (`feat/ship-fuel`, §13)** | Canisters are a **salvage target, not a pickup** — `Multiplayer/FuelPods.cs:10-17,60,87`; recovered per-shot yield 8/8/9 = 25 (`Multiplayer/FuelCanister.cs:65`), arriving on the same `2106` beam path as metal. Consumed by 6 real recipes. **And now BURNED:** a hull carrying a mounted `atlasSkyCore` has a tank (`Multiplayer/Ship/Fuel/ShipFuelLedger.cs`), Activate on that core refuels it from the player's inventory, throttle burns it, and **`1105 FuelGaugeState` is served on the `fuelGauge` part so the needle finally moves**. `1104`/`1106` remain unserved and are honestly unreproducible — there is no fuel-tank prefab in the client census, so fuel is per-hull here. See §13. |
 | — dangling doc reference | **DONE** | `docs/research/findings-combustion-fuel.md` now exists and is indexed; it was cited from five code sites and was not in the tree. |
 | **Atlas Shard** | **LIVE** | `Multiplayer/AtlasShardCatalogue.cs:57` (`ItemTypeId = "atlasShard"`); every release deposit registers a shard, gated by `WAREBORN_SPAWN_ATLAS`/`WAREBORN_ATLAS_RATE`. 328 shards live in tier 1. **One data defect:** `atlasShard` is categorised `"Metal"` in `itemData.json`. `resource-economy` deliberately unbundled that fix, so it is **open** — see §4.1. |
 | **Update 27 second economy** (plant fibre, berries, meat, leather, chitin, cloth, pigment, glass) | **PARTIAL, in flight** | `clothMakeshift` ("Makeshift Cloth") is the only `Component` row in `itemData.json`. Plant fibre and berries are **landed on `feat/resource-economy`** (commit `0aa0fe8`, paid off the same cut that pays wood). Meat is blocked on creature mortality (their Phase 7). Leather/chitin/pigment/glass: **MISSING**, and note `loot-containers` §0.3 **corrects the audit** — the recovered scrap `rewards` are metals, woods and fuel, *not* cloth/leather/glass/pigment. |
@@ -843,13 +843,14 @@ A server deploy and a client release are different shipping paths, and the
 published manifests carried a connect defect and **every player who patched got
 an infinite load** (`HANDOVER.md:179-205`).
 
-**Nothing in Phases 0–5 requires a client-mod change.** Everything there is
+**Nothing in Phases 0–5 requires a client-mod change** (SC3 does — see the first row below)**.** Everything there is
 server-side seeding, handlers and data.
 
 Candidates that probably do:
 
 | item | phase | why |
 |---|---|---|
+| Deck parts mounting on placed objects | SC3 | **WRITTEN, unbuilt, unreleased.** `Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs`. The placement mask and tag are decided entirely client-side, so no server string can reach a railing's `Default`-layer collider. §11.6 |
 | `BlightLocalComponent` attachment for storms | 7 | the client never attaches it; a Harmony patch may be the only route |
 | Any Harmony reach into a closed-generic ECS system | 6/7 | `AddToIdComponentToEntityMapS\`2` — **unverified whether Harmony can reach it at all** |
 | Day/night clock presentation | 9 | if the stock client has no server-driven clock hook |
@@ -1069,16 +1070,16 @@ prefab's own interest declares it.
 | 19 | `stairs` | Stairs1 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 20 | `railing` | RailingStraight | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 21 | `railingCorner` | RailingCorner | deck → ShipDeck | — | — | **yes** | no | flat deck only |
-| 22 | `trunk` | ContainerSmall | deck → ShipDeck | `InWorldInventoryVisualiser` → **1210 + 1081**; `IsTooDamagedToWorkVisualizer` → **1236**; baked verb **Inventory** | — | **yes** | **NO — should be. §11.4** | flat deck only |
-| 23 | `mountedBox` | ContainerMount | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
-| 24 | `storageContainer` | ContainerMedium | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
-| 25 | `shippingContainer` | ContainerLarge | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
+| 22 | `trunk` | ContainerSmall | deck → ShipDeck | `InWorldInventoryVisualiser` → **1210 + 1081**; `IsTooDamagedToWorkVisualizer` → **1236**; baked verb **Inventory** | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
+| 23 | `mountedBox` | ContainerMount | deck → ShipDeck | same | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
+| 24 | `storageContainer` | ContainerMedium | deck → ShipDeck | same | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
+| 25 | `shippingContainer` | ContainerLarge | deck → ShipDeck | same | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
 | 26 | `barrel` | Barrel01 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 27 | `cupboard` | Cupboard | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 28 | `horn` | Horn01 | deck → ShipDeck | `HornVisualizer` → **1107** | 1107 | **yes** | **yes** — `Activate` (honk) | flat deck only |
 | 29 | `lamp` | Lamp01 | deck → ShipDeck | `LampVisualizer` → **1108 + 1236 + 1099** | 1108, 1236 | **yes** | **yes** — `Activate` (switch) | flat deck only |
 | 30 | `altimeter` | Altimeter | deck → ShipDeck | `AltimeterVisualiser` → **1236** | 1236 | **yes** | no — **correct**, retail made it a local readout | flat deck only |
-| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1105 + 1236 — fixed on `feat/ship-fuel`, §12.3** | **yes** | no | flat deck only |
+| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1105 + 1236 — fixed on `feat/ship-fuel`, §13.3** | **yes** | no | flat deck only |
 | 32 | `headingIndicator` | HeadingIndicator | deck → ShipDeck | `HeadingIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 33 | `artificialHorizon` | ArtificialHorizon | deck → ShipDeck | `ArtificialHorizonVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 34 | `airspeedIndicator` | AirspeedIndicator | deck → ShipDeck | `AirspeedIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
@@ -1089,9 +1090,11 @@ prefab's own interest declares it.
 
 - **36 of 37 appear.** One does not: the **Window**. That is a mesh-selection
   failure, not a missing seed, and it is fixed on this branch.
-- **4 of 37 are interactable today** — helm (`Man`), sail, lamp, horn
-  (`Activate`). **6 more should be and are not**: four storage containers, the
-  personal reviver, and the sky core. The other 27 are correctly inert; retail's
+- **7 of 37 are interactable today** — helm (`Man`), sail, lamp, horn
+  (`Activate`), and the four storage containers (`Inventory`, delivered by
+  SC2 on `feat/ship-components`; note the four share one row group, so the
+  count is helm + sail + lamp + horn + 4 = 7 of 37). **2 more should be and
+  are not**: the personal reviver and the sky core. The other 27 are correctly inert; retail's
   preprocessors add no `InteractiveObjectVisualizer` to them at all. **PROVED**
   part by part in `Multiplayer/Ship/PartInteractionPolicy.cs:27-82`, which is
   already the written audit of "what did retail let you do with this part".
@@ -1186,6 +1189,15 @@ because it has now bitten this repo four times:
 | `personalReviver` | `RespawnerVisualizer` needs **1094 + 8066**; we seed 8066 only | baked verb is **Activate**; we serve `None` deliberately, because a prompt without a respawn flow would be a lie |
 | `atlasSkyCore` | none — `ShipCoreVisualizer` is satisfied | baked verb is **Activate**; we serve `None`. Retail's handler was GSim-side and the shipped client has no consumer, so this one is arguably *correct* until flight/lift wants it |
 
+**DELIVERED for the four containers (SC2, branch `feat/ship-components`).** They
+now seed `1081 + 1236` and serve the `Inventory` verb, `ShipContainerService`
+binds each one its own grid before the 1081 serve can hand it the player starter
+kit, the 1211 dispatch echoes `Interact(Inventory)` on the container's own 1210,
+cross-inventory moves accept a MOUNTED ship container as one end, and the salvage
+beam refuses a container that still holds anything. Contents are session-scoped
+like a ruin chest's. The reviver and the core are untouched and the paragraph
+below still governs them.
+
 **This is the same class as `1264`/`1081+1210`, and the current code already
 knows it** — the comment at `ComponentsSerializer.cs:776-780` says so in as many
 words, and `PartInteractionPolicy` refuses to advertise a verb it cannot honour
@@ -1220,7 +1232,7 @@ It was also the one instrument whose fix was blocked on something real: nothing
 in this server burned fuel, so a served `1105` would have read zero forever.
 **That blocker is gone.** `feat/ship-fuel` builds the burn, the tank and the
 refuel alongside the serve, exactly as "wire it with combustion, not before"
-demanded — see **§12**, which also enumerates every other fuel-related
+demanded — see **§13**, which also enumerates every other fuel-related
 visualiser and what each `[Require]`s, because one component is rarely enough.
 
 ### 11.6 Symptom 3 — placement, and what retail actually did
@@ -1310,16 +1322,46 @@ two, and they should be planned as two:
   this is in-pattern, not new machinery. It is the only option that gives
   *deck **and** fence*.
 
-**UNKNOWN, and it decides which option is worth doing:** whether a mounted
-`RailingStraight` actually presents a collider on Default/Terrain/Interactive.
-That is prefab asset data — no code anywhere sets a ship part's layer except
-`ModularWing.cs:76`. Haven's scene props do sit on `Default` (layer 0), which is
-inside `Layers.Environment`, so it is **plausible**; it is not proved. **How to
-settle it:** enumerate the `entityprefabs/railingstraight_unityclient` prefab's
-colliders and read `m_Layer`/`m_Tag`. One asset read, no live client. Do that
-**before** committing to a patcher release, because if railings are on
-ShipAttachmentSolid without the `"ShipDeck"` tag, neither option above helps and
-the answer is a third one.
+**SETTLED — 2026-08-19, and the answer is YES.** Read out of the shipped
+`UnityClient@Windows_Data/resources.assets` (entity prefabs are baked into
+`resources.assets` in this build; there are no separate
+`entityprefabs/*_unityclient` bundles on disk), decoded against the `TagManager`
+in `globalgamemanagers`:
+
+| prefab | colliders | layer | tag |
+|---|---|---|---|
+| `RailingStraight` → `rail_single/double_straight_wood` | 4 × BoxCollider, enabled, non-trigger | **0 `Default`** | **`Untagged`** |
+| `RailingStraight` → `rail_single/double_straight_metal` | 4–5 × CapsuleCollider, enabled, non-trigger | **0 `Default`** | **`Untagged`** |
+| `Panel02` | none authored — `ShipPanel.SetPanelPositions:238-249` creates `PanelCollider-i-j` at runtime with `new GameObject`, which never assigns `.layer` or `.tag` | **0 `Default`** | **`Untagged`** |
+| `Deck01` → `DeckMesh` / `WoodDeckMesh` | `MeshCollider`/`BoxCollider` added by `MeshGenerator.MakeDeck` | **12 `ShipAttachmentSolid`** | **`ShipDeck`** |
+
+`Default` is inside `Layers.Environment`, and `Entity`/`ShipSurfaces` return an
+EMPTY tag — so **an Environment-mask raycast hits a railing today**, and the
+only thing keeping a deck part off one is the deck's own mask and `"ShipDeck"`
+tag. The decode is validated by a control: across all 78k GameObjects in
+`resources.assets` exactly 4 sit on layer 12 and 9 carry tag `ShipDeck`, and
+they are precisely the objects `GetMask`/`GetTag` demand for the `ShipDeck` path.
+Nothing relayers a ship part at runtime except `ModularWing.cs:76`
+(→ ShipAttachmentSolid) and `ModularCannon.cs:143` (→ Interactive), both
+self-targeted.
+
+**So there is a THIRD option, and it is better than both of the above.** Neither
+listed option is necessary, because `ValidSurfaceTypes` does not have to change
+at all: `GetMask` composes with `&` per flag and is fine, and only `GetTag`'s
+one-tag-for-every-hit rule and the mask's missing `Environment` bit are in the
+way. Widening exactly those two, for `ShipDeck` phantoms only, keeps
+`ValidSurfaceTypes == ShipDeck` and therefore keeps every `==` behaviour switch
+true — the deck flatness rule, the ship-aligned base rotation and
+`NeedToBeOnShip` all keep running. That is what
+`Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs` does (SC3, branch
+`feat/ship-components`). It still needs a patcher release, but it does NOT need
+the flatness rule to be re-implemented by hand, which was the main risk in the
+`All` plan.
+
+**Consequence worth naming:** blanking the tag also stops protecting the deck
+path from untagged `ShipAttachmentSolid` geometry, of which the only instance is
+`ModularWing`'s runtime-relayered skin. The ≥0.9 flatness gate limits that to a
+wing's upper surface.
 
 ### 11.7 So — one defect, or three?
 
@@ -1331,10 +1373,15 @@ was that everything inert is one under-seeding bug. It is not:
 2. **The containers and reviver** are the loom's defect exactly — partial
    `[Require]` sets plus a verb mismatch. They ride on
    `feat/loot-containers`' `1081` work and should not be planned separately.
+   **The containers are DONE** (SC2); the reviver still needs `1094` and a
+   respawn flow to be worth a prompt.
 3. **Placement** is not a defect at all. It is a deliberate, documented,
    correctly-reasoned narrowing (`"shipSurfaces"` → `"deck"`) that solved a real
    bug and created this one. Reversing it is a **design decision**, and the data
-   retail used is unrecoverable.
+   retail used is unrecoverable. **What the 2026-08-19 asset read adds is that
+   the decision is not a trade after all**: the deck's mask and tag are the only
+   things excluding a placed prop, both are chosen client-side, and widening just
+   those two keeps the deck. See §11.6.
 
 The one thing that *is* general, and that §5 Phase 1 item 3 should adopt: **audit
 by comparing the client's `[Require]` set to the served set, per prefab, and then
@@ -1370,7 +1417,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 #### PHASE SC1 — The fuel gauge stops lying, and the audit tool grows up
 
 - **(a) is DONE, and better than proposed.** `feat/ship-fuel` did not mark the
-  gauge dormant; it built the fuel to put behind it (**§12, phase F1**), so the
+  gauge dormant; it built the fuel to put behind it (**§13, phase FU1**), so the
   row now seeds `1105 + 1236` and the needle reads a real tank. (b) and (c)
   below are still open.
 - **Delivers:** (b) widen the prefab `[Require]` census from
@@ -1387,7 +1434,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE SC2 — Ship storage opens
+#### PHASE SC2 — Ship storage opens *(DONE on `feat/ship-components`)*
 
 - **Delivers:** the four container rows become real chests: seed **1081** (with a
   container-specific model, **never** `InventoryWire.DefaultModel`) and **1236**,
@@ -1409,7 +1456,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE SC3 — Instruments and decorations mount where the player wants them
+#### PHASE SC3 — Instruments and decorations mount where the player wants them *(patch written on `feat/ship-components`; NOT built, NOT released)*
 
 - **Delivers:** the answer to the actual complaint. **Two steps, in order:**
   1. **Settle the UNKNOWN in §11.6** — read the collider layer/tag off the
@@ -1473,9 +1520,13 @@ Stated rather than guessed, in the style of §9.
    audit proves exactly one (the Window) and proves the other 36 render. If a
    *different* row is invisible in game, this table is wrong about it and the
    client log will say which — every failure of this class logs a Unity error.
-3. **Whether a mounted railing exposes a mountable collider.** §11.6. An asset
-   read settles it without a live client, and SC3 should not start until it is
-   done.
+3. ~~**Whether a mounted railing exposes a mountable collider.**~~ **SETTLED by
+   the asset read, §11.6: yes — layer 0 `Default`, `Untagged`, 4–5 enabled
+   non-trigger colliders.** What a live client still has to settle is one step
+   further downstream: whether a mounted railing's runtime parent chain carries a
+   `DockableVisualizer`, because `NeedToBeOnShip` stays true under the SC3 patch
+   and resolves the target ship by walking that chain. If it does not, the
+   preview will refuse a railing for a reason that has nothing to do with layers.
 4. **Whether the sky-core module sockets restore correctly** on every module. The
    socket components are stripped from every shipped prefab and re-added by
    `Patching/SpatialOS/SkyCoreSocketRestore.cs` at template-compile time. Eight
@@ -1485,7 +1536,693 @@ Stated rather than guessed, in the style of §9.
 
 ---
 
-## 12. FUEL — how it worked, and how it works here
+## 12. SHIP FLIGHT — THE PHYSICS AUDIT
+
+**Added:** 2026-08-19, branch `feat/ship-flight`, cut from `main`.
+**Why:** *"we need to know how much thrust the engines are doing, how they affect
+the ship, under what situation — also the atlas generator, all that stuff"*, and
+*"the weight of the ship [affects] what it can do and how much speed it gets… I
+think our current thing is just faking all this."*
+
+This section is that audit. It is a different subject from §11: that one is about
+whether a ship part **renders and can be interacted with**, this one is about
+whether it **does anything to the ship's motion**. A part can be perfect in §11's
+table and physically inert here — and 33 of the 37 are.
+
+### 12.1 The recovery, and why it went better than expected
+
+The standing assumption in this repo — correctly, for everything else — is that
+*the client REPLAYS motion and does not simulate it*, so the flight model is ours
+to invent. The first half is true and load-bearing: `ShipPhysicalityVisualizer`
+hardcodes `ClientDynamic() => false`, the ship rigidbody is permanently kinematic
+on a player's machine, and motion arrives as `1130` control points.
+
+**But the physics worker was a Unity worker, and it shipped the same
+`Assembly-CSharp` as the client.** The split is one runtime boolean —
+`WorldsAdrift.IsFSIM` — plus `[WorkerType(WorkerPlatform.UnityWorker)]`
+attributes. Every force-producing class is therefore sitting in the decompile,
+compiled and readable. What did *not* ship is the per-part **data** those
+equations consumed, which the Scala GSim computed and sent over the wire.
+
+So the split is unusually clean, and this section labels it everywhere:
+
+- **The equations and the world constants are PROVED.** Drag, thrust, sail
+  force, lift, steering torque, the wind fallback, the caps.
+- **The per-part magnitudes are LOST.** Engine power, sail power, per-part mass
+  and per-core lift were `1116` / `1303` / `1121` / `1258` values authored
+  server-side. §3 already lists "quality → stat" as unrecoverable; this is the
+  same hole seen from the ship's end.
+
+Two caveats on the constants, stated once and applying throughout. First, they
+are the **IL defaults** of `ScriptableObject` classes; the shipped
+`Resources/Configs/ShipConfig.asset` may override them, and extracting it from
+the bundles is unclaimed work. Second, both `ShipConfiguration` and
+`EndOfTheWorldConfig` implement `RemoteConfigurationUpdater.IConfig`, so Bossa
+could push new values as SpatialOS worker flags at runtime and we would have no
+record of it.
+
+### 12.2 THE WORLD CONSTANTS — the numbers everything else hangs off
+
+All **PROVED**, `acs/ShipConfiguration.cs` unless noted.
+
+| constant | value | what it decides |
+|---|---|---|
+| `AirResistanceCoefficient` | `0.01` | the whole speed scale of the game |
+| `AirResistanceExponent` | `2` | drag is quadratic, so top speed goes as √(thrust/mass) |
+| `ShipThrustMultiplier` | `1.0` | global thrust lever, shipped centred |
+| `AirBrakeMultiplier` | `1.0` | global airbrake lever |
+| `MaxWingPowerSpeed` | `10 m/s` | speed at which wings reach full control authority |
+| `SendInterval` | `0.24 s` | the `1130` control-point cadence we already match |
+| `_liftSpeedCap` | `2 m/s` | **max climb/descent rate, any ship** (`ShipControlVisualizer`) |
+| `_liftAccelerationCap` | `1 m/s²` | max vertical acceleration (`ShipControlVisualizer`) |
+| torque deadband | `2500`, then `×0.5` | accumulated off-centre torque below 2500 does **nothing** (`ShipMotionVisualizer.LateUpdate`) |
+| `MinEfficiency` | `0.3` | a badly trimmed sail still gives 30% (`SailBehaviour`) |
+| default wind | `(1, 0, -2)`, ‖w‖=2.236 m/s | the client's fallback where no weather cell exists (`GlobalWeather`) |
+| wind magnitude clamp | `100 m/s` | above this the field returns zero |
+| altitude pushback onset | `Y = 800 m` | `WorldEdgePushback`, `WallData.WorldMaxY` |
+| hard altitude clamp | `Y = 1000 m` | `WorldEdgePushback` |
+| physics tick | `50 Hz` (`fixedDeltaTime 0.02`) | `FSimStateMachine/StartupState` |
+
+**Client-side value ranges**, useful because they tell us what speeds Bossa
+expected players to see. All **PROVED**:
+
+| gauge | value |
+|---|---|
+| airspeed indicator full scale | **70 knots = 36.0 m/s** |
+| helm wind VFX at full intensity ("fast") | 30 kn = **15.4 m/s** |
+| helm wind VFX onset | 5 kn = 2.6 m/s |
+| ship mass tiers (ambient SFX) | ≤500 / ≤1000 / ≤2500 / ≤4000 / >4000 kg |
+| max designable hull | 6 × 2 m long, 4 × 1.7 m high, 16 m wide |
+
+That gauge is the single best answer to "what should a ship's speed be": Bossa
+built a dial to 70 knots and put the "this ship is fast" threshold at 30. Our
+flat 12 m/s is 23 knots — inside the band, at the slow end.
+
+### 12.3 THE PER-COMPONENT TABLE
+
+For each: what force it makes, how much, when it applies, and how it combines.
+
+---
+
+#### 1. ENGINE — `1116 ShipEngineState`
+
+- **Contributes:** a **force** in newtons along the engine's own forward axis.
+- **How much — PROVED** (`EngineVisualizer.cs:272`):
+  `F = ShipThrustMultiplier × spin × (boost + Power) × transform.forward`
+  where `spin` chases `CurrentPercentSpin` at `6/s` (a ~0.17 s spool-up), and
+  `boost` is added **only** while `IsBoosting`.
+- **Scales with:** `Power`, a **server-sent** number. `1116` also carries
+  `consumption`, `overheat_limit`, `spinup`, `heat_efficiency`, `boost`.
+- **When:** only inside `if (WorldsAdrift.IsFSIM)`. Throttle enters *indirectly*,
+  through `CurrentPercentSpin` — an engine does not respond instantly.
+- **Combines:** purely **additive** across engines, applied at the propeller's
+  world position, so an off-centre engine also yaws the ship. There is no cap and
+  no diminishing return in the force itself — the diminishing return is drag.
+- **LOST:** `Power` itself. Community work reconstructs it as
+  `basePower × (1 + combustionBoost + propellerBoost)` where base power comes
+  from the engine's head part (Rustbucket −1 … Starcaster 60) and the two boosts
+  are per-material, per-quality and additive — **WIKI**, and specifically a
+  *fitted* table, not a datamine (see §12.7).
+- **Ours today:** WAREBORN TUNING, 600 N per mounted engine, flat.
+
+#### 2. SAIL — `1303 SailState { unfurled: bool, power: float }`
+
+- **Contributes:** a **force** from the wind. Not a bonus, not a multiplier.
+- **How much — PROVED** (`SailBehaviour.cs:44-54`): the boom trims to
+  `LookRotation(forward×1.01 − ŵ)` flattened horizontal; then
+  `efficiency = |dot(ŵ, joint.right)|`, `F = efficiency × ‖wind‖ × Power` along
+  `joint.right`, sign-flipped so it always carries downwind, with a floor of
+  `0.3 × ‖wind‖ × Power`. `ShipMotionVisualizer.AddSailForce` then **strips the
+  component along the hull's right axis** — retail's implicit keel — leaving
+  drive along the hull.
+- **When:** **whenever `Unfurled` is true.** There is no velocity term and no
+  throttle term anywhere in the sail path.
+  **So yes: in retail, unfurled sails moved a stationary ship.** The
+  maintainer's recollection is correct and is now PROVED, not remembered.
+- **Combines:** one force per unfurled sail, additive, at the sail's position.
+- **The schema is tiny and settles several questions by absence:** `unfurled` and
+  `power`, nothing else. **No furl percentage, no canvas area, no rigging, no
+  tacking state.** Unfurling is a binary toggle.
+- **LOST:** `Power`. **Ours today:** WAREBORN TUNING, 30.
+
+#### 3. WING — `1124 WingState`
+
+- **Contributes:** **steering torque**, plus **airbrake drag**. Not lift.
+- **How much — PROVED** (`WingVisualizer.UpdateMotion`):
+  `p = InverseLerp(0, MaxWingPowerSpeed=10, ‖v‖) × Power`, then
+  `torque = (axes.X·p·k_pitch, axes.Y·p·k_yaw, −axes.Z·p·k_roll)` where each
+  `k` is `Lerp(0.2, 1.0, alignment)` of the wing's own up-vector against that
+  hull axis — **a wing mounted flat rolls well, one mounted vertically yaws
+  well**.
+- **When:** **scales from zero at rest to full at 10 m/s.** A wing is an
+  aerodynamic control surface and does nothing on a parked ship.
+- **Airbrake:** when `dot(throttle × forward, velocity) < 0` — i.e. the pilot is
+  commanding *against* travel — it adds `AirBrakeMultiplier × AirBrake × −v`.
+- **Combines:** additive, and applied through `AddTorque`, which **bypasses the
+  2500 deadband**.
+- **Dead fields:** `_velocityDependantPowerFactor 0.6` and `_velocityForMaxPower
+  50` in `WingTorqueData` have no consumer; `MaxWingPowerSpeed = 10` superseded
+  them. Do not implement them.
+
+#### 4. THE ATLAS SKY CORE — `1258 ShipLiftState`, `1115 ShipCoreState`
+
+The maintainer called it "the atlas generator"; the game's own string is
+*"Ship weighs more than its atlas sky core can lift."*
+
+- **Contributes:** **lift capacity**, expressed as a mass budget in **kilograms**.
+  It is not an altitude ceiling and it consumes nothing.
+- **How much — PROVED** (`ShipLiftVisualizer`):
+  `TotalLift = AtlasMultiplier × ShipLiftState.totalLift`;
+  `IsOverloaded = totalMass > TotalLift`; `Load = totalMass / max(1, TotalLift)`.
+- **How it flies the ship — PROVED** (`ShipControlVisualizer.UpdateFloating`):
+  ```
+  lift = −(mass × g) + compensationForce + commandedLift
+  applied = clamp(lift, 0, TotalLift × |g|)
+  ```
+  So the core **exactly cancels the ship's weight** and then adds the pilot's
+  vertical command. This is the whole reason ships hang in the sky: it is
+  anti-gravity, not aerodynamic lift, which is why a ship holds altitude with no
+  airspeed at all.
+- **The overload rule falls straight out of that clamp.** If
+  `TotalLift < mass`, the clamp cannot even reach the weight term and the ship
+  **cannot hold altitude**. The client additionally refuses to send positive
+  vertical input while overloaded. **This is the mechanism by which ship weight
+  matters most, and it is the one we do not implement.**
+- **Vertical is capped hard**: ±2 m/s and 1 m/s², for every ship, regardless of
+  core. A bigger core does not climb faster — it lifts *more*.
+- **Combines:** `8067 ShipPartAccumulateState` rolls per-part `lift` up the
+  parent chain; the root publishes the sum as `1258.totalLift`. Additive.
+- **Abandoned ships sink** at −0.05 m/s² (`ShipAbandonedBehaviour`, after a
+  `CoreDampenTime` accumulator passes 86400).
+- **LOST:** per-core lift. `MaterialCatalog.SkyCoreLiftKg` in this repo already
+  RECOVERS the shape from the wiki's Atlas Core table —
+  `lift = 1000 + rate × (10 + quality)`, reproducing twelve metals at both
+  endpoints — and **has zero non-test callers.**
+
+> **⚠ A LANDMINE, and the single most surprising thing in this audit.**
+> `AtlasMultiplier` is not a tuning value. It is
+> `EndOfTheWorldConfig`'s **doomsday clock**: it decays to zero across Bossa's
+> shutdown window (`OutroDate` 2019-07-26 → `ApocalypseDate` +20 h). It is how
+> Bossa ended the world — every ship lost lift and fell.
+> **Evaluated at today's date it is `0.0`.** On an unpatched client every ship
+> therefore reads `TotalLift = 0` and permanently overloaded, and the handheld
+> **Atlas Lifter applies literally zero force** (`LiftableVisualizer.cs:53`
+> multiplies by it) — which is very likely the real reason §4.5 records the
+> lifter as "a prop". Any feature that reads client-side lift must force this to
+> 1 first, and that is a **CLIENT MOD**.
+
+#### 5. HULL MATERIALS → MASS — `1257 ParentingMassAdderState`
+
+- **Contributes:** mass, which divides every force in the game.
+- **PROVED:** `ParentingMassAdderVisualizer` does `_rb.mass = _massState.Mass`
+  verbatim — no scaling, no clamp. `8067` sums per-part `1121 OriginalMassState`
+  up the tree; the root publishes the total.
+- **A real trap:** mass is pushed only on the `MassUpdated` **event**, never in
+  `Awake`. A value sent once at spawn and never updated leaves the rigidbody at
+  Unity's default mass of **1.0 kg**.
+- `centerOfMass` and `inertiaTensor` are **never assigned** — PhysX derives both
+  from the colliders. So a ship's rotational inertia comes from its *shape*, and
+  is not something the server ever set.
+- **Ours today:** `HullMassCalculator` — per-material kg/unit **RECOVERED** from
+  the wiki's Metal/Wood tables, quality explicitly free
+  (*"without any additional cost of weight"*), and `UnitsPerHullCell = 2000` /
+  `UnitsPerDeck = 500` / `MetalShareOfMixedHull = 0.20` **CHOSEN** and labelled.
+  Corroborated independently: the community panel-mass table divides by exactly
+  40 to give the same per-material kg/unit figures, 20 rows out of 20.
+
+#### 6. WIND AND DRAG — the world, not a component
+
+- **Self-drag — PROVED** (`WindPhysicsVisualizer.GetDrag`): deceleration is
+  `0.01 × ‖v_rel‖²`, plus a residual term capped at `0.03 m/s²` pulling the ship
+  toward the local wind velocity. Drag is computed as an **acceleration** and
+  only then multiplied by mass, **so mass cancels** — this is exactly why top
+  speed depends on thrust-to-weight and not on mass alone.
+- **Wind push is mass-attenuated — PROVED** (`ApplyDrag`):
+  `windMultiplier = 1 − clamp01(mass/4000) × 0.75`. A 4000 kg ship feels only
+  25% of the wind. **Heavy ships are shoved around less by weather but coast
+  identically.**
+- **Wind pushes stationary airborne ships even with no sails** — the early-return
+  is skipped for any ship with working lift.
+- Forces under 1 N are discarded. Wind is resampled every ~0.2 s.
+
+#### 7. THE THINGS THAT DO NOT EXIST
+
+The brief asked about rudders, keels and ballast. **They are not components and
+never were.** Stated plainly so nobody looks for them again:
+
+- **No rudder.** Steering is wing torque plus core torque, below.
+- **No keel.** The keel is *implicit*, in two places: `AddSailForce` strips the
+  hull-lateral component of sail force, and `SelfRighteningVisualizer` applies a
+  `±2 × mass` couple that rights the hull — and sets `angularDrag = 1`, the only
+  angular damping any ship has. `Rigidbody.drag` is never set on a ship at all.
+- **No ballast.** Mass is hull materials plus mounted parts. There is no
+  component that adds mass deliberately.
+- **`1110 ReactionWheelState`** exists, has a `power` vector, and has **zero
+  consumers anywhere** — dead legacy.
+- **`1137` / `1138` atlas anchor** components are **field-less flags**.
+- **`8068` / `8069`** deprecated rigidbody components are genuinely empty — there
+  is no older physics dataset hiding in them.
+
+#### 8. THE HELM — `1111 ShipControlInput` → `1113 ShipControlState`
+
+Not a force producer, but it is where mass re-enters. **PROVED**
+(`ShipControlVisualizer.UpdateTorques`):
+```
+torque = ShipAxes × CorePowerScale(0.5, 1.0, 0.5) × mass^CoreMassExponentialFactor
+```
+with the exponent **`1.0`**. Torque scales **linearly with mass**, so angular
+*acceleration* is mass-invariant: **a heavy ship turns just as briskly as a light
+one.** That is a deliberate design choice, and it means "heavy ships are less
+manoeuvrable" — which our own code comments assert — is **false in retail**. Yaw
+authority is twice pitch and roll. This torque bypasses the 2500 deadband.
+
+`1111` is the **only** component the client ever writes: three axes plus vertical
+plus throttle, at 20 Hz, all clamped to [−1, 1].
+
+### 12.4 THE WHOLE-SHIP ANSWERS
+
+**How mass becomes speed.** At equilibrium thrust balances drag:
+`F/m = 0.01 v²`, so
+
+> **v_top = 10 × √(thrust / mass)**
+
+That is the entire speed model, and it is RECOVERED rather than chosen. Its
+consequences are worth stating because they are counter-intuitive and they are
+what a ship-builder actually experiences:
+
+- **Doubling your engines buys 1.41× top speed**, not 2×.
+- **Doubling your mass costs 0.71× top speed**, not half.
+- Mass and thrust matter **only as a ratio**. This is why every retail guide says
+  power-to-weight is the only statistic that counts.
+
+The one published community speed model, WAEngenius's
+`speed = 50 × √(2 × power / weight)`, is **WIKI and weak** — a UI heuristic with
+no validating measurement in the archive — but it is `√(power/weight)`, the same
+shape, arrived at independently.
+
+**Is there a speed cap?** **No — retail set none anywhere.** Top speed is purely
+where drag balances thrust. Our 60 m/s `ShipMotionPolicy` clamp is a **wire**
+constraint, not physics: above it a hull moves far enough between two 0.24 s
+control points to read as teleporting and the client's spline correction fights
+it.
+
+**No sails versus sails unfurled.** In retail, sails are an always-on wind force
+independent of the throttle, so: a ship with no sails is slower; a ship with
+sails unfurled is faster; and a stationary ship with sails unfurled **starts
+moving**. All three of the maintainer's expectations are correct.
+
+**What decides climb rate?** Not the core, and not mass. `±2 m/s` and `1 m/s²`,
+flat, for every ship. The core decides *whether you can climb at all*.
+
+### 12.5 THE VERDICT ON OUR MODEL
+
+The suspicion was *"our current thing is just faking all this"*. Judged
+component by component, that is **substantially correct for propulsion and
+wrong about mass**, and the code deserves credit for never having claimed
+otherwise — `FlightTuning.cs` opens with a "HONESTY NOTE, load-bearing" that
+says its numbers are guesses.
+
+**What was genuinely real, before this branch:**
+
+- **Hull mass.** Real materials × real decoded cell and deck counts, with
+  per-material densities RECOVERED from retail's own published tables and
+  independently corroborated. This is good work and is not faked.
+- **The sail ledger.** Real mount/interact/persist wiring, read live every tick.
+- **Axis signs and the input mapping**, recovered from the client.
+- **The `0.24 s` cadence and the `1130` wire shape**, verified against
+  `ShipConfiguration.SendInterval`.
+
+**What was faked:**
+
+- **Top speed was a constant: 12 m/s for every ship ever built.** Mass did not
+  affect it — deliberately, and the code said so. This is the single largest
+  divergence, because in retail top speed is the *only* thing mass and thrust
+  produce.
+- **Thrust was a constant: 4 m/s², flat.** **Engines were never consulted.** A
+  ship with eight engines and a ship with none flew identically. Engines were
+  classified for *mounting* and then ignored.
+- **Sails were a throttle multiplier, so a rigged ship with the lever centred sat
+  motionless** — the exact opposite of retail, where the wind does not care about
+  the throttle.
+- **Lift and altitude did not exist.** No ceiling, no floor, no overload. Worse,
+  `1258` is seeded at a flat **1,000,000 kg** for every hull, so the overload
+  rule the mass model was explicitly built to feed **can never fire**. The mass
+  calculator's own worked example — *"nobody should be able to fly a solid-gold
+  hull on a stock core"* — is false in the running server.
+- **`MaterialCatalog.SkyCoreLiftKg`** is a properly recovered formula with **zero
+  non-test callers**.
+- **Turn rate was a constant**, and mass touched only its ~0.8 s ramp. Ironically
+  retail also made turning mass-invariant — so this was accidentally right, for
+  the wrong reason, and our comments describe the wrong behaviour.
+
+**One correction to the record.** §2.6 lists *Sails* as PARTIAL and blocked on
+weather, and `HANDOVER.md` §10 repeats it. **The weather dependency was
+overstated.** Retail's sail force needs a wind *vector*, and the client supplies
+a constant one — `(1,0,-2)` — everywhere no weather cell exists, which on this
+server is everywhere. A faithful sail model was always reachable; only a
+*varying* wind field needs weather.
+
+### 12.6 WHAT IS GENUINELY IMPOSSIBLE WITHOUT WEATHER
+
+Distinguished carefully, because the previous answer was too pessimistic.
+
+**Reachable with no weather at all** (the client already assumes a uniform wind):
+sail force and its direction-dependence; the efficiency floor; the keel; drag;
+wind-driven drift; every engine, mass, lift and torque behaviour above. **None of
+this needs `1139`.**
+
+**Genuinely blocked on weather:**
+
+1. **Wind that varies by place or time.** `GlobalWeather` interpolates between
+   four `1139 WeatherCellState` neighbours. With no cells every position returns
+   the same constant, so sailing strategy can never become *local* — there is no
+   "find the good wind", and a route can never be better than another route.
+2. **Gusts, pressure and turbulence as gameplay.** `Pressure` is pinned at 0.5;
+   `GetTurbulenceAt` is `‖wind‖/100`, so it is constant, and the `WobbleVisualiser`
+   hull shake is therefore constant too.
+3. **Windwalls and storm torque** — `1204`, `1229`, `1269`.
+4. **Altitude and edge wind ramps.** These are implemented *in the wind field*
+   (`ApplyTopWindIfNeeded` lerps `wind.y` toward 400 above Y=800). They also need
+   `1250 WorldBoundsDataState`, which has **0 server refs**. The hard pushback in
+   `WorldEdgePushback` is separate and does not need weather.
+
+And the standing prohibition is unchanged: `1139`/`1269` stay in
+`ComponentAbsencePolicy`. Seeding `1139` on ordinary gameplay entities produced a
+measured **31,144 client errors in 158 s**. Retail used dedicated weather-cell
+entities; anything here must too, and that is a research task before it is an
+implementation task.
+
+### 12.7 PROVENANCE — WHAT NOT TO TRUST
+
+The repo vendors a community archive at
+`docs/research/world-data/external/wa-community-2026-08-16/`. Its own README says
+it plainly: *"These are community measurements and reverse-engineered formulas,
+not Bossa source data."* **Nothing in it is datamined.** Graded:
+
+| source | grade | use it for |
+|---|---|---|
+| engine part → tier / head → basePower tables | **transcribed from the crafting UI** | safe to adopt |
+| per-material `unitMass` | **transcribed, corroborated** (panel mass ÷ 40 matches all 20 rows) | safe to adopt |
+| the 400-number combustion/propeller boost table | **fitted, weak** | rank order only |
+| engine-science effectiveness | player measurement, hand-normalised | rank order only |
+| wing-science | n=1 per material, **Closed Beta 0.1.3.3** — older than everything else | direction only |
+| `speed = 50√(2P/M)` | **UI heuristic, weakest** | shape only; do not port |
+
+Two specific traps found while grading:
+
+- Three materials share a propeller boost value to **15 significant figures**.
+  Independent measurements do not collide like that; it is copy-paste.
+- The archive contains **three mutually inconsistent mass tables** (ratios ~0.743
+  and ~0.88 between them). Resolve before adopting any of them. The
+  panel-mass-÷-40 corroboration is the reason to prefer the `WEIGHT` column.
+
+Also **do not** calibrate lift from `CompensationTest.cs:44`'s hardcoded
+`GetMaxLift() => 1200f`. It is a dev scratch harness and implies ~122 kg of lift,
+far below any real ship.
+
+### 12.8 THE PHASED PLAN
+
+Ordered so that each phase is separately shippable and separately reversible.
+Every phase after F1 depends on F1's force model being on.
+
+---
+
+#### PHASE F1 — Ships fly on forces *(DONE on `feat/ship-flight`, `fcdc80e`)*
+*Engines push, mass resists, drag decides top speed, sails catch wind.*
+
+- **Delivers:** `ShipForceModel` (recovered constants and equations),
+  `ShipPropulsion` (per-hull mass + engine thrust + canvas), a force path in
+  `FlightIntegrator`, and derivation of all three from real mounted parts and
+  real hull materials in `ShipFlightService`.
+- **Player will FEEL:** a heavy hull is now permanently slower, not just slower
+  off the line. More engines means more speed, with the recovered square-root
+  return. **A ship with sails unfurled and the lever centred gets under way** and
+  its heading changes how well it sails. A hull with no engines and no canvas
+  does not move.
+- **Depends on:** nothing. `WAREBORN_FLIGHT_FORCES=1`, **off by default.**
+- **Migration:** no.
+- **SOAK:** **yes** — it changes the speed distribution of the `1130` stream.
+- **CLIENT MOD:** no.
+- **Main risk:** ships built before this exist have no reason to carry engines,
+  and under the force model they cannot move. That is why it ships behind a flag
+  and wants a live flight before the flag is flipped. Second risk: our per-engine
+  and per-sail magnitudes are WAREBORN TUNING, calibrated to reproduce today's
+  12 m/s for a reference hull — they are a starting point for a balance pass, not
+  an answer.
+
+---
+
+#### PHASE F2 — The atlas core starts mattering
+*Lift becomes a budget a ship can exceed.*
+
+1. Serve `1258 ShipLiftState.totalLift` from **`MaterialCatalog.SkyCoreLiftKg`**
+   summed over mounted cores and modules, instead of the flat `1,000,000 kg`.
+   The formula is already written, already tested and currently has no callers.
+2. Enforce the recovered rule server-side: `mass > totalLift` ⇒ the ship
+   **cannot climb**, and sinks. Cap vertical at the recovered ±2 m/s and 1 m/s².
+3. Serve `1115 ShipCoreState.max_lift` per core so the shipyard UI can show the
+   load ratio it is already built to render.
+
+- **Player will FEEL:** the sky core becomes a real ship-building decision.
+  Building in gold gets you a beautiful ship that will not leave the ground.
+  Climbing becomes deliberate rather than instant — today's 6 m/s climb is
+  **three times** the retail cap.
+- **Depends on:** F1. Overlaps `feat/ship-components` on the sky core's
+  interactability — coordinate, do not both edit the `1236` seed.
+- **Migration:** no.
+- **SOAK:** yes (vertical velocity distribution changes).
+- **CLIENT MOD: YES, and it is a hard prerequisite, not a nicety.** This was
+  the phase's open unknown when it was written; it is now **PROVED** and it is
+  worse than expected. `ShipControlsBehaviour.UpdateVertical` (decompile
+  `acs/ShipControlsBehaviour.cs:268-299`) resolves the driven ship's
+  `ShipLiftVisualizer` and, **if `IsOverloaded`, returns before touching
+  `_vertical` at all** — the axis is never updated, so the client simply stops
+  sending vertical input — and OSD-spams *"Ship weighs more than its atlas sky
+  core can lift."*
+
+  Now combine that with the doomsday clock: `TotalLift = AtlasMultiplier ×
+  state.totalLift` and `AtlasMultiplier` is **0.0** in 2026. So
+  `TotalLift = 0` for **any** value we serve, `mass > 0` always, and **every ship
+  is overloaded the moment a live `ShipLiftVisualizer` exists on it** — even at
+  the current flat 1,000,000 kg seed. Serving a "correct" `1258` does not fix
+  this; nothing served can fix it, because the multiplier is zero.
+
+  **Two consequences, and the second is urgent.** (a) F2 cannot ship until
+  `EndOfTheWorldConfig` is forced to 1 in the client mod. (b) Vertical flight
+  demonstrably works in production today, so `ShipLiftVisualizer` must **not**
+  currently be live on our hulls — most likely `1258` never reaches a checked-out
+  visualizer, or `ParentingMassAdderVisualizer` is absent beside it. That is a
+  cliff we are sitting next to: anything that makes `1258` properly live —
+  including well-meant `[Require]`-completion work on the sky core in
+  `feat/ship-components` — **would break climbing for every ship on the server**.
+  Establishing exactly why the visualizer is inert today is the first task of
+  this phase and is worth doing even if F2 never ships.
+- **Main risk:** the above. Do not start this phase by writing server code.
+
+---
+
+#### PHASE F3 — Steering comes off the ship
+*Turn rate stops being a constant.*
+
+1. Core torque from the recovered `CorePowerScale (0.5, 1.0, 0.5)` — yaw twice
+   pitch and roll — with the mass exponent of 1.0, i.e. **mass-invariant angular
+   acceleration**. Correct the code comments that claim heavy ships wallow.
+2. Wing torque scaling from zero at rest to full at `MaxWingPowerSpeed = 10 m/s`,
+   with the `Lerp(0.2, 1.0, alignment)` per-axis term, so **where** a wing is
+   mounted decides **what** it is good at.
+3. The airbrake: throttle against travel adds `AirBrake × −v`.
+
+- **Player will FEEL:** a ship with no wings still turns (the core) but turns
+  poorly at speed; wings make a ship carve. Pulling the lever back becomes a real
+  brake. A wing mounted flat rolls; mounted upright it yaws.
+- **Depends on:** F1. Needs per-wing `Power` and `AirBrake`, which are LOST —
+  WAREBORN TUNING, same class as engine power.
+- **Migration:** no. **SOAK:** yes (rotation changes every control point).
+- **Main risk:** the integrator is rate-based, not torque-based. Converting it is
+  a genuine rewrite of the turn path, not a parameter change, and it is the phase
+  most likely to *feel* worse before it feels better.
+
+---
+
+#### PHASE F4 — The sky has edges
+*Altitude ceiling and world bounds.*
+
+1. Serve `1250 WorldBoundsDataState` (**0 server refs today**).
+2. Server-side pushback: onset at Y=800, hard clamp at Y=1000, the recovered
+   quadratic ramp.
+
+- **Player will FEEL:** the world stops being infinitely tall. Flying up forever
+  ends somewhere, deliberately, instead of by accident.
+- **Depends on:** F1. **Migration:** no. **SOAK:** yes.
+- **Main risk:** low, but `1250` is one of §2.8's never-served components — it
+  wants the same absence-policy check any new component gets.
+
+---
+
+#### PHASE F5 — Engines become parts rather than a count
+*Per-engine power from what the engine is made of.*
+
+Today every mounted engine is worth an identical 600 N. Retail's `Power` came
+from the engine's head part, tier, and the material and quality of its combustion
+internals and propeller. The **shape** is well attested by two independent
+community efforts; the **coefficients** are one person's fit.
+
+- **Player will FEEL:** building a *better* engine, not just more of them.
+  Material and quality finally do something — §3 item 2 ("quality → stat") gets
+  its first real consumer.
+- **Depends on:** F1, and on `feat/ship-components` for per-part material and
+  quality actually reaching a mounted part. **This is the meeting point with
+  `feat/ship-fuel`:** if thrust is to require fuel, F5 needs from them a
+  per-hull "is there burnable fuel, and at what rate" query. Ours consumes it;
+  theirs owns it. Agree the seam before either side writes it.
+- **Migration:** possibly — per-engine stats may need persisting.
+- **SOAK:** yes. **Main risk:** adopting the community boost table's *digits* as
+  though they were recovered. They are not (§12.7). Adopt rank order, re-derive
+  magnitudes, label WAREBORN TUNING.
+
+---
+
+#### PHASE F6 — Real wind
+*Blocked on weather; listed so the dependency is explicit.*
+
+Sailing becomes local: wind varies by place, routes differ, and the 0.3
+efficiency floor starts to matter because the other 0.7 is worth chasing.
+Requires dedicated weather-cell entities and the `1139` research that
+`ComponentAbsencePolicy` demands. **Do not start this before that research.**
+
+### 12.9 WHAT ONLY A LIVE FLIGHT CAN SETTLE
+
+1. **Whether the force model feels right**, which is the only acceptance test
+   that matters for a physics change. Fly with `WAREBORN_FLIGHT_FORCES=1` and
+   compare a light hull, a heavy hull, and the same hull with canvas up and down.
+2. **Whether 600 N per engine and 30 per sail are the right magnitudes.** They
+   are calibrated to reproduce today's speed for a reference ship; whether that
+   speed is itself right is a taste call, and the client's own 70-knot gauge
+   suggests retail ships were **faster** than ours.
+3. **Whether a stationary ship under sail moves at a rate that reads as
+   sailing** rather than as drifting. The model gives 0.4–4.1 m/s depending on
+   heading, against 12.2 m/s under engines.
+4. ~~**What the unpatched client does with a real `1258`.**~~ **ANSWERED, and it
+   is a live hazard rather than a live flight question** — see F2. What a live
+   flight *should* now check is the inverse: whether a piloted ship ever shows
+   the *"Ship weighs more than its atlas sky core can lift"* OSD message today.
+   If it never does, `ShipLiftVisualizer` is confirmed inert on our hulls and the
+   cliff in F2 is real but not yet stepped off. **This is a 30-second check at
+   the helm and it gates other people's branches, so it is worth doing first.**
+5. **Whether a sailed ship left unmanned drifts away.** Under the force model
+   sails keep pushing while the hull is in motion, which is retail-authentic and
+   produces ghost ships. Retail answered this with `ShipAbandonedBehaviour`;
+   we have no equivalent.
+
+### 12.10 WIKI CORROBORATION — two reconciliations, three corrections
+
+A web sweep of the surviving community record (fandom, Wayback, reddit, Steam
+guides, the WAEngenius and `worldsadrift.science` calculator **sources**, and
+Bossa's own patch notes and forum posts) was run against the decompile findings
+above. Everything here is **WIKI** unless marked otherwise, and it is recorded
+because it is *independent* of the decompile — where the two agree, confidence
+goes up a lot; where they disagree, the decompile wins.
+
+**Two clean reconciliations — these are worth the whole sweep.**
+
+1. **Our sky-core lift formula is independently confirmed.**
+   `MaterialCatalog.SkyCoreLiftKg` derives `lift = 1000 + rate × (10 + quality)`
+   from the wiki's Atlas Core table. The recovered source of the community
+   calculator `worldsadrift.science/skycoreCalc.js` computes
+   `lift = base + genMult[generatorMaterial] × (10 + generatorQuality)` with
+   `genMult = { aluminium: 6, copper: 7.5, silver: 8, gold: 8.5 }` — **the same
+   expression and the same coefficients**, arrived at by a different person from
+   different data. Our formula is safe to build F2 on. Corroborating anchors: a
+   bare core is **1000 kg**, eight upgrade modules take it to **6000 kg**, and a
+   Q10 gold generator was reported at **7020 kg**.
+
+2. **The "2800 m altitude cap" and the decompile's "Y = 800" are the same
+   number.** The wiki records a global ceiling of 2800 m from Beta 0.1.3.7, which
+   flatly contradicted `WorldEdgePushback`'s onset at global Y = 800. They
+   reconcile exactly: `AltimeterVisualiser` displays **`height + 2000`**. Global
+   Y 800 *is* an altimeter reading of 2800. **So the ceiling is confirmed from
+   both sides, and F4's numbers are right** — but note the altimeter offset,
+   because a player reporting an altitude is reporting global Y **+ 2000**.
+
+**Corroborated, no conflict:**
+
+- **Sails move an engineless ship.** Multiple independent sources, including
+  Bossa-era guides describing sails as what *"allow first movement"* before a
+  player can afford engines, and several documented engineless sailing rafts.
+  This now has both PROVED and WIKI support.
+- **Tacking was real and necessary** — players zig-zagged upwind. Consistent
+  with the recovered model, where the worst heading still yields a small force
+  through the 0.3 floor: upwind progress is possible and miserable, which is
+  exactly the condition that makes tacking rational.
+- **Wings provide no lift and only turn the ship** — the wiki says so outright,
+  matching `WingVisualizer` producing torque and never force.
+- **A wing at 45° is "70% as effective" on both axes** — a cosine projection,
+  matching the recovered `Lerp(0.2, 1.0, alignment)`.
+- **The core torque is real, and this explains a dead component.** A Bossa
+  engineer, 2015: *"the ship cores provide torque to the ship, so it can rotate
+  even in-place — I call them 'reaction wheels' in the code"*. That names
+  **`1110 ReactionWheelState`**, which §12.3 records as having zero consumers.
+  It is dead because the mechanism moved into `ShipControlVisualizer`'s
+  mass-scaled core torque. Do not implement `1110`.
+- **Ship physics was server-authoritative and degraded under load.** Bossa's
+  Update 30 notes name the sim **FSIM** and describe its speed varying with
+  **time dilation**; Update 29 adds *"server optimisations for ships with many
+  engines and/or wings"*. Players measured roughly a 30% speed loss in busy
+  zones. Our architecture assumption is correct, and worth remembering when
+  judging any player-reported speed.
+
+**Three corrections we should act on:**
+
+1. **Reverse thrust should probably be 0.2, not our 0.4.** A Bossa engineer,
+   2015: *"engines provide full 'puller' power and **20% 'pusher' power**, i.e.
+   all engines are reversible, but not at full efficiency."* A 2018 player puts
+   it nearer 25%. This is a **dev statement**, the strongest non-code evidence in
+   the whole sweep — but it is from 2015 and it would change how the live game
+   feels today, so `DefaultReverseFactor` is left at 0.4 and flagged here rather
+   than changed quietly. **A deliberate decision, not an oversight.**
+2. **Any sail number from before October 2018 is off by a factor of two.**
+   Bossa's PTS Update 27 notes: *"Halved wind power, which functionally halves
+   thrust from sails."* Our default wind `(1,0,-2)` is read from the **final**
+   client, so it is already post-nerf and needs no adjustment — but it means the
+   frequently quoted sail speeds of 45–60 knots describe a game that no longer
+   existed at shutdown. Do not calibrate canvas against them.
+3. **The community "power" unit is not newtons, and the bridge is ~13.**
+   The community speed law `speed_knots = 50 × √(2 × power / mass_kg)` is a
+   player fit, but it validates exactly against a stated measurement (900 power,
+   3000 kg → 38.73 knots). Setting that equal to our recovered
+   `v = 10 × √(F/m)` gives **≈ 13 newtons per point of community "power"**
+   — **INFERRED**, and it chains through a fitted constant, so treat it as an
+   order-of-magnitude bridge only. Its use is calibration sanity: a good retail
+   engine of 90–140 power maps to roughly 1,200–1,850 N, against our chosen
+   600 N. **So our engines are plausibly a factor of two to three weak**, which
+   is consistent with the 70-knot gauge in §12.2 and is the first thing to try
+   if the maintainer's flight test says ships feel sluggish.
+
+**One detail that should stop us building the wrong thing.** The wiki states
+that **a sail's material has no effect on the thrust it provides** — players were
+advised to build sails from the lightest wood available, because the only thing
+material changed was the sail's weight. So when F5 gives engines a material and
+quality model, **do not give sails one to match**: per-sail `Power` should vary
+with the sail's *size or schematic*, if anything, and material should affect only
+mass. Symmetric-looking systems were not symmetric here.
+
+**The one dispute the decompile settles.** The wiki contradicts *itself* on the
+best point of sail: its main text says dead downwind is fastest, its tips section
+says *"you move faster at 90° to the wind than with the full wind"*, and no
+player ever published a measured polar. **The recovered geometry answers it:**
+sweeping the implemented model over all headings peaks at dead downwind and falls
+to roughly half that on a beam reach. The main text is right and the tip is
+wrong. This is the kind of question only the decompile can close, and it is why
+WIKI stays the weakest tier.
+
+**A caution on every speed number above.** The in-game airspeed indicator was
+widely reported as **buggy through mid-2018** — reading non-zero at a standstill,
+and disagreeing with observed overtakes. Player speed measurements from that
+window are gauge readings, and the gauge was lying.
+
+---
+
+## 13. FUEL — how it worked, and how it works here
 
 **Owner: `feat/ship-fuel`.** Written from the decompile
 (`/home/ttanurhan/Games/WAReborn-decompiled`) and the shipped client asset
@@ -1494,7 +2231,7 @@ below carries a provenance label. The wiki is the **weakest** source here and is
 used only where it is the sole survivor; where it disagrees with the decompile,
 the decompile wins.
 
-### 12.1 The answer, plainly: how fuelling worked in retail
+### 13.1 The answer, plainly: how fuelling worked in retail
 
 **PROVED, end to end, from the client:**
 
@@ -1572,9 +2309,9 @@ GSim (Scala), which is gone. `ShipConfiguration.cs` ships ~40 flight tunables
 and **not one fuel entry**; `ConfigKeys.cs` has no fuel key; every fuel schema
 field defaults to proto zero. The only preserved number in the whole subsystem
 is the 8/8/9 canister yield. **Everything else this server picks is WAREBORN
-TUNING and is labelled as such in §12.5.**
+TUNING and is labelled as such in §13.6.**
 
-### 12.2 The three components, exactly
+### 13.2 The three components, exactly
 
 All in namespace `Bossa.Travellers.Ship`. All fields optional, all
 `IsRequired=false`; floats are `fixed32`, `EntityId` is an int64 varint.
@@ -1593,7 +2330,7 @@ All in namespace `Bossa.Travellers.Ship`. All fields optional, all
 and nothing to do with fuel. `190302/190303 EngineLatency*` are game-engine
 metrics — a name collision, not propulsion.
 
-### 12.3 The gauge: what was wrong, and what fixes it
+### 13.3 The gauge: what was wrong, and what fixes it
 
 **CONFIRMED — §11.5 was right, and here is the whole file.**
 `acs/Assets.Scripts.Visualisers.Ship/FuelGaugeVisualizer.cs` has exactly one
@@ -1637,7 +2374,7 @@ a magnitude roller in powers of 1000. Two smoothing stages sit in front of it: a
 about two seconds behind the wire.** That is retail behaviour, not a bug, and it
 is why a 1 Hz server push is more than enough.
 
-### 12.4 The two hard constraints this server has, that retail did not
+### 13.4 The two hard constraints this server has, that retail did not
 
 **Constraint 1 — THERE IS NO FUEL TANK PREFAB.** The 349-name client entity
 prefab census (`Ship/client-entity-prefabs.txt`, extracted from the shipped
@@ -1666,7 +2403,46 @@ consumer for the resulting interact". This gives it one. It is a deviation from
 retail (retail refuelled at the tank), it is stated as such, and it is the only
 door the shipped client leaves open.
 
-### 12.5 The numbers, and why
+### 13.5 The 1258 landmine — what fuel seeds, and what it could have woken
+
+§12's audit found that `AtlasMultiplier` evaluates to **`0.0`** today (Bossa's
+shutdown doomsday clock), so a properly-live `1258 AtlasSkyCoreState` would make
+`TotalLift` zero, every ship permanently overloaded, and climbing would stop
+working for everyone. The current inert `ShipLiftVisualizer` is what keeps
+flight working. That is the same silent-inertness family as the fuel gauge, and
+it has teeth — so this section states, explicitly, what fuel seeds and what it
+could have woken.
+
+**Fuel seeds exactly ONE new component: `1105 FuelGaugeState`, on the
+`fuelGauge` PART entity.** Not on the hull, not on the sky core, not on any ship
+root.
+
+Enumerated the way the standing rule demands — which client visualisers could
+this component's presence NEWLY satisfy, not just the one we are aiming at:
+
+| component | every class in the decompile that `[Require]`s it | verdict |
+|---|---|---|
+| **1105** (what we seed) | `FuelGaugeVisualizer`, and **nothing else** — an exhaustive grep for `FuelGaugeStateReader`/`FuelGaugeState.Reader` across `acs/` returns one file | **safe.** One reader, and it is the one we want |
+| 1258 `AtlasSkyCoreState` | `ShipLiftVisualizer` (`[Require] ShipLiftStateReader`, its only one) | **untouched.** Fuel neither seeds it nor changes its value |
+| 1106 `FuelTankState` | `FuelVisualizer`, which `ShipPreprocessor.cs:77` adds to **every ship ROOT** | **deliberately NOT served.** See the warning below |
+
+**The refuel door does not seed anything either.** Giving the sky core its
+`Activate` prompt changes two *values* inside `1210 InteractiveState` — a
+component that was already served on every ship part — and adds no component to
+the core or the hull. `InteractiveObjectVisualizer` already `[Require]`d 1210
+and was already enabled; nothing new wakes.
+
+> **⚠ DO NOT serve `1106` on the hull as a "completeness" move.** It is the
+> obvious next tidy-up — retail put a tank state on ships, we have a tank, the
+> component exists. But `FuelVisualizer` is attached to every ship root and
+> `[Require]`s 1106, so serving it would enable a visualiser that has been inert
+> since this server started. In *this* case the consequence looks benign — its
+> only method, `GetFuelPercent()`, has **zero callers in the entire decompile**
+> — but "looks benign" is exactly what was thought about the fuel gauge and the
+> containers, and §12's `AtlasMultiplier` finding is what happens when it is
+> not. If a later phase wants 1106, re-run this enumeration first.
+
+### 13.6 The numbers, and why
 
 All WAREBORN TUNING unless marked. Every one is env-overridable, because none of
 them is recoverable and the first live flight is the only real test.
@@ -1677,9 +2453,23 @@ them is recoverable and the first live flight is the only real test.
 | ship capacity | **250 fuel** | ten canisters. Large enough that refuelling is an errand, small enough that one salvage trip fills you. `WAREBORN_FUEL_CAPACITY` |
 | burn at full throttle | **0.25 fuel/s** | a full tank is 1000 s ≈ **16 minutes of continuous full throttle**; one canister ≈ 100 s. `WAREBORN_FUEL_BURN_RATE` |
 | burn shape | **proportional to abs(throttle)** | retail's `consumption` and `throttle` are separate live floats and the client's own audio scales load by their product. Half throttle costs half. Idling costs nothing |
+| empty ⇒ no thrust | **WAREBORN TUNING, not recovered** | see below |
 | one refuel press | **everything that fits** | retail's per-press amount is unrecoverable. Moving the whole overlap in one hold beats making the player mash E |
 | tank on introduction | **FULL** | see the risk note below |
 | gauge push | **≤1 Hz, and only on a ≥1-unit change** | the client already delays the needle 2 s and lerps it; anything faster is invisible traffic |
+
+**The thrust gate is a DESIGN DECISION, and §12 sharpens why.** The flight audit
+proves retail's engine force is
+`ShipThrustMultiplier × spin × (boost + Power) × forward`, applied at the
+propeller, and that it **consumes nothing** — lift is a kilogram budget, not a
+fuel draw, and neither the engine nor the core reads a fuel level anywhere in
+the client. Fuel accounting lived entirely on the GSim, and the client carries no
+`fuel == 0` branch at all (§13.1). So "empty means the engines stop" is a
+reconstruction of the only behaviour that makes fuel a resource, **not** a
+recovered retail rule, and it is labelled WAREBORN TUNING for that reason. It is
+also the one part of this feature that can inconvenience a player mid-flight,
+which is why it has its own kill switch (`WAREBORN_FUEL_GATES_THRUST=0`) rather
+than sharing the subsystem's.
 
 **Why tanks start full, and why the gate is conditional.** Ships already fly on
 this server. Shipping "no fuel, no thrust" against a live world would ground
@@ -1693,7 +2483,7 @@ Two decisions prevent that:
   power plant; that reading is thematically right and it is also the only
   non-punitive rule available.
 
-### 12.6 The seam with `feat/ship-flight` — what this branch expects from theirs
+### 13.7 The seam with `feat/ship-flight` — what this branch expects from theirs
 
 This branch does **not** touch `ShipFlightService`, `FlightIntegrator`,
 `FlightSession`, `FlightTuning` or `HullMassCalculator`. It meets flight at two
@@ -1725,14 +2515,14 @@ public seams only, and here is exactly what it wants:
      `fuelEfficiency` stat, which is where retail put it. This branch keeps the
      rate flat and says so.
 
-### 12.7 The phased plan
+### 13.8 The phased plan
 
 Same contract as §5 and §11.8: what it delivers · what a player can newly DO ·
 dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE F1 — The needle moves, and fuel is real
+#### PHASE FU1 — The needle moves, and fuel is real
 
 - **Delivers:** the whole vertical slice, server-only.
   1. `ShipFuelPolicy` + `ShipFuelLedger` (pure, in `Multiplayer/Ship/Fuel/`):
@@ -1748,23 +2538,23 @@ dependencies · schema migration · networked state (soak gate) · main risk.
   4. **Burn**: `ShipFuelService.Tick()` on the main loop, burning
      `rate × |throttle| × dt` for every hull under power.
   5. **Gate**: at zero, one `OnControlInput(throttle: 0)` and a clamp on later
-     commands, per §12.6.
+     commands, per §13.6.
   6. **Gauge push**: 1105 broadcast to every mounted `fuelGauge` on that hull,
-     rate-limited per §12.5.
+     rate-limited per §13.6.
 - **Player can newly do:** salvage fuel canisters, walk up to their ship's sky
   core, hold E, and **watch the fuel gauge needle climb**. Then fly, and watch
   it fall. Then run out, and coast to a stop.
 - **Depends on:** nothing. `atlasSkyCore`, `fuelGauge` and the `"fuel"` item
   all already exist and already work.
 - **Migration:** **no.** Fuel lives in memory for the session; a restart
-  refills. Deliberate — see F3.
+  refills. Deliberate — see FU3.
 - **SOAK: YES.** A per-ship level ticking continuously with a periodic 1105
   broadcast is exactly the new networked state the standing rule names.
 - **CLIENT MOD: no.** Every piece is a component the stock client already
   reads, on a prefab it already resolves.
 - **Main risk:** the sky-core prompt reads as the generic *Activate*, not
   "Refuel" — `InteractionEntry.description` is transmitted and **never rendered**
-  by the shipped client (§12.1), so there is no way to label it. A player who
+  by the shipped client (§13.1), so there is no way to label it. A player who
   does not read patch notes will not discover refuelling. Second risk: a ship
   with no sky core silently has no fuel system; that is the deliberate
   non-punitive rule, but it means two ships can behave differently for reasons
@@ -1772,7 +2562,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE F2 — Fuel is visible without a gauge
+#### PHASE FU2 — Fuel is visible without a gauge
 
 - **Delivers:** a chat/toast line on refuel ("Refuelled: 250/250") and a low-fuel
   warning at 10%, both on the existing native toast path
@@ -1781,14 +2571,14 @@ dependencies · schema migration · networked state (soak gate) · main risk.
   unlabelled prompt.
 - **Player can newly do:** find out they are nearly dry without having crafted
   and mounted a fuel gauge.
-- **Depends on:** F1.
+- **Depends on:** FU1.
 - **Migration:** no. **SOAK:** no — one-shot toasts on an existing path.
   **CLIENT MOD:** no.
 - **Main risk:** toast spam if the threshold has no hysteresis.
 
 ---
 
-#### PHASE F3 — Fuel survives a restart
+#### PHASE FU3 — Fuel survives a restart
 
 - **LOUD:** this is isolated into its own phase **on purpose**. It is an
   additive `double Fuel` property on `BuiltShipRecord` in **`world-state.json`**
@@ -1799,7 +2589,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
   means the legacy state) applies here, and the legacy sentinel must be chosen
   before a line is written.
 - **Delivers:** a tank level that persists across a server restart.
-- **Depends on:** F1.
+- **Depends on:** FU1.
 - **Migration:** **JSON only, additive, no DB.** **SOAK:** no. **CLIENT MOD:** no.
 - **Main risk:** reading a legacy `0` as an empty tank and grounding every ship
   in the world on the first restart after deploy. Use a nullable/sentinel, not a
@@ -1807,12 +2597,12 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE F4 — Engines matter
+#### PHASE FU4 — Engines matter
 
 - **Delivers:** burn scaled by mounted engine count and by each engine's crafted
-  `fuelEfficiency` stat (the retail location for it, §12.1); `1104
+  `fuelEfficiency` stat (the retail location for it, §13.1); `1104
   FuelConsumerState` served on each engine so `attached` is honest; the
-  `enginesLit` seam of §12.6 replacing the throttle clamp.
+  `enginesLit` seam of §13.7 replacing the throttle clamp.
 - **Player can newly do:** craft an economical engine and get more range out of
   the same canister — the reason `fuelEfficiency` exists.
 - **Depends on:** **`feat/ship-flight`** shipping the `enginesLit` parameter,
@@ -1820,17 +2610,17 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 - **Migration:** no. **SOAK:** yes — 1104 is new per-engine state.
 - **Main risk:** it is not this branch's to sequence.
 
-### 12.8 What only a live flight can settle
+### 13.9 What only a live flight can settle
 
 1. **Whether the needle actually moves.** Nothing headless renders a
    `GaugeRoller`. Craft a Fuel Gauge, mount it, refuel, and watch. The needle
-   lags ~2 s by design (§12.3); it is **not** broken if it is late.
+   lags ~2 s by design (§13.3); it is **not** broken if it is late.
 2. **Whether the sky core shows an E prompt at all.** The verb is baked
    (`ShipCorePreprocessor`), but this server has never served the core an
    `Activate` entry before, and `IsSeededInteractionAvailable` gates it on
    *mounted*. A loose core must show nothing; a mounted one must show a prompt.
 3. **What the prompt says.** Predicted: the generic Activate glyph with no text,
-   because `description` is never rendered. If it reads anything else, §12.1 is
+   because `description` is never rendered. If it reads anything else, §13.1 is
    wrong about the client.
 4. **Whether a dry ship coasts or stops dead.** The clamp goes through the
    normal deceleration curve, so it should glide to a halt over several seconds.

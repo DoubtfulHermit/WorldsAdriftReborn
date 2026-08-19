@@ -8,6 +8,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         NotCraftedPart,
         OutsideOwnedShipyard,
         UnknownRecipe,
+
+        /// <summary>
+        /// The part is a ship storage container and something is still inside it.
+        /// Dismantling destroys the entity, and its inventory dies with it - so this
+        /// refusal is the only thing standing between a player and losing whatever
+        /// they stowed. It is a REJECT rather than a "drop the contents on the deck"
+        /// because this server has no loose-item-on-the-ground entity to drop them
+        /// into; a refusal the player can act on beats a silent deletion they cannot.
+        /// </summary>
+        ContainerNotEmpty,
     }
 
     public readonly record struct ShipPartSalvageRefund(string ItemTypeId, int Amount);
@@ -18,12 +28,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>Radius around an owned shipyard in which part dismantling is allowed.</summary>
         public const double WorkRadiusMetres = 15.0;
 
+        /// <summary>
+        /// Whether this shot may dismantle the part.
+        ///
+        /// <paramref name="containerHoldsItems"/> has NO default on purpose. Ship
+        /// storage became real state the moment the four container rows started
+        /// serving 1081, and a caller that forgets to ask "is anything in it?"
+        /// silently deletes a player's belongings with no log and no tell. A
+        /// required parameter makes that omission a compile error instead of a
+        /// green test suite - the strongest guard available for wiring that no
+        /// unit test can reach.
+        /// </summary>
         public static ShipPartSalvageReject Evaluate(bool craftedPart,
-            bool insideOwnedShipyard, bool recipeKnown)
+            bool insideOwnedShipyard, bool recipeKnown, bool containerHoldsItems)
         {
             if (!craftedPart) return ShipPartSalvageReject.NotCraftedPart;
             if (!insideOwnedShipyard) return ShipPartSalvageReject.OutsideOwnedShipyard;
             if (!recipeKnown) return ShipPartSalvageReject.UnknownRecipe;
+            // LAST, so a container refusal is only ever reported for a shot that
+            // would otherwise have succeeded. Reported first it would tell a player
+            // standing nowhere near their shipyard the wrong reason.
+            if (containerHoldsItems) return ShipPartSalvageReject.ContainerNotEmpty;
             return ShipPartSalvageReject.Accept;
         }
 

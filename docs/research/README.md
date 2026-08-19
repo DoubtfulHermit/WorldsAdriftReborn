@@ -53,4 +53,4 @@ unlikely.
   shipped-client constraints that make retail's topology unreproducible here (no
   fuel-tank prefab; a verb cannot be invented), and confirms why the fuel
   gauge's needle could never move. It also fills the gap five code sites have
-  cited for a long time. The long-form plan is roadmap §12.
+  cited for a long time. The long-form plan is roadmap §13.

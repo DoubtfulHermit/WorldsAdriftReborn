@@ -643,6 +643,12 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // grid. Ensure is a no-op for a player and for an already
                         // stocked container, so the ordering costs nothing.
                         Loot.LootStock.Ensure(entityId);
+                        // A CRAFTED SHIP CONTAINER is the second non-player inventory
+                        // and carries the identical trap: without this line a trunk
+                        // bolted to a ship opens onto the player starter kit, and
+                        // Bind's once-per-key factory means it stays that way for the
+                        // session. A no-op for a player and for any other ship part.
+                        ShipContainerService.Ensure(entityId);
 
                         Multiplayer.Inventory.InventoryModel inventory =
                             Inventory.InventoryService.ForEntity(entityId);
@@ -828,16 +834,28 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // the pure PartInteractionPolicy (tested), which answers
                         // None for every part retail did not make interactable and
                         // for the parts whose interaction we cannot honestly serve
-                        // yet (storage needs 1081, the reviver needs 1094) - so a
-                        // prompt is never a lie. The correct Activate entry exists while
-                        // loose but remains unavailable until the mount commit.
+                        // yet (the reviver needs 1094; the sky core needs a lift
+                        // consumer the shipped client does not have) - so a prompt is
+                        // never a lie. Storage was on that list until the four
+                        // container rows started seeding 1081 + 1236. The correct
+                        // Activate/Inventory entry exists while loose but remains
+                        // unavailable until the mount commit.
                         Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
                         if (!isWildernessShrine && !isCraftStation && !isHelm && !isAtlasShard
                             && !isLootContainer)
                         {
                             Multiplayer.Ship.PartVerb seededVerb =
                                 Multiplayer.Ship.PartInteractionPolicy.SeedVerbFor(craftedPartItemType);
-                            if (seededVerb == Multiplayer.Ship.PartVerb.Activate)
+                            if (seededVerb == Multiplayer.Ship.PartVerb.Activate
+                                // A STORAGE CONTAINER bakes Inventory
+                                // (ShipContainerPreprocessor.SetVerb) exactly as a ruin
+                                // chest does, so it needs its own entry for the same
+                                // reason: InteractiveObjectVisualizer caches
+                                // FirstOrDefault(i => i.verb == Verb) once, and the
+                                // generic PickUp fallback below would leave that lookup
+                                // empty and the radius at zero. This is the branch that
+                                // makes four dead props openable.
+                                || seededVerb == Multiplayer.Ship.PartVerb.Inventory)
                             {
                                 mountedPartVerb = seededVerb;
                             }
@@ -911,6 +929,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             // Gated: only offer the prompt once the shard is mined loose,
                             // and never again once collected.
                             available = WorldsAdriftRebornGameServer.AtlasShards.IsAvailable(entityId);
+                        }
+                        else if (mountedPartVerb == Multiplayer.Ship.PartVerb.Inventory)
+                        {
+                            // A MOUNTED STORAGE CONTAINER. Its own radius/hold rather
+                            // than the Activate pair's, because a chest is approached
+                            // like a chest: 3 m, instant, matching a ruin chest exactly
+                            // so the two never feel like different objects. Available
+                            // only once bolted down - a loose container can be lifted
+                            // away with its contents inside it.
+                            entry = new InteractionEntry(
+                                InteractVerb.Inventory,
+                                Multiplayer.Ship.ShipContainers.InteractRadius,
+                                false, "", "", "", false,
+                                Multiplayer.Ship.ShipContainers.InteractTimeToUse);
+                            verbName = "Inventory";
+                            available = Multiplayer.Ship.PartInteractionPolicy.IsSeededInteractionAvailable(
+                                craftedPartItemType, Game.Crafting.MountedParts.Is(entityId));
                         }
                         else if (mountedPartVerb != Multiplayer.Ship.PartVerb.None)
                         {

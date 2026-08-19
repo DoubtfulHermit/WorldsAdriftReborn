@@ -51,7 +51,7 @@ namespace WorldsAdriftRebornGameServer.Game
     /// KNOWN INACCURACY, stated rather than hidden: cutting the throttle removes
     /// SAIL propulsion too, because the flight integrator derives everything from
     /// one throttle. Retail separated them - sails are wind, engines are fuel.
-    /// docs/plans/feature-roadmap.md 12.6 records exactly what this branch wants
+    /// docs/plans/feature-roadmap.md 13.7 records exactly what this branch wants
     /// from feat/ship-flight to fix it.
     ///
     /// MULTIPLAYER SAFETY: the only new wire traffic is the 1105 broadcast, and it

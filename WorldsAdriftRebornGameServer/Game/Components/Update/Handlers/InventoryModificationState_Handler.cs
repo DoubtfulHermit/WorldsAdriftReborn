@@ -2,6 +2,7 @@ using Bossa.Travellers.Inventory;
 using Improbable.Worker.Internal;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Inventory;
+using WorldsAdriftRebornGameServer.Game.Crafting;
 using WorldsAdriftRebornGameServer.Game.Loot;
 using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
 using WorldsAdriftRebornGameServer.Multiplayer.Loot;
@@ -234,6 +235,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 }
 
                 LootStock.Ensure(containerId);
+                // The ship-container twin. Whichever kind this is, the other call is
+                // a no-op - and one of the two MUST run before ForEntity below, or a
+                // container that has never been checked out binds to the player
+                // starter kit and the "move" lands in a bag of gauntlets.
+                ShipContainerService.Ensure(containerId);
 
                 bool takingOut = source == containerId;
                 InventoryModel from = InventoryService.ForEntity(source);
@@ -279,6 +285,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 }
 
                 LootStock.Ensure(containerId);
+                // The ship-container twin. Whichever kind this is, the other call is
+                // a no-op - and one of the two MUST run before ForEntity below, or a
+                // container that has never been checked out binds to the player
+                // starter kit and the "move" lands in a bag of gauntlets.
+                ShipContainerService.Ensure(containerId);
 
                 InventoryModel from = InventoryService.ForEntity(source);
                 InventoryModel to = InventoryService.ForEntity(destination);
@@ -362,13 +373,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 return false;
             }
 
-            if (source == playerEntityId && LootContainerLedger.IsContainer(destination))
+            if (source == playerEntityId && IsServerContainer(destination))
             {
                 containerId = destination;
                 return true;
             }
 
-            if (destination == playerEntityId && LootContainerLedger.IsContainer(source))
+            if (destination == playerEntityId && IsServerContainer(source))
             {
                 containerId = source;
                 return true;
@@ -376,9 +387,35 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
             Console.WriteLine("[warning] refusing a cross-inventory move between " + source
                 + " and " + destination + " for player " + playerEntityId
-                + ": one end must be the sender's own entity and the other a loot container."
-                + " Neither ship storage nor another player's bag is servable yet.");
+                + ": one end must be the sender's own entity and the other a container"
+                + " (a ruin chest or a mounted ship trunk). Another player's bag is not"
+                + " servable.");
             return false;
+        }
+
+        /// <summary>
+        /// The two kinds of non-player inventory this server has: a rolled ruin chest
+        /// and a crafted ship storage container bolted to a ship.
+        ///
+        /// This must stay a CLOSED list of ledger memberships and never become "any
+        /// entity with an inventory". <c>InventoryService.ForEntity</c> will happily
+        /// conjure a starter-kit inventory for any id ever passed to it, so an
+        /// unchecked id at this seam is not a stuck panel - it is an item duplicator.
+        ///
+        /// A ship container must additionally be MOUNTED. An unmounted one is not
+        /// openable (<c>PartInteractionPolicy.IsSeededInteractionAvailable</c>), so a
+        /// move naming one came from a client that should not have had a panel open;
+        /// accepting it would let a player stash items into a trunk they are about to
+        /// lift away.
+        /// </summary>
+        private static bool IsServerContainer( long entityId )
+        {
+            if (LootContainerLedger.IsContainer(entityId))
+            {
+                return true;
+            }
+            return ShipContainerService.IsContainer(entityId)
+                && MountedParts.Is(entityId);
         }
 
         /// <summary>

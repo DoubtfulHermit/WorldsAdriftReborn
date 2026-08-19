@@ -33,21 +33,70 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         /// <summary>
-        /// Retail verbs exist for these (storage=Inventory, reviver/core=Activate)
-        /// but their state serves do not yet - 1081 InventoryState, 1094
-        /// RespawnPointState, the core's GSIM-side activation. Advertising a prompt
-        /// before the handler exists would be a lie, so None until then. Flipping
-        /// any of these to a verb must come WITH its serve + 1211 handling.
+        /// Retail verbs exist for these (reviver/core=Activate) but their state
+        /// serves do not yet - 1094 RespawnPointState, the core's GSIM-side
+        /// activation. Advertising a prompt before the handler exists would be a lie,
+        /// so None until then. Flipping any of these to a verb must come WITH its
+        /// serve + 1211 handling.
+        ///
+        /// The four storage containers used to be on this list. They came off it when
+        /// 1081 + 1236 started being seeded and the Inventory verb served - see
+        /// <see cref="StorageContainersAdvertiseTheVerbTheirPrefabBakes"/>. The atlas
+        /// sky core came off it when fuel gave its baked Activate something to do.
+        /// </summary>
+        [Theory]
+        [InlineData("personalReviver")]
+        public void KnownRetailVerbsNotYetServableStayNone(string itemType)
+        {
+            Assert.Equal(PartVerb.None, PartInteractionPolicy.VerbFor(itemType));
+        }
+
+        /// <summary>
+        /// The four ship containers advertise Inventory, which is the verb
+        /// ShipContainerPreprocessor.SetVerb bakes into their prefabs. This is not a
+        /// free choice: InteractiveObjectVisualizer caches
+        /// Interactions.FirstOrDefault(i => i.verb == Verb) ONCE at OnEnable, so any
+        /// other verb - including the generic PickUp we served for months - leaves
+        /// that lookup empty, the radius at zero, and NO prompt able to appear, with
+        /// nothing logged on either side.
         /// </summary>
         [Theory]
         [InlineData("trunk")]
         [InlineData("mountedBox")]
         [InlineData("storageContainer")]
         [InlineData("shippingContainer")]
-        [InlineData("personalReviver")]
-        public void KnownRetailVerbsNotYetServableStayNone(string itemType)
+        public void StorageContainersAdvertiseTheVerbTheirPrefabBakes(string itemType)
         {
-            Assert.Equal(PartVerb.None, PartInteractionPolicy.VerbFor(itemType));
+            Assert.Equal(PartVerb.Inventory, PartInteractionPolicy.VerbFor(itemType));
+            Assert.Equal(PartVerb.Inventory, PartInteractionPolicy.SeedVerbFor(itemType));
+        }
+
+        /// <summary>
+        /// A container is openable only once BOLTED DOWN. A loose one can be lifted
+        /// away by anyone with a scanner, contents and all, so offering to fill it
+        /// first would be offering a place to lose things.
+        /// </summary>
+        [Theory]
+        [InlineData("trunk")]
+        [InlineData("mountedBox")]
+        [InlineData("storageContainer")]
+        [InlineData("shippingContainer")]
+        public void ContainersOpenOnlyOnceMounted(string itemType)
+        {
+            Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, false));
+            Assert.True(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, true));
+        }
+
+        /// <summary>
+        /// The prompt numbers. Radius zero is the MetalNodes.PickUpRadius trap - the
+        /// prompt simply never appears - and a hold nobody expects on a chest reads
+        /// as an unresponsive prompt.
+        /// </summary>
+        [Fact]
+        public void ContainerEntryValuesAreNonZeroRadiusAndInstant()
+        {
+            Assert.True(ShipContainers.InteractRadius > 0f);
+            Assert.Equal(0f, ShipContainers.InteractTimeToUse);
         }
 
         /// <summary>
@@ -98,24 +147,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
         /// <summary>
         /// EVERY catalogue row has an explicit verdict covered by the cases above:
-        /// walking the real catalogue must yield Activate only for sail/lamp/horn.
-        /// A new catalogue row defaults to None (safe - no prompt), and this test
-        /// documents that adding an interactable one means extending the policy AND
-        /// the service together.
+        /// walking the real catalogue must yield Activate only for sail/lamp/horn and
+        /// Inventory only for the four storage containers. A new catalogue row
+        /// defaults to None (safe - no prompt), and this test documents that adding an
+        /// interactable one means extending the policy AND the service together.
+        ///
+        /// SEVEN is the whole answer to "which ship parts respond to E" and it is
+        /// spelled out here rather than counted, so that a part quietly gaining or
+        /// losing a prompt is a failing test rather than a live surprise.
         /// </summary>
         [Fact]
-        public void WholeCatalogueAuditsToExactlyTheFourActivateParts()
+        public void WholeCatalogueAuditsToExactlyTheEightInteractableParts()
         {
             var interactable = LoosePartCatalogue.All
                 .Where(def => PartInteractionPolicy.VerbFor(def.ItemType) != PartVerb.None)
                 .Select(def => def.ItemType)
-                .OrderBy(t => t)
+                .OrderBy(t => t, StringComparer.Ordinal)
                 .ToArray();
 
             // atlasSkyCore joined the list as the REFUEL DOOR - the only ship part
             // whose Activate is prefab-baked and otherwise unclaimed. Anything else
             // appearing here without a 1211 handler behind it is a prompt that lies.
-            Assert.Equal(new[] { "atlasSkyCore", "horn", "lamp", "sail" }, interactable);
+            Assert.Equal(
+                new[]
+                {
+                    "atlasSkyCore", "horn", "lamp", "mountedBox", "sail",
+                    "shippingContainer", "storageContainer", "trunk",
+                },
+                interactable);
+
+            Assert.Equal(
+                new[] { "mountedBox", "shippingContainer", "storageContainer", "trunk" },
+                LoosePartCatalogue.All
+                    .Where(def => PartInteractionPolicy.VerbFor(def.ItemType) == PartVerb.Inventory)
+                    .Select(def => def.ItemType)
+                    .OrderBy(t => t, StringComparer.Ordinal)
+                    .ToArray());
         }
 
         [Fact]
@@ -159,6 +226,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             Assert.True(PartInteractionPolicy.IsSeededInteractionAvailable("deck", false));
             Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable("deck", true));
+        }
+
+        /// <summary>
+        /// The set whose availability DEPENDS on being mounted is exactly the set the
+        /// mount and unmount commits must broadcast a 1210 flip for. These were two
+        /// hand-written lists in three files and they drifted the first time a verb
+        /// was added: a container was seeded, prompted and then left permanently
+        /// unavailable, which is a chest that can never be opened with every test
+        /// green. Asserting the predicate AGREES with the availability function is
+        /// what makes one of them the source of truth.
+        /// </summary>
+        [Theory]
+        [InlineData("helm", true)]
+        [InlineData("sail", true)]
+        [InlineData("lamp", true)]
+        [InlineData("horn", true)]
+        [InlineData("trunk", true)]
+        [InlineData("mountedBox", true)]
+        [InlineData("storageContainer", true)]
+        [InlineData("shippingContainer", true)]
+        [InlineData("deck", false)]
+        [InlineData("altimeter", false)]
+        public void MountOperatedPartsAreExactlyThoseAvailableOnlyWhenMounted(
+            string itemType, bool mountOperated)
+        {
+            Assert.Equal(mountOperated, PartInteractionPolicy.IsMountOperated(itemType));
+            Assert.Equal(mountOperated,
+                PartInteractionPolicy.IsSeededInteractionAvailable(itemType, isMounted: true));
+            Assert.Equal(!mountOperated,
+                PartInteractionPolicy.IsSeededInteractionAvailable(itemType, isMounted: false));
+        }
+
+        /// <summary>
+        /// Walked over the REAL catalogue, so a new row cannot slip past the theory
+        /// above by not being listed in it.
+        /// </summary>
+        [Fact]
+        public void EveryMountOperatedRowInTheCatalogueAgreesWithItsAvailability()
+        {
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                Assert.Equal(
+                    PartInteractionPolicy.IsMountOperated(part.ItemType),
+                    PartInteractionPolicy.IsSeededInteractionAvailable(part.ItemType, isMounted: true));
+            }
         }
 
         /// <summary>The wire values mirrored from the decompiled InteractVerb enum.</summary>

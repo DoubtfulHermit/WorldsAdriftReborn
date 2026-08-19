@@ -76,7 +76,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// FuelGaugeVisualizer [Require]s - it reads nothing else off SpatialOS
         /// (acs/Assets.Scripts.Visualisers.Ship/FuelGaugeVisualizer.cs:16). Seeding
         /// only 1236 here, as this row did, is why the needle could never move; see
-        /// docs/plans/feature-roadmap.md 12.3.
+        /// docs/plans/feature-roadmap.md 13.3.
         /// </summary>
         private const uint FuelGaugeState = 1105;
 
@@ -87,6 +87,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         private const uint ShipDeckState = 1518;
         private const uint ShipPanelState = 1118;
         private const uint ModularShipPartState = 12281;
+
+        /// <summary>
+        /// What a storage container seeds on top of the base: 1081 InventoryState and
+        /// 1236 IsTooDamagedToWorkState, the two <c>[Require]</c>s that decide whether
+        /// <c>InWorldInventoryVisualiser</c> and <c>IsTooDamagedToWorkVisualizer</c>
+        /// ever enable. Both have crash-safe ComponentsSerializer branches, which is
+        /// the standing condition for appearing in an all-or-nothing seed batch.
+        ///
+        /// WHY 1081 IS SEEDED RATHER THAN LEFT TO INTEREST. A ruin chest seeds nothing
+        /// at all and works, because its prefab's own interest asks for 1081/1210 and
+        /// the serve answers. The same is very probably true here - but "probably" is
+        /// how this repo has shipped invisible features twice, and a loose part
+        /// already carries a seed batch, so putting 1081 in it turns an inference into
+        /// a certainty and costs one component in a batch that is already eight long.
+        ///
+        /// IF A CONTAINER GOES INVISIBLE after this change, this is the line to
+        /// suspect: the batch is applied with failOnComponentInitError TRUE, so one
+        /// bad id drops all nine and the part renders as nothing. Dropping 1081 from
+        /// this array falls back to the ruin-chest behaviour (interest-served) without
+        /// touching anything else.
+        /// </summary>
+        private static readonly uint[] ContainerComponents =
+            ShipContainers.RequiredComponents.ToArray();
 
         /// <summary>
         /// One row of the catalogue: the recipe key plus everything
@@ -249,17 +272,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
             // --- Storage: trunk / mounted box / storage & shipping containers ----
             // Treated as LOOSE parts (lifted with the scanner tool and bolted to the
-            // ship, as all WA ship storage is), NOT ground-placed deployables. Their
-            // InWorldInventoryVisualiser (1210+1081) is dormant, so they render as
-            // props that do not yet OPEN - the inventory wiring is the follow-on. The
+            // ship, as all WA ship storage is), NOT ground-placed deployables. The
             // container prefab sizing (Small/Medium/Large) is a best guess.
-            new Row("trunk",             "storage", "Trunk",             "ContainerSmall",  "deck",         new uint[] { }),
+            //
+            // THESE FOUR ROWS SEED 1081 + 1236 (ShipContainers.RequiredComponents) and
+            // that is what turns them from props into chests. InWorldInventoryVisualiser
+            // [Require]s 1210 + 1081 and IsTooDamagedToWorkVisualizer [Require]s 1236;
+            // a Unity visualiser does not enable until EVERY [Require] resolves and
+            // says nothing when it does not, which is why these were visible, correct
+            // and dead for months. 1210 is served on demand (the prefab's own interest
+            // asks for it) with the Inventory verb the prefab bakes - see
+            // PartInteractionPolicy.
+            //
+            // 1081 CARRIES THE ONE TRAP IN THIS FILE. Its serve branch calls
+            // InventoryService.ForEntity, whose create-factory is
+            // InventoryWire.DefaultModel - the PLAYER STARTER KIT - and Bind runs a
+            // factory at most once per key. A container reaching that branch unbound
+            // gets a permanent inventory full of gauntlets in a 10x18 belt grid. The
+            // 1081 branch therefore calls ShipContainerStock.Ensure FIRST, exactly as
+            // it calls LootStock.Ensure for a ruin chest.
+            new Row("trunk",             "storage", "Trunk",             "ContainerSmall",  "deck",         ContainerComponents),
             // The reconstructed hull has no retail Environment-layer generic skin.
             // Until that geometry exists, the mounted box uses the real deck placement
             // surface so it is usable instead of hitting one incidental frame collider.
-            new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "deck", new uint[] { }),
-            new Row("storageContainer",  "storage", "Storage Container", "ContainerMedium", "deck",         new uint[] { }),
-            new Row("shippingContainer", "storage", "Shipping Container","ContainerLarge",  "deck",         new uint[] { }),
+            new Row("mountedBox",        "storage", "Mounted Box",       "ContainerMount",  "deck", ContainerComponents),
+            new Row("storageContainer",  "storage", "Storage Container", "ContainerMedium", "deck",         ContainerComponents),
+            new Row("shippingContainer", "storage", "Shipping Container","ContainerLarge",  "deck",         ContainerComponents),
 
             // --- Decoration: barrel / cupboard / horn / lamp --------------------
             new Row("barrel",   "decoration", "Barrel",   "Barrel01", "deck",         new uint[] { }),

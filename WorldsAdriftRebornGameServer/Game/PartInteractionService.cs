@@ -29,7 +29,7 @@ namespace WorldsAdriftRebornGameServer.Game
     ///     once) and the hull's fuel level, and the only visible consequence is the
     ///     1105 the fuel gauge reads. The core itself shows nothing, because the
     ///     shipped client renders neither InteractionEntry.description nor any fuel
-    ///     text - see docs/plans/feature-roadmap.md 12.1.
+    ///     text - see docs/plans/feature-roadmap.md 13.1.
     ///
     /// AUTHORITY: 1303/1108/1107 have no client writers (decompile: zero
     /// *StateWriter requires outside gencode) - flipping the property server-side
