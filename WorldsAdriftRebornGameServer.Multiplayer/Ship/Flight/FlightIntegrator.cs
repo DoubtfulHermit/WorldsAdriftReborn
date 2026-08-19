@@ -219,11 +219,56 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // this is the whole point. Retail's sail force came from the WIND
                 // and the sail's trim, so an unfurled sail pushes a ship that is
                 // standing still with its lever centred.
+                // The world's wind, in retail's own direction but at this world's
+                // configured strength. Sails and the bare-hull baseline below read
+                // the SAME wind, because in retail they are the same wind.
+                double windScale = ShipForceModel.DefaultWindSpeedMps > 0.0
+                    ? tuning.WindSpeedMps / ShipForceModel.DefaultWindSpeedMps
+                    : 0.0;
                 double sailNewtons = ShipForceModel.SailForwardNewtons(
-                    unfurledSails, yaw, tuning.SailPowerNewtons);
+                    unfurledSails, yaw, tuning.SailPowerNewtons,
+                    ShipForceModel.DefaultWindX * windScale,
+                    ShipForceModel.DefaultWindZ * windScale);
 
                 double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
-                speedCmd = ShipForceModel.StepSpeed(state.SpeedCmdMps, thrustAccel, dtSeconds);
+
+                // THE BARE-HULL BASELINE. A hull with no engines and no canvas is
+                // not immobile - retail's wind acted on the HULL, not only on the
+                // sails, and its early-return explicitly exempts any ship with a
+                // working sky core, so a bare hull drifted. That is the maintainer's
+                // "the ship without sails can move too, but really slowly", and it
+                // is also why a sky core rather than a sail is what makes a ship
+                // mobile. See ShipForceModel.BaselineDriveSpeedMps for the recovered
+                // magnitude (~2 m/s, under 4 knots, less for a heavy hull) and for
+                // why we aim it along the heading instead of downwind.
+                //
+                // NOT gated on the ship having a sky core, and that is a decision
+                // rather than an oversight. Retail's gate is `IsFloatingShip`, i.e.
+                // a core that is not overloaded - but retail could afford it,
+                // because a coreless ship there FELL, so "no core" already meant
+                // "not flying". We implement no lift and no gravity at all: a
+                // coreless hull hovers here regardless. Gating the wind on a core we
+                // do not otherwise honour would invent a stranded class of ship for
+                // no gameplay in return - and two of the five hulls in the live
+                // world have no core mounted. When F2 makes lift real, the core gate
+                // belongs WITH it, in the same change, so that losing your core
+                // costs you altitude and motion together rather than motion alone.
+                //
+                // Gated on the pilot ASKING for drive. An unmanned hull left with
+                // the lever centred settles to rest as it does today, because a
+                // world where every abandoned hull drifts for ever is a world where
+                // every abandoned hull emits control points for ever - the exact
+                // congestion class the standing multiplayer-safety rule exists to
+                // prevent, and the same reason the settle term is aimed at zero.
+                double windAlongHeading = 0.0;
+                if (throttle > 0.0)
+                {
+                    windAlongHeading = ShipForceModel.BaselineDriveSpeedMps(
+                        ship.MassKg, tuning.WindSpeedMps) * throttle;
+                }
+
+                speedCmd = ShipForceModel.StepSpeed(
+                    state.SpeedCmdMps, thrustAccel, dtSeconds, windAlongHeading);
 
                 // The wire clamp, NOT a physics cap: above this a hull moves far
                 // enough between two control points to read as teleporting.

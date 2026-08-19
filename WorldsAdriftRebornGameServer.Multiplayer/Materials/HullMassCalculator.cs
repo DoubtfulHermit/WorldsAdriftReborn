@@ -13,7 +13,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
     /// <c>totalMass &gt; TotalLift</c>, and <c>ShipControlsBehaviour.UpdateVertical</c>
     /// DROPS the pilot's vertical input and prints "Ship weighs more than its atlas
     /// sky core can lift." when it trips (VERIFIED, acs/ShipControlsBehaviour.cs
-    /// :276-287). A bare sky core lifts 1000 kg (RECOVERED, twice: this repo's own
+    /// :283 - the literal passed to OSDMessage.SendMessage).
+    /// A bare sky core lifts 1000 kg (RECOVERED, twice: this repo's own
     /// itemData.json description and the wiki). So a mass expressed in the same
     /// kilograms plugs straight into a rule the client already has, and none of that
     /// mechanic has to be invented.

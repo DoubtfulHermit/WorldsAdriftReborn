@@ -12,11 +12,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
     /// come from - and which of them are recovered and which are ours - is
     /// documented on <see cref="ShipForceModel"/>.
     ///
-    /// A ship with no engines has zero thrust and is NOT a bug: retail ships were
-    /// pushed by their engines and drifted on their sails, and a hull with neither
-    /// simply hangs in the air. That is a real gameplay consequence, which is why
-    /// the force model is introduced behind a flag rather than switched on under
-    /// ships that players have already built.
+    /// A ship with no engines has zero ENGINE thrust and is NOT a bug: retail's
+    /// progression ran hull, then sails, then engines, and a player sailed for a
+    /// long time before they could build an engine.
+    ///
+    /// A CORRECTION worth keeping, because the sentence that used to be here was
+    /// believed twice and is the reason this flag stayed off longer than it needed
+    /// to. It claimed a hull with neither engines nor sails "simply hangs in the
+    /// air". It does not. Retail's wind acted on the HULL, and
+    /// <c>WindPhysicsVisualizer.ManagedFixedUpdate</c> exempts any ship with a
+    /// working sky core from its at-rest early return, so a bare hull drifts at
+    /// roughly 2 m/s. That baseline lives in
+    /// <see cref="ShipForceModel.BaselineDriveSpeedMps"/> rather than in this
+    /// struct, because it is a property of the hull and the air rather than of
+    /// anything mounted on it - which is exactly why it is not zero here.
     /// </summary>
     public readonly struct ShipPropulsion
     {

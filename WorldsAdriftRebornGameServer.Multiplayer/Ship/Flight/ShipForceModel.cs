@@ -137,6 +137,97 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         public const double DefaultWindY = 0.0;
         public const double DefaultWindZ = -2.0;
 
+        /// <summary>
+        /// PROVED - <c>WindPhysicsVisualizer.ApplyDrag</c> (decompile
+        /// <c>acs/Assets.Visualizers.Weather/WindPhysicsVisualizer.cs</c>):
+        /// <code>
+        ///   float num = Mathf.Clamp01(rb.mass / 4000f) * 0.75f;
+        ///   return ApplyWindDrag(pos, rb, 1f - num);
+        /// </code>
+        /// The wind a hull actually feels is attenuated by its own mass: a 4000 kg
+        /// ship feels 25% of the wind, a 500 kg one feels 91%. Heavy ships are
+        /// shoved around less by weather - but note this multiplies the WIND only,
+        /// never the quadratic self-drag, so heavy ships still coast identically.
+        /// </summary>
+        public const double WindMassAttenuationReferenceKg = 4000.0;
+        public const double WindMassAttenuationMax = 0.75;
+
+        /// <summary>
+        /// The fraction of the ambient wind a hull of this mass feels. PROVED; see
+        /// <see cref="WindMassAttenuationReferenceKg"/>.
+        /// </summary>
+        public static double WindMultiplier(double massKg)
+        {
+            if (!double.IsFinite(massKg) || massKg <= 0.0)
+            {
+                return 1.0;
+            }
+            double ratio = massKg / WindMassAttenuationReferenceKg;
+            if (ratio > 1.0)
+            {
+                ratio = 1.0;
+            }
+            return 1.0 - (ratio * WindMassAttenuationMax);
+        }
+
+        /// <summary>
+        /// THE BARE-HULL BASELINE, and the answer to *"the ship without sails can
+        /// move too, but really slowly"*.
+        ///
+        /// MAGNITUDE PROVED, AIM OURS - the same class of departure, and for
+        /// exactly the same reason, as <see cref="LowSpeedSettleAccelMps2"/>.
+        ///
+        /// Retail did not have a separate "self drag" and a separate "wind push".
+        /// It had ONE term, and this is the single most useful thing to know about
+        /// its flight model: <c>WindPhysicsVisualizer.ApplyWindDrag</c> computes
+        /// <c>GetDrag(wind * windMultiplier - rb.velocity, ...)</c>, i.e. the
+        /// quadratic law acts on the RELATIVE wind. Set the wind to zero and it is
+        /// ordinary drag opposing travel; set the velocity to zero and the very
+        /// same term ACCELERATES a stationary hull toward the wind. A ship's
+        /// terminal drift is therefore just <c>|wind| * windMultiplier(mass)</c>.
+        ///
+        /// And a parked ship is NOT exempt. <c>ManagedFixedUpdate</c> early-returns
+        /// for a near-asleep rigidbody only when <c>!IsFloatingShip</c>, where
+        /// <c>IsFloatingShip = _shipLift != null &amp;&amp; !_shipLift.IsOverloaded</c>.
+        /// So **any hull with a working sky core keeps feeling the wind at rest** -
+        /// which is precisely the maintainer's "a bare hull moves, slowly", and it
+        /// is why the sky core is what makes a ship mobile at all rather than the
+        /// sails being a hard prerequisite.
+        ///
+        /// On our constant wind that works out at roughly 2 m/s - just under
+        /// 4 knots - falling to 1 knot for a 4000 kg barge. For scale, the client's
+        /// own helm wind VFX does not even switch on below 5 knots, so a bare hull
+        /// reads as DRIFTING rather than as sailing. That is the intended feel.
+        ///
+        /// WHERE WE DEPART, stated as plainly as the settle term above. Retail
+        /// aimed this along the WIND, so a bare hull could only ever travel
+        /// downwind. Retail could get away with that because its wind varied by
+        /// place and time; ours is a single global constant everywhere
+        /// (see <see cref="DefaultWindX"/>), so a strictly downwind baseline would
+        /// mean a bare hull can travel in exactly ONE compass direction, for ever,
+        /// and is worse than retail rather than more faithful to it. We therefore
+        /// keep retail's MAGNITUDE and aim it along the hull's own heading while a
+        /// pilot is commanding throttle. Restoring the true downwind aim is a real
+        /// fidelity item and belongs with weather, alongside the settle term.
+        /// </summary>
+        public static double BaselineDriveSpeedMps(double massKg) =>
+            BaselineDriveSpeedMps(massKg, DefaultWindSpeedMps);
+
+        /// <summary>
+        /// The same, for a world whose wind is not the client's fallback strength.
+        /// See <c>FlightTuning.WindSpeedMps</c> for why that is a knob worth having:
+        /// 2.236 m/s is what retail returned where NO weather cell existed, i.e. it
+        /// is the becalmed case rather than a typical one.
+        /// </summary>
+        public static double BaselineDriveSpeedMps(double massKg, double windSpeedMps)
+        {
+            if (!double.IsFinite(windSpeedMps) || windSpeedMps <= 0.0)
+            {
+                return 0.0;
+            }
+            return windSpeedMps * WindMultiplier(massKg);
+        }
+
         // ------------------------------------------------------------------
         // WAREBORN TUNING - ours, not Bossa's. These are the per-ship DATA values
         // the Scala GSim computed and that did not ship in any client asset. The
@@ -231,6 +322,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// also why "power to weight" was the statistic retail players optimised,
         /// and it agrees in shape - though not in units - with the one published
         /// community speed model, WAEngenius's <c>50*sqrt(2*power/weight)</c>.
+        ///
+        /// THIS IS THE STILL-AIR FIGURE. With a wind along the heading, equilibrium
+        /// is <c>F/m = c*(v - w)^2</c>, so the settled speed is exactly
+        /// <c>w + TerminalSpeedMps(F, m)</c> - a tailwind is simply additive, as in
+        /// the real world. Reporting the still-air number here is deliberate: it is
+        /// the part that belongs to the SHIP, and the part a ship-builder is
+        /// comparing when they choose a hull material or bolt on another engine.
+        /// See <see cref="BaselineDriveSpeedMps"/> for the term to add.
         /// </summary>
         public static double TerminalSpeedMps(double thrustNewtons, double massKg)
         {
@@ -254,12 +353,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// speed rather than propagating NaN into the control-point stream, which
         /// would strand the hull for every client watching it.
         /// </summary>
-        public static double StepSpeed(double speedMps, double thrustAccelMps2, double dtSeconds)
+        public static double StepSpeed(double speedMps, double thrustAccelMps2, double dtSeconds,
+            double windAlongHeadingMps = 0.0)
         {
             if (!double.IsFinite(speedMps) || !double.IsFinite(thrustAccelMps2)
                 || !double.IsFinite(dtSeconds) || dtSeconds <= 0.0)
             {
                 return double.IsFinite(speedMps) ? speedMps : 0.0;
+            }
+            if (!double.IsFinite(windAlongHeadingMps))
+            {
+                windAlongHeadingMps = 0.0;
             }
 
             // Quadratic drag alone can never STOP anything - it vanishes faster
@@ -283,21 +387,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // at-rest threshold forever - which on the wire is a control-point
             // stream per hull that never goes quiet. Real forces here are either
             // zero or thousands of times this.
-            double decel = DragDecelerationMps2(speedMps);
+            // RETAIL HAD ONE TERM, NOT TWO. WindPhysicsVisualizer.ApplyWindDrag
+            // evaluates the quadratic law on the RELATIVE wind,
+            // GetDrag(wind - velocity), so the identical expression is drag when
+            // the ship outruns the air and THRUST when the air outruns the ship.
+            // With windAlongHeadingMps at its default of 0 this reduces exactly to
+            // "0.01 * v^2 opposing travel", which is what every existing caller
+            // and test gets; passing a wind is what lets a bare hull get under way
+            // (see BaselineDriveSpeedMps for the magnitude and for the one way the
+            // aim differs from retail's).
+            double relativeWind = windAlongHeadingMps - speedMps;
+            double relativeMagnitude = Math.Abs(relativeWind);
+            double accel = DragDecelerationMps2(relativeWind);
+
+            // The settling term. It exists because the quadratic law vanishes
+            // faster than the gap it is closing - relative wind decays as
+            // 1/(1 + c*u0*t), so a hull approaching the air's speed crawls the last
+            // metre per second for ever and, on the wire, never goes quiet.
+            //
+            // IT AIMS AT THE RELATIVE WIND, not at zero. Retail's own term does
+            // (GetDrag's vector5 is the relative wind LEFT OVER after the quadratic
+            // step, capped at 0.03 m/s^2), and the distinction is invisible until a
+            // wind exists: with no wind the relative wind IS -velocity, so this
+            // stays exactly the brake-to-a-stop it has always been. With a wind it
+            // is what actually lets a bare hull REACH its drift speed instead of
+            // asymptotically creeping at it.
+            //
+            // Still gated on the ship not being driven by THRUST, which is ours and
+            // deliberate: letting a 0.03 m/s^2 term run against a throttled or
+            // sailed ship would be STICTION, and retail had none.
             bool undriven = Math.Abs(thrustAccelMps2) < 1e-9;
-            if (undriven && Math.Abs(speedMps) < SettleThresholdMps)
+            if (undriven && relativeMagnitude < SettleThresholdMps)
             {
-                decel += LowSpeedSettleAccelMps2;
+                accel += LowSpeedSettleAccelMps2;
             }
-            double dragDelta = decel * dtSeconds;
-            double speedMagnitude = Math.Abs(speedMps);
-            if (dragDelta > speedMagnitude)
+
+            // Never overshoot the relative wind inside one step: retail clamped
+            // the same way (number.Clamp(0f, magnitude / deltaTime)) so that drag
+            // can bring a ship TO the air's speed but never push it past and
+            // oscillate. At our 0.24 s cadence this is the difference between a
+            // settled hull and one that hunts around the wind speed for ever.
+            double delta = accel * dtSeconds;
+            if (delta > relativeMagnitude)
             {
-                dragDelta = speedMagnitude;
+                delta = relativeMagnitude;
             }
 
             double next = speedMps
-                - (Math.Sign(speedMps) * dragDelta)
+                + (Math.Sign(relativeWind) * delta)
                 + (thrustAccelMps2 * dtSeconds);
             return double.IsFinite(next) ? next : 0.0;
         }
