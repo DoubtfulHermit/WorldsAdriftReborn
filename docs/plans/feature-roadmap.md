@@ -901,6 +901,25 @@ and §12.11 (helm momentum: **no code change**). Collisions to know about:
   component.
 - It does not touch any flight file.
 
+**Gates on `fix/ship-interactions`:** Multiplayer **4059 passed / 0** (baseline
+4032), `WorldsAdriftServer.Tests` **1192 / 26 skipped** unchanged, both server
+builds and the client-mod build green. **Relay soak FLAT on the first run** and
+inside the `haven-spawn` baseline: drift +0.01 ms, trend +0.03 ms against 20 ms,
+17,286 sends 100% delivered, missed ticks 0%, 0 gaps, 0 disconnects, 0 decode
+errors, 0 timeline violations
+(`tools/relaybot/run/soak-20260819-232341.csv`). Run because the bunker drain
+adds `1081` pushes on an entity that rides a moving ship; the canister threshold
+is what keeps that to roughly one push per 100 s of full throttle. **Sixteen
+deliberate mutations of the new wiring were applied one at a time and every one
+was caught** - cutting the drain call, dropping the container gate, dropping the
+never-opened-container guard, bypassing the pure plan, restoring the sky-core
+dispatch, re-advertising Activate on the core, ceiling instead of flooring the
+tank's room, uncapping a draw, emitting zero draws, removing the wire rule,
+firing it on any room at all, setting it high enough to block an empty tank, and
+four ways of losing one or other identifier from the hull owner list (two of
+which were invisible to the suite until a source-reading wiring guard was added
+for the serve sites).
+
 **File-level collision warning:** `feat/loot-containers` and
 `feat/resource-economy` both edit `Game/Inventory/InventoryService.cs`,
 `Game/Gathering/WorldResourceActivation.cs` and
