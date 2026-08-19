@@ -28,9 +28,20 @@
 # page is Wareborn's changelog, so it starts there and credits the foundation in
 # a line at the end rather than listing other people's commits as if they were
 # ours. Change SINCE only if that fork point is wrong.
+#
+# THE BOOKKEEPING COMMITS ARE EXCLUDED, and that is not cosmetic - it is what
+# makes this converge. Regenerating and committing the result is itself a
+# commit, so the file could never contain the commit that records it: each run
+# would report one more than the last, forever. Filtering the regeneration
+# commit is the fixed point. It also happens to be the right editorial call -
+# a changelog listing "Regenerate the patch notes" fifty times tells a reader
+# nothing about the game.
 set -euo pipefail
 
 since="2026-08-07"
+
+# Subjects that are bookkeeping about this page rather than work on the server.
+exclude_grep=(--invert-grep --grep='^Regenerate the patch notes')
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 out="$repo_root/WorldsAdriftServer/Web/Assets/patch-notes.md"
@@ -42,13 +53,13 @@ if ! git rev-parse --git-dir >/dev/null 2>&1; then
   exit 1
 fi
 
-total="$(git log --no-merges --since="$since" --oneline | wc -l | tr -d ' ')"
+total="$(git log --no-merges "${exclude_grep[@]}" --since="$since" --oneline | wc -l | tr -d ' ')"
 inherited="$(git log --no-merges --until="$since" --oneline | wc -l | tr -d ' ')"
 inherited_first="$(git log --no-merges --until="$since" --pretty='%ad' --date=short | tail -1)"
 # tail, not `--reverse | head`: git log streams newest-first, so the oldest date
 # is the last line. Piping a long log into `head` closes the pipe early, git
 # takes SIGPIPE, and `set -o pipefail` turns that into a failed build.
-first_day="$(git log --no-merges --since="$since" --pretty='%ad' --date=short | tail -1)"
+first_day="$(git log --no-merges "${exclude_grep[@]}" --since="$since" --pretty='%ad' --date=short | tail -1)"
 
 {
   cat <<EOF
@@ -60,10 +71,10 @@ EOF
   # One release block per calendar day, newest first. %ad with --date=short is
   # the AUTHOR date, which is the day the work was actually written; %cd would
   # move a whole day's worth of history the first time anything is rebased.
-  git log --no-merges --since="$since" --pretty='%ad' --date=short \
+  git log --no-merges "${exclude_grep[@]}" --since="$since" --pretty='%ad' --date=short \
     | awk '!seen[$0]++' \
     | while read -r day; do
-        count="$(git log --no-merges --since="$day 00:00:00" --until="$day 23:59:59" --oneline | wc -l | tr -d ' ')"
+        count="$(git log --no-merges "${exclude_grep[@]}" --since="$day 00:00:00" --until="$day 23:59:59" --oneline | wc -l | tr -d ' ')"
 
         # "1 commit" reads badly as "1 commits", and this page is read by people.
         if [ "$count" = "1" ]; then
@@ -78,7 +89,7 @@ EOF
         # space into a sha column and a subject. Subjects are passed through
         # untouched - they are escaped at render time, not here, because this
         # file is also what an operator sees and edits in the admin panel.
-        git log --no-merges --since="$day 00:00:00" --until="$day 23:59:59" \
+        git log --no-merges "${exclude_grep[@]}" --since="$day 00:00:00" --until="$day 23:59:59" \
           --pretty='* %h %s'
       done
 
