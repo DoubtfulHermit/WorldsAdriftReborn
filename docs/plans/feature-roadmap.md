@@ -2498,7 +2498,34 @@ public seams only, and here is exactly what it wants:
    public API, and the handler clamps any later throttle command to zero while
    dry. The ship decelerates on its normal curve and stops. **No flight file is
    modified.**
-2. **What we would rather have, from `feat/ship-flight`.** Two things, in
+2. **What THEY asked us for, already built.** Phase F5 asks fuel for "a per-hull
+   *is there burnable fuel, and at what rate* query — ours consumes it, theirs
+   owns it. Agree the seam before either side writes it." Here is that seam,
+   concretely, so nobody has to invent it:
+
+   ```csharp
+   // Is this hull burning anything at all? FALSE for a hull with no sky core -
+   // no refuel door, so no fuel system, so never gate it.
+   WorldsAdriftRebornGameServer.ShipFuel.Ledger.IsMetered(hullEntityId)
+
+   // Has it run out? FALSE for an unmetered hull, by the same rule.
+   WorldsAdriftRebornGameServer.ShipFuel.Ledger.IsDry(hullEntityId)
+
+   // The level itself, for a proportional model: FuelReading { Capacity, Level,
+   // Fraction (0..1, and 1.0 for an unmetered hull), IsDry }.
+   WorldsAdriftRebornGameServer.ShipFuel.Ledger.Read(hullEntityId)
+   ```
+
+   **The contract that matters more than the signatures:** an *unmetered* hull
+   must read as fully fuelled, never as empty. That is what stops a ship with no
+   sky core being grounded by a feature it cannot participate in, and any
+   consumer that treats "no entry" as "no fuel" breaks it.
+
+   Fuel deliberately does **not** offer a `Consume(hull, joules)` — burning is
+   throttle-driven and owned here, so that F5 can scale *power* without also
+   owning *depletion*.
+
+3. **What we would rather have back, from `feat/ship-flight`.** Two things, in
    preference order:
    - **`FlightIntegrator.Step` / `FlightSession.Advance` gain an `enginesLit`
      (or `fuelScale`) parameter**, exactly the shape `unfurledSails` already
@@ -2605,8 +2632,11 @@ dependencies · schema migration · networked state (soak gate) · main risk.
   `enginesLit` seam of §13.7 replacing the throttle clamp.
 - **Player can newly do:** craft an economical engine and get more range out of
   the same canister — the reason `fuelEfficiency` exists.
-- **Depends on:** **`feat/ship-flight`** shipping the `enginesLit` parameter,
-  and on engines being more than scenery.
+- **Depends on:** **`feat/ship-flight` PHASE F5**, which is the same meeting
+  point seen from their side ("engines become parts rather than a count"). Their
+  F5 needs the fuel query §13.7 now specifies; this FU4 needs their `enginesLit`
+  parameter. Neither is blocked on the other's *code*, only on the seam, and the
+  seam is written down in both sections now.
 - **Migration:** no. **SOAK:** yes — 1104 is new per-engine state.
 - **Main risk:** it is not this branch's to sequence.
 
