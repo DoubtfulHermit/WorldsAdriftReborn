@@ -12,7 +12,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         int InferredDeposits,
         int IslandsWithRecoveredWoods,
         int IslandsWithInferredWoods,
-        int InferredTrees);
+        int InferredTrees,
+        int LootContainers,
+        int IslandsWithLoot);
 
     /// <summary>
     /// Joins the release island catalogue to the tree catalogue and rolls each
@@ -89,7 +91,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                     // only reason an island is absent from the tree catalogue, and it
                     // is an observation, not a gap.
                     trees?.WoodSource ?? WoodTableSource.SurveyNone,
-                    TallyOres(record)));
+                    TallyOres(record),
+                    ReleaseLootCatalog.ForWorkshopId(record.Survey.WorkshopId)?.Points.Count ?? 0));
             }
             return built;
         }
@@ -131,6 +134,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
                 IslandsWithRecoveredWoods: records.Count(record => !record.WoodsAreInferred),
                 IslandsWithInferredWoods: records.Count(record => record.WoodsAreInferred),
                 InferredTrees: records.Where(record => record.WoodsAreInferred)
-                    .Sum(record => record.Trees));
+                    .Sum(record => record.Trees),
+                LootContainers: records.Sum(record => record.LootContainers),
+                IslandsWithLoot: records.Count(record => record.LootContainers > 0));
     }
 }
