@@ -204,19 +204,26 @@ namespace WorldsAdriftServer.Emblems
             int a = Mix(bytes, 0), b = Mix(bytes, 1), c = Mix(bytes, 2);
             int d = Mix(bytes, 3), e = Mix(bytes, 4), f = Mix(bytes, 5);
 
-            int field = d % EmblemVocabulary.ColourCount;
+            // The colour roll is done in the SIXTEEN-colour space the palette had
+            // when these were first minted, not across the table as it stands.
+            // Same hazard the device roll below documents: an alliance that has
+            // never opened the builder has no stored code, so its crest is
+            // recomputed every request, and dividing by a table that has grown
+            // would silently recolour every one of them. See
+            // EmblemVocabulary.LegacyColourCount.
+            int field = d % EmblemVocabulary.LegacyColourCount;
 
             // The detail and the charge must not land on the field colour, or the
             // division and the device vanish into the background - the one way a
             // generated crest can come out looking broken rather than merely
             // unlucky. Rotating off the collision keeps it deterministic.
-            int detail = e % EmblemVocabulary.ColourCount;
-            if (detail == field) detail = (detail + 5) % EmblemVocabulary.ColourCount;
+            int detail = e % EmblemVocabulary.LegacyColourCount;
+            if (detail == field) detail = (detail + 5) % EmblemVocabulary.LegacyColourCount;
 
-            int chargeColour = f % EmblemVocabulary.ColourCount;
-            if (chargeColour == field) chargeColour = (chargeColour + 9) % EmblemVocabulary.ColourCount;
-            if (chargeColour == detail) chargeColour = (chargeColour + 3) % EmblemVocabulary.ColourCount;
-            if (chargeColour == field) chargeColour = (chargeColour + 1) % EmblemVocabulary.ColourCount;
+            int chargeColour = f % EmblemVocabulary.LegacyColourCount;
+            if (chargeColour == field) chargeColour = (chargeColour + 9) % EmblemVocabulary.LegacyColourCount;
+            if (chargeColour == detail) chargeColour = (chargeColour + 3) % EmblemVocabulary.LegacyColourCount;
+            if (chargeColour == field) chargeColour = (chargeColour + 1) % EmblemVocabulary.LegacyColourCount;
 
             // The device is rolled in the VERSION 1 index space and then migrated,
             // not rolled across the table as it stands today. That is what keeps a

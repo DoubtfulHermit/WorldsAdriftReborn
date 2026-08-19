@@ -252,6 +252,30 @@ namespace WorldsAdriftServer.Emblems
             0xEED059, // 13 badlands    - map tier 4
             0x2C6B52, // 14 verdigris
             0x59C3D1, // 15 skyglass
+
+            // APPENDED WHEN THE LAYERED EDITOR LANDED, and appended is the whole
+            // point: an emblem stores a colour as an INDEX, so growing this table
+            // leaves every saved crest exactly as it was, while REORDERING it
+            // would recolour all of them. Sixteen was enough for a shield with
+            // three colours on it; a twenty-layer composition wants the ends of
+            // the range - a true white and a true black to key against - and the
+            // half-steps between the hues that were already here.
+            0x000000, // 16 pitch
+            0xFFFFFF, // 17 chalk
+            0x8A939A, // 18 ash
+            0x5A4632, // 19 bark
+            0xE8845C, // 20 clay
+            0xF3D9A4, // 21 tallow
+            0x6E1B2E, // 22 oxblood
+            0xD44E7D, // 23 fuchsia
+            0x7A3E9D, // 24 amethyst
+            0x3C2C6E, // 25 indigo
+            0x2E7FB8, // 26 harbour
+            0x8FD3B0, // 27 seafoam
+            0x1F5A3A, // 28 pine
+            0x9BBE4C, // 29 moss
+            0xC9A227, // 30 ochre
+            0xD8E4EA, // 31 frost
         };
 
         internal static readonly IReadOnlyList<string> PaletteNames = new[]
@@ -259,7 +283,26 @@ namespace WorldsAdriftServer.Emblems
             "Midnight", "Slate", "Fog", "Bone", "Canvas", "Timber", "Brass",
             "Lamplight", "Rust", "Ember", "Wilderness", "Expanse", "Remnants",
             "Badlands", "Verdigris", "Skyglass",
+            "Pitch", "Chalk", "Ash", "Bark", "Clay", "Tallow", "Oxblood",
+            "Fuchsia", "Amethyst", "Indigo", "Harbour", "Seafoam", "Pine",
+            "Moss", "Ochre", "Frost",
         };
+
+        /// <summary>
+        /// How many colours the palette had when the generated default crests
+        /// were first minted.
+        ///
+        /// FROZEN, and load-bearing for the same reason
+        /// <see cref="LegacyChargeCount"/> is. An alliance that has never opened
+        /// the builder has NO stored code: its crest is recomputed from its own
+        /// guid on every request by <see cref="EmblemSpec.DefaultFor"/>, which
+        /// divides by a colour count. Dividing by a table that has since grown
+        /// would have handed every one of those alliances a different crest the
+        /// day this palette was extended - a silent, unannounced recolouring of
+        /// every emblem nobody had chosen. So the roll stays in the sixteen-colour
+        /// space it was made in.
+        /// </summary>
+        internal const int LegacyColourCount = 16;
 
         /// <summary>The ink every outline is drawn in. Not a choice - one dark edge
         /// is what stops two adjacent palette colours from smearing into each

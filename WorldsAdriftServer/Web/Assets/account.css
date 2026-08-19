@@ -72,19 +72,30 @@ h1 { font-size: 1.9rem; margin: 0 0 .25rem; font-weight: 300; letter-spacing: .0
 .greet { color: var(--ink-soft); margin: 0 0 1.2rem; text-align: center; }
 .greet b { color: var(--ink); }
 
-/* The jump strip. Anchors, not script: with no JavaScript at all the portal is
-   still a page you can move around. */
-nav.jump {
+/* The tab strip. LINKS, not script: each tab is a URL this server answers, so
+   the portal works with JavaScript off, a tab can be bookmarked and the back
+   button does what a person expects. The current one is marked twice - visually
+   and with aria-current - because the visual mark is a colour and a border, and
+   neither of those reaches a screen reader. */
+nav.tabs {
   display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center;
   margin: 0 0 1.6rem;
 }
-nav.jump a {
-  padding: .35rem .8rem; border-radius: 999px;
+nav.tabs a {
+  padding: .35rem .9rem; border-radius: 999px;
   font-size: .74rem; letter-spacing: .12em; text-transform: uppercase;
   text-decoration: none; color: var(--ink-soft);
   background: var(--pane); border: 1px solid var(--field-edge);
+  max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-nav.jump a:hover { color: var(--ink); }
+nav.tabs a:hover { color: var(--ink); }
+nav.tabs a.on {
+  color: var(--timber-ink); border-color: #a4744a;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.30), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, var(--timber-hi), var(--timber-mid) 48%, var(--timber-lo));
+}
+nav.tabs a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .card {
   position: relative; padding: 1.5rem 1.5rem 1.7rem; margin: 0 0 1.3rem;
@@ -248,6 +259,20 @@ fieldset.swatches legend { width: 100%; float: left; }
 }
 .sw input:checked + span { outline: 2px solid var(--ink); outline-offset: 2px; }
 .sw input:focus-visible + span { outline: 2px dashed var(--ink); outline-offset: 2px; }
+
+/* The emblem, where it is only LOOKED at: the read-only panel on the emblem tab
+   and the small mark beside the link on the alliance tab. Here rather than in
+   emblem-editor.css because that file is served on the editor's tab alone. */
+.stage.lone { position: relative; width: 12rem; margin: .4rem 0 .6rem; }
+.stage.lone .preview { width: 100%; height: auto; }
+.crestline { display: flex; align-items: center; gap: .6rem; }
+
+/* Links inside a card take the page's ink, not the browser's blue - the console
+   has one palette and a default-coloured link is the one thing on the page that
+   did not come from it. */
+.crestline a, .hint a { color: var(--ink-soft); }
+.crestline a:hover, .hint a:hover { color: var(--ink); }
+.mark-sm { width: 2.6rem; height: 2.6rem; filter: drop-shadow(0 3px 8px rgba(0,0,0,.3)); }
 
 .locked {
   margin: .4rem 0 0; padding: .55rem .7rem; border-radius: 8px;

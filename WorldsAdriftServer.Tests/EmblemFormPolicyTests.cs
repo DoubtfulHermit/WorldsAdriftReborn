@@ -24,6 +24,96 @@ namespace WorldsAdriftServer.Tests
             [EmblemFormPolicy.ChargeColourField] = "13",
         };
 
+        /// <summary>The layered editor's form: the two actors and ONE design.</summary>
+        private static Dictionary<string, string> Design(string code) => new Dictionary<string, string>
+        {
+            [EmblemFormPolicy.AllianceField] = "2f9b6f2e-1c31-4f4a-9a3e-8d0f9c6b7a10",
+            [EmblemFormPolicy.CharacterField] = "7a1c9d44-6b2e-4f10-8e33-11b0c4f9a2d7",
+            [EmblemFormPolicy.DesignField] = code,
+        };
+
+        private static string OneLayer()
+        {
+            Assert.True(EmblemLayer.TryCreate(4, -250, 125, 700, 30, 9, 32, true, false, true,
+                out EmblemLayer layer));
+            Assert.True(EmblemStack.TryCreate(new[] { layer }, out EmblemStack stack));
+            return stack.ToCode();
+        }
+
+        // ------------------------------------------------------ the layered form
+
+        [Fact]
+        public void A_posted_design_is_read_as_the_whole_emblem()
+        {
+            string code = OneLayer();
+            EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(Design(code));
+
+            Assert.True(outcome.Ok);
+            Assert.True(outcome.Artwork.IsLayered);
+            Assert.Equal(code, outcome.Artwork.ToCode());
+        }
+
+        /// <summary>
+        /// AN EMPTY DESIGN IS REFUSED. A crest with no layers is fully transparent,
+        /// and in game that is indistinguishable from a crest that failed to
+        /// download - so an alliance that saved one would look broken to everybody
+        /// including itself, with no way to tell which it was.
+        /// </summary>
+        [Fact]
+        public void A_design_with_no_layers_is_refused_with_a_reason()
+        {
+            EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(Design("3-"));
+
+            Assert.False(outcome.Ok);
+            Assert.Contains("at least one layer", outcome.Reason, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("3-0")]
+        [InlineData("3-00000000000-0")]
+        [InlineData("nonsense")]
+        public void A_design_the_editor_could_not_have_produced_is_refused(string code)
+        {
+            Assert.False(EmblemFormPolicy.Read(Design(code)).Ok);
+        }
+
+        [Fact]
+        public void An_absurdly_long_design_is_refused_before_it_is_parsed()
+        {
+            Assert.False(EmblemFormPolicy.Read(Design("3-" + new string('0', 100_000))).Ok);
+        }
+
+        /// <summary>
+        /// A design field WINS over the older six. The heraldic branch is kept only
+        /// so a page that was already open when this shipped still saves; a post
+        /// carrying both came from something that is not either builder.
+        /// </summary>
+        [Fact]
+        public void A_design_field_is_preferred_over_the_older_choices()
+        {
+            Dictionary<string, string> form = Good();
+            form[EmblemFormPolicy.DesignField] = OneLayer();
+
+            EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(form);
+
+            Assert.True(outcome.Ok);
+            Assert.True(outcome.Artwork.IsLayered);
+        }
+
+        /// <summary>
+        /// And the older form still works on its own, because somebody's tab has
+        /// been open since before this shipped.
+        /// </summary>
+        [Fact]
+        public void A_form_from_the_older_builder_is_still_accepted()
+        {
+            EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(Good());
+
+            Assert.True(outcome.Ok);
+            Assert.False(outcome.Artwork.IsLayered);
+        }
+
         [Fact]
         public void A_complete_form_is_accepted()
         {
@@ -32,7 +122,7 @@ namespace WorldsAdriftServer.Tests
             Assert.True(outcome.Ok);
             Assert.Equal(Guid.Parse("2f9b6f2e-1c31-4f4a-9a3e-8d0f9c6b7a10"), outcome.AllianceId);
             Assert.Equal(Guid.Parse("7a1c9d44-6b2e-4f10-8e33-11b0c4f9a2d7"), outcome.CharacterUid);
-            Assert.Equal("2-2-5-7-11-3-13", outcome.Spec.ToCode());
+            Assert.Equal("2-2-5-7-11-3-13", outcome.Artwork.ToCode());
         }
 
         [Fact]
@@ -81,9 +171,11 @@ namespace WorldsAdriftServer.Tests
         [InlineData(EmblemFormPolicy.ShapeField, "5")]
         [InlineData(EmblemFormPolicy.DivisionField, "10")]
         [InlineData(EmblemFormPolicy.ChargeField, "61")]
-        [InlineData(EmblemFormPolicy.FieldColourField, "16")]
-        [InlineData(EmblemFormPolicy.DetailColourField, "16")]
-        [InlineData(EmblemFormPolicy.ChargeColourField, "16")]
+        // Past any palette this vocabulary will grow to - see the note in
+        // EmblemSpecTests on why "one past today's count" rots.
+        [InlineData(EmblemFormPolicy.FieldColourField, "900")]
+        [InlineData(EmblemFormPolicy.DetailColourField, "900")]
+        [InlineData(EmblemFormPolicy.ChargeColourField, "900")]
         [InlineData(EmblemFormPolicy.ShapeField, "-1")]
         [InlineData(EmblemFormPolicy.ShapeField, "999")]
         [InlineData(EmblemFormPolicy.ShapeField, "1e3")]

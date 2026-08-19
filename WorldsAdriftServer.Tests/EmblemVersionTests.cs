@@ -101,8 +101,11 @@ namespace WorldsAdriftServer.Tests
         {
             // The database holds this string, not a URL and not a picture.
             Assert.True(
-                EmblemUrlPolicy.TryReadStored("wareborn:emblem:1-0-6-3-1-7-13", out EmblemSpec spec));
+                EmblemUrlPolicy.TryReadStored("wareborn:emblem:1-0-6-3-1-7-13", out EmblemArtwork artwork));
 
+            Assert.False(artwork.IsLayered);
+
+            EmblemSpec spec = artwork.Heraldic;
             Assert.Equal(EmblemVocabulary.Shape.Heater, spec.Shape);
             Assert.Equal(EmblemVocabulary.Division.Bordure, spec.Division);
             Assert.Equal("Gear", EmblemVocabulary.ChargeNames[(int)spec.Charge]);
@@ -114,13 +117,13 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void Reading_an_old_code_and_writing_it_back_upgrades_it_exactly_once()
         {
-            Assert.True(EmblemUrlPolicy.TryReadStored("wareborn:emblem:1-4-9-12-5-13-0", out EmblemSpec spec));
+            Assert.True(EmblemUrlPolicy.TryReadStored("wareborn:emblem:1-4-9-12-5-13-0", out EmblemArtwork artwork));
 
-            string stored = EmblemUrlPolicy.Store(spec);
+            string stored = EmblemUrlPolicy.Store(artwork);
             Assert.Equal("wareborn:emblem:2-4-9-10-5-13-0", stored);
 
-            Assert.True(EmblemUrlPolicy.TryReadStored(stored, out EmblemSpec again));
-            Assert.Equal(spec, again);
+            Assert.True(EmblemUrlPolicy.TryReadStored(stored, out EmblemArtwork again));
+            Assert.Equal(artwork, again);
         }
 
         [Fact]

@@ -54,8 +54,14 @@ namespace WorldsAdriftServer.Handlers.Emblem
                 return true;
             }
 
+            if (EmblemUrlPolicy.IsCatalogueRequest(request.Url))
+            {
+                Catalogue(session);
+                return true;
+            }
+
             if (!EmblemUrlPolicy.TryParseRequest(
-                    request.Url, out Guid allianceId, out EmblemSpec spec, out bool hasCode,
+                    request.Url, out Guid allianceId, out EmblemArtwork artwork, out bool hasCode,
                     out EmblemUrlPolicy.Format format))
             {
                 // In the namespace but not a crest we could ever have published:
@@ -73,10 +79,10 @@ namespace WorldsAdriftServer.Handlers.Emblem
                 // the path is enough to produce the alliance's own default crest;
                 // a preview request with no code (uid is empty) gets the one
                 // Guid.Empty yields, which is a real emblem and not a blank.
-                spec = EmblemSpec.DefaultFor(allianceId);
+                artwork = EmblemSpec.DefaultFor(allianceId);
             }
 
-            string etag = EmblemImages.ETag(spec, format);
+            string etag = EmblemImages.ETag(artwork, format);
 
             if (string.Equals(HeaderValue(request, "If-None-Match"), etag, StringComparison.Ordinal))
             {
@@ -109,18 +115,42 @@ namespace WorldsAdriftServer.Handlers.Emblem
                 // their crest, and every browser's save-as picks the name up from
                 // here anyway.
                 resp.SetHeader("Content-Disposition",
-                    "inline; filename=\"" + EmblemUrlPolicy.VectorFileName(spec) + "\"");
+                    "inline; filename=\"" + EmblemUrlPolicy.VectorFileName(artwork) + "\"");
 
-                resp.SetBody(EmblemSvg.Compose(spec));
+                resp.SetBody(artwork.ToSvg());
             }
             else
             {
                 resp.SetHeader("Content-Type", "image/png");
-                resp.SetBody(EmblemImages.Png(spec));
+                resp.SetBody(EmblemImages.Png(artwork));
             }
 
             session.SendResponseAsync(resp);
             return true;
+        }
+
+        /// <summary>
+        /// The editor's object catalogue.
+        ///
+        /// Cached the same way and for the same reason the pictures are: the
+        /// catalogue's own revision is in the URL, so the body at a given address
+        /// can never change and a browser may keep it forever. A shape added or
+        /// retouched mints a different URL.
+        ///
+        /// Unauthenticated like the rest of this route, and safe for the same
+        /// reason: it is a table of shapes this server drew, identical for every
+        /// caller, and it names no player, alliance or account.
+        /// </summary>
+        private static void Catalogue(HttpSession session)
+        {
+            HttpResponse resp = new HttpResponse();
+            resp.SetBegin(200);
+            resp.SetHeader("Content-Type", EmblemEditorData.ContentType);
+            resp.SetHeader("Cache-Control", "public, max-age=31536000, immutable");
+            resp.SetHeader("ETag", "\"cat-" + EmblemEditorData.Revision + "\"");
+            resp.SetHeader("X-Content-Type-Options", "nosniff");
+            resp.SetBody(EmblemEditorData.Catalogue);
+            session.SendResponseAsync(resp);
         }
 
         private static void NotModified(HttpSession session, string etag)

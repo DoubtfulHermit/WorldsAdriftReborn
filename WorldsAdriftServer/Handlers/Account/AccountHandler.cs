@@ -109,26 +109,31 @@ namespace WorldsAdriftServer.Handlers.Account
                     + (string.IsNullOrWhiteSpace(csrf) ? " (none was posted)" : " (stale form?)")
                     + ".");
 
-                Done(session, PortalNotices.Expired);
+                Done(session, PortalTabs.AfterPost(path), PortalNotices.Expired);
                 return true;
             }
+
+            // Where a redirect will land, decided ONCE from the route and handed
+            // down, so every refusal and every success on this post comes back to
+            // the tab the player was looking at.
+            string tab = PortalTabs.AfterPost(path);
 
             try
             {
                 switch (path)
                 {
                     case LogoutPath: Logout(session, token); return true;
-                    case PasswordPath: ChangePassword(session, accountId.Value, token, form); return true;
-                    case EmblemPath: SaveEmblem(session, accountId.Value, form); return true;
-                    case DetailsPath: SaveDetails(session, accountId.Value, form); return true;
-                    case MemberPath: ChangeMember(session, accountId.Value, form); return true;
-                    case RequestPath: AnswerRequest(session, accountId.Value, form); return true;
+                    case PasswordPath: ChangePassword(session, accountId.Value, token, form, tab); return true;
+                    case EmblemPath: SaveEmblem(session, accountId.Value, form, tab); return true;
+                    case DetailsPath: SaveDetails(session, accountId.Value, form, tab); return true;
+                    case MemberPath: ChangeMember(session, accountId.Value, form, tab); return true;
+                    case RequestPath: AnswerRequest(session, accountId.Value, form, tab); return true;
                 }
             }
             catch (Exception e)
             {
                 Console.WriteLine("[error] " + path + " failed: " + e);
-                Done(session, PortalNotices.Failed);
+                Done(session, PortalTabs.AfterPost(path), PortalNotices.Failed);
                 return true;
             }
 
@@ -152,7 +157,8 @@ namespace WorldsAdriftServer.Handlers.Account
             try
             {
                 view = PortalViewBuilder.Build(
-                    accountId, PlayerAuthPolicy.CsrfTokenForSession(token), notice, isError);
+                    accountId, PlayerAuthPolicy.CsrfTokenForSession(token), notice, isError,
+                    PortalTabs.Requested(request.Url));
             }
             catch (Exception e)
             {
@@ -206,7 +212,7 @@ namespace WorldsAdriftServer.Handlers.Account
         /// make the change cosmetic.
         /// </summary>
         private static void ChangePassword(
-            HttpSession session, long accountId, string? token, IReadOnlyDictionary<string, string> form)
+            HttpSession session, long accountId, string? token, IReadOnlyDictionary<string, string> form, string tab)
         {
             form.TryGetValue(PasswordChangePolicy.CurrentField, out string? current);
             form.TryGetValue(PasswordChangePolicy.NextField, out string? next);
@@ -215,20 +221,20 @@ namespace WorldsAdriftServer.Handlers.Account
             PasswordChangeFault fault = PasswordChangePolicy.Check(current, next, confirm);
             if (fault != PasswordChangeFault.None)
             {
-                Done(session, PortalNotices.CodeFor(fault));
+                Done(session, tab, PortalNotices.CodeFor(fault));
                 return;
             }
 
             AccountRecord? account = Accounts.Repository.FindById(accountId);
             if (account == null || Accounts.Repository.Verify(account.Username, current) == null)
             {
-                Done(session, PortalNotices.PasswordWrong);
+                Done(session, tab, PortalNotices.PasswordWrong);
                 return;
             }
 
             if (!Accounts.Repository.ChangePassword(accountId, next!))
             {
-                Done(session, PortalNotices.Failed);
+                Done(session, tab, PortalNotices.Failed);
                 return;
             }
 
@@ -241,25 +247,25 @@ namespace WorldsAdriftServer.Handlers.Account
             Console.WriteLine("[info] /account: '" + account.Username
                 + "' changed their password; " + revoked + " game session(s) revoked.");
 
-            Done(session, PortalNotices.PasswordChanged);
+            Done(session, tab, PortalNotices.PasswordChanged);
         }
 
         // --------------------------------------------------------- the alliance
 
         private static void SaveEmblem(
-            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form, string tab)
         {
             EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(form);
             if (!outcome.Ok)
             {
-                Done(session, PortalNotices.Unreadable);
+                Done(session, tab, PortalNotices.Unreadable);
                 return;
             }
 
             if (!Permitted(accountId, outcome.CharacterUid, outcome.AllianceId,
                     PortalAction.EditEmblem, null, out AllianceRecord? alliance))
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -267,15 +273,15 @@ namespace WorldsAdriftServer.Handlers.Account
             // public host name stays in configuration. See EmblemUrlPolicy.
             Accounts.Alliances.SaveAlliance(alliance! with
             {
-                EmblemUrl = EmblemUrlPolicy.Store(outcome.Spec),
+                EmblemUrl = EmblemUrlPolicy.Store(outcome.Artwork),
                 UpdatedAt = DateTimeOffset.UtcNow,
             });
 
             Console.WriteLine("[info] /account: alliance " + alliance!.Name + " ("
-                + alliance.AllianceId + ") set crest " + outcome.Spec.ToCode()
+                + alliance.AllianceId + ") set crest " + outcome.Artwork.ToCode()
                 + " via character " + outcome.CharacterUid + ".");
 
-            Done(session, PortalNotices.CrestSaved);
+            Done(session, tab, PortalNotices.CrestSaved);
         }
 
         /// <summary>
@@ -292,12 +298,12 @@ namespace WorldsAdriftServer.Handlers.Account
         /// that carried both is answered per field anyway.
         /// </summary>
         private static void SaveDetails(
-            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form, string tab)
         {
             DetailsForm details = PortalFormPolicy.ReadDetails(form);
             if (!details.Ok)
             {
-                Done(session, PortalNotices.Unreadable);
+                Done(session, tab, PortalNotices.Unreadable);
                 return;
             }
 
@@ -311,7 +317,7 @@ namespace WorldsAdriftServer.Handlers.Account
             if (!Permitted(accountId, details.CharacterUid, details.AllianceId,
                     action, null, out AllianceRecord? alliance))
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -320,7 +326,7 @@ namespace WorldsAdriftServer.Handlers.Account
                 && !Permitted(accountId, details.CharacterUid, details.AllianceId,
                         PortalAction.EditMessageOfTheDay, null, out _))
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -329,7 +335,7 @@ namespace WorldsAdriftServer.Handlers.Account
 
             if (description == alliance!.Description && motd == alliance.MessageOfTheDay)
             {
-                Done(session, PortalNotices.NoChange);
+                Done(session, tab, PortalNotices.NoChange);
                 return;
             }
 
@@ -340,43 +346,43 @@ namespace WorldsAdriftServer.Handlers.Account
                 UpdatedAt = DateTimeOffset.UtcNow,
             });
 
-            Done(session, wantsDescription && description != alliance.Description
+            Done(session, tab, wantsDescription && description != alliance.Description
                 ? PortalNotices.DescriptionSaved
                 : PortalNotices.MotdSaved);
         }
 
         /// <summary>Move a member onto another rank, or throw them out.</summary>
         private static void ChangeMember(
-            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form, string tab)
         {
             MemberForm member = PortalFormPolicy.ReadMember(form);
             if (!member.Ok)
             {
-                Done(session, PortalNotices.Unreadable);
+                Done(session, tab, PortalNotices.Unreadable);
                 return;
             }
 
             if (member.Verb == MemberVerb.Boot)
             {
-                BootMember(session, accountId, member);
+                BootMember(session, accountId, member, tab);
                 return;
             }
 
-            SetRank(session, accountId, member);
+            SetRank(session, accountId, member, tab);
         }
 
-        private static void SetRank(HttpSession session, long accountId, MemberForm form)
+        private static void SetRank(HttpSession session, long accountId, MemberForm form, string tab)
         {
             if (!OwnsCharacter(accountId, form.CharacterUid))
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
             AllianceMemberRecord? membership = Accounts.Alliances.MemberOf(form.TargetUid);
             if (membership == null || membership.AllianceId != form.AllianceId)
             {
-                Done(session, PortalNotices.Gone);
+                Done(session, tab, PortalNotices.Gone);
                 return;
             }
 
@@ -392,7 +398,7 @@ namespace WorldsAdriftServer.Handlers.Account
 
             if (verdict != AllianceVerdict.Ok)
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -405,7 +411,7 @@ namespace WorldsAdriftServer.Handlers.Account
             AllianceRankRecord? rank = Accounts.Alliances.FindRank(form.RankId);
             if (rank == null || rank.AllianceId != form.AllianceId)
             {
-                Done(session, PortalNotices.Gone);
+                Done(session, tab, PortalNotices.Gone);
                 return;
             }
 
@@ -415,7 +421,7 @@ namespace WorldsAdriftServer.Handlers.Account
                 UpdatedAt = DateTimeOffset.UtcNow,
             });
 
-            Done(session, PortalNotices.RankSet);
+            Done(session, tab, PortalNotices.RankSet);
         }
 
         /// <summary>
@@ -428,11 +434,11 @@ namespace WorldsAdriftServer.Handlers.Account
         /// standing (they are still in it), so the dissolve branch is unreachable
         /// from here; it is followed anyway rather than assumed away.
         /// </summary>
-        private static void BootMember(HttpSession session, long accountId, MemberForm form)
+        private static void BootMember(HttpSession session, long accountId, MemberForm form, string tab)
         {
             if (!OwnsCharacter(accountId, form.CharacterUid))
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -448,7 +454,7 @@ namespace WorldsAdriftServer.Handlers.Account
 
             if (verdict != AllianceVerdict.Ok)
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -458,7 +464,7 @@ namespace WorldsAdriftServer.Handlers.Account
             Console.WriteLine("[info] /account: character " + form.CharacterUid
                 + " removed " + form.TargetUid + " from alliance " + form.AllianceId + ".");
 
-            Done(session, PortalNotices.MemberRemoved);
+            Done(session, tab, PortalNotices.MemberRemoved);
         }
 
         /// <summary>
@@ -474,18 +480,18 @@ namespace WorldsAdriftServer.Handlers.Account
         /// alliance", and the two would diverge the first time either was fixed.
         /// </summary>
         private static void AnswerRequest(
-            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form, string tab)
         {
             RequestForm request = PortalFormPolicy.ReadRequest(form);
             if (!request.Ok)
             {
-                Done(session, PortalNotices.Unreadable);
+                Done(session, tab, PortalNotices.Unreadable);
                 return;
             }
 
             if (!OwnsCharacter(accountId, request.CharacterUid))
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -495,7 +501,7 @@ namespace WorldsAdriftServer.Handlers.Account
                 || invite.TargetType != SocialTargetType.Alliance
                 || !string.Equals(invite.TargetId, AllianceWire.Uid(request.AllianceId), StringComparison.Ordinal))
             {
-                Done(session, PortalNotices.Gone);
+                Done(session, tab, PortalNotices.Gone);
                 return;
             }
 
@@ -506,7 +512,7 @@ namespace WorldsAdriftServer.Handlers.Account
             bool isApplication = invite.InviterUid == null;
             if (isApplication == (request.Verb == RequestVerb.Rescind))
             {
-                Done(session, PortalNotices.Unreadable);
+                Done(session, tab, PortalNotices.Unreadable);
                 return;
             }
 
@@ -520,7 +526,7 @@ namespace WorldsAdriftServer.Handlers.Account
 
             if (verdict != AllianceVerdict.Ok)
             {
-                Done(session, PortalNotices.Denied);
+                Done(session, tab, PortalNotices.Denied);
                 return;
             }
 
@@ -529,14 +535,14 @@ namespace WorldsAdriftServer.Handlers.Account
             if (request.Verb == RequestVerb.Reject)
             {
                 Accounts.SocialInvites.Resolve(invite.InviteId, SocialInviteStatus.Rejected, now);
-                Done(session, PortalNotices.ApplicantDeclined);
+                Done(session, tab, PortalNotices.ApplicantDeclined);
                 return;
             }
 
             if (request.Verb == RequestVerb.Rescind)
             {
                 Accounts.SocialInvites.Resolve(invite.InviteId, SocialInviteStatus.Cancelled, now);
-                Done(session, PortalNotices.InviteWithdrawn);
+                Done(session, tab, PortalNotices.InviteWithdrawn);
                 return;
             }
 
@@ -546,12 +552,12 @@ namespace WorldsAdriftServer.Handlers.Account
             JObject seated = Endpoints().Accept(invite);
             if (!seated.Value<bool>("success"))
             {
-                Done(session, PortalNotices.Failed);
+                Done(session, tab, PortalNotices.Failed);
                 return;
             }
 
             Accounts.SocialInvites.Resolve(invite.InviteId, SocialInviteStatus.Accepted, now);
-            Done(session, PortalNotices.ApplicantAdmitted);
+            Done(session, tab, PortalNotices.ApplicantAdmitted);
         }
 
         /// <summary>
@@ -650,12 +656,18 @@ namespace WorldsAdriftServer.Handlers.Account
         // ----------------------------------------------------------------- glue
 
         /// <summary>
-        /// POST-redirect-GET back to the portal with a notice code. Never the
-        /// sentence itself - see <see cref="PortalNotices"/> for why a page must
-        /// not render text a URL handed it.
+        /// POST-redirect-GET back to the portal with a notice code, ON THE TAB THE
+        /// PLAYER WAS ACTING IN. Never the sentence itself - see
+        /// <see cref="PortalNotices"/> for why a page must not render text a URL
+        /// handed it.
+        ///
+        /// The tab is derived from the ROUTE that was posted to, not carried in a
+        /// hidden field, so no form can forget it: a crest save that dumped the
+        /// player back on the Account tab is precisely the small wrongness that
+        /// makes a tabbed page feel broken.
         /// </summary>
-        private static void Done(HttpSession session, string code) =>
-            Redirect(session, PagePath + "?" + PortalNotices.Field + "=" + code);
+        private static void Done(HttpSession session, string tab, string code) =>
+            Redirect(session, PortalTabs.Url(PagePath, tab, code));
 
         private static void Redirect(HttpSession session, string location)
         {

@@ -54,13 +54,37 @@ namespace WorldsAdriftServer.Tests
 
         private static PortalView View(
             AllianceCard? alliance = null, CrewCard? crew = null,
-            string? notice = null, bool isError = false, string username = "wrenna") =>
+            string? notice = null, bool isError = false, string username = "wrenna",
+            string tab = PortalTabs.Account) =>
             new PortalView(
                 username, username, DateTimeOffset.UnixEpoch, null, "2026.08.18", "6",
                 new[] { new CharacterCard(Sheet(), crew, alliance) },
-                Csrf, notice, isError);
+                Csrf, notice, isError, tab);
 
         private static string Html(PortalView view) => AccountPage.Render(view);
+
+        /// <summary>The portal on one tab. Only the named tab's panel is rendered
+        /// at all - see <see cref="PortalTabs"/> - so a test about the alliance
+        /// has to ask for the alliance.</summary>
+        private static string Html(PortalView view, string tab) =>
+            AccountPage.Render(view with { Tab = tab });
+
+        /// <summary>Every tab of one view, concatenated. For the assertions that
+        /// are about the WHOLE page rather than about one panel: escaping, and not
+        /// reaching off this host.</summary>
+        private static string Everything(PortalView view)
+        {
+            System.Text.StringBuilder all = new System.Text.StringBuilder();
+            foreach (PortalTab tab in PortalTabs.For(view))
+            {
+                all.Append(AccountPage.Render(view with { Tab = tab.Id }));
+            }
+            return all.ToString();
+        }
+
+        private static readonly string CharacterTab = PortalTabs.CharacterId(MineUid);
+
+
 
         // -------------------------------------------------------- the furniture
 
@@ -81,7 +105,9 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void ThePageCarriesNoUnfilledPlaceholder()
         {
-            Assert.DoesNotContain("{{", Html(View()), StringComparison.Ordinal);
+            Assert.DoesNotContain("{{",
+                Everything(View(Alliance(new AllianceRights(true, true, true, true)))),
+                StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -91,7 +117,11 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void NothingIsLoadedFromAnotherHost()
         {
-            string html = Html(View(Alliance(new AllianceRights(true, true, true, true))));
+            // The W3C SVG namespace is an IDENTIFIER, not an address: it is never
+            // fetched, and createElementNS requires it verbatim. Same exemption
+            // WebAssetCompositionTests makes for the console's own fragments.
+            string html = Everything(View(Alliance(new AllianceRights(true, true, true, true))))
+                .Replace("http://www.w3.org/2000/svg", "", StringComparison.Ordinal);
 
             Assert.DoesNotContain("http://", html, StringComparison.OrdinalIgnoreCase);
             Assert.DoesNotContain("https://", html, StringComparison.OrdinalIgnoreCase);
@@ -99,22 +129,69 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void TheAccountAndPatcherSectionsAreAlwaysThere()
+        public void TheAccountAndPatcherTabsCarryWhatTheyPromise()
         {
-            string html = Html(View());
+            string account = Html(View(), PortalTabs.Account);
 
-            Assert.Contains("id=\"account\"", html, StringComparison.Ordinal);
-            Assert.Contains("id=\"download\"", html, StringComparison.Ordinal);
-            Assert.Contains("/download/WAPatch.exe", html, StringComparison.Ordinal);
-            Assert.Contains("2026.08.18", html, StringComparison.Ordinal);
-            Assert.Contains("/account/password", html, StringComparison.Ordinal);
-            Assert.Contains("/account/logout", html, StringComparison.Ordinal);
+            Assert.Contains("id=\"account\"", account, StringComparison.Ordinal);
+            Assert.Contains("/account/password", account, StringComparison.Ordinal);
+            Assert.Contains("/account/logout", account, StringComparison.Ordinal);
+
+            string patcher = Html(View(), PortalTabs.Patcher);
+
+            Assert.Contains("id=\"download\"", patcher, StringComparison.Ordinal);
+            Assert.Contains("/download/WAPatch.exe", patcher, StringComparison.Ordinal);
+            Assert.Contains("2026.08.18", patcher, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// The strip is LINKS, one per tab, and the current one is marked for a
+        /// reader as well as for an eye.
+        /// </summary>
+        [Fact]
+        public void EveryTabIsALinkAndTheCurrentOneSaysSo()
+        {
+            PortalView view = View(Alliance(new AllianceRights(true, true, true, true)));
+            string html = Html(view, PortalTabs.Alliance);
+
+            foreach (PortalTab tab in PortalTabs.For(view))
+            {
+                Assert.Contains("href=\"/account?tab=" + tab.Id + "\"", html, StringComparison.Ordinal);
+            }
+
+            Assert.Contains("href=\"/account?tab=alliance\" class=\"on\" aria-current=\"page\"",
+                html, StringComparison.Ordinal);
+
+            // Exactly one. Two current tabs is a strip that has stopped telling
+            // anybody where they are.
+            Assert.Equal(1, Count(html, "aria-current=\"page\""));
+        }
+
+        /// <summary>
+        /// An account whose characters are in no alliance gets NO alliance tab and
+        /// NO emblem tab - rather than two tabs that exist to explain themselves.
+        /// </summary>
+        [Fact]
+        public void TabsWithNothingBehindThemAreNotDrawn()
+        {
+            IReadOnlyList<PortalTab> without = PortalTabs.For(View());
+            Assert.DoesNotContain(without, tab => tab.Id == PortalTabs.Alliance);
+            Assert.DoesNotContain(without, tab => tab.Id == PortalTabs.Emblem);
+
+            IReadOnlyList<PortalTab> with =
+                PortalTabs.For(View(Alliance(new AllianceRights(true, true, true, true))));
+            Assert.Contains(with, tab => tab.Id == PortalTabs.Alliance);
+            Assert.Contains(with, tab => tab.Id == PortalTabs.Emblem);
         }
 
         [Fact]
         public void EveryFormCarriesTheCsrfToken()
         {
-            string html = Html(View(Alliance(new AllianceRights(true, true, true, true))));
+            string html = Html(View(Alliance(new AllianceRights(true, true, true, true))),
+                PortalTabs.Alliance)
+                + Html(View(Alliance(new AllianceRights(true, true, true, true))),
+                    PortalTabs.Emblem)
+                + Html(View(), PortalTabs.Account);
 
             int forms = Count(html, "<form ");
             int tokens = Count(html, "value=\"" + Csrf + "\"");
@@ -126,7 +203,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void TheCharacterSheetShowsWhatWasBuiltForIt()
         {
-            string html = Html(View());
+            string html = Html(View(), CharacterTab);
 
             Assert.Contains("Wrenna", html, StringComparison.Ordinal);
             Assert.Contains("Kestrel&#39;s Rest", html, StringComparison.Ordinal);
@@ -150,7 +227,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void WithNoPermissionsNoAllianceFormIsDrawnAtAll()
         {
-            string html = Html(View(Alliance(new AllianceRights(false, false, false, false))));
+            string html = Html(View(Alliance(new AllianceRights(false, false, false, false))), PortalTabs.Alliance);
 
             Assert.DoesNotContain("/account/alliance-details", html, StringComparison.Ordinal);
             Assert.DoesNotContain("/account/alliance-emblem", html, StringComparison.Ordinal);
@@ -164,8 +241,8 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void TheDescriptionFormAppearsOnlyWithItsOwnPermission()
         {
-            string without = Html(View(Alliance(new AllianceRights(false, true, true, true))));
-            string with = Html(View(Alliance(new AllianceRights(true, false, false, false))));
+            string without = Html(View(Alliance(new AllianceRights(false, true, true, true))), PortalTabs.Alliance);
+            string with = Html(View(Alliance(new AllianceRights(true, false, false, false))), PortalTabs.Alliance);
 
             Assert.DoesNotContain("name=\"" + PortalFormPolicy.DescriptionField + "\"",
                 without, StringComparison.Ordinal);
@@ -180,8 +257,8 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void TheMotdFormAppearsOnlyWithItsOwnPermission()
         {
-            string without = Html(View(Alliance(new AllianceRights(true, false, true, true))));
-            string with = Html(View(Alliance(new AllianceRights(false, true, false, false))));
+            string without = Html(View(Alliance(new AllianceRights(true, false, true, true))), PortalTabs.Alliance);
+            string with = Html(View(Alliance(new AllianceRights(false, true, false, false))), PortalTabs.Alliance);
 
             Assert.DoesNotContain("name=\"" + PortalFormPolicy.MotdField + "\"",
                 without, StringComparison.Ordinal);
@@ -198,7 +275,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void TheDescriptionAndTheMotdAreNeverInOneForm()
         {
-            string html = Html(View(Alliance(new AllianceRights(true, true, true, true))));
+            string html = Html(View(Alliance(new AllianceRights(true, true, true, true))), PortalTabs.Alliance);
 
             foreach (string form in Forms(html))
             {
@@ -210,47 +287,105 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void TheCrestBuilderAppearsOnlyWithEditGroupAndIsOtherwiseJustThePicture()
+        public void TheEditorAppearsOnlyWithEditGroupAndIsOtherwiseJustThePicture()
         {
-            string with = Html(View(Alliance(new AllianceRights(false, false, true, false))));
-            string without = Html(View(Alliance(new AllianceRights(true, true, false, true))));
+            string with = Html(View(Alliance(new AllianceRights(false, false, true, false))),
+                PortalTabs.Emblem);
+            string without = Html(View(Alliance(new AllianceRights(true, true, false, true))),
+                PortalTabs.Emblem);
 
             Assert.Contains("/account/alliance-emblem", with, StringComparison.Ordinal);
-            Assert.Contains("class=\"builder\"", with, StringComparison.Ordinal);
+            Assert.Contains("class=\"editor\" data-emblem>", with, StringComparison.Ordinal);
 
             Assert.DoesNotContain("/account/alliance-emblem", without, StringComparison.Ordinal);
-            Assert.DoesNotContain("class=\"builder\"", without, StringComparison.Ordinal);
+            Assert.DoesNotContain("class=\"editor\" data-emblem>", without, StringComparison.Ordinal);
 
-            // The crest is still SHOWN - a member who cannot change it can still
+            // And the script is not shipped at all to somebody who cannot use it.
+            Assert.DoesNotContain("embLimits", without, StringComparison.Ordinal);
+
+            // The emblem is still SHOWN - a member who cannot change it can still
             // see what their alliance wears - and the page names the permission
             // that would unlock it, because this rank is short of only that one.
             Assert.Contains("class=\"preview\"", without, StringComparison.Ordinal);
-            Assert.Contains("Changing the crest needs", without, StringComparison.Ordinal);
+            Assert.Contains("Changing the emblem needs", without, StringComparison.Ordinal);
 
             // A rank that is short of EVERYTHING gets the one summary note at the
-            // foot of the card instead of a per-control note as well.
-            string nothing = Html(View(Alliance(new AllianceRights(false, false, false, false))));
-            Assert.DoesNotContain("Changing the crest needs", nothing, StringComparison.Ordinal);
+            // foot of the alliance card instead of a per-control note as well.
+            string nothing = Html(View(Alliance(new AllianceRights(false, false, false, false))),
+                PortalTabs.Emblem);
+            Assert.DoesNotContain("Changing the emblem needs", nothing, StringComparison.Ordinal);
             Assert.Contains("class=\"preview\"", nothing, StringComparison.Ordinal);
         }
 
         /// <summary>
-        /// The preview is the REAL renderer's route, not a canvas. Two renderers
-        /// of one picture drift silently.
+        /// THE EDITOR POSTS ONE FIELD, and it is the design code.
+        ///
+        /// Twenty layers of eight numbers each is a design whose LAYER ORDER is
+        /// data, and a form does not promise the order of its fields. It is also a
+        /// textarea rather than a hidden input, so a browser with no script can
+        /// still paste a design and save it.
         /// </summary>
         [Fact]
-        public void ThePreviewPointsAtTheSameRouteTheGameDownloadsFrom()
+        public void TheEditorPostsTheDesignAsOneVisibleField()
         {
-            string html = Html(View(Alliance(new AllianceRights(false, false, true, false))));
+            string html = Html(View(Alliance(new AllianceRights(false, false, true, false))),
+                PortalTabs.Emblem);
 
-            Assert.Contains("/alliance-emblem/preview.png", html, StringComparison.Ordinal);
-            Assert.DoesNotContain("<canvas", html, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("<textarea name=\"" + EmblemFormPolicy.DesignField + "\"",
+                html, StringComparison.Ordinal);
+            Assert.DoesNotContain(
+                "type=\"hidden\" name=\"" + EmblemFormPolicy.DesignField + "\"",
+                html, StringComparison.Ordinal);
+
+            // And exactly the design the alliance is wearing, so opening the tab
+            // and saving without touching anything is a no-op rather than a wipe.
+            Assert.Contains(">" + EmblemSpec.DefaultFor(AllianceId).ToCode() + "</textarea>",
+                html, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// The catalogue is fetched from THIS server, at a URL carrying its own
+        /// revision, so it caches forever and a changed shape mints a new address.
+        /// </summary>
+        [Fact]
+        public void TheEditorPointsAtTheServersOwnObjectCatalogue()
+        {
+            string html = Html(View(Alliance(new AllianceRights(false, false, true, false))),
+                PortalTabs.Emblem);
+
+            Assert.Contains(EmblemEditorData.CatalogueUrl, html, StringComparison.Ordinal);
+            Assert.StartsWith("/alliance-emblem/", EmblemEditorData.CatalogueUrl, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// The editor's script and stylesheet are served ONLY on the tab that uses
+        /// them. Together they are the largest thing on the portal, and a visit
+        /// about a password must not pay for them.
+        /// </summary>
+        [Fact]
+        public void TheEditorsAssetsAreOnItsOwnTabAndNowhereElse()
+        {
+            PortalView view = View(Alliance(new AllianceRights(false, false, true, false)));
+
+            Assert.Contains(WebAssets.Read("emblem-editor.css"),
+                Html(view, PortalTabs.Emblem), StringComparison.Ordinal);
+
+            foreach (string other in new[]
+            {
+                PortalTabs.Account, PortalTabs.Patcher, PortalTabs.Alliance, CharacterTab,
+            })
+            {
+                string html = Html(view, other);
+                Assert.DoesNotContain("emb-", html, StringComparison.Ordinal);
+                Assert.DoesNotContain("embLimits", html, StringComparison.Ordinal);
+                Assert.DoesNotContain(".editor .cols", html, StringComparison.Ordinal);
+            }
         }
 
         [Fact]
         public void MemberControlsAppearOnlyOnTheRowsThatPermitThem()
         {
-            string html = Html(View(Alliance(new AllianceRights(false, false, false, true))));
+            string html = Html(View(Alliance(new AllianceRights(false, false, false, true))), PortalTabs.Alliance);
 
             // Halloran's row permits both; the signed-in character's own does not.
             Assert.Contains(OtherUid.ToString("D"), html, StringComparison.Ordinal);
@@ -271,7 +406,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void WithNoMemberRightsTheRosterIsJustNames()
         {
-            string html = Html(View(Alliance(new AllianceRights(true, true, true, false))));
+            string html = Html(View(Alliance(new AllianceRights(true, true, true, false))), PortalTabs.Alliance);
 
             Assert.Contains("Halloran", html, StringComparison.Ordinal);
             Assert.DoesNotContain("/account/alliance-member", html, StringComparison.Ordinal);
@@ -287,7 +422,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void TheFoundersRankIsNeverOfferedInTheRankPicker()
         {
-            string html = Html(View(Alliance(new AllianceRights(false, false, false, true))));
+            string html = Html(View(Alliance(new AllianceRights(false, false, false, true))), PortalTabs.Alliance);
 
             Assert.Contains("<select class=\"rank\"", html, StringComparison.Ordinal);
             Assert.DoesNotContain(
@@ -315,7 +450,7 @@ namespace WorldsAdriftServer.Tests
                 },
             };
 
-            string html = Html(View(card));
+            string html = Html(View(card), PortalTabs.Alliance);
 
             Assert.DoesNotContain("<select class=\"rank\"", html, StringComparison.Ordinal);
             Assert.Contains("Wingleader", html, StringComparison.Ordinal);
@@ -330,24 +465,24 @@ namespace WorldsAdriftServer.Tests
         /// said otherwise, and nothing in the CSS looked wrong.
         /// </summary>
         [Fact]
-        public void NoBuilderRuleFollowsTheNarrowScreenBreakpoint()
+        public void NoEditorRuleFollowsTheNarrowScreenBreakpoint()
         {
-            string css = WebAssets.Read("account.css");
+            string css = WebAssets.Read("emblem-editor.css");
 
-            int breakpoint = css.IndexOf("@media (max-width: 36rem)", StringComparison.Ordinal);
-            Assert.True(breakpoint > 0, "the builder's breakpoint is gone");
+            int breakpoint = css.IndexOf("@media (max-width: 62rem)", StringComparison.Ordinal);
+            Assert.True(breakpoint > 0, "the editor's breakpoint is gone");
 
-            int closes = css.IndexOf("\n}", breakpoint, StringComparison.Ordinal);
-            Assert.True(closes > breakpoint);
+            int closes = css.LastIndexOf("\n}", StringComparison.Ordinal);
+            Assert.True(closes > breakpoint, "the breakpoint is not the last block in the file");
 
-            Assert.DoesNotContain(".builder", css.Substring(closes), StringComparison.Ordinal);
+            Assert.DoesNotContain(".editor", css.Substring(closes), StringComparison.Ordinal);
         }
 
         [Fact]
         public void ApplicationsAndInvitationsAreListedButOnlyActionableWithEditMembers()
         {
-            string with = Html(View(Alliance(new AllianceRights(false, false, false, true))));
-            string without = Html(View(Alliance(new AllianceRights(true, true, true, false))));
+            string with = Html(View(Alliance(new AllianceRights(false, false, false, true))), PortalTabs.Alliance);
+            string without = Html(View(Alliance(new AllianceRights(true, true, true, false))), PortalTabs.Alliance);
 
             Assert.Contains("Sesta", with, StringComparison.Ordinal);
             Assert.Contains("Ovel", with, StringComparison.Ordinal);
@@ -368,7 +503,7 @@ namespace WorldsAdriftServer.Tests
                 new CrewMemberRow("Wrenna", false, true, null),
             });
 
-            string html = Html(View(crew: crew));
+            string html = Html(View(crew: crew), CharacterTab);
 
             Assert.Contains("Halloran&#39;s crew", html, StringComparison.Ordinal);
             Assert.Contains("captain", html, StringComparison.Ordinal);
@@ -397,7 +532,7 @@ namespace WorldsAdriftServer.Tests
                 },
                 Csrf, nasty, true);
 
-            string html = AccountPage.Render(view);
+            string html = Everything(view);
 
             Assert.DoesNotContain("<script>alert(1)</script>", html, StringComparison.Ordinal);
             Assert.Contains("&lt;script&gt;", html, StringComparison.Ordinal);

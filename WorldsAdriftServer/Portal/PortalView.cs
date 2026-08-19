@@ -29,7 +29,14 @@ namespace WorldsAdriftServer.Portal
         IReadOnlyList<CharacterCard> Characters,
         string Csrf,
         string? Notice,
-        bool NoticeIsError);
+        bool NoticeIsError,
+
+        /// <summary>
+        /// Which tab is being drawn. Resolved once, by the handler, against the
+        /// tabs this view actually has - so the page never has to decide whether a
+        /// tab exists, only how to draw the one it was given.
+        /// </summary>
+        string Tab = PortalTabs.Account);
 
     /// <summary>One character, with whatever groups it belongs to.</summary>
     internal sealed record CharacterCard(
@@ -79,7 +86,7 @@ namespace WorldsAdriftServer.Portal
         IReadOnlyList<AllianceRankRow> Ranks,
         IReadOnlyList<RequestRow> Applications,
         IReadOnlyList<RequestRow> Invitations,
-        EmblemSpec Emblem,
+        EmblemArtwork Emblem,
         bool EmblemBuilt,
         string? ExternalEmblemUrl,
         AllianceRights Rights);
