@@ -116,11 +116,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Inventory
                 "item.rewards",
                 "InventoryWire is the only reader of ValidItem.rewards; nothing else may parse that block.");
 
-            Contains(
-                Source("WorldsAdriftRebornGameServer", "Game", "Items", "ItemHelper.cs"),
-                "rewards { get; set; }",
+            string items = Source("WorldsAdriftRebornGameServer", "Game", "Items", "ItemHelper.cs");
+
+            Contains(items, "rewards { get; set; }",
                 "ValidItem must actually deserialise the rewards block, or every lookup returns nothing and "
                 + "every salvage refuses with NoRewardBlock.");
+
+            // System.Text.Json binds by exact property name and is case-sensitive by
+            // default, so a "tidied" RewardRow with C#-shaped names binds NOTHING and
+            // fails completely silently: the block parses, every field is zero, and
+            // every salvage refuses. The names have to stay the file's names.
+            foreach (string field in new[]
+                     {
+                         "public int a { get; set; }",
+                         "public int q { get; set; }",
+                         "public string item { get; set; }",
+                     })
+            {
+                Contains(items, field,
+                    "RewardRow's property names ARE the itemData.json keys - System.Text.Json matches them "
+                    + "exactly and case-sensitively. Renaming one binds it to nothing, silently.");
+            }
         }
 
         /// <summary>
