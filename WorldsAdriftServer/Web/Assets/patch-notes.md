@@ -1,13 +1,23 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 525 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 535 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 38 commits
+## 2026-08-19 | 48 commits
 
+* daecd01 Correct the production claim: the release world IS on, and the numbers decompose
+* 35a0317 Kill a creature with the beam, not with a weapons system
+* 5febf4b Size phase 7 from evidence, and withdraw the corpse-grounding plan
 * 6241cc4 Make regenerating the patch notes a step of the deploy
+* 77863d7 Record the gate results for the three landed phases
+* 38a51b5 Separate two comment blocks that ran together
+* 893fa93 Record what landed, and fold the maintainer's lifecycle account into phase 7
+* 0aa0fe8 Pay plant fibre and berries off the cut that already pays wood
 * 3774e15 Make the live ground-profile cache safe for parallel test classes
 * 67d3709 Lay a felled log along the ground instead of flat through it
+* 058877d Draw a deposit's metal from its island instead of hardcoding iron
+* d756972 Pay a node's own quality into the item it yields
 * 7686267 Offer the alliance crest as a PNG, not only as a vector
+* 707a28e Plan the resource economy, and correct three audit findings first
 * 2fc5846 Size the save-menu preview so the crest is not clipped
 * 8bb53d0 Record the tree-fall deploy
 * e73cefa Ask before Delete all throws the layers away
