@@ -80,7 +80,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // retail Environment-layer ShipSurfaces skin. Normalize here (rather than
             // only in the catalogue) so old loose/mounted records and live env
             // overrides cannot resurrect the one-incidental-frame placement bug.
-            AttachmentType = PartMountSurfaces.NormalizeForBuiltShip(attachmentType);
+            AttachmentType = PartMountSurfaces.NormalizeForBuiltShip(attachmentType, itemType);
             PartSpecificComponents = partSpecificComponents;
         }
 

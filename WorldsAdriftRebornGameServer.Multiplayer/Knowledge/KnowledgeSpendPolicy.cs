@@ -105,8 +105,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Knowledge
                 { "Medium Panel", new[] { "mediumPanel" } },
                 { "Large Panel", new[] { "largePanel" } },
                 { "Window Panel", new[] { "window" } },
-                { "Ship Railing", new[] { "railing" } },
-                { "Railing Corner", new[] { "railingCorner" } },
+                // The two railing nodes each also carry a BAR PIPE - straight with
+                // straight, bent with corner. Bar pipes are the instrument stands (WIKI:
+                // "structural items ... used to attract lightning in a Stormwall or to
+                // display Instruments"), they are real client prefabs we simply never
+                // implemented, and the sparse tree export has no node named for them.
+                // Same domain, same material, same Shipyard category - so they ride the
+                // nearest-named structural nodes, exactly as the horn and the airspeed
+                // indicator already do below.
+                { "Ship Railing", new[] { "railing", "barPipe" } },
+                { "Railing Corner", new[] { "railingCorner", "barPipeBent" } },
                 { "Crows Nest", new[] { "smallPanel" } },
                 // Two SkyshipBuilder structural nodes host the two ship fittings the
                 // sparse export left with no faithfully-named node of their own (a ship

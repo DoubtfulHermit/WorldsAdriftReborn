@@ -270,6 +270,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             new Row("railing",      "structural", "Railing",       "RailingStraight","deck", new uint[] { }),
             new Row("railingCorner","structural", "Railing Corner","RailingCorner", "deck", new uint[] { }),
 
+            // --- Structural: BAR PIPES, and what they are FOR --------------------
+            // These are the instrument stands, and they are the reason instruments do
+            // not go on the deck. WIKI: "The Bar Pipe and Bent Bar Pipe are structural
+            // items that can be placed on a ship ... used to attract lightning in a
+            // Stormwall or to display Instruments."
+            //
+            // They were missing rather than absent from retail: `barpipe` and
+            // `barpipebent` are real entity prefabs in the shipped client (they resolve
+            // against Ship/client-entity-prefabs.txt, and carry the bundle keys
+            // entityprefabs/barpipe_unityclient), and the client's own icon atlas files
+            // them under "ship parts/" alongside the helm and the deck. Our recipe
+            // table was never the full retail one - the commit that created it says so:
+            // "the full recovered catalogue can be swapped in later untouched".
+            //
+            // NO NEW COMPONENTS. A pipe is inert structure exactly like a railing: the
+            // base ShipPartVisualizer set renders and lifts it, and nothing on the
+            // prefab reads any state. That is also what makes it a mounting surface -
+            // ShipPartPreprocessor gives it colliders on layer 0 Default, Untagged,
+            // which is inside Layers.Environment and therefore exactly what a
+            // shipSurfaces instrument raycast is looking for.
+            new Row("barPipe",     "structural", "Bar Pipe",      "BarPipe",     "deck", new uint[] { }),
+            new Row("barPipeBent", "structural", "Bent Bar Pipe", "BarPipeBent", "deck", new uint[] { }),
+
             // --- Storage: trunk / mounted box / storage & shipping containers ----
             // Treated as LOOSE parts (lifted with the scanner tool and bolted to the
             // ship, as all WA ship storage is), NOT ground-placed deployables. The
@@ -323,11 +346,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // Their exact retail server-refdata strings are unavailable, but generated
             // ships expose one broad usable mounting surface: ShipDeck. Author all five
             // there rather than retaining the known-broken generic Environment raycast.
-            new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "deck", new uint[] { IsTooDamagedToWorkState }),
-            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "deck", new uint[] { FuelGaugeState, IsTooDamagedToWorkState }),
-            new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "deck", new uint[] { IsTooDamagedToWorkState }),
-            new Row("artificialHorizon",  "instruments", "Artificial Horizon",  "ArtificialHorizon", "deck", new uint[] { IsTooDamagedToWorkState }),
-            new Row("airspeedIndicator",  "instruments", "Airspeed Indicator",  "AirspeedIndicator", "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("altimeter",          ShipInstruments.ItemType, "Altimeter",           "Altimeter",         ShipInstruments.MountSurface, new uint[] { IsTooDamagedToWorkState }),
+            new Row("fuelGauge",          ShipInstruments.ItemType, "Fuel Gauge",          "FuelGauge",         ShipInstruments.MountSurface, new uint[] { FuelGaugeState, IsTooDamagedToWorkState }),
+            new Row("headingIndicator",   ShipInstruments.ItemType, "Heading Indicator",   "HeadingIndicator",  ShipInstruments.MountSurface, new uint[] { IsTooDamagedToWorkState }),
+            new Row("artificialHorizon",  ShipInstruments.ItemType, "Artificial Horizon",  "ArtificialHorizon", ShipInstruments.MountSurface, new uint[] { IsTooDamagedToWorkState }),
+            new Row("airspeedIndicator",  ShipInstruments.ItemType, "Airspeed Indicator",  "AirspeedIndicator", ShipInstruments.MountSurface, new uint[] { IsTooDamagedToWorkState }),
 
             // --- Power generators -----------------------------------------------
             // Two schematic keys, one prefab. Render from baked geometry; any

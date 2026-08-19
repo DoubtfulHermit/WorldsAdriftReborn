@@ -164,6 +164,39 @@ authority for live configuration is the box itself:
   * **Needs a live check** before deploy: that the "Refuel" prompt appears on a
     mounted generator, that the hold completes, and that the needle climbs.
 
+- **CONFIRMED IN A LIVE CLIENT, 2026-08-20 (late 19th session):** a ship
+  container **opens on a ship**. That closes the "It's locked." defect and, with
+  it, the third identity gate - `InteractAgentObserver` reading
+  `LocalPlayerInit.PlayerId` (the literal string `"id"`) against a list of
+  character UUIDs, so an owned hull read as hostile to its own owner.
+  The same gate was adding **+10 s to the hold time of the sail, lamp and horn**,
+  which nobody had reported because the client draws no progress bar below
+  0.001 s and we serve `timeToUse = 0` - so the tax was invisible until the
+  maintainer saw a bar appear on the sky core and let go of it. Those three
+  should now respond instantly; unconfirmed at time of writing.
+  Also confirmed live earlier the same session: the fuel gauge NEEDLE moves (it
+  is a dial with no verb, which is correct and not a defect), and the altimeter
+  now TARGETS a railing, which was SC3's open question.
+  Still failing live: the altimeter preview is **red** after the parent-walk fix
+  (a different gate from the blue it replaced) and its orientation is wrong. See
+  the bar-pipe note below.
+
+  **OPEN QUESTION THAT SHOULD BE SETTLED BEFORE MORE PLACEMENT WORK.** The
+  Worlds Adrift wiki's Flight Instruments page says instruments mount on **bar
+  pipes**, a dedicated part. `LoosePartCatalogue` has `railing` and
+  `railingCorner` and **no pipe of any kind**. So our `GetTag`/`GetCurrentMask`
+  client patch may be forcing instruments onto railings when retail had a
+  purpose-built mount we simply never implemented. Prefer implementing the part
+  and DELETING the patch.
+
+  **This is the second instance of one error class today**, and it is worth
+  naming: an agent searches the decompile for a thing, does not find it, and
+  designs around its absence. Fuel was built per-hull because no "fuel tank"
+  prefab exists - the tank is the **Power Generator** under a different name.
+  The decompile cannot tell you the name of a thing you have not thought to
+  search for. **Use community sources to learn WHAT to look for, then the
+  decompile to establish HOW it works.**
+
 - **Game server:** `92a4002`, **login server:** `92a4002`, both at 2026-08-19
   17:20 CEST. **Client manifest `2026.08.19-4`.** The afternoon, in one entry.
   * **Ship containers work** - trunk, mountedBox, storageContainer,
