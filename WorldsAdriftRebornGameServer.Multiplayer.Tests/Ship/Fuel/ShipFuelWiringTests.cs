@@ -105,8 +105,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
                 + "class that caused this project's desync spiral.");
             Contains(service, "ShipContainerService.IsContainer(",
                 "Only a CONTAINER is a bunker. Without this gate the drain would walk every mounted "
-                + "part, and InventoryService.ForEntity's DefaultModel fallback would hand a railing "
-                + "an inventory full of gauntlets.");
+                + "part of a hull looking for fuel.");
+            Contains(service, "InventoryService.KeyOf(containerEntityId) == null",
+                "THE GAUNTLET TRAP. InventoryService.ForEntity falls back to InventoryWire.DefaultModel "
+                + "- the player starter kit - and Bind runs its factory once, so it does not "
+                + "self-correct. Reading a never-opened container without this guard would give it a "
+                + "permanent inventory full of gauntlets, and the drain reads EVERY container on EVERY "
+                + "hull that burns.");
         }
 
         /// <summary>
