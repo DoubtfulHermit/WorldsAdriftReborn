@@ -15,6 +15,24 @@ Provenance labels are the repo's usual four: **PROVED** (read out of the
 decompile or shipped data), **RECOVERED** (reconstructed from a retail artefact),
 **INFERRED**, **WAREBORN TUNING** (our decision, no retail basis).
 
+## STATUS
+
+| Phase | State |
+|---|---|
+| 1 — Quality reaches the item | **DONE**, committed |
+| 2 — Per-island deposit metals | **DONE**, committed |
+| 3 — Fibre and berries off the tree cut | **DONE**, committed |
+| 4 — The loom | not started; scope grew, see the phase |
+| 5 — Scrapping | not started |
+| 6 — Cooking routing | not started |
+| 7 — Creature lifecycle | not started; 7a-iii unsized pending investigation |
+
+Phases 1–3 are the ones a player feels immediately and they were taken to
+completion rather than three phases being left half-landed. Phase 4 stopped
+before it started for a reason worth reading: investigating it turned a
+one-component fix into a general defect affecting sixteen of eighteen
+deployables, which is a different piece of work and overlaps another agent's.
+
 ---
 
 ## 0. CORRECTIONS TO THE RESOURCE AUDIT
@@ -612,15 +630,34 @@ iron" to "not craftable" until Phase 7. Say so before shipping it.
 ### PHASE 7 — Creature lifecycle and biome-tiered creature materials
 
 This is the phase the maintainer means by "full lifecycle stuff", and it is the
-only one that needs genuinely new systems. It splits into three, because the
-first is shippable on its own and the third is blocked on content we do not have.
+only one that needs genuinely new systems. It splits into four, because the first
+two are shippable on their own and the last is blocked on content we do not have.
 
-**Reality check first, because it reorders everything:** fauna is **OFF in
-production** (`WAREBORN_ISLAND_FAUNA` unset in
-`deploy/wareborn-game-native.service`). Nothing in Phase 7 is visible to a live
-player until fauna is turned on, which is an operations decision and a soak
-question in its own right. That is why Phase 7 is last despite unlocking the most
-material families.
+**The maintainer's own recollection of retail, which is the spec for this phase:**
+
+> *"you could shoot them with guns you craft, or the cannons on your ship. They
+> would die and fall to the ground or something, and you could then salvage them
+> kinda like rocks and trees."*
+
+That is four links — **damage → death → the corpse falls → salvage it with the
+beam** — and it matches what the decompile independently proves. The salvage link
+is the best-evidenced: `MeatSourceBehaviour` is on every creature prefab and is
+salvageable exactly when `MortalityState.IsDead`, i.e. the same beam and the same
+verb as a rock or a tree. It also re-confirms the negative: there was **no
+butchering minigame**, `Butcher` appears once in the whole shipped build as an
+orphan UI label, and jellyfish drop nothing. Do not invent a butchering mechanic.
+
+**Reality check, because it reorders everything:** fauna is **OFF in production**
+(`WAREBORN_ISLAND_FAUNA` unset in `deploy/wareborn-game-native.service`). Nothing
+in Phase 7 is visible to a live player until fauna is turned on, which is an
+operations decision and a soak question in its own right. That is why Phase 7 is
+last despite unlocking the most material families.
+
+**And the seam that stops this being four phases instead of one:** the
+`(source, biome)` yield key designed in 7b is **one model with two producers** — a
+metal node and a creature corpse resolve through the same table. That is worth
+building once, deliberately, rather than growing a second creature-shaped yield
+path beside the one Phases 1–3 just finished.
 
 #### 7a — Mortality, without breaking the closed-form fauna model
 
@@ -685,6 +722,76 @@ relayed entity class. Standing rule applies.
 
 **Schema migration.** No — the kill ledger is in-memory and rebuilt from the
 rhythm on restart, exactly as the rest of fauna is.
+
+#### 7a-ii — The corpse falls. **REUSE the log grounding; do not build a second one.**
+
+The maintainer's *"they would die and fall to the ground"* is the same problem
+`fix/log-grounding` has just solved for a felled tree trunk coming to rest, and
+that agent has baked a **ground-height profile for all 13,266 tree seats** — 8
+bearings per seat, measured off the island meshes, so the server can answer "what
+does the terrain do around this point" with **no runtime raycast**. Constants
+`MIN_T = 8.0`, `DECK_BAND = 6.0`, unknown sentinel `-128`.
+
+**A second grounding mechanism must not be written.** Two caveats inherited from
+that work, both of which change the design rather than decorate it:
+
+1. **The profile is baked AT TREE SEATS.** It answers "what is the ground like
+   near a tree", not "at an arbitrary point on this island" — and a creature can
+   die anywhere, including over water, over a cliff, or over a ship's deck. So
+   the honest position is: **the existing data probably does not generalise, and
+   corpse landing likely needs its own sampling.** Establish that before
+   assuming either way. What is certainly reusable is the *method* and the
+   `IslandSurfaceData` the profile was generated from, not necessarily the baked
+   table.
+2. **About one bearing in nine is UNKNOWN (`-128`).** Whatever corpses do, the
+   unknown case must degrade to **resting on the surface**, never to **skipping
+   grounding**. Skipping is exactly the floating-in-the-air / clipping-the-
+   mountain bug the maintainer reported for logs, and reintroducing it for
+   corpses would be the same bug with a new name.
+
+`TreeFall.cs`, `TreeHarvest.cs` and `FallingLogService.cs` belong to that agent
+and are not to be edited from here. **What this phase needs from them** is a
+callable, entity-agnostic "ground this point" seam — given an island and a world
+position, return a resting height and a surface normal, with the unknown case
+resolved to the surface rather than to a null. If their module exposes that,
+corpse landing is a caller. If it only exposes tree-seat lookups, say so and this
+becomes its own small piece of work rather than a silent divergence.
+
+**Open, and worth checking rather than assuming:** whether the corpse needs to
+fall *on the server at all*. The client ragdolls a dying creature itself
+(`CreaturePreprocessor` attaches the death visuals), so it is possible the server
+only has to publish the death and a final resting transform, with the fall being
+cosmetic. If so this sub-phase collapses to "pick a resting point", which is a
+much smaller thing than a physics fall. Establish which before building either.
+
+#### 7a-iii — The trigger. What is actually missing between firing and a corpse.
+
+The maintainer confirms from the live client that **weapon schematics exist and
+are visible in the crafting UI**, so the crafting side is not the gap. That moves
+the question rather than removing it, and the accurate phrasing is not "weapons
+do not exist" but: *does a crafted weapon fire, and does anything it fires deal
+damage?*
+
+Three things to establish, in order, before this sub-phase can be sized:
+
+1. **The recipes.** Which weapon schematics we serve, and whether their inputs are
+   honest. This plan has already found five recipes whose label and consumed
+   material disagree; a weapon whose slot silently eats `iron` is the same bug
+   class and is worth fixing in the same pass as Phase 6's.
+2. **Firing.** What the client publishes when a weapon is used, and whether we
+   have a handler for it. This is the seam most likely to be a stub.
+3. **Damage reaching a target.** Whether *any* damage-to-an-entity path exists
+   today. If a player-versus-object or ship-versus-ship path already carries
+   damage, then creature damage is "give fauna a health component and subscribe",
+   not "build a weapons system" — a completely different size of job.
+
+**Ship cannons are a separate question and must be established separately.** The
+maintainer named them apart from hand weapons, and they are ship *parts*, which
+on this codebase is a different code path (mounted parts, `InteractVerb.Man`,
+their own interaction policy). Do not assume one answer covers both.
+
+Until 1–3 are answered this sub-phase has no size, and the plan should not
+pretend otherwise.
 
 #### 7b — Biome-tiered creature yields
 
@@ -811,9 +918,19 @@ change. It is its own workstream and should not be folded into a resource phase.
 | 4 | Loom activates + Clothing routes | wearables | **medium** | no | no |
 | 5 | Scrapping | 134 inert scrap rows | low | no | no |
 | 6 | Cooking routes + recipe honesty | food, once meat exists | low | no | no |
-| 7a | Creature mortality | corpses | **high** | no | **yes** |
+| 7a | Creature mortality (kill ledger) | corpses | **high** | no | **yes** |
+| 7a-ii | The corpse falls and rests | corpses you can reach | medium | no | inherits |
+| 7a-iii | Firing and damage | a way to kill anything | **UNSIZED** | no | inherits |
 | 7b | Biome-tiered creature yields | meat, chitin, clusters | medium | no | inherits |
 | 7c | Beetles | beetle materials | **high** | no | inherits |
+
+7a-iii is deliberately marked UNSIZED rather than given a guess. Weapon
+schematics exist in the crafting UI, but whether a crafted weapon fires and
+whether anything it fires deals damage are both unestablished, and the answer
+changes the job by an order of magnitude: if a damage path to an entity already
+exists, creature damage is a health component and a subscription; if it does not,
+it is a weapons system. That question is out for investigation and the plan
+should not pretend to a number before it comes back.
 
 Phase 1 is first because it is the smallest change with the widest reach: it is
 the difference between crafted stats meaning something and meaning nothing, it
