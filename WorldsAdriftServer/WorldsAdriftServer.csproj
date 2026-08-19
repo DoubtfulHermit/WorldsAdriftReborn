@@ -39,6 +39,21 @@
     <!-- Preserved release MapFile: static geography for the authenticated live map. -->
     <EmbeddedResource Include="..\docs\research\world-data\wamap-islands.json"
                       Link="WorldData\wamap-islands.json" />
+
+    <!--
+      The traced object sheets, EMBEDDED RATHER THAN TRANSCRIBED INTO C#.
+
+      This is the tracer's own deliverable, shipped byte for byte, so there is no
+      generated source file that can drift from the artwork the way a
+      hand-regenerated table can. Two hundred outlines is roughly 700kB of
+      coordinates; as C# string literals that is a source file four times the
+      size of the largest one in this repository, which every build parses and no
+      diff can be read - and it would sit in the assembly as UTF-16, twice the
+      size it needs to be. As a resource it is a UTF-8 blob the loader reads once.
+      See Emblems/EmblemObjectSheets.cs for the whole of the other end.
+    -->
+    <EmbeddedResource Include="..\tools\emblem-objects\emblem-objects.json"
+                      Link="Emblems\emblem-objects.json" />
   </ItemGroup>
 
   <ItemGroup>

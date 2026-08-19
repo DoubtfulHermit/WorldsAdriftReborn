@@ -166,6 +166,18 @@ namespace WorldsAdriftServer.Emblems
             return band;
         }
 
+        /// <summary>
+        /// How many non-horizontal edges the winding test has to choose between.
+        ///
+        /// The honest measure of what a shape COSTS to draw - not its contour count
+        /// and not its point count, because horizontal edges are dropped on the way
+        /// in and never scanned. Exposed so the render budget test can pick the
+        /// twenty most expensive objects in the catalogue by measurement rather than
+        /// by position, which stops "the worst case" quietly becoming "the last
+        /// twenty things appended" the next time the catalogue grows.
+        /// </summary>
+        internal int EdgeCount => _edges.Length / 4;
+
         /// <summary>Builds a path from contours of flat x,y pairs.</summary>
         internal static EmblemPath FromContours(params double[][] contours) => new EmblemPath(contours);
 
@@ -199,6 +211,84 @@ namespace WorldsAdriftServer.Emblems
             }
 
             return new EmblemPath(contours);
+        }
+
+        /// <summary>
+        /// Parses the OTHER spelling of the same thing: SVG path data made of
+        /// <c>M</c>, <c>L</c> and <c>Z</c> with straight segments only, which is
+        /// what <c>tools/emblem-objects/trace_objects.py</c> writes.
+        ///
+        /// TWO SPELLINGS, ONE GEOMETRY. The compact form <see cref="Parse"/> reads
+        /// and this one carry identical numbers in identical units - integer
+        /// thousandths of the [-1, 1] box, y down, filled non-zero - and differ only
+        /// in whether the commands are written down. So this is not a conversion
+        /// between coordinate systems and there is nothing here to get subtly
+        /// wrong; it drops the letters and starts a contour at each <c>M</c>. That
+        /// the two really are the same is not taken on trust: every one of the
+        /// traced objects is round-tripped back through
+        /// <see cref="AppendPathData"/> in EmblemObjectSheetTests and must come out
+        /// as the string the tracer wrote.
+        ///
+        /// <c>Z</c> is accepted and ignored. Every contour here is closed, and
+        /// <see cref="EmblemPath"/> closes each one itself by wrapping the last
+        /// point back to the first, so an explicit close would only duplicate a
+        /// point and give the winding test a zero-length edge to chew on.
+        /// </summary>
+        internal static EmblemPath ParseDrawing(string data, double unit)
+        {
+            if (string.IsNullOrEmpty(data)) throw new ArgumentException("Empty path.", nameof(data));
+
+            List<double[]> contours = new List<double[]>();
+            List<double> contour = new List<double>();
+
+            int i = 0;
+            while (i < data.Length)
+            {
+                char c = data[i];
+
+                if (c == ' ') { i++; continue; }
+
+                if (c == 'Z' || c == 'z') { i++; continue; }
+
+                if (c == 'M' || c == 'm')
+                {
+                    if (contour.Count > 0) { contours.Add(contour.ToArray()); contour.Clear(); }
+                    i++;
+                }
+                else if (c == 'L' || c == 'l')
+                {
+                    i++;
+                }
+                else if (c != '-' && (c < '0' || c > '9'))
+                {
+                    // Curves, arcs and relative commands are not in this dialect and
+                    // never have been. Refused loudly: a silently skipped command
+                    // would land as a shape with a straight line where a curve was.
+                    throw new ArgumentException(
+                        "Unsupported path command '" + c + "'.", nameof(data));
+                }
+
+                contour.Add(Number(data, ref i) / unit);
+                contour.Add(Number(data, ref i) / unit);
+            }
+
+            if (contour.Count > 0) contours.Add(contour.ToArray());
+
+            return new EmblemPath(contours.ToArray());
+        }
+
+        /// <summary>One integer coordinate, leaving the cursor after it.</summary>
+        private static int Number(string data, ref int i)
+        {
+            while (i < data.Length && data[i] == ' ') i++;
+
+            int start = i;
+            if (i < data.Length && data[i] == '-') i++;
+            while (i < data.Length && data[i] >= '0' && data[i] <= '9') i++;
+
+            if (i == start) throw new ArgumentException("A coordinate is missing.", nameof(data));
+
+            return int.Parse(data.AsSpan(start, i - start), provider: CultureInfo.InvariantCulture);
         }
 
         /// <summary>

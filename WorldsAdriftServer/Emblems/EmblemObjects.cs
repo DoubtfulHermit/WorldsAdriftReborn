@@ -19,9 +19,10 @@ namespace WorldsAdriftServer.Emblems
     ///   THOUSANDTHS of the [-1, 1] box, y DOWN, coordinates separated by spaces,
     ///   contours by '|', filled non-zero. Traced artwork already comes out of
     ///   <c>tools/emblem-devices/trace_devices.py</c> in exactly that form;</item>
-    /// <item>APPEND a row to <see cref="Primitives"/> (or, for a traced sheet
-    ///   icon, append to <see cref="EmblemDeviceGeometry"/> by re-running the
-    ///   tracer);</item>
+    /// <item>APPEND a row to <see cref="Primitives"/> - or, for a traced sheet
+    ///   icon, add it to the END of a sheet and re-run the tracer, which is the
+    ///   whole of it: <see cref="EmblemObjectSheets"/> reads the tracer's output
+    ///   directly, so there is no table here to regenerate;</item>
     /// <item>there is no step three. The palette, the browser preview, the
     ///   rasteriser and the vector export all read this table.</item>
     /// </list>
@@ -55,11 +56,23 @@ namespace WorldsAdriftServer.Emblems
             internal string Category { get; }
             internal EmblemPath Path { get; }
 
-            internal Entry(string name, string category, EmblemPath path)
+            /// <summary>
+            /// Whether the panel offers this object to build NEW layers from.
+            ///
+            /// A hidden object is still at its index and still DRAWS. That is the
+            /// point of hiding rather than deleting: an object nobody should pick
+            /// again may already be on somebody's crest, and the crest must not
+            /// change. See <see cref="EmblemObjectSheets"/> for the list and how to
+            /// add to it.
+            /// </summary>
+            internal bool Hidden { get; }
+
+            internal Entry(string name, string category, EmblemPath path, bool hidden = false)
             {
                 Name = name;
                 Category = category;
                 Path = path;
+                Hidden = hidden;
             }
         }
 
@@ -137,6 +150,15 @@ namespace WorldsAdriftServer.Emblems
                 if (path == null) continue;
 
                 entries.Add(new Entry(EmblemDeviceGeometry.Names[i], DeviceCategory, path));
+            }
+
+            // 5. The two hundred objects off the four later sheets, which arrive
+            //    already in this file's coordinate system, fill rule and winding -
+            //    so this is a move, not a conversion. They come LAST because they
+            //    came last: everything above keeps the index it shipped with.
+            foreach (EmblemObjectSheets.Icon icon in EmblemObjectSheets.All)
+            {
+                entries.Add(new Entry(icon.Name, icon.Category, icon.Path, icon.Hidden));
             }
 
             return entries;

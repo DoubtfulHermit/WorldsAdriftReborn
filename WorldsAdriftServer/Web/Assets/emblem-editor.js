@@ -238,6 +238,7 @@
     var codeBox = embFind(form, '[data-code]');
     var layerList = embFind(form, '[data-layers]');
     var objectGrid = embFind(form, '[data-objects]');
+    var objectTally = embFind(form, '[data-tally]');
     var paletteBox = embFind(form, '[data-palette]');
     var opacity = embFind(form, '[data-opacity]');
     var opacityValue = embFind(form, '[data-opacity-value]');
@@ -480,6 +481,12 @@
       for (var i = 0; i < embCatalogue.length; i++) {
         var entry = embCatalogue[i];
 
+        // Suppressed artwork: in the catalogue, at its own index, drawn by every
+        // renderer - but not offered as something to build a NEW layer from. It is
+        // skipped by the search as well as by the tabs, or "find an object" would
+        // be the one place it was still reachable.
+        if (entry.h) { continue; }
+
         if (needle.length > 0) {
           if (entry.n.toLowerCase().indexOf(needle) < 0) { continue; }
         } else if (entry.c !== category) {
@@ -495,6 +502,12 @@
 
       objectGrid.innerHTML = shown > 0 ? markup
         : '<p class="waiting">Nothing here matches that.</p>';
+
+      if (objectTally) {
+        objectTally.textContent = shown === 0 ? ''
+          : shown + (shown === 1 ? ' object' : ' objects')
+            + (needle.length > 0 ? ' match your search' : ' in ' + category.toLowerCase());
+      }
     }
 
     function drawControls() {

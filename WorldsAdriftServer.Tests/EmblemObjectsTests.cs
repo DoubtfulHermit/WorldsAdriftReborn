@@ -57,8 +57,29 @@ namespace WorldsAdriftServer.Tests
                 Assert.Equal(EmblemDeviceGeometry.Names[i], EmblemObjects.All[Shipped.Length + i].Name);
                 Assert.Equal(EmblemObjects.DeviceCategory, EmblemObjects.All[Shipped.Length + i].Category);
             }
+        }
 
-            Assert.Equal(Shipped.Length + EmblemDeviceGeometry.Names.Count, EmblemObjects.Count);
+        /// <summary>
+        /// The four later sheets come after the device sheet, in the sheets' own
+        /// order, and nothing from them landed anywhere else.
+        ///
+        /// The count is asserted EXACTLY, so an object that appeared from nowhere -
+        /// a fifth sheet nobody meant to ship, an entry counted twice - fails here
+        /// rather than after somebody's crest has been drawn with it.
+        /// </summary>
+        [Fact]
+        public void The_later_sheets_follow_the_device_sheet()
+        {
+            int at = Shipped.Length + EmblemDeviceGeometry.Names.Count;
+
+            for (int i = 0; i < EmblemObjectSheets.All.Count; i++)
+            {
+                Assert.Equal(EmblemObjectSheets.All[i].Name, EmblemObjects.All[at + i].Name);
+                Assert.Equal(EmblemObjectSheets.All[i].Category, EmblemObjects.All[at + i].Category);
+                Assert.Same(EmblemObjectSheets.All[i].Path, EmblemObjects.All[at + i].Path);
+            }
+
+            Assert.Equal(at + EmblemObjectSheets.All.Count, EmblemObjects.Count);
         }
 
         /// <summary>
@@ -98,7 +119,9 @@ namespace WorldsAdriftServer.Tests
                 Assert.Contains(entry.Category, new[]
                 {
                     EmblemObjects.ShieldCategory, EmblemObjects.ShapeCategory,
-                    EmblemObjects.DeviceCategory,
+                    EmblemObjects.DeviceCategory, EmblemObjectSheets.EasternCategory,
+                    EmblemObjectSheets.SalvageCategory, EmblemObjectSheets.OutlineCategory,
+                    EmblemObjectSheets.SolidCategory,
                 });
 
                 // A shape with no extent is a palette entry nobody can use and a
