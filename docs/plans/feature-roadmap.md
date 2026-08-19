@@ -192,13 +192,15 @@ relative to the repo root unless absolute.
 |---|---|---|
 | **Shipyard** | **LIVE end-to-end** | place → access (`ShipyardBuildAccess.cs` sets `1219 ShipyardId`) → build lists → select → fill → craft → spawn (`Game/Crafting/ShipBuildCompletion.cs:34+` → `BuiltShipSpawner`). |
 | **Assembly Station** | **LIVE** | `Deployables.cs:214-216`, `isCraftingStation: true`. Note the asset is named `"CraftingStation"` because **no loadable `AssemblyStation` prefab exists in the client bundles** (`:203-208`) — without the workaround the station could be selected and never placed. |
-| **Assembly Crafting** | **LIVE** | 37 recipes; `Handlers/PlayerCraftingInteractionState_Handler.cs:352-587` — realizability gate, at-most-one guard, atomic consume, timed hold, spawn, refund on failure. `LoosePartCatalogue` has exactly 37 rows: 1:1 coverage. |
+| **Assembly Crafting** | **LIVE** | 37 recipes; `Handlers/PlayerCraftingInteractionState_Handler.cs:352-587` — realizability gate, at-most-one guard, atomic consume, timed hold, spawn, refund on failure. `LoosePartCatalogue` has exactly 37 rows: 1:1 coverage. **All 37 audited row by row in §11**: 36 render, 4 are interactable, 6 more should be, and 23 can be placed only on a flat deck. |
 | **Inventory Crafting** | **LIVE** | 18 recipes; same handler `:271-331`. **My brief's lead that the 1003 handler is a stub is FALSE** — it is 681 lines and the most fully realised handler in the crafting stack. Do not cite it as a stub. |
 | **Cooking Crafting** | **MISSING** | §2.4. |
 | **Schematics — items** | **LIVE** | 60-record catalogue served over `1097 SendSchematicData`. Recipes are **server-supplied, not in client bundles** — exhaustive UnityPy scan, 0 hits (`findings-crafting.md`). Starter grant is 6 recipes (`StarterSchematics.cs:23-34`), two flagged temporary. |
 | **Schematics — ship frame designs** | **LIVE** | Load/Update/Save/Reset/Unload/Rename with per-command acks (`Handlers/ShipHullAgentClientState_Handler.cs`), blobs validated by `ShipPlanModel.TryDecode`. |
 | **Schematics — ship blueprint bill of materials** | **STUB** | `Multiplayer/Crafting/ShipBlueprintRecipe.cs:107-115` is a banner comment reading `TEST RECIPE - NOT THE ORIGINAL WORLDS ADRIFT NUMBERS`. **Every** blueprint resolves to the same hardcoded `TestMakeshiftShip()` — 3 birch + 2 iron, 10 s — regardless of what the player selected (`Handlers/PlayerShipBlueprintInteractionState_Handler.cs:139`). Ships are effectively free. |
 | **Ship part salvage** | **LIVE** | `Multiplayer/Ship/ShipPartSalvagePolicy.cs`, full recipe refund, 15 m work radius, owned-shipyard gate. ⚠ It inherits the iron bug symmetrically: salvaging a sky-core module refunds **iron**, not atlas shards. |
+| **Ship components (the 37 assembly-bench parts)** | **LIVE, with one invisible row and six inert ones** | Full per-part audit in **§11**. Every prefab name resolves, every seeded id has a serialiser branch, every recipe is knowledge-reachable. The `window` renders nothing (a mesh-selection failure, fixed on `docs/ship-components`); the four storage containers, the personal reviver and the sky core are visible and dead. |
+| — instrument mounting surfaces | **PARTIAL — narrower than retail, knowingly** | 23 of 37 rows are authored `"deck"`, so an altimeter goes on a flat deck and nowhere else. Retail chose the surface from a per-item server string with seven flag values; **those values are unrecoverable** (no item table ships in the client). §11.6. |
 | **Hull material → flight** | **LIVE** | `Game/ShipFlightService.cs:1033-1047` — `HullMassCalculator.HullMassKg(...)` → `AgilityScale`. Pre-feature ships degrade to `HullMaterials.Legacy`. |
 | **Helm flight** | **LIVE** | Gated at `ShipFlightService.cs:63` on `WAREBORN_HELM_FLIGHT`, which **is `1` in production**. |
 | **Ship docking (1205)** | **MISSING** | Explicit follow-up: `ShipBuildCompletion.cs:20-23` — *"DOCKING (1205.dockedShipId) is NOT wired: the ship spawns FREE next to the yard."* |
@@ -484,7 +486,10 @@ Same shape as 4.4. `Deployables.cs:246-247` already carries the TODO.
   List<SlottedMaterial> materialsUsed }` — i.e. the station's *output* state.
   That branch flags a broader open question worth adopting: **the same missing
   activation component may affect 16 of 18 deployables.** Nobody owns that
-  audit. It belongs in Phase 1 below.
+  audit. It belongs in Phase 1 below. **Note the scope carefully:** that is the
+  *deployable* table (`Placement/Deployables.cs`). The 37 *ship components* are a
+  different table with a full seed contract and are audited separately in **§11**
+  — they are not under-seeded, and two of their three symptoms have other causes.
 - **Cooking routing** → `feat/resource-economy` Phase 6. Note it must also
   change `StationCraftRoutingTests.cs:168-177`, which currently asserts the bug
   as intended.
@@ -545,6 +550,13 @@ deploy. Those phases are marked **CLIENT MOD** and listed together in §6.
    client-required activation component. Nobody owns this. Audit all 18
    against their client `[Require]` sets and produce the list. Cheap, and it
    tells us how much of Phase 3 is already half-built.
+   **Two corrections from §11, which did the equivalent audit for ship parts.**
+   (a) `[Require]` coverage alone is **not enough** — `InteractiveObjectVisualizer`
+   caches the entry matching its *prefab-baked verb* once in `OnEnable`, so a
+   fully-seeded prop served the wrong verb still shows no prompt at all. Audit
+   both halves. (b) There is a third failure shape neither half catches: a
+   component that is present and correctly typed but carries a **value the
+   client's art cannot render** (§11.3). Budget for it.
 4. **Land `feat/loot-containers` Phase 1 + 2a.** Their work, sequenced here
    because chests are the first new *content* a player meets.
 5. **Clothing catalogue repair.** 135 blank display names and 52 blank
@@ -971,3 +983,497 @@ hull in the game costs three birch and two iron; and then **build the death
 loop** that weapons, hunting, cooking and half the recovered quest list all
 depend on. Three of those four require no new system at all — only the wiring
 of content this project already has.
+
+**Added 2026-08-19:** §11 audits the 37 assembly-bench ship components against
+that same standard and finds the construction half in better shape than expected
+— 36 of 37 render — but narrower than retail in one specific, fixable way: an
+instrument can be mounted on a flat deck and nothing else.
+
+---
+
+## 11. SHIP COMPONENTS — THE ASSEMBLY-BENCH AUDIT
+
+**Added:** 2026-08-19, branch `docs/ship-components`, cut from `main`.
+**Why:** three symptoms reported from live play — *"some of them don't show up"*,
+*"the ones that show up that should be interactable aren't"*, and *"the altimeter
+can only go on the floor; I put a fence down and I want to place it on that"*.
+
+This section is the audit those three demanded. It is **not** the same subject as
+§4.6 / §5 Phase 1 item 3, and the difference matters: that item is the
+**deployable** activation audit (`Multiplayer/Placement/Deployables.cs`, 17
+hand-placed ground props, 16 of which seed only a transform). **Ship components
+are a different table, a different spawn path and a different seed contract** —
+`Multiplayer/Ship/LoosePartCatalogue.cs`, 37 rows, spawned by
+`Game/Crafting/LoosePartSpawner.cs`. They are *not* under-seeded. The headline of
+this audit is that the ship-part table is in far better shape than the deployable
+one, and that its three symptoms have three genuinely different causes.
+
+### 11.1 The path, in one line
+
+`1003 StartCrafting` at a placed Assembly Station
+(`Handlers/PlayerCraftingInteractionState_Handler.cs:124,352-560`) →
+`LoosePartCatalogue.ForSchematic` (`:370`) →
+prefab realizability gate (`:389-398`, `StationCraftOutputGate`) →
+atomic consume (`:445`) → `LoosePartSpawner.Spawn` (`:482-488`) →
+AssetLoadRequest + AddEntity + **one** `SendAddComponentOp(...,
+failOnComponentInitError: true)` (`LoosePartSpawner.cs:404-433`) →
+the player lifts it with the scanner and mounts it with `1070 PlacePart`
+(`Game/PartMountService.cs`).
+
+**The count is closed and triple-pinned at 37:** 37 rows in `LoosePartCatalogue`,
+exactly 37 `"category": "CraftingStation"` recipes in `schematicData.json`, and
+`Multiplayer.Tests/Ship/LoosePartTests.cs:31-40` pins the same 37 names. 36
+distinct prefabs (`powerGenerator` and `powerGenerator01` share
+`PowerGenerator01`). **PROVED.**
+
+Three checks that each killed a plausible theory before it reached this table:
+
+- **Every one of the 36 prefab names resolves** against the real client
+  entity-prefab set (`docs/research/loop/data/client-entity-prefabs.txt`, 359
+  names). Not one is a dead bundle string. **PROVED.**
+- **Every seeded component id has a `ComponentsSerializer` branch** — all of
+  `190602, 190601, 1016, 1099, 1013, 1120, 8066, 1246` plus `1107, 1108, 1118,
+  1303, 1518, 12281, 1236`. So the all-or-nothing batch does **not** drop, and no
+  ship component is sitting at the world origin. **PROVED.** (This is the trap
+  §4.4 warns about; it does not currently bite this table.)
+- **All 37 recipes are reachable.** 36 are granted by a knowledge node that
+  really exists in `knowledge-tree.json` and `lamp` is a starter
+  (`StarterSchematics.cs:23-34`). Zero unreachable rows, so "doesn't show up"
+  is not the torch problem. **PROVED.**
+
+### 11.2 THE TABLE — all 37, what the client needs, what we serve
+
+Common to **every** row, from `LoosePartDefinition.BaseShipPartComponents:116-121`:
+`190602, 190601, 1016, 1099, 1013, 1120, 8066, 1246`. The first six are exactly
+`ShipPartVisualizer`'s `[Require]` set (`acs/Assets.Scripts.Visualisers.Ship/
+ShipPartVisualizer.cs:22-38`), which is why **every row renders and lifts** — the
+"extra" column below is what is appended on top.
+
+`1210 InteractiveState` is **not** seeded; it is served on demand when the client
+asks for it (`ComponentsSerializer.cs:719-989`), which is sufficient because the
+prefab's own interest declares it.
+
+| # | schematicId | prefab | attach → surface | client `[Require]` beyond the base | we add | appears? | interactable? | placeable where? |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `helm` | Helm01 | deck → ShipDeck | `HelmVisualizer` → **1111** (on the *ship*, not the part) | — | **yes** | **yes** — `Man`, served by the dedicated isHelm branch (`:888-902`) | flat deck only |
+| 2 | `sail` | Sail01 | deck → ShipDeck | `SailVisualizer` → **1303** | 1303 | **yes** | **yes** — `Activate` (furl) | flat deck only |
+| 3 | `deck` | Deck01 | deck → ShipDeck | `ShipDeckVisualizer` → **1518 + 1099** | 1518 | **yes** | no (retail: structure) | flat deck only |
+| 4 | `proceduralEngineDefault` | ModularEngine | engine → ShipSide | `ModularShipPartVisualizer` → **12281 + 1099** (builds the mesh); `EngineVisualizer` → 1116, 1235, 1252, 1251 | 12281 | **yes** | no (retail: driven by the helm) | hull side |
+| 5 | `proceduralWingDefault` | ModularWing | wing → ShipSide | same, plus `WingVisualizer` → **1124** | 12281 | **yes** | no (retail: driven by the helm) | hull side |
+| 6 | `atlasSkyCore` | CoreMain | deck → ShipDeck | `ShipCoreVisualizer` → **1236 + 190602** | 1236 | **yes** | **no — should be.** Retail bakes `Activate` (`ShipCorePreprocessor`); we serve `None` because the shipped client has no consumer for the resulting interact | flat deck only |
+| 7–14 | the 8 `skyCore*` modules | Core* | coreModule → CoreModule | `ShipCoreModuleVisualizer` → **1236 + 190602** | 1236 | **yes** | no (retail: passive animators) | **a socket on CoreMain** — the only true socket path in the game |
+| 15 | `smallPanel` | Panel01 | side → ShipSide | `ShipPanelVisualizer` → **1118**; variation → 1246 | 1118 | **yes** | no | hull side |
+| 16 | `mediumPanel` | Panel02 | side → ShipSide | same | 1118 | **yes** | no | hull side |
+| 17 | `largePanel` | Panel03 | side → ShipSide | same | 1118 | **yes** | no | hull side |
+| 18 | `window` | Window01 | side → ShipSide | same | 1118 | **NO — see §11.3. Fixed on this branch, unverified in game** | no | hull side |
+| 19 | `stairs` | Stairs1 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 20 | `railing` | RailingStraight | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 21 | `railingCorner` | RailingCorner | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 22 | `trunk` | ContainerSmall | deck → ShipDeck | `InWorldInventoryVisualiser` → **1210 + 1081**; `IsTooDamagedToWorkVisualizer` → **1236**; baked verb **Inventory** | — | **yes** | **NO — should be. §11.4** | flat deck only |
+| 23 | `mountedBox` | ContainerMount | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
+| 24 | `storageContainer` | ContainerMedium | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
+| 25 | `shippingContainer` | ContainerLarge | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
+| 26 | `barrel` | Barrel01 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 27 | `cupboard` | Cupboard | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 28 | `horn` | Horn01 | deck → ShipDeck | `HornVisualizer` → **1107** | 1107 | **yes** | **yes** — `Activate` (honk) | flat deck only |
+| 29 | `lamp` | Lamp01 | deck → ShipDeck | `LampVisualizer` → **1108 + 1236 + 1099** | 1108, 1236 | **yes** | **yes** — `Activate` (switch) | flat deck only |
+| 30 | `altimeter` | Altimeter | deck → ShipDeck | `AltimeterVisualiser` → **1236** | 1236 | **yes** | no — **correct**, retail made it a local readout | flat deck only |
+| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1236 — the wrong id. §11.5** | **yes, but the needle is dead** | no | flat deck only |
+| 32 | `headingIndicator` | HeadingIndicator | deck → ShipDeck | `HeadingIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
+| 33 | `artificialHorizon` | ArtificialHorizon | deck → ShipDeck | `ArtificialHorizonVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
+| 34 | `airspeedIndicator` | AirspeedIndicator | deck → ShipDeck | `AirspeedIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
+| 35–36 | `powerGenerator`, `powerGenerator01` | PowerGenerator01 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 37 | `personalReviver` | Respawner01 | deck → ShipDeck | `RespawnerVisualizer` → **1094 + 8066** | — | **yes** (the prop; `ShipPartVisualizer` renders it) | **NO — should be. §11.4** | flat deck only |
+
+**The headline numbers.**
+
+- **36 of 37 appear.** One does not: the **Window**. That is a mesh-selection
+  failure, not a missing seed, and it is fixed on this branch.
+- **4 of 37 are interactable today** — helm (`Man`), sail, lamp, horn
+  (`Activate`). **6 more should be and are not**: four storage containers, the
+  personal reviver, and the sky core. The other 27 are correctly inert; retail's
+  preprocessors add no `InteractiveObjectVisualizer` to them at all. **PROVED**
+  part by part in `Multiplayer/Ship/PartInteractionPolicy.cs:27-82`, which is
+  already the written audit of "what did retail let you do with this part".
+- **23 of 37 can be placed only on a flat deck.** 4 go on the hull side, 2 on
+  engine/wing side mounts, 8 into a sky-core socket. **Not one row can be
+  mounted on another placed component.** §11.6.
+
+### 11.3 Symptom 1 — the Window is invisible, and it is a MESH problem
+
+**PROVED, from three independent sources that agree.**
+
+The Window spawns correctly. Its seed batch lands, `ShipPartVisualizer` enables,
+`1118` is served. Then the client throws inside `OnEnable` and the part ends up
+with no geometry at all:
+
+```
+No appropriate mesh found for requested ship panel size!
+ArgumentException: The Object you want to instantiate is null.
+  UnityEngine.Object.Instantiate[Mesh] (UnityEngine.Mesh original)
+  ShipPanel.InitializeMesh ()
+  ShipPanel.Init (...)
+  Assets.Scripts.Visualisers.Ship.ShipPanelVisualizer.OnEnable ()
+```
+
+— the maintainer's own `BepInEx/LogOutput.log`, twice, against a live world state
+holding **exactly two loose `window` parts**.
+
+The chain, decompiled end to end:
+
+1. `ShipPanel.Init` (`acs/ShipPanel.cs:84-121`) resolves the panel's material as
+   `MaterialDefinitionFromName(materialsUsed[0].rawMaterial.materialTypeId) ??
+   MaterialDefinitionFromName(_panelMaterial)` — **our seeded `1099` slot 0 wins
+   over the prefab's own default.**
+2. `PanelArt.MixPanel` (`acs/PanelArt.cs:92-176`) picks the mesh array by
+   (size × window × wood/metal), finds it **empty**, logs the error, and returns
+   a `PanelArtDefinition` whose `panelFilter` holds no mesh — **non-null**, so
+   `Init`'s own null guard does not fire.
+3. `ShipPanel.InitializeMesh` (`:341-352`) then calls `Instantiate` on that null
+   mesh and throws out of `OnEnable`.
+4. The twelve mesh arrays, **read directly out of the shipped client**
+   (`ShipPanelDefinitions`, `level0` path_id 1515):
+
+   | | 1×1 | 1×2 | 2×2 |
+   |---|---|---|---|
+   | metal panel | 5 | 4 | 4 |
+   | **metal window** | **4** | **0** | **0** |
+   | wood panel | 2 | 3 | 2 |
+   | **wood window** | **0** | **0** | **0** |
+
+   `metalWindowPanelMeshes1X1` is the **only** window mesh set in the game. A
+   wooden window has no mesh at any size.
+5. Window01's own `ShipPanel` component is `HasWindow=true`,
+   `_panelSize=onebyone`, `_panelMaterial="iron"` — authored to be exactly the
+   one window that exists. Our uniform Wood seed overrode it.
+
+**Why we were seeding Wood at all, and why that stays.** `ComponentsSerializer`'s
+`1099` branch writes eight slots of the deck's Wood material onto *every* loose
+part. That was the **helm-freeze fix**: `PartGraphicsVariationByMaterial`'s
+prefab getter is an unguarded `OriginalMaterials[_materialIndex]` index, and an
+empty list pegged the client main thread with an exception loop. The choice is
+right for the other 36 rows. Only the Window's art has no wooden variant.
+
+**Fixed on this branch** (`5ca430d`): the material becomes a per-part lookup
+(`Multiplayer/Ship/LoosePartSeedMaterial.cs`) keyed on `itemType`, so the two
+windows already lying in the world come back fixed with **no persistence
+migration and no new record field**. The category may only ever be `"Wood"` or
+`"Metal"` — `PartGraphicsVariationByMaterial.GetPrefabFromMaterial` throws on
+anything else — and a test pins that for all 37 rows. Server-only; no client
+change, no new component, no change to send cadence or payload shape.
+
+**A generalisation worth carrying forward:** this is a *fourth* failure shape,
+distinct from a missing seed. **A component can be present, correctly typed and
+still carry a value the client's art cannot render.** Nothing logs it
+server-side. The only tell is a Unity error in the player's own log.
+
+### 11.4 Symptom 2 — the inert ones, and this IS the loom's defect
+
+Six rows should respond to `E` and do not. Two of them fail for the same reason
+the loom and the loot chest do, and it is worth naming the shape precisely,
+because it has now bitten this repo four times:
+
+> **A Unity visualiser does not enable until EVERY `[Require]` resolves, and
+> `InteractiveObjectVisualizer` caches `Interactions.FirstOrDefault(i => i.verb
+> == Verb)` ONCE in `OnEnable`. So there are TWO independent ways to produce a
+> prop that is visible, correct-looking and completely dead — an unsatisfied
+> requirement, and a served verb that does not match the prefab's baked one.
+> Neither logs anything.**
+
+| row | blocker 1 (unsatisfied `[Require]`) | blocker 2 (verb mismatch) |
+|---|---|---|
+| `trunk`, `mountedBox`, `storageContainer`, `shippingContainer` | `InWorldInventoryVisualiser` needs **1081 + 1210**; we serve 1210 and never 1081. `IsTooDamagedToWorkVisualizer` needs **1236**, also unseeded — and the interact gate itself checks `verb == Inventory && !IsTooDamagedToWork` | the prefab's baked verb is **Inventory** (`ShipContainerPreprocessor.SetVerb`); we serve the generic **PickUp** entry (`ComponentsSerializer.cs:931-938`), so the cache lookup finds nothing, radius is 0, and **no prompt can ever appear** |
+| `personalReviver` | `RespawnerVisualizer` needs **1094 + 8066**; we seed 8066 only | baked verb is **Activate**; we serve `None` deliberately, because a prompt without a respawn flow would be a lie |
+| `atlasSkyCore` | none — `ShipCoreVisualizer` is satisfied | baked verb is **Activate**; we serve `None`. Retail's handler was GSim-side and the shipped client has no consumer, so this one is arguably *correct* until flight/lift wants it |
+
+**This is the same class as `1264`/`1081+1210`, and the current code already
+knows it** — the comment at `ComponentsSerializer.cs:776-780` says so in as many
+words, and `PartInteractionPolicy` refuses to advertise a verb it cannot honour
+precisely so that a prompt is never a lie. **That discipline is right and should
+not be relaxed.** The containers are not blocked on new machinery; they are
+blocked on the *same* `1081` serve that `feat/loot-containers` is building. When
+that lands, four ship containers come alive for the cost of a verb branch.
+
+**The `InventoryService.ForEntity` trap applies here and is worth restating:** it
+falls back to `InventoryWire.DefaultModel`, the **player starter kit**, and
+`Bind` runs its factory once. Serving `1081` on a ship trunk without giving it a
+specific model hands that trunk a permanent inventory full of gauntlets.
+
+### 11.5 The fuel gauge is gated on the wrong component
+
+Four of the five instruments — altimeter, airspeed, artificial horizon, heading
+indicator — live in `acs/Assets.Scripts.Visualisers.ShipParts/` and each
+`[Require]`s **1236 alone**, reading altitude and heading off
+`GetComponentInParent<Rigidbody>()` rather than off SpatialOS. We seed 1236.
+They work.
+
+The fuel gauge is not one of them. `FuelGaugeVisualizer` lives in
+`acs/Assets.Scripts.Visualisers.Ship/` and `[Require]`s **`1105
+FuelGaugeState`** — and `1105` has **zero server references** (§2.1 already
+records it as unserved alongside `1104` and `1106`). The catalogue seeds it 1236,
+which nothing on that prefab reads. **So the Fuel Gauge is craftable, placeable,
+visible and its needle can never move.** RECOVERED from the decompile; the
+catalogue's own comment groups all five instruments together, which is where the
+mistake entered.
+
+It is also the one instrument whose fix is blocked on something real: nothing in
+this server burns fuel (§2.1), so a served `1105` would read zero forever. Wire
+it with combustion, not before.
+
+### 11.6 Symptom 3 — placement, and what retail actually did
+
+**Retail's rule, PROVED.** There is one gate, and it is a **tagged layer-mask
+raycast**. `PlacementPreview.cs:564` accepts a hit only if
+`go.IsInLayerMask(mask) && (string.IsNullOrEmpty(tag) || go.CompareTag(tag))`.
+The mask and the tag both come from one `[Flags]` value, `PlacementLocationType`:
+
+| surface | Unity layers (`GetMask`, `:441-470`) | tag (`GetTag`, `:424-439`) |
+|---|---|---|
+| `Terrain` | Terrain | — |
+| `ShipSide` | ShipAttachment + ShipAttachmentSolid | `"ShipSide"` |
+| `ShipDeck` | ShipAttachmentSolid | **`"ShipDeck"`** |
+| `Entity` | **Default + Terrain + Interactive** | — |
+| `ShipSurfaces` | **Default + Terrain + Interactive** | — |
+| `DeckGrid` | ShipAttachment | `"ShipDeck"` |
+| `CoreModule` | all, then re-resolved to a named socket | — |
+| `All` | all of the above | **explicitly empty** |
+
+`Layers.Environment = Default | Terrain | Interactive` (`acs/Layers.cs:189`).
+
+Three findings follow, and they answer the question directly.
+
+1. **The surface was per-item DATA, not code.** For a ship part it is
+   `1120 ShipPartState.attachmentType`, a string, parsed by
+   `BuilderVisualizer.GetAttachmentType:71-86` and mapped by
+   `ShipPartPlacement.DeterminePlacementType:235-269`. For a hand-deployable it is
+   `ItemPlacementAgentState.placingType`, also a string, and
+   `ItemPlacingBehaviour.cs:142-151` parses it as a **comma-separated list of
+   enum names**. Both are server refdata. **The retail values themselves are
+   LOST** — no item table ships in the client, and our `itemData.json` has no
+   placement field. So we **cannot PROVE** what string retail gave the altimeter.
+2. **There is NO per-component placement rule anywhere in the shipped client.**
+   Across 3,540 decompiled files the only per-prefab placement hooks are one
+   `IPlacementValidator` (the helm's "must be upright") and five
+   `PlacementSpecialRule`s (all territory/alliance/sky-view). `Altimeter` appears
+   in exactly one file, its needle visualiser, which contains no placement code.
+   Instruments carry only `ShipInstrument.cs:9-11`, which is an *overlap
+   exemption*, not a surface rule. **PROVED.** So "the altimeter can only go on
+   the floor" is *entirely* a consequence of the string we author.
+3. **Mounting on an already-placed object was retail's DEFAULT.**
+   `PlacementPreview.UpdateTargetObject:472-486` walks the hit up to its owning
+   entity and parents the placement to it; `ItemPlacingBehaviour.cs:431-435`
+   sends the parent's `EntityId` and a parent-local point. Retail's *opt-out* is
+   an explicit per-prefab marker component, `BlockItemPlacement`, checked at
+   `ItemPlacingBehaviour.cs:289-294`. **The existence of an opt-out marker is the
+   proof that placing on placed objects was the behaviour that needed
+   suppressing.** PROVED — this is the strongest evidence in the section, and it
+   is on the maintainer's side of the argument.
+
+**Our rule.** Every instrument, decoration, railing, container and the helm is
+authored `"deck"` (`LoosePartCatalogue.cs`), and
+`PartMountSurfaces.NormalizeForBuiltShip:63-66` rewrites any legacy
+`"shipSurfaces"` to `"deck"` **globally**. The reason is written down and is a
+good one: our reconstructed hull exposes no Environment-layer skin, so a
+`shipSurfaces` part had nothing to land on but one incidental collider — the
+"helm only mounts in ONE spot" symptom. Deployables are worse: every one of the
+17 rows gets the hardcoded `PlacementService.cs:56` `const string PlacementType =
+"Terrain"`, so a lamp or campfire **cannot be placed on a ship at all**, and
+`ItemPlacingBehaviour.cs:185` additionally rejects any slope past 36.9°.
+
+**The gap, and the trap in closing it.** The naive fix — author instruments
+`"deck,Entity"` or set `ShipDeck | Entity` — **does not work and is worse than
+today**, for two reasons read straight off the client:
+
+- `GetTag` applies **one** tag to **every** hit. With `ShipDeck` in the flags it
+  returns `"ShipDeck"`, so an Environment-layer railing would be raycast and then
+  rejected on its tag.
+- Every behaviour switch is `==` on the whole flag value, not `&`:
+  `PlacingOnDeck`, `PlacingOnSurface`, `NeedToBeOnShip`, `PlacingDeck`,
+  `PlacingCoreModule` (`PlacementPreview.cs:122-130`). Any combination other than
+  a single flag or `All` **silently drops the deck flatness rule, the
+  ship-aligned base rotation and the ship requirement**.
+
+`PlacementLocationType.All` is the only multi-surface value the client handles
+coherently — mask everything, tag empty. That makes the honest options exactly
+two, and they should be planned as two:
+
+- **Server-only, no patcher:** author the instruments `"shipSurfaces"` again.
+  Costs the deck (Environment does not include ShipAttachmentSolid) and buys
+  every other surface. A straight trade, not a win.
+- **Client mod + patcher release:** a Harmony patch that widens
+  `ValidSurfaceTypes` for instrument-class parts. Our mod **already patches this
+  exact class** — `Patching/Ship/ShipSidePanelExterior_Patch.cs` prefixes
+  `PlacementPreview.PositionOnShip` and reads `__instance.ValidSurfaceTypes` — so
+  this is in-pattern, not new machinery. It is the only option that gives
+  *deck **and** fence*.
+
+**UNKNOWN, and it decides which option is worth doing:** whether a mounted
+`RailingStraight` actually presents a collider on Default/Terrain/Interactive.
+That is prefab asset data — no code anywhere sets a ship part's layer except
+`ModularWing.cs:76`. Haven's scene props do sit on `Default` (layer 0), which is
+inside `Layers.Environment`, so it is **plausible**; it is not proved. **How to
+settle it:** enumerate the `entityprefabs/railingstraight_unityclient` prefab's
+colliders and read `m_Layer`/`m_Tag`. One asset read, no live client. Do that
+**before** committing to a patcher release, because if railings are on
+ShipAttachmentSolid without the `"ShipDeck"` tag, neither option above helps and
+the answer is a third one.
+
+### 11.7 So — one defect, or three?
+
+**Three, and that is the useful answer.** The tempting conclusion after the loom
+was that everything inert is one under-seeding bug. It is not:
+
+1. **The Window** is a *value* bug, not a *presence* bug — every component it
+   needs is served; one of them names art that does not exist. **Fixed here.**
+2. **The containers and reviver** are the loom's defect exactly — partial
+   `[Require]` sets plus a verb mismatch. They ride on
+   `feat/loot-containers`' `1081` work and should not be planned separately.
+3. **Placement** is not a defect at all. It is a deliberate, documented,
+   correctly-reasoned narrowing (`"shipSurfaces"` → `"deck"`) that solved a real
+   bug and created this one. Reversing it is a **design decision**, and the data
+   retail used is unrecoverable.
+
+The one thing that *is* general, and that §5 Phase 1 item 3 should adopt: **audit
+by comparing the client's `[Require]` set to the served set, per prefab, and then
+separately check the baked verb.** Both halves. The tooling already exists —
+`docs/research/loop/data/prefab_requires.py` does the first half against
+`component-map.tsv`; the census it reads covers only 7 ship prefabs today and
+should be widened.
+
+### 11.8 The phased plan
+
+Same contract as §5: what it delivers · what a player can newly DO ·
+dependencies · schema migration · networked state (soak gate) · main risk.
+
+---
+
+#### PHASE SC0 — The Window renders *(done on `docs/ship-components`, unmerged)*
+
+- **Delivers:** `5ca430d`. Per-part `1099` material; the Window seeds iron.
+- **Player can newly do:** craft a Window and see it. Retroactive — the two
+  windows already lying in the world come back visible.
+- **Depends on:** nothing.
+- **Migration:** **no** — deliberately keyed on `itemType` so no `LoosePartRecord`
+  field is added and old saves fix themselves.
+- **SOAK:** no. `1099` was already seeded on every loose part; same eight slots,
+  same cadence, same payload shape. **CLIENT MOD:** no.
+- **Main risk:** low, and named: if `Window01` has no baked `_metalPrefab`,
+  `PartGraphicsVariationByMaterial` returns null for the metal branch and the
+  window breaks a different way. Mitigated by the prefab naming `"iron"` as its
+  own default. **Only a live craft settles it.**
+
+---
+
+#### PHASE SC1 — The fuel gauge stops lying, and the audit tool grows up
+
+- **Delivers:** (a) re-point `fuelGauge` at `1105 FuelGaugeState`, or —
+  preferably — **mark it explicitly dormant** until something burns fuel, so the
+  catalogue stops implying it works; (b) widen the prefab `[Require]` census from
+  7 prefabs to all 36 and commit the generated table, so the next agent does not
+  re-derive §11.2; (c) fold the **verb** check into the same tool, because
+  `[Require]` coverage alone would have passed all four containers.
+- **Player can newly do:** nothing directly. This is the cheap step that stops
+  the next three phases being guesswork.
+- **Depends on:** nothing.
+- **Migration:** no. **SOAK:** no. **CLIENT MOD:** no.
+- **Main risk:** serving `1105` with a hardcoded zero is worse than not serving
+  it — a gauge pinned at empty reads as a bug, an unlit gauge reads as unfinished.
+  Prefer (b) over a fake value.
+
+---
+
+#### PHASE SC2 — Ship storage opens
+
+- **Delivers:** the four container rows become real chests: seed **1081** (with a
+  container-specific model, **never** `InventoryWire.DefaultModel`) and **1236**,
+  and serve the **Inventory** verb instead of the generic PickUp entry.
+- **Player can newly do:** bolt a trunk to their ship and put things in it —
+  the first ship-side storage in the game.
+- **Depends on:** **`feat/loot-containers`.** Their `1081` serve, `inUseBy`
+  handshake and `event_interact` echo are the same machinery, and doing this
+  first would duplicate it. Sequence this immediately behind §5 Phase 1 item 4.
+- **Migration:** **yes, probably** — a ship container's contents are per-world
+  state and belong beside `loot_container_state`. Their plan's warning applies:
+  ship 2a first, defer the migration, and remember that a split deploy has
+  already destroyed player progression once.
+- **SOAK:** **yes.** A per-container `1081` that changes on every item move is
+  new relayed traffic on an entity that rides a moving ship.
+- **Main risk:** the `DefaultModel` fallback. A container served `1081` without
+  its own model gets a permanent inventory of gauntlets, and `Bind` runs its
+  factory once, so it does not self-correct.
+
+---
+
+#### PHASE SC3 — Instruments and decorations mount where the player wants them
+
+- **Delivers:** the answer to the actual complaint. **Two steps, in order:**
+  1. **Settle the UNKNOWN in §11.6** — read the collider layer/tag off the
+     shipped `RailingStraight`, `Panel02` and `Deck01` entity prefabs. One asset
+     read. *Do not skip this;* it decides whether step 2 is worth building.
+  2. If railings are on an Environment layer: a client-mod Harmony patch widening
+     `ValidSurfaceTypes` to `PlacementLocationType.All` for the instrument and
+     decoration classes only — the one value whose tag is empty and whose
+     behaviour switches the client handles coherently. Keep the deck flatness
+     rule by re-applying it in the patch rather than inheriting it, since `All`
+     drops it.
+- **Player can newly do:** mount an altimeter on a fence, a wall, a railing or a
+  hull side — not only on the floor.
+- **Depends on:** nothing, but SC1's table makes it much safer.
+- **Migration:** **no** — `attachmentType` is already persisted per part and
+  `PartMountSurfaces.NormalizeForBuiltShip` already rewrites legacy records.
+- **SOAK:** no. Placement is a client-side preview; the server sees the same
+  `1070 PlacePart` commit it sees today, and `PartMountService.cs:146-167`
+  **already accepts a mount whose parent is another mounted part**.
+- **Main risk:** **this needs a CLIENT MOD, and therefore a patcher release** —
+  a different shipping path from a server deploy, and every player must update
+  before it does anything. Second risk: `All` silently discards
+  `PlacingOnDeck`/`NeedToBeOnShip`, so a careless patch lets a player mount an
+  altimeter on the *terrain*. The flatness and on-ship checks must be
+  re-asserted, not assumed.
+- **Label:** whatever surface set we choose is **WAREBORN TUNING**. Retail's
+  own strings are unrecoverable and this document must not pretend otherwise.
+
+---
+
+#### PHASE SC4 — Deployables get a surface of their own *(the ground-prop half)*
+
+- **Delivers:** move `PlacementService.cs:56`'s `const string PlacementType =
+  "Terrain"` onto `DeployableDef` as a per-row field. The client already parses a
+  comma list (`ItemPlacingBehaviour.cs:145`) — but per §11.6 the **only safe
+  multi-surface value is the literal `"All"`**; `"Terrain,ShipDeck"` would demand
+  the `"ShipDeck"` tag on terrain too and break ground placement.
+- **Player can newly do:** put a campfire, a lamp or a chest **on their ship**,
+  and on other placed objects.
+- **Depends on:** §5 Phase 1 item 3 (the deployable activation audit) — there is
+  no point letting a player mount a loom on a deck while the loom is still inert.
+- **Migration:** no. **SOAK:** no. **CLIENT MOD:** no — this one is server-side
+  refdata, which is why it is cheap.
+- **Main risk:** the server does **no** surface validation at all
+  (`PlacementPolicy.cs:56-62` says so deliberately, and
+  `ItemPlacingState_Handler.cs:102-109` accepts and discards the parent), so
+  widening the client's permission widens it for a modified client too. That is
+  acceptable for props and would not be for anything with reach or damage.
+
+---
+
+### 11.9 What only a live craft can settle
+
+Stated rather than guessed, in the style of §9.
+
+1. **Whether the Window now draws.** Nothing headless renders a `ShipPanel`. The
+   fix rests on the decompile, the asset bytes and the client log. Craft one; the
+   tell is the **absence** of `No appropriate mesh found for requested ship panel
+   size!` in `BepInEx/LogOutput.log`.
+2. **Which parts the maintainer meant by "some of them don't show up."** This
+   audit proves exactly one (the Window) and proves the other 36 render. If a
+   *different* row is invisible in game, this table is wrong about it and the
+   client log will say which — every failure of this class logs a Unity error.
+3. **Whether a mounted railing exposes a mountable collider.** §11.6. An asset
+   read settles it without a live client, and SC3 should not start until it is
+   done.
+4. **Whether the sky-core module sockets restore correctly** on every module. The
+   socket components are stripped from every shipped prefab and re-added by
+   `Patching/SpatialOS/SkyCoreSocketRestore.cs` at template-compile time. Eight
+   modules; only the chain as a whole has been live-confirmed.
+5. **Whether `PartGraphicsVariationByMaterial` on `Window01` has a baked
+   `_metalPrefab`.** SC0's named risk.
