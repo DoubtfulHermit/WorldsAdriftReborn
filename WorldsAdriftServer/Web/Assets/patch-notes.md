@@ -1,10 +1,17 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 560 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 569 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 91 commits
+## 2026-08-19 | 100 commits
 
+* 7152ac6 Stop fuel's throttle mirror outliving the pilot who set it
+* f5cd2c0 Give the refuel rollback an honest inverse
+* 81db75f Answer the query feat/ship-flight's phase F5 asked fuel for
+* 9771bcc Keep fuel off the hot paths it does not belong on
+* 50a226f Correct the roadmap where fuel used to be a known defect
+* 75021f7 Prove the fuel wiring is connected, because the suite cannot see it
 * a33283b Record that sail material changed weight, not thrust
+* 6a08c60 Make the fuel gauge's needle move, and give fuel something to be for
 * 79a797c Treat near-zero thrust as undriven so hulls can actually settle
 * de78989 Cross-check the recovered physics against the community record
 * bc9b47e Make engine thrust and sail power tunable without a rebuild
@@ -13,9 +20,11 @@ Every commit, newest first. 560 of them since 2026-08-07. Merges are left out - 
 * af75ad7 Drop a salvaged container's inventory binding
 * f27da94 Reflow a comment the container branch pushed over the margin
 * 6c0a50d Document the recovered ship physics, component by component
+* 11f2557 Give fuel a tank, a burn rate and a push budget
 * d4bb1a6 Flip a bolted container's prompt on
 * fcdc80e Fly ships on recovered forces instead of a commanded speed
 * 1075279 Stop the 1210 branch claiming storage is unservable
+* 67e1fbb Establish how fuelling actually worked, before building any of it
 * 1251a5b Record what the ship-component audit got to change its mind about
 * a6d8bf7 Let deck parts mount on things already placed
 * 5764683 Open the four ship storage containers
