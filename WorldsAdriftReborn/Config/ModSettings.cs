@@ -237,10 +237,16 @@ namespace WorldsAdriftReborn.Config
                                                     "127.0.0.1",
                                                     "The hostname or address of the game server.");
 
+            // 40ms, not 100ms: the judder players actually feel is a ~38ms
+            // frame landing about one frame in three, and a 100ms threshold
+            // steps straight over it - every beat reported worst=60-80ms with
+            // not one spike line to explain it. 40ms is ~2.4 frames at 60fps,
+            // low enough to catch that class and high enough not to spam.
+            // Read ONCE at Awake, so changing it needs a relaunch.
             perfSpikeThresholdMs = modConfig.Bind<int>("Perf",
                                                     "Perf_SpikeThresholdMs",
-                                                    100,
-                                                    "Frame-time threshold in milliseconds above which the stutter probe logs one '[WAR][perf] spike' attribution line. Minimum 20.");
+                                                    40,
+                                                    "Frame-time threshold in milliseconds above which the stutter probe logs one '[WAR][perf] spike' attribution line. Minimum 20. Read at startup only - relaunch after changing.");
 
             stationPickupKey = modConfig.Bind<string>("Interact",
                                                     "Interact_StationPickupKey",

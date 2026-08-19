@@ -1,6 +1,26 @@
 #!/bin/sh
 # pin-unity-workers.sh - collapse Unity's job-system futex thundering herd.
 #
+# STILL THE RIGHT DEFAULT, BUT READ THIS FIRST (2026-08-19)
+# --------------------------------------------------------
+# The 2.4x below was measured on an EMPTY world (ents=0), where the workers had
+# no jobs and were spinning on the queue. With the world loaded (ents=143) the
+# pin is worth 1.3-1.6x, not 2.4x - and it is now the dominant source of the
+# CHOPPINESS, because 27 workers funnelled through one E-core make the main
+# thread wait on them: ~35% of frames take ~38 ms (max 74 ms) while the rest
+# take ~11 ms. Average fps stays good; frame delivery alternates 90/26 fps.
+#
+# Unpinning is NOT the answer either - it cures the blocks (1,737 per 100 s ->
+# 1 per 150 s) but costs a third of the frame rate and restores the herd at
+# 3.2M ctxsw/s. Keep the pin until the worker COUNT can be capped instead
+# (WINE_CPU_TOPOLOGY=8 -> 7 workers; see run-client-topology.sh and the
+# 2026-08-19 section of README.md). That experiment needs a relaunch.
+#
+# NOTE FOR ANYONE A/B-TESTING THIS: it is a POLLING DAEMON, not a one-shot. It
+# re-applies affinity every $WAREBORN_PIN_INTERVAL seconds, so a manual
+# `taskset` to unpin is undone within 2 s and your "unpinned" numbers are
+# really still pinned. Stop this process first.
+#
 # WHAT IT FIXES
 # -------------
 # Unity 5.6.4p1 sizes its job-worker pool at (visible CPUs - 1). On this
