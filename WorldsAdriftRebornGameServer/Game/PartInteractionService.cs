@@ -5,11 +5,11 @@ namespace WorldsAdriftRebornGameServer.Game
 {
     /// <summary>
     /// Handles the ACTIVATE interact (verb 1) on MOUNTED ship parts - the sail's
-    /// furl/unfurl, the lamp's switch, the horn's honk and the sky core's REFUEL. The 1211 handler
-    /// dispatches every completed Activate here (the same always-on shape as the
-    /// helm's Man dispatch to the flight service); the single gate per part is its
-    /// own ledger, so a target that is not a mounted sail/lamp/horn costs three
-    /// dictionary misses and returns false.
+    /// furl/unfurl, the lamp's switch, the power generator's REFUEL and the horn's
+    /// honk. The 1211 handler dispatches every completed Activate here (the same
+    /// always-on shape as the helm's Man dispatch to the flight service); the single
+    /// gate per part is its own ledger, so a target that is not one of those costs
+    /// four dictionary misses and returns false.
     ///
     /// WIRE DISCIPLINE: one interaction = one reliable state-update broadcast
     /// (<see cref="ShipPublisher.Broadcast"/>), nothing per-frame. The client needs
@@ -25,11 +25,11 @@ namespace WorldsAdriftRebornGameServer.Game
     ///     ends, so the authoritative float converges (keyed, so honk spam never
     ///     stacks timers).
     ///
-    ///   * sky core - no echo at all. The refuel moves inventory (1081, pushed
-    ///     once) and the hull's fuel level, and the only visible consequence is the
-    ///     1105 the fuel gauge reads. The core itself shows nothing, because the
-    ///     shipped client renders neither InteractionEntry.description nor any fuel
-    ///     text - see docs/plans/feature-roadmap.md 13.1.
+    ///   * power generator - no echo at all. The refuel moves inventory (1081,
+    ///     pushed once) and the hull's fuel level, and the only visible consequence
+    ///     is the 1105 the fuel gauge reads. The generator itself shows nothing,
+    ///     because the shipped client renders neither InteractionEntry.description
+    ///     nor any fuel text on a part - see docs/plans/feature-roadmap.md 13.1.
     ///
     /// AUTHORITY: 1303/1108/1107 have no client writers (decompile: zero
     /// *StateWriter requires outside gencode) - flipping the property server-side
@@ -101,18 +101,32 @@ namespace WorldsAdriftRebornGameServer.Game
                 return true;
             }
 
-            // THE SKY CORE IS NOT HANDLED HERE ANY MORE, and deliberately so. It used
-            // to be the refuel door on the argument that its Activate was baked
-            // (ShipCorePreprocessor) and unclaimed. The verb is unclaimed; the PROMPT
-            // is not. InteractiveObjectVisualizer.GetTutorialStep maps Activate + a
-            // ShipCoreVisualizer to TutorialStep.MOUSE_OVER_CORE, whose baked overlay
-            // asset reads "Activate Atlas Pulse" with Hold:true - a real retail action
-            // (1306 ShipAtlasPulseState -> ShipAtlasPulseVisualizer, the anti-boarding
-            // defence). No server can change that string, so refuelling there was a
-            // control that lied. Refuel is now the hull's own bunker
-            // (ShipFuelService.DrainBunkers) and PartInteractionPolicy serves the core
-            // no verb at all, which is the same discipline this file applies to the
-            // personal reviver. See Multiplayer/Ship/Fuel/ShipFuelBunkerPolicy.cs.
+            // POWER GENERATOR: REFUEL. The generator IS the ship's fuel tank, and
+            // this is the one door in the catalogue whose LABEL we did not have to
+            // invent: PowerGenerator01 bakes InteractiveObjectVisualizer(Activate)
+            // plus a TutorialHelper pointing at MOUSE_OVER_GENERATOR, and that
+            // overlay asset's single control reads { Name: "Refuel", Hold: true }.
+            // The player is told "Refuel", holds E, and gets refuelled.
+            //
+            // The sky core is deliberately NOT handled here. It briefly was, on the
+            // argument that its Activate was baked and unclaimed - the verb is, but
+            // GetTutorialStep maps Activate + a ShipCoreVisualizer to
+            // MOUSE_OVER_CORE, whose asset reads "Activate Atlas Pulse" and names a
+            // real retail action (1306, the anti-boarding pulse). A control that
+            // lies about what it does is what PartInteractionPolicy exists to
+            // forbid, and the generator's prompt does not lie.
+            int? refuelled = WorldsAdriftRebornGameServer.ShipFuel.TryRefuel(playerEntityId, targetEntityId);
+            if (refuelled.HasValue)
+            {
+                // No echo: the refuel moves inventory (1081, pushed once) and the
+                // hull's fuel level, and the only visible consequence is the 1105 the
+                // fuel gauge reads. The generator itself shows nothing, because the
+                // shipped client renders neither InteractionEntry.description nor any
+                // fuel text on the part.
+                Console.WriteLine("[info] part-interact: generator " + targetEntityId + " refuelled by entity "
+                    + playerEntityId + " (+" + refuelled.Value + " fuel).");
+                return true;
+            }
 
             // HORN: honk if recharged. The event plays the sound on every client;
             // charge=0 re-anchors the needle at "just honked", and ONE keyed deferred

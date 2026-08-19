@@ -128,7 +128,7 @@ relative to the repo root unless absolute.
 | — per-island metal table | **LIVE — but read the nuance** | The table is **not** unused. `Multiplayer/Islands/release-runtime-catalog.json` holds **254 islands, 1,930 deposits, 15 distinct metals**, qualities 1–10, with a `metalSource` provenance ladder (38 `survey-pve`, 23 `survey-pvp`, 193 `inferred-tier`), stamped onto each deposit at `ReleaseWorldCatalog.cs:150-157`. **The trap:** at *default* config the release world is off and every reachable deposit is hardcoded iron (`Multiplayer/MetalDeposits.cs:223` `=> "iron"`, quality 6; `Game/Gathering/DepositHandshakeSpawner.cs:42,45`). **Production is not at default** — it runs `tier1`, so 328 catalogued deposits with real per-island metals ARE reachable, while Haven's own 40 remain iron. Corrected by `resource-economy` §0.1; commit `058877d` fixes the Haven/handshake paths. |
 | — island survey metal *lists* | **MISSING** | `Survey.Metals`/`PveMetals`/`PvpMetals` have **zero non-test readers**; only the boolean `MetalsAreInferred` is consumed. Deposit-level data is wired; island-level menus are not. |
 | **Wood** | **LIVE** | 13,266 tree seats over 252 islands (`Multiplayer/Islands/ReleaseTreeBudget.cs:40`, `ReleaseTreeCatalog.cs:76`). Felling shipped in game-server `5a69250` (2026-08-19). Log grounding merged to main as `2cc9f02`. 8 wood item rows. |
-| **Fuel** | **LIVE end to end (`feat/ship-fuel`, §13)** | Canisters are a **salvage target, not a pickup** — `Multiplayer/FuelPods.cs:10-17,60,87`; recovered per-shot yield 8/8/9 = 25 (`Multiplayer/FuelCanister.cs:65`), arriving on the same `2106` beam path as metal. Consumed by 6 real recipes. **And now BURNED:** a hull carrying a mounted `atlasSkyCore` has a tank (`Multiplayer/Ship/Fuel/ShipFuelLedger.cs`), Activate on that core refuels it from the player's inventory, throttle burns it, and **`1105 FuelGaugeState` is served on the `fuelGauge` part so the needle finally moves**. `1104`/`1106` remain unserved and are honestly unreproducible — there is no fuel-tank prefab in the client census, so fuel is per-hull here. See §13. |
+| **Fuel** | **LIVE end to end (`feat/ship-fuel`, then reworked onto GENERATORS on `feat/fuel-generators`, §13 + §13.11)** | Canisters are a **salvage target, not a pickup** — `Multiplayer/FuelPods.cs:10-17,60,87`; recovered per-shot yield 8/8/9 = 25 over THREE shots (`Multiplayer/FuelCanister.cs`), arriving on the same `2106` beam path as metal. Consumed by 6 real recipes. **And BURNED:** **the POWER GENERATOR is the fuel tank** — capacity 100 each, pooled by summation across however many are bolted to a hull (`Multiplayer/Ship/Fuel/ShipFuelLedger.cs`). **Refuel is holding E on the generator**, whose baked client prompt literally reads **"Refuel"**; throttle burns it; **`1105 FuelGaugeState` is served on the `fuelGauge` part so the needle moves**. `1104`/`1106` remain unserved and buy nothing — `FuelVisualizer` is the only 1106 reader, it lives on ship ROOTS, and its one method has zero callers. The per-hull tank and the sky-core/bunker refuel doors are BOTH superseded; see §13.11. |
 | — dangling doc reference | **DONE** | `docs/research/findings-combustion-fuel.md` now exists and is indexed; it was cited from five code sites and was not in the tree. |
 | **Atlas Shard** | **LIVE** | `Multiplayer/AtlasShardCatalogue.cs:57` (`ItemTypeId = "atlasShard"`); every release deposit registers a shard, gated by `WAREBORN_SPAWN_ATLAS`/`WAREBORN_ATLAS_RATE`. 328 shards live in tier 1. **One data defect:** `atlasShard` is categorised `"Metal"` in `itemData.json`. `resource-economy` deliberately unbundled that fix, so it is **open** — see §4.1. |
 | **Update 27 second economy** (plant fibre, berries, meat, leather, chitin, cloth, pigment, glass) | **PARTIAL, in flight** | `clothMakeshift` ("Makeshift Cloth") is the only `Component` row in `itemData.json`. Plant fibre and berries are **landed on `feat/resource-economy`** (commit `0aa0fe8`, paid off the same cut that pays wood). Meat is blocked on creature mortality (their Phase 7). Leather/chitin/pigment/glass: **MISSING**, and note `loot-containers` §0.3 **corrects the audit** — the recovered scrap `rewards` are metals, woods and fuel, *not* cloth/leather/glass/pigment. |
@@ -1132,7 +1132,7 @@ prefab's own interest declares it.
 | 32 | `headingIndicator` | HeadingIndicator | deck → ShipDeck | `HeadingIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 33 | `artificialHorizon` | ArtificialHorizon | deck → ShipDeck | `ArtificialHorizonVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 34 | `airspeedIndicator` | AirspeedIndicator | deck → ShipDeck | `AirspeedIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
-| 35–36 | `powerGenerator`, `powerGenerator01` | PowerGenerator01 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
+| 35–36 | `powerGenerator`, `powerGenerator01` | PowerGenerator01 | deck → ShipDeck | **none** — but see §13.11: the prefab bakes `InteractiveObjectVisualizer(Activate)` + `TutorialHelper(MOUSE_OVER_GENERATOR)` | — | **yes** | **YES — `Activate`, and the client's own prompt reads "Refuel".** This part is the ship's FUEL TANK. Served on `feat/fuel-generators`, §13.11 | flat deck only |
 | 37 | `personalReviver` | Respawner01 | deck → ShipDeck | `RespawnerVisualizer` → **1094 + 8066** | — | **yes** (the prop; `ShipPartVisualizer` renders it) | **NO — should be. §11.4** | flat deck only |
 
 **The headline numbers.**
@@ -2560,6 +2560,14 @@ window are gauge readings, and the gauge was lying.
 
 ## 13. FUEL — how it worked, and how it works here
 
+> **⚠ READ §13.11 FIRST.** Everything below about *where fuel is stored* and
+> *where you refuel* was superseded on 2026-08-20: **the POWER GENERATOR is the
+> fuel tank**, capacity 100 each, pooled across a hull, and refuelling is holding
+> E on it — a prompt the shipped client itself labels "Refuel". §13.4's
+> "there is no fuel tank prefab" searched for the wrong name; the prefab is
+> `PowerGenerator01`. The component analysis (§13.1–§13.3), the gauge fix, the
+> canister yield and the flight seam (§13.7) are unaffected and still current.
+
 **Owner: `feat/ship-fuel`.** Written from the decompile
 (`/home/ttanurhan/Games/WAReborn-decompiled`) and the shipped client asset
 census, because before this section nobody on this project knew. Every claim
@@ -2712,6 +2720,13 @@ is why a 1 Hz server push is more than enough.
 
 ### 13.4 The two hard constraints this server has, that retail did not
 
+> **⚠ SUPERSEDED by §13.11.** Constraint 1 below is FALSE, and Constraint 2's
+> conclusion with it. The census does contain the tank; it is called
+> `powergenerator01` (line 219), and its prefab bakes an `Activate` whose overlay
+> asset reads "Refuel". Left in place because the shape of the mistake — searching
+> for a thing by the name we call it rather than the name the assets use — is the
+> reusable lesson.
+
 **Constraint 1 — THERE IS NO FUEL TANK PREFAB.** The 349-name client entity
 prefab census (`Ship/client-entity-prefabs.txt`, extracted from the shipped
 `resources.assets` and re-verified against the ResourceManager container map)
@@ -2786,7 +2801,8 @@ them is recoverable and the first live flight is the only real test.
 | quantity | value | reasoning |
 |---|---|---|
 | one canister | **25 fuel** (8+8+9) | **WIKI/RECOVERED** — already in `FuelCanisterYield`, untouched |
-| ship capacity | **250 fuel** | ten canisters. Large enough that refuelling is an errand, small enough that one salvage trip fills you. `WAREBORN_FUEL_CAPACITY` |
+| generator capacity | **100 fuel** — **RECOVERED**, §13.11 supersedes the row below | wiki + `FuelGaugeVisualizer.cs:56`'s own `SetFuelAmount(0f, 100f)` default. `WAREBORN_FUEL_CAPACITY` now means ONE GENERATOR |
+| ~~ship capacity~~ | ~~**250 fuel**~~ (superseded) | ten canisters. Large enough that refuelling is an errand, small enough that one salvage trip fills you. `WAREBORN_FUEL_CAPACITY` |
 | burn at full throttle | **0.25 fuel/s** | a full tank is 1000 s ≈ **16 minutes of continuous full throttle**; one canister ≈ 100 s. `WAREBORN_FUEL_BURN_RATE` |
 | burn shape | **proportional to abs(throttle)** | retail's `consumption` and `throttle` are separate live floats and the client's own audio scales load by their product. Half throttle costs half. Idling costs nothing |
 | empty ⇒ no thrust | **WAREBORN TUNING, not recovered** | see below |
@@ -3046,6 +3062,13 @@ expands from the core, and Wwise plays `AtlasPulse`.
   (§13.6), so `Deposit` returns 0, `TryRefuel` logs `refuel refused: ... tank is
   full` to the server console and returns without sending the client a byte.
 
+> **⚠ SUPERSEDED by §13.11.** The diagnosis in this subsection is correct and
+> still the reason the sky core is served no verb. The FIX is not: the bunker
+> drain has been deleted, because the power generator has a baked prompt that
+> reads "Refuel" and is therefore an honest door. The consequence noted at the
+> end of this subsection — a metered hull that cannot be refuelled — is
+> structurally impossible now that metering and the refuel door are the same part.
+
 **THE FIX: refuelling moved to the ship's own BUNKER.** Fuel put into any
 container bolted to the hull is drawn into the tank as the tank makes room, on
 the burn tick that already runs (`ShipFuelService.DrainBunkers`,
@@ -3083,3 +3106,162 @@ rather than guessed:
   frame. Confirm `atlasPulseParams` survived into the exported ShipFrame prefab
   first. Encouraging: the sibling `PersonalRespawnerPulseEffect` reads
   `enabled=1` in the prefab census on all three ShipFrames.
+
+---
+
+### 13.11 THE TANK WAS IN THE WRONG PLACE — settled from the shipped assets, 2026-08-20
+
+**Everything above in §13.4, §13.5, §13.6 and §13.10 about *where fuel is stored*
+and *where you refuel* is superseded by this subsection.** The component analysis
+(§13.1–§13.3), the gauge fix, the canister yield and the flight seam (§13.7) all
+stand unchanged.
+
+#### What was wrong, and why the mistake was reasonable
+
+§13.4 concluded fuel had to be per-HULL because "the 349-name client entity
+prefab census contains `fuelgauge`, `fueldeposit`, `fuelextractor`,
+`fueleggspawnerequip` and `egg` — and **no ship fuel tank**".
+
+That search was for the words *fuel tank*. The prefab is called
+**`PowerGenerator01`**, and it is **line 219 of the same census**. It has been in
+`LoosePartCatalogue` (rows 335–336, two schematic keys over one prefab) since the
+catalogue existed, craftable off the Engines knowledge branch, mountable on a
+deck — and completely inert, with an empty `functional` array and a
+`PartInteractionPolicy` note reading *"powerGenerator(01) — 'generator' as a ship
+part is the sky core module; no component, no verb."*
+
+That note was wrong, and the reason it survived is worth recording because it
+will recur: **the decompile has no `PowerGeneratorPreprocessor`.** Every other
+verb verdict in `PartInteractionPolicy` was derived from a preprocessor
+(`ShipContainerPreprocessor.SetVerb(Inventory)`, `ShipCorePreprocessor.SetVerb
+(Activate)`, …), so "no preprocessor" was read as "no verb". But a preprocessor
+is an **export-time editor script**. What matters is what it left in the shipped
+prefab, and nobody had opened the prefab.
+
+#### What the shipped prefab actually contains — PROVED
+
+A UnityPy census of `~/Games/WorldsAdrift/UnityClient@Windows_Data`, reading the
+raw `MonoBehaviour` blobs (the assets carry no type trees, so the serialized
+fields are parsed by offset):
+
+| prefab | `InteractiveObjectVisualizer.Verb` | `TutorialHelper._interactionStep` |
+|---|---|---|
+| `Helm01_unityclient` | **3 = Man** | — |
+| `ContainerSmall_unityclient` | **4 = Inventory** | — |
+| `Sail01_unityclient` | **1 = Activate** | — |
+| `CoreMain_unityclient` | **1 = Activate** | — |
+| **`PowerGenerator01_unityclient`** | **1 = Activate** | **17 = `MOUSE_OVER_GENERATOR`** |
+
+The first four are the ground truth `PartInteractionPolicy` already held from the
+decompile, and **all four match** — that is what makes the fifth row
+trustworthy rather than a guess about byte offsets.
+
+Now follow `InteractiveObjectVisualizer.GetTutorialStep`. Its `Activate` arm
+tries `_sail`, `_respawner`, `_lamp`, `_horn`, `GetComponent<ShipCoreVisualizer>()`
+in that order, and the generator has **none** of them, so it falls through to
+`_tutorialHelper.InteractionStep` = `MOUSE_OVER_GENERATOR`. That step's overlay
+asset is `STANDARD_MOUSE_OVER_GENERATOR`
+(`docs/research/loop/data/tutorial-content.json`), and it carries exactly one
+control:
+
+```
+{ Type: ONE_BUTTON, Anchor: MIDDLE, Name: "Refuel", Hold: true, InputButtons: ["Interact"] }
+```
+
+**The shipped client has always had a prompt on the power generator that reads
+"Refuel".** `TutorialStep.MOUSE_OVER_GENERATOR` was noted in §13-era research as
+"defined but never referenced anywhere else in the codebase" — true of the C#,
+and misleading, because it is referenced from a **serialized field on the prefab**.
+
+#### Which WIKI claims survived
+
+| claim | verdict |
+|---|---|
+| The Power Generator IS the fuel tank | **SURVIVES**, and is now the strongest-evidenced claim in the subsystem. The prefab bakes an Activate whose label is "Refuel" |
+| A standard generator holds **100** units | **SURVIVES**, and gains a second source: `FuelGaugeVisualizer.cs:56` initialises the needle with `SetFuelAmount(0f, 100f)` — the only `100f` near fuel in the decompile, and the capacity the instrument assumes before a server speaks to it. Promoted from WIKI to RECOVERED |
+| Multiple generators **pool** their capacity automatically | **SURVIVES in effect, not in mechanism.** Retail's ship root aggregated `AccumulatedData.field5_fuel_tanks` (a `Map<EntityId, FuelData>`) and showed the gauge the sum, which is pooling. But it is **NOT** `1106.subtanks`: nothing in the shipped client reads that field (zero non-gencode hits across `acs/` and `ecs/`), so it is a server-side-only int and reproducing it would be inventing a number with no observable consequence. We pool by **summation over mounted generators** and say so |
+| Refuel by **dragging** fuel from inventory onto the generator | **HALF FAILS.** The *interact* half is real and is now implemented. The **drag** half is not reachable: the only client path that moves an item to another entity is `InventoryModificationBehaviour.RequestCrossInventoryMoveItem`, whose destination must carry `InventoryState` and open an `InWorldInventoryVisualiser` — added only by the three container preprocessors. `PowerGenerator01` has no `InWorldInventoryVisualiser` and bakes `Activate`, not `Inventory`. `FuelTankState` (1106) additionally has an **empty `Commands` and empty `Events` block**, so there is no message a client could send it. The gesture is *hold Interact*, and the server decides what moves |
+| Fuel pods hang from island hooks, salvaged with the gauntlet | **ALREADY TRUE HERE** (§13.1), unchanged |
+| A canister can be **hit several times** before dropping | **ALREADY TRUE HERE**, and the premise that it is not is wrong: `FuelCanisterRegistry.Hit` counts shots and `FuelCanisterYield.Schedule` is `{8, 8, 9}` over **three** shots, with `Depleted` only on the third. The "yields more if caught over land or a ship" half is unmodelled — pods are not physics objects here |
+| Pod locations respawn when an **understorm** resets the island | **OUT OF SCOPE, noted as a dependency.** Understorms and island resets do not exist on this server; canisters reset only via the existing `FuelCanisterRegistry.ResetAll` admin path |
+
+#### What was built
+
+- **The tank is per GENERATOR**, keyed on its entity id
+  (`Multiplayer/Ship/Fuel/ShipFuelLedger.cs`). A hull's capacity and level are
+  the **sum** over the generators bolted to it, so two generators are twice the
+  range. Burn is per SHIP, spread across the pool in mount order, and a hull is
+  dry only when **every** generator is.
+- **Fuel travels with the generator.** Lifting one off takes its contents; bolting
+  it to another ship brings them along. That is what "the generator is the tank"
+  implies, so it is pinned by a test rather than left to fall out.
+- **Capacity 100 per generator**, RECOVERED (above). `WAREBORN_FUEL_CAPACITY`
+  still works but **its meaning changed**: it is now one generator's capacity, not
+  a ship's. Anyone with it set in production should re-read it.
+- **Refuel is `Activate` on a mounted generator** → `ShipFuelService.TryRefuel`,
+  dispatched from `PartInteractionService` alongside the sail, lamp and horn. It
+  moves every unit of `"fuel"` the player carries that fits, pool-first so a
+  nearly-full ship cannot eat a stack, with an exact `Withdraw` rollback if the
+  inventory drawdown then fails.
+- **The bunker drain is DELETED** (`ShipFuelBunkerPolicy` and its tests). It only
+  ever existed because §13.10 found no honest prompt; there is one now. Removing
+  it also removes a per-flight walk of every container on every burning hull and
+  its `1081` pushes — the traffic class the multiplayer-safety rule names.
+- **The sky core is served no verb**, unchanged from §13.10 and for the same
+  reason. Its `Activate` is now free for the Atlas Pulse (1306) whenever that is
+  picked up.
+
+#### The safety rule is now STRONGER, not just different
+
+§13.6 keyed metering on the sky core so that "a ship that cannot be refuelled can
+never be stranded", and §13.10 then discovered a hole in it: a hull with a core
+and no container was metered and unrefuellable. That hole is **structurally
+closed**, not patched — metering and the refuel door are now **the same part**. A
+hull is metered because a generator is bolted to it, and that generator is
+exactly the thing you hold E on. There is no configuration in which a ship is
+metered and cannot be refuelled.
+
+**No existing ship can become unflyable, and here is the proof rather than the
+assurance.** Metering strictly *shrinks*: a hull is metered today iff it carries a
+mounted `atlasSkyCore`, and tomorrow iff it carries a mounted power generator.
+Nobody has built a generator, because until now it was an inert prop with no
+component and no verb — so **the metered set becomes empty on deploy** and every
+ship in the world reverts to `FuelReading.Unmetered`: full static tank, no burn,
+no gate. Unmetered *is* the pre-fuel behaviour. A ship can only ever *acquire* a
+fuel system by a player deliberately crafting and bolting on a generator, at
+which point it starts full and can be refuelled at the same part. This is pinned
+by `ShipFuelWiringTests.AHullWithNoGeneratorHasNoFuelSystemAndReadsFull`, which
+holds both halves — the `IsGenerator` gate on the mount seam and the
+`FuelReading.Unmetered` return on the gauge read — because a mutation run walked
+past both before it existed.
+
+**`WAREBORN_FUEL_GATES_THRUST`:** §13.10's first reason for keeping it off (a
+metered hull that cannot be refuelled) is gone, and its second (no low-fuel
+warning) is much weakened, because the prompt now says "Refuel" in the client's
+own words. Flipping it on is still a live-configuration judgement and is left to
+the maintainer; this branch changes no default.
+
+#### Nothing new is served, and here is the enumeration
+
+Per the standing rule, before seeding anything:
+
+| component | every class in the decompile that `[Require]`s it | verdict |
+|---|---|---|
+| **1105** `FuelGaugeState` | `FuelGaugeVisualizer`, and nothing else | **served, unchanged.** Still the only fuel component this server serves |
+| **1106** `FuelTankState` | `FuelVisualizer`, and nothing else | **still NOT served, and the generator does not change that.** `ShipPreprocessor.cs:77` attaches `FuelVisualizer` to ship **ROOTS** only — confirmed independently by a UnityPy scan, which finds it on `ShipFrame`, `ShipFrame01` and `ShipFrame02` and on **no part prefab**. So on a generator 1106 would satisfy no reader at all, and on the hull it would wake a visualiser inert since this server started, whose one method `GetFuelPercent()` has zero callers. It buys nothing in either place |
+| **1258** `AtlasSkyCoreState` | `ShipLiftVisualizer` | **untouched.** This work neither seeds it nor changes its value. The `AtlasMultiplier = 0.0` cliff is not approached |
+| 1210 `InteractiveState` | `InteractiveObjectVisualizer` | already served on every mounted part; the generator's row changes two *values* inside it (verb + availability) and adds no component |
+
+#### What only a live client can settle
+
+1. **That the prompt appears and reads "Refuel".** The asset says so; whether the
+   generator's collider is reachable where a player would put it is not
+   something a headless server can answer.
+2. **That holding E completes.** §13.10 found a `+10 s` hold penalty applied to
+   parts on a ship the client thinks is unfriendly; that root cause was fixed with
+   the container lock (§11.10), but this is the first Activate part added since.
+3. **That the needle moves after a refuel.** Nothing headless renders a
+   `GaugeRoller`, and it lags ~2 s by design (§13.3).
+4. **Whether 100 per generator is the right size in play.** It is recovered, so it
+   should be left alone unless it is actually miserable; `WAREBORN_FUEL_CAPACITY`
+   is the knob if it is.

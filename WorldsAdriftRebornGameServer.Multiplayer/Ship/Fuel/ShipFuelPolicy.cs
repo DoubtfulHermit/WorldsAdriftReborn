@@ -4,18 +4,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
     /// The NUMBERS of the fuel subsystem, and the arithmetic that turns a throttle
     /// and a duration into fuel burnt. Pure: no ENet, no Improbable types, no clock.
     ///
-    /// PROVENANCE, because this is the part of fuel that did not survive.
-    /// Everything about MOVING fuel - the transfer amount, the depletion loop, tank
-    /// capacities, per-engine burn rates - lived on the GSim (Scala), which is gone.
-    /// The shipped client carries no fuel tunable at all: <c>ShipConfiguration</c>
-    /// has ~40 flight knobs and not one fuel entry, <c>ConfigKeys</c> has no fuel
-    /// key, and every fuel schema field defaults to proto zero. The ONLY preserved
-    /// number in the whole subsystem is the 8/8/9 canister yield, which lives in
-    /// <see cref="FuelCanisterYield"/> and is not touched here.
+    /// PROVENANCE, because most of this is the part of fuel that did not survive.
+    /// The transfer amount, the depletion loop and the per-engine burn rates lived on
+    /// the GSim (Scala), which is gone. The shipped client carries no fuel tunable:
+    /// <c>ShipConfiguration</c> has ~40 flight knobs and not one fuel entry,
+    /// <c>ConfigKeys</c> has no fuel key, and every fuel schema field defaults to
+    /// proto zero.
     ///
-    /// So every value below is <b>WAREBORN TUNING</b>, with its reasoning attached
+    /// TWO numbers here are nonetheless RECOVERED and are marked as such:
+    /// <list type="bullet">
+    /// <item>the 8/8/9 canister yield, in <see cref="FuelCanisterYield"/>, not
+    /// touched by this file;</item>
+    /// <item><see cref="GeneratorCapacity"/> = 100, which the community record and
+    /// the client's own <c>FuelGaugeVisualizer</c> default agree on.</item>
+    /// </list>
+    /// Everything else below is <b>WAREBORN TUNING</b>, with its reasoning attached
     /// and an env override, because the first live flight is the only real test.
-    /// See docs/plans/feature-roadmap.md 13.6.
+    /// See docs/plans/feature-roadmap.md 13.6 and 13.11.
     ///
     /// WHAT RETAIL DOES PIN, and what this module reproduces in shape if not in
     /// magnitude: consumption was CONTINUOUS and THROTTLE-DRIVEN, not per-action.
@@ -32,14 +37,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// A ship's tank capacity in fuel units. Ten canisters
-        /// (<see cref="FuelCanisterYield.TotalFuel"/> = 25 each): large enough that
-        /// refuelling is an errand, small enough that one salvage trip fills you.
-        /// WAREBORN TUNING.
+        /// ONE POWER GENERATOR's capacity in fuel units. A hull's capacity is this
+        /// times the number of generators bolted to it - see
+        /// <see cref="ShipFuelLedger"/> for why the pool is a sum.
+        ///
+        /// <b>100 is RECOVERED, not invented</b>, and it is the one number in this
+        /// file that is not Wareborn tuning. Two independent sources agree:
+        /// <list type="bullet">
+        /// <item>the community record ("a standard generator holds 100 units;
+        /// multiple generators pool automatically"), and</item>
+        /// <item>the shipped client's own default - <c>FuelGaugeVisualizer</c>
+        /// initialises its needle with <c>SetFuelAmount(0f, 100f)</c>
+        /// (acs/Assets.Scripts.Visualisers.Ship/FuelGaugeVisualizer.cs:56), the only
+        /// <c>100f</c> anywhere near fuel in the decompile. That is the capacity the
+        /// instrument assumes before a server ever speaks to it.</item>
+        /// </list>
+        /// It replaces a 250-per-hull figure that was explicitly WAREBORN TUNING
+        /// ("ten canisters"), which a recovered number outranks.
+        ///
+        /// Four canisters (<see cref="FuelCanisterYield.TotalFuel"/> = 25 each) fill
+        /// one generator exactly, which is a pleasant accident of two independently
+        /// recovered numbers and is worth not rounding away.
         /// </summary>
-        public const double DefaultCapacity = 250.0;
+        public const double GeneratorCapacity = 100.0;
 
-        /// <summary>Floor for a configured capacity - one canister.</summary>
+        /// <summary>Floor for a configured per-generator capacity - one canister.</summary>
         public const double MinCapacity = 25.0;
 
         /// <summary>
@@ -55,16 +77,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Fuel burnt per second at FULL throttle. At the default capacity a full
-        /// tank is 1000 s - about sixteen minutes of continuous full throttle - and
-        /// one canister is worth about 100 s of flight. WAREBORN TUNING.
+        /// Fuel burnt per second at FULL throttle, for the whole ship. One generator
+        /// is then 400 s - about six and a half minutes of continuous full throttle -
+        /// and one canister is worth about 100 s of flight. Bolt on a second
+        /// generator and the range doubles, which is the point of pooling.
+        /// WAREBORN TUNING: retail's burn rate lived on the GSim and is gone.
         /// </summary>
         public const double DefaultBurnPerSecond = 0.25;
 
         /// <summary>Floor for a configured burn rate. Zero would mean nothing burns fuel again.</summary>
         public const double MinBurnPerSecond = 0.001;
 
-        /// <summary>Ceiling for a configured burn rate: a full default tank in ten seconds.</summary>
+        /// <summary>Ceiling for a configured burn rate: one full generator in four seconds.</summary>
         public const double MaxBurnPerSecond = 25.0;
 
         // ------------------------------------------------------------------
@@ -135,7 +159,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         }
 
         /// <summary>
-        /// How much of <paramref name="offered"/> fuel actually fits in a tank
+        /// How much of <paramref name="offered"/> fuel actually fits in one generator
         /// holding <paramref name="level"/> of <paramref name="capacity"/>.
         ///
         /// Whole units only: fuel is an inventory item with an integer amount, so a
@@ -165,13 +189,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Tank capacity from <c>WAREBORN_FUEL_CAPACITY</c>. Unset or garbage falls
-        /// back to the default; out of range clamps. Never throws - the same
-        /// contract as <c>ShipMotionPolicy.SpeedFrom</c>, because a bad env var must
-        /// not take the server down.
+        /// PER-GENERATOR capacity from <c>WAREBORN_FUEL_CAPACITY</c>. Unset or garbage
+        /// falls back to the recovered 100; out of range clamps. Never throws - the
+        /// same contract as <c>ShipMotionPolicy.SpeedFrom</c>, because a bad env var
+        /// must not take the server down.
+        ///
+        /// NOTE FOR ANYONE WITH THIS SET IN PRODUCTION: its meaning changed with the
+        /// move to per-generator tanks. It used to be a whole ship's capacity; it is
+        /// now one generator's, and a two-generator ship gets twice it.
         /// </summary>
         public static double CapacityFrom(string? env) =>
-            ParseClamped(env, DefaultCapacity, MinCapacity, MaxCapacity);
+            ParseClamped(env, GeneratorCapacity, MinCapacity, MaxCapacity);
 
         /// <summary>Burn rate from <c>WAREBORN_FUEL_BURN_RATE</c>. Same contract.</summary>
         public static double BurnRateFrom(string? env) =>

@@ -134,6 +134,36 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **`feat/fuel-generators` (NOT DEPLOYED, server-only, no client mod).** **The
+  fuel tank moved onto the POWER GENERATOR**, which is where the shipped client
+  has always said it is. `PowerGenerator01_unityclient` bakes an
+  `InteractiveObjectVisualizer` with `Verb = Activate` and a `TutorialHelper`
+  pointing at `MOUSE_OVER_GENERATOR`, whose overlay asset carries one control
+  reading **`Name: "Refuel", Hold: true`**. The old "there is no fuel tank prefab,
+  so fuel is per-hull" finding searched the 349-name census for *fuel tank*; the
+  prefab is line 219, `powergenerator01`.
+  * **Capacity 100 per generator, RECOVERED** (wiki + `FuelGaugeVisualizer.cs:56`'s
+    own `SetFuelAmount(0f, 100f)` default), replacing the invented 250-per-hull.
+    **`WAREBORN_FUEL_CAPACITY` changed meaning** — it is now ONE generator's
+    capacity, not a ship's.
+  * **Generators pool by summation**: two on a hull is twice the range. Not
+    `1106.subtanks` — nothing in the client reads that field.
+  * **Fuel travels with the generator** when it is lifted off and re-bolted.
+  * **Refuel = hold E on the generator.** The bunker drain is **deleted**; it only
+    existed because there was no honest prompt, and it walked every container on
+    every burning hull once per canister.
+  * **No ship can become unflyable.** Metering strictly shrinks: it keyed on the
+    sky core and now keys on the generator, which nobody has built, so the metered
+    set is empty on deploy and every ship reverts to unmetered — full static
+    gauge, no burn, no gate, i.e. exactly the pre-fuel behaviour.
+  * **Nothing new is served.** `1106` stays unserved on purpose: `FuelVisualizer`
+    is its only reader, it is on ship ROOTS only (UnityPy-confirmed: ShipFrame,
+    ShipFrame01, ShipFrame02, no part prefab), and `GetFuelPercent()` has zero
+    callers. `1258` untouched — the `AtlasMultiplier = 0.0` cliff is not
+    approached. Full write-up: `docs/plans/feature-roadmap.md` §13.11.
+  * **Needs a live check** before deploy: that the "Refuel" prompt appears on a
+    mounted generator, that the hold completes, and that the needle climbs.
+
 - **Game server:** `92a4002`, **login server:** `92a4002`, both at 2026-08-19
   17:20 CEST. **Client manifest `2026.08.19-4`.** The afternoon, in one entry.
   * **Ship containers work** - trunk, mountedBox, storageContainer,
@@ -142,7 +172,9 @@ authority for live configuration is the box itself:
     `PickUp` we served is a verb the prefab never looks for.
   * **Real flight forces**, behind `WAREBORN_FLIGHT_FORCES`, **OFF** - engineless
     legacy hulls cannot move under it, so enabling it is a judgement call.
-  * **Fuel works**: per-hull tank, refuel by holding E on the ATLAS SKY CORE,
+  * **Fuel works** *(both the tank location and the door in this line have since
+    been superseded twice — see the `feat/fuel-generators` entry above)*: per-hull
+    tank, refuel by holding E on the ATLAS SKY CORE,
     throttle-proportional burn, and a gauge whose needle moves. Thrust gating is
     deliberately **OFF** (`WAREBORN_FUEL_GATES_THRUST=0`) until the low-fuel
     warning exists - the refuel prompt renders with no text, so a stranded
@@ -164,8 +196,10 @@ authority for live configuration is the box itself:
   and **breaks climbing game-wide**. We seed `1258` at a flat 1,000,000 kg
   precisely so the overload rule cannot fire. Same family as the loom's `1264`
   and the fuel gauge's `1105`, except here the broken state is what keeps flight
-  working. Related standing warning: serving `1106` on the hull would wake
-  `FuelVisualizer`, which `ShipPreprocessor` attaches to every ship root.
+  working. Related standing warning, still current: serving `1106` on the hull
+  would wake `FuelVisualizer`, which `ShipPreprocessor` attaches to every ship
+  root. `feat/fuel-generators` re-ran that enumeration and still does not serve
+  1106 — on a generator part it would satisfy no reader at all.
 
   **Corrections made today to earlier claims in this file and in the audit:**
   * The staleness step was **NOT** today's content and **not a regression** - it

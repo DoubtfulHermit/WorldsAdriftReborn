@@ -16,19 +16,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
     public class ShipFuelPolicyTests
     {
         [Fact]
-        public void ACanisterFillsATenthOfTheDefaultTank()
+        public void AGeneratorHoldsTheRECOVERED100AndFourCanistersFillIt()
         {
-            // The one RECOVERED number in the subsystem, tied to the one invented
-            // one: capacity is expressed as canisters so the errand has a size.
+            // 100 is not tuning. The community record says a standard generator holds
+            // 100 units, and the shipped client agrees: FuelGaugeVisualizer starts its
+            // needle at SetFuelAmount(0f, 100f) before any server speaks to it. If
+            // someone "rounds this up a bit", this is the test that should stop them.
+            Assert.Equal(100.0, ShipFuelPolicy.GeneratorCapacity);
             Assert.Equal(25, FuelCanisterYield.TotalFuel);
-            Assert.Equal(10.0, ShipFuelPolicy.DefaultCapacity / FuelCanisterYield.TotalFuel, 6);
+            Assert.Equal(4.0, ShipFuelPolicy.GeneratorCapacity / FuelCanisterYield.TotalFuel, 6);
         }
 
         [Fact]
-        public void AFullTankIsSixteenMinutesOfFullThrottle()
+        public void OneGeneratorIsAboutSixAndAHalfMinutesOfFullThrottle()
         {
-            double seconds = ShipFuelPolicy.DefaultCapacity / ShipFuelPolicy.DefaultBurnPerSecond;
-            Assert.Equal(1000.0, seconds, 6);
+            double seconds = ShipFuelPolicy.GeneratorCapacity / ShipFuelPolicy.DefaultBurnPerSecond;
+            Assert.Equal(400.0, seconds, 6);
         }
 
         [Fact]
@@ -97,7 +100,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         [Fact]
         public void DepositNeverExceedsWhatIsOffered()
         {
-            Assert.Equal(25, ShipFuelPolicy.DepositRoom(0.0, 250.0, 25));
+            Assert.Equal(25, ShipFuelPolicy.DepositRoom(0.0, 100.0, 25));
         }
 
         [Theory]
@@ -105,15 +108,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         [InlineData(-4)]
         public void DepositRefusesANonPositiveOffer(int offered)
         {
-            Assert.Equal(0, ShipFuelPolicy.DepositRoom(0.0, 250.0, offered));
+            Assert.Equal(0, ShipFuelPolicy.DepositRoom(0.0, 100.0, offered));
         }
 
         [Fact]
         public void CapacityAndBurnFallBackAndClamp()
         {
-            Assert.Equal(ShipFuelPolicy.DefaultCapacity, ShipFuelPolicy.CapacityFrom(null));
-            Assert.Equal(ShipFuelPolicy.DefaultCapacity, ShipFuelPolicy.CapacityFrom("nonsense"));
-            Assert.Equal(ShipFuelPolicy.DefaultCapacity, ShipFuelPolicy.CapacityFrom("-3"));
+            Assert.Equal(ShipFuelPolicy.GeneratorCapacity, ShipFuelPolicy.CapacityFrom(null));
+            Assert.Equal(ShipFuelPolicy.GeneratorCapacity, ShipFuelPolicy.CapacityFrom("nonsense"));
+            Assert.Equal(ShipFuelPolicy.GeneratorCapacity, ShipFuelPolicy.CapacityFrom("-3"));
             Assert.Equal(ShipFuelPolicy.MinCapacity, ShipFuelPolicy.CapacityFrom("1"));
             Assert.Equal(ShipFuelPolicy.MaxCapacity, ShipFuelPolicy.CapacityFrom("99999999"));
             Assert.Equal(500.0, ShipFuelPolicy.CapacityFrom("500"));

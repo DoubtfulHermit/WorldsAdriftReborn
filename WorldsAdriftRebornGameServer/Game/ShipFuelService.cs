@@ -17,27 +17,43 @@ namespace WorldsAdriftRebornGameServer.Game
     ///
     /// HOW IT WORKS, in one pass:
     ///
-    ///   * a hull gets a fuel system when a <c>atlasSkyCore</c> is mounted on it -
-    ///     the core is the ship's power plant, which is the thematically right place
-    ///     for the rule and also the non-punitive one. No core, no fuel system: no
-    ///     burn, no gate, and the gauge reads a full static tank.
-    ///   * refuelling is the ship's own BUNKER: <see cref="DrainBunkers"/> draws
-    ///     <c>"fuel"</c> out of the containers bolted to the hull as the tank makes
-    ///     room, using the same <c>CraftingPolicy</c> drawdown the crafting path
-    ///     uses, and pushing that container's 1081 once per draw. It replaced
-    ///     "hold E on the sky core", because that prompt is a baked client asset
-    ///     reading "Activate Atlas Pulse" and naming a real retail action (1306) -
-    ///     a control that lied about what it did. <see cref="ShipFuelBunkerPolicy"/>
-    ///     carries the whole argument and the evidence.
-    ///     STANDING CONSEQUENCE: a hull with a core and NO container cannot be
-    ///     refuelled, so <c>WAREBORN_FUEL_GATES_THRUST</c> must stay off until
-    ///     either that hull is excluded from metering or a low-fuel warning exists.
-    ///     The gate was already off for the second of those reasons.
+    ///   * THE POWER GENERATOR IS THE TANK. A hull gets a fuel system when a
+    ///     <c>powerGenerator</c>/<c>powerGenerator01</c> is mounted on it, and its
+    ///     capacity is the sum over however many are bolted on.
+    ///     <see cref="ShipFuelLedger"/> carries the evidence and the pooling rule.
+    ///     No generator, no fuel system: no burn, no gate, and the gauge reads a
+    ///     full static tank.
+    ///   * refuelling is <b>hold E on the generator</b>: <see cref="TryRefuel"/>
+    ///     moves every unit of <c>"fuel"</c> the player is carrying that fits, using
+    ///     the same <c>CraftingPolicy</c> drawdown the crafting path uses, then
+    ///     pushes 1081 once. The prompt is not ours and does not need to be - the
+    ///     <c>PowerGenerator01</c> prefab bakes <c>InteractiveObjectVisualizer</c>
+    ///     with <c>Verb = Activate</c> and a <c>TutorialHelper</c> whose
+    ///     <c>_interactionStep</c> is <c>MOUSE_OVER_GENERATOR</c>, and that overlay
+    ///     asset (<c>STANDARD_MOUSE_OVER_GENERATOR</c>) reads the single word
+    ///     <b>"Refuel"</b> with <c>Hold: true</c>. The control says exactly what it
+    ///     does, which is what the sky-core door could never do and what the bunker
+    ///     drain worked around.
+    ///     STANDING CONSEQUENCE, and it is a better one than before: metering and
+    ///     the refuel door are now the SAME PART, so a metered hull is always
+    ///     refuellable by hand. The old "a hull with a core and no container cannot
+    ///     be refuelled" hazard is gone with the bunker.
     ///   * burning happens here on a 0.5 s cadence, proportional to the pilot's
     ///     commanded throttle.
     ///   * the gauge is 1105 <c>FuelGaugeState</c> broadcast to every mounted
     ///     <c>fuelGauge</c> on that hull, gated by
     ///     <see cref="FuelGaugePushTracker"/>.
+    ///
+    /// NOTHING NEW IS SERVED ON THE GENERATOR ITSELF, and that is deliberate.
+    /// <c>1106 FuelTankState</c> is the obvious candidate and buys nothing: the only
+    /// class in the whole decompile that <c>[Require]</c>s it is
+    /// <c>FuelVisualizer</c>, <c>ShipPreprocessor.cs:77</c> attaches that to ship
+    /// ROOTS only (confirmed by a UnityPy census - <c>FuelVisualizer</c> appears on
+    /// ShipFrame/01/02 and on no part prefab), and its one method
+    /// <c>GetFuelPercent()</c> has zero callers. So on a generator 1106 would satisfy
+    /// no reader at all, and on the hull it would wake a visualiser that has been
+    /// inert since this server started. 1105 on the gauge remains the only fuel
+    /// component this server serves.
     ///
     /// THE FLIGHT SEAM, and why no flight file is touched. Fuel and flight meet at
     /// the engine, and flight physics belongs to another branch. So this service
@@ -69,11 +85,18 @@ namespace WorldsAdriftRebornGameServer.Game
     /// </summary>
     internal sealed class ShipFuelService
     {
-        /// <summary>The catalogue itemType of the refuel door.</summary>
-        internal const string CoreItemType = "atlasSkyCore";
-
         /// <summary>The catalogue itemType of the instrument that shows the level.</summary>
         internal const string GaugeItemType = "fuelGauge";
+
+        /// <summary>
+        /// Whether a catalogue itemType is a POWER GENERATOR - the tank, and the
+        /// refuel door. Two schematic keys share one prefab
+        /// (<c>LoosePartCatalogue</c> rows 335-336), so this is a predicate rather
+        /// than a constant; a third generator recipe would need adding here, and
+        /// <c>ShipFuelWiringTests</c> pins that both known keys are covered.
+        /// </summary>
+        internal static bool IsGenerator(string? itemType) =>
+            itemType == "powerGenerator" || itemType == "powerGenerator01";
 
         private readonly IClock _clock;
         private readonly ShipFuelLedger _ledger = new ShipFuelLedger();
@@ -122,33 +145,35 @@ namespace WorldsAdriftRebornGameServer.Game
         internal ShipFuelLedger Ledger => _ledger;
 
         // ------------------------------------------------------------------
-        // Registration: a sky core is a hull's fuel system
+        // Registration: a power generator is a hull's fuel system
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// A part was mounted on a hull. Only a sky core matters; everything else is
-        /// one string compare. Idempotent, so every mount/restore/late-join walk can
-        /// call it, and a re-mounted core does NOT refill the tank.
+        /// A part was mounted on a hull. Only a power generator matters; everything
+        /// else is two string compares. Idempotent, so every mount/restore/late-join
+        /// walk can call it, and a re-mounted generator does NOT refill.
         /// </summary>
         internal void OnPartMounted(string? itemType, long partEntityId, long hullEntityId)
         {
-            if (!Enabled || itemType != CoreItemType)
+            if (!Enabled || !IsGenerator(itemType))
             {
                 return;
             }
 
-            if (_ledger.Register(hullEntityId, Capacity))
+            if (_ledger.Register(partEntityId, hullEntityId, Capacity))
             {
-                Console.WriteLine("[fuel] hull " + hullEntityId + " has a fuel system (sky core "
-                    + partEntityId + "); tank " + _ledger.Read(hullEntityId) + ".");
+                Console.WriteLine("[fuel] hull " + hullEntityId + " gained generator " + partEntityId
+                    + " (" + _ledger.GeneratorsOn(hullEntityId) + " pooled); tank "
+                    + _ledger.Read(hullEntityId) + ".");
             }
         }
 
         /// <summary>
-        /// A part left a hull (lifted, salvaged). Losing the sky core makes the hull
-        /// UNMETERED again - it burns nothing and is gated by nothing, because a
-        /// ship with no refuel door must not be strandable. The level is remembered,
-        /// so bolting the core back on is not a free refuel.
+        /// A part left a hull (lifted, salvaged). A hull that loses its LAST generator
+        /// is UNMETERED again - it burns nothing and is gated by nothing, because a
+        /// ship with no fuel system must not be strandable. The generator keeps its
+        /// own fuel, so remounting is not a free refuel and carrying it to another
+        /// ship brings the fuel along.
         /// </summary>
         internal void OnPartUnmounted(string? itemType, long partEntityId, long hullEntityId)
         {
@@ -157,128 +182,113 @@ namespace WorldsAdriftRebornGameServer.Game
                 _gauges.Forget(partEntityId);
                 return;
             }
-            if (itemType != CoreItemType)
+            if (!IsGenerator(itemType))
             {
                 return;
             }
 
-            if (_ledger.Unregister(hullEntityId))
+            if (_ledger.Unregister(partEntityId))
             {
-                Console.WriteLine("[fuel] hull " + hullEntityId + " lost its sky core (" + partEntityId
-                    + "); fuel system dormant, the ship flies unmetered until one is remounted.");
+                Console.WriteLine("[fuel] hull " + hullEntityId + " lost generator " + partEntityId
+                    + "; " + _ledger.GeneratorsOn(hullEntityId) + " left, tank now "
+                    + _ledger.Read(hullEntityId)
+                    + (_ledger.IsMetered(hullEntityId) ? "." : " (unmetered - it flies free)."));
             }
         }
 
-        /// <summary>The ship itself is gone. Drop the tank entirely.</summary>
+        /// <summary>The ship itself is gone. Drop every generator on it.</summary>
         internal void OnHullRemoved(long hullEntityId)
         {
             if (_lastPilotByHull.Remove(hullEntityId, out long pilot))
             {
                 _inputs.Remove(pilot);
             }
-            _ledger.Forget(hullEntityId);
+            _ledger.ForgetHull(hullEntityId);
         }
 
         // ------------------------------------------------------------------
-        // Refuelling: the ship's own bunker
+        // Refuelling: hold E on the generator, and the client says "Refuel"
         // ------------------------------------------------------------------
 
         /// <summary>
-        /// Draws fuel out of the containers BOLTED TO THIS HULL until the tank is
-        /// full or the ship has none left aboard, and reports how many units moved.
+        /// A completed Activate on a mounted POWER GENERATOR: move every unit of
+        /// <c>"fuel"</c> the player carries that fits into the hull's pool. Returns
+        /// how many units moved, or null when the target is not a mounted generator
+        /// (so the interaction dispatcher can keep looking).
         ///
-        /// THIS REPLACED "hold E on the sky core", and
-        /// <see cref="ShipFuelBunkerPolicy"/> carries the whole argument for why.
-        /// The short version: the core's prompt is a baked client asset that reads
-        /// "Activate Atlas Pulse" and names a real retail action (1306), so a refuel
-        /// on that door is a control that lies. This door has no prompt to lie with -
-        /// putting fuel into a ship container is a gesture that already worked before
-        /// fuel existed.
+        /// THIS IS THE RETAIL DOOR, and unlike the two doors before it, it is not a
+        /// reconstruction. <c>PowerGenerator01</c> bakes
+        /// <c>InteractiveObjectVisualizer(Verb = Activate)</c> and a
+        /// <c>TutorialHelper</c> pointing at <c>MOUSE_OVER_GENERATOR</c>, whose
+        /// overlay asset spells the prompt <b>"Refuel"</b>. We do not choose those
+        /// words and cannot change them; we only have to make them true.
         ///
-        /// ORDER MATTERS AND IS DELIBERATE, and it is the same order the old sky-core
-        /// path used: ask the TANK first and take from the container only what it
-        /// accepted, so a nearly-full tank can never eat a whole stack. The one
-        /// rollback that remains - the tank accepted and the grid then refused - is
-        /// an exact <c>Withdraw</c> of a double, never an attempt to re-create an
-        /// item, because putting an item back into a grid is the operation that can
-        /// fail a second time.
+        /// ORDER MATTERS AND IS DELIBERATE: ask the POOL first and take from the
+        /// player only what it accepted, so a nearly-full ship can never eat a whole
+        /// stack. The one rollback that remains - the pool accepted and the grid then
+        /// refused - is an exact <see cref="ShipFuelLedger.Withdraw"/> of a double,
+        /// never an attempt to re-create an item, because putting an item back into a
+        /// grid is the operation that can fail a second time.
         /// </summary>
-        private int DrainBunkers(long hullEntityId)
+        internal int? TryRefuel(long playerEntityId, long generatorEntityId)
         {
-            FuelReading tank = _ledger.Read(hullEntityId);
-            if (!ShipFuelBunkerPolicy.ShouldDraw(tank.Level, tank.Capacity))
+            if (!Enabled)
             {
-                // Parked, or not yet a canister short. This is the line that keeps a
-                // world full of ships free: no walk of mounted parts, no inventory
-                // read, no 1081. See ShipFuelBunkerPolicy.MinimumDrawUnits for why
-                // the threshold is a WIRE rule.
-                return 0;
-            }
-            int free = ShipFuelBunkerPolicy.FreeUnits(tank.Level, tank.Capacity);
-
-            List<ShipFuelBunkerPolicy.Draw>? stock = null;
-            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> mounted
-                     in Crafting.MountedParts.OnHull(hullEntityId))
-            {
-                long containerEntityId = mounted.Key;
-                if (!ShipContainerService.IsContainer(containerEntityId)
-                    || InventoryService.KeyOf(containerEntityId) == null)
-                {
-                    // Not a container, or one nobody has ever opened - and asking an
-                    // unbound container what it holds must not be the thing that
-                    // binds it, exactly as ShipContainerService.ItemCount refuses to.
-                    continue;
-                }
-
-                InventoryModel bunker = InventoryService.ForEntity(containerEntityId);
-                int held = CraftingPolicy.AvailableFor(
-                    bunker, InventoryWire.CategoryLookup, FuelPods.ItemTypeId);
-                if (held <= 0)
-                {
-                    continue;
-                }
-
-                stock ??= new List<ShipFuelBunkerPolicy.Draw>();
-                stock.Add(new ShipFuelBunkerPolicy.Draw(containerEntityId, held));
+                return null;
             }
 
-            if (stock == null)
+            Crafting.MountedParts.Mount? mount = Crafting.MountedParts.MountFor(generatorEntityId);
+            if (mount == null || !IsGenerator(mount.Value.ItemType))
             {
+                return null;
+            }
+
+            long hullEntityId = mount.Value.HullEntityId;
+            if (!_ledger.IsMetered(hullEntityId))
+            {
+                // Mounted but never registered - a restore path that predates this
+                // feature, or WAREBORN_FUEL flipped on mid-session. Register it now
+                // rather than refusing an interaction the client told the player to
+                // make.
+                _ledger.Register(generatorEntityId, hullEntityId, Capacity);
+            }
+
+            InventoryModel model = InventoryService.ForEntity(playerEntityId);
+            // The count and the drawdown MUST agree on what counts as fuel, or a
+            // refuel can fill the tank and then fail to pay for it. Both go through
+            // CraftingPolicy's own matching rule for exactly that reason.
+            int carried = CraftingPolicy.AvailableFor(model, InventoryWire.CategoryLookup, FuelPods.ItemTypeId);
+            FuelReading before = _ledger.Read(hullEntityId);
+
+            if (carried <= 0)
+            {
+                Console.WriteLine("[fuel] refuel refused: entity " + playerEntityId
+                    + " carries no fuel (hull " + hullEntityId + ", tank " + before + ").");
                 return 0;
             }
 
-            int moved = 0;
-            foreach (ShipFuelBunkerPolicy.Draw draw in ShipFuelBunkerPolicy.Plan(free, stock))
+            int moved = _ledger.Deposit(hullEntityId, carried);
+            if (moved <= 0)
             {
-                int accepted = _ledger.Deposit(hullEntityId, draw.Units);
-                if (accepted <= 0)
-                {
-                    break;
-                }
-
-                InventoryModel bunker = InventoryService.ForEntity(draw.ContainerEntityId);
-                if (!TryTakeFuel(bunker, accepted))
-                {
-                    // The grid refused after the tank accepted - a concurrent move
-                    // emptied it between the count and the take. Put the fuel back in
-                    // the tank rather than creating it out of nothing.
-                    _ledger.Withdraw(hullEntityId, accepted);
-                    Console.WriteLine("[warning] fuel: bunker drawdown of " + accepted
-                        + " failed for container " + draw.ContainerEntityId + "; tank rolled back.");
-                    continue;
-                }
-
-                InventoryPush.Push(draw.ContainerEntityId,
-                    "hull " + hullEntityId + " drew " + accepted + " fuel from its bunker");
-                moved += accepted;
+                Console.WriteLine("[fuel] refuel refused: hull " + hullEntityId
+                    + " is full (" + before + ").");
+                return 0;
             }
 
-            if (moved > 0)
+            if (!TryTakeFuel(model, moved))
             {
-                PushGauges(hullEntityId, force: true);
-                Console.WriteLine("[fuel] hull " + hullEntityId + " drew " + moved
-                    + " fuel from its bunker; tank now " + _ledger.Read(hullEntityId) + ".");
+                _ledger.Withdraw(hullEntityId, moved);
+                Console.WriteLine("[warning] fuel: inventory drawdown of " + moved
+                    + " failed for entity " + playerEntityId + "; tank rolled back.");
+                return 0;
             }
+
+            InventoryPush.Push(playerEntityId, "refuelled ship " + hullEntityId);
+            PushGauges(hullEntityId, force: true);
+
+            Console.WriteLine("[fuel] entity " + playerEntityId + " refuelled hull " + hullEntityId
+                + " at generator " + generatorEntityId + ": +" + moved + " fuel, tank now "
+                + _ledger.Read(hullEntityId) + ".");
             return moved;
         }
 
@@ -409,16 +419,10 @@ namespace WorldsAdriftRebornGameServer.Game
                 }
             }
 
-            // REFUELLING, and why it lives on the burn tick rather than on a verb.
-            // A tank that has not burned has no room, so DrainBunkers returns on its
-            // first line for every parked ship - the walk of a hull's containers only
-            // ever happens for a ship that has actually spent something. See
-            // ShipFuelBunkerPolicy for why the sky core stopped being the door.
-            foreach (long hullEntityId in hulls)
-            {
-                DrainBunkers(hullEntityId);
-            }
-
+            // REFUELLING IS NOT ON THIS TICK. It is a player holding E on a generator
+            // (TryRefuel), which is the door the shipped client already labels
+            // "Refuel". The burn tick used to also drain the ship's containers; that
+            // was a workaround for having no honest prompt, and it is gone.
             foreach (long hullEntityId in wentDry)
             {
                 CutEngines(hullEntityId);

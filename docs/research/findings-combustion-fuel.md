@@ -1,5 +1,14 @@
 # Findings — combustion and fuel
 
+> **⚠ SUPERSEDED IN PART, 2026-08-20 — see `docs/plans/feature-roadmap.md` §13.11.**
+> The claim that "the per-tank 1106 / per-engine 1104 topology is not reproducible,
+> and fuel is per-hull" is FALSE. The tank prefab exists and is called
+> `PowerGenerator01`; the earlier census searched for the words *fuel tank*. The
+> generator holds 100, generators pool across a hull, and the shipped client's own
+> prompt on that part reads **"Refuel"**. Everything here about the pods, the
+> canister yield and the component schemas still stands.
+
+
 **Status:** current. Written 2026-08-19 on `feat/ship-fuel`.
 
 This file existed only as a citation for a long time: five code sites pointed at

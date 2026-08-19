@@ -22,6 +22,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         /// <summary>
+        /// THE POWER GENERATOR IS THE REFUEL DOOR, and unlike every other verdict in
+        /// this file it did not have to be reconstructed - the shipped client already
+        /// labels it. <c>PowerGenerator01_unityclient</c> bakes an
+        /// <c>InteractiveObjectVisualizer</c> with <c>Verb = Activate (1)</c> and a
+        /// <c>TutorialHelper</c> whose <c>_interactionStep</c> is
+        /// <c>17 = MOUSE_OVER_GENERATOR</c>; the Activate arm of
+        /// <c>GetTutorialStep</c> falls through sail/respawner/lamp/horn/
+        /// ShipCoreVisualizer - the generator has none of them - to that step, whose
+        /// overlay asset <c>STANDARD_MOUSE_OVER_GENERATOR</c> carries exactly one
+        /// control: <c>{ Name: "Refuel", Hold: true, InputButtons: [Interact] }</c>.
+        ///
+        /// This entry replaced a wrong verdict ("no component, no verb") that survived
+        /// because the decompile has no PowerGenerator preprocessor - a preprocessor
+        /// is an EXPORT-TIME script, and the question was always what it left in the
+        /// prefab. Two schematic keys share the one prefab, so BOTH rows must carry
+        /// the verb or half the generators a player can craft are inert.
+        /// </summary>
+        [Theory]
+        [InlineData("powerGenerator")]
+        [InlineData("powerGenerator01")]
+        public void ThePowerGeneratorAdvertisesTheRefuelItsPrefabAlreadyPromises(string itemType)
+        {
+            Assert.Equal(PartVerb.Activate, PartInteractionPolicy.VerbFor(itemType));
+            Assert.Equal(PartVerb.Activate, PartInteractionPolicy.SeedVerbFor(itemType));
+
+            // Mount-operated: the prompt must flip available on the mount and unmount
+            // commits, or the first generator to gain the verb is seeded correctly and
+            // stays available=false forever - the container bug, verbatim.
+            Assert.True(PartInteractionPolicy.IsMountOperated(itemType));
+            Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, false));
+            Assert.True(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, true));
+        }
+
+        /// <summary>
         /// The helm's Man is served by the serializer's dedicated isHelm branch and
         /// handled by the flight service; the policy must answer None so the
         /// mounted-part branch never double-serves it.
@@ -120,8 +154,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [InlineData("headingIndicator")]
         [InlineData("artificialHorizon")]
         [InlineData("airspeedIndicator")]
-        [InlineData("powerGenerator")]
-        [InlineData("powerGenerator01")]
         [InlineData("deck")]
         [InlineData("stairs")]
         [InlineData("railing")]
@@ -148,16 +180,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         /// <summary>
         /// EVERY catalogue row has an explicit verdict covered by the cases above:
         /// walking the real catalogue must yield Activate only for sail/lamp/horn and
-        /// Inventory only for the four storage containers. A new catalogue row
+        /// the two power-generator rows, and Inventory only for the four storage
+        /// containers. A new catalogue row
         /// defaults to None (safe - no prompt), and this test documents that adding an
         /// interactable one means extending the policy AND the service together.
         ///
-        /// SEVEN is the whole answer to "which ship parts respond to E" and it is
+        /// NINE is the whole answer to "which ship parts respond to E" and it is
         /// spelled out here rather than counted, so that a part quietly gaining or
         /// losing a prompt is a failing test rather than a live surprise.
         /// </summary>
         [Fact]
-        public void WholeCatalogueAuditsToExactlyTheEightInteractableParts()
+        public void WholeCatalogueAuditsToExactlyTheNineInteractableParts()
         {
             var interactable = LoosePartCatalogue.All
                 .Where(def => PartInteractionPolicy.VerbFor(def.ItemType) != PartVerb.None)
@@ -165,18 +198,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 .OrderBy(t => t, StringComparer.Ordinal)
                 .ToArray();
 
-            // atlasSkyCore LEFT this list again. It joined as the refuel door on the
-            // argument that its Activate was baked and unclaimed; the verb is, but the
-            // PROMPT is not - the client's own overlay asset spells it "Activate Atlas
-            // Pulse", which names a real retail action (1306). A prompt whose label we
-            // cannot honour is the same lie as a verb we cannot honour, so the core is
-            // served no verb and refuel moved to the hull's bunker. Anything appearing
-            // here without a 1211 handler behind it is a prompt that lies.
+            // atlasSkyCore is NOT here, and powerGenerator(01) IS. The core joined
+            // as the refuel door on the argument that its Activate was baked and
+            // unclaimed; the verb is, but the PROMPT is not - the client's own overlay
+            // asset spells it "Activate Atlas Pulse", which names a real retail action
+            // (1306). A prompt whose label we cannot honour is the same lie as a verb
+            // we cannot honour.
+            //
+            // The power generator has the opposite property and that is why refuel
+            // lives there now: PowerGenerator01_unityclient bakes
+            // InteractiveObjectVisualizer(Verb = Activate) plus a TutorialHelper
+            // pointing at MOUSE_OVER_GENERATOR, and that overlay asset
+            // (STANDARD_MOUSE_OVER_GENERATOR) carries exactly one control, reading
+            // { Name: "Refuel", Hold: true }. The client labels the door for us.
+            //
+            // Anything appearing here without a 1211 handler behind it is a prompt
+            // that lies.
             Assert.Equal(
                 new[]
                 {
-                    "horn", "lamp", "mountedBox", "sail",
-                    "shippingContainer", "storageContainer", "trunk",
+                    "horn", "lamp", "mountedBox", "powerGenerator", "powerGenerator01",
+                    "sail", "shippingContainer", "storageContainer", "trunk",
                 },
                 interactable);
 

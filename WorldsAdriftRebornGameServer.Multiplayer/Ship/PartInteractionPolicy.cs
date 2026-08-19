@@ -50,6 +50,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///     IsTooDamagedToWorkVisualizer both enable, and the E press is answered
     ///     with the same Interact(Inventory) echo a ruin chest gets. See
     ///     <see cref="ShipContainers"/>.
+    ///   * powerGenerator / powerGenerator01 - Activate, and the prompt reads
+    ///     "REFUEL". This entry corrects a wrong verdict that stood in this file
+    ///     until it was checked against the shipped ASSET rather than against the
+    ///     decompile alone. The decompile has no PowerGenerator preprocessor at all,
+    ///     which is why the old note said "no component, no verb" - but a
+    ///     preprocessor is an EXPORT-TIME script, and what matters is what it left
+    ///     behind. A UnityPy census of PowerGenerator01_unityclient finds an
+    ///     InteractiveObjectVisualizer with Verb = Activate (1) baked in, alongside a
+    ///     TutorialHelper whose _interactionStep is 17 = MOUSE_OVER_GENERATOR. The
+    ///     Activate arm of InteractiveObjectVisualizer.GetTutorialStep falls through
+    ///     sail/respawner/lamp/horn/ShipCoreVisualizer - the generator has none of
+    ///     them - to _tutorialHelper.InteractionStep, and the overlay asset for that
+    ///     step, STANDARD_MOUSE_OVER_GENERATOR, carries exactly one control:
+    ///     { Name: "Refuel", Hold: true, InputButtons: [Interact] }.
+    ///     So the shipped client already has a labelled refuel door on this part, and
+    ///     the generator is the ship's fuel tank. The verb read was validated against
+    ///     four parts whose values this file already knew from the decompile - helm 3
+    ///     (Man), container 4 (Inventory), sail 1 and CoreMain 1 (Activate) - and all
+    ///     four matched. Handled by ShipFuelService.TryRefuel.
     ///
     ///   SERVED ELSEWHERE (existing branches this policy must NOT catch):
     ///   * helm - Man, served by the serializer's dedicated isHelm branch and
@@ -72,9 +91,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///     ShipPreprocessor attaches to every hull and which implements
     ///     IClimbGrapplePreventer: the pulse was the ship's anti-boarding defence, not
     ///     a cosmetic. Fuel briefly used this door and it was WRONG, because a prompt
-    ///     whose LABEL we cannot honour is the same lie as a verb we cannot honour;
-    ///     refuel moved to the hull's bunker (Multiplayer/Ship/Fuel/
-    ///     ShipFuelBunkerPolicy.cs). None until the pulse itself is served, which
+    ///     whose LABEL we cannot honour is the same lie as a verb we cannot honour.
+    ///     Refuel now lives on the power generator, whose baked prompt says "Refuel",
+    ///     so the core is free again. None until the pulse itself is served, which
     ///     needs 1306 taken out of the absent-component set.
     ///
     ///   NOT INTERACTABLE IN RETAIL (confirmed - preprocessors add no
@@ -85,8 +104,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///   * altimeter/fuelGauge/headingIndicator/artificialHorizon/
     ///     airspeedIndicator - fully client-local physics readouts, gated only on
     ///     1236 is_functional.
-    ///   * powerGenerator(01) - "generator" as a ship part is the sky core module;
-    ///     no component, no verb.
     ///   * deck/stairs/railing(Corner)/smallPanel/mediumPanel/largePanel/window/
     ///     cupboard/barrel - pure structure/decoration (ShipPartPreprocessor adds
     ///     damage/salvage/placement only). Retail chairs/stools DID bake Man
@@ -121,6 +138,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 case "sail":
                 case "lamp":
                 case "horn":
+                // The power generator IS the ship's fuel tank, and the shipped
+                // client's own prompt for it reads "Refuel". Two schematic keys share
+                // the one PowerGenerator01 prefab, so both rows carry the verb.
+                case "powerGenerator":
+                case "powerGenerator01":
                     return PartVerb.Activate;
                 default:
                     // The four storage containers, keyed off the same table that

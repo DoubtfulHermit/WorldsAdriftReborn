@@ -247,8 +247,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Placement
                 hasBackedState: false, assetVerified: true);   // +1021 LifterState
             Add("lamp", "Lamp01", TransformOnly, "placed-lamp",
                 hasBackedState: false, assetVerified: true);   // +1108 LampState
+            // A generator placed on the GROUND stays a prop, deliberately. Mounted on
+            // a hull it is that ship's fuel tank and its refuel door (see
+            // Ship/Fuel/ShipFuelLedger.cs), but a ground deployable has no hull to be
+            // a tank for, and 1106 has no client reader on a part in any case.
             Add("powerGenerator", "PowerGenerator01", TransformOnly, "placed-powerGenerator",
-                hasBackedState: false, assetVerified: true);   // +fuel states (1104/1105/1106) unconfirmed
+                hasBackedState: false, assetVerified: true);
             Add("powerGenerator01", "PowerGenerator01", TransformOnly, "placed-powerGenerator01",
                 hasBackedState: false, assetVerified: true);
             Add("personalReviver", "KiokiRevivalChamberA", TransformOnly, "placed-personalReviver",
