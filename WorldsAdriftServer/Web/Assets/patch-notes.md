@@ -1,9 +1,12 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 569 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 571 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 100 commits
+## 2026-08-19 | 103 commits
 
+* 97e2dcb Write down what the two-state relay is, and what it is not
+* b945124 Ask the soak whether the level is defensible, not only whether it grew
+* fb19774 Give the relay two numbers it never reported about itself
 * 7152ac6 Stop fuel's throttle mirror outliving the pilot who set it
 * f5cd2c0 Give the refuel rollback an honest inverse
 * 81db75f Answer the query feat/ship-flight's phase F5 asked fuel for
@@ -583,7 +586,7 @@ Every commit, newest first. 569 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 24 commits
+## 2026-08-07 | 23 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -608,8 +611,7 @@ Every commit, newest first. 569 of them since 2026-08-07. Merges are left out - 
 * 70c9df6 Appearance hardening: forget on disconnect, re-arm publish on re-entry
 * b4d15da Relay real player appearance
 * b745a8e Document the working multiplayer: architecture, operations, roadmap
-* c44ac3b Move plain remote rigs from TransformState; sample-decode relayed transforms
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 153 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 154 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
