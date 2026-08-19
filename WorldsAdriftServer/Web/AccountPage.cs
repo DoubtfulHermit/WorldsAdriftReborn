@@ -25,11 +25,16 @@ namespace WorldsAdriftServer.Web
     /// second opinion, and a page and a handler that disagree is either a control
     /// that always fails or a control that should not have been there.
     ///
-    /// THE CREST BUILDER IS THE ONE IT ALWAYS WAS. Same form, same fields, same
-    /// <c>&lt;img&gt;</c> pointed at <c>/alliance-emblem/preview.png</c> - the real
-    /// renderer, the same bytes the game gets, deliberately NOT a canvas drawing
-    /// the same options a second time. It moved into the alliance card and lost a
-    /// heading; nothing else about it changed.
+    /// IT IS TABBED, AND THE TABS ARE URLS. Only the panel named by
+    /// <see cref="PortalView.Tab"/> is rendered - see <see cref="PortalTabs"/> for
+    /// why that is navigation rather than show-and-hide. The consequence for this
+    /// file is that <see cref="Render"/> is a switch and nothing else: each tab
+    /// appends its own sections, and no section has to know whether it is visible.
+    ///
+    /// THE EMBLEM EDITOR LIVES IN <see cref="AccountEmblemEditor"/>. It is a
+    /// three-column instrument with an object catalogue, a canvas and a layers
+    /// panel, and it is nobody's business but its own; folding it in here would
+    /// have made this the file everything on the portal is edited in.
     ///
     /// Every value stamped in is HTML-encoded through
     /// <see cref="AdminPage.HtmlEncode"/>, the escaper the rest of the console
@@ -44,9 +49,16 @@ namespace WorldsAdriftServer.Web
         /// standalone download page uses.</summary>
         private const string PatcherHref = "/download/WAPatch.exe";
 
+        /// <summary>The portal's own route, so every in-page tab link is built
+        /// from the same string the handler answers on.</summary>
+        internal const string PagePath = "/account";
+
         internal static string Render(PortalView view)
         {
             if (view == null) throw new ArgumentNullException(nameof(view));
+
+            IReadOnlyList<PortalTab> tabs = PortalTabs.For(view);
+            string active = PortalTabs.Resolve(view.Tab, tabs);
 
             StringBuilder body = new StringBuilder();
 
@@ -59,25 +71,89 @@ namespace WorldsAdriftServer.Web
                     .Append("</p>\n");
             }
 
-            AppendAccount(body, view);
-            AppendDownload(body, view);
-
-            if (view.Characters.Count == 0)
+            switch (active)
             {
-                body.Append(@"  <section class=""card empty"" id=""characters"">
+                case PortalTabs.Account:
+                    AppendAccount(body, view);
+                    if (view.Characters.Count == 0) AppendNoCharacters(body);
+                    break;
+
+                case PortalTabs.Patcher:
+                    AppendDownload(body, view);
+                    break;
+
+                case PortalTabs.Alliance:
+                    AppendAllianceTab(body, view);
+                    break;
+
+                case PortalTabs.Emblem:
+                    AccountEmblemEditor.Append(body, view);
+                    break;
+
+                default:
+                    AppendCharacterTab(body, view, active);
+                    break;
+            }
+
+            return Shell(view, tabs, active, body.ToString());
+        }
+
+        private static void AppendNoCharacters(StringBuilder body) =>
+            body.Append(@"  <section class=""card empty"" id=""characters"">
     <h2>Characters</h2>
     <p>You have not made a character yet. Run the patcher, start the game and
     create one - it will appear here with everything it learns.</p>
   </section>
 ");
-            }
 
-            foreach (CharacterCard character in view.Characters)
+        /// <summary>
+        /// One character's own tab: its sheet and its crew.
+        ///
+        /// NOT its alliance. An alliance belongs to several characters at once and
+        /// carries its own roster, applications and crest, so it has a tab of its
+        /// own rather than being repeated inside each member's - which is what the
+        /// single-page portal did.
+        /// </summary>
+        private static void AppendCharacterTab(StringBuilder body, PortalView view, string tab)
+        {
+            foreach (CharacterCard card in view.Characters)
             {
-                AppendCharacter(body, view.Csrf, character);
+                if (!string.Equals(PortalTabs.CharacterId(card.Sheet.Uid), tab, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                AppendCharacter(body, view.Csrf, card);
+                return;
             }
 
-            return Shell(view, body.ToString());
+            AppendNoCharacters(body);
+        }
+
+        /// <summary>
+        /// Every alliance any of this account's characters belongs to.
+        ///
+        /// PER CHARACTER, because that is what an alliance membership is: two
+        /// characters on one account can be in two alliances, and each acts with
+        /// its own rank. The card names which character it is acting as, for the
+        /// same reason every form on it posts that uid.
+        /// </summary>
+        private static void AppendAllianceTab(StringBuilder body, PortalView view)
+        {
+            foreach (CharacterCard card in view.Characters)
+            {
+                if (card.Alliance == null) continue;
+
+                body.Append("  <section class=\"card\" id=\"a")
+                    .Append(Safe(card.Alliance.AllianceId)).Append("\">\n");
+                body.Append("    <h2>").Append(AdminPage.HtmlEncode(card.Alliance.Name)).Append("</h2>\n");
+                body.Append("    <p class=\"as\">acting as <b>")
+                    .Append(AdminPage.HtmlEncode(card.Sheet.Name)).Append("</b></p>\n");
+
+                AppendAlliance(body, view.Csrf, card.Alliance);
+
+                body.Append("  </section>\n");
+            }
         }
 
         // --------------------------------------------------------- the account
@@ -154,7 +230,23 @@ namespace WorldsAdriftServer.Web
             AppendInventory(page, sheet);
 
             if (card.Crew != null) AppendCrew(page, card.Crew);
-            if (card.Alliance != null) AppendAlliance(page, csrf, card.Alliance);
+
+            if (card.Alliance != null)
+            {
+                page.Append("    <h3>Alliance</h3>\n");
+                page.Append("    <p class=\"as\"><b>")
+                    .Append(AdminPage.HtmlEncode(card.Alliance.Name))
+                    .Append("</b> &middot; you are <b>")
+                    .Append(AdminPage.HtmlEncode(card.Alliance.YourRank)).Append("</b> &middot; <a href=\"")
+                    .Append(PortalTabs.Url(PagePath, PortalTabs.Alliance))
+                    .Append("\">open the alliance</a></p>\n");
+            }
+            else
+            {
+                page.Append("    <h3>Alliance</h3>\n");
+                page.Append("    <p>This character is in no alliance. Join or found one from the "
+                    + "Social panel in game and it appears here.</p>\n");
+            }
 
             page.Append("  </section>\n");
         }
@@ -303,9 +395,7 @@ namespace WorldsAdriftServer.Web
 
         private static void AppendAlliance(StringBuilder page, string csrf, AllianceCard alliance)
         {
-            page.Append("    <h3>Alliance</h3>\n");
-            page.Append("    <p class=\"as\"><b>").Append(AdminPage.HtmlEncode(alliance.Name))
-                .Append("</b> &middot; you are <b>")
+            page.Append("    <p class=\"as\">you are <b>")
                 .Append(AdminPage.HtmlEncode(alliance.YourRank)).Append("</b>");
             if (alliance.YouAreTheFounder) page.Append(" (founder)");
             page.Append("</p>\n");
@@ -323,7 +413,16 @@ namespace WorldsAdriftServer.Web
             AppendAllianceDetails(page, csrf, alliance);
             AppendAllianceRoster(page, csrf, alliance);
             AppendAllianceRequests(page, csrf, alliance);
-            AppendAllianceEmblem(page, csrf, alliance);
+
+            // The CREST, and only a way in to it. The editor is a three-column
+            // instrument with a fifty-object catalogue; it has a tab.
+            page.Append("    <h3>Emblem</h3>\n");
+            page.Append("    <p class=\"crestline\"><img class=\"mark-sm\" alt=\"\" src=\"")
+                .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(alliance.Emblem)))
+                .Append("\"><a href=\"").Append(PortalTabs.Url(PagePath, PortalTabs.Emblem))
+                .Append("\">")
+                .Append(alliance.Rights.EditEmblem ? "Open the emblem editor" : "Look at the emblem")
+                .Append("</a></p>\n");
 
             if (alliance.Rights.Nothing)
             {
@@ -575,146 +674,14 @@ namespace WorldsAdriftServer.Web
         }
 
         /// <summary>
-        /// The crest builder, unchanged in everything that matters.
-        ///
-        /// The preview is an <c>&lt;img&gt;</c> on <c>/alliance-emblem/preview.png</c>
-        /// - the SAME route and the same painter the game downloads from - and not
-        /// a canvas drawing the options a second time. Two renderers of one picture
-        /// drift silently; this repository already bought that lesson once with the
-        /// map mirror, which now needs a 1e-9 parity test to hold two
-        /// implementations together. The script computes the twelve-character code
-        /// and nothing else.
-        /// </summary>
-        private static void AppendAllianceEmblem(StringBuilder page, string csrf, AllianceCard alliance)
-        {
-            if (!alliance.Rights.EditEmblem)
-            {
-                page.Append("    <h3>Crest</h3>\n");
-                page.Append("    <div class=\"stage\"><img class=\"preview\" "
-                    + "alt=\"Alliance crest\" src=\"")
-                    .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(alliance.Emblem)))
-                    .Append("\"></div>\n");
-                // Only when the crest is the ONE thing they are short of. A rank
-                // that carries nothing gets the single summary note at the foot of
-                // the card instead; two notices saying the same thing in different
-                // words reads as nagging rather than as an explanation.
-                if (!alliance.Rights.Nothing)
-                {
-                    page.Append("    <p class=\"locked\">Changing the crest needs a rank that grants "
-                        + "<code>").Append(AlliancePermissionName(PortalAction.EditEmblem))
-                        .Append("</code>.</p>\n");
-                }
-
-                return;
-            }
-
-            page.Append("    <h3>Crest</h3>\n");
-
-            if (alliance.ExternalEmblemUrl != null)
-            {
-                page.Append("    <p class=\"notice\">This alliance currently wears an image an "
-                    + "operator set by hand (<code>")
-                    .Append(AdminPage.HtmlEncode(alliance.ExternalEmblemUrl))
-                    .Append("</code>). Saving a crest below replaces it.</p>\n");
-            }
-
-            page.Append("    <form method=\"post\" action=\"/account/alliance-emblem\" class=\"builder\">\n");
-            Csrf(page, csrf);
-            Hidden(page, EmblemFormPolicy.AllianceField,
-                alliance.AllianceId.ToString("D", CultureInfo.InvariantCulture));
-            Hidden(page, EmblemFormPolicy.CharacterField,
-                alliance.ActingCharacterUid.ToString("D", CultureInfo.InvariantCulture));
-
-            page.Append("      <div class=\"stage\">\n");
-            page.Append("        <img class=\"preview\" alt=\"Alliance crest preview\" src=\"")
-                .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(alliance.Emblem)))
-                .Append("\">\n");
-            page.Append("        <p class=\"hint\">This is the picture the game downloads "
-                + "&mdash; it is drawn by the server, not by this page.</p>\n");
-
-            // The vector of the same crest. The game never sees this - it decodes
-            // PNG and JPEG only - but a leader who wants their alliance's mark on a
-            // banner, a sticker or a Discord header should not have to screenshot a
-            // 256-pixel square to get it.
-            page.Append("        <p class=\"hint\"><a class=\"vector\" download href=\"")
-                .Append(AdminPage.HtmlEncode(
-                    EmblemUrlPolicy.VectorUrl(alliance.AllianceId, alliance.Emblem)))
-                .Append("\">Download as SVG</a> &mdash; the same crest as vector art, at any size.</p>\n");
-            page.Append("      </div>\n");
-
-            page.Append("      <div class=\"controls\">\n");
-            Select(page, "Shape", EmblemFormPolicy.ShapeField,
-                EmblemVocabulary.ShapeNames, (int)alliance.Emblem.Shape);
-            Select(page, "Field pattern", EmblemFormPolicy.DivisionField,
-                EmblemVocabulary.DivisionNames, (int)alliance.Emblem.Division);
-            Select(page, "Device", EmblemFormPolicy.ChargeField,
-                EmblemVocabulary.ChargeNames, (int)alliance.Emblem.Charge);
-            Swatches(page, "Field colour", EmblemFormPolicy.FieldColourField, alliance.Emblem.FieldColour);
-            Swatches(page, "Pattern colour", EmblemFormPolicy.DetailColourField, alliance.Emblem.DetailColour);
-            Swatches(page, "Device colour", EmblemFormPolicy.ChargeColourField, alliance.Emblem.ChargeColour);
-            page.Append("      </div>\n");
-
-            page.Append("      <button class=\"plank\" type=\"submit\">Save crest</button>\n");
-            page.Append("    </form>\n");
-        }
-
-        /// <summary>
         /// The permission literal an action needs, for the sentence a refused
         /// player reads. Taken from <see cref="PortalPermissions"/> rather than
         /// typed, so the page cannot name a permission the check does not use.
         /// </summary>
-        private static string AlliancePermissionName(PortalAction action) =>
+        internal static string AlliancePermissionName(PortalAction action) =>
             AdminPage.HtmlEncode(PortalPermissions.PermissionFor(action));
 
         // -------------------------------------------------------------- pieces
-
-        private static void Select(
-            StringBuilder page, string label, string name, IReadOnlyList<string> options, int selected)
-        {
-            page.Append("        <label class=\"row\"><span>").Append(AdminPage.HtmlEncode(label))
-                .Append("</span>\n          <select name=\"").Append(name).Append("\">\n");
-
-            for (int i = 0; i < options.Count; i++)
-            {
-                page.Append("            <option value=\"")
-                    .Append(i.ToString(CultureInfo.InvariantCulture)).Append('"');
-                if (i == selected) page.Append(" selected");
-                page.Append('>').Append(AdminPage.HtmlEncode(options[i])).Append("</option>\n");
-            }
-
-            page.Append("          </select>\n        </label>\n");
-        }
-
-        /// <summary>
-        /// A colour picked from the palette as a grid of radio buttons.
-        ///
-        /// Radios rather than an <c>&lt;input type=color&gt;</c> because the value
-        /// is an INDEX, not a colour: the palette is closed on purpose (see
-        /// <see cref="EmblemVocabulary"/>), and a free colour picker would both
-        /// widen the input and let a player choose the one value that makes their
-        /// own crest illegible. Radios also degrade to something usable with no
-        /// script at all, which the whole form does.
-        /// </summary>
-        private static void Swatches(StringBuilder page, string label, string name, int selected)
-        {
-            page.Append("        <fieldset class=\"row swatches\"><legend>")
-                .Append(AdminPage.HtmlEncode(label)).Append("</legend>\n");
-
-            for (int i = 0; i < EmblemVocabulary.ColourCount; i++)
-            {
-                string hex = "#" + EmblemVocabulary.Palette[i].ToString("x6", CultureInfo.InvariantCulture);
-
-                page.Append("          <label class=\"sw\" title=\"")
-                    .Append(AdminPage.HtmlEncode(EmblemVocabulary.PaletteNames[i]))
-                    .Append("\" style=\"--sw:").Append(hex).Append("\">")
-                    .Append("<input type=\"radio\" name=\"").Append(name)
-                    .Append("\" value=\"").Append(i.ToString(CultureInfo.InvariantCulture)).Append('"');
-                if (i == selected) page.Append(" checked");
-                page.Append("><span></span></label>\n");
-            }
-
-            page.Append("        </fieldset>\n");
-        }
 
         private static void Actors(StringBuilder page, string csrf, AllianceCard alliance)
         {
@@ -730,10 +697,10 @@ namespace WorldsAdriftServer.Web
                 alliance.ActingCharacterUid.ToString("D", CultureInfo.InvariantCulture));
         }
 
-        private static void Csrf(StringBuilder page, string csrf) =>
+        internal static void Csrf(StringBuilder page, string csrf) =>
             Hidden(page, PlayerAuthPolicy.CsrfField, csrf);
 
-        private static void Hidden(StringBuilder page, string name, string value) =>
+        internal static void Hidden(StringBuilder page, string name, string value) =>
             page.Append("<input type=\"hidden\" name=\"").Append(AdminPage.HtmlEncode(name))
                 .Append("\" value=\"").Append(AdminPage.HtmlEncode(value)).Append("\">");
 
@@ -776,19 +743,33 @@ namespace WorldsAdriftServer.Web
 
         // --------------------------------------------------------------- shell
 
-        private static string Shell(PortalView view, string body)
+        private static string Shell(
+            PortalView view, IReadOnlyList<PortalTab> tabs, string active, string body)
         {
             string name = AdminPage.HtmlEncode(view.DisplayName);
 
+            // THE TAB STRIP IS LINKS. Every one is a real URL this server answers,
+            // so it works with script off, it can be bookmarked, and the browser's
+            // back button does what a person expects.
             StringBuilder nav = new StringBuilder();
-            nav.Append("  <nav class=\"jump\"><a href=\"#account\">Account</a>")
-               .Append("<a href=\"#download\">Patcher</a>");
-            foreach (CharacterCard card in view.Characters)
+            nav.Append("  <nav class=\"tabs\" aria-label=\"Sections\">");
+            foreach (PortalTab tab in tabs)
             {
-                nav.Append("<a href=\"#c").Append(Safe(card.Sheet.Uid)).Append("\">")
-                   .Append(AdminPage.HtmlEncode(card.Sheet.Name)).Append("</a>");
+                bool current = string.Equals(tab.Id, active, StringComparison.Ordinal);
+
+                nav.Append("<a href=\"").Append(PortalTabs.Url(PagePath, tab.Id)).Append('"');
+                if (current) nav.Append(" class=\"on\" aria-current=\"page\"");
+                nav.Append('>').Append(AdminPage.HtmlEncode(tab.Label)).Append("</a>");
             }
             nav.Append("</nav>\n");
+
+            bool onEmblemTab = string.Equals(active, PortalTabs.Emblem, StringComparison.Ordinal);
+
+            // THE SCRIPT ONLY WHERE THERE IS SOMETHING FOR IT TO DRIVE. A member
+            // whose rank cannot change the emblem gets the picture and nothing
+            // else, so shipping them a quarter of a megabyte of editor would be
+            // shipping code that can only find no form and stop.
+            bool editor = onEmblemTab && Editable(view);
 
             return @"<!DOCTYPE html>
 <html lang=""en"">
@@ -798,9 +779,9 @@ namespace WorldsAdriftServer.Web
 <meta name=""color-scheme"" content=""light dark"">
 <title>Your account - Worlds Adrift Reborn</title>
 <style>
-" + WebAssets.Read("account.css") + @"</style>
+" + WebAssets.Read("account.css") + (onEmblemTab ? WebAssets.Read("emblem-editor.css") : string.Empty) + @"</style>
 </head>
-<body>
+<body" + (onEmblemTab ? " class=\"wide\"" : string.Empty) + @">
 <main>
   <p class=""mark"">Worlds Adrift Reborn</p>
   <h1>Your account</h1>
@@ -809,17 +790,52 @@ namespace WorldsAdriftServer.Web
 " + body + @"
   <footer>
     An unofficial, fan-run community server. Not affiliated with, endorsed by, or supported by Bossa Studios.<br>
-    Alliance crests are a Wareborn addition &mdash; the original game had no way to change one.
+    Alliance emblems are a Wareborn addition &mdash; the original game had no way to change one.
   </footer>
 </main>
 <script>
 " + WebAssets.Fill(
                 WebAssets.Read("account.js"),
                 ("emblemVersion", EmblemSpec.Version.ToString(CultureInfo.InvariantCulture)))
+             + (editor ? EditorScript() : string.Empty)
              + @"</script>
 </body>
 </html>
 ";
         }
+
+        /// <summary>
+        /// The editor's script, with everything the server must decide filled in.
+        ///
+        /// Served ONLY on the emblem tab. It is the largest asset on the portal and
+        /// nothing else on the page can use it, so a visit about a password should
+        /// not pay for it.
+        ///
+        /// The four filled values are the four the script must not be free to
+        /// choose for itself: where the object catalogue is, what the palette is,
+        /// what the code's units and limits are, and which version to write. Same
+        /// reason <c>account.js</c>'s emblem version is filled in rather than typed
+        /// - a page building codes in a shape the parser has moved past produces
+        /// saves that are silently refused.
+        /// </summary>
+        /// <summary>Whether any of this account's characters may actually change
+        /// an emblem. Asked of the RIGHTS the view already carries, not re-decided
+        /// here - see the note on this class.</summary>
+        private static bool Editable(PortalView view)
+        {
+            foreach (CharacterCard card in view.Characters)
+            {
+                if (card.Alliance != null && card.Alliance.Rights.EditEmblem) return true;
+            }
+
+            return false;
+        }
+
+        private static string EditorScript() => WebAssets.Fill(
+            WebAssets.Read("emblem-editor.js"),
+            ("emblemCatalogueUrl", EmblemEditorData.CatalogueUrl),
+            ("emblemPalette", EmblemEditorData.PaletteJson()),
+            ("emblemLimits", EmblemEditorData.LimitsJson()),
+            ("emblemRoute", EmblemUrlPolicy.RoutePrefix + EmblemUrlPolicy.PreviewId));
     }
 }

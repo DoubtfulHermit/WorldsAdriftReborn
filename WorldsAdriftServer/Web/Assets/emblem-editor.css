@@ -1,0 +1,242 @@
+/*
+  The layered emblem editor.
+
+  SERVED ONLY ON THE EMBLEM TAB, appended after account.css, so every custom
+  property below is one that file already declares - the airship palette the
+  player-facing pages share, not the console's Nightfall. Nothing here names a
+  colour that is not a variable, with the single exception of the transparency
+  checkerboard, which is a neutral grey pair on purpose: it has to read as
+  "nothing is here" against BOTH themes and against every colour a player can
+  put on top of it, so tinting it with the page's palette would make it look
+  like part of the emblem.
+
+  THE BREAKPOINT IS LAST IN EACH BLOCK. That is not tidiness - it is the lesson
+  account.css already records about the old builder: a grid-column declared
+  after its own narrow-screen override silently reinstates a second column, and
+  the page goes on rendering side by side on a phone while `1fr` is, technically,
+  in force.
+*/
+
+/* The editor needs room the rest of the portal does not. */
+body.wide main { max-width: 78rem; }
+
+.editor-card { padding-bottom: 1.4rem; }
+
+.editor .cols {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr) 17rem;
+  gap: 1rem;
+  align-items: start;
+}
+.editor .pane {
+  border: 1px solid var(--field-edge); border-radius: 11px;
+  background: var(--pane); padding: .8rem .8rem 1rem;
+  min-width: 0;
+}
+.editor .pane h3 { margin: 0 0 .5rem; }
+
+/* ------------------------------------------------------------- the objects */
+
+.editor .cats { display: flex; flex-wrap: wrap; gap: .25rem; margin: 0 0 .55rem; }
+.editor .cat {
+  padding: .22rem .55rem; font: inherit; font-size: .68rem; letter-spacing: .1em;
+  text-transform: uppercase; cursor: pointer; border-radius: 999px;
+  color: var(--ink-faint); background: transparent;
+  border: 1px solid var(--field-edge);
+}
+.editor .cat:hover { color: var(--ink); }
+.editor .cat.on { color: var(--ink); border-color: var(--ink-faint); background: var(--input-bg); }
+
+.editor .find { display: block; margin: 0 0 .6rem; }
+.editor .find input { width: 100%; padding: .35rem .5rem; font: inherit; font-size: .84rem;
+  color: var(--ink); background: var(--input-bg);
+  border: 1px solid var(--field-edge); border-radius: 7px; }
+
+.editor .objgrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
+  gap: .3rem; max-height: 26rem; overflow-y: auto;
+}
+.editor .obj {
+  aspect-ratio: 1; padding: .3rem; cursor: pointer;
+  background: var(--input-bg); border: 1px solid var(--field-edge); border-radius: 8px;
+}
+.editor .obj:hover { border-color: var(--ink-faint); }
+.editor .obj:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.editor .obj svg { display: block; width: 100%; height: 100%; }
+
+/* The silhouettes are WHITE-ON-DARK in the retail editor. Here they take the
+   page's own ink, so they read in either theme without a second asset. */
+.editor .obj path { fill: var(--ink-soft); }
+.editor .obj:hover path { fill: var(--ink); }
+
+.editor .waiting { grid-column: 1 / -1; margin: .4rem 0; font-size: .8rem; color: var(--ink-faint); }
+
+/* -------------------------------------------------------------- the canvas */
+
+.editor .canvas-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .5rem;
+}
+.editor .canvas-head h3 { margin: 0; }
+.editor .flips { display: flex; gap: .3rem; }
+
+.editor .stage {
+  position: relative; width: 100%; max-width: 26rem; margin: .2rem auto .7rem;
+  aspect-ratio: 1; border-radius: 10px; overflow: hidden;
+  border: 1px solid var(--field-edge);
+  touch-action: none;
+
+  /* The transparency checkerboard. Four gradients is the standard trick and it
+     needs no image, which matters here: this page reaches nothing off this
+     host. */
+  background-color: #9a9a9a;
+  background-image:
+    linear-gradient(45deg, #7e7e7e 25%, transparent 25%),
+    linear-gradient(-45deg, #7e7e7e 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #7e7e7e 75%),
+    linear-gradient(-45deg, transparent 75%, #7e7e7e 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0;
+}
+.editor .stage:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.editor .stage .live,
+.editor .stage .served,
+.editor .stage .overlay {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+}
+
+/* NEITHER PICTURE TAKES A POINTER. The served render is opaque once it settles,
+   so without this a click after a pause would land on the image and read as
+   "nothing selected" - the shapes it is a picture OF live in the SVG below. */
+.editor .stage .served, .editor .stage .overlay { pointer-events: none; }
+.editor .stage .overlay .handle { pointer-events: auto; }
+
+/* The server's own render sits ON TOP, and is only shown once it has settled -
+   see the note in AccountEmblemEditor. While a layer is being dragged the live
+   vectors show through instead. */
+.editor .stage .served { opacity: 0; transition: opacity .12s linear; image-rendering: auto; }
+.editor .stage.settled .served { opacity: 1; }
+
+.editor .stage .lyr { cursor: grab; }
+.editor .stage .selcase {
+  fill: none; stroke: #10161d; stroke-width: 5; vector-effect: non-scaling-stroke;
+  pointer-events: none; opacity: .8;
+}
+.editor .stage .selbox {
+  fill: none; stroke: #ffffff; stroke-width: 3; stroke-dasharray: 7 5;
+  vector-effect: non-scaling-stroke; pointer-events: none;
+}
+.editor .stage .selstem {
+  stroke: #10161d; stroke-width: 5; vector-effect: non-scaling-stroke;
+  opacity: .8; pointer-events: none;
+}
+.editor .stage .handle { fill: var(--timber-mid); stroke: var(--timber-ink); stroke-width: 8; cursor: pointer; }
+.editor .stage .handle:hover { fill: var(--timber-hi); }
+.editor .stage .ruler { visibility: hidden; }
+
+.editor .palette {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(1.5rem, 1fr));
+  gap: .25rem; margin: 0 0 .7rem;
+}
+.editor .palette .sw {
+  aspect-ratio: 1; padding: 0; cursor: pointer; border-radius: 5px;
+  background: var(--sw); border: 1px solid rgba(0, 0, 0, .35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28);
+}
+.editor .palette .sw.on { outline: 2px solid var(--ink); outline-offset: 2px; }
+.editor .palette .sw:focus-visible { outline: 2px dashed var(--ink); outline-offset: 2px; }
+
+.editor .opacity { display: block; }
+.editor .opacity span {
+  display: block; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 .25rem;
+}
+.editor .opacity span b { color: var(--ink); letter-spacing: 0; }
+.editor .opacity input { width: 100%; accent-color: var(--batten); }
+.editor .opacity input:disabled { opacity: .4; }
+
+/* -------------------------------------------------------------- the layers */
+
+.editor .layers-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: .5rem;
+}
+.editor .layers-head h3 { margin: 0; }
+.editor .count {
+  font-size: .72rem; font-variant-numeric: tabular-nums; color: var(--ink-faint);
+}
+
+.editor .layerlist {
+  list-style: none; margin: .6rem 0 .4rem; padding: 0;
+  max-height: 26rem; overflow-y: auto;
+  display: flex; flex-direction: column; gap: .25rem;
+}
+.editor .lrow {
+  display: grid; grid-template-columns: .9rem 2rem minmax(0, 1fr) auto;
+  align-items: center; gap: .35rem;
+  padding: .25rem .3rem; border-radius: 8px; cursor: pointer;
+  background: var(--input-bg); border: 1px solid transparent;
+}
+.editor .lrow:hover { border-color: var(--field-edge); }
+.editor .lrow.on { border-color: var(--ink-faint); background: var(--veil); }
+.editor .lrow.locked .lname { color: var(--ink-faint); font-style: italic; }
+.editor .grip { color: var(--ink-faint); font-size: .7rem; line-height: 1; cursor: grab; letter-spacing: -.1em; }
+.editor .thumb { width: 2rem; height: 2rem; }
+.editor .thumb svg { display: block; width: 100%; height: 100%; }
+.editor .lname {
+  font-size: .78rem; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.editor .lacts { display: flex; gap: .12rem; }
+.editor .licon {
+  width: 1.55rem; height: 1.55rem; padding: .28rem; cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: var(--ink-faint);
+}
+.editor .licon:hover { color: var(--ink); border-color: var(--field-edge); }
+/* A locked layer's padlock is ENGAGED, not wrong: the rust is this page's alert
+   colour and a locked layer is a deliberate state, not a fault. */
+.editor .licon.on { color: var(--ink); border-color: var(--field-edge); background: var(--veil); }
+.editor .licon[disabled] { opacity: .3; cursor: default; }
+.editor .licon svg { display: block; width: 100%; height: 100%; }
+.editor .licon path { fill: none; stroke: currentColor; stroke-width: 1.4; }
+
+/* --------------------------------------------------------------- the foot */
+
+.editor .codebox { margin: 1rem 0 0; }
+.editor .codebox textarea {
+  width: 100%; font-family: ui-monospace, 'DejaVu Sans Mono', monospace; font-size: .72rem;
+  word-break: break-all;
+}
+.editor .codebox textarea[aria-invalid=true] { border-color: var(--rust); }
+
+.editor .foot {
+  display: flex; flex-wrap: wrap; gap: .6rem; align-items: center;
+  margin: 1.1rem 0 0; padding-top: 1rem; border-top: 1px solid var(--field-edge);
+}
+.editor .foot .plank { margin: 0; }
+
+.editor .savesheet {
+  margin: 1rem 0 0; padding: 1rem 1.1rem 1.2rem; border-radius: 11px;
+  background: var(--veil); border: 1px solid var(--field-edge);
+}
+.editor .savesheet h3 { margin: 0 0 .6rem; }
+.editor .savesheet .stage.small { max-width: 9rem; margin: 0 0 .8rem; }
+.editor .savesheet .stage.small img { position: static; opacity: 1; }
+.editor .row-of-links {
+  display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .9rem 0 0;
+}
+.editor .row-of-links a.vector { font-size: .76rem; color: var(--ink-soft); }
+
+/* ------------------------------------------------------------ narrow screens
+
+   ONE COLUMN, and the canvas FIRST. On a phone the thing you came here to look
+   at must not be below a scrolling grid of eighty silhouettes. */
+@media (max-width: 62rem) {
+  .editor .cols { grid-template-columns: 1fr; }
+  .editor .pane.canvas { order: 1; }
+  .editor .pane.objects { order: 2; }
+  .editor .pane.layers { order: 3; }
+  .editor .objgrid { max-height: 16rem; }
+  .editor .layerlist { max-height: 20rem; }
+  .editor .foot .plank { flex: 1 1 100%; text-align: center; }
+}

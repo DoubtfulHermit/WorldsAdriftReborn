@@ -66,9 +66,13 @@ namespace WorldsAdriftServer.Tests
         [InlineData("1-0-0-14-0-0-0")]        // device out of range for version 1
         [InlineData("1-0-0-60-0-0-0")]        // a version 2 device index in a version 1 code
         [InlineData("2-0-0-61-0-0-0")]        // device out of range
-        [InlineData("1-0-0-0-16-0-0")]        // field colour out of range
-        [InlineData("1-0-0-0-0-16-0")]        // detail colour out of range
-        [InlineData("1-0-0-0-0-0-16")]        // charge colour out of range
+        // The palette can only ever GROW (see EmblemVocabulary), so these are
+        // written well past any table this vocabulary will hold rather than at
+        // "one past today's count", which stops being out of range the day a
+        // colour is appended and turns this case into a silent no-op.
+        [InlineData("1-0-0-0-900-0-0")]       // field colour out of range
+        [InlineData("1-0-0-0-0-900-0")]       // detail colour out of range
+        [InlineData("1-0-0-0-0-0-900")]       // charge colour out of range
         [InlineData("1-0-0-0-0-0-999999999999999999999")] // overflows an int
         [InlineData("1_0_0_0_0_0_0")]
         [InlineData("../../etc/passwd")]

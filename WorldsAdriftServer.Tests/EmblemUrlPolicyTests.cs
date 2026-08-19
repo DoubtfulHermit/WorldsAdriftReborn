@@ -34,8 +34,12 @@ namespace WorldsAdriftServer.Tests
             string stored = EmblemUrlPolicy.Store(spec);
             Assert.Equal("wareborn:emblem:2-2-5-7-11-3-13", stored);
 
-            Assert.True(EmblemUrlPolicy.TryReadStored(stored, out EmblemSpec back));
-            Assert.Equal(spec, back);
+            Assert.True(EmblemUrlPolicy.TryReadStored(stored, out EmblemArtwork back));
+
+            // A heraldic code reads back as heraldic ARTWORK, not as a layer
+            // stack: the two forms of an emblem never convert into each other.
+            Assert.False(back.IsLayered);
+            Assert.Equal(spec, back.Heraldic);
         }
 
         [Theory]
@@ -113,7 +117,7 @@ namespace WorldsAdriftServer.Tests
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
                 "/alliance-emblem/" + Alliance.ToString("D") + ".png?e=2-2-3-4-5-6-7",
-                out Guid id, out EmblemSpec spec, out bool hasCode, out EmblemUrlPolicy.Format format));
+                out Guid id, out EmblemArtwork spec, out bool hasCode, out EmblemUrlPolicy.Format format));
 
             Assert.Equal(Alliance, id);
             Assert.True(hasCode);
@@ -210,7 +214,7 @@ namespace WorldsAdriftServer.Tests
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
                 "/alliance-emblem/" + Alliance.ToString("D") + ".svg?e=2-2-3-4-5-6-7",
-                out Guid id, out EmblemSpec spec, out bool hasCode, out EmblemUrlPolicy.Format format));
+                out Guid id, out EmblemArtwork spec, out bool hasCode, out EmblemUrlPolicy.Format format));
 
             Assert.Equal(Alliance, id);
             Assert.True(hasCode);

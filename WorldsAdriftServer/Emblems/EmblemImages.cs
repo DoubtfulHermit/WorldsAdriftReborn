@@ -92,15 +92,15 @@ namespace WorldsAdriftServer.Emblems
         private static readonly ConcurrentDictionary<string, byte[]> Cache =
             new ConcurrentDictionary<string, byte[]>(StringComparer.Ordinal);
 
-        /// <summary>The PNG for a spec, rendered on first ask.</summary>
-        internal static byte[] Png(EmblemSpec spec)
+        /// <summary>The PNG for an emblem, rendered on first ask.</summary>
+        internal static byte[] Png(EmblemArtwork artwork)
         {
-            string code = spec.ToCode();
+            string code = artwork.ToCode();
 
             if (Cache.TryGetValue(code, out byte[]? cached)) return cached;
 
             byte[] png = PngWriter.Encode(
-                EmblemPainter.Render(spec), EmblemPainter.Size, EmblemPainter.Size);
+                artwork.RenderPixels(EmblemPainter.Size), EmblemPainter.Size, EmblemPainter.Size);
 
             if (Cache.Count >= MaxEntries) Cache.Clear();
             Cache[code] = png;
@@ -126,7 +126,7 @@ namespace WorldsAdriftServer.Emblems
         /// the device table changed must not be told its cached copy is still good,
         /// because for a version 1 code it is now a different picture.
         /// </summary>
-        internal static string ETag(EmblemSpec spec, EmblemUrlPolicy.Format format) =>
-            "\"e2-" + (format == EmblemUrlPolicy.Format.Svg ? "s" : "p") + "-" + spec.ToCode() + "\"";
+        internal static string ETag(EmblemArtwork artwork, EmblemUrlPolicy.Format format) =>
+            "\"e2-" + (format == EmblemUrlPolicy.Format.Svg ? "s" : "p") + "-" + artwork.ToCode() + "\"";
     }
 }

@@ -36,7 +36,8 @@ namespace WorldsAdriftServer.Handlers.Account
         /// sentence can be produced by a redirect that never reached this code.
         /// </summary>
         internal static PortalView Build(
-            long accountId, string csrf, string? notice, bool noticeIsError)
+            long accountId, string csrf, string? notice, bool noticeIsError,
+            string? requestedTab = null)
         {
             AccountRecord? account = Accounts.Repository.FindById(accountId);
 
@@ -66,7 +67,7 @@ namespace WorldsAdriftServer.Handlers.Account
                     AllianceFor(character, ledger, names)));
             }
 
-            return new PortalView(
+            PortalView view = new PortalView(
                 account?.Username ?? "traveller",
                 account?.DisplayName ?? account?.Username ?? "traveller",
                 account?.CreatedAt ?? DateTimeOffset.UtcNow,
@@ -77,6 +78,11 @@ namespace WorldsAdriftServer.Handlers.Account
                 csrf,
                 notice,
                 noticeIsError);
+
+            // Resolved LAST, because which tabs exist depends on what was read:
+            // an account with no alliance has no Alliance tab, so a link to one is
+            // a link to the portal rather than to an error.
+            return view with { Tab = PortalTabs.Resolve(requestedTab, PortalTabs.For(view)) };
         }
 
         // ------------------------------------------------------------- the sheet
@@ -221,8 +227,8 @@ namespace WorldsAdriftServer.Handlers.Account
             (List<RequestRow> applications, List<RequestRow> invitations) =
                 RequestsFor(allianceId, names);
 
-            bool built = EmblemUrlPolicy.TryReadStored(alliance.EmblemUrl, out EmblemSpec spec);
-            if (!built) spec = EmblemSpec.DefaultFor(alliance.AllianceId);
+            bool built = EmblemUrlPolicy.TryReadStored(alliance.EmblemUrl, out EmblemArtwork artwork);
+            if (!built) artwork = EmblemSpec.DefaultFor(alliance.AllianceId);
 
             // A non-empty column that is NOT one of our markers is an operator's
             // hand-set URL. Surfaced rather than hidden, so a player whose crest
@@ -248,7 +254,7 @@ namespace WorldsAdriftServer.Handlers.Account
                 ranks,
                 applications,
                 invitations,
-                spec,
+                artwork,
                 built,
                 external,
                 rights);

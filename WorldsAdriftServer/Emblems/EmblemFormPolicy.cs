@@ -40,23 +40,35 @@ namespace WorldsAdriftServer.Emblems
             /// </summary>
             internal Guid CharacterUid { get; }
 
-            internal EmblemSpec Spec { get; }
+            internal EmblemArtwork Artwork { get; }
 
-            private Outcome(bool ok, string reason, Guid allianceId, Guid characterUid, EmblemSpec spec)
+            private Outcome(bool ok, string reason, Guid allianceId, Guid characterUid, EmblemArtwork artwork)
             {
                 Ok = ok;
                 Reason = reason;
                 AllianceId = allianceId;
                 CharacterUid = characterUid;
-                Spec = spec;
+                Artwork = artwork;
             }
 
-            internal static Outcome Accept(Guid allianceId, Guid characterUid, EmblemSpec spec) =>
-                new Outcome(true, string.Empty, allianceId, characterUid, spec);
+            internal static Outcome Accept(Guid allianceId, Guid characterUid, EmblemArtwork artwork) =>
+                new Outcome(true, string.Empty, allianceId, characterUid, artwork);
 
             internal static Outcome Refuse(string reason) =>
                 new Outcome(false, reason, Guid.Empty, Guid.Empty, default);
         }
+
+        /// <summary>
+        /// The whole layered design, as one code.
+        ///
+        /// ONE FIELD, not twenty times eight. A layer carries eight numbers, the
+        /// order of the layers is itself data, and a form of a hundred and sixty
+        /// inputs would put the ORDER of an emblem into the order of a POST body -
+        /// which is the one thing HTTP does not promise. The code already exists,
+        /// is already canonical, already round-trips and is already what goes in
+        /// the URL and the column, so posting it is posting the thing itself.
+        /// </summary>
+        internal const string DesignField = "design";
 
         internal const string AllianceField = "alliance";
         internal const string CharacterField = "character";
@@ -79,6 +91,31 @@ namespace WorldsAdriftServer.Emblems
             if (!TryGuid(form, CharacterField, out Guid characterUid))
             {
                 return Outcome.Refuse("That character id is not readable.");
+            }
+
+            // THE LAYERED EDITOR posts one field. The heraldic branch below is
+            // kept because a page opened before this shipped is still open in
+            // somebody's tab, and a save from it should work rather than be
+            // refused with a sentence about a builder that no longer exists.
+            if (form.TryGetValue(DesignField, out string? design))
+            {
+                if (design == null || design.Length > EmblemArtwork.MaxCodeLength
+                    || !EmblemArtwork.TryParse(design, out EmblemArtwork posted))
+                {
+                    return Outcome.Refuse("That emblem code is not one this editor produces.");
+                }
+
+                if (posted.IsBlank)
+                {
+                    // Refused rather than saved. A crest with no layers is fully
+                    // transparent, and in game that is indistinguishable from a
+                    // crest that failed to download - so an alliance that saved
+                    // one would look broken to everybody including itself, with no
+                    // way to tell which it was.
+                    return Outcome.Refuse("An emblem needs at least one layer.");
+                }
+
+                return Outcome.Accept(allianceId, characterUid, posted);
             }
 
             if (!TryIndex(form, ShapeField, out int shape)

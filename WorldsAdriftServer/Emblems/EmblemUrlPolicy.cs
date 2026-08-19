@@ -70,22 +70,32 @@ namespace WorldsAdriftServer.Emblems
         /// </summary>
         internal const string PreviewId = "preview";
 
+        /// <summary>
+        /// The path segment the editor's object catalogue is served from.
+        ///
+        /// Inside the emblem namespace rather than beside it because this route
+        /// already claims its whole prefix and always answers (see
+        /// <see cref="IsEmblemPath"/>); a catalogue served from a path nothing
+        /// claimed would hang the socket instead of 404ing.
+        /// </summary>
+        internal const string CatalogueSegment = EmblemEditorData.CatalogueName;
+
         /// <summary>The value to write into <c>emblem_url</c> for a built emblem.</summary>
-        internal static string Store(EmblemSpec spec) => Marker + spec.ToCode();
+        internal static string Store(EmblemArtwork artwork) => Marker + artwork.ToCode();
 
         /// <summary>
         /// Reads a stored column value back as a spec, or false if it is not one
         /// of ours (empty, an external URL, or a marker whose code no longer
         /// parses because the vocabulary version moved).
         /// </summary>
-        internal static bool TryReadStored(string? stored, out EmblemSpec spec)
+        internal static bool TryReadStored(string? stored, out EmblemArtwork artwork)
         {
-            spec = default;
+            artwork = default;
 
             if (string.IsNullOrEmpty(stored)) return false;
             if (!stored!.StartsWith(Marker, StringComparison.Ordinal)) return false;
 
-            return EmblemSpec.TryParse(stored.Substring(Marker.Length), out spec);
+            return EmblemArtwork.TryParse(stored.Substring(Marker.Length), out artwork);
         }
 
         /// <summary>
@@ -96,16 +106,16 @@ namespace WorldsAdriftServer.Emblems
         /// throws a UriFormatException on a relative one - and that throw happens
         /// inside the emblem promise, where nothing catches it.
         /// </summary>
-        internal static string PublicUrl(string baseUrl, Guid allianceId, EmblemSpec spec) =>
+        internal static string PublicUrl(string baseUrl, Guid allianceId, EmblemArtwork artwork) =>
             TrimBase(baseUrl) + RoutePrefix
             + allianceId.ToString("D", CultureInfo.InvariantCulture)
-            + PngExtension + "?" + CodeParameter + "=" + spec.ToCode();
+            + PngExtension + "?" + CodeParameter + "=" + artwork.ToCode();
 
         /// <summary>The preview URL the builder page fetches. Relative, because the
         /// page fetching it is served by this same server and a browser resolves
         /// it against the origin the operator actually reached us on.</summary>
-        internal static string PreviewUrl(EmblemSpec spec) =>
-            RoutePrefix + PreviewId + PngExtension + "?" + CodeParameter + "=" + spec.ToCode();
+        internal static string PreviewUrl(EmblemArtwork artwork) =>
+            RoutePrefix + PreviewId + PngExtension + "?" + CodeParameter + "=" + artwork.ToCode();
 
         /// <summary>
         /// The vector of the same crest, for a player to download. Relative for
@@ -113,15 +123,15 @@ namespace WorldsAdriftServer.Emblems
         /// is served by this server, so the browser resolves it against whatever
         /// origin the operator actually reached us on.
         /// </summary>
-        internal static string VectorUrl(Guid allianceId, EmblemSpec spec) =>
+        internal static string VectorUrl(Guid allianceId, EmblemArtwork artwork) =>
             RoutePrefix + (allianceId == Guid.Empty
                 ? PreviewId
                 : allianceId.ToString("D", CultureInfo.InvariantCulture))
-            + SvgExtension + "?" + CodeParameter + "=" + spec.ToCode();
+            + SvgExtension + "?" + CodeParameter + "=" + artwork.ToCode();
 
         /// <summary>The filename a downloaded crest is offered under.</summary>
-        internal static string VectorFileName(EmblemSpec spec) =>
-            "alliance-crest-" + spec.ToCode() + SvgExtension;
+        internal static string VectorFileName(EmblemArtwork artwork) =>
+            "alliance-crest-" + artwork.ToCode() + SvgExtension;
 
         /// <summary>
         /// Resolves what the alliance payload's <c>emblemUrl</c> should say, given
@@ -136,9 +146,9 @@ namespace WorldsAdriftServer.Emblems
         /// </summary>
         internal static string Resolve(string baseUrl, Guid allianceId, string? stored)
         {
-            if (TryReadStored(stored, out EmblemSpec spec))
+            if (TryReadStored(stored, out EmblemArtwork artwork))
             {
-                return PublicUrl(baseUrl, allianceId, spec);
+                return PublicUrl(baseUrl, allianceId, artwork);
             }
 
             // An operator's hand-set external URL wins over the generated default:
@@ -146,6 +156,23 @@ namespace WorldsAdriftServer.Emblems
             if (!string.IsNullOrWhiteSpace(stored)) return stored!;
 
             return PublicUrl(baseUrl, allianceId, EmblemSpec.DefaultFor(allianceId));
+        }
+
+        /// <summary>
+        /// Whether this URL asks for the editor's object catalogue.
+        ///
+        /// Answered before <see cref="TryParseRequest"/> gets a look, because the
+        /// catalogue is not a picture and shares nothing with the crest routes but
+        /// its prefix.
+        /// </summary>
+        internal static bool IsCatalogueRequest(string? url)
+        {
+            if (string.IsNullOrEmpty(url)) return false;
+
+            int q = url!.IndexOf('?');
+            string path = q >= 0 ? url.Substring(0, q) : url;
+
+            return string.Equals(path, RoutePrefix + CatalogueSegment, StringComparison.Ordinal);
         }
 
         /// <summary>
@@ -181,10 +208,10 @@ namespace WorldsAdriftServer.Emblems
         /// self-describing in a log and so each alliance gets its own cache entry.
         /// </summary>
         internal static bool TryParseRequest(
-            string? url, out Guid allianceId, out EmblemSpec spec, out bool hasCode, out Format format)
+            string? url, out Guid allianceId, out EmblemArtwork artwork, out bool hasCode, out Format format)
         {
             allianceId = Guid.Empty;
-            spec = default;
+            artwork = default;
             hasCode = false;
             format = Format.Png;
 
@@ -241,7 +268,7 @@ namespace WorldsAdriftServer.Emblems
             string? code = QueryValue(query, CodeParameter);
             hasCode = !string.IsNullOrEmpty(code);
 
-            if (hasCode && !EmblemSpec.TryParse(code, out spec))
+            if (hasCode && !EmblemArtwork.TryParse(code, out artwork))
             {
                 // A code that does not parse is NOT a 404 and not a 400 with an
                 // empty body. See EmblemHandler: the client's decoder turns any
