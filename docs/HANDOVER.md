@@ -252,9 +252,16 @@ authority for live configuration is the box itself:
   because headless soak bots run no visualisers, so the whole 1210 + 1081 serve
   and the Interact echo rested on unit tests and the decompile. It works.
 
-  **Still unverified:** that salvaging a looted relic pays its materials (the
-  code shipped after the session above); that mined metal shows real quality and
-  varies away from Haven; that a log on a genuinely steep slope lies along it.
+  **SALVAGE ALSO CONFIRMED** in the same session: right-clicking a relic looted
+  from a chest and choosing SALVAGE paid its materials. So the full loop -
+  container spawns, streams, opens, yields scrap; scrap salvages into metal, wood
+  or fuel - is verified end to end in a live client, not just in tests.
+
+  **Still unverified:** that mined metal shows real quality and varies away from
+  Haven (Haven is deliberately all-iron, so this must be tested on a tier-1
+  island); that a log on a genuinely steep slope lies along it rather than flat.
+  For the latter, the felling line now reports its own decision - `rest=... deg
+  lift=... m (measured)` versus `(flat)`.
 
 - **Game server:** `5a69250`, deployed and restarted at 2026-08-19 10:59 CEST.
   First game-server deploy of the day; the login server had moved four times
