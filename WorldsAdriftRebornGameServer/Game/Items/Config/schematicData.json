@@ -14,8 +14,8 @@
     "craftingRequirements": [
       {
         "id": 0,
-        "name": "iron",
-        "iconId": "scrap items/4x2_saborian_Grand_mooring_rope",
+        "name": "plantFiber",
+        "iconId": "materials/1x2_plantfiber",
         "component": "Plant Fibers",
         "description": "Plant fibers woven into a basic cloth.",
         "amountRequired": 1,

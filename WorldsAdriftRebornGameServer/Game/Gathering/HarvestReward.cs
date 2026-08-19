@@ -55,34 +55,18 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             // itemData.json - so registering the whole set means a species placed
             // later pays the right wood the first time, instead of tripping the
             // "no harvest yield registered for source" warning in Award below.
+            // PLANT FIBRE AND BERRIES RIDE THE SAME CUT. The note that used to sit
+            // here said berries were deliberately unregistered because daccatBerries
+            // had no itemData.json row, every attribute of one would be invented,
+            // and HarvestYield could not express a second yield off one source
+            // anyway. All three of those have now been answered: the rows exist, the
+            // ids and their display text are PROVED from Bossa's shipped quest data
+            // rather than guessed, and AddYield is the missing shape. See TreeYield
+            // for the evidence and for which numbers are still ours.
             foreach (string wood in TreeSpecies.Woods)
             {
-                yields.Register(wood, new YieldRule(wood, amountPerUnit: 1));
+                TreeYield.RegisterSpecies(yields, wood);
             }
-
-            // DACCAT BERRIES ARE DELIBERATELY NOT REGISTERED, and this is the note
-            // for whoever comes to add them. Retail's trees dropped edible daccat
-            // berries alongside the logs (worldsadrift.fandom.com/wiki/Trees), and
-            // "daccatBerries" is unquestionably a real retail item id - it survives
-            // in the client's own harvest-SFX table, mapped to the PlantsVegetation
-            // sound (acs/Travellers.UI.PlayerInventory/InventoryContents.cs:55).
-            //
-            // But it is NOT a row in itemData.json (395 items, zero matches), and
-            // that file is the catalogue this server serves as reference data - so
-            // registering the id today would resolve to an item the client's
-            // database has never heard of. Adding the row is possible, and it would
-            // not crash (InventoryIconManager falls back to placeholder_icon on an
-            // unknown icon), but every attribute of it - display name, description,
-            // grid size, icon, the health it restores - would be INVENTED, and
-            // nothing in the decompile constrains any of them. The only tree/food
-            // link that survives is FoodSourceVisualizer setting
-            // FoodSourceType.TreeFruit, and that is the CREATURE feeding system
-            // (namespace Bossa.Travellers.Creatures.Food), not the player's harvest.
-            //
-            // So this is left as a reported gap rather than a fabricated item. The
-            // wiring itself is one line once a real row exists: berries would be a
-            // SECOND yield off the same cut, which is a shape HarvestYield does not
-            // have yet (one source key resolves to one rule).
 
             return yields;
         }
@@ -134,9 +118,9 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         internal static void Award(long harvesterEntityId, string sourceKey, int units, string reason,
             int? quality = null)
         {
-            YieldGrant? resolved = Yields.Resolve(sourceKey, units, quality);
+            IReadOnlyList<YieldGrant> resolved = Yields.Resolve(sourceKey, units, quality);
 
-            if (resolved == null)
+            if (resolved.Count == 0)
             {
                 // Either the source felled nothing, or - more useful to see - a
                 // source the yield table was never taught about. Named here so it
@@ -149,23 +133,50 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 return;
             }
 
-            YieldGrant grant = resolved.Value;
+            // ONE PUSH FOR THE WHOLE HIT, not one per material. 1081 is a
+            // full-state component that is re-sent in its entirety and persisted on
+            // every push, so a tree paying wood, fibre and berries would otherwise
+            // cost three full inventory sends and three database writes for one
+            // swing of the beam. The grants are suppressed individually and the
+            // single push below states the finished inventory.
+            List<YieldGrant> landed = new(resolved.Count);
 
-            int? itemId = InventoryService.Grant(
-                harvesterEntityId,
-                grant.ItemTypeId,
-                grant.Amount,
-                grant.Quality);
-
-            if (itemId == null)
+            foreach (YieldGrant grant in resolved)
             {
-                // Grant refused: unknown type, or the inventory is full. The push
-                // seam already logged which. No toast for an item that is not
-                // there.
+                int? itemId = InventoryService.Grant(
+                    harvesterEntityId,
+                    grant.ItemTypeId,
+                    grant.Amount,
+                    grant.Quality,
+                    push: false);
+
+                if (itemId == null)
+                {
+                    // Grant refused: unknown type, or the inventory is full. The
+                    // grant seam already logged which. No toast for an item that is
+                    // not there - and, importantly, the OTHER yields of the same hit
+                    // still land. A full grid should cost you the berries, not the
+                    // wood.
+                    continue;
+                }
+
+                landed.Add(grant);
+            }
+
+            if (landed.Count == 0)
+            {
                 return;
             }
 
-            SalvageFeedback.Send(harvesterEntityId, grant.ItemTypeId, grant.Amount, reason);
+            InventoryPush.Push(harvesterEntityId, "harvested " + landed.Count + " material(s) from " + reason);
+
+            // Toasts AFTER the push, and only for what actually landed. The player
+            // being told "Salvaged Plant Fiber x3" for something the panel does not
+            // contain is the one outcome this whole path exists to prevent.
+            foreach (YieldGrant grant in landed)
+            {
+                SalvageFeedback.Send(harvesterEntityId, grant.ItemTypeId, grant.Amount, reason);
+            }
         }
     }
 }

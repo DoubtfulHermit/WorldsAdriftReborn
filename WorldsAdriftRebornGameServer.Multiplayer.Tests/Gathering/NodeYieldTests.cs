@@ -83,8 +83,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
 
             // Yet mining the rich node still pays quality 8, because the hit carries
             // the node's own quality rather than looking it up by name.
-            Assert.Equal(8, yields.Resolve(NodeYield.SourceKeyFor(rich), 1, NodeYield.QualityOf(rich))!.Value.Quality);
-            Assert.Equal(2, yields.Resolve(NodeYield.SourceKeyFor(poor), 1, NodeYield.QualityOf(poor))!.Value.Quality);
+            Assert.Equal(8, Assert.Single(yields.Resolve(NodeYield.SourceKeyFor(rich), 1, NodeYield.QualityOf(rich))).Quality);
+            Assert.Equal(2, Assert.Single(yields.Resolve(NodeYield.SourceKeyFor(poor), 1, NodeYield.QualityOf(poor))).Quality);
         }
 
         [Fact]
@@ -98,7 +98,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
             MetalNode node = Node("titanium", 6);
             yields.Register(NodeYield.SourceKeyFor(node), NodeYield.RuleFor(node));
 
-            YieldGrant grant = yields.Resolve("titanium", 1)!.Value;
+            YieldGrant grant = Assert.Single(yields.Resolve("titanium", 1));
 
             Assert.Equal(6, grant.Quality);
             Assert.NotEqual(0, grant.Quality);

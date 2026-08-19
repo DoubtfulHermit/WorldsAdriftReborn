@@ -92,8 +92,14 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         /// reused id makes an existing item vanish, and an out-of-bounds
         /// placement throws on the client mid-refresh.
         ///
-        /// Nothing calls it yet. The harvest transaction is a separate
-        /// workstream, and this deliberately does not reach for it.
+        /// <paramref name="push"/> exists for ONE caller shape: a single harvest
+        /// hit that grants several materials at once. 1081 is a full-state
+        /// component - the whole list is re-sent and persisted on every push - so
+        /// a tree paying wood, fibre and berries would otherwise cost three full
+        /// sends and three database writes for one swing. Such a caller passes
+        /// false and pushes once at the end. It MUST push: an inventory the client
+        /// is never told about is an item the player does not have, and the client
+        /// clears its own waiting flag on nothing else.
         /// </summary>
         internal static int? Grant(
             long entityId,
@@ -101,7 +107,8 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
             int amount = 1,
             int quality = 0,
             IReadOnlyDictionary<string, string>? meta = null,
-            int? rarity = null )
+            int? rarity = null,
+            bool push = true )
         {
             InventoryModel model = ForEntity(entityId);
 
@@ -135,7 +142,10 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
                 return null;
             }
 
-            InventoryPush.Push(entityId, "granted " + amount + "x " + itemTypeId);
+            if (push)
+            {
+                InventoryPush.Push(entityId, "granted " + amount + "x " + itemTypeId);
+            }
 
             return granted.ItemId;
         }

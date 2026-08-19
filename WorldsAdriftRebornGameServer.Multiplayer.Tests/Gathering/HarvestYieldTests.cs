@@ -11,7 +11,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
         {
             HarvestYield yields = new();
 
-            Assert.Null(yields.Resolve("iron", 1));
+            Assert.Empty(yields.Resolve("iron", 1));
             Assert.False(yields.Has("iron"));
         }
 
@@ -21,12 +21,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
             HarvestYield yields = new();
             yields.Register("iron", new YieldRule("iron", amountPerUnit: 12));
 
-            YieldGrant? grant = yields.Resolve("iron", units: 1);
+            YieldGrant grant = Assert.Single(yields.Resolve("iron", units: 1));
 
-            Assert.NotNull(grant);
-            Assert.Equal("iron", grant!.Value.ItemTypeId);
-            Assert.Equal(12, grant.Value.Amount);
-            Assert.Equal(0, grant.Value.Quality);
+            Assert.Equal("iron", grant.ItemTypeId);
+            Assert.Equal(12, grant.Amount);
+            Assert.Equal(0, grant.Quality);
         }
 
         [Fact]
@@ -36,7 +35,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
             yields.Register("birch", new YieldRule("birch", amountPerUnit: 1));
 
             // A cut that fells three sections is three wood.
-            Assert.Equal(3, yields.Resolve("birch", units: 3)!.Value.Amount);
+            Assert.Equal(3, Assert.Single(yields.Resolve("birch", units: 3)).Amount);
         }
 
         [Fact]
@@ -46,7 +45,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
             HarvestYield yields = new();
             yields.Register("MetalNugget", new YieldRule("iron", amountPerUnit: 8, quality: 5));
 
-            YieldGrant grant = yields.Resolve("MetalNugget", 1)!.Value;
+            YieldGrant grant = Assert.Single(yields.Resolve("MetalNugget", 1));
 
             Assert.Equal("iron", grant.ItemTypeId);
             Assert.Equal(8, grant.Amount);
@@ -61,8 +60,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
 
             // A hit that felled nothing is not a yield, and a zero-count "Salvaged
             // Iron x0" toast is worse than silence.
-            Assert.Null(yields.Resolve("iron", 0));
-            Assert.Null(yields.Resolve("iron", -4));
+            Assert.Empty(yields.Resolve("iron", 0));
+            Assert.Empty(yields.Resolve("iron", -4));
         }
 
         [Fact]
@@ -74,7 +73,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
             Assert.False(yields.Register("iron", new YieldRule("iron", 20)));
 
             // The replacement wins.
-            Assert.Equal(20, yields.Resolve("iron", 1)!.Value.Amount);
+            Assert.Equal(20, Assert.Single(yields.Resolve("iron", 1)).Amount);
             Assert.Equal(1, yields.Count);
         }
 
@@ -85,7 +84,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Gathering
 
             Assert.False(yields.Has(null!));
             Assert.Null(yields.RuleFor(null!));
-            Assert.Null(yields.Resolve(null!, 1));
+            Assert.Empty(yields.Resolve(null!, 1));
         }
 
         [Fact]
