@@ -24,7 +24,11 @@ body.wide main { max-width: 78rem; }
 
 .editor .cols {
   display: grid;
-  grid-template-columns: 15rem minmax(0, 1fr) 17rem;
+  /* The objects column was 15rem when the catalogue was eighty-three shapes in
+     three groups. It is 17rem now that it is two hundred and eighty-three in
+     seven: two more rem is one more silhouette per row and one fewer row of
+     group buttons, and it comes out of the canvas, which is fluid. */
+  grid-template-columns: 17rem minmax(0, 1fr) 17rem;
   gap: 1rem;
   align-items: start;
 }
@@ -54,7 +58,7 @@ body.wide main { max-width: 78rem; }
 
 .editor .objgrid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr));
-  gap: .3rem; max-height: 26rem; overflow-y: auto;
+  gap: .3rem; max-height: 30rem; overflow-y: auto;
 }
 .editor .obj {
   aspect-ratio: 1; padding: .3rem; cursor: pointer;
@@ -70,6 +74,7 @@ body.wide main { max-width: 78rem; }
 .editor .obj:hover path { fill: var(--ink); }
 
 .editor .waiting { grid-column: 1 / -1; margin: .4rem 0; font-size: .8rem; color: var(--ink-faint); }
+.editor .tally { margin: .45rem 0 0; font-size: .72rem; color: var(--ink-faint); }
 
 /* -------------------------------------------------------------- the canvas */
 
