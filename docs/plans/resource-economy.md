@@ -77,12 +77,52 @@ describes. What is missing is one step further down the pipe — see 0.2.
 | Client-handshake deposits | `"iron"`, quality 5 | `Game/Gathering/DepositHandshakeSpawner.cs:42,45` |
 | Release-world deposits | **already varied** | `Islands/ReleaseWorldCatalog.cs:150-152` |
 
-and **the live server runs Haven only**: `deploy/wareborn-game-native.service`
-sets exactly one variable, `WAREBORN_GAME_PORT=7779`. `WAREBORN_RELEASE_WORLD_DISTRICTS`
-(`Islands/ReleaseWorldRolloutPolicy.cs:22`), `WAREBORN_ISLAND_FAUNA`
-(`Islands/IslandFaunaPolicy.cs:145`) and `WAREBORN_SPAWN_DATABANK` are all unset.
-So the audit's *player-facing* claim is right — today every deposit a player can
-reach is iron — while its *code* claim is wrong.
+#### What is actually running in production — measured, not inferred
+
+**Correction to an earlier draft of this document, which said the live server
+runs Haven only because the release world is not switched on. That was wrong.**
+The checked-in `deploy/wareborn-game-native.service` carries only
+`WAREBORN_GAME_PORT`, but the *running* server is configured with
+`WAREBORN_RELEASE_WORLD_DISTRICTS=tier1`, `WAREBORN_SPAWN_DEPOSIT=1`,
+`WAREBORN_METAL_HANDSHAKE=0` and `WAREBORN_SPAWN_METAL=0`. The unit file is not
+the source of truth for what is live.
+
+Live boot activates **368 deposits** across **47 terrains**. That number
+decomposes exactly, and I verified each part by running the real selection and
+lookup code rather than reading the JSON:
+
+| source | islands | deposits | databanks |
+|---|---|---|---|
+| `ReleaseWorldRolloutPolicy.Select("tier1")` | 46 | **328** | 215 |
+| Haven (`MetalDeposits.HavenPlacements`) | 1 | **40** | 1 |
+| **total** | **47** | **368** | **216** |
+
+Both totals match the live boot counts exactly (368 deposits, 216 databanks, 47
+terrains). So:
+
+- **328 of the 368 live deposits are release-world nodes, already stamped
+  per-node from the island tables.** Measured: they span **6 metals** (bronze,
+  copper, epilar, iron, lead, tin) at **qualities 1–4**. Resolving a real live key
+  through the actual activation lookup — `MetalDeposits.ByKey("deposit-release-742077672-0")`
+  — returns **epilar q2**, not a default. These are registered unconditionally at
+  `Multiplayer/WorldEntities.cs:1225-1235`, straight from `island.Deposits[i]`;
+  they do **not** pass through `WAREBORN_SPAWN_DEPOSIT` and never touched the
+  hardcoded iron.
+- **40 are Haven's**, and those were the iron-only ones.
+
+**So the honest statement of the bug is:** the metal NAME was already correct on
+328 of 368 live deposits and wrong only on Haven's 40; the QUALITY was wrong on
+**all 368**. The maintainer experiences "every deposit is iron" because they play
+on Haven, which is the spawn island and was uniformly iron. Phase 2 fixes those
+40 — `MetalDeposits.ByKey("deposit-3")` now returns **lead q6** where it returned
+iron. Phase 1 fixes the quality on all 368.
+
+**Deploy note, and it matters:** Haven's 40 only exist because
+`WAREBORN_DEPOSIT_COUNT` is set on live. It defaults to **1**
+(`Multiplayer/WorldEntities.cs:1140-1147`), and Haven's index 0 is
+**deliberately pinned to iron** so a new player's nearest rock is always the
+starter metal — so if that variable were ever unset, Phase 2 would produce no
+visible change on Haven at all.
 
 ### 0.2 The real, universal bug is one line, and it is worse than "quality is 0".
 
@@ -408,6 +448,21 @@ with the step description `"Salvage Berries"` at `:2767`, and the fibre step
 `:1918` with the tutorial arrow pointed at a `Tree` entity
 (`quests.json:1935-1937,1948-1950`). The audit had the tree→fibre/berry link as
 INFERRED from the wiki; it is PROVED from Bossa's own quest data.
+
+**Icon casing — settled, and it is "probably fine", not "expect placeholders".**
+`docs/research/valid-icons.txt` contains **zero uppercase characters**, so it was
+produced by lowercasing and cannot tell us retail's true casing. That does not
+matter, and here is why: **204 of the 397 shipped item rows carry MIXED-CASE icon
+names** (`metals/Metal_Iron`, `scrap items/2x2_Fountain_shards`, …), all 204 match
+the census once lowercased, and **zero** rows reference an icon the census lacks.
+Those 204 render correctly in the live client today. Since the client resolves
+icons with `Resources.Load("Icons/" + iconName)`
+(`acs/InventoryIconManager.cs:44,64`) and Unity's Resources index is
+case-insensitive, a lowercase spelling resolves exactly as a mixed-case one does
+— and if it did not, more than half the existing inventory would already be pink
+placeholder boxes. So `materials/1x2_plantfiber` and `foods/2x2_berries` will
+resolve. A miss is in any case soft: the manager logs and substitutes
+`placeholder_icon` rather than throwing.
 
 **Depends on.** Nothing, but sits *after* Phases 1–2 because it changes the
 `HarvestYield` signature and it is cheaper to change once.
