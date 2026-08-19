@@ -2724,7 +2724,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The list must be non-empty AND every entry a REAL material: an
                         // invented materialTypeId NREs ComponentMaterialColors (which resolves
                         // each entry by name through MaterialManager and dereferences the
-                        // result). So we reuse the deck's proven-safe Wood material
+                        // result). The default is the deck's proven-safe Wood material
                         // (Deck.MaterialTypeId = Trees.WoodType, category "Wood") - it resolves
                         // cleanly, and category "Wood" makes GetPrefabFromMaterial return the
                         // part's baked _woodPrefab (a valid mesh; the helm's icon is literally
@@ -2734,19 +2734,33 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // material slots (proceduralEngineDefault), so _materialIndex is at
                         // most 3; 8 covers that with headroom and is cheap (one small struct
                         // each, all the same real material).
+                        //
+                        // THE MATERIAL IS PER-PART, NOT UNIFORM (the invisible-window fix).
+                        // On a PANEL prefab slot 0 chooses the MESH, not just the tint:
+                        // ShipPanel.Init prefers OUR materialTypeId over the prefab's own
+                        // _panelMaterial, and the shipped ShipPanelDefinitions has ZERO wooden
+                        // window meshes at every size (metalWindowPanelMeshes1X1 is the only
+                        // window array with any entries at all). A wood-seeded Window01
+                        // therefore hit "No appropriate mesh found for requested ship panel
+                        // size!" and then Instantiate(null) inside OnEnable, so the crafted
+                        // window existed and rendered NOTHING. LoosePartSeedMaterial is the
+                        // pure, tested map that answers Iron for the window and Wood for
+                        // everything else; it is keyed on itemType so windows already lying
+                        // in the world come back fixed with no persistence migration.
                         var loosePart1099 = Game.Crafting.LooseParts.DefFor(entityId);
                         if (loosePart1099 != null)
                         {
                             const int SEED_MATERIAL_SLOTS = 8;
+                            Multiplayer.Ship.PartSeedMaterial seedMaterial = loosePart1099.SeedMaterial;
                             var looseMaterials = new Improbable.Collections.List<SlottedMaterial>();
                             for (int slot = 0; slot < SEED_MATERIAL_SLOTS; slot++)
                             {
                                 looseMaterials.Add(new SlottedMaterial(
                                     slot,
                                     new Bossa.Travellers.Materials.RawMaterial(
-                                        Multiplayer.Deck.MaterialTypeId,   // Trees.WoodType, resolves in MaterialManager
+                                        seedMaterial.MaterialTypeId,        // a real itemData id; resolves in MaterialManager
                                         1,                                  // quality
-                                        Multiplayer.Deck.MaterialCategory,  // "Wood" -> baked _woodPrefab, never throws
+                                        seedMaterial.Category,              // "Wood"/"Metal" -> baked variant prefab, never throws
                                         new Map<string, string> { }),
                                     1,                                      // amount
                                     new Option<Bossa.Travellers.Materials.RawMaterial> { }));

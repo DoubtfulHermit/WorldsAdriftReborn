@@ -103,6 +103,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         public IReadOnlyList<uint> PartSpecificComponents { get; }
 
         /// <summary>
+        /// The material this part publishes in every seeded <c>1099
+        /// SalvageAndRepairState.originalMaterials</c> slot. DERIVED from
+        /// <see cref="ItemType"/> rather than stored, so a part restored from an
+        /// old <c>LoosePartRecord</c> gets the same answer as a freshly crafted one
+        /// and no persistence migration is needed. This is not decoration: on a
+        /// panel prefab the material picks the MESH, and the shipped client has no
+        /// wooden window mesh at any size - see
+        /// <see cref="LoosePartSeedMaterial"/>.
+        /// </summary>
+        public PartSeedMaterial SeedMaterial => LoosePartSeedMaterial.For(ItemType);
+
+        /// <summary>
         /// The components EVERY loose ship part carries so
         /// <c>ShipPartVisualizer</c> enables (making it render/lift) plus its salvage
         /// base: 190602 TransformState (position, no ship parent), 190601
