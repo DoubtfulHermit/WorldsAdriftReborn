@@ -1055,17 +1055,13 @@ namespace WorldsAdriftServer.Social
         /// APPLICATIONS tab on the strength of it
         /// (YourAllianceManagementButtons.SetForPermissions). A server that only
         /// let the founder accept would show a button that always failed.
+        ///
+        /// The rule itself moved to <see cref="AlliancePolicy.MayAdmit"/> when the
+        /// account portal became a second asker; what is left here is the
+        /// hydration and the wire-shaped bool.
         /// </summary>
-        internal bool MayAdmit(Guid actor, string allianceId)
-        {
-            AllianceLedger ledger = Hydrate();
-            Alliance? alliance = ledger.ById(allianceId);
-            if (alliance == null || !alliance.Holds(Key(actor))) return false;
-            if (alliance.IsLeader(Key(actor))) return true;
-
-            AllianceRank? rank = alliance.RankOf(Key(actor));
-            return rank != null && rank.Grants(AlliancePermissions.EditMembers);
-        }
+        internal bool MayAdmit(Guid actor, string allianceId) =>
+            AlliancePolicy.MayAdmit(Hydrate(), Key(actor), allianceId) == AllianceVerdict.Ok;
 
         // -------------------------------------------------------- shared reads
 

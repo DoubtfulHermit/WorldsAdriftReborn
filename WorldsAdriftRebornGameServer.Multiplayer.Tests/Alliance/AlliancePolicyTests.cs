@@ -155,6 +155,51 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Alliance
             Assert.Equal(AllianceVerdict.NotPermitted, AlliancePolicy.MayEditRanks(ledger, Bob, Id));
         }
 
+        /// <summary>
+        /// Admitting is a RANK permission, not "are you the founder".
+        ///
+        /// The client shows the APPLICATIONS tab to any rank holding
+        /// <c>edit_members</c> (YourAllianceManagementButtons.SetForPermissions),
+        /// so a server that only let the founder accept would draw a button that
+        /// always failed. Both the Social Sheet and the account portal ask this
+        /// question now, which is why it lives here rather than beside either.
+        /// </summary>
+        [Fact]
+        public void An_officer_with_edit_members_may_admit_applicants()
+        {
+            AllianceLedger ledger = WithAlliance(out Multiplayer.Alliance.Alliance alliance);
+            alliance.AddRank(Officer(AlliancePermissions.EditMembers));
+            ledger.Join(Bob, Id, "rank:officer");
+            ledger.Join(Cara, Id, "rank:member");
+
+            Assert.Equal(AllianceVerdict.Ok, AlliancePolicy.MayAdmit(ledger, Bob, Id));
+
+            // The founder always may, whatever their rank lists.
+            Assert.Equal(AllianceVerdict.Ok, AlliancePolicy.MayAdmit(ledger, Alice, Id));
+
+            // A plain member never may.
+            Assert.Equal(AllianceVerdict.NotPermitted, AlliancePolicy.MayAdmit(ledger, Cara, Id));
+
+            // And neither does anybody outside it, or in a different one.
+            Assert.Equal(AllianceVerdict.NotAMember, AlliancePolicy.MayAdmit(ledger, Dan, Id));
+            Assert.Equal(AllianceVerdict.NoSuchAlliance, AlliancePolicy.MayAdmit(ledger, Bob, Other));
+        }
+
+        /// <summary>
+        /// edit_group is not edit_members. The two are handed out separately and a
+        /// rank with the group permission must not inherit the roster one.
+        /// </summary>
+        [Fact]
+        public void Edit_group_does_not_let_an_officer_admit()
+        {
+            AllianceLedger ledger = WithAlliance(out Multiplayer.Alliance.Alliance alliance);
+            alliance.AddRank(Officer(AlliancePermissions.EditGroup));
+            ledger.Join(Bob, Id, "rank:officer");
+
+            Assert.Equal(AllianceVerdict.Ok, AlliancePolicy.MayEditDescription(ledger, Bob, Id));
+            Assert.Equal(AllianceVerdict.NotPermitted, AlliancePolicy.MayAdmit(ledger, Bob, Id));
+        }
+
         [Fact]
         public void An_officer_with_edit_members_may_invite_and_boot()
         {

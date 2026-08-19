@@ -1,41 +1,55 @@
+using Newtonsoft.Json.Linq;
 using NetCoreServer;
 using WorldsAdriftReborn.Storage.Records;
 using WorldsAdriftRebornGameServer.Multiplayer.Alliance;
 using WorldsAdriftServer.Emblems;
 using WorldsAdriftServer.Handlers.Admin;
-using WorldsAdriftServer.Handlers.Authentication;
+using WorldsAdriftServer.Handlers.Social;
 using WorldsAdriftServer.Persistence;
+using WorldsAdriftServer.Portal;
 using WorldsAdriftServer.Social;
 using WorldsAdriftServer.Web;
 
 namespace WorldsAdriftServer.Handlers.Account
 {
     /// <summary>
-    /// The signed-in player's account area: <c>GET /account</c> and the one thing
-    /// it can change, <c>POST /account/alliance-emblem</c>.
+    /// The signed-in player's portal: <c>GET /account</c> and the seven posts
+    /// behind it.
     ///
-    /// GLUE ONLY, in the shape the rest of this server uses. Reading the form is
-    /// <see cref="EmblemFormPolicy"/>; deciding who may re-crest an alliance is
-    /// <see cref="AlliancePolicy.MayEditEmblem"/> in the engine-free multiplayer
-    /// project; what gets stored and what goes on the wire is
-    /// <see cref="EmblemUrlPolicy"/>; the markup is <see cref="AccountPage"/>.
-    /// What is left here is the part that needs a socket and a database: the
-    /// cookie, the roster query, the ledger, the save and the redirect.
+    /// GLUE ONLY, in the shape the rest of this server uses. Reading the forms is
+    /// <see cref="PortalFormPolicy"/> and <see cref="EmblemFormPolicy"/>; deciding
+    /// who may do what is <see cref="PortalPermissions"/>, which delegates to
+    /// <see cref="AlliancePolicy"/> in the engine-free multiplayer project;
+    /// assembling the page's data is <see cref="PortalViewBuilder"/>; the markup is
+    /// <see cref="AccountPage"/>. What is left here is the part that needs a socket
+    /// and a database: the cookie, the CSRF check, the roster check, the write and
+    /// the redirect.
     ///
     /// THE PERMISSION IS PER CHARACTER, THE SESSION IS PER ACCOUNT, and the gap
-    /// between those two is the only interesting security question on this page.
-    /// An account owns up to five characters; alliance membership, ranks and
-    /// permissions all hang off a CHARACTER uid. So the posted character is
-    /// checked against THIS account's roster before it is used as an actor -
-    /// otherwise anyone signed in could post somebody else's character uid and
-    /// borrow their rank. See <see cref="OwnsCharacter"/>, which is the whole
+    /// between those two is still the only interesting security question on this
+    /// page - it is just wider now that there are seven posts instead of one. An
+    /// account owns up to five characters; alliance membership, ranks and
+    /// permissions all hang off a CHARACTER uid. So EVERY post that names a
+    /// character checks it against THIS account's roster before it is used as an
+    /// actor - otherwise anyone signed in could post somebody else's character uid
+    /// and borrow their rank. See <see cref="OwnsCharacter"/>, which is the whole
     /// defence and is deliberately a separate, named step rather than a condition
     /// folded into the permission check.
+    ///
+    /// EVERY REFUSAL LOOKS THE SAME. A character that is not yours, an alliance
+    /// that does not exist and a rank you may not grant all redirect with
+    /// <c>denied</c>, so a signed-in player cannot use this page to learn whether
+    /// somebody else's character or alliance exists.
     /// </summary>
     internal static class AccountHandler
     {
         private const string PagePath = "/account";
         private const string EmblemPath = "/account/alliance-emblem";
+        private const string DetailsPath = "/account/alliance-details";
+        private const string MemberPath = "/account/alliance-member";
+        private const string RequestPath = "/account/alliance-request";
+        private const string PasswordPath = "/account/password";
+        private const string LogoutPath = "/account/logout";
 
         internal static bool TryHandle(HttpSession session, HttpRequest request)
         {
@@ -43,10 +57,7 @@ namespace WorldsAdriftServer.Handlers.Account
             int q = url.IndexOf('?');
             string path = q >= 0 ? url.Substring(0, q) : url;
 
-            if (path != PagePath && path != PagePath + "/" && path != EmblemPath)
-            {
-                return false;
-            }
+            if (!Owns(path)) return false;
 
             string? token = PlayerAuthPolicy.TokenFromCookieHeader(HeaderValue(request, "Cookie"));
             long? accountId = PlayerAuth.Sessions.Resolve(token, DateTimeOffset.UtcNow);
@@ -60,201 +71,529 @@ namespace WorldsAdriftServer.Handlers.Account
                 return true;
             }
 
-            if (path == EmblemPath)
+            if (path == PagePath || path == PagePath + "/")
             {
-                if (request.Method != "POST")
-                {
-                    Redirect(session, PagePath);
-                    return true;
-                }
-
-                SaveEmblem(session, request, accountId.Value, token);
+                if (request.Method != "GET") { Redirect(session, PagePath); return true; }
+                Page(session, request, accountId.Value, token);
                 return true;
             }
 
-            if (request.Method != "GET")
+            // Everything else on this route CHANGES something, so nothing else on
+            // it answers a GET. A GET that mutated would be a GET a link
+            // prefetcher, a chat client's unfurler or a browser's history restore
+            // could fire on the player's behalf.
+            if (request.Method != "POST")
             {
                 Redirect(session, PagePath);
                 return true;
             }
 
-            Page(session, request, accountId.Value, token);
+            Dictionary<string, string> form = AdminHandler.ParseForm(request.Body);
+
+            form.TryGetValue(PlayerAuthPolicy.CsrfField, out string? csrf);
+            if (!PlayerAuthPolicy.VerifyCsrf(token, csrf))
+            {
+                Done(session, PortalNotices.Expired);
+                return true;
+            }
+
+            try
+            {
+                switch (path)
+                {
+                    case LogoutPath: Logout(session, token); return true;
+                    case PasswordPath: ChangePassword(session, accountId.Value, token, form); return true;
+                    case EmblemPath: SaveEmblem(session, accountId.Value, form); return true;
+                    case DetailsPath: SaveDetails(session, accountId.Value, form); return true;
+                    case MemberPath: ChangeMember(session, accountId.Value, form); return true;
+                    case RequestPath: AnswerRequest(session, accountId.Value, form); return true;
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[error] " + path + " failed: " + e);
+                Done(session, PortalNotices.Failed);
+                return true;
+            }
+
+            Redirect(session, PagePath);
             return true;
         }
+
+        private static bool Owns(string path) =>
+            path == PagePath || path == PagePath + "/"
+            || path == EmblemPath || path == DetailsPath || path == MemberPath
+            || path == RequestPath || path == PasswordPath || path == LogoutPath;
 
         // ------------------------------------------------------------- the page
 
         private static void Page(
             HttpSession session, HttpRequest request, long accountId, string? token)
         {
-            string username = ReadUsername(accountId);
+            (string? notice, bool isError) = PortalNotices.For(PortalNotices.CodeFrom(request.Url));
 
-            (string? notice, bool isError) = NoticeFor(request.Url);
-
-            IReadOnlyList<AccountPage.Target> targets;
+            PortalView view;
             try
             {
-                targets = TargetsFor(accountId);
+                view = PortalViewBuilder.Build(
+                    accountId, PlayerAuthPolicy.CsrfTokenForSession(token), notice, isError);
             }
             catch (Exception e)
             {
-                // A database that blinked must not turn the whole account page
-                // into a 500 - the player can still see they are signed in, and
-                // the builder comes back on the next load.
-                Console.WriteLine("[warning] /account: could not read alliances: " + e.Message);
-                targets = Array.Empty<AccountPage.Target>();
-                notice ??= "Alliance details are unavailable right now. Try again in a moment.";
-                isError = true;
-            }
+                // A database that blinked must not turn the whole portal into a
+                // 500. The player still learns they are signed in, and the page
+                // comes back on the next load.
+                Console.WriteLine("[warning] /account: could not build the portal: " + e.Message);
 
-            string html = AccountPage.Render(
-                username,
-                PlayerAuthPolicy.CsrfTokenForSession(token),
-                targets,
-                notice,
-                isError);
+                view = new PortalView(
+                    "traveller", "traveller", DateTimeOffset.UtcNow, null, "-", "-",
+                    Array.Empty<CharacterCard>(),
+                    PlayerAuthPolicy.CsrfTokenForSession(token),
+                    "Your details are unavailable right now. Try again in a moment.", true);
+            }
 
             HttpResponse resp = new HttpResponse();
             resp.SetBegin(200);
             resp.SetHeader("Content-Type", AccountPage.ContentType);
             resp.SetHeader("Cache-Control", "no-store");
-            resp.SetBody(html);
+            resp.SetHeader("X-Content-Type-Options", "nosniff");
+            resp.SetBody(AccountPage.Render(view));
+            session.SendResponseAsync(resp);
+        }
+
+        // ---------------------------------------------------------- the account
+
+        private static void Logout(HttpSession session, string? token)
+        {
+            PlayerAuth.Sessions.Revoke(token);
+
+            HttpResponse resp = new HttpResponse();
+            resp.SetBegin(302);
+            resp.SetHeader("Location", "/login");
+            resp.SetHeader("Cache-Control", "no-store");
+            resp.SetHeader("Set-Cookie", PlayerAuthPolicy.BuildClearCookie());
+            resp.SetBody(string.Empty);
             session.SendResponseAsync(resp);
         }
 
         /// <summary>
-        /// Every alliance this account may re-crest, one row per character that
-        /// may do it.
+        /// Changes the account's password.
+        ///
+        /// THE CURRENT PASSWORD IS REQUIRED even though the caller already holds a
+        /// live session. A cookie proves the browser was signed in at some point;
+        /// it does not prove the person at the keyboard is the account's owner, and
+        /// an unattended machine is the whole reason this box exists.
+        ///
+        /// Every other session is revoked afterwards, including the GAME client's
+        /// long-lived token. That is the point of changing a password: if it was
+        /// changed because somebody else had it, leaving their token alive would
+        /// make the change cosmetic.
         /// </summary>
-        private static IReadOnlyList<AccountPage.Target> TargetsFor(long accountId)
+        private static void ChangePassword(
+            HttpSession session, long accountId, string? token, IReadOnlyDictionary<string, string> form)
         {
-            IReadOnlyList<CharacterRecord> roster = Accounts.Characters.ListForAccount(accountId);
-            List<AccountPage.Target> targets = new List<AccountPage.Target>();
+            form.TryGetValue(PasswordChangePolicy.CurrentField, out string? current);
+            form.TryGetValue(PasswordChangePolicy.NextField, out string? next);
+            form.TryGetValue(PasswordChangePolicy.ConfirmField, out string? confirm);
 
-            if (roster.Count == 0) return targets;
+            PasswordChangeFault fault = PasswordChangePolicy.Check(current, next, confirm);
+            if (fault != PasswordChangeFault.None)
+            {
+                Done(session, PortalNotices.CodeFor(fault));
+                return;
+            }
+
+            AccountRecord? account = Accounts.Repository.FindById(accountId);
+            if (account == null || Accounts.Repository.Verify(account.Username, current) == null)
+            {
+                Done(session, PortalNotices.PasswordWrong);
+                return;
+            }
+
+            if (!Accounts.Repository.ChangePassword(accountId, next!))
+            {
+                Done(session, PortalNotices.Failed);
+                return;
+            }
+
+            // The GAME tokens, in Postgres. The browser session set is separate
+            // and in memory (see PlayerSessions), so the current tab is left
+            // signed in - the player is standing right there and has just proved
+            // they know the old password.
+            int revoked = Accounts.Sessions.RevokeAllFor(accountId);
+
+            Console.WriteLine("[info] /account: '" + account.Username
+                + "' changed their password; " + revoked + " game session(s) revoked.");
+
+            Done(session, PortalNotices.PasswordChanged);
+        }
+
+        // --------------------------------------------------------- the alliance
+
+        private static void SaveEmblem(
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+        {
+            EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(form);
+            if (!outcome.Ok)
+            {
+                Done(session, PortalNotices.Unreadable);
+                return;
+            }
+
+            if (!Permitted(accountId, outcome.CharacterUid, outcome.AllianceId,
+                    PortalAction.EditEmblem, null, out AllianceRecord? alliance))
+            {
+                Done(session, PortalNotices.Denied);
+                return;
+            }
+
+            // The COLUMN takes a marker, not a URL - no schema change, and the
+            // public host name stays in configuration. See EmblemUrlPolicy.
+            Accounts.Alliances.SaveAlliance(alliance! with
+            {
+                EmblemUrl = EmblemUrlPolicy.Store(outcome.Spec),
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            Console.WriteLine("[info] /account: alliance " + alliance!.Name + " ("
+                + alliance.AllianceId + ") set crest " + outcome.Spec.ToCode()
+                + " via character " + outcome.CharacterUid + ".");
+
+            Done(session, PortalNotices.CrestSaved);
+        }
+
+        /// <summary>
+        /// The description and the message of the day.
+        ///
+        /// ONE FIELD PER POST, and the permission is checked for the field that was
+        /// SENT. The two carry different permissions - description is
+        /// <c>edit_group</c>, the MOTD is <c>leader_chat</c>, which is the retail
+        /// client's own bug reproduced on purpose - so a post carrying both would
+        /// let somebody holding one of them overwrite the other field with whatever
+        /// their page happened to be showing. That is exactly the trap
+        /// <c>AllianceEndpoints.Update</c> documents for the game client's PATCH,
+        /// where the client DOES send both; here the page sends one, and a post
+        /// that carried both is answered per field anyway.
+        /// </summary>
+        private static void SaveDetails(
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+        {
+            DetailsForm details = PortalFormPolicy.ReadDetails(form);
+            if (!details.Ok)
+            {
+                Done(session, PortalNotices.Unreadable);
+                return;
+            }
+
+            bool wantsDescription = PortalFormPolicy.Sent(form, PortalFormPolicy.DescriptionField);
+            bool wantsMotd = PortalFormPolicy.Sent(form, PortalFormPolicy.MotdField);
+
+            PortalAction action = wantsDescription
+                ? PortalAction.EditDescription
+                : PortalAction.EditMessageOfTheDay;
+
+            if (!Permitted(accountId, details.CharacterUid, details.AllianceId,
+                    action, null, out AllianceRecord? alliance))
+            {
+                Done(session, PortalNotices.Denied);
+                return;
+            }
+
+            // A post carrying BOTH fields is legal but has to clear BOTH gates.
+            if (wantsDescription && wantsMotd
+                && !Permitted(accountId, details.CharacterUid, details.AllianceId,
+                        PortalAction.EditMessageOfTheDay, null, out _))
+            {
+                Done(session, PortalNotices.Denied);
+                return;
+            }
+
+            string description = wantsDescription ? details.Description : alliance!.Description;
+            string motd = wantsMotd ? details.MessageOfTheDay : alliance!.MessageOfTheDay;
+
+            if (description == alliance!.Description && motd == alliance.MessageOfTheDay)
+            {
+                Done(session, PortalNotices.NoChange);
+                return;
+            }
+
+            Accounts.Alliances.SaveAlliance(alliance with
+            {
+                Description = description,
+                MessageOfTheDay = motd,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            Done(session, wantsDescription && description != alliance.Description
+                ? PortalNotices.DescriptionSaved
+                : PortalNotices.MotdSaved);
+        }
+
+        /// <summary>Move a member onto another rank, or throw them out.</summary>
+        private static void ChangeMember(
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+        {
+            MemberForm member = PortalFormPolicy.ReadMember(form);
+            if (!member.Ok)
+            {
+                Done(session, PortalNotices.Unreadable);
+                return;
+            }
+
+            if (member.Verb == MemberVerb.Boot)
+            {
+                BootMember(session, accountId, member);
+                return;
+            }
+
+            SetRank(session, accountId, member);
+        }
+
+        private static void SetRank(HttpSession session, long accountId, MemberForm form)
+        {
+            if (!OwnsCharacter(accountId, form.CharacterUid))
+            {
+                Done(session, PortalNotices.Denied);
+                return;
+            }
+
+            AllianceMemberRecord? membership = Accounts.Alliances.MemberOf(form.TargetUid);
+            if (membership == null || membership.AllianceId != form.AllianceId)
+            {
+                Done(session, PortalNotices.Gone);
+                return;
+            }
 
             AllianceLedger ledger = AllianceLedgerBuilder.Build(
                 Accounts.Alliances, Accounts.SocialInvites);
 
-            foreach (CharacterRecord character in roster)
+            AllianceVerdict verdict = PortalPermissions.MaySetRank(
+                ledger,
+                AllianceEndpoints.Key(form.CharacterUid),
+                AllianceWire.Uid(form.AllianceId),
+                AllianceEndpoints.Key(form.TargetUid),
+                AllianceWire.Uid(form.RankId));
+
+            if (verdict != AllianceVerdict.Ok)
             {
-                if (character.IsEmptySlot) continue;
-
-                AllianceMemberRecord? membership = Accounts.Alliances.MemberOf(character.CharacterUid);
-                if (membership == null) continue;
-
-                AllianceRecord? alliance = Accounts.Alliances.FindAlliance(membership.AllianceId);
-                if (alliance == null) continue;
-
-                string allianceId = AllianceWire.Uid(alliance.AllianceId);
-                string actor = AllianceEndpoints.Key(character.CharacterUid);
-
-                if (AlliancePolicy.MayEditEmblem(ledger, actor, allianceId) != AllianceVerdict.Ok)
-                {
-                    continue;
-                }
-
-                bool built = EmblemUrlPolicy.TryReadStored(alliance.EmblemUrl, out EmblemSpec spec);
-                if (!built) spec = EmblemSpec.DefaultFor(alliance.AllianceId);
-
-                // A non-empty column that is NOT one of our markers is an
-                // operator's hand-set URL. Surfaced rather than hidden, so a
-                // player whose crest does not change when they save one learns
-                // why instead of filing it as a bug.
-                string? external =
-                    !built && !string.IsNullOrWhiteSpace(alliance.EmblemUrl) ? alliance.EmblemUrl : null;
-
-                targets.Add(new AccountPage.Target(
-                    alliance.AllianceId,
-                    alliance.Name,
-                    character.CharacterUid,
-                    character.Name,
-                    spec,
-                    built,
-                    external));
+                Done(session, PortalNotices.Denied);
+                return;
             }
 
-            return targets;
+            // The rank has to belong to THIS alliance. The policy above resolves
+            // the rank through the actor's own alliance so a foreign id already
+            // answers NoSuchRank, but the row is written by id and the check is
+            // cheap next to the consequence: a member pointing at a rank the
+            // client cannot find THROWS in AllianceClient.TryGetRank, and that
+            // throw takes out the whole Social Sheet, both tabs.
+            AllianceRankRecord? rank = Accounts.Alliances.FindRank(form.RankId);
+            if (rank == null || rank.AllianceId != form.AllianceId)
+            {
+                Done(session, PortalNotices.Gone);
+                return;
+            }
+
+            Accounts.Alliances.SaveMember(membership with
+            {
+                RankId = form.RankId,
+                UpdatedAt = DateTimeOffset.UtcNow,
+            });
+
+            Done(session, PortalNotices.RankSet);
         }
 
-        // ------------------------------------------------------------- the save
-
-        private static void SaveEmblem(
-            HttpSession session, HttpRequest request, long accountId, string? token)
+        /// <summary>
+        /// Throws a member out.
+        ///
+        /// The ledger decides succession and dissolve-at-last-member and the rows
+        /// mirror whatever it decided - the same order
+        /// <c>AllianceEndpoints.RemoveMember</c> uses, so the promotion rule exists
+        /// in exactly one place. Booting cannot make the actor the last member
+        /// standing (they are still in it), so the dissolve branch is unreachable
+        /// from here; it is followed anyway rather than assumed away.
+        /// </summary>
+        private static void BootMember(HttpSession session, long accountId, MemberForm form)
         {
-            Dictionary<string, string> form = AdminHandler.ParseForm(request.Body);
-
-            form.TryGetValue(PlayerAuthPolicy.CsrfField, out string? csrf);
-            if (!PlayerAuthPolicy.VerifyCsrf(token, csrf))
+            if (!OwnsCharacter(accountId, form.CharacterUid))
             {
-                Redirect(session, PagePath + "?e=csrf");
+                Done(session, PortalNotices.Denied);
                 return;
             }
 
-            EmblemFormPolicy.Outcome outcome = EmblemFormPolicy.Read(form);
-            if (!outcome.Ok)
+            AllianceLedger ledger = AllianceLedgerBuilder.Build(
+                Accounts.Alliances, Accounts.SocialInvites);
+
+            string allianceId = AllianceWire.Uid(form.AllianceId);
+            string targetKey = AllianceEndpoints.Key(form.TargetUid);
+
+            AllianceVerdict verdict = PortalPermissions.May(
+                ledger, PortalAction.BootMember,
+                AllianceEndpoints.Key(form.CharacterUid), allianceId, targetKey);
+
+            if (verdict != AllianceVerdict.Ok)
             {
-                Redirect(session, PagePath + "?e=form");
+                Done(session, PortalNotices.Denied);
                 return;
             }
 
-            try
+            ledger.Remove(targetKey);
+            Accounts.Alliances.RemoveMember(form.TargetUid);
+
+            Console.WriteLine("[info] /account: character " + form.CharacterUid
+                + " removed " + form.TargetUid + " from alliance " + form.AllianceId + ".");
+
+            Done(session, PortalNotices.MemberRemoved);
+        }
+
+        /// <summary>
+        /// Accept an application, decline one, or withdraw an invitation the
+        /// alliance sent.
+        ///
+        /// SEATING IS NOT REIMPLEMENTED HERE. Accepting goes through
+        /// <see cref="AllianceEndpoints.Accept"/> - the same call the retail Social
+        /// Sheet's accept endpoint makes - because it re-checks the join at accept
+        /// time (an alliance can fill up or dissolve between the offer and the
+        /// answer), finds the default member rank, and computes the join order. A
+        /// second copy of that here would be a second answer to "who is in this
+        /// alliance", and the two would diverge the first time either was fixed.
+        /// </summary>
+        private static void AnswerRequest(
+            HttpSession session, long accountId, IReadOnlyDictionary<string, string> form)
+        {
+            RequestForm request = PortalFormPolicy.ReadRequest(form);
+            if (!request.Ok)
             {
-                if (!OwnsCharacter(accountId, outcome.CharacterUid))
-                {
-                    // Same refusal as "you are not permitted": a signed-in player
-                    // posting a character uid that is not theirs learns nothing
-                    // about whether that character exists.
-                    Redirect(session, PagePath + "?e=denied");
-                    return;
-                }
-
-                AllianceRecord? alliance = Accounts.Alliances.FindAlliance(outcome.AllianceId);
-                if (alliance == null)
-                {
-                    Redirect(session, PagePath + "?e=denied");
-                    return;
-                }
-
-                AllianceLedger ledger = AllianceLedgerBuilder.Build(
-                    Accounts.Alliances, Accounts.SocialInvites);
-
-                AllianceVerdict verdict = AlliancePolicy.MayEditEmblem(
-                    ledger,
-                    AllianceEndpoints.Key(outcome.CharacterUid),
-                    AllianceWire.Uid(alliance.AllianceId));
-
-                if (verdict != AllianceVerdict.Ok)
-                {
-                    Redirect(session, PagePath + "?e=denied");
-                    return;
-                }
-
-                // The COLUMN takes a marker, not a URL - no schema change, and the
-                // public host name stays in configuration. See EmblemUrlPolicy.
-                Accounts.Alliances.SaveAlliance(alliance with
-                {
-                    EmblemUrl = EmblemUrlPolicy.Store(outcome.Spec),
-                    UpdatedAt = DateTimeOffset.UtcNow,
-                });
-
-                Console.WriteLine("[info] /account: alliance " + alliance.Name + " ("
-                    + alliance.AllianceId + ") set crest " + outcome.Spec.ToCode()
-                    + " via character " + outcome.CharacterUid + ".");
-
-                Redirect(session, PagePath + "?ok=1");
+                Done(session, PortalNotices.Unreadable);
+                return;
             }
-            catch (Exception e)
+
+            if (!OwnsCharacter(accountId, request.CharacterUid))
             {
-                Console.WriteLine("[error] /account/alliance-emblem failed: " + e);
-                Redirect(session, PagePath + "?e=server");
+                Done(session, PortalNotices.Denied);
+                return;
             }
+
+            SocialInviteRecord? invite = Accounts.SocialInvites.Find(request.InviteId);
+            if (invite == null
+                || invite.Status != SocialInviteStatus.New
+                || invite.TargetType != SocialTargetType.Alliance
+                || !string.Equals(invite.TargetId, AllianceWire.Uid(request.AllianceId), StringComparison.Ordinal))
+            {
+                Done(session, PortalNotices.Gone);
+                return;
+            }
+
+            // An APPLICATION has no inviter and an INVITE has one - the client's
+            // own structural discriminator, not a convention of ours. Answering an
+            // application is accept/decline; answering an invitation the alliance
+            // sent is withdrawing it.
+            bool isApplication = invite.InviterUid == null;
+            if (isApplication == (request.Verb == RequestVerb.Rescind))
+            {
+                Done(session, PortalNotices.Unreadable);
+                return;
+            }
+
+            AllianceLedger ledger = AllianceLedgerBuilder.Build(
+                Accounts.Alliances, Accounts.SocialInvites);
+
+            AllianceVerdict verdict = PortalPermissions.May(
+                ledger, PortalAction.AdmitOrRescind,
+                AllianceEndpoints.Key(request.CharacterUid),
+                AllianceWire.Uid(request.AllianceId));
+
+            if (verdict != AllianceVerdict.Ok)
+            {
+                Done(session, PortalNotices.Denied);
+                return;
+            }
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+
+            if (request.Verb == RequestVerb.Reject)
+            {
+                Accounts.SocialInvites.Resolve(invite.InviteId, SocialInviteStatus.Rejected, now);
+                Done(session, PortalNotices.ApplicantDeclined);
+                return;
+            }
+
+            if (request.Verb == RequestVerb.Rescind)
+            {
+                Accounts.SocialInvites.Resolve(invite.InviteId, SocialInviteStatus.Cancelled, now);
+                Done(session, PortalNotices.InviteWithdrawn);
+                return;
+            }
+
+            // Seat them first and only then resolve the offer: a join the policy
+            // refuses must leave the application live rather than consuming it into
+            // nothing. The same order SocialService.ResolveInvite uses.
+            JObject seated = Endpoints().Accept(invite);
+            if (!seated.Value<bool>("success"))
+            {
+                Done(session, PortalNotices.Failed);
+                return;
+            }
+
+            Accounts.SocialInvites.Resolve(invite.InviteId, SocialInviteStatus.Accepted, now);
+            Done(session, PortalNotices.ApplicantAdmitted);
+        }
+
+        /// <summary>
+        /// The alliance endpoints, wired exactly as <see cref="SocialService"/>
+        /// wires them - the same stores, the same name lookup, the same region -
+        /// so a member seated from the portal is indistinguishable from one seated
+        /// from the game.
+        /// </summary>
+        private static AllianceEndpoints Endpoints() => new AllianceEndpoints(
+            Accounts.Alliances,
+            Accounts.SocialInvites,
+            uid => Accounts.Characters.Find(uid)?.Name,
+            SocialHandler.Region);
+
+        // ---------------------------------------------------------------- gates
+
+        /// <summary>
+        /// The two checks every alliance post makes, in the order they have to be
+        /// made: is this character YOURS, and then may it do this.
+        ///
+        /// Both, and in that order. The permission check alone would let a
+        /// signed-in player post the character uid of somebody who DOES hold the
+        /// permission and act as them; the roster check alone would let them do
+        /// anything with a character of their own. Neither is a substitute for the
+        /// other, which is why they are two named steps and not one condition.
+        /// </summary>
+        private static bool Permitted(
+            long accountId,
+            Guid characterUid,
+            Guid allianceId,
+            PortalAction action,
+            Guid? targetUid,
+            out AllianceRecord? alliance)
+        {
+            alliance = null;
+
+            if (!OwnsCharacter(accountId, characterUid)) return false;
+
+            alliance = Accounts.Alliances.FindAlliance(allianceId);
+            if (alliance == null) return false;
+
+            AllianceLedger ledger = AllianceLedgerBuilder.Build(
+                Accounts.Alliances, Accounts.SocialInvites);
+
+            AllianceVerdict verdict = PortalPermissions.May(
+                ledger,
+                action,
+                AllianceEndpoints.Key(characterUid),
+                AllianceWire.Uid(allianceId),
+                targetUid == null ? null : AllianceEndpoints.Key(targetUid.Value));
+
+            return verdict == AllianceVerdict.Ok;
         }
 
         /// <summary>
         /// Whether this character is on this account's roster.
         ///
-        /// The whole reason the account page can be trusted with a per-character
+        /// The whole reason the portal can be trusted with a per-character
         /// permission. Compared against the roster the database returns rather
         /// than against anything the form said about itself.
         /// </summary>
@@ -268,53 +607,15 @@ namespace WorldsAdriftServer.Handlers.Account
             return false;
         }
 
-        // ---------------------------------------------------------------- glue
+        // ----------------------------------------------------------------- glue
 
-        private static (string?, bool) NoticeFor(string url)
-        {
-            int q = url.IndexOf('?');
-            string query = q >= 0 ? url.Substring(q + 1) : string.Empty;
-
-            if (query.Contains("ok=1", StringComparison.Ordinal))
-            {
-                return ("Crest saved. It appears in game the next time the alliance panel loads.", false);
-            }
-
-            if (query.Contains("e=csrf", StringComparison.Ordinal))
-            {
-                return ("That form had expired. It has been reloaded - try again.", true);
-            }
-
-            if (query.Contains("e=form", StringComparison.Ordinal))
-            {
-                return ("Those crest choices were not readable.", true);
-            }
-
-            if (query.Contains("e=denied", StringComparison.Ordinal))
-            {
-                return ("That character may not change that alliance's crest.", true);
-            }
-
-            if (query.Contains("e=server", StringComparison.Ordinal))
-            {
-                return ("The crest could not be saved. Try again shortly.", true);
-            }
-
-            return (null, false);
-        }
-
-        private static string ReadUsername(long accountId)
-        {
-            try
-            {
-                AccountRecord? account = Accounts.Repository.FindById(accountId);
-                return account?.Username ?? "traveller";
-            }
-            catch (Exception)
-            {
-                return "traveller";
-            }
-        }
+        /// <summary>
+        /// POST-redirect-GET back to the portal with a notice code. Never the
+        /// sentence itself - see <see cref="PortalNotices"/> for why a page must
+        /// not render text a URL handed it.
+        /// </summary>
+        private static void Done(HttpSession session, string code) =>
+            Redirect(session, PagePath + "?" + PortalNotices.Field + "=" + code);
 
         private static void Redirect(HttpSession session, string location)
         {

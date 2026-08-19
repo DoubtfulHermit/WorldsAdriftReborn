@@ -313,6 +313,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Alliance
             RequiresIn(ledger, actorUid, allianceId, AlliancePermissions.EditRanks);
 
         /// <summary>
+        /// May the actor answer the alliance's incoming APPLICATIONS and rescind
+        /// its outgoing INVITES - act FOR the group rather than for themselves?
+        ///
+        /// Needs <see cref="AlliancePermissions.EditMembers"/>, and it is a RANK
+        /// question rather than "are you the founder". That distinction is the
+        /// whole reason it exists: a founder can hand <c>edit_members</c> to an
+        /// officer, and the client then shows that officer the APPLICATIONS tab
+        /// (<c>YourAllianceManagementButtons.SetForPermissions</c>). A server that
+        /// only let the founder accept would draw a button that always failed.
+        ///
+        /// It lives HERE, in the pure rules, rather than beside the endpoint that
+        /// first needed it, because it now has two askers - the retail Social
+        /// Sheet and the account portal - and a permission answered twice is a
+        /// permission that can be answered two ways.
+        /// </summary>
+        public static AllianceVerdict MayAdmit(AllianceLedger ledger, string actorUid, string allianceId) =>
+            RequiresIn(ledger, actorUid, allianceId, AlliancePermissions.EditMembers);
+
+        /// <summary>
         /// May the actor delete this particular rank?
         ///
         /// The two default ranks are refused with the client's own

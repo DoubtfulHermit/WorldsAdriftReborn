@@ -138,8 +138,12 @@ namespace WorldsAdriftServer.Handlers.Download
         /// <see cref="PatchConfig"/> for the dir, as the /patch page does, so the
         /// download page shows the same figures. A missing or corrupt manifest must
         /// degrade to a rendered page, never take the gated route down.
+        ///
+        /// Internal rather than private because the account portal shows the same
+        /// two figures in its patcher section, and two readers of one manifest is
+        /// two chances to disagree about which build is current.
         /// </summary>
-        private static (string version, string build) ReadManifestVersionBuild()
+        internal static (string version, string build) ReadManifestVersionBuild()
         {
             const string unknown = "-";
             try

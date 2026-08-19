@@ -208,6 +208,41 @@ namespace WorldsAdriftReborn.Storage.Repositories
             }
         }
 
+        /// <summary>
+        /// Replaces an account's password with a freshly hashed one. False, and
+        /// nothing changed, when there is no such account.
+        ///
+        /// IT TAKES THE PASSWORD, NOT A HASH, on purpose. A method that accepted a
+        /// hash would let a caller store a string this library never produced -
+        /// the wrong algorithm, the wrong iteration count, or a value that is not
+        /// a hash at all - and <see cref="AccountPolicy.VerifyPassword"/> reads the
+        /// algorithm back OUT of the stored string, so it would go on verifying
+        /// happily against whatever was written. Hashing here is what keeps
+        /// "what is in the column" a fact this file decides.
+        ///
+        /// A password the policy refuses is a FAULT, not a false: the caller was
+        /// supposed to check first and tell the player why - exactly as
+        /// <see cref="Create"/> treats it.
+        /// </summary>
+        public bool ChangePassword(long accountId, string password)
+        {
+            if (!AccountPolicy.IsUsablePassword(password))
+            {
+                throw new ArgumentException(
+                    "Refusing to store an unusable password.", nameof(password));
+            }
+
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText =
+                "UPDATE accounts SET password_hash = @hash WHERE account_id = @id;";
+            command.Parameters.AddWithValue("hash", AccountPolicy.HashPassword(password));
+            command.Parameters.AddWithValue("id", accountId);
+
+            return command.ExecuteNonQuery() == 1;
+        }
+
         /// <summary>Stamps a successful login. Purely operational; nothing reads it.</summary>
         public bool TouchLastLogin(long accountId, DateTimeOffset now)
         {

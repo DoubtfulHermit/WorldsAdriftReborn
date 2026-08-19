@@ -5,7 +5,7 @@ namespace WorldsAdriftServer.Web
     /// way: a fully self-contained, themed HTML string with no external CSS, fonts,
     /// scripts or images. The form POSTs JSON <c>{username, password}</c> to
     /// <c>/login</c> - the same shape /register takes - and on success the server
-    /// answers <c>{ok:true, redirect:"/download"}</c>, which the page follows.
+    /// answers <c>{ok:true, redirect:"/account"}</c>, which the page follows.
     ///
     /// The palette, the wind canvas and the plank button are copied verbatim from
     /// the sign-up page on purpose: this has to read as the same site, not a login
@@ -402,7 +402,11 @@ footer a { color: inherit; }
     }).then(function (result) {
       if (result.ok && result.payload && result.payload.ok === true) {
         // Do NOT re-enable the button: we are leaving the page.
-        var redirect = (result.payload && typeof result.payload.redirect === 'string' && result.payload.redirect) || '/download';
+        // The fallback exists only for a response that somehow carried no
+        // redirect; it is the same landing the server sends, because a fallback
+        // that pointed somewhere else would be a second, quieter answer to
+        // 'where does signing in take me'.
+        var redirect = (result.payload && typeof result.payload.redirect === 'string' && result.payload.redirect) || '/account';
         window.location.assign(redirect);
         return;
       }

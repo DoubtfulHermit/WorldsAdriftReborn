@@ -1,0 +1,260 @@
+/*
+  The signed-in player's portal.
+
+  IT WEARS THE AIRSHIP PALETTE, NOT NIGHTFALL, and that is deliberate. The
+  operator console and the public map are dark and restrained because they are
+  instruments; the player-facing pages - sign-up, sign-in, the patcher, this -
+  are the ones a person meets before they have an account, and they share one
+  light/dark-aware airship look. The variables below are the same ones
+  SignupPage, LoginPage and DownloadPage declare, kept identical on purpose so
+  the four pages are one place rather than four.
+
+  Extracted out of AccountPage.cs when the page stopped being one form and
+  became a portal, for the reason WebAssets states: a stylesheet inside a C#
+  string literal is a stylesheet nobody can edit without holding the file every
+  other section is being edited in.
+*/
+:root {
+  --ink:        #26313d;
+  --ink-soft:   #43525f;
+  --ink-faint:  #5d6b76;
+  --field:      rgba(74, 80, 96, .60);
+  --field-edge: rgba(30, 36, 48, .30);
+  --field-ink:  #f0ece2;
+  --timber-lo:  #c68d60;
+  --timber-mid: #d9a074;
+  --timber-hi:  #eebd8e;
+  --timber-ink: #4a2c14;
+  --batten:     #a97244;
+  --batten-lo:  #8e5d36;
+  --batten-edge:#7d4d2a;
+  --rust:       #a8321f;
+  --good:       #2c6b52;
+  --veil:       rgba(255, 255, 255, .40);
+  --pane:       rgba(255, 255, 255, .34);
+  --input-bg:   rgba(255, 255, 255, .55);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink:       #e4e9ec;
+    --ink-soft:  #b3c0c8;
+    --ink-faint: #8b99a3;
+    --field:     rgba(96, 106, 124, .40);
+    --field-edge:rgba(180, 200, 215, .16);
+    --rust:      #ef8a6b;
+    --good:      #7fd2b3;
+    --veil:      rgba(6, 12, 20, .52);
+    --pane:      rgba(255, 255, 255, .05);
+    --input-bg:  rgba(255, 255, 255, .08);
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; padding: 2.2rem 1.1rem 3rem;
+  color: var(--ink);
+  background: linear-gradient(180deg, #93b7c8, #bed2d8 55%, #dde7e2);
+  background-attachment: fixed;
+  font-family: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif;
+  font-size: 16px; line-height: 1.55;
+}
+@media (prefers-color-scheme: dark) {
+  body { background: linear-gradient(180deg, #1b2530, #223038 55%, #2b3a3e); }
+}
+
+main { width: 100%; max-width: 54rem; margin: 0 auto; }
+
+.mark {
+  font-size: .68rem; letter-spacing: .38em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 .4rem; text-align: center;
+}
+h1 { font-size: 1.9rem; margin: 0 0 .25rem; font-weight: 300; letter-spacing: .03em; text-align: center; }
+.greet { color: var(--ink-soft); margin: 0 0 1.2rem; text-align: center; }
+.greet b { color: var(--ink); }
+
+/* The jump strip. Anchors, not script: with no JavaScript at all the portal is
+   still a page you can move around. */
+nav.jump {
+  display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center;
+  margin: 0 0 1.6rem;
+}
+nav.jump a {
+  padding: .35rem .8rem; border-radius: 999px;
+  font-size: .74rem; letter-spacing: .12em; text-transform: uppercase;
+  text-decoration: none; color: var(--ink-soft);
+  background: var(--pane); border: 1px solid var(--field-edge);
+}
+nav.jump a:hover { color: var(--ink); }
+
+.card {
+  position: relative; padding: 1.5rem 1.5rem 1.7rem; margin: 0 0 1.3rem;
+  border-radius: 14px; background: var(--veil);
+  box-shadow: 0 10px 40px rgba(0,0,0,.16); backdrop-filter: blur(2px);
+  scroll-margin-top: 1rem;
+}
+.card > h2 {
+  margin: 0 0 .2rem; font-size: 1.25rem; font-weight: 500; letter-spacing: .02em;
+}
+.card .as { margin: .1rem 0 1.1rem; color: var(--ink-faint); font-size: .88rem; }
+.card .as b { color: var(--ink-soft); }
+.card p { color: var(--ink-soft); }
+.card.empty p { margin: .6rem 0 0; }
+
+h3 {
+  margin: 1.5rem 0 .6rem; font-size: .72rem; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--ink-faint);
+}
+h3:first-of-type { margin-top: 1rem; }
+
+.notice {
+  margin: 0 0 1.2rem; padding: .7rem .9rem; border-radius: 9px;
+  background: var(--field); color: var(--field-ink); font-size: .9rem;
+}
+.notice.good { background: var(--good); color: #fff; }
+.notice.bad  { background: var(--rust); color: #fff; }
+.notice code { background: rgba(0,0,0,.22); padding: .05rem .3rem; border-radius: 4px; word-break: break-all; }
+
+/* A row of small labelled numbers - the shape every summary on this page takes. */
+.stats { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .4rem; padding: 0; list-style: none; }
+.stats li {
+  flex: 1 1 7rem; padding: .55rem .7rem; border-radius: 9px;
+  background: var(--pane); border: 1px solid var(--field-edge);
+}
+.stats .n { display: block; font-size: 1.25rem; line-height: 1.2; color: var(--ink); }
+.stats .k {
+  display: block; font-size: .62rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-faint); margin-top: .1rem;
+}
+
+/* Key/value pairs where the value is a word rather than a number. */
+/* 11rem, not 9: "Message of the day" is the longest key on the page and a
+   narrower column wraps it onto two lines beside a one-line value. */
+dl.facts { display: grid; grid-template-columns: 11rem 1fr; gap: .3rem 1rem; margin: 0; }
+dl.facts dt { font-size: .68rem; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint); padding-top: .18rem; }
+dl.facts dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
+@media (max-width: 30rem) { dl.facts { grid-template-columns: 1fr; gap: .1rem; } dl.facts dd { margin-bottom: .5rem; } }
+
+table.rows { width: 100%; border-collapse: collapse; font-size: .88rem; }
+table.rows th {
+  text-align: left; font-size: .62rem; letter-spacing: .13em; text-transform: uppercase;
+  color: var(--ink-faint); font-weight: 700; padding: 0 .5rem .3rem 0;
+}
+table.rows td { padding: .35rem .5rem .35rem 0; border-top: 1px solid var(--field-edge); color: var(--ink-soft); vertical-align: middle; }
+table.rows td.you, table.rows td b { color: var(--ink); }
+table.rows td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.rows td.act { text-align: right; white-space: nowrap; }
+.scroll { overflow-x: auto; }
+
+.chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .2rem 0 0; padding: 0; list-style: none; }
+.chips li {
+  padding: .18rem .5rem; border-radius: 6px; font-size: .74rem;
+  background: var(--pane); border: 1px solid var(--field-edge); color: var(--ink-soft);
+}
+.chips.mono li { font-family: ui-monospace, 'DejaVu Sans Mono', monospace; font-size: .7rem; }
+.chips li.off { opacity: .45; text-decoration: line-through; }
+
+details { margin: .5rem 0 0; }
+details > summary {
+  cursor: pointer; font-size: .78rem; color: var(--ink-soft);
+  padding: .25rem 0; list-style-position: outside;
+}
+details > summary:hover { color: var(--ink); }
+details[open] > summary { margin-bottom: .4rem; }
+
+/* Forms. Shared by the password box, the alliance text fields and the roster.
+   Block forms get room beneath them because two of them stack (description, then
+   message of the day); the .inline ones live inside a table cell and must not. */
+form:not(.inline) { margin: 0 0 1rem; }
+label.row { display: block; margin: 0 0 .6rem; }
+/* `.row > span`, not `label.row > span`: the read-only twin of an editable field
+   is a div, and it has to wear the same label as the box it replaces. */
+.row > span, fieldset.row > legend {
+  display: block; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-faint); margin: 0 0 .25rem; padding: 0;
+}
+input[type=password], input[type=text], textarea, select {
+  width: 100%; padding: .5rem .6rem; font: inherit; font-size: .92rem;
+  color: var(--ink); background: var(--input-bg);
+  border: 1px solid var(--field-edge); border-radius: 7px;
+}
+textarea { resize: vertical; min-height: 4.5rem; }
+
+/* The same label, with the value as prose instead of a box - so a member who may
+   edit one alliance text and not the other reads one column of the same thing. */
+.readonly { margin: 0 0 .9rem; }
+.readonly p { margin: 0; }
+select.rank { width: auto; min-width: 8rem; padding: .3rem .4rem; font-size: .82rem; }
+
+.plank {
+  display: inline-block;
+  margin: .3rem 0 0; padding: .7rem 1.9rem;
+  font: inherit; font-size: .78rem; font-weight: 600; letter-spacing: .17em;
+  text-transform: uppercase; cursor: pointer; text-decoration: none;
+  color: var(--timber-ink); border: 1px solid #a4744a; border-radius: 1px;
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0) 44%),
+    linear-gradient(180deg, var(--timber-hi), var(--timber-mid) 46%, var(--timber-lo));
+  box-shadow: 0 2px 0 rgba(112,72,40,.42), 0 12px 26px -14px rgba(38,24,10,.85);
+}
+.plank:hover { filter: brightness(1.06); }
+.plank:active { transform: translateY(1px); }
+.plank:focus-visible { outline: 2px solid var(--timber-hi); outline-offset: 3px; }
+.plank.big { padding: .9rem 2.4rem; font-size: .85rem; }
+
+/* The quiet button: a rank change, a boot, a sign-out. Never a plank - the
+   plank is the page's one loud affirmative and it stops meaning that if
+   everything is one. */
+button.quiet {
+  padding: .3rem .7rem; font: inherit; font-size: .76rem; cursor: pointer;
+  color: var(--ink-soft); background: var(--pane);
+  border: 1px solid var(--field-edge); border-radius: 7px;
+}
+button.quiet:hover { color: var(--ink); }
+button.quiet.danger { color: var(--rust); border-color: var(--rust); }
+
+.inline { display: inline-flex; gap: .3rem; align-items: center; }
+
+/* The emblem builder, moved in from the page it used to be the whole of.
+   EVERY .builder RULE IS IN THIS BLOCK AND THE BREAKPOINT IS LAST. That is not
+   tidiness, it is the fix for a real bug: the button's `grid-column: 2` used to
+   sit further down the file, where it overrode the narrow-screen override of
+   itself - and an item placed in column 2 of a ONE-column grid creates an
+   implicit second column, so the builder went on rendering side by side on a
+   phone while `grid-template-columns: 1fr` was, technically, in force. */
+.builder { display: grid; grid-template-columns: 11rem 1fr; gap: 1.2rem; align-items: start; }
+.builder .plank { grid-column: 2; justify-self: start; }
+@media (max-width: 36rem) {
+  .builder { grid-template-columns: 1fr; }
+  .builder .plank { grid-column: 1; justify-self: stretch; text-align: center; }
+}
+.stage { text-align: center; }
+.preview {
+  width: 10rem; height: 10rem; display: block; margin: 0 auto;
+  image-rendering: auto;
+  filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
+}
+.stage .hint { margin: .6rem 0 0; font-size: .68rem; line-height: 1.4; color: var(--ink-faint); }
+.stage .hint a { color: inherit; }
+.controls { display: grid; gap: .6rem; }
+
+fieldset.swatches { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
+fieldset.swatches legend { width: 100%; float: left; }
+.sw { cursor: pointer; line-height: 0; }
+.sw input { position: absolute; opacity: 0; width: 0; height: 0; }
+.sw span {
+  display: block; width: 1.45rem; height: 1.45rem; border-radius: 5px;
+  background: var(--sw); border: 1px solid rgba(0,0,0,.35);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
+}
+.sw input:checked + span { outline: 2px solid var(--ink); outline-offset: 2px; }
+.sw input:focus-visible + span { outline: 2px dashed var(--ink); outline-offset: 2px; }
+
+.locked {
+  margin: .4rem 0 0; padding: .55rem .7rem; border-radius: 8px;
+  background: var(--pane); border: 1px solid var(--field-edge);
+  font-size: .8rem; color: var(--ink-faint);
+}
+.locked code { font-size: .95em; color: var(--ink-soft); }
+
+footer { margin-top: 2rem; font-size: .72rem; line-height: 1.5; color: var(--ink-faint); text-align: center; }
+footer a { color: inherit; }

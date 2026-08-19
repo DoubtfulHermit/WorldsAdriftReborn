@@ -11,7 +11,8 @@ namespace WorldsAdriftServer.Handlers.Authentication
     /// behind it. It is the read-side twin of <see cref="RegistrationHandler"/> -
     /// same self-contained themed page, same JSON body shape - and it exists so a
     /// player can reach the login-gated download page without going through the
-    /// game client.
+    /// game client - and, since the account portal exists, to reach everything
+    /// else that is theirs: their characters, their crew and their alliance.
     ///
     /// Glue only: it matches the routes, asks <see cref="Accounts.Repository"/> to
     /// verify the credentials (constant-time PBKDF2, already), mints a browser
@@ -21,6 +22,14 @@ namespace WorldsAdriftServer.Handlers.Authentication
     /// </summary>
     internal static class LoginHandler
     {
+        /// <summary>
+        /// Where a successful sign-in lands. One constant because THREE things
+        /// have to agree on it - the already-signed-in shortcut, the JSON the page
+        /// follows, and the page's own fallback when the JSON carries no redirect -
+        /// and three literals is three chances for one of them to be left behind.
+        /// </summary>
+        internal const string Landing = "/account";
+
         /// <summary>
         /// Handles GET/POST <c>/login</c> (and <c>/login/</c>). Returns true if it
         /// took the request so the router does not fall through.
@@ -54,13 +63,13 @@ namespace WorldsAdriftServer.Handlers.Authentication
         /// <summary>
         /// Serves the sign-in page - unless the visitor already carries a live
         /// session cookie, in which case there is nothing to sign into and they are
-        /// sent straight to the download page.
+        /// sent straight to their account.
         /// </summary>
         private static void HandleLoginPage(HttpSession session, HttpRequest request)
         {
             if (ResolveAccountId(request) != null)
             {
-                Redirect(session, "/download");
+                Redirect(session, Landing);
                 return;
             }
 
@@ -74,7 +83,14 @@ namespace WorldsAdriftServer.Handlers.Authentication
 
         /// <summary>
         /// Verifies <c>{"username": ..., "password": ...}</c> and, on success, arms
-        /// a session cookie and tells the page to go to /download.
+        /// a session cookie and tells the page where to go.
+        ///
+        /// WHERE IS /account, NOT /download, and that changed on purpose. Signing
+        /// in used to land on the patcher page, which made the patcher the whole of
+        /// what an account was for; the portal is the hub now and the patcher is a
+        /// section of it. <c>/download</c> still answers on its own - old links,
+        /// bookmarks and anything that points at it keep working - it is simply no
+        /// longer where a fresh sign-in arrives.
         ///
         /// The failure answer is deliberately one generic 401 whether the username
         /// is unknown or the password is wrong - the same rule /authenticate
@@ -113,13 +129,13 @@ namespace WorldsAdriftServer.Handlers.Authentication
                 string cookie = PlayerAuthPolicy.BuildSessionCookie(
                     token, PlayerAuth.Sessions.LifetimeSeconds);
 
-                Console.WriteLine("[info] '" + account.Username + "' signed in to the web download page (account "
+                Console.WriteLine("[info] '" + account.Username + "' signed in on the web (account "
                     + account.AccountId + ").");
 
                 JObject ok = new JObject
                 {
                     ["ok"] = true,
-                    ["redirect"] = "/download",
+                    ["redirect"] = Landing,
                 };
 
                 HttpResponse resp = new HttpResponse();

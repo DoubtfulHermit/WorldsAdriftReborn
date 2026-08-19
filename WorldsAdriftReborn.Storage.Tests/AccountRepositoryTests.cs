@@ -205,6 +205,50 @@ namespace WorldsAdriftReborn.Storage.Tests
             Assert.False(db.Accounts.TouchLastLogin(999999, TempDb.Now));
         }
 
+        /// <summary>
+        /// A changed password verifies and the old one stops - and the row still
+        /// holds a hash, not the word the player typed.
+        /// </summary>
+        [PostgresFact]
+        public void A_changed_password_replaces_the_old_one()
+        {
+            using TempDb db = new TempDb();
+
+            AccountRecord account = db.Accounts.Create(
+                "Timu", "Timu", "hunter22", null, TempDb.Now)!;
+
+            Assert.True(db.Accounts.ChangePassword(account.AccountId, "a-much-better-one"));
+
+            Assert.Null(db.Accounts.Verify("Timu", "hunter22"));
+            Assert.NotNull(db.Accounts.Verify("Timu", "a-much-better-one"));
+
+            string stored = db.Accounts.FindById(account.AccountId)!.PasswordHash;
+            Assert.DoesNotContain("a-much-better-one", stored, StringComparison.Ordinal);
+            Assert.StartsWith("pbkdf2$sha256$", stored, StringComparison.Ordinal);
+        }
+
+        [PostgresFact]
+        public void Changing_the_password_of_an_account_that_is_not_there_changes_nothing()
+        {
+            using TempDb db = new TempDb();
+
+            Assert.False(db.Accounts.ChangePassword(999999, "a-much-better-one"));
+        }
+
+        /// <summary>
+        /// A password the policy refuses is a caller BUG, not an ordinary answer -
+        /// the same treatment Create gives it. Returning false would let a screen
+        /// that forgot to validate report "could not save" for a rule it was
+        /// supposed to explain.
+        /// </summary>
+        [Fact]
+        public void An_unusable_password_is_refused_before_any_row_is_touched()
+        {
+            Assert.Throws<ArgumentException>(
+                () => new Repositories.AccountRepository(new Db("Host=127.0.0.1"))
+                    .ChangePassword(1, "abc"));
+        }
+
         [PostgresFact]
         public void Timestamps_survive_the_round_trip_as_the_same_instant()
         {

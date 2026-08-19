@@ -40,6 +40,9 @@ namespace WorldsAdriftServer.Persistence
         private static SocialInviteRepository? socialInvites;
         private static AllianceRepository? alliances;
         private static ViewerSampleRepository? viewerSamples;
+        private static ProgressionRepository? progressions;
+        private static InventoryRepository? inventories;
+        private static PositionRepository? positions;
 
         internal static Db Database => Ensure().db;
         internal static AccountRepository Repository => Ensure().accounts;
@@ -83,6 +86,28 @@ namespace WorldsAdriftServer.Persistence
         internal static ViewerSampleRepository ViewerSamples => Ensure().viewerSamples;
 
         /// <summary>
+        /// The three tables the GAME server owns, opened here READ-ONLY.
+        ///
+        /// This process is not a writer of any of them and must not become one:
+        /// each is written wholesale by the game server on save, and a login server
+        /// that wrote a row back would be racing a process that re-sends the entire
+        /// payload every few seconds. The account portal reads them to show a
+        /// player their own character sheet, which is the first thing on this side
+        /// that ever needed them.
+        ///
+        /// Their payloads are opaque JSON belonging to the game server, so they are
+        /// read back through its OWN snapshot readers rather than parsed here - see
+        /// <see cref="Portal.CharacterSheetPolicy"/>.
+        /// </summary>
+        internal static ProgressionRepository Progressions => Ensure().progressions;
+
+        /// <inheritdoc cref="Progressions"/>
+        internal static InventoryRepository Inventories => Ensure().inventories;
+
+        /// <inheritdoc cref="Progressions"/>
+        internal static PositionRepository Positions => Ensure().positions;
+
+        /// <summary>
         /// Opens the database and applies the schema. Called once at startup so
         /// a bad connection string is a loud failure on the console rather than
         /// a player staring at a login form that never answers.
@@ -97,7 +122,7 @@ namespace WorldsAdriftServer.Persistence
                 + Repository.Count() + " account(s) registered.");
         }
 
-        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites, AllianceRepository alliances, ViewerSampleRepository viewerSamples) Ensure()
+        private static (Db db, AccountRepository accounts, SessionRepository sessions, CharacterRepository characters, ServerConfigRepository serverConfig, CrewRepository crews, SocialInviteRepository socialInvites, AllianceRepository alliances, ViewerSampleRepository viewerSamples, ProgressionRepository progressions, InventoryRepository inventories, PositionRepository positions) Ensure()
         {
             lock (gate)
             {
@@ -112,9 +137,12 @@ namespace WorldsAdriftServer.Persistence
                     socialInvites = new SocialInviteRepository(db);
                     alliances = new AllianceRepository(db);
                     viewerSamples = new ViewerSampleRepository(db);
+                    progressions = new ProgressionRepository(db);
+                    inventories = new InventoryRepository(db);
+                    positions = new PositionRepository(db);
                 }
 
-                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!, alliances!, viewerSamples!);
+                return (db!, accounts!, sessions!, characters!, serverConfig!, crews!, socialInvites!, alliances!, viewerSamples!, progressions!, inventories!, positions!);
             }
         }
 

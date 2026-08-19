@@ -1,158 +1,674 @@
 using System.Globalization;
 using System.Text;
 using WorldsAdriftServer.Emblems;
+using WorldsAdriftServer.Portal;
 
 namespace WorldsAdriftServer.Web
 {
     /// <summary>
-    /// The signed-in player's account page, and the alliance emblem builder that
-    /// is currently the only thing on it.
+    /// The signed-in player's portal: the page a browser sign-in now lands on.
     ///
-    /// WHY THE BUILDER LIVES ON THE WEBSITE AND NOT IN THE GAME. It has to. The
-    /// retail client has no emblem control of any kind - three input fields on the
-    /// create-alliance panel (name, description, MOTD) and no fourth - and adding
-    /// one would mean shipping a client mod. What the client DOES do is fetch and
-    /// display whatever image <c>emblemUrl</c> points at, unauthenticated, with no
-    /// idea where it came from. So the composer can live anywhere, and the place
-    /// it costs nothing is a page the player is already signed in to.
+    /// WHAT IT IS FOR. Everything a player has that is not IN the game and not
+    /// operator business: who they are signed in as, the patcher, and - per
+    /// character - what that character knows, where it was last seen, what it is
+    /// carrying, its crew, and its alliance with whatever of that alliance this
+    /// character is permitted to change. Before this it was one form (the crest
+    /// builder) reached from a link on the download page, and the download page
+    /// was where sign-in dropped you; now sign-in drops you here and the patcher
+    /// is a section rather than a destination. <c>/download</c> still answers on
+    /// its own for anyone holding the old link.
     ///
-    /// THE PREVIEW IS THE REAL RENDERER. The picture next to the controls is an
-    /// <c>&lt;img&gt;</c> pointed at <c>/alliance-emblem/preview.png</c> - the same
-    /// route, the same <see cref="EmblemPainter"/>, the same bytes the game will
-    /// get. It is deliberately NOT a canvas or an inline SVG drawn from the same
-    /// options: a second renderer of one picture drifts from the first, silently,
-    /// and this repository has already bought that lesson once with the map mirror
-    /// (which now needs a 1e-9 parity test to hold two implementations together).
-    /// The only thing the page's script computes is the twelve-character code -
-    /// string concatenation, not drawing.
+    /// IT RENDERS A VIEW AND ASKS NOTHING. Every value arrives in
+    /// <see cref="PortalView"/>, including every "may I" boolean, decided once by
+    /// <see cref="PortalPermissions"/> against the ledger the handler will
+    /// re-check the post against. A permission question in this file would be a
+    /// second opinion, and a page and a handler that disagree is either a control
+    /// that always fails or a control that should not have been there.
+    ///
+    /// THE CREST BUILDER IS THE ONE IT ALWAYS WAS. Same form, same fields, same
+    /// <c>&lt;img&gt;</c> pointed at <c>/alliance-emblem/preview.png</c> - the real
+    /// renderer, the same bytes the game gets, deliberately NOT a canvas drawing
+    /// the same options a second time. It moved into the alliance card and lost a
+    /// heading; nothing else about it changed.
     ///
     /// Every value stamped in is HTML-encoded through
     /// <see cref="AdminPage.HtmlEncode"/>, the escaper the rest of the console
-    /// uses, so an alliance name or a character name cannot break out of the
-    /// markup.
+    /// uses, so an alliance name, a character name or an item id cannot break out
+    /// of the markup.
     /// </summary>
     internal static class AccountPage
     {
         internal const string ContentType = "text/html; charset=utf-8";
 
-        /// <summary>One alliance this account may re-crest, and who does it.</summary>
-        internal sealed record Target(
-            Guid AllianceId,
-            string AllianceName,
-            Guid CharacterUid,
-            string CharacterName,
-            EmblemSpec Spec,
-            bool IsBuilt,
-            string? ExternalUrl);
+        /// <summary>The link the patcher button points at - the same route the
+        /// standalone download page uses.</summary>
+        private const string PatcherHref = "/download/WAPatch.exe";
 
-        /// <summary>
-        /// Renders the page.
-        ///
-        /// <paramref name="targets"/> is every alliance the signed-in account may
-        /// change the emblem of - normally one, but an account has up to five
-        /// characters and nothing stops two of them leading different alliances,
-        /// so the page loops rather than assuming.
-        /// </summary>
-        internal static string Render(
-            string username, string csrf, IReadOnlyList<Target> targets, string? notice, bool noticeIsError)
+        internal static string Render(PortalView view)
         {
+            if (view == null) throw new ArgumentNullException(nameof(view));
+
             StringBuilder body = new StringBuilder();
 
-            if (notice != null)
+            if (view.Notice != null)
             {
-                body.Append("  <p class=\"notice")
-                    .Append(noticeIsError ? " bad" : " good")
+                body.Append("  <p class=\"notice ")
+                    .Append(view.NoticeIsError ? "bad" : "good")
                     .Append("\">")
-                    .Append(AdminPage.HtmlEncode(notice))
+                    .Append(AdminPage.HtmlEncode(view.Notice))
                     .Append("</p>\n");
             }
 
-            if (targets.Count == 0)
+            AppendAccount(body, view);
+            AppendDownload(body, view);
+
+            if (view.Characters.Count == 0)
             {
-                body.Append(@"  <section class=""card empty"">
-    <h2>Alliance crest</h2>
-    <p>Nothing to set here yet. The crest builder appears once one of your
-    characters founds an alliance, or is given a rank that may edit the
-    alliance's details.</p>
+                body.Append(@"  <section class=""card empty"" id=""characters"">
+    <h2>Characters</h2>
+    <p>You have not made a character yet. Run the patcher, start the game and
+    create one - it will appear here with everything it learns.</p>
   </section>
 ");
             }
 
-            foreach (Target target in targets)
+            foreach (CharacterCard character in view.Characters)
             {
-                AppendBuilder(body, csrf, target);
+                AppendCharacter(body, view.Csrf, character);
             }
 
-            return Shell(username, body.ToString());
+            return Shell(view, body.ToString());
         }
 
-        private static void AppendBuilder(StringBuilder page, string csrf, Target target)
+        // --------------------------------------------------------- the account
+
+        private static void AppendAccount(StringBuilder page, PortalView view)
         {
-            string id = target.AllianceId.ToString("D", CultureInfo.InvariantCulture);
-            string safeId = "a" + id.Replace("-", string.Empty, StringComparison.Ordinal);
+            page.Append("  <section class=\"card\" id=\"account\">\n");
+            page.Append("    <h2>Account</h2>\n");
+            page.Append("    <dl class=\"facts\">\n");
+            Fact(page, "Username", view.Username);
+            Fact(page, "Display name", view.DisplayName);
+            Fact(page, "Joined", Day(view.CreatedAt));
+            Fact(page, "Last sign-in",
+                view.LastLoginAt == null ? "this one" : Moment(view.LastLoginAt.Value));
+            Fact(page, "Characters",
+                view.Characters.Count.ToString(CultureInfo.InvariantCulture));
+            page.Append("    </dl>\n");
 
-            page.Append("  <section class=\"card\">\n");
-            page.Append("    <h2>").Append(AdminPage.HtmlEncode(target.AllianceName)).Append("</h2>\n");
-            page.Append("    <p class=\"as\">as <b>")
-                .Append(AdminPage.HtmlEncode(target.CharacterName))
+            page.Append("    <details>\n      <summary>Change password</summary>\n");
+            page.Append("      <form method=\"post\" action=\"/account/password\">\n");
+            Csrf(page, view.Csrf);
+            Password(page, "Current password", PasswordChangePolicy.CurrentField, "current-password");
+            Password(page, "New password", PasswordChangePolicy.NextField, "new-password");
+            Password(page, "New password again", PasswordChangePolicy.ConfirmField, "new-password");
+            page.Append("        <button class=\"plank\" type=\"submit\">Change password</button>\n");
+            page.Append("      </form>\n    </details>\n");
+
+            // A POST, not a link. Signing out changes state, and a GET that does
+            // is a GET a link prefetcher can fire on the player's behalf.
+            page.Append("    <form method=\"post\" action=\"/account/logout\">\n");
+            Csrf(page, view.Csrf);
+            page.Append("      <button class=\"quiet\" type=\"submit\">Sign out</button>\n");
+            page.Append("    </form>\n");
+            page.Append("  </section>\n");
+        }
+
+        // -------------------------------------------------------- the patcher
+
+        private static void AppendDownload(StringBuilder page, PortalView view)
+        {
+            page.Append("  <section class=\"card\" id=\"download\">\n");
+            page.Append("    <h2>The patcher</h2>\n");
+            page.Append("    <p class=\"as\">Version <b>")
+                .Append(AdminPage.HtmlEncode(view.PatchVersion))
+                .Append("</b> &middot; build <b>")
+                .Append(AdminPage.HtmlEncode(view.PatchBuild))
                 .Append("</b></p>\n");
+            page.Append("    <a class=\"plank big\" href=\"").Append(PatcherHref)
+                .Append("\">Download WAPatch.exe</a>\n");
+            page.Append(@"    <table class=""rows"" style=""margin-top:1.2rem"">
+      <tr><td class=""num"">1</td><td>Download and run <b>WAPatch.exe</b>.</td></tr>
+      <tr><td class=""num"">2</td><td>Point it at your <b>Worlds Adrift</b> install folder.</td></tr>
+      <tr><td class=""num"">3</td><td>Click <b>Patch</b>, then launch the game.</td></tr>
+    </table>
+");
+            page.Append("  </section>\n");
+        }
 
-            if (target.ExternalUrl != null)
+        // ------------------------------------------------------- one character
+
+        private static void AppendCharacter(StringBuilder page, string csrf, CharacterCard card)
+        {
+            CharacterSheet sheet = card.Sheet;
+
+            page.Append("  <section class=\"card\" id=\"c")
+                .Append(Safe(sheet.Uid)).Append("\">\n");
+            page.Append("    <h2>").Append(AdminPage.HtmlEncode(sheet.Name)).Append("</h2>\n");
+            page.Append("    <p class=\"as\">slot ")
+                .Append((sheet.SlotIndex + 1).ToString(CultureInfo.InvariantCulture))
+                .Append(" &middot; created ").Append(Day(sheet.CreatedAt)).Append("</p>\n");
+
+            AppendKnowledge(page, sheet);
+            AppendWhereabouts(page, sheet);
+            AppendInventory(page, sheet);
+
+            if (card.Crew != null) AppendCrew(page, card.Crew);
+            if (card.Alliance != null) AppendAlliance(page, csrf, card.Alliance);
+
+            page.Append("  </section>\n");
+        }
+
+        private static void AppendKnowledge(StringBuilder page, CharacterSheet sheet)
+        {
+            page.Append("    <h3>Knowledge</h3>\n");
+
+            if (sheet.Knowledge == null)
             {
-                page.Append("    <p class=\"notice\">This alliance currently wears an image an operator set by hand (<code>")
-                    .Append(AdminPage.HtmlEncode(target.ExternalUrl))
+                page.Append("    <p>Nothing saved yet. Knowledge appears here after this "
+                    + "character has been in the world.</p>\n");
+                return;
+            }
+
+            SheetKnowledge k = sheet.Knowledge;
+
+            page.Append("    <ul class=\"stats\">\n");
+            Stat(page, k.Knowledge, "unspent");
+            Stat(page, k.LifetimeKnowledge, "lifetime");
+            Stat(page, k.Spent, "spent");
+            Stat(page, k.Schematics.Count, "schematics");
+            Stat(page, k.Scans, "scanned");
+            Stat(page, k.NodeUsesTotal, "node uses");
+            page.Append("    </ul>\n");
+
+            if (k.Schematics.Count > 0)
+            {
+                page.Append("    <details>\n      <summary>")
+                    .Append(k.Schematics.Count.ToString(CultureInfo.InvariantCulture))
+                    .Append(" learned schematics</summary>\n      <ul class=\"chips mono\">\n");
+                foreach (string schematic in k.Schematics)
+                {
+                    page.Append("        <li>").Append(AdminPage.HtmlEncode(schematic)).Append("</li>\n");
+                }
+                page.Append("      </ul>\n    </details>\n");
+            }
+
+            if (k.NodeUses.Count > 0)
+            {
+                page.Append("    <details>\n      <summary>Most-used knowledge nodes</summary>\n");
+                page.Append("      <div class=\"scroll\"><table class=\"rows\">\n");
+                page.Append("        <tr><th>Node</th><th>Uses</th></tr>\n");
+                foreach (SheetTally use in k.NodeUses)
+                {
+                    page.Append("        <tr><td>").Append(AdminPage.HtmlEncode(use.Name))
+                        .Append("</td><td class=\"num\">")
+                        .Append(use.Count.ToString(CultureInfo.InvariantCulture))
+                        .Append("</td></tr>\n");
+                }
+                page.Append("      </table></div>\n    </details>\n");
+            }
+        }
+
+        private static void AppendWhereabouts(StringBuilder page, CharacterSheet sheet)
+        {
+            page.Append("    <h3>Last seen</h3>\n");
+
+            if (sheet.Position == null)
+            {
+                page.Append("    <p>This character has not been placed in the world yet, "
+                    + "so it will start at the spawn point.</p>\n");
+                return;
+            }
+
+            SheetPosition p = sheet.Position;
+
+            page.Append("    <dl class=\"facts\">\n");
+            Fact(page, "Island", p.OnKnownTerrain ? p.Place : "open sky");
+            Fact(page, "Position", Metres(p.MetresX) + ", " + Metres(p.MetresY) + ", " + Metres(p.MetresZ));
+            Fact(page, "Saved", Moment(p.SeenAt));
+            page.Append("    </dl>\n");
+        }
+
+        private static void AppendInventory(StringBuilder page, CharacterSheet sheet)
+        {
+            page.Append("    <h3>Carrying</h3>\n");
+
+            if (sheet.Inventory == null)
+            {
+                page.Append("    <p>No inventory has been saved for this character yet.</p>\n");
+                return;
+            }
+
+            SheetInventory inv = sheet.Inventory;
+
+            page.Append("    <ul class=\"stats\">\n");
+            Stat(page, inv.Stacks, "stacks");
+            Stat(page, inv.Units, "items");
+            Stat(page, inv.Worn, "worn");
+            Stat(page, inv.Stashed, "stashed");
+            page.Append("      <li><span class=\"n\">")
+                .Append(inv.Width.ToString(CultureInfo.InvariantCulture)).Append("&times;")
+                .Append(inv.Height.ToString(CultureInfo.InvariantCulture))
+                .Append("</span><span class=\"k\">grid</span></li>\n");
+            page.Append("    </ul>\n");
+
+            if (inv.Top.Count == 0) return;
+
+            page.Append("    <details>\n      <summary>What there is most of</summary>\n");
+            page.Append("      <div class=\"scroll\"><table class=\"rows\">\n");
+            page.Append("        <tr><th>Item</th><th>Held</th></tr>\n");
+            foreach (SheetTally tally in inv.Top)
+            {
+                page.Append("        <tr><td>").Append(AdminPage.HtmlEncode(tally.Name))
+                    .Append("</td><td class=\"num\">")
+                    .Append(tally.Count.ToString(CultureInfo.InvariantCulture))
+                    .Append("</td></tr>\n");
+            }
+            page.Append("      </table></div>\n    </details>\n");
+        }
+
+        // ------------------------------------------------------------ the crew
+
+        private static void AppendCrew(StringBuilder page, CrewCard crew)
+        {
+            page.Append("    <h3>Crew</h3>\n");
+            page.Append("    <p class=\"as\"><b>").Append(AdminPage.HtmlEncode(crew.Name))
+                .Append("</b> &middot; ")
+                .Append(crew.Members.Count.ToString(CultureInfo.InvariantCulture))
+                .Append(" of ").Append(crew.Slots.ToString(CultureInfo.InvariantCulture))
+                .Append(" seats</p>\n");
+
+            page.Append("    <div class=\"scroll\"><table class=\"rows\">\n");
+            page.Append("      <tr><th>Member</th><th>Seat</th></tr>\n");
+            foreach (CrewMemberRow member in crew.Members)
+            {
+                page.Append("      <tr><td")
+                    .Append(member.IsYou ? " class=\"you\"" : string.Empty)
+                    .Append('>').Append(AdminPage.HtmlEncode(member.Name));
+                if (member.IsLeader) page.Append(" &mdash; captain");
+                if (member.IsYou) page.Append(" (you)");
+                page.Append("</td><td class=\"num\">")
+                    .Append(member.Slot == null
+                        ? "&mdash;"
+                        : (member.Slot.Value + 1).ToString(CultureInfo.InvariantCulture))
+                    .Append("</td></tr>\n");
+            }
+            page.Append("    </table></div>\n");
+
+            page.Append("    <p class=\"locked\">Crews are run from the Social panel in game. "
+                + "This portal shows yours but does not change it.</p>\n");
+        }
+
+        // -------------------------------------------------------- the alliance
+
+        private static void AppendAlliance(StringBuilder page, string csrf, AllianceCard alliance)
+        {
+            page.Append("    <h3>Alliance</h3>\n");
+            page.Append("    <p class=\"as\"><b>").Append(AdminPage.HtmlEncode(alliance.Name))
+                .Append("</b> &middot; you are <b>")
+                .Append(AdminPage.HtmlEncode(alliance.YourRank)).Append("</b>");
+            if (alliance.YouAreTheFounder) page.Append(" (founder)");
+            page.Append("</p>\n");
+
+            if (alliance.YourPermissions.Count > 0)
+            {
+                page.Append("    <ul class=\"chips mono\">\n");
+                foreach (string permission in alliance.YourPermissions)
+                {
+                    page.Append("      <li>").Append(AdminPage.HtmlEncode(permission)).Append("</li>\n");
+                }
+                page.Append("    </ul>\n");
+            }
+
+            AppendAllianceDetails(page, csrf, alliance);
+            AppendAllianceRoster(page, csrf, alliance);
+            AppendAllianceRequests(page, csrf, alliance);
+            AppendAllianceEmblem(page, csrf, alliance);
+
+            if (alliance.Rights.Nothing)
+            {
+                page.Append("    <p class=\"locked\">Your rank carries no alliance permissions, "
+                    + "so everything above is read-only. Ask whoever leads it for a rank that "
+                    + "grants <code>edit_group</code>, <code>leader_chat</code> or "
+                    + "<code>edit_members</code>.</p>\n");
+            }
+        }
+
+        /// <summary>
+        /// The description and the MOTD.
+        ///
+        /// TWO FORMS, NOT ONE, and that is the whole design of this block. The two
+        /// fields carry DIFFERENT permissions - the description is
+        /// <c>edit_group</c>, the MOTD is <c>leader_chat</c> - so a single form
+        /// posting both would make somebody who holds one of them overwrite the
+        /// other field with whatever their page happened to be showing. Separate
+        /// forms post separate fields, and the handler applies only the field it
+        /// was sent.
+        /// </summary>
+        private static void AppendAllianceDetails(StringBuilder page, string csrf, AllianceCard alliance)
+        {
+            if (alliance.Rights.EditDescription)
+            {
+                page.Append("    <form method=\"post\" action=\"/account/alliance-details\">\n");
+                Actors(page, csrf, alliance);
+                page.Append("      <label class=\"row\"><span>Description</span>"
+                    + "<textarea name=\"").Append(PortalFormPolicy.DescriptionField)
+                    .Append("\" maxlength=\"")
+                    .Append(PortalFormPolicy.MaxTextLength.ToString(CultureInfo.InvariantCulture))
+                    .Append("\">").Append(AdminPage.HtmlEncode(alliance.Description))
+                    .Append("</textarea></label>\n");
+                page.Append("      <button class=\"quiet\" type=\"submit\">Save description</button>\n");
+                page.Append("    </form>\n");
+            }
+            else
+            {
+                ReadOnlyText(page, "Description", alliance.Description);
+            }
+
+            if (alliance.Rights.EditMessageOfTheDay)
+            {
+                page.Append("    <form method=\"post\" action=\"/account/alliance-details\">\n");
+                Actors(page, csrf, alliance);
+                page.Append("      <label class=\"row\"><span>Message of the day</span>"
+                    + "<textarea name=\"").Append(PortalFormPolicy.MotdField)
+                    .Append("\" maxlength=\"")
+                    .Append(PortalFormPolicy.MaxTextLength.ToString(CultureInfo.InvariantCulture))
+                    .Append("\">").Append(AdminPage.HtmlEncode(alliance.MessageOfTheDay))
+                    .Append("</textarea></label>\n");
+                page.Append("      <button class=\"quiet\" type=\"submit\">Save message</button>\n");
+                page.Append("    </form>\n");
+            }
+            else
+            {
+                ReadOnlyText(page, "Message of the day", alliance.MessageOfTheDay);
+            }
+        }
+
+        /// <summary>
+        /// One of the two alliance texts, shown but not editable.
+        ///
+        /// Styled as the label the FORM would have carried rather than as a
+        /// key/value fact, so a member who may edit one field and not the other
+        /// sees one column of the same thing rather than a textarea beside a
+        /// definition list.
+        /// </summary>
+        private static void ReadOnlyText(StringBuilder page, string label, string value) =>
+            page.Append("    <div class=\"row readonly\"><span>")
+                .Append(AdminPage.HtmlEncode(label))
+                .Append("</span><p>")
+                .Append(value.Length == 0 ? "&mdash;" : AdminPage.HtmlEncode(value))
+                .Append("</p></div>\n");
+
+        private static void AppendAllianceRoster(StringBuilder page, string csrf, AllianceCard alliance)
+        {
+            page.Append("    <h3>Members (")
+                .Append(alliance.Members.Count.ToString(CultureInfo.InvariantCulture))
+                .Append(")</h3>\n");
+            page.Append("    <div class=\"scroll\"><table class=\"rows\">\n");
+            page.Append("      <tr><th>Member</th><th>Rank</th><th></th></tr>\n");
+
+            foreach (AllianceMemberRow member in alliance.Members)
+            {
+                page.Append("      <tr><td")
+                    .Append(member.IsYou ? " class=\"you\"" : string.Empty)
+                    .Append('>').Append(AdminPage.HtmlEncode(member.Name));
+                if (member.IsFounder) page.Append(" &mdash; founder");
+                if (member.IsYou) page.Append(" (you)");
+                page.Append("</td><td>");
+
+                if (member.MaySetRank && Offerable(alliance, member.RankId))
+                {
+                    AppendRankPicker(page, csrf, alliance, member);
+                }
+                else
+                {
+                    page.Append(AdminPage.HtmlEncode(member.RankName));
+                }
+
+                page.Append("</td><td class=\"act\">");
+
+                if (member.MayBoot)
+                {
+                    page.Append("<form method=\"post\" action=\"/account/alliance-member\" "
+                        + "class=\"inline\" data-confirm=\"Remove ")
+                        .Append(AdminPage.HtmlEncode(member.Name))
+                        .Append(" from ").Append(AdminPage.HtmlEncode(alliance.Name))
+                        .Append("?\">");
+                    Actors(page, csrf, alliance);
+                    Hidden(page, PortalFormPolicy.ActionField, "boot");
+                    Hidden(page, PortalFormPolicy.TargetField, member.CharacterUid.ToString("D", CultureInfo.InvariantCulture));
+                    page.Append("<button class=\"quiet danger\" type=\"submit\">Remove</button></form>");
+                }
+
+                page.Append("</td></tr>\n");
+            }
+
+            page.Append("    </table></div>\n");
+        }
+
+        /// <summary>
+        /// Whether the picker can even show this member's CURRENT rank.
+        ///
+        /// A <c>&lt;select&gt;</c> with no matching option does not render blank -
+        /// it renders the FIRST option, which would have drawn the founder as a
+        /// Deckhand on a page that is supposed to tell a player the truth about
+        /// their alliance. The founder's rank is deliberately not offered as a
+        /// destination (see <see cref="AppendRankPicker"/>), so on their row there
+        /// is nothing the control could honestly display, and the name is shown
+        /// instead. That the founder also cannot usefully be moved is a second
+        /// reason and not the one this guard is about: any member holding an
+        /// unofferable rank gets the same treatment.
+        /// </summary>
+        private static bool Offerable(AllianceCard alliance, Guid rankId)
+        {
+            foreach (AllianceRankRow rank in alliance.Ranks)
+            {
+                if (rank.IsDefaultLeader) continue;
+                if (rank.RankId == rankId) return true;
+            }
+
+            return false;
+        }
+
+        private static void AppendRankPicker(
+            StringBuilder page, string csrf, AllianceCard alliance, AllianceMemberRow member)
+        {
+            page.Append("<form method=\"post\" action=\"/account/alliance-member\" class=\"inline\">");
+            Actors(page, csrf, alliance);
+            Hidden(page, PortalFormPolicy.ActionField, "rank");
+            Hidden(page, PortalFormPolicy.TargetField, member.CharacterUid.ToString("D", CultureInfo.InvariantCulture));
+            page.Append("<select class=\"rank\" name=\"").Append(PortalFormPolicy.RankField).Append("\">");
+
+            foreach (AllianceRankRow rank in alliance.Ranks)
+            {
+                // The founder's rank is never a destination: leadership is two
+                // facts at once (the alliance's leader pointer AND the rank), and
+                // handing out the rank alone leaves the alliance disagreeing with
+                // itself about who leads it. AlliancePolicy.MaySetRank refuses it;
+                // offering it here would be offering a choice that always fails.
+                if (rank.IsDefaultLeader) continue;
+
+                page.Append("<option value=\"")
+                    .Append(rank.RankId.ToString("D", CultureInfo.InvariantCulture)).Append('"');
+                if (rank.RankId == member.RankId) page.Append(" selected");
+                page.Append('>').Append(AdminPage.HtmlEncode(rank.Name)).Append("</option>");
+            }
+
+            page.Append("</select>");
+            // Shown only with script off - account.js hides it and submits on
+            // change instead. Present in the markup so the control works either way.
+            page.Append("<button class=\"quiet apply\" type=\"submit\">Set</button>");
+            page.Append("</form>");
+        }
+
+        private static void AppendAllianceRequests(StringBuilder page, string csrf, AllianceCard alliance)
+        {
+            if (alliance.Applications.Count == 0 && alliance.Invitations.Count == 0) return;
+
+            if (alliance.Applications.Count > 0)
+            {
+                page.Append("    <h3>Applications (")
+                    .Append(alliance.Applications.Count.ToString(CultureInfo.InvariantCulture))
+                    .Append(")</h3>\n");
+                AppendRequestTable(page, csrf, alliance, alliance.Applications, true);
+            }
+
+            if (alliance.Invitations.Count > 0)
+            {
+                page.Append("    <h3>Invitations sent (")
+                    .Append(alliance.Invitations.Count.ToString(CultureInfo.InvariantCulture))
+                    .Append(")</h3>\n");
+                AppendRequestTable(page, csrf, alliance, alliance.Invitations, false);
+            }
+        }
+
+        private static void AppendRequestTable(
+            StringBuilder page, string csrf, AllianceCard alliance,
+            IReadOnlyList<RequestRow> rows, bool incoming)
+        {
+            page.Append("    <div class=\"scroll\"><table class=\"rows\">\n");
+            page.Append("      <tr><th>Player</th><th>Message</th><th></th></tr>\n");
+
+            foreach (RequestRow row in rows)
+            {
+                page.Append("      <tr><td>").Append(AdminPage.HtmlEncode(row.CharacterName))
+                    .Append("</td><td>")
+                    .Append(row.Message.Length == 0 ? "&mdash;" : AdminPage.HtmlEncode(row.Message))
+                    .Append("</td><td class=\"act\">");
+
+                if (alliance.Rights.ManageMembers)
+                {
+                    if (incoming)
+                    {
+                        RequestButton(page, csrf, alliance, row, "accept", "Accept", false, null);
+                        RequestButton(page, csrf, alliance, row, "reject", "Decline", true,
+                            "Turn down " + row.CharacterName + "?");
+                    }
+                    else
+                    {
+                        RequestButton(page, csrf, alliance, row, "rescind", "Withdraw", true, null);
+                    }
+                }
+
+                page.Append("</td></tr>\n");
+            }
+
+            page.Append("    </table></div>\n");
+        }
+
+        private static void RequestButton(
+            StringBuilder page, string csrf, AllianceCard alliance, RequestRow row,
+            string action, string label, bool danger, string? confirm)
+        {
+            page.Append("<form method=\"post\" action=\"/account/alliance-request\" class=\"inline\"");
+            if (confirm != null)
+            {
+                page.Append(" data-confirm=\"").Append(AdminPage.HtmlEncode(confirm)).Append('"');
+            }
+            page.Append('>');
+            Actors(page, csrf, alliance);
+            Hidden(page, PortalFormPolicy.ActionField, action);
+            Hidden(page, PortalFormPolicy.InviteField, row.InviteId);
+            page.Append("<button class=\"quiet").Append(danger ? " danger" : string.Empty)
+                .Append("\" type=\"submit\">").Append(AdminPage.HtmlEncode(label))
+                .Append("</button></form> ");
+        }
+
+        /// <summary>
+        /// The crest builder, unchanged in everything that matters.
+        ///
+        /// The preview is an <c>&lt;img&gt;</c> on <c>/alliance-emblem/preview.png</c>
+        /// - the SAME route and the same painter the game downloads from - and not
+        /// a canvas drawing the options a second time. Two renderers of one picture
+        /// drift silently; this repository already bought that lesson once with the
+        /// map mirror, which now needs a 1e-9 parity test to hold two
+        /// implementations together. The script computes the twelve-character code
+        /// and nothing else.
+        /// </summary>
+        private static void AppendAllianceEmblem(StringBuilder page, string csrf, AllianceCard alliance)
+        {
+            if (!alliance.Rights.EditEmblem)
+            {
+                page.Append("    <h3>Crest</h3>\n");
+                page.Append("    <div class=\"stage\"><img class=\"preview\" "
+                    + "alt=\"Alliance crest\" src=\"")
+                    .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(alliance.Emblem)))
+                    .Append("\"></div>\n");
+                // Only when the crest is the ONE thing they are short of. A rank
+                // that carries nothing gets the single summary note at the foot of
+                // the card instead; two notices saying the same thing in different
+                // words reads as nagging rather than as an explanation.
+                if (!alliance.Rights.Nothing)
+                {
+                    page.Append("    <p class=\"locked\">Changing the crest needs a rank that grants "
+                        + "<code>").Append(AlliancePermissionName(PortalAction.EditEmblem))
+                        .Append("</code>.</p>\n");
+                }
+
+                return;
+            }
+
+            page.Append("    <h3>Crest</h3>\n");
+
+            if (alliance.ExternalEmblemUrl != null)
+            {
+                page.Append("    <p class=\"notice\">This alliance currently wears an image an "
+                    + "operator set by hand (<code>")
+                    .Append(AdminPage.HtmlEncode(alliance.ExternalEmblemUrl))
                     .Append("</code>). Saving a crest below replaces it.</p>\n");
             }
 
-            page.Append("    <form method=\"post\" action=\"/account/alliance-emblem\" class=\"builder\" id=\"f")
-                .Append(safeId).Append("\">\n");
-            page.Append("      <input type=\"hidden\" name=\"").Append(PlayerAuthPolicy.CsrfField)
-                .Append("\" value=\"").Append(AdminPage.HtmlEncode(csrf)).Append("\">\n");
-            page.Append("      <input type=\"hidden\" name=\"").Append(EmblemFormPolicy.AllianceField)
-                .Append("\" value=\"").Append(AdminPage.HtmlEncode(id)).Append("\">\n");
-            page.Append("      <input type=\"hidden\" name=\"").Append(EmblemFormPolicy.CharacterField)
-                .Append("\" value=\"")
-                .Append(AdminPage.HtmlEncode(target.CharacterUid.ToString("D", CultureInfo.InvariantCulture)))
-                .Append("\">\n");
+            page.Append("    <form method=\"post\" action=\"/account/alliance-emblem\" class=\"builder\">\n");
+            Csrf(page, csrf);
+            Hidden(page, EmblemFormPolicy.AllianceField,
+                alliance.AllianceId.ToString("D", CultureInfo.InvariantCulture));
+            Hidden(page, EmblemFormPolicy.CharacterField,
+                alliance.ActingCharacterUid.ToString("D", CultureInfo.InvariantCulture));
 
             page.Append("      <div class=\"stage\">\n");
             page.Append("        <img class=\"preview\" alt=\"Alliance crest preview\" src=\"")
-                .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(target.Spec)))
+                .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(alliance.Emblem)))
                 .Append("\">\n");
-            page.Append("        <p class=\"hint\">This is the picture the game downloads &mdash; it is drawn by the server, not by this page.</p>\n");
+            page.Append("        <p class=\"hint\">This is the picture the game downloads "
+                + "&mdash; it is drawn by the server, not by this page.</p>\n");
 
             // The vector of the same crest. The game never sees this - it decodes
             // PNG and JPEG only - but a leader who wants their alliance's mark on a
             // banner, a sticker or a Discord header should not have to screenshot a
             // 256-pixel square to get it.
             page.Append("        <p class=\"hint\"><a class=\"vector\" download href=\"")
-                .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.VectorUrl(target.AllianceId, target.Spec)))
+                .Append(AdminPage.HtmlEncode(
+                    EmblemUrlPolicy.VectorUrl(alliance.AllianceId, alliance.Emblem)))
                 .Append("\">Download as SVG</a> &mdash; the same crest as vector art, at any size.</p>\n");
             page.Append("      </div>\n");
 
             page.Append("      <div class=\"controls\">\n");
-
-            AppendSelect(page, "Shape", EmblemFormPolicy.ShapeField,
-                EmblemVocabulary.ShapeNames, (int)target.Spec.Shape);
-            AppendSelect(page, "Field pattern", EmblemFormPolicy.DivisionField,
-                EmblemVocabulary.DivisionNames, (int)target.Spec.Division);
-            AppendSelect(page, "Device", EmblemFormPolicy.ChargeField,
-                EmblemVocabulary.ChargeNames, (int)target.Spec.Charge);
-
-            AppendSwatches(page, "Field colour", EmblemFormPolicy.FieldColourField,
-                target.Spec.FieldColour, safeId);
-            AppendSwatches(page, "Pattern colour", EmblemFormPolicy.DetailColourField,
-                target.Spec.DetailColour, safeId);
-            AppendSwatches(page, "Device colour", EmblemFormPolicy.ChargeColourField,
-                target.Spec.ChargeColour, safeId);
-
+            Select(page, "Shape", EmblemFormPolicy.ShapeField,
+                EmblemVocabulary.ShapeNames, (int)alliance.Emblem.Shape);
+            Select(page, "Field pattern", EmblemFormPolicy.DivisionField,
+                EmblemVocabulary.DivisionNames, (int)alliance.Emblem.Division);
+            Select(page, "Device", EmblemFormPolicy.ChargeField,
+                EmblemVocabulary.ChargeNames, (int)alliance.Emblem.Charge);
+            Swatches(page, "Field colour", EmblemFormPolicy.FieldColourField, alliance.Emblem.FieldColour);
+            Swatches(page, "Pattern colour", EmblemFormPolicy.DetailColourField, alliance.Emblem.DetailColour);
+            Swatches(page, "Device colour", EmblemFormPolicy.ChargeColourField, alliance.Emblem.ChargeColour);
             page.Append("      </div>\n");
+
             page.Append("      <button class=\"plank\" type=\"submit\">Save crest</button>\n");
             page.Append("    </form>\n");
-            page.Append("  </section>\n");
         }
 
-        private static void AppendSelect(
+        /// <summary>
+        /// The permission literal an action needs, for the sentence a refused
+        /// player reads. Taken from <see cref="PortalPermissions"/> rather than
+        /// typed, so the page cannot name a permission the check does not use.
+        /// </summary>
+        private static string AlliancePermissionName(PortalAction action) =>
+            AdminPage.HtmlEncode(PortalPermissions.PermissionFor(action));
+
+        // -------------------------------------------------------------- pieces
+
+        private static void Select(
             StringBuilder page, string label, string name, IReadOnlyList<string> options, int selected)
         {
             page.Append("        <label class=\"row\"><span>").Append(AdminPage.HtmlEncode(label))
@@ -161,8 +677,7 @@ namespace WorldsAdriftServer.Web
             for (int i = 0; i < options.Count; i++)
             {
                 page.Append("            <option value=\"")
-                    .Append(i.ToString(CultureInfo.InvariantCulture))
-                    .Append('"');
+                    .Append(i.ToString(CultureInfo.InvariantCulture)).Append('"');
                 if (i == selected) page.Append(" selected");
                 page.Append('>').Append(AdminPage.HtmlEncode(options[i])).Append("</option>\n");
             }
@@ -180,8 +695,7 @@ namespace WorldsAdriftServer.Web
         /// own crest illegible. Radios also degrade to something usable with no
         /// script at all, which the whole form does.
         /// </summary>
-        private static void AppendSwatches(
-            StringBuilder page, string label, string name, int selected, string formId)
+        private static void Swatches(StringBuilder page, string label, string name, int selected)
         {
             page.Append("        <fieldset class=\"row swatches\"><legend>")
                 .Append(AdminPage.HtmlEncode(label)).Append("</legend>\n");
@@ -202,9 +716,79 @@ namespace WorldsAdriftServer.Web
             page.Append("        </fieldset>\n");
         }
 
-        private static string Shell(string username, string body)
+        private static void Actors(StringBuilder page, string csrf, AllianceCard alliance)
         {
-            string name = AdminPage.HtmlEncode(username);
+            Csrf(page, csrf);
+            Hidden(page, PortalFormPolicy.AllianceField,
+                alliance.AllianceId.ToString("D", CultureInfo.InvariantCulture));
+
+            // WHICH CHARACTER IS ACTING. The session is per account and alliance
+            // permissions are per character, so every form has to say which of the
+            // account's characters it is acting as - and the handler checks that
+            // uid against this account's own roster before it is used as an actor.
+            Hidden(page, PortalFormPolicy.CharacterField,
+                alliance.ActingCharacterUid.ToString("D", CultureInfo.InvariantCulture));
+        }
+
+        private static void Csrf(StringBuilder page, string csrf) =>
+            Hidden(page, PlayerAuthPolicy.CsrfField, csrf);
+
+        private static void Hidden(StringBuilder page, string name, string value) =>
+            page.Append("<input type=\"hidden\" name=\"").Append(AdminPage.HtmlEncode(name))
+                .Append("\" value=\"").Append(AdminPage.HtmlEncode(value)).Append("\">");
+
+        private static void Password(StringBuilder page, string label, string name, string autocomplete) =>
+            page.Append("        <label class=\"row\"><span>").Append(AdminPage.HtmlEncode(label))
+                .Append("</span><input type=\"password\" name=\"").Append(name)
+                .Append("\" autocomplete=\"").Append(autocomplete).Append("\" required></label>\n");
+
+        private static void Fact(StringBuilder page, string key, string value) =>
+            page.Append("      <dt>").Append(AdminPage.HtmlEncode(key)).Append("</dt><dd>")
+                .Append(AdminPage.HtmlEncode(value)).Append("</dd>\n");
+
+        private static void Stat(StringBuilder page, int number, string caption) =>
+            page.Append("      <li><span class=\"n\">")
+                .Append(number.ToString(CultureInfo.InvariantCulture))
+                .Append("</span><span class=\"k\">").Append(AdminPage.HtmlEncode(caption))
+                .Append("</span></li>\n");
+
+        /// <summary>A guid as an HTML id fragment - letters and digits only, so it
+        /// is a valid anchor target whatever the guid happens to contain.</summary>
+        private static string Safe(Guid id) =>
+            id.ToString("N", CultureInfo.InvariantCulture);
+
+        private static string Day(DateTimeOffset at) =>
+            at.UtcDateTime.ToString("d MMMM yyyy", CultureInfo.InvariantCulture);
+
+        private static string Moment(DateTimeOffset at) =>
+            at.UtcDateTime.ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + " UTC";
+
+        /// <summary>
+        /// One coordinate, to the metre.
+        ///
+        /// Whole metres, not the stored fixed-point units: the units are the
+        /// simulation's encoding and printing them would suggest a precision the
+        /// player can do nothing with. The ROW is still the exact one the game
+        /// server wrote - nothing here is stored back.
+        /// </summary>
+        private static string Metres(double value) =>
+            value.ToString("0", CultureInfo.InvariantCulture);
+
+        // --------------------------------------------------------------- shell
+
+        private static string Shell(PortalView view, string body)
+        {
+            string name = AdminPage.HtmlEncode(view.DisplayName);
+
+            StringBuilder nav = new StringBuilder();
+            nav.Append("  <nav class=\"jump\"><a href=\"#account\">Account</a>")
+               .Append("<a href=\"#download\">Patcher</a>");
+            foreach (CharacterCard card in view.Characters)
+            {
+                nav.Append("<a href=\"#c").Append(Safe(card.Sheet.Uid)).Append("\">")
+                   .Append(AdminPage.HtmlEncode(card.Sheet.Name)).Append("</a>");
+            }
+            nav.Append("</nav>\n");
 
             return @"<!DOCTYPE html>
 <html lang=""en"">
@@ -214,141 +798,14 @@ namespace WorldsAdriftServer.Web
 <meta name=""color-scheme"" content=""light dark"">
 <title>Your account - Worlds Adrift Reborn</title>
 <style>
-:root {
-  --ink:        #26313d;
-  --ink-soft:   #43525f;
-  --ink-faint:  #5d6b76;
-  --field:      rgba(74, 80, 96, .60);
-  --field-edge: rgba(30, 36, 48, .30);
-  --field-ink:  #f0ece2;
-  --timber-lo:  #c68d60;
-  --timber-mid: #d9a074;
-  --timber-hi:  #eebd8e;
-  --timber-ink: #4a2c14;
-  --batten:     #a97244;
-  --batten-lo:  #8e5d36;
-  --batten-edge:#7d4d2a;
-  --rust:       #a8321f;
-  --good:       #2c6b52;
-  --veil:       rgba(255, 255, 255, .40);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ink:       #e4e9ec;
-    --ink-soft:  #b3c0c8;
-    --ink-faint: #8b99a3;
-    --field:     rgba(96, 106, 124, .40);
-    --field-edge:rgba(180, 200, 215, .16);
-    --rust:      #ef8a6b;
-    --good:      #7fd2b3;
-    --veil:      rgba(6, 12, 20, .52);
-  }
-}
-* { box-sizing: border-box; }
-body {
-  margin: 0; min-height: 100vh; padding: 2.5rem 1.25rem 3rem;
-  color: var(--ink);
-  background: linear-gradient(180deg, #93b7c8, #bed2d8 55%, #dde7e2);
-  font-family: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif;
-  font-size: 16px; line-height: 1.55;
-}
-@media (prefers-color-scheme: dark) {
-  body { background: linear-gradient(180deg, #1b2530, #223038 55%, #2b3a3e); }
-}
-main { width: 100%; max-width: 46rem; margin: 0 auto; }
-.mark {
-  font-size: .68rem; letter-spacing: .38em; text-transform: uppercase;
-  color: var(--ink-faint); margin: 0 0 .4rem; text-align: center;
-}
-h1 { font-size: 1.9rem; margin: 0 0 .25rem; font-weight: 300; letter-spacing: .03em; text-align: center; }
-.greet { color: var(--ink-soft); margin: 0 0 1.8rem; text-align: center; }
-.greet b { color: var(--ink); }
-.greet a { color: inherit; }
-
-.card {
-  position: relative; padding: 1.6rem 1.6rem 1.9rem; margin: 0 0 1.4rem;
-  border-radius: 14px; background: var(--veil);
-  box-shadow: 0 10px 40px rgba(0,0,0,.16); backdrop-filter: blur(2px);
-}
-.card h2 { margin: 0; font-size: 1.25rem; font-weight: 500; letter-spacing: .02em; }
-.card .as { margin: .1rem 0 1.2rem; color: var(--ink-faint); font-size: .88rem; }
-.card .as b { color: var(--ink-soft); }
-.card.empty p { color: var(--ink-soft); margin: .8rem 0 0; }
-
-.notice {
-  margin: 0 0 1.2rem; padding: .7rem .9rem; border-radius: 9px;
-  background: var(--field); color: var(--field-ink); font-size: .9rem;
-}
-.notice.good { background: var(--good); color: #fff; }
-.notice.bad  { background: var(--rust); color: #fff; }
-.notice code { background: rgba(0,0,0,.22); padding: .05rem .3rem; border-radius: 4px; word-break: break-all; }
-
-.builder { display: grid; grid-template-columns: 12rem 1fr; gap: 1.4rem; align-items: start; }
-@media (max-width: 34rem) {
-  .builder { grid-template-columns: 1fr; }
-  .plank { grid-column: 1; justify-self: stretch; text-align: center; }
-}
-
-.stage { text-align: center; }
-.preview {
-  width: 11rem; height: 11rem; display: block; margin: 0 auto;
-  image-rendering: auto;
-  filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
-}
-.stage .hint { margin: .7rem 0 0; font-size: .7rem; line-height: 1.4; color: var(--ink-faint); }
-
-.controls { display: grid; gap: .75rem; }
-.row { display: block; }
-.row > span, .row > legend {
-  display: block; font-size: .7rem; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--ink-faint); margin: 0 0 .3rem; padding: 0;
-}
-select {
-  width: 100%; padding: .5rem .6rem; font: inherit; font-size: .92rem;
-  color: var(--ink); background: rgba(255,255,255,.55);
-  border: 1px solid var(--field-edge); border-radius: 7px;
-}
-@media (prefers-color-scheme: dark) { select { background: rgba(255,255,255,.08); } }
-
-fieldset.swatches { border: 0; margin: 0; padding: 0; display: block; }
-fieldset.swatches { display: flex; flex-wrap: wrap; gap: .3rem; }
-fieldset.swatches legend { width: 100%; float: left; }
-.sw { cursor: pointer; line-height: 0; }
-.sw input { position: absolute; opacity: 0; width: 0; height: 0; }
-.sw span {
-  display: block; width: 1.45rem; height: 1.45rem; border-radius: 5px;
-  background: var(--sw); border: 1px solid rgba(0,0,0,.35);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
-}
-.sw input:checked + span { outline: 2px solid var(--ink); outline-offset: 2px; }
-.sw input:focus-visible + span { outline: 2px dashed var(--ink); outline-offset: 2px; }
-
-/* Under the CONTROLS, not under the preview: the button is the end of the
-   sequence of choices, and spanning both columns parked it beneath the crest
-   with a column of dead space above it. */
-.plank {
-  grid-column: 2; justify-self: start;
-  margin: .3rem 0 0; padding: .8rem 2.2rem;
-  font: inherit; font-size: .8rem; font-weight: 600; letter-spacing: .17em;
-  text-transform: uppercase; cursor: pointer;
-  color: var(--timber-ink); border: 1px solid #a4744a; border-radius: 1px;
-  background-image:
-    linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0) 44%),
-    linear-gradient(180deg, var(--timber-hi), var(--timber-mid) 46%, var(--timber-lo));
-  box-shadow: 0 2px 0 rgba(112,72,40,.42), 0 12px 26px -14px rgba(38,24,10,.85);
-}
-.plank:hover { filter: brightness(1.06); }
-.plank:active { transform: translateY(1px); }
-
-footer { margin-top: 2rem; font-size: .72rem; line-height: 1.5; color: var(--ink-faint); text-align: center; }
-</style>
+" + WebAssets.Read("account.css") + @"</style>
 </head>
 <body>
 <main>
   <p class=""mark"">Worlds Adrift Reborn</p>
   <h1>Your account</h1>
-  <p class=""greet"">Signed in as <b>" + name + @"</b> &middot; <a href=""/download"">Get the patcher</a></p>
-
+  <p class=""greet"">Signed in as <b>" + name + @"</b></p>
+" + nav + @"
 " + body + @"
   <footer>
     An unofficial, fan-run community server. Not affiliated with, endorsed by, or supported by Bossa Studios.<br>
@@ -356,64 +813,13 @@ footer { margin-top: 2rem; font-size: .72rem; line-height: 1.5; color: var(--ink
   </footer>
 </main>
 <script>
-(function () {
-  'use strict';
-
-  // The ONLY thing this script draws is a string. The picture always comes from
-  // /alliance-emblem/preview.png, which is the same renderer the game hits - so
-  // there is no second implementation here to drift from the server's.
-  var FIELDS = ['shape', 'division', 'charge', 'field', 'detail', 'chargeColour'];
-
-  // Written by the server rather than typed here, so the page cannot go on
-  // building codes in a version the parser has moved past.
-  var VERSION = '" + EmblemSpec.Version.ToString(CultureInfo.InvariantCulture) + @"';
-
-  function codeOf(form) {
-    var parts = [VERSION];
-    for (var i = 0; i < FIELDS.length; i++) {
-      var el = form.elements[FIELDS[i]];
-      if (!el) { return null; }
-      parts.push(el.value);
-    }
-    return parts.join('-');
-  }
-
-  function wire(form) {
-    var img = form.querySelector('.preview');
-    if (!img) { return; }
-    var pending = 0;
-
-    function refresh() {
-      var code = codeOf(form);
-      if (code === null) { return; }
-      var next = '/alliance-emblem/preview.png?e=' + encodeURIComponent(code);
-      if (img.getAttribute('src') !== next) { img.setAttribute('src', next); }
-
-      // The download link follows the preview, so what a leader saves is what
-      // they are looking at rather than what they had when the page loaded.
-      var vector = form.querySelector('a.vector');
-      if (vector) {
-        vector.setAttribute('href',
-          '/alliance-emblem/preview.svg?e=' + encodeURIComponent(code));
-      }
-    }
-
-    form.addEventListener('change', function () {
-      // Debounced: dragging across the swatches fires a change per colour, and
-      // every one of those is a render on the server.
-      window.clearTimeout(pending);
-      pending = window.setTimeout(refresh, 120);
-    });
-  }
-
-  var forms = document.querySelectorAll('form.builder');
-  for (var i = 0; i < forms.length; i++) { wire(forms[i]); }
-})();
-</script>
+" + WebAssets.Fill(
+                WebAssets.Read("account.js"),
+                ("emblemVersion", EmblemSpec.Version.ToString(CultureInfo.InvariantCulture)))
+             + @"</script>
 </body>
 </html>
 ";
         }
-
     }
 }
