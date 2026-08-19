@@ -132,7 +132,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void A_layered_code_parses_as_layered_and_round_trips()
         {
-            Assert.True(EmblemLayer.TryCreate(3, 100, -200, 750, 45, 5, 30, true, false, true,
+            Assert.True(EmblemLayer.TryCreate(3, 100, -200, 750, 45, 5, 30, true, false, false, true,
                 out EmblemLayer layer));
             Assert.True(EmblemStack.TryCreate(new[] { layer }, out EmblemStack stack));
 
@@ -210,7 +210,7 @@ namespace WorldsAdriftServer.Tests
             List<EmblemLayer> layers = new List<EmblemLayer>();
             for (int i = 0; i < EmblemStack.MaxLayers; i++)
             {
-                Assert.True(EmblemLayer.TryCreate(0, 0, 0, 500, 0, 0, 40, false, false, false,
+                Assert.True(EmblemLayer.TryCreate(0, 0, 0, 500, 0, 0, 40, false, false, false, false,
                     out EmblemLayer layer));
                 layers.Add(layer);
             }
@@ -227,7 +227,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void A_layered_design_stores_and_reads_back_through_the_column_marker()
         {
-            Assert.True(EmblemLayer.TryCreate(7, -300, 400, 900, 210, 2, 12, false, true, false,
+            Assert.True(EmblemLayer.TryCreate(7, -300, 400, 900, 210, 2, 12, false, true, false, false,
                 out EmblemLayer layer));
             Assert.True(EmblemStack.TryCreate(new[] { layer }, out EmblemStack stack));
 
@@ -249,8 +249,8 @@ namespace WorldsAdriftServer.Tests
         {
             Guid alliance = Guid.Parse("11111111-2222-3333-4444-555555555555");
 
-            Assert.True(EmblemLayer.TryCreate(1, 0, 0, 500, 0, 0, 40, false, false, false, out EmblemLayer a));
-            Assert.True(EmblemLayer.TryCreate(1, 0, 0, 501, 0, 0, 40, false, false, false, out EmblemLayer b));
+            Assert.True(EmblemLayer.TryCreate(1, 0, 0, 500, 0, 0, 40, false, false, false, false, out EmblemLayer a));
+            Assert.True(EmblemLayer.TryCreate(1, 0, 0, 501, 0, 0, 40, false, false, false, false, out EmblemLayer b));
 
             Assert.True(EmblemStack.TryCreate(new[] { a }, out EmblemStack first));
             Assert.True(EmblemStack.TryCreate(new[] { b }, out EmblemStack second));

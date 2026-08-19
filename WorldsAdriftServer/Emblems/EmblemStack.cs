@@ -142,6 +142,18 @@ namespace WorldsAdriftServer.Emblems
         /// Canonical in the strict sense the cache depends on: one design has
         /// exactly one string, because every field is a fixed-width group of
         /// integers with no optional part and no separator to vary.
+        ///
+        /// THAT IS ABOUT DESIGNS, NOT ABOUT PICTURES, and the difference is worth
+        /// stating because it is easy to mis-remember as the stronger claim. Two
+        /// DIFFERENT designs have always been able to draw the same picture -
+        /// flip-X on a disc is the oldest example, and rotating a square by ninety
+        /// degrees is the next - and <see cref="EmblemLayer.Mirror"/> adds one
+        /// more of the same kind: a centred, unturned mirrored layer draws the same
+        /// two shapes whether or not its flip-X is set. None of that touches the
+        /// cache. What the cache needs is that a CODE determines a picture, that
+        /// encoding is deterministic, and that a code round-trips - all three of
+        /// which hold. A code that determined two pictures would be the bug; a
+        /// picture with two codes is only two addresses for the same bytes.
         /// </summary>
         internal string ToCode()
         {
@@ -236,11 +248,17 @@ namespace WorldsAdriftServer.Emblems
             if (!Single(payload, at + 11, out int opacity)) return false;
             if (!Single(payload, at + 12, out int flags)) return false;
 
-            if (flags > (EmblemLayer.FlipXBit | EmblemLayer.FlipYBit | EmblemLayer.LockedBit))
+            if (flags > EmblemLayer.KnownFlags)
             {
                 // An unknown flag bit is a code from a vocabulary this build does
                 // not have. Refused rather than masked off, because masking would
                 // silently draw a layer that is missing whatever the bit meant.
+                //
+                // THIS IS ALSO WHY THE MIRROR NEEDED NO VERSION BUMP. The bit it
+                // uses was refused by every build before it, so no stored code can
+                // carry it and no stored code changes meaning; and a build that
+                // predates it refuses a mirrored code outright rather than
+                // quietly drawing half of somebody's crest.
                 return false;
             }
 
@@ -248,6 +266,7 @@ namespace WorldsAdriftServer.Emblems
                 obj, x - OffsetBias, y - OffsetBias, size, rotation, colour, opacity,
                 (flags & EmblemLayer.FlipXBit) != 0,
                 (flags & EmblemLayer.FlipYBit) != 0,
+                (flags & EmblemLayer.MirrorBit) != 0,
                 (flags & EmblemLayer.LockedBit) != 0,
                 out layer);
         }

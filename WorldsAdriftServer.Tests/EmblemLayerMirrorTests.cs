@@ -49,9 +49,16 @@ namespace WorldsAdriftServer.Tests
 
         /// <summary>
         /// Layers chosen to break a careless mirror rather than to look plausible:
-        /// both ends of every range, every flag combination, rotations either side
-        /// of the wrap, and the sizes where a decimal is written with one, two and
-        /// three significant figures.
+        /// both ends of every range, every flag combination INCLUDING the mirror
+        /// bit, rotations either side of the wrap, and the sizes where a decimal is
+        /// written with one, two and three significant figures.
+        ///
+        /// The rotations matter more now than they did. A mirrored layer's
+        /// reflection is turned by <c>360 - r</c>, so a corpus without <c>r = 0</c>
+        /// would never catch a reflection written as <c>rotate(360)</c> - a turn
+        /// this vocabulary cannot name and a string the two renderers would
+        /// disagree about the moment one of them took the modulus and the other
+        /// did not.
         /// </summary>
         private static IEnumerable<EmblemLayer> Corpus()
         {
@@ -73,14 +80,17 @@ namespace WorldsAdriftServer.Tests
 
             foreach ((int x, int y, int size, int rotation) in shapes)
             {
-                for (int flags = 0; flags < 8; flags++)
+                for (int flags = 0; flags <= EmblemLayer.KnownFlags; flags++)
                 {
                     Assert.True(EmblemLayer.TryCreate(
                         index % EmblemObjects.Count,
                         x, y, size, rotation,
                         index % EmblemVocabulary.ColourCount,
                         index % (EmblemLayer.OpacitySteps + 1),
-                        (flags & 1) != 0, (flags & 2) != 0, (flags & 4) != 0,
+                        (flags & EmblemLayer.FlipXBit) != 0,
+                        (flags & EmblemLayer.FlipYBit) != 0,
+                        (flags & EmblemLayer.MirrorBit) != 0,
+                        (flags & EmblemLayer.LockedBit) != 0,
                         out EmblemLayer layer));
 
                     yield return layer;
@@ -103,12 +113,22 @@ namespace WorldsAdriftServer.Tests
             {
                 input.Add(Wire(layer));
 
+                // EVERY INSTANCE'S TRANSFORM, not just the placed one - a mirrored
+                // layer is two shapes and the reflection is the half a browser-only
+                // implementation would get away with drawing.
+                JArray transforms = new JArray();
+                for (int instance = 0; instance < layer.Instances; instance++)
+                {
+                    transforms.Add(layer.Transform(instance));
+                }
+
                 // The path data is handed IN rather than looked up in the mirror,
                 // exactly as the browser gets it from the catalogue - so what is
                 // compared is the markup the mirror builds and nothing else.
                 expected.Add(new JObject
                 {
-                    ["transform"] = layer.Transform(),
+                    ["instances"] = layer.Instances,
+                    ["transforms"] = transforms,
                     ["opacity"] = layer.FillOpacity(),
                     ["markup"] = EmblemStackSvg.LayerMarkup(layer),
                 });
@@ -218,8 +238,12 @@ namespace WorldsAdriftServer.Tests
             // Size zero, which is under the floor.
             yield return "3-00" + "__" + "__" + "00" + "00" + "0" + "0" + "0";
 
-            // The flag byte with a bit we have no meaning for.
-            yield return "3-000000" + Pair(500) + "00" + "0" + "0" + EmblemLayerCode.Alphabet[8];
+            // The flag byte with a bit we have no meaning for. Sixteen now that the
+            // mirror has taken eight - and this line moving is the point of it:
+            // the editor and the parser must agree about where the vocabulary
+            // ENDS, or a design one of them will draw is one the other refuses.
+            yield return "3-000000" + Pair(500) + "00" + "0" + "0"
+                + EmblemLayerCode.Alphabet[EmblemLayer.KnownFlags + 1];
 
             // A rotation of 360, which is a turn this vocabulary does not have.
             yield return "3-00" + Pair(EmblemLayerCode.OffsetBias) + Pair(EmblemLayerCode.OffsetBias)
@@ -240,6 +264,7 @@ namespace WorldsAdriftServer.Tests
             ["a"] = layer.Opacity,
             ["fx"] = layer.FlipX,
             ["fy"] = layer.FlipY,
+            ["mi"] = layer.Mirror,
             ["lk"] = layer.Locked,
         };
 
@@ -334,8 +359,12 @@ namespace WorldsAdriftServer.Tests
 const input = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
 
 const drawn = input.layers.map(function (layer) {
+  const transforms = [];
+  for (let i = 0; i < embInstances(layer); i++) { transforms.push(embTransform(layer, i)); }
+
   return {
-    transform: embTransform(layer),
+    instances: embInstances(layer),
+    transforms: transforms,
     opacity: embThousandths(layer.a * embLimits.opacityUnit),
     markup: embLayerMarkup(layer, input.pathData[String(layer.o)])
   };
@@ -379,6 +408,31 @@ process.stdout.write(JSON.stringify({drawn: drawn, written: written, read: read,
             Assert.True(
                 script.IndexOf(MirrorBegin, StringComparison.Ordinal)
                 < script.IndexOf(MirrorEnd, StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        /// THE GRID IS NOWHERE INSIDE THE MIRROR, and it must never be.
+        ///
+        /// The mirror is the region that turns a layer into markup and into a code,
+        /// and the grid is an editor affordance: it changes which values a player
+        /// produces and nothing about what a value means. If a grid step, a grid
+        /// flag or a "snapped" bit ever appeared in here, two designs that look
+        /// identical would encode differently and the URL would stop being a
+        /// function of the picture - which is the property the whole immutable-cache
+        /// arrangement rests on.
+        ///
+        /// Checked against the SERVED page rather than the file, so it also catches
+        /// a grid constant stamped in from the server side.
+        /// </summary>
+        [NodeFact]
+        public void The_grid_is_not_part_of_the_encoding()
+        {
+            string mirror = Mirror();
+
+            foreach (string forbidden in new[] { "grid", "snap" })
+            {
+                Assert.DoesNotContain(forbidden, mirror, StringComparison.OrdinalIgnoreCase);
+            }
         }
 
         /// <summary>

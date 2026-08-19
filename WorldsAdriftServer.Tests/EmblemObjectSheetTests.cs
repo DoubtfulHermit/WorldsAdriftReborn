@@ -261,7 +261,7 @@ namespace WorldsAdriftServer.Tests
             {
                 Assert.True(EmblemLayer.TryCreate(
                     first + i, 0, 0, EmblemLayer.Unit, 0, 17, EmblemLayer.OpacitySteps,
-                    false, false, false, out EmblemLayer layer));
+                    false, false, false, false, out EmblemLayer layer));
                 Assert.True(EmblemStack.TryCreate(new[] { layer }, out EmblemStack stack));
 
                 byte[] pixels = EmblemStackPainter.Render(stack, 64);
@@ -296,10 +296,10 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal("Scalloped disc solid", EmblemObjects.All[last].Name);
 
             Assert.True(EmblemLayer.TryCreate(
-                last, 0, 0, 900, 0, 3, EmblemLayer.OpacitySteps, false, false, false,
+                last, 0, 0, 900, 0, 3, EmblemLayer.OpacitySteps, false, false, false, false,
                 out EmblemLayer field));
             Assert.True(EmblemLayer.TryCreate(
-                torii, 0, 40, 620, 0, 0, EmblemLayer.OpacitySteps, false, false, false,
+                torii, 0, 40, 620, 0, 0, EmblemLayer.OpacitySteps, false, false, false, false,
                 out EmblemLayer device));
             Assert.True(EmblemStack.TryCreate(new[] { field, device }, out EmblemStack stack));
 

@@ -322,10 +322,10 @@ namespace WorldsAdriftServer.Tests
         private static EmblemArtwork LayeredSample()
         {
             Assert.True(EmblemLayer.TryCreate(
-                1, 0, 0, 800, 0, 3, EmblemLayer.OpacitySteps, false, false, false,
+                1, 0, 0, 800, 0, 3, EmblemLayer.OpacitySteps, false, false, false, false,
                 out EmblemLayer disc));
             Assert.True(EmblemLayer.TryCreate(
-                2, 120, -60, 500, 30, 9, EmblemLayer.OpacitySteps, true, false, false,
+                2, 120, -60, 500, 30, 9, EmblemLayer.OpacitySteps, true, false, false, false,
                 out EmblemLayer mark));
 
             Assert.True(EmblemStack.TryCreate(new[] { disc, mark }, out EmblemStack stack));

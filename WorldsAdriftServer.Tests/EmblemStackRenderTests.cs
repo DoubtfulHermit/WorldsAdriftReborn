@@ -44,10 +44,10 @@ namespace WorldsAdriftServer.Tests
         private static EmblemLayer Layer(
             int obj, int x = 0, int y = 0, int size = 500, int rotation = 0,
             int colour = 0, int opacity = EmblemLayer.OpacitySteps,
-            bool flipX = false, bool flipY = false, bool locked = false)
+            bool flipX = false, bool flipY = false, bool mirror = false, bool locked = false)
         {
             Assert.True(EmblemLayer.TryCreate(
-                obj, x, y, size, rotation, colour, opacity, flipX, flipY, locked,
+                obj, x, y, size, rotation, colour, opacity, flipX, flipY, mirror, locked,
                 out EmblemLayer layer));
             return layer;
         }
@@ -69,21 +69,36 @@ namespace WorldsAdriftServer.Tests
         /// way <c>translate(x y) rotate(d) scale(sx sy)</c> maps it - scale first
         /// (the flip being the scale's sign), then turn, then move.
         /// </summary>
-        private static (int Px, int Py) Place(EmblemLayer layer, double localX, double localY, int size)
+        private static (int Px, int Py) Place(EmblemLayer layer, double localX, double localY, int size) =>
+            Place(layer, 0, localX, localY, size);
+
+        /// <summary>
+        /// The same mapping for one INSTANCE of the layer, so a mirrored layer's
+        /// reflection is checked the same way its original is.
+        ///
+        /// The instance's three fields are read off the layer rather than
+        /// re-derived here - if this test re-implemented "what a mirror does" it
+        /// would agree with a painter that had the sign of the rotation backwards,
+        /// which is the exact failure it exists to catch. What it DOES re-derive is
+        /// SVG's own semantics: scale first (the mirror being the scale's sign),
+        /// then turn, then move.
+        /// </summary>
+        private static (int Px, int Py) Place(
+            EmblemLayer layer, int instance, double localX, double localY, int size)
         {
-            double sx = layer.FlipX ? -layer.Size : layer.Size;
-            double sy = layer.FlipY ? -layer.Size : layer.Size;
+            double sx = layer.InstanceSizeX(instance);
+            double sy = layer.SignedSizeY;
 
             double x = localX * sx / EmblemLayer.Unit;
             double y = localY * sy / EmblemLayer.Unit;
 
-            double radians = layer.Rotation * Math.PI / 180.0;
+            double radians = layer.InstanceRotation(instance) * Math.PI / 180.0;
             double cos = Math.Cos(radians), sin = Math.Sin(radians);
 
             double turnedX = x * cos - y * sin;
             double turnedY = x * sin + y * cos;
 
-            double worldX = (turnedX + layer.X) / EmblemLayer.Unit;
+            double worldX = (turnedX + layer.InstanceX(instance)) / EmblemLayer.Unit;
             double worldY = (turnedY + layer.Y) / EmblemLayer.Unit;
 
             return ((int)((worldX + 1.0) * 0.5 * size), (int)((worldY + 1.0) * 0.5 * size));
@@ -132,6 +147,138 @@ namespace WorldsAdriftServer.Tests
 
             (int qx, int qy) = Place(layer, Outside.X, Outside.Y, Size);
             Assert.Equal(0, Pixel(pixels, Size, qx, qy).A);
+        }
+
+        // --------------------------------------------------------- the symmetry
+
+        /// <summary>
+        /// A MIRRORED LAYER IS DRAWN BY THE SERVER, AND ITS REFLECTION LANDS WHERE
+        /// THE REFLECTED TRANSFORM SAYS.
+        ///
+        /// This is the failure symmetry could plausibly have introduced: the
+        /// browser draws the live preview, so a mirror implemented only there
+        /// would look perfect while a player composed it and would arrive in game
+        /// as half a crest. The right triangle is the shape for it - reflecting it
+        /// moves ink somewhere a symmetric outline would have hidden - and the
+        /// point tested on each half is the CENTROID, which is inside the triangle
+        /// and outside its own reflection.
+        /// </summary>
+        [Theory]
+        [InlineData(400, 0, 500, 0)]
+        [InlineData(400, -200, 400, 0)]
+        [InlineData(300, 250, 450, 30)]
+        [InlineData(-350, -100, 400, 200)]
+        [InlineData(0, 0, 600, 0)]
+        [InlineData(500, 0, 400, 359)]
+        public void A_mirrored_layer_draws_its_reflection_too(int x, int y, int size, int rotation)
+        {
+            EmblemLayer mirrored = Layer(Triangle, x, y, size, rotation, colour: 8, mirror: true);
+            EmblemLayer plain = Layer(Triangle, x, y, size, rotation, colour: 8);
+
+            Assert.Equal(2, mirrored.Instances);
+            Assert.Equal(1, plain.Instances);
+
+            byte[] withMirror = EmblemStackPainter.Render(Stack(mirrored), Size);
+            byte[] without = EmblemStackPainter.Render(Stack(plain), Size);
+
+            int expected = EmblemVocabulary.ColourAt(8);
+
+            for (int instance = 0; instance < 2; instance++)
+            {
+                (int px, int py) = Place(mirrored, instance, Inside.X, Inside.Y, Size);
+                (int r, int g, int b, int a) = Pixel(withMirror, Size, px, py);
+
+                Assert.True(a == 255,
+                    "instance " + instance + " is not opaque at " + px + "," + py
+                    + " for " + mirrored.Transform(instance));
+                Assert.Equal((expected >> 16) & 0xFF, r);
+                Assert.Equal((expected >> 8) & 0xFF, g);
+                Assert.Equal(expected & 0xFF, b);
+            }
+
+            // And the reflection is INK THE MIRROR BIT ADDED, not the same shape
+            // measured twice. Counted rather than sampled at a point: the right
+            // triangle's reflection meets its original along the hypotenuse, so
+            // for a centred layer there is no single pixel that is inside one and
+            // outside the other - but there is always more of it.
+            Assert.True(Lit(withMirror) > Lit(without),
+                "mirroring covered no more of the canvas (" + Lit(withMirror)
+                + " pixels against " + Lit(without) + ")");
+        }
+
+        private static int Lit(byte[] rgba)
+        {
+            int lit = 0;
+            for (int at = 3; at < rgba.Length; at += 4) if (rgba[at] > 0) lit++;
+            return lit;
+        }
+
+        /// <summary>
+        /// The reflection is across the VERTICAL axis and only that one: a
+        /// mirrored layer is symmetrical left to right and is not moved up or
+        /// down. Asserted on the pixels rather than on the transform, because the
+        /// transform is what the other half of this suite already checks.
+        /// </summary>
+        [Fact]
+        public void The_mirror_axis_is_vertical_and_the_picture_is_left_right_symmetrical()
+        {
+            EmblemLayer layer = Layer(Triangle, 350, -120, 520, 25, colour: 8, mirror: true);
+            byte[] pixels = EmblemStackPainter.Render(Stack(layer), Size);
+
+            int lit = 0;
+
+            for (int py = 0; py < Size; py++)
+            {
+                for (int px = 0; px < Size; px++)
+                {
+                    (_, _, _, int a) = Pixel(pixels, Size, px, py);
+                    (_, _, _, int b) = Pixel(pixels, Size, Size - 1 - px, py);
+
+                    // Exact, not approximate. The two halves are the same outline
+                    // at the same scale, and the sampling grid is symmetrical about
+                    // the canvas centre, so a pixel and its opposite get the same
+                    // coverage to the byte.
+                    Assert.Equal(a, b);
+
+                    if (a > 0) lit++;
+                }
+            }
+
+            Assert.True(lit > 500, "the mirrored layer drew almost nothing (" + lit + " pixels)");
+        }
+
+        /// <summary>
+        /// THE VECTOR EXPORT DRAWS BOTH HALVES TOO, in the order the rasteriser
+        /// places them - which is what makes the two agree where a semi-transparent
+        /// layer overlaps its own reflection.
+        /// </summary>
+        [Fact]
+        public void The_vector_export_writes_a_group_per_instance()
+        {
+            EmblemLayer mirrored = Layer(Triangle, 300, 0, 500, 40, colour: 4, mirror: true);
+            EmblemLayer plain = Layer(Disc, 0, 0, 900, 0, colour: 1);
+
+            string svg = EmblemStackSvg.Compose(Stack(plain, mirrored));
+
+            Assert.Equal(1, Count(svg, "<g transform=\"" + plain.Transform(0) + "\">"));
+            Assert.Equal(1, Count(svg, "<g transform=\"" + mirrored.Transform(0) + "\">"));
+            Assert.Equal(1, Count(svg, "<g transform=\"" + mirrored.Transform(1) + "\">"));
+
+            // Placed first, reflection second.
+            Assert.True(
+                svg.IndexOf(mirrored.Transform(0), StringComparison.Ordinal)
+                < svg.IndexOf(mirrored.Transform(1), StringComparison.Ordinal));
+        }
+
+        private static int Count(string haystack, string needle)
+        {
+            int found = 0;
+            for (int at = 0; (at = haystack.IndexOf(needle, at, StringComparison.Ordinal)) >= 0; at += needle.Length)
+            {
+                found++;
+            }
+
+            return found;
         }
 
         [Fact]
@@ -274,7 +421,9 @@ namespace WorldsAdriftServer.Tests
         /// becomes an easy case is worse than no worst case, because it still
         /// reports green.
         /// </summary>
-        private static EmblemStack WorstCase()
+        private static EmblemStack WorstCase() => WorstCase(mirror: false);
+
+        private static EmblemStack WorstCase(bool mirror)
         {
             int[] heaviest = Enumerable.Range(0, EmblemObjects.Count)
                 .OrderByDescending(i => EmblemObjects.All[i].Path.EdgeCount)
@@ -293,10 +442,60 @@ namespace WorldsAdriftServer.Tests
                     size: 900,
                     rotation: i * 17,
                     colour: i % EmblemVocabulary.ColourCount,
-                    opacity: EmblemLayer.OpacitySteps - 1));
+                    opacity: EmblemLayer.OpacitySteps - 1,
+                    mirror: mirror));
             }
 
             return Stack(layers.ToArray());
+        }
+
+        /// <summary>
+        /// WHAT SYMMETRY COSTS THE ROUTE.
+        ///
+        /// A mirrored layer is two regions, so a design of twenty of them is forty
+        /// - and this route is unauthenticated, which is the reason the layer
+        /// ceiling exists at all. So the question "can a stranger now make this
+        /// take twice as long" gets a measurement rather than an argument.
+        ///
+        /// The answer is NO, and the reason is the bounds narrowing rather than
+        /// anything about symmetry: a reflection sits on the opposite side of the
+        /// canvas from its original, so the per-row and per-pixel tests drop
+        /// whichever of the two is not over the pixel being shaded. What doubles is
+        /// the number of regions; what barely moves is the number of containment
+        /// tests, which is where the time goes.
+        ///
+        /// A RATIO against the same design unmirrored, for the reason the two tests
+        /// below give: a wall-clock bound on a parallel suite is weather.
+        /// </summary>
+        [Fact]
+        public void Mirroring_every_layer_does_not_double_what_the_route_costs()
+        {
+            EmblemStack plain = WorstCase(mirror: false);
+            EmblemStack mirrored = WorstCase(mirror: true);
+
+            // Warmed: the traced paths are parsed and indexed on first touch.
+            EmblemStackPainter.Render(plain, EmblemPainter.Size);
+            EmblemStackPainter.Render(mirrored, EmblemPainter.Size);
+
+            Stopwatch reference = Stopwatch.StartNew();
+            EmblemStackPainter.Render(plain, EmblemPainter.Size);
+            reference.Stop();
+
+            Stopwatch clock = Stopwatch.StartNew();
+            EmblemStackPainter.Render(mirrored, EmblemPainter.Size);
+            clock.Stop();
+
+            double ratio = clock.Elapsed.TotalMilliseconds
+                / Math.Max(0.001, reference.Elapsed.TotalMilliseconds);
+
+            // About 1.3 on a warm release build at the time of writing. Two is the
+            // guard rail: it catches "the bounds narrowing stopped applying to
+            // reflections", which would make this the full 2x, without failing over
+            // a busy machine.
+            Assert.True(ratio < 2.0,
+                "twenty mirrored layers cost " + ratio.ToString("0.00")
+                + " times the same twenty unmirrored (" + clock.ElapsedMilliseconds
+                + " ms against " + reference.ElapsedMilliseconds + " ms)");
         }
 
         /// <summary>

@@ -365,7 +365,7 @@ namespace WorldsAdriftServer.Tests
             for (int i = 0; i < EmblemStack.MaxLayers; i++)
             {
                 Assert.True(EmblemLayer.TryCreate(
-                    i, 0, 0, 500, 0, 0, EmblemLayer.OpacitySteps, false, false, false,
+                    i, 0, 0, 500, 0, 0, EmblemLayer.OpacitySteps, false, false, false, false,
                     out EmblemLayer layer));
                 layers.Add(layer);
             }

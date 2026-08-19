@@ -92,6 +92,36 @@ namespace WorldsAdriftServer.Emblems
         internal bool FlipY { get; }
 
         /// <summary>
+        /// Whether this layer also draws its REFLECTION across the canvas's
+        /// vertical axis.
+        ///
+        /// A PROPERTY OF THE LAYER RATHER THAN A SECOND LAYER, and that is the
+        /// whole reason it exists. Heraldry is overwhelmingly symmetrical - a pair
+        /// of wings, a pair of supporters, a border of repeated marks - and the two
+        /// ways to build that are a pair of ordinary layers or this. A pair costs
+        /// TWO of the twenty slots per element, so a ten-element symmetrical design
+        /// does not fit at all; worse, the two halves are independent, so every
+        /// later nudge of one of them is a chance to leave the crest very slightly
+        /// crooked in a way nobody notices until it is in game. Here, moving the
+        /// layer moves both halves because there is only one thing to move.
+        ///
+        /// It costs the code NOTHING: the flags field is a base-64 character with
+        /// six bits and three of them were spoken for, so this is
+        /// <see cref="MirrorBit"/> in a character that was already being written.
+        /// A layer is still thirteen characters and a full design is still 262.
+        ///
+        /// It is NOT free to draw - see <see cref="EmblemStackPainter"/>, which
+        /// places two regions for a mirrored layer.
+        ///
+        /// THE AXIS IS VERTICAL AND ONLY VERTICAL. A horizontal mirror is a
+        /// different bit for a symmetry heraldry almost never uses, and "which
+        /// axis" would need a control on a canvas that already has flip X, flip Y
+        /// and a rotation handle. Turn the layer ninety degrees if you want the
+        /// other one.
+        /// </summary>
+        internal bool Mirror { get; }
+
+        /// <summary>
         /// Whether the editor refuses to change this layer.
         ///
         /// Carried in the SAVED code rather than only in the browser, because a
@@ -104,7 +134,7 @@ namespace WorldsAdriftServer.Emblems
 
         private EmblemLayer(
             int obj, int x, int y, int size, int rotation, int colour, int opacity,
-            bool flipX, bool flipY, bool locked)
+            bool flipX, bool flipY, bool mirror, bool locked)
         {
             Object = obj;
             X = x;
@@ -115,6 +145,7 @@ namespace WorldsAdriftServer.Emblems
             Opacity = opacity;
             FlipX = flipX;
             FlipY = flipY;
+            Mirror = mirror;
             Locked = locked;
         }
 
@@ -129,7 +160,7 @@ namespace WorldsAdriftServer.Emblems
         /// </summary>
         internal static bool TryCreate(
             int obj, int x, int y, int size, int rotation, int colour, int opacity,
-            bool flipX, bool flipY, bool locked,
+            bool flipX, bool flipY, bool mirror, bool locked,
             out EmblemLayer layer)
         {
             layer = default;
@@ -142,20 +173,23 @@ namespace WorldsAdriftServer.Emblems
             if (colour < 0 || colour >= EmblemVocabulary.ColourCount) return false;
             if (opacity < 0 || opacity > OpacitySteps) return false;
 
-            layer = new EmblemLayer(obj, x, y, size, rotation, colour, opacity, flipX, flipY, locked);
+            layer = new EmblemLayer(
+                obj, x, y, size, rotation, colour, opacity, flipX, flipY, mirror, locked);
             return true;
         }
 
         /// <summary>A layer with everything at its default: centred, half size,
-        /// upright, fully opaque. What clicking an object in the palette adds.</summary>
+        /// upright, fully opaque, not mirrored. What clicking an object in the
+        /// palette adds.</summary>
         internal static EmblemLayer Placed(int obj, int colour)
         {
-            TryCreate(obj, 0, 0, 500, 0, colour, OpacitySteps, false, false, false, out EmblemLayer layer);
+            TryCreate(obj, 0, 0, 500, 0, colour, OpacitySteps, false, false, false, false,
+                out EmblemLayer layer);
             return layer;
         }
 
         internal EmblemLayer WithLocked(bool locked) =>
-            new EmblemLayer(Object, X, Y, Size, Rotation, Colour, Opacity, FlipX, FlipY, locked);
+            new EmblemLayer(Object, X, Y, Size, Rotation, Colour, Opacity, FlipX, FlipY, Mirror, locked);
 
         // ------------------------------------------------------------- geometry
 
@@ -183,8 +217,59 @@ namespace WorldsAdriftServer.Emblems
         /// nothing at that index (which <see cref="TryCreate"/> forbids).</summary>
         internal EmblemPath? Path => EmblemObjects.PathAt(Object);
 
+        // ------------------------------------------------------------ instances
+
         /// <summary>
-        /// The layer's transform, in the form BOTH SVG writers emit and the
+        /// How many times this layer is DRAWN: two when it is mirrored, one
+        /// otherwise.
+        ///
+        /// Every renderer walks this rather than asking about
+        /// <see cref="Mirror"/> itself, so "a mirrored layer draws twice" is
+        /// stated once and the rasteriser, the vector export and the browser
+        /// cannot disagree about how many shapes there are.
+        /// </summary>
+        internal int Instances => Mirror ? 2 : 1;
+
+        /// <summary>Instance 0 is the layer as placed; instance 1 is its
+        /// reflection.</summary>
+        internal const int Reflection = 1;
+
+        /// <summary>
+        /// THE REFLECTION, DERIVED RATHER THAN STORED, and it is three integer
+        /// negations because of what reflecting a transform actually is.
+        ///
+        /// The placed instance is <c>F = T(x, y) R(r) S(sx, sy)</c>. Its mirror
+        /// image across the canvas's vertical axis is <c>M F</c> where
+        /// <c>M = diag(-1, 1)</c>, and M pushes right through the list:
+        /// <c>M T(x, y) = T(-x, y) M</c>, and <c>M R(r) M = R(-r)</c> (M is its own
+        /// inverse), so <c>M F = T(-x, y) R(-r) S(-sx, sy)</c>. Same shape of
+        /// string, same three fields, all still integers - which is what lets the
+        /// reflection be written by exactly the code that writes the original.
+        ///
+        /// The rotation is taken back into 0..359 so it is a value this vocabulary
+        /// can express and, more to the point, so the rasteriser takes its sine of
+        /// the same whole degree the SVG string names.
+        /// </summary>
+        internal int InstanceX(int instance) => instance == Reflection ? -X : X;
+
+        internal int InstanceRotation(int instance) =>
+            instance == Reflection ? (RotationSteps - Rotation) % RotationSteps : Rotation;
+
+        internal int InstanceSizeX(int instance) =>
+            instance == Reflection ? -SignedSizeX : SignedSizeX;
+
+        /// <summary>The centre of an instance, in the painter's [-1, 1] space.</summary>
+        internal double InstanceCentreX(int instance) => InstanceX(instance) / (double)Unit;
+
+        /// <summary>The instance's rotation in radians - taken from the same whole
+        /// degree <see cref="AppendTransform"/> writes.</summary>
+        internal double InstanceRadians(int instance) => InstanceRotation(instance) * Math.PI / 180.0;
+
+        /// <summary>The instance's signed x scale, as the painter uses it.</summary>
+        internal double InstanceScaleX(int instance) => InstanceSizeX(instance) / (double)Unit;
+
+        /// <summary>
+        /// One INSTANCE's transform, in the form BOTH SVG writers emit and the
         /// browser's preview builds: <c>translate(x y) rotate(deg) scale(sx sy)</c>.
         ///
         /// The order is not a style. SVG applies a transform list right to left to
@@ -196,20 +281,25 @@ namespace WorldsAdriftServer.Emblems
         ///
         /// Every number is written from an integer. See the note on this type.
         /// </summary>
-        internal void AppendTransform(StringBuilder target)
+        internal void AppendTransform(StringBuilder target, int instance)
         {
-            target.Append("translate(").Append(X).Append(' ').Append(Y).Append(") rotate(")
-                  .Append(Rotation).Append(") scale(");
-            Thousandths(target, SignedSizeX);
+            target.Append("translate(").Append(InstanceX(instance)).Append(' ').Append(Y)
+                  .Append(") rotate(").Append(InstanceRotation(instance)).Append(") scale(");
+            Thousandths(target, InstanceSizeX(instance));
             target.Append(' ');
             Thousandths(target, SignedSizeY);
             target.Append(')');
         }
 
-        internal string Transform()
+        /// <summary>The placed instance's transform.</summary>
+        internal void AppendTransform(StringBuilder target) => AppendTransform(target, 0);
+
+        internal string Transform() => Transform(0);
+
+        internal string Transform(int instance)
         {
             StringBuilder text = new StringBuilder(48);
-            AppendTransform(text);
+            AppendTransform(text, instance);
             return text.ToString();
         }
 
@@ -252,18 +342,41 @@ namespace WorldsAdriftServer.Emblems
         public bool Equals(EmblemLayer other) =>
             Object == other.Object && X == other.X && Y == other.Y && Size == other.Size
             && Rotation == other.Rotation && Colour == other.Colour && Opacity == other.Opacity
-            && FlipX == other.FlipX && FlipY == other.FlipY && Locked == other.Locked;
+            && FlipX == other.FlipX && FlipY == other.FlipY && Mirror == other.Mirror
+            && Locked == other.Locked;
 
         public override bool Equals(object? obj) => obj is EmblemLayer other && Equals(other);
 
         public override int GetHashCode() =>
-            HashCode.Combine(Object, X, Y, Size, Rotation, Colour, (Opacity << 3) | Flags);
+            HashCode.Combine(Object, X, Y, Size, Rotation, Colour, (Opacity << 4) | Flags);
 
-        /// <summary>The three booleans as the bits the code carries them in.</summary>
-        internal int Flags => (FlipX ? 1 : 0) | (FlipY ? 2 : 0) | (Locked ? 4 : 0);
+        /// <summary>
+        /// The four booleans as the bits the code carries them in.
+        ///
+        /// FOUR BITS OF A SIX-BIT CHARACTER. The flags are one character of the
+        /// code's base-64 alphabet, so there were three spare when the mirror bit
+        /// was added and there are two now. That is why symmetry cost the encoding
+        /// nothing at all - see <see cref="Mirror"/>.
+        /// </summary>
+        internal int Flags =>
+            (FlipX ? FlipXBit : 0) | (FlipY ? FlipYBit : 0)
+            | (Locked ? LockedBit : 0) | (Mirror ? MirrorBit : 0);
 
         internal const int FlipXBit = 1;
         internal const int FlipYBit = 2;
         internal const int LockedBit = 4;
+
+        /// <summary>
+        /// Added AFTER the locked bit, not squeezed in beside the flips, because
+        /// the bit values are in the live database. Every code written before this
+        /// build has a flags character of at most 7, and every one of them still
+        /// means what it always did.
+        /// </summary>
+        internal const int MirrorBit = 8;
+
+        /// <summary>Every bit this build has a meaning for. A code carrying more
+        /// than this is from a vocabulary we do not have - see
+        /// <see cref="EmblemLayerCode.TryRead"/>.</summary>
+        internal const int KnownFlags = FlipXBit | FlipYBit | LockedBit | MirrorBit;
     }
 }

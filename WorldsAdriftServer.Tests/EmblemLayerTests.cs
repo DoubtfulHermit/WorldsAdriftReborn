@@ -19,10 +19,10 @@ namespace WorldsAdriftServer.Tests
         private static EmblemLayer Layer(
             int obj = 0, int x = 0, int y = 0, int size = 500, int rotation = 0,
             int colour = 0, int opacity = EmblemLayer.OpacitySteps,
-            bool flipX = false, bool flipY = false, bool locked = false)
+            bool flipX = false, bool flipY = false, bool mirror = false, bool locked = false)
         {
             Assert.True(EmblemLayer.TryCreate(
-                obj, x, y, size, rotation, colour, opacity, flipX, flipY, locked,
+                obj, x, y, size, rotation, colour, opacity, flipX, flipY, mirror, locked,
                 out EmblemLayer layer));
             return layer;
         }
@@ -61,14 +61,14 @@ namespace WorldsAdriftServer.Tests
             int obj, int x, int y, int size, int rotation, int colour, int opacity)
         {
             Assert.False(EmblemLayer.TryCreate(
-                obj, x, y, size, rotation, colour, opacity, false, false, false, out _));
+                obj, x, y, size, rotation, colour, opacity, false, false, false, false, out _));
         }
 
         [Fact]
         public void An_object_index_past_the_catalogue_is_refused()
         {
             Assert.False(EmblemLayer.TryCreate(
-                EmblemObjects.Count, 0, 0, 500, 0, 0, 40, false, false, false, out _));
+                EmblemObjects.Count, 0, 0, 500, 0, 0, 40, false, false, false, false, out _));
         }
 
         // --------------------------------------------------------- the numbers

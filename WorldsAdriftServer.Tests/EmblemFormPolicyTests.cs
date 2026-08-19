@@ -34,7 +34,7 @@ namespace WorldsAdriftServer.Tests
 
         private static string OneLayer()
         {
-            Assert.True(EmblemLayer.TryCreate(4, -250, 125, 700, 30, 9, 32, true, false, true,
+            Assert.True(EmblemLayer.TryCreate(4, -250, 125, 700, 30, 9, 32, true, false, false, true,
                 out EmblemLayer layer));
             Assert.True(EmblemStack.TryCreate(new[] { layer }, out EmblemStack stack));
             return stack.ToCode();

@@ -107,13 +107,22 @@ namespace WorldsAdriftServer.Emblems
             EmblemPath? path = layer.Path;
             if (path == null) return;
 
-            svg.Append("<g transform=\"");
-            layer.AppendTransform(svg);
-            svg.Append("\"><path fill=\"").Append(Hex(EmblemVocabulary.ColourAt(layer.Colour)))
-               .Append("\" fill-opacity=\"").Append(layer.FillOpacity())
-               .Append("\" d=\"");
-            path.AppendPathData(svg, 1.0, 0.0, Unit);
-            svg.Append("\"/></g>\n");
+            // ONE GROUP PER INSTANCE, placed first and reflection second. A
+            // mirrored layer is two of these and an ordinary one is a single pass
+            // of the same loop, so there is no separate code path for symmetry to
+            // drift down. The order is fixed so this string is a function of the
+            // layer and nothing else; it is also the order the rasteriser places
+            // its regions in, which matters when the two halves overlap.
+            for (int instance = 0; instance < layer.Instances; instance++)
+            {
+                svg.Append("<g transform=\"");
+                layer.AppendTransform(svg, instance);
+                svg.Append("\"><path fill=\"").Append(Hex(EmblemVocabulary.ColourAt(layer.Colour)))
+                   .Append("\" fill-opacity=\"").Append(layer.FillOpacity())
+                   .Append("\" d=\"");
+                path.AppendPathData(svg, 1.0, 0.0, Unit);
+                svg.Append("\"/></g>\n");
+            }
         }
 
         /// <summary>The markup for one layer on its own - what the mirror test

@@ -389,6 +389,51 @@ namespace WorldsAdriftServer.Tests
         }
 
         /// <summary>
+        /// SYMMETRY AND THE GRID ARE BOTH REACHABLE AND BOTH SAY WHETHER THEY ARE
+        /// ON.
+        ///
+        /// They are toggles rather than actions - a mirrored layer STAYS mirrored,
+        /// and the grid stays on until it is turned off - so each carries
+        /// aria-pressed. A toggle that looks like a button is the one a player
+        /// presses twice and gives up on.
+        /// </summary>
+        [Fact]
+        public void TheEditorOffersMirrorAndGridAsTogglesThatSayTheirState()
+        {
+            string html = Html(View(Alliance(new AllianceRights(false, false, true, false))),
+                PortalTabs.Emblem);
+
+            Assert.Contains("data-mirror aria-pressed=\"false\"", html, StringComparison.Ordinal);
+            Assert.Contains("data-grid aria-pressed=\"false\"", html, StringComparison.Ordinal);
+
+            // Neither is a form field. The mirror rides in the design code with
+            // every other property of a layer, and the grid rides nowhere at all.
+            Assert.DoesNotContain("name=\"mirror\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("name=\"grid\"", html, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// THE GRID IS NOT PART OF THE DESIGN, and this is what says so.
+        ///
+        /// Snapping changes which values a player produces; it does not change what
+        /// a value MEANS. So a crest laid out on the grid and the same crest laid
+        /// out by eye must be the same string - which they are for free as long as
+        /// nothing about the grid ever reaches the encoder. The limits the server
+        /// stamps into the script are the place a future reader would be tempted to
+        /// put a grid step, and this is the tripwire on that.
+        /// </summary>
+        [Fact]
+        public void TheGridReachesNeitherTheEncodingNorTheServer()
+        {
+            Assert.DoesNotContain("grid", EmblemEditorData.LimitsJson(),
+                StringComparison.OrdinalIgnoreCase);
+
+            // And no field of the layer code is one the grid could have added.
+            Assert.DoesNotContain("snap", EmblemEditorData.LimitsJson(),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
         /// The catalogue is fetched from THIS server, at a URL carrying its own
         /// revision, so it caches forever and a changed shape mints a new address.
         /// </summary>
