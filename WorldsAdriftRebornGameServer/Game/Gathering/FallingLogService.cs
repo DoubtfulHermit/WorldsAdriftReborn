@@ -98,47 +98,76 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// that severed nothing, or the feature switched off all leave the cut
         /// behaving exactly as it did before logs existed.
         /// </summary>
-        internal void Drop(TreeSectionMaskChange change)
+        internal int Drop(TreeSectionMaskChange change)
         {
             if (!_enabled || !_logs.HasCapacity)
             {
-                return;
+                return 0;
             }
 
-            // The parent's OWN prefab: a palm must shed a palm, and 1035's prefabName
-            // is read off the registration for exactly this reason.
-            WorldEntity? parent = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(change.TreeEntityId);
-            if (parent == null)
+            // THE PARENT MAY ITSELF BE A LOG. Chopping a trunk on the ground splits a
+            // piece off it, and that piece has to be seeded from what the trunk looks
+            // like RIGHT NOW - its current toppled rotation, not the upright rotation
+            // of the tree three cuts ago - or the piece would stand up out of the log
+            // it came from. A log is not a world registration (see
+            // TreeFall.FirstLogEntityId), so its pose comes off the log ledger.
+            bool parentIsLog = _logs.IsLog(change.TreeEntityId);
+
+            string assetName;
+            string assetContext;
+            FixedPointPosition position;
+            uint parentRotation;
+
+            if (parentIsLog)
             {
-                return;
+                assetName = _logs.AssetNameOf(change.TreeEntityId) ?? string.Empty;
+                assetContext = _logs.AssetContextOf(change.TreeEntityId) ?? string.Empty;
+                position = _logs.PositionOf(change.TreeEntityId) ?? default;
+                parentRotation = _logs.RotationOf(change.TreeEntityId) ?? 0u;
+            }
+            else
+            {
+                // The parent's OWN prefab: a palm must shed a palm, and 1035's
+                // prefabName is read off the registration for exactly this reason.
+                WorldEntity? parent = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(change.TreeEntityId);
+                if (parent == null)
+                {
+                    return 0;
+                }
+                assetName = parent.AssetName;
+                assetContext = parent.AssetContext;
+                position = parent.Position;
+                parentRotation = parent.PackedRotation;
             }
 
-            int sectionCount =
-                WorldsAdriftRebornGameServer.Harvest.TopologyOf(change.TreeEntityId)?.SectionCount
-                ?? Trees.SectionCount;
+            Multiplayer.TreeTopology? topology =
+                WorldsAdriftRebornGameServer.Harvest.TopologyOf(change.TreeEntityId);
+            int sectionCount = topology?.SectionCount ?? Trees.SectionCount;
 
             long logEntityId = _logs.NextEntityId();
             FelledLog? dropped = _logs.Drop(
-                logEntityId, change, parent.AssetName, parent.AssetContext,
-                parent.Position, parent.PackedRotation, sectionCount);
+                logEntityId, change, assetName, assetContext,
+                position, parentRotation, sectionCount, alreadyDown: parentIsLog);
 
             if (dropped == null)
             {
-                return;
+                return 0;
             }
 
             int reached = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
-                // Two gates, both mandatory. The parent tree is the spatial proxy:
-                // a peer that cannot see the tree must not be sent the log it shed.
-                // The channel count is the litter guard: a peer that cannot receive
-                // RemoveEntity would keep this log for the rest of its session.
-                if (!WorldsAdriftRebornGameServer.SentEntities.WasSent(peer, change.TreeEntityId))
-                {
-                    continue;
-                }
-                if (!CanReceiveRemove(peer))
+                // WHO HOLDS THE PARENT, asked of both ledgers rather than of one.
+                // See TreeFall.MayShowLog: asking only the send ledger is what made
+                // every release-world log invisible, because a streamed tree is
+                // recorded by ResourceInterestService and nowhere else. The channel
+                // count stays a veto - a peer that cannot receive RemoveEntity would
+                // keep this log for the rest of its session.
+                bool addEntitySent =
+                    WorldsAdriftRebornGameServer.SentEntities.WasSent(peer, change.TreeEntityId);
+                bool holdsParent = HoldsAnyComponentOf(peer, change.TreeEntityId);
+
+                if (!TreeFall.MayShowLog(addEntitySent, holdsParent, CanReceiveRemove(peer)))
                 {
                     continue;
                 }
@@ -157,7 +186,30 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 reached++;
             }
 
+            if (reached == 0)
+            {
+                // Nobody can see it, so it is not a log - it is bookkeeping that would
+                // hold a budget slot and then be paid for in wood the chopper never
+                // sees fall. Drop it and let the caller award the whole cut instead:
+                // the economy degrades back to exactly what it was before falling logs
+                // existed rather than quietly charging the player for the visual.
+                _logs.Forget(logEntityId);
+                Console.WriteLine("[tree-fall] " + dropped.Value
+                    + ", but no peer holds tree " + change.TreeEntityId + "; log abandoned.");
+                return 0;
+            }
+
+            // The log is a harvestable stand from this moment: same topology, same
+            // cadence, only the sections it carried away. This is what makes a tree
+            // come apart piece by piece instead of in one go - see TreeHarvest.PlantFelled.
+            if (topology != null)
+            {
+                WorldsAdriftRebornGameServer.Harvest.PlantFelled(
+                    logEntityId, topology, dropped.Value.WoodType, dropped.Value.SectionMask);
+            }
+
             Console.WriteLine("[tree-fall] " + dropped.Value + ", shown to " + reached + " peer(s).");
+            return reached;
         }
 
         /// <summary>
@@ -193,6 +245,36 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             {
                 Retire(logEntityId);
             }
+        }
+
+        /// <summary>
+        /// A cut landed on a LOG rather than on a rooted tree: restart its linger so
+        /// it is not deleted mid-chop, and retire it outright once its last section
+        /// has gone.
+        ///
+        /// Returns whether the entity was a log at all, so the caller can tell a cut
+        /// on a trunk from a cut on a tree without asking twice.
+        /// </summary>
+        internal bool NoteCut(long entityId, int remainingMask)
+        {
+            if (!_logs.IsLog(entityId))
+            {
+                return false;
+            }
+
+            if (remainingMask == 0)
+            {
+                // Nothing left to draw. Retire it NOW rather than leaving an empty
+                // trunk on every client for the rest of its linger: an entity with an
+                // empty section mask renders nothing but still costs a slot, and
+                // Retire is the only path that also clears the harvest stand.
+                Retire(entityId);
+                _logs.Forget(entityId);
+                return true;
+            }
+
+            _logs.Touch(entityId, remainingMask);
+            return true;
         }
 
         /// <summary>
@@ -241,6 +323,11 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// </summary>
         private static void Retire(long logEntityId)
         {
+            // The stand goes first, and unconditionally: a log that stopped existing
+            // must stop being choppable even for a peer whose RemoveEntity failed,
+            // or a held beam would keep cutting an id nobody can see.
+            WorldsAdriftRebornGameServer.Harvest.Uproot(logEntityId);
+
             int removed = 0;
             foreach (ENetPeerHandle peer in ConnectedPeers())
             {
@@ -268,6 +355,25 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         private static bool CanReceiveRemove(ENetPeerHandle peer)
         {
             return EnetLayer.ENet_PeerChannelCount(peer) > (int)EnetLayer.ENetChannel.REMOVE_ENTITY_OP;
+        }
+
+        /// <summary>
+        /// Whether this peer has ANY component of an entity checked out - the
+        /// evidence that it actually holds the thing, as opposed to the send ledger's
+        /// record that we once announced it.
+        ///
+        /// This is the same map <c>PushTreeSectionMask</c> reads to decide who is told
+        /// a tree shrank, which is the whole point: the log and the mask must agree
+        /// about who is watching, or a peer sees the crown vanish with nothing falling
+        /// (which is exactly what streamed trees did) or a log fall off a tree it
+        /// cannot see.
+        /// </summary>
+        private static bool HoldsAnyComponentOf(ENetPeerHandle peer, long entityId)
+        {
+            return GameState.Instance.ComponentMap.TryGetValue(peer,
+                       out Dictionary<long, Dictionary<uint, ulong>>? byEntity)
+                && byEntity.TryGetValue(entityId, out Dictionary<uint, ulong>? byComponent)
+                && byComponent.Count > 0;
         }
 
         private static bool TryGetStoredRef(ENetPeerHandle peer, long entityId, uint componentId, out ulong refId)

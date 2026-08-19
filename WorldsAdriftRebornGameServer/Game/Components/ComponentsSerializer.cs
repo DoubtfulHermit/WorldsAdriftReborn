@@ -2554,28 +2554,37 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The client never reads it - TreeFSimState.woodType is written
                         // only by the UnityWorker-only visualizer - so it rides along
                         // purely so the eventual inventory grant has a species.
-                        // A FELLED LOG IS ASKED FIRST, and it must be: a log is not
-                        // planted in Harvest - deliberately, so nobody can chop a log
-                        // and be paid a second time for wood that was already granted
-                        // - so MaskOf returns null for it and the fallback would hand
-                        // it the FULL mask. That is not a cosmetic slip: the severed
-                        // crown would check out as a COMPLETE tree standing inside the
-                        // one it fell off. And its `dynamic` is TRUE where a standing
-                        // tree's is false, which is what leaves the client's
-                        // relative-transform behaviour enabled so the log follows the
-                        // arc this server serves it (acs/TreeBase.cs:191-198) and
-                        // plays the falling-tree audio that, on a log, is correct.
+                        // HARVEST IS ASKED FIRST, LOGS SECOND, and the order flipped
+                        // when logs became choppable. A log is now PLANTED in Harvest
+                        // as a felled stand, so Harvest holds its LIVE mask - the one
+                        // that shrinks as somebody takes the trunk apart - while the
+                        // log ledger holds the mask it was dropped with. Asking the
+                        // ledger first would serve a joiner the whole trunk again,
+                        // resurrecting sections the chopper has already carried off.
+                        // The ledger stays as the fallback for the window between a
+                        // drop and its planting, where it is the only thing that knows;
+                        // without one of the two, a severed crown checks out under the
+                        // FULL mask, i.e. as a complete tree standing inside the one it
+                        // fell off.
+                        //
+                        // `dynamic` is still asked of the log ledger and only of it,
+                        // because it is a fact about the ENTITY and not about its mask:
+                        // TRUE for a log where a standing tree's is false, which is what
+                        // leaves the client's relative-transform behaviour enabled so
+                        // the log follows the arc this server serves it
+                        // (acs/TreeBase.cs:191-198) and plays the falling-tree audio
+                        // that, on a log, is correct.
                         bool isFelledLog = WorldsAdriftRebornGameServer.FallingLogs.Logs.IsLog(entityId);
 
-                        int liveMask = WorldsAdriftRebornGameServer.FallingLogs.Logs.MaskOf(entityId)
-                            ?? WorldsAdriftRebornGameServer.Harvest.MaskOf(entityId)
+                        int liveMask = WorldsAdriftRebornGameServer.Harvest.MaskOf(entityId)
+                            ?? WorldsAdriftRebornGameServer.FallingLogs.Logs.MaskOf(entityId)
                             ?? Multiplayer.Trees.FullSectionMask;
-                        string liveWood = WorldsAdriftRebornGameServer.FallingLogs.Logs.WoodTypeOf(entityId)
-                            ?? WorldsAdriftRebornGameServer.Harvest.WoodTypeOf(entityId)
+                        string liveWood = WorldsAdriftRebornGameServer.Harvest.WoodTypeOf(entityId)
+                            ?? WorldsAdriftRebornGameServer.FallingLogs.Logs.WoodTypeOf(entityId)
                             ?? Multiplayer.Trees.WoodType;
                         int liveSectionCount =
-                            WorldsAdriftRebornGameServer.FallingLogs.Logs.SectionCountOf(entityId)
-                            ?? WorldsAdriftRebornGameServer.Harvest.TopologyOf(entityId)?.SectionCount
+                            WorldsAdriftRebornGameServer.Harvest.TopologyOf(entityId)?.SectionCount
+                            ?? WorldsAdriftRebornGameServer.FallingLogs.Logs.SectionCountOf(entityId)
                             ?? Multiplayer.Trees.SectionCount;
 
                         Improbable.Collections.List<int> sectionHealth = new Improbable.Collections.List<int>();

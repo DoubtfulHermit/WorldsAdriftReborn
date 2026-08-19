@@ -59,10 +59,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
     ///   to rest on a slope, or land differently twice.</item>
     /// <item>It cannot CRUSH anybody. There is no damage authority on this server at
     ///   all, so a log passing through a player does nothing.</item>
-    /// <item>The log is not itself choppable. Its wood was already granted when the
-    ///   sections left the standing tree, so making the log harvestable would pay
-    ///   for the same timber twice.</item>
+    /// <item>The log does not come to rest ON anything. It lands flat at the height
+    ///   its parent stood at, so a trunk felled on a slope will not lie along it.</item>
     /// </list>
+    ///
+    /// THE LOG IS CHOPPABLE, and the note that used to stand here saying it could not
+    /// be was wrong about the reason rather than about the risk. It said the log's
+    /// wood "was already granted when the sections left the standing tree", which was
+    /// true only because the cut paid for every section it severed - so felling a
+    /// nine-section palm at the base handed over the whole tree in one go, which is
+    /// precisely the thing retail never did and players complained about.
+    ///
+    /// The fix is at the other end. A cut now pays for ONE section, the one under the
+    /// beam (<see cref="TreeSectionMaskChange.SplinterMask"/>), and everything else it
+    /// severed leaves in the log (<see cref="TreeSectionMaskChange.LogMask"/>) still
+    /// owing its timber. The log is planted in <c>TreeHarvest</c> as a felled stand,
+    /// so the same beam, the same cadence and the same topology take it apart where it
+    /// lies - and a piece split off a log becomes another log, exactly as
+    /// <c>TreeSection.Harvest</c> spawned a new tree from a new tree
+    /// (acs/TreeSection.cs:81). Every section is paid for exactly once, on the cut
+    /// where it is the section under the beam, so the total timber in a tree is
+    /// unchanged; only the number of cuts it takes to get it went up.
     ///
     /// Pure: no ENet, no Improbable types, no game install, no clock.
     /// </summary>
@@ -78,16 +95,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public static readonly TimeSpan DefaultFallDuration = TimeSpan.FromSeconds(1.6);
 
         /// <summary>
-        /// How long the log lies on the ground before it is removed.
+        /// How long the log lies on the ground before it is removed, measured from
+        /// the LAST thing that happened to it.
         ///
-        /// A COMPROMISE, and the honest one. Retail's log persisted and was itself
-        /// choppable; this server cannot make it choppable without paying for the
-        /// same wood twice, and cannot leave it forever without accumulating litter
-        /// that every joiner is re-sent. Twelve seconds is long enough that the
-        /// player sees a trunk lying where the tree was and registers it as a thing
-        /// that happened, short enough that a clearing does not fill up.
+        /// TWO MINUTES, WHERE THIS ONCE SAID TWELVE SECONDS, and the change is a
+        /// consequence of the log becoming choppable. Twelve seconds was sized for a
+        /// prop: long enough to notice, short enough not to litter. A log you have to
+        /// walk over to and take apart at one section per
+        /// <c>TreeHarvest.DefaultCutInterval</c> needs to outlive the walk and the
+        /// chopping, or a player watches their timber evaporate mid-swing.
+        ///
+        /// It is a QUIET wait, which is what makes the length affordable: a landed
+        /// log has been silent since its last pose (see <see cref="LandedRepeats"/>),
+        /// so a clearing full of them costs no bandwidth at all - only entity slots,
+        /// which <see cref="DefaultMaxConcurrent"/> bounds. And the clock is reset by
+        /// <see cref="FallingLogs.Touch"/> on every cut, so a log being actively
+        /// worked never expires under the player; only an abandoned one does.
         /// </summary>
-        public static readonly TimeSpan DefaultLingerDuration = TimeSpan.FromSeconds(12);
+        public static readonly TimeSpan DefaultLingerDuration = TimeSpan.FromSeconds(120);
 
         /// <summary>
         /// How often one falling log's 190602 is pushed while it is moving. 20 Hz,
@@ -173,13 +198,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// A BUDGET, not a guess. Each log is a live entity being pushed a 190602 at
         /// <see cref="PoseInterval"/> to every peer that can see it, and a player
         /// sweeping a beam along a treeline fells a section every
-        /// <see cref="TreeHarvest.DefaultCutInterval"/>. Eight caps the worst case at
-        /// 160 transform updates a second world-wide, which is the same order as one
-        /// flying ship, and the standing rule in docs/multiplayer.md is that no new
-        /// feature may add an unbounded relayed sender. Over the cap the section
-        /// simply vanishes as it did before - degraded, never dropped work.
+        /// <see cref="TreeHarvest.DefaultCutInterval"/>. The standing rule in
+        /// docs/multiplayer.md is that no new feature may add an unbounded relayed
+        /// sender. Over the cap the section simply vanishes as it did before -
+        /// degraded, never dropped work.
+        ///
+        /// TWENTY-FOUR, WHERE THIS ONCE SAID EIGHT, and raising it does NOT raise the
+        /// wire cost, which is the only reason it is allowed. Two things changed
+        /// under it:
+        /// <list type="number">
+        /// <item>A log now lives for <see cref="DefaultLingerDuration"/> rather than
+        ///   twelve seconds, because it has to survive being chopped, so more are
+        ///   alive at once for the same amount of chopping. But a landed log is
+        ///   SILENT - it has sent nothing since its last pose - so those extra slots
+        ///   cost entity ids, not bandwidth.</item>
+        /// <item>A piece broken off a log that is ALREADY DOWN is dropped settled
+        ///   (see <c>alreadyDown</c> on <see cref="FallingLogs.Drop"/>) and streams no
+        ///   arc at all. Only the first fall off a STANDING tree streams.</item>
+        /// </list>
+        /// So the sender cost is bounded by how many logs are simultaneously
+        /// TOPPLING, which one chopper holds at about <see cref="DefaultFallDuration"/>
+        /// over <see cref="TreeHarvest.DefaultCutInterval"/> - between two and three -
+        /// rather than by this number. Twenty-four is sized so that a player taking a
+        /// nine-section palm apart never loses a piece to the budget.
         /// </summary>
-        public const int DefaultMaxConcurrent = 8;
+        public const int DefaultMaxConcurrent = 24;
 
         /// <summary>
         /// Whether felled logs are switched on, from the operator's
@@ -291,6 +334,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             }
 
             return hash % 360UL;
+        }
+
+        /// <summary>
+        /// WHETHER ONE PEER IS SHOWN A FELLED LOG.
+        ///
+        /// THIS IS THE PREDICATE THAT SILENTLY BROKE THE WHOLE FEATURE, and it is a
+        /// pure function now for exactly that reason. The first version asked one
+        /// question - "did we send this peer an AddEntity for the parent tree?", read
+        /// off <c>EntitySendLedger</c> - and on the live server the answer was NO for
+        /// every tree in the release world. Release-world trees are streamed in by
+        /// <c>ResourceInterestService</c>, which keeps its OWN per-peer loaded set and
+        /// never writes the global send ledger. So every cut built a log, ticked it
+        /// down its arc and retired it, having shown it to nobody: the server-side
+        /// evidence read <c>shown to 0 peer(s)</c> on the same line as
+        /// <c>pushed sectionMask ... to 1 checked-out peer(s)</c>. The tree lost its
+        /// sections on screen and nothing fell, which is the vanishing bug exactly.
+        ///
+        /// So the question to ask is not "did we announce the tree through one
+        /// particular door" but "does this peer HOLD the tree", and the two ledgers
+        /// that can answer are OR-ed rather than picked between:
+        /// <list type="bullet">
+        /// <item><paramref name="addEntitySent"/> - the send ledger, which is the
+        ///   truth for a tree in the connect-time spawn plan.</item>
+        /// <item><paramref name="holdsTreeComponents"/> - the peer has components of
+        ///   the tree checked out, which is the truth for a STREAMED tree and is the
+        ///   very same evidence the mask push uses to decide who is told the tree
+        ///   shrank. Tying the log to it means the log and the mask can never
+        ///   disagree about who is watching.</item>
+        /// </list>
+        ///
+        /// <paramref name="canReceiveRemove"/> stays a veto rather than joining the
+        /// OR, because it is about a different thing: a peer with no
+        /// <c>REMOVE_ENTITY_OP</c> channel could be shown the log perfectly well and
+        /// then never be able to have it taken away. Permanent litter is worse than a
+        /// missing log, so such a peer is simply never shown one.
+        /// </summary>
+        public static bool MayShowLog(bool addEntitySent, bool holdsTreeComponents, bool canReceiveRemove)
+        {
+            return canReceiveRemove && (addEntitySent || holdsTreeComponents);
         }
 
         /// <summary>
@@ -472,6 +554,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             public TimeSpan DroppedAt;
             public TimeSpan NextPoseAt;
 
+            /// <summary>
+            /// When the linger starts counting from. Reset by <see cref="Touch"/>
+            /// every time somebody cuts this log, so a trunk being actively taken
+            /// apart never expires under the player mid-swing.
+            /// </summary>
+            public TimeSpan LastTouchedAt;
+
+            /// <summary>
+            /// How long this particular log's topple takes. A log shed by a STANDING
+            /// tree gets the real arc; a piece broken off a log that is already lying
+            /// down gets nothing to swing through, so this is
+            /// <see cref="TimeSpan.Zero"/> for it and the pose stream ends after the
+            /// landed repeats. Per-log rather than per-registry because both kinds
+            /// coexist in the same clearing.
+            /// </summary>
+            public TimeSpan FallDuration;
+
             /// <summary>How many flat poses have gone out. Counts up to 1 + LandedRepeats.</summary>
             public int LandedSends;
 
@@ -619,8 +718,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 return null;
             }
 
-            TimeSpan elapsed = _clock.Elapsed - log.DroppedAt;
-            return TreeFall.PackedRotationAt(log.ParentRotation, log.Heading, elapsed, _fallDuration);
+            return RotationOf(log, _clock.Elapsed);
+        }
+
+        /// <summary>
+        /// One log's rotation at one instant.
+        ///
+        /// A log with no fall duration is a piece that broke off something already
+        /// lying on the ground: it was seeded with the pose its parent log had at the
+        /// moment it split, and it must KEEP that pose exactly. Running it through
+        /// <see cref="TreeFall.PackedRotationAt"/> with a zero duration would report a
+        /// full ninety degrees of topple and tip an already-flat trunk over a second
+        /// time, so it is short-circuited rather than clamped.
+        /// </summary>
+        private static uint RotationOf(Log log, TimeSpan now)
+        {
+            if (log.FallDuration <= TimeSpan.Zero)
+            {
+                return log.ParentRotation;
+            }
+
+            return TreeFall.PackedRotationAt(log.ParentRotation, log.Heading,
+                now - log.DroppedAt, log.FallDuration);
         }
 
         /// <summary>Every live log, so a caller can clean up on shutdown.</summary>
@@ -636,9 +755,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public FelledLog? Drop(long logEntityId, TreeSectionMaskChange change,
             string assetName, string assetContext, FixedPointPosition position,
-            uint parentRotation, int sectionCount)
+            uint parentRotation, int sectionCount, bool alreadyDown = false)
         {
-            if (change.FallingMask == 0)
+            // THE LOG CARRIES WHAT FELL, NOT WHAT WAS SEVERED. The section under the
+            // beam splintered into the chopper's inventory; putting it in the log too
+            // would let the same section be harvested a second time off the ground.
+            // See TreeSectionMaskChange.LogMask.
+            if (change.LogMask == 0)
             {
                 return null;
             }
@@ -654,6 +777,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             double heading = TreeFall.FallHeadingDegrees(change.TreeEntityId, change.SectionId);
             TimeSpan now = _clock.Elapsed;
 
+            // A PIECE BROKEN OFF SOMETHING ALREADY ON THE GROUND DOES NOT TOPPLE.
+            // Only the first fall - off a rooted tree - has ninety degrees to swing
+            // through. A sub-piece is seeded at its parent log's CURRENT pose and is
+            // down from the instant it exists, which is both what it should look like
+            // and the reason raising the log budget costs no bandwidth: a settled
+            // drop streams no arc, just the landed repeats that guarantee its one
+            // pose survives a dropped packet.
+            TimeSpan fallDuration = alreadyDown ? TimeSpan.Zero : _fallDuration;
+
             _logs.Add(logEntityId, new Log
             {
                 TreeEntityId = change.TreeEntityId,
@@ -662,10 +794,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 Position = position,
                 ParentRotation = parentRotation,
                 Heading = heading,
-                SectionMask = change.FallingMask,
+                SectionMask = change.LogMask,
                 SectionCount = sectionCount,
                 WoodType = change.WoodType ?? string.Empty,
                 DroppedAt = now,
+                LastTouchedAt = now,
+                FallDuration = fallDuration,
                 // The first pose is due immediately: it is the log standing exactly
                 // where the crown was, and it must be on the wire before the crown's
                 // mask push removes the crown.
@@ -675,8 +809,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             return new FelledLog(logEntityId, change.TreeEntityId,
                 assetName ?? string.Empty, assetContext ?? string.Empty, position, parentRotation,
-                change.FallingMask, sectionCount, change.WoodType ?? string.Empty, heading);
+                change.LogMask, sectionCount, change.WoodType ?? string.Empty, heading);
         }
+
+        /// <summary>
+        /// Somebody just cut this log: restart its linger and record its new mask.
+        /// Returns false if it is not a log.
+        ///
+        /// THE LINGER RESET IS THE POINT. A log now has to survive being taken apart
+        /// at one section per <c>TreeHarvest.DefaultCutInterval</c>, and a fixed
+        /// countdown from the moment it landed would delete a half-chopped trunk out
+        /// from under the player. Counting from the LAST cut instead means an
+        /// abandoned log still expires on schedule and a worked one never does - the
+        /// same shape as <c>TreeHarvest</c>'s regrowth timer, and for the same reason.
+        ///
+        /// <paramref name="sectionMask"/> keeps this registry's copy in step with the
+        /// harvest ledger so nothing downstream can serve a stale mask.
+        /// </summary>
+        public bool Touch(long logEntityId, int sectionMask)
+        {
+            if (!_logs.TryGetValue(logEntityId, out Log? log))
+            {
+                return false;
+            }
+
+            log.LastTouchedAt = _clock.Elapsed;
+            log.SectionMask = sectionMask;
+            return true;
+        }
+
+        /// <summary>
+        /// Drops one log without waiting for its linger - for a log whose last
+        /// section has just been chopped off, which has nothing left to draw.
+        /// Returns whether it was there. The caller still owes it a RemoveEntity;
+        /// this only forgets it here.
+        /// </summary>
+        public bool Forget(long logEntityId) => _logs.Remove(logEntityId);
 
         /// <summary>
         /// Every log whose next pose is due, advanced. Call once per main-loop turn;
@@ -707,15 +875,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
 
                 TimeSpan elapsed = now - log.DroppedAt;
-                bool landed = elapsed >= _fallDuration;
+                bool landed = elapsed >= log.FallDuration;
 
                 // Clamping to the fall duration rather than passing `elapsed`
                 // straight through is what guarantees the last pose is exactly
                 // ninety degrees. A tick that arrives late would otherwise never
                 // emit the final angle at all.
-                TimeSpan sample = landed ? _fallDuration : elapsed;
+                TimeSpan sample = landed ? log.FallDuration : elapsed;
 
-                uint rotation = TreeFall.PackedRotationAt(log.ParentRotation, log.Heading, sample, _fallDuration);
+                uint rotation = log.FallDuration <= TimeSpan.Zero
+                    ? log.ParentRotation
+                    : TreeFall.PackedRotationAt(log.ParentRotation, log.Heading, sample, log.FallDuration);
 
                 log.NextPoseAt = now + _poseInterval;
                 if (landed)
@@ -756,7 +926,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
             foreach (KeyValuePair<long, Log> entry in _logs)
             {
-                if (now - entry.Value.DroppedAt < _fallDuration + _linger)
+                // Measured from the LAST cut (Touch), or from the drop if nobody has
+                // touched it, so a log being taken apart is never retired mid-chop.
+                if (now - entry.Value.LastTouchedAt < entry.Value.FallDuration + _linger)
                 {
                     continue;
                 }

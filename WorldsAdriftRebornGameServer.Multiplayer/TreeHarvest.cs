@@ -102,6 +102,62 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         public int SectionsFelled { get; }
 
         /// <summary>
+        /// The ONE section that splinters into wood at the cut point - the section
+        /// the beam was actually resting on.
+        ///
+        /// WHY A CUT PAYS FOR ONE SECTION AND NOT FOR EVERYTHING IT SEVERED. Aim at
+        /// the base of a nine-section palm and <see cref="FallingMask"/> is eight
+        /// bits; paying for all eight is "the whole tree in one go", which is the
+        /// exact complaint this split exists to answer. Retail never paid for the
+        /// severed part either: <c>TreeSection.Harvest</c> (acs/TreeSection.cs:29-85)
+        /// grants nothing at all - it hands the severed sections to
+        /// <c>SpawnNewTree</c> as a NEW TREE, and you get their timber by chopping
+        /// THAT, section by section, wherever it came to rest.
+        ///
+        /// So the wood is conserved rather than reduced: every section is paid for
+        /// exactly once, on the cut where it is the section under the beam. A palm
+        /// still yields nine wood; it just takes nine cuts instead of two.
+        /// </summary>
+        public int SplinterMask => 1 << SectionId;
+
+        /// <summary>
+        /// What actually falls: everything the cut severed EXCEPT the section that
+        /// splintered into wood. This - not <see cref="FallingMask"/> - is the mask a
+        /// felled log is dropped with, and the reason is conservation: the splintered
+        /// section is already in somebody's inventory, so a log carrying it too would
+        /// let the same section be harvested twice.
+        ///
+        /// Zero when the cut took a single outermost section. That is not a failure:
+        /// a lone twig has nothing left to fall, so no log is dropped and the cut
+        /// behaves exactly as it did before logs existed.
+        /// </summary>
+        public int LogMask => FallingMask & ~SplinterMask;
+
+        /// <summary>
+        /// How many sections this cut turns into wood immediately: everything it
+        /// severed, minus everything that left in the log still owing its timber.
+        ///
+        /// One, for every cut authored data can produce, because the falling mask
+        /// always contains the section the beam was on. Written as the DIFFERENCE
+        /// rather than as the constant 1 so that it stays the exact complement of
+        /// <see cref="LogMask"/> whatever the topology does - the two together are
+        /// always <see cref="SectionsFelled"/>, which is the conservation law that
+        /// stops a section being paid for twice or not at all.
+        /// </summary>
+        public int SectionsSplintered
+        {
+            get
+            {
+                int logSections = 0;
+                for (int mask = LogMask; mask != 0; mask &= mask - 1)
+                {
+                    logSections++;
+                }
+                return SectionsFelled - logSections;
+            }
+        }
+
+        /// <summary>
         /// Bossa's authored species for this tree - "birch" for `Tree`, recovered
         /// from the shipped <c>_unityworker</c> prefabs
         /// (docs/research/loop/data/tree_woodtypes.json). The client never learns
@@ -275,16 +331,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
 
         private sealed class Stand
         {
-            public Stand(TreeTopology topology, string woodType)
+            public Stand(TreeTopology topology, string woodType, int sectionMask, bool felled)
             {
                 Topology = topology;
                 WoodType = woodType;
-                SectionMask = topology.FullMask;
+                SectionMask = sectionMask;
+                Felled = felled;
             }
 
             public TreeTopology Topology { get; }
             public string WoodType { get; }
             public int SectionMask { get; set; }
+
+            /// <summary>
+            /// Whether this stand is a LOG lying on the ground rather than a tree
+            /// rooted in the island. Two rules turn on it and nothing else does:
+            /// a log never regrows (<see cref="DueRespawns"/> skips it - a trunk that
+            /// sprouted back into a whole tree while you were chopping it would be
+            /// absurd), and a log's LAST section is harvestable where a standing
+            /// tree's is not (acs/TreeSection.cs:41-44 keeps a stump; a log has no
+            /// stump to keep, and refusing its final section would strand that wood
+            /// for ever).
+            /// </summary>
+            public bool Felled { get; }
 
             /// <summary>
             /// When this tree's sections grow back, or null while it has nothing to
@@ -353,12 +422,94 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 return false;
             }
 
-            _trees.Add(treeEntityId, new Stand(topology, woodType ?? string.Empty));
+            _trees.Add(treeEntityId, new Stand(topology, woodType ?? string.Empty, topology.FullMask, felled: false));
             return true;
+        }
+
+        /// <summary>
+        /// Declares a FELLED LOG harvestable - the trunk a cut just shed, lying
+        /// wherever it came down, with only the sections it carried away.
+        ///
+        /// THIS IS WHAT MAKES A TREE COME APART PIECE BY PIECE. Retail's
+        /// <c>TreeSection.Harvest</c> handed the severed sections to
+        /// <c>SpawnNewTree</c> (acs/TreeSection.cs:81) as a WHOLE NEW TREE ENTITY -
+        /// same prefab, same <c>TreeBase</c>, its own <c>sectionMask</c> - so the
+        /// thing on the ground was chopped by exactly the same code that chopped the
+        /// standing one. Planting the log here is that, and nothing more: from this
+        /// call the log has a mask, a topology and a cut cadence, so a beam resting
+        /// on it splits a piece off wherever it is aimed.
+        ///
+        /// <paramref name="sectionMask"/> is the log's mask and NOT the topology's
+        /// full mask, which is the whole difference from <see cref="Plant"/>: a log
+        /// is a fragment of a tree, and seeding it whole would have the severed crown
+        /// check out as a complete second tree standing inside the first.
+        /// </summary>
+        public bool PlantFelled(long logEntityId, TreeTopology topology, string woodType, int sectionMask)
+        {
+            if (topology == null)
+            {
+                throw new ArgumentNullException(nameof(topology));
+            }
+            if (sectionMask == 0)
+            {
+                // A log with no sections is not a log. Refusing rather than planting
+                // an empty stand keeps "IsTree means there is something to chop" true.
+                return false;
+            }
+            if (_trees.ContainsKey(logEntityId))
+            {
+                return false;
+            }
+
+            _trees.Add(logEntityId,
+                new Stand(topology, woodType ?? string.Empty, sectionMask & topology.FullMask, felled: true));
+            return true;
+        }
+
+        /// <summary>
+        /// Forgets a stand entirely, and every beam resting on it.
+        ///
+        /// For a LOG being retired: the entity is about to stop existing, so leaving
+        /// its stand behind would let a held latch keep cutting a tree that is no
+        /// longer on anybody's screen, and leaving the latch behind would keep that
+        /// player's beam pointed at a dead id instead of disengaging.
+        ///
+        /// Returns whether there was anything to forget.
+        /// </summary>
+        public bool Uproot(long entityId)
+        {
+            bool removed = _trees.Remove(entityId);
+
+            List<long>? orphaned = null;
+            foreach (KeyValuePair<long, Latch> entry in _latches)
+            {
+                if (entry.Value.Signal.TreeEntityId == entityId)
+                {
+                    (orphaned ??= new List<long>()).Add(entry.Key);
+                }
+            }
+            if (orphaned != null)
+            {
+                foreach (long cutter in orphaned)
+                {
+                    _latches.Remove(cutter);
+                }
+            }
+
+            return removed;
         }
 
         /// <summary>Whether an entity id is a tree this server is tracking.</summary>
         public bool IsTree(long entityId) => _trees.ContainsKey(entityId);
+
+        /// <summary>
+        /// Whether a stand is a felled log rather than a rooted tree, or null if it
+        /// is neither.
+        /// </summary>
+        public bool? IsFelled(long entityId)
+        {
+            return _trees.TryGetValue(entityId, out Stand? stand) ? stand.Felled : (bool?)null;
+        }
 
         /// <summary>
         /// A tree's CURRENT mask, or null if it is not a tree. This is what the
@@ -468,8 +619,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 }
 
                 TreeCut cut = stand.Topology.Cut(stand.SectionMask, latch.Signal.SectionId, latch.Signal.Above);
+
+                // THE LAST PIECE OF A LOG. Cut refuses at one active section
+                // (TreeCutOutcome.RefusedLastSection) because acs/TreeSection.cs:41-44
+                // keeps a stump: a rooted tree must never be chopped away to nothing.
+                // A log has no stump to keep. Refusing here would leave one section of
+                // every trunk lying on the ground, unharvestable, until its linger ran
+                // out - so the final section of a FELLED stand is taken, and the log
+                // is left with an empty mask for the caller to retire.
                 if (!cut.DidCut)
                 {
+                    if (!stand.Felled
+                        || cut.Outcome != TreeCutOutcome.RefusedLastSection
+                        || stand.SectionMask == 0)
+                    {
+                        continue;
+                    }
+
+                    int lastSection = LowestSectionIn(stand.SectionMask);
+                    stand.SectionMask = 0;
+                    stand.RespawnDueAt = null;
+
+                    changes.Add(new TreeSectionMaskChange(
+                        latch.Signal.TreeEntityId,
+                        entry.Key,
+                        lastSection,
+                        1 << lastSection,
+                        0,
+                        1,
+                        stand.WoodType));
                     continue;
                 }
 
@@ -480,7 +658,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 // sections to regrow. Arm (or push out) the regrowth timer: it
                 // fires a full delay after the LAST cut, so a beam still working the
                 // tree keeps it diminished and only an abandoned tree grows back.
-                stand.RespawnDueAt = stand.SectionMask == stand.Topology.FullMask
+                //
+                // A LOG NEVER REGROWS. It is already a severed fragment; regrowing it
+                // to its parent prefab's full mask would sprout a whole tree out of a
+                // trunk lying on the ground.
+                stand.RespawnDueAt = stand.Felled || stand.SectionMask == stand.Topology.FullMask
                     ? (TimeSpan?)null
                     : now + _respawnDelay;
 
@@ -573,6 +755,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             foreach (KeyValuePair<long, Stand> entry in _trees)
             {
                 Stand stand = entry.Value;
+                // A log is not a damaged tree, it is a piece of one. An understorm
+                // that "restored" it would grow a whole tree out of a trunk on the
+                // ground; the log simply lies there until its linger expires.
+                if (stand.Felled) continue;
                 if (stand.SectionMask == stand.Topology.FullMask) continue;
                 stand.SectionMask = stand.Topology.FullMask;
                 stand.RespawnDueAt = null;
@@ -580,6 +766,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                     new TreeRespawn(entry.Key, stand.SectionMask));
             }
             return respawns ?? (IReadOnlyList<TreeRespawn>)Array.Empty<TreeRespawn>();
+        }
+
+        /// <summary>
+        /// The lowest set bit's index in a non-zero mask. Only ever asked of a log
+        /// with exactly one section left, where "lowest" and "only" are the same
+        /// thing; written generally so a caller cannot depend on that.
+        /// </summary>
+        private static int LowestSectionIn(int sectionMask)
+        {
+            for (int i = 0; i < 32; i++)
+            {
+                if ((sectionMask & (1 << i)) != 0)
+                {
+                    return i;
+                }
+            }
+            return 0;
         }
     }
 }

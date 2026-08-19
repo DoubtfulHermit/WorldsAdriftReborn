@@ -708,9 +708,15 @@ namespace WorldsAdriftRebornGameServer
                 // crown then vanishes underneath it. Push the mask first and there is
                 // a window in which the tree is visibly bald and nothing is falling,
                 // which is the bug this whole path exists to remove.
-                FallingLogs.Drop(change);
+                int shownTo = FallingLogs.Drop(change);
 
                 PushTreeSectionMask(change.TreeEntityId, change.SectionMask);
+
+                // A cut that landed on a LOG restarts that log's linger, so a trunk
+                // being taken apart is never deleted mid-chop, and retires it outright
+                // once its last section has gone. Cheap and silent for a cut on a
+                // rooted tree, which is the common case.
+                FallingLogs.NoteCut(change.TreeEntityId, change.SectionMask);
 
                 // ------------------------------------------------------------------
                 // INVENTORY GRANT SEAM (Phase 5.4). The empty comment that used to
@@ -730,10 +736,26 @@ namespace WorldsAdriftRebornGameServer
                 // A metal beam+node pair (the sibling agents) reaches the SAME
                 // HarvestReward.Award from its own hit handler - see the seam note
                 // on HarvestReward.
+                //
+                // HOW MUCH, and this is where "the whole tree in one go" was fixed.
+                // Aiming at the base of a nine-section palm severs eight sections, and
+                // paying for all eight handed over the entire tree for one cut. Retail
+                // paid for none of them: TreeSection.Harvest grants nothing and hands
+                // the severed sections to SpawnNewTree as a NEW TREE you then chop
+                // where it lies (acs/TreeSection.cs:78-83).
+                //
+                // So a cut pays for the ONE section under the beam and the rest leaves
+                // in the log still owing its timber - unless nobody could be shown the
+                // log, in which case those sections just vanished the way they always
+                // did and the cut pays for all of them. That fallback is deliberate:
+                // the wood follows what the player can actually see, so a log that
+                // fails to reach anybody costs them nothing.
+                int units = shownTo > 0 ? change.SectionsSplintered : change.SectionsFelled;
+
                 Game.Gathering.HarvestReward.Award(
                     change.CutterEntityId,
                     change.WoodType,
-                    change.SectionsFelled,
+                    units,
                     "tree " + change.TreeEntityId + " section " + change.SectionId);
             }
 

@@ -237,7 +237,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             FelledLog? log = logs.Drop(LogId, change, Asset, Context, Where, Quaternion32Packing.Identity, Trees.SectionCount);
 
             Assert.NotNull(log);
-            Assert.Equal(cut.FallingMask, log!.Value.SectionMask);
+            Assert.Equal(change.LogMask, log!.Value.SectionMask);
             Assert.Equal(Tree, log.Value.TreeEntityId);
             Assert.Equal(Where, log.Value.Position);
             Assert.Equal(Trees.SectionCount, log.Value.SectionCount);
@@ -245,10 +245,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal(Asset, log.Value.AssetName);
             Assert.Equal(Context, log.Value.AssetContext);
 
-            // THE CONSERVATION LAW. Every section is in exactly one of the two
-            // things now standing on that spot: the diminished tree, or the log.
+            // THE CONSERVATION LAW, in the three-way form it took when the cut
+            // stopped paying for everything it severed. Every section of the tree is
+            // in exactly one of THREE places: still standing, lying in the log, or
+            // already in the chopper's inventory as the one section that splintered
+            // under the beam. Two would be a section rendered twice or nowhere; the
+            // third is the whole reason a tree no longer comes apart in one go.
             Assert.Equal(0, log.Value.SectionMask & cut.RemainingMask);
-            Assert.Equal(Trees.FullSectionMask, log.Value.SectionMask | cut.RemainingMask);
+            Assert.Equal(0, log.Value.SectionMask & change.SplinterMask);
+            Assert.Equal(0, cut.RemainingMask & change.SplinterMask);
+            Assert.Equal(Trees.FullSectionMask,
+                log.Value.SectionMask | cut.RemainingMask | change.SplinterMask);
+
+            // And the splinter is exactly one section, so a cut can never pay for
+            // more than the piece it broke off.
+            Assert.Equal(1, change.SectionsSplintered);
         }
 
         [Fact]
@@ -279,9 +290,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                     FelledLog? log = logs.Drop(nextId++, change, Asset, Context, Where,
                         Quaternion32Packing.Identity, Trees.SectionCount);
 
-                    Assert.NotNull(log);
-                    Assert.Equal(0, log!.Value.SectionMask & cut.RemainingMask);
-                    Assert.Equal(mask, log.Value.SectionMask | cut.RemainingMask);
+                    // A cut that severed a single outermost section leaves nothing to
+                    // fall - the whole of it splintered into wood - and drops no log.
+                    int logMask = log?.SectionMask ?? 0;
+
+                    Assert.Equal(0, logMask & cut.RemainingMask);
+                    Assert.Equal(0, logMask & change.SplinterMask);
+                    Assert.Equal(0, cut.RemainingMask & change.SplinterMask);
+                    Assert.Equal(mask, logMask | cut.RemainingMask | change.SplinterMask);
+                    Assert.Equal(1, change.SectionsSplintered);
 
                     mask = cut.RemainingMask;
                 }
@@ -496,15 +513,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         public void A_log_reports_its_own_mask_so_it_does_not_check_out_as_a_whole_tree()
         {
             // The 1036 branch falls back to Trees.FullSectionMask for an entity it
-            // does not recognise, and a log is deliberately NOT planted in
-            // TreeHarvest. Without this lookup every log would render as a complete
-            // tree standing inside the one it fell off.
+            // does not recognise. Without this lookup a log would render as a complete
+            // tree standing inside the one it fell off in the window between being
+            // dropped and being planted as a felled stand.
             FakeClock clock = new FakeClock();
             FallingLogs logs = Logs(clock);
             logs.Drop(LogId, Change(8, 0xF00, 0x0FF), Asset, Context, Where, Quaternion32Packing.Identity, 12);
 
             Assert.True(logs.IsLog(LogId));
-            Assert.Equal(0xF00, logs.MaskOf(LogId));
+
+            // Section 8 splintered into wood under the beam, so the log carries the
+            // other three bits of what came away and not that one.
+            Assert.Equal(0xF00 & ~(1 << 8), logs.MaskOf(LogId));
             Assert.NotEqual(Trees.FullSectionMask, logs.MaskOf(LogId));
             Assert.Equal(12, logs.SectionCountOf(LogId));
             Assert.Equal(Trees.WoodType, logs.WoodTypeOf(LogId));
@@ -831,16 +851,280 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
-        public void The_worst_case_wire_cost_of_the_whole_feature_is_bounded()
+        public void A_clearing_full_of_landed_logs_costs_nothing_to_keep()
         {
-            // The number the multiplayer-safety audit asks for: what does this cost
-            // when a player is doing the worst thing they can do with it? Eight logs
-            // is the budget, 20 Hz is the cadence, and a log stops sending the
-            // moment it settles - so the ceiling is a fifth of one 20 Hz avatar.
-            double worstCaseUpdatesPerSecond =
-                TreeFall.DefaultMaxConcurrent / TreeFall.PoseInterval.TotalSeconds;
+            // The number the multiplayer-safety audit asks for, DRIVEN rather than
+            // arithmetic: what does a full budget of logs cost once they are down?
+            // The previous version of this test computed `budget / interval` in the
+            // test and asserted the answer, which is a restatement of two constants
+            // and survives deleting the entire pose path. This one fills the budget,
+            // lets every log land, and asserts the registry then asks for nothing -
+            // which is the property that makes raising the budget affordable.
+            FakeClock clock = new FakeClock();
+            FallingLogs logs = Logs(clock, max: TreeFall.DefaultMaxConcurrent);
 
-            Assert.Equal(160.0, worstCaseUpdatesPerSecond, 6);
+            for (int i = 0; i < TreeFall.DefaultMaxConcurrent; i++)
+            {
+                Assert.NotNull(logs.Drop(LogId + i, Change(8, 0xF00, 0x0FF), Asset, Context, Where,
+                    Quaternion32Packing.Identity, 12));
+            }
+            Assert.False(logs.HasCapacity);
+
+            // Run the whole fall out, draining poses the way the main loop does.
+            for (int turn = 0; turn < 200; turn++)
+            {
+                logs.DuePoses();
+                clock.Advance(Pose);
+            }
+
+            // Every log is down and silent. Not "sends less", NONE: a settled log is
+            // never pushed again until it is removed.
+            Assert.Equal(TreeFall.DefaultMaxConcurrent, logs.Count);
+            clock.Advance(TimeSpan.FromSeconds(1));
+            Assert.Empty(logs.DuePoses());
+        }
+
+        // ------------------------------------------------------------------
+        // WHICH WAY IT ACTUALLY GOES OVER
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Rotates a vector by a packed rotation - q v q* - so a test can ask where
+        /// the crown ENDED UP rather than only how far it turned.
+        ///
+        /// This is the oracle the suite was missing. Every existing assertion about
+        /// the fall measures an ANGLE, and an angle is blind to the two things most
+        /// likely to be wrong: the order the topple is composed with the tree's own
+        /// rotation, and the mapping from a compass heading to a world direction.
+        /// Both are conjugations, so both leave every angle in the file unchanged.
+        /// </summary>
+        private static (double X, double Y, double Z) Rotate(uint packed, double x, double y, double z)
+        {
+            (float w, float qx, float qy, float qz) = Quaternion32Packing.Decode(packed);
+
+            // t = 2 * (q_vec x v); v' = v + w*t + q_vec x t
+            double tx = 2.0 * ((qy * z) - (qz * y));
+            double ty = 2.0 * ((qz * x) - (qx * z));
+            double tz = 2.0 * ((qx * y) - (qy * x));
+
+            return (x + (w * tx) + ((qy * tz) - (qz * ty)),
+                    y + (w * ty) + ((qz * tx) - (qx * tz)),
+                    z + (w * tz) + ((qx * ty) - (qy * tx)));
+        }
+
+        [Fact]
+        public void A_log_off_a_ROTATED_tree_still_falls_the_way_the_heading_says()
+        {
+            // THE HOLE THIS CLOSES. TreeFall.PackedRotationAt composes the world-frame
+            // topple with the tree's own rotation, and the argument order matters: the
+            // topple must be applied in the WORLD frame, after the tree's rotation,
+            // or the axis is itself spun by the tree's yaw and every log off a rotated
+            // tree goes over in the wrong direction. Swapping the two operands leaves
+            // the ANGLE between the standing and fallen poses at exactly ninety
+            // degrees either way, so nothing that measures an angle can see it - and
+            // nothing in this suite measured anything else.
+            //
+            // The 13,266 release-world trees are placed with authored yaws, so this is
+            // the case that actually ships.
+            const double half = Math.PI / 4.0;    // 90 degrees, halved for the quaternion
+            uint yawed = Quaternion32Packing.Encode(
+                (float)Math.Cos(half), 0f, (float)Math.Sin(half), 0f);
+
+            // Quaternion32 is a lossy wire format, so everything here is asserted to
+            // a tolerance an eye could not see rather than to decimal places.
+            const double slop = 0.02;
+
+            // The tree is turned but still upright: its trunk points at world up.
+            (double ux, double uy, double uz) = Rotate(yawed, 0, 1, 0);
+            Assert.True(Math.Abs(ux) < slop && Math.Abs(uy - 1.0) < slop && Math.Abs(uz) < slop,
+                "a yawed tree is still upright, got (" + ux + ", " + uy + ", " + uz + ")");
+
+            foreach (double heading in new[] { 0.0, 90.0, 180.0, 270.0 })
+            {
+                uint down = TreeFall.PackedRotationAt(yawed, heading, Fall, Fall);
+
+                // Where the trunk points once the log is flat.
+                (double x, double y, double z) = Rotate(down, 0, 1, 0);
+
+                // It is on the ground: no vertical component left.
+                Assert.True(Math.Abs(y) < slop,
+                    "a landed log is flat; heading " + heading + " left y=" + y);
+
+                // And it points along the heading it was given, in the WORLD frame,
+                // unaffected by the tree's own yaw. This is the assertion the yaw
+                // would break if the composition were the other way round.
+                double radians = heading * Math.PI / 180.0;
+                Assert.True(Math.Abs(x - Math.Sin(radians)) < slop
+                            && Math.Abs(z - Math.Cos(radians)) < slop,
+                    "heading " + heading + " should drop the crown towards ("
+                    + Math.Sin(radians) + ", 0, " + Math.Cos(radians) + "), got ("
+                    + x + ", " + y + ", " + z + ")");
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Who is shown a log - the predicate that silently broke the feature
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_peer_that_merely_holds_the_tree_is_shown_the_log_it_sheds()
+        {
+            // THE REGRESSION TEST FOR THE BUG THAT MADE THIS WHOLE FEATURE INVISIBLE.
+            // Every release-world tree is streamed in by ResourceInterestService,
+            // which keeps its own per-peer loaded set and never writes the global
+            // send ledger. Gating the log on the send ledger alone therefore answered
+            // "no" for every tree in the world: the live server logged
+            // "shown to 0 peer(s)" on the same line as "pushed sectionMask ... to 1
+            // checked-out peer(s)", i.e. the tree lost its sections on screen and
+            // nothing fell. Holding the tree's components is the evidence the mask
+            // push itself uses, so the two can never disagree about who is watching.
+            Assert.True(TreeFall.MayShowLog(
+                addEntitySent: false, holdsTreeComponents: true, canReceiveRemove: true));
+        }
+
+        [Fact]
+        public void A_peer_from_the_connect_plan_is_shown_the_log_too()
+        {
+            // The other ledger, for a tree that came out of the connect-time spawn
+            // plan rather than out of streaming. Either is sufficient; that is what
+            // OR means and why neither was allowed to become the only question asked.
+            Assert.True(TreeFall.MayShowLog(
+                addEntitySent: true, holdsTreeComponents: false, canReceiveRemove: true));
+        }
+
+        [Fact]
+        public void A_peer_that_does_not_hold_the_tree_is_shown_nothing()
+        {
+            // The parent tree is the spatial proxy. A log appearing out of a tree the
+            // player cannot see would be a trunk materialising in empty air.
+            Assert.False(TreeFall.MayShowLog(
+                addEntitySent: false, holdsTreeComponents: false, canReceiveRemove: true));
+        }
+
+        [Fact]
+        public void A_peer_that_could_never_be_sent_the_removal_is_shown_nothing()
+        {
+            // A VETO, not a third alternative: a peer with no REMOVE_ENTITY_OP channel
+            // would keep the log for the rest of its session. Permanent litter is
+            // worse than a missing log, so it is never shown one however well it
+            // holds the tree.
+            Assert.False(TreeFall.MayShowLog(
+                addEntitySent: true, holdsTreeComponents: true, canReceiveRemove: false));
+        }
+
+        // ------------------------------------------------------------------
+        // A piece broken off something already on the ground
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_piece_split_off_a_fallen_log_does_not_topple_again()
+        {
+            // Chopping a trunk that is already lying down splits a piece off it. That
+            // piece is seeded at the trunk's CURRENT pose and is down from the instant
+            // it exists; running it through the topple would tip an already-flat log
+            // over a second time, and it is also what would make raising the budget
+            // expensive, because a toppling log streams and a settled one does not.
+            FakeClock clock = new FakeClock();
+            FallingLogs logs = Logs(clock);
+
+            uint lyingDown = TreeFall.PackedRotationAt(
+                Quaternion32Packing.Identity, 90.0, Fall, Fall);
+
+            Assert.NotNull(logs.Drop(LogId, Change(8, 0xF00, 0x0FF), Asset, Context, Where,
+                lyingDown, 12, alreadyDown: true));
+
+            // It never moves off the pose it was born at, at any point in its life.
+            Assert.Equal(lyingDown, logs.RotationOf(LogId));
+
+            IReadOnlyList<FallingLogPose> first = logs.DuePoses();
+            Assert.Single(first);
+            Assert.True(first[0].Landed);
+            Assert.Equal(lyingDown, first[0].PackedRotation);
+
+            clock.Advance(Fall + Fall);
+            Assert.Equal(lyingDown, logs.RotationOf(LogId));
+        }
+
+        [Fact]
+        public void A_settled_piece_sends_only_its_landed_repeats_and_then_stops()
+        {
+            // The bandwidth claim behind the raised budget, asserted rather than
+            // asserted-about: a piece that never topples costs one pose plus the
+            // repeats that protect it from a dropped packet, and then nothing.
+            FakeClock clock = new FakeClock();
+            FallingLogs logs = Logs(clock, repeats: 4);
+
+            logs.Drop(LogId, Change(8, 0xF00, 0x0FF), Asset, Context, Where,
+                Quaternion32Packing.Identity, 12, alreadyDown: true);
+
+            int sends = 0;
+            for (int turn = 0; turn < 100; turn++)
+            {
+                sends += logs.DuePoses().Count;
+                clock.Advance(Pose);
+            }
+
+            Assert.Equal(5, sends);
+        }
+
+        // ------------------------------------------------------------------
+        // A log being chopped must not be deleted under the player
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void Cutting_a_log_restarts_the_clock_that_would_have_removed_it()
+        {
+            // A log is now something you take apart at one section per cut interval.
+            // A fixed countdown from the moment it landed would delete a half-chopped
+            // trunk mid-swing, which is the same trap TreeHarvest's regrowth timer
+            // avoids by counting from the LAST cut rather than the first.
+            FakeClock clock = new FakeClock();
+            FallingLogs logs = Logs(clock);
+            logs.Drop(LogId, Change(8, 0xF00, 0x0FF), Asset, Context, Where,
+                Quaternion32Packing.Identity, 12);
+
+            // Sit on it until it is one tick short of being retired, then cut it.
+            clock.Advance(Fall + Linger - TimeSpan.FromSeconds(0.1));
+            Assert.Empty(logs.DueRemovals());
+
+            Assert.True(logs.Touch(LogId, 0x700));
+            Assert.Equal(0x700, logs.MaskOf(LogId));
+
+            // The old deadline passes and the log is still there.
+            clock.Advance(TimeSpan.FromSeconds(1));
+            Assert.Empty(logs.DueRemovals());
+            Assert.True(logs.IsLog(LogId));
+
+            // A full linger with nobody touching it and it goes, exactly as before.
+            clock.Advance(Fall + Linger);
+            Assert.Equal(new[] { LogId }, logs.DueRemovals());
+        }
+
+        [Fact]
+        public void Touching_something_that_is_not_a_log_changes_nothing()
+        {
+            FakeClock clock = new FakeClock();
+            FallingLogs logs = Logs(clock);
+
+            Assert.False(logs.Touch(Tree, 0xF));
+            Assert.False(logs.Forget(Tree));
+        }
+
+        [Fact]
+        public void A_log_whose_last_section_has_gone_can_be_forgotten_at_once()
+        {
+            // The caller retires a log the moment its mask empties rather than
+            // leaving an entity that draws nothing on every client until its linger
+            // runs out.
+            FakeClock clock = new FakeClock();
+            FallingLogs logs = Logs(clock);
+            logs.Drop(LogId, Change(8, 0xF00, 0x0FF), Asset, Context, Where,
+                Quaternion32Packing.Identity, 12);
+
+            Assert.True(logs.Forget(LogId));
+            Assert.False(logs.IsLog(LogId));
+            Assert.Null(logs.MaskOf(LogId));
+            Assert.Equal(0, logs.Count);
         }
     }
 }

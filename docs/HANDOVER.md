@@ -1234,6 +1234,35 @@ registration -> interest classification -> asset request -> AddEntity
 Do not equate “the prefab renders” with “the resource is authoritative.” That
 mistake caused the dynamically streamed visible-but-inert trees and rocks.
 
+**There are TWO ledgers of “this peer has that entity”, and asking the wrong one
+is a silent no-op.** `EntitySendLedger` (`WorldsAdriftRebornGameServer.SentEntities`)
+records entities announced through the connect-time spawn plan and by the fauna,
+whale, terrain, placement and crafting spawners. `ResourceInterestService` keeps
+its **own** per-peer `Loaded` set and writes nothing to the send ledger — so for
+every one of the 13,266 streamed release-world trees, deposits and fuel pods,
+`SentEntities.WasSent` answers **no** while the peer is looking straight at the
+thing.
+
+This cost falling trees a whole release. `FallingLogService.Drop` gated the log on
+`SentEntities.WasSent(peer, treeEntityId)` alone, so every cut built a log, ticked
+it down its arc and retired it having shown it to nobody. The evidence was two
+adjacent lines in the server log saying opposite things about the same cut:
+
+```text
+[tree-fall] log 2000000002 off tree 1125 mask=111111110 ..., shown to 0 peer(s).
+[tree-visual] pushed sectionMask=1 for entity 1125 to 1 checked-out peer(s).
+```
+
+The tree lost its sections on screen and nothing fell — indistinguishable, to the
+player, from “trees just disappear”. Merged code, green tests, and a shipped patch
+note claiming it worked.
+
+**The rule:** when a feature needs to know who can SEE something, ask
+`GameState.Instance.ComponentMap` — the peer holds components of that entity —
+rather than, or as well as, the send ledger. That is the same evidence
+`PushTreeSectionMask` uses, so a visual and the entity it hangs off can never
+disagree about the audience. `TreeFall.MayShowLog` is the pure form of it.
+
 ### Ship transform bug
 
 Keep coordinate frames explicit:
