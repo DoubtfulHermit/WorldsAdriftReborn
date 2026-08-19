@@ -653,7 +653,8 @@ namespace WorldsAdriftRebornGameServer.Game
                 // mass, which is what every legacy birch-and-iron hull lands near.
                 double agility = AgilityScaleFor(hullEntityId);
                 FlightEmit emit = session.Advance(
-                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility);
+                    nowMs, ShipMotionPolicy.SendIntervalSeconds, _tuning, unfurledSails, agility,
+                    PropulsionFor(hullEntityId, unfurledSails));
                 CompleteDepartureIfOutside(hullEntityId, session.State);
                 PersistPoseWhenDue(hullEntityId, session.State);
                 if (!emit.Emit)
@@ -1053,6 +1054,93 @@ namespace WorldsAdriftRebornGameServer.Game
 
         /// <summary>Per-hull agility cache; see <see cref="AgilityScaleFor"/>.</summary>
         private readonly Dictionary<long, double> _agilityByHull = new Dictionary<long, double>();
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_FORCES=1 replaces the kinematic speed-command model
+        /// with the RECOVERED force model: engines push in newtons, sails push
+        /// with the wind, quadratic drag resists, and top speed is wherever those
+        /// balance rather than a constant.
+        ///
+        /// OFF by default, deliberately and not merely conventionally. The force
+        /// model makes thrust depend on MOUNTED ENGINES, and hulls built before it
+        /// existed were built by players who had no reason to mount any - under
+        /// the new model those ships have no thrust at all. Switching this on is a
+        /// balance decision about live ships, so it is the operator's to make and
+        /// wants a flight test behind it, not a deploy that silently changes how
+        /// everybody's ship handles.
+        /// </summary>
+        internal static readonly bool ForceModelEnabled =
+            Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FORCES") == "1";
+
+        /// <summary>
+        /// This hull's physical make-up for the force model, or null when the
+        /// force model is off - in which case the integrator keeps its existing
+        /// kinematic behaviour exactly.
+        ///
+        /// Engines are counted LIVE rather than cached, because unlike hull
+        /// materials they are not immutable: a player can mount or salvage an
+        /// engine mid-flight and should feel the difference on the next control
+        /// point. <c>MountedParts.OnHull</c> is a yielding scan over a per-ship
+        /// handful of parts and is already called twice per flight tick for
+        /// replication bookkeeping, so this adds no new traversal class.
+        /// </summary>
+        private ShipPropulsion? PropulsionFor(long hullEntityId, int unfurledSails)
+        {
+            if (!ForceModelEnabled)
+            {
+                return null;
+            }
+
+            int engines = 0;
+            foreach (KeyValuePair<long, Crafting.MountedParts.Mount> entry
+                in Crafting.MountedParts.OnHull(hullEntityId))
+            {
+                Crafting.MountedParts.Mount mount = entry.Value;
+                if (Multiplayer.Ship.ShipPartKinds.Classify(
+                        mount.ItemType, mount.PrefabName, mount.AttachmentType)
+                    == Multiplayer.Ship.ShipPartKinds.Engine)
+                {
+                    engines++;
+                }
+            }
+
+            return new ShipPropulsion(
+                HullMassKgFor(hullEntityId),
+                engines * ShipForceModel.DefaultEngineThrustNewtons,
+                unfurledSails);
+        }
+
+        /// <summary>
+        /// This hull's mass in kilograms, from its real materials and real cell and
+        /// deck counts. Cached on the same reasoning as the agility cache: a built
+        /// hull's materials and geometry never change. A hull whose plan will not
+        /// decode falls back to the reference mass rather than to zero, because the
+        /// force model divides by this.
+        /// </summary>
+        private double HullMassKgFor(long hullEntityId)
+        {
+            if (_hullMassByHull.TryGetValue(hullEntityId, out double cached))
+            {
+                return cached;
+            }
+
+            double massKg = Multiplayer.Materials.HullMassCalculator.ReferenceHullMassKg;
+            byte[]? hullBytes = Crafting.BuiltShips.HullBytesFor(hullEntityId);
+            if (hullBytes != null
+                && Multiplayer.Ship.ShipPlanModel.TryDecode(hullBytes, out Multiplayer.Ship.ShipPlanModel? plan, out _)
+                && plan != null)
+            {
+                Multiplayer.Ship.ShipHullMetrics metrics = Multiplayer.Ship.ShipHullMetrics.Measure(plan);
+                massKg = Multiplayer.Materials.HullMassCalculator.HullMassKg(
+                    Crafting.BuiltShips.MaterialsFor(hullEntityId), metrics.CellCount, metrics.DeckCount);
+            }
+
+            _hullMassByHull[hullEntityId] = massKg;
+            return massKg;
+        }
+
+        /// <summary>Per-hull mass cache; see <see cref="HullMassKgFor"/>.</summary>
+        private readonly Dictionary<long, double> _hullMassByHull = new Dictionary<long, double>();
 
         private void PersistPoseWhenDue(long hullEntityId, FlightState state)
         {

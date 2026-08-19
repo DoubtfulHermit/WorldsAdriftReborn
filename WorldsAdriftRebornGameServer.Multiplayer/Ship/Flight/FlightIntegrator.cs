@@ -153,7 +153,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// recovered (the inverse-square-root shape) and what is not.
         /// </summary>
         public static FlightState Step(FlightState state, FlightControlInput input, double dtSeconds,
-            FlightTuning tuning, int unfurledSails = 0, double agilityScale = 1.0)
+            FlightTuning tuning, int unfurledSails = 0, double agilityScale = 1.0,
+            ShipPropulsion? propulsion = null)
         {
             if (dtSeconds <= 0.0 || double.IsNaN(dtSeconds) || double.IsInfinity(dtSeconds))
             {
@@ -196,26 +197,64 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // the helm asks for forward drive. Reverse is engine/control power,
             // not something a sail should amplify. The result is capped at the
             // shared legal control-point speed.
-            double sailScale = tuning.SailPropulsionScale(unfurledSails);
-            double forwardMax = Math.Min(
-                ShipMotionPolicy.MaxSpeedMetresPerSecond,
-                tuning.MaxSpeedMps * sailScale);
-            double speedTarget = input.Throttle >= 0f
-                ? input.Throttle * forwardMax
-                : input.Throttle * tuning.MaxSpeedMps * tuning.ReverseFactor;
-            // Sail force increases the acceleration toward a higher FORWARD
-            // target. Furling/removing canvas or pulling the lever back uses the
-            // ordinary deceleration, rather than sails somehow braking harder.
-            // Mass divides thrust: the same engines shift a light hull faster.
-            // Multiplied with the sail bonus rather than replacing it, so canvas and
-            // ballast compose the way a player would expect.
-            double acceleration = tuning.AccelMps2 * agility;
-            if (speedTarget > state.SpeedCmdMps && speedTarget > 0.0)
+            double speedCmd;
+            if (propulsion.HasValue)
             {
-                acceleration *= sailScale;
+                // THE FORCE MODEL. Speed is no longer commanded at all: engines
+                // and sails push, quadratic drag resists, and whatever speed those
+                // balance at IS the ship's top speed. See ShipForceModel for which
+                // constants are recovered and which are ours.
+                ShipPropulsion ship = propulsion.Value;
+
+                // Engines. Throttle scales thrust, not speed. Reverse is the same
+                // engines run backwards at the tuned fraction - retail's engines
+                // only pushed forward, so reversing is this server's affordance
+                // and keeps its existing feel knob.
+                double throttle = Math.Clamp(input.Throttle, -1.0, 1.0);
+                double engineNewtons = ship.EngineThrustNewtons
+                    * ShipForceModel.ShipThrustMultiplier
+                    * (throttle >= 0.0 ? throttle : throttle * tuning.ReverseFactor);
+
+                // Sails. Independent of the throttle and of the current speed -
+                // this is the whole point. Retail's sail force came from the WIND
+                // and the sail's trim, so an unfurled sail pushes a ship that is
+                // standing still with its lever centred.
+                double sailNewtons = ShipForceModel.SailForwardNewtons(
+                    unfurledSails, yaw, ShipForceModel.DefaultSailPowerNewtonsPerWind);
+
+                double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
+                speedCmd = ShipForceModel.StepSpeed(state.SpeedCmdMps, thrustAccel, dtSeconds);
+
+                // The wire clamp, NOT a physics cap: above this a hull moves far
+                // enough between two control points to read as teleporting.
+                speedCmd = Math.Clamp(
+                    speedCmd,
+                    -ShipMotionPolicy.MaxSpeedMetresPerSecond,
+                    ShipMotionPolicy.MaxSpeedMetresPerSecond);
             }
-            double speedCmd = ApproachWithSnap(
-                state.SpeedCmdMps, speedTarget, acceleration * dtSeconds, SnapEpsilon);
+            else
+            {
+                double sailScale = tuning.SailPropulsionScale(unfurledSails);
+                double forwardMax = Math.Min(
+                    ShipMotionPolicy.MaxSpeedMetresPerSecond,
+                    tuning.MaxSpeedMps * sailScale);
+                double speedTarget = input.Throttle >= 0f
+                    ? input.Throttle * forwardMax
+                    : input.Throttle * tuning.MaxSpeedMps * tuning.ReverseFactor;
+                // Sail force increases the acceleration toward a higher FORWARD
+                // target. Furling/removing canvas or pulling the lever back uses the
+                // ordinary deceleration, rather than sails somehow braking harder.
+                // Mass divides thrust: the same engines shift a light hull faster.
+                // Multiplied with the sail bonus rather than replacing it, so canvas and
+                // ballast compose the way a player would expect.
+                double acceleration = tuning.AccelMps2 * agility;
+                if (speedTarget > state.SpeedCmdMps && speedTarget > 0.0)
+                {
+                    acceleration *= sailScale;
+                }
+                speedCmd = ApproachWithSnap(
+                    state.SpeedCmdMps, speedTarget, acceleration * dtSeconds, SnapEpsilon);
+            }
 
             // 3. Velocity vector chases the commanded velocity. Time-constant
             // form: a fraction dt/tau of the gap per step (capped at 1 = the
