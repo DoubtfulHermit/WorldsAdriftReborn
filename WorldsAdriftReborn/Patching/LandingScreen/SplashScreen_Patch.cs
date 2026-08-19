@@ -119,8 +119,18 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
                     return;
                 }
 
+                // Log what is being REPLACED, not just that something was. The
+                // decompile can name this field but it cannot prove which
+                // parchment on screen it draws, and "the patch applied but the
+                // screen is unchanged" is the exact failure this whole area keeps
+                // producing. One line of the old text settles it from a log.
+                string before = label.text ?? string.Empty;
+                Debug.Log("[WAReborn] welcome page label currently reads: '"
+                    + Excerpt(before) + "'.");
+
                 liveWelcomeLabel = label;
                 label.text = WelcomeMessageFetcher.Current();
+                WelcomeCopy_Patch.Sweep("the splash screen");
 
                 if (!subscribed)
                 {
@@ -143,6 +153,13 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             }
         }
 
+        /// <summary>A single readable line of a label's text, for the log.</summary>
+        private static string Excerpt(string text)
+        {
+            string oneLine = text.Replace("\r", " ").Replace("\n", " ").Trim();
+            return oneLine.Length <= 70 ? oneLine : oneLine.Substring(0, 70) + "...";
+        }
+
         private static void OnWelcomeArrived()
         {
             // Unity's operator== is what makes this safe once the screen has been
@@ -153,6 +170,7 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             }
 
             liveWelcomeLabel.text = WelcomeMessageFetcher.Current();
+            WelcomeCopy_Patch.Sweep("a late server answer");
             Debug.Log("[WAReborn] welcome page updated with the message that arrived from the server.");
         }
 
