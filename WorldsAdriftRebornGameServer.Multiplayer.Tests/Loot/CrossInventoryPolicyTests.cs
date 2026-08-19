@@ -54,7 +54,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
             bag.Add(Item(1104, "small", 9, 17));   // deliberately the SAME id
 
             CrossMoveOutcome outcome = CrossInventoryPolicy.TryMove(
-                chest, bag, sourceItemId: 1104, destinationItemId: 5000,
+                chest, bag, sourceItemId: 1104, nextDestinationItemId: () => 5000,
                 x: 0, y: 0, rotate: false, Footprints);
 
             Assert.Equal(CrossMoveOutcome.Moved, outcome);
@@ -77,7 +77,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
 
             InventoryModel bag = Player();
             Assert.Equal(CrossMoveOutcome.Moved, CrossInventoryPolicy.TryMove(
-                chest, bag, 1104, 9000, 2, 2, rotate: false, Footprints));
+                chest, bag, 1104, () => 9000, 2, 2, rotate: false, Footprints));
 
             InventoryItem moved = bag.ById(9000)!;
             Assert.Equal(7, moved.Amount);
@@ -96,7 +96,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
             InventoryModel bag = new InventoryModel(2, 2, false, 0);   // far too small
 
             CrossMoveOutcome outcome = CrossInventoryPolicy.TryMove(
-                chest, bag, 1104, 5000, 0, 0, rotate: false, Footprints);
+                chest, bag, 1104, () => 5000, 0, 0, rotate: false, Footprints);
 
             Assert.Equal(CrossMoveOutcome.NoRoom, outcome);
             Assert.NotNull(chest.ById(1104));      // still in the chest
@@ -111,7 +111,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
             bag.Add(Item(2000, "wide", 0, 0));
 
             Assert.Equal(CrossMoveOutcome.NoRoom, CrossInventoryPolicy.TryMove(
-                chest, bag, 1104, 5000, 1, 0, rotate: false, Footprints));
+                chest, bag, 1104, () => 5000, 1, 0, rotate: false, Footprints));
             Assert.NotNull(chest.ById(1104));
         }
 
@@ -123,10 +123,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
             InventoryModel narrow = new InventoryModel(2, 4, false, 0);
 
             Assert.Equal(CrossMoveOutcome.NoRoom, CrossInventoryPolicy.TryMove(
-                chest, narrow, 1104, 7000, 0, 0, rotate: false, Footprints));
+                chest, narrow, 1104, () => 7000, 0, 0, rotate: false, Footprints));
 
             Assert.Equal(CrossMoveOutcome.Moved, CrossInventoryPolicy.TryMove(
-                chest, narrow, 1104, 7000, 0, 0, rotate: true, Footprints));
+                chest, narrow, 1104, () => 7000, 0, 0, rotate: true, Footprints));
             Assert.True(narrow.ById(7000)!.Rotated);
         }
 
@@ -139,7 +139,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
 
             InventoryModel chest = new InventoryModel(10, 6, false, 0);
             Assert.Equal(CrossMoveOutcome.Moved, CrossInventoryPolicy.TryMove(
-                bag, chest, 1104, 3000, 0, 0, rotate: false, Footprints));
+                bag, chest, 1104, () => 3000, 0, 0, rotate: false, Footprints));
 
             // A chest has no hotbar; an item that kept slot 5 would give it one.
             Assert.Equal(InventoryItem.NoSlot, chest.ById(3000)!.HotBarSlotNum);
@@ -152,14 +152,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
             InventoryModel bag = Player();
 
             Assert.Equal(CrossMoveOutcome.UnknownItem,
-                CrossInventoryPolicy.TryMove(chest, bag, 4242, 1, 0, 0, false, Footprints));
+                CrossInventoryPolicy.TryMove(chest, bag, 4242, () => 1, 0, 0, false, Footprints));
             Assert.Equal(CrossMoveOutcome.SameInventory,
-                CrossInventoryPolicy.TryMove(chest, chest, 1104, 1, 0, 0, false, Footprints));
+                CrossInventoryPolicy.TryMove(chest, chest, 1104, () => 1, 0, 0, false, Footprints));
 
             InventoryModel odd = new InventoryModel(10, 6, false, 0);
             odd.Add(Item(1104, "not-a-real-type", 0, 0));
             Assert.Equal(CrossMoveOutcome.UnknownItemType,
-                CrossInventoryPolicy.TryMove(odd, bag, 1104, 1, 0, 0, false, Footprints));
+                CrossInventoryPolicy.TryMove(odd, bag, 1104, () => 1, 0, 0, false, Footprints));
         }
 
         [Fact]
@@ -171,7 +171,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Loot
                 new Dictionary<string, string>(), null));
 
             Assert.Equal(CrossMoveOutcome.NotInGrid, CrossInventoryPolicy.TryMove(
-                bag, new InventoryModel(10, 6, false, 0), 1104, 1, 0, 0, false, Footprints));
+                bag, new InventoryModel(10, 6, false, 0), 1104, () => 1, 0, 0, false, Footprints));
         }
 
         [Fact]

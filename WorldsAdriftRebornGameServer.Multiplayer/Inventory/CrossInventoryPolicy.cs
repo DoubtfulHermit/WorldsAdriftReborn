@@ -59,23 +59,25 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
         /// <summary>
         /// Moves one item from <paramref name="source"/> into
         /// <paramref name="destination"/> at (<paramref name="x"/>,
-        /// <paramref name="y"/>), giving it <paramref name="destinationItemId"/>.
+        /// <paramref name="y"/>), giving it a fresh destination id.
         ///
-        /// <paramref name="destinationItemId"/> is supplied rather than allocated
-        /// here so this stays pure and so the caller can refuse to burn an id on a
-        /// move that is going to fail - the same discipline
-        /// <c>InventoryPolicy.TryStackInto</c> follows.
+        /// <paramref name="nextDestinationItemId"/> is a FACTORY and is called at
+        /// most once, after every refusal has already been decided. Taking a bare
+        /// int here would burn an id on every rejected drag - which is the latent
+        /// leak <c>InventoryPolicy.TryStackInto</c> documents closing on the grant
+        /// path, and a chest is dragged from far more often than it is granted into.
         /// </summary>
         public static CrossMoveOutcome TryMove(
             InventoryModel source,
             InventoryModel destination,
             int sourceItemId,
-            int destinationItemId,
+            Func<int> nextDestinationItemId,
             int x,
             int y,
             bool rotate,
             ItemFootprintLookup footprints)
         {
+            if (nextDestinationItemId == null) throw new ArgumentNullException(nameof(nextDestinationItemId));
             if (source == null) throw new ArgumentNullException(nameof(source));
             if (destination == null) throw new ArgumentNullException(nameof(destination));
             if (footprints == null) throw new ArgumentNullException(nameof(footprints));
@@ -118,7 +120,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
 
             InventoryItem arriving = item with
             {
-                ItemId = destinationItemId,
+                ItemId = nextDestinationItemId(),
                 X = x,
                 Y = y,
                 Rotated = rotate,
@@ -185,7 +187,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
                     continue;
                 }
 
-                if (TryMove(source, destination, item.ItemId, nextDestinationItemId(),
+                if (TryMove(source, destination, item.ItemId, nextDestinationItemId,
                         spot.Value.X, spot.Value.Y, rotate: false, footprints)
                     == CrossMoveOutcome.Moved)
                 {

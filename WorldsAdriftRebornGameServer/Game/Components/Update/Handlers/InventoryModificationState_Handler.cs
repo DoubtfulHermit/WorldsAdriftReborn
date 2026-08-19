@@ -70,8 +70,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             requests += HandleMoveItem(clientComponentUpdate, model);
             requests += HandleAssignToHotBar(clientComponentUpdate, model);
             requests += HandleRemoveFromHotBar(clientComponentUpdate, model);
-            requests += HandleCrossInventoryMove(clientComponentUpdate, entityId, model);
-            requests += HandleMoveAll(clientComponentUpdate, entityId, model);
+            requests += HandleCrossInventoryMove(clientComponentUpdate, entityId);
+            requests += HandleMoveAll(clientComponentUpdate, entityId);
             requests += LogUnimplemented(clientComponentUpdate);
 
             // The 1082 echo the old code ended on. Kept because the client's
@@ -201,12 +201,11 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         ///
         /// The event carries BOTH entity ids, so the player's own entity is only one
         /// end of it. That is why this method takes <paramref name="playerEntityId"/>
-        /// and <paramref name="playerModel"/> separately from the ids on the wire: the
-        /// ownership gate at the top of HandleUpdate proves the SENDER owns the
-        /// entity the 1082 arrived on, and this method then proves that entity is one
-        /// of the two ends of every move it performs. Without that second check a
-        /// peer could name two inventories neither of which is theirs and launder
-        /// items between other people's chests.
+        /// separately from the ids on the wire: the ownership gate at the top of
+        /// HandleUpdate proves the SENDER owns the entity the 1082 arrived on, and
+        /// this method then proves that entity is one of the two ends of every move
+        /// it performs. Without that second check a peer could name two inventories
+        /// neither of which is theirs and launder items between other people's chests.
         ///
         /// The OTHER end must be a loot container. Not "any entity with an
         /// inventory": <c>InventoryService.ForEntity</c> will happily conjure a
@@ -220,7 +219,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         /// item that just left it.
         /// </summary>
         private static int HandleCrossInventoryMove(
-            InventoryModificationState.Update update, long playerEntityId, InventoryModel playerModel )
+            InventoryModificationState.Update update, long playerEntityId )
         {
             for (int j = 0; j < update.crossInventoryMoveItem.Count; j++)
             {
@@ -240,7 +239,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                 InventoryModel to = InventoryService.ForEntity(destination);
 
                 CrossMoveOutcome outcome = CrossInventoryPolicy.TryMove(
-                    from, to, move.srcItemId, InventoryService.NextItemId(destination),
+                    from, to, move.srcItemId, () => InventoryService.NextItemId(destination),
                     move.xPos, move.yPos, move.rotate, InventoryWire.Footprints);
 
                 Console.WriteLine("[loot] cross-inventory move of item " + move.srcItemId
@@ -265,7 +264,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         /// refusal.
         /// </summary>
         private static int HandleMoveAll(
-            InventoryModificationState.Update update, long playerEntityId, InventoryModel playerModel )
+            InventoryModificationState.Update update, long playerEntityId )
         {
             for (int j = 0; j < update.moveAll.Count; j++)
             {
