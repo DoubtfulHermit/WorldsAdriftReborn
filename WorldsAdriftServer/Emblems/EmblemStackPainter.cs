@@ -53,6 +53,30 @@ namespace WorldsAdriftServer.Emblems
         private const int Supersample = 4;
 
         /// <summary>
+        /// Samples per pixel per axis ABOVE the crest size.
+        ///
+        /// THINNED, because the cost of this renderer is the number of SAMPLES and
+        /// that is (size * supersample) squared - so a 1024-pixel download at the
+        /// crest's four-by-four would be sixteen times the crest's work, and this
+        /// route is unauthenticated. Two-by-two at 1024 puts the same number of
+        /// samples on an edge as four-by-four at 512 and FOUR TIMES as many as the
+        /// crest the game downloads, which is the largest number anything here is
+        /// allowed to ask for (see <see cref="EmblemUrlPolicy.DownloadSizes"/>).
+        ///
+        /// It costs nothing visible. Antialiasing error is a fraction of a PIXEL,
+        /// and a pixel at 1024 is a quarter of one at 256: four samples per pixel
+        /// at 1024 resolve an edge two times finer than sixteen samples per pixel
+        /// at 256 do. What it must never do is change the crest itself, so the
+        /// thinning starts strictly ABOVE <see cref="EmblemPainter.Size"/> - every
+        /// picture the game has ever been served is still sampled exactly as it
+        /// was, which is what the golden hashes in EmblemArtworkTests pin.
+        /// </summary>
+        private const int LargeSupersample = 2;
+
+        internal static int SupersampleFor(int size) =>
+            size <= EmblemPainter.Size ? Supersample : LargeSupersample;
+
+        /// <summary>
         /// Where the top-down scan gives up looking for more coverage. Not 1.0:
         /// twenty alphas of 0.975 sum to within a rounding error of opaque, and
         /// carrying on to test layers that can contribute less than a quarter of
@@ -77,8 +101,10 @@ namespace WorldsAdriftServer.Emblems
             Placed[] placed = Place(stack);
             if (placed.Length == 0) return pixels;
 
+            int supersample = SupersampleFor(size);
+
             double step = 2.0 / size;
-            double subStep = step / Supersample;
+            double subStep = step / supersample;
             double subOrigin = subStep * 0.5;
 
             // THE BOUNDS ARE NARROWED TWICE, AND THAT IS WHERE THE TIME GOES.
@@ -124,11 +150,11 @@ namespace WorldsAdriftServer.Emblems
 
                     double sumR = 0, sumG = 0, sumB = 0, sumA = 0;
 
-                    for (int sy = 0; sy < Supersample; sy++)
+                    for (int sy = 0; sy < supersample; sy++)
                     {
                         double y = rowTop + subOrigin + sy * subStep;
 
-                        for (int sx = 0; sx < Supersample; sx++)
+                        for (int sx = 0; sx < supersample; sx++)
                         {
                             double x = colLeft + subOrigin + sx * subStep;
 
@@ -168,7 +194,7 @@ namespace WorldsAdriftServer.Emblems
                     pixels[index] = Clamp(sumR / sumA);
                     pixels[index + 1] = Clamp(sumG / sumA);
                     pixels[index + 2] = Clamp(sumB / sumA);
-                    pixels[index + 3] = Clamp(255.0 * sumA / (Supersample * Supersample));
+                    pixels[index + 3] = Clamp(255.0 * sumA / (supersample * supersample));
 
                     // Nothing is written when sumA is zero, so the surround stays
                     // four zero bytes: transparent AND black. A transparent white

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 
 namespace WorldsAdriftServer.Emblems
 {
@@ -89,21 +90,52 @@ namespace WorldsAdriftServer.Emblems
         /// </summary>
         private const int MaxEntries = 512;
 
+        /// <summary>
+        /// The second lid, and the reason there are two.
+        ///
+        /// A crest is about 56 kB, so counting ENTRIES was a fine proxy for
+        /// counting memory while every entry was one size. It stopped being one
+        /// when the same crest became downloadable at 1024, where the PNG is a
+        /// quarter of a megabyte: five hundred of those is 130 MB of a process
+        /// that otherwise sits in tens, and an unauthenticated stranger picks
+        /// which addresses go in it. This lid is on the BYTES, so the ceiling
+        /// stays where it is no matter which sizes get asked for.
+        /// </summary>
+        private const int MaxBytes = 32 * 1024 * 1024;
+
         private static readonly ConcurrentDictionary<string, byte[]> Cache =
             new ConcurrentDictionary<string, byte[]>(StringComparer.Ordinal);
 
-        /// <summary>The PNG for an emblem, rendered on first ask.</summary>
-        internal static byte[] Png(EmblemArtwork artwork)
+        private static int _cachedBytes;
+
+        /// <summary>The PNG for an emblem at the crest size - what the game gets.</summary>
+        internal static byte[] Png(EmblemArtwork artwork) => Png(artwork, EmblemPainter.Size);
+
+        /// <summary>
+        /// The PNG for an emblem at one edge length, rendered on first ask.
+        ///
+        /// THE SIZE IS PART OF THE KEY, not a detail of the render. The whole
+        /// design is content-addressed - the picture at an address can never
+        /// change, which is what earns the immutable Cache-Control - and a cache
+        /// keyed on the code alone would hand a 1024 body to the next caller who
+        /// asked for 256 at the same code, which is the same bug one layer down.
+        /// </summary>
+        internal static byte[] Png(EmblemArtwork artwork, int size)
         {
-            string code = artwork.ToCode();
+            string key = artwork.ToCode() + "@" + size.ToString(CultureInfo.InvariantCulture);
 
-            if (Cache.TryGetValue(code, out byte[]? cached)) return cached;
+            if (Cache.TryGetValue(key, out byte[]? cached)) return cached;
 
-            byte[] png = PngWriter.Encode(
-                artwork.RenderPixels(EmblemPainter.Size), EmblemPainter.Size, EmblemPainter.Size);
+            byte[] png = PngWriter.Encode(artwork.RenderPixels(size), size, size);
 
-            if (Cache.Count >= MaxEntries) Cache.Clear();
-            Cache[code] = png;
+            if (Cache.Count >= MaxEntries || _cachedBytes >= MaxBytes)
+            {
+                Cache.Clear();
+                Interlocked.Exchange(ref _cachedBytes, 0);
+            }
+
+            Cache[key] = png;
+            Interlocked.Add(ref _cachedBytes, png.Length);
 
             return png;
         }
@@ -125,8 +157,24 @@ namespace WorldsAdriftServer.Emblems
         /// moved with the emblem code version: a client holding a tag minted before
         /// the device table changed must not be told its cached copy is still good,
         /// because for a version 1 code it is now a different picture.
+        ///
+        /// THE SIZE IS IN IT for exactly the same reason the format is: one crest
+        /// now has three PNG bodies, at three addresses that differ only by a
+        /// query parameter. A shared tag would let any cache between here and a
+        /// player answer a 1024 request with the 256 it already had, and the
+        /// symptom - a blurry download - would look like a rendering bug rather
+        /// than a caching one. Only the PNG carries it: an SVG has no pixels, so a
+        /// size in a vector's tag would split one document across three entries
+        /// that are byte-identical.
         /// </summary>
+        internal static string ETag(EmblemArtwork artwork, EmblemUrlPolicy.Format format, int size) =>
+            "\"e2-" + (format == EmblemUrlPolicy.Format.Svg
+                ? "s"
+                : "p" + size.ToString(CultureInfo.InvariantCulture))
+            + "-" + artwork.ToCode() + "\"";
+
+        /// <summary>The tag for the crest the game downloads.</summary>
         internal static string ETag(EmblemArtwork artwork, EmblemUrlPolicy.Format format) =>
-            "\"e2-" + (format == EmblemUrlPolicy.Format.Svg ? "s" : "p") + "-" + artwork.ToCode() + "\"";
+            ETag(artwork, format, EmblemPainter.Size);
     }
 }

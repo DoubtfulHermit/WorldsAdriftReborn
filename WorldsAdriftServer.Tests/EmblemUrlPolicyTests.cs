@@ -117,12 +117,14 @@ namespace WorldsAdriftServer.Tests
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
                 "/alliance-emblem/" + Alliance.ToString("D") + ".png?e=2-2-3-4-5-6-7",
-                out Guid id, out EmblemArtwork spec, out bool hasCode, out EmblemUrlPolicy.Format format));
+                out Guid id, out EmblemArtwork spec, out bool hasCode, out EmblemUrlPolicy.Format format,
+                out int size));
 
             Assert.Equal(Alliance, id);
             Assert.True(hasCode);
             Assert.Equal("2-2-3-4-5-6-7", spec.ToCode());
             Assert.Equal(EmblemUrlPolicy.Format.Png, format);
+            Assert.Equal(EmblemUrlPolicy.DefaultSize, size);
         }
 
         [Fact]
@@ -130,7 +132,7 @@ namespace WorldsAdriftServer.Tests
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
                 "/alliance-emblem/preview.png?e=2-0-0-0-0-0-0",
-                out Guid id, out _, out bool hasCode, out _));
+                out Guid id, out _, out bool hasCode, out _, out _));
 
             Assert.Equal(Guid.Empty, id);
             Assert.True(hasCode);
@@ -147,7 +149,7 @@ namespace WorldsAdriftServer.Tests
             // NOT false, and this is the load-bearing one. Returning false here
             // would drop the request through to the router's 404, and a 404 body
             // reaches the client as a garbage texture it DISPLAYS.
-            Assert.True(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out bool hasCode, out _));
+            Assert.True(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out bool hasCode, out _, out _));
             Assert.False(hasCode);
         }
 
@@ -188,7 +190,7 @@ namespace WorldsAdriftServer.Tests
             // These get a 404 rather than a picture, and that is safe precisely
             // because nothing ever PUBLISHED one of them: every url this server
             // puts in an alliance payload is "<uid>.png".
-            Assert.False(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out _, out _));
+            Assert.False(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out _, out _, out _));
         }
 
         [Fact]
@@ -214,7 +216,8 @@ namespace WorldsAdriftServer.Tests
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
                 "/alliance-emblem/" + Alliance.ToString("D") + ".svg?e=2-2-3-4-5-6-7",
-                out Guid id, out EmblemArtwork spec, out bool hasCode, out EmblemUrlPolicy.Format format));
+                out Guid id, out EmblemArtwork spec, out bool hasCode, out EmblemUrlPolicy.Format format,
+                out _));
 
             Assert.Equal(Alliance, id);
             Assert.True(hasCode);
@@ -253,6 +256,129 @@ namespace WorldsAdriftServer.Tests
             // The saved filename carries the code, so two crests a player downloads
             // never land on top of each other in their downloads folder.
             Assert.Equal("alliance-crest-2-1-2-3-4-5-6.svg", EmblemUrlPolicy.VectorFileName(spec));
+        }
+
+        // ----------------------------------------------------------- the raster
+
+        [Fact]
+        public void The_png_url_names_the_size_and_the_alliance_or_the_preview()
+        {
+            EmblemSpec spec = Spec("2-1-2-3-4-5-6");
+
+            Assert.Equal(
+                "/alliance-emblem/" + Alliance.ToString("D") + ".png?e=2-1-2-3-4-5-6&s=1024",
+                EmblemUrlPolicy.RasterUrl(Alliance, spec, 1024));
+
+            Assert.Equal(
+                "/alliance-emblem/preview.png?e=2-1-2-3-4-5-6&s=512",
+                EmblemUrlPolicy.RasterUrl(Guid.Empty, spec, 512));
+
+            // The size is in the FILENAME too. Three downloads of one crest that
+            // differed only by a "(1)" the browser added would leave a player
+            // opening files to find out which is which.
+            Assert.Equal("alliance-crest-2-1-2-3-4-5-6-1024.png",
+                EmblemUrlPolicy.RasterFileName(spec, 1024));
+        }
+
+        [Theory]
+        [InlineData(256)]
+        [InlineData(512)]
+        [InlineData(1024)]
+        public void A_size_the_route_offers_is_read_back_off_the_query(int offered)
+        {
+            Assert.True(EmblemUrlPolicy.TryParseRequest(
+                "/alliance-emblem/preview.png?e=2-0-0-0-0-0-0&s=" + offered,
+                out _, out _, out bool hasCode, out EmblemUrlPolicy.Format format, out int size));
+
+            Assert.True(hasCode);
+            Assert.Equal(EmblemUrlPolicy.Format.Png, format);
+            Assert.Equal(offered, size);
+        }
+
+        [Theory]
+        [InlineData("")]
+        [InlineData("&s=")]
+        [InlineData("&s=0")]
+        [InlineData("&s=1")]
+        [InlineData("&s=257")]
+        [InlineData("&s=2048")]
+        [InlineData("&s=4096")]
+        [InlineData("&s=99999999999999999999")]
+        [InlineData("&s=-1024")]
+        [InlineData("&s=1e3")]
+        [InlineData("&s=%201024")]
+        [InlineData("&s=1024px")]
+        [InlineData("&s=nonsense")]
+        public void Any_size_the_route_does_not_offer_renders_the_crest_size(string tail)
+        {
+            // AN ALLOWLIST, NOT A CLAMP. A clamp would answer s=4096 with the most
+            // expensive picture it is willing to draw, from anybody, unauthenticated
+            // - the cost of a render is the square of the edge length. Everything
+            // that is not one of the three offered sizes is the size the game asks
+            // for, which is also the cheapest.
+            Assert.True(EmblemUrlPolicy.TryParseRequest(
+                "/alliance-emblem/preview.png?e=2-0-0-0-0-0-0" + tail,
+                out _, out _, out _, out _, out int size));
+
+            Assert.Equal(EmblemUrlPolicy.DefaultSize, size);
+            Assert.True(EmblemUrlPolicy.IsOfferedSize(size));
+        }
+
+        [Fact]
+        public void A_size_on_a_vector_request_is_dropped()
+        {
+            // A vector has no pixels. Carrying the size into an .svg request would
+            // put it in that document's ETag and split one byte-identical body
+            // across three cache entries.
+            Assert.True(EmblemUrlPolicy.TryParseRequest(
+                "/alliance-emblem/preview.svg?e=2-0-0-0-0-0-0&s=1024",
+                out _, out _, out _, out EmblemUrlPolicy.Format format, out int size));
+
+            Assert.Equal(EmblemUrlPolicy.Format.Svg, format);
+            Assert.Equal(EmblemUrlPolicy.DefaultSize, size);
+        }
+
+        [Fact]
+        public void The_url_the_game_is_given_carries_no_size_at_all()
+        {
+            // The client holds this string and re-fetches it. Adding a parameter
+            // to it would mint a second address for the crest every alliance is
+            // already wearing, and every cached copy in every player's BestHTTP
+            // store would miss on it once.
+            string wire = EmblemUrlPolicy.Resolve("http://wareborn.example", Alliance, "");
+
+            Assert.DoesNotContain("&s=", wire, StringComparison.Ordinal);
+            Assert.DoesNotContain("?s=", wire, StringComparison.Ordinal);
+            Assert.DoesNotContain("s=", EmblemUrlPolicy.PreviewUrl(Spec("2-0-0-0-0-0-0")),
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void A_design_code_too_long_to_be_a_filename_is_left_out_of_it()
+        {
+            // Twenty layers is 262 characters, and every mainstream filesystem
+            // stops at 255 BYTES for a name. A browser handed a longer one
+            // truncates it silently, leaving something that still looks like a
+            // design code and no longer is one.
+            List<EmblemLayer> layers = new List<EmblemLayer>();
+            for (int i = 0; i < EmblemStack.MaxLayers; i++)
+            {
+                Assert.True(EmblemLayer.TryCreate(
+                    i, 0, 0, 500, 0, 0, EmblemLayer.OpacitySteps, false, false, false,
+                    out EmblemLayer layer));
+                layers.Add(layer);
+            }
+
+            Assert.True(EmblemStack.TryCreate(layers, out EmblemStack stack));
+            EmblemArtwork artwork = EmblemArtwork.Of(stack);
+
+            Assert.Equal("alliance-crest-1024.png", EmblemUrlPolicy.RasterFileName(artwork, 1024));
+            Assert.Equal("alliance-crest.svg", EmblemUrlPolicy.VectorFileName(artwork));
+
+            foreach (int size in EmblemUrlPolicy.DownloadSizes)
+            {
+                Assert.True(EmblemUrlPolicy.RasterFileName(artwork, size).Length < 255);
+            }
         }
     }
 }

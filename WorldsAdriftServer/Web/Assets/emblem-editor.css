@@ -235,10 +235,35 @@ body.wide main { max-width: 78rem; }
   position: static; opacity: 1;
   display: block; width: 100%; height: 100%; object-fit: contain;
 }
-.editor .row-of-links {
+/* SCOPED TO THE CARD, not to the form: the same row of downloads is offered to
+   a member whose rank cannot edit the emblem, and that markup sits OUTSIDE the
+   editor form entirely - so a rule scoped to .editor styled one of the two and
+   left the other as bare browser default links.
+
+   (And it is spelled out in words rather than as markup because this file is
+   inlined into the page: a form tag written in a COMMENT here is a form tag in
+   the document as far as anything counting them is concerned.) */
+.editor-card .row-of-links {
   display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .9rem 0 0;
 }
-.editor .row-of-links a.vector { font-size: .76rem; color: var(--ink-soft); }
+.editor-card .row-of-links a.vector { font-size: .76rem; color: var(--ink-soft); }
+
+/* THE PNG SIZES read as one control, not as three loose links: the label and
+   its three numbers sit in one nowrap group so that a narrow screen wraps the
+   whole thing to its own line rather than orphaning "1024" under "Download as".
+   The numbers are pills like the object categories above, because that is what
+   a small set of alternatives already looks like on this page. */
+.editor-card .row-of-links .raster {
+  display: inline-flex; align-items: center; gap: .3rem; white-space: nowrap;
+  font-size: .76rem; color: var(--ink-soft);
+}
+.editor-card .row-of-links .raster a.px {
+  padding: .22rem .55rem; font-size: .72rem; border-radius: 999px;
+  color: var(--ink-soft); text-decoration: none;
+  border: 1px solid var(--field-edge);
+}
+.editor-card .row-of-links .raster a.px:hover { color: var(--ink); border-color: var(--ink-faint); }
+.editor-card .row-of-links .raster a.px:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* ------------------------------------------------------------ narrow screens
 

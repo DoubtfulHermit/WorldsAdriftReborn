@@ -62,6 +62,48 @@ namespace WorldsAdriftServer.Emblems
         /// <summary>The query parameter carrying the code.</summary>
         internal const string CodeParameter = "e";
 
+        /// <summary>The query parameter carrying the edge length, in pixels.</summary>
+        internal const string SizeParameter = "s";
+
+        /// <summary>
+        /// The edge lengths this route will render, and the ONLY ones.
+        ///
+        /// AN ALLOWLIST RATHER THAN A CLAMP, because the route is
+        /// unauthenticated and the cost of a render is the square of the edge
+        /// length: a clamp invites <c>s=4095</c> and answers it with the most
+        /// expensive picture allowed, over and over, from anybody. Three values
+        /// means three answers exist and every other string in that parameter is
+        /// the crest size - so the worst thing a stranger can ask for is a number
+        /// this file wrote down, and it was measured before it was written down
+        /// (EmblemStackRenderTests).
+        ///
+        /// WHY THESE THREE. 256 is what the game downloads, and it stays the
+        /// default so that no address the client already holds changes meaning.
+        /// 512 and 1024 exist because nobody downloads a crest to put it back in
+        /// the game - they put it on a Discord server, a banner or a forum post,
+        /// and 256 is small for all three. 2048 is not offered: it is four times
+        /// the samples of 1024 for a picture of twenty flat silhouettes, and the
+        /// vector download is the honest answer to "I want it bigger than this".
+        /// </summary>
+        internal static readonly int[] DownloadSizes = { 256, 512, 1024 };
+
+        /// <summary>
+        /// The edge length a request that names none gets - the crest size, so
+        /// that <c>?e=CODE</c> and <c>?e=CODE&amp;s=256</c> are the same picture
+        /// and the game's own URL is unchanged by this parameter existing.
+        /// </summary>
+        internal const int DefaultSize = EmblemPainter.Size;
+
+        /// <summary>Whether this is one of the three sizes we render.</summary>
+        internal static bool IsOfferedSize(int size)
+        {
+            foreach (int offered in DownloadSizes)
+            {
+                if (offered == size) return true;
+            }
+            return false;
+        }
+
         /// <summary>
         /// The path segment the builder's preview asks for, in place of an
         /// alliance uid. It exists so a leader can look at a crest they have not
@@ -129,9 +171,62 @@ namespace WorldsAdriftServer.Emblems
                 : allianceId.ToString("D", CultureInfo.InvariantCulture))
             + SvgExtension + "?" + CodeParameter + "=" + artwork.ToCode();
 
-        /// <summary>The filename a downloaded crest is offered under.</summary>
+        /// <summary>
+        /// The same crest as a PNG a player can keep, at one of
+        /// <see cref="DownloadSizes"/>.
+        ///
+        /// THE SAME ROUTE THE GAME USES, with a size on it, rather than a second
+        /// download-only path. There is one rasteriser and one cache; a parallel
+        /// path would be a second address for the same picture that could drift
+        /// from it, which is exactly what the SVG route does NOT do. The size is
+        /// always written out, including 256 - it makes the request
+        /// self-describing in a log, and it costs nothing because the parser
+        /// canonicalises 256 back to the address the client already holds.
+        /// </summary>
+        internal static string RasterUrl(Guid allianceId, EmblemArtwork artwork, int size) =>
+            RoutePrefix + (allianceId == Guid.Empty
+                ? PreviewId
+                : allianceId.ToString("D", CultureInfo.InvariantCulture))
+            + PngExtension + "?" + CodeParameter + "=" + artwork.ToCode()
+            + "&" + SizeParameter + "="
+            + (IsOfferedSize(size) ? size : DefaultSize).ToString(CultureInfo.InvariantCulture);
+
+        /// <summary>The filename a downloaded vector crest is offered under.</summary>
         internal static string VectorFileName(EmblemArtwork artwork) =>
-            "alliance-crest-" + artwork.ToCode() + SvgExtension;
+            FileName(artwork, SvgExtension);
+
+        /// <summary>
+        /// The filename a downloaded PNG is offered under. The SIZE is in it
+        /// because three of them exist: a player who fetches two of the same crest
+        /// otherwise gets "alliance-crest-....png" and
+        /// "alliance-crest-....png (1)" and has to open both to find out which is
+        /// which.
+        /// </summary>
+        internal static string RasterFileName(EmblemArtwork artwork, int size) =>
+            FileName(artwork, "-" + (IsOfferedSize(size) ? size : DefaultSize)
+                .ToString(CultureInfo.InvariantCulture) + PngExtension);
+
+        /// <summary>
+        /// How long a code may be before it is left out of the filename.
+        ///
+        /// A DESIGN CODE IS NOT A FILENAME. Twenty layers is 262 characters, and
+        /// "alliance-crest-" plus that plus an extension is past the 255 BYTES
+        /// every mainstream filesystem stops at - so the browser would silently
+        /// truncate it into a name that still looks like a code but no longer is
+        /// one, which is worse than not having it. Under the limit the code stays,
+        /// because for the designs people actually build it is the one thing that
+        /// tells two downloads apart.
+        /// </summary>
+        private const int MaxCodeInFileName = 96;
+
+        private static string FileName(EmblemArtwork artwork, string suffix)
+        {
+            string code = artwork.ToCode();
+
+            return code.Length <= MaxCodeInFileName
+                ? "alliance-crest-" + code + suffix
+                : "alliance-crest" + suffix;
+        }
 
         /// <summary>
         /// Resolves what the alliance payload's <c>emblemUrl</c> should say, given
@@ -206,14 +301,25 @@ namespace WorldsAdriftServer.Emblems
         /// does NOT need it to be one: the code in the query string is the whole
         /// input to the renderer, and the uid in the path is there so the URL is
         /// self-describing in a log and so each alliance gets its own cache entry.
+        ///
+        /// <paramref name="size"/> is ALWAYS one of <see cref="DownloadSizes"/>.
+        /// Junk, a number we do not offer, and no parameter at all all come back
+        /// as <see cref="DefaultSize"/> - the same rule the code itself gets, and
+        /// for the same reason: this route must answer with a picture, so there is
+        /// nothing for a bad size to refuse with. It is meaningful only for
+        /// <see cref="Format.Png"/>; a vector has no pixels, so the size on an
+        /// .svg request is dropped rather than carried into its ETag, where it
+        /// would mint two tags for one document.
         /// </summary>
         internal static bool TryParseRequest(
-            string? url, out Guid allianceId, out EmblemArtwork artwork, out bool hasCode, out Format format)
+            string? url, out Guid allianceId, out EmblemArtwork artwork, out bool hasCode,
+            out Format format, out int size)
         {
             allianceId = Guid.Empty;
             artwork = default;
             hasCode = false;
             format = Format.Png;
+            size = DefaultSize;
 
             if (string.IsNullOrEmpty(url)) return false;
 
@@ -263,6 +369,18 @@ namespace WorldsAdriftServer.Emblems
                 && !Guid.TryParse(id, out allianceId))
             {
                 return false;
+            }
+
+            if (format == Format.Png)
+            {
+                string? asked = QueryValue(query, SizeParameter);
+
+                if (asked != null
+                    && int.TryParse(asked, NumberStyles.None, CultureInfo.InvariantCulture, out int wanted)
+                    && IsOfferedSize(wanted))
+                {
+                    size = wanted;
+                }
             }
 
             string? code = QueryValue(query, CodeParameter);

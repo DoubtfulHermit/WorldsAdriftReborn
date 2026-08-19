@@ -385,6 +385,16 @@
       var vector = embFind(form, '[data-savevector]');
       if (vector) { vector.setAttribute('href', EMB_ROUTE + '.svg?e=' + encodeURIComponent(code)); }
 
+      // The PNG downloads, re-pointed at the design as it stands. The SIZE comes
+      // off the link the server stamped rather than from a list here - the sizes
+      // are an allowlist the handler validates against, and a second copy of it
+      // in this file could offer one the server would quietly refuse.
+      var rasters = embAll(form, '[data-savepng]');
+      for (var r = 0; r < rasters.length; r++) {
+        rasters[r].setAttribute('href', EMB_ROUTE + '.png?e=' + encodeURIComponent(code)
+          + '&s=' + encodeURIComponent(rasters[r].getAttribute('data-savepng')));
+      }
+
       window.clearTimeout(settle);
       settle = window.setTimeout(function () {
         var next = EMB_ROUTE + '.png?e=' + encodeURIComponent(code);

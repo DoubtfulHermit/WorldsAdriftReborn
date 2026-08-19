@@ -260,6 +260,32 @@ namespace WorldsAdriftServer.Tests
         // ------------------------------------------------------------ the budget
 
         /// <summary>
+        /// Twenty overlapping layers of the heaviest traced artwork, none of them
+        /// quite opaque so the top-down scan's early-out can never fire and every
+        /// layer is tested at every sample. This is the most expensive picture the
+        /// vocabulary can express, and therefore the only honest input to any
+        /// question about what this route costs.
+        /// </summary>
+        private static EmblemStack WorstCase()
+        {
+            List<EmblemLayer> layers = new List<EmblemLayer>();
+
+            for (int i = 0; i < EmblemStack.MaxLayers; i++)
+            {
+                layers.Add(Layer(
+                    EmblemObjects.Count - 1 - i,
+                    x: (i % 5) * 60 - 120,
+                    y: (i % 7) * 40 - 120,
+                    size: 900,
+                    rotation: i * 17,
+                    colour: i % EmblemVocabulary.ColourCount,
+                    opacity: EmblemLayer.OpacitySteps - 1));
+            }
+
+            return Stack(layers.ToArray());
+        }
+
+        /// <summary>
         /// A FULL DESIGN AT FULL SIZE, timed.
         ///
         /// The emblem route is unauthenticated and renders whatever is in a query
@@ -274,24 +300,7 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void The_worst_design_the_vocabulary_allows_renders_in_well_under_a_second()
         {
-            List<EmblemLayer> layers = new List<EmblemLayer>();
-
-            for (int i = 0; i < EmblemStack.MaxLayers; i++)
-            {
-                layers.Add(Layer(
-                    EmblemObjects.Count - 1 - i,
-                    x: (i % 5) * 60 - 120,
-                    y: (i % 7) * 40 - 120,
-                    size: 900,
-                    rotation: i * 17,
-                    colour: i % EmblemVocabulary.ColourCount,
-
-                    // Never quite opaque, so the early-out cannot fire and every
-                    // layer is tested at every sample.
-                    opacity: EmblemLayer.OpacitySteps - 1));
-            }
-
-            EmblemStack stack = Stack(layers.ToArray());
+            EmblemStack stack = WorstCase();
 
             // Warmed first: the traced paths are parsed and indexed on first touch,
             // and that cost belongs to startup rather than to a request.
@@ -325,6 +334,75 @@ namespace WorldsAdriftServer.Tests
                 "a full twenty-layer emblem cost " + ratio.ToString("0.0")
                 + " times a heraldic crest (" + clock.ElapsedMilliseconds + " ms against "
                 + reference.ElapsedMilliseconds + " ms)");
+        }
+
+        /// <summary>
+        /// THE SAME QUESTION FOR THE DOWNLOAD SIZES, which is where it gets sharp:
+        /// the route renders whatever a stranger puts in a query string, and the
+        /// cost of a render is (edge length * samples per axis) squared. A 1024
+        /// download at the crest's four-by-four supersampling would be SIXTEEN
+        /// times the worst case above - measured at 4.4 seconds on the box this
+        /// was written on, unauthenticated, per request.
+        ///
+        /// So the painter thins its sampling above the crest size, and this is the
+        /// test that says why that number was chosen: with it, the most expensive
+        /// picture anybody can ask for is about four times the crest's, and 512 -
+        /// the middle offer - costs LESS than the 256 the game already downloads.
+        /// Measured as a ratio for the reason the test above gives.
+        /// </summary>
+        [Fact]
+        public void No_size_the_download_offers_costs_much_more_than_the_crest_does()
+        {
+            EmblemStack stack = WorstCase();
+
+            // Warm both painters and both paths through the size gate.
+            EmblemStackPainter.Render(stack, EmblemPainter.Size);
+            Assert.True(EmblemSpec.TryParse("2-0-7-39-9-9-4", out EmblemSpec heraldic));
+            EmblemPainter.Render(heraldic, EmblemPainter.Size);
+
+            Stopwatch reference = Stopwatch.StartNew();
+            EmblemStackPainter.Render(stack, EmblemPainter.Size);
+            reference.Stop();
+
+            double crest = Math.Max(0.001, reference.Elapsed.TotalMilliseconds);
+
+            foreach (int size in EmblemUrlPolicy.DownloadSizes)
+            {
+                Stopwatch clock = Stopwatch.StartNew();
+                byte[] pixels = EmblemStackPainter.Render(stack, size);
+                clock.Stop();
+
+                Assert.Equal(size * size * 4, pixels.Length);
+
+                double ratio = clock.Elapsed.TotalMilliseconds / crest;
+
+                // Four times the crest is the arithmetic - 1024 with two samples
+                // per axis is a 2048-sample grid against the crest's 1024 - and
+                // ten is the guard rail, which catches "somebody put the
+                // supersampling back" (that would be sixteen) without failing over
+                // a busy machine.
+                Assert.True(ratio < 10,
+                    "a full twenty-layer emblem at " + size + " cost " + ratio.ToString("0.0")
+                    + " times the same design at " + EmblemPainter.Size + " ("
+                    + clock.ElapsedMilliseconds + " ms against " + reference.ElapsedMilliseconds
+                    + " ms)");
+            }
+        }
+
+        /// <summary>
+        /// The thinning must start strictly ABOVE the crest size, or every emblem
+        /// the game has ever been served changes - which is what the golden hashes
+        /// in EmblemArtworkTests pin, and this says out loud.
+        /// </summary>
+        [Fact]
+        public void The_crest_the_game_downloads_is_sampled_exactly_as_it_always_was()
+        {
+            Assert.Equal(4, EmblemStackPainter.SupersampleFor(EmblemPainter.Size));
+            Assert.Equal(4, EmblemStackPainter.SupersampleFor(EmblemPainter.Size - 1));
+            Assert.Equal(2, EmblemStackPainter.SupersampleFor(EmblemPainter.Size + 1));
+
+            Assert.Equal(5, EmblemPainter.SupersampleFor(EmblemPainter.Size));
+            Assert.Equal(2, EmblemPainter.SupersampleFor(EmblemPainter.Size + 1));
         }
 
         // --------------------------------------------------------------- the svg

@@ -8,6 +8,13 @@ namespace WorldsAdriftServer.Handlers.Emblem
     /// <c>/alliance-emblem/&lt;uid&gt;.png?e=&lt;code&gt;</c>, and the same crest as
     /// downloadable vector art at <c>/alliance-emblem/&lt;uid&gt;.svg?e=&lt;code&gt;</c>.
     ///
+    /// The PNG also takes an optional <c>&amp;s=&lt;pixels&gt;</c>, which is for
+    /// PEOPLE rather than for the game: a player saving their alliance's mark for
+    /// a Discord icon or a banner wants it bigger than the 256 the client asks
+    /// for. It is an ALLOWLIST and not a number - see
+    /// <see cref="EmblemUrlPolicy.DownloadSizes"/> - because this route is
+    /// unauthenticated and render cost is the square of the edge length.
+    ///
     /// THE GAME ONLY EVER GETS THE PNG. The .svg route is for players, and no URL
     /// this server puts in an alliance payload names it - see the note on
     /// <see cref="EmblemUrlPolicy.Format"/> for why handing the client vector art
@@ -62,7 +69,7 @@ namespace WorldsAdriftServer.Handlers.Emblem
 
             if (!EmblemUrlPolicy.TryParseRequest(
                     request.Url, out Guid allianceId, out EmblemArtwork artwork, out bool hasCode,
-                    out EmblemUrlPolicy.Format format))
+                    out EmblemUrlPolicy.Format format, out int size))
             {
                 // In the namespace but not a crest we could ever have published:
                 // a name that is neither an alliance uid nor "preview", a second
@@ -82,7 +89,7 @@ namespace WorldsAdriftServer.Handlers.Emblem
                 artwork = EmblemSpec.DefaultFor(allianceId);
             }
 
-            string etag = EmblemImages.ETag(artwork, format);
+            string etag = EmblemImages.ETag(artwork, format, size);
 
             if (string.Equals(HeaderValue(request, "If-None-Match"), etag, StringComparison.Ordinal))
             {
@@ -122,7 +129,21 @@ namespace WorldsAdriftServer.Handlers.Emblem
             else
             {
                 resp.SetHeader("Content-Type", "image/png");
-                resp.SetBody(EmblemImages.Png(artwork));
+
+                // inline, and NOT attachment, on an address the game client and
+                // the editor's live preview both load. A response that turned
+                // itself into a download for some callers and not others would
+                // have to decide who is asking, and this route deliberately
+                // cannot: it has no session, and there is a cache in front of it
+                // that would keep whichever answer came first. The DOWNLOAD is the
+                // browser's job - the save menu's link carries the `download`
+                // attribute, which works because the link is same-origin - and
+                // this header exists to give that download, and a right-click
+                // "save image as", a name that says which crest and which size.
+                resp.SetHeader("Content-Disposition",
+                    "inline; filename=\"" + EmblemUrlPolicy.RasterFileName(artwork, size) + "\"");
+
+                resp.SetBody(EmblemImages.Png(artwork, size));
             }
 
             session.SendResponseAsync(resp);

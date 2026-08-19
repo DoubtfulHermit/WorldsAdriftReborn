@@ -123,10 +123,16 @@ namespace WorldsAdriftServer.Web
                 .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(alliance.Emblem)))
                 .Append("\"></div>\n");
 
-            page.Append("    <p class=\"hint\"><a class=\"vector\" download href=\"")
+            page.Append("    <p class=\"row-of-links\"><a class=\"vector\" download href=\"")
                 .Append(AdminPage.HtmlEncode(
                     EmblemUrlPolicy.VectorUrl(alliance.AllianceId, alliance.Emblem)))
-                .Append("\">Download as SVG</a> &mdash; the same emblem as vector art, at any size.</p>\n");
+                .Append("\">Download as SVG</a>");
+            AppendRasterLinks(page, alliance.AllianceId, alliance.Emblem, live: false);
+            page.Append("</p>\n");
+
+            page.Append("    <p class=\"hint\">The vector is the same emblem as line art and scales "
+                + "to any size; a PNG is a plain picture, for anywhere that will not take a "
+                + "vector.</p>\n");
 
             if (!alliance.Rights.Nothing)
             {
@@ -312,14 +318,53 @@ namespace WorldsAdriftServer.Web
                 + "<a class=\"vector\" download data-savevector href=\"")
                 .Append(AdminPage.HtmlEncode(
                     EmblemUrlPolicy.VectorUrl(alliance.AllianceId, alliance.Emblem)))
-                .Append("\">Download as SVG</a>"
-                + "<button type=\"button\" class=\"quiet\" data-copycode>Copy the design code</button>"
+                .Append("\">Download as SVG</a>");
+            AppendRasterLinks(page, alliance.AllianceId, alliance.Emblem, live: true);
+            page.Append("<button type=\"button\" class=\"quiet\" data-copycode>Copy the design code</button>"
                 + "<button type=\"button\" class=\"quiet\" data-savecancel>Back to the editor</button>"
                 + "</p>\n");
             page.Append("        <p class=\"hint\">Retail also offered a profile picture and a "
                 + "personal gallery. This server has neither, so the design code is how you keep "
                 + "an emblem you are not ready to submit.</p>\n");
             page.Append("      </div>\n");
+        }
+
+        /// <summary>
+        /// "Download as PNG" and one link per size the route renders.
+        ///
+        /// THREE LINKS RATHER THAN A PICKER, because three plain links work with
+        /// no script at all - the same standard the design-code textarea is held
+        /// to on this page - while a select plus a button would need script to
+        /// mean anything, and would hide two of the three answers behind a click.
+        ///
+        /// THE SIZES ARE NOT WRITTEN HERE. They come from
+        /// <see cref="EmblemUrlPolicy.DownloadSizes"/>, which is the same list the
+        /// handler validates against, so the page cannot offer a size the server
+        /// would refuse to render. The size also goes into a data attribute:
+        /// <paramref name="live"/> markup is re-pointed at the design being edited
+        /// by emblem-editor.js as the canvas changes, and it reads the size back
+        /// off the link rather than carrying a second copy of this list in
+        /// JavaScript.
+        /// </summary>
+        private static void AppendRasterLinks(
+            StringBuilder page, Guid allianceId, EmblemArtwork artwork, bool live)
+        {
+            page.Append("<span class=\"raster\">Download as PNG");
+
+            foreach (int size in EmblemUrlPolicy.DownloadSizes)
+            {
+                string pixels = size.ToString(CultureInfo.InvariantCulture);
+
+                page.Append("<a class=\"px\" download")
+                    .Append(live ? " data-savepng=\"" + pixels + "\"" : string.Empty)
+                    .Append(" href=\"")
+                    .Append(AdminPage.HtmlEncode(
+                        EmblemUrlPolicy.RasterUrl(allianceId, artwork, size)))
+                    .Append("\" aria-label=\"Download as PNG, ").Append(pixels)
+                    .Append(" pixels\">").Append(pixels).Append("</a>");
+            }
+
+            page.Append("</span>");
         }
     }
 }

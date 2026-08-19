@@ -58,6 +58,21 @@ namespace WorldsAdriftServer.Emblems
         private const int Supersample = 5;
 
         /// <summary>
+        /// Samples per pixel per axis ABOVE <see cref="Size"/>, for the same
+        /// reason and on the same terms as
+        /// <c>EmblemStackPainter.LargeSupersample</c>: an old heraldic crest can
+        /// be downloaded at 1024 too, and twenty-five samples per pixel at that
+        /// edge length is sixteen times the work for an edge already four times
+        /// finer. The thinning starts strictly ABOVE <see cref="Size"/>, so the
+        /// bytes the game is served - and the golden hashes that pin them - do not
+        /// move.
+        /// </summary>
+        private const int LargeSupersample = 2;
+
+        internal static int SupersampleFor(int size) =>
+            size <= Size ? Supersample : LargeSupersample;
+
+        /// <summary>
         /// Where the outline band starts, as a fraction of the shape.
         ///
         /// The band is the shape minus a copy of itself scaled about the centre,
@@ -122,8 +137,10 @@ namespace WorldsAdriftServer.Emblems
 
             byte[] pixels = new byte[size * size * 4];
 
+            int supersample = SupersampleFor(size);
+
             double step = 2.0 / size;
-            double subStep = step / Supersample;
+            double subStep = step / supersample;
             double subOrigin = subStep * 0.5;
 
             for (int py = 0; py < size; py++)
@@ -139,11 +156,11 @@ namespace WorldsAdriftServer.Emblems
                     // colour of uncovered ones and fringe every edge dark.
                     double sumR = 0, sumG = 0, sumB = 0, sumA = 0;
 
-                    for (int sy = 0; sy < Supersample; sy++)
+                    for (int sy = 0; sy < supersample; sy++)
                     {
                         double y = rowTop + subOrigin + sy * subStep;
 
-                        for (int sx = 0; sx < Supersample; sx++)
+                        for (int sx = 0; sx < supersample; sx++)
                         {
                             double x = colLeft + subOrigin + sx * subStep;
 
@@ -172,7 +189,7 @@ namespace WorldsAdriftServer.Emblems
                     pixels[index] = Clamp(sumR / sumA);
                     pixels[index + 1] = Clamp(sumG / sumA);
                     pixels[index + 2] = Clamp(sumB / sumA);
-                    pixels[index + 3] = Clamp(255.0 * sumA / (Supersample * Supersample));
+                    pixels[index + 3] = Clamp(255.0 * sumA / (supersample * supersample));
                 }
             }
 

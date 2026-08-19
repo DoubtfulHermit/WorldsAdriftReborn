@@ -274,6 +274,116 @@ namespace WorldsAdriftServer.Tests
             Assert.Throws<ArgumentOutOfRangeException>(() => PngWriter.Encode(Array.Empty<byte>(), 0, 0));
         }
 
+        // ------------------------------------------------------------ downloads
+
+        /// <summary>
+        /// Every size the save menu offers really is a PNG of that many pixels -
+        /// for BOTH forms of artwork.
+        ///
+        /// The heraldic half is not a formality. An alliance in the live database
+        /// is wearing <c>2-0-7-39-9-9-4</c> right now, it is rendered by a
+        /// different painter than the layered designs are, and a download link
+        /// that 200s with the wrong picture or the wrong dimensions is exactly the
+        /// failure this feature invites.
+        /// </summary>
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void Every_offered_size_is_a_png_of_that_many_pixels(bool layered)
+        {
+            EmblemArtwork artwork = layered ? LayeredSample() : HeraldicSample();
+
+            foreach (int size in EmblemUrlPolicy.DownloadSizes)
+            {
+                byte[] png = EmblemImages.Png(artwork, size);
+
+                Assert.True(png.AsSpan(0, 8).SequenceEqual(Signature));
+                Assert.Equal(size, ReadBigEndian(png, 16));
+                Assert.Equal(size, ReadBigEndian(png, 20));
+                Assert.Equal(8, png[24]);
+                Assert.Equal(6, png[25]);
+
+                // Not a blank square with a valid header on it: a crest that
+                // downloaded as 1024 pixels of nothing would pass every structural
+                // check above, and that is the shape this feature's failure takes.
+                Assert.True(HasInk(artwork.RenderPixels(size)),
+                    artwork.ToCode() + " at " + size + " rendered nothing at all");
+            }
+        }
+
+        /// <summary>The crest an alliance is wearing in the live database.</summary>
+        private static EmblemArtwork HeraldicSample()
+        {
+            Assert.True(EmblemArtwork.TryParse("2-0-7-39-9-9-4", out EmblemArtwork artwork));
+            Assert.False(artwork.IsLayered);
+            return artwork;
+        }
+
+        private static EmblemArtwork LayeredSample()
+        {
+            Assert.True(EmblemLayer.TryCreate(
+                1, 0, 0, 800, 0, 3, EmblemLayer.OpacitySteps, false, false, false,
+                out EmblemLayer disc));
+            Assert.True(EmblemLayer.TryCreate(
+                2, 120, -60, 500, 30, 9, EmblemLayer.OpacitySteps, true, false, false,
+                out EmblemLayer mark));
+
+            Assert.True(EmblemStack.TryCreate(new[] { disc, mark }, out EmblemStack stack));
+
+            EmblemArtwork artwork = EmblemArtwork.Of(stack);
+            Assert.True(artwork.IsLayered);
+            return artwork;
+        }
+
+        private static bool HasInk(byte[] pixels)
+        {
+            for (int i = 3; i < pixels.Length; i += 4)
+            {
+                if (pixels[i] != 0) return true;
+            }
+            return false;
+        }
+
+        [Fact]
+        public void The_cache_does_not_hand_one_size_out_for_another()
+        {
+            // The whole design is content-addressed and served immutable for a
+            // year. A cache keyed on the code alone would answer the next caller's
+            // 256 with the 1024 somebody just downloaded, which is the same bug as
+            // a stale URL one layer down.
+            EmblemSpec spec = Spec("2-3-2-14-6-2-9");
+
+            byte[] small = EmblemImages.Png(spec, 256);
+            byte[] large = EmblemImages.Png(spec, 1024);
+
+            Assert.NotEqual(small, large);
+            Assert.Equal(256, ReadBigEndian(small, 16));
+            Assert.Equal(1024, ReadBigEndian(large, 16));
+
+            // And warm reads still come back as what was rendered.
+            Assert.Equal(small, EmblemImages.Png(spec, 256));
+            Assert.Equal(large, EmblemImages.Png(spec, 1024));
+
+            // The no-size overload is the crest the game gets, not merely "some
+            // size" - the client's cached copies depend on that not moving.
+            Assert.Equal(small, EmblemImages.Png(spec));
+        }
+
+        [Fact]
+        public void Two_sizes_of_one_crest_are_two_cache_tags()
+        {
+            EmblemSpec spec = Spec("2-1-1-1-1-1-1");
+
+            Assert.NotEqual(
+                EmblemImages.ETag(spec, EmblemUrlPolicy.Format.Png, 256),
+                EmblemImages.ETag(spec, EmblemUrlPolicy.Format.Png, 1024));
+
+            // The vector's tag ignores the size: one document, one body.
+            Assert.Equal(
+                EmblemImages.ETag(spec, EmblemUrlPolicy.Format.Svg, 256),
+                EmblemImages.ETag(spec, EmblemUrlPolicy.Format.Svg, 1024));
+        }
+
         private static byte[] ConcatenatedIdat(byte[] png)
         {
             using MemoryStream idat = new MemoryStream();

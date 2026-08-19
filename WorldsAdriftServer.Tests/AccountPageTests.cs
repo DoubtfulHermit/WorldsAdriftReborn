@@ -315,6 +315,51 @@ namespace WorldsAdriftServer.Tests
                 PortalTabs.Emblem);
             Assert.DoesNotContain("Changing the emblem needs", nothing, StringComparison.Ordinal);
             Assert.Contains("class=\"preview\"", nothing, StringComparison.Ordinal);
+
+            // And the downloads are offered to BOTH, because saving a picture of
+            // the crest is not editing it. A member who cannot change the emblem
+            // can still want it for a Discord icon.
+            foreach (string html in new[] { with, without, nothing })
+            {
+                Assert.Contains("Download as SVG", html, StringComparison.Ordinal);
+                Assert.Contains("Download as PNG", html, StringComparison.Ordinal);
+            }
+        }
+
+        [Fact]
+        public void TheSaveMenuOffersEverySizeTheRouteWillRenderAndNoOther()
+        {
+            string html = Html(View(Alliance(new AllianceRights(false, false, true, false))),
+                PortalTabs.Emblem);
+
+            EmblemArtwork crest = EmblemSpec.DefaultFor(AllianceId);
+
+            foreach (int size in EmblemUrlPolicy.DownloadSizes)
+            {
+                // The exact href, not just the number: a link that 200s with the
+                // wrong picture is the failure mode a download has, and the size
+                // travels in the query rather than the path.
+                // Encoded, because an href is attribute text: the ampersand before
+                // the size is written &amp;, which is what makes it one URL with
+                // two parameters rather than a URL and an entity.
+                Assert.Contains(
+                    "href=\"" + EmblemUrlPolicy.RasterUrl(AllianceId, crest, size)
+                        .Replace("&", "&amp;", StringComparison.Ordinal) + "\"",
+                    html, StringComparison.Ordinal);
+
+                // The script re-points these at the design being edited, and reads
+                // the size off the link rather than keeping its own list.
+                Assert.Contains("data-savepng=\"" + size + "\"", html, StringComparison.Ordinal);
+            }
+
+            // A size the handler would refuse is not offered anywhere on the page.
+            Assert.DoesNotContain("s=2048", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("s=4096", html, StringComparison.Ordinal);
+
+            // `download` is what actually makes the browser save rather than
+            // navigate - the route answers `inline`, deliberately, because the
+            // same address is the game's crest and the editor's live preview.
+            Assert.Contains("<a class=\"px\" download data-savepng=", html, StringComparison.Ordinal);
         }
 
         /// <summary>
