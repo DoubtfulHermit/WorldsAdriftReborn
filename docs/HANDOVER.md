@@ -126,6 +126,20 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **Client manifest `2026.08.19-1`** published 2026-08-19 09:05 CEST, build
+  label "landing screen: splash + welcome copy + patch notes". 54 payloads,
+  no `steam_api64.dll` / `winhttp.dll`. Supersedes `2026.08.18-6`.
+  This was held back while `/patchnotes` did not exist, because the client's
+  PATCH NOTES button opens it; that page shipped in `566d7e6`, so the block is
+  gone.
+  The shipped `WorldsAdriftReborn.dll` is byte-identical (sha256
+  `86f36f7b...284d8c55`) to the one in the maintainer's own install, i.e. the
+  build that has actually been run, not a fresh unverified compile.
+  Verified after publishing: manifest 200 reporting `2026.08.19-1`, and the
+  plugin payload downloads over the public URL at the manifest's exact size
+  and hash - the same check a player's WAPatch performs.
+  Rollback: `/opt/wareborn/backups/pre-patch-2026.08.19-1-20260819T070453Z/patch`.
+
 - **Login server:** `9855edd`, deployed and restarted at 2026-08-19 09:02 CEST.
   Login-only again, and again because there is no migration: the portal opens
   the three game-owned tables READ-ONLY and `EnsureSchema` leaves the database
