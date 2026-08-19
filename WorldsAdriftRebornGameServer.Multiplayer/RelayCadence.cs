@@ -172,9 +172,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 // The loop stalled for more than a whole interval. Skip the
                 // missed ticks rather than firing them back-to-back.
+                _skipped++;
                 _nextDue = now + _interval;
             }
             return true;
         }
+
+        /// <summary>
+        /// How many times a whole interval has been skipped because the caller
+        /// did not come back in time. Lifetime, never reset.
+        ///
+        /// WHY IT IS COUNTED. A skipped tick is the server-side name for what
+        /// the soak measures from the outside: the emit window that a skip
+        /// stretches is long enough for two of a sender's publishes to land in
+        /// it, so the older one is coalesced away and that player's motion is
+        /// simply never rendered on the other client. Before this counter the
+        /// only evidence was a bot harness; with it, a live server states the
+        /// same fact in its own 5 s stats line, which is where a report of
+        /// "other players look choppy" has to be checked.
+        /// </summary>
+        public long SkippedIntervals => _skipped;
+
+        private long _skipped;
     }
 }

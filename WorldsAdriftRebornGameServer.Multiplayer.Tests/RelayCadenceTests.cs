@@ -174,6 +174,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void ASkippedIntervalIsCounted()
+        {
+            // The skip is the server-side name for a lost position: the window
+            // it stretches is long enough to hold two of a sender's publishes,
+            // and the older one is coalesced away where nobody sees it. It was
+            // silent until now, which is why the only evidence of a slipping
+            // cadence was a two-bot harness.
+            CadenceTimer timer = new(S(0.05));
+            timer.Due(S(10));
+            Assert.Equal(0, timer.SkippedIntervals);
+
+            // On the grid: no skip.
+            Assert.True(timer.Due(S(10.05)));
+            Assert.Equal(0, timer.SkippedIntervals);
+
+            // Back 500 ms late: nine intervals went by unattended, counted once
+            // as the one re-anchoring event it is.
+            Assert.True(timer.Due(S(10.6)));
+            Assert.Equal(1, timer.SkippedIntervals);
+
+            // And it keeps counting, because the number that matters live is
+            // whether it is still RISING.
+            Assert.True(timer.Due(S(11.2)));
+            Assert.Equal(2, timer.SkippedIntervals);
+        }
+
+        [Fact]
+        public void ATickThatIsMerelyLateIsNotASkip()
+        {
+            // Late but inside the interval is the normal case on a loop that
+            // turns on packet arrival. Counting those would bury the real
+            // signal in noise.
+            CadenceTimer timer = new(S(0.05));
+            timer.Due(S(10));
+
+            Assert.True(timer.Due(S(10.06)));
+            Assert.True(timer.Due(S(10.11)));
+            Assert.Equal(0, timer.SkippedIntervals);
+        }
+
+        [Fact]
         public void ZeroOrNegativeIntervalIsRefused()
         {
             Assert.Throws<ArgumentOutOfRangeException>(() => new CadenceTimer(TimeSpan.Zero));

@@ -57,6 +57,27 @@ namespace WorldsAdriftRebornGameServer.Networking
             Environment.GetEnvironmentVariable("WAREBORN_RELAY_V2") != "0";
 
         /// <summary>
+        /// WAREBORN_RELAY_TRACE=1: log the first <see cref="TraceEmits"/> emits,
+        /// each with the gap since the previous emit and the age of the position
+        /// it carried.
+        ///
+        /// WHY IT EXISTS. The relay's own 5 s stats say the cadence held - 20
+        /// emits a second, no drops, no skips - while a two-bot harness measured
+        /// the same server delivering every position either instantly or a whole
+        /// interval late, decided at join and then fixed for the session. Those
+        /// two accounts cannot both be complete, and the missing number is the
+        /// only one neither reports: how long a position actually sat in the
+        /// pending slot. Off by default; one Stopwatch read per accepted sample
+        /// when on, and it stops itself after the sample is taken.
+        /// </summary>
+        internal static readonly bool Trace =
+            Environment.GetEnvironmentVariable("WAREBORN_RELAY_TRACE") == "1";
+
+        private const int TraceEmits = 400;
+        private int _traced;
+        private TimeSpan _lastTraceEmit = TimeSpan.MinValue;
+
+        /// <summary>
         /// Whether this component id is coalesced by the emitter instead of
         /// being raw-relayed on arrival. The RelayToOtherPlayers gate.
         /// </summary>
@@ -76,6 +97,14 @@ namespace WorldsAdriftRebornGameServer.Networking
         {
             /// <summary>Fields received (and accepted) since the last emit, or null.</summary>
             public TransformState.Update? PendingTransform;
+
+            /// <summary>
+            /// When the oldest not-yet-emitted 190602 field was accepted. Only
+            /// maintained under WAREBORN_RELAY_TRACE: it is the age this emitter
+            /// is ADDING to a position, which is the one number nothing else
+            /// reports and which two whole days were spent inferring from a bot.
+            /// </summary>
+            public TimeSpan PendingTransformSince;
             public ClientAuthoritativePlayerState.Update? PendingPlayerState;
 
             /// <summary>
@@ -186,6 +215,11 @@ namespace WorldsAdriftRebornGameServer.Networking
 
             SenderState state = SenderFor(senderPeerId);
             bool keepMovement = verdict is IngestVerdict.Accept or IngestVerdict.AcceptReanchor;
+
+            if (Trace && state.PendingTransform == null)
+            {
+                state.PendingTransformSince = _clock.Elapsed;
+            }
 
             TransformState.Update pending = state.PendingTransform ??= new TransformState.Update();
 
@@ -461,7 +495,25 @@ namespace WorldsAdriftRebornGameServer.Networking
                 state.PendingPlayerState = null;
 
                 TransformState.Update transform = state.PendingTransform ?? new TransformState.Update();
+                bool carriedFreshPosition = state.PendingTransform != null;
                 state.PendingTransform = null;
+
+                if (Trace && _traced < TraceEmits)
+                {
+                    TimeSpan traceNow = _clock.Elapsed;
+                    double sinceLastEmitMs = _lastTraceEmit == TimeSpan.MinValue
+                        ? double.NaN
+                        : (traceNow - _lastTraceEmit).TotalMilliseconds;
+                    _lastTraceEmit = traceNow;
+                    _traced++;
+                    Console.WriteLine("[relay-trace] sender 0x" + senderId.ToString("x")
+                        + " emitGap=" + sinceLastEmitMs.ToString("0.###")
+                        + "ms pendingAge=" + (carriedFreshPosition
+                            ? (traceNow - state.PendingTransformSince).TotalMilliseconds.ToString("0.###")
+                            : "heartbeat")
+                        + " cadenceDue=" + regularCadenceDue
+                        + " skips=" + _cadence.SkippedIntervals);
+                }
 
                 // The heartbeat: a 190602 with no fresh position re-sends the
                 // last accepted one, so every emitted 1073 stamp has a position
@@ -690,6 +742,14 @@ namespace WorldsAdriftRebornGameServer.Networking
                     + " domainAligned=" + domainAlignedEmits
                     + " pressureSkips=" + backpressureSkips
                     + " badTsPairs=" + badPairs
+                    // NONZERO AND RISING MEANS THE CADENCE IS SLIPPING. A whole
+                    // emit interval went by without this loop coming back, so
+                    // that window was long enough to hold two of a sender's
+                    // publishes - and the older one was coalesced away, i.e. a
+                    // published position that no other client will ever see.
+                    // This is the server-side twin of the soak's delivery
+                    // shortfall; the soak needs two bots, this needs nothing.
+                    + " cadenceSkips=" + _cadence.SkippedIntervals
                     + " mode=" + (V2Enabled ? "v2@" + _hz + "Hz" : "raw"));
             }
         }
