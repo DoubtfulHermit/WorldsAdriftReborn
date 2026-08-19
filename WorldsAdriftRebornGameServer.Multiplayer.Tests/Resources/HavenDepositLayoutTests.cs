@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Resources;
 using Xunit;
@@ -65,14 +66,38 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Resources
             Assert.Contains(p, x => x.LocalX > 150.0);
         }
 
+        /// <summary>
+        /// This used to assert that every Haven deposit was iron at quality 6, and
+        /// it was right to: the alternative on offer then was an invented rotating
+        /// assortment, which would have manufactured lore for a Bossa-authored
+        /// island that has no surviving survey row.
+        ///
+        /// Haven now draws from the surveyed TIER-1 COHORT instead - the same
+        /// cohort, and the same method, that already composed metal tables for the
+        /// 193 islands the community survey never recorded - so the metals are
+        /// inferred the way every other unsurveyed island's already are rather than
+        /// chosen. What the old test was really protecting is kept and made
+        /// explicit: iron still dominates, and the node beside the spawn is still
+        /// iron, so the starter loop is not starved.
+        ///
+        /// The QUALITY assertion is unchanged on purpose. Strict cohort fidelity
+        /// would put Haven in the tier-1 band of 1..4, i.e. a balance cut, and that
+        /// is a maintainer's decision rather than a side effect of varying metals.
+        /// </summary>
         [Fact]
-        public void Haven_deposits_are_the_starter_biomes_iron_not_an_assortment()
+        public void Haven_deposits_lean_on_starter_iron_but_are_no_longer_uniform()
         {
-            Assert.All(MetalDeposits.HavenPlacements, p =>
-            {
-                Assert.Equal("iron", p.MetalType);
-                Assert.Equal(6, p.Quality);
-            });
+            Assert.All(MetalDeposits.HavenPlacements, p => Assert.Equal(6, p.Quality));
+
+            Assert.Equal("iron", MetalDeposits.HavenPlacements[0].MetalType);
+
+            IReadOnlyList<string> metals = MetalDeposits.HavenPlacements
+                .Select(p => p.MetalType).ToList();
+
+            Assert.True(metals.Distinct().Count() >= 5,
+                "Haven should span the tier-1 cohort, not one metal");
+            Assert.True(metals.Count(m => m == "iron") * 2 >= metals.Count,
+                "iron should still be at least half of Haven's deposits");
         }
 
         [Fact]
