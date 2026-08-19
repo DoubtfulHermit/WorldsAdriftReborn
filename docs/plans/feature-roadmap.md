@@ -2057,3 +2057,101 @@ Requires dedicated weather-cell entities and the `1139` research that
    sails keep pushing while the hull is in motion, which is retail-authentic and
    produces ghost ships. Retail answered this with `ShipAbandonedBehaviour`;
    we have no equivalent.
+
+### 12.10 WIKI CORROBORATION — two reconciliations, three corrections
+
+A web sweep of the surviving community record (fandom, Wayback, reddit, Steam
+guides, the WAEngenius and `worldsadrift.science` calculator **sources**, and
+Bossa's own patch notes and forum posts) was run against the decompile findings
+above. Everything here is **WIKI** unless marked otherwise, and it is recorded
+because it is *independent* of the decompile — where the two agree, confidence
+goes up a lot; where they disagree, the decompile wins.
+
+**Two clean reconciliations — these are worth the whole sweep.**
+
+1. **Our sky-core lift formula is independently confirmed.**
+   `MaterialCatalog.SkyCoreLiftKg` derives `lift = 1000 + rate × (10 + quality)`
+   from the wiki's Atlas Core table. The recovered source of the community
+   calculator `worldsadrift.science/skycoreCalc.js` computes
+   `lift = base + genMult[generatorMaterial] × (10 + generatorQuality)` with
+   `genMult = { aluminium: 6, copper: 7.5, silver: 8, gold: 8.5 }` — **the same
+   expression and the same coefficients**, arrived at by a different person from
+   different data. Our formula is safe to build F2 on. Corroborating anchors: a
+   bare core is **1000 kg**, eight upgrade modules take it to **6000 kg**, and a
+   Q10 gold generator was reported at **7020 kg**.
+
+2. **The "2800 m altitude cap" and the decompile's "Y = 800" are the same
+   number.** The wiki records a global ceiling of 2800 m from Beta 0.1.3.7, which
+   flatly contradicted `WorldEdgePushback`'s onset at global Y = 800. They
+   reconcile exactly: `AltimeterVisualiser` displays **`height + 2000`**. Global
+   Y 800 *is* an altimeter reading of 2800. **So the ceiling is confirmed from
+   both sides, and F4's numbers are right** — but note the altimeter offset,
+   because a player reporting an altitude is reporting global Y **+ 2000**.
+
+**Corroborated, no conflict:**
+
+- **Sails move an engineless ship.** Multiple independent sources, including
+  Bossa-era guides describing sails as what *"allow first movement"* before a
+  player can afford engines, and several documented engineless sailing rafts.
+  This now has both PROVED and WIKI support.
+- **Tacking was real and necessary** — players zig-zagged upwind. Consistent
+  with the recovered model, where the worst heading still yields a small force
+  through the 0.3 floor: upwind progress is possible and miserable, which is
+  exactly the condition that makes tacking rational.
+- **Wings provide no lift and only turn the ship** — the wiki says so outright,
+  matching `WingVisualizer` producing torque and never force.
+- **A wing at 45° is "70% as effective" on both axes** — a cosine projection,
+  matching the recovered `Lerp(0.2, 1.0, alignment)`.
+- **The core torque is real, and this explains a dead component.** A Bossa
+  engineer, 2015: *"the ship cores provide torque to the ship, so it can rotate
+  even in-place — I call them 'reaction wheels' in the code"*. That names
+  **`1110 ReactionWheelState`**, which §12.3 records as having zero consumers.
+  It is dead because the mechanism moved into `ShipControlVisualizer`'s
+  mass-scaled core torque. Do not implement `1110`.
+- **Ship physics was server-authoritative and degraded under load.** Bossa's
+  Update 30 notes name the sim **FSIM** and describe its speed varying with
+  **time dilation**; Update 29 adds *"server optimisations for ships with many
+  engines and/or wings"*. Players measured roughly a 30% speed loss in busy
+  zones. Our architecture assumption is correct, and worth remembering when
+  judging any player-reported speed.
+
+**Three corrections we should act on:**
+
+1. **Reverse thrust should probably be 0.2, not our 0.4.** A Bossa engineer,
+   2015: *"engines provide full 'puller' power and **20% 'pusher' power**, i.e.
+   all engines are reversible, but not at full efficiency."* A 2018 player puts
+   it nearer 25%. This is a **dev statement**, the strongest non-code evidence in
+   the whole sweep — but it is from 2015 and it would change how the live game
+   feels today, so `DefaultReverseFactor` is left at 0.4 and flagged here rather
+   than changed quietly. **A deliberate decision, not an oversight.**
+2. **Any sail number from before October 2018 is off by a factor of two.**
+   Bossa's PTS Update 27 notes: *"Halved wind power, which functionally halves
+   thrust from sails."* Our default wind `(1,0,-2)` is read from the **final**
+   client, so it is already post-nerf and needs no adjustment — but it means the
+   frequently quoted sail speeds of 45–60 knots describe a game that no longer
+   existed at shutdown. Do not calibrate canvas against them.
+3. **The community "power" unit is not newtons, and the bridge is ~13.**
+   The community speed law `speed_knots = 50 × √(2 × power / mass_kg)` is a
+   player fit, but it validates exactly against a stated measurement (900 power,
+   3000 kg → 38.73 knots). Setting that equal to our recovered
+   `v = 10 × √(F/m)` gives **≈ 13 newtons per point of community "power"**
+   — **INFERRED**, and it chains through a fitted constant, so treat it as an
+   order-of-magnitude bridge only. Its use is calibration sanity: a good retail
+   engine of 90–140 power maps to roughly 1,200–1,850 N, against our chosen
+   600 N. **So our engines are plausibly a factor of two to three weak**, which
+   is consistent with the 70-knot gauge in §12.2 and is the first thing to try
+   if the maintainer's flight test says ships feel sluggish.
+
+**The one dispute the decompile settles.** The wiki contradicts *itself* on the
+best point of sail: its main text says dead downwind is fastest, its tips section
+says *"you move faster at 90° to the wind than with the full wind"*, and no
+player ever published a measured polar. **The recovered geometry answers it:**
+sweeping the implemented model over all headings peaks at dead downwind and falls
+to roughly half that on a beam reach. The main text is right and the tip is
+wrong. This is the kind of question only the decompile can close, and it is why
+WIKI stays the weakest tier.
+
+**A caution on every speed number above.** The in-game airspeed indicator was
+widely reported as **buggy through mid-2018** — reading non-zero at a standstill,
+and disagreeing with observed overtakes. Player speed measurements from that
+window are gauge readings, and the gauge was lying.
