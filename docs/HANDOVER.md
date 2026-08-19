@@ -659,6 +659,34 @@ authority for live configuration is the box itself:
   both Release builds zero errors. This is server/admin-only, needs no patcher
   manifest change, and is deployed in `ab9bc94`.
 
+- **Open defect, characterised 2026-08-19: the relay settles into one of two
+  states at join and stays there for the session.** Either it forwards an
+  accepted position within a millisecond, or it holds every position for one
+  whole emit interval - 50 ms, half the client's entire 100 ms interpolation
+  budget - before sending it. Both states emit at exactly 20 Hz with zero
+  ingest drops, zero backpressure skips and a lifetime cadence-skip count in
+  single digits, which is why every existing statistic said the relay was
+  healthy. The discriminator is the age of the position in the pending slot:
+  `WAREBORN_RELAY_TRACE=1` reports a median of 0.15 ms in the good state and
+  50.20 ms in the bad one, measured server-side with no bot involved.
+  In fifteen soaks across two trees the bad state occurred six times (40%),
+  including on `2bd3113` - a tree predating all of 2026-08-19's merges - so it
+  is **not** anything that landed today, and it is not entity count: the runs
+  that produced it carried the default Haven world of 127 registrations with
+  spatial interest off and no tier-1 island at all.
+  The mechanism below that - what decides, at join, which state a session gets -
+  is NOT established. Moving `Relay.Tick` below the packet drain was tried and
+  measured and does **not** remove it (1 of 4 runs still landed in the bad
+  state, against 2 of 4 without the change); that change was reverted rather
+  than shipped on a hunch. The plausible next step is a per-sender emit gate
+  instead of one global grid, which cannot be done without also deriving the
+  synthetic timeline's step from real elapsed time - see the hazard note in
+  `RelayCadencePolicy` - and therefore wants its own branch and a two-client
+  presentation check, not a drive-by.
+  The soak's new level gate (`docs/testing.md`) fails on the bad state, so this
+  is now visible rather than inferred. Expect it red on roughly two runs in five
+  until the defect is fixed.
+
 Do not put database passwords, session tokens, account records, or private
 connection strings in documentation, commits, commands whose output is pasted
 into chat, or issue reports. In particular, avoid printing the full systemd

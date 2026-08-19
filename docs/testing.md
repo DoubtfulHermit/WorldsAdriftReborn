@@ -93,6 +93,88 @@ that interpolation looks smooth on screen. Once tiers 1 and 2 pass, a session
 with Colin is confirmation of presentation, not the first time the protocol or
 state machine is exercised.
 
+## The relay soak gate, and its two questions
+
+```sh
+tools/relaybot/run-soak.sh 10 7807          # ten minutes on an isolated port
+SOAK_FAUNA=1 tools/relaybot/run-soak.sh 10 7807   # production world + fauna
+```
+
+Two headless bots join, circle the spawn and measure the end-to-end staleness of
+each other's relayed movement. The run then answers **two independent
+questions**, and both must pass:
+
+**1. Did it get worse while it ran?** End-window minus start-window median
+(`drift`) and a least-squares trend, both against 20 ms. This is the original
+check and it is unchanged. It exists for the pathology it was built for: a queue
+that drains as fast as it fills, so the packet RATE stays flat while its contents
+age. Failing it prints `GROWING`.
+
+**2. Is the level defensible at all?** Failing this prints `REGRESSED`. It was
+added on 2026-08-19 after a soak reported a confident `FLAT` at 93.3% delivery
+and a median staleness of a whole emit interval, sitting next to runs of the same
+harness at 100% and sub-millisecond. A run that starts bad and stays bad is
+perfectly flat, and merged content lands as a *step*, not a slope — so the drift
+check, on its own, cannot gate content at all.
+
+It judges two numbers, and deliberately not the staleness percentiles. Which side
+of the emitter's grid a sender's publishes land on is decided when that peer
+joins and then holds for the whole session, and it moves the percentiles by a
+whole emit interval with no code change: repeated runs on one unchanged tree
+produced overall medians of 0.3 ms and 50.4 ms with nothing else different. A
+percentile ceiling would be a coin toss wearing a threshold's clothes. The two
+gated numbers are the ones that state a contract instead:
+
+- **missed ticks** — the share of delivered samples that waited longer than one
+  whole emit interval. The emitter's contract is that a sample waits at most
+  until its next tick, so this should be ~0. Ceiling 5%
+  (`SOAK_MISSED_TICK_CEILING_PCT`).
+- **delivery** — the share of published samples that arrived at all. The bots
+  publish at 18 Hz into a 20 Hz emitter, so every sample has a slot of its own
+  with two a second to spare; one that never arrives was coalesced away by an
+  emit window that held two publishes. Floor 97% (`SOAK_DELIVERY_FLOOR_PCT`),
+  which sits below the measured 99.6–100% spread of good runs and well above the
+  93.3% that went unnoticed.
+
+> **This check is currently RED on roughly two runs in five, and that is the
+> finding, not a flaw in the check.** The relay settles at join into one of two
+> states and stays there: either it forwards a position within a millisecond, or
+> it holds every position for one whole emit interval first — 50 ms, half the
+> client's entire 100 ms interpolation budget — while still emitting at exactly
+> 20 Hz with no drops and no cadence skips. Measured server-side, the pending
+> position's age is ~0.03 ms in the good state and ~50.2 ms in the bad one
+> (`WAREBORN_RELAY_TRACE=1`). It reproduces on trees months old, so it is not
+> anything that merged; it is an open defect this gate exists to make visible.
+> Until it is fixed, `SOAK_MISSED_TICK_CEILING_PCT=100` disables *only* that half
+> if an unrelated change has to be gated — the drift check, the delivery floor
+> and the baseline comparison all still run.
+
+On top of those absolute limits the run compares itself to a **recorded
+baseline**, `tools/relaybot/baselines/soak-levels.json`, keyed by world recipe
+(`haven-spawn`, `tier1-island`) because two different worlds are not comparable.
+That is what catches a cost that is real but still inside the contract — "409
+more entities took delivery from 100% to 97.5%" breaks no limit and should still
+be argued about rather than absorbed. Re-recording is always explicit
+(`SOAK_WRITE_BASELINE=1`) and the file is committed, so moving the bar is a diff
+a reviewer sees instead of a drift nobody notices. A missing baseline prints a
+line and steps aside; the absolute limits still judge.
+
+The judgement itself is pure and unit-tested in `SoakLevelPolicyTests` — the
+harness only measures and prints. A threshold nobody can unit-test is a threshold
+that quietly stops meaning anything.
+
+**Reading a failure.** Two server-side numbers say whether the server or the host
+is responsible, and neither needs a bot:
+
+- `[relay-stats] ... cadenceSkips=N` counts emit intervals that went by without
+  the main loop coming back at all. Rising is the server falling behind; flat
+  while delivery is short is something else.
+- `WAREBORN_RELAY_TRACE=1` logs the first 400 emits with the gap since the
+  previous one and the **age of the position it carried**. That age is the whole
+  question: ~0 means the relay forwards what it just received, ~50 ms means it is
+  in the state described above, and a rising age with a flat gap is the original
+  "rate flat, contents ageing" pathology the drift check watches for.
+
 ## The storage suite
 
 ```sh
