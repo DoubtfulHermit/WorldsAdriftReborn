@@ -123,8 +123,20 @@ Harvesting needs one.
   currently advertises unlimited stacking.**
 - Colour metadata formatting is inconsistent: `torso_poncho` uses `"566B8E"`,
   `head_devhat` uses `"#15161B"`.
-- `scrapItemselenistswoodenorrery` — **missing hyphen**, fails
-  `StartsWith("scrapItem-")` so its description never displays.
+- ~~`scrapItemselenistswoodenorrery` — **missing hyphen**, fails
+  `StartsWith("scrapItem-")` so its description never displays.~~ **FIXED**
+  2026-08-19 (resource-economy Phase 5). It was worse than a description bug:
+  `InventoryTooltipPopup.cs:113` gates the SALVAGE button on the same prefix, so
+  its tier-4 `palm` ×140 q10 reward block was unreachable by any player. The id
+  is now `scrapItem-selenistswoodenorrery`. **The extracts in `data/` still carry
+  the old spelling and were deliberately left alone** — they are as-extracted
+  records of the retail data, not a second copy of ours.
+- **`scrapItem-woodenbowl` was listed TWICE** and the second copy had no `name`
+  and no `rewards`. `ItemHelper.AllItems` and the client's `itemDict`
+  (`acs/InventoryItemManager.cs:81`) are both last-wins, so the Wooden Bowl
+  resolved to the poorer row. **FIXED** in the same pass; the loader now warns on
+  any repeated id. It was the only conflicting duplicate in the file
+  (`scrapItem-Founder's Tome` also appears twice, but byte-identically).
 - `torse_squireVariantA` — typo for `torso_`.
 
 ## CATEGORIES ARE STRINGS WITH NO ENUM

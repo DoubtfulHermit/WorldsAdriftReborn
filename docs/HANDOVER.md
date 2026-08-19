@@ -126,6 +126,69 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **NOT DEPLOYED - branch `feat/scrap-salvage`, ready for the orchestrator.**
+  **Scrap salvaging** (resource-economy Phase 5): the SALVAGE button the client
+  has always drawn on `scrapItem-*` now pays out the reward block itemData.json
+  has always carried. This is the missing half of the loot-container loop that
+  went live at 12:41 - a player could pick scrap up and do nothing with it.
+  Server-only. **No schema migration**, no new component, no new message: `1082
+  tryToConsume` already arrived and was already refused, `1081` already answers,
+  and the toast is the same `8060` a mined rock fires.
+  * The payout is RECOVERED verbatim from the 134 `rewards` blocks - material,
+    amount and quality are never scaled or rolled. Metals, woods and fuel only;
+    nothing may be added to that table.
+  * **CORRECTION to the plan, and to anyone reading the table:** a `.1`/`.2`
+    reward key is a SECOND YIELD AT THE SAME TIER, not a sub-tier. All 23 rows
+    that carry one also carry its base key and the materials always differ, so
+    both are paid. The plan's original "highest key whose integer part is n"
+    rule would have silently deleted 23 base yields.
+  * Tier comes from `meta["sourceTier"]`, stamped onto every item a loot
+    container is stocked with, and clamped into the tiers that item has rows
+    for. The clamp and the split of a 400-unit payout into 99-unit piles are
+    WAREBORN TUNING; the totals are not.
+  * **Two itemData.json defects fixed.** `scrapItemselenistswoodenorrery` was
+    missing its hyphen, so its tier-4 `palm` x140 q10 was unreachable by any
+    player (the client gates SALVAGE on `StartsWith("scrapItem-")`). And
+    `scrapItem-woodenbowl` was listed TWICE with the rewardless copy last -
+    `ItemHelper.AllItems` and the client's own `itemDict` are both last-wins, so
+    the Wooden Bowl had no name and no yield. Both were the only ones of their
+    kind in the file, and both classes now have a disk-reading test.
+  * Gates: Multiplayer **3872 passed / 0** (baseline 3818; 54 added),
+    `WorldsAdriftServer.Tests` **1175 / 26 skipped**, unchanged.
+    **Relay soak FLAT** despite the plan saying none was needed - drift
+    -0.02 ms, trend -0.02 ms against a 20 ms threshold, 21,606 sends 100%
+    delivered, 0 gaps, 0 disconnects, 0 decode errors, 0 timeline violations
+    (`tools/relaybot/run/soak-20260819-130629.csv`). The claim was checked
+    rather than taken: the SEND CADENCE IS UNCHANGED, because `tryToConsume`
+    already counted into the request tally and so already triggered exactly one
+    1081 push per click. What is new is one `8060` toast per yield per
+    deliberate click, and about twenty bytes of `meta` on a looted item inside
+    an already-sent full-state 1081. Neither is a high-rate relayed component,
+    which is the class that caused the desync spiral.
+  * **Mutation-tested, because this repo has twice shipped a green suite over an
+    unplugged feature.** TWELVE deliberate breakages of the production wiring
+    were applied one at a time and every one was caught by the intended test -
+    deleting the handler dispatch, no-oping the service call, removing the
+    ownership gate, dropping the toast, cutting the service off from the policy,
+    dropping the container tier stamp at its point of USE while leaving every
+    other trace of it in place, making consume-then-grant non-atomic, parsing a
+    tier key with a culture-sensitive decimal parse, renaming a RewardRow field
+    to a C#-shaped name (which binds it to nothing, silently), reinstating the
+    plan's wrong sub-tier rule, and putting both data defects back.
+  * **Proved offline against the real data**, because no unit test exercises the
+    JSON binding or the loot-to-salvage chain: a tier-4 container roll stocked
+    the way `BindContainer` does it, taken into a bag the way a cross-inventory
+    move does it, then salvaged. All four rolled relics paid, each carrying
+    `sourceTier=4`, and `scrapItem-marimbiannosepipe` paid BOTH of its yields -
+    50x aluminium q9 AND 350x hemlock q9, the hemlock landing as 99+99+99+53.
+  * **Unverified until the maintainer salvages something in-world:** that the
+    SALVAGE button appears on a looted relic, that the materials land in the
+    panel, and that the "Salvaged <material> xN" toast fires. Headless bots run
+    no inventory UI, so all three rest on unit tests and the decompile. The
+    lines to watch are `[salvage] entity N salvaged item M at tier T -> ...`
+    and, if the toast is silent, the `salvage feedback ... reached no peer`
+    warning.
+
 - **Game server:** `8eb4639`, deployed and restarted at 2026-08-19 12:41 CEST.
   **Login server:** `8068a0b`, same afternoon. Four merges landed between them;
   none carried a schema migration, which is the only reason the two were allowed

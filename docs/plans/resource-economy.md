@@ -23,7 +23,7 @@ decompile or shipped data), **RECOVERED** (reconstructed from a retail artefact)
 | 2 — Per-island deposit metals | **DONE**, committed |
 | 3 — Fibre and berries off the tree cut | **DONE**, committed |
 | 4 — The loom | not started; scope grew, see the phase |
-| 5 — Scrapping | not started |
+| 5 — Scrapping | **DONE**, committed |
 | 6 — Cooking routing | not started |
 | 7 — Creature lifecycle | not started; now SIZED — and it is not a weapons project |
 
@@ -178,17 +178,27 @@ scrap bootstraps the Update-27 economy is false. Anything that gives scrap a
 cloth/leather/glass/pigment yield is an **invention**, not a recovery — see the
 withdrawal in Phase 5 step 4.
 
-**133 salvageable, not 134** — and the missing one is a one-character bug worth
-fixing. The client shows SALVAGE only for ids that literally
+**133 salvageable, not 134 — FIXED, it is now 134.** The missing one was a
+one-character bug. The client shows SALVAGE only for ids that literally
 `StartsWith("scrapItem-")` (`acs/…/InventoryTooltipPopup.cs:113`).
-`scrapItemselenistswoodenorrery` is **missing its hyphen**, so despite carrying a
-real reward block (tier 4 → `palm` ×140 at quality 10) **no player can ever
-salvage it.** The audit noted the typo as a cosmetic description bug; it is
-actually an unreachable item.
+`scrapItemselenistswoodenorrery` was **missing its hyphen**, so despite carrying
+a real reward block (tier 4 → `palm` ×140 at quality 10) **no player could ever
+salvage it.** The audit noted the typo as a cosmetic description bug; it was
+actually an unreachable item. Corrected in Phase 5 to
+`scrapItem-selenistswoodenorrery`; the only references to the old spelling were
+the research artefacts, which are as-extracted records and were left alone.
+
+**A second data defect of the same family, found in the same pass:**
+`scrapItem-woodenbowl` was listed TWICE. The second row had no `name` and no
+`rewards`, and both `ItemHelper.AllItems` and the client's own `itemDict`
+(`acs/InventoryItemManager.cs:81`) are last-wins — so the Wooden Bowl resolved
+to the poorer row, showed no name, and would have salvaged into nothing. The
+duplicate is removed and the loader now warns on any repeat.
 
 **Which scrap a tier can hold is RECOVERED**, because `rewards` is keyed by tier:
-**T1 41 eligible items, T2 50, T3 32, T4 85**. Only the per-container counts and
-drop likelihoods are invented.
+**T1 41 eligible items, T2 50, T3 32, T4 86** (T4 was 85 before the orrery's
+hyphen was fixed). Only the per-container counts and drop likelihoods are
+invented.
 
 And the client-side trigger already exists and already reaches us:
 
@@ -674,12 +684,37 @@ quality.
    reward for the tier, consume the item and grant the payout. Everything else
    keeps refusing exactly as now, including the unconditional 1081 re-push that
    stops the panel sticking.
-3. **Tier resolution**, in order: the item's `meta["sourceTier"]` if present
-   (see §2 — this is what I ask of `feat/loot-containers`); else the tier of the
-   island the player is standing on; else **1**. Fractional keys (`"1.1"`,
-   `"4.2"`) exist in the data and appear to be sub-tier variants; resolve a
-   request for tier *n* to the highest key whose integer part is *n*, so no row
-   is unreachable. RECOVERED shape, WAREBORN TUNING resolution rule.
+3. **Tier resolution.** ~~The item's `meta["sourceTier"]` if present; else the
+   tier of the island the player is standing on; else 1. Fractional keys
+   (`"1.1"`, `"4.2"`) ... appear to be sub-tier variants; resolve a request for
+   tier *n* to the highest key whose integer part is *n*.~~
+
+   **THE FRACTIONAL-KEY READING WAS WRONG AND IS CORRECTED.** A `.1`/`.2` key is
+   a SECOND YIELD AT THE SAME TIER, not a sub-tier variant, and "the highest key
+   whose integer part is *n*" would have silently deleted the base yield of every
+   one of the 23 rows that carry one — `scrapItem-crackedminingdrill` on tier 3
+   is bronze ×125 **and** fuel ×40, and that rule pays only the fuel. Two facts
+   in the data settle it, both now asserted by `ScrapRewardDataTests`: every
+   sub-key has its base key present (zero orphans across all 134 rows), and a
+   sub-key's material NEVER equals its base key's. So **every ordinal at the
+   chosen tier is paid**. RECOVERED.
+
+   As shipped, tier resolution is: the item's `meta["sourceTier"]` if present,
+   else **1**, and then CLAMPED into the tiers that item actually has rows for —
+   the highest at or below the request, else the lowest. The clamp is WAREBORN
+   TUNING and it is what stops a tier-4 relic in a Haven player's bag from being
+   permanently unsalvageable.
+
+   **"The tier of the island the player is standing on" was deliberately not
+   built.** The server has no per-player island tier lookup outside
+   `ResourceInterestService`'s private peer state, and it does not need one: the
+   stamp is written by `InventoryService.BindContainer` at the moment a chest is
+   stocked, from `LootContainerLedger.TierOf`, so every piece of scrap a player
+   can currently obtain carries its real tier. It survives the move out of the
+   chest because a cross-inventory move copies the item record whole. An
+   unstamped scrap item (an admin grant) falls back to tier 1 and is then clamped,
+   which is always payable and never silently wrong about the MATERIAL — only,
+   for the 23 multi-tier rows, about the quality.
 4. **Leave all 133 recovered reward blocks EXACTLY as recovered. Add nothing.**
 
    An earlier draft of this step proposed adding cloth/leather/glass/pigment
@@ -714,6 +749,21 @@ quality.
 **Depends on.** Nothing to build. **Depends on `feat/loot-containers` to be
 reachable in normal play** — see §2.
 
+**AS SHIPPED.** Pure rules in
+`WorldsAdriftRebornGameServer.Multiplayer/Inventory/ScrapSalvagePolicy.cs`; the
+reward block is deserialised by `ItemHelper.ValidItem.rewards` and handed over by
+`InventoryWire.ScrapRewards`; the running seam is
+`Game/Inventory/ScrapSalvageService.cs`, called from
+`InventoryModificationState_Handler.HandleTryToConsume`, which also gates the
+event on the sender's own inventory id (the client only ever sends its own —
+`InventoryTooltipPopup.cs:241-247` — so a foreign id is a hand-built packet
+trying to consume out of a chest). A payout larger than the material's
+`stacksize` of 99 is cut into piles totalling the recovered amount; the 8060
+toast reports the total once. `ScrapSalvageWiringTests` asserts each link of that
+chain by reading the production source, because the game-server assembly has no
+test project and this repo has shipped a green suite over an unplugged feature
+twice.
+
 **Schema migration.** **No.** The `sourceTier` key rides the existing free-form
 `meta` dictionary that `InventoryService.Grant` already accepts and persists.
 This is deliberate: a new column would force game server and login server to
@@ -722,7 +772,14 @@ progression once.
 
 **Networked state / soak.** No new component, no new message — `1082` inbound and
 `1081` outbound already flow. Rate is one exchange per deliberate player click.
-No soak needed.
+No soak needed — **and the claim was checked rather than taken.** The send
+cadence is literally unchanged: `tryToConsume` already counted into the handler's
+request tally, so it already triggered exactly one 1081 push per click. What is
+new is one `8060` toast per yield per click and about twenty bytes of `meta` on a
+looted item inside an already-sent full-state 1081. The soak was run anyway
+because the standing rule says to: **FLAT**, drift −0.02 ms, trend −0.02 ms
+against a 20 ms threshold, 21,606 sends 100% delivered, 0 gaps, 0 disconnects
+(`tools/relaybot/run/soak-20260819-130629.csv`).
 
 **What could go wrong.**
 - *Item duplication.* Consume-then-grant must be atomic against the client's
@@ -1241,7 +1298,7 @@ change. It is its own workstream and should not be folded into a resource phase.
 | 2 | Per-island deposit metals | metal variety on the starter island | low | no | no |
 | 3 | Fibre + berries off the tree | the entire Clothing branch | low | no | **yes** |
 | 4 | Loom activates + Clothing routes | wearables | **medium** | no | no |
-| 5 | **Scrapping** | **133 scrap rows a player can already pick up** | low | no | no |
+| 5 | **Scrapping** — *done* | **134 scrap rows a player can already pick up** | low | no | no |
 | 6 | Cooking routes + recipe honesty | food, once meat exists | low | no | no |
 | 7a-0 | **Seed 1171 + 1099 on a creature** | death pose, ragdoll fall, salvage gate | **low** | no | **yes** |
 | 7a-i | **Fifth `OnSalvageShot` branch + per-species shot count** | **kill it with the beam you already have** | **low** | no | inherits |
@@ -1277,16 +1334,18 @@ Phase 1 is first because it is the smallest change with the widest reach: it is
 the difference between crafted stats meaning something and meaning nothing, it
 costs no new state, and every later phase inherits it.
 
-**Phase 5 has a claim to move up.** It was placed fifth when scrap had no
-producer; loot containers are now live in production (409 on tier-1), so a player
-can pick scrap up today and can do nothing with it. It is low-risk, needs no
-migration and no soak, and it is the cheapest available way to make something
-already deployed become useful. If the maintainer wants the biggest
-visible-value-per-hour after Phases 1–3, **it is Phase 5, not Phase 4** — Phase 4
-grew a general deployable-seeding defect underneath it and is the riskier of the
-two.
+**Phase 5 moved up and has LANDED.** It was placed fifth when scrap had no
+producer; loot containers went live in production (409 on tier-1), so a player
+could pick scrap up and do nothing with it. It was low-risk, needed no migration,
+and it was the cheapest available way to make something already deployed become
+useful. Phase 4 remains the riskier of the two — it grew a general
+deployable-seeding defect underneath it.
 
-Also worth doing whenever someone is next in `itemData.json`, at a cost of one
-character: `scrapItemselenistswoodenorrery` is missing the hyphen its SALVAGE
-button is gated on, so its tier-4 `palm` ×140 q10 reward is unreachable by any
-player. It is 1 of 134.
+The one-character bug is FIXED: `scrapItemselenistswoodenorrery` now has its
+hyphen and is the 134th salvageable row. The same file also carried
+`scrapItem-woodenbowl` TWICE, and the second copy had no name and no reward
+block — and `ItemHelper.AllItems` is last-wins, so the Wooden Bowl resolved to
+the poorer row and would have salvaged into nothing. Both are gone, and both
+classes now have a test that reads `itemData.json` off disk. They were the only
+two of their kind in the file; the 52 rows with an EMPTY id are a different
+thing (female clothing variants the loader already skips) and were left alone.
