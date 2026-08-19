@@ -9,7 +9,11 @@ namespace WorldsAdriftServer.Emblems
     /// renderer needs no graphics context to be tested. What is new here is that
     /// there are up to twenty regions instead of four, they OVERLAP, and each
     /// carries its own alpha - so this file composites where the heraldic painter
-    /// only had to pick.
+    /// only had to pick. A MIRRORED layer is two regions rather than one, so the
+    /// ceiling is forty; what that costs is measured in EmblemStackRenderTests,
+    /// and the answer is much less than double because the two halves sit on
+    /// opposite sides of the canvas and the per-pixel bounds test drops whichever
+    /// one is not there.
     ///
     /// IT IS FLAT, AND THAT IS A DECISION. The heraldic crest carries a top-lit
     /// gradient because a shield with one flat fill reads as clip art. A layered
@@ -267,33 +271,47 @@ namespace WorldsAdriftServer.Emblems
                 // rather than tested per sample: it cannot become visible later.
                 if (layer.Size <= 0 || layer.Opacity <= 0) continue;
 
-                double angle = layer.Radians;
-                double cos = Math.Cos(angle);
-                double sin = Math.Sin(angle);
-
-                double scaleX = layer.FlipX ? -layer.Scale : layer.Scale;
+                int rgb = EmblemVocabulary.ColourAt(layer.Colour);
                 double scaleY = layer.FlipY ? -layer.Scale : layer.Scale;
 
-                int rgb = EmblemVocabulary.ColourAt(layer.Colour);
-
-                Placed entry = new Placed
+                // ONE REGION PER INSTANCE. A mirrored layer is two, and they are
+                // ordinary entries in this list rather than a special case in
+                // Contains - so the compositing, the early-out and the bounds
+                // narrowing all treat a reflection exactly as they treat any other
+                // shape, and the only thing symmetry adds is one more region.
+                //
+                // Each instance's angle and x-scale come from the SAME integers
+                // EmblemLayer writes into the transform string, not from a second
+                // derivation of "what a mirror does" - which is what keeps this
+                // agreeing with the SVG the browser draws.
+                for (int instance = 0; instance < layer.Instances; instance++)
                 {
-                    Path = path,
-                    Cos = cos,
-                    Sin = sin,
-                    CentreX = layer.CentreX,
-                    CentreY = layer.CentreY,
-                    InverseScaleX = 1.0 / scaleX,
-                    InverseScaleY = 1.0 / scaleY,
-                    Alpha = layer.Alpha,
-                    R = (rgb >> 16) & 0xFF,
-                    G = (rgb >> 8) & 0xFF,
-                    B = rgb & 0xFF,
-                };
+                    double angle = layer.InstanceRadians(instance);
+                    double cos = Math.Cos(angle);
+                    double sin = Math.Sin(angle);
 
-                Bounds(path, cos, sin, scaleX, scaleY, layer.CentreX, layer.CentreY, ref entry);
+                    double scaleX = layer.InstanceScaleX(instance);
+                    double centreX = layer.InstanceCentreX(instance);
 
-                placed.Add(entry);
+                    Placed entry = new Placed
+                    {
+                        Path = path,
+                        Cos = cos,
+                        Sin = sin,
+                        CentreX = centreX,
+                        CentreY = layer.CentreY,
+                        InverseScaleX = 1.0 / scaleX,
+                        InverseScaleY = 1.0 / scaleY,
+                        Alpha = layer.Alpha,
+                        R = (rgb >> 16) & 0xFF,
+                        G = (rgb >> 8) & 0xFF,
+                        B = rgb & 0xFF,
+                    };
+
+                    Bounds(path, cos, sin, scaleX, scaleY, centreX, layer.CentreY, ref entry);
+
+                    placed.Add(entry);
+                }
             }
 
             return placed.ToArray();

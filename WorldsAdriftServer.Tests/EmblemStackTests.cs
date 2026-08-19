@@ -17,10 +17,10 @@ namespace WorldsAdriftServer.Tests
         private static EmblemLayer Layer(
             int obj, int x = 0, int y = 0, int size = 500, int rotation = 0,
             int colour = 0, int opacity = EmblemLayer.OpacitySteps,
-            bool flipX = false, bool flipY = false, bool locked = false)
+            bool flipX = false, bool flipY = false, bool mirror = false, bool locked = false)
         {
             Assert.True(EmblemLayer.TryCreate(
-                obj, x, y, size, rotation, colour, opacity, flipX, flipY, locked,
+                obj, x, y, size, rotation, colour, opacity, flipX, flipY, mirror, locked,
                 out EmblemLayer layer));
             return layer;
         }
@@ -195,11 +195,91 @@ namespace WorldsAdriftServer.Tests
         {
             string code = Stack(Layer(0)).ToCode();
 
-            // The flags are the last character; 8 is the first bit we have no
-            // meaning for.
-            string future = code.Substring(0, code.Length - 1) + EmblemLayerCode.Alphabet[8];
+            // The flags are the last character, and the first bit past the ones
+            // this build has a meaning for is the first one it must refuse.
+            string future = code.Substring(0, code.Length - 1)
+                + EmblemLayerCode.Alphabet[EmblemLayer.KnownFlags + 1];
 
             Assert.False(EmblemArtwork.TryParse(future, out _));
+        }
+
+        /// <summary>
+        /// THE MIRROR BIT COST THE FORMAT NOTHING, and this is the whole claim:
+        /// the flags are one base-64 character, three of its six bits were taken,
+        /// and symmetry is a fourth. A layer is still thirteen characters and no
+        /// crest anybody has saved changes meaning, because every build before
+        /// this one REFUSED the bit rather than ignoring it - so there is no
+        /// stored code that carries it and reads differently now.
+        /// </summary>
+        [Fact]
+        public void Mirroring_a_layer_does_not_lengthen_its_code()
+        {
+            string plain = Stack(Layer(0)).ToCode();
+            string mirrored = Stack(Layer(0, mirror: true)).ToCode();
+
+            Assert.Equal(plain.Length, mirrored.Length);
+            Assert.NotEqual(plain, mirrored);
+
+            // And a full design is the same 262 characters it was before symmetry
+            // existed - the number the whole storage decision rests on.
+            List<EmblemLayer> layers = new List<EmblemLayer>();
+            for (int i = 0; i < EmblemStack.MaxLayers; i++)
+            {
+                layers.Add(Layer(i % EmblemObjects.Count, mirror: true, flipX: i % 2 == 0));
+            }
+
+            Assert.Equal(262, Stack(layers.ToArray()).ToCode().Length);
+        }
+
+        /// <summary>
+        /// Every flag bit round-trips as itself. The mirror was added AFTER the
+        /// lock rather than beside the flips, and the reason is here: the bit
+        /// values are in the live database, so a code written yesterday must still
+        /// say flip-X when it says one.
+        /// </summary>
+        [Fact]
+        public void Each_flag_bit_survives_the_code_meaning_what_it_meant()
+        {
+            for (int flags = 0; flags <= EmblemLayer.KnownFlags; flags++)
+            {
+                EmblemLayer layer = Layer(
+                    3,
+                    flipX: (flags & EmblemLayer.FlipXBit) != 0,
+                    flipY: (flags & EmblemLayer.FlipYBit) != 0,
+                    mirror: (flags & EmblemLayer.MirrorBit) != 0,
+                    locked: (flags & EmblemLayer.LockedBit) != 0);
+
+                Assert.Equal(flags, layer.Flags);
+
+                string code = Stack(layer).ToCode();
+                Assert.True(EmblemStack.TryParsePayload(code.Substring(2), out EmblemStack read));
+
+                Assert.Equal(layer, read.Layers[0]);
+                Assert.Equal(code, read.ToCode());
+            }
+        }
+
+        /// <summary>
+        /// A design that was saved before symmetry existed still parses, and still
+        /// draws exactly what it drew: nothing in it is mirrored, and its code
+        /// comes back byte for byte.
+        /// </summary>
+        [Theory]
+        [InlineData("3-00VGVGFe000e0")]                          // flags 0
+        [InlineData("3-03RMXDAy0U9W5")]                          // flip-X and locked
+        [InlineData("3-01VGVGDm00Be407QabWE43I2C2")]             // two layers, one flip-Y
+        public void A_design_from_before_symmetry_still_reads_as_itself(string code)
+        {
+            Assert.True(EmblemArtwork.TryParse(code, out EmblemArtwork artwork));
+            Assert.True(artwork.IsLayered);
+
+            foreach (EmblemLayer layer in artwork.Stack.Layers)
+            {
+                Assert.False(layer.Mirror);
+                Assert.Equal(1, layer.Instances);
+            }
+
+            Assert.Equal(code, artwork.ToCode());
         }
 
         [Fact]

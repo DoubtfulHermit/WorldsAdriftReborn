@@ -33,9 +33,14 @@
   // Everything between these markers is the browser's half of the parity
   // contract, and it is extracted verbatim by EmblemLayerMirrorTests. It must
   // stay pure: no DOM, no fetch, no state. A layer is
-  // {o, x, y, s, r, c, a, fx, fy, lk} - object, centre, size, rotation, colour,
-  // opacity, the two flips and the lock - and every one of those is an INTEGER or
-  // a boolean, because a decimal is the thing that drifts.
+  // {o, x, y, s, r, c, a, fx, fy, mi, lk} - object, centre, size, rotation,
+  // colour, opacity, the two flips, the mirror and the lock - and every one of
+  // those is an INTEGER or a boolean, because a decimal is the thing that drifts.
+  //
+  // A MIRRORED LAYER DRAWS TWICE, and both halves are built here, by this loop,
+  // from the same integers. That is not a convenience: the server renders the
+  // picture the game downloads, so if the reflection existed only in the browser
+  // a player would compose a symmetrical crest and get half of one in game.
 
   var embLimits = {{emblemLimits}};
   var embPalette = {{emblemPalette}};
@@ -54,27 +59,57 @@
     return sign + whole + '.' + fraction;
   }
 
+  // How many shapes a layer draws: two when it is mirrored.
+  function embInstances(layer) { return layer.mi ? 2 : 1; }
+
   // translate, then turn, then scale - and SVG applies a transform list right to
   // left to the geometry, so the shape is scaled (the flip being the sign of the
   // scale), then turned, then moved. Any other order puts a rotated layer
   // somewhere else entirely, and the server's rasteriser undoes exactly this.
-  function embTransform(layer) {
+  //
+  // INSTANCE 1 IS THE REFLECTION across the canvas's vertical axis, and it is
+  // three negations rather than a second transform because of what reflecting
+  // one is: the placed instance is T(x y) R(r) S(sx sy), and putting M = diag(-1,
+  // 1) in front of it pushes M through the list - M T(x y) = T(-x y) M, and
+  // M R(r) M = R(-r) - leaving T(-x y) R(-r) S(-sx sy). Same string, same fields,
+  // still integers. The rotation is taken back into 0..359 so it is a turn this
+  // vocabulary can name and so the server takes its sine of the same whole degree.
+  function embTransform(layer, instance) {
     var sx = layer.fx ? -layer.s : layer.s;
     var sy = layer.fy ? -layer.s : layer.s;
+    var x = layer.x;
+    var r = layer.r;
 
-    return 'translate(' + layer.x + ' ' + layer.y + ') rotate(' + layer.r
+    if (instance === 1) {
+      x = -x;
+      r = (embLimits.rotationSteps - r) % embLimits.rotationSteps;
+      sx = -sx;
+    }
+
+    return 'translate(' + x + ' ' + layer.y + ') rotate(' + r
       + ') scale(' + embThousandths(sx) + ' ' + embThousandths(sy) + ')';
   }
 
+  // One group per instance, placed first and reflection second - the same order
+  // EmblemStackSvg.AppendLayer writes them in, which matters when a centred
+  // mirrored layer overlaps itself.
   function embLayerMarkup(layer, pathData) {
-    return '<g transform="' + embTransform(layer) + '"><path fill="'
-      + embPalette[layer.c].h + '" fill-opacity="'
-      + embThousandths(layer.a * embLimits.opacityUnit)
-      + '" d="' + pathData + '"/></g>\n';
+    var markup = '';
+    var count = embInstances(layer);
+
+    for (var i = 0; i < count; i++) {
+      markup += '<g transform="' + embTransform(layer, i) + '"><path fill="'
+        + embPalette[layer.c].h + '" fill-opacity="'
+        + embThousandths(layer.a * embLimits.opacityUnit)
+        + '" d="' + pathData + '"/></g>\n';
+    }
+
+    return markup;
   }
 
   function embFlags(layer) {
-    return (layer.fx ? 1 : 0) | (layer.fy ? 2 : 0) | (layer.lk ? 4 : 0);
+    return (layer.fx ? 1 : 0) | (layer.fy ? 2 : 0) | (layer.lk ? 4 : 0)
+      | (layer.mi ? 8 : 0);
   }
 
   function embChar(value) { return embLimits.alphabet.charAt(value & 63); }
@@ -140,7 +175,7 @@
       // An unknown flag bit is a code from a vocabulary this build does not have.
       // Refused rather than masked, because masking draws a layer that is missing
       // whatever the bit meant.
-      if (digits[12] > 7) { return null; }
+      if (digits[12] > 15) { return null; }
 
       var layer = {
         o: digits[0] * 64 + digits[1],
@@ -152,6 +187,7 @@
         a: digits[11],
         fx: (digits[12] & 1) !== 0,
         fy: (digits[12] & 2) !== 0,
+        mi: (digits[12] & 8) !== 0,
         lk: (digits[12] & 4) !== 0
       };
 
@@ -175,8 +211,45 @@
   var EMB_ICONS = {
     clone: 'M3 3h8v8H3z M5 1h8v8',
     del: 'M2 2l10 10 M12 2L2 12',
-    lock: 'M3 6h8v7H3z M5 6V4a2 2 0 0 1 4 0v2'
+    lock: 'M3 6h8v7H3z M5 6V4a2 2 0 0 1 4 0v2',
+    // Two triangles facing a dashed axis: the reflection, drawn as what it is.
+    mirror: 'M7 1v12 M5 4L1 7l4 3z M9 4l4 3-4 3z'
   };
+
+  // ------------------------------------------------------------------ the grid
+  //
+  // A PURE EDITOR AFFORDANCE, AND IT MUST STAY ONE. The grid changes which values
+  // a player produces; it does not change what any value MEANS. So none of these
+  // numbers reaches the code, the URL or the server - a design built with the grid
+  // on and the same design built with it off are the same string, and there is
+  // deliberately no grid bit for a future reader to be tempted by.
+  //
+  // The steps are round numbers in the units the code already speaks: the canvas
+  // is 2000 units across, so a hundred is a twentieth of it and the centre, the
+  // quarters and the edges all fall on a line. Fifteen degrees is the step the
+  // rotate handle already snapped to under shift, kept rather than invented.
+
+  var EMB_GRID = 100;
+  var EMB_GRID_TURN = 15;
+  var EMB_GRID_SIZE = 50;
+
+  // How far a grid-on arrow key moves: one cell, or five with shift.
+  var EMB_GRID_NUDGE = EMB_GRID;
+  var EMB_GRID_NUDGE_BIG = EMB_GRID * 5;
+
+  // Remembered per browser, because the grid is a way of working rather than a
+  // property of a design - a player who turned it on to lay out a border wants it
+  // on again tomorrow. Wrapped, because storage throws rather than returns in
+  // some privacy modes and a preference is not worth a broken editor.
+  var EMB_GRID_KEY = 'wareborn.emblem.grid';
+
+  function embGridRemembered() {
+    try { return window.localStorage.getItem(EMB_GRID_KEY) === '1'; } catch (e) { return false; }
+  }
+
+  function embRememberGrid(on) {
+    try { window.localStorage.setItem(EMB_GRID_KEY, on ? '1' : '0'); } catch (e) { /* fine */ }
+  }
 
   // ------------------------------------------------------------- the catalogue
 
@@ -224,7 +297,8 @@
   function embCopy(layer) {
     return {
       o: layer.o, x: layer.x, y: layer.y, s: layer.s, r: layer.r,
-      c: layer.c, a: layer.a, fx: layer.fx, fy: layer.fy, lk: layer.lk
+      c: layer.c, a: layer.a, fx: layer.fx, fy: layer.fy, mi: layer.mi,
+      lk: layer.lk
     };
   }
 
@@ -265,6 +339,15 @@
     var filter = '';
     var settle = 0;
     var drag = null;
+    var grid = embGridRemembered();
+
+    // Rounds to the grid when the grid is on, and is the identity when it is not.
+    // Every continuous control routes through this, so "turn it off to fine-tune"
+    // is one branch rather than a promise: with the grid off, every one of them
+    // produces exactly the value it produced before this existed.
+    function snap(value, step) {
+      return grid ? Math.round(value / step) * step : value;
+    }
 
     // ------------------------------------------------------------- the picture
 
@@ -300,7 +383,39 @@
       // The selection goes in the layer ABOVE the server's render - see the note
       // in AccountEmblemEditor. It is measured after the shapes are in the
       // document, because it asks the browser for the outline's real extent.
-      if (overlay) { overlay.innerHTML = selection(); }
+      //
+      // The grid goes above the picture too, and under the selection, so a line
+      // is visible over a dark layer without ever hiding the handles.
+      if (overlay) { overlay.innerHTML = gridMarkup() + axisMarkup() + selection(); }
+    }
+
+    // THE GRID, drawn rather than tiled: a background image would scroll with the
+    // stage's own checkerboard and would not be in the canvas's coordinate space,
+    // which is the one thing this has to be - a line here is at a value a layer
+    // can actually take.
+    function gridMarkup() {
+      if (!grid) { return ''; }
+
+      var lines = '';
+
+      for (var v = -1000 + EMB_GRID; v < 1000; v += EMB_GRID) {
+        var cls = v === 0 ? 'gmid' : 'gline';
+        lines += '<line class="' + cls + '" x1="' + v + '" y1="-1000" x2="' + v + '" y2="1000"/>'
+          + '<line class="' + cls + '" x1="-1000" y1="' + v + '" x2="1000" y2="' + v + '"/>';
+      }
+
+      return '<g class="grid">' + lines + '</g>';
+    }
+
+    // THE AXIS OF SYMMETRY, shown whenever the selected layer is mirrored and
+    // whether or not the grid is on. Without it the two halves look like two
+    // layers that happen to match, and a player nudging one wonders why the other
+    // moved.
+    function axisMarkup() {
+      var layer = active >= 0 && active < layers.length ? layers[active] : null;
+      if (!layer || !layer.mi) { return ''; }
+
+      return '<line class="maxis" x1="0" y1="-1000" x2="0" y2="1000"/>';
     }
 
     // The dashed box and its two handles, drawn in the ACTIVE layer's rotated
@@ -324,7 +439,25 @@
       var rect = ' x="' + box.x0 + '" y="' + box.y0
         + '" width="' + (box.x1 - box.x0) + '" height="' + (box.y1 - box.y0) + '"/>';
 
-      return '<g class="sel" transform="translate(' + layer.x + ' ' + layer.y
+      // THE REFLECTION GETS A BOX BUT NO HANDLES. It is not a thing you can grab -
+      // there is one layer and it is the other half - but leaving it unmarked
+      // makes the selection look like it has lost track of half the shape. Drawn
+      // at the reflected transform's own translate and rotate, which is the same
+      // pair the mirror writes into the markup.
+      // The box is measured with the layer's own x scale folded in, and the
+      // reflection's x scale is that one negated - so its box is this one's,
+      // mirrored about zero. Written out rather than reused, because for an
+      // off-centre outline the two are not the same rectangle.
+      var mrect = ' x="' + (-box.x1) + '" y="' + box.y0
+        + '" width="' + (box.x1 - box.x0) + '" height="' + (box.y1 - box.y0) + '"/>';
+
+      var ghost = layer.mi
+        ? '<g class="sel ghost" transform="translate(' + (-layer.x) + ' ' + layer.y
+          + ') rotate(' + ((embLimits.rotationSteps - layer.r) % embLimits.rotationSteps) + ')">'
+          + '<rect class="selcase"' + mrect + '<rect class="selbox"' + mrect + '</g>'
+        : '';
+
+      return ghost + '<g class="sel" transform="translate(' + layer.x + ' ' + layer.y
         + ') rotate(' + layer.r + ')">'
         + '<rect class="selcase"' + rect
         + '<rect class="selbox"' + rect
@@ -441,6 +574,12 @@
           + '<button type="button" class="licon" data-act="delete" data-at="' + i
           + '" title="Delete this layer" aria-label="Delete this layer"'
           + (layer.lk ? ' disabled' : '') + '>' + embIcon('del') + '</button>'
+          + '<button type="button" class="licon' + (layer.mi ? ' on' : '')
+          + '" data-act="mirror" data-at="' + i
+          + '" title="' + (layer.mi ? 'Stop mirroring this layer' : 'Mirror this layer')
+          + '" aria-label="' + (layer.mi ? 'Stop mirroring this layer' : 'Mirror this layer')
+          + '" aria-pressed="' + (layer.mi ? 'true' : 'false') + '"'
+          + (layer.lk ? ' disabled' : '') + '>' + embIcon('mirror') + '</button>'
           + '<button type="button" class="licon' + (layer.lk ? ' on' : '')
           + '" data-act="lock" data-at="' + i
           + '" title="' + (layer.lk ? 'Unlock this layer' : 'Lock this layer')
@@ -527,6 +666,18 @@
         button.disabled = !layer || layer.lk;
       });
 
+      embAll(form, '[data-mirror]').forEach(function (button) {
+        var on = !!(layer && layer.mi);
+        button.disabled = !layer || layer.lk;
+        button.classList.toggle('on', on);
+        button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+
+      embAll(form, '[data-grid]').forEach(function (button) {
+        button.classList.toggle('on', grid);
+        button.setAttribute('aria-pressed', grid ? 'true' : 'false');
+      });
+
       embAll(paletteBox || form, '[data-colour]').forEach(function (button) {
         var index = parseInt(button.getAttribute('data-colour'), 10);
         var on = layer ? index === layer.c : index === colour;
@@ -535,14 +686,23 @@
       });
 
       if (hint) {
+        // The grid changes what dragging DOES, so it is said here rather than
+        // left to the state of a button somebody has to look up and away for.
+        var snapping = grid
+          ? ' The grid is on: moves snap to ' + EMB_GRID + ', turns to ' + EMB_GRID_TURN
+            + '° and sizes to ' + EMB_GRID_SIZE + '. Turn it off to fine-tune.'
+          : '';
+
         hint.textContent = layers.length === 0
-          ? 'Pick an object on the left to add your first layer.'
+          ? 'Pick an object on the left to add your first layer.' + snapping
           : (layer
             ? (layer.lk
               ? nameOf(layer.o) + ' is locked. Unlock it in the layers panel to change it.'
               : 'Drag ' + nameOf(layer.o) + ' to move it, the corner handle to resize, the top '
-                + 'handle to turn it. Arrow keys nudge; hold shift for bigger steps.')
-            : 'Click a layer on the canvas or in the layers panel to work on it.');
+                + 'handle to turn it. Arrow keys nudge; hold shift for bigger steps.'
+                + (layer.mi ? ' It is mirrored, so both halves move together.' : '')
+                + snapping)
+            : 'Click a layer on the canvas or in the layers panel to work on it.' + snapping);
       }
     }
 
@@ -572,7 +732,7 @@
 
       layers.push({
         o: object, x: 0, y: 0, s: 500, r: 0, c: colour,
-        a: embLimits.opacitySteps, fx: false, fy: false, lk: false
+        a: embLimits.opacitySteps, fx: false, fy: false, mi: false, lk: false
       });
 
       active = layers.length - 1;
@@ -644,17 +804,20 @@
       var layer = layers[drag.at];
       if (!layer) { drag = null; return; }
 
+      // SNAPPED TO THE RESULT, NOT TO THE MOVEMENT. Rounding the delta would keep
+      // a layer that was already off-grid off it forever, which is exactly the
+      // layer somebody turns the grid on to rescue.
       if (drag.mode === 'move') {
         mutate(drag.at, function (next) {
-          next.x = embClamp(drag.originX + point.x - drag.from.x,
+          next.x = embClamp(snap(drag.originX + point.x - drag.from.x, EMB_GRID),
             -embLimits.maxOffset, embLimits.maxOffset);
-          next.y = embClamp(drag.originY + point.y - drag.from.y,
+          next.y = embClamp(snap(drag.originY + point.y - drag.from.y, EMB_GRID),
             -embLimits.maxOffset, embLimits.maxOffset);
         });
       } else if (drag.mode === 'scale') {
         var reach = Math.max(1, Math.hypot(point.x - layer.x, point.y - layer.y));
         mutate(drag.at, function (next) {
-          next.s = embClamp(Math.round(drag.size * reach / drag.reach),
+          next.s = embClamp(snap(Math.round(drag.size * reach / drag.reach), EMB_GRID_SIZE),
             embLimits.minSize, embLimits.maxSize);
         });
       } else if (drag.mode === 'rotate') {
@@ -662,8 +825,11 @@
         mutate(drag.at, function (next) {
           var turned = Math.round(degrees);
           // Shift snaps to fifteen degrees, which is where a mark stops looking
-          // like it was placed by hand and starts looking deliberate.
-          if (event.shiftKey) { turned = Math.round(turned / 15) * 15; }
+          // like it was placed by hand and starts looking deliberate. The grid
+          // does the same thing without the key held; shift with the grid on is
+          // simply already true, rather than a second meaning to learn.
+          if (event.shiftKey) { turned = Math.round(turned / EMB_GRID_TURN) * EMB_GRID_TURN; }
+          turned = snap(turned, EMB_GRID_TURN);
           next.r = ((turned % embLimits.rotationSteps) + embLimits.rotationSteps)
             % embLimits.rotationSteps;
         });
@@ -691,10 +857,13 @@
 
       mutate(active, function (next) {
         if (event.shiftKey) {
-          next.r = ((next.r + step * 5) % embLimits.rotationSteps + embLimits.rotationSteps)
-            % embLimits.rotationSteps;
+          var turn = grid ? EMB_GRID_TURN : 5;
+          next.r = ((snap(next.r, EMB_GRID_TURN) + step * turn) % embLimits.rotationSteps
+            + embLimits.rotationSteps) % embLimits.rotationSteps;
         } else {
-          next.s = embClamp(next.s + step * 25, embLimits.minSize, embLimits.maxSize);
+          var by = grid ? EMB_GRID_SIZE : 25;
+          next.s = embClamp(snap(next.s, EMB_GRID_SIZE) + step * by,
+            embLimits.minSize, embLimits.maxSize);
         }
       });
 
@@ -712,11 +881,20 @@
       var step = steps[event.key];
       if (!step || active < 0) { return; }
 
-      var distance = event.shiftKey ? 50 : 10;
+      // NUDGE RESPECTS THE GRID, and it has to: a player who lines four marks up
+      // by dragging and then nudges one of them a pixel has un-aligned it, which
+      // is the opposite of what they turned the grid on for. So with the grid on a
+      // press moves one whole cell and lands ON the grid even from a layer that
+      // was off it; with the grid off it is the ten and fifty it has always been.
+      var distance = grid
+        ? (event.shiftKey ? EMB_GRID_NUDGE_BIG : EMB_GRID_NUDGE)
+        : (event.shiftKey ? 50 : 10);
 
       mutate(active, function (next) {
-        next.x = embClamp(next.x + step[0] * distance, -embLimits.maxOffset, embLimits.maxOffset);
-        next.y = embClamp(next.y + step[1] * distance, -embLimits.maxOffset, embLimits.maxOffset);
+        next.x = embClamp(snap(next.x, EMB_GRID) + step[0] * distance,
+          -embLimits.maxOffset, embLimits.maxOffset);
+        next.y = embClamp(snap(next.y, EMB_GRID) + step[1] * distance,
+          -embLimits.maxOffset, embLimits.maxOffset);
       });
 
       drawLive();
@@ -791,6 +969,26 @@
       });
     });
 
+    embAll(form, '[data-mirror]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        mutate(active, function (next) { next.mi = !next.mi; });
+        draw();
+      });
+    });
+
+    // THE GRID TOUCHES NOTHING BUT THE GRID. No layer is moved when it goes on -
+    // a toggle that silently re-snapped twelve finished layers would be a
+    // destructive button wearing a view control's clothes. It changes where the
+    // NEXT drag lands, and that is all.
+    embAll(form, '[data-grid]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        grid = !grid;
+        embRememberGrid(grid);
+        drawLive();
+        drawControls();
+      });
+    });
+
     layerList.addEventListener('click', function (event) {
       var action = event.target.closest('[data-act]');
 
@@ -809,6 +1007,9 @@
         } else if (verb === 'delete' && !layers[at].lk) {
           layers.splice(at, 1);
           if (active >= layers.length) { active = layers.length - 1; }
+        } else if (verb === 'mirror' && !layers[at].lk) {
+          layers[at].mi = !layers[at].mi;
+          active = at;
         } else if (verb === 'lock') {
           layers[at].lk = !layers[at].lk;
         }

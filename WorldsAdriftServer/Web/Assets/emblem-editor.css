@@ -82,7 +82,13 @@ body.wide main { max-width: 78rem; }
   display: flex; align-items: baseline; justify-content: space-between; gap: .5rem;
 }
 .editor .canvas-head h3 { margin: 0; }
-.editor .flips { display: flex; gap: .3rem; }
+/* FOUR BUTTONS NOW, so it wraps. Flip X and Flip Y are momentary; Mirror and
+   Grid are toggles and have to look like it, which is what .toggle.on is for -
+   an aria-pressed a sighted player cannot see is not a state, it is a rumour. */
+.editor .flips { display: flex; flex-wrap: wrap; gap: .3rem; justify-content: flex-end; }
+.editor .flips .toggle.on {
+  color: var(--ink); border-color: var(--ink-faint); background: var(--veil);
+}
 
 .editor .stage {
   position: relative; width: 100%; max-width: 26rem; margin: .2rem auto .7rem;
@@ -138,6 +144,29 @@ body.wide main { max-width: 78rem; }
 .editor .stage .handle { fill: var(--timber-mid); stroke: var(--timber-ink); stroke-width: 8; cursor: pointer; }
 .editor .stage .handle:hover { fill: var(--timber-hi); }
 .editor .stage .ruler { visibility: hidden; }
+
+/* THE REFLECTION'S BOX is the selection's, halved in weight: it marks where the
+   other half is without ever reading as a second thing you could grab. There are
+   no handles inside it, and this makes that obvious before anybody tries. */
+.editor .stage .sel.ghost { opacity: .45; }
+
+/* THE GRID AND THE MIRROR AXIS ARE NOT PALETTE COLOURS, and that is the same
+   decision the checkerboard above records. They are drawn OVER artwork a player
+   chose from thirty-two colours in either theme, so anything tinted with the
+   page's ink disappears against half of them; a light line with a dark companion
+   weight is the only pair that reads on every one. Both are non-scaling so the
+   grid stays one hairline whatever size the stage is on screen. */
+.editor .stage .grid line {
+  vector-effect: non-scaling-stroke; pointer-events: none;
+  stroke: #ffffff; stroke-width: 1; opacity: .28;
+}
+/* The centre lines, which are where a symmetrical design is built from. */
+.editor .stage .grid .gmid { stroke-width: 2; opacity: .5; }
+
+.editor .stage .maxis {
+  vector-effect: non-scaling-stroke; pointer-events: none;
+  stroke: #ffffff; stroke-width: 2; stroke-dasharray: 3 6; opacity: .75;
+}
 
 .editor .palette {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(1.5rem, 1fr));
@@ -282,4 +311,12 @@ body.wide main { max-width: 78rem; }
   .editor .objgrid { max-height: 16rem; }
   .editor .layerlist { max-height: 20rem; }
   .editor .foot .plank { flex: 1 1 100%; text-align: center; }
+
+  /* FOUR CANVAS BUTTONS DO NOT FIT BESIDE THE HEADING on a phone, and letting
+     them wrap where they like orphaned "Grid" onto a line of its own, right
+     aligned under the other three - which reads as a different kind of control
+     rather than as the fourth of a row. So the whole group drops below the
+     heading and takes the width, and all four stay together and left aligned. */
+  .editor .canvas-head { flex-wrap: wrap; }
+  .editor .flips { flex: 1 1 100%; justify-content: flex-start; }
 }

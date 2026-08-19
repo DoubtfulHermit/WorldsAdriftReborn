@@ -95,7 +95,7 @@ namespace WorldsAdriftServer.Tests
             List<EmblemLayer> layers = new List<EmblemLayer>();
 
             void Add(string name, int x, int y, int size, int rotation, int colour, int opacity,
-                bool flipX = false, bool locked = false)
+                bool flipX = false, bool mirror = false, bool locked = false)
             {
                 int obj = 0;
                 for (int i = 0; i < EmblemObjects.Count; i++)
@@ -104,16 +104,25 @@ namespace WorldsAdriftServer.Tests
                 }
 
                 Assert.True(EmblemLayer.TryCreate(obj, x, y, size, rotation, colour, opacity,
-                    flipX, false, locked, out EmblemLayer layer));
+                    flipX, false, mirror, locked, out EmblemLayer layer));
                 layers.Add(layer);
             }
 
+            // EVERY POSITION HERE IS A MULTIPLE OF A HUNDRED, which is the editor's
+            // grid step - so this design is also a picture of what building one
+            // with the grid on produces, and of the fact that the grid left no
+            // trace in the code that produced it.
             Add("Roundel", 0, 0, 1000, 0, 0, 40, locked: true);
-            Add("Disc", 0, 0, 880, 0, 11, 40, locked: true);
-            Add("Chevron", 0, 340, 780, 0, 4, 40);
-            Add("Wolf head", 0, -90, 620, 0, 3, 40);
-            Add("Six-point star", -520, -480, 200, 15, 13, 40);
-            Add("Six-point star", 520, -480, 200, 15, 13, 40);
+            Add("Disc", 0, 0, 900, 0, 11, 40, locked: true);
+            Add("Chevron", 0, 300, 800, 0, 4, 40);
+            Add("Wolf head", 0, -100, 600, 0, 3, 40);
+
+            // THE PAIR THAT USED TO BE TWO LAYERS. A six-point star at -500 and
+            // another at +500 was the only way to make this symmetrical before
+            // mirroring existed; it is one layer now, it costs one slot instead of
+            // two, and dragging it moves both stars.
+            Add("Six-point star", 500, -500, 200, 15, 13, 40, mirror: true);
+
             Add("Slim bar", 0, 600, 900, 0, 7, 28);
 
             Assert.True(EmblemStack.TryCreate(layers, out EmblemStack stack));

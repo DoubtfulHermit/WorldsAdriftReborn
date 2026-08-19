@@ -29,6 +29,16 @@ namespace WorldsAdriftServer.Web
     /// string, so that string is what is posted. It is a visible textarea rather
     /// than a hidden input on purpose - see <see cref="AppendCodeBox"/>.
     ///
+    /// SYMMETRY AND THE GRID are the two things this has that retail's did not,
+    /// and they are deliberately different KINDS of thing. Mirror is a property of
+    /// a layer: it is in the design code, the server draws it, and it costs one
+    /// slot of twenty rather than two because heraldry is symmetrical often enough
+    /// that paying double would put most crests over the ceiling. The grid is a
+    /// property of the EDITOR: it changes which numbers a player's dragging
+    /// produces and changes nothing about what a number means, so it reaches
+    /// neither the code nor the server, and a design laid out on it is
+    /// indistinguishable from one laid out by eye.
+    ///
     /// A NOTE ON WHAT WAS NOT BUILT. Retail's save menu also offered "use as your
     /// profile picture" and "save to your gallery". This server has no profile
     /// pictures at all, and a personal gallery would need somewhere per-account to
@@ -222,9 +232,23 @@ namespace WorldsAdriftServer.Web
             page.Append("        <div class=\"pane canvas\">\n");
 
             page.Append("          <div class=\"canvas-head\"><h3>Canvas</h3>\n");
+
+            // MIRROR SITS WITH THE FLIPS because it is the same kind of thing -
+            // a property of the selected layer, phrased as a reflection - and it
+            // is a TOGGLE rather than an action, so it says whether it is on. A
+            // flip happens once and is done; a mirrored layer stays mirrored, and
+            // dragging it moves both halves.
+            //
+            // GRID SITS APART FROM THEM, because it is the one control here that
+            // belongs to the canvas rather than to a layer: it is on whether or
+            // not anything is selected, and it changes no design.
             page.Append("            <div class=\"flips\">"
                 + "<button type=\"button\" class=\"quiet\" data-flip=\"x\">Flip X</button>"
-                + "<button type=\"button\" class=\"quiet\" data-flip=\"y\">Flip Y</button></div>\n");
+                + "<button type=\"button\" class=\"quiet\" data-flip=\"y\">Flip Y</button>"
+                + "<button type=\"button\" class=\"quiet toggle\" data-mirror aria-pressed=\"false\" "
+                + "title=\"Draw this layer and its reflection\">Mirror</button>"
+                + "<button type=\"button\" class=\"quiet toggle\" data-grid aria-pressed=\"false\" "
+                + "title=\"Show a grid and snap to it\">Grid</button></div>\n");
             page.Append("          </div>\n");
 
             page.Append("          <div class=\"stage\" data-stage>\n");
@@ -276,7 +300,8 @@ namespace WorldsAdriftServer.Web
 
             page.Append("          <ol class=\"layerlist\" data-layers></ol>\n");
             page.Append("          <p class=\"hint\">Drag a row to bring a layer forward or send it "
-                + "back. A locked layer can still be reordered and cloned.</p>\n");
+                + "back. A locked layer can still be reordered and cloned. A mirrored layer draws "
+                + "both halves and still costs one of the twenty.</p>\n");
             page.Append("        </div>\n");
         }
 
