@@ -1075,6 +1075,17 @@ Three checks that each killed a plausible theory before it reached this table:
   1303, 1518, 12281, 1236`. So the all-or-nothing batch does **not** drop, and no
   ship component is sitting at the world origin. **PROVED.** (This is the trap
   §4.4 warns about; it does not currently bite this table.)
+
+  **Scope correction, 2026-08-19.** That statement is true and it is about the 37
+  LOOSE-PART rows only. "Has a branch" is not the same as "the branch answers for
+  every entity that asks": `1013`, `1120` and `8066` are all gated on the
+  `LooseParts` / `MountedParts` ledgers, and the entities that ask for them and
+  are in NEITHER — a **built ship's hull and its deck sub-entities** — got
+  nothing. That was the single largest source of `[error] failed to initialize
+  component` on the live server. **It never dropped a batch** (every one of those
+  requests arrives best-effort; there is not one `DROPPING the whole
+  AddComponent batch` line anywhere in the journal back to 2026-08-08), so no
+  ship component was at the origin and the headline above stands. See §11.10.
 - **All 37 recipes are reachable.** 36 are granted by a knowledge node that
   really exists in `knowledge-tree.json` and `lamp` is a starter
   (`StarterSchematics.cs:23-34`). Zero unreachable rows, so "doesn't show up"
@@ -1743,6 +1754,54 @@ can land on the canonical shared body and fire for
 
 **CLIENT MOD, therefore a PATCHER RELEASE**, and it is unverified: nothing
 headless runs a placement preview.
+
+### 11.11 The component-init errors in the live log, and why they are NOT §11.2
+
+**Added 2026-08-19, branch `fix/component-init`.** The live game server had been
+printing `[error] failed to initialize component NNNN of entity NN` continuously
+since at least **2026-08-09** — the oldest day the journal still holds — and
+nobody had looked, because the only post-deploy check anyone ran was a two-minute
+window after a restart. That window is clean by construction: the server spawns
+nothing on its own, so the errors only exist while somebody is playing.
+
+**It is not a §11.2 defect, and this is the important part.** The failures land on
+entities that are *not* in the 37-row table:
+
+| id | what it is | who asks | verdict |
+|---|---|---|---|
+| **1013** `CraftableSpawningState` | the materialize-dissolve state | the built **hull** and every one of its **deck** sub-entities | **genuine missing seed — FIXED.** The branch served only `LooseParts`; it now falls back to `CraftableSpawnPolicy.Done` for everything else |
+| **1120** `ShipPartState` | "I am a liftable ship part" | built **decks** | **deliberately absent, per entity.** Serving it enables `ShipPartVisualizer`, and its mere presence *is* the client's lift whitelist (`PlayerScannerTool.cs:508-511`) — a player in an active shipyard could pick their own ship's deck up off it. `attached=true` is no defence; nothing in the pickup path reads it and `CanPickUp` has no callers anywhere in the client |
+| **8066** `ShipRootState` | which ship a part belongs to | built **decks** | **deliberately absent, with 1120.** Its only reader on a deck is the same `ShipPartVisualizer` that 1120's absence keeps disabled |
+| **1259** `ReclaimableState` | the hull's dissolve-to-materials countdown | every **hull** checkout | **deliberately absent.** Serving it is actively dangerous: `ShipReclaimVisualizer` escapes only on a negative value, and otherwise dissolves the hull and `DisableBeamsColliders` — players fall through their own deck |
+| **1304** `PhysicsHingesState` | hinge swivel angles | every crafted **sail** | **deliberately absent.** We run no hinge physics; the visualizer only slerps transforms |
+| **4323** `ContactFixedDamageState` | the jellyfish shock | every **jelly** | **deliberately absent.** The reader is purely event-driven and nothing here ever raises the event |
+
+**What it cost a player: nothing.** Every one of those requests arrives on a
+**best-effort** batch, and there is not a single `[error] DROPPING the whole
+AddComponent batch` line anywhere in the journal since 2026-08-08. No transform
+was lost, nothing is at the world origin, and the deck a player walks on renders
+through `ShipDeckVisualizer` (1518 + 1099), which needs none of the three. The
+`failOnComponentInitError` trap §4.4 warns about is real and did **not** fire.
+
+**It does not explain "some components don't show up".** Correlated against the
+live journal minute by minute: the 1013/1120/8066 burst happens in one clump at
+**login**, while the client streams the whole built ship in. Every part MOUNT in
+the same session — `22:43:04`, `22:45:09`, `22:47:19` — completed with **zero**
+component-init errors. §11.3's Window mesh diagnosis stands, and the
+altimeter-on-a-railing symptom is §11.6's placement mask, not a missing 1120.
+
+**The diagnostic itself was the real bug.** `outcome` starts as `NoClientVtable`
+and was only overwritten when a branch produced bytes, so a branch that ran and
+declined returned `NoClientVtable` — whose own log line reads *"the component does
+not exist in the shipped client, so no branch here can fix it"*. For eleven days
+the server told its log to stop looking, about ids the client had just asked for
+by number. That is now a fifth outcome, `NoSeedForEntity`, and every failing
+outcome prints its own repair instruction on the same line.
+
+**And the check that missed it is now written down**: `tools/check-game-server.sh`
+counts errors **per interest batch**, so a window with no players is
+`INCONCLUSIVE` and never `PASS`, and compares the ids against a committed ledger
+(`tools/game-server-error-baseline.txt`) so a **new** id fails at count one.
 
 ---
 

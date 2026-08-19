@@ -47,10 +47,18 @@ implemented.
 
    ```bash
    ssh root@62.171.161.19 'systemctl is-active wareborn-game wareborn-login'
-   ssh root@62.171.161.19 \
-     "journalctl -u wareborn-game -o cat --no-pager --since '10 min ago' | tail -100"
+   tools/check-game-server.sh 6h     # error rate per interest batch, vs. the ledger
    curl -fsS https://wareborn.ratlabs.cc/patch/manifest.json | jq '{version,build}'
    ```
+
+   **Do not judge the game server by a short window after a restart.** This list
+   used to say `--since '10 min ago' | tail -100`, and that window is clean by
+   construction: the server spawns nothing on its own, so every component-init
+   error needs a player to be online to exist. It printed green for eleven days
+   while the server logged `[error] failed to initialize component` continuously.
+   `tools/check-game-server.sh` counts per interest BATCH and exits
+   `INCONCLUSIVE`, not `PASS`, when nobody played in the window. See
+   [testing.md](testing.md).
 
 7. Never restart the game server while players are connected unless the user
    explicitly says they have disconnected. A restart is still session-ending.

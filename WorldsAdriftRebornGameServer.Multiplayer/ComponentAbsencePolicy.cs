@@ -46,6 +46,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         NoClientVtable,
 
         /// <summary>
+        /// A branch for this id EXISTS and RAN, and had no value for THIS entity.
+        ///
+        /// The fourth thing, and the one that had no name for a long time. Most
+        /// seed branches in ComponentsSerializer are gated on a ledger or a
+        /// registry - "is this a loose part", "is this a mounted part", "is a
+        /// hull id bound yet" - and every one of them has an implicit `else` that
+        /// leaves the object null. That is neither <see cref="UnhandledId"/>
+        /// (somebody DID think about the id) nor <see cref="KnownAbsent"/>
+        /// (nobody decided this entity lacks it) nor
+        /// <see cref="NoClientVtable"/> (the client knows the id perfectly well -
+        /// that is why the branch was reached).
+        ///
+        /// WHY IT NEEDED ITS OWN MEMBER. <c>outcome</c> starts life as
+        /// <see cref="NoClientVtable"/> and is only overwritten when a branch
+        /// produces bytes or when the final else fires. A branch that ran and
+        /// declined therefore returned <see cref="NoClientVtable"/> - which
+        /// reads, in the log, as "the component does not exist in the shipped
+        /// client, so no branch here can fix it". That is the exact opposite of
+        /// the truth and it tells a maintainer to STOP LOOKING. Measured on the
+        /// live server: every one of the 1013 / 1120 / 8066 failures on built
+        /// hulls and built decks was reported that way.
+        ///
+        /// It is still a GAP - the client asked and got nothing - so it obeys
+        /// failOnComponentInitError exactly like <see cref="UnhandledId"/>. The
+        /// difference is entirely in what it tells you to go and fix: not "write
+        /// a branch", but "widen the branch you already have to cover this
+        /// entity".
+        /// </summary>
+        NoSeedForEntity,
+
+        /// <summary>
         /// A seed was built and the client's own serializer still produced no
         /// bytes. Rare, and never benign.
         /// </summary>
@@ -239,6 +270,69 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// <summary>1306 ShipAtlasPulseState - the atlas-core pulse cosmetic (ShipAtlasPulseVisualizer); this server drives no atlas pulse.</summary>
         public const uint ShipAtlasPulseStateComponentId = 1306;
 
+        // ------------------------------------------------------------------
+        // Three states whose SIMULATION this server does not run at all, found
+        // on 2026-08-19 by reading the live journal properly for the first time
+        // instead of the two minutes after a restart. Each had been logging
+        // "[ToDo] unhandled component id" on every relevant checkout since at
+        // least 2026-08-09 - 1259 is visible on the atlas ship in the OLDEST day
+        // the journal still holds - and each is a decision nobody had written
+        // down rather than a seed anybody was ever going to write.
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// 1259 ReclaimableState - the hull's "dissolve me back into materials"
+        /// countdown, requested on every ship-hull checkout
+        /// (req_shipframe.tsv:15, req_shipframe01.tsv:7).
+        ///
+        /// This is the one entry in the set where serving the component is
+        /// actively DANGEROUS and absence is the safe state rather than merely an
+        /// honest one. Its only reader, <c>ShipReclaimVisualizer</c>, escapes its
+        /// own Update only on <c>TimeTillReclaim &lt; 0</c> (ShipReclaimVisualizer.cs:56);
+        /// on any non-negative value it dissolves the hull mesh, calls
+        /// <c>HackDespawn</c> on every child part's CraftableSpawningVisualizer
+        /// (:75-84) and then DisableBeamsColliders (:89-100) turns off every
+        /// collider under the ship - players fall through their own deck.
+        ///
+        /// No ship of ours is ever reclaimed: undocking and salvage are
+        /// server-side ledger operations, not a client-driven dissolve. So the
+        /// entity genuinely does not have the component, and the visualizer stays
+        /// disabled, which is exactly what we want it to be.
+        /// </summary>
+        public const uint ReclaimableStateComponentId = 1259;
+
+        /// <summary>
+        /// 1304 PhysicsHingesState - the swivel angles of a part's hinged
+        /// sub-transforms, requested by every crafted SAIL
+        /// (req_parts.tsv:190, Sail01_unityclient) alongside the 1303 SailState
+        /// we do serve.
+        ///
+        /// <c>PhysicsHingeVisualizer</c> slerps <c>Hinges[i].Transform.localRotation</c>
+        /// toward a served angle and runs a creak audio loop
+        /// (PhysicsHingeVisualizer.cs:49-68). It touches no rigidbody, no collider
+        /// and no parenting. This server runs no hinge physics, so there is no
+        /// angle to send; disabled, the sail's hinge transforms simply rest at
+        /// their prefab-authored rotation. A cosmetic swivel, and the honest
+        /// answer is that our sails do not have hinge state, not that somebody
+        /// forgot to write it.
+        /// </summary>
+        public const uint PhysicsHingesStateComponentId = 1304;
+
+        /// <summary>
+        /// 4323 ContactFixedDamageState - the jellyfish shock, requested by every
+        /// spawned jelly (ContactFixedDamageClient, added by
+        /// BasicCreaturePreprocessor.cs:80-84).
+        ///
+        /// Purely event-driven: <c>OnEnable</c> does exactly one thing, subscribe
+        /// to <c>ShockedEvent</c> (ContactFixedDamageClient.cs:28-31), and the
+        /// handler knocks the local player out. There is no Update, no state
+        /// polling and no side effect at enable time, so a disabled one is a
+        /// perfect no-op. This server runs no creature damage model and nothing
+        /// ever raises that event, so seeding the component would be seeding a
+        /// subscription to silence. Our fauna are decoration: they do not shock.
+        /// </summary>
+        public const uint ContactFixedDamageStateComponentId = 4323;
+
         /// <summary>
         /// The whole set. Deliberately tiny, and every entry has to earn its
         /// place with a client-side reason why absence is SAFE - not merely
@@ -256,6 +350,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         ///   and ShipAtlasPulseState (cosmetic core-pulse ShipAtlasPulseVisualizer);
         ///   both readers are off any render/lift path and safe disabled, so the ship
         ///   hull loads instead of its whole 19-id batch dropping on these two.
+        /// * 1259 - <c>ShipReclaimVisualizer</c> is the only reader and every value
+        ///   it accepts DESTROYS the ship. Absence is not merely safe here, it is
+        ///   safer than any value we could invent.
+        /// * 1304 - <c>PhysicsHingeVisualizer</c> only slerps transforms it is
+        ///   handed; with nothing served the sail's hinges rest where the prefab
+        ///   authored them.
+        /// * 4323 - <c>ContactFixedDamageClient</c> subscribes to an event and does
+        ///   nothing else, and nothing in this server ever raises that event.
         ///
         /// An id belongs here only when the entity genuinely does not have the
         /// thing. It is NOT a place to park a component that is merely hard to
@@ -288,6 +390,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             // enablement, and a never-injected reader NRE'd 3,290 times in one
             // measured session. Serving a real uid fixes the flood at the source.
             ShipAtlasPulseStateComponentId,
+            ReclaimableStateComponentId,
+            PhysicsHingesStateComponentId,
+            ContactFixedDamageStateComponentId,
         };
 
         /// <summary>
@@ -349,6 +454,30 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             {
                 return "ShipAtlasPulseState";
             }
+            if (componentId == ReclaimableStateComponentId)
+            {
+                return "ReclaimableState";
+            }
+            if (componentId == PhysicsHingesStateComponentId)
+            {
+                return "PhysicsHingesState";
+            }
+            if (componentId == ContactFixedDamageStateComponentId)
+            {
+                return "ContactFixedDamageState";
+            }
+            // Named even though they are not in the set: both are decided
+            // PER ENTITY by a serializer branch (see DescribeKnownAbsentForEntity),
+            // and a [known-absent] line that says only a number is the thing
+            // NameOf exists to prevent.
+            if (componentId == 1120)
+            {
+                return "ShipPartState";
+            }
+            if (componentId == 8066)
+            {
+                return "ShipRootState";
+            }
             return componentId.ToString();
         }
 
@@ -394,6 +523,35 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
+        /// The log line for an omission a SEED BRANCH decided, rather than this
+        /// set.
+        ///
+        /// WHY THERE ARE TWO KINDS OF ABSENCE. <see cref="IsKnownAbsent(uint)"/>
+        /// is entity-independent on purpose, and that is right for the ids in it:
+        /// nothing we spawn is a weather cell, ever. But some components are
+        /// absent for SOME of our entities and present for others, and 1120
+        /// ShipPartState is the case that forced this. A crafted loose part
+        /// genuinely has one; a BUILT SHIP'S DECK genuinely does not, because in
+        /// this server a deck is structure - part of the hull - and not a
+        /// craftable object a player can pick up. Declaring 1120 absent
+        /// component-wide would take the loose part's lift path with it (there is
+        /// a test that forbids exactly that); leaving it unanswered says "gap"
+        /// about a decision.
+        ///
+        /// So the decision lives where the entity knowledge is - in the branch -
+        /// and only the WORDING lives here, so both kinds of absence read
+        /// identically to a human and to a grep. The branch must supply its
+        /// reason; an omission with no stated reason is the thing this whole
+        /// mechanism exists to stop being possible.
+        /// </summary>
+        public static string DescribeKnownAbsentForEntity(long entityId, uint componentId, string reason)
+        {
+            return "[known-absent] entity " + entityId + " has no component " + componentId
+                + " (" + NameOf(componentId) + "); " + reason
+                + " This is a decision, not a fault - the batch continues.";
+        }
+
+        /// <summary>
         /// The log line for an id nobody predicted. Keeps the historic
         /// <c>[ToDo] unhandled component id</c> wording - it is what the
         /// diagnostic notes and previous findings grep for - and adds the entity
@@ -405,6 +563,41 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             return "[ToDo] unhandled component id needs investigation: " + componentId
                 + " (entity " + entityId + "). NOT known-absent: nobody has decided this entity"
                 + " lacks it, so this is a missing seed in ComponentsSerializer.";
+        }
+
+        /// <summary>
+        /// What a non-success outcome means and what to do about it, in one
+        /// clause, so the single <c>[error] failed to initialize component</c>
+        /// line a reader actually sees carries its own diagnosis instead of an
+        /// enum name they have to go and look up.
+        ///
+        /// This exists because the enum name alone lied for months.
+        /// <see cref="ComponentSeedOutcome.NoClientVtable"/> printed next to a
+        /// component the client had asked for BY NAME said "the component does
+        /// not exist in the shipped client" - so the honest reaction, "then
+        /// there is nothing I can do", was wrong every single time. One sentence
+        /// per outcome is cheaper than a doc nobody opens mid-incident.
+        /// </summary>
+        public static string ExplainOutcome(ComponentSeedOutcome outcome)
+        {
+            switch (outcome)
+            {
+                case ComponentSeedOutcome.NoSeedForEntity:
+                    return "a branch for this id exists and ran, but had no value for THIS entity"
+                        + " (it is outside the ledger/registry that branch reads) - widen the branch,"
+                        + " do not write a new one";
+                case ComponentSeedOutcome.UnhandledId:
+                    return "no branch for this id at all - write one in ComponentsSerializer,"
+                        + " or declare it in ComponentAbsencePolicy if this entity genuinely lacks it";
+                case ComponentSeedOutcome.NoClientVtable:
+                    return "the shipped client has no vtable for this id, so no branch here can ever"
+                        + " satisfy it";
+                case ComponentSeedOutcome.SerializeFailed:
+                    return "a seed WAS built and the client's own serializer produced no bytes -"
+                        + " never benign, suspect the seed's field shape";
+                default:
+                    return "no bytes";
+            }
         }
 
         /// <summary>
