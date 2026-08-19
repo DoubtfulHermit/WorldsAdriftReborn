@@ -163,9 +163,32 @@ of those rows are already live reference data**: every `scrapItem-*` row in
 ```
 
 `a` = amount, `q` = quality, `item` = the material. Tier keys observed:
-`1, 1.1, 2, 2.1, 3, 3.1, 4, 4.1, 4.2`. Distinct yields: 21 ids — 15 metals, 5
-woods, `fuel`. **Nothing in the server reads `rewards`** (a repo-wide grep finds
-one unrelated comment). RECOVERED.
+`1, 1.1, 2, 2.1, 3, 3.1, 4, 4.1, 4.2`. **Nothing in the server reads `rewards`**
+(a repo-wide grep finds one unrelated comment). RECOVERED.
+
+**What scrap yields — PROVED, and it kills the audit's central claim about
+containers.** The 21 distinct yield ids resolve to exactly three categories:
+`{Metal, Wood, Fuel}`. **There is no cloth, no leather, no glass and no pigment
+in any of the 134 reward blocks.** Top yields: iron 30, tin 20, nickel 19,
+steel 18, lead 17, silver 17.
+
+So the audit's *"250 scrap items → salvaged into cloth, leather, glass,
+pigment"* (§2 row 13) **is not supported by the shipped data**, and the idea that
+scrap bootstraps the Update-27 economy is false. Anything that gives scrap a
+cloth/leather/glass/pigment yield is an **invention**, not a recovery — see the
+withdrawal in Phase 5 step 4.
+
+**133 salvageable, not 134** — and the missing one is a one-character bug worth
+fixing. The client shows SALVAGE only for ids that literally
+`StartsWith("scrapItem-")` (`acs/…/InventoryTooltipPopup.cs:113`).
+`scrapItemselenistswoodenorrery` is **missing its hyphen**, so despite carrying a
+real reward block (tier 4 → `palm` ×140 at quality 10) **no player can ever
+salvage it.** The audit noted the typo as a cosmetic description bug; it is
+actually an unreachable item.
+
+**Which scrap a tier can hold is RECOVERED**, because `rewards` is keyed by tier:
+**T1 41 eligible items, T2 50, T3 32, T4 85**. Only the per-container counts and
+drop likelihoods are invented.
 
 And the client-side trigger already exists and already reaches us:
 
@@ -231,13 +254,24 @@ directly. `iron` the deposit yields *is* `iron` the crafting input.
 ruin piles, craftable storage, and serving `1081 InventoryState` on non-player
 entities). This plan owns what scrap **becomes**.
 
+**UPDATE — their half has LANDED, and it changes Phase 5's status.** Loot
+containers shipped and are live on production: **409 activated on tier-1**, gated
+by `WAREBORN_SPAWN_LOOT=1`, with contents a deterministic hash of the container
+key. Before that, **nothing in the game could produce a `scrapItem-*` at all**, so
+the 133 reward blocks were unreachable by construction.
+
+That means Phase 5 is no longer "shippable but unreachable" — **it is the missing
+half of a loop whose other half is already in production.** A player can pick up
+scrap today and has nothing to do with it. That promotes Phase 5: it is now the
+single cheapest way to make something already deployed become useful.
+
 The dependency is explicit and mutual:
 
-- **Phase 5 (scrap salvaging) is fully testable and shippable without them** —
-  the payout is driven by an item already in the player's inventory. It is
-  *reachable in play* only once something puts scrap there.
-- Until then scrap can be granted by the existing admin/dev grant path for
-  verification, and the maintainer can be handed a scrap item to salvage.
+- **Phase 5 (scrap salvaging) is fully testable and shippable on its own** — the
+  payout is driven by an item already in the player's inventory.
+- Its producer now exists, so it is reachable in normal play the day it lands.
+  The admin-grant verification path below is still worth having for a
+  deterministic test, but it is no longer the only way to see it.
 - **What I expect from their side:** a `scrapItem-*` item granted into a player
   inventory through `InventoryService.Grant`, with the **source island's tier**
   recorded in the item's `meta` under the key `"sourceTier"` (a string, `"1"`–`"4"`).
@@ -250,6 +284,22 @@ Recommended sequencing: **their containers can land before or after Phase 5; the
 order does not matter.** What must not happen is Phase 5 landing and the
 maintainer concluding scrapping is broken because nothing hands out scrap — so
 Phase 5 ships with a documented admin grant for verification.
+
+**Their finding confirms mine, and generalises it.** They established that
+`InWorldInventoryVisualiser` `[Require]`s **both** `1081 InventoryState` **and**
+`1210 InteractiveState`, so the audit's "1081 is the single blocker" was
+incomplete in exactly the way the loom's `1264` was — a Unity visualiser does not
+enable until *every* requirement resolves. That is the same bug shape, and the
+"16 of 18 deployables seed only a transform" finding in Phase 4 is its general
+case.
+
+**One trap of theirs that would bite this plan if it ever serves 1081
+elsewhere:** `InventoryService.ForEntity` falls back to
+`InventoryWire.DefaultModel`, which is the **player starter kit**. Serving 1081
+on a non-player entity without giving it a specific model hands that entity a
+permanent inventory full of gauntlets, because `Bind` runs its factory once.
+Phase 5 does not serve 1081 anywhere new — it mutates the player's own — so it is
+unaffected, but Phase 4's storage containers are not.
 
 Separately, and flagged for them: **check whether placed deployables generally
 are missing a client-required activation component.** The loom's `1264` is a
@@ -630,15 +680,33 @@ quality.
    `"4.2"`) exist in the data and appear to be sub-tier variants; resolve a
    request for tier *n* to the highest key whose integer part is *n*, so no row
    is unreachable. RECOVERED shape, WAREBORN TUNING resolution rule.
-4. **The 21 distinct yields are metal, wood and fuel only.** The recovered table
-   is a pre-Update-27 snapshot; cloth, leather, glass and pigment are *not* in
-   it, and their real mapping is genuinely unrecoverable (§8 of the audit). The
-   maintainer has authorised judgement here. Proposal, labelled **WAREBORN
-   TUNING** in the data file itself: leave all 134 recovered rows exactly as
-   recovered, and add cloth/leather/glass/pigment yields only to scrap rows whose
-   *recovered display name* already describes cloth or hide — e.g. rope, sail,
-   banner, garment. That keeps every recovered number untouched and makes the
-   invented part inspectable in one diff.
+4. **Leave all 133 recovered reward blocks EXACTLY as recovered. Add nothing.**
+
+   An earlier draft of this step proposed adding cloth/leather/glass/pigment
+   yields to scrap rows whose display name sounded like cloth or hide — rope,
+   sail, banner, garment — labelled WAREBORN TUNING. **That proposal is
+   withdrawn.** It was labelled honestly but it inherited a rationale that has
+   since been disproved: the audit's claim that scrap was the source of the
+   Update-27 materials. It was not (see §0.3 — the yields are `{Metal, Wood,
+   Fuel}`, PROVED across all 134 blocks).
+
+   With that rationale gone the proposal is not just unevidenced, it is
+   **actively worse than doing nothing**, because:
+
+   - **Cloth already has a properly evidenced source, and it is not scrap.** It
+     is plant fibre at the loom — Bossa's own tutorial says *"Cloth and Wood,
+     both of which can be salvaged from trees"* (`quests.json:1918`), and that is
+     Phase 3 + Phase 4. Inventing a second, unevidenced cloth source onto scrap
+     would compete with the one we can actually justify.
+   - **Leather, glass and pigment have no evidenced source anywhere** — they are
+     icon-only in the shipped build. Attaching them to scrap would not be
+     recovering a lost mapping, it would be choosing one and then having it read
+     as recovered a year later because it lives in a data file next to 133
+     genuine rows.
+
+   So: scrap pays metal, wood and fuel, exactly as shipped. **Leather, glass and
+   pigment are deferred out of this plan entirely** rather than invented, and
+   the honest status of each is UNKNOWN-SOURCE, not MISSING.
 5. `schematics` also gets the SALVAGE button
    (`InventoryTooltipPopup.cs:113`). Out of scope here — schematic items belong
    to the knowledge workstream.
@@ -1106,14 +1174,21 @@ not ship them. We do **not** invent retail names.
   have their own explicitly-named material family
   (`materials/3x2_mantaray_biome{n}_resource{n}`). If manta corpses dropped
   leather, that family would not need to exist.
-- The naming pattern `leather` / `leathersalvage` exactly parallels `cloth` /
-  `clothsalvage`, and cloth is proved to come from plant fibre with a
-  *salvage-derived* second tier. INFERRED: `leathersalvage` is the scrap route.
+- The naming pattern `leather` / `leathersalvage` parallels `cloth` /
+  `clothsalvage`, which once suggested a scrap route. **That inference is now
+  dead:** all 134 shipped scrap reward blocks yield only `{Metal, Wood, Fuel}`
+  (§0.3, PROVED). Scrap does not produce leather, so the parallel points nowhere.
 
-**Verdict: "leather comes from manta rays" is UNSUPPORTED, and the better-
-evidenced home for leather is Phase 5 (scrap), not Phase 7.** If the maintainer
-wants it off corpses anyway that is a legitimate call, but it is **WAREBORN
-TUNING** and must be labelled so.
+**Verdict: leather has NO evidenced source at all.** "It comes from manta rays"
+is UNSUPPORTED; "it comes from scrap" is now positively CONTRADICTED by the
+reward data. Its honest status is **UNKNOWN-SOURCE**, and this plan does not
+place it. Glass and pigment are in the same position.
+
+An earlier draft of this section said the better-evidenced home for leather was
+Phase 5. **That was wrong and is withdrawn** — Phase 5 pays exactly what the
+shipped reward blocks say and adds nothing. If leather is to exist at all,
+somebody has to *choose* a source and label it **WAREBORN TUNING**; there is no
+recovery available to hide that choice behind.
 
 **Soak.** Inherits 7a's. **Schema migration.** No.
 
@@ -1166,7 +1241,7 @@ change. It is its own workstream and should not be folded into a resource phase.
 | 2 | Per-island deposit metals | metal variety on the starter island | low | no | no |
 | 3 | Fibre + berries off the tree | the entire Clothing branch | low | no | **yes** |
 | 4 | Loom activates + Clothing routes | wearables | **medium** | no | no |
-| 5 | Scrapping | 134 inert scrap rows | low | no | no |
+| 5 | **Scrapping** | **133 scrap rows a player can already pick up** | low | no | no |
 | 6 | Cooking routes + recipe honesty | food, once meat exists | low | no | no |
 | 7a-0 | **Seed 1171 + 1099 on a creature** | death pose, ragdoll fall, salvage gate | **low** | no | **yes** |
 | 7a-i | **Fifth `OnSalvageShot` branch + per-species shot count** | **kill it with the beam you already have** | **low** | no | inherits |
@@ -1200,6 +1275,18 @@ schematic at all — a separate plan, not a row here.
 
 Phase 1 is first because it is the smallest change with the widest reach: it is
 the difference between crafted stats meaning something and meaning nothing, it
-costs no new state, and every later phase inherits it. Phase 5 is deliberately
-*not* last despite depending on another workstream for its supply, because the
-work itself has no dependency and the data is already shipped.
+costs no new state, and every later phase inherits it.
+
+**Phase 5 has a claim to move up.** It was placed fifth when scrap had no
+producer; loot containers are now live in production (409 on tier-1), so a player
+can pick scrap up today and can do nothing with it. It is low-risk, needs no
+migration and no soak, and it is the cheapest available way to make something
+already deployed become useful. If the maintainer wants the biggest
+visible-value-per-hour after Phases 1–3, **it is Phase 5, not Phase 4** — Phase 4
+grew a general deployable-seeding defect underneath it and is the riskier of the
+two.
+
+Also worth doing whenever someone is next in `itemData.json`, at a cost of one
+character: `scrapItemselenistswoodenorrery` is missing the hyphen its SALVAGE
+button is gated on, so its tier-4 `palm` ×140 q10 reward is unreachable by any
+player. It is 1 of 134.
