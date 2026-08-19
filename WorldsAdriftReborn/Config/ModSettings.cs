@@ -21,6 +21,7 @@ namespace WorldsAdriftReborn.Config
         public static ConfigEntry<string> createAccountUrl { get; set; }
         public static ConfigEntry<string> passwordResetUrl { get; set; }
         public static ConfigEntry<string> mapUrl { get; set; }
+        public static ConfigEntry<string> patchNotesUrl { get; set; }
         public static ConfigEntry<string> NTPServerUrl { get; set; }
         public static ConfigEntry<string> localAssetPath { get; set; }
         public static ConfigEntry<string> gameServerHost { get; set; }
@@ -167,6 +168,18 @@ namespace WorldsAdriftReborn.Config
                                                     "Links_MapUrl",
                                                     "https://wareborn.ratlabs.cc/map",
                                                     "Where the MAP button on the login screen goes. This is the button the retail client labelled FORUMS.");
+
+            // PATCH NOTES is NOT a link in the retail client - it toggles an
+            // in-panel pane that ChangeLogLoader fills from
+            // ConfigKeys.ClientReleaseNotesUrl in Bossa's own "<size=14>version|date</size>"
+            // markup. That pane has been fed a dummy string by
+            // ChangeLogLoader_Patch for as long as this mod has existed. Pointing
+            // it at a normal web page would render the raw HTML in-game, so the
+            // button opens the page in a browser instead; see PatchNotesButton_Patch.
+            patchNotesUrl = modConfig.Bind<string>("Links",
+                                                    "Links_PatchNotesUrl",
+                                                    "https://wareborn.ratlabs.cc/patchnotes",
+                                                    "Where the PATCH NOTES button on the login screen goes. Opens in the player's browser rather than the retail client's in-game pane, which expects Bossa's own changelog markup.");
 
             appliedConfigMigrations = modConfig.Bind<string>("Internal",
                                                     "Internal_AppliedMigrations",
