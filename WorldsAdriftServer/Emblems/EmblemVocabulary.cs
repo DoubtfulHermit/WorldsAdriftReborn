@@ -104,10 +104,28 @@ namespace WorldsAdriftServer.Emblems
         // ------------------------------------------------------------ charges
 
         /// <summary>
-        /// The device on the field. Chosen to be readable at the small roster
-        /// crest as well as the large panel one, which rules out anything with
-        /// interior detail - every one of these is a silhouette that survives
-        /// being drawn a few dozen pixels wide.
+        /// The device on the field.
+        ///
+        /// TWO HALVES, ON PURPOSE. The entries NAMED here are drawn in code: plain
+        /// heraldic geometry that still reads at the sixteen-pixel roster crest,
+        /// where anything with interior detail collapses into a smudge. From
+        /// <see cref="FirstDrawnDevice"/> upwards the entries are the fifty tribal
+        /// icons traced off the artwork sheet
+        /// (tools/emblem-devices/device-sheet.png); they carry no enum names
+        /// because fifty of them would be fifty lines restating
+        /// <see cref="EmblemDeviceGeometry.Names"/>, and nothing in the renderer
+        /// dispatches on which one it is - it fills whichever outline
+        /// <see cref="EmblemGeometry.Device"/> hands back. Values above the named
+        /// ones are legal and expected; <see cref="ChargeCount"/> is the bound.
+        ///
+        /// WHAT WAS DROPPED, AND WHY THE VERSION MOVED. Version 1 also had a
+        /// Compass, an Anchor and a Sun drawn in code. The sheet draws all three
+        /// better, so the procedural ones are gone and the indices after them
+        /// shifted - which is exactly the change the leading version field in an
+        /// emblem code exists for. Nothing about a saved crest changes silently:
+        /// see <see cref="EmblemSpec.TryParse"/>, which reads a version 1 code
+        /// through <see cref="MigrateCharge"/> and lands it on the device of the
+        /// same NAME.
         /// </summary>
         internal enum Charge
         {
@@ -116,25 +134,91 @@ namespace WorldsAdriftServer.Emblems
             Hexagon = 1,
             Star = 2,
             Gear = 3,
-            Compass = 4,
-            Bolt = 5,
-            Ring = 6,
-            Triangle = 7,
-            Crescent = 8,
-            Saltire = 9,
-            Cross = 10,
-            Anchor = 11,
+            Bolt = 4,
+            Ring = 5,
+            Triangle = 6,
+            Crescent = 7,
+            Saltire = 8,
+            Cross = 9,
 
             /// <summary>Three stacked chevrons - reads as rank stripes, and is the
             /// one device here that is not a silhouette of an object.</summary>
-            Chevrons = 12,
-            Sun = 13,
+            Chevrons = 10,
         }
 
-        internal static readonly IReadOnlyList<string> ChargeNames = new[]
+        /// <summary>
+        /// The first charge index that is traced artwork rather than code. Also
+        /// the count of the drawn-in-code half, since that half starts at zero.
+        /// </summary>
+        internal const int FirstDrawnDevice = 11;
+
+        /// <summary>Whether a charge is one of the traced devices.</summary>
+        internal static bool IsDrawnDevice(Charge charge) => (int)charge >= FirstDrawnDevice;
+
+        private static readonly string[] GeometricChargeNames =
         {
-            "None", "Hexagon", "Star", "Gear", "Compass rose", "Bolt", "Ring",
-            "Triangle", "Crescent", "Saltire", "Cross", "Anchor", "Chevrons", "Sun",
+            "None", "Hexagon", "Star", "Gear", "Bolt", "Ring",
+            "Triangle", "Crescent", "Saltire", "Cross", "Chevrons",
+        };
+
+        internal static readonly IReadOnlyList<string> ChargeNames = BuildChargeNames();
+
+        private static string[] BuildChargeNames()
+        {
+            string[] names = new string[GeometricChargeNames.Length + EmblemDeviceGeometry.Names.Count];
+
+            GeometricChargeNames.CopyTo(names, 0);
+            for (int i = 0; i < EmblemDeviceGeometry.Names.Count; i++)
+            {
+                names[GeometricChargeNames.Length + i] = EmblemDeviceGeometry.Names[i];
+            }
+
+            return names;
+        }
+
+        // ---------------------------------------------------- version 1 charges
+
+        /// <summary>
+        /// How many charges version 1 of the code had.
+        ///
+        /// Frozen. It is not "the old value of <see cref="ChargeCount"/>" that
+        /// happens to be stale - it is the width of the index space every code
+        /// written before this change was drawn from, and reading one of those
+        /// codes needs the number the writer used, not the number the table has
+        /// grown to.
+        /// </summary>
+        internal const int LegacyChargeCount = 14;
+
+        /// <summary>
+        /// A version 1 charge index, as the current index for the SAME device.
+        ///
+        /// Every entry is the device it always was. The three that moved rather
+        /// than merely shifting - Compass rose, Anchor, Sun - land on the traced
+        /// drawing of the same subject, because that is the whole reason the
+        /// procedural ones were dropped: the sheet has a better one of each.
+        /// </summary>
+        internal static int MigrateCharge(int legacy)
+        {
+            if (legacy < 0 || legacy >= LegacyChargeCount) return (int)Charge.None;
+            return LegacyCharges[legacy];
+        }
+
+        private static readonly int[] LegacyCharges =
+        {
+            (int)Charge.None,
+            (int)Charge.Hexagon,
+            (int)Charge.Star,
+            (int)Charge.Gear,
+            FirstDrawnDevice + 24,   // Compass, now the drawn compass rose (sheet 25)
+            (int)Charge.Bolt,
+            (int)Charge.Ring,
+            (int)Charge.Triangle,
+            (int)Charge.Crescent,
+            (int)Charge.Saltire,
+            (int)Charge.Cross,
+            FirstDrawnDevice + 31,   // Anchor, now the drawn anchor (sheet 32)
+            (int)Charge.Chevrons,
+            FirstDrawnDevice + 29,   // Sun, now the drawn sun (sheet 30)
         };
 
         // ------------------------------------------------------------ palette

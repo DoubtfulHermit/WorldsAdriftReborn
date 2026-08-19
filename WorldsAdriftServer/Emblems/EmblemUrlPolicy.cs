@@ -35,8 +35,29 @@ namespace WorldsAdriftServer.Emblems
         /// <summary>The prefix that marks a stored value as a built emblem.</summary>
         internal const string Marker = "wareborn:emblem:";
 
-        /// <summary>The path the PNG is served from.</summary>
+        /// <summary>The path the crest is served from.</summary>
         internal const string RoutePrefix = "/alliance-emblem/";
+
+        /// <summary>
+        /// The two things a crest can be asked for as.
+        ///
+        /// The GAME is only ever given <see cref="Png"/>, and that is not a
+        /// preference: the client decodes with <c>Texture2D.LoadImage</c>, which
+        /// handles PNG and JPEG and nothing else, and does not check whether it
+        /// worked - an SVG body would be displayed as a garbage texture rather
+        /// than refused. <see cref="Svg"/> exists for PEOPLE: a leader can
+        /// download their alliance's crest as a vector and scale, print or
+        /// recolour it. Nothing this server puts in an alliance payload ever names
+        /// it.
+        /// </summary>
+        internal enum Format
+        {
+            Png = 0,
+            Svg = 1,
+        }
+
+        private const string PngExtension = ".png";
+        private const string SvgExtension = ".svg";
 
         /// <summary>The query parameter carrying the code.</summary>
         internal const string CodeParameter = "e";
@@ -78,13 +99,29 @@ namespace WorldsAdriftServer.Emblems
         internal static string PublicUrl(string baseUrl, Guid allianceId, EmblemSpec spec) =>
             TrimBase(baseUrl) + RoutePrefix
             + allianceId.ToString("D", CultureInfo.InvariantCulture)
-            + ".png?" + CodeParameter + "=" + spec.ToCode();
+            + PngExtension + "?" + CodeParameter + "=" + spec.ToCode();
 
         /// <summary>The preview URL the builder page fetches. Relative, because the
         /// page fetching it is served by this same server and a browser resolves
         /// it against the origin the operator actually reached us on.</summary>
         internal static string PreviewUrl(EmblemSpec spec) =>
-            RoutePrefix + PreviewId + ".png?" + CodeParameter + "=" + spec.ToCode();
+            RoutePrefix + PreviewId + PngExtension + "?" + CodeParameter + "=" + spec.ToCode();
+
+        /// <summary>
+        /// The vector of the same crest, for a player to download. Relative for
+        /// the same reason <see cref="PreviewUrl"/> is: the page offering the link
+        /// is served by this server, so the browser resolves it against whatever
+        /// origin the operator actually reached us on.
+        /// </summary>
+        internal static string VectorUrl(Guid allianceId, EmblemSpec spec) =>
+            RoutePrefix + (allianceId == Guid.Empty
+                ? PreviewId
+                : allianceId.ToString("D", CultureInfo.InvariantCulture))
+            + SvgExtension + "?" + CodeParameter + "=" + spec.ToCode();
+
+        /// <summary>The filename a downloaded crest is offered under.</summary>
+        internal static string VectorFileName(EmblemSpec spec) =>
+            "alliance-crest-" + spec.ToCode() + SvgExtension;
 
         /// <summary>
         /// Resolves what the alliance payload's <c>emblemUrl</c> should say, given
@@ -144,11 +181,12 @@ namespace WorldsAdriftServer.Emblems
         /// self-describing in a log and so each alliance gets its own cache entry.
         /// </summary>
         internal static bool TryParseRequest(
-            string? url, out Guid allianceId, out EmblemSpec spec, out bool hasCode)
+            string? url, out Guid allianceId, out EmblemSpec spec, out bool hasCode, out Format format)
         {
             allianceId = Guid.Empty;
             spec = default;
             hasCode = false;
+            format = Format.Png;
 
             if (string.IsNullOrEmpty(url)) return false;
 
@@ -173,7 +211,19 @@ namespace WorldsAdriftServer.Emblems
             // route does not have, and answering it anyway would be answering a
             // URL we never published.
             if (name.Contains('/') || name.Contains('\\')) return false;
-            if (!name.EndsWith(".png", StringComparison.Ordinal)) return false;
+
+            if (name.EndsWith(PngExtension, StringComparison.Ordinal))
+            {
+                format = Format.Png;
+            }
+            else if (name.EndsWith(SvgExtension, StringComparison.Ordinal))
+            {
+                format = Format.Svg;
+            }
+            else
+            {
+                return false;
+            }
 
             string id = name.Substring(0, name.Length - 4);
 

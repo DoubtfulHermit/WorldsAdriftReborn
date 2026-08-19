@@ -20,7 +20,7 @@ namespace WorldsAdriftServer.Tests
             Assert.True(EmblemSpec.TryCreate(2, 5, 7, 11, 3, 13, out EmblemSpec spec));
 
             string code = spec.ToCode();
-            Assert.Equal("1-2-5-7-11-3-13", code);
+            Assert.Equal("2-2-5-7-11-3-13", code);
 
             Assert.True(EmblemSpec.TryParse(code, out EmblemSpec back));
             Assert.Equal(spec, back);
@@ -29,9 +29,10 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void Every_valid_combination_round_trips()
         {
-            // Exhaustive over the shapes, divisions and charges, with the colour
+            // Exhaustive over the shapes, divisions and devices, with the colour
             // axes sampled - the point is that no index in any position is lost or
-            // aliased by the encoding, and 5*10*14 covers every enum value.
+            // aliased by the encoding, and this covers every device in the table
+            // including all fifty traced ones.
             for (int shape = 0; shape < EmblemVocabulary.ShapeCount; shape++)
             for (int division = 0; division < EmblemVocabulary.DivisionCount; division++)
             for (int charge = 0; charge < EmblemVocabulary.ChargeCount; charge++)
@@ -52,7 +53,7 @@ namespace WorldsAdriftServer.Tests
         [InlineData("")]
         [InlineData("1-0-0-0-0-0")]           // too few parts
         [InlineData("1-0-0-0-0-0-0-0")]       // too many parts
-        [InlineData("2-0-0-0-0-0-0")]         // wrong version
+        [InlineData("3-0-0-0-0-0-0")]         // a version that does not exist yet
         [InlineData("0-0-0-0-0-0-0")]         // wrong version
         [InlineData("1-0-0-0-0-0-x")]         // not a number
         [InlineData("1-0-0-0-0-0--1")]        // negative, via an extra hyphen
@@ -62,7 +63,9 @@ namespace WorldsAdriftServer.Tests
         [InlineData("1-0-0-0-0-0-1 ")]
         [InlineData("1-5-0-0-0-0-0")]         // shape out of range (5 shapes: 0..4)
         [InlineData("1-0-10-0-0-0-0")]        // division out of range
-        [InlineData("1-0-0-14-0-0-0")]        // charge out of range
+        [InlineData("1-0-0-14-0-0-0")]        // device out of range for version 1
+        [InlineData("1-0-0-60-0-0-0")]        // a version 2 device index in a version 1 code
+        [InlineData("2-0-0-61-0-0-0")]        // device out of range
         [InlineData("1-0-0-0-16-0-0")]        // field colour out of range
         [InlineData("1-0-0-0-0-16-0")]        // detail colour out of range
         [InlineData("1-0-0-0-0-0-16")]        // charge colour out of range
@@ -103,7 +106,7 @@ namespace WorldsAdriftServer.Tests
             // runs, and the literal below is what pins that. If this line ever
             // fails after a runtime upgrade, every alliance's generated crest just
             // silently changed.
-            Assert.Equal("1-3-4-13-6-1-4", first.ToCode());
+            Assert.Equal("2-3-4-40-6-1-4", first.ToCode());
         }
 
         [Fact]
@@ -130,8 +133,9 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void Different_alliances_get_different_generated_crests()
         {
-            // Not a uniqueness guarantee - there are only 5*10*13*16*15*14 of
-            // them - but a crest that ignored most of the uid would collide far
+            // Not a uniqueness guarantee - the generated crests are drawn from a
+            // deliberately narrow slice of the vocabulary (see DefaultFor) - but a
+            // crest that ignored most of the uid would collide far
             // more often than that, and this is the cheap way to notice.
             HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
             Random random = new Random(1234);
@@ -155,13 +159,20 @@ namespace WorldsAdriftServer.Tests
             Assert.Equal(EmblemVocabulary.ShapeCount, EmblemVocabulary.ShapeNames.Count);
             Assert.Equal(EmblemVocabulary.DivisionCount, EmblemVocabulary.DivisionNames.Count);
             Assert.Equal(EmblemVocabulary.ChargeCount, EmblemVocabulary.ChargeNames.Count);
+            Assert.Equal(EmblemVocabulary.ChargeCount,
+                EmblemVocabulary.FirstDrawnDevice + EmblemDeviceGeometry.Paths.Count);
+            Assert.Equal(EmblemDeviceGeometry.Paths.Count, EmblemDeviceGeometry.Names.Count);
             Assert.Equal(EmblemVocabulary.ColourCount, EmblemVocabulary.PaletteNames.Count);
 
             Assert.Equal(EmblemVocabulary.ShapeNames.Count,
                 Enum.GetValues(typeof(EmblemVocabulary.Shape)).Length);
             Assert.Equal(EmblemVocabulary.DivisionNames.Count,
                 Enum.GetValues(typeof(EmblemVocabulary.Division)).Length);
-            Assert.Equal(EmblemVocabulary.ChargeNames.Count,
+            // The device enum names only the drawn-in-code half; the traced half
+            // is index-addressed and named by the generated table. So the enum
+            // covers exactly the entries below FirstDrawnDevice, and nothing
+            // dispatches on the ones above it.
+            Assert.Equal(EmblemVocabulary.FirstDrawnDevice,
                 Enum.GetValues(typeof(EmblemVocabulary.Charge)).Length);
         }
 
