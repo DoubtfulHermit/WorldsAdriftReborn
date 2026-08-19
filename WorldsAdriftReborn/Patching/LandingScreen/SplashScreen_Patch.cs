@@ -8,7 +8,8 @@ using UnityEngine;
 namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
 {
     /// <summary>
-    /// Tells the truth on the two-card server screen: one of them is not running.
+    /// Greys out the PvE card on the two-card server screen, because we do not
+    /// run that server. Bossa's own copy on both cards is left untouched.
     ///
     /// WHAT THIS SCREEN ACTUALLY IS. It looks like a chooser and it is not one.
     /// SplashScreen (acs/Travellers.UI.Login/SplashScreen.cs) is a two-page
@@ -30,31 +31,49 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
     /// interactions and player damage are all live. In Bossa's terms that is the
     /// PvP side. There is no PvE deployment and there never was one here.
     ///
-    /// So the screen was showing a player two equal-looking options where one is
-    /// imaginary and neither is a choice. Worse than a broken button: a broken
-    /// button at least looks broken. This rewrites the PvE block to say it is not
-    /// running and dims the whole card, and rewrites the PvP block to say it is
-    /// the only one and that CONTINUE lands there regardless.
+    /// So the screen shows a player two equal-looking options where one is
+    /// imaginary. The answer is to grey the PvE card out, and ONLY that.
     ///
-    /// WHY A RUNTIME OVERWRITE. The card text comes from the GameDB localisation
-    /// table via SetTexts(), whose source is
-    /// StreamingAssets/GameDB/localization.bytes - obfuscated, and re-serialising
-    /// it to change six strings would be a far bigger and more fragile change
-    /// than a postfix. SetTexts is the right seam because both public entry
-    /// points, SetProductionText() and SetBetaText(), call it first, so this
-    /// lands whichever branch SplashScreenState takes.
+    /// WHY THE TEXT IS LEFT ALONE. An earlier version of this patch also rewrote
+    /// all six card strings to say which server runs. That was the wrong trade:
+    /// it threw away Bossa's copy - which is part of what this project exists to
+    /// preserve - to say something the greying already says, and it shipped an
+    /// empty PvE bullet that drew a lone diamond glyph with no line after it.
+    /// The retail strings come from the GameDB localisation table through
+    /// SetTexts(), so the way to have the original text is to not overwrite it.
+    /// For the record, decrypted out of
+    /// StreamingAssets/GameDB/localization.bytes (AES-256-CBC + LZF, key
+    /// "jDbTw6roGtva" / salt "5gucbeCOt2pysjlJx", both read from
+    /// GameDBAccessor.ImportFromServer in the decompile), the six keys read:
+    ///
+    ///     SPLASH_SCREEN_PVE_TITLE    "PvP restricted to The Badlands"
+    ///     SPLASH_SCREEN_PVE_BULLET1  "Provides a slower-paced, more peaceful
+    ///                                 experience"
+    ///     SPLASH_SCREEN_PVE_BULLET2  "Recommended for players who prefer
+    ///                                 exploring and building creative ships
+    ///                                 with friends over combat"
+    ///     SPLASH_SCREEN_PVP_TITLE    "Open PvP combat"
+    ///     SPLASH_SCREEN_PVP_BULLET1  "Provides more opportunities for dynamic
+    ///                                 stories and piracy, and emphasizes
+    ///                                 teamwork"
+    ///     SPLASH_SCREEN_PVP_BULLET2  "Recommended for players who want more
+    ///                                 thrills and danger; where the line
+    ///                                 between friend and foe is blurred"
+    ///
+    /// so both cards say three things and the third PvE line is not blank. That
+    /// is what the client draws now that nothing here writes over it.
+    ///
+    /// SetTexts is still the right seam for the greying, because both public
+    /// entry points, SetProductionText() and SetBetaText(), call it first, so
+    /// this lands whichever branch SplashScreenState takes.
+    ///
+    /// TO TURN PvE BACK ON, delete the DimPveCard(__instance) call in
+    /// SetTexts_Postfix. Nothing else in this file touches the PvE card, and its
+    /// text is already Bossa's, so that one line is the whole switch.
     /// </summary>
     [HarmonyPatch(typeof(SplashScreen))]
     internal static class SplashScreen_Patch
     {
-        private const string PveTitle = "PvE Server (not running)";
-        private const string PveBullet1 = "Wareborn hosts one server, and this is not it.";
-        private const string PveBullet2 = "";
-
-        private const string PvpTitle = "PvP Server";
-        private const string PvpBullet1 = "The only server running. CONTINUE brings you here either way.";
-        private const string PvpBullet2 = "Other players can attack you and your ship.";
-
         /// <summary>How faded the unavailable card is. Readable, clearly off.</summary>
         private const float DisabledAlpha = 0.35f;
 
@@ -174,28 +193,37 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             Debug.Log("[WAReborn] welcome page updated with the message that arrived from the server.");
         }
 
+        /// <summary>
+        /// Runs after the client has filled both cards from the localisation
+        /// table, and only greys the PvE one. The retail copy it just wrote is
+        /// left exactly as it is.
+        /// </summary>
         [HarmonyPostfix]
         [HarmonyPatch("SetTexts")]
         public static void SetTexts_Postfix(SplashScreen __instance)
         {
             try
             {
-                SetText(__instance, "_pveTitle", PveTitle);
-                SetText(__instance, "_pveBullet1", PveBullet1);
-                SetText(__instance, "_pveBullet2", PveBullet2);
-
-                SetText(__instance, "_pvpTitle", PvpTitle);
-                SetText(__instance, "_pvpBullet1", PvpBullet1);
-                SetText(__instance, "_pvpBullet2", PvpBullet2);
+                // Log what the two cards now say. This screen has a history of
+                // patches that "applied" while the player saw something else, and
+                // the whole point of this change is that six specific strings are
+                // Bossa's again - so prove it from a log line instead of asking
+                // someone to squint at a screenshot. Titles only: they are the
+                // lines that differed most from the copy we used to write, and
+                // two of them fit on one line.
+                Debug.Log("[WAReborn] server cards read (retail localisation, not ours) - PvE: '"
+                    + Excerpt(TextOf(__instance, "_pveTitle")) + "' / PvP: '"
+                    + Excerpt(TextOf(__instance, "_pvpTitle")) + "'.");
 
                 DimPveCard(__instance);
             }
             catch (Exception e)
             {
-                // The screen still works if this fails - it is text and alpha -
-                // so never take the boot down over it, but do say so.
-                Debug.LogError("[WAReborn] could not relabel the server screen; it may still "
-                    + "show a PvE server that does not exist. " + e);
+                // The screen still works if this fails - it is only alpha - so
+                // never take the boot down over it, but do say so. The failure
+                // mode is a PvE card that looks selectable and is not.
+                Debug.LogError("[WAReborn] could not grey out the server screen's PvE card; it "
+                    + "may look like a server we run. " + e);
             }
         }
 
@@ -205,16 +233,15 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
             return field == null ? null : field.GetValue(screen) as TextMeshProUGUI;
         }
 
-        private static void SetText(SplashScreen screen, string fieldName, string value)
+        /// <summary>
+        /// A label's text for logging. "&lt;missing&gt;" rather than an empty
+        /// string when the field is gone, because a blank in the log would read
+        /// like a blank on screen - which is the exact bug this change removes.
+        /// </summary>
+        private static string TextOf(SplashScreen screen, string fieldName)
         {
             TextMeshProUGUI label = Label(screen, fieldName);
-            if (label == null)
-            {
-                Debug.LogWarning("[WAReborn] SplashScreen." + fieldName + " is missing; that line "
-                    + "of the server screen keeps its original text.");
-                return;
-            }
-            label.text = value;
+            return label == null ? "<missing>" : label.text ?? string.Empty;
         }
 
         /// <summary>
