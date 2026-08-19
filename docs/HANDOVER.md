@@ -254,15 +254,21 @@ authority for live configuration is the box itself:
   core) while hulls weigh 500–1700 kg, which would overload real ships for real
   reasons. That is roadmap F2's job and it is a balance decision, not a cliff.
 
-  **What overload actually did, and what it can do HERE.** In retail it was not
-  benign: a Bossa moderator and a player, official forums 2017-09-17, describe an
-  overweight ship being *blocked from undocking at all*, and one that becomes
-  overweight in flight — because a **damaged core or expansion module stops
-  contributing lift** — showing the message and then **sinking into the abyss**.
-  The real string is `Ships weighs too much for Atlas Core`, typo and all
-  (**WIKI/forum, player-quoted**); the tidier phrasing this repo circulated is
-  not the game's and appears in no source. The gauge reads `current / max` in kg
-  (*"818/1000"*).
+  **What overload actually did, and what it can do HERE.** The message is
+  `"Ship weighs more than its atlas sky core can lift."` — VERIFIED as the
+  literal passed to `OSDMessage.SendMessage` at
+  `acs/ShipControlsBehaviour.cs:283`. (A 2026-08-20 edit replaced this with a
+  different wording on the strength of an unverified claim; it was wrong, the
+  decompile is the authority, and it is restored. **A game string is checkable in
+  one grep — check it.**)
+
+  Overload was not benign in retail. Players describe an overweight ship being
+  blocked from undocking, and the mass gauge reading `current / max` in kg — the
+  widely-quoted *"noob cap"* being `950/1000kg` for a hull carrying two wings,
+  two sails, a cannon and a barrel (**WIKI**, player-measured). That last figure
+  independently corroborates our own arithmetic: a starter hull plus a handful of
+  parts really did sit right on the 1000 kg line, which is why the sail cliff
+  lands where it does.
 
   **But an overloaded ship cannot sink on this server, and the reason is
   structural rather than lucky.** The sinking is `ShipControlVisualizer

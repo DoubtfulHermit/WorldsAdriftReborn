@@ -11,12 +11,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Materials
     /// BUDGET AGAINST A LIFT BUDGET, both in kg, and the shipped client still
     /// enforces it: <c>ShipLiftVisualizer.IsOverloaded</c> is
     /// <c>totalMass &gt; TotalLift</c>, and <c>ShipControlsBehaviour.UpdateVertical</c>
-    /// DROPS the pilot's vertical input and prints <c>Ships weighs too much for
-    /// Atlas Core</c> when it trips (VERIFIED, acs/ShipControlsBehaviour.cs
-    /// :276-287). That is the string with retail's own grammatical error in it,
-    /// player-quoted from the Bossa forums (2017-09-17) twice in one thread; the
-    /// tidier "Ship weighs more than its atlas sky core can lift" that this repo
-    /// used to quote appears in no source and was never the game's wording. A bare sky core lifts 1000 kg (RECOVERED, twice: this repo's own
+    /// DROPS the pilot's vertical input and prints "Ship weighs more than its atlas
+    /// sky core can lift." when it trips (VERIFIED, acs/ShipControlsBehaviour.cs
+    /// :283 - the literal passed to OSDMessage.SendMessage).
+    /// A bare sky core lifts 1000 kg (RECOVERED, twice: this repo's own
     /// itemData.json description and the wiki). So a mass expressed in the same
     /// kilograms plugs straight into a rule the client already has, and none of that
     /// mechanic has to be invented.

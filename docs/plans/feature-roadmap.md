@@ -2099,9 +2099,8 @@ For each: what force it makes, how much, when it applies, and how it combines.
 #### 4. THE ATLAS SKY CORE — `1258 ShipLiftState`, `1115 ShipCoreState`
 
 The maintainer called it "the atlas generator"; the game's own string is
-*"Ships weighs too much for Atlas Core"* (the real string, typo included —
-player-quoted, Bossa forums 2017-09-17. The tidier wording this section
-originally used is not the game's and appears in no source.)
+*"Ship weighs more than its atlas sky core can lift."* (VERIFIED — the literal
+at `acs/ShipControlsBehaviour.cs:283`.)
 
 - **Contributes:** **lift capacity**, expressed as a mass budget in **kilograms**.
   It is not an altitude ceiling and it consumes nothing.
@@ -2642,9 +2641,7 @@ This is the better explanation, and note that the maintainer's own words are
 *"too heavy"* — the vocabulary of the lift budget, not of the speed equation.
 `IsOverloaded = totalMass > TotalLift` is a hard step, not a curve: one sail past
 the line and the ship **cannot climb at all** and the client OSD-spams *"Ship
-weighs too much for Atlas Core"* — retail's own typo, player-quoted from the
-Bossa forums (2017-09-17); the tidier phrasing this document used elsewhere is
-not the game's wording. With a bare core at **1000 kg**
+weighs more than its atlas sky core can lift."* With a bare core at **1000 kg**
 (RECOVERED, and corroborated twice — our wiki-derived `SkyCoreLiftKg` and the
 community `skycoreCalc.js` are the same expression with the same coefficients)
 and our `1121 OriginalMassState` seed of **50 kg per mounted part**:
@@ -2657,9 +2654,54 @@ and our `1121 OriginalMassState` seed of **50 kg per mounted part**:
 | iron, 1 cell | 780 kg | 880 kg | **2** |
 | legacy birch/iron, 2 cell 1 deck | 1071 kg | 1171 kg | already overloaded |
 
+**Independently corroborated.** Players quote the mass gauge directly, and the
+numbers land on our arithmetic: *"2 wings, 2 sails, 1 cannon and a barrel puts me
+at the 'noob cap'"* at **950/1000 kg**, and *"Two wings, two engines, a sail and a
+fuel tank is too much on a standard skyship?"* (**WIKI**, player-measured). Six
+mounted parts on a starter hull sitting on the 1000 kg line is the same budget
+this table computes, which is the strongest available check on both the 1000 kg
+core and the ~50 kg part mass.
+
 So the cliff is real and it lands between 2 and 11 sails depending on what the
 hull is made of, clustering around 3–6 for the hulls a new player actually
 builds. That is the maintainer's memory, and it is a **lift** phenomenon.
+
+**3. AND THE COMMUNITY'S OWN ANSWER, which is neither of the above and is
+probably the real one.** A Wayback sweep of the archived Bossa forum
+(`www.worldsadrift.com/forums/topic/...`) finds an explicit consensus number, and
+it is **3** — but the stated cause changes across two eras, and neither cause is
+speed or weight:
+
+- **Before Beta 0.2.2.5** the limiter was believed to be the wind itself:
+  *"More sails means better speed, but only up to a point; you can't go faster
+  than the speed of the wind. Way back in Alpha 5 some madman stuck 40 sails on
+  his ship and opened them all. It was not noticeably faster than having 3."*
+  (**WIKI**, player opinion + secondhand measurement.)
+- **After Beta 0.2.2.5** it became a hard geometric fact: *"They added collisions
+  to sails, essentially making it very hard to have more than 3-4 sails on a
+  ship."* Sails must be free to rotate without striking each other, so a normal
+  hull simply has nowhere to put a fifth. (**WIKI**, player opinion.)
+
+**The collision limit is the best single explanation of the maintainer's "3 or
+4"**, because it is the only one that produces exactly that number for everyone
+regardless of what their hull was made of. Note it is a *placement* constraint —
+we do not implement sail-boom collision, and nothing here proposes we start.
+
+**The counter-case, which settles the theorem empirically.** *"I made a ship with
+69 sails before. It went pretty close to that 70 knot theoretical maximum."*
+(**WIKI**, player measurement.) A 69-sail ship being the fastest thing anyone
+built is a direct observation that **sail speed is monotone increasing** — which
+is what the algebra above proves and what the pre-patch "40 is no better than 3"
+folklore denies. Where the community contradicts itself, the decompile decides,
+and the decompile has no velocity term in the sail path at all.
+
+**One number not to adopt.** The same posts assert an absolute ceiling of
+70.71 knots, and it is seductive because it is exactly the airspeed gauge's full
+scale. But it falls straight out of the community's own fitted
+`v = 50·√(2P/M)` at a power-to-weight of 1:1, not out of the client: §12.2
+records that **retail set no speed cap anywhere**. It is a property of their
+formula, not of the game. That the gauge stops at the same place is worth
+knowing and is not evidence for it.
 
 **Caveat, stated because it is the weakest number here.** The 50 kg per-part mass
 is **ours** (`ComponentsSerializer`, a placeholder), not retail's, and the cliff
@@ -2706,7 +2748,7 @@ it.
 4. ~~**What the unpatched client does with a real `1258`.**~~ **ANSWERED, and it
    is a live hazard rather than a live flight question** — see F2. What a live
    flight *should* now check is the inverse: whether a piloted ship ever shows
-   the *"Ships weighs too much for Atlas Core"* OSD message today.
+   the *"Ship weighs more than its atlas sky core can lift"* OSD message today.
    If it never does, `ShipLiftVisualizer` is confirmed inert on our hulls and the
    cliff in F2 is real but not yet stepped off. **This is a 30-second check at
    the helm and it gates other people's branches, so it is worth doing first.**
