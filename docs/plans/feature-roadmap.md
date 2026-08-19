@@ -887,9 +887,11 @@ unmerged). The five findings from the maintainer's live session: §11.10 (the
 container lock — `OwnershipRegistrationPolicy` + the two hull owner-list serve
 sites in `ComponentsSerializer`), §13.10 (refuel moved off the sky core —
 `PartInteractionPolicy`, `PartInteractionService`, `ShipFuelService`, new
-`Multiplayer/Ship/Fuel/ShipFuelBunkerPolicy.cs`), §11.11 (the altimeter's blue
-phantom — `WorldsAdriftReborn/Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs`,
-**client mod, needs a patcher release**), §11.5 (the fuel gauge: **not a defect**)
+`Multiplayer/Ship/Fuel/ShipFuelBunkerPolicy.cs`), §11.11 (the altimeter — the client
+patch **DELETED**, the missing **Bar Pipe** implemented, and the root cause named:
+`Parent(hull,"~")` breaks five client parent-walks. Removing the patch from
+players is itself a patcher release, because manifest `2026.08.19-6` shipped it),
+§11.5 (the fuel gauge: **not a defect**)
 and §12.11 (helm momentum: **no code change**). Collisions to know about:
 
 - It edits `ComponentsSerializer.cs`, which nearly everything edits.
@@ -1671,78 +1673,149 @@ something the server writes, which server field is it actually reading?"*
 
 ---
 
-### 11.11 THE ALTIMETER'S BLUE PHANTOM — mounted parts are not Unity children
+### 11.11 THE ALTIMETER — one root cause, five broken walks, and a missing part
 
-**Reported:** *"I can now target the railing with the altimeter but I can't place
-it, it's blue."* The SC3 patch works: the mask and tag widening put the raycast
-on the railing. It refuses at the next gate, and **the colour names that gate.**
+**Reported in three rounds, and the third one is the important one:** *"the
+altimeter can only go on the floor"* → (after the mask/tag patch) *"I can now
+target the railing but I can't place it, it's blue"* → (after an 8066 redirect)
+*"**it's red and it's not even the right direction. I feel like we are hacking
+this together, which I don't like.** [The wiki] says we can put them on bar pipes
+— don't even see how to craft that. I don't want to hack stuff I don't need to."*
 
-**Blue is a specific negative, not "valid but uncommitted."** The ship-part
-palette has three colours (`ShipPartPlacement.cs:22-29`), assigned at
-`PlayerScannerTool.cs:577`: green = `CanPlace`, faint red = neither placeable nor
-droppable, and `DropHighlight` **blue** = *"I will not bolt this to the ship, but
-I will free-drop it here."* Blue requires `_canDrop` (`:524`), which requires
-`!flag4`, and `flag4` is `ShipPartPlacement.IsAttachedToShip(TargetObject)` —
-"does a `DockableVisualizer` exist above the thing I am aiming at". Flatness,
-overlap, distance and `BlockItemPlacement` all leave `flag4` **true** and would
-paint **red**. So the blue is runtime proof that the parent walk failed, and only
-that. §11.9 item 3 asked exactly this question and the answer is **no**.
+**The maintainer was right, and this section is the correction.** Two independent
+findings, and the first one is embarrassing.
 
-**The ≥0.9 flatness gate is innocent, and can be crossed off.** It is
-`Mathf.Abs(hitNormal.y) < 0.9f` on the **world-space** collider normal
-(`PlacementPreview.cs:670`, enforced a second time at `ShipPartPlacement.cs:136`
-via `PointDot`, which is algebraically the same number). A railing's box-collider
-top on a level hull gives ≈1.0 and passes. `Mathf.Abs` also means the *underside*
-passes; only `PositionOnShip` flips the up-vector.
+#### 11.11.1 The Bar Pipe exists, and we never implemented it
 
-**Why the walk fails is OURS, and deliberate.** We seed a mounted part
-`Parent(hull, "~")`, and `RelativeParentTransformChildHierarchyBehaviour`
-`TrySetNewParent` treats the `"~"` key as `SetNoParent()` — the part is composed
-into world space every frame instead of being reparented. The only line in the
-whole hierarchy system that assigns `CachedTransform.parent` is reachable solely
-through the non-`"~"` branch, and **only the DECK gets a real hierarchy key**.
-That is precisely why a deck works as a mounting surface and a railing does not.
-Every `GetComponentInParents<DockableVisualizer>()` is a plain `transform.parent`
-loop (`GameObjectX.cs:192-209`), so from a railing it can only ever return null.
+`BarPipe_unityclient` (path_id **24983**) and `BarPipeBent_unityclient` (**39672**)
+are baked into the shipped `resources.assets` with full ship-part component sets,
+art meshes `bar_straight_LOD0..2` / `bar_bent_LOD0..2`, bundle keys
+`entityprefabs/barpipe_unityclient`, and icons filed under **`ship parts/`** in the
+client's own atlas (`docs/research/valid-icons.txt:873-874`). WIKI: *"structural
+items that can be placed on a ship … used to attract lightning in a Stormwall or
+to display Instruments."* **This is the fuel-tank mistake repeated**: an agent
+searched for the thing it expected, did not find it, and built a workaround —
+except here the thing was there under a name nobody had thought to search for.
+**The wiki is what told us what to look for; the decompile cannot name a thing you
+have not thought of.**
 
-**Four gates fail, all from that one cause:** `_targetShip` (`:664`) → `flag`
-(`:666`) → `_isValid = false`; `flag4` (`PlayerScannerTool.cs:502`); `flag5`
-(`:503`); and `IsValidShipPlacement`'s `NeedToBeOnShip && TargetShip == null`
-(`ShipPartPlacement.cs:132`, which sets no invalid reason, so the player is told
-nothing). A **fifth** waits at commit time: `AttachToShip`'s
-`spatialOsEntity.HasParentEntity(entityObject)` (`:213`) is *also* a Unity walk
-(`EntityX.cs:53`), so fixing only the preview turns "blue, won't place" into
-"green, click does nothing".
+**The geometry proves the purpose.** The straight pipe is an inverted U: two
+0.10 m capsules at x = ±0.189 rising to y = 1.90, joined by a crossbar whose
+collider pad is **0.4375 × 0.1458 × 0.1125**, normal +Y. That 0.4375 is *exactly*
+the Fuel Gauge's collider width and within 5 cm of all five instruments — a
+mounting shelf, not structure. The bent variant rotates its upper section
+**22.11°**, putting the pad normal at **|y| = 0.9265** — just inside the client's
+own **≥ 0.9** flatness gate, whose limit is 25.84°. Authored hard against the
+threshold: it is the *tilt your gauges toward the pilot* variant.
 
-**Fixed with ONE hook**, because everything downstream reads `TargetObject`: a
-postfix on `PlacementPreview.UpdateTargetObject` re-points `_targetObject` at the
-hull that part's own `8066 ShipRootState` already names
-(`ShipPartVisualizer.ShipEntityId`). Not an invented relationship — the server
-maintains and re-broadcasts it on every mount; the `"~"` convention just declines
-to express it as a transform. Then `:664` finds the hull's `DockableVisualizer`
-on its **first** branch, so `NeedToBeOnShip` is satisfied honestly rather than
-bypassed; `PositionOnShip` still poses from the railing's `hitPoint`/`hitNormal`
-and takes only the ship's forward axis from the hull; the flatness gate still
-reads the railing's face; ownership is still checked against the docked hull; and
-`HasParentEntity` compares the hull with itself. The committed `Build` sends
-parent = hull with a hull-local pose, identical in shape to a deck mount, so
-`PartMountService` needs nothing and an unpatched client is unaffected.
+**How incomplete is our catalogue?** The client ships **98** `ship parts/` icons;
+our table references **36**. Strip the wood/metal duplicates of parts we already
+have and the genuinely missing functional structure is **bar pipe, bent bar pipe,
+crow's nest** (plus the `Paint Can` / `Paint Drum` nodes, already used as hosts).
+The recipe table never claimed to be retail's — the commit that created it says
+*"the full recovered catalogue can be swapped in later untouched."*
+**SHIPPED: the two bar pipes**, server-only, riding the two railing knowledge
+nodes. The crow's nest is left for whoever wants it.
 
-It costs exactly one thing: the overlap exemption at `ShipPartPlacement.cs:175`
-moves onto the hull, and an instrument standing on a railing overlaps that
-railing by construction. It is given back through the client's own
-`PlacementRules.CanOverlapWith` door for **one** entity — the surface this
-frame's ray landed on, cleared on every `UpdateTargetObject` call.
+#### 11.11.2 The placement failure is ONE decision, not three gates
 
-**Rejected: patching `GameObjectX.GetComponentInParents<DockableVisualizer>`**,
-which is the obvious one-line answer and is a trap. .NET shares JIT code across
-reference-type generic instantiations, so a Harmony patch on the closed generic
-can land on the canonical shared body and fire for
-`GetComponentInParents<ShipVisualizer>`, `<MetalDepositCoreVisuals>` and
-`<LocationAnchorEntity>` too, with a `ref` result of the wrong type.
+**Blue is a specific negative.** `PlayerScannerTool.cs:577`: green = `CanPlace`,
+faint red = `!CanPlace && !_canDrop`, `DropHighlight` blue = `!CanPlace &&
+_canDrop`. And `_canDrop` (`:524`) requires **`!flag4`**, where `flag4` (`:502`) is
+`IsAttachedToShip(TargetObject)` → `GetComponentInParents<DockableVisualizer>()`.
+So blue was runtime proof that the Unity parent walk failed. **Red was proof that
+the redirect fixed that walk and the next one took over** — `flag4` flipped true,
+`_canDrop` went false, and blue stopped being reachable. *The patch fixed the
+thing it aimed at and moved the failure; both are true.* It also destroyed the
+diagnostic: after it, the colour can no longer distinguish "no ship" from
+"something else refused".
 
-**CLIENT MOD, therefore a PATCHER RELEASE**, and it is unverified: nothing
-headless runs a placement preview.
+**The one decision underneath all of it:** we seed a mounted part
+`Parent(hull, "~")`, and `RelativeParentTransformChildHierarchyBehaviour` treats
+`"~"` as `SetNoParent()`. Only the DECK gets a real hierarchy key
+(`BoltedPartTransform.HierarchyKeyFor` → `Deck.HierarchyKey`), which is exactly
+why a deck works as a mounting surface and a railing does not. That single choice
+breaks **five** separate client walks:
+
+| # | walk | site | consequence |
+|---|---|---|---|
+| 1 | `DockableVisualizer` → `NeedToBeOnShip` | `PlacementPreview.cs:664`, `ShipPartPlacement.cs:132` | the **BLUE** preview |
+| 2 | `DockableVisualizer` → `flag4`/`_canDrop`/`CanPlace` | `PlayerScannerTool.cs:502,516,524` | **cannot bolt down, at any attachment type** |
+| 3 | `DockableVisualizer` → ownership | `ShipPartPlacement.cs:98` (`flag5`) | owner check silently unsatisfiable |
+| 4 | `ShipVisualizer` → **retail's own instrument overlap exemption** | `ShipInstrument.cs:10` → `ShipPartVisualizer.cs:131` | the **RED** preview |
+| 5 | `HasParentEntity` at commit | `ShipPartPlacement.cs:213` | green preview, click does nothing |
+
+Plus a sixth, silent one worth its own line: the exclusion-radius test
+(`ShipPartPlacement.cs:153`) is `ship.GetComponentsInChildren<…>()`, so **our
+server has no exclusion-radius enforcement for any mounted part at all.**
+
+#### 11.11.3 What retail actually authored, and why we cannot flip to it yet
+
+`acs/ShipInstrument.cs` is four lines and it settles the design question:
+
+```csharp
+private void Awake() {
+    PlacementRules r = gameObject.GetOrAddComponent<PlacementRules>();
+    r.IgnoreOverlap(entity => ShipPartVisualizer.AttachedShip(entity));
+}
+```
+
+An overlap **exemption** for anything attached to a ship, attached to the five
+instruments and to nothing else. Bossa wrote the permission to clip a gauge onto
+a bolted-down part; we never needed to invent it. Same shape of proof as the
+`BlockItemPlacement` opt-out in §11.6.
+
+So the instruments' retail `attachmentType` was almost certainly **`shipSurfaces`**,
+and every symptom falls out of that one string:
+
+- `GetMask` → `Layers.Environment`, `GetTag` → **empty**. Hits a railing or a bar
+  pipe (layer 0 `Default`, `Untagged`) with **no client patch**. *That is patch
+  (a) and (b), for free.*
+- `IsClipping` → `case ShipSurfaces: return false` — **overlap never blocks**.
+  *That is the RED, gone, and our `CanOverlapWith` hook made unnecessary.*
+- Pose comes from `PositionOnShip`'s surface branch
+  (`Quaternion.LookRotation(forward, hitNormal)`) instead of `PlacingOnDeck`'s
+  `LookRotation(ship.forward, ±Vector3.up)`, which **throws the hit normal away**.
+  *That is the wrong angle, gone* — and it is why the gauge stood bolt upright
+  facing the sky on a horizontal rail: instrument socket up = dial normal
+  (`PlacementSocket` on each instrument's `Pivot`, socket −Y into the surface).
+
+> **⚠ AND IT MUST NOT BE FLIPPED YET.** `flag4` (walk 2 above) is **not gated on
+> the attachment type**. A `shipSurfaces` instrument aimed at a bar pipe would
+> raycast correctly, pose correctly and pass every overlap rule — and then fail
+> `CanPlace`, leaving a beautiful, correctly-oriented **blue** phantom that
+> free-drops as a loose item. Meanwhile the deck is lost, because the
+> `ShipSurfaces` mask excludes `ShipAttachmentSolid`. **Net effect: nowhere left
+> to put an instrument at all** — strictly worse than today. `ShipInstruments
+> .MountSurface` therefore still reads `"deck"`, with the precondition written
+> next to it.
+
+#### 11.11.4 The actual fix, and why it is not a client patch
+
+**Give a mounted part a real hierarchy key instead of `"~"`.** All five walks
+start working as retail intended, retail's own instrument exemption revives by
+itself, exclusion radii start being enforced, `ShipInstruments.MountSurface` can
+become `"shipSurfaces"`, and **the entire Harmony patch deletes** — one
+server-side decision replacing three client hooks that each papered over one
+consequence.
+
+`Deck.HierarchyKey` already proves the mechanism works on this server. The known
+cost is documented in `BoltedPartTransform.IsUnityChild`: a real Unity child must
+be **excluded from the `ShipPartMotionService` wake heartbeat**, or re-sending
+`parent` twice a second churns an unparent+reparent and the client destroys and
+re-adds the rigidbody. That is why this is **its own branch with its own soak**,
+not a rider on this one: it changes how every mounted part is transformed, on a
+moving ship, with two players aboard.
+
+**DONE HERE:** the client patch is **deleted** (both halves), the bar pipes are
+implemented, and `ShipInstruments` records the surface argument with its
+precondition. **NOT DONE:** the parenting change. Until it lands, instruments
+still mount on the deck only — which is a missing feature, and the maintainer
+was explicit that a missing feature beats a hack.
+
+**Note for whoever ships the deletion:** the patch is LIVE. Manifest
+`2026.08.19-6` is titled *"ship containers open; instruments mount on placed
+parts"*, so removing it from players is itself a patcher release.
 
 ---
 
