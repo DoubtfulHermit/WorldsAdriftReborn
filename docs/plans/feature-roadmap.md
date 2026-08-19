@@ -843,13 +843,14 @@ A server deploy and a client release are different shipping paths, and the
 published manifests carried a connect defect and **every player who patched got
 an infinite load** (`HANDOVER.md:179-205`).
 
-**Nothing in Phases 0–5 requires a client-mod change.** Everything there is
+**Nothing in Phases 0–5 requires a client-mod change** (SC3 does — see the first row below)**.** Everything there is
 server-side seeding, handlers and data.
 
 Candidates that probably do:
 
 | item | phase | why |
 |---|---|---|
+| Deck parts mounting on placed objects | SC3 | **WRITTEN, unbuilt, unreleased.** `Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs`. The placement mask and tag are decided entirely client-side, so no server string can reach a railing's `Default`-layer collider. §11.6 |
 | `BlightLocalComponent` attachment for storms | 7 | the client never attaches it; a Harmony patch may be the only route |
 | Any Harmony reach into a closed-generic ECS system | 6/7 | `AddToIdComponentToEntityMapS\`2` — **unverified whether Harmony can reach it at all** |
 | Day/night clock presentation | 9 | if the stock client has no server-driven clock hook |
@@ -1069,10 +1070,10 @@ prefab's own interest declares it.
 | 19 | `stairs` | Stairs1 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 20 | `railing` | RailingStraight | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 21 | `railingCorner` | RailingCorner | deck → ShipDeck | — | — | **yes** | no | flat deck only |
-| 22 | `trunk` | ContainerSmall | deck → ShipDeck | `InWorldInventoryVisualiser` → **1210 + 1081**; `IsTooDamagedToWorkVisualizer` → **1236**; baked verb **Inventory** | — | **yes** | **NO — should be. §11.4** | flat deck only |
-| 23 | `mountedBox` | ContainerMount | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
-| 24 | `storageContainer` | ContainerMedium | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
-| 25 | `shippingContainer` | ContainerLarge | deck → ShipDeck | same | — | **yes** | **NO — should be. §11.4** | flat deck only |
+| 22 | `trunk` | ContainerSmall | deck → ShipDeck | `InWorldInventoryVisualiser` → **1210 + 1081**; `IsTooDamagedToWorkVisualizer` → **1236**; baked verb **Inventory** | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
+| 23 | `mountedBox` | ContainerMount | deck → ShipDeck | same | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
+| 24 | `storageContainer` | ContainerMedium | deck → ShipDeck | same | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
+| 25 | `shippingContainer` | ContainerLarge | deck → ShipDeck | same | 1081, 1236 | **yes** | **yes** — `Inventory`, since `feat/ship-components` | flat deck only |
 | 26 | `barrel` | Barrel01 | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 27 | `cupboard` | Cupboard | deck → ShipDeck | — | — | **yes** | no | flat deck only |
 | 28 | `horn` | Horn01 | deck → ShipDeck | `HornVisualizer` → **1107** | 1107 | **yes** | **yes** — `Activate` (honk) | flat deck only |
@@ -1089,9 +1090,11 @@ prefab's own interest declares it.
 
 - **36 of 37 appear.** One does not: the **Window**. That is a mesh-selection
   failure, not a missing seed, and it is fixed on this branch.
-- **4 of 37 are interactable today** — helm (`Man`), sail, lamp, horn
-  (`Activate`). **6 more should be and are not**: four storage containers, the
-  personal reviver, and the sky core. The other 27 are correctly inert; retail's
+- **7 of 37 are interactable today** — helm (`Man`), sail, lamp, horn
+  (`Activate`), and the four storage containers (`Inventory`, delivered by
+  SC2 on `feat/ship-components`; note the four share one row group, so the
+  count is helm + sail + lamp + horn + 4 = 7 of 37). **2 more should be and
+  are not**: the personal reviver and the sky core. The other 27 are correctly inert; retail's
   preprocessors add no `InteractiveObjectVisualizer` to them at all. **PROVED**
   part by part in `Multiplayer/Ship/PartInteractionPolicy.cs:27-82`, which is
   already the written audit of "what did retail let you do with this part".
@@ -1185,6 +1188,15 @@ because it has now bitten this repo four times:
 | `trunk`, `mountedBox`, `storageContainer`, `shippingContainer` | `InWorldInventoryVisualiser` needs **1081 + 1210**; we serve 1210 and never 1081. `IsTooDamagedToWorkVisualizer` needs **1236**, also unseeded — and the interact gate itself checks `verb == Inventory && !IsTooDamagedToWork` | the prefab's baked verb is **Inventory** (`ShipContainerPreprocessor.SetVerb`); we serve the generic **PickUp** entry (`ComponentsSerializer.cs:931-938`), so the cache lookup finds nothing, radius is 0, and **no prompt can ever appear** |
 | `personalReviver` | `RespawnerVisualizer` needs **1094 + 8066**; we seed 8066 only | baked verb is **Activate**; we serve `None` deliberately, because a prompt without a respawn flow would be a lie |
 | `atlasSkyCore` | none — `ShipCoreVisualizer` is satisfied | baked verb is **Activate**; we serve `None`. Retail's handler was GSim-side and the shipped client has no consumer, so this one is arguably *correct* until flight/lift wants it |
+
+**DELIVERED for the four containers (SC2, branch `feat/ship-components`).** They
+now seed `1081 + 1236` and serve the `Inventory` verb, `ShipContainerService`
+binds each one its own grid before the 1081 serve can hand it the player starter
+kit, the 1211 dispatch echoes `Interact(Inventory)` on the container's own 1210,
+cross-inventory moves accept a MOUNTED ship container as one end, and the salvage
+beam refuses a container that still holds anything. Contents are session-scoped
+like a ruin chest's. The reviver and the core are untouched and the paragraph
+below still governs them.
 
 **This is the same class as `1264`/`1081+1210`, and the current code already
 knows it** — the comment at `ComponentsSerializer.cs:776-780` says so in as many
@@ -1307,16 +1319,46 @@ two, and they should be planned as two:
   this is in-pattern, not new machinery. It is the only option that gives
   *deck **and** fence*.
 
-**UNKNOWN, and it decides which option is worth doing:** whether a mounted
-`RailingStraight` actually presents a collider on Default/Terrain/Interactive.
-That is prefab asset data — no code anywhere sets a ship part's layer except
-`ModularWing.cs:76`. Haven's scene props do sit on `Default` (layer 0), which is
-inside `Layers.Environment`, so it is **plausible**; it is not proved. **How to
-settle it:** enumerate the `entityprefabs/railingstraight_unityclient` prefab's
-colliders and read `m_Layer`/`m_Tag`. One asset read, no live client. Do that
-**before** committing to a patcher release, because if railings are on
-ShipAttachmentSolid without the `"ShipDeck"` tag, neither option above helps and
-the answer is a third one.
+**SETTLED — 2026-08-19, and the answer is YES.** Read out of the shipped
+`UnityClient@Windows_Data/resources.assets` (entity prefabs are baked into
+`resources.assets` in this build; there are no separate
+`entityprefabs/*_unityclient` bundles on disk), decoded against the `TagManager`
+in `globalgamemanagers`:
+
+| prefab | colliders | layer | tag |
+|---|---|---|---|
+| `RailingStraight` → `rail_single/double_straight_wood` | 4 × BoxCollider, enabled, non-trigger | **0 `Default`** | **`Untagged`** |
+| `RailingStraight` → `rail_single/double_straight_metal` | 4–5 × CapsuleCollider, enabled, non-trigger | **0 `Default`** | **`Untagged`** |
+| `Panel02` | none authored — `ShipPanel.SetPanelPositions:238-249` creates `PanelCollider-i-j` at runtime with `new GameObject`, which never assigns `.layer` or `.tag` | **0 `Default`** | **`Untagged`** |
+| `Deck01` → `DeckMesh` / `WoodDeckMesh` | `MeshCollider`/`BoxCollider` added by `MeshGenerator.MakeDeck` | **12 `ShipAttachmentSolid`** | **`ShipDeck`** |
+
+`Default` is inside `Layers.Environment`, and `Entity`/`ShipSurfaces` return an
+EMPTY tag — so **an Environment-mask raycast hits a railing today**, and the
+only thing keeping a deck part off one is the deck's own mask and `"ShipDeck"`
+tag. The decode is validated by a control: across all 78k GameObjects in
+`resources.assets` exactly 4 sit on layer 12 and 9 carry tag `ShipDeck`, and
+they are precisely the objects `GetMask`/`GetTag` demand for the `ShipDeck` path.
+Nothing relayers a ship part at runtime except `ModularWing.cs:76`
+(→ ShipAttachmentSolid) and `ModularCannon.cs:143` (→ Interactive), both
+self-targeted.
+
+**So there is a THIRD option, and it is better than both of the above.** Neither
+listed option is necessary, because `ValidSurfaceTypes` does not have to change
+at all: `GetMask` composes with `&` per flag and is fine, and only `GetTag`'s
+one-tag-for-every-hit rule and the mask's missing `Environment` bit are in the
+way. Widening exactly those two, for `ShipDeck` phantoms only, keeps
+`ValidSurfaceTypes == ShipDeck` and therefore keeps every `==` behaviour switch
+true — the deck flatness rule, the ship-aligned base rotation and
+`NeedToBeOnShip` all keep running. That is what
+`Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs` does (SC3, branch
+`feat/ship-components`). It still needs a patcher release, but it does NOT need
+the flatness rule to be re-implemented by hand, which was the main risk in the
+`All` plan.
+
+**Consequence worth naming:** blanking the tag also stops protecting the deck
+path from untagged `ShipAttachmentSolid` geometry, of which the only instance is
+`ModularWing`'s runtime-relayered skin. The ≥0.9 flatness gate limits that to a
+wing's upper surface.
 
 ### 11.7 So — one defect, or three?
 
@@ -1328,10 +1370,15 @@ was that everything inert is one under-seeding bug. It is not:
 2. **The containers and reviver** are the loom's defect exactly — partial
    `[Require]` sets plus a verb mismatch. They ride on
    `feat/loot-containers`' `1081` work and should not be planned separately.
+   **The containers are DONE** (SC2); the reviver still needs `1094` and a
+   respawn flow to be worth a prompt.
 3. **Placement** is not a defect at all. It is a deliberate, documented,
    correctly-reasoned narrowing (`"shipSurfaces"` → `"deck"`) that solved a real
    bug and created this one. Reversing it is a **design decision**, and the data
-   retail used is unrecoverable.
+   retail used is unrecoverable. **What the 2026-08-19 asset read adds is that
+   the decision is not a trade after all**: the deck's mask and tag are the only
+   things excluding a placed prop, both are chosen client-side, and widening just
+   those two keeps the deck. See §11.6.
 
 The one thing that *is* general, and that §5 Phase 1 item 3 should adopt: **audit
 by comparing the client's `[Require]` set to the served set, per prefab, and then
@@ -1382,7 +1429,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE SC2 — Ship storage opens
+#### PHASE SC2 — Ship storage opens *(DONE on `feat/ship-components`)*
 
 - **Delivers:** the four container rows become real chests: seed **1081** (with a
   container-specific model, **never** `InventoryWire.DefaultModel`) and **1236**,
@@ -1404,7 +1451,7 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 
 ---
 
-#### PHASE SC3 — Instruments and decorations mount where the player wants them
+#### PHASE SC3 — Instruments and decorations mount where the player wants them *(patch written on `feat/ship-components`; NOT built, NOT released)*
 
 - **Delivers:** the answer to the actual complaint. **Two steps, in order:**
   1. **Settle the UNKNOWN in §11.6** — read the collider layer/tag off the
@@ -1468,9 +1515,13 @@ Stated rather than guessed, in the style of §9.
    audit proves exactly one (the Window) and proves the other 36 render. If a
    *different* row is invisible in game, this table is wrong about it and the
    client log will say which — every failure of this class logs a Unity error.
-3. **Whether a mounted railing exposes a mountable collider.** §11.6. An asset
-   read settles it without a live client, and SC3 should not start until it is
-   done.
+3. ~~**Whether a mounted railing exposes a mountable collider.**~~ **SETTLED by
+   the asset read, §11.6: yes — layer 0 `Default`, `Untagged`, 4–5 enabled
+   non-trigger colliders.** What a live client still has to settle is one step
+   further downstream: whether a mounted railing's runtime parent chain carries a
+   `DockableVisualizer`, because `NeedToBeOnShip` stays true under the SC3 patch
+   and resolves the target ship by walking that chain. If it does not, the
+   preview will refuse a railing for a reason that has nothing to do with layers.
 4. **Whether the sky-core module sockets restore correctly** on every module. The
    socket components are stripped from every shipped prefab and re-added by
    `Patching/SpatialOS/SkyCoreSocketRestore.cs` at template-compile time. Eight
