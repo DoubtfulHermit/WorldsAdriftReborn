@@ -63,7 +63,7 @@ namespace WorldsAdriftServer.Handlers.Emblem
 
             if (EmblemUrlPolicy.IsCatalogueRequest(request.Url))
             {
-                Catalogue(session);
+                Catalogue(session, HeaderValue(request, "Accept-Encoding"));
                 return true;
             }
 
@@ -162,7 +162,7 @@ namespace WorldsAdriftServer.Handlers.Emblem
         /// reason: it is a table of shapes this server drew, identical for every
         /// caller, and it names no player, alliance or account.
         /// </summary>
-        private static void Catalogue(HttpSession session)
+        private static void Catalogue(HttpSession session, string? acceptEncoding)
         {
             HttpResponse resp = new HttpResponse();
             resp.SetBegin(200);
@@ -170,7 +170,25 @@ namespace WorldsAdriftServer.Handlers.Emblem
             resp.SetHeader("Cache-Control", "public, max-age=31536000, immutable");
             resp.SetHeader("ETag", "\"cat-" + EmblemEditorData.Revision + "\"");
             resp.SetHeader("X-Content-Type-Options", "nosniff");
-            resp.SetBody(EmblemEditorData.Catalogue);
+
+            // The one compressed response this server sends, and the one that needs
+            // it: a megabyte of coordinates folds to about a third. Offered only
+            // when it was asked for, and the plain body is still right there for a
+            // caller that did not - a cache in front of this keys on the URL alone,
+            // and the URL is immutable, so Vary is what stops it handing a gzip body
+            // to a client that cannot read one.
+            if (EmblemUrlPolicy.AcceptsGzip(acceptEncoding))
+            {
+                resp.SetHeader("Content-Encoding", "gzip");
+                resp.SetHeader("Vary", "Accept-Encoding");
+                resp.SetBody(EmblemEditorData.CatalogueGzip);
+            }
+            else
+            {
+                resp.SetHeader("Vary", "Accept-Encoding");
+                resp.SetBody(EmblemEditorData.Catalogue);
+            }
+
             session.SendResponseAsync(resp);
         }
 

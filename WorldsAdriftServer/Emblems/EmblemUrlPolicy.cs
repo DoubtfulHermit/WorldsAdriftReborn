@@ -271,6 +271,53 @@ namespace WorldsAdriftServer.Emblems
         }
 
         /// <summary>
+        /// Whether an <c>Accept-Encoding</c> header offers gzip.
+        ///
+        /// Deliberately strict about two things a naive <c>Contains("gzip")</c> gets
+        /// wrong, because the failure mode is a body the caller cannot read at an
+        /// address it will then cache forever:
+        /// <list type="bullet">
+        /// <item><c>x-gzip</c>, or any other token that merely ENDS in "gzip", is
+        ///   not gzip - so tokens are matched whole;</item>
+        /// <item><c>gzip;q=0</c> is a client saying it does NOT want gzip, which is
+        ///   the spelling browsers and proxies use to opt out.</item>
+        /// </list>
+        /// No header at all is no, which is the safe direction: an uncompressed body
+        /// is readable by everything.
+        /// </summary>
+        internal static bool AcceptsGzip(string? acceptEncoding)
+        {
+            if (string.IsNullOrEmpty(acceptEncoding)) return false;
+
+            foreach (string part in acceptEncoding!.Split(','))
+            {
+                string[] pieces = part.Split(';');
+                string token = pieces[0].Trim();
+
+                if (!string.Equals(token, "gzip", StringComparison.OrdinalIgnoreCase)) continue;
+
+                for (int i = 1; i < pieces.Length; i++)
+                {
+                    string parameters = pieces[i].Trim();
+
+                    if (!parameters.StartsWith("q=", StringComparison.OrdinalIgnoreCase)) continue;
+
+                    if (double.TryParse(parameters.Substring(2),
+                            System.Globalization.NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out double weight)
+                        && weight <= 0.0)
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Whether this URL is in the emblem namespace at all, whether or not it
         /// names something renderable.
         ///
