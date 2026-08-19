@@ -1,12 +1,20 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 552 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 560 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 83 commits
+## 2026-08-19 | 91 commits
 
+* a33283b Record that sail material changed weight, not thrust
+* 79a797c Treat near-zero thrust as undriven so hulls can actually settle
+* de78989 Cross-check the recovered physics against the community record
+* bc9b47e Make engine thrust and sail power tunable without a rebuild
+* fad2295 Pin what stops a moored ship sailing itself away overnight
+* caafa92 Upgrade the atlas-lift blocker from unknown to proved, and flag the cliff
 * af75ad7 Drop a salvaged container's inventory binding
 * f27da94 Reflow a comment the container branch pushed over the margin
+* 6c0a50d Document the recovered ship physics, component by component
 * d4bb1a6 Flip a bolted container's prompt on
+* fcdc80e Fly ships on recovered forces instead of a commanded speed
 * 1075279 Stop the 1210 branch claiming storage is unservable
 * 1251a5b Record what the ship-component audit got to change its mind about
 * a6d8bf7 Let deck parts mount on things already placed
