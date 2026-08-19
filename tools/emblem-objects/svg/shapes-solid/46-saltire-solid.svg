@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: saltire-solid (shapes-solid, sheet index 46).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#C57A26" fill-rule="nonzero" d="M-968 -971 L-964 -518 L-459 -9 L-459 9 L-760 311 L-968 537 L-968 971 L-958 980 L-525 978 L3 452 L149 612 L512 979 L945 979 L962 952 L954 914 L954 876 L962 857 L964 537 L577 141 L568 123 L460 9 L457 -9 L590 -141 L643 -199 L653 -217 L954 -518 L966 -537 L968 -971 L945 -980 L512 -980 L3 -465 L-16 -471 L-478 -933 L-507 -971 L-525 -980 L-958 -980 Z"/>
+</svg>

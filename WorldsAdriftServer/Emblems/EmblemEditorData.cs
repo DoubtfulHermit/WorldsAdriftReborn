@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Text;
 
 namespace WorldsAdriftServer.Emblems
@@ -44,6 +45,41 @@ namespace WorldsAdriftServer.Emblems
 
         internal static string Catalogue => Built.Value.Json;
 
+        /// <summary>
+        /// The same document, gzipped.
+        ///
+        /// THIS IS THE ONE RESPONSE ON THIS SERVER BIG ENOUGH TO NEED IT. Two
+        /// hundred more traced objects took the catalogue past a megabyte, which is
+        /// more than everything else the account page loads put together; coordinate
+        /// text folds to about a third of that, and the saving is paid on the first
+        /// visit of every player who opens the editor. Everything else here is
+        /// kilobytes and gets nothing from compressing, so this stays a property of
+        /// the catalogue rather than becoming a layer in front of the whole router.
+        ///
+        /// Built once beside the text, never on a request. The identity body is
+        /// still there and is still what a client that did not ask for gzip gets.
+        /// </summary>
+        internal static byte[] CatalogueGzip => Compressed.Value;
+
+        private static readonly Lazy<byte[]> Compressed = new Lazy<byte[]>(Compress, isThreadSafe: true);
+
+        private static byte[] Compress()
+        {
+            byte[] raw = Encoding.UTF8.GetBytes(Catalogue);
+
+            using MemoryStream target = new MemoryStream(raw.Length / 2);
+
+            // SmallestSize, not Optimal: this is compressed ONCE per process for a
+            // body that a browser then keeps forever, so the only cost that matters
+            // is the one on the wire.
+            using (GZipStream gzip = new GZipStream(target, CompressionLevel.SmallestSize, leaveOpen: true))
+            {
+                gzip.Write(raw, 0, raw.Length);
+            }
+
+            return target.ToArray();
+        }
+
         /// <summary>The URL the page points the editor at.</summary>
         internal static string CatalogueUrl =>
             EmblemUrlPolicy.RoutePrefix + CatalogueName + "?" + RevisionParameter + "=" + Revision;
@@ -70,6 +106,13 @@ namespace WorldsAdriftServer.Emblems
                 Quote(json, entry.Name);
                 json.Append(",\"c\":");
                 Quote(json, entry.Category);
+
+                // Present only when true, and true only rarely - so the flag costs
+                // the wire nothing on the two hundred and eighty objects that are
+                // simply offered. A hidden object is still SENT, at its own index,
+                // because a crest that already uses one has to keep drawing it; the
+                // flag only takes it off the panel.
+                if (entry.Hidden) json.Append(",\"h\":1");
 
                 // The SVG path data, emitted by the SAME writer the vector export
                 // uses, off the SAME path object the rasteriser samples. The

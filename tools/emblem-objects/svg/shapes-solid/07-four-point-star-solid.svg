@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: four-point-star-solid (shapes-solid, sheet index 07).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#175762" fill-rule="nonzero" d="M-965 42 L-681 151 L-293 308 L-285 317 L-282 333 L-248 414 L-188 543 L-186 559 L-64 850 L-55 883 L-26 947 L-25 963 L-18 976 L-2 980 L5 963 L6 947 L69 802 L140 608 L228 398 L248 333 L273 297 L418 242 L644 147 L741 114 L790 88 L870 64 L965 26 L886 -11 L822 -33 L806 -44 L660 -97 L563 -140 L305 -240 L263 -265 L20 -911 L-2 -965 L-18 -980 L-72 -846 L-111 -733 L-169 -588 L-293 -249 L-374 -208 L-471 -172 L-519 -148 L-551 -139 L-923 16 L-955 23 Z"/>
+</svg>

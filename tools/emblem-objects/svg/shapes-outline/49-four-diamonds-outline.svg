@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: four-diamonds-outline (shapes-outline, sheet index 49).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#1D6573" fill-rule="nonzero" d="M-973 7 L-535 448 L-517 459 L-501 454 L-499 442 L-500 472 L-463 524 L-16 974 L2 980 L474 508 L521 450 L593 390 L973 7 L964 -11 L593 -387 L521 -445 L450 -530 L312 -673 L2 -980 L-16 -973 L-435 -548 L-442 -530 L-437 -494 L-445 -476 L-444 -440 L-463 -399 L-481 -398 L-505 -440 L-517 -452 L-535 -447 L-972 -11 Z M-805 7 L-797 -11 L-495 -315 L-463 -362 L-445 -366 L-356 -265 L-102 -11 L-95 7 L-433 347 L-452 383 L-455 401 L-481 435 L-488 419 L-469 383 L-470 347 L-623 186 Z M-361 454 L-302 388 L-16 101 L2 93 L298 383 L349 437 L353 454 L2 804 L-16 796 L-70 745 Z M-358 -458 L-244 -566 L-16 -801 L2 -805 L350 -458 L346 -440 L163 -250 L2 -94 L-105 -190 L-357 -440 Z M95 7 L98 -11 L432 -346 L449 -357 L520 -279 L790 -11 L798 7 L628 173 L449 364 Z"/>
+</svg>

@@ -160,9 +160,23 @@ namespace WorldsAdriftServer.Web
             page.Append("          <h3>Objects</h3>\n");
 
             page.Append("          <div class=\"cats\" data-cats role=\"group\" aria-label=\"Object groups\">");
+
+            // ONE TAB PER GROUP, and the groups exist because the catalogue does
+            // not fit in a list any more. Two hundred and eighty-three silhouettes
+            // behind one scrollbar is not a palette, it is a haystack; the search
+            // box cuts across every group for the player who already knows the word
+            // they want, and these are for the player who does not. Order is
+            // browsing order - the plain geometry first, the artwork after it - and
+            // it is deliberately NOT index order, which is frozen.
             string[] categories =
             {
-                EmblemObjects.ShapeCategory, EmblemObjects.DeviceCategory, EmblemObjects.ShieldCategory,
+                EmblemObjects.ShapeCategory,
+                EmblemObjectSheets.SolidCategory,
+                EmblemObjectSheets.OutlineCategory,
+                EmblemObjects.DeviceCategory,
+                EmblemObjectSheets.EasternCategory,
+                EmblemObjectSheets.SalvageCategory,
+                EmblemObjects.ShieldCategory,
             };
             for (int i = 0; i < categories.Length; i++)
             {
@@ -180,6 +194,11 @@ namespace WorldsAdriftServer.Web
 
             page.Append("          <div class=\"objgrid\" data-objects>"
                 + "<p class=\"waiting\">Loading the object catalogue&hellip;</p></div>\n");
+
+            // How many are in front of you. Worth a line now that the groups run
+            // from five to fifty and the grid scrolls: without it a player cannot
+            // tell a short group from a long one they have only seen the top of.
+            page.Append("          <p class=\"tally\" data-tally aria-live=\"polite\"></p>\n");
             page.Append("        </div>\n");
         }
 

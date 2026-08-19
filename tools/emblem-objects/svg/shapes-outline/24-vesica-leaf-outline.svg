@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: vesica-leaf-outline (shapes-outline, sheet index 24).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#523473" fill-rule="nonzero" d="M-548 -6 L-545 11 L-477 158 L-433 240 L-399 322 L-319 486 L-248 650 L-237 667 L-233 683 L-206 732 L-136 897 L-110 946 L-100 979 L-87 979 L-83 962 L-86 -498 L-82 -957 L-84 -973 L-97 -980 L-324 -481 L-398 -334 Z M89 388 L91 946 L100 980 L284 585 L548 -6 L238 -678 L175 -826 L100 -979 L95 -973 L92 -940 Z"/>
+</svg>

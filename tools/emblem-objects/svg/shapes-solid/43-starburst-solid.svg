@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: starburst-solid (shapes-solid, sheet index 43).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#165661" fill-rule="nonzero" d="M-980 194 L-596 300 L-587 308 L-652 439 L-746 652 L-751 669 L-743 676 L-383 580 L-350 578 L-342 587 L-340 620 L-331 652 L-321 734 L-309 767 L-306 816 L-292 865 L-287 914 L-268 969 L-9 685 L11 675 L230 931 L252 964 L257 968 L273 964 L284 898 L310 800 L332 669 L344 636 L350 587 L355 582 L699 689 L732 694 L738 685 L726 669 L671 521 L642 456 L640 439 L603 341 L592 325 L601 312 L912 240 L961 234 L980 226 L973 210 L683 -11 L658 -36 L947 -331 L928 -339 L896 -339 L797 -353 L683 -359 L650 -367 L551 -374 L542 -380 L543 -413 L625 -757 L617 -767 L601 -765 L584 -754 L486 -713 L289 -620 L224 -598 L84 -904 L60 -950 L44 -969 L-147 -626 L-153 -615 L-169 -608 L-530 -813 L-541 -806 L-537 -741 L-522 -642 L-519 -577 L-509 -527 L-501 -429 L-494 -413 L-497 -408 L-514 -399 L-661 -388 L-792 -387 L-907 -379 L-920 -364 L-653 -52 L-666 -36 L-694 -16 L-759 25 L-956 166 L-972 171 L-979 177 Z"/>
+</svg>

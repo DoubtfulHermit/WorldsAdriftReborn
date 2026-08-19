@@ -265,15 +265,29 @@ namespace WorldsAdriftServer.Tests
         /// layer is tested at every sample. This is the most expensive picture the
         /// vocabulary can express, and therefore the only honest input to any
         /// question about what this route costs.
+        ///
+        /// THE TWENTY ARE CHOSEN BY MEASUREMENT, not by position. This used to take
+        /// the last twenty entries, which was the same thing while the end of the
+        /// catalogue was the traced device sheet - and stopped being the same thing
+        /// the moment two hundred objects were appended after it, most of them plain
+        /// geometry an order of magnitude cheaper. A worst case that silently
+        /// becomes an easy case is worse than no worst case, because it still
+        /// reports green.
         /// </summary>
         private static EmblemStack WorstCase()
         {
+            int[] heaviest = Enumerable.Range(0, EmblemObjects.Count)
+                .OrderByDescending(i => EmblemObjects.All[i].Path.EdgeCount)
+                .ThenBy(i => i)
+                .Take(EmblemStack.MaxLayers)
+                .ToArray();
+
             List<EmblemLayer> layers = new List<EmblemLayer>();
 
             for (int i = 0; i < EmblemStack.MaxLayers; i++)
             {
                 layers.Add(Layer(
-                    EmblemObjects.Count - 1 - i,
+                    heaviest[i],
                     x: (i % 5) * 60 - 120,
                     y: (i % 7) * 40 - 120,
                     size: 900,

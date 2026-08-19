@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using WorldsAdriftServer.Emblems;
 using Xunit;
 
@@ -379,6 +380,55 @@ namespace WorldsAdriftServer.Tests
             {
                 Assert.True(EmblemUrlPolicy.RasterFileName(artwork, size).Length < 255);
             }
+        }
+        // ------------------------------------------------------- content encoding
+
+        /// <summary>
+        /// The catalogue is the one body on this server worth compressing, and the
+        /// one place a wrong answer here is expensive: it is served at an immutable
+        /// URL, so a caller handed gzip it cannot read would cache the unreadable
+        /// copy for a year.
+        /// </summary>
+        [Theory]
+        [InlineData("gzip", true)]
+        [InlineData("gzip, deflate, br", true)]
+        [InlineData("deflate, gzip;q=1.0, *;q=0.5", true)]
+        [InlineData("GZIP", true)]
+        [InlineData("  gzip  ", true)]
+        [InlineData("deflate, br", false)]
+        [InlineData("", false)]
+        [InlineData(null, false)]
+        // A token that merely ENDS in gzip is a different encoding.
+        [InlineData("x-gzip", false)]
+        [InlineData("notgzip", false)]
+        // And this is how a client says "not gzip, thank you".
+        [InlineData("gzip;q=0", false)]
+        [InlineData("gzip;q=0.0", false)]
+        [InlineData("gzip;q=0.001", true)]
+        public void Gzip_is_offered_only_where_it_was_actually_asked_for(
+            string? header, bool accepted)
+        {
+            Assert.Equal(accepted, EmblemUrlPolicy.AcceptsGzip(header));
+        }
+
+        /// <summary>
+        /// And the compressed body is the SAME document - not a stale one built from
+        /// an earlier catalogue, which is the failure a second cached copy invites.
+        /// </summary>
+        [Fact]
+        public void The_compressed_catalogue_unpacks_to_the_catalogue()
+        {
+            using MemoryStream packed = new MemoryStream(EmblemEditorData.CatalogueGzip);
+            using GZipStream gzip = new GZipStream(packed, CompressionMode.Decompress);
+            using StreamReader reader = new StreamReader(gzip);
+
+            Assert.Equal(EmblemEditorData.Catalogue, reader.ReadToEnd());
+
+            // Worth having at all: a megabyte of coordinates should fold hard.
+            Assert.True(
+                EmblemEditorData.CatalogueGzip.Length * 2 < EmblemEditorData.Catalogue.Length,
+                "the catalogue compressed to " + EmblemEditorData.CatalogueGzip.Length
+                + " bytes from " + EmblemEditorData.Catalogue.Length);
         }
     }
 }
