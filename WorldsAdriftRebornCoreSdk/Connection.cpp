@@ -98,7 +98,9 @@ OpList* Connection::GetOpList() {
                         ClientObject* object;
                         bool success = DeserializeComponent(addComponentOp[i].ComponentId, ClientObjectType::Snapshot, addComponentOp[i].ComponentData, addComponentOp[i].DataLength, &object);
                         if (success) {
-                            Logger::Debug("SUCCESSFULLY received component " + std::to_string(addComponentOp[i].ComponentId) + " from server, adding to entity " + std::to_string(entityId));
+                            if (Logger::TraceEnabled()) {
+                                Logger::Trace("SUCCESSFULLY received component " + std::to_string(addComponentOp[i].ComponentId) + " from server, adding to entity " + std::to_string(entityId));
+                            }
                             op_list->addComponentOp[i].EntityId = entityId;
                             op_list->addComponentOp[i].InitialComponent.ComponentId = addComponentOp[i].ComponentId;
                             op_list->addComponentOp[i].InitialComponent.Object = object;
@@ -139,7 +141,9 @@ OpList* Connection::GetOpList() {
                         ClientObject* object;
 
                         if (DeserializeComponent(componentUpdateOp[i].ComponentId, ClientObjectType::Update, componentUpdateOp[i].ComponentData, componentUpdateOp[i].DataLength, &object)) {
-                            Logger::Debug("successfully received ComponentUpdateOp message from server.");
+                            // One line per component update per frame - the
+                            // single highest-volume line in the whole SDK.
+                            Logger::Trace("successfully received ComponentUpdateOp message from server.");
 
                             op_list->componentUpdateOp[i].EntityId = entityId;
                             op_list->componentUpdateOp[i].Update.ComponentId = componentUpdateOp[i].ComponentId;

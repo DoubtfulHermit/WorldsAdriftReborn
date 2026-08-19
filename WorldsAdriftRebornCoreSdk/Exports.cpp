@@ -5,13 +5,18 @@
 #include <fstream>
 
 void hook(const std::string& method) {
+    // Runs on the Unity main thread for EVERY exported call. Bail before the
+    // string concatenation, not after - see the header comment in Logger.h.
+    if (!Logger::TraceEnabled()) {
+        return;
+    }
     if (
         method != "WorkerProtocol_Connection_IsConnected" && // The game checks periodically the connection
         method != "WorkerProtocol_Connection_GetOpList" && // The game gets periodically an op list
         method != "WorkerProtocol_Dispatcher_Process" && // The game process events periodically
         method != "WorkerProtocol_OpList_Destroy" // The game disposes of the op list after processing events
     ) {
-        Logger::Debug("Invoked " + method);
+        Logger::Trace("Invoked " + method);
     }
 }
 
@@ -197,12 +202,15 @@ void __cdecl WorkerProtocol_Connection_SendInterestedComponents(Connection* conn
 }
 void __cdecl WorkerProtocol_Connection_SendComponentInterest(Connection* connection, long entity_id, InterestOverride* interest_override, unsigned int interest_override_count) {
     hook("WorkerProtocol_Connection_SendComponentInterest");
-    // temp code
-    Logger::Debug("entity_id: " + std::to_string(entity_id));
-    for (unsigned int i = 0; i < interest_override_count; i++) {
-        Logger::Debug(std::to_string(interest_override[i].ComponentId) + " " + (interest_override[i].IsInterested ? "true" : "false"));
+    // Interest is re-sent as the player moves, and dumps one line PER
+    // component override - a burst of main-thread writes per re-evaluation.
+    if (Logger::TraceEnabled()) {
+        Logger::Trace("entity_id: " + std::to_string(entity_id));
+        for (unsigned int i = 0; i < interest_override_count; i++) {
+            Logger::Trace(std::to_string(interest_override[i].ComponentId) + " " + (interest_override[i].IsInterested ? "true" : "false"));
+        }
+        Logger::Trace("----");
     }
-    Logger::Debug("----");
     connection->SendComponentInterest(entity_id, interest_override, interest_override_count);
 }
 void __cdecl WorkerProtocol_Connection_SendAssetLoaded(Connection* connection, AssetLoaded* asset_loaded) {
