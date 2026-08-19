@@ -73,6 +73,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             WorldsAdriftRebornGameServer.Lamps.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Horns.Unregister(partEntityId);
             LooseParts.Unregister(partEntityId);
+            // A salvaged container is EMPTY - the policy above refused the shot
+            // otherwise - so dropping its binding loses nothing and stops an entity
+            // that no longer exists from owning an inventory for the rest of the
+            // session. Save() inside Forget is a no-op on a session key.
+            InventoryService.Forget(partEntityId);
             LocalDomainOwnership.RemoveEntity(
                 WorldsAdriftRebornGameServer.DomainHost, partEntityId);
             if (mount.HasValue)
