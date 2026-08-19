@@ -93,6 +93,22 @@ namespace WorldsAdriftServer.Handlers.Account
             form.TryGetValue(PlayerAuthPolicy.CsrfField, out string? csrf);
             if (!PlayerAuthPolicy.VerifyCsrf(token, csrf))
             {
+                // Said out loud. Refusing is correct, but a refusal that leaves
+                // no trace is indistinguishable in the journal from a save that
+                // never happened - which is exactly how this was first read.
+                //
+                // Not hypothetical: a crest builder left open across a session
+                // rotation posts a CSRF derived from a session that no longer
+                // exists. The player loses the crest they had just composed and
+                // the only server-side evidence was the bare request line.
+                //
+                // The TOKEN is never printed. The fact of the mismatch, and
+                // whether one was sent at all, is the whole diagnostic.
+                Console.WriteLine("[info] " + path + " refused: the form's CSRF token"
+                    + " does not belong to this session"
+                    + (string.IsNullOrWhiteSpace(csrf) ? " (none was posted)" : " (stale form?)")
+                    + ".");
+
                 Done(session, PortalNotices.Expired);
                 return true;
             }
@@ -572,10 +588,26 @@ namespace WorldsAdriftServer.Handlers.Account
         {
             alliance = null;
 
-            if (!OwnsCharacter(accountId, characterUid)) return false;
+            // Every refusal below says WHICH gate closed - in the journal only.
+            // The player keeps getting one undifferentiated "you do not have
+            // permission to do that", because a signed-in player must not be
+            // able to probe which characters or alliances exist by reading the
+            // difference. The operator is not the attacker, and a refusal
+            // nobody can explain is how the last crest defect survived.
+            if (!OwnsCharacter(accountId, characterUid))
+            {
+                Console.WriteLine("[info] /account " + action + " refused: character "
+                    + characterUid + " is not on this account.");
+                return false;
+            }
 
             alliance = Accounts.Alliances.FindAlliance(allianceId);
-            if (alliance == null) return false;
+            if (alliance == null)
+            {
+                Console.WriteLine("[info] /account " + action + " refused: no alliance "
+                    + allianceId + ".");
+                return false;
+            }
 
             AllianceLedger ledger = AllianceLedgerBuilder.Build(
                 Accounts.Alliances, Accounts.SocialInvites);
@@ -587,7 +619,15 @@ namespace WorldsAdriftServer.Handlers.Account
                 AllianceWire.Uid(allianceId),
                 targetUid == null ? null : AllianceEndpoints.Key(targetUid.Value));
 
-            return verdict == AllianceVerdict.Ok;
+            if (verdict != AllianceVerdict.Ok)
+            {
+                Console.WriteLine("[info] /account " + action + " refused: character "
+                    + characterUid + " may not do that in " + alliance.Name
+                    + " (" + verdict + ").");
+                return false;
+            }
+
+            return true;
         }
 
         /// <summary>

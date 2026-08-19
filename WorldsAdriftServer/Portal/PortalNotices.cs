@@ -65,7 +65,14 @@ namespace WorldsAdriftServer.Portal
             // needs to know why the game asks them to sign in again.
             PasswordChanged => ("Password changed. Every other session, including the game client, has been signed out.", false),
 
-            Expired => ("That form had expired. It has been reloaded - try again.", true),
+            // Says that the CHOICES are gone, not just the form. The old wording
+            // ("it has been reloaded - try again") reads as though the thing you
+            // submitted is still sitting there, so a leader who had spent a while
+            // composing a crest pressed save, saw "try again", and had no idea the
+            // selection itself had been thrown away.
+            Expired => ("That form had expired, so nothing was saved - leaving a page open"
+                + " for a long time does this. The page has been reloaded; make your"
+                + " choices again and save.", true),
             Unreadable => ("That request was not readable.", true),
             Denied => ("You do not have permission to do that.", true),
             Failed => ("That could not be saved. Try again shortly.", true),
