@@ -257,10 +257,13 @@ authority for live configuration is the box itself:
   **What overload actually did, and what it can do HERE.** The message is
   `"Ship weighs more than its atlas sky core can lift."` — VERIFIED as the
   literal passed to `OSDMessage.SendMessage` at
-  `acs/ShipControlsBehaviour.cs:283`. (A 2026-08-20 edit replaced this with a
-  different wording on the strength of an unverified claim; it was wrong, the
-  decompile is the authority, and it is restored. **A game string is checkable in
-  one grep — check it.**)
+  `acs/ShipControlsBehaviour.cs:283`. (Commit `4bfa35c`, 2026-08-20, replaced
+  this with a different wording on the strength of an unverified claim and
+  asserted the original "appears in no source". Both were false; reverted in
+  `edc670c`. The decompile is the authority for anything the client prints, and
+  **a game string is checkable in one grep — check it.** Recorded rather than
+  quietly fixed because this is the third time in three days a finding here has
+  been wrong for want of one search.)
 
   Overload was not benign in retail. Players describe an overweight ship being
   blocked from undocking, and the mass gauge reading `current / max` in kg — the
