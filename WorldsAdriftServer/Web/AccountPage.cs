@@ -709,9 +709,22 @@ namespace WorldsAdriftServer.Web
                 .Append("</span><input type=\"password\" name=\"").Append(name)
                 .Append("\" autocomplete=\"").Append(autocomplete).Append("\" required></label>\n");
 
+        /// <summary>
+        /// One key/value fact.
+        ///
+        /// THE PAIR IS WRAPPED, and that is what lets the list be a grid. A bare
+        /// run of dt/dd can only be laid out as two columns - label, value,
+        /// label, value, all the way down - which on a 54rem card left every
+        /// value stranded in the middle of an otherwise empty row. Wrapping each
+        /// pair makes the PAIR the grid item, so the facts flow across the card
+        /// three-up and stack to one column on a phone with no breakpoint.
+        ///
+        /// A div is valid inside a dl and keeps the dt/dd association intact, so
+        /// this costs a screen reader nothing.
+        /// </summary>
         private static void Fact(StringBuilder page, string key, string value) =>
-            page.Append("      <dt>").Append(AdminPage.HtmlEncode(key)).Append("</dt><dd>")
-                .Append(AdminPage.HtmlEncode(value)).Append("</dd>\n");
+            page.Append("      <div class=\"fact\"><dt>").Append(AdminPage.HtmlEncode(key))
+                .Append("</dt><dd>").Append(AdminPage.HtmlEncode(value)).Append("</dd></div>\n");
 
         private static void Stat(StringBuilder page, int number, string caption) =>
             page.Append("      <li><span class=\"n\">")

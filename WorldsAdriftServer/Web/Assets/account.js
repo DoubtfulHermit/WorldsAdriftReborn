@@ -99,9 +99,72 @@
     }
   }
 
+  // -------------------------------------------------------------- the rail
+
+  // On a phone the tab strip is one scrolling row rather than two wrapped ones
+  // (see the breakpoint in account.css), and a row you can swipe can be a row
+  // that opens scrolled away from the tab you are actually on. This puts the
+  // current tab in the middle of it.
+  //
+  // `block: 'nearest'` matters: without it the browser is free to scroll the
+  // PAGE vertically to bring the strip into view, and the portal would open
+  // having already jumped past its own heading.
+  function portalCentreCurrentTab(root) {
+    var current = root.querySelector('nav.tabs a.on');
+    if (!current || !current.scrollIntoView) { return; }
+
+    var rail = current.parentNode;
+    if (!rail || rail.scrollWidth <= rail.clientWidth) { return; }
+
+    try {
+      current.scrollIntoView({ block: 'nearest', inline: 'center' });
+    } catch (e) {
+      // Older browsers take a boolean and would scroll the page to the top of
+      // the element. Not centring is a better outcome than that.
+    }
+  }
+
+  // ------------------------------------------------------------------ busy
+
+  // Every control on this portal posts and is answered with a redirect, so
+  // there is a real wait between the click and the next page in which the only
+  // honest feedback is "nothing has happened yet". This marks the form, and
+  // account.css turns that into a spinner on its button.
+  //
+  // IT IS A MARK, NOT A GATE. Nothing is disabled and nothing is prevented -
+  // the CSS drops pointer-events on the button so a second click cannot land,
+  // but the submit that is already in flight is untouched, and a browser with
+  // script off simply gets no spinner. Disabling the button outright would be
+  // the version of this that can lose a submit.
+  // THE EMBLEM EDITOR'S FORM IS NOT ONE OF THESE, and that is not squeamishness
+  // about another file - it is a bug this would otherwise have shipped. The
+  // editor's footer plank does not post: its own submit handler cancels the
+  // event and opens the save sheet instead. This script is emitted BEFORE the
+  // editor's, so its listener registers first and would see defaultPrevented
+  // still false - marking the form busy for a submit that never happens, which
+  // with pointer-events off on the button means the plank spins forever and the
+  // emblem can never be saved again. The editor reports its own state; leave it
+  // to it.
+  function portalWireBusy(root) {
+    var forms = root.querySelectorAll('form');
+    for (var i = 0; i < forms.length; i++) {
+      if (forms[i].closest && forms[i].closest('.editor')) { continue; }
+
+      forms[i].addEventListener('submit', function (e) {
+        // wireConfirm runs first and cancels the submit when a player answers
+        // no. Marking the form busy for a submit that is not happening would
+        // leave a spinner turning forever on a page that never navigates.
+        if (e.defaultPrevented) { return; }
+        this.setAttribute('data-busy', '');
+      });
+    }
+  }
+
   var builders = document.querySelectorAll('form.builder');
   for (var b = 0; b < builders.length; b++) { wireEmblem(builders[b]); }
 
   wireConfirm(document);
   wireRanks(document);
+  portalWireBusy(document);
+  portalCentreCurrentTab(document);
 })();

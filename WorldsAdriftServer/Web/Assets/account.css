@@ -5,281 +5,1140 @@
   operator console and the public map are dark and restrained because they are
   instruments; the player-facing pages - sign-up, sign-in, the patcher, this -
   are the ones a person meets before they have an account, and they share one
-  light/dark-aware airship look. The variables below are the same ones
-  SignupPage, LoginPage and DownloadPage declare, kept identical on purpose so
-  the four pages are one place rather than four.
+  light/dark-aware airship look.
+
+  THIS FILE IS THE PORTAL'S DESIGN SYSTEM, not just its stylesheet. Everything
+  below the token block is written in terms of the token block, and so is
+  emblem-editor.css - which is appended after this file on the emblem tab and
+  deliberately names no colour of its own. That is the only thing keeping the
+  editor from looking like a different website inside a tab of this one, so a
+  hard-coded value here is not untidiness, it is a divergence waiting to happen.
+
+  NOTHING IS FETCHED. No font, no icon set, no image, no data URI carrying an
+  SVG namespace - AccountPageTests asserts the rendered page names no host but
+  this one, and a webfont is the usual way that assertion dies. Every mark on
+  this page is drawn with borders, gradients and system type.
 
   Extracted out of AccountPage.cs when the page stopped being one form and
   became a portal, for the reason WebAssets states: a stylesheet inside a C#
   string literal is a stylesheet nobody can edit without holding the file every
   other section is being edited in.
 */
+
+/* ========================================================== the design tokens
+
+   THE SEMANTIC NAMES ARE A CONTRACT. --ink, --pane, --veil, --field-edge,
+   --input-bg, --timber-*, --rust and --sw are all consumed by
+   emblem-editor.css, which this task does not own. Their VALUES are tuned
+   here; their MEANINGS must not drift, or a rename lands silently in a file
+   nobody edited.
+
+   The surfaces form one ladder, and it is the same ladder in both themes even
+   though it runs in opposite directions:
+
+     page        the sky gradient
+     --veil      a card: LIFTED off the page
+     --pane      a well inside a card: RECESSED into it
+     --input-bg  something you type in: recessed furthest, and in light mode
+                 bright, because paper is the convention for an input
+
+   Before this the card and the well were both "translucent white, roughly a
+   third" and differed by six percent, so a stats tile on a card was invisible
+   and the editor's three panes read as one flat sheet. */
 :root {
-  --ink:        #26313d;
-  --ink-soft:   #43525f;
-  --ink-faint:  #5d6b76;
+  color-scheme: light dark;
+
+  /* ------------------------------------------------------------------ type
+     Fluid where fluidity earns something - the page title - and fixed where a
+     ramp of eight barely-different sizes would just be noise. The caps sizes
+     are small on purpose: a tracked-out uppercase micro-label is this page's
+     one recurring device and it stops working the moment it is big enough to
+     read as a heading. */
+  --t-2xs:  .625rem;
+  --t-xs:   .6875rem;
+  --t-sm:   .78rem;
+  --t-md:   .875rem;
+  --t-base: 1rem;
+  --t-lg:   clamp(1.05rem, .98rem + .3vw, 1.2rem);
+  --t-xl:   clamp(1.2rem, 1.08rem + .55vw, 1.45rem);
+  --t-2xl:  clamp(1.85rem, 1.45rem + 1.7vw, 2.6rem);
+
+  --track-caps: .15em;
+  --track-mark: .38em;
+
+  /* Every stack of type on this page is one of these three, so a heading and
+     the sentence under it always sit the same distance apart. */
+  --lh-tight: 1.15;
+  --lh-snug:  1.35;
+  --lh-body:  1.6;
+
+  /* ----------------------------------------------------------------- space
+     A rhythm, not a set of magic numbers: everything that separates two things
+     on this page is one of these, and the gutter is the only fluid one because
+     it is the only one that has to survive a 390px screen. */
+  --s-1: .25rem;
+  --s-2: .45rem;
+  --s-3: .7rem;
+  --s-4: 1rem;
+  --s-5: 1.4rem;
+  --s-6: 2rem;
+  --s-7: 2.8rem;
+  --gutter: clamp(.85rem, .4rem + 2vw, 1.6rem);
+  --card-pad: clamp(1.1rem, .7rem + 1.6vw, 1.75rem);
+
+  /* ---------------------------------------------------------------- shape */
+  --r-xs:   5px;
+  --r-sm:   8px;
+  --r-md:   11px;
+  --r-lg:   16px;
+  --r-pill: 999px;
+
+  /* ---------------------------------------------------------------- motion
+     Three durations and two curves. --ease-out overshoots nothing and settles
+     late, which is what makes a card arriving read as "placed" rather than
+     "slid". Everything that uses these is switched off wholesale at the foot
+     of this file under prefers-reduced-motion. */
+  --dur-1: 110ms;
+  --dur-2: 200ms;
+  --dur-3: 420ms;
+  --ease:     cubic-bezier(.3, .7, .4, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+
+  /* ----------------------------------------------------------------- touch
+     44px is the smallest thing a thumb hits reliably. Applied under
+     (pointer: coarse) only, so a mouse still gets compact controls. */
+  --touch: 44px;
+
+  /* --------------------------------------------------------------- colour */
+  --ink:        #212c38;
+  --ink-soft:   #3d4b59;
+  --ink-faint:  #4c5a68;
   --field:      rgba(74, 80, 96, .60);
-  --field-edge: rgba(30, 36, 48, .30);
+  --field-edge: rgba(28, 44, 60, .17);
   --field-ink:  #f0ece2;
   --timber-lo:  #c68d60;
   --timber-mid: #d9a074;
   --timber-hi:  #eebd8e;
-  --timber-ink: #4a2c14;
+  --timber-ink: #43270f;
   --batten:     #a97244;
   --batten-lo:  #8e5d36;
   --batten-edge:#7d4d2a;
-  --rust:       #a8321f;
-  --good:       #2c6b52;
-  --veil:       rgba(255, 255, 255, .40);
-  --pane:       rgba(255, 255, 255, .34);
-  --input-bg:   rgba(255, 255, 255, .55);
+  --rust:       #a3311d;
+  --good:       #23604a;
+  --veil:       rgba(255, 255, 255, .76);
+  --pane:       rgba(84, 118, 142, .11);
+  --input-bg:   rgba(255, 255, 255, .74);
+
+  /* A hairline is NOT --field-edge. --field-edge is the edge of a control and
+     has to be seen; a rule between two rows of a table only has to be felt. */
+  --rule:       rgba(28, 44, 60, .13);
+  --card-edge:  rgba(255, 255, 255, .58);
+
+  /* The tint a notice, a hover or a selected row is washed with. One token, so
+     "slightly emphasised" is one thing across the page. */
+  --wash:       rgba(84, 118, 142, .13);
+  --wash-good:  rgba(35, 96, 74, .13);
+  --wash-bad:   rgba(163, 49, 29, .12);
+
+  /* ---------------------------------------------------------------- focus
+     A ring AND a halo. The ring alone is what the editor already draws, and it
+     disappears against a busy surface - the timber plank, the emblem canvas -
+     so the halo puts a band of the opposite value behind it. This is the one
+     place on the page where two effects are better than one. */
+  --focus:      var(--ink);
+  --focus-halo: rgba(255, 255, 255, .85);
+
+  /* ------------------------------------------------------------- elevation */
+  --e-1: 0 1px 2px rgba(18, 32, 45, .07);
+  --e-2: 0 2px 4px rgba(18, 32, 45, .06), 0 10px 26px -12px rgba(18, 32, 45, .28);
+  --e-3: 0 3px 6px rgba(18, 32, 45, .07), 0 22px 50px -18px rgba(18, 32, 45, .38);
+
+  /* -------------------------------------------------------------- the sky */
+  --sky-1: #8fb4c9;
+  --sky-2: #bdd2d9;
+  --sky-3: #e2e8de;
+  --sun:   rgba(255, 246, 227, .55);
 }
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --ink:       #e4e9ec;
-    --ink-soft:  #b3c0c8;
-    --ink-faint: #8b99a3;
+    --ink:       #e6ebee;
+    --ink-soft:  #b0bec8;
+    --ink-faint: #b8c4cf;
     --field:     rgba(96, 106, 124, .40);
-    --field-edge:rgba(180, 200, 215, .16);
-    --rust:      #ef8a6b;
-    --good:      #7fd2b3;
-    --veil:      rgba(6, 12, 20, .52);
-    --pane:      rgba(255, 255, 255, .05);
-    --input-bg:  rgba(255, 255, 255, .08);
+    --field-edge:rgba(184, 208, 224, .18);
+    --rust:      #fbb09a;
+    --good:      #86d9ba;
+
+    /* The ladder inverts: a card LIFTS with light, a well RECESSES with dark.
+       Doing it the other way round - which is what a single translucent white
+       for both gives you - is why the editor's panes used to vanish. */
+    --veil:      rgba(226, 240, 248, .075);
+    --pane:      rgba(4, 10, 17, .30);
+    --input-bg:  rgba(4, 10, 17, .40);
+
+    --rule:      rgba(184, 208, 224, .13);
+    --card-edge: rgba(190, 214, 230, .12);
+
+    --wash:      rgba(226, 240, 248, .07);
+    --wash-good: rgba(134, 217, 186, .12);
+    --wash-bad:  rgba(240, 147, 122, .13);
+
+    --focus-halo: rgba(4, 10, 17, .85);
+
+    --e-1: 0 1px 2px rgba(0, 0, 0, .30);
+    --e-2: 0 2px 4px rgba(0, 0, 0, .28), 0 10px 26px -12px rgba(0, 0, 0, .60);
+    --e-3: 0 3px 6px rgba(0, 0, 0, .30), 0 22px 50px -18px rgba(0, 0, 0, .70);
+
+    --sky-1: #141d26;
+    --sky-2: #1e2b33;
+    --sky-3: #26343a;
+    --sun:   rgba(126, 170, 195, .13);
   }
 }
 
+/* ================================================================= the page */
+
 * { box-sizing: border-box; }
+
+/* HIDDEN MEANS HIDDEN, and this line is load-bearing. The rank picker ships a
+   "Set" button for the no-script case and account.js sets `hidden` on it the
+   moment it knows it can submit on change instead. `hidden` is only a UA
+   stylesheet `display: none`, so the instant anything in this file gives
+   buttons a display of their own - and `.quiet` gives them inline-flex, to
+   centre their label - every one of those buttons comes back, and every rank
+   row in the alliance grows a second control that does the same thing. */
+[hidden] { display: none !important; }
+
 body {
-  margin: 0; min-height: 100vh; padding: 2.2rem 1.1rem 3rem;
+  margin: 0;
+  min-height: 100vh;
+  padding: clamp(1.6rem, 1rem + 2vw, 2.6rem) var(--gutter) var(--s-7);
   color: var(--ink);
-  background: linear-gradient(180deg, #93b7c8, #bed2d8 55%, #dde7e2);
-  background-attachment: fixed;
-  font-family: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif;
-  font-size: 16px; line-height: 1.55;
-}
-@media (prefers-color-scheme: dark) {
-  body { background: linear-gradient(180deg, #1b2530, #223038 55%, #2b3a3e); }
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', 'DejaVu Sans', Arial, sans-serif;
+  font-size: 16px;
+  line-height: var(--lh-body);
+  -webkit-text-size-adjust: 100%;
 }
 
-main { width: 100%; max-width: 54rem; margin: 0 auto; }
+/* THE SKY IS A FIXED LAYER BEHIND THE CONTENT, not a background on the body.
+
+   It renders the same as the `background-attachment: fixed` it replaces - a
+   tall-page screenshot appears to show a seam at 100vh with either, but that is
+   the screenshot tool rendering past the viewport, and a real browser scrolled
+   to the foot of the character sheet shows unbroken sky both ways. The reasons
+   to move it are the other two: `background-attachment: fixed` is the one
+   declaration iOS Safari has never honoured (it falls back to `scroll`, so the
+   ramp restarts at every scroll position on exactly the device this page most
+   needs to look right on), and a background on the body is INSIDE the element
+   the cards' backdrop-filter samples, which is not what a veil over a sky is
+   supposed to blur.
+
+   Two layers: the ramp, and a soft light high and centre. That second one is
+   the only decoration on this page, and it is here to give the sky somewhere to
+   come FROM so the masthead has something to sit against. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(120% 65% at 50% -12%, var(--sun), transparent 62%),
+    linear-gradient(180deg, var(--sky-1), var(--sky-2) 55%, var(--sky-3));
+}
+
+main {
+  width: 100%;
+  max-width: 54rem;
+  margin: 0 auto;
+}
+
+/* ============================================================== the masthead
+
+   Three lines that read as one block: the server's name in small caps, the
+   page, and who you are. Tight leading holds them together - before this they
+   were three separately-spaced paragraphs and the greeting looked orphaned. */
 
 .mark {
-  font-size: .68rem; letter-spacing: .38em; text-transform: uppercase;
-  color: var(--ink-faint); margin: 0 0 .4rem; text-align: center;
+  margin: 0 0 var(--s-1);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: var(--track-mark);
+  text-transform: uppercase;
+  text-indent: var(--track-mark); /* centres tracked caps: the last letter's
+                                     trailing space would otherwise push the
+                                     whole line left of true centre. */
+  color: var(--ink-soft);
+  text-align: center;
 }
-h1 { font-size: 1.9rem; margin: 0 0 .25rem; font-weight: 300; letter-spacing: .03em; text-align: center; }
-.greet { color: var(--ink-soft); margin: 0 0 1.2rem; text-align: center; }
-.greet b { color: var(--ink); }
 
-/* The tab strip. LINKS, not script: each tab is a URL this server answers, so
-   the portal works with JavaScript off, a tab can be bookmarked and the back
-   button does what a person expects. The current one is marked twice - visually
-   and with aria-current - because the visual mark is a colour and a border, and
-   neither of those reaches a screen reader. */
+h1 {
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-2xl);
+  font-weight: 250;
+  letter-spacing: .01em;
+  line-height: var(--lh-tight);
+  text-align: center;
+}
+
+.greet {
+  margin: 0 0 var(--s-5);
+  color: var(--ink-soft);
+  font-size: var(--t-md);
+  text-align: center;
+}
+.greet b { color: var(--ink); font-weight: 600; }
+
+/* ============================================================== the tab strip
+
+   LINKS, not script: each tab is a URL this server answers, so the portal works
+   with JavaScript off, a tab can be bookmarked and the back button does what a
+   person expects. The current one is marked twice - visually and with
+   aria-current - because the visual mark is a colour and a border, and neither
+   of those reaches a screen reader.
+
+   The pills sit in a rail rather than floating loose, so five links read as one
+   control. */
 nav.tabs {
-  display: flex; flex-wrap: wrap; gap: .4rem; justify-content: center;
-  margin: 0 0 1.6rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  justify-content: center;
+  margin: 0 auto var(--s-5);
+  padding: var(--s-1);
+  width: fit-content;
+  max-width: 100%;
+  border-radius: var(--r-pill);
+  background: var(--veil);
+  border: 1px solid var(--card-edge);
+  box-shadow: var(--e-1);
 }
+
 nav.tabs a {
-  padding: .35rem .9rem; border-radius: 999px;
-  font-size: .74rem; letter-spacing: .12em; text-transform: uppercase;
-  text-decoration: none; color: var(--ink-soft);
-  background: var(--pane); border: 1px solid var(--field-edge);
-  max-width: 12rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: .42rem .95rem;
+  border-radius: var(--r-pill);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--ink-faint);
+  border: 1px solid transparent;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: color var(--dur-2) var(--ease),
+              background-color var(--dur-2) var(--ease);
 }
-nav.tabs a:hover { color: var(--ink); }
+nav.tabs a:hover { color: var(--ink); background: var(--wash); }
+
+/* The one loud thing in the strip, and it wears the timber the plank does -
+   the page has exactly two warm surfaces and they both mean "this one". */
 nav.tabs a.on {
-  color: var(--timber-ink); border-color: #a4744a;
+  color: var(--timber-ink);
+  border-color: var(--batten);
   background-image:
-    linear-gradient(180deg, rgba(255,255,255,.30), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,0) 46%),
     linear-gradient(180deg, var(--timber-hi), var(--timber-mid) 48%, var(--timber-lo));
+  box-shadow: var(--e-1);
 }
-nav.tabs a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ============================================================== the cards */
 
 .card {
-  position: relative; padding: 1.5rem 1.5rem 1.7rem; margin: 0 0 1.3rem;
-  border-radius: 14px; background: var(--veil);
-  box-shadow: 0 10px 40px rgba(0,0,0,.16); backdrop-filter: blur(2px);
-  scroll-margin-top: 1rem;
+  position: relative;
+  padding: var(--card-pad);
+  margin: 0 0 var(--s-4);
+  border-radius: var(--r-lg);
+  background: var(--veil);
+  border: 1px solid var(--card-edge);
+  box-shadow: var(--e-2);
+  backdrop-filter: blur(6px) saturate(1.05);
+  scroll-margin-top: var(--s-4);
 }
+
+/* The card header is a BLOCK, ruled off from the body. Before this the title,
+   the "acting as" line and the first section heading were three things at three
+   spacings and the card had no top.
+
+   THE RULE GOES UNDER WHICHEVER ELEMENT ENDS THE HEADER, and which one that is
+   varies: the account and patcher cards are a title alone, every character and
+   alliance card is a title with a subtitle under it. Drawing it on the h2
+   unconditionally put a horizon between "Wrenna" and "slot 1, created ..." -
+   the subtitle ended up below the line, reading as the first item of the body
+   rather than as part of the heading.
+
+   :has() rather than a wrapper, because the emblem tab's card is built by
+   AccountEmblemEditor and this task does not own that file. A selector that
+   reads the markup as it stands works for both cards; a wrapper would have had
+   to be added in two files and one of them is somebody else's. */
 .card > h2 {
-  margin: 0 0 .2rem; font-size: 1.25rem; font-weight: 500; letter-spacing: .02em;
+  margin: 0 0 var(--s-4);
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--rule);
+  font-size: var(--t-xl);
+  font-weight: 500;
+  letter-spacing: .01em;
+  line-height: var(--lh-tight);
 }
-.card .as { margin: .1rem 0 1.1rem; color: var(--ink-faint); font-size: .88rem; }
-.card .as b { color: var(--ink-soft); }
+.card > h2:has(+ .as) {
+  margin-bottom: var(--s-1);
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.card .as {
+  margin: 0 0 var(--s-4);
+  color: var(--ink-faint);
+  font-size: var(--t-md);
+}
+.card .as b { color: var(--ink-soft); font-weight: 600; }
+.card > h2 + .as {
+  padding-bottom: var(--s-3);
+  border-bottom: 1px solid var(--rule);
+}
+
 .card p { color: var(--ink-soft); }
-.card.empty p { margin: .6rem 0 0; }
+.card.empty p { margin: var(--s-3) 0 0; }
 
+/* SECTION HEADINGS carry a rule out to the edge. A character sheet is six
+   sections of different shapes - tiles, a fact grid, a table, a table - and
+   without a horizon between them they run together into one column of stuff.
+
+   `.card > h3`, not `h3`: the emblem editor's panel titles are h3s nested
+   inside its panes, and a rule flying out of "Canvas" beside the flip buttons
+   would be exactly the foreign-looking thing this file exists to prevent. */
+.card > h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-6) 0 var(--s-3);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+.card > h3::after {
+  content: '';
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--rule);
+}
+.card > h3:first-of-type { margin-top: var(--s-5); }
+
+/* The editor's own headings keep the plain form. */
 h3 {
-  margin: 1.5rem 0 .6rem; font-size: .72rem; font-weight: 700;
-  letter-spacing: .2em; text-transform: uppercase; color: var(--ink-faint);
+  margin: var(--s-5) 0 var(--s-3);
+  font-size: var(--t-xs);
+  font-weight: 700;
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
-h3:first-of-type { margin-top: 1rem; }
 
+/* ================================================================ notices
+
+   A tinted surface with a stripe down the side, not a saturated slab. A block
+   of solid green shouting "Saved." is louder than the thing it is reporting,
+   and at this size white-on-colour is the harder read of the two. */
 .notice {
-  margin: 0 0 1.2rem; padding: .7rem .9rem; border-radius: 9px;
-  background: var(--field); color: var(--field-ink); font-size: .9rem;
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  margin: 0 0 var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--ink-faint);
+  background: var(--wash);
+  color: var(--ink);
+  font-size: var(--t-md);
+  animation: portal-notice var(--dur-3) var(--ease-out) both;
 }
-.notice.good { background: var(--good); color: #fff; }
-.notice.bad  { background: var(--rust); color: #fff; }
-.notice code { background: rgba(0,0,0,.22); padding: .05rem .3rem; border-radius: 4px; word-break: break-all; }
+.notice.good { border-left-color: var(--good); background: var(--wash-good); }
+.notice.bad  { border-left-color: var(--rust); background: var(--wash-bad); }
 
-/* A row of small labelled numbers - the shape every summary on this page takes. */
-.stats { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 .4rem; padding: 0; list-style: none; }
+/* IT WORKED OR IT DID NOT, AND NOT ONLY IN COLOUR. A green stripe and a red
+   stripe are the same object to the commonest form of colour blindness, and
+   this is the one place on the portal where the difference between two states
+   is the entire message. So the two carry different SHAPES as well: a tick,
+   built from two borders on a rotated box, and an exclamation, which is an
+   ASCII character every system font has - no icon set, nothing fetched.
+
+   The sentence itself always says which it is too. This is the third cue, not
+   the only one. */
+.notice.good::before,
+.notice.bad::before {
+  flex: none;
+  align-self: center;
+  line-height: 1;
+}
+.notice.good::before {
+  content: '';
+  width: .38rem;
+  height: .7rem;
+  margin: 0 .12rem;
+  border-right: 2px solid var(--good);
+  border-bottom: 2px solid var(--good);
+  transform: rotate(42deg) translateY(-.08rem);
+}
+.notice.bad::before {
+  content: '!';
+  width: .62rem;
+  text-align: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--rust);
+}
+.notice code {
+  padding: .05rem .3rem;
+  border-radius: var(--r-xs);
+  background: var(--pane);
+  font-size: .95em;
+  word-break: break-all;
+}
+
+/* ================================================================== tiles
+
+   A row of small labelled numbers - the shape every summary on this page takes.
+
+   GRID, not flex. `flex: 1 1 7rem` let the last tile in a row grow to swallow
+   whatever space was left, so "10x18 grid" rendered half again as wide as
+   "1 worn" beside it and the row looked broken rather than tabular. auto-fit
+   gives even columns at every width and lands on two-up at 390px. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 .stats li {
-  flex: 1 1 7rem; padding: .55rem .7rem; border-radius: 9px;
-  background: var(--pane); border: 1px solid var(--field-edge);
+  padding: var(--s-3) var(--s-3) .6rem;
+  border-radius: var(--r-sm);
+  background: var(--pane);
+  border: 1px solid var(--rule);
 }
-.stats .n { display: block; font-size: 1.25rem; line-height: 1.2; color: var(--ink); }
+.stats .n {
+  display: block;
+  font-size: var(--t-lg);
+  font-weight: 500;
+  line-height: var(--lh-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
 .stats .k {
-  display: block; font-size: .62rem; letter-spacing: .13em; text-transform: uppercase;
-  color: var(--ink-faint); margin-top: .1rem;
+  display: block;
+  margin-top: .15rem;
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
 
-/* Key/value pairs where the value is a word rather than a number. */
-/* 11rem, not 9: "Message of the day" is the longest key on the page and a
-   narrower column wraps it onto two lines beside a one-line value. */
-dl.facts { display: grid; grid-template-columns: 11rem 1fr; gap: .3rem 1rem; margin: 0; }
-dl.facts dt { font-size: .68rem; letter-spacing: .13em; text-transform: uppercase; color: var(--ink-faint); padding-top: .18rem; }
-dl.facts dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
-@media (max-width: 30rem) { dl.facts { grid-template-columns: 1fr; gap: .1rem; } dl.facts dd { margin-bottom: .5rem; } }
+/* ================================================================== facts
 
-table.rows { width: 100%; border-collapse: collapse; font-size: .88rem; }
+   Key/value pairs where the value is a word rather than a number.
+
+   A GRID OF PAIRS, not a two-column key/value list. The old shape was an 11rem
+   label column against a 1fr value, which on a 54rem card left the value
+   floating in the middle of an otherwise empty row - five facts down the left
+   third of the account card and nothing at all to their right. Stacking the
+   label over the value and flowing the PAIRS across fills the card, reads down
+   in one pass, and needs no breakpoint to become one column on a phone.
+
+   Each pair is wrapped in a div, which is valid inside a dl and keeps the
+   dt/dd association a screen reader relies on. */
+dl.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--s-4) var(--s-5);
+  margin: 0;
+}
+dl.facts .fact { min-width: 0; }
+dl.facts dt {
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+dl.facts dd {
+  margin: .15rem 0 0;
+  color: var(--ink);
+  font-size: var(--t-md);
+  line-height: var(--lh-snug);
+  overflow-wrap: anywhere;
+}
+
+/* ================================================================= tables */
+
+table.rows {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--t-md);
+}
 table.rows th {
-  text-align: left; font-size: .62rem; letter-spacing: .13em; text-transform: uppercase;
-  color: var(--ink-faint); font-weight: 700; padding: 0 .5rem .3rem 0;
+  text-align: left;
+  padding: 0 var(--s-3) var(--s-2) 0;
+  font-size: var(--t-2xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--rule);
 }
-table.rows td { padding: .35rem .5rem .35rem 0; border-top: 1px solid var(--field-edge); color: var(--ink-soft); vertical-align: middle; }
+table.rows td {
+  padding: var(--s-3) var(--s-3) var(--s-3) 0;
+  border-top: 1px solid var(--rule);
+  color: var(--ink-soft);
+  vertical-align: middle;
+}
+table.rows tr:first-child td { border-top: 0; }
 table.rows td.you, table.rows td b { color: var(--ink); }
 table.rows td.num { text-align: right; font-variant-numeric: tabular-nums; }
 table.rows td.act { text-align: right; white-space: nowrap; }
-.scroll { overflow-x: auto; }
 
-.chips { display: flex; flex-wrap: wrap; gap: .3rem; margin: .2rem 0 0; padding: 0; list-style: none; }
-.chips li {
-  padding: .18rem .5rem; border-radius: 6px; font-size: .74rem;
-  background: var(--pane); border: 1px solid var(--field-edge); color: var(--ink-soft);
+/* THE ROW YOU ARE IN, marked. A table where one row is you and eleven are not
+   is a table you scan for yourself first. */
+table.rows tr:has(td.you) { background: var(--wash); }
+
+/* A table too wide for its card scrolls sideways inside its own box rather than
+   pushing the page out - the card never scrolls horizontally.
+
+   IT DOES NOT PAINT A SCROLL HINT. The usual trick for that is the
+   background-attachment: local/scroll pair, where a fade in the container's own
+   colour is scrolled out from under a fixed shadow. It was tried here and it is
+   wrong for this page: the fade has to be painted in the CARD's colour, the
+   card's colour is translucent, and a translucent fade over a translucent card
+   is a visible pale block sitting on the table header whether or not there is
+   anything to scroll. A wrong mark that is always there is worse than a right
+   mark that is sometimes missing. */
+.scroll { overflow-x: auto; overscroll-behavior-x: contain; }
+
+/* ================================================================== chips */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.chips.mono li { font-family: ui-monospace, 'DejaVu Sans Mono', monospace; font-size: .7rem; }
+.chips li {
+  padding: .2rem .55rem;
+  border-radius: var(--r-xs);
+  font-size: var(--t-sm);
+  background: var(--pane);
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+.chips.mono li {
+  font-family: ui-monospace, 'DejaVu Sans Mono', monospace;
+  font-size: var(--t-xs);
+}
 .chips li.off { opacity: .45; text-decoration: line-through; }
 
-details { margin: .5rem 0 0; }
+/* The permission chips are the only chips that sit loose in a card rather than
+   inside a disclosure, and what follows them is the DESCRIPTION field's label.
+   Without this the two were twenty pixels apart and "edit_members" read as the
+   first word of the form under it. */
+.card > .chips { margin-bottom: var(--s-5); }
+
+/* ============================================================== disclosure
+
+   A <details> is a control, so it is drawn as one: a caret that turns, a
+   surface that responds, and a whole row that is the hit target rather than
+   the four words in it. The turn is the motion - it says which way the thing
+   went, which is the only thing motion is for here. */
+details {
+  margin: var(--s-3) 0 0;
+  border-radius: var(--r-sm);
+}
+
+/* A disclosure that is a section of the page in its own right - "2 learned
+   schematics", "Change password" - is drawn as a PANEL. As a bare line of text
+   with a caret it read as a caption that happened to have a marker, and the
+   one on the account tab is the only route a player has to their own password.
+   A well with an edge says "there is more inside this" without a sentence.
+
+   `.card > details` only: the emblem editor's design-code disclosure is nested
+   inside .editor and keeps its own quieter treatment. */
+.card > details {
+  margin: var(--s-4) 0 0;
+  background: var(--pane);
+  border: 1px solid var(--rule);
+}
+.card > details > summary { padding: var(--s-3) var(--s-4); }
+.card > details[open] { padding-bottom: var(--s-3); }
+
+/* The last thing in a card, set off from the body above it. On the account tab
+   that is the sign-out button, which should not look like it belongs to the
+   password box it happens to follow. */
+.card > form:last-child {
+  margin: var(--s-5) 0 0;
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--rule);
+}
 details > summary {
-  cursor: pointer; font-size: .78rem; color: var(--ink-soft);
-  padding: .25rem 0; list-style-position: outside;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  font-size: var(--t-md);
+  color: var(--ink-soft);
+  list-style: none;
+  transition: background-color var(--dur-2) var(--ease),
+              color var(--dur-2) var(--ease);
 }
-details > summary:hover { color: var(--ink); }
-details[open] > summary { margin-bottom: .4rem; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::marker { content: ''; }
 
-/* Forms. Shared by the password box, the alliance text fields and the roster.
-   Block forms get room beneath them because two of them stack (description, then
+/* The caret: a rotated square with two sides, which is the cheapest arrow that
+   is not an image and not a glyph the system font may not have. */
+details > summary::before {
+  content: '';
+  flex: none;
+  width: .4rem;
+  height: .4rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease);
+}
+details[open] > summary::before { transform: rotate(45deg); }
+details > summary:hover { color: var(--ink); background: var(--wash); }
+details[open] > summary { color: var(--ink); }
+details > *:not(summary) { margin-left: var(--s-3); margin-right: var(--s-3); }
+details[open] > summary { margin-bottom: var(--s-2); }
+
+/* ================================================================== forms
+
+   Shared by the password box, the alliance text fields and the roster. Block
+   forms get room beneath them because two of them stack (description, then
    message of the day); the .inline ones live inside a table cell and must not. */
-form:not(.inline) { margin: 0 0 1rem; }
-label.row { display: block; margin: 0 0 .6rem; }
-/* `.row > span`, not `label.row > span`: the read-only twin of an editable field
-   is a div, and it has to wear the same label as the box it replaces. */
+form:not(.inline) { margin: 0 0 var(--s-4); }
+label.row { display: block; margin: 0 0 var(--s-3); }
+
+/* `.row > span`, not `label.row > span`: the read-only twin of an editable
+   field is a div, and it has to wear the same label as the box it replaces. */
 .row > span, fieldset.row > legend {
-  display: block; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase;
-  color: var(--ink-faint); margin: 0 0 .25rem; padding: 0;
+  display: block;
+  margin: 0 0 var(--s-1);
+  padding: 0;
+  font-size: var(--t-2xs);
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
 }
+
 input[type=password], input[type=text], textarea, select {
-  width: 100%; padding: .5rem .6rem; font: inherit; font-size: .92rem;
-  color: var(--ink); background: var(--input-bg);
-  border: 1px solid var(--field-edge); border-radius: 7px;
+  width: 100%;
+  padding: .55rem .65rem;
+  font: inherit;
+  font-size: var(--t-md);
+  color: var(--ink);
+  background-color: var(--input-bg);
+  border: 1px solid var(--field-edge);
+  border-radius: var(--r-sm);
+  transition: border-color var(--dur-2) var(--ease),
+              box-shadow var(--dur-2) var(--ease);
 }
-textarea { resize: vertical; min-height: 4.5rem; }
+input[type=password]:hover, input[type=text]:hover, textarea:hover, select:hover {
+  border-color: var(--ink-faint);
+}
+textarea { resize: vertical; min-height: 4.5rem; line-height: var(--lh-snug); }
 
-/* The same label, with the value as prose instead of a box - so a member who may
-   edit one alliance text and not the other reads one column of the same thing. */
-.readonly { margin: 0 0 .9rem; }
-.readonly p { margin: 0; }
-select.rank { width: auto; min-width: 8rem; padding: .3rem .4rem; font-size: .82rem; }
+/* THE SELECT'S CARET IS TWO GRADIENTS. A select with `appearance: none` and no
+   arrow is a text box nobody opens, and the usual fix is an inline SVG in a
+   data URI - which has to carry the W3C SVG namespace, and that namespace is
+   spelled as an http URL. It is an identifier and never fetched, but the
+   no-external-host assertion greps for the scheme, and a page that has to be
+   granted an exemption to pass it is a page one edit away from failing it.
+   Two triangles built from linear-gradients need no namespace and no file.
+   (This comment says it in words for the same reason.) */
+select {
+  appearance: none;
+  padding-right: 2rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 1.1rem) 54%, calc(100% - .78rem) 54%;
+  background-size: .32rem .32rem;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+select.rank { width: auto; min-width: 8.5rem; padding: .38rem 1.9rem .38rem .5rem; font-size: var(--t-sm); }
+select.rank { background-position: calc(100% - .95rem) 54%, calc(100% - .68rem) 54%; }
 
+/* The same label, with the value as prose instead of a box - so a member who
+   may edit one alliance text and not the other reads one column of the same
+   thing. The prose sits in a well, so "there is a value here and you cannot
+   change it" is legible without a sentence saying so. */
+.readonly { margin: 0 0 var(--s-4); }
+.readonly p {
+  margin: 0;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm);
+  background: var(--pane);
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+}
+
+/* ================================================================ buttons */
+
+/* THE PLANK: the page's one loud affirmative, and the only place the airship's
+   timber is a whole surface rather than an edge. It keeps its 1px corner -
+   a plank is not a pill - and it keeps its two-stop gradient, because that
+   gradient IS the theme. What is new is that it responds: it lifts under a
+   pointer and takes the press. */
 .plank {
-  display: inline-block;
-  margin: .3rem 0 0; padding: .7rem 1.9rem;
-  font: inherit; font-size: .78rem; font-weight: 600; letter-spacing: .17em;
-  text-transform: uppercase; cursor: pointer; text-decoration: none;
-  color: var(--timber-ink); border: 1px solid #a4744a; border-radius: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  margin: var(--s-1) 0 0;
+  padding: .7rem 1.9rem;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 700;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  color: var(--timber-ink);
+  border: 1px solid var(--batten);
+  border-radius: 1px;
   background-image:
     linear-gradient(180deg, rgba(255,255,255,.34), rgba(255,255,255,0) 44%),
     linear-gradient(180deg, var(--timber-hi), var(--timber-mid) 46%, var(--timber-lo));
-  box-shadow: 0 2px 0 rgba(112,72,40,.42), 0 12px 26px -14px rgba(38,24,10,.85);
+  box-shadow: 0 2px 0 var(--batten-edge), var(--e-2);
+  transition: transform var(--dur-1) var(--ease),
+              box-shadow var(--dur-1) var(--ease),
+              filter var(--dur-2) var(--ease);
 }
-.plank:hover { filter: brightness(1.06); }
-.plank:active { transform: translateY(1px); }
-.plank:focus-visible { outline: 2px solid var(--timber-hi); outline-offset: 3px; }
-.plank.big { padding: .9rem 2.4rem; font-size: .85rem; }
+.plank:hover { filter: brightness(1.05); transform: translateY(-1px); box-shadow: 0 3px 0 var(--batten-edge), var(--e-3); }
+.plank:active { transform: translateY(1px); box-shadow: 0 0 0 var(--batten-edge), var(--e-1); }
+.plank.big { padding: .95rem 2.4rem; font-size: var(--t-md); letter-spacing: .14em; }
 
-/* The quiet button: a rank change, a boot, a sign-out. Never a plank - the
+/* THE QUIET BUTTON: a rank change, a boot, a sign-out. Never a plank - the
    plank is the page's one loud affirmative and it stops meaning that if
-   everything is one. */
-button.quiet {
-  padding: .3rem .7rem; font: inherit; font-size: .76rem; cursor: pointer;
-  color: var(--ink-soft); background: var(--pane);
-  border: 1px solid var(--field-edge); border-radius: 7px;
+   everything is one. It is a real button now rather than a hairline rectangle:
+   a well you can see, at a size a thumb can find. */
+button.quiet, .quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-1);
+  min-height: 2.15rem;
+  padding: .35rem .8rem;
+  font: inherit;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--ink-soft);
+  background: var(--pane);
+  border: 1px solid var(--field-edge);
+  border-radius: var(--r-sm);
+  transition: color var(--dur-2) var(--ease),
+              background-color var(--dur-2) var(--ease),
+              border-color var(--dur-2) var(--ease),
+              transform var(--dur-1) var(--ease);
 }
-button.quiet:hover { color: var(--ink); }
-button.quiet.danger { color: var(--rust); border-color: var(--rust); }
-
-.inline { display: inline-flex; gap: .3rem; align-items: center; }
-
-/* The emblem builder, moved in from the page it used to be the whole of.
-   EVERY .builder RULE IS IN THIS BLOCK AND THE BREAKPOINT IS LAST. That is not
-   tidiness, it is the fix for a real bug: the button's `grid-column: 2` used to
-   sit further down the file, where it overrode the narrow-screen override of
-   itself - and an item placed in column 2 of a ONE-column grid creates an
-   implicit second column, so the builder went on rendering side by side on a
-   phone while `grid-template-columns: 1fr` was, technically, in force. */
-.builder { display: grid; grid-template-columns: 11rem 1fr; gap: 1.2rem; align-items: start; }
-.builder .plank { grid-column: 2; justify-self: start; }
-@media (max-width: 36rem) {
-  .builder { grid-template-columns: 1fr; }
-  .builder .plank { grid-column: 1; justify-self: stretch; text-align: center; }
+button.quiet:hover, .quiet:hover {
+  color: var(--ink);
+  border-color: var(--ink-faint);
+  background: var(--wash);
 }
-.stage { text-align: center; }
+button.quiet:active, .quiet:active { transform: translateY(1px); }
+
+/* DANGER IS AN OUTLINE UNTIL YOU REACH FOR IT. A permanently filled red button
+   for "Remove" reads as an error the page is already in; a red-edged one reads
+   as an action with a consequence, which is what it is. It fills on hover, so
+   the moment before the click is unambiguous. */
+button.quiet.danger, .quiet.danger {
+  color: var(--rust);
+  border-color: color-mix(in srgb, var(--rust) 55%, transparent);
+  background: var(--wash-bad);
+}
+button.quiet.danger:hover, .quiet.danger:hover {
+  color: var(--field-ink);
+  background: var(--rust);
+  border-color: var(--rust);
+}
+
+.inline { display: inline-flex; gap: var(--s-1); align-items: center; }
+
+/* A form that has been submitted. The portal answers every POST with a
+   redirect, so there is a real wait between the click and the new page, and
+   without this the only feedback is that nothing happens. Set by account.js,
+   which is why it is a state and not a :active. */
+form[data-busy] { position: relative; }
+form[data-busy] button { pointer-events: none; opacity: .62; }
+form[data-busy] button::after {
+  content: '';
+  width: .8rem;
+  height: .8rem;
+  margin-left: .1rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: portal-spin 620ms linear infinite;
+}
+
+/* ================================================================== links
+
+   LINKS INSIDE A CARD TAKE THE PAGE'S INK. This used to be scoped to
+   `.crestline a, .hint a`, which covered two of the four places a link appears
+   - so "open the alliance" on every character sheet rendered in the browser's
+   default blue, and in dark mode that is a bright indigo on a slate card, the
+   single most out-of-palette thing on the portal.
+
+   :not(.plank) because the patcher's download button is an <a>, and :not(.px)
+   because the emblem editor's PNG-size links are pills of their own. */
+.card a:not(.plank):not(.px) {
+  color: var(--ink);
+  text-decoration-line: underline;
+  text-decoration-color: var(--batten);
+  text-decoration-thickness: 1px;
+  text-underline-offset: .18em;
+  transition: text-decoration-color var(--dur-2) var(--ease),
+              color var(--dur-2) var(--ease);
+}
+.card a:not(.plank):not(.px):hover {
+  color: var(--ink);
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 2px;
+}
+
+/* ============================================================ focus states
+
+   ONE TREATMENT, EVERYWHERE, and it is a ring plus a halo. The ring is the
+   same `2px solid var(--ink)` the emblem editor already draws, so the two
+   files agree without the editor changing a line; the halo is the part that
+   makes it survive the timber plank and the emblem canvas, where a dark ring
+   on a mid-tone surface is nearly invisible.
+
+   :focus-visible, not :focus - a mouse click on a button should not leave a
+   ring behind it, and the whole point of the pseudo-class is that a keyboard
+   still gets one. */
+a:focus-visible,
+button:focus-visible,
+summary:focus-visible,
+select:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+  border-radius: var(--r-xs);
+}
+/* The two that have a shape of their own keep it. */
+.plank:focus-visible { border-radius: 1px; }
+nav.tabs a:focus-visible { border-radius: var(--r-pill); }
+button.quiet:focus-visible, select:focus-visible,
+input:focus-visible, textarea:focus-visible { border-radius: var(--r-sm); }
+
+/* Typing in a field is a focus a mouse user needs to see too, so the box also
+   marks itself on plain :focus - without the halo, which would be noise. */
+input:focus, textarea:focus, select:focus {
+  border-color: var(--ink-faint);
+  outline-offset: 1px;
+}
+
+/* ========================================================== the emblem, seen
+
+   The crest builder that used to live here is now emblem-editor.css. What is
+   left is the emblem where it is only LOOKED at: the read-only panel on the
+   emblem tab and the small mark beside the link on the alliance tab. Here
+   rather than in that file because that file is served on the editor's tab
+   alone, and a member whose rank cannot edit still gets the picture. */
 .preview {
-  width: 10rem; height: 10rem; display: block; margin: 0 auto;
+  width: 10rem;
+  height: 10rem;
+  display: block;
+  margin: 0 auto;
   image-rendering: auto;
   filter: drop-shadow(0 6px 14px rgba(0,0,0,.35));
 }
-.stage .hint { margin: .6rem 0 0; font-size: .68rem; line-height: 1.4; color: var(--ink-faint); }
-.stage .hint a { color: inherit; }
-.controls { display: grid; gap: .6rem; }
-
-fieldset.swatches { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
-fieldset.swatches legend { width: 100%; float: left; }
-.sw { cursor: pointer; line-height: 0; }
-.sw input { position: absolute; opacity: 0; width: 0; height: 0; }
-.sw span {
-  display: block; width: 1.45rem; height: 1.45rem; border-radius: 5px;
-  background: var(--sw); border: 1px solid rgba(0,0,0,.35);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
-}
-.sw input:checked + span { outline: 2px solid var(--ink); outline-offset: 2px; }
-.sw input:focus-visible + span { outline: 2px dashed var(--ink); outline-offset: 2px; }
-
-/* The emblem, where it is only LOOKED at: the read-only panel on the emblem tab
-   and the small mark beside the link on the alliance tab. Here rather than in
-   emblem-editor.css because that file is served on the editor's tab alone. */
-.stage.lone { position: relative; width: 12rem; margin: .4rem 0 .6rem; }
+.stage { text-align: center; }
+.stage .hint { margin: var(--s-3) 0 0; font-size: var(--t-xs); line-height: var(--lh-snug); color: var(--ink-faint); }
+.stage.lone { position: relative; width: 12rem; margin: var(--s-2) 0 var(--s-3); }
 .stage.lone .preview { width: 100%; height: auto; }
-.crestline { display: flex; align-items: center; gap: .6rem; }
 
-/* Links inside a card take the page's ink, not the browser's blue - the console
-   has one palette and a default-coloured link is the one thing on the page that
-   did not come from it. */
-.crestline a, .hint a { color: var(--ink-soft); }
-.crestline a:hover, .hint a:hover { color: var(--ink); }
-.mark-sm { width: 2.6rem; height: 2.6rem; filter: drop-shadow(0 3px 8px rgba(0,0,0,.3)); }
+/* The crest and its link read as one object: the mark sits in a ring the same
+   colour as a well, so a transparent emblem has something to be transparent
+   AGAINST rather than floating on the card. */
+.crestline { display: flex; align-items: center; gap: var(--s-3); }
+.mark-sm {
+  width: 3rem;
+  height: 3rem;
+  padding: .25rem;
+  border-radius: var(--r-pill);
+  background: var(--pane);
+  border: 1px solid var(--rule);
+  filter: drop-shadow(0 2px 5px rgba(0,0,0,.28));
+}
 
+/* The swatch chip. The editor draws its own palette LAYOUT; what lives here is
+   the one line every swatch on the portal shares, so a colour chip is the same
+   object wherever it appears.
+
+   The old radio-input machinery that used to sit here - `.builder`,
+   `.controls`, `fieldset.swatches`, `.sw input:checked + span` - went with the
+   six-dropdown crest builder it dressed. Nothing has emitted that markup since
+   the layered editor replaced it, and CSS for markup that cannot occur is CSS
+   the next person has to disprove. */
+.sw { cursor: pointer; transition: transform var(--dur-1) var(--ease); }
+.sw:hover { transform: scale(1.08); }
+
+/* ================================================================== locked
+
+   A rank with no permissions, a crew the portal will not change. NOT the alert
+   colour: this is a deliberate state, not a fault, and the same reasoning the
+   editor records about its padlock applies to the sentence explaining why a
+   control is missing. */
 .locked {
-  margin: .4rem 0 0; padding: .55rem .7rem; border-radius: 8px;
-  background: var(--pane); border: 1px solid var(--field-edge);
-  font-size: .8rem; color: var(--ink-faint);
+  margin: var(--s-3) 0 0;
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--r-sm);
+  background: var(--pane);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--ink-faint);
+  font-size: var(--t-md);
+  color: var(--ink-faint);
 }
 .locked code { font-size: .95em; color: var(--ink-soft); }
 
-footer { margin-top: 2rem; font-size: .72rem; line-height: 1.5; color: var(--ink-faint); text-align: center; }
+/* ================================================================== footer */
+
+/* THE MASTHEAD AND THE FOOTER TAKE --ink-soft, NOT --ink-faint, and that is a
+   measured decision rather than a taste. Both sit on the SKY rather than on a
+   card, and in light mode the sky is the palest surface on the page - the faint
+   ink that clears 4.5:1 against a veil manages 3.0:1 against it. Everything
+   outside a card is one step darker for that reason. */
+footer {
+  margin-top: var(--s-6);
+  font-size: var(--t-xs);
+  line-height: var(--lh-snug);
+  color: var(--ink-soft);
+  text-align: center;
+}
 footer a { color: inherit; }
+
+/* ================================================================== motion
+
+   TWO ANIMATIONS ON THE WHOLE PAGE, and both of them report something. The
+   card arrives because the tabs are real navigations and a page that simply
+   appears gives no sense of having moved; the notice arrives because it is the
+   answer to something you just did. Everything else that moves is a
+   transition on a state a person caused. */
+@keyframes portal-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes portal-notice {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes portal-spin { to { transform: rotate(1turn); } }
+
+.card { animation: portal-rise var(--dur-3) var(--ease-out) both; }
+.card:nth-of-type(2) { animation-delay: 60ms; }
+.card:nth-of-type(3) { animation-delay: 120ms; }
+.card:nth-of-type(n+4) { animation-delay: 160ms; }
+
+/* ========================================================== narrow screens
+
+   THE BREAKPOINTS ARE LAST IN THE FILE. That is not tidiness, it is the fix
+   for a real bug this page has already had: the emblem builder's
+   `grid-column: 2` used to sit BELOW its own narrow-screen override, and an
+   item placed in column 2 of a one-column grid creates an implicit second
+   column - so the builder went on rendering side by side on a phone while
+   `grid-template-columns: 1fr` was, technically, in force. */
+
+/* THE TAB STRIP BECOMES A RAIL YOU SWIPE, not four pills wrapped onto two
+   ragged centred rows. A wrapped strip changes height between tabs, which
+   moves the card up and down as you navigate; one scrolling row does not. The
+   fade at each end is how a person knows there is more, and account.js scrolls
+   the current tab into view so you always land looking at where you are. */
+@media (max-width: 40rem) {
+  nav.tabs {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    border-radius: var(--r-lg);
+
+    /* The rail keeps a pill's worth of empty room at each end so the fade
+       always falls on padding. Without it the first and last tabs - and
+       EMBLEM is always the last - come to rest under the mask and the
+       current tab is drawn half-faded, which reads as disabled. */
+    padding-inline: 1.25rem;
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 1.2rem, #000 calc(100% - 1.2rem), transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 1.2rem, #000 calc(100% - 1.2rem), transparent);
+  }
+  nav.tabs::-webkit-scrollbar { display: none; }
+  nav.tabs a { flex: none; scroll-snap-align: center; }
+}
+
+/* Two facts across is the most a 390px screen holds without the label
+   hyphenating, and a single tall column of five is worse than two of three. */
+@media (max-width: 30rem) {
+  .stats { grid-template-columns: repeat(auto-fit, minmax(6rem, 1fr)); }
+  .card { border-radius: var(--r-md); }
+  .plank { width: 100%; }
+
+  /* The roster is the widest thing on the portal - a name, a rank picker and a
+     Remove button - and it is the one table that has to fit rather than scroll,
+     because the control on the far right is the one with a consequence. The
+     picker gives up the width; it only ever holds a rank name. */
+  select.rank { min-width: 0; width: 100%; max-width: 9rem; }
+  table.rows td, table.rows th { padding-right: var(--s-2); }
+
+  /* TWO FACTS ACROSS, NOT ONE. At the desktop 12rem minimum a 390px screen
+     falls to a single column, and five facts each on their own row turns the
+     account card into a column of five short words with a screen of air beside
+     them. Most values here are a name, a count or a date; the longest wraps to
+     a second line and that costs less than the height the one-column version
+     spends. Whitespace is not the same thing as design. */
+  dl.facts { grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: var(--s-4) var(--s-4); }
+}
+
+/* EVERY CONTROL A THUMB HAS TO FIND IS 44px, and only on a touch pointer - a
+   mouse gets the compact set, because a 44px-tall "Set" beside a rank picker
+   in a table row is a table row half again as tall for no gain. */
+@media (pointer: coarse) {
+  button.quiet, .quiet, select, summary, nav.tabs a { min-height: var(--touch); }
+  select.rank { padding-top: .5rem; padding-bottom: .5rem; }
+  nav.tabs a { display: inline-flex; align-items: center; }
+  table.rows td { padding-top: var(--s-3); padding-bottom: var(--s-3); }
+}
+
+/* ========================================================== reduced motion
+
+   OFF, not "gentler". A vestibular disorder is not soothed by a slower slide,
+   and every animation above reports a state change that is also reported by
+   something static - the card is there, the notice is coloured, the caret has
+   turned. Nothing below loses information. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .card, .notice { animation: none; opacity: 1; transform: none; }
+  .plank:hover, .plank:active, button.quiet:active, .sw:hover { transform: none; }
+}
