@@ -49,7 +49,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             "CoreCircuitryNetwork", "CoreEfficiencyModule",
             // Structural
             "Panel01", "Panel02", "Panel03", "Window01", "Stairs1",
-            "RailingStraight", "RailingCorner",
+            "RailingStraight", "RailingCorner", "BarPipe", "BarPipeBent",
             // Storage
             "ContainerSmall", "ContainerMount", "ContainerMedium", "ContainerLarge",
             // Decoration
