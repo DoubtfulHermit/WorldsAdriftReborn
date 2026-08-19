@@ -1,9 +1,10 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 632 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 635 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-20 | 28 commits
+## 2026-08-20 | 31 commits
 
+* 9dbb6a6 Record the SC5 soak, including what it cannot prove
 * 823a9aa Name the commit that broke the string, as its own entry says to
 * edc670c Restore the overload string I got wrong, and record why
 * a760a23 Put the belt divider where the client thinks it is
@@ -15,8 +16,10 @@ Every commit, newest first. 632 of them since 2026-08-07. Merges are left out - 
 * d36adc6 Retract a false positive of my own, and add the rule that prevents it
 * 146ebaa Answer the bar pipe question as far as static analysis can take it
 * 81be23f A bare hull moves: restore retail's wind force on the hull itself
+* 9afe9ca Separate the two prefab flags SC5 rests on; only one is load-bearing
 * 6976ca7 Record that the bar pipe sat in this repo for nine days, on line 873
 * adedbff Correct the document's own opening claim, which was wrong
+* e6036ee Give a mounted bar pipe a REAL hierarchy key, so a ship is above it
 * 7a2cf99 Unblock cooking from creature combat in the ranking
 * 9be427c Confirm the community leads against the client, and correct three sections
 * f3d123a Reorder the closing sections and register the fourth oracle properly
