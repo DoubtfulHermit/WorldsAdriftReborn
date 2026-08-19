@@ -5,7 +5,7 @@ namespace WorldsAdriftRebornGameServer.Game
 {
     /// <summary>
     /// Handles the ACTIVATE interact (verb 1) on MOUNTED ship parts - the sail's
-    /// furl/unfurl, the lamp's switch and the horn's honk. The 1211 handler
+    /// furl/unfurl, the lamp's switch, the horn's honk and the sky core's REFUEL. The 1211 handler
     /// dispatches every completed Activate here (the same always-on shape as the
     /// helm's Man dispatch to the flight service); the single gate per part is its
     /// own ledger, so a target that is not a mounted sail/lamp/horn costs three
@@ -24,6 +24,12 @@ namespace WorldsAdriftRebornGameServer.Game
     ///     additionally gets ONE deferred charge re-anchor push when the window
     ///     ends, so the authoritative float converges (keyed, so honk spam never
     ///     stacks timers).
+    ///
+    ///   * sky core - no echo at all. The refuel moves inventory (1081, pushed
+    ///     once) and the hull's fuel level, and the only visible consequence is the
+    ///     1105 the fuel gauge reads. The core itself shows nothing, because the
+    ///     shipped client renders neither InteractionEntry.description nor any fuel
+    ///     text - see docs/plans/feature-roadmap.md 12.1.
     ///
     /// AUTHORITY: 1303/1108/1107 have no client writers (decompile: zero
     /// *StateWriter requires outside gencode) - flipping the property server-side
@@ -92,6 +98,19 @@ namespace WorldsAdriftRebornGameServer.Game
                 Console.WriteLine("[info] part-interact: lamp " + targetEntityId + " switched "
                     + (lampOn.Value ? "ON" : "OFF") + " (by entity " + playerEntityId
                     + "; 1108 pushed to " + sent + " peer(s)).");
+                return true;
+            }
+
+            // SKY CORE: REFUEL. Retail refuelled at a fuel TANK part, whose prefab
+            // this client cannot resolve, and a verb cannot be invented - so the
+            // sky core, the only ship part whose Activate is prefab-baked
+            // (ShipCorePreprocessor) and unclaimed, is this server's refuel door.
+            // Returns null for anything that is not a mounted core, so the horn
+            // ledger below still gets its turn.
+            int? refuelled = WorldsAdriftRebornGameServer.ShipFuel.TryRefuel(
+                playerEntityId, targetEntityId);
+            if (refuelled.HasValue)
+            {
                 return true;
             }
 

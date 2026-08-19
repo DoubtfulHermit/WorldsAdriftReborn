@@ -2228,6 +2228,30 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             obj = new LampState.Data(WorldsAdriftRebornGameServer.Lamps.IsOn(entityId));
                         }
                     }
+                    else if (componentId == 1105)
+                    {
+                        // FuelGaugeState { capacity, fuel }: the ONE component
+                        // FuelGaugeVisualizer [Require]s, and it reads nothing else off
+                        // SpatialOS (acs/Assets.Scripts.Visualisers.Ship/
+                        // FuelGaugeVisualizer.cs:16). Seeding this row 1236 alone - which
+                        // that prefab has no reader for - is why the needle could never
+                        // move; a visualiser does not enable until every [Require]
+                        // resolves and logs nothing when it does not.
+                        //
+                        // The value is the HULL's tank, because there is no fuel tank
+                        // prefab this client can resolve and fuel is therefore per-hull
+                        // (ShipFuelLedger explains the forced deviation). A LOOSE gauge,
+                        // or one on a ship with no sky core and therefore no refuel
+                        // door, reads a full static tank rather than a pinned-at-empty
+                        // lie. VERIFIED ctor (gencode FuelGaugeState.cs, struct
+                        // FuelGaugeStateData(float capacity, float fuel)).
+                        if (Game.Crafting.LooseParts.Is(entityId))
+                        {
+                            Multiplayer.Ship.Fuel.FuelReading fuel =
+                                WorldsAdriftRebornGameServer.ShipFuel.ReadingForGauge(entityId);
+                            obj = new FuelGaugeState.Data((float)fuel.Capacity, (float)fuel.Level);
+                        }
+                    }
                     else if (componentId == 1236)
                     {
                         // IsTooDamagedToWorkState: LampVisualizer [Require]s it

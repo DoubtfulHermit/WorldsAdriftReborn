@@ -73,6 +73,14 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                     WorldsAdriftRebornGameServer.Sails.Unregister(liftedPartId);
                     WorldsAdriftRebornGameServer.Lamps.Unregister(liftedPartId);
                     WorldsAdriftRebornGameServer.Horns.Unregister(liftedPartId);
+                    // Lifting the sky core off takes the ship's refuel door with it, so
+                    // the hull goes back to UNMETERED - it burns nothing and is gated by
+                    // nothing. The level is remembered, so remounting is not a free refuel.
+                    if (priorMount.HasValue)
+                    {
+                        WorldsAdriftRebornGameServer.ShipFuel.OnPartUnmounted(
+                            priorMount.Value.ItemType, liftedPartId, priorMount.Value.HullEntityId);
+                    }
 
                     // Complete the DETACH on the wire (findings-mount-placement.md section 2):
                     // clearing the ledger alone left the client still holding the mounted 8066/

@@ -52,6 +52,9 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 WorldsAdriftRebornGameServer.ShipMembership.Unregister(partId, hullId);
                 WorldsAdriftRebornGameServer.WorldEntities.Unregister(partId);
             }
+            // The whole ship is going: drop its tank outright rather than leaving it
+            // dormant against an entity id that will be reused.
+            WorldsAdriftRebornGameServer.ShipFuel.OnHullRemoved(hullId);
 
             long yardId = BuiltShips.ShipyardForHull(hullId);
             if (yardId != 0)
@@ -150,6 +153,7 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                 WorldsAdriftRebornGameServer.Horns.Unregister(partId);
                 PartMountService.BroadcastDetach(partId, entry.Value);
             }
+            WorldsAdriftRebornGameServer.ShipFuel.OnHullRemoved(hullId);
 
             BuiltShips.ClearDocked(shipyardEntityId);
             BuiltShipSpawner.PushUndocked(shipyardEntityId);

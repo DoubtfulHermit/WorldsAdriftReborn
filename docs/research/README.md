@@ -45,3 +45,12 @@ unlikely.
   jellyfish/manta assets and components, the original GSim/UnityWorker authority
   split, evidenced movement and interaction behavior, and a staged
   island-domain implementation path without inventing retail population rules.
+
+## Ship-subsystem additions (2026-08-19)
+
+- [findings-combustion-fuel.md](findings-combustion-fuel.md) settles how
+  fuelling worked in retail — pod, salvage, tank, engine, gauge — names the two
+  shipped-client constraints that make retail's topology unreproducible here (no
+  fuel-tank prefab; a verb cannot be invented), and confirms why the fuel
+  gauge's needle could never move. It also fills the gap five code sites have
+  cited for a long time. The long-form plan is roadmap §12.

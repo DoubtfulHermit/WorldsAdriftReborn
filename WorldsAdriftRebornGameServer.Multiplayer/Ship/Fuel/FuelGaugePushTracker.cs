@@ -81,6 +81,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             return true;
         }
 
+        /// <summary>
+        /// Records a push the caller made WITHOUT asking - a refuel or a run-dry,
+        /// both of which must reach the needle immediately. Recording it means the
+        /// rate floor still applies to whatever comes next, so "important" can never
+        /// become "unbudgeted".
+        /// </summary>
+        public void Record(long gaugeEntityId, double level, double nowSeconds)
+        {
+            if (double.IsNaN(level) || double.IsInfinity(level))
+            {
+                return;
+            }
+            _byGauge[gaugeEntityId] = new Pushed(level, nowSeconds);
+        }
+
         /// <summary>Forgets a gauge - it was salvaged, lifted off, or its ship is gone.</summary>
         public bool Forget(long gaugeEntityId) => _byGauge.Remove(gaugeEntityId);
 

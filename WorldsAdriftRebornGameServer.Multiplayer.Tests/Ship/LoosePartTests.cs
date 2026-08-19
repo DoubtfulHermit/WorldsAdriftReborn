@@ -46,7 +46,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         // ids that ComponentsSerializer serves crash-safe. Seeding any other id would
         // drop the whole all-or-nothing interest batch and render the part invisible.
         private static readonly HashSet<uint> ServedFunctionalIds =
-            new HashSet<uint> { 1108, 1236, 1303, 1107, 1518, 1118, 1246, 12281 };
+            new HashSet<uint> { 1105, 1108, 1236, 1303, 1107, 1518, 1118, 1246, 12281 };
 
         // A stand-in station position, off the origin so a bug that keeps the origin
         // is visible.
@@ -215,7 +215,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         {
             // The all-or-nothing footgun: a seeded id with no ComponentsSerializer
             // branch drops the whole interest batch and the part spawns invisible.
-            // Only 1108/1236/1303/1107 have crash-safe branches today.
+            // Only 1105/1108/1236/1303/1107 have crash-safe branches today.
             foreach (LoosePartDefinition part in LoosePartCatalogue.All)
             {
                 foreach (uint functionalId in part.PartSpecificComponents)
@@ -235,6 +235,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Equal(new uint[] { 1303 }, LoosePartCatalogue.ForSchematic("sail")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1107 }, LoosePartCatalogue.ForSchematic("horn")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1236 }, LoosePartCatalogue.ForSchematic("altimeter")!.PartSpecificComponents);
+
+            // THE FUEL GAUGE IS NOT ONE OF THE 1236 INSTRUMENTS. Four of the five
+            // read altitude/heading off a Rigidbody and gate only on 1236; this one
+            // [Require]s 1105 FuelGaugeState and reads nothing else off SpatialOS, so
+            // seeding it 1236 alone is why its needle could never move. Order matters
+            // only in that this pin catches a silent revert.
+            Assert.Equal(new uint[] { 1105, 1236 }, LoosePartCatalogue.ForSchematic("fuelGauge")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1236 }, LoosePartCatalogue.ForSchematic("atlasSkyCore")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1518 }, LoosePartCatalogue.ForSchematic("deck")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 1118 }, LoosePartCatalogue.ForSchematic("mediumPanel")!.PartSpecificComponents);

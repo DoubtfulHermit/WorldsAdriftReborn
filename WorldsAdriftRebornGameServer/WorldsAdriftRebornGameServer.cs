@@ -3001,9 +3001,20 @@ namespace WorldsAdriftRebornGameServer
         internal static readonly Multiplayer.Horns Horns = new Multiplayer.Horns();
 
         /// <summary>
+        /// Every ship's FUEL: the tank a mounted sky core gives a hull, the burn
+        /// while a pilot holds the throttle, the refuel that Activate on that core
+        /// performs, and the 1105 push that finally makes the fuel gauge's needle
+        /// move. Off with WAREBORN_FUEL=0. See Game.ShipFuelService and
+        /// docs/plans/feature-roadmap.md 12.
+        /// </summary>
+        internal static readonly Game.ShipFuelService ShipFuel =
+            new Game.ShipFuelService(ServerClock);
+
+        /// <summary>
         /// The Activate-verb interact dispatcher for mounted parts (sail furl, lamp
-        /// switch, horn honk). Fed by InteractAgentState_Handler exactly like the
-        /// flight service's Man dispatch; each part's ledger is its single gate.
+        /// switch, horn honk, sky-core refuel). Fed by InteractAgentState_Handler
+        /// exactly like the flight service's Man dispatch; each part's ledger is its
+        /// single gate.
         /// </summary>
         internal static readonly Game.PartInteractionService PartInteractions =
             new Game.PartInteractionService(ServerClock);
@@ -4634,6 +4645,13 @@ namespace WorldsAdriftRebornGameServer
                 // WAREBORN_HELM_FLIGHT=1; cheap when off (an env check) or when no
                 // helm was ever manned (an empty dictionary). See Game.ShipFlightService.
                 IReadOnlySet<ulong> domainFrameSenders = Flight.Tick();
+                // SHIP FUEL: burn what the pilot's throttle costs, push the fuel
+                // gauge when its needle would actually move, and cut the engines of
+                // a hull that just ran dry. Off unless WAREBORN_FUEL is unset or
+                // truthy; cheap when no ship has a sky core (an empty walk). Runs
+                // AFTER Flight.Tick so a hull that ran dry is cut against the same
+                // turn's pilot seat. See Game.ShipFuelService.
+                ShipFuel.Tick();
                 ShipInterest.Tick();
                 // The cadence chopping does not get from the wire. The 1037 cut
                 // signal is a LATCH - one packet when the beam arrives on a

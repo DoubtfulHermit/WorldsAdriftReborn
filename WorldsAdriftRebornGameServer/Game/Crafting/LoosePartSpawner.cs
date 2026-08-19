@@ -294,6 +294,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
                     break;
             }
 
+            // Restore the hull's FUEL SYSTEM if this part is its sky core. The level
+            // itself is not persisted yet (roadmap phase F3, isolated on purpose), so
+            // a restored ship comes back with a full tank.
+            WorldsAdriftRebornGameServer.ShipFuel.OnPartMounted(part.ItemType, partEntityId, hullEntityId);
+
             Console.WriteLine("[info] loose-part spawn: RESTORED MOUNTED '" + part.ItemType + "' (prefab '"
                 + part.PrefabName + "') as part entity " + partEntityId + " attached to hull " + hullEntityId
                 + " at hull-local " + record.LocalOffset() + " (owner '" + record.OwnerCharacterUid

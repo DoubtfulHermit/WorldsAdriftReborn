@@ -43,6 +43,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///   * horn  - Activate (GetTutorialStep -> MOUSE_OVER_HORN). The 1107
     ///     SoundHorn EVENT plays Play_Ship_Horn01 (HornVisualizer.OnSoundHorn);
     ///     30 s recharge (see Horns.RechargeSeconds).
+    ///   * atlasSkyCore - Activate (ShipCorePreprocessor.SetVerb(Activate)). THE
+    ///     REFUEL DOOR. Retail refuelled at a fuel TANK part, whose prefab this
+    ///     client cannot resolve (no fuel tank in the 349-name entity-prefab
+    ///     census), and a verb cannot be invented because
+    ///     InteractiveObjectVisualizer caches the entry matching its PREFAB-BAKED
+    ///     verb once in OnEnable. The sky core is the only ship part whose Activate
+    ///     is baked, unused and unclaimed - so holding E on it moves fuel from the
+    ///     player's inventory into the hull's tank. A deviation from retail, stated
+    ///     as one: docs/plans/feature-roadmap.md 12.4.
     ///
     ///   SERVED ELSEWHERE (existing branches this policy must NOT catch):
     ///   * helm - Man, served by the serializer's dedicated isHelm branch and
@@ -60,10 +69,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///     BLOCKED on serving 1094 RespawnPointState (owner/charge fields drive the
     ///     nameplate + gauge) and on a respawn flow that would give binding one any
     ///     meaning. None until then.
-    ///   * atlasSkyCore - Activate (ShipCorePreprocessor.SetVerb(Activate)). The
-    ///     shipped client has NO consumer of the resulting interact - core visuals
-    ///     read ShipLiftState 1258 off the ship root - so retail's handler was
-    ///     GSIM-side (core activation). None until the flight/lift feature wants it.
     ///
     ///   NOT INTERACTABLE IN RETAIL (confirmed - preprocessors add no
     ///   InteractiveObjectVisualizer; these parts are automatic or passive):
@@ -109,6 +114,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 case "sail":
                 case "lamp":
                 case "horn":
+                case "atlasSkyCore":
                     return PartVerb.Activate;
                 default:
                     return PartVerb.None;
@@ -135,8 +141,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
         /// <summary>
         /// Whether the seeded interaction is usable in the part's current attachment
-        /// state. Helms/sails/lamps/horns operate only when mounted; ordinary parts can
-        /// be picked up only while loose.
+        /// state. Helms/sails/lamps/horns/sky cores operate only when mounted; ordinary
+        /// parts can be picked up only while loose.
         /// </summary>
         public static bool IsSeededInteractionAvailable(string? itemType, bool isMounted)
         {

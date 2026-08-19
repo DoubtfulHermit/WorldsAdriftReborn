@@ -65,6 +65,11 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             WorldsAdriftRebornGameServer.Sails.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Lamps.Unregister(partEntityId);
             WorldsAdriftRebornGameServer.Horns.Unregister(partEntityId);
+            if (mount.HasValue)
+            {
+                WorldsAdriftRebornGameServer.ShipFuel.OnPartUnmounted(
+                    mount.Value.ItemType, partEntityId, mount.Value.HullEntityId);
+            }
             LooseParts.Unregister(partEntityId);
             LocalDomainOwnership.RemoveEntity(
                 WorldsAdriftRebornGameServer.DomainHost, partEntityId);

@@ -57,9 +57,23 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             // A DELTA: each field is an Option, absent = unchanged. Hand exactly
             // that shape to the service - the merge semantics live in one place
             // (FlightControlInput.Merge) where they are unit-tested.
-            WorldsAdriftRebornGameServer.Flight.OnControlInput(
+            //
+            // FUEL sits between the two: it mirrors the same delta (a held stick is
+            // SILENT on this wire, so burning on packet arrival would let a pilot fly
+            // for free), and returns the throttle flight should actually be given -
+            // zero while the hull this player pilots is dry. It never touches the
+            // flight service's own state; see Game.ShipFuelService for the seam.
+            float? throttle = WorldsAdriftRebornGameServer.ShipFuel.OnControlInput(
                 entityId,
                 clientComponentUpdate.throttle.HasValue ? clientComponentUpdate.throttle.Value : (float?)null,
+                clientComponentUpdate.vertical.HasValue ? clientComponentUpdate.vertical.Value : (float?)null,
+                clientComponentUpdate.shipAxes.HasValue ? clientComponentUpdate.shipAxes.Value.X : (float?)null,
+                clientComponentUpdate.shipAxes.HasValue ? clientComponentUpdate.shipAxes.Value.Y : (float?)null,
+                clientComponentUpdate.shipAxes.HasValue ? clientComponentUpdate.shipAxes.Value.Z : (float?)null);
+
+            WorldsAdriftRebornGameServer.Flight.OnControlInput(
+                entityId,
+                throttle,
                 clientComponentUpdate.vertical.HasValue ? clientComponentUpdate.vertical.Value : (float?)null,
                 clientComponentUpdate.shipAxes.HasValue ? clientComponentUpdate.shipAxes.Value.X : (float?)null,
                 clientComponentUpdate.shipAxes.HasValue ? clientComponentUpdate.shipAxes.Value.Y : (float?)null,

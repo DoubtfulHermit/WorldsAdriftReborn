@@ -78,6 +78,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
 
             /// <summary>Last commanded throttle for this hull, -1..1. Absent input = unchanged.</summary>
             public double Throttle;
+
+            /// <summary>
+            /// Whether the hull currently has a refuel door. An INACTIVE tank keeps its
+            /// level but behaves in every other way like an unknown hull - see
+            /// <see cref="ShipFuelLedger.Unregister"/> for why it is dormant rather than
+            /// deleted.
+            /// </summary>
+            public bool Active;
         }
 
         private readonly Dictionary<long, Tank> _byHull = new Dictionary<long, Tank>();
@@ -87,19 +95,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// registration runs on every mount/restore/late-join walk that notices a
         /// sky core, and a second pass must not refill a tank someone has burnt
         /// down - the same trap <c>FuelCanisterRegistry.Register</c> documents.
+        ///
+        /// A hull whose tank went DORMANT (see <see cref="Unregister"/>) comes back
+        /// at the level it left, not full: bolting the core back on must not be a
+        /// free refuel.
         /// </summary>
-        /// <returns>True on the first registration of this hull; false thereafter.</returns>
+        /// <returns>True when the hull's fuel system became active; false if it already was.</returns>
         public bool Register(long hullEntityId, double capacity)
         {
-            if (_byHull.ContainsKey(hullEntityId))
+            if (_byHull.TryGetValue(hullEntityId, out Tank? existing))
             {
-                return false;
+                if (existing.Active)
+                {
+                    return false;
+                }
+                existing.Active = true;
+                existing.Throttle = 0.0;
+                return true;
             }
 
             double sane = capacity > 0.0 && !double.IsNaN(capacity) && !double.IsInfinity(capacity)
                 ? capacity
                 : ShipFuelPolicy.DefaultCapacity;
-            _byHull[hullEntityId] = new Tank { Capacity = sane, Level = sane, Throttle = 0.0 };
+            _byHull[hullEntityId] = new Tank { Capacity = sane, Level = sane, Throttle = 0.0, Active = true };
             return true;
         }
 
@@ -119,11 +137,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             return true;
         }
 
-        /// <summary>Forgets a hull's tank - the ship was salvaged, or lost its core.</summary>
-        public bool Unregister(long hullEntityId) => _byHull.Remove(hullEntityId);
+        /// <summary>
+        /// The hull lost its refuel door - the sky core was lifted off or salvaged.
+        /// The tank goes DORMANT rather than being deleted: the hull immediately
+        /// behaves like an unmetered one (no burn, no gate, reads full), so it can
+        /// never be stranded without a core, but its level is remembered so that
+        /// bolting the core back on is not a free refuel.
+        ///
+        /// Use <see cref="Forget"/> when the ship itself is gone.
+        /// </summary>
+        /// <returns>True when an active fuel system went dormant.</returns>
+        public bool Unregister(long hullEntityId)
+        {
+            if (!_byHull.TryGetValue(hullEntityId, out Tank? tank) || !tank.Active)
+            {
+                return false;
+            }
+            tank.Active = false;
+            tank.Throttle = 0.0;
+            return true;
+        }
+
+        /// <summary>Drops a hull entirely - the ship was salvaged or deleted.</summary>
+        public bool Forget(long hullEntityId) => _byHull.Remove(hullEntityId);
 
         /// <summary>Whether this hull has a fuel system at all.</summary>
-        public bool IsMetered(long hullEntityId) => _byHull.ContainsKey(hullEntityId);
+        public bool IsMetered(long hullEntityId) => Active(hullEntityId) != null;
 
         /// <summary>
         /// What a gauge on this hull should read. An unregistered hull reads
@@ -131,18 +170,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// genuinely has unlimited range, and a needle pinned at empty on a ship
         /// that flies forever would be a lie in the other direction.
         /// </summary>
-        public FuelReading Read(long hullEntityId) =>
-            _byHull.TryGetValue(hullEntityId, out Tank? tank)
-                ? new FuelReading(tank.Capacity, tank.Level)
-                : FuelReading.Unmetered;
+        public FuelReading Read(long hullEntityId)
+        {
+            Tank? tank = Active(hullEntityId);
+            return tank != null ? new FuelReading(tank.Capacity, tank.Level) : FuelReading.Unmetered;
+        }
 
         /// <summary>
         /// Nothing left to burn. FALSE for an unregistered hull: no fuel system
         /// means never dry, which is what keeps the thrust gate off ships that
         /// cannot be refuelled.
         /// </summary>
-        public bool IsDry(long hullEntityId) =>
-            _byHull.TryGetValue(hullEntityId, out Tank? tank) && tank.Level <= 0.0;
+        public bool IsDry(long hullEntityId) => Active(hullEntityId) is Tank tank && tank.Level <= 0.0;
 
         /// <summary>
         /// Records the pilot's commanded throttle for a hull. Unregistered hulls are
@@ -150,7 +189,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// </summary>
         public void SetThrottle(long hullEntityId, double throttle)
         {
-            if (!_byHull.TryGetValue(hullEntityId, out Tank? tank))
+            Tank? tank = Active(hullEntityId);
+            if (tank == null)
             {
                 return;
             }
@@ -160,8 +200,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         }
 
         /// <summary>The throttle this ledger last saw for a hull. 0 for an unknown hull.</summary>
-        public double ThrottleOf(long hullEntityId) =>
-            _byHull.TryGetValue(hullEntityId, out Tank? tank) ? tank.Throttle : 0.0;
+        public double ThrottleOf(long hullEntityId) => Active(hullEntityId)?.Throttle ?? 0.0;
 
         /// <summary>
         /// Moves up to <paramref name="offered"/> whole units of fuel into a hull's
@@ -171,7 +210,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         /// </summary>
         public int Deposit(long hullEntityId, int offered)
         {
-            if (!_byHull.TryGetValue(hullEntityId, out Tank? tank))
+            Tank? tank = Active(hullEntityId);
+            if (tank == null)
             {
                 return 0;
             }
@@ -201,7 +241,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             foreach (KeyValuePair<long, Tank> entry in _byHull)
             {
                 Tank tank = entry.Value;
-                if (tank.Level <= 0.0)
+                if (!tank.Active || tank.Level <= 0.0)
                 {
                     continue;
                 }
@@ -223,16 +263,42 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             return (IReadOnlyList<long>?)wentDry ?? System.Array.Empty<long>();
         }
 
-        /// <summary>Every metered hull. For fan-out, persistence and logs.</summary>
-        public IReadOnlyList<long> HullEntityIds => new List<long>(_byHull.Keys);
+        /// <summary>Every ACTIVE metered hull. For fan-out, persistence and logs.</summary>
+        public IReadOnlyList<long> HullEntityIds
+        {
+            get
+            {
+                var ids = new List<long>(_byHull.Count);
+                foreach (KeyValuePair<long, Tank> entry in _byHull)
+                {
+                    if (entry.Value.Active)
+                    {
+                        ids.Add(entry.Key);
+                    }
+                }
+                return ids;
+            }
+        }
 
-        /// <summary>How many hulls have a fuel system. For logs and tests.</summary>
-        public int Count => _byHull.Count;
+        /// <summary>How many hulls have an ACTIVE fuel system. For logs and tests.</summary>
+        public int Count
+        {
+            get
+            {
+                int active = 0;
+                foreach (KeyValuePair<long, Tank> entry in _byHull)
+                {
+                    if (entry.Value.Active) { active++; }
+                }
+                return active;
+            }
+        }
 
         /// <summary>Fills one hull's tank. The admin escape hatch; returns false for an unknown hull.</summary>
         public bool Refill(long hullEntityId)
         {
-            if (!_byHull.TryGetValue(hullEntityId, out Tank? tank))
+            Tank? tank = Active(hullEntityId);
+            if (tank == null)
             {
                 return false;
             }
@@ -246,6 +312,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             int changed = 0;
             foreach (Tank tank in _byHull.Values)
             {
+                if (!tank.Active) { continue; }
                 if (tank.Level < tank.Capacity)
                 {
                     changed++;
@@ -254,6 +321,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             }
             return changed;
         }
+
+        /// <summary>The hull's tank, but only while its fuel system is active.</summary>
+        private Tank? Active(long hullEntityId) =>
+            _byHull.TryGetValue(hullEntityId, out Tank? tank) && tank.Active ? tank : null;
 
         private static double Clamp(double value, double min, double max)
         {

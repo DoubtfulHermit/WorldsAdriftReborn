@@ -427,6 +427,12 @@ namespace WorldsAdriftRebornGameServer.Game
                     break;
             }
 
+            // A mounted sky core is what gives a hull a FUEL SYSTEM at all: it is the
+            // only ship part whose Activate verb is prefab-baked and unclaimed, so it
+            // is the only refuel door the shipped client leaves open. Idempotent, and
+            // deliberately never a refill - see ShipFuelLedger.
+            WorldsAdriftRebornGameServer.ShipFuel.OnPartMounted(def?.ItemType, partEntityId, hullEntityId);
+
             // The correct Man/Activate entry was seeded while loose (unavailable),
             // because InteractiveObjectVisualizer only caches it in OnEnable. Mounting
             // now needs exactly one value flip to make the already-cached verb usable.

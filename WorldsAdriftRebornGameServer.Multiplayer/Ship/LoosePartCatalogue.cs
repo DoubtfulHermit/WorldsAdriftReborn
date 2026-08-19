@@ -71,6 +71,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         // as ShipParts leaves the static engine/sail dormant; waking them is a
         // documented follow-on, never a regression (best-effort interest leaves one
         // part inert, never the ship).
+        /// <summary>
+        /// 1105 FuelGaugeState { capacity, fuel }. The ONE component
+        /// FuelGaugeVisualizer [Require]s - it reads nothing else off SpatialOS
+        /// (acs/Assets.Scripts.Visualisers.Ship/FuelGaugeVisualizer.cs:16). Seeding
+        /// only 1236 here, as this row did, is why the needle could never move; see
+        /// docs/plans/feature-roadmap.md 12.3.
+        /// </summary>
+        private const uint FuelGaugeState = 1105;
+
         private const uint LampState = 1108;
         private const uint IsTooDamagedToWorkState = 1236;
         private const uint SailState = 1303;
@@ -277,7 +286,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
             // ships expose one broad usable mounting surface: ShipDeck. Author all five
             // there rather than retaining the known-broken generic Environment raycast.
             new Row("altimeter",          "instruments", "Altimeter",           "Altimeter",         "deck", new uint[] { IsTooDamagedToWorkState }),
-            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "deck", new uint[] { IsTooDamagedToWorkState }),
+            new Row("fuelGauge",          "instruments", "Fuel Gauge",          "FuelGauge",         "deck", new uint[] { FuelGaugeState, IsTooDamagedToWorkState }),
             new Row("headingIndicator",   "instruments", "Heading Indicator",   "HeadingIndicator",  "deck", new uint[] { IsTooDamagedToWorkState }),
             new Row("artificialHorizon",  "instruments", "Artificial Horizon",  "ArtificialHorizon", "deck", new uint[] { IsTooDamagedToWorkState }),
             new Row("airspeedIndicator",  "instruments", "Airspeed Indicator",  "AirspeedIndicator", "deck", new uint[] { IsTooDamagedToWorkState }),

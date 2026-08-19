@@ -243,6 +243,50 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         [Fact]
+        public void LiftingTheCoreOffIsNotAFreeRefuel()
+        {
+            // Unregister/Register is what a player does by lifting the sky core and
+            // bolting it back on. The tank goes dormant, not empty, and comes back
+            // exactly as left - otherwise the refuel errand is optional.
+            ShipFuelLedger ledger = Registered();
+            ledger.SetThrottle(Hull, 1.0);
+            ledger.Burn(200.0, 1.0);           // 250 -> 50
+            double before = ledger.Read(Hull).Level;
+            Assert.Equal(50.0, before, 6);
+
+            Assert.True(ledger.Unregister(Hull));
+            Assert.False(ledger.IsMetered(Hull));
+
+            Assert.True(ledger.Register(Hull, 250.0));
+            Assert.Equal(before, ledger.Read(Hull).Level, 6);
+        }
+
+        [Fact]
+        public void ADormantTankBurnsNothingAndIsNeverReportedDry()
+        {
+            ShipFuelLedger ledger = Registered(capacity: 10.0);
+            ledger.SetThrottle(Hull, 1.0);
+            ledger.Unregister(Hull);
+
+            Assert.Empty(ledger.Burn(10000.0, 1.0));
+            Assert.False(ledger.IsDry(Hull));
+            Assert.Equal(0, ledger.Count);
+            Assert.Empty(ledger.HullEntityIds);
+        }
+
+        [Fact]
+        public void ForgetDropsTheHullEntirely()
+        {
+            ShipFuelLedger ledger = Registered();
+            ledger.SetThrottle(Hull, 1.0);
+            ledger.Burn(200.0, 1.0);
+
+            Assert.True(ledger.Forget(Hull));
+            Assert.True(ledger.Register(Hull, 250.0));
+            Assert.Equal(250.0, ledger.Read(Hull).Level);
+        }
+
+        [Fact]
         public void AZeroCapacityReadingReadsFullRatherThanDividingByZero()
         {
             var reading = new FuelReading(0.0, 0.0);

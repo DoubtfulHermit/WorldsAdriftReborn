@@ -45,7 +45,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [InlineData("storageContainer")]
         [InlineData("shippingContainer")]
         [InlineData("personalReviver")]
-        [InlineData("atlasSkyCore")]
         public void KnownRetailVerbsNotYetServableStayNone(string itemType)
         {
             Assert.Equal(PartVerb.None, PartInteractionPolicy.VerbFor(itemType));
@@ -105,7 +104,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         /// the service together.
         /// </summary>
         [Fact]
-        public void WholeCatalogueAuditsToExactlyTheThreeActivateParts()
+        public void WholeCatalogueAuditsToExactlyTheFourActivateParts()
         {
             var interactable = LoosePartCatalogue.All
                 .Where(def => PartInteractionPolicy.VerbFor(def.ItemType) != PartVerb.None)
@@ -113,7 +112,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 .OrderBy(t => t)
                 .ToArray();
 
-            Assert.Equal(new[] { "horn", "lamp", "sail" }, interactable);
+            // atlasSkyCore joined the list as the REFUEL DOOR - the only ship part
+            // whose Activate is prefab-baked and otherwise unclaimed. Anything else
+            // appearing here without a 1211 handler behind it is a prompt that lies.
+            Assert.Equal(new[] { "atlasSkyCore", "horn", "lamp", "sail" }, interactable);
         }
 
         [Fact]
@@ -130,6 +132,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [InlineData("sail", PartVerb.Activate)]
         [InlineData("lamp", PartVerb.Activate)]
         [InlineData("horn", PartVerb.Activate)]
+        [InlineData("atlasSkyCore", PartVerb.Activate)]
         [InlineData("deck", PartVerb.PickUp)]
         public void InitialCheckoutSeedsThePrefabBakedVerb(string itemType, PartVerb expected)
         {
