@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: nested-diamond-solid (shapes-solid, sheet index 19).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#175763" fill-rule="nonzero" d="M-965 10 L-554 431 L-5 980 L9 972 L148 837 L965 10 L956 -5 L871 -96 L151 -833 L10 -975 L-5 -980 L-669 -306 L-958 -5 Z M-738 10 L-733 -5 L-719 -21 L-5 -748 L153 -592 L737 10 L582 160 L64 687 L-5 751 L-293 461 L-451 295 Z M-569 10 L-5 571 L553 10 L522 -30 L-5 -566 L-267 -306 L-410 -156 L-504 -66 L-563 -5 Z"/>
+</svg>

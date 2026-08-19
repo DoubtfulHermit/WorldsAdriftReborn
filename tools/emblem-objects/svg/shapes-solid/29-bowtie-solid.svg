@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: bowtie-solid (shapes-solid, sheet index 29).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#504F4F" fill-rule="nonzero" d="M-828 -969 L-189 -195 L-20 -1 L-13 17 L-369 439 L-799 968 L-784 980 L801 980 L818 968 L649 756 L25 17 L32 -1 L67 -36 L564 -652 L787 -917 L828 -969 L819 -980 L-819 -980 Z"/>
+</svg>

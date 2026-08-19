@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: flat-hexagon-outline (shapes-outline, sheet index 17).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#595858" fill-rule="nonzero" d="M-865 237 L-864 406 L-863 423 L-854 429 L-753 372 L-745 355 L-743 -336 L-743 -352 L-753 -371 L-854 -423 L-865 -403 Z M-857 -504 L-787 -460 L-736 -438 L-618 -500 L-45 -831 L-35 -841 L-34 -959 L-45 -975 L-62 -969 L-79 -955 L-804 -543 Z M-855 507 L-804 545 L-366 797 L-197 888 L-96 950 L-62 969 L-45 972 L-36 962 L-36 844 L-45 834 L-618 502 L-719 448 L-736 444 L-787 467 Z M27 -959 L27 -858 L30 -841 L39 -834 L713 -447 L730 -441 L746 -443 L855 -504 L831 -526 L544 -686 L39 -980 L31 -976 Z M28 962 L39 980 L56 972 L831 530 L855 507 L730 436 L494 577 L443 602 L39 838 L28 861 Z M741 355 L751 372 L848 433 L865 423 L863 -420 L848 -426 L831 -411 L754 -369 L742 -352 Z"/>
+</svg>
