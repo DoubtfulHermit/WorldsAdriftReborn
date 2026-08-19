@@ -17,7 +17,10 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
     ///   exactly like the tree it came off, and the client asks for what it wants
     ///   over SEND_COMPONENT_INTEREST.</item>
     /// <item>OUT, ~32 times over 1.6 s: one 190602 TransformState carrying
-    ///   localPosition and localRotation. 190602 is UNRELIABLE by
+    ///   localPosition and localRotation - the SAME two fields whether or not the
+    ///   log was grounded, because grounding changes what those fields say and never
+    ///   how many of them there are. It adds no component, no stream and no rate;
+    ///   see <see cref="LogGrounding"/>. 190602 is UNRELIABLE by
     ///   <c>MirrorSendPolicy.RelayReliabilityFor</c> and this stream is superseding -
     ///   every update is the complete absolute pose, never a delta - so a loss costs
     ///   one frame of smoothness and nothing else.</item>
@@ -55,6 +58,14 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// <summary>How many logs may be live at once. 0 is another way to switch it off.</summary>
         internal const string BudgetEnv = "WAREBORN_TREE_FALL_MAX";
 
+        /// <summary>
+        /// How far a resting log's origin sits above the ground, in metres. See
+        /// <see cref="LogGrounding.ParseLift"/>: it is a trunk radius, it is
+        /// reconstructed rather than measured, and the only instrument that can read
+        /// it is somebody standing next to a felled log.
+        /// </summary>
+        internal const string LiftEnv = "WAREBORN_TREE_FALL_LIFT";
+
         private const uint TransformStateComponentId = 190602;
 
         private readonly FallingLogs _logs;
@@ -64,14 +75,15 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         internal FallingLogService(IClock clock)
             : this(clock,
                 TreeFall.FallEnabled(Environment.GetEnvironmentVariable(EnableEnv)),
-                TreeFall.ParseBudget(Environment.GetEnvironmentVariable(BudgetEnv)))
+                TreeFall.ParseBudget(Environment.GetEnvironmentVariable(BudgetEnv)),
+                LogGrounding.ParseLift(Environment.GetEnvironmentVariable(LiftEnv)))
         {
         }
 
-        internal FallingLogService(IClock clock, bool enabled, int? maxConcurrent)
+        internal FallingLogService(IClock clock, bool enabled, int? maxConcurrent, double? liftMetres = null)
         {
             _enabled = enabled;
-            _logs = new FallingLogs(clock, maxConcurrent: maxConcurrent);
+            _logs = new FallingLogs(clock, maxConcurrent: maxConcurrent, liftMetres: liftMetres);
         }
 
         /// <summary>Whether felled logs are switched on.</summary>
