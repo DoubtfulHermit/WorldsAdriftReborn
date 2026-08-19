@@ -126,6 +126,23 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **Login server:** `9855edd`, deployed and restarted at 2026-08-19 09:02 CEST.
+  Login-only again, and again because there is no migration: the portal opens
+  the three game-owned tables READ-ONLY and `EnsureSchema` leaves the database
+  at v9.
+  Signing in now lands on `/account` rather than `/download`. `/download` is
+  untouched and still bounces an unauthenticated visitor to `/login`, so old
+  links and the patcher flow are unaffected - verified live after the deploy,
+  not assumed.
+  Rollback: `/opt/wareborn/backups/pre-portal-20260819T070155Z/login`. No
+  database action is needed to roll back, because nothing was migrated.
+  Verified from outside: `/account` unauthenticated 302 -> `/login`; `/login`
+  200; `/download` 302 -> `/login`; `/map`, `/patchnotes`,
+  `/patch/manifest.json`, `/welcomeMessage` all 200; the plain-http emblem
+  still 200 `image/png`. `NRestarts=0`.
+  The one journal line matching "failed" is the OLD process taking SIGTERM
+  during the restart, not the new one.
+
 - **Login server:** `566d7e6`, deployed and restarted at 2026-08-19 09:00 CEST.
   Login-only: the game server was deliberately NOT moved, because the only
   storage change is additive (`ServerConfigRepository.Delete`) and no schema
