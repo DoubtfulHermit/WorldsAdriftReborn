@@ -58,6 +58,104 @@ namespace WorldsAdriftReborn.Patching.Dynamic.LandingScreen
         /// <summary>How faded the unavailable card is. Readable, clearly off.</summary>
         private const float DisabledAlpha = 0.35f;
 
+        /// <summary>
+        /// The label on the FIRST splash page - the parchment scroll headed
+        /// "Greetings Traveller," - kept so a welcome message that arrives from
+        /// the server after the screen has drawn can still be shown.
+        ///
+        /// Held as a plain reference rather than looked up again because the
+        /// screen is disposed when the player continues, and a destroyed
+        /// TextMeshProUGUI compares equal to null under Unity's overloaded
+        /// operator, which is exactly the check we want.
+        /// </summary>
+        private static TextMeshProUGUI liveWelcomeLabel;
+
+        private static bool subscribed;
+
+        /// <summary>
+        /// Replaces Bossa's welcome copy on the first splash page.
+        ///
+        /// WHY THIS METHOD AND NOT SetTexts. SetProductionText and SetBetaText
+        /// both call SetTexts FIRST and only then assign
+        /// _splashScreenTextMesh.text from the localisation table, so a postfix on
+        /// SetTexts would be overwritten a line later - the same ordering trap
+        /// that makes the landing-screen copy need two hooks. These two are the
+        /// last writers, so this is the seam.
+        ///
+        /// It is a serialized field, not a label found by matching its text, so
+        /// unlike LandingCopy_Patch there is no guessing about which label is
+        /// which. The retail string is a Bossa press release: it welcomes the
+        /// player to "a Community-Crafted MMO", calls the game "still in the early
+        /// stages of development", and invites them to contact Community Managers
+        /// who have not existed since 2019.
+        ///
+        /// The text itself comes from the server so an operator can edit it in the
+        /// admin panel, with a baked-in default for the offline case. See
+        /// WelcomeMessageFetcher for why that fetch never blocks this screen.
+        /// </summary>
+        [HarmonyPostfix]
+        [HarmonyPatch("SetProductionText")]
+        public static void SetProductionText_Postfix(SplashScreen __instance)
+        {
+            ApplyWelcome(__instance);
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch("SetBetaText")]
+        public static void SetBetaText_Postfix(SplashScreen __instance)
+        {
+            ApplyWelcome(__instance);
+        }
+
+        private static void ApplyWelcome(SplashScreen screen)
+        {
+            try
+            {
+                TextMeshProUGUI label = Label(screen, "_splashScreenTextMesh");
+                if (label == null)
+                {
+                    Debug.LogWarning("[WAReborn] SplashScreen._splashScreenTextMesh is missing; the "
+                        + "welcome page still shows Bossa's original copy.");
+                    return;
+                }
+
+                liveWelcomeLabel = label;
+                label.text = WelcomeMessageFetcher.Current();
+
+                if (!subscribed)
+                {
+                    // Late answers redraw the screen in place. Subscribed once,
+                    // never unsubscribed: this is a static event on a type that
+                    // lives as long as the process, and the handler is null-safe
+                    // against a disposed screen.
+                    subscribed = true;
+                    WelcomeMessageFetcher.Arrived += OnWelcomeArrived;
+                }
+
+                Debug.Log("[WAReborn] welcome page copy replaced ("
+                    + (WelcomeMessageFetcher.Fetched == null ? "built-in text" : "from the server")
+                    + ").");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError("[WAReborn] could not replace the welcome page copy; it may still "
+                    + "show Bossa's original text. " + e);
+            }
+        }
+
+        private static void OnWelcomeArrived()
+        {
+            // Unity's operator== is what makes this safe once the screen has been
+            // disposed: a destroyed object compares equal to null.
+            if (liveWelcomeLabel == null)
+            {
+                return;
+            }
+
+            liveWelcomeLabel.text = WelcomeMessageFetcher.Current();
+            Debug.Log("[WAReborn] welcome page updated with the message that arrived from the server.");
+        }
+
         [HarmonyPostfix]
         [HarmonyPatch("SetTexts")]
         public static void SetTexts_Postfix(SplashScreen __instance)

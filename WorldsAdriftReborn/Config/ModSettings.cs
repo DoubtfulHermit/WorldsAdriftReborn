@@ -36,6 +36,17 @@ namespace WorldsAdriftReborn.Config
             return RestUrlPolicy.ResolveAlliancesUrl(alliancesServerUrl.Value, restServerUrl.Value);
         }
 
+        /// <summary>
+        /// The welcome-message endpoint. Derived from REST_ServerUrl rather than
+        /// being its own setting: it is served by the same WorldsAdriftServer that
+        /// answers REST, so a separate key could only ever drift out of step with
+        /// it, which is exactly the bug RestUrlPolicy exists to document.
+        /// </summary>
+        public static string WelcomeMessageUrl()
+        {
+            return WelcomeMessagePolicy.ResolveUrl(restServerUrl.Value);
+        }
+
         /// <summary>The deploymentStatus endpoint, with the blank-means-REST default applied.</summary>
         public static string DeploymentStatusUrl()
         {
