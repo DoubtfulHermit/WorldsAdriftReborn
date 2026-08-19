@@ -1790,32 +1790,102 @@ and every symptom falls out of that one string:
 > .MountSurface` therefore still reads `"deck"`, with the precondition written
 > next to it.
 
-#### 11.11.4 The actual fix, and why it is not a client patch
+#### 11.11.4 THE BLOCKER, verified from source: `flag4`
 
-**Give a mounted part a real hierarchy key instead of `"~"`.** All five walks
-start working as retail intended, retail's own instrument exemption revives by
-itself, exclusion radii start being enforced, `ShipInstruments.MountSurface` can
-become `"shipSurfaces"`, and **the entire Harmony patch deletes** — one
-server-side decision replacing three client hooks that each papered over one
-consequence.
+**NEW FACT, and it outranks every inference here: the maintainer has SEEN players
+mount instruments on pipes in the live retail game.** So "can they" is settled —
+yes. And a peer audit settled the other half: `attachmentType` is a STRING on
+`ShipPartState` with nine legal values (`none, side, deck, deckGrid, deckForward,
+engine, wing, shipSurfaces, coreModule`), and searching all six asset containers
+plus `StreamingAssets/GameDB` for those literals returns **zero hits**. The
+authored per-part values lived in Improbable's server-side templates and are
+**unrecoverable**. Picking one is therefore not inventing retail behaviour — it is
+supplying a value retail also supplied. There is no fidelity risk in choosing; only
+a correctness risk in choosing one that does not work.
 
-`Deck.HierarchyKey` already proves the mechanism works on this server. The known
-cost is documented in `BoltedPartTransform.IsUnityChild`: a real Unity child must
-be **excluded from the `ShipPartMotionService` wake heartbeat**, or re-sending
-`parent` twice a second churns an unparent+reparent and the client destroys and
-re-adds the rigidbody. That is why this is **its own branch with its own soak**,
-not a rider on this one: it changes how every mounted part is transformed, on a
-moving ship, with two players aboard.
+**And `shipSurfaces` alone does not work.** Read directly off
+`PlayerScannerTool.UpdatePlacementMode`, not inferred:
 
-**DONE HERE:** the client patch is **deleted** (both halves), the bar pipes are
-implemented, and `ShipInstruments` records the surface argument with its
-precondition. **NOT DONE:** the parenting change. Until it lands, instruments
-still mount on the deck only — which is a missing feature, and the maintainer
-was explicit that a missing feature beats a hack.
+```csharp
+bool flag3 = flag2 && Preview.IsPlacing && IsWithinShipyardRange(Preview);   // :501
+bool flag4 = ShipPartPlacement.IsAttachedToShip(Preview.TargetObject);        // :502
+...
+if (!flag && IsLiftingObject && flag3 && flag4 && !flag11 && !flag9)          // :516
+    _canPlaceFrames++;  else _canPlaceFrames = 0;
+_canDrop = !flag && IsLiftingObject && flag3 && !flag4 && (...);              // :524
+```
 
-**Note for whoever ships the deletion:** the patch is LIVE. Manifest
-`2026.08.19-6` is titled *"ship containers open; instruments mount on placed
-parts"*, so removing it from players is itself a patcher release.
+`CanPlace` needs **`flag4`**; `_canDrop` needs **`!flag4`**; and `flag4` is
+`GetComponentInParents<DockableVisualizer>()` on the target — **not gated on the
+attachment type, not gated on anything we author**. Change `attachmentType` to
+whatever you like and this line does not move. A `shipSurfaces` instrument aimed
+at a bar pipe would raycast correctly, pose correctly and pass every overlap rule,
+then fail `CanPlace` and free-drop — while ALSO losing the deck, because the
+`ShipSurfaces` mask excludes `ShipAttachmentSolid`. **Nowhere left to put an
+instrument.** `ShipInstruments.MountSurface` therefore stays `"deck"`.
+
+(Worth noting from the same read: `flag3` gates BOTH branches on
+`IsPlayerInsideShipyard() && IsShipyardActive() && IsWithinShipyardRange`. All
+ship-part placement is a shipyard activity in retail.)
+
+**So retail's pipes worked because retail's mounted parts were real Unity children
+of the ship.** Ours are not, and that is the whole difference.
+
+---
+
+#### PHASE SC5 — Mounted parts join the ship's transform hierarchy *(NOT STARTED — the real fix)*
+
+- **Delivers:** a crafted mounted part is seeded a REAL 190602 hierarchy key
+  instead of `BoltedPartTransform.RelativeSlotKey` (`"~"`), so the client
+  re-parents it under the hull instead of merely position-following it.
+- **Player can newly do:** mount a gauge on a bar pipe or a railing — and, as
+  free consequences, get ownership checks that resolve, exclusion radii that are
+  actually enforced, and retail's own instrument overlap exemption working by
+  itself. **All five broken walks in §11.11.2 close at once**, and
+  `ShipInstruments.MountSurface` can then become `"shipSurfaces"` in the same
+  breath, which is what supplies the correct pose.
+- **The mechanism is already PROVEN on this server.** `Deck.HierarchyKey` does
+  exactly this for the walkable deck and is live-confirmed (it is the carry fix);
+  `Deck.cs:55-110` documents the client chain end to end, verified line by line.
+- **Scope is four call sites and one filter:**
+  1. `ComponentsSerializer.cs:402` — the checkout seed for a mounted crafted part,
+     currently a hardcoded `RelativeSlotKey`.
+  2. `PartMountService.cs:323` — the mount-commit broadcast.
+  3. `ShipFlightService.cs:1002` — the in-flight re-publish.
+  4. `ShipPartMotionService.cs:143,165` — the wake heartbeat, which already
+     filters on `BoltedPartTransform.IsUnityChild` but is keyed on the STATIC
+     hull's part keys, not on crafted mounts.
+  Plus one new per-part decision, mirroring `HierarchyKeyFor`, so the seed and the
+  wake filter can never disagree about which parts are real children.
+- **Migration:** no. **CLIENT MOD:** **no** — this is the point. One server-side
+  decision replaces three Harmony hooks.
+- **SOAK: YES, mandatory.** It changes how every mounted part is transformed on a
+  moving ship with two players aboard. That is precisely the class the standing
+  multiplayer-safety rule names.
+- **Main risks, all stated rather than discovered later:**
+  * **The wake heartbeat MUST exclude the newly-parented parts** or the client
+    churns an unparent+reparent — rigidbody destroyed and re-added — twice a
+    second. `BoltedPartTransform.IsUnityChild` exists for exactly this and its doc
+    comment says so.
+  * **A real parent DESTROYS the part's client-side rigidbody**
+    (`TransformManageRigidbodyBehaviour`, verified). Fine and desirable for inert
+    structure; `BoltedPartTransform` explicitly says the helm, engine and sail
+    "must keep their own rigidbody", so this cannot be applied blanket. Start with
+    structure and instruments.
+  * **Two prefab-baked assumptions are invisible offline** and only a live client
+    settles them: each part's authored `TransformNature` needs
+    `GameObjectCanBeParented = true`, and `ShouldRemoveRigidbodyOnParented = true`.
+    They held for `Deck01`. If they do not hold for a given part, the key is
+    ignored and that part stays exactly as it is today — it fails SAFE.
+  * It touches parts already bolted to ships in the live world. **The
+    lowest-risk first step is the two BAR PIPES ONLY**, because no bar pipe exists
+    in any player's world yet, so step one cannot regress a single existing ship;
+    then flip the instruments once a live craft confirms a pipe rides the hull
+    without jitter.
+- **Why it was NOT done on `fix/ship-interactions`:** it is a transform-model
+  change wanting its own soak, its own live verification and its own rollback,
+  and it arrived at the end of a branch that had already shipped four unrelated
+  fixes. Bundling it would have made all five unshippable together.
 
 ---
 

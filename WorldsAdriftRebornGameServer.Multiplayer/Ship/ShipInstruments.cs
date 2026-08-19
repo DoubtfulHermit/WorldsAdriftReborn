@@ -109,10 +109,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// **THE PRECONDITION, exactly.** Flip this to <c>"shipSurfaces"</c> the moment a
         /// mounted part is seeded a REAL hierarchy key instead of
         /// <see cref="BoltedPartTransform.RelativeSlotKey"/> - i.e. when
-        /// <c>GetComponentInParents</c> can find the hull from a bolted part. That one
-        /// server-side decision fixes FIVE separate client walks at once (see
-        /// docs/plans/feature-roadmap.md 11.11), and this string is the last step of it,
-        /// not a substitute for it.
+        /// <c>GetComponentInParents</c> can find the hull from a bolted part. That is
+        /// PHASE SC5 (docs/plans/feature-roadmap.md 11.11.4), it is four call sites plus
+        /// one filter, and it fixes FIVE separate client walks at once. This string is
+        /// the last step of that change, not a substitute for it.
+        ///
+        /// AND THE CHOICE ITSELF CARRIES NO FIDELITY RISK, which is worth knowing before
+        /// anyone agonises over it: <c>attachmentType</c> has nine legal values and an
+        /// exhaustive search of all six shipped asset containers plus
+        /// <c>StreamingAssets/GameDB</c> finds NONE of those literals anywhere. The
+        /// authored per-part values lived in Improbable's server-side templates and are
+        /// unrecoverable. Picking one is supplying a value retail also supplied - the
+        /// only question is which one WORKS, and today the answer is "deck".
         /// </summary>
         public const string MountSurface = "deck";
 
