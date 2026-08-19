@@ -72,6 +72,31 @@ answer to "how many lists?" turned out to be **five**, and two of them —
 `knowledge-tree.json` (§4.7) and the asset paths (§0.2.1) — had been sitting
 in reach the whole time and had never been read as lists at all.
 
+### 0.0.2 The bar pipe was in this repository for nine days before anyone saw it
+
+The second miss has the same shape and a harder edge, because it does not even
+need the client.
+
+`docs/research/valid-icons.txt` — the shipped icon catalogue, already extracted,
+already committed, already used as a test oracle — was added to this repo on
+**2026-08-11** by `a2166c7`. It contains, on **line 873**:
+
+```
+ship parts/barpipe
+ship parts/barpipebent
+```
+
+Bar pipes were implemented on **2026-08-20**, by `ea8d645`, nine days later,
+after a community wiki named them.
+
+**For nine days the answer was sitting in a tracked file in this repository,
+two lines apart, under a heading that says `ship parts`.** No decompile, no
+asset extraction, no wiki required. Nobody had read the file as a list.
+
+And the same file's **line 894** reads `ship parts/crowsnest`. That one is
+still unimplemented today (§2.3.D), which is how this document knows the
+lesson has not been learned yet.
+
 ### 0.1 Provenance key
 
 The repo's existing labels, unchanged.
