@@ -1,16 +1,20 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 539 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 543 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 53 commits
+## 2026-08-19 | 58 commits
 
 * 5834a9a Group the changelog in one pass instead of re-querying per day
+* 033d547 Adopt an unactivated container rather than filling it with gauntlets
 * 46ea3ff Compress the object catalogue, which just became a megabyte
 * 7c9fffc Give the object panel groups a player can browse rather than one long list
 * 01ac220 Put the two hundred traced objects in front of the player
+* 70c67a3 Allocate the destination item id only once a move is certain
+* 593fc73 Show loot containers on the operator map, and not on the public one
 * daecd01 Correct the production claim: the release world IS on, and the numbers decompose
 * 35a0317 Kill a creature with the beam, not with a weapons system
 * 5febf4b Size phase 7 from evidence, and withdraw the corpse-grounding plan
+* ebed3c2 Seed loot containers, and make them openable and lootable
 * 6241cc4 Make regenerating the patch notes a step of the deploy
 * 77863d7 Record the gate results for the three landed phases
 * 38a51b5 Separate two comment blocks that ran together
@@ -19,6 +23,7 @@ Every commit, newest first. 539 of them since 2026-08-07. Merges are left out - 
 * 3774e15 Make the live ground-profile cache safe for parallel test classes
 * 67d3709 Lay a felled log along the ground instead of flat through it
 * 058877d Draw a deposit's metal from its island instead of hardcoding iron
+* ea7d618 Plan loot containers, and correct three claims the resource audit got wrong
 * d756972 Pay a node's own quality into the item it yields
 * 7686267 Offer the alliance crest as a PNG, not only as a vector
 * 707a28e Plan the resource economy, and correct three audit findings first
@@ -536,7 +541,7 @@ Every commit, newest first. 539 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 41 commits
+## 2026-08-07 | 40 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -578,8 +583,7 @@ Every commit, newest first. 539 of them since 2026-08-07. Merges are left out - 
 * 892cfee Seed remote avatars with TransformState only, and document component ids
 * f6b0cff Support multiple simultaneous players
 * 0a40ecf Add mingw-w64 cross-compile build for CoreSdkDll
-* 6a110bd Add pure multiplayer policy modules with unit tests
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 136 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 137 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
