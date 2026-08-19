@@ -84,7 +84,11 @@ namespace WorldsAdriftRebornGameServer.Game.Loot
                 LootContainers.GridHeight,
                 LootContainers.HasBelt,
                 LootContainers.BeltRow,
-                drops);
+                drops,
+                // The island tier this chest belongs to, stamped onto every item it
+                // holds. Salvaging reads it back to pay the right quality; without it
+                // a relic looted on a tier-4 island would pay its tier-1 numbers.
+                LootContainerLedger.TierOf(entityId));
 
             if (placed < drops.Count)
             {

@@ -28,6 +28,27 @@ namespace WorldsAdriftRebornGameServer.Game.Items
             public int rarity { get; set; } = 0;
             public Dictionary<string, string> metadata { get; set; }
 
+            /// <summary>
+            /// WHAT THIS ITEM SALVAGES INTO, keyed by island tier - the shipped
+            /// scrap yield table, RECOVERED. 134 rows carry one:
+            /// <c>"rewards": { "3": { "a": 80, "q": 6, "item": "titanium" } }</c>.
+            ///
+            /// It was in the file all along and nothing read it, which is why
+            /// scrap was a souvenir. Read now by
+            /// <c>InventoryWire.ScrapRewards</c> and nowhere else; it is
+            /// deliberately NOT part of <see cref="GetReferenceItems"/>, because
+            /// the client has no field for it and payouts are a server decision.
+            /// </summary>
+            public Dictionary<string, RewardRow> rewards { get; set; }
+
+            /// <summary>One yield: <c>a</c>mount, <c>q</c>uality, and the material id.</summary>
+            public class RewardRow
+            {
+                public int a { get; set; }
+                public int q { get; set; }
+                public string item { get; set; }
+            }
+
             public Option<int> GetRarity()
             {
                 return new Option<int>(rarity);
@@ -58,6 +79,18 @@ namespace WorldsAdriftRebornGameServer.Game.Items
                 {
                     if (string.IsNullOrEmpty(item.itemTypeID))
                         continue;
+
+                    // A REPEATED ID IS LAST-WINS AND WAS SILENT, and it cost a real
+                    // item its whole reward block: itemData.json carried
+                    // scrapItem-woodenbowl twice, and the second copy had no name and
+                    // no rewards, so the Wooden Bowl resolved to the poorer row - both
+                    // here and in the client, whose own itemDict is built the same way
+                    // (acs/InventoryItemManager.cs:81). The duplicate is fixed in the
+                    // data; this says so out loud if another one ever lands.
+                    if (_allItems.ContainsKey(item.itemTypeID))
+                        Console.WriteLine("[warning] itemData.json lists '" + item.itemTypeID
+                            + "' more than once; the LAST row wins, here and on the client.");
+
                     _allItems[item.itemTypeID] = item;
                     // if (!string.IsNullOrEmpty(item.description)) ItemDescriptions.Add(item.itemTypeID, item.description);
                 }

@@ -174,6 +174,14 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         /// No push: the caller is the 1081 SEED path, which serialises the model
         /// itself. Pushing here would send a component update for an entity the peer
         /// has not finished checking out.
+        ///
+        /// <para><paramref name="sourceTier"/> IS STAMPED ONTO EVERY DROP, and it is
+        /// the whole reason salvaging pays the right quality. A Tonking Puck is 45
+        /// aluminium at quality 6, 5 or 10 depending on which tier of island it came
+        /// off, and once it is in a player's bag the ONLY thing that still knows
+        /// which is this stamp. It rides the free-form <c>meta</c> dictionary that is
+        /// already persisted and already survives a cross-inventory move (the move
+        /// copies the record), so it needs no schema change and no wire change.</para>
         /// </summary>
         internal static int BindContainer(
             long entityId,
@@ -181,9 +189,18 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
             int height,
             bool hasBelt,
             int beltRow,
-            IReadOnlyList<Multiplayer.Loot.LootDrop> drops )
+            IReadOnlyList<Multiplayer.Loot.LootDrop> drops,
+            int? sourceTier = null )
         {
             int placed = 0;
+
+            Dictionary<string, string> stamp = sourceTier.HasValue
+                ? new Dictionary<string, string>
+                {
+                    [ScrapSalvagePolicy.SourceTierMetaKey] =
+                        sourceTier.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                }
+                : new Dictionary<string, string>();
 
             Store.Bind(entityId, InventoryKey.ForSession(entityId), () =>
             {
@@ -198,7 +215,11 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
                         drop.ItemTypeId,
                         drop.Amount,
                         drop.Quality,
-                        new Dictionary<string, string>(),
+                        // A fresh dictionary per item: Meta is stored by reference on
+                        // the record and later mutated per item elsewhere, so sharing
+                        // one instance across a chest would make every item in it
+                        // change together.
+                        new Dictionary<string, string>(stamp),
                         rarity: null,
                         InventoryWire.Footprints);
 

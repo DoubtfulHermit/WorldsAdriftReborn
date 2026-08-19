@@ -57,6 +57,62 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         }
 
         /// <summary>
+        /// THE SCRAP YIELD TABLE, as the pure salvage rules want it: a flat list of
+        /// (tier, ordinal, material, amount, quality) rows, or false for a type that
+        /// carries no <c>rewards</c> block.
+        ///
+        /// This is the only reader of <c>ValidItem.rewards</c>, and it lives here for
+        /// the same reason <see cref="Footprints"/> does: the pure Multiplayer
+        /// assembly references nothing, so it cannot name ItemHelper. The tier KEY is
+        /// parsed by <see cref="Multiplayer.Inventory.ScrapSalvagePolicy.TryParseTierKey"/>
+        /// rather than here, so the one place that decides what "4.1" means is the
+        /// one place that is unit-tested.
+        ///
+        /// A row whose key does not parse is DROPPED, not guessed at. Silently
+        /// paying an unrecognised key at some default tier would be a payout nobody
+        /// authored.
+        /// </summary>
+        internal static bool ScrapRewards(string itemTypeId, out IReadOnlyList<ScrapReward> rewards)
+        {
+            rewards = Array.Empty<ScrapReward>();
+
+            if (string.IsNullOrEmpty(itemTypeId)
+                || !ItemHelper.AllItems.TryGetValue(itemTypeId, out ItemHelper.ValidItem? item)
+                || item.rewards == null
+                || item.rewards.Count == 0)
+            {
+                return false;
+            }
+
+            System.Collections.Generic.List<ScrapReward> rows = new(item.rewards.Count);
+
+            foreach (KeyValuePair<string, ItemHelper.ValidItem.RewardRow> entry in item.rewards)
+            {
+                if (entry.Value == null || string.IsNullOrEmpty(entry.Value.item))
+                {
+                    continue;
+                }
+
+                if (!ScrapSalvagePolicy.TryParseTierKey(entry.Key, out int tier, out int ordinal))
+                {
+                    Console.WriteLine("[warning] '" + itemTypeId + "' has an unparseable reward tier key '"
+                        + entry.Key + "'; that yield will never be paid.");
+                    continue;
+                }
+
+                rows.Add(new ScrapReward(tier, ordinal, entry.Value.item, entry.Value.a, entry.Value.q));
+            }
+
+            if (rows.Count == 0)
+            {
+                return false;
+            }
+
+            rewards = rows;
+            return true;
+        }
+
+        /// <summary>
         /// An item type's material category ("Metal", "Wood", "Fuel", ...), or
         /// false for a type the database has never heard of. Shaped as a
         /// <see cref="Multiplayer.Crafting.MaterialCategoryLookup"/> so the pure

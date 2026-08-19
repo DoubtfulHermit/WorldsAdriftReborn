@@ -72,6 +72,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             requests += HandleRemoveFromHotBar(clientComponentUpdate, model);
             requests += HandleCrossInventoryMove(clientComponentUpdate, entityId);
             requests += HandleMoveAll(clientComponentUpdate, entityId);
+            requests += HandleTryToConsume(clientComponentUpdate, entityId);
             requests += LogUnimplemented(clientComponentUpdate);
 
             // The 1082 echo the old code ended on. Kept because the client's
@@ -298,6 +299,48 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         }
 
         /// <summary>
+        /// SALVAGE. The client draws the button on any item whose id starts with
+        /// <c>scrapItem-</c> (<c>InventoryTooltipPopup.cs:113</c>), and pressing it
+        /// sends exactly this event - <c>TryToConsume(inventoryEntityId, itemId)</c>
+        /// from <c>InventoryItemSlot.Use()</c>, which also greys the panel until a
+        /// 1081 arrives. It arrived here for months and was refused with "no
+        /// consumable effects", so 409 chests' worth of scrap did nothing.
+        ///
+        /// The event carries an inventory entity id, and it is CHECKED rather than
+        /// used. The client only ever sends the player's own - it refuses to salvage
+        /// from anything but PlayerInventory (<c>InventoryTooltipPopup.cs:241-247</c>)
+        /// - and honouring a foreign id here would let a peer consume items out of a
+        /// chest, or out of somebody else's bag, from a hand-built packet. The
+        /// ownership gate at the top of HandleUpdate proves the SENDER owns
+        /// <paramref name="playerEntityId"/>; this proves the request names it.
+        ///
+        /// tryToConsume is still the event for eating food and opening a Steam
+        /// bundle. Those have no model, so anything that is not scrap falls through
+        /// to the same honest refusal as before, inside
+        /// <see cref="ScrapSalvageService"/>.
+        /// </summary>
+        private static int HandleTryToConsume(
+            InventoryModificationState.Update update, long playerEntityId )
+        {
+            for (int j = 0; j < update.tryToConsume.Count; j++)
+            {
+                TryToConsume consume = update.tryToConsume[j];
+
+                if (consume.inventoryEntityId.Id != playerEntityId)
+                {
+                    Console.WriteLine("[warning] refusing tryToConsume naming inventory "
+                        + consume.inventoryEntityId.Id + " from player " + playerEntityId
+                        + ": an item may only be salvaged out of the sender's own inventory.");
+                    continue;
+                }
+
+                ScrapSalvageService.TrySalvage(playerEntityId, consume.itemId);
+            }
+
+            return update.tryToConsume.Count;
+        }
+
+        /// <summary>
         /// The gate both cross-inventory paths share: exactly one end must be the
         /// SENDER's own entity and the other must be a registered loot container.
         /// Anything else is refused with a named reason.
@@ -359,7 +402,6 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             count += Note(update.splitItemStack.Count, "splitItemStack", "no stacking model");
 
             count += Note(update.equipTool.Count, "equipTool", "tool slots are hardcoded client-side");
-            count += Note(update.tryToConsume.Count, "tryToConsume", "no consumable effects");
             count += Note(update.tryToLearn.Count, "tryToLearn", "no schematic model");
             count += Note(update.installCipher.Count, "installCipher", "no cipher model");
             count += Note(update.destroyCipher.Count, "destroyCipher", "no cipher model");
