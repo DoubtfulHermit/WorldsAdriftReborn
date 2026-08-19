@@ -141,6 +141,35 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            // The greeting the client shows on arrival. Read and write are two
+            // different gates: reading it needs only the operator session, since
+            // the same string is served unauthenticated at /welcomeMessage;
+            // writing it needs the full command-endpoint ceremony, because it is
+            // the one thing on this page an operator can change that every player
+            // will read. Both decisions are made by WelcomeMessageGate so they
+            // are assertable without a socket.
+            if (path == "/admin/api/welcome" && method == "GET")
+            {
+                WelcomeMessageGate.Decision read = WelcomeMessageGate.EvaluateRead(authed);
+                if (!read.Serve)
+                {
+                    Json(session, read.Status, read.Refusal!);
+                    return true;
+                }
+
+                Json(session, 200, new JObject
+                {
+                    ["message"] = ReadWelcomeMessage(),
+                }.ToString(Formatting.None));
+                return true;
+            }
+
+            if (path == "/admin/api/welcome" && method == "POST")
+            {
+                HandleWelcomeMessage(session, request, authed, sessionToken);
+                return true;
+            }
+
             // The operator command surface. It takes the whole
             // /admin/api/operator/ namespace, including paths it does not serve,
             // so a GUI calling a wrong endpoint gets a JSON refusal naming the
@@ -257,6 +286,101 @@ namespace WorldsAdriftServer.Handlers.Admin
 
             // Either way, back to the dashboard - it will show the stored value.
             Redirect(session, "/admin");
+        }
+
+        /// <summary>
+        /// POST /admin/api/welcome. The gate decides; this only reads the body,
+        /// stores the normalised form and answers with it, so the panel shows the
+        /// operator exactly what was kept rather than what they typed.
+        /// </summary>
+        private static void HandleWelcomeMessage(HttpSession session, HttpRequest request,
+            bool authed, string? sessionToken)
+        {
+            WelcomeMessageGate.Decision gate = WelcomeMessageGate.EvaluateWrite(
+                authed,
+                HeaderValue(request, "X-Wareborn-Admin") == "1",
+                AdminAuthPolicy.VerifyCsrf(sessionToken,
+                    HeaderValue(request, AdminAuthPolicy.CsrfHeader)));
+            if (!gate.Serve)
+            {
+                Json(session, gate.Status, gate.Refusal!);
+                return;
+            }
+
+            string? submitted = ReadJsonString(request.Body, "message");
+
+            WelcomeMessageGate.Decision body = WelcomeMessageGate.EvaluateBody(submitted);
+            if (!body.Serve)
+            {
+                Json(session, body.Status, body.Refusal!);
+                return;
+            }
+
+            string normalized = ServerConfigPolicy.NormalizeWelcomeMessage(submitted);
+
+            try
+            {
+                Accounts.ServerConfig.SetWelcomeMessage(submitted, DateTimeOffset.UtcNow);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[error] admin failed to set the welcome message: " + e.Message);
+                Json(session, 503, new JObject
+                {
+                    ["error"] = "unavailable",
+                    ["message"] = "The configuration database could not be written; nothing was saved.",
+                }.ToString(Formatting.None));
+                return;
+            }
+
+            Console.WriteLine("[info] admin set the welcome message ("
+                + normalized.Length + " characters).");
+
+            Json(session, 200, new JObject
+            {
+                ["ok"] = true,
+                ["message"] = normalized,
+            }.ToString(Formatting.None));
+        }
+
+        /// <summary>
+        /// One string field out of a JSON request body, or null if the body is
+        /// not an object, the field is absent, or the field is not a string.
+        /// Tolerant for the same reason <see cref="ParseForm"/> is: a malformed
+        /// body from a panel button should surface as the gate's 400 with a
+        /// reason in it, not as a 500 with a stack trace.
+        /// </summary>
+        private static string? ReadJsonString(string? body, string field)
+        {
+            if (string.IsNullOrWhiteSpace(body))
+            {
+                return null;
+            }
+
+            try
+            {
+                JToken parsed = JToken.Parse(body!);
+                return parsed is JObject obj && obj[field] is JValue value
+                    && value.Type == JTokenType.String
+                    ? (string?)value
+                    : null;
+            }
+            catch (JsonException)
+            {
+                return null;
+            }
+        }
+
+        private static string ReadWelcomeMessage()
+        {
+            try
+            {
+                return Accounts.ServerConfig.GetWelcomeMessage();
+            }
+            catch (Exception)
+            {
+                return ServerConfigPolicy.DefaultWelcomeMessage;
+            }
         }
 
         private static void HandleAdminCommand(HttpSession session, HttpRequest request,

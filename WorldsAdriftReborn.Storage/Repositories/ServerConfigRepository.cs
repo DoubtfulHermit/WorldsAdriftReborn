@@ -53,6 +53,40 @@ namespace WorldsAdriftReborn.Storage.Repositories
             Set(ServerConfigPolicy.ServerNameKey, ServerConfigPolicy.Normalize(name), now);
         }
 
+        /// <summary>
+        /// The greeting the client shows on arrival, or
+        /// <see cref="ServerConfigPolicy.DefaultWelcomeMessage"/> if nobody has
+        /// set one. Falls back for the same reason <see cref="GetServerName"/>
+        /// does: /welcomeMessage is a client path, and a missing row is the
+        /// normal state of a fresh database rather than a fault.
+        /// </summary>
+        public string GetWelcomeMessage()
+        {
+            string? stored = Get(ServerConfigPolicy.WelcomeMessageKey);
+            return string.IsNullOrWhiteSpace(stored)
+                ? ServerConfigPolicy.DefaultWelcomeMessage
+                : stored!;
+        }
+
+        /// <summary>
+        /// Sets the greeting. As with the server name, the caller is expected to
+        /// have checked <see cref="ServerConfigPolicy.IsValidWelcomeMessage"/>
+        /// and shown the operator why if not - the table's own CHECK refuses a
+        /// blank value, so an unvalidated write would surface as a database
+        /// exception rather than a message the panel can render.
+        /// </summary>
+        public void SetWelcomeMessage(string? message, DateTimeOffset now)
+        {
+            if (!ServerConfigPolicy.IsValidWelcomeMessage(message))
+            {
+                throw new ArgumentException(
+                    "Refusing to store an unusable welcome message.", nameof(message));
+            }
+
+            Set(ServerConfigPolicy.WelcomeMessageKey,
+                ServerConfigPolicy.NormalizeWelcomeMessage(message), now);
+        }
+
         /// <summary>One config value by key, or null if it is not set.</summary>
         public string? Get(string key)
         {

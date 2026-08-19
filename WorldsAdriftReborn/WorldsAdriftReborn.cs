@@ -55,6 +55,11 @@ namespace WorldsAdriftReborn
             QuietenOrdinaryLogStackTraces();
             InitPatches();
 
+            // Starts the welcome-message request NOW, seconds before the splash
+            // screen it feeds exists. That head start is the whole reason the
+            // screen never has to wait on the network: see WelcomeMessageFetcher.
+            gameObject.AddComponent<Patching.Dynamic.LandingScreen.WelcomeMessageFetcher>();
+
             // Disables cameras and audio listeners on mirrored remote player rigs;
             // see RemoteRigSweeper for why Harmony patches cannot cover this.
             gameObject.AddComponent<Patching.Multiplayer.RemoteRigSweeper>();

@@ -119,7 +119,12 @@ variable to <code>username:hash</code> and restart the login server to enable th
                 // website rather than about the world, so it sits under World
                 // beside the live game rather than in Operations.
                 ("viewersCard", WebAssets.ReadTrimmed("admin-viewers.html")),
-                ("mapBody", mapBody));
+                ("mapBody", mapBody),
+                // The greeting the game client shows on arrival. Under System,
+                // beside the server name, because it is the same kind of thing:
+                // an operator-set string that used to be a literal somewhere
+                // else and is now a row the panel owns.
+                ("welcomeCard", WebAssets.ReadTrimmed("admin-welcome.html")));
 
             // 1.5 s: the game server rewrites its snapshot every three, so a
             // reader on four was guaranteed to sometimes miss a generation
@@ -166,9 +171,12 @@ variable to <code>username:hash</code> and restart the login server to enable th
             "admin-operator.js",
             "admin-topology.js",
             "admin-wiring.js",
-            // Last, and self-booting: it touches only its own card, so it needs
-            // nothing wired for it and adds no line to admin-wiring.js.
+            // Last, and self-booting: they touch only their own card, so they
+            // need nothing wired for them and add no line to admin-wiring.js.
+            // Both read admin-console.js's CSRF constant, so both must stay
+            // after it.
             "admin-viewers.js",
+            "admin-welcome.js",
         };
 
         /// <summary>Minimal HTML entity escaping for text interpolated into markup.</summary>
