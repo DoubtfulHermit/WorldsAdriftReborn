@@ -1,9 +1,16 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 550 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 552 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 76 commits
+## 2026-08-19 | 83 commits
 
+* af75ad7 Drop a salvaged container's inventory binding
+* f27da94 Reflow a comment the container branch pushed over the margin
+* d4bb1a6 Flip a bolted container's prompt on
+* 1075279 Stop the 1210 branch claiming storage is unservable
+* 1251a5b Record what the ship-component audit got to change its mind about
+* a6d8bf7 Let deck parts mount on things already placed
+* 5764683 Open the four ship storage containers
 * 7cb0057 Audit the 37 assembly-bench ship components against the client's own requirements
 * ad55b94 Write out the portal states nobody ever looks at
 * 033b197 Centre the current tab on a phone, and show a form in flight
@@ -559,7 +566,7 @@ Every commit, newest first. 550 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 29 commits
+## 2026-08-07 | 24 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -585,12 +592,7 @@ Every commit, newest first. 550 of them since 2026-08-07. Merges are left out - 
 * b4d15da Relay real player appearance
 * b745a8e Document the working multiplayer: architecture, operations, roadmap
 * c44ac3b Move plain remote rigs from TransformState; sample-decode relayed transforms
-* 9f47d2b Give every client the same island entity id so Parent references resolve
-* 92d1cd0 Diagnose the plain remote rig and un-cull its render layer
-* 5c56086 Two-phase mirror: request the plain Traveller asset before AddEntityOp
-* 55bbd19 Mirror remote players with prefab context Default, not Player
-* 0e69621 Only run first-time setup and authority grant against the sender's own entity
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 148 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 153 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
