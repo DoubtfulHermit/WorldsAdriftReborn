@@ -20,7 +20,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// <summary>InteractVerb.Man = 3 (helm - served by the serializer's own isHelm branch).</summary>
         Man = 3,
 
-        /// <summary>InteractVerb.Inventory = 4 (storage containers - not yet served, see policy).</summary>
+        /// <summary>InteractVerb.Inventory = 4 (the four ship storage containers).</summary>
         Inventory = 4,
     }
 
@@ -43,6 +43,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///   * horn  - Activate (GetTutorialStep -> MOUSE_OVER_HORN). The 1107
     ///     SoundHorn EVENT plays Play_Ship_Horn01 (HornVisualizer.OnSoundHorn);
     ///     30 s recharge (see Horns.RechargeSeconds).
+    ///   * trunk / mountedBox / storageContainer / shippingContainer - Inventory
+    ///     (ShipContainerPreprocessor.SetVerb(InteractVerb.Inventory)). Unblocked
+    ///     by the loot-container 1081 work: the four rows now seed 1081 + 1236
+    ///     (ShipContainers.RequiredComponents) so InWorldInventoryVisualiser and
+    ///     IsTooDamagedToWorkVisualizer both enable, and the E press is answered
+    ///     with the same Interact(Inventory) echo a ruin chest gets. See
+    ///     <see cref="ShipContainers"/>.
     ///
     ///   SERVED ELSEWHERE (existing branches this policy must NOT catch):
     ///   * helm - Man, served by the serializer's dedicated isHelm branch and
@@ -50,12 +57,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///     branch never double-serves it (the isHelm check runs first anyway).
     ///
     ///   READY-TO-IMPLEMENT (retail verb known; needs its state serve first):
-    ///   * trunk/mountedBox/storageContainer/shippingContainer - Inventory
-    ///     (ShipContainerPreprocessor.SetVerb(InteractVerb.Inventory)). BLOCKED on
-    ///     serving 1081 InventoryState (+ inUseBy handshake + event_interact echo,
-    ///     which InWorldInventoryVisualiser requires to open the UI). Advertising
-    ///     the prompt before that serve exists would be a lie ("E does nothing"),
-    ///     so None until then.
     ///   * personalReviver - Activate (GetTutorialStep -> MOUSE_OVER_REVIVER).
     ///     BLOCKED on serving 1094 RespawnPointState (owner/charge fields drive the
     ///     nameplate + gauge) and on a respawn flow that would give binding one any
@@ -111,7 +112,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 case "horn":
                     return PartVerb.Activate;
                 default:
-                    return PartVerb.None;
+                    // The four storage containers, keyed off the same table that
+                    // owns their grid so a fifth container row cannot be added with
+                    // a capacity but no prompt (or the reverse).
+                    return ShipContainers.IsContainer(itemType)
+                        ? PartVerb.Inventory
+                        : PartVerb.None;
             }
         }
 
@@ -135,13 +141,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
 
         /// <summary>
         /// Whether the seeded interaction is usable in the part's current attachment
-        /// state. Helms/sails/lamps/horns operate only when mounted; ordinary parts can
-        /// be picked up only while loose.
+        /// state. Helms/sails/lamps/horns/containers operate only when mounted;
+        /// ordinary parts can be picked up only while loose.
+        ///
+        /// A CONTAINER IS DELIBERATELY MOUNTED-ONLY, and it is the one entry here
+        /// whose reason is not "retail did it that way". A loose part is lifted and
+        /// re-spawned by the scanner, and salvaging one destroys the entity - so an
+        /// openable loose trunk would be a place a player could put items and then
+        /// lose them by picking the trunk up. Bolt it down first and the only route
+        /// to the same loss is the salvage beam, which
+        /// <see cref="ShipPartSalvagePolicy"/> refuses while the container holds
+        /// anything.
         /// </summary>
         public static bool IsSeededInteractionAvailable(string? itemType, bool isMounted)
         {
             PartVerb verb = SeedVerbFor(itemType);
             return verb == PartVerb.Man || verb == PartVerb.Activate
+                || verb == PartVerb.Inventory
                 ? isMounted
                 : !isMounted;
         }

@@ -33,22 +33,70 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         }
 
         /// <summary>
-        /// Retail verbs exist for these (storage=Inventory, reviver/core=Activate)
-        /// but their state serves do not yet - 1081 InventoryState, 1094
-        /// RespawnPointState, the core's GSIM-side activation. Advertising a prompt
-        /// before the handler exists would be a lie, so None until then. Flipping
-        /// any of these to a verb must come WITH its serve + 1211 handling.
+        /// Retail verbs exist for these (reviver/core=Activate) but their state
+        /// serves do not yet - 1094 RespawnPointState, the core's GSIM-side
+        /// activation. Advertising a prompt before the handler exists would be a lie,
+        /// so None until then. Flipping any of these to a verb must come WITH its
+        /// serve + 1211 handling.
+        ///
+        /// The four storage containers used to be on this list. They came off it when
+        /// 1081 + 1236 started being seeded and the Inventory verb served - see
+        /// <see cref="StorageContainersAdvertiseTheVerbTheirPrefabBakes"/>.
+        /// </summary>
+        [Theory]
+        [InlineData("personalReviver")]
+        [InlineData("atlasSkyCore")]
+        public void KnownRetailVerbsNotYetServableStayNone(string itemType)
+        {
+            Assert.Equal(PartVerb.None, PartInteractionPolicy.VerbFor(itemType));
+        }
+
+        /// <summary>
+        /// The four ship containers advertise Inventory, which is the verb
+        /// ShipContainerPreprocessor.SetVerb bakes into their prefabs. This is not a
+        /// free choice: InteractiveObjectVisualizer caches
+        /// Interactions.FirstOrDefault(i => i.verb == Verb) ONCE at OnEnable, so any
+        /// other verb - including the generic PickUp we served for months - leaves
+        /// that lookup empty, the radius at zero, and NO prompt able to appear, with
+        /// nothing logged on either side.
         /// </summary>
         [Theory]
         [InlineData("trunk")]
         [InlineData("mountedBox")]
         [InlineData("storageContainer")]
         [InlineData("shippingContainer")]
-        [InlineData("personalReviver")]
-        [InlineData("atlasSkyCore")]
-        public void KnownRetailVerbsNotYetServableStayNone(string itemType)
+        public void StorageContainersAdvertiseTheVerbTheirPrefabBakes(string itemType)
         {
-            Assert.Equal(PartVerb.None, PartInteractionPolicy.VerbFor(itemType));
+            Assert.Equal(PartVerb.Inventory, PartInteractionPolicy.VerbFor(itemType));
+            Assert.Equal(PartVerb.Inventory, PartInteractionPolicy.SeedVerbFor(itemType));
+        }
+
+        /// <summary>
+        /// A container is openable only once BOLTED DOWN. A loose one can be lifted
+        /// away by anyone with a scanner, contents and all, so offering to fill it
+        /// first would be offering a place to lose things.
+        /// </summary>
+        [Theory]
+        [InlineData("trunk")]
+        [InlineData("mountedBox")]
+        [InlineData("storageContainer")]
+        [InlineData("shippingContainer")]
+        public void ContainersOpenOnlyOnceMounted(string itemType)
+        {
+            Assert.False(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, false));
+            Assert.True(PartInteractionPolicy.IsSeededInteractionAvailable(itemType, true));
+        }
+
+        /// <summary>
+        /// The prompt numbers. Radius zero is the MetalNodes.PickUpRadius trap - the
+        /// prompt simply never appears - and a hold nobody expects on a chest reads
+        /// as an unresponsive prompt.
+        /// </summary>
+        [Fact]
+        public void ContainerEntryValuesAreNonZeroRadiusAndInstant()
+        {
+            Assert.True(ShipContainers.InteractRadius > 0f);
+            Assert.Equal(0f, ShipContainers.InteractTimeToUse);
         }
 
         /// <summary>
@@ -99,21 +147,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
 
         /// <summary>
         /// EVERY catalogue row has an explicit verdict covered by the cases above:
-        /// walking the real catalogue must yield Activate only for sail/lamp/horn.
-        /// A new catalogue row defaults to None (safe - no prompt), and this test
-        /// documents that adding an interactable one means extending the policy AND
-        /// the service together.
+        /// walking the real catalogue must yield Activate only for sail/lamp/horn and
+        /// Inventory only for the four storage containers. A new catalogue row
+        /// defaults to None (safe - no prompt), and this test documents that adding an
+        /// interactable one means extending the policy AND the service together.
+        ///
+        /// SEVEN is the whole answer to "which ship parts respond to E" and it is
+        /// spelled out here rather than counted, so that a part quietly gaining or
+        /// losing a prompt is a failing test rather than a live surprise.
         /// </summary>
         [Fact]
-        public void WholeCatalogueAuditsToExactlyTheThreeActivateParts()
+        public void WholeCatalogueAuditsToExactlyTheSevenInteractableParts()
         {
             var interactable = LoosePartCatalogue.All
                 .Where(def => PartInteractionPolicy.VerbFor(def.ItemType) != PartVerb.None)
                 .Select(def => def.ItemType)
-                .OrderBy(t => t)
+                .OrderBy(t => t, StringComparer.Ordinal)
                 .ToArray();
 
-            Assert.Equal(new[] { "horn", "lamp", "sail" }, interactable);
+            Assert.Equal(
+                new[]
+                {
+                    "horn", "lamp", "mountedBox", "sail",
+                    "shippingContainer", "storageContainer", "trunk",
+                },
+                interactable);
+
+            Assert.Equal(
+                new[] { "mountedBox", "shippingContainer", "storageContainer", "trunk" },
+                LoosePartCatalogue.All
+                    .Where(def => PartInteractionPolicy.VerbFor(def.ItemType) == PartVerb.Inventory)
+                    .Select(def => def.ItemType)
+                    .OrderBy(t => t, StringComparer.Ordinal)
+                    .ToArray());
         }
 
         [Fact]

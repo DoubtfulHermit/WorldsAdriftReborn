@@ -209,13 +209,20 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
 
                     if (man.verb == InteractVerb.Inventory)
                     {
-                        // OPENING A LOOT CONTAINER. ALWAYS-ON like the atlas pickup
+                        // OPENING A CONTAINER. ALWAYS-ON like the atlas pickup
                         // and the shrine, NOT behind WAREBORN_PLACEMENT: searching
-                        // an island is not a placement feature. The service answers
-                        // false for any target that is not a registered container,
-                        // so this dispatch costs one dictionary miss for every other
-                        // Inventory interact - and there are no others yet, because
-                        // ship trunks still refuse the verb (PartInteractionPolicy).
+                        // an island is not a placement feature.
+                        //
+                        // TWO KINDS ANSWER THIS VERB and each service answers false
+                        // for the other's targets, so the order is arbitrary and the
+                        // cost of a miss is one dictionary lookup:
+                        //   * a ruin chest, identified by the loot ledger;
+                        //   * a crafted trunk/mountedBox/storageContainer/
+                        //     shippingContainer bolted to a ship, identified by the
+                        //     loose-part catalogue.
+                        // If BOTH refuse, the client pressed E on something whose
+                        // prompt we never advertised, and the log line above already
+                        // names the target.
                         //
                         // Owner-gated: the echo names the OPENING player's entity id
                         // and the client compares it against its own, so firing it
@@ -223,7 +230,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         // who did not press anything.
                         if (ownsPlayer)
                         {
-                            Loot.LootService.OpenContainer(player, entityId, man.target.Id);
+                            if (!Loot.LootService.OpenContainer(player, entityId, man.target.Id))
+                            {
+                                ShipContainerService.OpenContainer(player, entityId, man.target.Id);
+                            }
                         }
                         else
                         {

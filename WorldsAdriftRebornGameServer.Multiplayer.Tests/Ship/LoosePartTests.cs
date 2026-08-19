@@ -45,8 +45,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         // The ONLY part-specific component ids a row may seed on top of the common base:
         // ids that ComponentsSerializer serves crash-safe. Seeding any other id would
         // drop the whole all-or-nothing interest batch and render the part invisible.
+        // 1081 joined the list with ship storage: its branch is entity-generic and
+        // preceded by ShipContainerService.Ensure, so it answers a container with the
+        // container's own model rather than throwing or handing back the starter kit.
         private static readonly HashSet<uint> ServedFunctionalIds =
-            new HashSet<uint> { 1108, 1236, 1303, 1107, 1518, 1118, 1246, 12281 };
+            new HashSet<uint> { 1081, 1108, 1236, 1303, 1107, 1518, 1118, 1246, 12281 };
 
         // A stand-in station position, off the origin so a bug that keeps the origin
         // is visible.
@@ -244,7 +247,73 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             Assert.Empty(LoosePartCatalogue.ForSchematic("helm")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 12281 }, LoosePartCatalogue.ForSchematic("proceduralEngineDefault")!.PartSpecificComponents);
             Assert.Equal(new uint[] { 12281 }, LoosePartCatalogue.ForSchematic("proceduralWingDefault")!.PartSpecificComponents);
-            Assert.Empty(LoosePartCatalogue.ForSchematic("storageContainer")!.PartSpecificComponents);
+            // Storage containers seed the two [Require]s that decide whether their
+            // inventory visualiser ever enables. Asserted per row rather than in a
+            // loop so that adding a fifth container without its components is a
+            // failure here and not a silently dead prop in the world.
+            foreach (string container in new[]
+                     { "trunk", "mountedBox", "storageContainer", "shippingContainer" })
+            {
+                Assert.Equal(
+                    ShipContainers.RequiredComponents,
+                    LoosePartCatalogue.ForSchematic(container)!.PartSpecificComponents);
+            }
+        }
+
+        /// <summary>
+        /// EVERY container the interaction policy offers an Inventory prompt on must
+        /// also seed 1081 + 1236, and vice versa. The two halves live in different
+        /// files and either one alone produces the exact failure this whole feature
+        /// exists to remove: a prompt with no inventory behind it, or an inventory
+        /// with no way to open it. Neither logs anything.
+        /// </summary>
+        [Fact]
+        public void Every_container_seeds_its_requires_and_advertises_its_verb()
+        {
+            var seeded = new List<string>();
+            var prompted = new List<string>();
+            foreach (LoosePartDefinition part in LoosePartCatalogue.All)
+            {
+                if (ShipContainers.RequiredComponents
+                    .All(id => part.PartSpecificComponents.Contains(id)))
+                {
+                    seeded.Add(part.ItemType);
+                }
+                if (PartInteractionPolicy.VerbFor(part.ItemType) == PartVerb.Inventory)
+                {
+                    prompted.Add(part.ItemType);
+                }
+            }
+
+            Assert.Equal(
+                new[] { "mountedBox", "shippingContainer", "storageContainer", "trunk" },
+                seeded.OrderBy(x => x, StringComparer.Ordinal).ToArray());
+            Assert.Equal(
+                seeded.OrderBy(x => x, StringComparer.Ordinal).ToArray(),
+                prompted.OrderBy(x => x, StringComparer.Ordinal).ToArray());
+        }
+
+        /// <summary>
+        /// A container's grid must be able to hold the widest item this server can
+        /// produce. A 4-wide trunk would have a column no recovered 5x3 scrap item
+        /// could ever occupy, and nothing would say so - the item would simply
+        /// refuse to drop.
+        /// </summary>
+        [Fact]
+        public void Every_container_grid_can_hold_the_widest_item_in_the_game()
+        {
+            foreach (string itemType in ShipContainers.ItemTypes)
+            {
+                ShipContainers.Grid grid = ShipContainers.GridFor(itemType)!.Value;
+                Assert.True(grid.Width >= ShipContainers.MinimumUsableWidth,
+                    itemType + " is only " + grid.Width + " cells wide.");
+                Assert.True(grid.Height >= ShipContainers.MinimumUsableHeight,
+                    itemType + " is only " + grid.Height + " cells tall.");
+                // NOT the player's 10x18 belt grid, which is what an unbound
+                // container inherits from InventoryWire.DefaultModel.
+                Assert.False(grid.Width == 10 && grid.Height == 18,
+                    itemType + " has the player starter grid's shape.");
+            }
         }
 
         [Fact]

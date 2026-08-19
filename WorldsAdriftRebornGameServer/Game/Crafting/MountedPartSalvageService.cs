@@ -29,9 +29,16 @@ namespace WorldsAdriftRebornGameServer.Game.Crafting
             IReadOnlyList<ShipPartSalvageRefund> refunds = recipe == null
                 ? Array.Empty<ShipPartSalvageRefund>()
                 : ShipPartSalvagePolicy.Refunds(recipe);
+            // A STORAGE CONTAINER WITH SOMETHING IN IT IS NOT DISMANTLED. Salvaging
+            // destroys the entity and its inventory goes with it, and this server has
+            // no ground-item entity to spill the contents into - so the only
+            // alternative to refusing is deleting a player's belongings silently.
+            // ItemCount deliberately does not bind, so shooting a container that has
+            // never been opened does not create its inventory.
             ShipPartSalvageReject verdict = ShipPartSalvagePolicy.Evaluate(
                 craftedPart: true, insideOwnedShipyard: yardId > 0,
-                recipeKnown: recipe != null && refunds.Count > 0);
+                recipeKnown: recipe != null && refunds.Count > 0,
+                containerHoldsItems: ShipContainerService.ItemCount(partEntityId) > 0);
             if (verdict != ShipPartSalvageReject.Accept)
             {
                 Console.WriteLine("[part-salvage] ignored shot on part " + partEntityId
