@@ -55,6 +55,7 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             // itemData.json - so registering the whole set means a species placed
             // later pays the right wood the first time, instead of tripping the
             // "no harvest yield registered for source" warning in Award below.
+            //
             // PLANT FIBRE AND BERRIES RIDE THE SAME CUT. The note that used to sit
             // here said berries were deliberately unregistered because daccatBerries
             // had no itemData.json row, every attribute of one would be invented,
