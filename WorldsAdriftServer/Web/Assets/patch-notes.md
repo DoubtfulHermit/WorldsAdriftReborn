@@ -292,13 +292,12 @@ Every commit, newest first. 538 of them since 2026-08-07. Merges are left out - 
 * 549c3d6 Document Wareborn progress and public join flow
 * 10bdc84 Run game server natively on Linux
 
-## 2026-08-13 | 40 commits
+## 2026-08-13 | 38 commits
 
 * 3d91d4a Stream resources by proximity and improve helm and sails
 * 80756d2 Fix station pickup, ship undocking, and latched helm throttle
 * 4edf0de Fix live helm and sail interaction after mounting
 * f1bf4e3 Populate Haven with a whole-island starter-biome resource field
-* 13a5303 feat(resources): deterministic dense metal-deposit field from real Haven surface
 * 9cab761 Fix idle crafting UI blocker divergence
 * 29a8a97 Spawn chain: ack timeout + gated-last-step park; rescue now acks; precache world prefabs
 * ca5227e Craft-UI self-heal: diagnose and clear the stale CraftingInProgress latch
@@ -325,7 +324,6 @@ Every commit, newest first. 538 of them since 2026-08-07. Merges are left out - 
 * 8d3434d feat(client): stutter attribution probe - every frame spike becomes one named line
 * ae7c415 feat(skycore): restore the orphaned socket system - modules snap onto the CoreMain base
 * 56fcbad fix(server): ledger-gate every first-time-setup AddComponent send; close the MarkServed gaps
-* 2ada5b0 Client flood guards: skip missing worn-item keys, mute the benign visualiser-enable warning
 * b3ef9f6 fix(skycore): the generator is the base of the core chain, not a coreModule
 * 2cd1ff7 fix(craft): every station craft renders its part; no craft may eat materials it cannot show
 * 742c84b feat(loading): whole static world behind the loading screen; shard hidden until exposed
@@ -335,8 +333,10 @@ Every commit, newest first. 538 of them since 2026-08-07. Merges are left out - 
 * ed11dcf fix(salvage): give salvageable resources a real material so the beam works
 * 9cfb8a5 feat(trees): recover all 65 per-species skeletons and cut each species with its own
 
-## 2026-08-12 | 39 commits
+## 2026-08-12 | 41 commits
 
+* 13a5303 feat(resources): deterministic dense metal-deposit field from real Haven surface
+* 2ada5b0 Client flood guards: skip missing worn-item keys, mute the benign visualiser-enable warning
 * ae01977 feat(resources): lodge atlas shards in handshake-spawned deposits
 * ee71df1 Deposit mining fidelity: render diagnostics, core-slot shard lodging, retail crust->core->yield staging
 * 404e201 fix(fuel): rework fuel acquisition from PICKUP to SALVAGE, with the retail 8/8/9 curve
@@ -535,7 +535,7 @@ Every commit, newest first. 538 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 42 commits
+## 2026-08-07 | 41 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -578,7 +578,6 @@ Every commit, newest first. 538 of them since 2026-08-07. Merges are left out - 
 * f6b0cff Support multiple simultaneous players
 * 0a40ecf Add mingw-w64 cross-compile build for CoreSdkDll
 * 6a110bd Add pure multiplayer policy modules with unit tests
-* 7b93a5c Fix fatal CLR abort when registering component update handlers
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 

@@ -61,6 +61,24 @@ inherited_first="$(git log --no-merges --until="$since" --pretty='%ad' --date=sh
 # takes SIGPIPE, and `set -o pipefail` turns that into a failed build.
 first_day="$(git log --no-merges "${exclude_grep[@]}" --since="$since" --pretty='%ad' --date=short | tail -1)"
 
+# ONE PASS OVER THE LOG, grouped here rather than re-queried per day.
+#
+# The previous shape asked git again for each day with
+# --since="$day 00:00:00" --until="$day 23:59:59", and a commit on a day
+# boundary matched TWO of those windows and was written twice; an earlier
+# variant with --until "23:59" dropped one instead. Both bugs come from the
+# same mistake - re-deriving membership from a timestamp range after already
+# knowing which day the commit belongs to. Streaming the log once and grouping
+# on the printed date makes each commit appear exactly once by construction,
+# and there is no window left to be wrong about.
+#
+# Written to a TEMPORARY file and moved into place only after the self-check
+# passes, because the check used to run on a file it had already written - so
+# "REFUSING: do not ship this file" left the bad file sitting in the tree,
+# where it was committed.
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+
 {
   cat <<EOF
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
@@ -68,44 +86,40 @@ Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back 
 Every commit, newest first. ${total} of them since ${first_day}. Merges are left out - they only repeat what the commits under them already say.
 EOF
 
-  # One release block per calendar day, newest first. %ad with --date=short is
-  # the AUTHOR date, which is the day the work was actually written; %cd would
-  # move a whole day's worth of history the first time anything is rebased.
-  git log --no-merges "${exclude_grep[@]}" --since="$since" --pretty='%ad' --date=short \
-    | awk '!seen[$0]++' \
-    | while read -r day; do
-        count="$(git log --no-merges "${exclude_grep[@]}" --since="$day 00:00:00" --until="$day 23:59:59" --oneline | wc -l | tr -d ' ')"
-
-        # "1 commit" reads badly as "1 commits", and this page is read by people.
-        if [ "$count" = "1" ]; then
-          noun="commit"
-        else
-          noun="commits"
-        fi
-
-        printf '\n## %s | %s %s\n\n' "$day" "$count" "$noun"
-
-        # The "* " marker is the commit row; the server splits it on the first
-        # space into a sha column and a subject. Subjects are passed through
-        # untouched - they are escaped at render time, not here, because this
-        # file is also what an operator sees and edits in the admin panel.
-        git log --no-merges "${exclude_grep[@]}" --since="$day 00:00:00" --until="$day 23:59:59" \
-          --pretty='* %h %s'
-      done
+  # %ad with --date=short is the AUTHOR date - the day the work was written.
+  # %cd would move a whole day of history the first time anything is rebased.
+  # SORTED BY DATE before grouping. git streams in COMMIT order while we group
+  # by AUTHOR date, so without this a day whose commits are not contiguous in
+  # the stream gets two headers - which is how 14 days first rendered as 18.
+  # -s keeps each day's commits in the order git listed them; -r puts the
+  # newest day first, which ISO dates sort correctly under.
+  git log --no-merges "${exclude_grep[@]}" --since="$since" \
+      --pretty=$'%ad\t%h\t%s' --date=short \
+    | sort -s -r -k1,1 \
+    | awk -F'\t' '
+        { line[NR] = $0; count[$1]++ }
+        END {
+          for (i = 1; i <= NR; i++) {
+            split(line[i], f, "\t")
+            if (f[1] != cur) {
+              cur = f[1]
+              printf "\n## %s | %d %s\n\n", cur, count[cur], (count[cur] == 1 ? "commit" : "commits")
+            }
+            printf "* %s %s\n", f[2], f[3]
+          }
+        }' 
 
   # The inherited history, credited rather than absorbed. It carries a real
   # date - the day that history starts - rather than a wordy "Before this",
-  # because every other entry on the page is dated and the newest-first ordering
-  # is checked by a test. An undated entry would either break that check or
-  # force it to make an exception, and there is nothing to make an exception
-  # for: this era genuinely began on that day.
+  # because every other entry on the page is dated and the newest-first
+  # ordering is checked by a test.
   cat <<EOF
 
 ## ${inherited_first} | Built on WorldsAdriftReborn
 
 Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - ${inherited} commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
 EOF
-} > "$out"
+} > "$tmp"
 
 # SELF-CHECK. The per-day loop re-queries git with a time window, so it is
 # possible for a commit to exist in the total and fall outside every day's
@@ -113,12 +127,15 @@ EOF
 # that means 23:59:00 and silently dropped a commit made at 23:59:52. A
 # changelog that quietly loses commits is worse than one that fails to build,
 # so this refuses to write a file it cannot account for.
-written="$(grep -c '^\* ' "$out" || true)"
+written="$(grep -c '^\* ' "$tmp" || true)"
 if [ "$written" != "$total" ]; then
   echo "REFUSING: git reports $total commits since $since but only $written rows were written." >&2
-  echo "Some commit falls outside every per-day window. Do not ship this file." >&2
+  echo "The grouping and the count disagree. Nothing was written." >&2
   exit 1
 fi
+
+# Only now does it become the real file.
+mv "$tmp" "$out"
 
 echo "wrote $out"
 echo "  $written commits across $(grep -c '^## ' "$out") dated sections (one is the inherited-history note)"
