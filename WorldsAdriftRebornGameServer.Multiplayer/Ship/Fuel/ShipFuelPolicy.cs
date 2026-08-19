@@ -1,0 +1,223 @@
+namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
+{
+    /// <summary>
+    /// The NUMBERS of the fuel subsystem, and the arithmetic that turns a throttle
+    /// and a duration into fuel burnt. Pure: no ENet, no Improbable types, no clock.
+    ///
+    /// PROVENANCE, because this is the part of fuel that did not survive.
+    /// Everything about MOVING fuel - the transfer amount, the depletion loop, tank
+    /// capacities, per-engine burn rates - lived on the GSim (Scala), which is gone.
+    /// The shipped client carries no fuel tunable at all: <c>ShipConfiguration</c>
+    /// has ~40 flight knobs and not one fuel entry, <c>ConfigKeys</c> has no fuel
+    /// key, and every fuel schema field defaults to proto zero. The ONLY preserved
+    /// number in the whole subsystem is the 8/8/9 canister yield, which lives in
+    /// <see cref="FuelCanisterYield"/> and is not touched here.
+    ///
+    /// So every value below is <b>WAREBORN TUNING</b>, with its reasoning attached
+    /// and an env override, because the first live flight is the only real test.
+    /// See docs/plans/feature-roadmap.md 12.5.
+    ///
+    /// WHAT RETAIL DOES PIN, and what this module reproduces in shape if not in
+    /// magnitude: consumption was CONTINUOUS and THROTTLE-DRIVEN, not per-action.
+    /// <c>ShipEngineState</c> (1116) carries <c>throttle</c>, <c>power</c>,
+    /// <c>spinup</c> and <c>consumption</c> as separate live floats, and the
+    /// client's own engine audio scales its load parameter by their product
+    /// (<c>EngineVisualizer.GetInefficiency</c> -> <c>UpdateAudio</c>). Half
+    /// throttle costs half. An idling ship costs nothing.
+    /// </summary>
+    public static class ShipFuelPolicy
+    {
+        // ------------------------------------------------------------------
+        // Capacity
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// A ship's tank capacity in fuel units. Ten canisters
+        /// (<see cref="FuelCanisterYield.TotalFuel"/> = 25 each): large enough that
+        /// refuelling is an errand, small enough that one salvage trip fills you.
+        /// WAREBORN TUNING.
+        /// </summary>
+        public const double DefaultCapacity = 250.0;
+
+        /// <summary>Floor for a configured capacity - one canister.</summary>
+        public const double MinCapacity = 25.0;
+
+        /// <summary>
+        /// Ceiling for a configured capacity. The gauge's odometer is four digits
+        /// plus a powers-of-1000 magnitude roller, so it renders far more than this;
+        /// the cap exists to keep a typo from making fuel meaningless, not because
+        /// the instrument cannot show it.
+        /// </summary>
+        public const double MaxCapacity = 100000.0;
+
+        // ------------------------------------------------------------------
+        // Burn
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Fuel burnt per second at FULL throttle. At the default capacity a full
+        /// tank is 1000 s - about sixteen minutes of continuous full throttle - and
+        /// one canister is worth about 100 s of flight. WAREBORN TUNING.
+        /// </summary>
+        public const double DefaultBurnPerSecond = 0.25;
+
+        /// <summary>Floor for a configured burn rate. Zero would mean nothing burns fuel again.</summary>
+        public const double MinBurnPerSecond = 0.001;
+
+        /// <summary>Ceiling for a configured burn rate: a full default tank in ten seconds.</summary>
+        public const double MaxBurnPerSecond = 25.0;
+
+        // ------------------------------------------------------------------
+        // Gauge push
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Smallest change in the level that is worth a 1105 broadcast, in fuel
+        /// units. Below this the needle would not visibly move: the client puts TWO
+        /// smoothing stages in front of it - a <c>DelayedInterpolator</c> with
+        /// <c>Delay = 2.0</c> seconds, then <c>Mathf.Lerp(current, target, 2f *
+        /// Time.deltaTime)</c> - so sub-unit updates are pure wire cost.
+        /// </summary>
+        public const double GaugePushQuantum = 1.0;
+
+        /// <summary>
+        /// Minimum seconds between two 1105 pushes for the same gauge. One second
+        /// against a needle that is deliberately two seconds behind the wire.
+        /// This is the rate half of the standing multiplayer-safety rule.
+        /// </summary>
+        public const double GaugePushMinIntervalSeconds = 1.0;
+
+        /// <summary>
+        /// How often the fuel service integrates. Deliberately SLOWER than the
+        /// flight cadence (0.24 s): fuel is an accumulator, and integrating it at
+        /// 0.5 s costs a quarter of the work with no observable difference, because
+        /// nothing downstream can see the level change faster than the gauge quantum
+        /// above allows.
+        /// </summary>
+        public const double BurnIntervalSeconds = 0.5;
+
+        // ------------------------------------------------------------------
+        // The arithmetic
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Fuel burnt by holding <paramref name="throttle"/> for
+        /// <paramref name="seconds"/>, at <paramref name="burnPerSecond"/> for full
+        /// throttle.
+        ///
+        /// Proportional to the ABSOLUTE throttle: reverse costs the same as forward,
+        /// because the engines are doing the same work. Never negative, never NaN -
+        /// throttle arrives from client input, which is never trusted, and a bad
+        /// value must cost nothing rather than refund fuel or take the server down.
+        /// </summary>
+        public static double BurnFor(double throttle, double seconds, double burnPerSecond)
+        {
+            if (!IsFinite(throttle) || !IsFinite(seconds) || !IsFinite(burnPerSecond))
+            {
+                return 0.0;
+            }
+            if (seconds <= 0.0 || burnPerSecond <= 0.0)
+            {
+                return 0.0;
+            }
+
+            double magnitude = System.Math.Abs(throttle);
+            if (magnitude <= 0.0)
+            {
+                return 0.0;
+            }
+            if (magnitude > 1.0)
+            {
+                magnitude = 1.0;
+            }
+
+            return magnitude * seconds * burnPerSecond;
+        }
+
+        /// <summary>
+        /// How much of <paramref name="offered"/> fuel actually fits in a tank
+        /// holding <paramref name="level"/> of <paramref name="capacity"/>.
+        ///
+        /// Whole units only: fuel is an inventory item with an integer amount, so a
+        /// partial unit could not be taken out of the player's stack and would
+        /// silently vanish. Clamped at zero for a full tank, a garbage capacity or a
+        /// negative offer.
+        /// </summary>
+        public static int DepositRoom(double level, double capacity, int offered)
+        {
+            if (offered <= 0 || !IsFinite(level) || !IsFinite(capacity) || capacity <= 0.0)
+            {
+                return 0;
+            }
+
+            double room = capacity - level;
+            if (room <= 0.0)
+            {
+                return 0;
+            }
+
+            int whole = (int)System.Math.Floor(room);
+            return whole < offered ? whole : offered;
+        }
+
+        // ------------------------------------------------------------------
+        // Configuration
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Tank capacity from <c>WAREBORN_FUEL_CAPACITY</c>. Unset or garbage falls
+        /// back to the default; out of range clamps. Never throws - the same
+        /// contract as <c>ShipMotionPolicy.SpeedFrom</c>, because a bad env var must
+        /// not take the server down.
+        /// </summary>
+        public static double CapacityFrom(string? env) =>
+            ParseClamped(env, DefaultCapacity, MinCapacity, MaxCapacity);
+
+        /// <summary>Burn rate from <c>WAREBORN_FUEL_BURN_RATE</c>. Same contract.</summary>
+        public static double BurnRateFrom(string? env) =>
+            ParseClamped(env, DefaultBurnPerSecond, MinBurnPerSecond, MaxBurnPerSecond);
+
+        /// <summary>
+        /// Whether the fuel subsystem runs at all, from <c>WAREBORN_FUEL</c>.
+        /// DEFAULT ON. "0"/"false"/"off"/"no" turns the whole thing off: no burn, no
+        /// gate, and the gauge reads a full static tank - which is exactly the
+        /// pre-fuel behaviour of every ship on this server.
+        /// </summary>
+        public static bool EnabledFrom(string? env) => !IsOff(env);
+
+        /// <summary>
+        /// Whether an empty tank stops the engines, from
+        /// <c>WAREBORN_FUEL_GATES_THRUST</c>. DEFAULT ON - a fuel level nothing acts
+        /// on is the defect this subsystem exists to fix. The kill switch is here
+        /// because it is the one part of fuel that can strand a player mid-flight,
+        /// and that must be revertible without a rebuild.
+        /// </summary>
+        public static bool GatesThrustFrom(string? env) => !IsOff(env);
+
+        private static bool IsOff(string? env)
+        {
+            if (string.IsNullOrWhiteSpace(env))
+            {
+                return false;
+            }
+            string value = env.Trim().ToLowerInvariant();
+            return value == "0" || value == "false" || value == "off" || value == "no";
+        }
+
+        private static double ParseClamped(string? env, double fallback, double min, double max)
+        {
+            if (string.IsNullOrWhiteSpace(env)
+                || !double.TryParse(env, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out double value)
+                || !IsFinite(value)
+                || value <= 0.0)
+            {
+                return fallback;
+            }
+            return System.Math.Clamp(value, min, max);
+        }
+
+        private static bool IsFinite(double value) =>
+            !double.IsNaN(value) && !double.IsInfinity(value);
+    }
+}
