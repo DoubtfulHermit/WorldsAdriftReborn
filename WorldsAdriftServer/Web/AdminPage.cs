@@ -176,6 +176,18 @@ variable to <code>username:hash</code> and restart the login server to enable th
             "map-ships.js",
             "map-interaction.js",
             "map-viewers.js",
+            // OPERATOR ONLY, and deliberately absent from
+            // PublicMapPage.ScriptFragments. The shared renderer calls into it
+            // through optional `typeof wbLootX === 'function'` hooks, so the
+            // public map does not hide the loot UI - it never receives the code
+            // that draws it. Same mechanism as the command panel and the player
+            // table; WebAssetCompositionTests asserts both directions.
+            //
+            // Before map-render.js would also work (the fragments are one
+            // closure and a function declaration hoists across all of it), but
+            // it sits with the map fragments it decorates so the load order
+            // reads as what it is.
+            "admin-map-loot.js",
             "admin-console.js",
             "admin-operator.js",
             "admin-topology.js",

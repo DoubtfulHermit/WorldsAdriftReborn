@@ -58,13 +58,15 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
             int trees,
             IReadOnlyList<string> treeSpecies,
             WoodTableSource woodSource,
-            IReadOnlyList<IslandOreTally> ores)
+            IReadOnlyList<IslandOreTally> ores,
+            int lootContainers)
         {
             Record = record ?? throw new ArgumentNullException(nameof(record));
             Trees = trees;
             TreeSpecies = treeSpecies;
             WoodSource = woodSource;
             Ores = ores;
+            LootContainers = lootContainers;
         }
 
         /// <summary>The joined island this inventory belongs to.</summary>
@@ -128,11 +130,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         public int FuelPods => 0;
 
         /// <summary>
-        /// Loot chests / lootable containers. Always 0: retail carried them in
-        /// component 1244 (LootablePerAreaDataState), which did not ship, so there
-        /// is nothing to count and nothing was invented.
+        /// Loot chests / lootable containers.
+        ///
+        /// This USED to be a hard-coded zero, on the grounds that retail carried
+        /// loot in component 1244 (LootablePerAreaDataState) and 1244 did not ship.
+        /// That was half right and the half it got wrong is the interesting half:
+        /// the COUNTS did not ship, but the FORMULA did.
+        /// <c>acs/LootablePerAreaDataVisualizer.cs:50-62</c> is retail's own clamped
+        /// exponential lerp on mostly-flat surface area and
+        /// <c>IslandDataBankAndLootableSpawnerVisualizer.cs</c> is the placement pass
+        /// that consumed it, 20 m spacing rule and all. So unlike trees - which
+        /// retail authored by hand and which are unrecoverable in principle - these
+        /// are the same procedure over the same measured surfaces, with only the
+        /// nineteen tuning constants replaced.
+        ///
+        /// Those constants are <see cref="ResourceProvenance.WarebornTuning"/>, which
+        /// is what <see cref="LootProvenance"/> reports, and the number here is the
+        /// length of a list the game server actually seeds from - not an estimate.
         /// </summary>
-        public int LootContainers => 0;
+        public int LootContainers { get; }
+
+        /// <summary>
+        /// Where the container count came from. Always
+        /// <see cref="ResourceProvenance.WarebornTuning"/>: the placement algorithm
+        /// and the 20 m spacing are recovered, but the budget constants that decide
+        /// HOW MANY are this project's, so no UI may present the number as Bossa's.
+        /// </summary>
+        public ResourceProvenance LootProvenance => ResourceProvenance.WarebornTuning;
 
         /// <summary>The island's deposits broken down by ore type, richest first.</summary>
         public IReadOnlyList<IslandOreTally> Ores { get; }
@@ -155,8 +179,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
         /// <summary>Whether the survey recorded turrets here.</summary>
         public bool HasTurrets => Record.Survey.HasTurrets;
 
-        /// <summary>Deposits + databanks + trees: everything a player can work.</summary>
-        public int TotalResources => Deposits + Databanks + Trees;
+        /// <summary>
+        /// Deposits + databanks + trees + loot containers: everything a player can
+        /// work. Containers joined this sum when they became real; an island's
+        /// "worth landing on" number would otherwise silently ignore its loot.
+        /// </summary>
+        public int TotalResources => Deposits + Databanks + Trees + LootContainers;
 
         /// <summary>
         /// The provenance of a metal table, by the rung

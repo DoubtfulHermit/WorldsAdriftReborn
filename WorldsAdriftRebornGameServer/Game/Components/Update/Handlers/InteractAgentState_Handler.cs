@@ -207,7 +207,31 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
                         continue;
                     }
 
-                    if (man.verb == InteractVerb.Man)
+                    if (man.verb == InteractVerb.Inventory)
+                    {
+                        // OPENING A LOOT CONTAINER. ALWAYS-ON like the atlas pickup
+                        // and the shrine, NOT behind WAREBORN_PLACEMENT: searching
+                        // an island is not a placement feature. The service answers
+                        // false for any target that is not a registered container,
+                        // so this dispatch costs one dictionary miss for every other
+                        // Inventory interact - and there are no others yet, because
+                        // ship trunks still refuse the verb (PartInteractionPolicy).
+                        //
+                        // Owner-gated: the echo names the OPENING player's entity id
+                        // and the client compares it against its own, so firing it
+                        // for somebody else's entity would open a panel on a peer
+                        // who did not press anything.
+                        if (ownsPlayer)
+                        {
+                            Loot.LootService.OpenContainer(player, entityId, man.target.Id);
+                        }
+                        else
+                        {
+                            Console.WriteLine("[warning] [loot] 1211 Inventory interact for entity "
+                                + entityId + " from a peer that does not own it; ignored.");
+                        }
+                    }
+                    else if (man.verb == InteractVerb.Man)
                     {
                         WorldsAdriftRebornGameServer.Flight.OnManInteraction(
                             player, entityId, man.target.Id, ownsPlayer);

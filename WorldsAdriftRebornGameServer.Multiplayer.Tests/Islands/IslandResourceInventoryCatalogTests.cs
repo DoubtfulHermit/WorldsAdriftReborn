@@ -169,13 +169,27 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Islands
         [Fact]
         public void Absent_resources_are_reported_as_zero_rather_than_invented()
         {
-            // Retail's per-island fuel pods and loot containers did not survive. The
-            // honest answer is 0 with an explanation, not a plausible number.
+            // Retail's per-island fuel-pod placements did not survive. The honest
+            // answer is 0 with an explanation, not a plausible number.
+            //
+            // LOOT CONTAINERS USED TO BE PINNED HERE TOO, and the reason given was
+            // that they lived in component 1244 which did not ship. That was half
+            // right: the COUNTS did not ship, but the FORMULA did, and so did the
+            // placement pass that consumed it. See IslandResourceInventory
+            // .LootContainers and Loot/LootBudget. They are now real numbers off a
+            // real generated catalogue, and the assertion that keeps them honest is
+            // that they carry WarebornTuning provenance - the constants are ours.
             Assert.All(IslandResourceInventoryCatalog.All, record =>
             {
                 Assert.Equal(0, record.FuelPods);
-                Assert.Equal(0, record.LootContainers);
+                Assert.Equal(ResourceProvenance.WarebornTuning, record.LootProvenance);
+                Assert.InRange(record.LootContainers, 0, Multiplayer.Loot.LootBudget.MaxContainers);
             });
+
+            // And the world is not silently empty of them, which is the failure
+            // this whole feature exists to end.
+            Assert.True(IslandResourceInventoryCatalog.Totals.LootContainers > 0);
+            Assert.True(IslandResourceInventoryCatalog.Totals.IslandsWithLoot > 200);
             // Three islands, and each for a stated reason: two the survey records as
             // "No trees" (recovered absence) and Belial, whose three-sample surface
             // is already fully taken by its own surveyed databanks (no room). It was

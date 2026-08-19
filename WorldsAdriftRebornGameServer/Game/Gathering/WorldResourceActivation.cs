@@ -112,6 +112,26 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 activated = true;
             }
 
+            // A LOOT CONTAINER is recognised by its KEY, not its asset name, for the
+            // same reason a fuel canister is: the asset is a shared prefab and the key
+            // is the thing that says which island's table this one belongs to. The
+            // tier travels with the key so that opening a chest asks nothing about
+            // who opened it - see LootTable on why contents must be peer-independent.
+            // Haven's containers have no release record and fall back to tier 1, which
+            // is what the tutorial island is.
+            if (LootContainers.IsLootKey(entity.Key))
+            {
+                int tier = Multiplayer.Islands.ReleaseWorldLoot.TierForKey(entity.Key)
+                    ?? Multiplayer.Loot.LootScrapTable.MinTier;
+                if (Multiplayer.Loot.LootContainerLedger.Register(entityId, entity.Key, tier))
+                {
+                    Console.WriteLine("[world-resource] activated loot container '" + entity.Key
+                        + "' as entity " + entityId + " (tier " + tier + ", "
+                        + Multiplayer.Loot.LootContainerLedger.ContentsOf(entityId).Count + " items).");
+                    activated = true;
+                }
+            }
+
             if (entity.AssetName == Databanks.AssetName
                 && DatabankLedger.Register(entityId, Databanks.GrantAmount,
                     Databanks.NoteTitle, Databanks.NoteDescription))

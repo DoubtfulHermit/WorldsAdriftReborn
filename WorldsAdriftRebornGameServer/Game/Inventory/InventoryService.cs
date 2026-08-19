@@ -151,6 +151,67 @@ namespace WorldsAdriftRebornGameServer.Game.Inventory
         }
 
         /// <summary>
+        /// Binds a NON-PLAYER entity - a loot container - to its own inventory, with
+        /// its own grid and its own contents, and returns how many of
+        /// <paramref name="drops"/> actually fitted.
+        ///
+        /// WHY THIS IS NOT <see cref="ForEntity"/>. ForEntity's create-factory is
+        /// <c>InventoryWire.DefaultModel</c>, the player starter kit. It is the right
+        /// default for the entity kind that had an inventory when it was written -
+        /// players - and exactly the wrong one for a chest, which would open onto a
+        /// set of gauntlets in a 10x18 belt grid. The grid dimensions matter as much
+        /// as the contents: the client reads width/height/hasBelt/beltRow EXACTLY
+        /// ONCE, at OnEnable, so they are a property of checkout and no later push
+        /// can correct them.
+        ///
+        /// The factory runs at most once per key (InventoryStore.Bind guarantees it),
+        /// so calling this twice on the same container cannot re-roll it or duplicate
+        /// its contents. Item ids come from the container's OWN allocator, which is
+        /// primed by Bind - container item ids and player item ids are independent
+        /// number lines and must be, because the two inventories are separate
+        /// entities on the wire.
+        ///
+        /// No push: the caller is the 1081 SEED path, which serialises the model
+        /// itself. Pushing here would send a component update for an entity the peer
+        /// has not finished checking out.
+        /// </summary>
+        internal static int BindContainer(
+            long entityId,
+            int width,
+            int height,
+            bool hasBelt,
+            int beltRow,
+            IReadOnlyList<Multiplayer.Loot.LootDrop> drops )
+        {
+            int placed = 0;
+
+            Store.Bind(entityId, InventoryKey.ForSession(entityId), () =>
+            {
+                InventoryModel model = new InventoryModel(width, height, hasBelt, beltRow);
+                ItemIdAllocator allocator = ItemIdAllocator.For(model);
+
+                foreach (Multiplayer.Loot.LootDrop drop in drops)
+                {
+                    InventoryItem? item = InventoryPolicy.TryGrant(
+                        model,
+                        allocator.Next(),
+                        drop.ItemTypeId,
+                        drop.Amount,
+                        drop.Quality,
+                        new Dictionary<string, string>(),
+                        rarity: null,
+                        InventoryWire.Footprints);
+
+                    if (item != null) placed++;
+                }
+
+                return model;
+            });
+
+            return placed;
+        }
+
+        /// <summary>
         /// Binds an entity to its character identity, loads whatever the
         /// database holds for that character, and reports whether the key it
         /// ended up on is durable.

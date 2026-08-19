@@ -129,6 +129,13 @@ namespace WorldsAdriftServer.Admin
                     ["islandsWithRecoveredOres"] = totals.IslandsWithRecoveredOres,
                     ["islandsWithInferredOres"] = totals.IslandsWithInferredOres,
                     ["inferredDeposits"] = totals.InferredDeposits,
+                    // Loot totals travel in the shared payload beside everything
+                    // else, but only the OPERATOR page ships the code that draws
+                    // them: admin-map-loot.js is in AdminPage.AdminScriptFragments
+                    // and not in PublicMapPage.ScriptFragments. The public map is
+                    // deliberately unchanged.
+                    ["lootContainers"] = totals.LootContainers,
+                    ["islandsWithLoot"] = totals.IslandsWithLoot,
                 },
                 ["faunaModel"] = ProjectFaunaModel(),
                 ["whaleModel"] = ProjectSkyWhaleModel(),

@@ -45,6 +45,19 @@
          is the sixteen metres around the tree it came off. See TreeGroundProfiles
          and LogGrounding. Generated DATA: regenerate, never hand-edit. -->
     <EmbeddedResource Include="Islands\release-tree-ground-profiles.txt" />
+    <!-- Loot-container seats for all 254 release islands, generated offline by
+         tools/world-import/generate-release-loot-placements.py from each island's
+         measured surface, using retail's own recovered area budget and 20 m
+         spacing rule. See ReleaseLootCatalog. -->
+    <EmbeddedResource Include="Islands\release-loot-placements.json" />
+    <!-- The tier-keyed scrap table loot containers draw from, projected out of
+         Game/Items/Config/itemData.json by
+         tools/world-import/generate-loot-scrap-tiers.py. Embedded rather than read
+         from that file because this assembly references nothing, which is what
+         lets the loot roll be unit-tested with no game install.
+         LootScrapTableIntegrityTests re-reads itemData.json and asserts the two
+         still agree. Reviewed DATA, diffable in git. See LootScrapTable. -->
+    <EmbeddedResource Include="Loot\loot-scrap-tiers.txt" />
   </ItemGroup>
 
 </Project>

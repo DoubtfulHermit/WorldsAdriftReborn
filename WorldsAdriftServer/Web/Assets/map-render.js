@@ -296,6 +296,7 @@
     stats.appendChild(statTile(rt.databanks,'Databanks'));
     stats.appendChild(statTile(rt.trees,'Trees'));
     stats.appendChild(statTile(rt.woodedIslands,'Wooded islands'));
+    if(typeof wbLootWorldStatTile==='function')wbLootWorldStatTile(stats,rt,statTile);
     stats.appendChild(statTile((worldMap.biomes||[]).length,'Zones'));
     scroll.appendChild(stats);
 
@@ -376,6 +377,9 @@
     stats.appendChild(statTile(inv.deposits,'Metal deposits'));
     stats.appendChild(statTile(inv.trees,'Trees'));
     if(i.fauna)stats.appendChild(statTile(Number(i.fauna.manta)+Number(i.fauna.jelly),'Creatures'));
+    // Operator console only - the hook is undefined on the public map, which does
+    // not load admin-map-loot.js at all. See that file's header.
+    if(typeof wbLootIslandStatTile==='function')wbLootIslandStatTile(stats,inv,statTile);
     scroll.appendChild(stats);
 
     var ore=mdBlock('Metal deposits by ore');
@@ -397,6 +401,9 @@
       trees.appendChild(el('p','md-p','No trees. The Cardinal Guild survey records none on this island, and none are seeded.'));
     }
     scroll.appendChild(trees);
+
+    if(typeof wbLootIslandBlock==='function')
+      wbLootIslandBlock(scroll,inv,mdBlock,el,chipRow,plural,MARKS.showsMethod);
 
     appendIslandFauna(scroll,i,inv);
 
@@ -637,6 +644,10 @@
     if(!inv)return 'Hand-tuned Haven placement - not in the release catalogue.';
     var parts=[plural(inv.databanks,'databank','databanks'),plural(inv.deposits,'metal deposit','metal deposits')];
     parts.push(inv.trees?plural(inv.trees,'tree','trees'):'no trees');
+    if(typeof wbLootHoverFact==='function'){
+      var loot=wbLootHoverFact(inv);
+      if(loot)parts.push(loot);
+    }
     return parts.join(' · ');
   }
   function attachHover(node,build){
@@ -741,6 +752,7 @@
       group.addEventListener('pointerenter',function(){group.classList.add('hot');if(node.shell)node.shell.classList.add('hot');});
       group.addEventListener('pointerleave',function(){group.classList.remove('hot');if(node.shell)node.shell.classList.remove('hot');});
       attachHover(group,function(){return islandHoverCard(node);});
+      if(typeof wbLootDecorateIslandNode==='function')wbLootDecorateIslandNode(group,inv);
       mapIslandNodes.push(node);
       // The wildlife roster arrives keyed by island id, so the join to the
       // drawn placement is built once here rather than searched 460 times a
@@ -769,7 +781,8 @@
     return [inv.name,inv.cell,'t'+inv.cellTier,'tier '+inv.cellTier,biomeInfo(inv.cellTier).name,cultureName(inv),
             (inv.woods||[]).join(' '),
             (inv.ores||[]).map(function(o){return o.metal+' q'+o.quality;}).join(' '),
-            inv.revival?'revival':'',inv.turrets?'turrets':'',inv.dangerous?'dangerous':''
+            inv.revival?'revival':'',inv.turrets?'turrets':'',inv.dangerous?'dangerous':'',
+            typeof wbLootHaystack==='function'?wbLootHaystack(inv):''
            ].join(' ').toLowerCase();
   }
 
@@ -875,7 +888,8 @@
            'wrap'+((inv.woods&&inv.woods.length)?'':' zero'));
       cell(row,oreSummary(inv),'wrap ore');
       cell(row,inv.fuelPods,'n zero');
-      cell(row,inv.lootContainers,'n zero');
+      cell(row,typeof wbLootLedgerValue==='function'?wbLootLedgerValue(inv):'—',
+           'n'+((typeof wbLootLedgerValue==='function'&&Number(inv.lootContainers))?'':' zero'));
       cell(row,ledgerNotes(inv)||'—','wrap'+(ledgerNotes(inv)?'':' zero'));
       frag.appendChild(row);
     });
@@ -965,7 +979,8 @@
     var unknown=latestPlayers.length-positioned.length,live=latestDomains.length+positioned.length;
     var namedCells=(worldMap.biomes||[]).filter(function(b){return typeof b.district==='string'&&b.district.trim().length>0;}).length;
     var rt=worldMap.resourceTotals||{};
-    var seeded=rt.islands?(' Seeded on them: '+rt.deposits+' metal deposits, '+rt.databanks+' databanks, '+rt.trees+' trees across '+rt.woodedIslands+' wooded islands.'):'';
+    var seeded=rt.islands?(' Seeded on them: '+rt.deposits+' metal deposits, '+rt.databanks+' databanks, '+rt.trees+' trees across '+rt.woodedIslands+' wooded islands.'
+      +(typeof wbLootWorldLine==='function'?wbLootWorldLine(rt):'')):'';
     text('mapStatus',MARKS.mapStatusText({
       islands:(worldMap.islands||[]).length,
       cells:(worldMap.biomes||[]).length,

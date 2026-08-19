@@ -2877,7 +2877,9 @@ namespace WorldsAdriftRebornGameServer
                 SpawnProductionSecondIsland,
                 FirstRegionTerrainCount,
                 ReleaseWorldEnabled ? ReleaseWorldDistricts : null,
-                WildernessShrineEnabled);
+                WildernessShrineEnabled,
+                SpawnLootContainers,
+                Environment.GetEnvironmentVariable("WAREBORN_LOOT_COUNT"));
 
         internal static readonly Game.ResourceInterestService ResourceInterest =
             new Game.ResourceInterestService(
@@ -3184,6 +3186,21 @@ namespace WorldsAdriftRebornGameServer
         /// </summary>
         private static bool SpawnDatabank =>
             Environment.GetEnvironmentVariable("WAREBORN_SPAWN_DATABANK") == "1";
+
+        /// <summary>
+        /// Whether to place LOOT CONTAINERS - the searchable chests of retail scrap.
+        /// Opt-in via WAREBORN_SPAWN_LOOT=1, matching the deposit and the databank,
+        /// and for the same reason: no loot prefab has ever been in front of a
+        /// running client on this server, and a prefab that fails to resolve is an
+        /// invisible entity carrying an E prompt - which reads as a haunted island
+        /// rather than as a missing asset. AfterPlayer throughout, so leaving it on
+        /// or off can neither delay nor break a player's own spawn.
+        ///
+        /// When on, it covers Haven AND every selected release island. See
+        /// docs/plans/loot-containers.md.
+        /// </summary>
+        private static bool SpawnLootContainers =>
+            Environment.GetEnvironmentVariable("WAREBORN_SPAWN_LOOT") == "1";
 
         /// <summary>
         /// Whether to bolt the walkable Deck01 onto the hull (see

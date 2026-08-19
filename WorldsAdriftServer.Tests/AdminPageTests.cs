@@ -561,7 +561,20 @@ namespace WorldsAdriftServer.Tests
                     (bool?)inventory["woodsInferred"]);
                 // Not recovered, so stated as zero rather than guessed at.
                 Assert.Equal(0, (int?)inventory["fuelPods"]);
-                Assert.Equal(0, (int?)inventory["lootContainers"]);
+                // Loot containers USED to be pinned at zero here for the same
+                // reason. They are real now: unlike fuel-pod placements, retail's
+                // loot PLACEMENT ALGORITHM survived in the shipped client
+                // (LootablePerAreaDataVisualizer budgets by flat surface area,
+                // IslandDataBankAndLootableSpawnerVisualizer seats them 20 m
+                // apart), so these are that procedure over this island's own
+                // measured surface rather than an invented number. Only the budget
+                // constants are this project's - see LootBudget.
+                //
+                // Bounded rather than exact, because the exact per-island count is
+                // ReleaseLootCatalogTests' business and pinning it twice would mean
+                // two places to update for one tuning change.
+                Assert.InRange((int?)inventory["lootContainers"] ?? -1,
+                    0, WorldsAdriftRebornGameServer.Multiplayer.Loot.LootBudget.MaxContainers);
             }
         }
 

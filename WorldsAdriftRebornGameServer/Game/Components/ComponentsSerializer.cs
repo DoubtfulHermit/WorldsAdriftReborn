@@ -635,6 +635,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // the client reads those four fields exactly once, at
                         // InventoryVisualiser.OnEnable - so they are a property
                         // of checkout, not something a later update can change.
+                        // A LOOT CONTAINER is bound FIRST, with a container grid and
+                        // its rolled contents. This branch is entity-generic and
+                        // always has been, but ForEntity's create-factory is
+                        // InventoryWire.DefaultModel - the PLAYER STARTER KIT. Without
+                        // this line a chest opens onto four gauntlets in a 10x18 belt
+                        // grid. Ensure is a no-op for a player and for an already
+                        // stocked container, so the ordering costs nothing.
+                        Loot.LootStock.Ensure(entityId);
+
                         Multiplayer.Inventory.InventoryModel inventory =
                             Inventory.InventoryService.ForEntity(entityId);
 
@@ -752,12 +761,32 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isWildernessShrine =
                             WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                             == Multiplayer.Wilderness.WildernessShrine.WorldEntityKey;
-                        bool isPlacedShipyard = !isWildernessShrine
+                        // A LOOT CONTAINER. Checked EARLY and given its own branch
+                        // because the generic fallback at the bottom of this chain
+                        // serves PickUp, and PickUp on a chest is worse than no
+                        // prompt: InteractiveObjectVisualizer caches
+                        // Interactions.FirstOrDefault(i => i.verb == Verb) ONCE at
+                        // OnEnable, and the LootChest prefab's baked Verb is
+                        // Inventory (ChestContainerLootPreprocessor.cs:31,
+                        // SetVerb(InteractVerb.Inventory)) - so a PickUp entry means
+                        // that lookup finds NOTHING and no prompt can ever appear.
+                        // That is the exact failure the mounted helm hit ("i dont
+                        // get the option to press e next to helm").
+                        //
+                        // 1210 is also one of the TWO components the client's
+                        // InWorldInventoryVisualiser [Require]s - the other is 1081.
+                        // A Unity visualiser does not enable until every [Require]
+                        // resolves, so serving 1081 alone leaves the chest as silent
+                        // scenery, exactly as the loom's missing 1264 does.
+                        bool isLootContainer =
+                            Multiplayer.Loot.LootContainerLedger.IsContainer(entityId);
+                        bool isPlacedShipyard = !isWildernessShrine && !isLootContainer
                             && Placement.PlacedShipyards.IsPlacedShipyard(entityId);
                         // A placed Assembly Station bakes the SAME Craft verb as the
                         // shipyard console - the prefab's crafting category (not this
                         // seed) decides parts-vs-ship-build once the interact opens.
-                        bool isPlacedCraftingStation = !isWildernessShrine && !isPlacedShipyard
+                        bool isPlacedCraftingStation = !isWildernessShrine && !isLootContainer
+                            && !isPlacedShipyard
                             && Placement.PlacedCraftingStations.IsPlacedCraftingStation(entityId);
                         bool isCraftStation = isPlacedShipyard || isPlacedCraftingStation;
                         // A helm is the STATIC test-ship helm OR any crafted helm part. The
@@ -775,7 +804,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         bool isStaticHelm = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key
                             == Multiplayer.WorldEntities.HelmKey;
                         string? craftedPartItemType = Game.Crafting.LooseParts.DefFor(entityId)?.ItemType;
-                        bool isHelm = !isWildernessShrine && !isCraftStation
+                        bool isHelm = !isWildernessShrine && !isCraftStation && !isLootContainer
                             && (isStaticHelm || craftedPartItemType == "helm");
                         // An ATLAS SHARD bakes the SAME PickUp verb as the nugget, but its
                         // availability is SERVER-GATED on release: available=false while the
@@ -785,6 +814,7 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // out sees exactly the prompt state everyone present sees, without a
                         // separate replay. See findings-atlas-shards §2 Phase C.
                         bool isAtlasShard = !isWildernessShrine && !isCraftStation && !isHelm
+                            && !isLootContainer
                             && WorldsAdriftRebornGameServer.AtlasShards.IsShard(entityId);
                         // An INTERACTABLE PART (sail / lamp / horn): the part
                         // prefab's own InteractiveObjectVisualizer carries verb
@@ -802,7 +832,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // prompt is never a lie. The correct Activate entry exists while
                         // loose but remains unavailable until the mount commit.
                         Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
-                        if (!isWildernessShrine && !isCraftStation && !isHelm && !isAtlasShard)
+                        if (!isWildernessShrine && !isCraftStation && !isHelm && !isAtlasShard
+                            && !isLootContainer)
                         {
                             Multiplayer.Ship.PartVerb seededVerb =
                                 Multiplayer.Ship.PartInteractionPolicy.SeedVerbFor(craftedPartItemType);
@@ -835,6 +866,15 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             }
                             entry = entries[0];
                             verbName = string.Join("/", Multiplayer.Wilderness.WildernessShrine.Verbs) + " (shrine hedge, verb ids)";
+                        }
+                        else if (isLootContainer)
+                        {
+                            entry = new InteractionEntry(
+                                InteractVerb.Inventory,
+                                Multiplayer.LootContainers.InteractRadius,
+                                false, "", "", "", false,
+                                Multiplayer.LootContainers.InteractTimeToUse);
+                            verbName = "Inventory";
                         }
                         else if (isCraftStation)
                         {
