@@ -149,6 +149,29 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
 
         public const int MaxContributingSails = 4;
 
+        /// <summary>
+        /// WAREBORN_FLIGHT_ENGINE_THRUST - newtons per mounted engine under the
+        /// FORCE model (WAREBORN_FLIGHT_FORCES=1). Ignored entirely by the legacy
+        /// kinematic path.
+        ///
+        /// Exposed as a knob for the same reason every other number in this file
+        /// is: the live verdict on flight has twice been a feel judgement made at
+        /// the helm, and "our speeds are wrong" should be a restart, not a
+        /// rebuild. The default is calibrated rather than picked - see
+        /// <see cref="ShipForceModel.DefaultEngineThrustNewtons"/> - and because
+        /// top speed is 10*sqrt(thrust/mass), this knob moves speed only as its
+        /// SQUARE ROOT: quadrupling it doubles how fast ships fly.
+        /// </summary>
+        public double EngineThrustNewtons { get; }
+
+        /// <summary>
+        /// WAREBORN_FLIGHT_SAIL_POWER - one unfurled sail's power under the force
+        /// model, the linear coefficient in retail's efficiency * |wind| * Power.
+        /// The companion knob to the one above, and the one to reach for if canvas
+        /// reads as decorative or as overpowered relative to engines.
+        /// </summary>
+        public double SailPowerNewtons { get; }
+
         public double MaxSpeedMps { get; }
         public double AccelMps2 { get; }
         public double YawRateRadPerSec { get; }
@@ -200,7 +223,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             double rollTurnFactor = DefaultRollTurnFactor,
             bool invertPitch = false,
             bool invertRoll = false,
-            double sailBonusPerUnfurled = DefaultSailBonusPerUnfurled)
+            double sailBonusPerUnfurled = DefaultSailBonusPerUnfurled,
+            double engineThrustNewtons = ShipForceModel.DefaultEngineThrustNewtons,
+            double sailPowerNewtons = ShipForceModel.DefaultSailPowerNewtonsPerWind)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -224,6 +249,13 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             InvertRoll = invertRoll;
             SailBonusPerUnfurled = Clamp(
                 sailBonusPerUnfurled, 0.0, 1.0, DefaultSailBonusPerUnfurled);
+            // Floors of 0 are meaningful: 0 thrust is an engineless ship and 0 sail
+            // power is bare poles, both of which a live operator may legitimately
+            // want to see. The ceilings are absurdity guards, not balance.
+            EngineThrustNewtons = Clamp(
+                engineThrustNewtons, 0.0, 100_000.0, ShipForceModel.DefaultEngineThrustNewtons);
+            SailPowerNewtons = Clamp(
+                sailPowerNewtons, 0.0, 10_000.0, ShipForceModel.DefaultSailPowerNewtonsPerWind);
         }
 
         /// <summary>
@@ -264,7 +296,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Parse(getenv("WAREBORN_FLIGHT_ROLL_TURN_FACTOR"), DefaultRollTurnFactor),
                 getenv("WAREBORN_FLIGHT_INVERT_PITCH") == "1",
                 getenv("WAREBORN_FLIGHT_INVERT_ROLL") == "1",
-                Parse(getenv("WAREBORN_FLIGHT_SAIL_BONUS"), DefaultSailBonusPerUnfurled));
+                Parse(getenv("WAREBORN_FLIGHT_SAIL_BONUS"), DefaultSailBonusPerUnfurled),
+                Parse(getenv("WAREBORN_FLIGHT_ENGINE_THRUST"),
+                    ShipForceModel.DefaultEngineThrustNewtons),
+                Parse(getenv("WAREBORN_FLIGHT_SAIL_POWER"),
+                    ShipForceModel.DefaultSailPowerNewtonsPerWind));
         }
 
         private static double Parse(string? env, double fallback)

@@ -174,7 +174,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// (<paramref name="stepSeconds"/> = ShipMotionPolicy.SendIntervalSeconds).
         /// </summary>
         public FlightEmit Advance(long nowMs, double stepSeconds, FlightTuning tuning,
-            int unfurledSails = 0, double agilityScale = 1.0)
+            int unfurledSails = 0, double agilityScale = 1.0,
+            ShipPropulsion? propulsion = null)
         {
             // A latched non-zero throttle is live even if the pilot released the
             // helm before the first integration tick, while the hull is technically
@@ -185,7 +186,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             if (live)
             {
                 _state = FlightIntegrator.Step(
-                    _state, _input, stepSeconds, tuning, unfurledSails, agilityScale);
+                    _state, _input, stepSeconds, tuning, unfurledSails, agilityScale, propulsion);
 
                 if (_state.IsAtRest && !_manned)
                 {
