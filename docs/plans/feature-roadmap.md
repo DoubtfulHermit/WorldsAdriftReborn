@@ -2142,6 +2142,14 @@ goes up a lot; where they disagree, the decompile wins.
    is consistent with the 70-knot gauge in §12.2 and is the first thing to try
    if the maintainer's flight test says ships feel sluggish.
 
+**One detail that should stop us building the wrong thing.** The wiki states
+that **a sail's material has no effect on the thrust it provides** — players were
+advised to build sails from the lightest wood available, because the only thing
+material changed was the sail's weight. So when F5 gives engines a material and
+quality model, **do not give sails one to match**: per-sail `Power` should vary
+with the sail's *size or schematic*, if anything, and material should affect only
+mass. Symmetric-looking systems were not symmetric here.
+
 **The one dispute the decompile settles.** The wiki contradicts *itself* on the
 best point of sail: its main text says dead downwind is fastest, its tips section
 says *"you move faster at 90° to the wind than with the full wind"*, and no
