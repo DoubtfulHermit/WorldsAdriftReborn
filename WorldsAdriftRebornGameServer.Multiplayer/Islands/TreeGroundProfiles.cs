@@ -62,7 +62,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Islands
 
         private static readonly IReadOnlyDictionary<string, sbyte[][]> Baked = Load();
 
-        private static readonly Dictionary<string, GroundProfile> LiveCache = new(StringComparer.Ordinal);
+        /// <summary>
+        /// Memoised live measurements. CONCURRENT although the game server is a
+        /// single poll loop, because this type is also reached from a test suite
+        /// that runs classes in parallel, and a torn Dictionary there would surface
+        /// as an unrelated flake in whichever test happened to lose the race.
+        /// </summary>
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, GroundProfile>
+            LiveCache = new(StringComparer.Ordinal);
 
         /// <summary>How many islands carry baked profiles. For the coverage tests.</summary>
         public static int BakedIslandCount => Baked.Count;
