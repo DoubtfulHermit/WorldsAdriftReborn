@@ -303,7 +303,11 @@ namespace WorldsAdriftRebornGameServer.Game
             // HelmMountLock is the ONE definition all three commit sites below
             // (190602, 1120 attach fields, ledger/persistence) draw from, so they
             // cannot disagree.
-            bool isHelmMount = Crafting.LooseParts.DefFor(partEntityId)?.ItemType == "helm";
+            // The part's catalogue item type, read ONCE: the helm rotation lock and the
+            // 190602 hierarchy key both key off it, and reading it twice invites the two
+            // to be given different answers by a future edit.
+            string mountedItemType = Crafting.LooseParts.DefFor(partEntityId)?.ItemType ?? "";
+            bool isHelmMount = mountedItemType == "helm";
             double helmYawDegrees = Multiplayer.Ship.HelmMountLock.YawDegrees();
             (float W, float X, float Y, float Z) helmLock = Multiplayer.Ship.HelmMountLock.LockRotation(helmYawDegrees);
             uint packedShipLocalRotation = isHelmMount
@@ -319,10 +323,26 @@ namespace WorldsAdriftRebornGameServer.Game
             }
             long sample = NextTimelineSample();
             float stamp = ShipPartMotionPolicy.StampFor(sample, ShipPartMotionPolicy.HeartbeatIntervalSeconds);
+            // The hierarchy key is per-part and comes from the ONE policy the checkout
+            // seed and the in-flight wake also read. A BAR PIPE gets a real word, which
+            // makes the client re-parent it as a genuine Unity CHILD of the hull instead
+            // of merely position-following it - the whole point, because every client
+            // placement walk (NeedToBeOnShip, flag4/CanPlace, ownership, AttachedShip,
+            // HasParentEntity) climbs transform.parent and a "~" part has none. Every
+            // other part keeps "~" exactly as before. See MountedPartHierarchy.
+            string mountHierarchyKey = Multiplayer.Ship.MountedPartHierarchy
+                .HierarchyKeyFor(mountedItemType);
             var transformUpdate = ShipPartTransform.BuildWakeUpdate(
-                localOffset, hullEntityId, BoltedPartTransform.RelativeSlotKey, stamp,
+                localOffset, hullEntityId, mountHierarchyKey, stamp,
                 new Improbable.Corelibrary.Math.Quaternion32(packedShipLocalRotation));
             ShipPublisher.Broadcast(partEntityId, 190602u, transformUpdate);
+            if (Multiplayer.Ship.MountedPartHierarchy.IsUnityChild(mountedItemType))
+            {
+                Console.WriteLine("[info] part-mount: part " + partEntityId + " (" + mountedItemType
+                    + ") mounted as a REAL Unity CHILD of hull " + hullEntityId + " (parent key "
+                    + mountHierarchyKey + "); it rides the hull through the scene graph and is"
+                    + " excluded from the flight wake.");
+            }
 
             // PARENT TIMELINE (findings-mount-placement.md section 2). Advance the HULL's own
             // 190602 to the SAME stamp the child just took, so the client's parent-sampling

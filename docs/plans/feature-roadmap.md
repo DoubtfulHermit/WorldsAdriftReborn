@@ -1844,7 +1844,37 @@ of the ship.** Ours are not, and that is the whole difference.
 
 ---
 
-#### PHASE SC5 — Mounted parts join the ship's transform hierarchy *(NOT STARTED — the real fix)*
+#### PHASE SC5 — Mounted parts join the ship's transform hierarchy *(BAR PIPES SHIPPED on `feat/part-hierarchy-key`; AWAITING LIVE CONFIRMATION)*
+
+> **STATUS 2026-08-20.** The bar-pipe half is implemented, gated and soaked;
+> nothing else in this phase has moved. `Multiplayer/Ship/MountedPartHierarchy.cs`
+> is the one per-part decision, and all three mounted-part transform sites read it:
+> the checkout seed (`ComponentsSerializer`), the mount commit (`PartMountService`)
+> and the in-flight republish (`ShipFlightService`). The fourth listed site,
+> `ShipPartMotionService`, needed **no change** — its loop is
+> `WorldEntityRegistry.BoltedParts()`, which returns only the four STATIC hull keys
+> (`WorldEntities.IsBoltedPartKey`), so a crafted mount never enters it. Risk 1 —
+> the wake churn — therefore lives entirely in `ShipFlightService`, where the
+> Unity-child skip now is.
+>
+> **What is NOT settled, and cannot be settled offline:** the two prefab-baked
+> `TransformNature` flags on `BarPipe` / `BarPipeBent`
+> (`GameObjectCanBeParented`, `ShouldRemoveRigidbodyOnParented`). They fail safe —
+> an unparentable prefab ignores the key and behaves exactly as today — which also
+> means the server cannot tell whether they held. Only a player crafting a pipe,
+> bolting it to a ship and trying to mount a gauge on it answers that.
+> `ShipInstruments.MountSurface` stays `"deck"` until it does, and even then the
+> flip is a design call, not a free win: `shipSurfaces` masks `Layers.Environment`
+> and so LOSES the `ShipAttachmentSolid` deck.
+>
+> **Soak: four 10-minute runs on port 7807, three FLAT at 100% delivery and 0%
+> missed ticks (p50 0.25–0.3 ms), one ABORTED on a transport disconnect of botB at
+> t=125 s** — not a level failure and not the known 50 ms relay state either; a
+> re-run of the same tree came back FLAT. **Say what it does and does not prove**:
+> the `haven-spawn` soak world contains no ship at all, so it gates the changed
+> assembly against the standing relay-regression rule and nothing more. It does
+> NOT exercise `BuildHullAndPartWakes`, which is the code this change actually
+> touches. Only a player flying a ship with a bolted pipe tests that.
 
 - **Delivers:** a crafted mounted part is seeded a REAL 190602 hierarchy key
   instead of `BoltedPartTransform.RelativeSlotKey` (`"~"`), so the client
