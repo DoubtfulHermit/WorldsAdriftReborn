@@ -280,6 +280,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
             }
         }
 
+        /// <summary>
+        /// Whether ANY active hull is empty. The cheap gate in front of the 1111 hot
+        /// path: the throttle clamp runs on up to 20 packets a second per pilot, and
+        /// the overwhelming majority of the time no ship in the world is dry.
+        /// </summary>
+        public bool AnyDry
+        {
+            get
+            {
+                foreach (KeyValuePair<long, Tank> entry in _byHull)
+                {
+                    if (entry.Value.Active && entry.Value.Level <= 0.0)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
         /// <summary>How many hulls have an ACTIVE fuel system. For logs and tests.</summary>
         public int Count
         {

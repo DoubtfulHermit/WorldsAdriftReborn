@@ -191,6 +191,9 @@ namespace WorldsAdriftRebornGameServer.Game
 
             InventoryModel model = InventoryService.ForEntity(playerEntityId);
             int carried = CraftingPolicy.AvailableFor(model, InventoryWire.CategoryLookup, FuelPods.ItemTypeId);
+            // The count and the drawdown MUST agree on what counts as fuel, or a
+            // refuel can fill the tank and then fail to pay for it. Both go through
+            // CraftingPolicy's own matching rule for exactly that reason.
             FuelReading before = _ledger.Read(hullEntityId);
 
             if (carried <= 0)
@@ -254,7 +257,9 @@ namespace WorldsAdriftRebornGameServer.Game
                 return throttle;
             }
 
-            return PilotsADryHull(playerEntityId) ? 0f : throttle;
+            // AnyDry first: this runs on up to 20 packets a second per pilot, and
+            // almost always no ship in the world is empty.
+            return _ledger.AnyDry && PilotsADryHull(playerEntityId) ? 0f : throttle;
         }
 
         /// <summary>A pilot disconnected or left the helm. Drop the mirror.</summary>
@@ -316,9 +321,14 @@ namespace WorldsAdriftRebornGameServer.Game
 
             IReadOnlyList<long> wentDry = _ledger.Burn(seconds, BurnRate);
 
+            // Only a hull that actually burned can have moved its needle. A parked
+            // ship therefore costs nothing at all - no mounted-part walk, no push.
             foreach (long hullEntityId in hulls)
             {
-                PushGauges(hullEntityId, force: false);
+                if (_ledger.ThrottleOf(hullEntityId) != 0.0)
+                {
+                    PushGauges(hullEntityId, force: false);
+                }
             }
 
             foreach (long hullEntityId in wentDry)
@@ -428,7 +438,12 @@ namespace WorldsAdriftRebornGameServer.Game
                 {
                     break;
                 }
-                if (item.ItemTypeId != FuelPods.ItemTypeId || item.IsWorn || item.IsStashed)
+                if (item.IsWorn || item.IsStashed)
+                {
+                    continue;
+                }
+                InventoryWire.CategoryLookup(item.ItemTypeId, out string category);
+                if (!CraftingPolicy.Matches(FuelPods.ItemTypeId, item.ItemTypeId, category))
                 {
                     continue;
                 }

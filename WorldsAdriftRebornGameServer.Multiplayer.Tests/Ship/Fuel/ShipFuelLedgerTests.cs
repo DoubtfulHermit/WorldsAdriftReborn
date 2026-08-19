@@ -275,6 +275,26 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         [Fact]
+        public void AnyDryIsTheCheapGateInFrontOfTheThrottleClamp()
+        {
+            // The clamp runs on up to 20 packets a second per pilot, so it asks this
+            // first. A wrong answer here either grounds a fuelled ship or lets a dry
+            // one fly - and a dormant tank must never count.
+            var ledger = new ShipFuelLedger();
+            Assert.False(ledger.AnyDry);
+
+            ledger.Register(Hull, 10.0);
+            Assert.False(ledger.AnyDry);
+
+            ledger.SetThrottle(Hull, 1.0);
+            ledger.Burn(100.0, 1.0);
+            Assert.True(ledger.AnyDry);
+
+            ledger.Unregister(Hull);
+            Assert.False(ledger.AnyDry);
+        }
+
+        [Fact]
         public void ForgetDropsTheHullEntirely()
         {
             ShipFuelLedger ledger = Registered();
