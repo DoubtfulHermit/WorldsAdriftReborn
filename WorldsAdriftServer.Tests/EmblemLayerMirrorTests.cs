@@ -411,6 +411,46 @@ process.stdout.write(JSON.stringify({drawn: drawn, written: written, read: read,
         }
 
         /// <summary>
+        /// SYMMETRY AND THE GRID ARE BOTH REACHABLE AND BOTH SAY WHETHER THEY ARE
+        /// ON.
+        ///
+        /// They are toggles rather than actions - a mirrored layer STAYS mirrored,
+        /// and the grid stays on until it is turned off - so each carries
+        /// aria-pressed. A toggle that looks like a button is the one a player
+        /// presses twice and gives up on.
+        ///
+        /// Here rather than in AccountPageTests because these are about the emblem
+        /// editor's own markup, and that file is the portal SHELL's.
+        /// </summary>
+        [Fact]
+        public void The_editor_offers_mirror_and_grid_as_toggles_that_say_their_state()
+        {
+            string html = AccountPage.Render(Page());
+
+            Assert.Contains("data-mirror aria-pressed=\"false\"", html, StringComparison.Ordinal);
+            Assert.Contains("data-grid aria-pressed=\"false\"", html, StringComparison.Ordinal);
+
+            // Neither is a form field. The mirror rides in the design code with
+            // every other property of a layer, and the grid rides nowhere at all.
+            Assert.DoesNotContain("name=\"mirror\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("name=\"grid\"", html, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// The limits the server stamps into the script are the place a future
+        /// reader would be tempted to put a grid step. They are not one.
+        /// </summary>
+        [Fact]
+        public void The_grid_is_not_one_of_the_limits_the_server_stamps_in()
+        {
+            foreach (string forbidden in new[] { "grid", "snap" })
+            {
+                Assert.DoesNotContain(forbidden, EmblemEditorData.LimitsJson(),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        /// <summary>
         /// THE GRID IS NOWHERE INSIDE THE MIRROR, and it must never be.
         ///
         /// The mirror is the region that turns a layer into markup and into a code,
