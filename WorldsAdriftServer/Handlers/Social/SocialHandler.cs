@@ -117,7 +117,19 @@ namespace WorldsAdriftServer.Handlers.Social
             }
 
             SocialService service = new SocialService(
-                Accounts.Characters, Accounts.Crews, Accounts.SocialInvites, Accounts.Alliances, Region);
+                Accounts.Characters, Accounts.Crews, Accounts.SocialInvites, Accounts.Alliances, Region,
+                clock: null,
+                // The alliance payload carries an absolute crest URL, and the game
+                // client CANNOT fetch it over https - its Mono TLS stack has no
+                // protocol above TLS 1.0 and the public host refuses that with a
+                // protocol_version alert. So the URL is built from the origin this
+                // very request arrived on, which the caller has just demonstrated
+                // it can reach. See Emblems.EmblemOrigin.
+                emblemBaseUrl: Emblems.EmblemOrigin.For(
+                    Accounts.HeaderValue(request, "Host"),
+                    Accounts.HeaderValue(request, "X-Forwarded-Host"),
+                    Accounts.HeaderValue(request, "X-Forwarded-Proto"),
+                    Emblems.EmblemImages.BaseUrl));
 
             return service.Handle(decision.Route, decision.Character, url, request.Body);
         }

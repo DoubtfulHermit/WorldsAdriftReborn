@@ -175,6 +175,26 @@ namespace WorldsAdriftServer.Handlers
 
                     DeploymentStatusHandler.HandleDeploymentStatusRequest(this, request, serverName, "community_server", 0);
                 }
+                else if(request.Method == "GET" && request.Url == "/welcomeMessage")
+                {
+                    // The greeting the client shows on arrival. Same shape as
+                    // /deploymentStatus above and for the same reasons: the value
+                    // is operator-set in the server_config table so the panel can
+                    // change it without a redeploy, and the read is wrapped so a
+                    // database that is down degrades to the shipped default
+                    // rather than failing a client startup path.
+                    string welcomeMessage;
+                    try
+                    {
+                        welcomeMessage = Accounts.ServerConfig.GetWelcomeMessage();
+                    }
+                    catch (Exception)
+                    {
+                        welcomeMessage = WorldsAdriftReborn.Storage.Policy.ServerConfigPolicy.DefaultWelcomeMessage;
+                    }
+
+                    WelcomeMessageHandler.HandleWelcomeMessageRequest(this, request, welcomeMessage);
+                }
                 else if(request.Method == "GET" && request.Url == "/authorizeCharacter")
                 {
                     CharacterAuthHandler.HandleCharacterAuth(this, request);

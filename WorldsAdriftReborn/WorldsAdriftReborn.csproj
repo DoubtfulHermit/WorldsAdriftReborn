@@ -119,6 +119,8 @@
              Link="Config\RestUrlPolicy.cs" />
     <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Config\ConfigMigrationLedger.cs"
              Link="Config\ConfigMigrationLedger.cs" />
+    <Compile Include="..\WorldsAdriftRebornGameServer.Multiplayer\Config\WelcomeMessagePolicy.cs"
+             Link="Config\WelcomeMessagePolicy.cs" />
   </ItemGroup>
   
   <!-- C++ SDK builds only on Windows; on Linux it is built by build-mingw.sh. -->

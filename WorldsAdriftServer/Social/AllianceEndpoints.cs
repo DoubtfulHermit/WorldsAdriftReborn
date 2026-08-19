@@ -42,6 +42,7 @@ namespace WorldsAdriftServer.Social
         private readonly Func<Guid, string?> nameOf;
         private readonly string region;
         private readonly Func<DateTimeOffset> clock;
+        private readonly string emblemBaseUrl;
 
         /// <param name="nameOf">
         /// A character's display name, or NULL when no such character exists. The
@@ -49,13 +50,24 @@ namespace WorldsAdriftServer.Social
         /// so a lookup that returned "" for a missing row would let an invite be
         /// written to nobody.
         /// </param>
+        /// <param name="emblemBaseUrl">
+        /// The origin to build crest URLs from, normally the one the CALLER
+        /// reached this server on - see <see cref="Emblems.EmblemOrigin"/> for why
+        /// that and not a configured host name. Null falls back to the configured
+        /// <see cref="Emblems.EmblemImages.BaseUrl"/>.
+        /// </param>
         internal AllianceEndpoints(
             IAllianceStore alliances,
             ISocialInviteStore invites,
             Func<Guid, string?> nameOf,
             string region,
-            Func<DateTimeOffset>? clock = null)
+            Func<DateTimeOffset>? clock = null,
+            string? emblemBaseUrl = null)
         {
+            this.emblemBaseUrl = string.IsNullOrWhiteSpace(emblemBaseUrl)
+                ? Emblems.EmblemImages.BaseUrl
+                : emblemBaseUrl!;
+
             this.alliances = alliances ?? throw new ArgumentNullException(nameof(alliances));
             this.invites = invites ?? throw new ArgumentNullException(nameof(invites));
             this.nameOf = nameOf ?? throw new ArgumentNullException(nameof(nameOf));
@@ -1111,9 +1123,12 @@ namespace WorldsAdriftServer.Social
             // host name in configuration instead of baked into every row, and
             // gives an alliance that never opened the builder a crest of its own
             // rather than the client's shared grey placeholder. See
-            // WorldsAdriftServer.Emblems.EmblemUrlPolicy.
+            // WorldsAdriftServer.Emblems.EmblemUrlPolicy. The ORIGIN comes from
+            // the request being answered rather than from configuration, because
+            // the game client's TLS stack tops out at TLS 1.0 and cannot fetch an
+            // https crest at all - see Emblems.EmblemOrigin.
             Emblems.EmblemUrlPolicy.Resolve(
-                Emblems.EmblemImages.BaseUrl, alliance.AllianceId, alliance.EmblemUrl),
+                emblemBaseUrl, alliance.AllianceId, alliance.EmblemUrl),
             alliances.MembersOf(alliance.AllianceId).Count,
             alliance.CreatedAt,
             alliance.UpdatedAt);

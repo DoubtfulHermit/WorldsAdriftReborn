@@ -1,0 +1,13 @@
+<div class="card">
+  <div class="row"><div class="grow"><h2>Welcome message</h2></div><div class="fit"><span class="pill" id="welcomeState">&hellip;</span></div></div>
+  <p class="lede" style="margin-top:0">The greeting the game client shows a player on arrival. The client reads it from <code>/welcomeMessage</code> at launch, so an edit saved here is live for the next player to log in &mdash; nothing is rebuilt, redeployed or baked into the client.</p>
+  <div class="field">
+    <label for="welcomeText">Message</label>
+    <textarea id="welcomeText" rows="16" maxlength="4000" spellcheck="true" placeholder="Loading&hellip;"></textarea>
+  </div>
+  <div class="row">
+    <div class="grow"><p class="note" id="welcomeCount" style="margin:0">&mdash;</p></div>
+    <div class="fit" style="flex:0 0 12rem"><button type="button" id="welcomeSaveButton">Save message</button></div>
+  </div>
+  <p class="note" id="welcomeStatusLine" aria-live="polite">A blank line separates paragraphs. Outer whitespace is trimmed and a run of more than two blank lines is shortened before it is stored; the box is refilled with exactly what was kept.</p>
+</div>

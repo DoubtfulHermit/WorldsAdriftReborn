@@ -39,7 +39,8 @@ namespace WorldsAdriftServer.Social
             SocialInviteRepository invites,
             IAllianceStore alliances,
             string region,
-            Func<DateTimeOffset>? clock = null)
+            Func<DateTimeOffset>? clock = null,
+            string? emblemBaseUrl = null)
         {
             this.characters = characters ?? throw new ArgumentNullException(nameof(characters));
             this.crews = crews ?? throw new ArgumentNullException(nameof(crews));
@@ -57,7 +58,11 @@ namespace WorldsAdriftServer.Social
                 invites,
                 uid => characters.Find(uid)?.Name,
                 region,
-                this.clock);
+                this.clock,
+                // Passed straight through: the alliance payload is the only place
+                // an absolute crest URL is minted, and the origin it must name is
+                // the one the caller reached us on. See Emblems.EmblemOrigin.
+                emblemBaseUrl);
         }
 
         /// <summary>

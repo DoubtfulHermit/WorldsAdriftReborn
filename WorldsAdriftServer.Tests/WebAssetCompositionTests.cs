@@ -228,6 +228,7 @@ namespace WorldsAdriftServer.Tests
                 "admin-viewers.js", "admin-viewers.html",
                 "patchnotes.css", "patchnotes-body.html",
                 "admin-patchnotes.js", "admin-patchnotes.html",
+                "admin-welcome.js", "admin-welcome.html",
             };
             foreach (string name in assets)
             {

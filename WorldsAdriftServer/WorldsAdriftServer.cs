@@ -40,6 +40,19 @@ namespace WorldsAdriftServer
             Console.WriteLine("[info] login/REST server listening on TCP " + restPort + ".");
             Console.WriteLine("[info] sign-up page at http://<this host>:" + restPort + "/signup");
 
+            // Say out loud where alliance crests will be fetched from, and shout
+            // if that is a scheme the GAME cannot use.
+            //
+            // This is not decoration. The crest URL is normally taken from the
+            // request being answered (Emblems.EmblemOrigin), so this fallback is
+            // only reached by a request with no Host header - but when it IS
+            // reached and it is https, the emblem silently never appears: the
+            // client's Mono TLS stack has no protocol above TLS 1.0, a modern
+            // proxy answers that with a protocol_version alert, and the rejected
+            // download leaves the alliance panel showing its placeholder. That
+            // failure has no visible tell anywhere else, so it gets a line here.
+            Emblems.EmblemImages.ReportConfiguration(Console.WriteLine);
+
             RequestRouterServer restServer = new RequestRouterServer(IPAddress.Any, restPort);
 
             //server.AddStaticContent() here to add some filesystem path to serve

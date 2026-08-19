@@ -127,6 +127,11 @@ variable to <code>username:hash</code> and restart the login server to enable th
                 // name: both are operator-set text the outside world reads, and
                 // neither is a fact about the running world.
                 ("patchNotesCard", WebAssets.ReadTrimmed("admin-patchnotes.html")),
+                // The greeting the game client shows on arrival. Under System,
+                // beside the server name, because it is the same kind of thing:
+                // an operator-set string that used to be a literal somewhere
+                // else and is now a row the panel owns.
+                ("welcomeCard", WebAssets.ReadTrimmed("admin-welcome.html")),
                 ("mapBody", mapBody),
                 ("csrfTokenAttr", HtmlEncode(csrfToken)));
 
@@ -175,11 +180,14 @@ variable to <code>username:hash</code> and restart the login server to enable th
             "admin-operator.js",
             "admin-topology.js",
             "admin-wiring.js",
-            // Last, and self-booting: it touches only its own card, so it needs
-            // nothing wired for it and adds no line to admin-wiring.js.
+            // Last, and self-booting: they touch only their own card, so they
+            // need nothing wired for them and add no line to admin-wiring.js.
+            // Both read admin-console.js's CSRF constant, so both must stay
+            // after it.
             "admin-viewers.js",
             // Same shape, same reason: it fills one textarea from /patchnotes/source.
             "admin-patchnotes.js",
+            "admin-welcome.js",
         };
 
         /// <summary>Minimal HTML entity escaping for text interpolated into markup.</summary>
