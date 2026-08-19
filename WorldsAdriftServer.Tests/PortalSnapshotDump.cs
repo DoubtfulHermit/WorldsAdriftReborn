@@ -88,6 +88,90 @@ namespace WorldsAdriftServer.Tests
             }
 
             File.WriteAllText(Path.Combine(root, "code.txt"), design.ToCode());
+
+            // THE STATES THE HAPPY VIEW NEVER SHOWS. The fixture above is one
+            // player with every right, which is the one arrangement of this page
+            // that is always looked at and therefore the one least likely to be
+            // wrong. Every bug this dump has actually caught lived in a state
+            // some OTHER player sees: a read-only field with no box around it, a
+            // "your rank cannot do this" note drawn in the alert colour so a
+            // deliberate refusal read as a fault, an error notice nobody had
+            // seen against the dark theme.
+            //
+            // Extra files rather than extra [Fact]s on purpose - the assertions
+            // above already cover every tab, and these exist to be LOOKED at.
+            foreach ((string name, PortalView variant) in Variants(artwork))
+            {
+                File.WriteAllText(Path.Combine(root, name + ".html"),
+                    AccountPage.Render(variant));
+            }
+        }
+
+        /// <summary>The awkward views, named for the file each is written to.</summary>
+        private static IEnumerable<(string, PortalView)> Variants(EmblemArtwork artwork)
+        {
+            PortalView full = View(artwork);
+
+            // A member whose rank carries nothing: both alliance texts read-only,
+            // no roster controls, and the sentence explaining why.
+            AllianceCard mute = full.Characters[0].Alliance! with
+            {
+                YourRank = "Deckhand",
+                YourPermissions = Array.Empty<string>(),
+                Members = new[]
+                {
+                    new AllianceMemberRow(MineUid, "Wrenna", "Deckhand", MemberRankId, false, true, false, false),
+                    new AllianceMemberRow(OtherUid, "Halloran", "Leader", LeaderRankId, true, false, false, false),
+                },
+                Rights = new AllianceRights(false, false, false, false),
+            };
+
+            yield return ("v-alliance-readonly", full with
+            {
+                Tab = PortalTabs.Alliance,
+                Characters = new[]
+                {
+                    full.Characters[0] with { Alliance = mute },
+                },
+            });
+
+            yield return ("v-emblem-readonly", full with
+            {
+                Tab = PortalTabs.Emblem,
+                Characters = new[] { full.Characters[0] with { Alliance = mute } },
+            });
+
+            yield return ("v-notice-good", full with
+            {
+                Tab = PortalTabs.Account,
+                Notice = "Your password has been changed.",
+            });
+
+            yield return ("v-notice-bad", full with
+            {
+                Tab = PortalTabs.Account,
+                Notice = "That did not work: the current password you gave does not match.",
+                NoticeIsError = true,
+            });
+
+            // A brand-new account: no character, so no crew, no alliance and no
+            // emblem - the portal is two tabs and an explanation.
+            yield return ("v-no-characters", full with
+            {
+                Tab = PortalTabs.Account,
+                Characters = Array.Empty<CharacterCard>(),
+            });
+
+            // A character the world has never saved: three empty sections in a
+            // row, which is the state a player sees the very first time they look.
+            CharacterSheet blank = new CharacterSheet(
+                MineUid, "Sesta", 1, DateTimeOffset.UnixEpoch, null, null, null);
+
+            yield return ("v-character-blank", full with
+            {
+                Tab = PortalTabs.CharacterId(MineUid),
+                Characters = new[] { new CharacterCard(blank, null, null) },
+            });
         }
 
         private static EmblemStack Design()
