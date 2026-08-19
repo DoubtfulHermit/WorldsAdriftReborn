@@ -1106,7 +1106,7 @@ namespace WorldsAdriftRebornGameServer.Game
 
             return new ShipPropulsion(
                 HullMassKgFor(hullEntityId),
-                engines * ShipForceModel.DefaultEngineThrustNewtons,
+                engines * _tuning.EngineThrustNewtons,
                 unfurledSails);
         }
 

@@ -65,8 +65,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Contains(service, "ShipPartKinds.Engine",
                 "the mounted parts must be filtered to engines; counting every part as an "
                 + "engine would make a hull full of railings fly like a racer.");
-            Contains(service, "ShipForceModel.DefaultEngineThrustNewtons",
-                "per-engine thrust must come from the force model, not a local literal.");
+            Contains(service, "_tuning.EngineThrustNewtons",
+                "per-engine thrust must come from the tuning, not a local literal - the live "
+                + "verdict on flight is a feel judgement made at the helm, and it must be "
+                + "answerable with a restart rather than a rebuild.");
         }
 
         [Fact]

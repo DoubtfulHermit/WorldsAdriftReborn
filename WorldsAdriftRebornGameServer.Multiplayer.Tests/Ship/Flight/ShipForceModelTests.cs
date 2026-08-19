@@ -245,6 +245,32 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
+        public void The_new_magnitudes_are_tunable_from_the_environment()
+        {
+            // Both are WAREBORN TUNING, and the maintainer's complaint that started
+            // this work was about speeds. Retuning must not need a rebuild.
+            var tuned = FlightTuning.FromEnvironment(name => name switch
+            {
+                "WAREBORN_FLIGHT_ENGINE_THRUST" => "2400",
+                "WAREBORN_FLIGHT_SAIL_POWER" => "75",
+                _ => null,
+            });
+            Assert.Equal(2400.0, tuned.EngineThrustNewtons);
+            Assert.Equal(75.0, tuned.SailPowerNewtons);
+
+            // Garbage and absurdity fall back or clamp rather than taking the
+            // server down or launching a hull off the map.
+            var junk = FlightTuning.FromEnvironment(name => name switch
+            {
+                "WAREBORN_FLIGHT_ENGINE_THRUST" => "not-a-number",
+                "WAREBORN_FLIGHT_SAIL_POWER" => "-40",
+                _ => null,
+            });
+            Assert.Equal(ShipForceModel.DefaultEngineThrustNewtons, junk.EngineThrustNewtons);
+            Assert.Equal(0.0, junk.SailPowerNewtons);
+        }
+
+        [Fact]
         public void A_dead_calm_produces_no_sail_force()
         {
             Assert.Equal(0.0, ShipForceModel.SailForwardNewtons(

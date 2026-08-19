@@ -220,7 +220,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // and the sail's trim, so an unfurled sail pushes a ship that is
                 // standing still with its lever centred.
                 double sailNewtons = ShipForceModel.SailForwardNewtons(
-                    unfurledSails, yaw, ShipForceModel.DefaultSailPowerNewtonsPerWind);
+                    unfurledSails, yaw, tuning.SailPowerNewtons);
 
                 double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
                 speedCmd = ShipForceModel.StepSpeed(state.SpeedCmdMps, thrustAccel, dtSeconds);
