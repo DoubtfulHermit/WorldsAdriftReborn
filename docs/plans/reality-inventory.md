@@ -24,34 +24,76 @@ sitting in the shipped client the whole time.
 Both misses share one root cause, and it is worth stating precisely rather
 than as a slogan, because the precise version is more useful.
 
-### 0.0 The fuel tank was findable in three places. The search looked in a fourth.
+### 0.0 A false positive I published, caught, and had to retract — read this first
 
-The received account of the first miss is *"the fuel tank doesn't exist under
-any name we could find"*. **That account is wrong, and this pass can now show
-exactly how wrong.** Searching for the literal word `fueltank` finds it in
-three separate places:
+An earlier draft of this document opened with a triumphant finding: that the
+fuel tank had been sitting in `resources.assets` all along as
+`Assets/EntityPrefabs/Ship Parts/FuelTanks/FuelTank01.prefab`, and that a
+single grep would have ended the original investigation years ago.
+
+**That was wrong, and it was wrong in exactly the way this document exists to
+prevent.** Checked properly: **no GameObject named `FuelTank01` exists in the
+shipped client** — not `_unityclient`, not `_unityworker`, not bare, against
+the full 13,193-name dump. The path is **dangling**. Four of its neighbours in
+the same directory are too: `Core01`, `Core_Wooden`, `DinghyCore`,
+`PropEngine01`, `FlagMarketing0-3`. The string survives in **build metadata**
+and in a **legacy config block** (`"Turret01": 20, "Core01": 20,
+"BoardingMast": 20, "Helm02": 20, "PropEngine01": 20, "FuelTank01": 20` —
+several of those names exist nowhere else in the game), and behind it there is
+nothing.
+
+The control discriminates: `BossaFlag`, `ModularCannon`, `Respawner01`,
+`Lamp01`, `CoreMain` and `CoreStabiliser` each have **both** a path in that
+directory **and** a real GameObject.
+
+**Cut content leaves its path behind.** So the 1,099 extracted asset paths are
+a record of what was in Bossa's Unity project *at some point*, **not an
+inventory of what shipped.**
+
+#### 0.0.1 THE RULE THIS DOCUMENT NOW APPLIES TO EVERY ROW
+
+> **A path or an icon name is a LEAD. A resolvable asset, component id or data
+> row is EVIDENCE. They are never to be mixed in the same list.**
+
+This matters more than any individual finding here. The purpose of this
+document is to tell the maintainer what exists that we have not built. **A
+document that lists cut content as "missing" manufactures work that cannot be
+done** — and it repeats today's error with the sign flipped: instead of
+wrongly concluding a thing does not exist, wrongly concluding it does.
+
+Every diff entry below is therefore marked with which level of proof it has,
+and §1.5 tabulates the levels. Where this document says *icon only*, read it
+as **"a lead worth ten minutes, not a work item"**.
+
+#### 0.0.2 And the fuel question, settled in the original investigation's favour
+
+Following the same discipline through: `Metal_Fuel_Tank` and
+`Wooden_Fuel_Tank` GameObjects **do** exist — but both are **orphan roots**,
+art baked into the file, attached to no prefab and registered as no entity.
+The only fuel entity prefabs in the shipped client are `FuelDeposit`,
+`FuelExtractor`, `FuelGauge` and `FuelEggSpawnerEquip`.
+
+**So there genuinely is no placeable fuel-tank ship part in the shipped
+client. There was never one to find.**
+
+That materially changes the received account of the founding miss. The original
+investigation was **not careless**; its underlying reading was correct, and its
+conclusion — that fuel does not live in a dedicated tank part — was right. What
+it got wrong was only the **name**: fuel lives in the **Power Generator**, and
+that is a naming failure, not an analytical one.
+
+The genuinely fair criticism is narrower and still worth making: the word
+`fueltank` *was* findable in two places nobody looked —
 
 | where | what is there |
 |---|---|
-| `component-map.tsv` | **1106 `FuelTankState`** — a real component id, in the file this project calls its canonical component index |
-| the decompile | **`acs/ShipFuelTankPreprocessor.cs`** — a whole class named for it |
-| the Unity asset paths | **`Assets/EntityPrefabs/Ship Parts/FuelTanks/FuelTank01.prefab`** — a folder called `FuelTanks`, containing `FuelTank01` |
+| `component-map.tsv` | **1106 `FuelTankState`**, in the file this project calls its canonical component index |
+| the decompile | **`acs/ShipFuelTankPreprocessor.cs`**, a class named for it |
 
-The third of those came out of a **fifth oracle nobody had ever extracted**:
-Unity's own source-tree paths, still sitting in `resources.assets` as plain
-strings, 1,099 of them (§0.2.1). `FuelTank01.prefab` is the source asset that
-`PowerGenerator01_unityclient` is built from — **Bossa renamed the entity
-prefab and never renamed the file.**
+— and either would have shortened the search. Neither would have produced a
+placeable part, because there is not one.
 
-And the one name space where the word genuinely cannot appear is the entity-
-prefab name table, where it is `PowerGenerator01`. **That is the table that
-was searched.**
-
-So the failure was not "the decompile can't tell you a name you didn't think
-of". The searcher *did* think of the right word. The failure was **searching
-one name space and reporting the result as if it covered all of them.**
-
-### 0.0.1 What is actually true about where names live
+### 0.0.3 What is actually true about where names live
 
 Measured for this document, over all 349 entity-prefab names against the whole
 decompile: **80 have a hit, 269 do not.** So the folk rule *"prefab names
@@ -72,7 +114,7 @@ answer to "how many lists?" turned out to be **five**, and two of them —
 `knowledge-tree.json` (§4.7) and the asset paths (§0.2.1) — had been sitting
 in reach the whole time and had never been read as lists at all.
 
-### 0.0.2 The bar pipe was in this repository for nine days before anyone saw it
+### 0.0.4 The bar pipe was in this repository for nine days before anyone saw it
 
 The second miss has the same shape and a harder edge, because it does not even
 need the client.
@@ -120,7 +162,7 @@ was independently re-derived for this document rather than trusted.
 | **the icon catalogue** | **1,010** | every icon path in the client's own icon atlas, `docs/research/valid-icons.txt` | **PROVED** — extracted from the shipped atlas; already used as a test oracle by `ReferenceDataCrashSafetyTests` |
 | **the component index** | **444** | `component-map.tsv` — every SpatialOS component id the game's ECS defines | **PROVED** — from the decompile |
 | **the knowledge tree** | **228** | `knowledge-tree.json` — 20 branches of things retail let you *learn to make*, in plain English | **RECOVERED** — Bossa data already in this repo, never read as an enumeration until now (§4.7) |
-| **the Unity asset paths** | **1,099+** | `Assets/**/*.prefab` strings surviving in `resources.assets` — Bossa's own source-tree layout, including **pre-rename filenames** | **PROVED**, but a **partial** extraction (§0.2.1) |
+| **the Unity asset paths** | **1,099+** | `Assets/**/*.prefab` strings surviving in `resources.assets` — Bossa's own source-tree layout | **LEAD ONLY.** Partial *and* contaminated with cut content — see §0.0 and §0.2.1. Never cite it as proof a thing shipped |
 
 The knowledge tree was in this repo the whole time and was never read as a
 list — see §4.7. Both it and the asset paths are included because *the number
@@ -135,9 +177,10 @@ which only recovers paths stored as contiguous printable runs; the true count
 is higher than 1,099. **So an absence from the asset-path list proves
 nothing**, while a presence is as strong as evidence gets.
 
-What it is uniquely good for is exactly the case that started this document:
-**it preserves names from before a rename**, and it groups things into Bossa's
-own folders. `FuelTank01.prefab` (§0.0) is the proof.
+What it is uniquely good for is **generating leads** — it preserves names from
+before a rename, and it groups things into Bossa's own folders. What it must
+**never** be used for is asserting that something shipped. `FuelTank01.prefab`
+(§0.0) is the cautionary example: a path in this list with no asset behind it.
 
 | folder | paths recovered |
 |---|---:|
@@ -315,6 +358,30 @@ The client also ships five **schematic rarity capsules** —
 `item_schematic_*` rarity badges. We have a `rarity` field on item rows but no
 capsule/rarity tier system. **PROVED (icons)**.
 
+### 1.5 Evidence levels, and how to read every diff row below
+
+Per §0.0.1. Rows are not comparable across levels and should never be summed.
+
+| level | means | what it licenses |
+|---|---|---|
+| **E1 — resolvable asset** | a GameObject in `resources.assets`, or an entity prefab in the 353 | "this shipped." Safe to plan against |
+| **E2 — component id** | an id in `component-map.tsv` with generated code | "the system existed." Safe to plan against |
+| **E3 — data row** | a row in `itemData.json` / `schematicData.json` / `knowledge-tree.json` | recovered Bossa data. Strong, but says nothing about whether it survived to shutdown |
+| **E4 — icon** | a path in the shipped icon atlas | *a thing was authored.* **Does not prove it shipped or survived** — see the removed metals at §6.2 |
+| **E5 — asset path** | a `.prefab` string in build metadata | **lead only.** Demonstrably includes cut content (§0.0) |
+| **W — community** | wiki, patch notes, Steam | weakest. Its job is to tell you what to search for (§11) |
+
+**Two failure modes this table is designed to stop**, one of which this
+document committed and retracted:
+
+- Treating **E4/E5** as **E1** — inventing work that cannot be done. (§0.0.)
+- Treating an **absence** at any level as proof of absence overall. (The
+  founding miss.)
+
+Where a row below cites only an icon or only a path, it is a **lead worth ten
+minutes**, not a work item. The top-20 at §8 is deliberately weighted toward
+E1/E2/E3 rows for exactly this reason.
+
 ---
 
 ## 2. CATEGORY: SHIP PARTS
@@ -468,6 +535,26 @@ part** in `LoosePartCatalogue`. **INFERRED:** retail let you buy/craft hull
 frames as parts; we generate them. Worth checking before treating it as a gap.
 
 #### G. Ship weapons — `ModularCannon` and `ModularSwivelGun`
+
+**New, and it lowers the cost:** `Assets/Resources/ModularShipComponents/` is
+a `Resources.Load` tree of **38 sub-component prefabs, all with backing
+GameObjects (E1)**, that decomposes exactly the four prefabs carrying
+`ModularShipPartVisualizer`:
+
+| part | sub-components shipped |
+|---|---|
+| **Cannon** | `AmmoBox` ×5 · `Barrel` ×3 · `Body` ×9 · `Mount` ×3 |
+| **Engine** | `Body` ×3 · `Head` ×1 · `Prop` ×2 |
+| **Wing** | `Airleon` *(aileron)* ×2 · `Body` ×1 · `Connector` ×3 |
+| **Helm** | `Head` ×3 · `Mount` ×1 · `Stem` ×1 · `Founder_Helm` |
+
+Those slot names are **exactly** the crafting slots WIKI recovered
+(Cannon = Mount / Body / Barrel / AmmoBox) and exactly what
+`HullMaterials.cs` already documents as `materialDefinitions[0..3]`.
+**Procedural parts assemble at runtime from Resources-loaded pieces**, and the
+art for all four families is shipped and resolvable. The missing half is the
+generator and the shooting stack, not the meshes.
+
 
 Both are in the 98 (they carry the ship-part stack). We implement neither.
 `ModularCannon` appears once in our entire codebase — a doc comment in
@@ -780,7 +867,7 @@ folder:
 |---|---|
 | `2x1_makeshiftbandages`, `2x1_nervurebandages` | **healing.** `schematic_icon_firstaid` is one of the 20 categories |
 | `2x2_timed_explosive` | with prefabs `Bomb`/`BombEquip` and components 1014/1015/1350 |
-| `3x2_flaregun`, `1x1_flaregun_stubby_cartridges` | signalling — plus root icons `item_flare`, `item_flare_gun` |
+| `3x2_flaregun`, `1x1_flaregun_stubby_cartridges` | **CUT — E5/E4 only.** There is an `Assets/EntityPrefabs/Items/FlareGun.prefab` path and four icon names, and **no GameObject behind any of them**. WIKI independently lists the Flare Gun and Flares as removed alpha items. **Do not plan work against this row** |
 | `3x2_pioneer_pistol` | with prefab `PistolPioneer01`; a `pistol` item row exists, 1096/1249 unserved |
 | `3x4_inertia_pack`, `3x4_stasis_pack` | **movement utilities with real decompiled classes** — see §4.6 |
 | `2x2_bioelectrical_generator2` | a second generator type; icon-only |
@@ -897,10 +984,13 @@ relay) activates.
 | `LightSource` | **partial** | `hipLamp` "Hip Lamp" and `headTorch` "Head Torch" item rows exist |
 | `Weapon` | **no** | the whole combat pillar, §7.2 |
 | **`AtlasBoots`** | **no** | **CONFIRMED three ways.** The class has a `greavesRenderer`; `resources.assets` carries `rhegus_greaves_male`, `_female` and `_maleAvatar` meshes for the icon `crafted items/3x3_rhegus_greaves`; and the wiki files that item's picture under the filename **`Atlas boots.png`**. **The Rhegus Greaves ARE the Atlas Boots** — an item-name / class-name collision of exactly the generator's shape |
-| **`InertiaPack`** | **no** | class fields: `trails`, `energyMeter`, `minHeightFromGroundToActivate`, `energyLossPerSecond`/`energyGainPerSecond`. **A fall/momentum utility with a rechargeable energy budget.** WIKI gives its retail name: **Epheremus Drifter** (also spelled *Ephemerus*), filed under `Inertia pack.png` |
-| **`StasisPack`** | **no** | same energy model plus a `ParticleSystem vfx`. WIKI retail name: **Immobilator**, filed under `Stasis pack.png` |
+| **`InertiaPack`** | **no** | **E1.** Decompiled class (`trails`, `energyMeter`, `minHeightFromGroundToActivate`, `energyLossPerSecond`/`energyGainPerSecond` — a fall utility on a rechargeable energy budget) **plus real wearable art in `resources.assets`**: `inertia_pack_male`, `_female`, `_combi`, `_LOD0/1/2`. WIKI retail name: **Epheremus Drifter** (also *Ephemerus*) |
+| **`StasisPack`** | **no** | **E1.** Same energy model plus a `ParticleSystem vfx`, and `stasis_pack_male` / `_female` meshes ship. WIKI retail name: **Immobilator** |
 
-Both packs gate on `minHeightFromGroundToActivate` and drain an energy bar.
+All three of `AtlasBoots`, `InertiaPack` and `StasisPack` have **male and
+female wearable meshes with LODs in the shipped client** — they are E1, not
+leads. Both packs gate on `minHeightFromGroundToActivate` and drain an energy
+bar.
 **INFERRED:** these are the air-mobility items — what you use after you step
 off an island and before you hit the clouds. In a game whose defining verb is
 *falling*, a fall-arrest utility is not a side item.
@@ -1159,12 +1249,41 @@ unblocked *without* creature combat, by following retail's own last decision —
 which is a materially cheaper path than the dependency chain at §8 #3→#4
 assumes. Worth costing before committing to the harder one.
 
-`pets/3x3_basher` — a single icon in its own `pets/` folder, and the only
-member. **PROVED (icon only).** No `Basher` prefab, no `Basher` string
-anywhere in the decompile. Searched: prefab table, decompile tree, icon
-atlas, item data. This is the strongest evidence in the document for a
-**pet system** that was authored and either cut or never shipped past the
-icon.
+### 5.4 `Basher` — a fourth creature, fully modelled, that no source names
+
+Applying §0.0.1's rule to my own weakest row upgraded it two levels.
+
+`pets/3x3_basher` is a single icon in its own `pets/` folder, the only member,
+with no prefab in the 353 and no `Basher` string anywhere in the decompile. I
+had it filed **E4, icon only, probably cut**.
+
+Testing it as an *asset* instead says otherwise. `resources.assets` carries a
+complete art set:
+
+```
+basher_body   basher_head   basher_jaw   basher_shell
+basher_eye_left   basher_eye_right
+basher_mandable_lower_left/right   basher_mandable_upper_left/right
++ _diffuse / _mask / _normal textures for body and head
+```
+
+**Mandibles, a jaw, a shell and paired eyes.** That is a modelled, textured
+creature — **E1** — not a leftover sprite.
+
+And it is **not** an alias for something we already have: the Beetle has its
+own complete art set (`beetle_body`, `beetle_head`, `Beetle_Eye`,
+`Beetle_Aging`, `beetle_death_pose`), and so does the Manta Ray. Searched:
+the 353 prefabs, the whole decompile, `component-map.tsv`, `itemData.json`,
+the icon atlas, and the raw asset strings.
+
+**So the client contains a fourth creature that has no entity prefab, no
+component, no item row, no wiki page and no name in any community source.**
+It is the single most interesting unexplained object this pass found. Its
+`pets/` folder is the only hint at what it was for, and one folder is not
+enough to conclude anything.
+
+**Not a work item** — there is no prefab to spawn. It is recorded so that the
+next person to see the word `basher` knows it is real.
 
 ---
 
