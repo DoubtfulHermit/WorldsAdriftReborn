@@ -32,8 +32,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             return state;
         }
 
+        /// <summary>A resting ship already pointed on a given heading, radians.</summary>
+        private static FlightState HeadingOf(double yawRadians) =>
+            new FlightState(0, 0, 0, yawRadians, 0, 0, 0, 0, 0, 0, 0);
+
+        private static FlightState FlyFrom(
+            FlightState start, FlightControlInput input, int steps,
+            ShipPropulsion? propulsion, int unfurledSails = 0)
+        {
+            FlightState state = start;
+            for (int i = 0; i < steps; i++)
+            {
+                state = FlightIntegrator.Step(
+                    state, input, 0.24, Tuning, unfurledSails, 1.0, propulsion);
+            }
+            return state;
+        }
+
         private static FlightControlInput FullAhead =>
             new FlightControlInput(throttle: 1f, vertical: 0f, axisYaw: 0f, axisPitch: 0f, axisRoll: 0f);
+
+        private static FlightControlInput HalfAhead =>
+            new FlightControlInput(throttle: 0.5f, vertical: 0f, axisYaw: 0f, axisPitch: 0f, axisRoll: 0f);
+
+        private static FlightControlInput FullAstern =>
+            new FlightControlInput(throttle: -1f, vertical: 0f, axisYaw: 0f, axisPitch: 0f, axisRoll: 0f);
 
         private static FlightControlInput LeverCentred =>
             new FlightControlInput(throttle: 0f, vertical: 0f, axisYaw: 0f, axisPitch: 0f, axisRoll: 0f);
@@ -87,9 +110,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         [Fact]
         public void Full_throttle_settles_at_the_drag_limited_top_speed_of_that_ship()
         {
+            // Note the wind term. Equilibrium is thrust/mass = c*(v - w)^2, so the
+            // settled speed is EXACTLY the still-air top speed PLUS the hull's
+            // drift speed - the same additive form a tailwind has in the real
+            // world. EngineTopSpeedMps remains the still-air figure, which is the
+            // honest thing for it to report, so the wind is added here explicitly
+            // rather than buried inside it.
             var ship = new ShipPropulsion(800.0, 1200.0, 0);
             FlightState state = Fly(FullAhead, 600, ship);
-            Assert.Equal(ship.EngineTopSpeedMps, state.SpeedCmdMps, 2);
+            double expected = ship.EngineTopSpeedMps + ShipForceModel.BaselineDriveSpeedMps(800.0);
+            Assert.Equal(expected, state.SpeedCmdMps, 2);
         }
 
         [Fact]
@@ -118,14 +148,112 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         [Fact]
-        public void An_engineless_hull_with_no_canvas_never_gets_under_way()
+        public void An_engineless_hull_with_no_canvas_moves_slowly_rather_than_not_at_all()
         {
-            // Retail ships were pushed by their engines. A hull with neither engines
-            // nor sails hangs where it is, however hard the pilot pulls the lever.
-            // This is the behaviour that makes the feature flag necessary.
+            // THIS TEST USED TO ASSERT THE OPPOSITE, and it was wrong. It read
+            // "a hull with neither engines nor sails hangs where it is, however hard
+            // the pilot pulls the lever", and that claim was the stated reason the
+            // feature flag had to stay off.
+            //
+            // Retail's wind acts on the HULL, not only on the canvas, and
+            // WindPhysicsVisualizer exempts any ship with a working sky core from
+            // its at-rest early return - so a bare hull drifts. The maintainer, who
+            // played it: *"the ship without sails can move too, but really slowly."*
+            //
+            // The test is kept rather than deleted because the corrected assertion
+            // is the more valuable one: it pins BOTH halves - that a bare hull is
+            // mobile, and that it is mobile only barely, so that canvas and engines
+            // still mean something.
             FlightState state = Fly(FullAhead, 400, new ShipPropulsion(800.0, 0.0, 0));
-            Assert.Equal(0.0, state.SpeedCmdMps, 9);
-            Assert.Equal(0.0, state.Z, 9);
+
+            double drift = ShipForceModel.BaselineDriveSpeedMps(800.0);
+            Assert.True(state.SpeedCmdMps > 0.5,
+                "a bare hull must get under way: " + state.SpeedCmdMps);
+            Assert.True(state.SpeedCmdMps <= drift + 1e-6,
+                "a bare hull must not exceed its drift speed of " + drift
+                + ": " + state.SpeedCmdMps);
+            Assert.True(Math.Abs(state.Z) > 1.0, "the bare hull never actually went anywhere");
+        }
+
+        [Fact]
+        public void A_bare_hull_is_far_slower_than_the_same_hull_under_canvas()
+        {
+            // The half of the correction that keeps the progression meaningful. A
+            // bare hull moving is only the right answer if it is still decisively
+            // worse than rigging a sail, otherwise canvas becomes decorative.
+            //
+            // HEADING MATTERS HERE, and that is the point rather than an
+            // inconvenience: sail force is efficiency * |wind| * Power with the
+            // hull-lateral component stripped, so a well-set ship gets ~66 N per
+            // sail and one pointing the wrong way gets under 1 N. The favourable
+            // heading is used because the claim under test is "canvas is worth
+            // having", not "canvas is worth having on every heading" - the second
+            // is false, deliberately, and is pinned separately below.
+            var sailedShip = new ShipPropulsion(800.0, 0.0, 2);
+            FlightState bare = FlyFrom(HeadingOf(2.82), FullAhead, 900, new ShipPropulsion(800.0, 0.0, 0));
+            FlightState sailed = FlyFrom(HeadingOf(2.82), FullAhead, 900, sailedShip, unfurledSails: 2);
+
+            Assert.True(sailed.SpeedCmdMps > 1.5 * bare.SpeedCmdMps,
+                "canvas must be worth substantially more than a bare hull: bare="
+                + bare.SpeedCmdMps + " sailed=" + sailed.SpeedCmdMps);
+        }
+
+        [Fact]
+        public void Sailing_the_wrong_way_is_barely_better_than_bare_poles()
+        {
+            // The consequence of a CONSTANT wind, stated as a test so nobody
+            // rediscovers it as a bug report. We serve no weather cells, so every
+            // position falls through to the client's single fallback wind vector -
+            // which means a ship's heading permanently decides how well it sails,
+            // with no better wind to go and find. Roughly a fifth of headings give
+            // under a tenth of the best drive.
+            var ship = new ShipPropulsion(800.0, 0.0, 2);
+            FlightState good = FlyFrom(HeadingOf(2.82), FullAhead, 900, ship, unfurledSails: 2);
+            FlightState bad = FlyFrom(HeadingOf(5.76), FullAhead, 900, ship, unfurledSails: 2);
+
+            Assert.True(good.SpeedCmdMps > 2.0 * bad.SpeedCmdMps,
+                "heading must strongly decide sailing speed: good=" + good.SpeedCmdMps
+                + " bad=" + bad.SpeedCmdMps);
+        }
+
+        [Fact]
+        public void The_bare_hull_baseline_follows_the_lever_rather_than_being_all_or_nothing()
+        {
+            // Half throttle must be worth about half the drift. Without the
+            // throttle factor the baseline is a binary "on" and a feathered lever
+            // gives full drift, which at the helm reads as a ship that ignores the
+            // one control the pilot is holding.
+            FlightState half = Fly(HalfAhead, 900, new ShipPropulsion(800.0, 0.0, 0));
+            FlightState full = Fly(FullAhead, 900, new ShipPropulsion(800.0, 0.0, 0));
+
+            Assert.True(half.SpeedCmdMps > 0.0, "half throttle must still move a bare hull");
+            Assert.True(half.SpeedCmdMps < 0.75 * full.SpeedCmdMps,
+                "half throttle must be meaningfully slower than full: half="
+                + half.SpeedCmdMps + " full=" + full.SpeedCmdMps);
+        }
+
+        [Fact]
+        public void The_bare_hull_baseline_does_not_drive_a_ship_backwards()
+        {
+            // The baseline is a "get under way" affordance, not a full drive: it is
+            // retail's wind, and wind does not reverse because a pilot pulled the
+            // lever back. A hull with no engines therefore has nothing to reverse
+            // WITH, and must sit still rather than sail backwards at drift speed.
+            FlightState state = Fly(FullAstern, 900, new ShipPropulsion(800.0, 0.0, 0));
+            Assert.Equal(0.0, state.SpeedCmdMps, 6);
+        }
+
+        [Fact]
+        public void An_unmanned_bare_hull_settles_instead_of_drifting_for_ever()
+        {
+            // The wire-safety half of the departure. Retail let a bare hull drift
+            // downwind indefinitely; a world where every abandoned hull drifts is a
+            // world where every abandoned hull emits control points, which is the
+            // congestion class the standing multiplayer-safety rule exists to
+            // prevent. The baseline is gated on the pilot ASKING for drive, so a
+            // centred lever must still come to rest.
+            FlightState state = Fly(LeverCentred, 600, new ShipPropulsion(800.0, 0.0, 0));
+            Assert.Equal(0.0, state.SpeedCmdMps, 6);
         }
 
         // ------------------------------------------------------------------

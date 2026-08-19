@@ -220,16 +220,40 @@ authority for live configuration is the box itself:
   `[error]`/`[fatal]`, world activating 2475 trees / 409 loot / 368 deposits /
   216 databanks / 110 atlas / 24 fuel.
 
-  **THE THING TO READ BEFORE TOUCHING SHIP LIFT.** `AtlasMultiplier` is Bossa's
-  shutdown doomsday clock and evaluates to **0.0** today, so `TotalLift` is zero
-  for anything we serve, and `ShipControlsBehaviour.UpdateVertical` returns early
-  when overloaded. Vertical flight works ONLY because `ShipLiftVisualizer` is
-  currently inert on our hulls. Any change that makes `1258` properly live -
-  including well-meant sky-core seeding - makes every ship instantly overloaded
-  and **breaks climbing game-wide**. We seed `1258` at a flat 1,000,000 kg
-  precisely so the overload rule cannot fire. Same family as the loom's `1264`
-  and the fuel gauge's `1105`, except here the broken state is what keeps flight
-  working. Related standing warning, still current: serving `1106` on the hull
+  **THE THING TO READ BEFORE TOUCHING SHIP LIFT — CORRECTED 2026-08-20.** The
+  warning that stood here was right about the danger and **wrong about why**, and
+  the wrong reason was the more alarming one, so it is restated rather than
+  quietly edited.
+
+  What is true: `AtlasMultiplier` **is** Bossa's shutdown doomsday clock, it
+  **would** evaluate to 0.0 today, and `ShipControlsBehaviour.UpdateVertical`
+  **does** return early when overloaded, so on an *unmodified* client every ship
+  would be permanently overloaded and unable to climb.
+
+  What was wrong: *"vertical flight works ONLY because `ShipLiftVisualizer` is
+  currently inert on our hulls."* It is not inert, and nothing here depends on it
+  being inert. Climbing works because of **two live, deliberate mechanisms**:
+
+  1. **`WorldsAdriftReborn/Patching/Flight/EndOfTheWorld_Patch.cs`** pins
+     `AtlasMultiplier` at `1f` with a Harmony prefix — shipped in commit
+     `a44aebb`, *2026-08-13*, in response to the live "can't go up and down"
+     report, and verified present in the installed
+     `BepInEx/plugins/WorldsAdriftReborn/WorldsAdriftReborn.dll`. The apocalypse
+     is already cancelled. **The audit that produced the old warning was written
+     six days after this patch landed and did not know about it.**
+  2. **We seed `1258` at a flat 1,000,000 kg** against a hull mass in the
+     hundreds, so `Load` is ~0.001 and `IsOverloaded` is false with enormous
+     margin.
+
+  Why the correction matters rather than being pedantry: the old explanation
+  says the safety comes from something being *absent*, which invites a future
+  agent to "complete" the sky core's `[Require]` set and think they are fixing a
+  gap. The real safety comes from those two mechanisms being *present*. **Do not
+  remove either.** The live danger is now precisely one thing: serving a
+  realistic `1258` (i.e. `MaterialCatalog.SkyCoreLiftKg`, ~1000 kg for a bare
+  core) while hulls weigh 500–1700 kg, which would overload real ships for real
+  reasons. That is roadmap F2's job and it is a balance decision, not a cliff.
+  Related standing warning, still current: serving `1106` on the hull
   would wake `FuelVisualizer`, which `ShipPreprocessor` attaches to every ship
   root. `feat/fuel-generators` re-ran that enumeration and still does not serve
   1106 — on a generator part it would satisfy no reader at all.

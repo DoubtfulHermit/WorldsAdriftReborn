@@ -223,7 +223,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                     unfurledSails, yaw, tuning.SailPowerNewtons);
 
                 double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
-                speedCmd = ShipForceModel.StepSpeed(state.SpeedCmdMps, thrustAccel, dtSeconds);
+
+                // THE BARE-HULL BASELINE. A hull with no engines and no canvas is
+                // not immobile - retail's wind acted on the HULL, not only on the
+                // sails, and its early-return explicitly exempts any ship with a
+                // working sky core, so a bare hull drifted. That is the maintainer's
+                // "the ship without sails can move too, but really slowly", and it
+                // is also why a sky core rather than a sail is what makes a ship
+                // mobile. See ShipForceModel.BaselineDriveSpeedMps for the recovered
+                // magnitude (~2 m/s, under 4 knots, less for a heavy hull) and for
+                // why we aim it along the heading instead of downwind.
+                //
+                // Gated on the pilot ASKING for drive. An unmanned hull left with
+                // the lever centred settles to rest as it does today, because a
+                // world where every abandoned hull drifts for ever is a world where
+                // every abandoned hull emits control points for ever - the exact
+                // congestion class the standing multiplayer-safety rule exists to
+                // prevent, and the same reason the settle term is aimed at zero.
+                double windAlongHeading = 0.0;
+                if (throttle > 0.0)
+                {
+                    windAlongHeading = ShipForceModel.BaselineDriveSpeedMps(ship.MassKg) * throttle;
+                }
+
+                speedCmd = ShipForceModel.StepSpeed(
+                    state.SpeedCmdMps, thrustAccel, dtSeconds, windAlongHeading);
 
                 // The wire clamp, NOT a physics cap: above this a hull moves far
                 // enough between two control points to read as teleporting.

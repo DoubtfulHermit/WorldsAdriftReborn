@@ -2072,6 +2072,20 @@ The maintainer called it "the atlas generator"; the game's own string is
 > multiplies by it) — which is very likely the real reason §4.5 records the
 > lifter as "a prop". Any feature that reads client-side lift must force this to
 > 1 first, and that is a **CLIENT MOD**.
+>
+> **UPDATE 2026-08-20 — that client mod already exists and has been shipped for
+> a week.** `WorldsAdriftReborn/Patching/Flight/EndOfTheWorld_Patch.cs` is a
+> Harmony prefix on the `AtlasMultiplier` getter that returns `1f` and skips the
+> countdown. It landed in `a44aebb` on **2026-08-13** — *six days before this
+> section was written* — after the live "can't go up and down" report, and it is
+> present in the installed plugin DLL. The audit above searched the decompile and
+> not our own patch set, which is the third time in two days a finding has been
+> wrong because the search never left the decompile.
+>
+> So the standing conclusion inverts: **client-side lift is live and correct**,
+> `TotalLift = 1.0 × whatever we serve`, and the reason ships climb today is that
+> we serve `1258 = 1,000,000 kg` against hulls of a few hundred. The Atlas Lifter
+> being a prop needs a different explanation than this one.
 
 #### 5. HULL MATERIALS → MASS — `1257 ParentingMassAdderState`
 
@@ -2312,6 +2326,40 @@ Every phase after F1 depends on F1's force model being on.
   12 m/s for a reference hull — they are a starting point for a balance pass, not
   an answer.
 
+  > **THE FIRST RISK WAS OVERSTATED AND IS NOW FIXED — 2026-08-20,
+  > `feat/flight-calibration`.** *"Under the force model they cannot move"* was
+  > true of the code as written and **false of retail**, in two separate ways.
+  >
+  > **1. Sails, not engines, were the early game.** The maintainer, from playing
+  > it: *"the ships can move without engines, that was never a problem. In the og
+  > game you would first have sails until you figure out engines."* The stranding
+  > set was never "hulls with no engines", it was "hulls with no engines **and no
+  > sails**".
+  >
+  > **2. A bare hull was not immobile either.** *"No, the ship without sails can
+  > move too, but really slowly."* This is **PROVED** in the decompile and the
+  > audit above already contained the mechanism without joining it up:
+  > `WindPhysicsVisualizer.ApplyWindDrag` evaluates the quadratic law on the
+  > **relative** wind, `GetDrag(wind × windMultiplier − velocity)`. That single
+  > expression is drag when the ship outruns the air and **thrust** when the air
+  > outruns the ship, so a stationary hull is accelerated to the wind speed. And
+  > the at-rest early return in `ManagedFixedUpdate` is skipped whenever
+  > `IsFloatingShip` — i.e. **for any hull with a non-overloaded sky core**. So
+  > the sky core, not the sail, is what makes a ship mobile at all, which is
+  > exactly the maintainer's *"sky generator and a simple ship should hover
+  > regardless and move slowly"*.
+  >
+  > Implemented as `ShipForceModel.BaselineDriveSpeedMps` — magnitude PROVED
+  > (`|wind| × (1 − clamp01(mass/4000) × 0.75)`, ≈2 m/s, 3.9 kn on a legacy hull,
+  > 1.1 kn on a 4000 kg barge), aim ours: retail pointed it downwind, and with our
+  > single global constant wind a downwind-only baseline would let a bare hull
+  > travel in exactly one compass direction for ever. It is aimed along the
+  > heading, scaled by throttle, and gated on the pilot asking for drive so that
+  > an abandoned hull still settles instead of emitting control points for ever.
+  >
+  > **Net effect on the flag: no ship can be stranded by it.** The progression is
+  > bare hull → sails → engines, all three non-zero.
+
 ---
 
 #### PHASE F2 — The atlas core starts mattering
@@ -2359,7 +2407,31 @@ Every phase after F1 depends on F1's force model being on.
   `feat/ship-components` — **would break climbing for every ship on the server**.
   Establishing exactly why the visualizer is inert today is the first task of
   this phase and is worth doing even if F2 never ships.
-- **Main risk:** the above. Do not start this phase by writing server code.
+
+  > **BOTH CONSEQUENCES ARE WRONG — corrected 2026-08-20, on `feat/flight-calibration`.**
+  >
+  > **(a) is already done.** `EndOfTheWorld_Patch.cs` has pinned `AtlasMultiplier`
+  > at `1f` since `a44aebb`, **2026-08-13**, six days before this was written, and
+  > is in the shipped plugin DLL. F2's hard prerequisite is satisfied.
+  >
+  > **(b) is a wrong inference from a right observation.** Vertical flight does
+  > work — but not because the visualizer is inert. With the multiplier pinned at
+  > 1, `TotalLift` = the flat **1,000,000 kg** we seed at
+  > `ComponentsSerializer.cs:616`, against a `1257` hull mass of 500–1700 kg. So
+  > `Load ≈ 0.001` and `IsOverloaded` is false by three orders of magnitude. The
+  > visualizer is live, correct, and simply never near its limit.
+  >
+  > **There is therefore no cliff to step off, and `feat/ship-components` is not
+  > blocked.** Completing the sky core's `[Require]` set cannot break climbing,
+  > because the two things that would have to be true for it to — a zero
+  > multiplier and a realistic lift value — are both false. What F2 must not do is
+  > swap the 1,000,000 kg seed for `MaterialCatalog.SkyCoreLiftKg` (~1000 kg for a
+  > bare core) **without** first checking real hull masses against it: a 2-cell
+  > legacy hull already computes to 1071 kg and would be overloaded on a bare core
+  > the instant that seed changed. That is a genuine balance decision about live
+  > ships, and it is a different and much more tractable problem than a doomsday
+  > clock.
+- **Main risk:** the seed swap in the note above — not the multiplier.
 
 ---
 
@@ -2431,6 +2503,102 @@ Sailing becomes local: wind varies by place, routes differ, and the 0.3
 efficiency floor starts to matter because the other 0.7 is worth chasing.
 Requires dedicated weather-cell entities and the `1139` research that
 `ComponentAbsencePolicy` demands. **Do not start this before that research.**
+
+### 12.8b THE SAIL CURVE — *"the optimum was 3 or 4 sails, then it was becoming too heavy"*
+
+**Added 2026-08-20, branch `feat/flight-calibration`.** The maintainer remembered
+an optimum sail count and asked for it to be checked. It is checkable arithmetic
+rather than a matter of taste, and the arithmetic gives a clean and slightly
+surprising answer: **the memory is real, but it is not a speed optimum, because a
+speed optimum cannot exist.**
+
+#### The speed curve has no peak, and that is a theorem rather than a measurement
+
+Adding a sail adds thrust *and* mass, so the obvious model of the maintainer's
+memory is that `v = 10·√(F/m)` peaks somewhere. Write it out:
+
+```
+  v(n) = 10 · sqrt( (F_e + n·f_s) / (m_h + n·m_s) )
+```
+
+`v` is monotone in the ratio `R(n) = (F_e + n·f_s)/(m_h + n·m_s)`, which is a
+**linear-fractional (Möbius) function of `n`**. Differentiate:
+
+```
+  R'(n) = [ f_s·(m_h + n·m_s) − (F_e + n·f_s)·m_s ] / (m_h + n·m_s)²
+        = [ f_s·m_h + n·f_s·m_s − F_e·m_s − n·f_s·m_s ] / (…)²
+        = ( f_s·m_h − F_e·m_s ) / (m_h + n·m_s)²
+```
+
+**The `n·f_s·m_s` terms cancel exactly, and `n` disappears from the numerator.**
+The sign of `R'` is therefore constant for every `n`: the curve is monotone
+everywhere and **has no interior maximum at 3, at 4, or anywhere else.** Which
+way it runs is decided once, by one comparison:
+
+| condition | consequence |
+|---|---|
+| `f_s/m_s > F_e/m_h` (the sail out-performs the ship) | **every** sail helps, for ever, approaching `10·√(f_s/m_s)` |
+| `f_s/m_s < F_e/m_h` | the **first** sail already hurts |
+
+So *any* model in which both thrust and mass are linear in the sail count cannot
+produce a sweet spot. This is worth stating plainly because it closes off a whole
+class of future tuning attempts: **you cannot get a 3–4 sail optimum by adjusting
+sail power and sail mass.** No pair of values produces one.
+
+#### Two things that ARE real, and together they are what the memory is made of
+
+**1. The gain per sail collapses fast.** Even with no sail mass at all, `v ∝ √n`.
+On the live legacy hull (595 kg) at the current sail power, best heading:
+
+| sails | settled speed | gain from the previous sail |
+|---|---|---|
+| 1 | 10.4 kn | +6.5 kn |
+| 2 | 13.0 kn | +2.7 kn |
+| 3 | 15.1 kn | +2.1 kn |
+| 4 | 16.9 kn | **+1.7 kn** |
+| 5 | 18.4 kn | +1.5 kn |
+| 6 | 19.8 kn | +1.4 kn |
+| 8 | 22.2 kn | +1.2 kn |
+
+The fourth sail is the last one worth more than a tenth of what the first was.
+Past four you are adding rigging for a knot at a time, which is exactly what
+*"then it was becoming too heavy"* feels like from the helm even though nothing
+is technically getting worse.
+
+**2. The lift budget has a genuine cliff, and it lands in the right place.**
+This is the better explanation, and note that the maintainer's own words are
+*"too heavy"* — the vocabulary of the lift budget, not of the speed equation.
+`IsOverloaded = totalMass > TotalLift` is a hard step, not a curve: one sail past
+the line and the ship **cannot climb at all** and the client OSD-spams *"Ship
+weighs more than its atlas sky core can lift."* With a bare core at **1000 kg**
+(RECOVERED, and corroborated twice — our wiki-derived `SkyCoreLiftKg` and the
+community `skycoreCalc.js` are the same expression with the same coefficients)
+and our `1121 OriginalMassState` seed of **50 kg per mounted part**:
+
+| hull | mass | + helm + core | sails before the cliff |
+|---|---|---|---|
+| cedar, 1 cell 1 deck | 325 kg | 425 kg | 11 |
+| birch, 1 cell 1 deck | 500 kg | 600 kg | 8 |
+| **legacy birch/iron, 1 cell 1 deck** | **595 kg** | **695 kg** | **6** |
+| iron, 1 cell | 780 kg | 880 kg | **2** |
+| legacy birch/iron, 2 cell 1 deck | 1071 kg | 1171 kg | already overloaded |
+
+So the cliff is real and it lands between 2 and 11 sails depending on what the
+hull is made of, clustering around 3–6 for the hulls a new player actually
+builds. That is the maintainer's memory, and it is a **lift** phenomenon.
+
+**Caveat, stated because it is the weakest number here.** The 50 kg per-part mass
+is **ours** (`ComponentsSerializer`, a placeholder), not retail's, and the cliff
+position is directly proportional to it. The cliff's *existence* is recovered;
+its *position* is a tuning value we chose. If F2 ever makes lift real, that
+number becomes a balance knob worth deriving properly rather than a stub.
+
+**None of this is live today**, because `1258` is seeded at a flat 1,000,000 kg
+so the overload rule cannot fire. The cliff is what players would meet **if F2
+shipped**, and it is an argument for F2 being a good feature rather than against
+it: it is the mechanism that makes the sky core a real ship-building decision,
+and it produces the maintainer's remembered behaviour without anyone tuning for
+it.
 
 ### 12.9 WHAT ONLY A LIVE FLIGHT CAN SETTLE
 

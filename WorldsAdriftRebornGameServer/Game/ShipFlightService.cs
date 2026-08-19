@@ -1061,13 +1061,29 @@ namespace WorldsAdriftRebornGameServer.Game
         /// with the wind, quadratic drag resists, and top speed is wherever those
         /// balance rather than a constant.
         ///
-        /// OFF by default, deliberately and not merely conventionally. The force
-        /// model makes thrust depend on MOUNTED ENGINES, and hulls built before it
-        /// existed were built by players who had no reason to mount any - under
-        /// the new model those ships have no thrust at all. Switching this on is a
-        /// balance decision about live ships, so it is the operator's to make and
-        /// wants a flight test behind it, not a deploy that silently changes how
-        /// everybody's ship handles.
+        /// OFF by default, deliberately and not merely conventionally. Switching it
+        /// on is a balance decision about ships players have already built, so it is
+        /// the operator's to make and wants a flight test behind it, not a deploy
+        /// that silently changes how everybody's ship handles.
+        ///
+        /// THE OLD JUSTIFICATION HERE WAS WRONG, and it was believed twice, so it
+        /// is corrected rather than deleted. It read: *"the force model makes thrust
+        /// depend on MOUNTED ENGINES, and hulls built before it existed have no
+        /// thrust at all"*. That sentence ignores the other two thirds of the model.
+        /// Propulsion has THREE independent sources, and engines are the last of
+        /// them to arrive in a player's progression, not the first:
+        ///
+        ///   1. the HULL itself, which the wind pushes as long as the ship has a
+        ///      working sky core - roughly 2 m/s, under 4 knots
+        ///      (ShipForceModel.BaselineDriveSpeedMps, magnitude PROVED);
+        ///   2. SAILS, which are an always-on wind force with no throttle and no
+        ///      velocity term, and were retail's early-game propulsion - a player
+        ///      sailed long before they could build an engine;
+        ///   3. ENGINES.
+        ///
+        /// So no hull is stranded by this flag: a bare hull still moves, just
+        /// slowly, which is what it did in retail. What the flag really changes is
+        /// that speed stops being a constant and starts being 10*sqrt(thrust/mass).
         /// </summary>
         internal static readonly bool ForceModelEnabled =
             Environment.GetEnvironmentVariable("WAREBORN_FLIGHT_FORCES") == "1";
