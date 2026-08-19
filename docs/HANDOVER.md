@@ -126,6 +126,27 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **Client manifest `2026.08.19-2`** published 2026-08-19 09:55 CEST, build
+  label "fixes PLAY hanging forever after the Steam removal". 54 payloads, no
+  forbidden files. **This unbreaks the patcher**: both `2026.08.18-6` and
+  `2026.08.19-1` shipped the connect defect, so every player who patched got the
+  infinite load.
+  The pack was assembled FROM THE MAINTAINER'S OWN WORKING INSTALL, driven by
+  the previous manifest's destPath list, so the shipped set is one that has been
+  observed to reach the world rather than a fresh unverified compile. Plugin
+  sha256 `beace8da...87e553e6`, identical to the installed DLL.
+  Verified after publishing the way WAPatch does it: manifest 200 reporting
+  `2026.08.19-2`, payload downloads at the manifest's exact size and hash, and
+  the shipped DLL contains the forced-Locator patch.
+  Rollback: `/opt/wareborn/backups/pre-patch-2026.08.19-2-20260819T075451Z/patch`
+  - but note that rolling back reintroduces the hang, so it is not a real
+  rollback target for this one.
+
+- **Login server:** `0fc418e`, deployed and restarted at 2026-08-19 09:48 CEST.
+  Portal refusals now log WHY at the two choke points (the CSRF check and
+  `Permitted`), because a refused crest save left no trace but the request line.
+  Player-facing text is unchanged and still undifferentiated by design.
+
 - **Login server:** `91fc33d`, deployed and restarted at 2026-08-19 09:37 CEST.
   `/patchnotes` is now GENERATED from the commit log by
   `tools/patchnotes/build-changelog.sh` rather than hand-written. Verified live:
@@ -151,9 +172,10 @@ authority for live configuration is the box itself:
   and LOG the chosen path once per session - that decision being invisible is
   why this read as a server fault for an hour.
   **Both published payloads `2026.08.18-6` and `2026.08.19-1` contain the
-  defect**, so any player who ran the patcher got the hang. The fix is merged to
-  main and installed locally but NOT yet published; publish `2026.08.19-2` once
-  a real launch confirms it.
+  defect**, so any player who ran the patcher got the hang. CONFIRMED FIXED in a real client at 09:42:18 CEST: the client logs
+  `connect path: LOCATOR (forced)`, `!SpatialOS.IsConnected` is absent, and the
+  game server logged `peer connected. players now: 1`. Shipped as
+  `2026.08.19-2`.
   Cleared with evidence, so do not re-investigate: the firewall (7779/udp
   allowed), the network (UDP probes reached the VPS), Harmony patching (97/87),
   the game server (never restarted, `NRestarts=0`), and the splash-text change.
