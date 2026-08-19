@@ -27,6 +27,15 @@ decompile or shipped data), **RECOVERED** (reconstructed from a retail artefact)
 | 6 — Cooking routing | not started |
 | 7 — Creature lifecycle | not started; 7a-iii unsized pending investigation |
 
+**Gates on 1–3.** Multiplayer suite **3737 passed / 0 failed** (baseline 3694 —
+the 43 added are this branch's). `WorldsAdriftServer.Tests` **1107 passed / 26
+skipped**, unchanged. Relay soak **FLAT**: drift +0.05 ms, trend +0.37 ms over
+5 minutes against a 20 ms threshold, 97.8% delivered, 0 disconnects, 0 decode
+errors, 0 timeline violations (`tools/relaybot/run/soak-20260819-120717.csv`).
+The soak was run even though none of these phases adds networked state or raises
+a message rate — the standing rule is to run it, and the harvest path is close
+enough to the relay to be worth proving rather than arguing about.
+
 Phases 1–3 are the ones a player feels immediately and they were taken to
 completion rather than three phases being left half-landed. Phase 4 stopped
 before it started for a reason worth reading: investigating it turned a
