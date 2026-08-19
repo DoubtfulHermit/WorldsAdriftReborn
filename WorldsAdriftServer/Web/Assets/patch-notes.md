@@ -2,8 +2,10 @@ Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back 
 
 Every commit, newest first. 544 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 67 commits
+## 2026-08-19 | 69 commits
 
+* 46cc7e9 Move the two editor-markup tests off the portal shell's test file
+* 4bd3e4e Mirrored layers, and a grid the editor snaps to
 * 68ae843 Record salvage confirmed in a live client
 * f11990f Record the live-client confirmation of chests, felling and tree yields
 * 01d2848 Record Phase 5, and correct the plan's reading of the .1 reward keys
@@ -550,7 +552,7 @@ Every commit, newest first. 544 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 32 commits
+## 2026-08-07 | 30 commits
 
 * 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
 * fcece88 Resend mirror ops so the joining client reliably spawns the other player
@@ -582,9 +584,7 @@ Every commit, newest first. 544 of them since 2026-08-07. Merges are left out - 
 * 55bbd19 Mirror remote players with prefab context Default, not Player
 * 0e69621 Only run first-time setup and authority grant against the sender's own entity
 * 3ffe069 Fix rig tamer freezing the LOCAL player
-* a984cfa Client: stop remote rigs from simulating - display only
-* aeef3a7 Shrink remote avatar seed to the minimum the body-builder requires
 
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 145 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 147 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
