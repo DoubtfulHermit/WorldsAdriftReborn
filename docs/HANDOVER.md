@@ -126,7 +126,57 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
-- **NOT DEPLOYED - branch `feat/scrap-salvage`, ready for the orchestrator.**
+- **Game server:** `92a4002`, **login server:** `92a4002`, both at 2026-08-19
+  17:20 CEST. **Client manifest `2026.08.19-4`.** The afternoon, in one entry.
+  * **Ship containers work** - trunk, mountedBox, storageContainer,
+    shippingContainer open real inventories; 4 of 37 interactable became 7. They
+    needed BOTH `1081 + 1236` seeded AND the `Inventory` verb; the generic
+    `PickUp` we served is a verb the prefab never looks for.
+  * **Real flight forces**, behind `WAREBORN_FLIGHT_FORCES`, **OFF** - engineless
+    legacy hulls cannot move under it, so enabling it is a judgement call.
+  * **Fuel works**: per-hull tank, refuel by holding E on the ATLAS SKY CORE,
+    throttle-proportional burn, and a gauge whose needle moves. Thrust gating is
+    deliberately **OFF** (`WAREBORN_FUEL_GATES_THRUST=0`) until the low-fuel
+    warning exists - the refuel prompt renders with no text, so a stranded
+    player would have no way to discover the fix.
+  * **Emblem editor**: mirror bit and grid snap; **portal redesigned** on a
+    design-token layer; **283 emblem objects**.
+  * **Relay diagnostics** (`WAREBORN_RELAY_TRACE=1`, off) and the strengthened
+    soak gate.
+  Post-deploy checks passed on every step: zero `persistence is OFF`, zero
+  `[error]`/`[fatal]`, world activating 2475 trees / 409 loot / 368 deposits /
+  216 databanks / 110 atlas / 24 fuel.
+
+  **THE THING TO READ BEFORE TOUCHING SHIP LIFT.** `AtlasMultiplier` is Bossa's
+  shutdown doomsday clock and evaluates to **0.0** today, so `TotalLift` is zero
+  for anything we serve, and `ShipControlsBehaviour.UpdateVertical` returns early
+  when overloaded. Vertical flight works ONLY because `ShipLiftVisualizer` is
+  currently inert on our hulls. Any change that makes `1258` properly live -
+  including well-meant sky-core seeding - makes every ship instantly overloaded
+  and **breaks climbing game-wide**. We seed `1258` at a flat 1,000,000 kg
+  precisely so the overload rule cannot fire. Same family as the loom's `1264`
+  and the fuel gauge's `1105`, except here the broken state is what keeps flight
+  working. Related standing warning: serving `1106` on the hull would wake
+  `FuelVisualizer`, which `ShipPreprocessor` attaches to every ship root.
+
+  **Corrections made today to earlier claims in this file and in the audit:**
+  * The staleness step was **NOT** today's content and **not a regression** - it
+    reproduces on `2bd3113` from 00:27, and both runs that showed it used the
+    default Haven world, so the 409 containers were never in the world measured.
+  * Retail's flight model is **NOT lost**: the physics shipped in the same
+    `Assembly-CSharp` as the client, split by one runtime boolean.
+  * Our flight WAS largely faked - flat 12 m/s for every ship, engines never
+    consulted, sails a throttle multiplier - and `FlightTuning.cs` said so in an
+    opening HONESTY NOTE. Hull mass was the one real part.
+  * Unfurled sails DID move a stationary ship in retail. Throttle and velocity
+    appear nowhere in the sail force.
+  * `v_top = 10 * sqrt(thrust/mass)`, and retail set **no speed cap anywhere**.
+  * Rudders, keels and ballast **never existed**.
+  * Retail's placement default ALLOWED mounting on placed objects, proved by an
+    opt-out marker. `RailingStraight` carries colliders on layer `Default`, which
+    is inside `Layers.Environment` - SC3 was never blocked.
+
+- **DEPLOYED** 2026-08-19 13:21 CEST (branch `feat/scrap-salvage`, merged).
   **Scrap salvaging** (resource-economy Phase 5): the SALVAGE button the client
   has always drawn on `scrapItem-*` now pays out the reward block itemData.json
   has always carried. This is the missing half of the loot-container loop that
