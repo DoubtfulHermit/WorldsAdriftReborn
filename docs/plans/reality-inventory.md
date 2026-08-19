@@ -59,6 +59,7 @@ was independently re-derived for this document rather than trusted.
 | **the entity-prefab table** | **353** | every `entityprefabs/<name>_unityclient` baked into `resources.assets` | **PROVED** — four independent extractions agree exactly (see §0.3) |
 | **the icon catalogue** | **1,010** | every icon path in the client's own icon atlas, `docs/research/valid-icons.txt` | **PROVED** — extracted from the shipped atlas; already used as a test oracle by `ReferenceDataCrashSafetyTests` |
 | **the component index** | **444** | `component-map.tsv` — every SpatialOS component id the game's ECS defines | **PROVED** — from the decompile |
+| **the knowledge tree** | **172** | `knowledge-tree.json` — 20 branches of things retail let you *learn to make*, in plain English | **RECOVERED** — Bossa data already in this repo, never read as an enumeration until now (§4.7) |
 
 An icon is weaker evidence than a prefab, but it is *not weak*. An artist
 authored, named, sized and shipped a 2×2 sprite called
@@ -687,6 +688,100 @@ None of `AtlasBoots`, `InertiaPack`, `StasisPack` or `LightSource` appears
 anywhere in this repo. Searched each on the class name, the lowercase and
 camelCase item-id forms, the icon name, and the plain-English name.
 
+### 4.7 THE KNOWLEDGE TREE — the fourth oracle, and the only one that names things in English
+
+`Game/Knowledge/Config/knowledge-tree.json` is **recovered Bossa data already
+sitting in this repo**, and it is a *closed list of things retail let you
+learn to make*, in Bossa's own words. It is the only oracle here that gives
+plain-English names rather than asset ids. **It should have been read as an
+enumeration years ago and was instead only ever used as a spend graph.**
+
+**20 branches, 172 nodes. 16 nodes have a schematic. 156 do not.**
+
+| branch | nodes | with a schematic |
+|---|---:|---:|
+| Explorer | 8 | 5 |
+| SkyshipBuilder | 9 | 4 |
+| Tradesman | 12 | 4 |
+| cooking | 9 | 3 |
+| AtlasEngineer | 9 | **0** |
+| cannon | 13 | **0** |
+| engine | 13 | **0** |
+| wing | 11 | **0** |
+| shotgun *(= swivel gun)* | 11 | **0** |
+| 1hblade / 1hblunt / rifle / pistol / sniperrifle | 11 each | **0** |
+| 2hblade / 2hblunt | 9 each | **0** |
+| shipbuilding / physicalSlots / territory / revivalchamber | 1 each | **0** |
+
+#### 4.7.1 Retail had eight personal weapon branches
+
+`1hblade` · `1hblunt` · `2hblade` · `2hblunt` · `rifle` · `pistol` ·
+`sniperrifle` · `shotgun`
+
+**RECOVERED.** One-handed and two-handed blades, one-handed and two-handed
+blunt weapons, rifles, pistols, sniper rifles. **86 knowledge nodes across
+eight branches, and we implement not one of them.** The only weapon anywhere
+in our data is a single `pistol` item row.
+
+This is a whole gameplay pillar named in a file we already ship, and no
+document in this repo lists it. It was found by *reading the tree as a list*,
+which is the entire thesis of this document.
+
+#### 4.7.2 The procedural tiers and the ciphers are ONE system, and the tree proves it
+
+Every procedural branch has the identical node shape:
+
+```
+<X>RootSchematic  <X>Schematic2  <X>Schematic3  <X>Schematic4  <X>Schematic5
+<X>Slot1  <X>Slot2  [<X>Slot3]
+<X>Glyph1  <X>Glyph2  <X>Glyph3  <X>Glyph4
+```
+
+- **`RootSchematic` + `Schematic2..5` = five quality tiers.** That is
+  *exactly* the `procedual ship parts menu icons/` set: `cannon-1..5`,
+  `engine-1..5`, `wing-1..5`, `swivel-1..4`. **Two independent artefacts, the
+  same five-tier ladder.** PROVED.
+- **`Slot1..3` = cipher slots** — matching `schematicData.json`'s empty
+  `cipherSlots` array on every row, and the `slot_*_ciphers` icons.
+- **`Glyph1..4` = the ciphers themselves** — matching the six coloured
+  `*_ciphers` icons and the four part-typed ones (`cannon_ciphers`,
+  `engine_ciphers`, `swivelgun_ciphers`, `wing_ciphers`).
+
+So §2.3.G (five procedural tiers) and §4.5 (ciphers) are **not two findings.
+They are one system**: craft a part at one of five tiers, unlock slots, socket
+glyphs. That is retail's entire ship-part endgame, and this repo counts and
+discards its wire messages (`InventoryModificationState_Handler.cs:443-444`,
+*"no cipher model"*).
+
+#### 4.7.3 Named craftables the tree confirms, with nothing behind them
+
+Each of these is a plain-English retail name for something enumerated
+elsewhere in this document — **the two-step method closing on itself**:
+
+| tree node | corroborates |
+|---|---|
+| **Crows Nest** | §2.3.D — 2 prefabs, 2 icons, zero mentions in this repo |
+| **Territory Control Tower** | the `item_tct` icon (§4.4) and `TerritoryControlBeacon` |
+| **Paint Can**, **Paint Drum**, **Dye** | the three unreferenced `crafted items/` painting icons (§4.3) |
+| **Makeshift Bandages**, **Nervure Bandages** | the two first-aid icons (§4.3) |
+| **Metal Chair**, **Wooden Stool**, **Long Wooden Table**, **Long Metal Table** | §2.3.B — the 17 furniture icons **are craftable**, not scenery |
+| **Flour**, **Bread**, **Plain Rice**, **Manta Burger**, **Breaded Mushrooms** | §4.1 — the 68 food icons |
+| **Compass** | `MarauderCompass` + `MarauderCompassEquip` (§3.1) |
+| **Lifter**, **Campfire**, **Stove**, **Loom** | deployables we place as inert props (§3.2) |
+| the 8 **Atlas Core** modules | we *do* implement these — the branch is content-complete and schematic-empty |
+| **Penitent's Hood**, **Herder's Poncho**, **Strapped Boots** | named clothing; the clothing icon folders are largely covered |
+
+#### 4.7.4 A naming collision inside Bossa's own data
+
+The branch keyed **`shotgun`** contains nodes named
+`SwivelGunRootSchematic`, `SwivelGunSchematic2/3/4` — *and* `ShotgunsSlot1`,
+`ShotgunsGlyph1..4`, `ShotgunsSchematic5`. **The swivel gun and the shotgun
+are the same branch under two names**, mid-rename when the data was captured.
+
+Worth recording for its own sake: **even Bossa's own shipped data disagrees
+with itself about what a thing is called.** Any future search must try both
+words. This is the §9 error class occurring *inside the source of truth*.
+
 ---
 
 ## 5. CATEGORY: CREATURES
@@ -975,25 +1070,24 @@ thing renders on machinery we already have.
 | 2 | **Death and respawn** | 1092/1093/1094; `PartInteractionPolicy.cs:61` — the ship reviver is *"BLOCKED on serving 1094"* | 1092/1093/1094 | serve 1094 first; it unblocks `Respawner01`, `PersonalReviver` and the Kioki chambers, all of which we already place |
 | 3 | **Creatures that can be hurt or that hurt you** | 1160/1161 `HealthState`, 1194/1195 `DamageDealer`, 1171 `MortalityState` | ~6 | without it there is **no meat, so no cooking, so no food economy**. Gates #4 |
 | 4 | **Cooking** | **68 food icons**, 4 item rows, 9 knowledge nodes, `schematic_icon_cooking` | 1264, 1012 | item rows + schematics + a `Stove01`/`Campfire` that cooks. Largest content-on-disk item in the client |
-| 5 | **Ship weapons — cannon and swivel gun** | `ModularCannon`/`ModularSwivelGun` in the 98, 9 procedural tier icons, 2 category icons, **ammo item rows already exist**, 1173/4445 | ~8 (shooting stack) | large, but the ammunition, the materials model and 4444 `MountedGunShotState` are already in place |
-| 6 | **Instrument mounting — is the bar pipe the shelf?** | BarPipe is now in `LoosePartCatalogue`, but `LoosePartCatalogue.cs:353` admits *"their exact retail server-refdata strings are unavailable"* and mounts all five instruments on `ShipDeck` | none | **verification, not construction.** The single cheapest high-value item here: read `PlacementRules` off the instrument prefabs and off `BarPipe`, and stop guessing |
-| 7 | **Ship-part furniture — 17 parts, 0 rows** | 17 icons + 16 prefabs + `schematic_icon_furnciture` | **none** | catalogue rows + schematics. Inert props on a base that already works. **Best count-for-effort on the list** |
-| 8 | **Ship locking** | `Lock`/`LockEquip` + 1217/1218/1220/1221 | 4 | in a PvP game with boardable ships this is a safety feature, not a convenience |
-| 9 | **Fuel's source chain** | `FuelDeposit` + `FuelExtractor` + `FuelEggSpawnerEquip` + 1022, and the client's own placement algorithm in `IslandSurfaceData.cs` (§6.5) | 1022 | today fuel is loot. **This is the generator miss one link upstream** |
-| 10 | **Storage containers that open** | `Deployables.cs:217-223` keeps 8 containers `TransformOnly` because 1081 *"has no branch yet"* — **and 1081 is served** | **none** | possibly a flag flip. Verify, then flip |
-| 11 | **Deployables that do anything** | campfire/stove/loom/lifter/lamp/generator/beacon all placed as inert props | 1012, 1021, 1022, 1264, 1272 | five ids, five features, all already placeable |
-| 12 | **The crow's nest** | 2 prefabs, 2 icons, **zero mentions in this repo** | none | inert structural part. High visibility per unit of work |
-| 13 | **Ship wiring** | `WiringKit` + `ControlButton` + `ControlLever` + 1213–1216 — **a complete subsystem never once named here** | 4 | genuinely new. Ranked here because it is *invisible until you know it existed*, which is this document's whole point |
-| 14 | **Ship identity — figureheads, flags, plaques** | 19 prefabs + 19 icons | none | inert props. In a game about seeing other crews' ships, this is how a ship says who owns it |
-| 15 | **Wood and metal variants of every ship part** | 23 metal/wood icon pairs; `HullMaterials` already picks a dominant wood and metal | none | an icon-selection rule. Closes ~20 icon-gap rows for one function |
-| 16 | **Island turrets** | 7 turret prefabs + 3 projectiles + 7 icons + 1371–1374. **Island defences, not ship guns** | ~5 | the PvE threat layer. Depends on the shooting stack (#5) |
-| 17 | **First aid** | `2x1_makeshiftbandages`, `2x1_nervurebandages`, `schematic_icon_firstaid` | 4337 `HealthRegenerationState` | in a game about falling, healing is core, not comfort |
-| 18 | **Storm walls and lightning** | 1204, 1222–1229, 1202/1203, 5129 + 44 typed weather-wall segments already extracted | ~8 | the world has no soft boundary. Also what bar pipes were *for* — *"attract lightning in a Stormwall"* |
-| 19 | **The utility packs — Inertia and Stasis** | `acs/…/InertiaPack.cs`, `StasisPack.cs` + 2 icons; energy-budget fall utilities | unknown | see §4.6. Ranked below the rest only because their component wiring is unestablished |
+| 5 | **Personal weapons — eight whole branches** | `knowledge-tree.json`: `1hblade`, `1hblunt`, `2hblade`, `2hblunt`, `rifle`, `pistol`, `sniperrifle`, `shotgun` — **86 nodes** (§4.7.1) | the shooting stack, ~10 | large. Ranked here because **no document in this repo has ever listed these branches**, and they are named in a file we already load |
+| 6 | **Ship weapons — cannon and swivel gun** | `ModularCannon`/`ModularSwivelGun` in the 98, 9 procedural tier icons, 2 category icons, 24 knowledge nodes, **ammo item rows already exist**, 1173/4445 | ~8 (shooting stack) | shares the stack with #5. The ammunition, the materials model and 4444 `MountedGunShotState` are already in place |
+| 7 | **Instrument mounting — is the bar pipe the shelf?** | BarPipe is now in `LoosePartCatalogue`, but `LoosePartCatalogue.cs:353` admits *"their exact retail server-refdata strings are unavailable"* and mounts all five instruments on `ShipDeck` | none | **verification, not construction.** The single cheapest high-value item here: read `PlacementRules` off the instrument prefabs and off `BarPipe`, and stop guessing |
+| 8 | **Ship-part furniture — 17 parts, 0 rows** | 17 icons + 16 prefabs + `schematic_icon_furnciture` | **none** | catalogue rows + schematics. Inert props on a base that already works. **Best count-for-effort on the list** |
+| 9 | **Ship locking** | `Lock`/`LockEquip` + 1217/1218/1220/1221 | 4 | in a PvP game with boardable ships this is a safety feature, not a convenience |
+| 10 | **Fuel's source chain** | `FuelDeposit` + `FuelExtractor` + `FuelEggSpawnerEquip` + 1022, and the client's own placement algorithm in `IslandSurfaceData.cs` (§6.5) | 1022 | today fuel is loot. **This is the generator miss one link upstream** |
+| 11 | **Placed things that do something** — containers that open, campfires that cook, lifters that lift | `Deployables.cs:217-259` registers eight containers and seven stations as `TransformOnly`. The stated reason for the containers — 1081 *"has no ComponentsSerializer branch yet"* — **is stale; 1081 IS served** | 1012, 1021, 1022, 1264, 1272 | the container half may be a flag flip. The station half is five ids for five features that are all already placeable |
+| 12 | **Ciphers and the five procedural quality tiers** | one system, not two (§4.7.2): `RootSchematic`+`Schematic2..5` = the 5 `cannon-1..5`/`engine-1..5`/`wing-1..5` icons; `Slot1..3` + `Glyph1..4` = the 11 cipher icons and `schematicData.json`'s empty `cipherSlots`. The wire messages **already arrive** and are counted and dropped | unknown | retail's ship-part endgame. We ship tier 1 of 5 with no sockets |
+| 13 | **The crow's nest** | 2 prefabs, 2 icons, **zero mentions in this repo** | none | inert structural part. High visibility per unit of work |
+| 14 | **Ship wiring** | `WiringKit` + `ControlButton` + `ControlLever` + 1213–1216 — **a complete subsystem never once named here** | 4 | genuinely new. Ranked here because it is *invisible until you know it existed*, which is this document's whole point |
+| 15 | **Ship identity — figureheads, flags, plaques** | 19 prefabs + 19 icons | none | inert props. In a game about seeing other crews' ships, this is how a ship says who owns it |
+| 16 | **Wood and metal variants of every ship part** | 23 metal/wood icon pairs; `HullMaterials` already picks a dominant wood and metal | none | an icon-selection rule. Closes ~20 icon-gap rows for one function |
+| 17 | **Island turrets** | 7 turret prefabs + 3 projectiles + 7 icons + 1371–1374. **Island defences, not ship guns** | ~5 | the PvE threat layer. Depends on the shooting stack (#5) |
+| 18 | **First aid** | `2x1_makeshiftbandages`, `2x1_nervurebandages`, `schematic_icon_firstaid` | 4337 `HealthRegenerationState` | in a game about falling, healing is core, not comfort |
+| 19 | **Storm walls and lightning** | 1204, 1222–1229, 1202/1203, 5129 + 44 typed weather-wall segments already extracted | ~8 | the world has no soft boundary. Also what bar pipes were *for* — *"attract lightning in a Stormwall"* |
 | 20 | **Bombs** | `Bomb`/`BombEquip` + 1014/1015/1350 + `item_bomb` + `2x2_timed_explosive` | 3 | the most thoroughly evidenced single missing *item* in the client |
 
-**Just outside:** ciphers and the 5 procedural quality tiers (§4.5, one
-feature, gated on #5); the 39 unused loot props (already on
+**Just outside:** the 39 unused loot props (already on
 `feat/loot-containers`); photography (5 components, pure expression);
 musical instruments (1023); the 5 missing wood and 3 missing metal types
 (§6.2–6.3); `AllianceRadio01` (moot until #1); the pet (`pets/3x3_basher`,
