@@ -90,6 +90,39 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         /// </summary>
         public const int FuelTargetCount = 24;
 
+        /// <summary>
+        /// Flatness gate for loot containers, and the strictest on the island.
+        ///
+        /// A rock hides a bad seat; a box-shaped prop with hard edges does not. 0.97
+        /// is within 14 degrees of level, which is also the condition that lets
+        /// <see cref="LootContainers.SinkMetres"/> be applied straight down instead
+        /// of along the full surface normal - see the grounding remarks on
+        /// <see cref="LootContainers"/>. Loosening this without carrying the whole
+        /// normal through <see cref="GeneratedPlacement"/> would put chest corners
+        /// through the terrain.
+        /// </summary>
+        public const double LootMinUpwardNormal = 0.97;
+
+        /// <summary>
+        /// Minimum distance between loot containers, metres. RECOVERED: retail's own
+        /// lootable placement pass rejected any candidate within
+        /// <c>sqrMagnitude &lt; 400f</c> of an accepted one
+        /// (<c>acs/IslandDataBankAndLootableSpawnerVisualizer.cs:64</c>), i.e. 20 m.
+        /// This is the one placement constant in the loot pipeline that is not a
+        /// guess.
+        /// </summary>
+        public const double LootMinSpacing = 20.0;
+
+        /// <summary>
+        /// WAREBORN TUNING. Haven's container count, hand-set rather than taken from
+        /// <see cref="Loot.LootBudget"/> like every release island's, for the same
+        /// reason Haven's tree and canister counts are: Haven is the tutorial island
+        /// and is tuned by hand, not surveyed. The area formula would award it 2
+        /// (90 LOD0 cells), which is too few for the first island a player ever
+        /// searches.
+        /// </summary>
+        public const int LootTargetCount = 10;
+
         /// <summary>Keep-out radius around the player spawn, metres.</summary>
         public const double SpawnClearance = 6.0;
 
@@ -116,6 +149,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
         private static IReadOnlyList<GeneratedPlacement>? _depositLocals;
         private static IReadOnlyList<GeneratedPlacement>? _treeLocals;
         private static IReadOnlyList<GeneratedPlacement>? _fuelLocals;
+        private static IReadOnlyList<GeneratedPlacement>? _lootLocals;
 
         /// <summary>
         /// The five legacy canister seats, retained first so existing fuel-pod-N
@@ -317,6 +351,76 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Resources
             // Keep everything out of the Revival Chamber - see ChamberExclusion.
             ex.Add(ChamberClearing());
             return ex;
+        }
+
+        /// <summary>
+        /// Loot-container keep-outs. Deliberately the WIDEST set on the island: a
+        /// chest is a thing a player walks up to and stands at, so it must not be
+        /// wedged against a tree trunk, inside a rock, on the ship, on the spawn pad
+        /// or in the Revival Chamber. Everything already standing is excluded,
+        /// because a container is placed last and has no claim on ground another
+        /// prop already holds.
+        /// </summary>
+        public static IReadOnlyList<PlacementExclusion> LootExclusions()
+        {
+            List<PlacementExclusion> ex = new List<PlacementExclusion>();
+            FixedPointPosition island = IslandCatalog.Haven.GlobalOrigin;
+
+            FixedPointPosition spawn = SpawnPolicy.PlayerSpawnPosition;
+            ex.Add(new PlacementExclusion(
+                spawn.MetresX - island.MetresX,
+                spawn.MetresZ - island.MetresZ,
+                SpawnClearance));
+
+            FixedPointPosition ship = WorldEntities.ShipFrameDefaultPosition;
+            ex.Add(new PlacementExclusion(
+                ship.MetresX - island.MetresX,
+                ship.MetresZ - island.MetresZ,
+                ShipClearance));
+
+            // Every deposit and every tree already standing. DepositExclusions does
+            // the same for trees one field over, and for the same reason: the
+            // generator has no collision test at all, only these discs.
+            foreach (GeneratedPlacement tree in TreeLocals())
+            {
+                ex.Add(new PlacementExclusion(tree.LocalX, tree.LocalZ, TreeClearance));
+            }
+            foreach (GeneratedPlacement deposit in DepositLocals())
+            {
+                ex.Add(new PlacementExclusion(deposit.LocalX, deposit.LocalZ, TreeClearance));
+            }
+
+            ex.Add(ChamberClearing());
+            return ex;
+        }
+
+        /// <summary>The reviewed whole-island loot-container config for Haven.</summary>
+        public static SurfacePlacementConfig LootConfig()
+        {
+            return new SurfacePlacementConfig(
+                minUpwardNormal: LootMinUpwardNormal,
+                minReachableHeightMetres: ResourceMinHeight,
+                maxReachableHeightMetres: ResourceMaxHeight,
+                minSpacingMetres: LootMinSpacing,
+                targetCount: LootTargetCount,
+                exclusions: LootExclusions());
+        }
+
+        /// <summary>
+        /// Deterministic loot-container seats across Haven's complete surface, as RAW
+        /// surface vertices. The <see cref="LootContainers.SinkMetres"/> sink is NOT
+        /// applied here - it is applied once, at the
+        /// <c>LootContainers.HavenPlacements</c> boundary, so there is exactly one
+        /// place in the codebase where a container's height is adjusted and the
+        /// release-world seats go through the same arithmetic.
+        /// </summary>
+        public static IReadOnlyList<GeneratedPlacement> LootLocals()
+        {
+            if (_lootLocals == null)
+            {
+                _lootLocals = SurfacePlacementGenerator.Generate(Samples, LootConfig());
+            }
+            return _lootLocals;
         }
 
         /// <summary>

@@ -839,6 +839,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 order: SpawnOrder.AfterPlayer);
         }
 
+        /// <summary>
+        /// One LOOT CONTAINER on Haven: a searchable chest of retail scrap.
+        ///
+        /// NO SEEDED COMPONENTS, the same rule every other resource here follows. A
+        /// container needs 1210 InteractiveState AND 1081 InventoryState - the
+        /// client's InWorldInventoryVisualiser [Require]s both and will not enable
+        /// with either missing - and it ASKS for both over SEND_COMPONENT_INTEREST,
+        /// which ComponentsSerializer answers best-effort. A seed batch here would be
+        /// our guess at that need in place of the client's own statement of it, and
+        /// an all-or-nothing batch at that.
+        ///
+        /// AfterPlayer, so a misbehaving chest can never delay or break a spawn: it
+        /// is inert scenery until the client asks for its 1210.
+        /// </summary>
+        public static WorldEntity LootContainerEntity(int index)
+        {
+            return new WorldEntity(
+                LootContainers.KeyFor(index),
+                LootContainers.AssetName,
+                DefaultAssetContext,
+                LootContainers.PositionAt(index),
+                seedComponents: null,
+                order: SpawnOrder.AfterPlayer);
+        }
+
         /// <summary>The global entity's registration key. See <see cref="GlobalEntity"/>.</summary>
         public const string GlobalEntityKey = "global";
 
@@ -998,13 +1023,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// Clamped to [1, all placed]; index 0 is the nearest-spawn pod, so any count
         /// keeps it.
         /// </param>
+        /// <param name="includeLootContainers">
+        /// Whether to place LOOT CONTAINERS - the searchable chests of retail scrap.
+        /// OFF by default (WAREBORN_SPAWN_LOOT=1 to turn it on), for the same reason
+        /// the deposit and the databank are: no loot prefab has ever been in front of
+        /// a running client on this server, and a prefab that fails to resolve is an
+        /// invisible entity with an E prompt on it. AfterPlayer throughout, so a
+        /// misbehaving chest cannot delay or break a spawn. When on, this covers BOTH
+        /// Haven's hand-tuned seats and every selected release island's generated
+        /// ones - a world where only the tutorial island has loot would be worse than
+        /// one with none.
+        /// </param>
+        /// <param name="lootCountEnv">
+        /// The raw WAREBORN_LOOT_COUNT value, or null for Haven's full set. Clamped to
+        /// [1, all placed]. Affects HAVEN ONLY: the release islands' counts come from
+        /// their own surface area through <see cref="Loot.LootBudget"/>, which is the
+        /// recovered rule and not something an operator should be able to overrule by
+        /// accident.
+        /// </param>
         /// <param name="varyTreeSpecies">
         /// Generic support for cycling the eight verified per-species tree prefabs.
         /// Production Haven deliberately passes false because its explicit starter
         /// biome profile is birch; this remains available for a future island whose
         /// recovered per-island data actually names several woods.
         /// </param>
-        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null, bool includeWildernessShrine = true)
+        public static WorldEntityRegistry Default(EntityIdAllocator ids, bool includeProofIsland = false, bool includeTree = true, bool includeMetal = true, bool metalOnlyProven = false, string? treeCountEnv = null, string? oreCountEnv = null, bool includeDeck = true, bool includeExtraParts = false, bool recogniseShip = true, bool includeDeposit = false, string? depositCountEnv = null, bool includeDatabank = false, string? databankCountEnv = null, bool includeAtlasShard = true, string? atlasRateEnv = null, bool includeFuelPods = true, string? fuelPodCountEnv = null, bool varyTreeSpecies = false, bool includeStaticShip = true, bool includeProductionSecondIsland = false, int firstRegionTerrainCount = 0, string? releaseWorldDistricts = null, bool includeWildernessShrine = true, bool includeLootContainers = false, string? lootCountEnv = null)
         {
             WorldEntityRegistry registry = new WorldEntityRegistry(ids);
             int terrainCount = FirstRegionTerrainCountPolicy.Clamp(firstRegionTerrainCount);
@@ -1240,6 +1283,9 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                         island.Databanks[i]));
                 foreach (WorldEntity tree in Islands.ReleaseWorldTrees.For(island))
                     registry.Register(tree);
+                if (includeLootContainers)
+                    foreach (WorldEntity container in Islands.ReleaseWorldLoot.For(island))
+                        registry.Register(container);
             }
 
             if (includeFuelPods)
@@ -1267,6 +1313,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
                 for (int i = 0; i < databankCount; i++)
                 {
                     RegisterClearOfChamber(DatabankEntity(i));
+                }
+            }
+
+            if (includeLootContainers)
+            {
+                // LOOT CONTAINERS on Haven. Hand-tuned count, unlike the release
+                // islands' - see HavenSurface.LootTargetCount. RegisterClearOfChamber
+                // rather than registry.Register, because a chest inside the Revival
+                // Chamber is the same bug that put a tree through its roof and a
+                // nugget on its floor; a container is not exempt just because it is
+                // small.
+                int lootCount = LootContainers.CountFrom(lootCountEnv);
+                for (int i = 0; i < lootCount; i++)
+                {
+                    RegisterClearOfChamber(LootContainerEntity(i));
                 }
             }
 

@@ -36,7 +36,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             HasPrefix(key, "deposit-") || HasPrefix(key, "atlas-shard-")
             || HasPrefix(key, IslandResourceLedger.KeyPrefix)
             || HasPrefix(key, "fuel-pod-") || HasPrefix(key, "tree-")
-            || HasPrefix(key, "databank-") || HasPrefix(key, "metal-");
+            || HasPrefix(key, "databank-") || HasPrefix(key, "metal-")
+            // Loot containers. Note the ordering trap: "loot-" must be tested
+            // AFTER nothing and BEFORE nothing in particular, but it must be here
+            // AT ALL. A resource key outside this allowlist is broadcast eagerly
+            // instead of spatially streamed AND is skipped by
+            // ActivateBoundResources, so a container left off this line would
+            // render on every client at once and open into nothing.
+            || HasPrefix(key, LootContainers.KeyPrefix);
 
         /// <summary>
         /// Runtime registrations use the spatial service only when interest is

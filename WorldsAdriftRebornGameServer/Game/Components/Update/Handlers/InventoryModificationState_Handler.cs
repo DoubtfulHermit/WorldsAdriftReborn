@@ -2,7 +2,9 @@ using Bossa.Travellers.Inventory;
 using Improbable.Worker.Internal;
 using WorldsAdriftRebornGameServer.DLLCommunication;
 using WorldsAdriftRebornGameServer.Game.Inventory;
+using WorldsAdriftRebornGameServer.Game.Loot;
 using WorldsAdriftRebornGameServer.Multiplayer.Inventory;
+using WorldsAdriftRebornGameServer.Multiplayer.Loot;
 using WorldsAdriftRebornGameServer.Networking.Singleton;
 using WorldsAdriftRebornGameServer.Networking.Wrapper;
 
@@ -68,6 +70,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             requests += HandleMoveItem(clientComponentUpdate, model);
             requests += HandleAssignToHotBar(clientComponentUpdate, model);
             requests += HandleRemoveFromHotBar(clientComponentUpdate, model);
+            requests += HandleCrossInventoryMove(clientComponentUpdate, entityId, model);
+            requests += HandleMoveAll(clientComponentUpdate, entityId, model);
             requests += LogUnimplemented(clientComponentUpdate);
 
             // The 1082 echo the old code ended on. Kept because the client's
@@ -193,6 +197,149 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
         }
 
         /// <summary>
+        /// TAKING LOOT OUT OF A CHEST, and putting something back in.
+        ///
+        /// The event carries BOTH entity ids, so the player's own entity is only one
+        /// end of it. That is why this method takes <paramref name="playerEntityId"/>
+        /// and <paramref name="playerModel"/> separately from the ids on the wire: the
+        /// ownership gate at the top of HandleUpdate proves the SENDER owns the
+        /// entity the 1082 arrived on, and this method then proves that entity is one
+        /// of the two ends of every move it performs. Without that second check a
+        /// peer could name two inventories neither of which is theirs and launder
+        /// items between other people's chests.
+        ///
+        /// The OTHER end must be a loot container. Not "any entity with an
+        /// inventory": <c>InventoryService.ForEntity</c> will happily conjure a
+        /// starter-kit inventory for any id ever passed to it, so an unchecked id
+        /// here is an infinite item source. A container is the only non-player
+        /// inventory this server has, and it says so out loud.
+        ///
+        /// Both models are pushed afterwards by the caller for the player's side; the
+        /// CONTAINER's 1081 is pushed here, because the caller only knows about the
+        /// sender's entity and a chest whose 1081 is not re-pushed keeps showing the
+        /// item that just left it.
+        /// </summary>
+        private static int HandleCrossInventoryMove(
+            InventoryModificationState.Update update, long playerEntityId, InventoryModel playerModel )
+        {
+            for (int j = 0; j < update.crossInventoryMoveItem.Count; j++)
+            {
+                CrossInventoryMoveItem move = update.crossInventoryMoveItem[j];
+                long source = move.srcInventoryEntityId.Id;
+                long destination = move.destInventoryEntityId.Id;
+
+                if (!IsPlayerAndContainer(playerEntityId, source, destination, out long containerId))
+                {
+                    continue;
+                }
+
+                LootStock.Ensure(containerId);
+
+                bool takingOut = source == containerId;
+                InventoryModel from = InventoryService.ForEntity(source);
+                InventoryModel to = InventoryService.ForEntity(destination);
+
+                CrossMoveOutcome outcome = CrossInventoryPolicy.TryMove(
+                    from, to, move.srcItemId, InventoryService.NextItemId(destination),
+                    move.xPos, move.yPos, move.rotate, InventoryWire.Footprints);
+
+                Console.WriteLine("[loot] cross-inventory move of item " + move.srcItemId
+                    + " " + (takingOut ? "OUT OF" : "INTO") + " container " + containerId
+                    + " -> " + outcome + ".");
+
+                if (outcome == CrossMoveOutcome.Moved)
+                {
+                    // The container's own panel. The player's is pushed by the
+                    // unconditional push at the end of HandleUpdate.
+                    InventoryPush.Push(containerId, "cross-inventory move");
+                }
+            }
+
+            return update.crossInventoryMoveItem.Count;
+        }
+
+        /// <summary>
+        /// The "take all" button. Same gates as the single move, and deliberately
+        /// tolerant of a full bag: it moves what fits and leaves the rest, because a
+        /// player who runs out of room mid-transfer wants the half they got, not a
+        /// refusal.
+        /// </summary>
+        private static int HandleMoveAll(
+            InventoryModificationState.Update update, long playerEntityId, InventoryModel playerModel )
+        {
+            for (int j = 0; j < update.moveAll.Count; j++)
+            {
+                MoveAll all = update.moveAll[j];
+                long source = all.srcInventoryEntityId.Id;
+                long destination = all.destInventoryEntityId.Id;
+
+                if (!IsPlayerAndContainer(playerEntityId, source, destination, out long containerId))
+                {
+                    continue;
+                }
+
+                LootStock.Ensure(containerId);
+
+                InventoryModel from = InventoryService.ForEntity(source);
+                InventoryModel to = InventoryService.ForEntity(destination);
+
+                int moved = CrossInventoryPolicy.MoveAll(
+                    from, to, () => InventoryService.NextItemId(destination), InventoryWire.Footprints);
+
+                Console.WriteLine("[loot] moveAll " + source + " -> " + destination
+                    + " (container " + containerId + "): " + moved + " item(s) moved.");
+
+                if (moved > 0)
+                {
+                    InventoryPush.Push(containerId, "moveAll");
+                }
+            }
+
+            return update.moveAll.Count;
+        }
+
+        /// <summary>
+        /// The gate both cross-inventory paths share: exactly one end must be the
+        /// SENDER's own entity and the other must be a registered loot container.
+        /// Anything else is refused with a named reason.
+        ///
+        /// Refusing loudly matters more here than elsewhere in this file. Every other
+        /// event in it can only rearrange things the player already owns; these two
+        /// move items between entities, so a gap is not a stuck panel but an item
+        /// duplicator.
+        /// </summary>
+        private static bool IsPlayerAndContainer(
+            long playerEntityId, long source, long destination, out long containerId )
+        {
+            containerId = 0;
+
+            if (source == destination)
+            {
+                Console.WriteLine("[info] refusing a cross-inventory move with the same source and"
+                    + " destination (" + source + "); an in-grid move is moveItem, not this.");
+                return false;
+            }
+
+            if (source == playerEntityId && LootContainerLedger.IsContainer(destination))
+            {
+                containerId = destination;
+                return true;
+            }
+
+            if (destination == playerEntityId && LootContainerLedger.IsContainer(source))
+            {
+                containerId = source;
+                return true;
+            }
+
+            Console.WriteLine("[warning] refusing a cross-inventory move between " + source
+                + " and " + destination + " for player " + playerEntityId
+                + ": one end must be the sender's own entity and the other a loot container."
+                + " Neither ship storage nor another player's bag is servable yet.");
+            return false;
+        }
+
+        /// <summary>
         /// The events this server does not implement yet.
         ///
         /// They are counted, not silently skipped, because the count is what
@@ -209,10 +356,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components.Update.Handlers
             count += Note(update.removeItem.Count, "removeItem",
                 "there is no dropped-item entity to move it to, so honouring it would delete the item");
             count += Note(update.craftItem.Count, "craftItem", "no crafting model");
-            count += Note(update.crossInventoryMoveItem.Count, "crossInventoryMoveItem",
-                "no second inventory exists yet");
+
             count += Note(update.splitItemStack.Count, "splitItemStack", "no stacking model");
-            count += Note(update.moveAll.Count, "moveAll", "no second inventory exists yet");
+
             count += Note(update.equipTool.Count, "equipTool", "tool slots are hardcoded client-side");
             count += Note(update.tryToConsume.Count, "tryToConsume", "no consumable effects");
             count += Note(update.tryToLearn.Count, "tryToLearn", "no schematic model");
