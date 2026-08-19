@@ -1935,16 +1935,33 @@ Every phase after F1 depends on F1's force model being on.
   interactability — coordinate, do not both edit the `1236` seed.
 - **Migration:** no.
 - **SOAK:** yes (vertical velocity distribution changes).
-- **CLIENT MOD:** **probably yes, and this is the phase's real unknown.**
-  `AtlasMultiplier` is 0 in 2026, so any client-side reading of lift — the
-  overload warning, the core's load animation, the vertical-input refusal — is
-  dead until `EndOfTheWorldConfig` is forced to 1. Establish first whether the
-  client's refusal to send positive vertical while overloaded fires on our
-  served `1258`; if it does, players will be unable to climb until the client is
-  patched, and **that would be a live regression, so verify before enabling.**
-- **Main risk:** the doomsday clock above. Do not start this phase by writing
-  server code; start it by settling what the unpatched client does with a real
-  `1258`.
+- **CLIENT MOD: YES, and it is a hard prerequisite, not a nicety.** This was
+  the phase's open unknown when it was written; it is now **PROVED** and it is
+  worse than expected. `ShipControlsBehaviour.UpdateVertical` (decompile
+  `acs/ShipControlsBehaviour.cs:268-299`) resolves the driven ship's
+  `ShipLiftVisualizer` and, **if `IsOverloaded`, returns before touching
+  `_vertical` at all** — the axis is never updated, so the client simply stops
+  sending vertical input — and OSD-spams *"Ship weighs more than its atlas sky
+  core can lift."*
+
+  Now combine that with the doomsday clock: `TotalLift = AtlasMultiplier ×
+  state.totalLift` and `AtlasMultiplier` is **0.0** in 2026. So
+  `TotalLift = 0` for **any** value we serve, `mass > 0` always, and **every ship
+  is overloaded the moment a live `ShipLiftVisualizer` exists on it** — even at
+  the current flat 1,000,000 kg seed. Serving a "correct" `1258` does not fix
+  this; nothing served can fix it, because the multiplier is zero.
+
+  **Two consequences, and the second is urgent.** (a) F2 cannot ship until
+  `EndOfTheWorldConfig` is forced to 1 in the client mod. (b) Vertical flight
+  demonstrably works in production today, so `ShipLiftVisualizer` must **not**
+  currently be live on our hulls — most likely `1258` never reaches a checked-out
+  visualizer, or `ParentingMassAdderVisualizer` is absent beside it. That is a
+  cliff we are sitting next to: anything that makes `1258` properly live —
+  including well-meant `[Require]`-completion work on the sky core in
+  `feat/ship-components` — **would break climbing for every ship on the server**.
+  Establishing exactly why the visualizer is inert today is the first task of
+  this phase and is worth doing even if F2 never ships.
+- **Main risk:** the above. Do not start this phase by writing server code.
 
 ---
 
@@ -2029,8 +2046,13 @@ Requires dedicated weather-cell entities and the `1139` research that
 3. **Whether a stationary ship under sail moves at a rate that reads as
    sailing** rather than as drifting. The model gives 0.4–4.1 m/s depending on
    heading, against 12.2 m/s under engines.
-4. **What the unpatched client does with a real `1258 ShipLiftState`** — the F2
-   blocker, and the one that could produce a live regression.
+4. ~~**What the unpatched client does with a real `1258`.**~~ **ANSWERED, and it
+   is a live hazard rather than a live flight question** — see F2. What a live
+   flight *should* now check is the inverse: whether a piloted ship ever shows
+   the *"Ship weighs more than its atlas sky core can lift"* OSD message today.
+   If it never does, `ShipLiftVisualizer` is confirmed inert on our hulls and the
+   cliff in F2 is real but not yet stepped off. **This is a 30-second check at
+   the helm and it gates other people's branches, so it is worth doing first.**
 5. **Whether a sailed ship left unmanned drifts away.** Under the force model
    sails keep pushing while the hull is in motion, which is retail-authentic and
    produces ghost ships. Retail answered this with `ShipAbandonedBehaviour`;
