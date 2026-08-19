@@ -35,8 +35,27 @@ namespace WorldsAdriftServer.Emblems
         /// their meaning); REORDERING or removing an entry is not, and that is the
         /// day this number changes and old codes get read by a compatibility path
         /// rather than by luck.
+        ///
+        /// That day was version 2. The device table grew from fourteen to
+        /// <see cref="EmblemVocabulary.ChargeCount"/> when the drawn sheet landed,
+        /// and three procedural devices the sheet draws better were dropped, which
+        /// shifted every index after them. So a version 1 code is not read as if it
+        /// were a version 2 one - it is read through
+        /// <see cref="EmblemVocabulary.MigrateCharge"/>, which maps it to the
+        /// device of the same name. The alternative, refusing version 1 outright,
+        /// would have been the worst outcome available: every stored crest would
+        /// have fallen back to its alliance's generated default, so a table growing
+        /// would silently have wiped every emblem anybody had built.
         /// </summary>
-        internal const int Version = 1;
+        internal const int Version = 2;
+
+        /// <summary>
+        /// The one older code form still in the database. Read, never written:
+        /// <see cref="ToCode"/> always emits <see cref="Version"/>, so a crest
+        /// re-saved through the builder is stored in the current form and the
+        /// compatibility path only has to survive, not spread.
+        /// </summary>
+        private const int LegacyVersion = 1;
 
         internal EmblemVocabulary.Shape Shape { get; }
         internal EmblemVocabulary.Division Division { get; }
@@ -125,9 +144,23 @@ namespace WorldsAdriftServer.Emblems
                 }
             }
 
-            if (values[0] != Version) return false;
+            int charge = values[3];
 
-            return TryCreate(values[1], values[2], values[3], values[4], values[5], values[6], out spec);
+            if (values[0] == LegacyVersion)
+            {
+                // A version 1 charge index that was out of range then is still not
+                // an emblem now: migrating it would invent a device the player
+                // never chose. Only indices that were valid get carried over.
+                if (charge < 0 || charge >= EmblemVocabulary.LegacyChargeCount) return false;
+
+                charge = EmblemVocabulary.MigrateCharge(charge);
+            }
+            else if (values[0] != Version)
+            {
+                return false;
+            }
+
+            return TryCreate(values[1], values[2], charge, values[4], values[5], values[6], out spec);
         }
 
         /// <summary>
@@ -185,12 +218,20 @@ namespace WorldsAdriftServer.Emblems
             if (chargeColour == detail) chargeColour = (chargeColour + 3) % EmblemVocabulary.ColourCount;
             if (chargeColour == field) chargeColour = (chargeColour + 1) % EmblemVocabulary.ColourCount;
 
+            // The device is rolled in the VERSION 1 index space and then migrated,
+            // not rolled across the table as it stands today. That is what keeps a
+            // growing table from re-rolling crests: an alliance that has never
+            // opened the builder has no stored code, so its crest is recomputed on
+            // every request, and dividing by a table that got longer would have
+            // handed it a different device the day the sheet landed. Never index 0
+            // (None) either - a generated crest with no device reads as "unset",
+            // which is exactly what this replaces.
+            int legacyCharge = 1 + (c % (EmblemVocabulary.LegacyChargeCount - 1));
+
             TryCreate(
                 a % EmblemVocabulary.ShapeCount,
                 b % EmblemVocabulary.DivisionCount,
-                // Never charge 0 (None): a generated crest with no device is the
-                // one that reads as "unset", which is exactly what this replaces.
-                1 + (c % (EmblemVocabulary.ChargeCount - 1)),
+                EmblemVocabulary.MigrateCharge(legacyCharge),
                 field, detail, chargeColour,
                 out EmblemSpec spec);
 

@@ -4,8 +4,14 @@ using WorldsAdriftServer.Emblems;
 namespace WorldsAdriftServer.Handlers.Emblem
 {
     /// <summary>
-    /// Serves the alliance crest PNG at
-    /// <c>/alliance-emblem/&lt;uid&gt;.png?e=&lt;code&gt;</c>.
+    /// Serves the alliance crest at
+    /// <c>/alliance-emblem/&lt;uid&gt;.png?e=&lt;code&gt;</c>, and the same crest as
+    /// downloadable vector art at <c>/alliance-emblem/&lt;uid&gt;.svg?e=&lt;code&gt;</c>.
+    ///
+    /// THE GAME ONLY EVER GETS THE PNG. The .svg route is for players, and no URL
+    /// this server puts in an alliance payload names it - see the note on
+    /// <see cref="EmblemUrlPolicy.Format"/> for why handing the client vector art
+    /// would be worse than handing it nothing.
     ///
     /// DELIBERATELY UNAUTHENTICATED, because the consumer cannot authenticate.
     /// <c>SpriteDownloader.GetSpriteFromUrl</c> builds a bare
@@ -49,7 +55,8 @@ namespace WorldsAdriftServer.Handlers.Emblem
             }
 
             if (!EmblemUrlPolicy.TryParseRequest(
-                    request.Url, out Guid allianceId, out EmblemSpec spec, out bool hasCode))
+                    request.Url, out Guid allianceId, out EmblemSpec spec, out bool hasCode,
+                    out EmblemUrlPolicy.Format format))
             {
                 // In the namespace but not a crest we could ever have published:
                 // a name that is neither an alliance uid nor "preview", a second
@@ -69,7 +76,7 @@ namespace WorldsAdriftServer.Handlers.Emblem
                 spec = EmblemSpec.DefaultFor(allianceId);
             }
 
-            string etag = EmblemImages.ETag(spec);
+            string etag = EmblemImages.ETag(spec, format);
 
             if (string.Equals(HeaderValue(request, "If-None-Match"), etag, StringComparison.Ordinal))
             {
@@ -77,11 +84,8 @@ namespace WorldsAdriftServer.Handlers.Emblem
                 return true;
             }
 
-            byte[] png = EmblemImages.Png(spec);
-
             HttpResponse resp = new HttpResponse();
             resp.SetBegin(200);
-            resp.SetHeader("Content-Type", "image/png");
 
             // A year, immutable. Safe because the code is IN the url: changing an
             // emblem changes the url, so a cached copy can never be the wrong
@@ -90,7 +94,30 @@ namespace WorldsAdriftServer.Handlers.Emblem
             resp.SetHeader("Cache-Control", "public, max-age=31536000, immutable");
             resp.SetHeader("ETag", etag);
             resp.SetHeader("X-Content-Type-Options", "nosniff");
-            resp.SetBody(png);
+
+            if (format == EmblemUrlPolicy.Format.Svg)
+            {
+                resp.SetHeader("Content-Type", EmblemSvg.ContentType);
+
+                // An SVG is script-capable and this one is served from the same
+                // origin as the account page, so it gets a second lock even though
+                // it carries no player-supplied byte at all: the document is built
+                // entirely from a closed vocabulary of integers.
+                resp.SetHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+
+                // inline, not attachment: a leader clicking the link should SEE
+                // their crest, and every browser's save-as picks the name up from
+                // here anyway.
+                resp.SetHeader("Content-Disposition",
+                    "inline; filename=\"" + EmblemUrlPolicy.VectorFileName(spec) + "\"");
+
+                resp.SetBody(EmblemSvg.Compose(spec));
+            }
+            else
+            {
+                resp.SetHeader("Content-Type", "image/png");
+                resp.SetBody(EmblemImages.Png(spec));
+            }
 
             session.SendResponseAsync(resp);
             return true;

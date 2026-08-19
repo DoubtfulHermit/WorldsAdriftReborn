@@ -120,6 +120,14 @@ namespace WorldsAdriftServer.Web
                 .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.PreviewUrl(target.Spec)))
                 .Append("\">\n");
             page.Append("        <p class=\"hint\">This is the picture the game downloads &mdash; it is drawn by the server, not by this page.</p>\n");
+
+            // The vector of the same crest. The game never sees this - it decodes
+            // PNG and JPEG only - but a leader who wants their alliance's mark on a
+            // banner, a sticker or a Discord header should not have to screenshot a
+            // 256-pixel square to get it.
+            page.Append("        <p class=\"hint\"><a class=\"vector\" download href=\"")
+                .Append(AdminPage.HtmlEncode(EmblemUrlPolicy.VectorUrl(target.AllianceId, target.Spec)))
+                .Append("\">Download as SVG</a> &mdash; the same crest as vector art, at any size.</p>\n");
             page.Append("      </div>\n");
 
             page.Append("      <div class=\"controls\">\n");
@@ -356,8 +364,12 @@ footer { margin-top: 2rem; font-size: .72rem; line-height: 1.5; color: var(--ink
   // there is no second implementation here to drift from the server's.
   var FIELDS = ['shape', 'division', 'charge', 'field', 'detail', 'chargeColour'];
 
+  // Written by the server rather than typed here, so the page cannot go on
+  // building codes in a version the parser has moved past.
+  var VERSION = '" + EmblemSpec.Version.ToString(CultureInfo.InvariantCulture) + @"';
+
   function codeOf(form) {
-    var parts = ['1'];
+    var parts = [VERSION];
     for (var i = 0; i < FIELDS.length; i++) {
       var el = form.elements[FIELDS[i]];
       if (!el) { return null; }
@@ -376,6 +388,14 @@ footer { margin-top: 2rem; font-size: .72rem; line-height: 1.5; color: var(--ink
       if (code === null) { return; }
       var next = '/alliance-emblem/preview.png?e=' + encodeURIComponent(code);
       if (img.getAttribute('src') !== next) { img.setAttribute('src', next); }
+
+      // The download link follows the preview, so what a leader saves is what
+      // they are looking at rather than what they had when the page loaded.
+      var vector = form.querySelector('a.vector');
+      if (vector) {
+        vector.setAttribute('href',
+          '/alliance-emblem/preview.svg?e=' + encodeURIComponent(code));
+      }
     }
 
     form.addEventListener('change', function () {

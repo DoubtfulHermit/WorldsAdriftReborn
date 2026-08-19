@@ -29,10 +29,10 @@ namespace WorldsAdriftServer.Tests
         [Fact]
         public void The_stored_marker_round_trips()
         {
-            EmblemSpec spec = Spec("1-2-5-7-11-3-13");
+            EmblemSpec spec = Spec("2-2-5-7-11-3-13");
 
             string stored = EmblemUrlPolicy.Store(spec);
-            Assert.Equal("wareborn:emblem:1-2-5-7-11-3-13", stored);
+            Assert.Equal("wareborn:emblem:2-2-5-7-11-3-13", stored);
 
             Assert.True(EmblemUrlPolicy.TryReadStored(stored, out EmblemSpec back));
             Assert.Equal(spec, back);
@@ -55,11 +55,11 @@ namespace WorldsAdriftServer.Tests
         public void A_built_emblem_resolves_to_an_absolute_url_on_our_host()
         {
             string url = EmblemUrlPolicy.Resolve(
-                "https://wareborn.example/", Alliance, EmblemUrlPolicy.Store(Spec("1-1-2-3-4-5-6")));
+                "https://wareborn.example/", Alliance, EmblemUrlPolicy.Store(Spec("2-1-2-3-4-5-6")));
 
             Assert.Equal(
                 "https://wareborn.example/alliance-emblem/"
-                + Alliance.ToString("D") + ".png?e=1-1-2-3-4-5-6",
+                + Alliance.ToString("D") + ".png?e=2-1-2-3-4-5-6",
                 url);
 
             // Absolute, because the client hands it to new Uri(url) with no base
@@ -112,20 +112,21 @@ namespace WorldsAdriftServer.Tests
         public void A_request_carrying_a_good_code_parses_to_that_code()
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
-                "/alliance-emblem/" + Alliance.ToString("D") + ".png?e=1-2-3-4-5-6-7",
-                out Guid id, out EmblemSpec spec, out bool hasCode));
+                "/alliance-emblem/" + Alliance.ToString("D") + ".png?e=2-2-3-4-5-6-7",
+                out Guid id, out EmblemSpec spec, out bool hasCode, out EmblemUrlPolicy.Format format));
 
             Assert.Equal(Alliance, id);
             Assert.True(hasCode);
-            Assert.Equal("1-2-3-4-5-6-7", spec.ToCode());
+            Assert.Equal("2-2-3-4-5-6-7", spec.ToCode());
+            Assert.Equal(EmblemUrlPolicy.Format.Png, format);
         }
 
         [Fact]
         public void The_preview_path_parses_with_no_alliance()
         {
             Assert.True(EmblemUrlPolicy.TryParseRequest(
-                "/alliance-emblem/preview.png?e=1-0-0-0-0-0-0",
-                out Guid id, out _, out bool hasCode));
+                "/alliance-emblem/preview.png?e=2-0-0-0-0-0-0",
+                out Guid id, out _, out bool hasCode, out _));
 
             Assert.Equal(Guid.Empty, id);
             Assert.True(hasCode);
@@ -142,7 +143,7 @@ namespace WorldsAdriftServer.Tests
             // NOT false, and this is the load-bearing one. Returning false here
             // would drop the request through to the router's 404, and a 404 body
             // reaches the client as a garbage texture it DISPLAYS.
-            Assert.True(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out bool hasCode));
+            Assert.True(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out bool hasCode, out _));
             Assert.False(hasCode);
         }
 
@@ -183,15 +184,15 @@ namespace WorldsAdriftServer.Tests
             // These get a 404 rather than a picture, and that is safe precisely
             // because nothing ever PUBLISHED one of them: every url this server
             // puts in an alliance payload is "<uid>.png".
-            Assert.False(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out _));
+            Assert.False(EmblemUrlPolicy.TryParseRequest(url, out _, out _, out _, out _));
         }
 
         [Fact]
         public void The_preview_url_is_relative_so_it_follows_whatever_origin_the_page_came_from()
         {
-            string url = EmblemUrlPolicy.PreviewUrl(Spec("1-0-0-0-0-0-0"));
+            string url = EmblemUrlPolicy.PreviewUrl(Spec("2-0-0-0-0-0-0"));
 
-            Assert.Equal("/alliance-emblem/preview.png?e=1-0-0-0-0-0-0", url);
+            Assert.Equal("/alliance-emblem/preview.png?e=2-0-0-0-0-0-0", url);
 
             // Root-relative, not scheme-qualified: the builder page is served by
             // this same process, so the browser resolves it against whatever
@@ -200,6 +201,54 @@ namespace WorldsAdriftServer.Tests
             // URI, which would make the assertion mean the opposite of this.)
             Assert.StartsWith("/", url, StringComparison.Ordinal);
             Assert.DoesNotContain("://", url, StringComparison.Ordinal);
+        }
+
+        // ----------------------------------------------------------- the vector
+
+        [Fact]
+        public void The_same_path_with_an_svg_extension_asks_for_the_vector()
+        {
+            Assert.True(EmblemUrlPolicy.TryParseRequest(
+                "/alliance-emblem/" + Alliance.ToString("D") + ".svg?e=2-2-3-4-5-6-7",
+                out Guid id, out EmblemSpec spec, out bool hasCode, out EmblemUrlPolicy.Format format));
+
+            Assert.Equal(Alliance, id);
+            Assert.True(hasCode);
+            Assert.Equal(EmblemUrlPolicy.Format.Svg, format);
+            Assert.Equal("2-2-3-4-5-6-7", spec.ToCode());
+        }
+
+        [Fact]
+        public void The_url_the_game_is_given_is_never_the_vector_one()
+        {
+            // The client decodes PNG and JPEG only, and does not check whether it
+            // worked - it would DISPLAY an SVG body as a garbage texture. So the
+            // .svg route existing must not leak into anything the client is handed.
+            string wire = EmblemUrlPolicy.Resolve("https://wareborn.example", Alliance, "");
+
+            Assert.EndsWith(".png?e=" + EmblemSpec.DefaultFor(Alliance).ToCode(), wire,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain(".svg", wire, StringComparison.Ordinal);
+            Assert.DoesNotContain(".svg", EmblemUrlPolicy.PreviewUrl(Spec("2-0-0-0-0-0-0")),
+                StringComparison.Ordinal);
+        }
+
+        [Fact]
+        public void The_vector_url_names_the_alliance_or_the_preview()
+        {
+            EmblemSpec spec = Spec("2-1-2-3-4-5-6");
+
+            Assert.Equal(
+                "/alliance-emblem/" + Alliance.ToString("D") + ".svg?e=2-1-2-3-4-5-6",
+                EmblemUrlPolicy.VectorUrl(Alliance, spec));
+
+            Assert.Equal(
+                "/alliance-emblem/preview.svg?e=2-1-2-3-4-5-6",
+                EmblemUrlPolicy.VectorUrl(Guid.Empty, spec));
+
+            // The saved filename carries the code, so two crests a player downloads
+            // never land on top of each other in their downloads folder.
+            Assert.Equal("alliance-crest-2-1-2-3-4-5-6.svg", EmblemUrlPolicy.VectorFileName(spec));
         }
     }
 }

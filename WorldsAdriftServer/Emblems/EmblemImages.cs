@@ -77,7 +77,15 @@ namespace WorldsAdriftServer.Emblems
         /// ETag would make every revalidation a full re-download of bytes that
         /// never change - the URL carries the code, so a given URL's picture is
         /// immutable by construction.
+        ///
+        /// The format is IN the tag because the two formats of one crest are two
+        /// different bodies at two URLs that differ only by extension, and a shared
+        /// tag would let a cache answer one with the other. The <c>e2</c> prefix
+        /// moved with the emblem code version: a client holding a tag minted before
+        /// the device table changed must not be told its cached copy is still good,
+        /// because for a version 1 code it is now a different picture.
         /// </summary>
-        internal static string ETag(EmblemSpec spec) => "\"e1-" + spec.ToCode() + "\"";
+        internal static string ETag(EmblemSpec spec, EmblemUrlPolicy.Format format) =>
+            "\"e2-" + (format == EmblemUrlPolicy.Format.Svg ? "s" : "p") + "-" + spec.ToCode() + "\"";
     }
 }

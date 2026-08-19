@@ -32,7 +32,7 @@ namespace WorldsAdriftServer.Tests
             Assert.True(outcome.Ok);
             Assert.Equal(Guid.Parse("2f9b6f2e-1c31-4f4a-9a3e-8d0f9c6b7a10"), outcome.AllianceId);
             Assert.Equal(Guid.Parse("7a1c9d44-6b2e-4f10-8e33-11b0c4f9a2d7"), outcome.CharacterUid);
-            Assert.Equal("1-2-5-7-11-3-13", outcome.Spec.ToCode());
+            Assert.Equal("2-2-5-7-11-3-13", outcome.Spec.ToCode());
         }
 
         [Fact]
@@ -80,7 +80,7 @@ namespace WorldsAdriftServer.Tests
         [Theory]
         [InlineData(EmblemFormPolicy.ShapeField, "5")]
         [InlineData(EmblemFormPolicy.DivisionField, "10")]
-        [InlineData(EmblemFormPolicy.ChargeField, "14")]
+        [InlineData(EmblemFormPolicy.ChargeField, "61")]
         [InlineData(EmblemFormPolicy.FieldColourField, "16")]
         [InlineData(EmblemFormPolicy.DetailColourField, "16")]
         [InlineData(EmblemFormPolicy.ChargeColourField, "16")]

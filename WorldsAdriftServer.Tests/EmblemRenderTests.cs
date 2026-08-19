@@ -108,9 +108,11 @@ namespace WorldsAdriftServer.Tests
         }
 
         [Fact]
-        public void Every_charge_marks_the_field_it_sits_on()
+        public void Every_device_marks_the_field_it_sits_on()
         {
-            // Charge 0 is None and must NOT differ; every other charge must.
+            // Device 0 is None and must NOT differ; every other device must -
+            // including all fifty traced ones, so a device whose path failed to
+            // parse into anything fillable is caught here rather than by a player.
             byte[] bare = EmblemPainter.Render(Spec("1-0-0-0-11-7-4"), 64);
 
             for (int charge = 1; charge < EmblemVocabulary.ChargeCount; charge++)
@@ -120,12 +122,12 @@ namespace WorldsAdriftServer.Tests
 
                 Assert.False(
                     bare.AsSpan().SequenceEqual(withCharge),
-                    "charge " + EmblemVocabulary.ChargeNames[charge] + " drew nothing.");
+                    "device " + EmblemVocabulary.ChargeNames[charge] + " drew nothing.");
             }
         }
 
         [Fact]
-        public void No_charge_touches_the_rim_of_any_shape()
+        public void No_device_touches_the_rim_of_any_shape()
         {
             // The lozenge caught this one for real: a device sized for a roundel
             // put the star's tips through the lozenge's outline, where they were
