@@ -87,5 +87,24 @@ namespace WorldsAdriftReborn.Storage.Repositories
 
             command.ExecuteNonQuery();
         }
+
+        /// <summary>
+        /// Removes one config value, so the code's own default takes over again.
+        ///
+        /// Deleting the row rather than blanking it is the only way to express
+        /// "unset": the table refuses an empty value on purpose, and a setting
+        /// nobody has chosen is the absence of a row, not a row saying nothing.
+        /// Returns true if a row was actually removed.
+        /// </summary>
+        public bool Delete(string key)
+        {
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText = "DELETE FROM server_config WHERE key = @key;";
+            command.Parameters.AddWithValue("key", key);
+
+            return command.ExecuteNonQuery() > 0;
+        }
     }
 }

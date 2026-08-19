@@ -46,6 +46,17 @@ namespace WorldsAdriftServer.Handlers
                     return;
                 }
 
+                // The PUBLIC patch notes (/patchnotes). The in-game PATCH NOTES
+                // button points here, so it must answer without a login and
+                // without a session. Checked before the patch routes below
+                // because it owns its own namespace and, like the map, must
+                // answer EVERY url in it - an unclaimed path gets no response
+                // from this server at all and leaves the socket hanging.
+                if (Handlers.PatchNotes.PatchNotesHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 // The patch manifest and files are static bytes read off the host
                 // patch dir. They are served HERE, by this native process, because
                 // the Caddy in front of the public host is a container that cannot

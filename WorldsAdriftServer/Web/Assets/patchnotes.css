@@ -1,0 +1,106 @@
+/* The patch-notes page, on top of console.css.
+
+   Everything structural - the palette, the card, the pill, the top bar, the
+   footer - is already in the console stylesheet, and this file adds only what a
+   page of prose needs and a dashboard does not: a reading measure, a contents
+   rail, and the rhythm inside a release.
+
+   Nothing here declares a colour of its own. Every value is a console.css
+   custom property, so a change to the Nightfall palette reaches this page too
+   instead of leaving it as the one screen that did not follow. */
+
+/* Narrower than the console's 92rem. That width exists for a dashboard of
+   tables; here it would only stretch the gap between the notes and the rail. */
+.pn-wrap{max-width:74rem;}
+
+.pn-actions{display:flex;gap:.5rem;flex-wrap:wrap;}
+
+.pn-layout{display:grid;grid-template-columns:minmax(0,1fr) 15rem;gap:2rem;align-items:start;}
+.pn-notes{min-width:0;}
+
+/* THE READING MEASURE. The console is a dense grid meant to be scanned; this
+   page is sentences meant to be read, and a 92rem line of body text is not
+   readable. The cards stay full width - a boxed column of text floating in a
+   wide page looks like an accident - and the TEXT inside them is what is
+   capped. */
+.pn-release p,.pn-release li,.pn-lede{max-width:44rem;}
+
+.pn-lede{font-size:.95rem;color:var(--text-soft);margin:0 0 1.6rem;}
+
+.pn-release{padding:1.8rem 1.9rem 1.9rem;margin:0 0 1.5rem;scroll-margin-top:1.5rem;}
+.pn-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:.55rem .9rem;
+  padding-bottom:1.05rem;margin-bottom:1.15rem;border-bottom:1px solid var(--line);}
+.pn-date{order:-1;flex:0 0 100%;font-size:.62rem;font-weight:700;letter-spacing:.15em;
+  text-transform:uppercase;color:var(--accent);}
+.pn-title{font-size:1.32rem;font-weight:580;letter-spacing:-.02em;color:var(--text);
+  text-transform:none;margin:0;}
+.pn-badge{align-self:center;color:var(--text-soft);}
+
+.pn-section{font-size:.95rem;font-weight:640;letter-spacing:-.005em;color:var(--text);
+  margin:1.9rem 0 .5rem;}
+/* Only when the heading really is the first thing in the release. A release
+   that opens with a line of prose still wants the full gap before its first
+   heading, and :first-of-type gave it none. */
+.pn-head + .pn-section{margin-top:0;}
+/* Same for a release that opens with a list or a line of prose instead of a
+   heading: the header's own bottom margin is the gap, and a second one on top
+   of it left those cards visibly looser than the rest. */
+.pn-head + .pn-list,.pn-head + p{margin-top:0;}
+.pn-release p{margin:.55rem 0;color:var(--text-soft);font-size:.88rem;line-height:1.62;}
+.pn-release strong{color:var(--text);font-weight:620;}
+.pn-release code{padding:.08rem .3rem;border:1px solid var(--line);border-radius:4px;
+  background:var(--surface-2);color:var(--text-soft);
+  font:500 .82em/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere;}
+.pn-release a{color:var(--accent);text-decoration:underline;text-underline-offset:.16em;
+  text-decoration-thickness:1px;text-decoration-color:rgba(116,201,207,.45);}
+.pn-release a:hover{text-decoration-color:var(--accent);}
+
+/* Bullets marked with a rule rather than a disc: a dot beside a two-line
+   sentence sits at the wrong optical weight next to the accent-coloured
+   headings, and this reads as one list rather than a stack of fragments. */
+.pn-list{list-style:none;margin:.6rem 0 .9rem;padding:0;}
+.pn-list li{position:relative;margin:0 0 .5rem;padding-left:1.05rem;
+  color:var(--text-soft);font-size:.88rem;line-height:1.62;}
+.pn-list li:before{content:'';position:absolute;left:0;top:.62em;width:.42rem;height:1px;
+  background:var(--line-strong);}
+.pn-list li:last-child{margin-bottom:0;}
+
+.pn-empty p{margin:0;color:var(--text-soft);font-size:.88rem;}
+
+/* The contents rail. Sticky on a tall screen, and it simply stops being sticky
+   where there is not the height for it - a rail taller than the viewport that
+   cannot be scrolled is worse than one that scrolls with the page. */
+.pn-index{position:sticky;top:1.5rem;align-self:start;max-height:calc(100vh - 3rem);
+  overflow:auto;padding:1.1rem 1.15rem;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);}
+.pn-index h2{margin:0 0 .7rem;}
+.pn-index ol{list-style:none;margin:0;padding:0;counter-reset:none;}
+.pn-index li{margin:0 0 .1rem;}
+.pn-index a{display:block;padding:.42rem .5rem;border-radius:6px;text-decoration:none;
+  border-left:2px solid transparent;}
+.pn-index a:hover{background:var(--surface-2);border-left-color:var(--accent);}
+.pn-index-title{display:block;font-size:.74rem;font-weight:600;color:var(--text-soft);
+  line-height:1.35;}
+.pn-index a:hover .pn-index-title{color:var(--text);}
+.pn-index-date{display:block;margin-top:.1rem;font-size:.6rem;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--text-faint);}
+
+@media (max-width:64rem){
+  .pn-layout{grid-template-columns:minmax(0,1fr);gap:1.25rem;}
+  /* The rail moves ABOVE the notes on a narrow screen. Left below them it is a
+     table of contents you reach after reading everything it lists. */
+  .pn-index{position:static;order:-1;max-height:none;}
+  .pn-index ol{display:flex;flex-wrap:wrap;gap:.35rem;}
+  .pn-index li{margin:0;}
+  .pn-index a{border-left:0;border:1px solid var(--line);padding:.3rem .6rem;}
+  .pn-index a:hover{border-color:var(--line-strong);}
+  .pn-index-title{font-size:.7rem;}
+  .pn-index-date{display:none;}
+}
+
+@media (max-width:34rem){
+  .pn-release{padding:1.25rem 1.15rem 1.35rem;}
+  .pn-title{font-size:1.15rem;}
+  .pn-actions{width:100%;}
+  .pn-actions .btn{flex:1 1 8rem;}
+}

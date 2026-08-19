@@ -113,13 +113,22 @@ variable to <code>username:hash</code> and restart the login server to enable th
                 ("mapAuthenticity", WebAssets.ReadTrimmed("admin-map-authenticity.html")),
                 ("mapLedger", WebAssets.ReadTrimmed("admin-map-ledger.html")));
 
+            // NOTE THE ORDER. Fill substitutes in the order given and then
+            // refuses to emit a page with an unfilled placeholder left in it, so
+            // a fragment that CARRIES a placeholder must be pasted in before the
+            // pass that fills it. admin-patchnotes.html carries the CSRF token,
+            // so the token goes last.
             string body = WebAssets.Fill(WebAssets.Read("admin-body.html"),
-                ("csrfTokenAttr", HtmlEncode(csrfToken)),
                 // How many people have the PUBLIC map open - a fact about the
                 // website rather than about the world, so it sits under World
                 // beside the live game rather than in Operations.
                 ("viewersCard", WebAssets.ReadTrimmed("admin-viewers.html")),
-                ("mapBody", mapBody));
+                // The public /patchnotes editor. Under System with the server
+                // name: both are operator-set text the outside world reads, and
+                // neither is a fact about the running world.
+                ("patchNotesCard", WebAssets.ReadTrimmed("admin-patchnotes.html")),
+                ("mapBody", mapBody),
+                ("csrfTokenAttr", HtmlEncode(csrfToken)));
 
             // 1.5 s: the game server rewrites its snapshot every three, so a
             // reader on four was guaranteed to sometimes miss a generation
@@ -169,6 +178,8 @@ variable to <code>username:hash</code> and restart the login server to enable th
             // Last, and self-booting: it touches only its own card, so it needs
             // nothing wired for it and adds no line to admin-wiring.js.
             "admin-viewers.js",
+            // Same shape, same reason: it fills one textarea from /patchnotes/source.
+            "admin-patchnotes.js",
         };
 
         /// <summary>Minimal HTML entity escaping for text interpolated into markup.</summary>

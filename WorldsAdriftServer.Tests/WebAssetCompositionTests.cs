@@ -226,6 +226,8 @@ namespace WorldsAdriftServer.Tests
                 "public-map-legend.html", "public-map-ledger.html",
                 "public-map-viewers.js", "public-map-about-viewers.html",
                 "admin-viewers.js", "admin-viewers.html",
+                "patchnotes.css", "patchnotes-body.html",
+                "admin-patchnotes.js", "admin-patchnotes.html",
             };
             foreach (string name in assets)
             {

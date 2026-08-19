@@ -7,6 +7,10 @@ using WorldsAdriftServer.Admin;
 using WorldsAdriftServer.Persistence;
 using WorldsAdriftServer.PublicMap;
 using WorldsAdriftServer.Web;
+// Aliased because the Program class is itself called WorldsAdriftServer, so the
+// qualified name WorldsAdriftServer.PatchNotes reads as a member of that class
+// rather than as a namespace and does not compile.
+using NotesSource = WorldsAdriftServer.PatchNotes.PatchNotesSource;
 
 namespace WorldsAdriftServer.Handlers.Admin
 {
@@ -183,6 +187,24 @@ namespace WorldsAdriftServer.Handlers.Admin
                 return true;
             }
 
+            if (path == "/admin/patch-notes" && method == "POST")
+            {
+                if (!authed)
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
+
+                if (!VerifyFormCsrf(request, sessionToken))
+                {
+                    Redirect(session, "/admin");
+                    return true;
+                }
+
+                HandlePatchNotes(session, request);
+                return true;
+            }
+
             // Any other /admin path: unknown route. Authed sees a 404, everyone
             // else is bounced to the login page so unauth probing learns nothing.
             if (authed)
@@ -256,6 +278,45 @@ namespace WorldsAdriftServer.Handlers.Admin
             }
 
             // Either way, back to the dashboard - it will show the stored value.
+            Redirect(session, "/admin");
+        }
+
+        /// <summary>
+        /// Stores or clears the public patch-notes override.
+        ///
+        /// The override is a row, not a file, so nothing here needs a migration -
+        /// server_config was built as a key-value table for exactly this. Clearing
+        /// it DELETES the row rather than writing an empty one: the notes that
+        /// ship in the build are the default, and "no override" is the absence of
+        /// a row, not a row containing nothing.
+        /// </summary>
+        private static void HandlePatchNotes(HttpSession session, HttpRequest request)
+        {
+            Dictionary<string, string> form = ParseForm(request.Body);
+            form.TryGetValue("patchNotes", out string? notes);
+            bool clearing = form.ContainsKey("clear")
+                || !NotesSource.IsStorable(notes);
+
+            try
+            {
+                if (clearing)
+                {
+                    Accounts.ServerConfig.Delete(NotesSource.ConfigKey);
+                    Console.WriteLine("[info] admin cleared the patch-notes override.");
+                }
+                else
+                {
+                    Accounts.ServerConfig.Set(NotesSource.ConfigKey,
+                        notes!, DateTimeOffset.UtcNow);
+                    Console.WriteLine("[info] admin stored a patch-notes override of "
+                        + notes!.Length + " characters.");
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine("[error] admin failed to write the patch notes: " + e.Message);
+            }
+
             Redirect(session, "/admin");
         }
 
