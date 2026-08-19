@@ -43,15 +43,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///   * horn  - Activate (GetTutorialStep -> MOUSE_OVER_HORN). The 1107
     ///     SoundHorn EVENT plays Play_Ship_Horn01 (HornVisualizer.OnSoundHorn);
     ///     30 s recharge (see Horns.RechargeSeconds).
-    ///   * atlasSkyCore - Activate (ShipCorePreprocessor.SetVerb(Activate)). THE
-    ///     REFUEL DOOR. Retail refuelled at a fuel TANK part, whose prefab this
-    ///     client cannot resolve (no fuel tank in the 349-name entity-prefab
-    ///     census), and a verb cannot be invented because
-    ///     InteractiveObjectVisualizer caches the entry matching its PREFAB-BAKED
-    ///     verb once in OnEnable. The sky core is the only ship part whose Activate
-    ///     is baked, unused and unclaimed - so holding E on it moves fuel from the
-    ///     player's inventory into the hull's tank. A deviation from retail, stated
-    ///     as one: docs/plans/feature-roadmap.md 13.4.
     ///   * trunk / mountedBox / storageContainer / shippingContainer - Inventory
     ///     (ShipContainerPreprocessor.SetVerb(InteractVerb.Inventory)). Unblocked
     ///     by the loot-container 1081 work: the four rows now seed 1081 + 1236
@@ -70,6 +61,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     ///     BLOCKED on serving 1094 RespawnPointState (owner/charge fields drive the
     ///     nameplate + gauge) and on a respawn flow that would give binding one any
     ///     meaning. None until then.
+    ///   * atlasSkyCore - Activate (ShipCorePreprocessor.SetVerb(Activate)). The verb
+    ///     is baked and no shipped client script consumes the resulting interact - the
+    ///     only OnInteract receivers in the whole decompile are ToggleRoller,
+    ///     ResetSwitch and InteractiveDemo. But the PROMPT is claimed and unfixably
+    ///     so: InteractiveObjectVisualizer.GetTutorialStep maps Activate + a
+    ///     ShipCoreVisualizer to TutorialStep.MOUSE_OVER_CORE, whose baked overlay
+    ///     asset reads "Activate Atlas Pulse" with Hold:true. That names a REAL retail
+    ///     action - 1306 ShipAtlasPulseState drives ShipAtlasPulseVisualizer, which
+    ///     ShipPreprocessor attaches to every hull and which implements
+    ///     IClimbGrapplePreventer: the pulse was the ship's anti-boarding defence, not
+    ///     a cosmetic. Fuel briefly used this door and it was WRONG, because a prompt
+    ///     whose LABEL we cannot honour is the same lie as a verb we cannot honour;
+    ///     refuel moved to the hull's bunker (Multiplayer/Ship/Fuel/
+    ///     ShipFuelBunkerPolicy.cs). None until the pulse itself is served, which
+    ///     needs 1306 taken out of the absent-component set.
     ///
     ///   NOT INTERACTABLE IN RETAIL (confirmed - preprocessors add no
     ///   InteractiveObjectVisualizer; these parts are automatic or passive):
@@ -115,7 +121,6 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
                 case "sail":
                 case "lamp":
                 case "horn":
-                case "atlasSkyCore":
                     return PartVerb.Activate;
                 default:
                     // The four storage containers, keyed off the same table that

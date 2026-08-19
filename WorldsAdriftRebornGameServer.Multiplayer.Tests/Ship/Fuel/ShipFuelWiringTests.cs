@@ -82,14 +82,47 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
                 + "level never changes and the whole subsystem is inert.");
         }
 
-        /// <summary>Without this, the sky core advertises a prompt that does nothing - a lie.</summary>
+        /// <summary>
+        /// THE REFUEL DOOR. Without the drain call on the burn tick a tank empties
+        /// once and can never be filled again by any gesture in the game.
+        /// </summary>
         [Fact]
-        public void TheActivateInteractReachesTheRefuel()
+        public void TheBurnTickDrainsTheHullsBunker()
         {
-            Contains(Source("WorldsAdriftRebornGameServer", "Game", "PartInteractionService.cs"),
-                "ShipFuel.TryRefuel(",
-                "PartInteractionPolicy now advertises Activate on atlasSkyCore. A served verb with no "
-                + "handler behind it is precisely the lying prompt that policy refuses to allow.");
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "ShipFuelService.cs");
+
+            // Newline-anchored for the same reason ShipFuel.Tick() is: a bare
+            // substring survives someone commenting the call out.
+            Contains(service, "\n                DrainBunkers(hullEntityId);",
+                "The bunker drain IS the refuel. Cut this line and every tank in the world is a "
+                + "one-way valve - it burns down and nothing can ever put fuel back in.");
+            Contains(service, "ShipFuelBunkerPolicy.Plan(",
+                "The split across containers must come from the pure policy, or the invariant that a "
+                + "plan's units sum to exactly what the tank can take is asserted nowhere.");
+            Contains(service, "ShipContainerService.IsContainer(",
+                "Only a CONTAINER is a bunker. Without this gate the drain would walk every mounted "
+                + "part, and InventoryService.ForEntity's DefaultModel fallback would hand a railing "
+                + "an inventory full of gauntlets.");
+        }
+
+        /// <summary>
+        /// THE OTHER HALF OF THE SAME DECISION, and it must be asserted as an ABSENCE
+        /// because that is the failure mode: a prompt that reads "Activate Atlas
+        /// Pulse" and quietly refuels instead is exactly the lying control
+        /// PartInteractionPolicy exists to forbid, and nothing about it is visible
+        /// server-side. Re-adding the dispatch here without re-adding the verb would
+        /// also be dead code that reads as a working feature.
+        /// </summary>
+        [Fact]
+        public void TheSkyCoreNoLongerAnswersWithARefuel()
+        {
+            string service = Source("WorldsAdriftRebornGameServer", "Game", "PartInteractionService.cs");
+
+            Assert.False(service.Contains("ShipFuel.TryRefuel(", StringComparison.Ordinal),
+                "The sky core's Activate is labelled by a BAKED client asset reading \"Activate Atlas "
+                + "Pulse\" (InteractiveObjectVisualizer.GetTutorialStep -> MOUSE_OVER_CORE), and that "
+                + "names a real retail action - 1306 ShipAtlasPulseState. Refuelling there is a control "
+                + "that lies about what it does. Refuel is the hull's bunker; see ShipFuelBunkerPolicy.");
         }
 
         /// <summary>

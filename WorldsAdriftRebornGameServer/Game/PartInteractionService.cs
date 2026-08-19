@@ -101,18 +101,18 @@ namespace WorldsAdriftRebornGameServer.Game
                 return true;
             }
 
-            // SKY CORE: REFUEL. Retail refuelled at a fuel TANK part, whose prefab
-            // this client cannot resolve, and a verb cannot be invented - so the
-            // sky core, the only ship part whose Activate is prefab-baked
-            // (ShipCorePreprocessor) and unclaimed, is this server's refuel door.
-            // Returns null for anything that is not a mounted core, so the horn
-            // ledger below still gets its turn.
-            int? refuelled = WorldsAdriftRebornGameServer.ShipFuel.TryRefuel(
-                playerEntityId, targetEntityId);
-            if (refuelled.HasValue)
-            {
-                return true;
-            }
+            // THE SKY CORE IS NOT HANDLED HERE ANY MORE, and deliberately so. It used
+            // to be the refuel door on the argument that its Activate was baked
+            // (ShipCorePreprocessor) and unclaimed. The verb is unclaimed; the PROMPT
+            // is not. InteractiveObjectVisualizer.GetTutorialStep maps Activate + a
+            // ShipCoreVisualizer to TutorialStep.MOUSE_OVER_CORE, whose baked overlay
+            // asset reads "Activate Atlas Pulse" with Hold:true - a real retail action
+            // (1306 ShipAtlasPulseState -> ShipAtlasPulseVisualizer, the anti-boarding
+            // defence). No server can change that string, so refuelling there was a
+            // control that lied. Refuel is now the hull's own bunker
+            // (ShipFuelService.DrainBunkers) and PartInteractionPolicy serves the core
+            // no verb at all, which is the same discipline this file applies to the
+            // personal reviver. See Multiplayer/Ship/Fuel/ShipFuelBunkerPolicy.cs.
 
             // HORN: honk if recharged. The event plays the sound on every client;
             // charge=0 re-anchors the needle at "just honked", and ONE keyed deferred

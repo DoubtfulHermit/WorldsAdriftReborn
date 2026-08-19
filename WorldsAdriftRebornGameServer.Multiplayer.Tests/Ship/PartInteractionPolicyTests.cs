@@ -165,13 +165,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
                 .OrderBy(t => t, StringComparer.Ordinal)
                 .ToArray();
 
-            // atlasSkyCore joined the list as the REFUEL DOOR - the only ship part
-            // whose Activate is prefab-baked and otherwise unclaimed. Anything else
-            // appearing here without a 1211 handler behind it is a prompt that lies.
+            // atlasSkyCore LEFT this list again. It joined as the refuel door on the
+            // argument that its Activate was baked and unclaimed; the verb is, but the
+            // PROMPT is not - the client's own overlay asset spells it "Activate Atlas
+            // Pulse", which names a real retail action (1306). A prompt whose label we
+            // cannot honour is the same lie as a verb we cannot honour, so the core is
+            // served no verb and refuel moved to the hull's bunker. Anything appearing
+            // here without a 1211 handler behind it is a prompt that lies.
             Assert.Equal(
                 new[]
                 {
-                    "atlasSkyCore", "horn", "lamp", "mountedBox", "sail",
+                    "horn", "lamp", "mountedBox", "sail",
                     "shippingContainer", "storageContainer", "trunk",
                 },
                 interactable);
@@ -199,7 +203,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [InlineData("sail", PartVerb.Activate)]
         [InlineData("lamp", PartVerb.Activate)]
         [InlineData("horn", PartVerb.Activate)]
-        [InlineData("atlasSkyCore", PartVerb.Activate)]
+        // The sky core seeds PickUp like any other inert part: we advertise it no
+        // Activate, because the client would label that Activate "Activate Atlas
+        // Pulse" and we do not serve 1306.
+        [InlineData("atlasSkyCore", PartVerb.PickUp)]
         [InlineData("deck", PartVerb.PickUp)]
         public void InitialCheckoutSeedsThePrefabBakedVerb(string itemType, PartVerb expected)
         {

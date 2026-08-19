@@ -1,3 +1,5 @@
+using System;
+using System.IO;
 using WorldsAdriftRebornGameServer.Multiplayer;
 using WorldsAdriftRebornGameServer.Multiplayer.Ship;
 using Xunit;
@@ -112,6 +114,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
             // stub can never be one, so no non-owner gains ship access from it.
             Assert.DoesNotContain("11111111-2222-3333-4444-555555555555", owners);
             Assert.NotEqual(CharacterUid, LocalPlayerIdentity.PlayerId);
+        }
+
+        // ---- IS THE POLICY ACTUALLY PLUGGED IN? ----
+        //
+        // Every test above can be green while the serve branches pass the wrong thing
+        // or nothing at all, because the game-server assembly has no test project and
+        // cannot have one (it needs a Windows game install to compile against). A
+        // mutation run proved the hole: blanking the localPlayerId argument at the
+        // 4349 serve site was invisible to this entire file. So the two serve sites
+        // are asserted the only way available from here - by reading the production
+        // source off disk, the same guard ShipFuelWiringTests uses.
+
+        private static string Serializer()
+        {
+            DirectoryInfo? dir = new DirectoryInfo(AppContext.BaseDirectory);
+            while (dir != null)
+            {
+                string probe = Path.Combine(dir.FullName, "WorldsAdriftRebornGameServer",
+                    "Game", "Components", "ComponentsSerializer.cs");
+                if (File.Exists(probe))
+                {
+                    return File.ReadAllText(probe);
+                }
+                dir = dir.Parent;
+            }
+            throw new DirectoryNotFoundException(
+                "Could not locate ComponentsSerializer.cs from " + AppContext.BaseDirectory);
+        }
+
+        [Fact]
+        public void BothOwnerServeSitesPassTheLocalPlayerIdIntoThePolicy()
+        {
+            const string call =
+                "Game.Crafting.BuiltShips.OwnerFor(entityId),\n"
+                + "                                     Multiplayer.LocalPlayerIdentity.PlayerId))";
+
+            int sites = 0;
+            string serializer = Serializer();
+            for (int i = serializer.IndexOf(call, StringComparison.Ordinal); i >= 0;
+                 i = serializer.IndexOf(call, i + 1, StringComparison.Ordinal))
+            {
+                sites++;
+            }
+
+            Assert.True(sites == 2,
+                "8062 and 4349 must BOTH seed the local-player id alongside the character uid, or "
+                + "InteractAgentObserver's cross-axis IsShipOwner(LocalPlayer.PlayerId) misses and "
+                + "every ship container answers E with \"It's locked.\" Found " + sites + " site(s).");
         }
 
         [Fact]
