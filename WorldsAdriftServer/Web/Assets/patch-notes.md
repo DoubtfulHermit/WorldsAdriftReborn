@@ -1,9 +1,26 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 607 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 624 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-20 | 3 commits
+## 2026-08-20 | 20 commits
 
+* f21e4e4 Replace the estimated ship-part diff with the exact 58
+* d36adc6 Retract a false positive of my own, and add the rule that prevents it
+* 146ebaa Answer the bar pipe question as far as static analysis can take it
+* 6976ca7 Record that the bar pipe sat in this repo for nine days, on line 873
+* adedbff Correct the document's own opening claim, which was wrong
+* 7a2cf99 Unblock cooking from creature combat in the ranking
+* 9be427c Confirm the community leads against the client, and correct three sections
+* f3d123a Reorder the closing sections and register the fourth oracle properly
+* dc7a1cb Note that dye icons are procedurally tinted, so their absence proves nothing
+* e8310c3 Fold in the community pass, and record which half of the method did what
+* 6a7695d Rebalance the ranked list; turrets are two archetypes, not seven
+* 6288b9d Add the live defects, clothing, and the food system's real shape
+* 9d5675e Read the knowledge tree as an enumeration, not as a spend graph
+* ab0867a Add the 98-icon enumeration and the limits section
+* 20826f4 Name the blocker from the source, and scope the branch that removes it
+* ebdcb97 Fill in ship parts, items, food, ciphers and the ranked top 20
+* 1f845bf Start the reality inventory: enumerate the client, do not audit our claims
 * 2ec5131 Put the fuel tank where the client already says it is: the generator
 * b6a209d Correct 11.11: it was one decision, not three gates, and a missing part
 * ea8d645 Ship the Bar Pipe, the part the instruments were always meant to sit on
