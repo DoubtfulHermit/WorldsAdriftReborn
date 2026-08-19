@@ -841,6 +841,27 @@
         var kept = layers.filter(function (layer) { return layer.lk; });
         if (kept.length === layers.length && layers.length > 0) { return; }
 
+        // ASK FIRST. This is the only control on the page that throws away work
+        // that cannot be got back - Undo changes reloads the SAVED emblem, so it
+        // restores nothing you had not already saved. Every other destructive
+        // post on this portal confirms (see account.js data-confirm), and this
+        // one sits directly under the header where a mis-click is easy.
+        //
+        // The count is in the sentence because "delete all" is not what it does
+        // when a layer is locked, and a leader who has locked something needs to
+        // see that it is being kept rather than trust the label.
+        var losing = layers.length - kept.length;
+        var sentence = losing === 1
+          ? 'Delete the 1 unlocked layer?'
+          : 'Delete all ' + losing + ' unlocked layers?';
+        if (kept.length > 0) {
+          sentence += ' ' + (kept.length === 1 ? '1 locked layer is kept.'
+            : kept.length + ' locked layers are kept.');
+        }
+        sentence += ' This cannot be undone.';
+
+        if (!window.confirm(sentence)) { return; }
+
         layers = kept;
         active = layers.length - 1;
         draw();
