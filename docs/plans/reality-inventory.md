@@ -609,7 +609,7 @@ folder:
 | `3x4_inertia_pack`, `3x4_stasis_pack` | **movement utilities with real decompiled classes** — see §4.6 |
 | `2x2_bioelectrical_generator2` | a second generator type; icon-only |
 | `3x3_rhegus_greaves` | **the Atlas Boots** — see §4.6 |
-| `1x2_dye`, `2x2_paintcan`, `3x4_paintdrum` | **ship painting.** Three icons. No component found |
+| `1x2_dye`, `2x2_paintcan`, `3x4_paintdrum` | **ship painting**, and all three are named knowledge nodes (§4.7.3). Caveat: dye icons are **tinted procedurally** (`acs/ProcColoredIconHelper.cs`), so per-colour pigment icons would never appear in the atlas — their absence is not evidence (§12.5) |
 
 **First aid is a shipped crafting category we have nothing for.** In a game
 about falling off islands, that is a real omission.
