@@ -49,7 +49,25 @@ namespace WorldsAdriftRebornGameServer.Game.Loot
         {
             if (!LootContainerLedger.IsContainer(entityId))
             {
-                return false;
+                // ORDERING GUARD. Activation is supposed to have run long before
+                // anything asks for this entity's 1081, and by construction it has:
+                // ResourceInterestService binds an id for every streamed resource in
+                // its constructor, ActivateBoundResources then registers all of them
+                // at boot, and the non-streamed path activates inside AddWorldEntity
+                // itself. Both routes precede any client component interest.
+                //
+                // The guard is here anyway because the failure it prevents is
+                // PERMANENT and SILENT. If a container ever reached the 1081 branch
+                // unactivated, ForEntity would bind it to InventoryWire.DefaultModel -
+                // the player starter kit - and InventoryStore.Bind runs its factory
+                // at most once per key, so that chest would hold four gauntlets for
+                // the rest of the session with no way to correct it. Self-healing
+                // from the registry key costs one lookup on a path that only runs at
+                // checkout, and the warning says an invariant moved.
+                if (!TryAdoptFromRegistry(entityId))
+                {
+                    return false;
+                }
             }
 
             if (InventoryService.KeyOf(entityId) != null)
@@ -84,6 +102,30 @@ namespace WorldsAdriftRebornGameServer.Game.Loot
             }
 
             return placed > 0;
+        }
+
+        /// <summary>
+        /// Registers a container the ledger has somehow not seen, from its world
+        /// registration key. Returns false for anything that is not a loot container.
+        /// </summary>
+        private static bool TryAdoptFromRegistry(long entityId)
+        {
+            string? key = WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(entityId)?.Key;
+            if (!LootContainers.IsLootKey(key))
+            {
+                return false;
+            }
+
+            int tier = Multiplayer.Islands.ReleaseWorldLoot.TierForKey(key)
+                ?? LootScrapTable.MinTier;
+            LootContainerLedger.Register(entityId, key!, tier);
+
+            Console.WriteLine("[warning] [loot] container '" + key + "' (entity " + entityId
+                + ") was asked for its inventory before WorldResourceActivation had"
+                + " registered it. Adopted at tier " + tier + " so it does not open onto"
+                + " the player starter kit - but the activation ordering has changed and"
+                + " that is worth understanding rather than leaving to this guard.");
+            return true;
         }
     }
 }
