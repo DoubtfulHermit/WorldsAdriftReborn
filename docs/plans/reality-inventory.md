@@ -59,7 +59,7 @@ was independently re-derived for this document rather than trusted.
 | **the entity-prefab table** | **353** | every `entityprefabs/<name>_unityclient` baked into `resources.assets` | **PROVED** — four independent extractions agree exactly (see §0.3) |
 | **the icon catalogue** | **1,010** | every icon path in the client's own icon atlas, `docs/research/valid-icons.txt` | **PROVED** — extracted from the shipped atlas; already used as a test oracle by `ReferenceDataCrashSafetyTests` |
 | **the component index** | **444** | `component-map.tsv` — every SpatialOS component id the game's ECS defines | **PROVED** — from the decompile |
-| **the knowledge tree** | **172** | `knowledge-tree.json` — 20 branches of things retail let you *learn to make*, in plain English | **RECOVERED** — Bossa data already in this repo, never read as an enumeration until now (§4.7) |
+| **the knowledge tree** | **228** | `knowledge-tree.json` — 20 branches of things retail let you *learn to make*, in plain English | **RECOVERED** — Bossa data already in this repo, never read as an enumeration until now (§4.7) |
 
 An icon is weaker evidence than a prefab, but it is *not weak*. An artist
 authored, named, sized and shipped a 2×2 sprite called
@@ -151,8 +151,12 @@ another kind of unreliable:
 - **`tutorial/` 3 → 0** and **`crew/` 2 → 0**, **`alliance/` 6 → 0** — client-side
   UI chrome. The *systems* behind alliance and crew exist (§7.4); their icons
   simply have no server-side name.
-- **`scrap items/` 250 → 145** overstates the gap: the 105 unreferenced ones
-  are variant art for a salvage table that already works by tier.
+- **`scrap items/` 250 → 145** overstates the gap. All **134** `Salvage` rows
+  in `itemData.json` are in the loot table (`Loot/loot-scrap-tiers.txt`, drift-
+  checked by `LootScrapTableIntegrityTests`) and salvaging pays out 21 material
+  ids end to end. The 115 icons with no row are real, but their retail reward
+  tiers are **unrecoverable** — the loot roll ran on the GSim worker and never
+  shipped. Adding them is **WAREBORN TUNING**, not recovery.
 
 Subtracting those leaves the real headline gaps: **ship parts, ship-part
 furniture, foods, materials, procedural part tiers, turrets, and the 163
@@ -696,7 +700,22 @@ learn to make*, in Bossa's own words. It is the only oracle here that gives
 plain-English names rather than asset ids. **It should have been read as an
 enumeration years ago and was instead only ever used as a spend graph.**
 
-**20 branches, 172 nodes. 16 nodes have a schematic. 156 do not.**
+**228 nodes across 20 branches. 172 of them are named in a branch's node
+list; 16 of those 172 have a schematic behind them and 156 do not.**
+
+By node type — and the type breakdown is itself a finding:
+
+| `nodeType` | count | what it is |
+|---|---:|---|
+| `CIPHERSLOT` | **88** | a cipher socket you unlock |
+| `SCHEMATIC_RANDOM` | 50 | a random recipe from a pool |
+| `SCHEMATIC_LIST` | 49 | a choice from a list |
+| `SLOT` | **30** | a part slot you unlock |
+| `SCHEMATIC_FIXED` | 10 | a named recipe |
+| `TECHNOLOGY` | 1 | `Shipbuilding` — the gate on the whole lifetime panel |
+
+**118 of the 228 nodes (88 `CIPHERSLOT` + 30 `SLOT`) exist only to unlock
+cipher and part slots — a system we do not have.** See §11.2.
 
 | branch | nodes | with a schematic |
 |---|---:|---:|
@@ -782,6 +801,74 @@ Worth recording for its own sake: **even Bossa's own shipped data disagrees
 with itself about what a thing is called.** Any future search must try both
 words. This is the §9 error class occurring *inside the source of truth*.
 
+### 4.8 Clothing — 199 icons, 164 rows, and no way to get any of it
+
+| | count |
+|---|---:|
+| `clothing/` icons shipped (torsos 94 + heads 59 + legs 46) | **199** |
+| referenced by `itemData.json` | **164** |
+| garments **craftable, lootable or grantable** by our server | **0** |
+
+**PROVED, from the decompile:** clothing in Worlds Adrift was *purely
+cosmetic*. Searching the whole decompile for `Armou?r`, `insulation`,
+`coldResist` and `protection` returns **zero hits**; `CustomisationItem.cs`
+carries only colours, cloth colliders and `CoverType` flags. So the missing
+piece is not stats — it is **acquisition**.
+
+Retail's tailoring is named in the tree (§4.7): **Herder's Poncho** (240),
+**Penitent's Hood** (240), **Strapped Boots** (240), all on the Tradesman
+branch, made at the **Loom** (240) — which we place as an inert prop (§3.2).
+There is also a `schematic_icon_clothing` category icon.
+
+**The client's own crafting enum is `{Shipyard, Personal, CraftingStation,
+Cooking, Clothing, None}`. We implement two of the six** — and two of the four
+we do not implement are the reason five recipes cannot be crafted at all
+(§11.1).
+
+**35 clothing icons have no data row**, including `head_fugitive`,
+`head_goggles`, `head_samurai`, the `tribal_bargu`/`intucki`/`yharma` sets,
+the `naked` torso/legs pair, and several female counterparts of male-only
+rows. **Evidence: icon only.**
+
+In a persistent world where you meet strangers, appearance is the only thing
+you *are* to another player. Zero acquisition paths is a bigger absence than
+the icon count suggests.
+
+### 4.9 What the food system needed, and what it did not
+
+Two constraints that bound §4.1's effort estimate, both **PROVED from the
+decompile** and both good news:
+
+- **There is no hunger, thirst or stamina meter.** `hunger|thirst|starv|
+  stamina|satiat` across the whole decompile returns only Wwise error codes.
+  Food was never a survival treadmill — it was a **buff system**.
+- **The buff vocabulary is closed and known.** `PlayerBuffBehaviour` defines
+  exactly six: `movementSpeed`, `jumpForce`, `sprintAcceleration`,
+  `climbSpeed`, `drunk`, `halloween`. The schema is complete too:
+  `FoodStateData { itemTypeId, buffEffects[], buffDuration, eatDurationSec,
+  amountLeft }`.
+
+So the *effect* half of cooking is a lookup table over six verbs, not a
+system. `PlayerBuffState` is currently served as an empty list
+(`ComponentsSerializer.cs:1665`). The client also hardcodes two food ids —
+`beetleMeatRaw` and `mantaRayMeatRaw` (`acs/MaterialsEffectsData.cs:203`) —
+which is the naming bridge from the `Beetle`/`MantaRay` prefabs to the
+`2x2_beetle_*_meatraw` icons.
+
+### 4.10 Only one tree species is actually harvestable
+
+**PROVED.** `HarvestReward.BuildDefaultYields()` pre-registers all eight of our
+wood species, but `VaryTreeSpecies => false` is hardcoded, so in the default
+Haven world **only birch comes off a tree.** The other seven arrive solely via
+scrap salvage.
+
+Similarly `orthite` and `eternium` are in `MaterialCatalog` and in the release
+catalogue but have **no reachable source in the default configuration** —
+neither a `HavenRing` slot nor a scrap reward.
+
+Neither is a missing asset. Both are flags, and they are the difference
+between "the material system exists" and "a player can see it exists".
+
 ---
 
 ## 5. CATEGORY: CREATURES
@@ -865,10 +952,20 @@ auditing our table.
 
 - **Shipped and missing from us (3):** `magnesium`, `palladium`, `platinum`.
   Each has an authored, named, shipped icon. **PROVED (icon).**
-- **In our table with no client icon (2):** `aurium`, `cobalt`. Either they
-  are retail metals whose icons live elsewhere, or they are **WAREBORN
-  TUNING** that has quietly entered a table read as recovered. Worth ten
-  minutes to settle — a metal with no icon is a metal the client cannot draw.
+- **In our table with no client icon (2):** `aurium`, `cobalt`. **Settled, and
+  the file says so itself:** `MaterialCatalog.cs:143-151` marks both
+  `retail: false` with the comment *"NO source covers them: every number is
+  CHOSEN"*. They are **WAREBORN TUNING**, correctly labelled at source. They
+  borrow other metals' art — `cobalt` renders as `metals/metal_nickel`,
+  `aurium` as `metals/metal_gold` — and exist only as two Haven nugget
+  placements each: no release-world deposit, no `HavenRing` slot, no scrap
+  reward.
+
+**The net position is worth stating plainly: we invented two metals that draw
+as two other metals, while three metals Bossa actually shipped art for are
+absent.** Nothing here is wrong — the labelling is honest — but if the roster
+is ever revisited, swapping the two invented ones for `magnesium`,
+`palladium` and `platinum` costs the same and is recovery instead of tuning.
 
 ### 6.3 Woods
 
@@ -1064,6 +1161,14 @@ beats a decorative crate.**
 Effort is a first guess only. "None" in the *new components* column means the
 thing renders on machinery we already have.
 
+> **Read §11 first.** Three *live defects* outrank everything in this table,
+> because a player notices a visible failure long before an absence: five
+> recipes that are learnable and uncraftable (one of them costs **5000
+> knowledge**), 118 knowledge nodes that take payment and deliver nothing, and
+> 13 nodes that grant something other than what they say. All three were found
+> by enumerating, not by auditing — each looks implemented from every angle
+> except the player's.
+
 | # | missing thing | evidence | new components | first guess at the work |
 |---:|---|---|---|---|
 | 1 | **In-game chat** | 1001/1002/9002/9003/9004 + `FallRescueService.cs:120-131` names the exact blocker | 9002 minimum | seed `NewChatListener`/`Speaker`, route text server-side. **The most-noticed absence in any multiplayer game** |
@@ -1167,7 +1272,33 @@ because each one is a future false negative: a search for `MetalRockState`,
 `GlobalKnowledgeGraphDataState`, `FuelTankState` or `SalvageableState` will
 come back empty against a working feature.
 
-### 9.5 Bossa's own typo, shipped
+### 9.5 Eight schematic ids we renamed from retail's
+
+**PROVED** — the knowledge tree's own `schematicId` fields carry retail's ids,
+and nothing reads them because the alias map (§11.3) bypasses them entirely.
+
+| retail `schematicId` | ours |
+|---|---|
+| `basicHelm` | `helm` |
+| `sail01` | `sail` |
+| `deck01` | `deck` |
+| `panel01` | `smallPanel` |
+| `coreMain` | `atlasSkyCore` |
+| `respawner` | `personalReviver` |
+| `chest` | `storageContainer` |
+| `craftingStation` | `assemblyStation` |
+
+Eight more words that return empty when searched against this repo, against
+working features. None of these renames is wrong; all eight are invisible.
+
+### 9.6 The knowledge alias map
+
+`KnowledgeSpendPolicy` deliberately maps 13 retail node names onto our nearest
+available recipe. It is the most consequential naming divergence in the repo
+and is documented as a live defect at §11.3 rather than here, because its
+effect is not "hard to find" — it is "wrong for the player".
+
+### 9.7 Bossa's own typo, shipped
 
 The schematic-category icon is `schematic_icon_furnciture`. If anything ever
 keys off that string, it must be misspelled to match.
@@ -1233,3 +1364,113 @@ Stated rather than guessed. Each line says what would settle it.
 12. **`.resS` streaming blobs were not scanned.** They hold raw texture and
     mesh payloads with no name tables, so this should not hide any name — but
     it is an unscanned region and is recorded as such.
+
+---
+
+## 11. LIVE DEFECTS THIS ENUMERATION SURFACED
+
+Not gaps. **Things that are wired up today and behave wrongly for a player on
+production.** They are here because an enumeration found them and a claims
+audit could not have: each one is a piece of content that *looks* implemented
+from every angle except the player's.
+
+They are ranked above most of §8 in real terms — a *visible failure* is worse
+than an absence.
+
+### 11.1 Five recipes are learnable and uncraftable by construction
+
+**PROVED, verified independently.** `schematicData.json` has four `Cooking`
+recipes and one `Shipyard` recipe:
+
+`thuntomiteStew` · `mantaSteak` · `thuntomiteSteak` · `moonshine` ·
+`territory_control_beacon`
+
+`Crafting/StationCraftRouting.cs:85` gates which recipes may be loaded into a
+craft target:
+
+```csharp
+public static bool CategoryMatchesTarget(bool isPersonalTarget, string? recordCategory)
+    => string.Equals(recordCategory ?? "", ExpectedCategoryFor(isPersonalTarget), StringComparison.Ordinal);
+```
+
+`ExpectedCategoryFor` returns **only** `"Personal"` or `"CraftingStation"`.
+`"Cooking"` and `"Shipyard"` match neither target, so the gate at
+`PlayerCraftingInteractionState_Handler.cs:172` rejects all five with
+*"recipe not available here"*.
+
+**The gate itself is correct and load-bearing** — its doc comment explains it
+is the personal-tab crash guard, and that the client NREs in
+`CraftingStationSchematicList.SelectSchematic` on a category mismatch. This is
+not careless code. What is missing is a *third* target for the categories the
+guard does not name.
+
+**The sharpest edge:** the `Territory Control Tower` node costs **5000
+knowledge** — by far the most expensive node in the tree — and its
+`schematicId` is `territory_control_beacon`, category `Shipyard`. A player can
+save up 5000 knowledge, buy it, and own a recipe the server will always
+refuse.
+
+### 11.2 118 knowledge nodes take payment and deliver nothing
+
+**PROVED.** Of the 228 nodes, **88 are `CIPHERSLOT` and 30 are `SLOT`** —
+118 nodes, **3,743 knowledge** in total cost at base price. All of them unlock
+cipher and part slots (§4.7.2), a system we do not have.
+
+`KnowledgeSpendPolicy.Evaluate` returns `Success` for them, deducts the cost,
+increments `currentUses` — and sets `learned = null`. `cipherSlotCounts` is
+serialized permanently empty (`ComponentsSerializer.cs:1409`, *"cipher
+purchases are a later track"*).
+
+**The player pays, gets no error, and receives nothing.** Knowledge is the
+game's only progression currency. The minimum honest fix is to *refuse* these
+purchases until ciphers exist, not to silently accept them.
+
+### 11.3 Thirteen knowledge nodes grant something other than what they say
+
+**PROVED.** `Knowledge/KnowledgeSpendPolicy.cs:100-200` bridges retail node
+names to our recipe ids. Where no faithful recipe existed, it routes to the
+nearest-named node instead — *"so no catalogue recipe is dead content"*, which
+is a defensible intent. The player-facing result is not:
+
+| the node the player buys | what the server actually grants |
+|---|---|
+| **Makeshift Bandages** (60) | `personalReviver` |
+| **Nervure Bandages** (180) | `altimeter` |
+| **Compass** (180) | `headingIndicator` |
+| **Crows Nest** (240) | `smallPanel` |
+| **Paint Drum** (180) | `horn` |
+| **Paint Can** (120) | `airspeedIndicator` |
+| **Metal Chair** (180) | `cupboard` |
+| **Long Wooden Table** (180) | `barrel` |
+| **Long Metal Table** (180) | `assemblyStation` |
+| **Wooden Stool** (120) | `makeshiftStorage` |
+| **Dye** (240) | `clothMakeshift` |
+| **Bread** (240) | `thuntomiteStew` — **which is uncraftable (§11.1)** |
+| **Manta Burger** (240) | `moonshine` — **also uncraftable** |
+
+Two of the thirteen route to recipes that can never be crafted, so those nodes
+cost knowledge and yield nothing twice over.
+
+**This is the generator-class trap turned inside out.** A future agent asking
+*"why don't bandages heal?"* will grep `Makeshift Bandages`, find it
+implemented in `KnowledgeSpendPolicy`, and move on. The name is present and
+the thing is not.
+
+### 11.4 Six data rows point at the wrong icon
+
+**PROVED (icon atlas join).** One-line fixes, listed because they are the
+cheapest items in this entire document:
+
+| row | uses | while this ships unused |
+|---|---|---|
+| `thuntomiteStew` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_crunchythuntomitestew` |
+| `mantaSteak` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_manta_steak_cooked` |
+| `thuntomiteSteak` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_beetle_steak_cooked` |
+| `moonshine` | `scrap items/2x2_Cooking_Pot` | `foods/1x2_moonshine` |
+| `clothMakeshift` | `scrap items/4x2_saborian_Grand_mooring_rope` | `materials/3x1_clothmakeshift` |
+| `helm` | `ship parts/helmwood` | `ship parts/helmmetal` (see §2.3.A) |
+
+All four food rows share one generic cooking-pot sprite while their own
+authored art sits in the atlas.
+
+---
