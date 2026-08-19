@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: bowtie-outline (shapes-outline, sheet index 29).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#585858" fill-rule="nonzero" d="M-875 -973 L-867 -955 L-736 -791 L-596 -628 L-518 -519 L-221 -159 L-130 -96 L-75 -157 L-67 -174 L-75 -203 L-366 -553 L-465 -664 L-522 -719 L-547 -765 L-607 -846 L-602 -851 L106 -849 L596 -858 L615 -846 L538 -755 L512 -719 L497 -683 L560 -614 L578 -608 L618 -646 L868 -955 L873 -973 L850 -979 L-856 -980 Z M-874 969 L-856 980 L396 980 L850 980 L868 979 L875 969 L810 896 L622 660 L588 624 L560 608 L487 678 L518 733 L605 842 L596 849 L-584 851 L-601 842 L-493 700 L-81 207 L-49 152 L-57 128 L-75 124 L-94 128 L-130 159 L-148 160 L-184 130 L-203 141 L-495 497 L-518 533 L-530 569 L-608 642 Z M-83 -11 L-80 7 L-39 61 L-28 98 L-3 109 L23 134 L401 588 L433 612 L469 595 L505 567 L521 551 L491 497 L155 80 L88 -11 L235 -174 L493 -483 L562 -592 L560 -601 L505 -585 L451 -620 L433 -618 L414 -604 L83 -211 L33 -142 L-25 -84 Z"/>
+</svg>

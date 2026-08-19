@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: nested-diamond-outline (shapes-outline, sheet index 19).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#1C6573" fill-rule="nonzero" d="M-980 24 L-922 69 L-872 100 L-859 130 L-827 176 L-798 206 L-594 410 L-514 481 L-448 557 L-107 893 L-46 951 L-31 956 L-25 938 L-20 831 L-11 801 L-21 785 L-259 557 L-351 462 L-411 409 L-546 267 L-796 24 L-790 8 L-687 -98 L-14 -769 L0 -778 L350 -435 L789 8 L789 24 L35 770 L26 785 L40 816 L49 862 L51 923 L61 933 L76 924 L980 24 L980 8 L975 4 L58 -906 L15 -948 L0 -956 L-198 -772 L-549 -426 L-980 8 Z M-630 24 L0 639 L15 631 L457 186 L594 50 L627 24 L629 8 L198 -413 L15 -601 L0 -611 L-15 -603 L-554 -68 L-629 8 Z M-474 450 L-469 435 L-442 419 L-421 435 L-424 450 L-442 465 Z M-439 8 L-15 -415 L0 -424 L433 8 L432 24 L161 298 L0 452 L-61 398 L-438 24 Z"/>
+</svg>

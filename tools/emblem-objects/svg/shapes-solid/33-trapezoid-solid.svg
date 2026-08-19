@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: trapezoid-solid (shapes-solid, sheet index 33).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#C57A25" fill-rule="nonzero" d="M-792 -955 L-789 -899 L-774 -862 L-771 -825 L-755 -788 L-751 -732 L-737 -714 L-733 -658 L-718 -640 L-715 -584 L-700 -547 L-695 -492 L-681 -473 L-680 -418 L-663 -381 L-663 -344 L-644 -288 L-639 -232 L-626 -214 L-622 -158 L-607 -140 L-605 -84 L-589 -47 L-585 8 L-570 27 L-568 82 L-552 101 L-549 156 L-533 193 L-531 249 L-515 286 L-508 342 L-496 360 L-496 397 L-478 453 L-471 508 L-459 527 L-456 582 L-441 619 L-433 675 L-422 693 L-417 749 L-404 767 L-401 823 L-385 860 L-383 916 L-367 953 L-366 971 L-357 980 L402 978 L409 971 L411 934 L424 916 L430 841 L443 823 L447 804 L448 749 L463 712 L467 656 L478 638 L485 564 L503 508 L504 453 L515 434 L522 360 L536 342 L541 286 L557 249 L559 193 L575 156 L578 101 L592 64 L596 -10 L609 -29 L615 -103 L627 -121 L633 -158 L633 -195 L647 -214 L652 -288 L664 -307 L670 -381 L685 -399 L689 -455 L704 -492 L707 -547 L726 -603 L726 -640 L741 -677 L744 -751 L756 -769 L763 -844 L775 -862 L781 -936 L792 -955 L772 -977 L531 -980 L-783 -978 Z"/>
+</svg>

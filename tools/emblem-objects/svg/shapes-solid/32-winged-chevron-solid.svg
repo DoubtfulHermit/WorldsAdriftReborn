@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: winged-chevron-solid (shapes-solid, sheet index 32).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#165762" fill-rule="nonzero" d="M-980 -353 L-883 -258 L-869 -248 L-856 -244 L-501 -245 L-460 -242 L-452 -258 L-515 -362 L-624 -365 L-965 -364 L-978 -358 Z M-780 -176 L-780 -162 L-679 -60 L-665 -52 L-350 -53 L-349 -67 L-368 -94 L-401 -162 L-420 -181 L-774 -180 Z M-535 -517 L-465 -380 L-454 -367 L-437 -326 L-426 -312 L-410 -271 L-385 -230 L-382 -217 L-334 -135 L-274 -12 L-263 1 L-28 478 L3 527 L146 247 L231 70 L321 -94 L337 -135 L363 -176 L541 -517 L535 -526 L-529 -527 Z M351 -67 L357 -53 L671 -52 L689 -67 L764 -149 L781 -162 L782 -176 L766 -179 L426 -180 L407 -162 Z M456 -258 L467 -243 L862 -246 L875 -251 L980 -353 L971 -365 L521 -363 L503 -339 Z"/>
+</svg>

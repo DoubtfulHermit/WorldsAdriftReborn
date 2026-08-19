@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Wareborn alliance emblem object: tall-hexagon-outline (shapes-outline, sheet index 47).
+     Traced by tools/emblem-objects/trace_objects.py.
+     Coordinates are thousandths of the painter's [-1, 1] box, y down,
+     filled NON-ZERO. The colour here is the source ink and is NOT part
+     of the object - the emblem system colours every layer itself. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1000 -1000 2000 2000"
+     width="256" height="256">
+  <path fill="#5F6831" fill-rule="nonzero" d="M-643 555 L-634 573 L-461 719 L-340 805 L-166 903 L-44 963 L-27 966 L-9 978 L8 980 L130 925 L286 839 L460 719 L634 577 L642 555 L643 434 L642 -332 L641 -384 L634 -399 L617 -395 L582 -374 L553 -349 L530 -346 L517 -332 L512 -1 L516 486 L507 503 L443 558 L251 699 L95 786 L78 793 L63 781 L62 694 L55 660 L31 625 L26 590 L35 573 L54 555 L63 434 L62 -314 L60 -453 L49 -540 L44 -697 L54 -801 L60 -807 L78 -805 L112 -781 L165 -758 L286 -683 L356 -632 L443 -561 L501 -505 L513 -488 L518 -453 L530 -440 L634 -463 L641 -471 L642 -558 L634 -568 L460 -718 L338 -805 L217 -878 L8 -980 L-79 -948 L-253 -859 L-392 -770 L-479 -704 L-583 -615 L-641 -558 L-640 -488 L-633 -471 L-618 -463 L-583 -451 L-531 -445 L-516 -453 L-500 -505 L-444 -560 L-374 -616 L-305 -667 L-131 -770 L-79 -797 L-61 -791 L-60 781 L-79 792 L-218 720 L-374 612 L-509 503 L-515 486 L-508 347 L-510 -332 L-517 -349 L-531 -357 L-548 -360 L-566 -374 L-601 -391 L-635 -398 L-641 -384 Z"/>
+</svg>
