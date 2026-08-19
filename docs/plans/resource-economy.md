@@ -25,7 +25,7 @@ decompile or shipped data), **RECOVERED** (reconstructed from a retail artefact)
 | 4 — The loom | not started; scope grew, see the phase |
 | 5 — Scrapping | not started |
 | 6 — Cooking routing | not started |
-| 7 — Creature lifecycle | not started; now SIZED, and the cheapest win moved to the front |
+| 7 — Creature lifecycle | not started; now SIZED — and it is not a weapons project |
 
 **Gates on 1–3.** Multiplayer suite **3737 passed / 0 failed** (baseline 3694 —
 the 43 added are this branch's). `WorldsAdriftServer.Tests` **1107 passed / 26
@@ -712,6 +712,63 @@ transition on it. Standing rule.
   dead is still expressed by the rhythm, so it will keep being posed. Fine for a
   demo, not fine to ship — which is what 7a is for.
 
+#### 7a-i — Kill it with the beam. No new damage primitive.
+
+**Delivers.** A creature that dies when a player beams it, using the salvage
+gauntlet every player already carries and the shot dispatch the server already
+runs.
+
+**A player can newly DO.** The maintainer's whole sequence, by their own hand:
+**shoot it, it dies, it falls, salvage the corpse.** With 7a-0 this is the first
+point at which Phase 7 is playable rather than demonstrable.
+
+**Why this works without a weapons system.** Two facts that were not obvious:
+
+- `2106 MultitoolSalvagerState` is a **live handler**
+  (`MultitoolSalvagerState_Handler.cs:44,51-92`). It reads
+  `ShotEvent{entityId, shotCoordinate}` for **whatever entity the beam hit** and
+  forwards to `OnSalvageShot` — it is not rock-specific.
+- `OnSalvageShot` (`WorldsAdriftRebornGameServer.cs:853-936`) is already a
+  four-way ledger dispatch and **falls through silently on a creature id at
+  `:876`**.
+
+So the hook is a fifth branch, not a subsystem.
+
+**How.**
+1. A branch guarded on `Fauna.IsFauna(entityId)` in `OnSalvageShot`, beside the
+   existing mounted-part / fuel / deposit / nugget branches.
+2. A pure per-species shot count in `Multiplayer/`, in the shape `MetalDeposits`
+   already proves (2000 HP, 200 damage per shot, ten shots). **No health
+   component**: `1160`/`1161` stay unseeded and the count lives in the ledger,
+   exactly as a deposit's does.
+3. On the killing shot, flip `1171 isDead` (from 7a-0) and broadcast it. The
+   client does the death pose, the blood stop and the fall by itself.
+4. `1099 originalMaterials` (from 7a-0) is the yield, resolved through the SAME
+   `(source, biome)` table 7b defines — not a second creature-shaped yield path
+   beside the one Phases 1–3 just finished.
+
+**Depends on.** 7a-0. Nothing else — explicitly **not** the pistol, and
+**not** creature health components.
+
+**Schema migration.** No.
+
+**Soak.** **Yes.** New state transition on a relayed entity class.
+
+**What could go wrong.**
+- *Beaming a creature is also how you would salvage its corpse.* The same beam
+  now means two things depending on `isDead`, so the branch must check mortality
+  first or a corpse takes "damage" instead of paying out. This is exactly what
+  `MeatSourceBehaviour`'s `IsSalvageable() => IsDead` gate does client-side;
+  mirror it.
+- *Population accounting* until 7a's kill ledger lands — a dead creature is still
+  expressed by the rhythm and keeps being posed.
+- *Nothing catches a body killed over water or the void.* Gameplay decision, not
+  a bug.
+- **This is a gauntlet, not a gun.** It is a faithful route to the *loop*, not a
+  claim that retail let you kill a manta with the salvage beam — retail used the
+  pistol. Label it **WAREBORN TUNING** and treat 7a-iii as the fidelity
+  follow-up, or the shortcut quietly becomes the canon.
+
 #### 7a — Mortality, without breaking the closed-form fauna model
 
 **The design problem, stated honestly.** Our fauna are deliberately stateless:
@@ -835,43 +892,73 @@ earlier framing:** that bug is real but it is not on weapons — it is on **seve
 sky-core modules** whose slot reads "Atlas Shards" and consumes `iron`, plus the
 food rows in Phase 6.
 
-**The ordered list of what is missing, cheapest first:**
+**THE HEADLINE: the pistol is not a prerequisite. The BEAM already is one.**
 
-| # | Missing | Kind |
-|---|---|---|
-| 1 | **1096 `PistolState`, 1247 `ShotValidationRequestState`, 1249 `PlayerPistolState` on the player** | components we never seed |
-| 2 | a handler for **1247** | handler that does not exist |
-| 3 | a **1248 `ShotValidationResponseState`** reply | handler + component |
-| 4 | any damage model at all | nothing to stub — but see below |
-| 5 | **1171 `MortalityState`** on a creature | component we never seed |
-| 6 | **1099 `SalvageAndRepairState`** on a creature | component we never seed |
-| 7 | a raw meat item, and `mantaSteak` consuming it | content + the label/name bug |
+The obvious reading of the chain is that a weapon has to work before a creature
+can die, which would make Phase 7 gated on four unseeded components, two absent
+handlers and a damage subsystem that does not exist. **It is not.** The salvage
+beam is already a server-side shot dispatch on an arbitrary target id:
 
-**#1 is the hard floor, and it is why nothing here is currently observable.**
-SpatialOS injects a behaviour only when *every* `[Require]` is satisfied, and
-`PlayerPistolBehaviour` needs a 1249 reader plus a 1096 writer
-(`acs/PlayerPistolBehaviour.cs:30-34`) while `ShotValidationBehaviour` needs a
-1247 writer (`:13-14`). None are seeded. So **today pulling the trigger produces
-no network traffic whatsoever — not even a muzzle flash on another player's
-screen.** You cannot tell a broken damage model from a broken trigger, because
-the trigger emits nothing. It is also the cheapest item on the list: three seed
-branches in `ComponentsSerializer` and the authority grants.
+- `2106 MultitoolSalvagerState` is one of our 21 live handlers
+  (`MultitoolSalvagerState_Handler.cs:44,51-92`); it reads
+  `ShotEvent{entityId, shotCoordinate}` for **any hit entity** and forwards to
+  `OnSalvageShot`.
+- `OnSalvageShot` (`WorldsAdriftRebornGameServer.cs:853-936`) is a four-way
+  ledger dispatch — mounted part, fuel canister, deposit, nugget — that **falls
+  through silently for a creature id at `:876`**.
 
-**#4 is smaller than it sounds.** There is genuinely no damage path anywhere on
-this server today — no PvP, no player-versus-object, no ship-versus-ship; a
-repo-wide search for damage functions returns nothing. But `OnSalvageShot`
-(`WorldsAdriftRebornGameServer.cs:853-936`) is already a four-way ledger dispatch
-that drops a creature id silently at `:876`, and `MetalDeposits`' 2000 HP /
-200-per-shot / 10-shot curve is a working precedent. A per-species constant
-against accumulated shots needs **no new component at all**.
+So a fifth branch guarded on `Fauna.IsFauna`, a per-species shot count in the
+shape `MetalDeposits` already uses (2000 HP / 200 per shot / 10 shots), and the
+two component seeds from 7a-0, deliver the maintainer's whole four-link sequence
+— **shoot it, it dies, it falls, you salvage it** — with **no new damage
+primitive and none of the pistol stack**.
 
-**#5 + #6 are the best value in the whole of Phase 7, and they are independent of
-the weapon work.** Two component seeds on a creature buy the death pose, the
-blood-VFX stop, the ragdoll fall and the salvage gate — all of it already shipped
-client code. **If the maintainer wants to see "it died, it fell, I salvaged it"
-before any weapon exists, that is reachable today by flipping `isDead` from an
-admin command.** I would do that first: it de-risks everything downstream and
-gives something to look at.
+**The ordered list of what is missing, in the order I would now do it:**
+
+| # | Missing | Kind | Needed for the beam route? |
+|---|---|---|---|
+| 1 | **1171 `MortalityState`** on a creature | component we never seed | **yes** |
+| 2 | **1099 `SalvageAndRepairState`** on a creature | component we never seed | **yes** |
+| 3 | a fifth `OnSalvageShot` branch + per-species shot count | a stub we own | **yes** |
+| 4 | a raw meat item, and `mantaSteak` consuming it | content + the label/name bug | **yes** |
+| 5 | kill ledger so the population respects a death | a stub we own | to ship, not to demo |
+| 6 | 1096 / 1247 / 1249 on the player | components we never seed | no — pistol only |
+| 7 | a handler for 1247, and a 1248 reply | handlers that do not exist | no — pistol only |
+| 8 | 1160 / 1161 creature health | components we never seed | no — the shot count replaces them |
+
+**#1 + #2 are the best value in the whole of Phase 7** and are 7a-0. Two seeds
+buy the death pose, the blood-VFX stop, the ragdoll fall and the salvage gate,
+all already shipped client code. Note **1099 is not optional**: `Salvageable`
+requires it, so 1171 alone gets you a dead body you cannot salvage.
+
+**#4 cannot be skipped, and it is the one content gap.** There is **no
+`rawMantaMeat` / `mantaMeat` row in `itemData.json` at all** — only the cooked
+outputs. And `mantaSteak`'s slot labelled "Raw Manta Meat" consumes **`iron`**
+today, so it is the same label/name bug as the sky-cores. Without a meat row a
+perfectly working kill chain pays out nothing nameable.
+
+**#6 + #7 are the pistol proper, and they are a second, larger increment.**
+Worth knowing why nothing happens today: SpatialOS injects a behaviour only when
+*every* `[Require]` is satisfied, `PlayerPistolBehaviour` needs a 1249 reader
+plus a 1096 writer (`acs/PlayerPistolBehaviour.cs:30-34`) and
+`ShotValidationBehaviour` needs a 1247 writer (`:13-14`), and none are seeded —
+so **pulling the trigger produces no network traffic whatsoever, not even a
+muzzle flash on another player's screen.** You cannot currently distinguish a
+broken damage model from a broken trigger. One mitigation for later: retail's
+validator, `acs/FSimShotRequestProcessor.cs:36-68`, is client-hosted and
+therefore *in the decompile*, so it is portable rather than reconstructable.
+
+**Two traps found on the way:**
+
+- **There are TWO components called `HealthState`.** `1160` in
+  `Bossa.Travellers.Creatures` is `{Option<float> currentHealth,`
+  `Option<float> maxHealth}`; `1077` in `Bossa.Travellers.Player` has an entirely
+  different shape and *is* already seeded, constant, at
+  `ComponentsSerializer.cs:698-700`. Same type name, different namespace; a doc
+  in this repo has already got this wrong once.
+- **`1084 DealDamageClientRequestState` exists in the schema and no file in
+  `acs/` references it.** It belonged to a worker that did not ship. Do not build
+  against it.
 
 **Two traps found while looking:**
 
@@ -1027,19 +1114,26 @@ change. It is its own workstream and should not be folded into a resource phase.
 | 5 | Scrapping | 134 inert scrap rows | low | no | no |
 | 6 | Cooking routes + recipe honesty | food, once meat exists | low | no | no |
 | 7a-0 | **Seed 1171 + 1099 on a creature** | death pose, ragdoll fall, salvage gate | **low** | no | **yes** |
+| 7a-i | **Fifth `OnSalvageShot` branch + per-species shot count** | **kill it with the beam you already have** | **low** | no | inherits |
 | 7a | Creature mortality (kill ledger) | population that respects a kill | **high** | no | inherits |
 | 7a-ii | The corpse falls | **nothing to do — the client already does it** | none | no | none |
-| 7a-iii | Firing and damage (pistol) | a way to kill anything | medium | no | inherits |
+| 7a-iii | The pistol proper | a crafted weapon that fires | medium | no | inherits |
 | 7b | Biome-tiered creature yields | meat, chitin, clusters | medium | no | inherits |
 | 7c | Beetles | beetle materials | **high** | no | inherits |
 | — | Ship cannons | — | **own plan** | no | own |
 
-**7a-0 is new, and it is the change the investigation forced.** Two component
-seeds on a creature buy the death pose, the ragdoll fall and the salvage gate
-outright, because all of that is shipped client code waiting on `isDead`. It is
-independent of the weapon work and reachable from an admin command, so it is both
-the cheapest item in Phase 7 and the one that makes everything after it
-observable. It should go first, not the kill ledger.
+**7a-0 and 7a-i are new, and together they are the change the investigation
+forced.** Two component seeds on a creature buy the death pose, the ragdoll fall
+and the salvage gate outright, because all of that is shipped client code waiting
+on `isDead`. A fifth branch in the salvage-shot dispatch — which already receives
+a shot at *any* entity id and silently drops creatures — then kills the creature
+with the beam the player already carries. Between them they deliver the
+maintainer's entire "shoot it, it dies, it falls, I salvage it" sequence **with no
+new damage primitive and none of the pistol stack**, which is what turned Phase 7
+from a weapons project into two small pieces of plumbing.
+
+**The pistol is therefore NOT a prerequisite**, and neither is a creature health
+component. That is the single most useful thing the investigation returned.
 
 7a-ii is now a no-op: `MortalityBehaviour.cs:22-33` un-kinematics the creature on
 death and Unity drops it. No server grounding is needed, and the log-grounding
