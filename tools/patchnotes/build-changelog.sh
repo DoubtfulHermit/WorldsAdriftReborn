@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+#
+# Regenerate the public /patchnotes source from the actual commit log.
+#
+# The page is a changelog, not a blog: every line under a date is a real commit
+# that is in the history, so "what the page says shipped" and "what shipped" are
+# the same thing and neither can drift from the other by being written up.
+#
+# WHY THIS IS GENERATED INTO A COMMITTED FILE rather than read from git at
+# request time: production runs a published, self-contained binary out of
+# /opt/wareborn/WorldsAdriftServer-linux and there is no repository on that box
+# to run `git log` against. The generated source is embedded as a web asset like
+# every other page fragment, so the page has no runtime dependency on git at all.
+#
+# Run it before cutting a release, and commit the result:
+#
+#   tools/patchnotes/build-changelog.sh
+#   git add WorldsAdriftServer/Web/Assets/patch-notes.md
+#
+# MERGE COMMITS ARE EXCLUDED. A merge's subject is "Merge branch 'feat/x'",
+# which tells a reader nothing the branch's own commits do not already say, and
+# the branch's commits are in the history either way - so including merges would
+# list the same work twice, once uselessly.
+#
+# WHERE THE LOG STARTS. This repository carries the ORIGINAL WorldsAdriftReborn
+# project's history from 2021 - 135 commits by killzoms, sp00ktober, mmjr-x, Cat
+# and others - and Wareborn's own work begins on top of it on 2026-08-07. This
+# page is Wareborn's changelog, so it starts there and credits the foundation in
+# a line at the end rather than listing other people's commits as if they were
+# ours. Change SINCE only if that fork point is wrong.
+set -euo pipefail
+
+since="2026-08-07"
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+out="$repo_root/WorldsAdriftServer/Web/Assets/patch-notes.md"
+
+cd "$repo_root"
+
+if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  echo "not a git repository: $repo_root" >&2
+  exit 1
+fi
+
+total="$(git log --no-merges --since="$since" --oneline | wc -l | tr -d ' ')"
+inherited="$(git log --no-merges --until="$since" --oneline | wc -l | tr -d ' ')"
+inherited_first="$(git log --no-merges --until="$since" --pretty='%ad' --date=short | tail -1)"
+# tail, not `--reverse | head`: git log streams newest-first, so the oldest date
+# is the last line. Piping a long log into `head` closes the pipe early, git
+# takes SIGPIPE, and `set -o pipefail` turns that into a failed build.
+first_day="$(git log --no-merges --since="$since" --pretty='%ad' --date=short | tail -1)"
+
+{
+  cat <<EOF
+Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
+
+Every commit, newest first. ${total} of them since ${first_day}. Merges are left out - they only repeat what the commits under them already say.
+EOF
+
+  # One release block per calendar day, newest first. %ad with --date=short is
+  # the AUTHOR date, which is the day the work was actually written; %cd would
+  # move a whole day's worth of history the first time anything is rebased.
+  git log --no-merges --since="$since" --pretty='%ad' --date=short \
+    | awk '!seen[$0]++' \
+    | while read -r day; do
+        count="$(git log --no-merges --since="$day 00:00:00" --until="$day 23:59:59" --oneline | wc -l | tr -d ' ')"
+
+        # "1 commit" reads badly as "1 commits", and this page is read by people.
+        if [ "$count" = "1" ]; then
+          noun="commit"
+        else
+          noun="commits"
+        fi
+
+        printf '\n## %s | %s %s\n\n' "$day" "$count" "$noun"
+
+        # The "* " marker is the commit row; the server splits it on the first
+        # space into a sha column and a subject. Subjects are passed through
+        # untouched - they are escaped at render time, not here, because this
+        # file is also what an operator sees and edits in the admin panel.
+        git log --no-merges --since="$day 00:00:00" --until="$day 23:59:59" \
+          --pretty='* %h %s'
+      done
+
+  # The inherited history, credited rather than absorbed. It carries a real
+  # date - the day that history starts - rather than a wordy "Before this",
+  # because every other entry on the page is dated and the newest-first ordering
+  # is checked by a test. An undated entry would either break that check or
+  # force it to make an exception, and there is nothing to make an exception
+  # for: this era genuinely began on that day.
+  cat <<EOF
+
+## ${inherited_first} | Built on WorldsAdriftReborn
+
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - ${inherited} commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+EOF
+} > "$out"
+
+# SELF-CHECK. The per-day loop re-queries git with a time window, so it is
+# possible for a commit to exist in the total and fall outside every day's
+# window - which is exactly what happened with `--until "$day 23:59"`, a bound
+# that means 23:59:00 and silently dropped a commit made at 23:59:52. A
+# changelog that quietly loses commits is worse than one that fails to build,
+# so this refuses to write a file it cannot account for.
+written="$(grep -c '^\* ' "$out" || true)"
+if [ "$written" != "$total" ]; then
+  echo "REFUSING: git reports $total commits since $since but only $written rows were written." >&2
+  echo "Some commit falls outside every per-day window. Do not ship this file." >&2
+  exit 1
+fi
+
+echo "wrote $out"
+echo "  $written commits across $(grep -c '^## ' "$out") dated sections (one is the inherited-history note)"

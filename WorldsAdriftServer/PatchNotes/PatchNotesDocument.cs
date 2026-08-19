@@ -13,6 +13,74 @@ namespace WorldsAdriftServer.PatchNotes
 
         /// <summary>A run of "- " lines, kept as one list.</summary>
         Bullets,
+
+        /// <summary>
+        /// A run of "* &lt;sha&gt; &lt;subject&gt;" lines - the commit log.
+        ///
+        /// Its own kind rather than a bullet because a commit is two fields, not
+        /// a sentence: the sha wants a fixed column and the subject wants the
+        /// reading width, and a list that renders them as one string cannot line
+        /// the shas up.
+        /// </summary>
+        Commits,
+    }
+
+    /// <summary>One commit: an abbreviated sha and the subject line.</summary>
+    internal readonly struct PatchNotesCommit
+    {
+        internal PatchNotesCommit(string sha, string subject)
+        {
+            Sha = sha;
+            Subject = subject;
+        }
+
+        internal string Sha { get; }
+        internal string Subject { get; }
+
+        /// <summary>
+        /// Splits "153728a Record the release" into its two parts, or returns
+        /// false when the line is not a commit after all.
+        ///
+        /// The sha must be hex and 6-40 long. That test is what lets the same
+        /// "* " marker stay usable for anything else without this silently
+        /// eating it: a line the generator did not write falls through to being
+        /// an ordinary bullet rather than rendering as a commit with a nonsense
+        /// sha in the column.
+        /// </summary>
+        internal static bool TryParse(string? line, out PatchNotesCommit commit)
+        {
+            commit = default;
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return false;
+            }
+
+            string text = line!.Trim();
+            int space = text.IndexOf(' ');
+            if (space < 6 || space > 40)
+            {
+                return false;
+            }
+
+            string sha = text.Substring(0, space);
+            foreach (char c in sha)
+            {
+                bool hex = (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F');
+                if (!hex)
+                {
+                    return false;
+                }
+            }
+
+            string subject = text.Substring(space + 1).Trim();
+            if (subject.Length == 0)
+            {
+                return false;
+            }
+
+            commit = new PatchNotesCommit(sha, subject);
+            return true;
+        }
     }
 
     /// <summary>One heading, paragraph or list inside a release.</summary>
@@ -122,6 +190,7 @@ namespace WorldsAdriftServer.PatchNotes
             string? date = null, title = null, badge = null;
             List<PatchNotesBlock> blocks = new List<PatchNotesBlock>();
             List<string> bullets = new List<string>();
+            List<string> commits = new List<string>();
             List<string> prose = new List<string>();
             HashSet<string> anchors = new HashSet<string>(StringComparer.Ordinal);
 
@@ -132,6 +201,13 @@ namespace WorldsAdriftServer.PatchNotes
                     Add(new PatchNotesBlock(PatchNotesBlockKind.Bullets, string.Empty,
                         bullets.ToArray()));
                     bullets.Clear();
+                }
+
+                if (commits.Count > 0)
+                {
+                    Add(new PatchNotesBlock(PatchNotesBlockKind.Commits, string.Empty,
+                        commits.ToArray()));
+                    commits.Clear();
                 }
 
                 if (prose.Count > 0)
@@ -213,9 +289,24 @@ namespace WorldsAdriftServer.PatchNotes
                     continue;
                 }
 
+                // A commit line. Checked BEFORE the bullet marker so the sha test
+                // gets first refusal: "* not-a-sha ..." then falls through and is
+                // treated as prose rather than being lost.
+                if (trimmed.StartsWith("* ", StringComparison.Ordinal)
+                    && PatchNotesCommit.TryParse(trimmed.Substring(2), out _))
+                {
+                    if (prose.Count > 0 || bullets.Count > 0)
+                    {
+                        FlushRuns();
+                    }
+
+                    commits.Add(trimmed.Substring(2).Trim());
+                    continue;
+                }
+
                 if (trimmed.StartsWith("- ", StringComparison.Ordinal))
                 {
-                    if (prose.Count > 0)
+                    if (prose.Count > 0 || commits.Count > 0)
                     {
                         FlushRuns();
                     }
@@ -224,7 +315,7 @@ namespace WorldsAdriftServer.PatchNotes
                     continue;
                 }
 
-                if (bullets.Count > 0)
+                if (bullets.Count > 0 || commits.Count > 0)
                 {
                     FlushRuns();
                 }

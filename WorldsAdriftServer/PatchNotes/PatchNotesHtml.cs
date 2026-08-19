@@ -72,12 +72,28 @@ namespace WorldsAdriftServer.PatchNotes
                 "<nav class=\"pn-index\" aria-label=\"Releases\"><h2>Releases</h2><ol>\n");
             foreach (PatchNotesRelease release in document.Releases)
             {
+                // The DATE leads and the title follows. On a changelog the
+                // titles are counts - "23 commits", "38 commits" - and a rail
+                // of those is unnavigable; the date is what a reader is looking
+                // for. A release with no date falls back to leading with its
+                // title, so an undated entry is not a blank row.
+                bool dated = release.DisplayDate.Length > 0;
+                string lead = dated ? release.DisplayDate : release.Title;
+                string follow = dated ? release.Title : string.Empty;
+
                 html.Append("<li><a href=\"#").Append(PatchNotesMarkup.Escape(release.Anchor))
                     .Append("\"><span class=\"pn-index-title\">")
-                    .Append(PatchNotesMarkup.Inline(release.Title))
-                    .Append("</span><span class=\"pn-index-date\">")
-                    .Append(PatchNotesMarkup.Escape(release.DisplayDate))
-                    .Append("</span></a></li>\n");
+                    .Append(PatchNotesMarkup.Inline(lead))
+                    .Append("</span>");
+
+                if (follow.Length > 0)
+                {
+                    html.Append("<span class=\"pn-index-date\">")
+                        .Append(PatchNotesMarkup.Inline(follow))
+                        .Append("</span>");
+                }
+
+                html.Append("</a></li>\n");
             }
 
             return html.Append("</ol></nav>\n").ToString();
@@ -86,6 +102,30 @@ namespace WorldsAdriftServer.PatchNotes
         /// <summary>How many releases, as a phrase for the header strip.</summary>
         internal static string Count(PatchNotesDocument document)
         {
+            // Commits are the unit when there are any: on a changelog the
+            // releases are calendar days, and "14 releases" both misnames them
+            // and reports the less interesting number. A document with no
+            // commit rows is prose - an operator override - and still counts
+            // releases, so this reads correctly for either shape.
+            int commits = 0;
+            foreach (PatchNotesRelease release in document.Releases)
+            {
+                foreach (PatchNotesBlock block in release.Blocks)
+                {
+                    if (block.Kind == PatchNotesBlockKind.Commits)
+                    {
+                        commits += block.Items.Count;
+                    }
+                }
+            }
+
+            if (commits > 0)
+            {
+                return commits == 1
+                    ? "1 commit"
+                    : commits.ToString(CultureInfo.InvariantCulture) + " commits";
+            }
+
             int n = document.Releases.Count;
             return n == 1
                 ? "1 release"
@@ -152,6 +192,32 @@ namespace WorldsAdriftServer.PatchNotes
                     }
 
                     return list.Append("</ul>\n").ToString();
+                }
+
+                case PatchNotesBlockKind.Commits:
+                {
+                    StringBuilder log = new StringBuilder("<ul class=\"pn-commits\">\n");
+                    foreach (string item in block.Items)
+                    {
+                        if (!PatchNotesCommit.TryParse(item, out PatchNotesCommit commit))
+                        {
+                            // Parsed as a commit on the way in, so this cannot
+                            // normally happen; render it as a plain row rather
+                            // than dropping a line the source actually contained.
+                            log.Append("<li><span class=\"pn-subject\">")
+                                .Append(PatchNotesMarkup.Inline(item))
+                                .Append("</span></li>\n");
+                            continue;
+                        }
+
+                        log.Append("<li><code class=\"pn-sha\">")
+                            .Append(PatchNotesMarkup.Escape(commit.Sha))
+                            .Append("</code><span class=\"pn-subject\">")
+                            .Append(PatchNotesMarkup.Inline(commit.Subject))
+                            .Append("</span></li>\n");
+                    }
+
+                    return log.Append("</ul>\n").ToString();
                 }
 
                 default:
