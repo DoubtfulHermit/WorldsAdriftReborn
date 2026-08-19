@@ -26,9 +26,12 @@ h2{font-size:.72rem;font-weight:700;letter-spacing:.16em;text-transform:uppercas
 .stat .n{font-size:1.5rem;font-weight:590;letter-spacing:-.025em;color:var(--text);}
 .stat .l{margin-top:.18rem;font-size:.61rem;font-weight:650;letter-spacing:.13em;text-transform:uppercase;color:var(--text-faint);}
 label{display:block;font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text-soft);margin:0 0 .45rem;}
-input,select{width:100%;min-height:2.65rem;font:inherit;color:var(--text);background:#0b141b;border:1px solid var(--line-strong);border-radius:7px;padding:.58rem .72rem;}
-input::placeholder{color:var(--text-faint);}select option{color:var(--text);background:var(--surface);}
-input:hover,select:hover{border-color:#4c6876;}input:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+input,select,textarea{width:100%;min-height:2.65rem;font:inherit;color:var(--text);background:#0b141b;border:1px solid var(--line-strong);border-radius:7px;padding:.58rem .72rem;}
+input::placeholder,textarea::placeholder{color:var(--text-faint);}select option{color:var(--text);background:var(--surface);}
+input:hover,select:hover,textarea:hover{border-color:#4c6876;}input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+/* Prose, not a name: the message field is read and edited a paragraph at a
+   time, so it gets line height and a vertical-only resize handle. */
+textarea{display:block;line-height:1.65;resize:vertical;}
 .field{margin-bottom:1rem;text-align:left;}
 button,.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;width:auto;min-height:2.55rem;margin:0;padding:.6rem .95rem;
   font:inherit;font-size:.72rem;font-weight:680;letter-spacing:.045em;color:var(--text);border:1px solid var(--line-strong);border-radius:7px;

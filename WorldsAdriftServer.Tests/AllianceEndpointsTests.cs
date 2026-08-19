@@ -37,14 +37,15 @@ namespace WorldsAdriftServer.Tests
             internal InviteStoreDouble Invites { get; } = new InviteStoreDouble();
             internal AllianceEndpoints Endpoints { get; }
 
-            internal World()
+            internal World(string? emblemBaseUrl = null)
             {
                 Endpoints = new AllianceEndpoints(
                     Alliances,
                     Invites,
                     uid => names.TryGetValue(uid, out string? name) ? name : null,
                     Region,
-                    () => Now);
+                    () => Now,
+                    emblemBaseUrl);
             }
 
             internal Guid Character(string name)
@@ -1016,6 +1017,31 @@ namespace WorldsAdriftServer.Tests
             AllianceRecord stored = world.Alliances.FindAlliance(
                 Guid.Parse(created.Value<string>("uid")!))!;
             Assert.Equal(string.Empty, stored.EmblemUrl);
+        }
+
+        /// <summary>
+        /// The crest URL names the origin THIS request came in on, not a
+        /// configured host.
+        ///
+        /// This is the fix for the emblem never showing up in game. The client
+        /// fetches the URL with BestHTTP, whose https path in this build is
+        /// System.Net.Security.SslStream over Unity 5.6's Mono - and that
+        /// implementation's SecurityProtocolType enum has no member above TLS 1.0,
+        /// which the public host refuses outright. A URL naming the plain-http
+        /// origin the client is already talking to is reachable by construction.
+        /// </summary>
+        [Fact]
+        public void The_emblem_url_names_the_origin_the_request_arrived_on()
+        {
+            World world = new World("http://62.171.161.19:8085");
+            Guid founder = world.Character("Rattus");
+            JObject created = (JObject)world.Found(founder, "Rat Corp")["data"]!;
+
+            string emblem = created.Value<string>("emblemUrl")!;
+
+            Assert.StartsWith(
+                "http://62.171.161.19:8085/alliance-emblem/", emblem, StringComparison.Ordinal);
+            Assert.DoesNotContain("https", emblem, StringComparison.Ordinal);
         }
 
         /// <summary>

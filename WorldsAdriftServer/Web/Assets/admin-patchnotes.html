@@ -1,0 +1,21 @@
+<div class="card">
+  <h2>Patch notes</h2>
+  <p class="lede" style="margin-top:0">What <a href="/patchnotes">/patchnotes</a> shows the world. The notes ship in the build; saving here stores an override that replaces them until it is cleared, which is for fixing a line without a redeploy rather than for writing a release.</p>
+  <form method="post" action="/admin/patch-notes"><input type="hidden" name="csrf" value="{{csrfTokenAttr}}">
+    <div class="field">
+      <label for="patch-notes-input">Notes source</label>
+      <textarea id="patch-notes-input" name="patchNotes" rows="16" spellcheck="false" style="width:100%;min-height:18rem;font:500 .74rem/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--text);background:#0b141b;border:1px solid var(--line-strong);border-radius:7px;padding:.7rem .8rem;resize:vertical"></textarea>
+    </div>
+    <p class="muted" style="font-size:.7rem;margin:.2rem 0 .9rem">
+      <code>## 2026-08-18 | Title | optional badge</code> starts a release.
+      <code>### Heading</code> is a heading inside it, <code>- </code> a bullet, anything else a paragraph.
+      <code>**bold**</code>, <code>`code`</code> and links to paths on this site work; a link anywhere else keeps its words and loses its link.
+      Lines above the first release are the page's opening paragraph.
+    </p>
+    <div class="button-row">
+      <button type="submit">Save override</button>
+      <button type="submit" name="clear" value="1" class="btn ghost">Clear override</button>
+    </div>
+    <p class="muted" id="patchNotesState" style="font-size:.7rem;margin:.8rem 0 0">&nbsp;</p>
+  </form>
+</div>

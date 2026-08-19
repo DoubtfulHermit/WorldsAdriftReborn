@@ -46,6 +46,17 @@ namespace WorldsAdriftServer.Handlers
                     return;
                 }
 
+                // The PUBLIC patch notes (/patchnotes). The in-game PATCH NOTES
+                // button points here, so it must answer without a login and
+                // without a session. Checked before the patch routes below
+                // because it owns its own namespace and, like the map, must
+                // answer EVERY url in it - an unclaimed path gets no response
+                // from this server at all and leaves the socket hanging.
+                if (Handlers.PatchNotes.PatchNotesHandler.TryHandle(this, request))
+                {
+                    return;
+                }
+
                 // The patch manifest and files are static bytes read off the host
                 // patch dir. They are served HERE, by this native process, because
                 // the Caddy in front of the public host is a container that cannot
@@ -163,6 +174,26 @@ namespace WorldsAdriftServer.Handlers
                     }
 
                     DeploymentStatusHandler.HandleDeploymentStatusRequest(this, request, serverName, "community_server", 0);
+                }
+                else if(request.Method == "GET" && request.Url == "/welcomeMessage")
+                {
+                    // The greeting the client shows on arrival. Same shape as
+                    // /deploymentStatus above and for the same reasons: the value
+                    // is operator-set in the server_config table so the panel can
+                    // change it without a redeploy, and the read is wrapped so a
+                    // database that is down degrades to the shipped default
+                    // rather than failing a client startup path.
+                    string welcomeMessage;
+                    try
+                    {
+                        welcomeMessage = Accounts.ServerConfig.GetWelcomeMessage();
+                    }
+                    catch (Exception)
+                    {
+                        welcomeMessage = WorldsAdriftReborn.Storage.Policy.ServerConfigPolicy.DefaultWelcomeMessage;
+                    }
+
+                    WelcomeMessageHandler.HandleWelcomeMessageRequest(this, request, welcomeMessage);
                 }
                 else if(request.Method == "GET" && request.Url == "/authorizeCharacter")
                 {

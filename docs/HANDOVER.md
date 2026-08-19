@@ -120,6 +120,31 @@ changes.
 
 ### Exact deployed revisions
 
+Entries below are a LOG, newest first. Each records what was true on its own
+date, so only the newest entry describes production now - a reader who takes an
+older entry's "production still runs X" as current state will be wrong. The
+authority for live configuration is the box itself:
+`systemctl show wareborn-game -p Environment`.
+
+- **Login server:** `566d7e6`, deployed and restarted at 2026-08-19 09:00 CEST.
+  Login-only: the game server was deliberately NOT moved, because the only
+  storage change is additive (`ServerConfigRepository.Delete`) and no schema
+  version changed. The split-deploy rule applies to MIGRATIONS, and there is
+  none here.
+  This deploy carries the public `/patchnotes` page plus its admin editor, and
+  merges forward the welcome-message editor and the client PATCH NOTES redirect
+  that were already on main. `feat/patchnotes` was cut at `bcbbfd3`, so it had
+  to take a merge from main before it could land; both sides had added a card to
+  the admin panel's System column.
+  Caddy gained `handle /patchnotes*` proxying `127.0.0.1:8085`, validated before
+  reload; backup at `/root/Avatar/Caddyfile.bak-patchnotes`.
+  Verified from outside: `/patchnotes` 200 (72,593 b, zero external references,
+  zero `<script>` tags), `/patchnotes/source` 200, `/patchnotes/nope` 404, and
+  `/map`, `/welcomeMessage`, `/patch/manifest.json` all still 200.
+  **Current world config: `WAREBORN_RELEASE_WORLD_DISTRICTS=tier1`** - the
+  Wilderness is OPEN and the shrine moves people. This supersedes the `C6` note
+  in the `b652034` entry below, which was true on 2026-08-18 and is not now.
+
 - **Game server:** `b652034`, deployed and restarted at 2026-08-18 08:05 CEST.
   **Login/admin server:** `b652034`, same pass. **Client manifest
   `2026.08.18-2`**, 54/54 public payloads verified, one payload changed.

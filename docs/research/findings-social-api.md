@@ -315,6 +315,51 @@ column and serves it back verbatim; it is empty unless an operator fills it in,
 which is exactly what retail did for the alliances that had no crest. Inventing
 an upload endpoint would have been inventing contract, so none was added.
 
+## The crest URL must be plain HTTP: this client has no TLS above 1.0
+
+The crest renderer worked, the database held a code, and the panel still showed
+the placeholder hexagon. The reason is the SCHEME.
+
+`SpriteDownloader.GetSpriteFromUrl` hands the URL to
+`HttpHelper.GenerateRequest` -> `new HTTPRequest(new Uri(url))`, and
+`HTTPRequest`'s constructor takes `UseAlternateSSL` from
+`HTTPManager.UseAlternateSSLDefaultValue`, which this build's static
+constructor sets to **false**. So an https request does NOT use BestHTTP's
+bundled `Org.BouncyCastle.Crypto.Tls` stack. `HTTPConnection` takes the other
+branch and wraps the socket in `System.Net.Security.SslStream` - and in the
+Mono shipped with this client that class is implemented by
+`Mono.Security.Protocol.Tls`, whose protocol enum is complete at three members:
+
+```csharp
+// Mono.Security.dll - Mono.Security.Protocol.Tls.SecurityProtocolType
+Default = -1073741824, Ssl2 = 0xC, Ssl3 = 0x30, Tls = 0xC0
+```
+
+`Tls` is TLS 1.0. There is no 1.1 and no 1.2 anywhere in the assembly, so the
+client cannot send a hello a modern host will accept. Measured against the live
+public host (raw ClientHellos, 2026-08-19):
+
+```
+TLS1.0 -> ALERT level=2 desc=70 (protocol_version)
+TLS1.1 -> ALERT level=2 desc=70 (protocol_version)
+TLS1.2 -> ALERT level=2 desc=40 (handshake_failure)   # legacy RSA/CBC suites vs an ECDSA cert
+```
+
+When that fails, `req.State != HTTPRequestStates.Finished` and
+`SpriteDownloader` **rejects** the promise - the `Resolve(null)` path documented
+above is only for a decode exception on a body that did arrive.
+`YourAllianceTitleSegment.PopulateFields` attaches `.Then(...)` with no
+`.Catch`, so the rejection is silent and the placeholder set one line earlier
+stays on screen. There is no error modal and nothing in the game log names the
+emblem.
+
+Hence `WorldsAdriftServer.Emblems.EmblemOrigin`: the absolute crest URL in the
+alliance payload is built from the origin the request being answered arrived
+on (`Host`, or `X-Forwarded-Host`/`-Proto` behind a proxy), over plain http.
+The game reaches the login server directly on `http://host:port`, so that
+origin is reachable by construction. `WAREBORN_PUBLIC_BASE_URL` remains as a
+fallback, and boot warns loudly when it is https.
+
 ## The crew-creation spinner is client-side and cannot be fixed from here
 
 The report — *"the spinning icon kinda speeds super fast and jumps to crew

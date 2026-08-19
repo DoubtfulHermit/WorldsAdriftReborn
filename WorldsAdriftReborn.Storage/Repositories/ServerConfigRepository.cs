@@ -53,6 +53,40 @@ namespace WorldsAdriftReborn.Storage.Repositories
             Set(ServerConfigPolicy.ServerNameKey, ServerConfigPolicy.Normalize(name), now);
         }
 
+        /// <summary>
+        /// The greeting the client shows on arrival, or
+        /// <see cref="ServerConfigPolicy.DefaultWelcomeMessage"/> if nobody has
+        /// set one. Falls back for the same reason <see cref="GetServerName"/>
+        /// does: /welcomeMessage is a client path, and a missing row is the
+        /// normal state of a fresh database rather than a fault.
+        /// </summary>
+        public string GetWelcomeMessage()
+        {
+            string? stored = Get(ServerConfigPolicy.WelcomeMessageKey);
+            return string.IsNullOrWhiteSpace(stored)
+                ? ServerConfigPolicy.DefaultWelcomeMessage
+                : stored!;
+        }
+
+        /// <summary>
+        /// Sets the greeting. As with the server name, the caller is expected to
+        /// have checked <see cref="ServerConfigPolicy.IsValidWelcomeMessage"/>
+        /// and shown the operator why if not - the table's own CHECK refuses a
+        /// blank value, so an unvalidated write would surface as a database
+        /// exception rather than a message the panel can render.
+        /// </summary>
+        public void SetWelcomeMessage(string? message, DateTimeOffset now)
+        {
+            if (!ServerConfigPolicy.IsValidWelcomeMessage(message))
+            {
+                throw new ArgumentException(
+                    "Refusing to store an unusable welcome message.", nameof(message));
+            }
+
+            Set(ServerConfigPolicy.WelcomeMessageKey,
+                ServerConfigPolicy.NormalizeWelcomeMessage(message), now);
+        }
+
         /// <summary>One config value by key, or null if it is not set.</summary>
         public string? Get(string key)
         {
@@ -86,6 +120,25 @@ namespace WorldsAdriftReborn.Storage.Repositories
             command.Parameters.AddWithValue("updated_at", Timestamps.ToDb(now));
 
             command.ExecuteNonQuery();
+        }
+
+        /// <summary>
+        /// Removes one config value, so the code's own default takes over again.
+        ///
+        /// Deleting the row rather than blanking it is the only way to express
+        /// "unset": the table refuses an empty value on purpose, and a setting
+        /// nobody has chosen is the absence of a row, not a row saying nothing.
+        /// Returns true if a row was actually removed.
+        /// </summary>
+        public bool Delete(string key)
+        {
+            using NpgsqlConnection connection = db.Open();
+            using NpgsqlCommand command = connection.CreateCommand();
+
+            command.CommandText = "DELETE FROM server_config WHERE key = @key;";
+            command.Parameters.AddWithValue("key", key);
+
+            return command.ExecuteNonQuery() > 0;
         }
     }
 }

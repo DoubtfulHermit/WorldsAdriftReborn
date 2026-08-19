@@ -41,6 +41,47 @@ namespace WorldsAdriftServer.Emblems
         }
 
         /// <summary>
+        /// Prints what the fallback origin is, and warns when it is one the game
+        /// client provably cannot fetch.
+        ///
+        /// Called at boot. The warning is the point: an https base URL costs
+        /// nothing at startup and produces no error anywhere - the payload is
+        /// well formed, the route serves the PNG to a browser, and the only
+        /// symptom is that every player's alliance panel keeps its placeholder.
+        /// See <see cref="EmblemOrigin"/> for why https cannot work here.
+        ///
+        /// Takes the sink so it can be asserted in a test rather than only seen
+        /// in a journal.
+        /// </summary>
+        internal static void ReportConfiguration(Action<string> write) =>
+            ReportConfiguration(Environment.GetEnvironmentVariable(BaseUrlVariable), write);
+
+        /// <summary>
+        /// The same report, with the configured value handed in rather than read
+        /// off the environment - so a test can drive both branches without
+        /// mutating process state that other tests running beside it can see.
+        /// </summary>
+        internal static void ReportConfiguration(string? configuredValue, Action<string> write)
+        {
+            string configured = configuredValue ?? string.Empty;
+            string effective = string.IsNullOrWhiteSpace(configured) ? DefaultBaseUrl : configured;
+
+            write("[info] alliance crest fallback origin: " + effective
+                + (string.IsNullOrWhiteSpace(configured)
+                    ? " (" + BaseUrlVariable + " unset; built-in default)"
+                    : " (from " + BaseUrlVariable + ")"));
+
+            if (effective.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                write("[warn] that origin is https, and the GAME CLIENT CANNOT FETCH https"
+                    + " - its Mono TLS stack stops at TLS 1.0. Any alliance payload that"
+                    + " falls back to it will show the placeholder crest instead of the"
+                    + " alliance's own. Set " + BaseUrlVariable
+                    + " to the plain-http host:port the game connects to.");
+            }
+        }
+
+        /// <summary>
         /// How many distinct crests to keep encoded. The vocabulary can express
         /// millions of them, so this is bounded and dropped wholesale when it
         /// fills: an LRU would be more code for a cache whose miss costs one
