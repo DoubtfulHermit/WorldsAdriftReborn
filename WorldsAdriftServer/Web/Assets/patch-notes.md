@@ -1,9 +1,21 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 510 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 522 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 23 commits
+## 2026-08-19 | 35 commits
 
+* 7686267 Offer the alliance crest as a PNG, not only as a vector
+* 2fc5846 Size the save-menu preview so the crest is not clipped
+* 8bb53d0 Record the tree-fall deploy
+* e73cefa Ask before Delete all throws the layers away
+* a7cf2d0 Give the portal tabs, and the emblem a layered editor
+* 5a69250 Show the log that falls, and make the trunk break up piece by piece
+* 0a7506c Record the 2026.08.19-2 release that unbreaks the patcher
+* 0fc418e Say in the journal why a portal action was refused
+* d7d00bf Record the PLAY-hang outage and its cause
+* a99926a fix(mod): PLAY connects again instead of loading forever
+* 8fd1a08 Make /patchnotes a commit log instead of a write-up
+* 2184b17 Give the server screen Bossa's own copy back, and only grey the PvE card
 * 153728a Record the 2026.08.19-1 patcher release
 * 1621a28 Record the account-portal deploy
 * df166e6 Sign in lands on an account, not on a download button
