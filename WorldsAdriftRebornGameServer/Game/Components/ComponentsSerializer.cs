@@ -834,8 +834,10 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // the pure PartInteractionPolicy (tested), which answers
                         // None for every part retail did not make interactable and
                         // for the parts whose interaction we cannot honestly serve
-                        // yet (storage needs 1081, the reviver needs 1094) - so a
-                        // prompt is never a lie. The correct Activate entry exists while
+                        // yet (the reviver needs 1094; the sky core needs a lift
+                        // consumer the shipped client does not have) - so a prompt is
+                        // never a lie. Storage was on that list until the four
+                        // container rows started seeding 1081 + 1236. The correct Activate entry exists while
                         // loose but remains unavailable until the mount commit.
                         Multiplayer.Ship.PartVerb mountedPartVerb = Multiplayer.Ship.PartVerb.None;
                         if (!isWildernessShrine && !isCraftStation && !isHelm && !isAtlasShard
