@@ -2099,7 +2099,9 @@ For each: what force it makes, how much, when it applies, and how it combines.
 #### 4. THE ATLAS SKY CORE — `1258 ShipLiftState`, `1115 ShipCoreState`
 
 The maintainer called it "the atlas generator"; the game's own string is
-*"Ship weighs more than its atlas sky core can lift."*
+*"Ships weighs too much for Atlas Core"* (the real string, typo included —
+player-quoted, Bossa forums 2017-09-17. The tidier wording this section
+originally used is not the game's and appears in no source.)
 
 - **Contributes:** **lift capacity**, expressed as a mass budget in **kilograms**.
   It is not an altitude ceiling and it consumes nothing.
@@ -2640,7 +2642,9 @@ This is the better explanation, and note that the maintainer's own words are
 *"too heavy"* — the vocabulary of the lift budget, not of the speed equation.
 `IsOverloaded = totalMass > TotalLift` is a hard step, not a curve: one sail past
 the line and the ship **cannot climb at all** and the client OSD-spams *"Ship
-weighs more than its atlas sky core can lift."* With a bare core at **1000 kg**
+weighs too much for Atlas Core"* — retail's own typo, player-quoted from the
+Bossa forums (2017-09-17); the tidier phrasing this document used elsewhere is
+not the game's wording. With a bare core at **1000 kg**
 (RECOVERED, and corroborated twice — our wiki-derived `SkyCoreLiftKg` and the
 community `skycoreCalc.js` are the same expression with the same coefficients)
 and our `1121 OriginalMassState` seed of **50 kg per mounted part**:
@@ -2662,6 +2666,23 @@ is **ours** (`ComponentsSerializer`, a placeholder), not retail's, and the cliff
 position is directly proportional to it. The cliff's *existence* is recovered;
 its *position* is a tuning value we chose. If F2 ever makes lift real, that
 number becomes a balance knob worth deriving properly rather than a stub.
+
+**Overload was not benign in retail, and it is worth knowing what it did.** The
+same forum thread has a Bossa moderator confirming an overweight ship is
+**blocked from undocking**, and a player describing one that became overweight in
+flight — a **damaged core or expansion module stops contributing lift** — showing
+the message and then **sinking into the abyss**. The gauge reads `current / max`
+in kg (*"2300kg out of possible 3400kg"*, *"818/1000"*).
+
+**It cannot sink a ship here, though, and the reason is structural.** The sinking
+lives in `ShipControlVisualizer.UpdateFloating`, and that class is
+`[WorkerType(WorkerPlatform.UnityWorker)]` — it only ever ran on the FSIM physics
+worker. `ShipPhysicalityVisualizer.ClientDynamic()` hardcodes `false`, so a ship
+is permanently kinematic on a player's machine and integrates nothing; its
+altitude is whatever our `1130` stream says. The only client-side consequence of
+overload is `ShipControlsBehaviour.UpdateVertical` returning early — vertical
+input stops, the OSD spams, the ship holds station. **Sinking arrives only when
+F2 implements weight and lift server-side, and then it is ours to author.**
 
 **None of this is live today**, because `1258` is seeded at a flat 1,000,000 kg
 so the overload rule cannot fire. The cliff is what players would meet **if F2
@@ -2685,7 +2706,7 @@ it.
 4. ~~**What the unpatched client does with a real `1258`.**~~ **ANSWERED, and it
    is a live hazard rather than a live flight question** — see F2. What a live
    flight *should* now check is the inverse: whether a piloted ship ever shows
-   the *"Ship weighs more than its atlas sky core can lift"* OSD message today.
+   the *"Ships weighs too much for Atlas Core"* OSD message today.
    If it never does, `ShipLiftVisualizer` is confirmed inert on our hulls and the
    cliff in F2 is real but not yet stepped off. **This is a 30-second check at
    the helm and it gates other people's branches, so it is worth doing first.**

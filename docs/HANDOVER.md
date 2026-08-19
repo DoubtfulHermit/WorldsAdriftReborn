@@ -253,6 +253,34 @@ authority for live configuration is the box itself:
   realistic `1258` (i.e. `MaterialCatalog.SkyCoreLiftKg`, ~1000 kg for a bare
   core) while hulls weigh 500–1700 kg, which would overload real ships for real
   reasons. That is roadmap F2's job and it is a balance decision, not a cliff.
+
+  **What overload actually did, and what it can do HERE.** In retail it was not
+  benign: a Bossa moderator and a player, official forums 2017-09-17, describe an
+  overweight ship being *blocked from undocking at all*, and one that becomes
+  overweight in flight — because a **damaged core or expansion module stops
+  contributing lift** — showing the message and then **sinking into the abyss**.
+  The real string is `Ships weighs too much for Atlas Core`, typo and all
+  (**WIKI/forum, player-quoted**); the tidier phrasing this repo circulated is
+  not the game's and appears in no source. The gauge reads `current / max` in kg
+  (*"818/1000"*).
+
+  **But an overloaded ship cannot sink on this server, and the reason is
+  structural rather than lucky.** The sinking is `ShipControlVisualizer
+  .UpdateFloating`, which clamps lift to `[0, GetMaxLift()]` and lets gravity win
+  — and that class is `[WorkerType(WorkerPlatform.UnityWorker)]`, i.e. it only
+  ever ran on Bossa's FSIM physics worker, never on a player's machine.
+  `ShipPhysicalityVisualizer.ClientDynamic()` hardcodes `false`, so a ship's
+  rigidbody is permanently kinematic on a client and integrates nothing. A ship's
+  altitude here is whatever our `1130` stream says it is.
+
+  So the *client-side* consequence of overload is exactly one thing:
+  `ShipControlsBehaviour.UpdateVertical` (which **is** a client behaviour)
+  returns early, the client stops sending vertical input, and the OSD spams. The
+  ship holds its altitude. **Sinking becomes possible only when F2 implements
+  weight and lift server-side — at which point we would be the ones making it
+  sink, deliberately and in a change we control.** Worth stating precisely,
+  because "waking 1258 sinks every ship" would be a frightening and false reason
+  to avoid work that is actually safe.
   Related standing warning, still current: serving `1106` on the hull
   would wake `FuelVisualizer`, which `ShipPreprocessor` attaches to every ship
   root. `feat/fuel-generators` re-ran that enumeration and still does not serve

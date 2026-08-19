@@ -602,8 +602,9 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // The one live consumer on the pilot path is
                         // ShipControlsBehaviour.UpdateVertical -> ShipLiftVisualizer
                         // .IsOverloaded (totalMass > TotalLift * AtlasMultiplier): if it
-                        // reads overloaded, VERTICAL INPUT IS BLOCKED with the "Ship
-                        // weighs more than its atlas sky core can lift" OSD. With 1258
+                        // reads overloaded, VERTICAL INPUT IS BLOCKED with the
+                        // "Ships weighs too much for Atlas Core" OSD (retail's own
+                        // typo; player-quoted, Bossa forums 2017-09-17). With 1258
                         // absent the visualizer's reader is null and TotalLift returns 0
                         // (null-guarded), leaving the check to whatever
                         // ParentingMassAdderVisualizer.totalMass happens to be - so a

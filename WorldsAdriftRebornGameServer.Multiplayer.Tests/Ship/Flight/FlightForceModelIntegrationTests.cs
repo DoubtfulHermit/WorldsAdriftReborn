@@ -109,6 +109,55 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
         }
 
         // ------------------------------------------------------------------
+        // HOVER - *"sky generator and a simple ship should hover regardless"*.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_ship_holds_its_altitude_with_no_thrust_of_any_kind()
+        {
+            // The maintainer's first claim, and the one thing that must survive
+            // turning the flag on: a ship does not sink. It holds today because
+            // this integrator has NO gravity term at all - Y moves only on pilot
+            // input - and retail agrees for a different reason, its sky core being
+            // anti-gravity that exactly cancels weight rather than aerodynamic lift.
+            //
+            // Pinned as a test because it currently rests on an ABSENCE, and an
+            // absence is invisible to review. Anyone adding a lift or weight term
+            // to the force path (F2 is scheduled to) will be told here if they have
+            // accidentally made bare hulls fall out of the sky.
+            foreach (double massKg in new[] { 200.0, 800.0, 4000.0, 20_000.0 })
+            {
+                FlightState state = Fly(FullAhead, 900, new ShipPropulsion(massKg, 0.0, 0));
+                Assert.Equal(0.0, state.Y, 9);
+                Assert.Equal(0.0, state.VyMps, 9);
+            }
+        }
+
+        [Fact]
+        public void The_force_model_does_not_touch_the_vertical_axis_at_all()
+        {
+            // Climb and descent must be bit-identical with the flag on and off.
+            // Vertical is the axis sitting on top of the sky-core machinery, so if
+            // the force model ever starts perturbing it, that is the signal to stop
+            // and re-read the lift notes rather than to retune a number.
+            var climbing = new FlightControlInput(
+                throttle: 1f, vertical: 1f, axisYaw: 0f, axisPitch: 0f, axisRoll: 0f);
+
+            FlightState off = Origin;
+            FlightState on = Origin;
+            for (int i = 0; i < 200; i++)
+            {
+                off = FlightIntegrator.Step(off, climbing, 0.24, Tuning, 0, 1.0, null);
+                on = FlightIntegrator.Step(
+                    on, climbing, 0.24, Tuning, 0, 1.0, new ShipPropulsion(800.0, 1200.0, 0));
+            }
+
+            Assert.Equal(off.Y, on.Y, 9);
+            Assert.Equal(off.VyMps, on.VyMps, 9);
+            Assert.True(off.Y > 0.0, "the control input should actually have climbed");
+        }
+
+        // ------------------------------------------------------------------
         // Engines and mass.
         // ------------------------------------------------------------------
 
