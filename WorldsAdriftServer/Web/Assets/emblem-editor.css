@@ -221,7 +221,20 @@ body.wide main { max-width: 78rem; }
 }
 .editor .savesheet h3 { margin: 0 0 .6rem; }
 .editor .savesheet .stage.small { max-width: 9rem; margin: 0 0 .8rem; }
-.editor .savesheet .stage.small img { position: static; opacity: 1; }
+
+/* SIZE IT. The editor's own two pictures are sized by the `.live`/`.served`
+   rule above, but the save preview is a bare <img> with no class, so it matched
+   none of that and rendered at the PNG's natural 256px inside a 9rem box with
+   overflow:hidden - clipped on the right and bottom, with the checkerboard
+   showing through wherever the design happened to be transparent.
+
+   Sized here rather than by giving the img a class: `.served` also means "the
+   settled render that fades in over the live SVG", which this is not - it is
+   the only picture in the sheet, and it should never be transparent or fade. */
+.editor .savesheet .stage.small img {
+  position: static; opacity: 1;
+  display: block; width: 100%; height: 100%; object-fit: contain;
+}
 .editor .row-of-links {
   display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .9rem 0 0;
 }
