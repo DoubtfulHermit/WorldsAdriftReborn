@@ -659,11 +659,40 @@ counts `installCipher` and `destroyCipher` and logs *"no cipher model"*.
 `ComponentsSerializer.cs:1409` says *"cipherSlotCounts stays empty — cipher
 purchases are a later track"*.
 
-**RECOVERED:** ciphers were retail's per-part upgrade/tuning system, colour-
-tiered, slotted into procedural cannons, engines, swivel guns and wings.
-The wire messages arrive today and are counted and dropped. This is the
-mechanical partner to the five procedural quality tiers in §2.3.G — the two
-were almost certainly one feature.
+**And the whole system is RECOVERED, not merely evidenced.**
+`acs/CipherIconUtil.cs` is a complete specification, found by following a
+community lead (§12) into the decompile:
+
+- **6 colours** — Green, Red, Blue, Yellow, Purple, Orange. Exactly the six
+  `*_ciphers` icons.
+- **4 part types** — Engine, Wing, Cannon, SwivelGun, mapped to
+  `Engine_Ciphers` / `Wing_Ciphers` / `Cannon_Ciphers` / `SwivelGun_Ciphers`.
+  Exactly the four part-typed icons.
+- **10 stats** — `boost`, `hpStat`, `power`, `range`, `overheatLimit`,
+  `fuelEfficiency`, `frag`, `choke`, `rateOfFire`, `airBrake`.
+
+**Colour *is* the stat, and the mapping is per part type:**
+
+| part | stat → colour |
+|---|---|
+| **Engine** | HpStat→Green · Power→Red · OverheatLimit→Orange · FuelEfficiency→Yellow · Boost→Purple |
+| **Cannon / SwivelGun** | HpStat→Green · Range→Blue · Fragmentation→Red · Choke→Yellow · OverheatLimit→Orange · RateOfFire→Purple |
+| **Wing** | HpStat→Green · Power→Red · AirBrake→Purple |
+
+So a green cipher always raises hit points, on any part; a purple one boosts
+an engine, raises a cannon's rate of fire, or brakes a wing. **This is not an
+inference — it is a dictionary in the shipped client.**
+
+WIKI adds the mechanic around it (§12): ciphers were obtained by **salvaging
+unwanted procedural schematics** of that part type, a cipher only fits the
+part type it came from, and slotting one **raises some stats at the cost of
+others**. Slot count is bought on the knowledge tree — the 88 `CIPHERSLOT`
+nodes of §4.7.
+
+This is the mechanical partner to the five procedural quality tiers in
+§2.3.G. The two were one feature, and between `CipherIconUtil`, the 19
+procedural tier icons and the 118 slot nodes, **the specification is now
+essentially complete.** What is missing is an implementation, not knowledge.
 
 ### 4.6 The utility-slot family — six classes, and we implement two
 
@@ -1192,7 +1221,7 @@ thing renders on machinery we already have.
 | 8 | **Ship-part furniture — 17 parts, 0 rows** | 17 icons + 16 prefabs + `schematic_icon_furnciture` | **none** | catalogue rows + schematics. Inert props on a base that already works. **Best count-for-effort on the list** |
 | 9 | **Ship locking** | `Lock`/`LockEquip` + 1217/1218/1220/1221 | 4 | in a PvP game with boardable ships this is a safety feature, not a convenience |
 | 10 | **Fuel's source chain** | `FuelDeposit` + `FuelExtractor` + `FuelEggSpawnerEquip` + 1022, and the client's own placement algorithm in `IslandSurfaceData.cs` (§6.5) | 1022 | today fuel is loot. **This is the generator miss one link upstream** |
-| 11 | **Placed things that do something** — containers that open, campfires that cook, lifters that lift | `Deployables.cs:217-259` registers eight containers and seven stations as `TransformOnly`. The stated reason for the containers — 1081 *"has no ComponentsSerializer branch yet"* — **is stale; 1081 IS served** | 1012, 1021, 1022, 1264, 1272 | the container half may be a flag flip. The station half is five ids for five features that are all already placeable |
+| 11 | **Placed things that do something** — containers that open, campfires that cook, lifters that lift | `Deployables.cs:217-259` registers eight containers and seven stations as `TransformOnly`. The stated reason for the containers — 1081 *"has no ComponentsSerializer branch yet"* — **is stale; 1081 IS served** (`ComponentsSerializer.cs:632`) | 1012, 1021, 1022, 1264, 1272 | the container half needs the ground-placed equivalent of `ShipContainerStock.Ensure` (see §11.5), not just a flag. The station half is five ids for five features that are all already placeable |
 | 12 | **Ciphers and the five procedural quality tiers** | one system, not two (§4.7.2): `RootSchematic`+`Schematic2..5` = the 5 `cannon-1..5`/`engine-1..5`/`wing-1..5` icons; `Slot1..3` + `Glyph1..4` = the 11 cipher icons and `schematicData.json`'s empty `cipherSlots`. The wire messages **already arrive** and are counted and dropped | unknown | retail's ship-part endgame. We ship tier 1 of 5 with no sockets |
 | 13 | **The crow's nest** | 2 prefabs, 2 icons, **zero mentions in this repo** | none | inert structural part. High visibility per unit of work |
 | 14 | **Ship wiring** | `WiringKit` + `ControlButton` + `ControlLever` + 1213–1216 — **a complete subsystem never once named here** | 4 | genuinely new. Ranked here because it is *invisible until you know it existed*, which is this document's whole point |
@@ -1273,8 +1302,8 @@ the next reader does not cite them as recovered.
 
 `aurium` and `cobalt` are in `MaterialCatalog` and have no icon in the
 client's `metals/` folder, while `magnesium`, `palladium` and `platinum` have
-icons and are not in our catalogue. See §6.2. **Unresolved** — stated, not
-guessed.
+icons and are not in our catalogue. **Resolved in §6.2:** the catalogue marks
+both `retail: false` itself, and they borrow nickel's and gold's art.
 
 ### 9.4 Systems implemented on a different component-id family
 
@@ -1285,7 +1314,44 @@ because each one is a future false negative: a search for `MetalRockState`,
 `GlobalKnowledgeGraphDataState`, `FuelTankState` or `SalvageableState` will
 come back empty against a working feature.
 
-### 9.5 Eight schematic ids we renamed from retail's
+### 9.5 The icon join resolves two prefab names we had marked unverified
+
+Every prefab name in `LoosePartCatalogue` resolves against the 353. **Two in
+`Deployables.cs` do not**, and both are already honestly flagged:
+
+```
+Add("trunk",      "Trunk",      …, assetVerified: false);  // prefab not found in scan; likely a Container* variant
+Add("mountedBox", "MountedBox", …, assetVerified: false);  // prefab unconfirmed
+```
+
+`Trunk` and `MountedBox` are **item names, not prefab names** (§9.1) — there is
+no such prefab in the shipped client. **The join through the icon settles both
+without guessing:**
+
+| item id | its `itemData` icon | ⇒ prefab |
+|---|---|---|
+| `mountedBox` | `ship parts/containermountmetal` | **`ContainerMount`** |
+| `trunk` | `ship parts/containermediumwood` | **`ContainerMedium`** |
+
+**And the same join contradicts a documented guess elsewhere.**
+`LoosePartCatalogue` maps `trunk → ContainerSmall` and
+`storageContainer → ContainerMedium`, with the comment *"The container prefab
+sizing (Small/Medium/Large) is a best guess."* The icons Bossa assigned say
+the opposite: `trunk` uses the **medium** icon and `storageContainer` uses the
+**small** one.
+
+Two caveats before anyone acts on this:
+
+- The retail item *descriptions* disagree with the retail *icons* — `trunk` is
+  described as *"a small trunk"* but carries the medium icon, and
+  `storageContainer` is *"a large container"* on the small icon. So the icon
+  is evidence, not proof, and one of Bossa's two data sources is wrong.
+- **Nothing here should be changed on the strength of this document alone.**
+  It is recorded because it converts *"best guess"* into *"a checkable
+  disagreement between two shipped artefacts"*, which is a better place to
+  start from.
+
+### 9.6 Eight schematic ids we renamed from retail's
 
 **PROVED** — the knowledge tree's own `schematicId` fields carry retail's ids,
 and nothing reads them because the alias map (§11.3) bypasses them entirely.
@@ -1304,14 +1370,14 @@ and nothing reads them because the alias map (§11.3) bypasses them entirely.
 Eight more words that return empty when searched against this repo, against
 working features. None of these renames is wrong; all eight are invisible.
 
-### 9.6 The knowledge alias map
+### 9.7 The knowledge alias map
 
 `KnowledgeSpendPolicy` deliberately maps 13 retail node names onto our nearest
 available recipe. It is the most consequential naming divergence in the repo
 and is documented as a live defect at §11.3 rather than here, because its
 effect is not "hard to find" — it is "wrong for the player".
 
-### 9.7 Bossa's own typo, shipped
+### 9.8 Bossa's own typo, shipped
 
 The schematic-category icon is `schematic_icon_furnciture`. If anything ever
 keys off that string, it must be misspelled to match.
@@ -1487,3 +1553,133 @@ All four food rows share one generic cooking-pot sprite while their own
 authored art sits in the atlas.
 
 ---
+
+---
+
+## 12. COMMUNITY SOURCES — what they told us to look for, and what the client said back
+
+**WIKI is the weakest evidence class in this document and it produced two of
+its best findings.** That is not a contradiction: a community source's job
+here is never to be believed, it is to *supply a search term*. The client then
+answers.
+
+The corpus: the Steam news archive (296 announcements), 24 Steam guides and
+roughly 100 discussion threads, mined for names of things. Every claim below
+was then checked against `resources.assets` and the decompile, and the result
+of that check is what is recorded.
+
+### 12.1 CONFIRMED — a contradiction the community could not settle, and the client did
+
+Two Bossa documents disagree about one crafting stat: **U29's patch notes say
+`Cooling Factor`; a later dev log says *Added "Cooling Rate"***. A community
+reader cannot tell which shipped.
+
+**The client can, and does.** `Cooling Factor` appears in
+`acs/Travellers.UI.PlayerInventory/CraftingStationCraftingUI.cs`, the field is
+`coolingFactor` in three separate UI classes, and the string is present in
+`resources.assets`. **`Cooling Rate` appears in neither the decompile nor any
+asset file.** The dev log is wrong; **`coolingFactor` is the shipped name.**
+
+This is the method in one line: the community found the ambiguity, the client
+resolved it.
+
+### 12.2 CONFIRMED — the cipher lead paid for the whole exercise
+
+The community described cipher *mechanics* (salvage a schematic of a part type
+to get a cipher for that part type; slotting trades stats against each other;
+slot counts unlock on the knowledge tree) but **found no cipher names
+anywhere**, and noted that the client should still carry per-cipher tooltip
+strings.
+
+Following that into the decompile produced `acs/CipherIconUtil.cs` — the full
+colour × part × stat specification now written up at §4.5. **The community
+supplied the word "cipher" and the confidence that the strings existed; the
+client supplied the entire system.**
+
+### 12.3 REFUTED BY THE CLIENT — procedural part names did not ship
+
+The community recovered retail's procedural naming format verbatim from a 2017
+bug report:
+
+```
+Trunkmaw "stinger" AK-8      banshee "shooter" mk15      Trunkmaw "shooter" FK-11
+```
+
+— `<Casing> "<mid-word>" <Designation>`, with two designation grammars
+(`AK-8`, `FK-11`, `AAB-7`, `HD-10`; and `mk15`).
+
+**Checked against the client: `Trunkmaw`, `Banshee`, `stinger` and `shooter`
+return ZERO hits in `resources.assets`, in `sharedassets0.assets`, and in the
+entire decompile.**
+
+So the name banks were **server reference data**, exactly like recipes and item
+rows (§0). They did not ship, and no amount of asset mining will recover them.
+Any procedural naming we build is **WAREBORN TUNING**, and the format above —
+which *is* recovered — is the only part that can be reproduced faithfully.
+
+### 12.4 CONFIRMED, and it explains the food names
+
+`Capulca` — cited by the community as part of the Founder engine name
+*"Capulca Mk. 2"* — **is in `resources.assets`**, inside a `FoundersTomeInfo`
+name bank. Pulling that bank out yields ~80 place, culture and profession
+names, and it immediately explains a set of food-icon names that looked like
+nonsense words:
+
+| food icon | name bank entry |
+|---|---|
+| `1x2_birikoispices` | **Birikoi** |
+| `1x1_conossalt` | **Conos** |
+| `1x1_selenesugar` | **Selene** |
+| `2x2_verdubanstylebatteredthuntomite` | **Verduba** |
+| `clothing/…/tribal_bargu` | **Bargu Jiu** |
+
+Along with `Wahsili Desert`, `The Vinicoti Islands`, `The Mount of Plenty`,
+`The Studded Desert`, `The Night Desert`, `The Warm Sea`, `The Great Ocean`,
+`The Cold Sea`, and cultures including `Sabor`, `Marsha`, `Meliflua`, `Chabuti`.
+
+**So retail's food names are place-of-origin names, and the places are
+recoverable.** That is a real constraint on §4.1: cooking content should be
+named out of this bank, not invented.
+
+Note also that `Capulca` is a *place* name, not a cannon casing — consistent
+with the community's report that it labelled a **Founder** engine. Founder
+parts are named after Founders-Tome places; procedural parts used the
+unshipped casing bank.
+
+### 12.5 USEFUL BUT UNCONFIRMED
+
+- **Stat abbreviations as players wrote them** — `RES`, `POW`/`POWER`, `PIV`,
+  `CAP`, `HEAT`, `ROF`. `rateOfFire` ⇒ ROF and `overheatLimit` ⇒ HEAT are
+  safe; `PIV`, `CAP` and `RES` have no obvious partner in the ten-stat
+  vocabulary and are **not** confirmed.
+- **Buff axes** — movement/sprint speed, jump height, climbing speed,
+  impact-damage reduction, health increase; eating replaces any active buff.
+  The first three match `PlayerBuffBehaviour`'s six verbs exactly (§4.9). The
+  last two do **not** appear in that enum and are unconfirmed.
+- **Dyes are tinted procedurally.** A patch note records *"Implemented dye mod
+  to have procedurally colored icon"*, and the decompile has
+  `acs/ProcColoredIconHelper.cs`. **Consequence for this document: the absence
+  of pigment-colour icons from the atlas is NOT evidence that pigments were
+  not shipped.** §4.3's dye/paint entry must be read with that caveat. U29 also
+  removed the dyed-cloth middle step and moved paint into cosmetic component
+  slots shared between ship-part painting and clothing.
+- **`Titan`, `Godhand`, `Tube Stinger`** appear nowhere in the Steam corpus.
+  `Godhand` surfaces in the client only in `acs/CustomisationSettings.cs`, as a
+  **Saborian uniform** — which supports the wiki's note that it is culture
+  iconography rather than a distinct part.
+
+### 12.6 The honest limits of the community pass
+
+- **The Steam discussion search rate-limited after ~40 queries. The pool was
+  not exhausted.** Anything this document records as "not found in the
+  community corpus" means *a bounded search did not find it*, never *it does
+  not exist*. Given that this whole document exists because two things were
+  wrongly declared absent, that distinction is the point.
+- **Food is essentially unrecoverable from Steam.** Zero recipe names across
+  296 announcements and 24 guides — only category words (`sweets`, `syrup`),
+  `Bandages`, `Booze`, and marketing prose (`manta steaks`,
+  `Thuntomite burgers`, the latter from a sale line rather than a patch note).
+- **One lead was found and NOT pursued:** the official December 2018 tutorial
+  video demonstrates the cooking UI on screen. Recipe names would be **readable
+  in the video frames**, not in any text source. That is the most promising
+  remaining avenue for §4.1 and nobody has walked it.
