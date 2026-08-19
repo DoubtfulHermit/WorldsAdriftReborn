@@ -220,6 +220,13 @@ namespace WorldsAdriftReborn.Patching.Ship
         [HarmonyPatch(typeof(PlacementPreview), "UpdateTargetObject")]
         internal static class ResolveShipThroughShipRoot
         {
+            /// <summary>
+            /// Resolved once. This runs every frame a phantom is up, and
+            /// <c>AccessTools.Field</c> is an uncached reflection lookup.
+            /// </summary>
+            private static readonly System.Reflection.FieldInfo TargetObjectField =
+                AccessTools.Field(typeof(PlacementPreview), "_targetObject");
+
             private static void Postfix(PlacementPreview __instance, GameObject targetObj)
             {
                 try
@@ -270,8 +277,7 @@ namespace WorldsAdriftReborn.Patching.Ship
                     }
 
                     _redirectedFrom = resolved.EntityId();
-                    AccessTools.Field(typeof(PlacementPreview), "_targetObject")
-                        .SetValue(__instance, hullObject);
+                    TargetObjectField.SetValue(__instance, hullObject);
                 }
                 catch (Exception exception)
                 {
