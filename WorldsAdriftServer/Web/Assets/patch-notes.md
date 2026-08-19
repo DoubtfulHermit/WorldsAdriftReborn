@@ -1,9 +1,18 @@
 Worlds Adrift shut down in 2019. Wareborn is a fan-run server that puts it back online.
 
-Every commit, newest first. 571 of them since 2026-08-07. Merges are left out - they only repeat what the commits under them already say.
+Every commit, newest first. 557 of them since 2026-08-08. Merges are left out - they only repeat what the commits under them already say.
 
-## 2026-08-19 | 103 commits
+## 2026-08-19 | 112 commits
 
+* 58d761f Record the gates this branch actually passed
+* aa970da Resolve the placement field once, not once a frame
+* 8b4847d Pin the guard that keeps the bunker drain out of the gauntlet trap
+* fe87310 Write down the five things a live session settled, and one it did not
+* a9a489b Feed the tank a canister at a time, not a unit every four seconds
+* 9e0123d Resolve a mounted part's ship through 8066, not the Unity hierarchy
+* 39503a7 Move refuelling off a prompt that says "Activate Atlas Pulse"
+* 5f0aea5 Stop a ship container reporting "It's locked." to its own owner
+* a61e188 Record the afternoon, and correct four inherited claims
 * 97e2dcb Write down what the two-state relay is, and what it is not
 * b945124 Ask the soak whether the level is defensible, not only whether it grew
 * fb19774 Give the relay two numbers it never reported about itself
@@ -586,32 +595,6 @@ Every commit, newest first. 571 of them since 2026-08-07. Merges are left out - 
 * e42669b Fix one-way visibility safely, and relay high-rate streams unreliably
 * ab43a9c Set the client game port via an exported native setter, not an environment variable
 
-## 2026-08-07 | 23 commits
-
-* 684e54b Fix the infinite sky-fall: disable mirror resends, guard the local rig by component
-* fcece88 Resend mirror ops so the joining client reliably spawns the other player
-* baf2f67 Stop drawing our own rope: the game renders it natively once 1098 is seeded
-* 753657a Re-assert rope line width every update + diagnose the wedge
-* 4f95743 Hide the remote grapple tube unconditionally, not just while the rope is up
-* 754cade Hide the remote grapple tube continuously while grappling, not once at bind
-* 4ea6f7e Hide the game's GrapplingHookTube on remote rigs; add local-player fall telemetry
-* 3a49c50 Style the remote grapple line: thin dark rope, not a magenta wedge
-* 0044868 Make the anti-yeet neutralize deterministic: run it in FixedUpdate
-* fc765fa Phase 4a: replicate the grapple rope line
-* 0c6e860 Roadmap: mark Phases 1a/2/3 + yeet fix done; flag Phase 4 as the hard frontier
-* 4d06732 Fix 'yeet into the sky on second join': neutralize remote rig physics on frame one
-* deeb606 Phase 3: replicate the glider via UtilitySlotActivatedState (6910)
-* 69e5148 Fix asymmetric visibility: fallback flush for parked mirror ops
-* 4d37822 Phase 2: relay worn gear to other players
-* 5399f04 Phase 1a: adopt PlayerVisualizer's interpolator for smooth remote movement
-* b7f7329 Roadmap: add phased remote-player fidelity plan (smoothing, gear, glider, grapple/VFX)
-* e4325bc RemoteRigMover: always position globally, never yield to unresolved parenting
-* 7bf0b49 Fix remote rigs falling: keep RemoteRigMover authoritative, suppress PlayerVisualizer
-* e7b9754 Sync remote player animation via 1073, and adopt the native positioner
-* 70c9df6 Appearance hardening: forget on disconnect, re-arm publish on re-entry
-* b4d15da Relay real player appearance
-* b745a8e Document the working multiplayer: architecture, operations, roadmap
-
 ## 2021-08-07 | Built on WorldsAdriftReborn
 
-Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 154 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
+Wareborn is not a from-scratch server. It stands on the original WorldsAdriftReborn project, which worked out how to talk to the client at all - 177 commits by killzoms, sp00ktober, mmjr-x, Cat and others, from 2021 onwards. That history is in this repository and is not listed above, because it is theirs and not ours.
