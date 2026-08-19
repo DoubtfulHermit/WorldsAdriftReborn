@@ -882,6 +882,25 @@ fall behind.
 - Phase 1 item 3 (the deployable activation audit) is **unowned** and was
   surfaced by `resource-economy` §2. It should be claimed.
 
+**Added 2026-08-19 — `fix/ship-interactions`** (cut from `main` at `a61e188`,
+unmerged). The five findings from the maintainer's live session: §11.10 (the
+container lock — `OwnershipRegistrationPolicy` + the two hull owner-list serve
+sites in `ComponentsSerializer`), §13.10 (refuel moved off the sky core —
+`PartInteractionPolicy`, `PartInteractionService`, `ShipFuelService`, new
+`Multiplayer/Ship/Fuel/ShipFuelBunkerPolicy.cs`), §11.11 (the altimeter's blue
+phantom — `WorldsAdriftReborn/Patching/Ship/DeckPartsMountOnPlacedObjects_Patch.cs`,
+**client mod, needs a patcher release**), §11.5 (the fuel gauge: **not a defect**)
+and §12.11 (helm momentum: **no code change**). Collisions to know about:
+
+- It edits `ComponentsSerializer.cs`, which nearly everything edits.
+- It does **NOT** touch `ComponentAbsencePolicy` or the serializer's absence
+  declarations — `fix/component-init` owns those. **What it needs from them:**
+  `1306 ShipAtlasPulseState` must come OUT of `KnownAbsentComponentIds` and gain
+  a serve branch before the Atlas Pulse can be implemented (§13.10). Their `1120`
+  work also bears on §11.11, since `1120 ShipPartState` is the mounting-surface
+  component.
+- It does not touch any flight file.
+
 **File-level collision warning:** `feat/loot-containers` and
 `feat/resource-economy` both edit `Game/Inventory/InventoryService.cs`,
 `Game/Gathering/WorldResourceActivation.cs` and
@@ -1061,7 +1080,7 @@ prefab's own interest declares it.
 | 3 | `deck` | Deck01 | deck → ShipDeck | `ShipDeckVisualizer` → **1518 + 1099** | 1518 | **yes** | no (retail: structure) | flat deck only |
 | 4 | `proceduralEngineDefault` | ModularEngine | engine → ShipSide | `ModularShipPartVisualizer` → **12281 + 1099** (builds the mesh); `EngineVisualizer` → 1116, 1235, 1252, 1251 | 12281 | **yes** | no (retail: driven by the helm) | hull side |
 | 5 | `proceduralWingDefault` | ModularWing | wing → ShipSide | same, plus `WingVisualizer` → **1124** | 12281 | **yes** | no (retail: driven by the helm) | hull side |
-| 6 | `atlasSkyCore` | CoreMain | deck → ShipDeck | `ShipCoreVisualizer` → **1236 + 190602** | 1236 | **yes** | **no — should be.** Retail bakes `Activate` (`ShipCorePreprocessor`); we serve `None` because the shipped client has no consumer for the resulting interact | flat deck only |
+| 6 | `atlasSkyCore` | CoreMain | deck → ShipDeck | `ShipCoreVisualizer` → **1236 + 190602** | 1236 | **yes** | **no — and that is now the SETTLED answer.** Retail bakes `Activate` (`ShipCorePreprocessor`) and the client's own overlay labels it **"Activate Atlas Pulse"** — a real retail action (1306, the anti-boarding pulse) whose text no server can change. Fuel briefly borrowed this door and it was wrong; see §13.10 | flat deck only |
 | 7–14 | the 8 `skyCore*` modules | Core* | coreModule → CoreModule | `ShipCoreModuleVisualizer` → **1236 + 190602** | 1236 | **yes** | no (retail: passive animators) | **a socket on CoreMain** — the only true socket path in the game |
 | 15 | `smallPanel` | Panel01 | side → ShipSide | `ShipPanelVisualizer` → **1118**; variation → 1246 | 1118 | **yes** | no | hull side |
 | 16 | `mediumPanel` | Panel02 | side → ShipSide | same | 1118 | **yes** | no | hull side |
@@ -1079,7 +1098,7 @@ prefab's own interest declares it.
 | 28 | `horn` | Horn01 | deck → ShipDeck | `HornVisualizer` → **1107** | 1107 | **yes** | **yes** — `Activate` (honk) | flat deck only |
 | 29 | `lamp` | Lamp01 | deck → ShipDeck | `LampVisualizer` → **1108 + 1236 + 1099** | 1108, 1236 | **yes** | **yes** — `Activate` (switch) | flat deck only |
 | 30 | `altimeter` | Altimeter | deck → ShipDeck | `AltimeterVisualiser` → **1236** | 1236 | **yes** | no — **correct**, retail made it a local readout | flat deck only |
-| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1105 + 1236 — fixed on `feat/ship-fuel`, §13.3** | **yes** | no | flat deck only |
+| 31 | `fuelGauge` | FuelGauge | deck → ShipDeck | `FuelGaugeVisualizer` → **1105 FuelGaugeState** | **1105 + 1236 — fixed on `feat/ship-fuel`, §13.3** | no — **correct, it is a dial.** `FuelGauge` has no preprocessor of its own, and `ShipPartPreprocessor` adds no `InteractiveObjectVisualizer` to anything, so no verb is baked and E can never do anything on it. Reported as a defect 2026-08-19; it is not one | flat deck only |
 | 32 | `headingIndicator` | HeadingIndicator | deck → ShipDeck | `HeadingIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 33 | `artificialHorizon` | ArtificialHorizon | deck → ShipDeck | `ArtificialHorizonVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
 | 34 | `airspeedIndicator` | AirspeedIndicator | deck → ShipDeck | `AirspeedIndicatorVisualiser` → **1236** | 1236 | **yes** | no — correct | flat deck only |
@@ -1093,8 +1112,12 @@ prefab's own interest declares it.
 - **7 of 37 are interactable today** — helm (`Man`), sail, lamp, horn
   (`Activate`), and the four storage containers (`Inventory`, delivered by
   SC2 on `feat/ship-components`; note the four share one row group, so the
-  count is helm + sail + lamp + horn + 4 = 7 of 37). **2 more should be and
-  are not**: the personal reviver and the sky core. The other 27 are correctly inert; retail's
+  count is helm + sail + lamp + horn + 4 = 7 of 37). **1 more should be and
+  is not**: the personal reviver. The sky core LEFT this list again on
+  2026-08-19 — its verb is free but its LABEL is not (§13.10) — so it is now
+  filed with the reviver as "retail verb known, blocked on serving the state
+  behind it", `1094` for one and `1306` for the other. The other 27 are
+  correctly inert; retail's
   preprocessors add no `InteractiveObjectVisualizer` to them at all. **PROVED**
   part by part in `Multiplayer/Ship/PartInteractionPolicy.cs:27-82`, which is
   already the written audit of "what did retail let you do with this part".
@@ -1218,6 +1241,18 @@ indicator — live in `acs/Assets.Scripts.Visualisers.ShipParts/` and each
 `[Require]`s **1236 alone**, reading altitude and heading off
 `GetComponentInParent<Rigidbody>()` rather than off SpatialOS. We seed 1236.
 They work.
+
+> **SHOULD AN INSTRUMENT RESPOND TO E AT ALL? NO, AND THE GAUGE IS NOT A
+> DEFECT.** Reported 2026-08-19 as *"I am unable to interact with the fuel gauge
+> with E, but I can see it ticking down visually and the pin on it."* That is the
+> correct and complete behaviour. `FuelGauge` has **no preprocessor of its own**
+> — an exhaustive listing of `acs/**Preprocessor.cs` has no fuel-gauge entry —
+> so it runs the generic `ShipPartPreprocessor`, and that adds
+> `JointDamage`/`ShipPart`/`DetachFromParent`/`ParentingMassAdder`/
+> `LightningStrikable` plus the client set, and **no
+> `InteractiveObjectVisualizer` at all**. No baked verb means no prompt is
+> possible, from any server, ever. A gauge is a readout: the half the maintainer
+> can see working IS the whole feature. Nothing to fix, and nothing to regress.
 
 The fuel gauge is not one of them. `FuelGaugeVisualizer` lives in
 `acs/Assets.Scripts.Visualisers.Ship/` and `[Require]`s **`1105
@@ -1522,17 +1557,173 @@ Stated rather than guessed, in the style of §9.
    client log will say which — every failure of this class logs a Unity error.
 3. ~~**Whether a mounted railing exposes a mountable collider.**~~ **SETTLED by
    the asset read, §11.6: yes — layer 0 `Default`, `Untagged`, 4–5 enabled
-   non-trigger colliders.** What a live client still has to settle is one step
+   non-trigger colliders.** ~~What a live client still has to settle is one step
    further downstream: whether a mounted railing's runtime parent chain carries a
-   `DockableVisualizer`, because `NeedToBeOnShip` stays true under the SC3 patch
-   and resolves the target ship by walking that chain. If it does not, the
-   preview will refuse a railing for a reason that has nothing to do with layers.
+   `DockableVisualizer`.~~ **ALSO SETTLED, 2026-08-19, and the answer was NO — it
+   was the exact failure this entry predicted. §11.11.**
 4. **Whether the sky-core module sockets restore correctly** on every module. The
    socket components are stripped from every shipped prefab and re-added by
    `Patching/SpatialOS/SkyCoreSocketRestore.cs` at template-compile time. Eight
    modules; only the chain as a whole has been live-confirmed.
 5. **Whether `PartGraphicsVariationByMaterial` on `Window01` has a baked
    `_metalPrefab`.** SC0's named risk.
+
+---
+
+### 11.10 THE CONTAINERS OPENED AND SAID "It's locked." — a THIRD identity gate
+
+**Reported:** *"I can attach it to ship, when I press E it says its locked."*
+
+SC2 was correct in every part a server can see. The four rows seed `1081 + 1236`,
+`ShipContainerService` binds each its own grid, `PartInteractionPolicy` serves the
+prefab-baked `Inventory` verb, availability flips on mount, and the 1211 dispatch
+echoes `Interact(Inventory)` on the container's own 1210. **None of it was
+reached**, because the client refuses the press before it ever sends the 1211.
+
+**The producer is a single hardcoded string** —
+`InteractAgentObserver.CheckInteraction`, `InteractAgentObserver.cs:391-394`:
+
+```csharp
+if (verb == InteractVerb.Inventory && !IsTooDamagedToWorkVisualizer.IsTooDamagedToWork(...))
+{
+    OSDMessage.SendMessage("It's locked.", MessageType.Server);
+    return;              // the 1211 is NEVER sent
+}
+```
+
+guarded by `flag2 = !IsSuperUser && !IsInUseBy(me) && !flag` (`:374`), where
+`flag` is "this part is on a FRIENDLY ship", computed at `:355-361`.
+
+**Not the locks.** `1217`/`1218`/`1220`/`1221` are the **shipyard code-lock** and
+are innocent: `LockVisualizer` is attached by no preprocessor at all,
+`LockAgentVisualizer` lives on the PLAYER prefab and only emits
+`SHIPYARD_LOCK_REJECTED/INVALID`, and `ShipContainerPreprocessor` attaches no
+lock visualiser of any kind. **Not a client default either** —
+`InWorldInventoryVisualiser` contains zero lock logic, and
+`InteractiveObjectVisualizer.UpdatePrompt(bool locked)` ignores its own parameter
+and renders no text. **It is ours.**
+
+**THE ROOT CAUSE IS A CROSS-AXIS COMPARE, and §11.6's own asymmetry note was one
+consumer short.** `OwnershipRegistrationPolicy` documents two gates keying on
+deliberately opposite identifiers: gate A (the shipyard) compares
+`LocalPlayer.PlayerId`, gate B (`HostileItemPlacingPredicate`) compares
+`SelectedCharacterUid`. There is a **third**. `InteractAgentObserver.cs:358` reads
+`LocalPlayerInit.PlayerId` — the gate A identifier — and hands it to
+`ShipPartVisualizer.IsShipPartInFriendlyShip`, which passes it straight to
+`ShipVisualizer.IsShipOwner`, i.e. the gate **B** list. `"id"` is not a GUID, the
+`Exists` misses, a container carries no `RespawnerVisualizer` to rescue it, and
+the ship reads as hostile **to its own owner**.
+
+**Why a ground loot chest opens and a ship trunk does not** is the whole
+difference in one line: `ChestContainerLootPreprocessor` never runs
+`ShipPartPreprocessor`, so a chest has **no `ShipPartVisualizer`** and `:360`
+short-circuits to friendly. Bolting the same inventory to a ship is the only
+change.
+
+**Retail felt this too** — `ShipPartAttachedToOwnedShipCondition.cs:91` crosses
+the same axes — but retail filled `4349 reviverInfosCache` by **registering a
+personal reviver**, so almost no hull was ever "owned" and the branch almost never
+ran. We fill it at build time, which is what made a latent inconsistency
+load-bearing.
+
+**Fixed** by seeding an owned hull's `8062`/`4349` list with **both**
+identifiers. This cannot weaken gate B — `SelectedCharacterUid` is a real
+per-player uid from BossaNet and never equals the `"id"` stub — and it changes
+gate C from failing CLOSED (nobody, including the owner, may open anything) to
+failing OPEN, which is where a shared 1086 identity leaves every PlayerId-keyed
+gate anyway. When `feat/per-player-identity` (unmerged, `3fc1dcf`, flag-gated,
+never soaked) lands, `PlayerId` becomes the character uid and the two entries
+collapse; a test pins that they do not duplicate.
+
+**THE SAME GATE WAS TAXING EVERY OTHER INTERACTION.** `flag2` also feeds
+`:397-398`, `float time = flag2 ? interactTime + 10f : interactTime` — so the
+sail, lamp, horn and sky core were all demanding a **ten-second hold** instead of
+the instant toggle we serve. That is why the sky core showed a filling bar at all
+(§13.10), and it is why "nothing happens" was a completely honest description:
+the maintainer let go long before ten seconds.
+
+**Generalisation, and it is the fifth failure shape this section has named:** a
+component can be present, correctly typed, carry a renderable value AND satisfy
+every `[Require]`, and still be refused by a client-side gate that compares a
+field we author against a field we author **somewhere else**. The audit tool of
+§11.7 checks `[Require]` sets and baked verbs; neither half sees this. The check
+that would have caught it is *"for every client call site that compares against
+something the server writes, which server field is it actually reading?"*
+
+---
+
+### 11.11 THE ALTIMETER'S BLUE PHANTOM — mounted parts are not Unity children
+
+**Reported:** *"I can now target the railing with the altimeter but I can't place
+it, it's blue."* The SC3 patch works: the mask and tag widening put the raycast
+on the railing. It refuses at the next gate, and **the colour names that gate.**
+
+**Blue is a specific negative, not "valid but uncommitted."** The ship-part
+palette has three colours (`ShipPartPlacement.cs:22-29`), assigned at
+`PlayerScannerTool.cs:577`: green = `CanPlace`, faint red = neither placeable nor
+droppable, and `DropHighlight` **blue** = *"I will not bolt this to the ship, but
+I will free-drop it here."* Blue requires `_canDrop` (`:524`), which requires
+`!flag4`, and `flag4` is `ShipPartPlacement.IsAttachedToShip(TargetObject)` —
+"does a `DockableVisualizer` exist above the thing I am aiming at". Flatness,
+overlap, distance and `BlockItemPlacement` all leave `flag4` **true** and would
+paint **red**. So the blue is runtime proof that the parent walk failed, and only
+that. §11.9 item 3 asked exactly this question and the answer is **no**.
+
+**The ≥0.9 flatness gate is innocent, and can be crossed off.** It is
+`Mathf.Abs(hitNormal.y) < 0.9f` on the **world-space** collider normal
+(`PlacementPreview.cs:670`, enforced a second time at `ShipPartPlacement.cs:136`
+via `PointDot`, which is algebraically the same number). A railing's box-collider
+top on a level hull gives ≈1.0 and passes. `Mathf.Abs` also means the *underside*
+passes; only `PositionOnShip` flips the up-vector.
+
+**Why the walk fails is OURS, and deliberate.** We seed a mounted part
+`Parent(hull, "~")`, and `RelativeParentTransformChildHierarchyBehaviour`
+`TrySetNewParent` treats the `"~"` key as `SetNoParent()` — the part is composed
+into world space every frame instead of being reparented. The only line in the
+whole hierarchy system that assigns `CachedTransform.parent` is reachable solely
+through the non-`"~"` branch, and **only the DECK gets a real hierarchy key**.
+That is precisely why a deck works as a mounting surface and a railing does not.
+Every `GetComponentInParents<DockableVisualizer>()` is a plain `transform.parent`
+loop (`GameObjectX.cs:192-209`), so from a railing it can only ever return null.
+
+**Four gates fail, all from that one cause:** `_targetShip` (`:664`) → `flag`
+(`:666`) → `_isValid = false`; `flag4` (`PlayerScannerTool.cs:502`); `flag5`
+(`:503`); and `IsValidShipPlacement`'s `NeedToBeOnShip && TargetShip == null`
+(`ShipPartPlacement.cs:132`, which sets no invalid reason, so the player is told
+nothing). A **fifth** waits at commit time: `AttachToShip`'s
+`spatialOsEntity.HasParentEntity(entityObject)` (`:213`) is *also* a Unity walk
+(`EntityX.cs:53`), so fixing only the preview turns "blue, won't place" into
+"green, click does nothing".
+
+**Fixed with ONE hook**, because everything downstream reads `TargetObject`: a
+postfix on `PlacementPreview.UpdateTargetObject` re-points `_targetObject` at the
+hull that part's own `8066 ShipRootState` already names
+(`ShipPartVisualizer.ShipEntityId`). Not an invented relationship — the server
+maintains and re-broadcasts it on every mount; the `"~"` convention just declines
+to express it as a transform. Then `:664` finds the hull's `DockableVisualizer`
+on its **first** branch, so `NeedToBeOnShip` is satisfied honestly rather than
+bypassed; `PositionOnShip` still poses from the railing's `hitPoint`/`hitNormal`
+and takes only the ship's forward axis from the hull; the flatness gate still
+reads the railing's face; ownership is still checked against the docked hull; and
+`HasParentEntity` compares the hull with itself. The committed `Build` sends
+parent = hull with a hull-local pose, identical in shape to a deck mount, so
+`PartMountService` needs nothing and an unpatched client is unaffected.
+
+It costs exactly one thing: the overlap exemption at `ShipPartPlacement.cs:175`
+moves onto the hull, and an instrument standing on a railing overlaps that
+railing by construction. It is given back through the client's own
+`PlacementRules.CanOverlapWith` door for **one** entity — the surface this
+frame's ray landed on, cleared on every `UpdateTargetObject` call.
+
+**Rejected: patching `GameObjectX.GetComponentInParents<DockableVisualizer>`**,
+which is the obvious one-line answer and is a trap. .NET shares JIT code across
+reference-type generic instantiations, so a Harmony patch on the closed generic
+can land on the canonical shared body and fire for
+`GetComponentInParents<ShipVisualizer>`, `<MetalDepositCoreVisuals>` and
+`<LocationAnchorEntity>` too, with a `ref` result of the wrong type.
+
+**CLIENT MOD, therefore a PATCHER RELEASE**, and it is unverified: nothing
+headless runs a placement preview.
 
 ---
 
@@ -2114,7 +2305,74 @@ Requires dedicated weather-cell entities and the `1139` research that
    produces ghost ships. Retail answered this with `ShipAbandonedBehaviour`;
    we have no equivalent.
 
-### 12.10 WIKI CORROBORATION — two reconciliations, three corrections
+---
+
+### 12.11 "THE SECOND I LET GO OF HELM IT STOPPED" — the design is already there
+
+**Reported 2026-08-19,** then corrected by the maintainer: the stop is not a
+regression, and they want retail's behaviour — a ship under way keeps going when
+the pilot steps off.
+
+**RETAIL, PROVED.** Nothing anywhere in the authoritative sim is conditioned on a
+helm occupant. `ShipControlVisualizer` is `[WorkerType(UnityWorker)]` and reads
+**1113 ShipControlState**, not a pilot: `FixedUpdate` runs `UpdateTorques`,
+`UpdateDock`, `UpdateFloating` unconditionally, and `EngineVisualizer` applies
+`ShipThrustMultiplier * spin * (boost + Power) * forward` off `ShipEngineState`
+with no pilot test. The **client** zeroes its local lever when not driving
+(`ShipControlsBehaviour.cs:167-172`), but that branch cannot reach `SendData()` —
+so **retail never wrote a zeroed input on dismount**, and the ship's own 1111 kept
+the last value. The proof that it persisted authoritatively is
+`PilotVisualizer.cs:136-141`: taking control reads the **ship's** stored input
+back into the local lever via `SetInitialInput`, which is only meaningful if the
+previous pilot's lever survived their departure. Retail's throttle is a latched
+accumulator (`UpdateAxis1f`, `value + delta`), not a spring.
+
+**AND OUR SERVER ALREADY DOES THIS.** `FlightSession.Dismount()` sets
+`_input = _input.LatchedThrottleOnly()` — throttle kept, steering and climb
+released — with a comment saying exactly that, and
+`FlightSessionTests.A_released_helm_keeps_its_latched_forward_or_reverse_command`
+pins it. `Advance` integrates on `_manned || !IsAtRest || Throttle != 0`, so an
+unmanned moving hull keeps integrating; `_activeHullIds` is only ever emptied by
+ship salvage; `ShipFlightService` even logs `cruising unmanned on latched
+throttle`. Only a **disconnect** (`Abandon()`), a dock or an admin stop neutralise
+the lever, and each is documented as deliberately different from a clean release.
+The publish gate keys on `pilot || MustRetainMotion || AnyoneAboard(hull) ||
+IsPiloted(hull)`, and a pilot who steps off but stays on the deck satisfies the
+third term — so the 1130 stream does not stop either.
+
+**So this needs no code change, and none was made.** What the maintainer saw
+contradicts the tree, which means the next step is two log lines from one flight,
+not a blind edit. The candidates, in order:
+
+1. **The lever never left the deadzone.** The retail client applies
+   `_throttleDeadzone = 0.15f` in `SendData`, and `LatchedThrottleOnly` applies
+   its own `0.01`. A lever nudged but not pushed past 0.15 sends throttle 0, and
+   0 is what latches. **The tell:** `[flight] entity N DISMOUNTED helm ...` prints
+   the session state; a `SpeedCmd` of 0 there means the command was already zero
+   before the release, not because of it.
+2. **A disconnect-shaped exit.** Only `OnPlayerGone` and `/admin release` pass
+   `abandoned: true`. The line above says which path ran.
+3. **It worked and read as a stop** because the legacy model's deceleration is
+   4 m/s², i.e. 12 m/s → 0 in **3 s over ~18 m**, which does look instant.
+
+**A REAL PROPERTY WORTH DECIDING, and it is a design call, not a defect.** Under
+the production model (`WAREBORN_FLIGHT_FORCES` **off**) there is **no drag term
+at all** — `FlightIntegrator`'s legacy branch commands `throttle * MaxSpeedMps`
+directly. So a latched lever means a ship cruises **forever, in a straight line,
+through islands** (nothing in `Ship/Flight/` references terrain or altitude
+limits) until someone re-mans it or an admin stops it. Under the force model it
+would coast on retail's own `0.01·v²` plus the 0.03 m/s² settle term: from 9 m/s
+**~119 s and ~234 m**; from 17 m/s **~124 s and ~297 m**; from 20 m/s **~125 s
+and ~314 m**. Retail had both — drag *and* engines that kept burning unmanned —
+so retail's answer to a runaway was `ShipAbandonedBehaviour` (24 h with no owner
+aboard, and it makes the ship **sink**, not stop), not deceleration.
+
+The smallest honest change, if the maintainer wants an unmanned ship to settle:
+one branch in `FlightIntegrator`'s legacy path applying
+`ShipForceModel.StepSpeed(speedCmd, 0, dt)` when the session is unmanned, which
+reuses code that already exists and already carries retail's constants. **Not
+made here**, because "keeps its velocity" and "eventually comes to rest" are
+different products and the maintainer asked for the first.
 
 A web sweep of the surviving community record (fandom, Wayback, reddit, Steam
 guides, the WAEngenius and `worldsadrift.science` calculator **sources**, and
@@ -2645,16 +2903,105 @@ dependencies · schema migration · networked state (soak gate) · main risk.
 1. **Whether the needle actually moves.** Nothing headless renders a
    `GaugeRoller`. Craft a Fuel Gauge, mount it, refuel, and watch. The needle
    lags ~2 s by design (§13.3); it is **not** broken if it is late.
-2. **Whether the sky core shows an E prompt at all.** The verb is baked
-   (`ShipCorePreprocessor`), but this server has never served the core an
-   `Activate` entry before, and `IsSeededInteractionAvailable` gates it on
-   *mounted*. A loose core must show nothing; a mounted one must show a prompt.
-3. **What the prompt says.** Predicted: the generic Activate glyph with no text,
-   because `description` is never rendered. If it reads anything else, §13.1 is
-   wrong about the client.
+2. ~~**Whether the sky core shows an E prompt at all.**~~ **SETTLED IN A LIVE
+   CLIENT, 2026-08-19, and the answer killed the door.** See §13.10.
+3. ~~**What the prompt says.**~~ **SETTLED, and §13.1 was wrong.** It reads
+   **"Activate Atlas Pulse"**. See §13.10.
 4. **Whether a dry ship coasts or stops dead.** The clamp goes through the
    normal deceleration curve, so it should glide to a halt over several seconds.
    A hard stop would mean the clamp is landing somewhere it should not.
 5. **Whether a dry ship holds altitude.** It must. Fuel never touched
    `ShipLiftState 1258` in retail and does not here. If a ship sinks, that is a
    flight bug this feature revealed, not a fuel behaviour.
+6. **Whether a bunker actually feeds the tank.** New, and the whole refuel path
+   now: put fuel in a trunk bolted to the ship, burn a canister's worth, and
+   watch the gauge climb again. The tell is
+   `[fuel] hull N drew M fuel from its bunker`.
+
+---
+
+### 13.10 THE DOOR WAS WRONG — settled in a live client, 2026-08-19
+
+**Reported:** *"I'm trying to interact with sky core, it says 'Activate Atlas
+Pulse', I press E, I can see the loading thing as I press it down and then
+nothing happens."*
+
+Three separate facts, and each one matters.
+
+**1. The verb was free. The PROMPT was not, and §13.4's premise missed it.**
+§13.4 concluded the sky core was "the only ship part whose Activate is baked,
+unused and unclaimed". The *verb* is: the only client reaction to a returning
+`Interact` is `InteractiveObjectVisualizer.OnInteractSent` →
+`SendMessage("OnInteract")`, and the only three `OnInteract` receivers in the
+entire decompile are `ToggleRoller`, `ResetSwitch` and `InteractiveDemo`. Our
+1211 arrives and is handled; nothing intercepts it. **PROVED.**
+
+But the words the player reads are a **baked client asset**.
+`InteractiveObjectVisualizer.GetTutorialStep` maps `(verb == Activate)` +
+`GetComponent<ShipCoreVisualizer>() != null` to `TutorialStep.MOUSE_OVER_CORE`,
+whose overlay asset carries `Name: "Activate Atlas Pulse"`, `Hold: true`. No
+server can change that string. **PROVED**, and it makes the refuel a control
+that lied about what it did — which is exactly what `PartInteractionPolicy`
+exists to forbid. §13.1's prediction ("the generic Activate glyph with no text")
+was wrong because it reasoned about `InteractionEntry.description`, which
+genuinely is never rendered, and missed that the client has its own label table.
+
+**2. It names a REAL retail action, so the door was also occupied.**
+`1306 ShipAtlasPulseState { activeTime: int, activationCooldown: int }` drives
+`ShipAtlasPulseVisualizer`, which `ShipPreprocessor.cs:91` attaches to **every
+hull**. It is not cosmetic: the class implements `IClimbGrapplePreventer`, and
+`GrapplingHookNew.HasActivePreventer` and `PlayerMove.HasActiveClimbPreventer`
+both refuse while `IsPulseActive`. **The Atlas Pulse was the ship's anti-boarding
+defence** — while it is up, nobody can grapple onto or climb your hull, the hull
+glows on `_OveralEmmissive`, a sphere sized from the ship's own `ShipPlan`
+expands from the core, and Wwise plays `AtlasPulse`.
+
+**3. "Nothing happens" had TWO causes, and one of them was not fuel's.**
+- The hold bar itself is the tell. We serve `ActivateTimeToUse = 0f`, and
+  `TimedInteractionController` draws **no bar at all** below 0.001 s. A visible
+  filling bar therefore proves `InteractAgentObserver.cs:374`'s `flag2` was
+  **true** — the client had decided the core was on a **non-friendly ship** and
+  applied the `+10f` penalty at `:398`. That is a **ten-second hold**, and it was
+  costing every mounted-part interaction on this server, not just the core. Same
+  root cause as the container lock — see §11.10 — and fixed there.
+- Even a completed refuel was near-invisible. A registered tank **starts full**
+  (§13.6), so `Deposit` returns 0, `TryRefuel` logs `refuel refused: ... tank is
+  full` to the server console and returns without sending the client a byte.
+
+**THE FIX: refuelling moved to the ship's own BUNKER.** Fuel put into any
+container bolted to the hull is drawn into the tank as the tank makes room, on
+the burn tick that already runs (`ShipFuelService.DrainBunkers`,
+`Multiplayer/Ship/Fuel/ShipFuelBunkerPolicy.cs`). No new verb, no new prompt, no
+new prefab, and nothing that can misdescribe itself because nothing new is
+described — opening a ship container and moving an item into it both already
+worked. The sky core is now served **no verb at all**, the same treatment the
+personal reviver gets for the same reason.
+
+A **wire rule** rides with it: the bunker only feeds a tank that is a full
+canister (25) short. At 0.25 fuel/s an unthresholded drain would push a
+container's `1081` at ~0.25 Hz for a whole flight, on an entity that rides a
+moving ship — the traffic class §12/the multiplayer-safety rule warns about. It
+cannot strand anybody: an empty tank has ten canisters of room.
+
+**Consequence to hold onto:** a hull with a core and **no container** cannot be
+refuelled. `WAREBORN_FUEL_GATES_THRUST` must therefore stay **off** until either
+such a hull is excluded from metering or the low-fuel warning exists. It was
+already off for the second reason.
+
+**SHOULD THE ATLAS PULSE BE IMPLEMENTED? Yes — and it is now unblocked rather
+than merely possible.** The client half is complete and already on every hull;
+the server half is one serve branch for `1306` plus a cooldown ledger that is a
+copy of `Horns` + one `DeferredActions.AfterKeyed` push of `activeTime = 0`
+(`TimeEstimationSmoother.StepAndSmooth` never writes `smoothed`, so the server
+**must** push the zero explicitly to end a pulse). Two blockers, both stated
+rather than guessed:
+
+- `1306` currently sits in `ComponentAbsencePolicy.KnownAbsentComponentIds`
+  precisely so an unhandled id cannot drop the ship's interest batch. It must be
+  **served**, not merely authored — and that file is owned by
+  `fix/component-init` right now, so this needs coordinating, not editing.
+- Pre-flight: `ShipPulseEffect.Awake` hard-requires `PulseParams` and leaves
+  `_pulseFx` null when it is missing, which `Update()` then dereferences every
+  frame. Confirm `atlasPulseParams` survived into the exported ShipFrame prefab
+  first. Encouraging: the sibling `PersonalRespawnerPulseEffect` reads
+  `enabled=1` in the prefab census on all three ShipFrames.
