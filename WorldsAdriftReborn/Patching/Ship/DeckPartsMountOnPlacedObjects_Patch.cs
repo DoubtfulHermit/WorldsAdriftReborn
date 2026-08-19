@@ -1,5 +1,8 @@
 using System;
+using Assets.Scripts.Visualisers.Ship;
 using HarmonyLib;
+using Improbable;
+using Improbable.Unity.Entity;
 using UnityEngine;
 
 namespace WorldsAdriftReborn.Patching.Ship
@@ -145,6 +148,186 @@ namespace WorldsAdriftReborn.Patching.Ship
                 && preview.Phantom != null
                 && preview.ValidSurfaceTypes == PlacementLocationType.ShipDeck;
         }
+
+        /// <summary>
+        /// THE SECOND HALF, and without it the first half only gets you a BLUE
+        /// phantom that refuses to place. Reported symptom: "I can now target the
+        /// railing with the altimeter but I can't place it, it's blue."
+        ///
+        /// BLUE IS A SPECIFIC NEGATIVE, and it names the gate. The ship-part palette
+        /// has three colours (<c>ShipPartPlacement.cs:22-29</c>), assigned at
+        /// <c>PlayerScannerTool.cs:577</c>: green = <c>CanPlace</c>, faint red = not
+        /// placeable and not droppable, and <c>DropHighlight</c> blue = "I will not
+        /// bolt this to the ship, but I will free-drop it here". Blue requires
+        /// <c>_canDrop</c> (<c>:524</c>), which requires <c>!flag4</c>, and
+        /// <c>flag4</c> is <c>ShipPartPlacement.IsAttachedToShip(TargetObject)</c> -
+        /// i.e. "does a <c>DockableVisualizer</c> exist above the thing I am aiming
+        /// at". Every other candidate gate (flatness, overlap, distance,
+        /// BlockItemPlacement) leaves <c>flag4</c> TRUE and therefore paints RED. So
+        /// the colour is runtime proof that the parent walk failed, and 11.9's open
+        /// question is answered: it does.
+        ///
+        /// WHY IT FAILS, and it is not a bug in the client. A mounted ship part is
+        /// NOT a Unity child of the hull on this server, deliberately. We seed it
+        /// <c>Parent(hull, "~")</c>, and
+        /// <c>RelativeParentTransformChildHierarchyBehaviour.TrySetNewParent</c>
+        /// treats the <c>"~"</c> key as <c>SetNoParent()</c> - the part is composed
+        /// into world space every frame instead of being reparented. Only the DECK
+        /// gets a real hierarchy key, which is exactly why a deck works as a
+        /// placement surface and a railing does not. Every
+        /// <c>GetComponentInParents&lt;DockableVisualizer&gt;()</c> is a plain
+        /// <c>transform.parent</c> loop (<c>GameObjectX.cs:192-209</c>), so from a
+        /// railing it can only ever return null.
+        ///
+        /// WHAT THIS DOES. When a deck-part ray lands on a mounted part that has no
+        /// resolvable ship, it re-points <c>_targetObject</c> at the HULL that part's
+        /// own <c>8066 ShipRootState</c> already names
+        /// (<c>ShipPartVisualizer.ShipEntityId</c>, the link the server maintains and
+        /// re-broadcasts on every mount). That is not an invented relationship: the
+        /// part genuinely belongs to that hull, and the client's <c>"~"</c>
+        /// convention simply declines to express it as a transform.
+        ///
+        /// AND IT IS ONE HOOK, NOT FOUR, because everything downstream reads
+        /// <c>TargetObject</c>:
+        ///   * <c>PlacementPreview.cs:664</c> then finds the hull's own
+        ///     <c>DockableVisualizer</c> on the FIRST branch, so
+        ///     <c>NeedToBeOnShip</c> is satisfied honestly rather than bypassed;
+        ///   * <c>PositionOnShip</c> still poses from <c>info.hitPoint</c> and
+        ///     <c>info.hitNormal</c> - the RAILING's surface - and only takes the
+        ///     ship's forward axis from the hull, so the part lands where the player
+        ///     aimed, square to the hull;
+        ///   * the &gt;=0.9 flatness gate is untouched: it reads
+        ///     <c>info.hitNormal</c>, which is still the railing's face. A vertical
+        ///     face is still refused;
+        ///   * <c>PlayerScannerTool</c>'s <c>flag4</c>/<c>flag5</c> and
+        ///     <c>ShipPartPlacement.IsAttachedToShip(preview, DockedShip)</c> both
+        ///     resolve to the docked hull, so ownership is checked, not skipped;
+        ///   * <c>AttachToShip</c>'s <c>HasParentEntity</c> check (<c>:213</c>), which
+        ///     is ALSO a Unity-hierarchy walk and would otherwise silently return
+        ///     false after the preview turned green, now compares the hull with
+        ///     itself and passes;
+        ///   * the committed <c>Build</c> sends parent = the hull and a hull-local
+        ///     pose, which is byte-identical in shape to what a deck mount already
+        ///     sends. <c>PartMountService</c> needs no change and an unpatched client
+        ///     is unaffected.
+        ///
+        /// The one thing re-pointing costs is the overlap exemption at
+        /// <c>ShipPartPlacement.cs:175</c>, which exempts <c>TargetObject</c> - so the
+        /// railing you are standing an instrument on would start counting as an
+        /// obstruction. <see cref="ExemptTheSurfaceWeAimedAt"/> gives it back through
+        /// the client's own <c>PlacementRules.CanOverlapWith</c> door.
+        /// </summary>
+        [HarmonyPatch(typeof(PlacementPreview), "UpdateTargetObject")]
+        internal static class ResolveShipThroughShipRoot
+        {
+            private static void Postfix(PlacementPreview __instance, GameObject targetObj)
+            {
+                try
+                {
+                    // Cleared FIRST, every call. UpdatePhantomPosition calls this with
+                    // null at the top of every frame's evaluation, so a redirect can
+                    // never outlive the ray that caused it - which is the whole reason
+                    // the overlap exemption below is safe to key on one field.
+                    _redirectedFrom = EntityId.InvalidEntityId;
+
+                    if (targetObj == null || !AppliesTo(__instance))
+                    {
+                        return;
+                    }
+
+                    GameObject resolved = __instance.TargetObject;
+                    if (resolved == null || resolved.GetComponentInParents<DockableVisualizer>() != null)
+                    {
+                        // Already on a ship the client can see - the deck, or the hull
+                        // itself. Leave retail's answer exactly as it is.
+                        return;
+                    }
+
+                    ShipPartVisualizer part = resolved.GetComponent<ShipPartVisualizer>();
+                    if (part == null)
+                    {
+                        // Not a ship part at all: terrain, a creature, a deployable.
+                        // NeedToBeOnShip must keep refusing those.
+                        return;
+                    }
+
+                    EntityId hullId = part.ShipEntityId;
+                    if (!hullId.IsValid())
+                    {
+                        // A LOOSE part lying on the deck. 8066 says it belongs to no
+                        // hull, which is the truth, so it is not a mounting surface.
+                        return;
+                    }
+
+                    // Fully qualified: this namespace already has a Patching.SpatialOS.
+                    IEntityObject hull = global::Improbable.Unity.Core.SpatialOS.Universe.Get(hullId);
+                    GameObject hullObject = hull?.UnderlyingGameObject;
+                    if (hullObject == null || hullObject.GetComponent<DockableVisualizer>() == null)
+                    {
+                        // The hull is not checked out on this client yet. Refusing is
+                        // correct; a later frame will resolve it.
+                        return;
+                    }
+
+                    _redirectedFrom = resolved.EntityId();
+                    AccessTools.Field(typeof(PlacementPreview), "_targetObject")
+                        .SetValue(__instance, hullObject);
+                }
+                catch (Exception exception)
+                {
+                    // Placement must stay usable whatever happens here: leaving
+                    // _targetObject alone is exactly retail's behaviour, so falling
+                    // through costs the feature and nothing else.
+                    Warn("ship resolve skipped: " + exception.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gives back the one exemption <see cref="ResolveShipThroughShipRoot"/> takes
+        /// away.
+        ///
+        /// <c>IsValidShipPlacement</c>'s overlap test ignores an obstructor whose
+        /// entity id is <c>preview.TargetObject.EntityId()</c>
+        /// (<c>ShipPartPlacement.cs:175</c>) - "you may of course overlap the thing
+        /// you are placing ON". Re-pointing <c>TargetObject</c> at the hull moves that
+        /// exemption onto the hull, and an instrument standing on a railing overlaps
+        /// the railing by construction, so without this the preview would go from blue
+        /// to red instead of blue to green.
+        ///
+        /// It is returned through <c>PlacementRules.CanOverlapWith</c> - the client's
+        /// own per-prefab overlap door, already consulted in the same predicate
+        /// (<c>flag5</c>) - rather than by widening the overlap test itself, so
+        /// nothing else about overlapping is relaxed. Exactly one entity is exempted:
+        /// the surface the current ray landed on.
+        /// </summary>
+        [HarmonyPatch(typeof(PlacementRules), "CanOverlapWith")]
+        internal static class ExemptTheSurfaceWeAimedAt
+        {
+            private static void Postfix(IEntityObject obstructor, ref bool __result)
+            {
+                try
+                {
+                    if (__result || obstructor == null || !_redirectedFrom.IsValid())
+                    {
+                        return;
+                    }
+                    __result = obstructor.EntityId == _redirectedFrom;
+                }
+                catch (Exception exception)
+                {
+                    Warn("overlap exemption skipped: " + exception.Message);
+                }
+            }
+        }
+
+        /// <summary>
+        /// The entity the current ray landed on, when it was a mounted part we
+        /// re-pointed away from. Rewritten every time the preview updates its target
+        /// and never read outside one frame's placement evaluation, so it cannot
+        /// exempt an object the player is no longer aiming at.
+        /// </summary>
+        private static EntityId _redirectedFrom = EntityId.InvalidEntityId;
 
         private static float _nextLogAt;
 
