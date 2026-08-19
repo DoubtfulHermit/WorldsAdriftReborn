@@ -60,8 +60,23 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
         /// Specialized side, grid, engine, wing, and core-module attachments retain
         /// their authored placement mechanics.
         /// </summary>
-        public static string NormalizeForBuiltShip(string? attachmentType)
+        /// <param name="itemType">
+        /// The catalogue row's itemType. A FLIGHT INSTRUMENT is exempt: it is the one
+        /// class of part that is MEANT to land on something already bolted down rather
+        /// than on the hull's own skin, and retail says so in
+        /// <c>acs/ShipInstrument.cs</c> by giving instruments - and only instruments -
+        /// an overlap exemption for anything attached to a ship. The rewrite below
+        /// exists for the helm and for structure, whose <c>shipSurfaces</c> raycast
+        /// really does find nothing on our generated hull; it must not also drag
+        /// instruments onto the floor. See <see cref="ShipInstruments"/> for the whole
+        /// argument, the trade it costs, and the one line that reverses it.
+        /// </param>
+        public static string NormalizeForBuiltShip(string? attachmentType, string? itemType = null)
         {
+            if (ShipInstruments.IsInstrument(itemType))
+            {
+                return attachmentType ?? "none";
+            }
             return attachmentType == "shipSurfaces" ? "deck" : attachmentType ?? "none";
         }
 
