@@ -244,10 +244,17 @@ authority for live configuration is the box itself:
   factory once - so serving it on a non-player entity without a specific model
   gives that entity a permanent inventory full of gauntlets.
 
-  **Unverified until someone plays:** that a chest shows its E prompt and opens
-  (headless soak bots run no visualisers, so the 1210/1081 serve and interact
-  echo rest on unit tests and the decompile); that mined metal shows real quality;
-  that a tree pays fibre and berries; that a log on a real slope lies along it.
+  **CONFIRMED IN A LIVE CLIENT 2026-08-19 ~13:30 CEST** by the maintainer, with a
+  screenshot: a felled tree pays plant fibre and berries alongside the wood, the
+  fall itself reads correctly, and **a loot chest shows its prompt and opens with
+  its contents in a CHEST panel beside the player's inventory**. That last one
+  matters most: it was the single thing the container work could NOT verify,
+  because headless soak bots run no visualisers, so the whole 1210 + 1081 serve
+  and the Interact echo rested on unit tests and the decompile. It works.
+
+  **Still unverified:** that salvaging a looted relic pays its materials (the
+  code shipped after the session above); that mined metal shows real quality and
+  varies away from Haven; that a log on a genuinely steep slope lies along it.
 
 - **Game server:** `5a69250`, deployed and restarted at 2026-08-19 10:59 CEST.
   First game-server deploy of the day; the login server had moved four times
