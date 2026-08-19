@@ -175,6 +175,60 @@ is responsible, and neither needs a bot:
   in the state described above, and a rising age with a flat gap is the original
   "rate flat, contents ageing" pathology the drift check watches for.
 
+## The post-deploy check for the game server
+
+```sh
+tools/check-game-server.sh              # the last 60 minutes
+tools/check-game-server.sh 6h           # any journalctl --since expression
+tools/check-game-server.sh --since-boot # since the unit last started
+```
+
+Read-only: it ssh's to production and greps. It starts nothing, stops nothing and
+touches no database, so it is safe to run while people are playing and is meant
+to be.
+
+**Why it exists.** On 2026-08-19 the live server was found to have been logging
+`[error] failed to initialize component NNNN` continuously **since at least
+2026-08-08** without anyone noticing. The only thing ever run after a game deploy
+was the snippet in the handover's first-15-minutes list:
+
+```sh
+journalctl -u wareborn-game -o cat --no-pager --since '10 min ago' | tail -100
+```
+
+That window is clean **by construction**. The game server spawns nothing on its
+own; every one of those errors is produced by a CLIENT checking an entity out. A
+window right after a restart, with nobody logged in, sees zero and prints green
+no matter how broken the server is. It is not a weak check, it is a check that
+cannot fail.
+
+So this one is built around the two things that window could not do:
+
+1. **It has a denominator.** Errors are counted per component-interest BATCH, not
+   per minute, and a window containing zero batches exits `INCONCLUSIVE` (status
+   2) rather than passing. "Nobody played, so nothing was wrong" is the exact lie
+   that hid this for eleven days, and it is now a distinct, visible outcome.
+2. **It compares against a committed ledger**, `tools/game-server-error-baseline.txt`,
+   which names every id known to fail and says what a player loses. An id that is
+   NOT in that file fails the check at **count one** — every new entity type this
+   server has grown announced itself as an id nobody had a branch for, and that is
+   cheap to catch on the first occurrence and expensive on the ten-thousandth. On
+   top of that a rate ceiling (`WAREBORN_ERROR_CEILING`, default 25 per 100
+   batches) catches a *known* id that has started firing an order of magnitude
+   more often, which is what a regression inside an existing branch looks like
+   from outside.
+
+The baseline is a ledger of debt, not a mute button: an id that gets fixed is
+DELETED from it, and an entry whose consequence has not been established says
+`UNINVESTIGATED` rather than implying it is harmless.
+
+**Where it belongs in a deploy.** There is no `tools/deploy-game.sh` — the game
+server holds live progression and a restart is session-ending, so it is
+deliberately a hand operation. Run this **before** a deploy over a window that
+had players in it, to get the number you are changing from, and again a few hours
+**after**, over a window that had players in it. Two minutes after a restart is
+not one of those windows and the script will tell you so.
+
 ## The storage suite
 
 ```sh

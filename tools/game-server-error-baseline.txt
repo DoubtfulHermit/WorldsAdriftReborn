@@ -1,0 +1,83 @@
+# Component ids the LIVE game server is known to fail to initialize, and why.
+#
+# tools/check-game-server.sh reads this file. An id that fires in production and
+# is NOT listed here fails the check at COUNT 1 - because every new entity type
+# this server has ever grown announced itself as an id nobody had a branch for,
+# and that is cheap to notice on the first one and expensive on the ten-thousandth.
+#
+# This file is a LEDGER OF DEBT, not a mute button. Three rules:
+#
+#   1. A line must say what the id IS. A number with the word "known" next to it
+#      is not an entry; it is the silence this replaced wearing a hat.
+#   2. Where the consequence is not yet established, the line says UNINVESTIGATED
+#      and that is honest. It is not the same claim as "harmless".
+#   3. An id that gets FIXED - a seed written, or an absence declared in
+#      ComponentAbsencePolicy - is DELETED from this file, not commented out. A
+#      baseline that only ever grows is the thing this replaced.
+#
+# Measured 2026-08-19 against the live journal (which reaches back to 08-08).
+# Every one of these rides a BEST-EFFORT interest batch
+# (failOnComponentInitError: false), which is why not one "[error] DROPPING the
+# whole AddComponent batch" line appears anywhere in that journal: nothing has
+# lost its 190602 TransformState to one of these, and nothing is sitting at the
+# world origin because of them. If a DROPPING line ever does appear it is a
+# different and far worse event, and the rate check will show it.
+#
+# Component names are from docs/component-ids.md.
+#
+# THE NUMBER TO EXPECT. Measured over a live 3-hour window before the fix in
+# "Stop the server telling its own log that its gaps are unfixable": 119 errors
+# over 503 interest batches = 23.7 per 100. That fix removes 68 of the 119
+# (1013 seeded; 1120/8066/1259/1304/4323 declared absent), so a healthy window
+# should now read roughly 10 per 100. The default ceiling of 25 therefore allows
+# a 2.5x regression before it complains - loose on purpose, because the sharp
+# instrument here is the unknown-id check, which fires at count one.
+#
+# Format: <component id> <name> - <what is lost, or UNINVESTIGATED>
+
+# --- island fauna: the creature simulation this server does not run ----------
+# The client asks every spawned creature for the full retail creature stack. We
+# spawn fauna as decoration. Each of these leaves one client visualizer disabled.
+#
+# ALL SIX ARE CANDIDATES FOR ComponentAbsencePolicy and are deliberately NOT
+# there yet. The client audit (2026-08-19) found every reader either disabled or
+# null-guarded, none of them in an IdComponentToEntityMap, and a jellyfish fully
+# animated without any of them (JellyFishAnimationClient has no [Require] at all,
+# so it runs regardless). Two caveats stopped this from being a drive-by
+# declaration, and both are about MANTA RAYS, which IslandFaunaPolicy does spawn:
+#   1160 - MantaRayMaterialExpressionClient has NO [Require], so it Updates every
+#          frame and multiplies the manta's emissive by GetHealthAsRatio(), which
+#          returns -1 with no reader. No exception; the manta's glow inverts.
+#   1175 - the manta's Animator keeps playing its default entry state, but loses
+#          every parameter drive (banking, wing speed). It renders; it does not
+#          respond.
+# So the honest move is to SEED a health value and 1175's booleans for mantas,
+# and declare the other four absent - which belongs to whoever owns fauna, with
+# a manta in front of them. Until then these are known, not fine.
+1154 ConductPickerState - creature AI conduct selection; no behaviour tree runs here
+1160 HealthState - creature health; nothing can damage or kill our fauna
+1166 AgeState - creature ageing; our fauna do not grow
+1171 MortalityState - creature death; our fauna cannot die
+1172 TirednessState - creature fatigue; our fauna do not tire
+1175 AnimationControllerFSIMState - the FSIM-side animation driver, which retail ran in the creature sim we do not have
+
+# --- built/atlas ship states with no server model ----------------------------
+1106 FuelTankState - the HULL's fuel tank. We serve 1105 FuelGaugeState (the gauge
+#     part) but no 1106, so the hull itself reports no tank. WORTH A LOOK if the
+#     fuel gauge misbehaves - see docs/plans/feature-roadmap.md 13.3.
+1113 ShipControlState - retail's control-surface snapshot; our flight writes 1111 + 190602 instead
+1222 LightningGeneratorState - ship lightning generator; no weather or lightning simulation
+1258 ShipLiftState - retail's lift readout; our lift is computed from the served mass chain
+
+# --- world/global systems not implemented ------------------------------------
+1229 GlobalWallDataState - the wind-wall grid; no wind walls exist in this world
+1250 WorldBoundsDataState - world bounds; our world has no retail bounds volume
+1307 GlobalKnowledgeGraphDataState - the global knowledge graph; ours is served per-player instead
+1333 BugFixState - retail's live-patch shim; nothing to patch
+6905 AncientRespawnerState - UNINVESTIGATED; seen on a world entity
+8052 HavenTeleporterState - UNINVESTIGATED; seen on a world entity, and Haven teleporters do exist here
+8063 GameDBState - UNINVESTIGATED; seen on a world entity
+4347 BigCallState - seen on a SKY WHALE whose id arrived TRUNCATED to 32 bits
+#     (-2094967295 = (int)2_200_000_001, the whale band). The call branch keys on
+#     the full 64-bit id, so it cannot match. UNINVESTIGATED and its own bug.
+1124 WingState - the modular wing's own state; the wing renders via 12281 instead
