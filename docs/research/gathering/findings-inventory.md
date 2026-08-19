@@ -59,7 +59,22 @@ UtilityHand, Pet`. A second string-literal comparison depends on the same spelli
 (`GearWearablesVisualizer.cs:165`).
 
 ## THE GRID — four different mechanisms
-Origin **top-left, y grows downward**. Default 10×18, belt at row 3.
+Origin **top-left, y grows downward**. Stock player grid 10×18.
+
+**`beltRow` IS A ROW INDEX, NOT A COUNT** (corrected 2026-08-20; this page previously
+said "belt at row 3" and the server shipped 3). `InventorySpaceChecker` uses it directly as
+`LocationArray[x, beltRow]`, counted down from the top, and blocks that one full-width row.
+Retail put the belt on the **bottom three rows with the divider immediately above them** —
+Bossa's own forum answer: *"the lower three (four if you count the spacer) grid rows were
+converted into the new belt area"*, and *"the entire screen is all the same container"*.
+So the correct index is **`height - 4`**, i.e. **14** for an 18-tall grid, and 3 blocked a
+row four cells down inside the backpack.
+
+**The blocked row is a WALL for the drag ghost, not just a refused cell.**
+`InventorySlotRectController.CheckNewGridCoordsAreValid` returns `_lastNonBlockedGridCoords`
+whenever the dragged rectangle touches it, and the drop commits `ServerAdjustedCoords` — the
+ghost's stuck position, not the mouse's. Everything on the far side of the wall is
+unreachable by dragging, and releasing there sends a coordinate the player never chose.
 - **Worn** = `slotType != None` → **excluded from the grid entirely**; x/y ignored.
 - **Hotbar** = `hotBarSlotNum > -1`, **orthogonal to `beltRow`** — the item still occupies
   real grid space. 8 slots; **0–3 are the fixed gauntlets, 4–7 user-assignable**, displayed
@@ -78,8 +93,22 @@ Origin **top-left, y grows downward**. Default 10×18, belt at row 3.
 `(-1,-1)` is safe **only for 0×0 items** — which is exactly why the four gauntlets are 0×0
 at (-1,-1). A non-zero item at (-1,-1) throws.
 Interactive drag validates bounds and blockers but **not occupied cells**.
-**Latent issue:** the default glider at (0,0), 3×4, spans y 0–3 and **overwrites the belt
-blockers** at (0,3),(1,3),(2,3).
+**Resolved 2026-08-20:** the default glider at (0,0), 3×4, spanned y 0–3 and overwrote the
+belt blockers at (0,3),(1,3),(2,3) — because the divider was at row 3 in the first place.
+With the divider at `height - 4` the seed clears it, and `InventoryPolicy` now refuses the
+row on every path (grant, move, unequip, cross-inventory, move-all) so nothing can punch a
+hole in it again. `ValidateForWire` reports any item that already sits on it.
+
+### The divider has no picture, and that is deliberate
+Retail drew it with a real inventory item — `itemTypeId == "beltSeparator"`, special-cased
+for tooltips in `ScannableData.cs:474` ("Items placed on the belt are not dropped when you
+die"), icon `beltseparator` in the atlas. **We do not send it**, so our divider is a blank
+unusable row. Sending one is NOT a free win: `InventorySpaceChecker.AddItem` writes an
+item's slot data over every cell it covers, blockers included, so a full-width separator
+item deletes the very blockers it is meant to mark — which is exactly the *"exploit that
+allowed players to put items onto the belt separator squares"* that Bossa fixed in 0.1.6.1.
+Any attempt must use a footprint whose height is 0 (so `AddItem`'s inner loop never runs),
+and must be verified in a live client before it ships.
 
 ## STACKING AND IDENTITY
 **The client never merges stacks** — one `InventorySlotData` per wire item, no grouping.

@@ -113,7 +113,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             if (!InventoryGeometry.Fits(
                     x, y, oriented.Width, oriented.Height,
                     destination.Width, destination.Height,
-                    destination.OccupiedRects(footprints)))
+                    destination.OccupiedRects(footprints), destination.BlockedRow))
             {
                 return CrossMoveOutcome.NoRoom;
             }
@@ -177,7 +177,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
                 (int X, int Y)? spot = InventoryGeometry.FirstFree(
                     footprint.Width, footprint.Height,
                     destination.Width, destination.Height,
-                    destination.OccupiedRects(footprints));
+                    destination.OccupiedRects(footprints), destination.BlockedRow);
 
                 if (spot == null)
                 {

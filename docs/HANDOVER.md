@@ -1502,6 +1502,18 @@ unimplemented.
   restore seam yet.
 - **Server restart reconnect:** still session-ending; separate gateway/worker
   architecture is not required to fix the existing shim reconnect path.
+- **Belt divider is unlabelled:** `beltRow` is now the correct row index
+  (`height - 4`, so 14 on the stock 10x18 grid) and no server path will place an
+  item on it, but the row is a blank unusable strip rather than the retail "Belt"
+  bar. Retail drew it with a `beltSeparator` inventory item; sending one
+  re-creates the 0.1.6.1 belt-separator exploit unless its footprint height is 0,
+  because `InventorySpaceChecker.AddItem` overwrites blocker cells. Needs a live
+  client test before it ships. **Existing characters pick the corrected row up on
+  their next checkout** - the client reads the grid once, at
+  `InventoryVisualiser.OnEnable`.
+- **Belt is not yet death-protected:** the bottom three rows are the belt in
+  geometry only. Nothing drops anything on death yet, so the "items on your belt
+  are not dropped" contract is unimplemented rather than broken.
 - **Hosting docs:** native runtime description is current, game deploy command
   is stale Wine-era text.
 - **Roadmap:** historical and stale; reconcile it against this file/current code.

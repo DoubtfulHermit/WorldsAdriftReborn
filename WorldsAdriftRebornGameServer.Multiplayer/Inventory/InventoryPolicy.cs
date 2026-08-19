@@ -127,6 +127,18 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
                     continue;
                 }
 
+                if (InventoryGeometry.CrossesBlockedRow(item.Y, oriented.Height, model.BlockedRow))
+                {
+                    // Not merely a rule broken. The client's belt divider is a
+                    // row of blocker cells that this item's own slot data
+                    // overwrites, column by column, the moment the panel
+                    // refreshes - so shipping this leaves a hole in the divider
+                    // that the player can drop through, and only under this item.
+                    problems.Add("item " + item.ItemId + " at (" + item.X + "," + item.Y + ") "
+                        + oriented.Width + "x" + oriented.Height + " sits on the belt separator row "
+                        + model.BlockedRow + ", which stops those columns blocking");
+                }
+
                 if (oriented.Width > 0 && oriented.Height > 0)
                 {
                     foreach (GridRect other in placed)
@@ -177,7 +189,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
                 : footprint;
 
             if (!InventoryGeometry.Fits(x, y, oriented.Width, oriented.Height, model.Width, model.Height,
-                    model.OccupiedRects(footprints, exceptItemId: itemId)))
+                    model.OccupiedRects(footprints, exceptItemId: itemId), model.BlockedRow))
             {
                 return false;
             }
@@ -324,9 +336,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             IReadOnlyList<GridRect> occupied = model.OccupiedRects(footprints, exceptItemId: itemId);
 
             (int X, int Y)? spot = InventoryGeometry.Fits(item.X, item.Y, oriented.Width, oriented.Height,
-                    model.Width, model.Height, occupied)
+                    model.Width, model.Height, occupied, model.BlockedRow)
                 ? (item.X, item.Y)
-                : InventoryGeometry.FirstFree(oriented.Width, oriented.Height, model.Width, model.Height, occupied);
+                : InventoryGeometry.FirstFree(oriented.Width, oriented.Height, model.Width, model.Height, occupied,
+                    model.BlockedRow);
 
             if (spot == null)
             {
@@ -370,7 +383,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             }
 
             (int X, int Y)? spot = InventoryGeometry.FirstFree(
-                footprint.Width, footprint.Height, model.Width, model.Height, model.OccupiedRects(footprints));
+                footprint.Width, footprint.Height, model.Width, model.Height, model.OccupiedRects(footprints),
+                model.BlockedRow);
 
             if (spot == null)
             {
