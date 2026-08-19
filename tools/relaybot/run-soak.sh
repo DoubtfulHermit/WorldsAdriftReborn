@@ -14,11 +14,32 @@
 #   3. Runs two headless bots for the requested minutes; they join, circle the
 #      spawn, and measure per-packet end-to-end staleness of each other's
 #      relayed movement.
-#   4. Writes tools/relaybot/run/soak-<timestamp>.csv, prints a FLAT/GROWING
-#      verdict, and kills ONLY what it started - identified by the UDP port it
-#      holds, never by process-name patterns (which have self-matched before).
+#   4. Writes tools/relaybot/run/soak-<timestamp>.csv, prints a
+#      FLAT/GROWING/REGRESSED verdict, and kills ONLY what it started -
+#      identified by the UDP port it holds, never by process-name patterns
+#      (which have self-matched before).
 #
-# Exit code: 0 flat, 1 growing, 2 the soak never produced data.
+# Exit code: 0 flat and within budget, 1 growing OR level-breached, 2 the soak
+# never produced data.
+#
+# TWO QUESTIONS, BOTH ASKED. "GROWING" means staleness rose DURING the run -
+# the leak the drift/trend check was built for, thresholds unchanged.
+# "REGRESSED" means the run's LEVEL is indefensible: samples missing their emit
+# tick, or published movement coalesced away, judged against limits derived
+# from the emitter's own cadence and against the recorded baseline in
+# tools/relaybot/baselines/soak-levels.json. A run that starts bad and stays
+# bad is perfectly flat, and content lands as a step - on 2026-08-19 a soak
+# reported FLAT at 93.3% delivery next to runs of the same harness at 100%.
+# The level half exists because that must never pass again.
+#   SOAK_BASELINE=<path>            compare against another recording
+#   SOAK_BASELINE=off               absolute limits only
+#   SOAK_BASELINE_WORLD=<key>       which recording (default haven-spawn;
+#                                   SOAK_FAUNA=1 selects tier1-island)
+#   SOAK_WRITE_BASELINE=1           RE-RECORD this run instead of judging it.
+#                                   Only after reading the numbers and meaning
+#                                   it; the file is committed for that reason.
+#   SOAK_DELIVERY_FLOOR_PCT / SOAK_MISSED_TICK_CEILING_PCT  loosen or tighten
+#                                   the absolute limits (read by the bot).
 #
 # FAUNA GATE: SOAK_FAUNA=1 tools/relaybot/run-soak.sh 10 7807
 #   Production world recipe + bots standing on a tier-1 island + --require-fauna,
@@ -63,6 +84,11 @@ BOT_FLAGS=""
 # WITHOUT the barrier still measures relay staleness only.
 BOT_EXTRA="${SOAK_BOT_EXTRA:-}"
 
+# The recorded-baseline half of the level gate. Keyed by world recipe, because
+# a Haven-spawn run and a tier-1 island run measure different worlds and
+# comparing them would be exactly the false comparison the gate exists to stop.
+BASELINE_WORLD="${SOAK_BASELINE_WORLD:-haven-spawn}"
+
 # FAUNA GATE MODE (SOAK_FAUNA=1). Stands the bots on a tier-1 island, starts
 # the server with the production world recipe, and makes a run that never shows
 # a bot a creature FAIL (--require-fauna) instead of printing a confident FLAT.
@@ -100,6 +126,8 @@ if [ "${SOAK_FAUNA:-0}" = "1" ]; then
     export WAREBORN_LOAD_BARRIER="${WAREBORN_LOAD_BARRIER:-1}"   # load-bearing: see above
     export WAREBORN_LOAD_BARRIER_TIMEOUT_MS="${WAREBORN_LOAD_BARRIER_TIMEOUT_MS:-30000}"
     export WAREBORN_SPAWN_PACE_MS="${WAREBORN_SPAWN_PACE_MS:-200}"
+    # A different world is a different baseline; see BASELINE_WORLD above.
+    BASELINE_WORLD="${SOAK_BASELINE_WORLD:-tier1-island}"
     if port_listening_precheck=$(ss -Huln "sport = :$PORT" 2>/dev/null) && [ -n "$port_listening_precheck" ]; then
         echo "[run-soak] SOAK_FAUNA=1 but a server already holds UDP $PORT - its env decides whether fauna exists; --require-fauna will judge the result."
     fi
@@ -218,9 +246,20 @@ else
     echo "[run-soak] server is up."
 fi
 
+# The level gate's baseline arguments, assembled here so the one place that
+# knows which world was started is the one that names its recording.
+BASELINE_ARGS=""
+# A recording that cannot say which revision produced it is a number without a
+# claim attached; the next reader has no way to re-measure it.
+export WAREBORN_BUILD="${WAREBORN_BUILD:-$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null)}"
+if [ "${SOAK_BASELINE:-}" != "off" ]; then
+    BASELINE_ARGS="--baseline ${SOAK_BASELINE:-$HERE/baselines/soak-levels.json} --baseline-world $BASELINE_WORLD"
+    [ "${SOAK_WRITE_BASELINE:-0}" = "1" ] && BASELINE_ARGS="$BASELINE_ARGS --write-baseline"
+fi
+
 echo "[run-soak] running two bots for $MINUTES minute(s) (relay mode: $([ "$RELAY_V2" != "0" ] && echo v2 || echo raw))..."
 dotnet "$HERE/RelayBot/bin/Release/net8.0/RelayBot.dll" \
-    --host "$HOST" --port "$PORT" --minutes "$MINUTES" --csv "$CSV" $BOT_FLAGS $BOT_EXTRA
+    --host "$HOST" --port "$PORT" --minutes "$MINUTES" --csv "$CSV" $BOT_FLAGS $BOT_EXTRA $BASELINE_ARGS
 VERDICT=$?
 
 echo "[run-soak] CSV: $CSV"

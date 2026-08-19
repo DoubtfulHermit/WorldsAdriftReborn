@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
+using WorldsAdriftRebornGameServer.Multiplayer;
 
 namespace RelayBot
 {
@@ -26,6 +27,11 @@ namespace RelayBot
             bool shipAcceptance = false;
             bool requireFauna = false;
             (double X, double Y, double Z)? centre = null;
+            // The LEVEL gate (see SoakLevelPolicy): absolute ceilings always,
+            // plus a comparison against a recorded baseline when one is named.
+            string baselinePath = null;
+            string baselineWorld = "haven-spawn";
+            bool writeBaseline = false;
 
             for (int i = 0; i < args.Length; i++)
             {
@@ -50,6 +56,16 @@ namespace RelayBot
                     // repo has produced exactly that lie (2026-08-18: a soak
                     // reported FLAT at 3,866 creatures while carrying zero).
                     case "--require-fauna": requireFauna = true; break;
+                    // The recorded-baseline half of the level gate. --baseline
+                    // names the file, --baseline-world the key inside it (world
+                    // recipes are not comparable to each other, so each keeps its
+                    // own recording), and --write-baseline re-records THIS run
+                    // instead of judging against the old one. Re-recording is
+                    // always explicit: a gate that updates itself on green
+                    // ratchets a regression in one run at a time.
+                    case "--baseline": baselinePath = args[++i]; break;
+                    case "--baseline-world": baselineWorld = args[++i]; break;
+                    case "--write-baseline": writeBaseline = true; break;
                     // Stand the bots somewhere other than the Haven spawn, in world
                     // METRES: "--centre 7376.4,25.2,6231.7". Needed to soak anything
                     // whose interest is island-scoped, because the spawn is 3.8 km
@@ -70,7 +86,7 @@ namespace RelayBot
                     }
                     default:
                         Console.Error.WriteLine("unknown argument: " + args[i]);
-                        Console.Error.WriteLine("usage: RelayBot [--host H] [--port P] [--minutes M] [--csv FILE] [--setup-timeout S] [--rewritten-1073] [--ship-acceptance] [--centre X,Y,Z] [--require-fauna]");
+                        Console.Error.WriteLine("usage: RelayBot [--host H] [--port P] [--minutes M] [--csv FILE] [--setup-timeout S] [--rewritten-1073] [--ship-acceptance] [--centre X,Y,Z] [--require-fauna] [--baseline FILE] [--baseline-world KEY] [--write-baseline]");
                         return 2;
                 }
             }
@@ -215,13 +231,25 @@ namespace RelayBot
                 Console.WriteLine($"[soak] BOT DEATH: {names[botIdx]}: {reason}");
             }
 
-            Metrics.Verdict verdict = metrics.ComputeVerdict(soakSeconds, bots.Length);
+            // The emitter's rate, read from the SAME variable the server reads,
+            // so "longer than one emit interval" means the interval the server
+            // is actually running. run-soak.sh forwards it to both sides.
+            double relayHz = RelayCadencePolicy.HzFrom(
+                Environment.GetEnvironmentVariable("WAREBORN_RELAY_HZ"));
+
+            Metrics.Verdict verdict = metrics.ComputeVerdict(soakSeconds, bots.Length, relayHz);
             Console.WriteLine();
             Console.WriteLine($"[soak] sends in window: {verdict.TotalSends}, matched relays: {verdict.Matched}"
                 + $" ({(verdict.TotalSends > 0 ? 100.0 * verdict.Matched / verdict.TotalSends : 0):0.#}% delivered), unmatched: {verdict.Unmatched}"
                 + $" (unmatched = relayed updates whose timestamp had no recorded send)"
                 + (rewritten1073 ? $", heartbeats: {verdict.Heartbeats} (timestampless re-sends, not matchable by design)" : ""));
             Console.WriteLine($"[soak] staleness overall: p50 {verdict.OverallP50:0.##} ms, p95 {verdict.OverallP95:0.##} ms, max {verdict.OverallMax:0.##} ms");
+            // The gated staleness number. The percentiles above are reported and
+            // NOT gated: which side of the emit grid a bot's publish phase falls
+            // on is decided at join time and moves them by tens of milliseconds
+            // with no code change. See SoakLevelPolicy for the whole argument.
+            Console.WriteLine($"[soak] missed ticks: {verdict.OverstaleShare * 100.0:0.##}% of delivered samples"
+                + $" waited longer than one emit interval ({verdict.OverstaleThresholdMs:0.#} ms at {relayHz:0.#} Hz)");
             Console.WriteLine($"[soak] {verdict.Detail}");
             // ISLAND FAUNA, reported unconditionally so a run where the feature was
             // meant to be on and produced nothing says so, instead of looking like a
@@ -331,9 +359,82 @@ namespace RelayBot
                 return 1;
             }
 
-            Console.WriteLine($"[soak] VERDICT: {(verdict.Flat ? "FLAT" : "GROWING")}"
-                + $" (drift {verdict.DriftMs:+0.##;-0.##;0} ms, trend {verdict.SlopeMsOverSoak:+0.##;-0.##;0} ms over soak; threshold 20 ms)");
-            return verdict.Flat ? 0 : 1;
+            // ------------------------------------------------------------------
+            // THE LEVEL GATE. The drift/trend verdict below answers "did this run
+            // get worse while it ran". This answers "is this run's LEVEL
+            // defensible at all", which is the question a step change - i.e. any
+            // merged content - actually poses. Both must pass. Neither replaces
+            // the other, and the drift thresholds are untouched.
+            // ------------------------------------------------------------------
+            var levels = new SoakLevelPolicy.SoakLevels(
+                verdict.OverallP50, verdict.OverallP95, verdict.OverstaleShare,
+                verdict.Matched, verdict.TotalSends);
+
+            var budget = new SoakLevelPolicy.SoakLevelBudget(
+                SoakLevelPolicy.ThresholdFrom(
+                    Environment.GetEnvironmentVariable("SOAK_MISSED_TICK_CEILING_PCT"),
+                    SoakLevelPolicy.SoakLevelBudget.Default.OverstaleSharePercentCeiling),
+                SoakLevelPolicy.ThresholdFrom(
+                    Environment.GetEnvironmentVariable("SOAK_DELIVERY_FLOOR_PCT"),
+                    SoakLevelPolicy.SoakLevelBudget.Default.DeliveredFloorPercent));
+
+            SoakLevelPolicy.SoakLevelVerdict absolute =
+                SoakLevelPolicy.JudgeAbsolute(levels, budget);
+
+            SoakLevelPolicy.SoakLevelVerdict step =
+                new(true, Array.Empty<string>());
+            if (baselinePath != null)
+            {
+                if (writeBaseline)
+                {
+                    SoakBaselineFile.Write(baselinePath, baselineWorld, new SoakBaselineFile.Recorded(
+                        World: baselineWorld,
+                        Recorded_At: DateTime.UtcNow.ToString("yyyy-MM-dd'T'HH:mm:ss'Z'", CultureInfo.InvariantCulture),
+                        Commit: Environment.GetEnvironmentVariable("WAREBORN_BUILD") ?? "",
+                        Minutes: minutes,
+                        Staleness_P50_Ms: verdict.OverallP50,
+                        Staleness_P95_Ms: verdict.OverallP95,
+                        Overstale_Share: verdict.OverstaleShare,
+                        Matched: verdict.Matched,
+                        Sends: verdict.TotalSends));
+                }
+                else
+                {
+                    SoakBaselineFile.Recorded recorded =
+                        SoakBaselineFile.Read(baselinePath, baselineWorld, out string why);
+                    if (recorded == null)
+                    {
+                        Console.WriteLine($"[soak] baseline: NOT COMPARED - {why}"
+                            + " (the absolute limits still judge this run)");
+                    }
+                    else
+                    {
+                        SoakLevelPolicy.SoakLevels recordedLevels = SoakBaselineFile.LevelsOf(recorded);
+                        Console.WriteLine(string.Format(CultureInfo.InvariantCulture,
+                            "[soak] baseline '{0}' recorded {1}{2}: {3:0.#}% delivered, missed ticks {4:0.##}%",
+                            baselineWorld, recorded.Recorded_At,
+                            string.IsNullOrEmpty(recorded.Commit) ? "" : " at " + recorded.Commit,
+                            recordedLevels.DeliveredPercent, recordedLevels.OverstalePercent));
+                        step = SoakLevelPolicy.JudgeAgainstBaseline(
+                            levels, recordedLevels, SoakLevelPolicy.SoakStepBudget.Default);
+                    }
+                }
+            }
+
+            foreach (string breach in absolute.Breaches.Concat(step.Breaches))
+            {
+                Console.WriteLine("[soak] LEVEL BREACH: " + breach);
+            }
+
+            // A level breach and a growing trend are different failures and the
+            // verdict says which happened, because "REGRESSED" and "GROWING"
+            // send the reader to different places: one to what merged, the other
+            // to what leaks.
+            bool levelOk = absolute.WithinBudget && step.WithinBudget;
+            Console.WriteLine($"[soak] VERDICT: {(verdict.Flat ? (levelOk ? "FLAT" : "REGRESSED") : "GROWING")}"
+                + $" (drift {verdict.DriftMs:+0.##;-0.##;0} ms, trend {verdict.SlopeMsOverSoak:+0.##;-0.##;0} ms over soak; threshold 20 ms"
+                + $"; level {(levelOk ? "within budget" : "BREACHED")})");
+            return verdict.Flat && levelOk ? 0 : 1;
         }
 
         private static Thread StartBot(Bot bot)

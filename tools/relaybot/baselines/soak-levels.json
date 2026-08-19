@@ -1,0 +1,13 @@
+{
+  "haven-spawn": {
+    "World": "haven-spawn",
+    "Recorded_At": "2026-08-19T16:28:15Z",
+    "Commit": "4707c6c",
+    "Minutes": 2,
+    "Staleness_P50_Ms": 0.2952035,
+    "Staleness_P95_Ms": 30.70375175,
+    "Overstale_Share": 0,
+    "Matched": 4325,
+    "Sends": 4321
+  }
+}

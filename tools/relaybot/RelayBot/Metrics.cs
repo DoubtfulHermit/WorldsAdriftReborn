@@ -189,7 +189,27 @@ namespace RelayBot
         public sealed record Verdict(bool Flat, double DriftMs, double SlopeMsOverSoak,
             double OverallP50, double OverallP95, double OverallMax,
             long Matched, long Unmatched, long TotalSends, int GapCount, int DisconnectCount,
-            long Heartbeats, long DecodeErrors, long TimelineViolations, int BotDeaths, string Detail);
+            long Heartbeats, long DecodeErrors, long TimelineViolations, int BotDeaths, string Detail,
+            double OverstaleShare, double OverstaleThresholdMs);
+
+        /// <summary>
+        /// How stale a delivered sample may be before it has demonstrably MISSED
+        /// an emit tick: one emit interval, plus a tenth for transport and
+        /// serialisation on the way out.
+        ///
+        /// WHY THIS AND NOT A PERCENTILE CEILING. Where inside [0, interval) a
+        /// sample lands is decided by the phase between the bots' publish grid
+        /// and the emitter's grid, and that phase is fixed at join time and
+        /// arbitrary: measured run-to-run on ONE unchanged tree, the same code
+        /// puts one bot's median at 0.24 ms and the other's anywhere from 40 to
+        /// 46 ms. A p50 ceiling therefore measures luck. Whether a sample waited
+        /// LONGER THAN A WHOLE PERIOD does not: no phase can produce that under
+        /// a working cadence, so the share that does is a contract violation
+        /// however the run's phase fell.
+        /// </summary>
+        public static double OverstaleThresholdMsFor(double relayHz) =>
+            1.1 * WorldsAdriftRebornGameServer.Multiplayer.RelayCadencePolicy
+                .IntervalFor(relayHz).TotalMilliseconds;
 
         /// <summary>
         /// Flat = the staleness level at the end of the soak is what it was at
@@ -198,8 +218,9 @@ namespace RelayBot
         /// least-squares slope over the per-second p50 series scaled to the whole
         /// soak. Growing = either says the level rose by 20 ms or more.
         /// </summary>
-        public Verdict ComputeVerdict(long totalSeconds, int botCount)
+        public Verdict ComputeVerdict(long totalSeconds, int botCount, double relayHz = 20.0)
         {
+            double overstaleThresholdMs = OverstaleThresholdMsFor(relayHz);
             lock (_gate)
             {
                 // Per-second p50 across both bots combined - the curve the CSV plots.
@@ -233,10 +254,18 @@ namespace RelayBot
                     return new Verdict(false, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN,
                         _matched, _unmatched, totalSends, _gaps.Count, _disconnects.Count,
                         _heartbeats, _decodeErrors, _timelineViolations, _botDeaths.Count,
-                        "NO SAMPLES - nothing was relayed; the soak did not measure anything.");
+                        "NO SAMPLES - nothing was relayed; the soak did not measure anything.",
+                        0.0, overstaleThresholdMs);
                 }
 
                 all.Sort();
+
+                long overstale = 0;
+                foreach (double sample in all)
+                {
+                    if (sample > overstaleThresholdMs) { overstale++; }
+                }
+                double overstaleShare = (double)overstale / all.Count;
 
                 // Window = a fifth of the soak, capped at 60 s, floored at 5 s.
                 int window = (int)Math.Clamp(totalSeconds / 5, 5, 60);
@@ -258,7 +287,8 @@ namespace RelayBot
                 return new Verdict(flat, drift, slopeOverSoak,
                     Percentile(all, 0.50), Percentile(all, 0.95), all[^1],
                     _matched, _unmatched, totalSends, _gaps.Count, _disconnects.Count,
-                    _heartbeats, _decodeErrors, _timelineViolations, _botDeaths.Count, detail);
+                    _heartbeats, _decodeErrors, _timelineViolations, _botDeaths.Count, detail,
+                    overstaleShare, overstaleThresholdMs);
             }
         }
 

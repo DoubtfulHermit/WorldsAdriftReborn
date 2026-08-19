@@ -44,6 +44,19 @@
     </Reference>
   </ItemGroup>
 
+  <!--
+    The server's engine-free policy library. The bot needs exactly two things
+    from it - the relay's own cadence (RelayCadencePolicy, so the gate's
+    "longer than one emit interval" means the interval the SERVER actually
+    uses) and the level judgement (SoakLevelPolicy). Both are pure C# with no
+    references of their own, and putting the judgement there rather than here
+    is what lets the fast Multiplayer suite test the gate: a threshold nobody
+    can unit-test is a threshold that quietly stops meaning anything.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../../../WorldsAdriftRebornGameServer.Multiplayer/WorldsAdriftRebornGameServer.Multiplayer.csproj" />
+  </ItemGroup>
+
   <!-- The natively built shim, if present, rides along to the output dir. -->
   <ItemGroup>
     <None Include="../build-native/libCoreSdkDll.so"
