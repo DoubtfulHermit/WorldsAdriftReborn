@@ -21,52 +21,56 @@ sitting in the shipped client the whole time.
    `BarPipeBent_unityclient` are baked into `resources.assets`, carry the full
    ship-part component stack, and have icons filed under `ship parts/`.
 
-Both misses share one root cause, and it is not laziness:
+Both misses share one root cause, and it is worth stating precisely rather
+than as a slogan, because the precise version is more useful.
 
-> **The decompile cannot tell you the name of a thing you have not thought to
-> search for.**
+### 0.0 The fuel tank was findable in three places. The search looked in a fourth.
 
-That is not a figure of speech. It is a measured property of this codebase.
-The prefab-enumeration pass done for this document grepped every one of the
-353 entity-prefab names against the entire decompile at
-`/home/ttanurhan/Games/WAReborn-decompiled/` and got **zero hits**. Prefab
-names live purely in asset data; they never appear in code. A code search for
-`"fuel tank"` was therefore guaranteed to fail no matter how thorough it was.
+The received account of the first miss is *"the fuel tank doesn't exist under
+any name we could find"*. **That account is wrong, and this pass can now show
+exactly how wrong.** Searching for the literal word `fueltank` finds it in
+three separate places:
 
-**The method this document uses instead — and the method that should be used
-from now on — is to enumerate contents, not to test hypotheses.** You cannot
-fail to think of a name that is printed in a list in front of you.
+| where | what is there |
+|---|---|
+| `component-map.tsv` | **1106 `FuelTankState`** — a real component id, in the file this project calls its canonical component index |
+| the decompile | **`acs/ShipFuelTankPreprocessor.cs`** — a whole class named for it |
+| the Unity asset paths | **`Assets/EntityPrefabs/Ship Parts/FuelTanks/FuelTank01.prefab`** — a folder called `FuelTanks`, containing `FuelTank01` |
 
-### 0.0 The fuel tank was there all along, spelled `FuelTank01`
+The third of those came out of a **fifth oracle nobody had ever extracted**:
+Unity's own source-tree paths, still sitting in `resources.assets` as plain
+strings, 1,099 of them (§0.2.1). `FuelTank01.prefab` is the source asset that
+`PowerGenerator01_unityclient` is built from — **Bossa renamed the entity
+prefab and never renamed the file.**
 
-Late in this pass, chasing an unrelated community lead, the extraction turned
-up a **fifth oracle nobody had used: Unity's own asset paths**, still present
-as plain strings in `resources.assets`. **1,099 of them.** And in that list:
+And the one name space where the word genuinely cannot appear is the entity-
+prefab name table, where it is `PowerGenerator01`. **That is the table that
+was searched.**
 
-```
-Assets/EntityPrefabs/Ship Parts/FuelTanks/FuelTank01.prefab
-```
+So the failure was not "the decompile can't tell you a name you didn't think
+of". The searcher *did* think of the right word. The failure was **searching
+one name space and reporting the result as if it covered all of them.**
 
-**A folder called `FuelTanks`, containing `FuelTank01`.** It is the source
-asset that `PowerGenerator01_unityclient` is built from — Bossa renamed the
-*entity prefab* and never renamed the *file*.
+### 0.0.1 What is actually true about where names live
 
-So the original search was not merely unlucky. **It was looking in the one
-table where the word could not appear** (the entity-prefab name table, where
-it is `PowerGenerator01`) while the word sat, spelled exactly as searched, in
-a table nobody had extracted. A `grep -i fueltank` over the asset-path list
-would have ended that investigation in one second, years ago.
+Measured for this document, over all 349 entity-prefab names against the whole
+decompile: **80 have a hit, 269 do not.** So the folk rule *"prefab names
+never appear in code"* is roughly 77% true and confidently wrong in the
+remaining 23% — and the exceptions are not random. `ModularSwivelGun` hits
+(`DummyModularSwivelGunGenerator.cs`). `BarPipe`, `CrowsNest` and
+`PowerGenerator01` do not.
 
-Two things follow, and they are the practical takeaway of this whole document:
+**The rule that actually holds is narrower and more useful:**
 
-1. **A negative result is only as wide as the tables you searched.** "I
-   searched `resources.assets` for a fuel tank prefab" sounded exhaustive and
-   covered one of at least five enumerable name spaces in the same file.
-2. **Enumerate the oracles before enumerating the content.** Nobody had ever
-   counted how many closed lists of retail content this project was already
-   sitting on. The answer turned out to be five, and two of them
-   (`knowledge-tree.json`, §4.7; the asset paths, §0.2) had never been read as
-   lists at all.
+> A given thing is named differently in each name space, and no one name space
+> contains them all. A negative result is only as wide as the spaces you
+> searched — and until this document nobody had counted how many there were.
+
+**Hence the method here: enumerate contents, don't test hypotheses.** You
+cannot fail to think of a name that is printed in a list in front of you. The
+answer to "how many lists?" turned out to be **five**, and two of them —
+`knowledge-tree.json` (§4.7) and the asset paths (§0.2.1) — had been sitting
+in reach the whole time and had never been read as lists at all.
 
 ### 0.1 Provenance key
 
@@ -108,7 +112,7 @@ nothing**, while a presence is as strong as evidence gets.
 
 What it is uniquely good for is exactly the case that started this document:
 **it preserves names from before a rename**, and it groups things into Bossa's
-own folders.
+own folders. `FuelTank01.prefab` (§0.0) is the proof.
 
 | folder | paths recovered |
 |---|---:|
