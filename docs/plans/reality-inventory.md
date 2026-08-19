@@ -49,9 +49,9 @@ The repo's existing labels, unchanged.
 | **WIKI** | community sources. Weakest. Their job here is to say *what to look for*; the client then confirms it |
 | **WAREBORN TUNING** | ours. Not Bossa's. Never to be cited as recovered |
 
-### 0.2 The three enumeration oracles
+### 0.2 The four enumeration oracles
 
-Everything below is diffed against one of three complete, closed lists. Each
+Everything below is diffed against one of four complete, closed lists. Each
 was independently re-derived for this document rather than trusted.
 
 | oracle | count | what it is | provenance |
@@ -60,6 +60,11 @@ was independently re-derived for this document rather than trusted.
 | **the icon catalogue** | **1,010** | every icon path in the client's own icon atlas, `docs/research/valid-icons.txt` | **PROVED** — extracted from the shipped atlas; already used as a test oracle by `ReferenceDataCrashSafetyTests` |
 | **the component index** | **444** | `component-map.tsv` — every SpatialOS component id the game's ECS defines | **PROVED** — from the decompile |
 | **the knowledge tree** | **228** | `knowledge-tree.json` — 20 branches of things retail let you *learn to make*, in plain English | **RECOVERED** — Bossa data already in this repo, never read as an enumeration until now (§4.7) |
+
+The knowledge tree was in this repo the whole time and was never read as a
+list — see §4.7. It is included here because *the number of oracles is itself
+a finding*: nobody had counted how many closed enumerations of retail content
+we were already sitting on.
 
 An icon is weaker evidence than a prefab, but it is *not weak*. An artist
 authored, named, sized and shipped a 2×2 sprite called
@@ -609,7 +614,7 @@ folder:
 | `3x4_inertia_pack`, `3x4_stasis_pack` | **movement utilities with real decompiled classes** — see §4.6 |
 | `2x2_bioelectrical_generator2` | a second generator type; icon-only |
 | `3x3_rhegus_greaves` | **the Atlas Boots** — see §4.6 |
-| `1x2_dye`, `2x2_paintcan`, `3x4_paintdrum` | **ship painting**, and all three are named knowledge nodes (§4.7.3). Caveat: dye icons are **tinted procedurally** (`acs/ProcColoredIconHelper.cs`), so per-colour pigment icons would never appear in the atlas — their absence is not evidence (§12.5) |
+| `1x2_dye`, `2x2_paintcan`, `3x4_paintdrum` | **ship painting**, and all three are named knowledge nodes (§4.7.3). Caveat: dye icons are **tinted procedurally** (`acs/ProcColoredIconHelper.cs`), so per-colour pigment icons would never appear in the atlas — their absence is not evidence (§11.5) |
 
 **First aid is a shipped crafting category we have nothing for.** In a game
 about falling off islands, that is a real omission.
@@ -628,7 +633,7 @@ subtracting those, the substantive ones:
 - **Glider** — `item_glider`. **Partially works.** 1151/1152 `GliderState` are
   unserved, but `UtilitySlotActivatedState_Handler.cs:12` relays the deploy so
   *"they can see each other's glider deploy"*. Whether it produces flight is a
-  live-client question (§10), **not** the flat "cannot fly" a component-only
+  live-client question (§12), **not** the flat "cannot fly" a component-only
   reading gives.
 - **Multitool** — five colour variants unreferenced, but the multitool works
   (2002/2105/2106 served); the colours are its **modes**.
@@ -661,7 +666,7 @@ purchases are a later track"*.
 
 **And the whole system is RECOVERED, not merely evidenced.**
 `acs/CipherIconUtil.cs` is a complete specification, found by following a
-community lead (§12) into the decompile:
+community lead (§11) into the decompile:
 
 - **6 colours** — Green, Red, Blue, Yellow, Purple, Orange. Exactly the six
   `*_ciphers` icons.
@@ -683,7 +688,7 @@ So a green cipher always raises hit points, on any part; a purple one boosts
 an engine, raises a cannon's rate of fire, or brakes a wing. **This is not an
 inference — it is a dictionary in the shipped client.**
 
-WIKI adds the mechanic around it (§12): ciphers were obtained by **salvaging
+WIKI adds the mechanic around it (§11): ciphers were obtained by **salvaging
 unwanted procedural schematics** of that part type, a cipher only fits the
 part type it came from, and slotting one **raises some stats at the cost of
 others**. Slot count is bought on the knowledge tree — the 88 `CIPHERSLOT`
@@ -755,7 +760,7 @@ By node type — and the type breakdown is itself a finding:
 | `TECHNOLOGY` | 1 | `Shipbuilding` — the gate on the whole lifetime panel |
 
 **118 of the 228 nodes (88 `CIPHERSLOT` + 30 `SLOT`) exist only to unlock
-cipher and part slots — a system we do not have.** See §11.2.
+cipher and part slots — a system we do not have.** See §10.2.
 
 | branch | nodes | with a schematic |
 |---|---:|---:|
@@ -863,7 +868,7 @@ There is also a `schematic_icon_clothing` category icon.
 **The client's own crafting enum is `{Shipyard, Personal, CraftingStation,
 Cooking, Clothing, None}`. We implement two of the six** — and two of the four
 we do not implement are the reason five recipes cannot be crafted at all
-(§11.1).
+(§10.1).
 
 **35 clothing icons have no data row**, including `head_fugitive`,
 `head_goggles`, `head_samurai`, the `tribal_bargu`/`intucki`/`yharma` sets,
@@ -1201,7 +1206,7 @@ beats a decorative crate.**
 Effort is a first guess only. "None" in the *new components* column means the
 thing renders on machinery we already have.
 
-> **Read §11 first.** Three *live defects* outrank everything in this table,
+> **Read §10 first.** Three *live defects* outrank everything in this table,
 > because a player notices a visible failure long before an absence: five
 > recipes that are learnable and uncraftable (one of them costs **5000
 > knowledge**), 118 knowledge nodes that take payment and deliver nothing, and
@@ -1221,7 +1226,7 @@ thing renders on machinery we already have.
 | 8 | **Ship-part furniture — 17 parts, 0 rows** | 17 icons + 16 prefabs + `schematic_icon_furnciture` | **none** | catalogue rows + schematics. Inert props on a base that already works. **Best count-for-effort on the list** |
 | 9 | **Ship locking** | `Lock`/`LockEquip` + 1217/1218/1220/1221 | 4 | in a PvP game with boardable ships this is a safety feature, not a convenience |
 | 10 | **Fuel's source chain** | `FuelDeposit` + `FuelExtractor` + `FuelEggSpawnerEquip` + 1022, and the client's own placement algorithm in `IslandSurfaceData.cs` (§6.5) | 1022 | today fuel is loot. **This is the generator miss one link upstream** |
-| 11 | **Placed things that do something** — containers that open, campfires that cook, lifters that lift | `Deployables.cs:217-259` registers eight containers and seven stations as `TransformOnly`. The stated reason for the containers — 1081 *"has no ComponentsSerializer branch yet"* — **is stale; 1081 IS served** (`ComponentsSerializer.cs:632`) | 1012, 1021, 1022, 1264, 1272 | the container half needs the ground-placed equivalent of `ShipContainerStock.Ensure` (see §11.5), not just a flag. The station half is five ids for five features that are all already placeable |
+| 11 | **Placed things that do something** — containers that open, campfires that cook, lifters that lift | `Deployables.cs:217-259` registers eight containers and seven stations as `TransformOnly`. The stated reason for the containers — 1081 *"has no ComponentsSerializer branch yet"* — **is stale; 1081 IS served** (`ComponentsSerializer.cs:632`) | 1012, 1021, 1022, 1264, 1272 | the container half needs the ground-placed equivalent of `ShipContainerStock.Ensure` (see §10.5), not just a flag. The station half is five ids for five features that are all already placeable |
 | 12 | **Ciphers and the five procedural quality tiers** | one system, not two (§4.7.2): `RootSchematic`+`Schematic2..5` = the 5 `cannon-1..5`/`engine-1..5`/`wing-1..5` icons; `Slot1..3` + `Glyph1..4` = the 11 cipher icons and `schematicData.json`'s empty `cipherSlots`. The wire messages **already arrive** and are counted and dropped | unknown | retail's ship-part endgame. We ship tier 1 of 5 with no sockets |
 | 13 | **The crow's nest** | 2 prefabs, 2 icons, **zero mentions in this repo** | none | inert structural part. High visibility per unit of work |
 | 14 | **Ship wiring** | `WiringKit` + `ControlButton` + `ControlLever` + 1213–1216 — **a complete subsystem never once named here** | 4 | genuinely new. Ranked here because it is *invisible until you know it existed*, which is this document's whole point |
@@ -1354,7 +1359,7 @@ Two caveats before anyone acts on this:
 ### 9.6 Eight schematic ids we renamed from retail's
 
 **PROVED** — the knowledge tree's own `schematicId` fields carry retail's ids,
-and nothing reads them because the alias map (§11.3) bypasses them entirely.
+and nothing reads them because the alias map (§10.3) bypasses them entirely.
 
 | retail `schematicId` | ours |
 |---|---|
@@ -1374,7 +1379,7 @@ working features. None of these renames is wrong; all eight are invisible.
 
 `KnowledgeSpendPolicy` deliberately maps 13 retail node names onto our nearest
 available recipe. It is the most consequential naming divergence in the repo
-and is documented as a live defect at §11.3 rather than here, because its
+and is documented as a live defect at §10.3 rather than here, because its
 effect is not "hard to find" — it is "wrong for the player".
 
 ### 9.8 Bossa's own typo, shipped
@@ -1384,7 +1389,267 @@ keys off that string, it must be misspelled to match.
 
 ---
 
-## 10. WHAT I COULD NOT ENUMERATE
+---
+
+## 10. LIVE DEFECTS THIS ENUMERATION SURFACED
+
+Not gaps. **Things that are wired up today and behave wrongly for a player on
+production.** They are here because an enumeration found them and a claims
+audit could not have: each one is a piece of content that *looks* implemented
+from every angle except the player's.
+
+They are ranked above most of §8 in real terms — a *visible failure* is worse
+than an absence.
+
+### 10.1 Five recipes are learnable and uncraftable by construction
+
+**PROVED, verified independently.** `schematicData.json` has four `Cooking`
+recipes and one `Shipyard` recipe:
+
+`thuntomiteStew` · `mantaSteak` · `thuntomiteSteak` · `moonshine` ·
+`territory_control_beacon`
+
+`Crafting/StationCraftRouting.cs:85` gates which recipes may be loaded into a
+craft target:
+
+```csharp
+public static bool CategoryMatchesTarget(bool isPersonalTarget, string? recordCategory)
+    => string.Equals(recordCategory ?? "", ExpectedCategoryFor(isPersonalTarget), StringComparison.Ordinal);
+```
+
+`ExpectedCategoryFor` returns **only** `"Personal"` or `"CraftingStation"`.
+`"Cooking"` and `"Shipyard"` match neither target, so the gate at
+`PlayerCraftingInteractionState_Handler.cs:172` rejects all five with
+*"recipe not available here"*.
+
+**The gate itself is correct and load-bearing** — its doc comment explains it
+is the personal-tab crash guard, and that the client NREs in
+`CraftingStationSchematicList.SelectSchematic` on a category mismatch. This is
+not careless code. What is missing is a *third* target for the categories the
+guard does not name.
+
+**The sharpest edge:** the `Territory Control Tower` node costs **5000
+knowledge** — by far the most expensive node in the tree — and its
+`schematicId` is `territory_control_beacon`, category `Shipyard`. A player can
+save up 5000 knowledge, buy it, and own a recipe the server will always
+refuse.
+
+### 10.2 118 knowledge nodes take payment and deliver nothing
+
+**PROVED.** Of the 228 nodes, **88 are `CIPHERSLOT` and 30 are `SLOT`** —
+118 nodes, **3,743 knowledge** in total cost at base price. All of them unlock
+cipher and part slots (§4.7.2), a system we do not have.
+
+`KnowledgeSpendPolicy.Evaluate` returns `Success` for them, deducts the cost,
+increments `currentUses` — and sets `learned = null`. `cipherSlotCounts` is
+serialized permanently empty (`ComponentsSerializer.cs:1409`, *"cipher
+purchases are a later track"*).
+
+**The player pays, gets no error, and receives nothing.** Knowledge is the
+game's only progression currency. The minimum honest fix is to *refuse* these
+purchases until ciphers exist, not to silently accept them.
+
+### 10.3 Thirteen knowledge nodes grant something other than what they say
+
+**PROVED.** `Knowledge/KnowledgeSpendPolicy.cs:100-200` bridges retail node
+names to our recipe ids. Where no faithful recipe existed, it routes to the
+nearest-named node instead — *"so no catalogue recipe is dead content"*, which
+is a defensible intent. The player-facing result is not:
+
+| the node the player buys | what the server actually grants |
+|---|---|
+| **Makeshift Bandages** (60) | `personalReviver` |
+| **Nervure Bandages** (180) | `altimeter` |
+| **Compass** (180) | `headingIndicator` |
+| **Crows Nest** (240) | `smallPanel` |
+| **Paint Drum** (180) | `horn` |
+| **Paint Can** (120) | `airspeedIndicator` |
+| **Metal Chair** (180) | `cupboard` |
+| **Long Wooden Table** (180) | `barrel` |
+| **Long Metal Table** (180) | `assemblyStation` |
+| **Wooden Stool** (120) | `makeshiftStorage` |
+| **Dye** (240) | `clothMakeshift` |
+| **Bread** (240) | `thuntomiteStew` — **which is uncraftable (§10.1)** |
+| **Manta Burger** (240) | `moonshine` — **also uncraftable** |
+
+Two of the thirteen route to recipes that can never be crafted, so those nodes
+cost knowledge and yield nothing twice over.
+
+**This is the generator-class trap turned inside out.** A future agent asking
+*"why don't bandages heal?"* will grep `Makeshift Bandages`, find it
+implemented in `KnowledgeSpendPolicy`, and move on. The name is present and
+the thing is not.
+
+### 10.4 Six data rows point at the wrong icon
+
+**PROVED (icon atlas join).** One-line fixes, listed because they are the
+cheapest items in this entire document:
+
+| row | uses | while this ships unused |
+|---|---|---|
+| `thuntomiteStew` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_crunchythuntomitestew` |
+| `mantaSteak` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_manta_steak_cooked` |
+| `thuntomiteSteak` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_beetle_steak_cooked` |
+| `moonshine` | `scrap items/2x2_Cooking_Pot` | `foods/1x2_moonshine` |
+| `clothMakeshift` | `scrap items/4x2_saborian_Grand_mooring_rope` | `materials/3x1_clothmakeshift` |
+| `helm` | `ship parts/helmwood` | `ship parts/helmmetal` (see §2.3.A) |
+
+All four food rows share one generic cooking-pot sprite while their own
+authored art sits in the atlas.
+
+---
+
+### 10.5 The container trap that makes §8 #11 more than a flag flip
+
+`Deployables.cs:219-221` keeps eight storage containers `TransformOnly`
+because 1081 *"has no ComponentsSerializer branch yet"*. **That is stale —
+1081 is served at `ComponentsSerializer.cs:632`.** But flipping the flag alone
+would be wrong, and `LoosePartCatalogue` already documents why:
+
+> *1081 CARRIES THE ONE TRAP IN THIS FILE. Its serve branch calls
+> `InventoryService.ForEntity`, whose create-factory is
+> `InventoryWire.DefaultModel` — the PLAYER STARTER KIT — and `Bind` runs a
+> factory at most once per key. A container reaching that branch unbound gets
+> a permanent inventory full of gauntlets in a 10x18 belt grid.*
+
+Ship containers avoid this by calling `ShipContainerStock.Ensure` **first**.
+Ground-placed deployables have no equivalent. So the work is *"give placed
+containers their own stock-ensure path"*, not *"set a bool"* — recorded here
+so the top-20 entry is not read as cheaper than it is.
+
+---
+
+## 11. COMMUNITY SOURCES — what they told us to look for, and what the client said back
+
+**WIKI is the weakest evidence class in this document and it produced two of
+its best findings.** That is not a contradiction: a community source's job
+here is never to be believed, it is to *supply a search term*. The client then
+answers.
+
+The corpus: the Steam news archive (296 announcements), 24 Steam guides and
+roughly 100 discussion threads, mined for names of things. Every claim below
+was then checked against `resources.assets` and the decompile, and the result
+of that check is what is recorded.
+
+### 11.1 CONFIRMED — a contradiction the community could not settle, and the client did
+
+Two Bossa documents disagree about one crafting stat: **U29's patch notes say
+`Cooling Factor`; a later dev log says *Added "Cooling Rate"***. A community
+reader cannot tell which shipped.
+
+**The client can, and does.** `Cooling Factor` appears in
+`acs/Travellers.UI.PlayerInventory/CraftingStationCraftingUI.cs`, the field is
+`coolingFactor` in three separate UI classes, and the string is present in
+`resources.assets`. **`Cooling Rate` appears in neither the decompile nor any
+asset file.** The dev log is wrong; **`coolingFactor` is the shipped name.**
+
+This is the method in one line: the community found the ambiguity, the client
+resolved it.
+
+### 11.2 CONFIRMED — the cipher lead paid for the whole exercise
+
+The community described cipher *mechanics* (salvage a schematic of a part type
+to get a cipher for that part type; slotting trades stats against each other;
+slot counts unlock on the knowledge tree) but **found no cipher names
+anywhere**, and noted that the client should still carry per-cipher tooltip
+strings.
+
+Following that into the decompile produced `acs/CipherIconUtil.cs` — the full
+colour × part × stat specification now written up at §4.5. **The community
+supplied the word "cipher" and the confidence that the strings existed; the
+client supplied the entire system.**
+
+### 11.3 REFUTED BY THE CLIENT — procedural part names did not ship
+
+The community recovered retail's procedural naming format verbatim from a 2017
+bug report:
+
+```
+Trunkmaw "stinger" AK-8      banshee "shooter" mk15      Trunkmaw "shooter" FK-11
+```
+
+— `<Casing> "<mid-word>" <Designation>`, with two designation grammars
+(`AK-8`, `FK-11`, `AAB-7`, `HD-10`; and `mk15`).
+
+**Checked against the client: `Trunkmaw`, `Banshee`, `stinger` and `shooter`
+return ZERO hits in `resources.assets`, in `sharedassets0.assets`, and in the
+entire decompile.**
+
+So the name banks were **server reference data**, exactly like recipes and item
+rows (§0). They did not ship, and no amount of asset mining will recover them.
+Any procedural naming we build is **WAREBORN TUNING**, and the format above —
+which *is* recovered — is the only part that can be reproduced faithfully.
+
+### 11.4 CONFIRMED, and it explains the food names
+
+`Capulca` — cited by the community as part of the Founder engine name
+*"Capulca Mk. 2"* — **is in `resources.assets`**, inside a `FoundersTomeInfo`
+name bank. Pulling that bank out yields ~80 place, culture and profession
+names, and it immediately explains a set of food-icon names that looked like
+nonsense words:
+
+| food icon | name bank entry |
+|---|---|
+| `1x2_birikoispices` | **Birikoi** |
+| `1x1_conossalt` | **Conos** |
+| `1x1_selenesugar` | **Selene** |
+| `2x2_verdubanstylebatteredthuntomite` | **Verduba** |
+| `clothing/…/tribal_bargu` | **Bargu Jiu** |
+
+Along with `Wahsili Desert`, `The Vinicoti Islands`, `The Mount of Plenty`,
+`The Studded Desert`, `The Night Desert`, `The Warm Sea`, `The Great Ocean`,
+`The Cold Sea`, and cultures including `Sabor`, `Marsha`, `Meliflua`, `Chabuti`.
+
+**So retail's food names are place-of-origin names, and the places are
+recoverable.** That is a real constraint on §4.1: cooking content should be
+named out of this bank, not invented.
+
+Note also that `Capulca` is a *place* name, not a cannon casing — consistent
+with the community's report that it labelled a **Founder** engine. Founder
+parts are named after Founders-Tome places; procedural parts used the
+unshipped casing bank.
+
+### 11.5 USEFUL BUT UNCONFIRMED
+
+- **Stat abbreviations as players wrote them** — `RES`, `POW`/`POWER`, `PIV`,
+  `CAP`, `HEAT`, `ROF`. `rateOfFire` ⇒ ROF and `overheatLimit` ⇒ HEAT are
+  safe; `PIV`, `CAP` and `RES` have no obvious partner in the ten-stat
+  vocabulary and are **not** confirmed.
+- **Buff axes** — movement/sprint speed, jump height, climbing speed,
+  impact-damage reduction, health increase; eating replaces any active buff.
+  The first three match `PlayerBuffBehaviour`'s six verbs exactly (§4.9). The
+  last two do **not** appear in that enum and are unconfirmed.
+- **Dyes are tinted procedurally.** A patch note records *"Implemented dye mod
+  to have procedurally colored icon"*, and the decompile has
+  `acs/ProcColoredIconHelper.cs`. **Consequence for this document: the absence
+  of pigment-colour icons from the atlas is NOT evidence that pigments were
+  not shipped.** §4.3's dye/paint entry must be read with that caveat. U29 also
+  removed the dyed-cloth middle step and moved paint into cosmetic component
+  slots shared between ship-part painting and clothing.
+- **`Titan`, `Godhand`, `Tube Stinger`** appear nowhere in the Steam corpus.
+  `Godhand` surfaces in the client only in `acs/CustomisationSettings.cs`, as a
+  **Saborian uniform** — which supports the wiki's note that it is culture
+  iconography rather than a distinct part.
+
+### 11.6 The honest limits of the community pass
+
+- **The Steam discussion search rate-limited after ~40 queries. The pool was
+  not exhausted.** Anything this document records as "not found in the
+  community corpus" means *a bounded search did not find it*, never *it does
+  not exist*. Given that this whole document exists because two things were
+  wrongly declared absent, that distinction is the point.
+- **Food is essentially unrecoverable from Steam.** Zero recipe names across
+  296 announcements and 24 guides — only category words (`sweets`, `syrup`),
+  `Bandages`, `Booze`, and marketing prose (`manta steaks`,
+  `Thuntomite burgers`, the latter from a sale line rather than a patch note).
+- **One lead was found and NOT pursued:** the official December 2018 tutorial
+  video demonstrates the cooking UI on screen. Recipe names would be **readable
+  in the video frames**, not in any text source. That is the most promising
+  remaining avenue for §4.1 and nobody has walked it.
+
+---
+
+## 12. WHAT I COULD NOT ENUMERATE
 
 Stated rather than guessed. Each line says what would settle it.
 
@@ -1443,243 +1708,3 @@ Stated rather than guessed. Each line says what would settle it.
 12. **`.resS` streaming blobs were not scanned.** They hold raw texture and
     mesh payloads with no name tables, so this should not hide any name — but
     it is an unscanned region and is recorded as such.
-
----
-
-## 11. LIVE DEFECTS THIS ENUMERATION SURFACED
-
-Not gaps. **Things that are wired up today and behave wrongly for a player on
-production.** They are here because an enumeration found them and a claims
-audit could not have: each one is a piece of content that *looks* implemented
-from every angle except the player's.
-
-They are ranked above most of §8 in real terms — a *visible failure* is worse
-than an absence.
-
-### 11.1 Five recipes are learnable and uncraftable by construction
-
-**PROVED, verified independently.** `schematicData.json` has four `Cooking`
-recipes and one `Shipyard` recipe:
-
-`thuntomiteStew` · `mantaSteak` · `thuntomiteSteak` · `moonshine` ·
-`territory_control_beacon`
-
-`Crafting/StationCraftRouting.cs:85` gates which recipes may be loaded into a
-craft target:
-
-```csharp
-public static bool CategoryMatchesTarget(bool isPersonalTarget, string? recordCategory)
-    => string.Equals(recordCategory ?? "", ExpectedCategoryFor(isPersonalTarget), StringComparison.Ordinal);
-```
-
-`ExpectedCategoryFor` returns **only** `"Personal"` or `"CraftingStation"`.
-`"Cooking"` and `"Shipyard"` match neither target, so the gate at
-`PlayerCraftingInteractionState_Handler.cs:172` rejects all five with
-*"recipe not available here"*.
-
-**The gate itself is correct and load-bearing** — its doc comment explains it
-is the personal-tab crash guard, and that the client NREs in
-`CraftingStationSchematicList.SelectSchematic` on a category mismatch. This is
-not careless code. What is missing is a *third* target for the categories the
-guard does not name.
-
-**The sharpest edge:** the `Territory Control Tower` node costs **5000
-knowledge** — by far the most expensive node in the tree — and its
-`schematicId` is `territory_control_beacon`, category `Shipyard`. A player can
-save up 5000 knowledge, buy it, and own a recipe the server will always
-refuse.
-
-### 11.2 118 knowledge nodes take payment and deliver nothing
-
-**PROVED.** Of the 228 nodes, **88 are `CIPHERSLOT` and 30 are `SLOT`** —
-118 nodes, **3,743 knowledge** in total cost at base price. All of them unlock
-cipher and part slots (§4.7.2), a system we do not have.
-
-`KnowledgeSpendPolicy.Evaluate` returns `Success` for them, deducts the cost,
-increments `currentUses` — and sets `learned = null`. `cipherSlotCounts` is
-serialized permanently empty (`ComponentsSerializer.cs:1409`, *"cipher
-purchases are a later track"*).
-
-**The player pays, gets no error, and receives nothing.** Knowledge is the
-game's only progression currency. The minimum honest fix is to *refuse* these
-purchases until ciphers exist, not to silently accept them.
-
-### 11.3 Thirteen knowledge nodes grant something other than what they say
-
-**PROVED.** `Knowledge/KnowledgeSpendPolicy.cs:100-200` bridges retail node
-names to our recipe ids. Where no faithful recipe existed, it routes to the
-nearest-named node instead — *"so no catalogue recipe is dead content"*, which
-is a defensible intent. The player-facing result is not:
-
-| the node the player buys | what the server actually grants |
-|---|---|
-| **Makeshift Bandages** (60) | `personalReviver` |
-| **Nervure Bandages** (180) | `altimeter` |
-| **Compass** (180) | `headingIndicator` |
-| **Crows Nest** (240) | `smallPanel` |
-| **Paint Drum** (180) | `horn` |
-| **Paint Can** (120) | `airspeedIndicator` |
-| **Metal Chair** (180) | `cupboard` |
-| **Long Wooden Table** (180) | `barrel` |
-| **Long Metal Table** (180) | `assemblyStation` |
-| **Wooden Stool** (120) | `makeshiftStorage` |
-| **Dye** (240) | `clothMakeshift` |
-| **Bread** (240) | `thuntomiteStew` — **which is uncraftable (§11.1)** |
-| **Manta Burger** (240) | `moonshine` — **also uncraftable** |
-
-Two of the thirteen route to recipes that can never be crafted, so those nodes
-cost knowledge and yield nothing twice over.
-
-**This is the generator-class trap turned inside out.** A future agent asking
-*"why don't bandages heal?"* will grep `Makeshift Bandages`, find it
-implemented in `KnowledgeSpendPolicy`, and move on. The name is present and
-the thing is not.
-
-### 11.4 Six data rows point at the wrong icon
-
-**PROVED (icon atlas join).** One-line fixes, listed because they are the
-cheapest items in this entire document:
-
-| row | uses | while this ships unused |
-|---|---|---|
-| `thuntomiteStew` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_crunchythuntomitestew` |
-| `mantaSteak` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_manta_steak_cooked` |
-| `thuntomiteSteak` | `scrap items/2x2_Cooking_Pot` | `foods/2x2_beetle_steak_cooked` |
-| `moonshine` | `scrap items/2x2_Cooking_Pot` | `foods/1x2_moonshine` |
-| `clothMakeshift` | `scrap items/4x2_saborian_Grand_mooring_rope` | `materials/3x1_clothmakeshift` |
-| `helm` | `ship parts/helmwood` | `ship parts/helmmetal` (see §2.3.A) |
-
-All four food rows share one generic cooking-pot sprite while their own
-authored art sits in the atlas.
-
----
-
----
-
-## 12. COMMUNITY SOURCES — what they told us to look for, and what the client said back
-
-**WIKI is the weakest evidence class in this document and it produced two of
-its best findings.** That is not a contradiction: a community source's job
-here is never to be believed, it is to *supply a search term*. The client then
-answers.
-
-The corpus: the Steam news archive (296 announcements), 24 Steam guides and
-roughly 100 discussion threads, mined for names of things. Every claim below
-was then checked against `resources.assets` and the decompile, and the result
-of that check is what is recorded.
-
-### 12.1 CONFIRMED — a contradiction the community could not settle, and the client did
-
-Two Bossa documents disagree about one crafting stat: **U29's patch notes say
-`Cooling Factor`; a later dev log says *Added "Cooling Rate"***. A community
-reader cannot tell which shipped.
-
-**The client can, and does.** `Cooling Factor` appears in
-`acs/Travellers.UI.PlayerInventory/CraftingStationCraftingUI.cs`, the field is
-`coolingFactor` in three separate UI classes, and the string is present in
-`resources.assets`. **`Cooling Rate` appears in neither the decompile nor any
-asset file.** The dev log is wrong; **`coolingFactor` is the shipped name.**
-
-This is the method in one line: the community found the ambiguity, the client
-resolved it.
-
-### 12.2 CONFIRMED — the cipher lead paid for the whole exercise
-
-The community described cipher *mechanics* (salvage a schematic of a part type
-to get a cipher for that part type; slotting trades stats against each other;
-slot counts unlock on the knowledge tree) but **found no cipher names
-anywhere**, and noted that the client should still carry per-cipher tooltip
-strings.
-
-Following that into the decompile produced `acs/CipherIconUtil.cs` — the full
-colour × part × stat specification now written up at §4.5. **The community
-supplied the word "cipher" and the confidence that the strings existed; the
-client supplied the entire system.**
-
-### 12.3 REFUTED BY THE CLIENT — procedural part names did not ship
-
-The community recovered retail's procedural naming format verbatim from a 2017
-bug report:
-
-```
-Trunkmaw "stinger" AK-8      banshee "shooter" mk15      Trunkmaw "shooter" FK-11
-```
-
-— `<Casing> "<mid-word>" <Designation>`, with two designation grammars
-(`AK-8`, `FK-11`, `AAB-7`, `HD-10`; and `mk15`).
-
-**Checked against the client: `Trunkmaw`, `Banshee`, `stinger` and `shooter`
-return ZERO hits in `resources.assets`, in `sharedassets0.assets`, and in the
-entire decompile.**
-
-So the name banks were **server reference data**, exactly like recipes and item
-rows (§0). They did not ship, and no amount of asset mining will recover them.
-Any procedural naming we build is **WAREBORN TUNING**, and the format above —
-which *is* recovered — is the only part that can be reproduced faithfully.
-
-### 12.4 CONFIRMED, and it explains the food names
-
-`Capulca` — cited by the community as part of the Founder engine name
-*"Capulca Mk. 2"* — **is in `resources.assets`**, inside a `FoundersTomeInfo`
-name bank. Pulling that bank out yields ~80 place, culture and profession
-names, and it immediately explains a set of food-icon names that looked like
-nonsense words:
-
-| food icon | name bank entry |
-|---|---|
-| `1x2_birikoispices` | **Birikoi** |
-| `1x1_conossalt` | **Conos** |
-| `1x1_selenesugar` | **Selene** |
-| `2x2_verdubanstylebatteredthuntomite` | **Verduba** |
-| `clothing/…/tribal_bargu` | **Bargu Jiu** |
-
-Along with `Wahsili Desert`, `The Vinicoti Islands`, `The Mount of Plenty`,
-`The Studded Desert`, `The Night Desert`, `The Warm Sea`, `The Great Ocean`,
-`The Cold Sea`, and cultures including `Sabor`, `Marsha`, `Meliflua`, `Chabuti`.
-
-**So retail's food names are place-of-origin names, and the places are
-recoverable.** That is a real constraint on §4.1: cooking content should be
-named out of this bank, not invented.
-
-Note also that `Capulca` is a *place* name, not a cannon casing — consistent
-with the community's report that it labelled a **Founder** engine. Founder
-parts are named after Founders-Tome places; procedural parts used the
-unshipped casing bank.
-
-### 12.5 USEFUL BUT UNCONFIRMED
-
-- **Stat abbreviations as players wrote them** — `RES`, `POW`/`POWER`, `PIV`,
-  `CAP`, `HEAT`, `ROF`. `rateOfFire` ⇒ ROF and `overheatLimit` ⇒ HEAT are
-  safe; `PIV`, `CAP` and `RES` have no obvious partner in the ten-stat
-  vocabulary and are **not** confirmed.
-- **Buff axes** — movement/sprint speed, jump height, climbing speed,
-  impact-damage reduction, health increase; eating replaces any active buff.
-  The first three match `PlayerBuffBehaviour`'s six verbs exactly (§4.9). The
-  last two do **not** appear in that enum and are unconfirmed.
-- **Dyes are tinted procedurally.** A patch note records *"Implemented dye mod
-  to have procedurally colored icon"*, and the decompile has
-  `acs/ProcColoredIconHelper.cs`. **Consequence for this document: the absence
-  of pigment-colour icons from the atlas is NOT evidence that pigments were
-  not shipped.** §4.3's dye/paint entry must be read with that caveat. U29 also
-  removed the dyed-cloth middle step and moved paint into cosmetic component
-  slots shared between ship-part painting and clothing.
-- **`Titan`, `Godhand`, `Tube Stinger`** appear nowhere in the Steam corpus.
-  `Godhand` surfaces in the client only in `acs/CustomisationSettings.cs`, as a
-  **Saborian uniform** — which supports the wiki's note that it is culture
-  iconography rather than a distinct part.
-
-### 12.6 The honest limits of the community pass
-
-- **The Steam discussion search rate-limited after ~40 queries. The pool was
-  not exhausted.** Anything this document records as "not found in the
-  community corpus" means *a bounded search did not find it*, never *it does
-  not exist*. Given that this whole document exists because two things were
-  wrongly declared absent, that distinction is the point.
-- **Food is essentially unrecoverable from Steam.** Zero recipe names across
-  296 announcements and 24 guides — only category words (`sweets`, `syrup`),
-  `Bandages`, `Booze`, and marketing prose (`manta steaks`,
-  `Thuntomite burgers`, the latter from a sale line rather than a patch note).
-- **One lead was found and NOT pursued:** the official December 2018 tutorial
-  video demonstrates the cooking UI on screen. Recipe names would be **readable
-  in the video frames**, not in any text source. That is the most promising
-  remaining avenue for §4.1 and nobody has walked it.
