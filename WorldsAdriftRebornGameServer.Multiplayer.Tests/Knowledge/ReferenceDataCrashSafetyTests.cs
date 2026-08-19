@@ -76,9 +76,31 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Knowledge
         // the combustion/light recipes that consume it (torch, hipLamp, headTorch,
         // campFire, stove, lamp - the slots that already carry the fuel-container icon)
         // are craftable in the live world.
+        /// <summary>
+        /// What a player can actually GET in the live world, hand-maintained. It
+        /// widens as gather sources land, and every addition here should name the
+        /// source that made it true.
+        ///
+        /// KNOWN STALE, and deliberately not fixed here: Haven's nuggets have long
+        /// paid cobalt, titanium and aurium too (see MetalNodes.HavenPlacements),
+        /// and those are missing below. Adding them only widens what counts as
+        /// craftable, so their absence has never hidden a defect - but it means this
+        /// set is a floor rather than an inventory, and it should eventually be
+        /// derived from the registered yields rather than typed out.
+        /// </summary>
         private static readonly HashSet<string> GatherableMaterials = new()
         {
-            "iron", "copper", "aluminium", "birch",
+            // Metal nodes and deposits.
+            "iron", "copper", "aluminium",
+            // Added when Haven's deposits stopped being uniformly iron and started
+            // drawing from the surveyed tier-1 cohort (IslandMetalTable.HavenRing).
+            "bronze", "lead", "tin", "epilar",
+            // Trees. Haven plants birch; the other seven woods are registered so a
+            // species placed later pays correctly the first time.
+            "birch",
+            // Added when a tree cut started paying its second and third yields
+            // alongside the wood (TreeYield).
+            "plantFiber", "daccatBerries",
             "atlasShard",
             "fuel",
         };

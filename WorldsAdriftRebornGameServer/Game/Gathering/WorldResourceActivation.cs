@@ -54,8 +54,11 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 MetalNode? node = MetalNodes.ByKey(entity.Key);
                 if (node != null && _nodes.Register(entityId, node))
                 {
-                    HarvestReward.Register(node.MetalType,
-                        new Multiplayer.Gathering.YieldRule(node.MetalType, 1));
+                    // NodeYield, not a hand-written rule: it carries the node's own
+                    // quality across, which every hand-written rule here used to drop.
+                    HarvestReward.Register(
+                        Multiplayer.Gathering.NodeYield.SourceKeyFor(node),
+                        Multiplayer.Gathering.NodeYield.RuleFor(node));
                     _metal.Place(entityId, MetalNodes.NuggetYieldUnits);
                     Console.WriteLine("[world-resource] activated metal node '" + entity.Key
                         + "' as entity " + entityId + ".");
@@ -68,8 +71,9 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
                 MetalNode? deposit = MetalDeposits.ByKey(entity.Key);
                 if (deposit != null && _nodes.Register(entityId, deposit))
                 {
-                    HarvestReward.Register(deposit.MetalType,
-                        new Multiplayer.Gathering.YieldRule(deposit.MetalType, 1));
+                    HarvestReward.Register(
+                        Multiplayer.Gathering.NodeYield.SourceKeyFor(deposit),
+                        Multiplayer.Gathering.NodeYield.RuleFor(deposit));
                     _metal.Place(entityId, MetalDeposits.YieldUnits, MetalDeposits.ShotsToDeplete);
                     Console.WriteLine("[world-resource] activated deposit '" + entity.Key
                         + "' as entity " + entityId + ".");
@@ -96,9 +100,13 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
 
             if (FuelPods.IsPodKey(entity.Key) && _fuel.Register(entityId))
             {
+                // Fuel is QUALITY-EXEMPT and stays so. Retail excludes it from the
+                // quality scale explicitly (acs/ScannableData.cs:325), so it is the one
+                // material for which the 0 that broke every metal is the right answer.
                 HarvestReward.Register(
                     FuelPods.ItemTypeId,
-                    new Multiplayer.Gathering.YieldRule(FuelPods.ItemTypeId, 1));
+                    new Multiplayer.Gathering.YieldRule(FuelPods.ItemTypeId, 1,
+                        Multiplayer.Gathering.YieldRule.QualityExempt));
                 Console.WriteLine("[world-resource] activated fuel canister '" + entity.Key
                     + "' as entity " + entityId + ".");
                 activated = true;

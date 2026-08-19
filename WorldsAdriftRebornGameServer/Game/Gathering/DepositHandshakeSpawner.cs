@@ -33,16 +33,65 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
     internal static class DepositHandshakeSpawner
     {
         /// <summary>
-        /// The metal type a handshake deposit represents. RECONSTRUCTED: the retail
-        /// biome material table (which metal, which quality) did not survive, so a
-        /// handshake deposit is a plain starter metal until refdata is recovered. The
-        /// VISUALS come from the client-chosen <c>variant</c>, not from this - this only
-        /// names the future salvage grant's item type (a real itemData.json row).
+        /// The metal a handshake deposit falls back to when its island cannot be
+        /// identified, or is identified but no catalogue holds a metal table for it.
+        ///
+        /// It used to be the metal for EVERY handshake deposit, on the stated
+        /// grounds that "the retail biome material table did not survive". That was
+        /// wrong, and it is the single reason every rock a live player could reach
+        /// was iron: the per-island table DID survive, was imported into
+        /// release-runtime-catalog.json for all 254 islands with its provenance
+        /// recorded, and is what ReleaseWorldCatalog already stamps its own 1930
+        /// deposits from. This path simply never asked it.
+        ///
+        /// The VISUALS still come from the client-chosen <c>variant</c>, not from
+        /// here - this names the salvage grant's item type (a real itemData.json
+        /// row) and nothing else.
         /// </summary>
-        internal const string DefaultMetalType = "iron";
+        internal const string DefaultMetalType = Multiplayer.Gathering.IslandMetalTable.FallbackMetal;
 
-        /// <summary>Reconstructed quality for the future grant; unused by the deposit's rendering.</summary>
+        /// <summary>Fallback quality, used only when the island's own table cannot be found.</summary>
         internal const int DefaultQuality = 5;
+
+        /// <summary>
+        /// The metal and quality for the <paramref name="index"/>-th deposit on an
+        /// island, drawn from that island's own table.
+        ///
+        /// The island is recovered from its entity id through the world registry
+        /// key, because the handshake reply carries only the id. A miss at any step
+        /// - unbound id, unknown key, island with no table - degrades to the
+        /// fallback and SAYS SO, rather than quietly paying iron and looking like a
+        /// deliberate choice, which is how the previous hardcode survived so long.
+        /// </summary>
+        private static (string Metal, int Quality) MetalFor(long islandEntityId, int index)
+        {
+            Multiplayer.WorldEntity? island =
+                WorldsAdriftRebornGameServer.WorldEntities.ByEntityId(islandEntityId);
+            Multiplayer.Islands.IslandDefinition? definition = island == null
+                ? null
+                : WorldsAdriftRebornGameServer.IslandTopology.ByWorldEntityKey(island.Key);
+
+            if (definition == null)
+            {
+                System.Console.WriteLine("[warning] resource-handshake: island entity " + islandEntityId
+                    + " is not a known island, so deposit " + index + " falls back to "
+                    + DefaultMetalType + " q" + DefaultQuality + ".");
+                return (DefaultMetalType, DefaultQuality);
+            }
+
+            Multiplayer.Islands.SurveyedMetal? draw =
+                Multiplayer.Gathering.IslandMetalTable.DrawFor(definition.Id, index);
+
+            if (draw == null)
+            {
+                System.Console.WriteLine("[warning] resource-handshake: island '" + definition.Id
+                    + "' has no metal table, so deposit " + index + " falls back to "
+                    + DefaultMetalType + " q" + DefaultQuality + ".");
+                return (DefaultMetalType, DefaultQuality);
+            }
+
+            return (Multiplayer.Gathering.IslandMetalTable.ItemTypeIdOf(draw), draw.Quality);
+        }
 
         private static bool _globalEntityEnsured;
 
@@ -54,10 +103,12 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// </summary>
         internal static long? Spawn(long islandEntityId, AdmittedDeposit admitted)
         {
+            (string metal, int quality) = MetalFor(islandEntityId, admitted.Index);
+
             MetalNode node = new MetalNode(
                 KeyFor(islandEntityId, admitted.Index),
-                DefaultMetalType,
-                DefaultQuality,
+                metal,
+                quality,
                 admitted.Position,
                 isDeposit: true,
                 variantId: admitted.Variant);
@@ -159,8 +210,8 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             if (WorldsAdriftRebornGameServer.Nodes.Register(entityId, node))
             {
                 HarvestReward.Register(
-                    node.MetalType,
-                    new Multiplayer.Gathering.YieldRule(node.MetalType, amountPerUnit: 1));
+                    Multiplayer.Gathering.NodeYield.SourceKeyFor(node),
+                    Multiplayer.Gathering.NodeYield.RuleFor(node));
 
                 WorldsAdriftRebornGameServer.MetalHarvest.Place(
                     entityId,

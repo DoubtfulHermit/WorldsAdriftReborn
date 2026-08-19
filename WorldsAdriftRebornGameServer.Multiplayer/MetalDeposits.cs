@@ -197,9 +197,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// threshold, target count, clearances).
         ///
         /// Haven has no surviving per-island community resource row because it was
-        /// Bossa-authored, not a Workshop island. Its explicit starter-biome profile
-        /// is therefore conservative: IRON only, the metal required by Haven's first
-        /// crafting loop, rather than an invented rotating assortment.
+        /// Bossa-authored, not a Workshop island. Its metal spread therefore comes
+        /// from <see cref="Gathering.IslandMetalTable.HavenRing"/> - the surveyed
+        /// TIER-1 COHORT's own frequencies, which is how the other 193 unsurveyed
+        /// islands were already composed - with iron pinned to index 0 so the first
+        /// rock beside the spawn is always the metal the first recipe wants. Read
+        /// that field's note before changing any of it.
         /// </summary>
         public static readonly IReadOnlyList<Placement> HavenPlacements = BuildHavenPlacements();
 
@@ -216,14 +219,40 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         }
 
         /// <summary>
-        /// The Haven starter-biome metal. Deliberately iron-only: there is no recovered
-        /// Bossa Haven metal table, so cycling arbitrary metals would manufacture lore
-        /// and make the starter material needlessly scarce.
+        /// The Haven starter-biome metal for a placement index.
+        ///
+        /// INDEX 0 IS ALWAYS IRON, unconditionally and before the ring is consulted.
+        /// That node is the proven placement 8.9 m from the spawn point, and a new
+        /// player walking up to it and finding bronze would make the starter recipe
+        /// look broken rather than the world look varied.
+        ///
+        /// Everything after it comes from the tier-1 cohort ring - see
+        /// <see cref="Gathering.IslandMetalTable.HavenRing"/>, which is where the
+        /// justification and the WAREBORN TUNING label live.
         /// </summary>
-        private static string MetalTypeFor(int index) => "iron";
+        private static string MetalTypeFor(int index)
+        {
+            if (index == 0)
+            {
+                return Gathering.IslandMetalTable.FallbackMetal;
+            }
 
-        /// <summary>Stable mid-low starter quality; no invented per-node quality lottery.</summary>
-        private static int QualityFor(int index) => 6;
+            Islands.SurveyedMetal? draw = Gathering.IslandMetalTable.DrawFor(
+                Islands.IslandCatalog.HavenId, index);
+
+            return draw == null
+                ? Gathering.IslandMetalTable.FallbackMetal
+                : Gathering.IslandMetalTable.ItemTypeIdOf(draw);
+        }
+
+        /// <summary>
+        /// Haven's quality. One value for every node, deliberately: the surveyed
+        /// tier-1 quality band is 1..4, so drawing Haven's quality from the cohort
+        /// too would cut the starter island's metal in the same change that first
+        /// made quality reach the item at all. See
+        /// <see cref="Gathering.IslandMetalTable.HavenQuality"/>.
+        /// </summary>
+        private static int QualityFor(int index) => Gathering.IslandMetalTable.HavenQuality;
 
         /// <summary>
         /// The deposit for a registration key ("deposit-N"), or null if the key is not
