@@ -220,7 +220,50 @@ capsule/rarity tier system. **PROVED (icons)**.
 
 ### 2.1 What the client ships — all 98
 
-*(see §1.3 for why this list is exactly 98 and not a judgement call)*
+Two independent 98s (§1.3). Here is the **icon** axis, which is the one the
+maintainer's original measurement used, because icon names carry the
+material and culture variants that prefab names collapse.
+
+**`ship parts/` — 81**
+
+```
+allianceradio01     barpipe             barpipebent         barrelmetal
+barrelwood          containerlargemetal containerlargewood  containermediummetal
+containermediumwood containermountmetal containermountwood  containersmallmetal
+containersmallwood  coreairfilter       coreatlasenhancer   corecircuitrynetwork
+corecomputer        corecoolantsystem   coreefficiencymodule coregenerator
+coremain            corestabiliser      crowsnest           cupboardmetal
+cupboardwood        deckmetal           deckwood            figureheadfounder01
+figureheadkioki01   figureheadkioki02   figureheadpekoe01   figureheadpekoe02
+figureheadpioneer01 figureheadsaborian01 figureheadsaborian02 flagbossa
+flagfounder01       flagfounder02       flagimprobable      flagnailandgear
+flagpirate          gaugeairspeed       gaugealtitude       gaugefuel
+gaugeheading        gaugehorizon        generatormetal      generatorwood
+helmfounder01       helmmetal           helmwood            horn
+jack_o_lantern01    lamp                lampchristmas_01    lampkioki_01
+lamppekoe01         lampsaborian_01     lanternpioneer01    loom
+marauder_mask_01    marauder_mask_02    panellargemetal     panellargewood
+panelmediummetal    panelmediumwood     panelsmallmetal     panelsmallwood
+panelwindow         personalreviver     plaquefounder01     railcornermetal
+railcornerwood      railstraightmetal   railstraightwood    sail
+sailfounder01       shipframe           stairsmetal         stairswood
+stove
+```
+
+**`ship parts/furniture/` — 17**
+
+```
+chair_marauder_01   chair_metal_001     chair_metal_002     chair_wood_001
+lamp_marauder_01    marauder_table      shelf_metal_001     shelf_wood_001
+stool_marauder_01   stool_metal_001     stool_wood_001      stool_wood_002
+stool_wood_003      table_metal_001     table_metal_002     table_wood_001
+table_wood_002
+```
+
+On the **prefab** axis the same 98 are the ship-structure, propulsion, core,
+instrument, decor, storage and furniture groups, plus `ModularCannon`,
+`ModularSwivelGun`, `Respawner01`, `Lock` and — as a joke figurehead —
+`DiscoWhale`.
 
 ### 2.2 What we implement — the 38 in `LoosePartCatalogue`
 
@@ -1039,4 +1082,60 @@ keys off that string, it must be misspelled to match.
 
 ## 10. WHAT I COULD NOT ENUMERATE
 
-*(populated below)*
+Stated rather than guessed. Each line says what would settle it.
+
+1. **Whether the bar pipe is actually the instrument mounting surface.**
+   This document proves bar pipes *exist* and that our instruments currently
+   mount on `ShipDeck` by our own admission. It does **not** prove the pipe is
+   what retail attached them to. Settling it needs the `PlacementRules`
+   typetree read off the ten instrument prefabs and off `BarPipe`. That is the
+   highest-value open question here and it is a read, not a build.
+
+2. **Whether `LoosePartCatalogue`'s 38 rows are 38 *working* parts.** This
+   document counts catalogue rows, not live behaviour. Several rows carry
+   comments saying their functional state is *dormant*. **A row is not a
+   feature.** Only a live client session distinguishes them.
+
+3. **The 161-of-353 prefab figure is an upper bound, not a measurement.** It
+   counts a name appearing anywhere in our source, including in a comment
+   saying we do *not* implement it. A real figure needs a spawn-path trace per
+   prefab.
+
+4. **Whether the `Pipe (Long)/(Short)/(Corner)/(Broken)/(T-Junction)` display
+   names under `BarPipe` mean one entity with five visual variants or
+   something else.** If it is one entity with a variant parameter, modelling
+   pipes as five entities would be wrong. Unresolved.
+
+5. **What `atlas_compressor`, `atlas_injector` and `beltseparator` are.**
+   Three authored icons. `beltseparator` appears in `acs/ScannableData.cs`;
+   the other two appear nowhere outside the atlas. Searched prefabs, all 443
+   components, `itemData.json`, and the decompile. **The strongest unexplained
+   lead in the document.**
+
+6. **Whether `pets/3x3_basher` was ever a shipped feature.** One icon, its own
+   folder, and nothing else anywhere. Cut, or shipped as something renamed.
+
+7. **Whether `item_bow` and `item_gasmask` were cut.** Icon-only after
+   searching prefabs, components, item rows and the decompile — but §4.6 is a
+   standing warning that "icon-only" can mean "I have not found its class
+   yet". Search the *concept*, not the name, before concluding.
+
+8. **What the `InertiaPack` / `StasisPack` / `AtlasBoots` component wiring
+   is.** The classes are PROVED; which of the 443 ids drives them is not
+   established.
+
+9. **Whether the 6 `woodlandtree*` prefabs belong to a biome we will ever
+   ship.** They are unreferenced; whether that is a gap depends on world plans.
+
+10. **The `scrap items/` 250-versus-145 gap was not opened.** The 105
+    unreferenced ones are almost certainly variant art for a working tiered
+    salvage table, but I did not verify each. A per-icon check against
+    `loot-scrap-tiers.txt` would settle it and is mechanical.
+
+11. **No live client was run and no client mod was built or installed** — a
+    hard constraint on this task. Every "the player sees X" statement here is
+    static analysis.
+
+12. **`.resS` streaming blobs were not scanned.** They hold raw texture and
+    mesh payloads with no name tables, so this should not hide any name — but
+    it is an unscanned region and is recorded as such.
