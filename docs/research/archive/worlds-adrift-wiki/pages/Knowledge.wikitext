@@ -1,0 +1,137 @@
+{{Incomplete}}
+Knowledge is the equivalent of an experience system in [[Worlds Adrift]]. Knowledge can be gained by using your [[Gauntlet]]'s Forge Scanner (Default {{Key|4}}) on ancient [[Data banks|Databanks]] which scattered over islands. In addition, you can scan island objects for small bits of knowledge and collect [[Codex|Lore pieces (codices)]] for 15, 25, 50, or 100 knowledge apiece.
+
+== Uses ==
+[[File:KnowledgeTree.png|frameless|right|700px|link=]]
+Knowledge is used in the Knowledge Tree to learn schematics or unlock crafting slots. When the player has enough knowledge to research a new item, the node will turn blue.
+
+{|
+|- style="color: #FFE5C4; font-size: 20px;"
+!Wings
+!Engines
+|-
+| style="padding: 0 5px 0 5px;" |
+{| class="wikitable"
+! Tier
+! Knowledge Cost
+! # to unlock before next tier
+|-
+| 1 
+| 100
+| 3
+|-
+| 2
+| 130
+| 4
+|-
+| 3
+| 160
+| 5
+|-
+| 4
+| 200 
+| 6
+|}
+| style="padding: 0 5px 0 5px;" |
+{| class="wikitable"
+! Tier
+! Knowledge Cost
+! # to unlock before next tier
+|-
+| 1
+| 175
+| 3
+|-
+| 2
+| 320
+| 4
+|-
+| 3
+| 400
+| 5
+|-
+| 4
+| 500
+| 6
+|}
+|- style="color: #FFE5C4; font-size: 20px;"
+!Cannons
+!Swivel Guns
+|-
+|style="padding: 0 5px 0 5px;" |
+{| class="wikitable"
+! Tier
+! Knowledge Cost
+! # to unlock before next tier
+|-
+| 1
+| 150
+| 3
+|-
+| 2
+| 190
+| 4
+|-
+| 3
+| 240
+| 5
+|-
+| 4
+| 300
+| 6
+|}
+| style="padding: 0 5px 0 5px;" |
+{| class="wikitable"
+! Tier
+! Knowledge Cost
+! # to unlock before next tier
+|-
+| 1
+|150
+| 3
+|-
+| 2
+|190
+| 4
+|-
+| 3
+|240
+| 5
+|-
+| 4
+|300
+| 6
+|}
+|}
+
+=== Core upgrades ===
+In addition to researching procedural items like [[Cannons]] or [[Engines]], as you learn more and more knowledge, new Sky Core upgrades are unlocked. These amounts are cumulative. 
+{| class="wikitable"
+! Tier
+! Lifetime Knowledge Cost
+!Core upgrade name
+|-
+|2
+|2000
+|Sky Core Generator
+|-
+| 2
+|4500
+|Sky Core Atlas Enhancer
+|-
+| 3
+|9000
+|Sky Core Air Filter
+|-
+|3
+|15000
+|Sky Core Coolant System
+|}
+
+=== Schematic Slots ===
+Increases by 1 the amount of schematics you can have learned in '''each''' category, Clothing, Cooking, Ship Parts, Utility, and Crafting Components.<br>
+The cost starts at 50 and increases by 10 for each slot researched up to a maximum of 100 extra slots.
+
+{{WA Navbox}}
+
+[[Category: Lore]]

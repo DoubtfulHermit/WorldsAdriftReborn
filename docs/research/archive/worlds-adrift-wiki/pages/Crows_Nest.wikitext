@@ -1,0 +1,28 @@
+{{SchematicBox
+|name=Crows Nest
+|time = 15
+|picture = CrowsNest.png
+|extra = "A room with a view atop your ship, perfect for scouting."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Mast
+|value1 = wood
+|amount1 = 100
+|name2 = Fastenings
+|value2 = metal
+|amount2 = 25
+|name3 = Platform
+|value3 = wood
+|amount3 = 50
+}}
+==Description==
+The '''Crows Nest''' is a structural item. They are mainly used for visual purposes.
+{{CraftingPage
+|name = Crows Nest
+|picture = Crows_Nest.jpg
+}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Structural]]

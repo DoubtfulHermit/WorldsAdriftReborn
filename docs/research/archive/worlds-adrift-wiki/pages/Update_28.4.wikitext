@@ -1,0 +1,12 @@
+Release date: November 8, 2018
+<br>
+==Update 28.4 Hotfix Patch Notes==
+'''NOTABLE BUGFIXES AND CHANGES
+* Performed an optimisation on ships to improve server performance.
+<br>
+==References==
+# https://www.worldsadrift.com/forums/topic/worlds-adrift-early-access-hotfix-28-4-patch-notes/
+<br>
+{{Patches Navbox}}
+
+[[Category:Open Beta Patch]]

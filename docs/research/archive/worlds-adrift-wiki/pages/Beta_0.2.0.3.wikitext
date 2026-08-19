@@ -1,0 +1,31 @@
+Release date: May 17th, 2018
+
+==Beta 0.2.0.3 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Implemented explosions VFX
+* Implemented ship turning creaking SFX
+* Implemented adding fuel into craft slot SFX
+* Implemented knowledge tab SFX
+* Wooden assets for the island creator
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Work on the jerky ships is coming along very nicely (more to come, eta 0.2.3.x)
+* Caching Alliance server data (backend)
+* Mostly this week was spent deploying, bugfixing and debugging backend alliance server
+* General UI updates and improvements including login screen and dialog boxes, VFX bug fixes
+* New death bag won’t collide with character when it spawns
+* Fixed ship not logging in bug
+* Optimized shell impact explosions and a bunch of VFX adjustments and updates
+* UI bug fixes
+<br>
+==References==
+# https://www.worldsadrift.com/captains-log/113214/
+# https://www.worldsadrift.com/forums/topic/17th-may-early-maintenance/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

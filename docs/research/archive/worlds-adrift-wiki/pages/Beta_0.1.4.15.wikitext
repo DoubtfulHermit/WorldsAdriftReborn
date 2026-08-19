@@ -1,0 +1,14 @@
+Release date: October 30th, 2017
+
+==Beta 0.1.4.15 Patch Notes==
+<br>
+'''NEW FEATURES'''
+* In time for Halloween, a special spooky clothing set has been added to all Founder’s Packs! Players will find this set of cosmetics, worn by the mysterious Bargu in the faraway past, in their Stash. Like other Founder’s Pack items, these will no longer be acquirable after the conclusion of Closed Beta.
+
+==References==
+# https://www.worldsadrift.com/blog/update-0-1-4-15-a-spooky-treat/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

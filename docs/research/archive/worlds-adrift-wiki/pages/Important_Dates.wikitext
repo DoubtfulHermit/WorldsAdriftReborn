@@ -1,0 +1,12 @@
+{{stub}}
+The '''Release Date''' for [[Worlds Adrift]] is currently unknown. Worlds Adrift is in Open Beta Early Access on Steam and the full release will be sometime in the future.
+
+The first Alpha build, [[Alpha 1]], was released on November 19th, 2015.<br>
+The first Closed Beta build, [[Beta 0.1.0.0]], was released on May 24th, 2017.<br>
+The first Open Beta (early access) build, [[Beta 0.2.0.1]], was released on May 16th, 2018. The official [https://www.youtube.com/watch?v=kA0md0D24_Y Early Access Trailer] was released on May 10th, 2018.<br>
+The first instance of the public test server, [[Update 26 (PTS)|PTS Update 26]], was opened on August 15th, 2018.
+
+For a list of official Worlds Adrift patches/updates, check [[Patches|the Patches page]].
+{{Patches Navbox}}
+
+[[Category:Guides]]

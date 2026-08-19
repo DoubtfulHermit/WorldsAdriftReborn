@@ -1,0 +1,28 @@
+{{For|craftable ship-based chests|Storage}}
+{{For|craftable ground-based chests|Makeshift Storage}}
+
+Chests are lootable containers that can be found scattered across every island. Their spawnpoints are set by the island's creator, but not all spawnpoints produce a chest every reset from an [[Weather#Understorms]]. Each island has a set number of [[#Large Chests|Large Chests]] and [[#Small Chests|Small Chests]] probably based on the surface area of the island and whether or not the island's creator placed enough spawnpoints.<br>
+Should all of the contents be removed from a chest, and the inventory menu subsequently closed, the container will dissolve and disappear. Learn the spawnpoints, and you'll have a leg up on other players trying to get that loot. 
+
+==Resources==
+Chests will usually contain [[Schematics|schematics]] and [[Codex|codex entries]] of appropriate rarity (depending on the [[Biome|biome]]), as well as other miscellaneous items such as: [[Atlas Lifter|atlas lifters]], [[salvage]], ammunition, [[torch|torches]], [[Camp Fire|camp fires]] and [[Clothes|clothing]].
+
+==Small Chests==
+[[File: Saborian Small Chests.jpg|thumb|Saborian small chests|350px|link=]]
+[[File: Kioki Small Chests.jpg|thumb|Kioki Unity small chests|350px|link=]]
+There are 6 different designs for small chests, 3 for the [[Kioki Unity]] zones, and 3 for the [[Sabor|Saborian]] zones. Images of those chests are shown on the right. Typically, these chests contain two different item types from the following:
+* [[Codex]] entires
+* [[Salvage|Salvageable items]]
+* [[Schematics]]
+* [[Weapons#Timed Explosives|Timed Explosives]]
+* [[Bullets]]
+* [[Metal]] (usually around 100)
+* [[Wood]] (usually around 100)
+{{clear}}
+==Large Chests==
+[[File: Saborian Large Chest.jpg|thumb|Saborian large chest|350px|link=]]
+[[File: Kioki Large Chest.jpg|thumb|Kioki Unity large chest|350px|link=]]
+Large Chests have 2 designs, one for each culture, and contain significantly better loot than the small chests. Island creators can only place down 3 possible spawn points for large chests and they contain usually contain 4 of the possible items from the list above. Images of these chests are shown on the right.
+{{WA Navbox}}
+
+[[Category:Environment]]

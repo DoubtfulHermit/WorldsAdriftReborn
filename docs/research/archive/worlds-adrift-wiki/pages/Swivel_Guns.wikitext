@@ -1,0 +1,8 @@
+{{Incomplete}}
+==Description==
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Procedural Schematics]]
+[[Category:Weapons]]

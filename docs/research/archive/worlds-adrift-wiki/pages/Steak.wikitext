@@ -1,0 +1,43 @@
+{{Incomplete}}
+=Description=
+There are currently two types of '''Steak''' in the game, Manta and Thuntomite, the raw versions of which are obtained from salvaging Mantas, and Thuntomites.
+
+==Manta Steak==
+{{SchematicBox
+|name = Manta Steak
+|time = 10
+|picture = Manta steak.png
+|extra = ""
+|craftIn = fire
+|name1 = Raw Manta Meat
+|value1 = mantameat
+|amount1 = 1
+}}
+Manta Steak is equivalent in healing to [[Thuntomite Stew]] but much easier to obtain.
+
+{{CraftingPage
+|name = Manta Steak
+|picture = Manta Steak.jpg
+}}
+{{clear}}
+
+==Thuntomite Steak==
+{{SchematicBox
+|name = Thuntomite Steak
+|time = 10
+|picture = Thuntomite steak.png
+|extra = "A juicy and fragrant thuntomite steak. Can be eaten to replenish health. Requires nearby campfire to cook."
+|craftIn = fire
+|name1 = Raw Thuntomite Meat
+|value1 = thuntomitemeat
+|amount1 = 1
+}}
+Thuntomite Steak is between [[Food#Berries|Berries]] and Manta '''Steak''' in healing capacity. 
+
+{{CraftingPage
+|name = Thuntomite Steak
+|picture = Thuntomite Steak.jpg
+}}
+
+{{WA Navbox}}
+[[Category: Cooking]]

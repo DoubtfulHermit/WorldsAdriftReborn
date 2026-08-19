@@ -1,0 +1,17 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>The Great Marsha Correspondent<br>9th Babbo 3031</blockquote>
+<blockquote>The thousand or more protesters who camped outside both the Court of the Empress in Ten-Rui, and the Saborian capital Redusa over the course of these last few days, have been arrested and will be sentenced according to the laws of the two jurisdictions.</blockquote>
+<blockquote>With both sides at full tilt, and the possibility of their remote-signal monsters trampling the Korchis mountainsides, it is no surprise that the campaign against the war has peaked. While it is in the liege-states of Melliflua and Chabuti that the superpowers are mining Atlas most furiously, the protesters are from all over Foundation, and there can be no doubt that the organisers are part of the Verduban ant-war groups "Stable Foundation" and "Bad Atlas Weapons Now" (BAWN). Recently BAWN clamied it had staged the protests in both cities.</blockquote>
+<blockquote>"It is in their national character to protest causes they believe in," said Kilda Froogik the foreign ambassador, last week. Our near neighbours the Verdubans, however peculiar them may seem, are often the most outspoken and committed to relieving the world of injustice. Froogik was ambiguous about Marsha's position, "Verduba's commendable politics and concern for the environment, which manifests in the worship of the Ice god, have long been respected by Great Marsha. While it is less in our nature to fight for lost causes, we must keep our own waters and grassy bogs clean."</blockquote>
+<blockquote>BAWN's banners are covered in slogans such as "Stop mining Atlas, stop the war!" are are using out-of-date Panyana research to back their claims. The paper to which their campaign frequently refers is an old one - drafted by Alcibiana of all people - and has generated an abundance of similar, but according to BAWN, "overlooked" papers in the three and three-quarter centuries since. A reduction of Atlas mining and use would need both Kioki and Sabor to back, not to mention the rest of Foundation, a situation which looks increasingly unlikely.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

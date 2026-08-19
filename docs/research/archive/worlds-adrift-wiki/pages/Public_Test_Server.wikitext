@@ -1,0 +1,33 @@
+[[File: Test Server landing.jpg|frameless|800px|right|link=|Test Server]]
+The '''Public Test Server''' or '''PTS''' was released on August 15, 2018 with [[Update 26 (PTS)]] being the first game version on the server. This server is for testing upcoming changes to the game and getting player feedback on the new content, gameplay, and changes on the test server. The changes on the test server will be implemented in-game after about a 2 week testing period. Each PTS update, a different server will be copied in addition to ALL characters being copied over. <br>
+
+
+Currently the resources have been boosted on the PTS. Wood and Metal are collected at a 10x rate and in Tiers 2-4, [[Data banks]] give 10x knowledge, 300, 350, and 400 for Tier 2, 3, and 4 respectively. 
+
+
+<strong>Only players who owned the game before current PTS version went online will be able to access it because that is when Bossa copies over the login database. You will however be able to access the NEXT PTS version.</strong><br>
+
+The last game version on the test server was: 
+<dpl>
+category=Public Test Server
+ordermethod=categoryadd
+order=descending
+mode=inline
+count=1
+</dpl>
+<br>
+'''The test server is offline awaiting Update 31'''<br>
+<!--The current game version on the PTS is: 
+<dpl>
+category=Public Test Server
+ordermethod=categoryadd
+order=descending
+mode=inline
+count=1
+</dpl>-->
+<br>
+====Links====
+Instructions on how to join the test server can be found [https://www.worldsadrift.com/forums/topic/pts-faq/ here].<br>
+Feedback can be given in game or on the Official Worlds Adrift Discord [https://discord.gg/worldsadrift here].
+
+[[Category: Worlds Adrift]]

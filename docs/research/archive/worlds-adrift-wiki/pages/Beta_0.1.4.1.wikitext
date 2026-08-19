@@ -1,0 +1,47 @@
+Release date: August 16th, 2017
+
+==Beta 0.1.4.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Atlas cores have gained an on-interact ability to send a pulse through the whole ship. The pulse will detach all grappling hooks and climbers, and prevent grappling or climbing for a brief period. This function has a cooldown and uses an atlas shard.
+* Atlas cores and their upgrades now provide additional lift based on the materials used in their construction.
+* Players can now find and craft more convenient light sources than the torch. These are equippable in your character’s gear slots, freeing her hands for other tools. Equipped gear items are toggled with T, Spacebar, and V, depending on the slot they fit in.
+* Players can now freely rotate ship parts when placing them. Tapping Z will continue to rotate an object by 90 degrees, but holding Z allows the player to rotate them more precisely. Some ship parts are still restricted to certain orientations (e.g., engines and wings).
+* With free-rotate implemented, the schematics for railings are finally being seeded into the world.
+* Player names no longer display indiscriminately. Crewmates (and in the future, Alliance mates) will display their names when in range, but other characters will only display their names if moused over. In addition, all character names are blocked by line of sight.
+* Foliage and grass now blow in the wind.
+<br>
+'''NOTABLE BUGFIXES'''
+* The distance calculation for nearby revival chamber now happens at death instead of respawn, and ignores vertical distance. Crewmates should rarely respawn at different islands now, much less different biomes.
+* After players travelled some distance away from their registered shipyard and returned, they would sometimes enter a broken state where they couldn’t pick up ship parts with their shipbuilding tool. This has been fixed.
+* Sometimes sunken, deteriorating ship frames would not be salvageable; this should be fixed now.
+* Death bags should no longer smash into things and do damage.
+* Ship docking should happen more smoothly and naturally again.
+* Wings and engines are now mirrored instead of rotated 180 degrees when being placed on opposite sides of a hull, for the purposes of visual symmetry. Note: there is a bug where occasionally these do not display properly.
+* Males now play the male vocalisations instead of the female ones.
+* Pressing Esc when placing an item cancels the placement instead of opening the menu. Quite the technical feat, we know.
+* Impassable storms at the edge of the world no longer show a fully black screen – even if it ended up being a very clear indicator to turn around, it was unintended!
+* Every once in a while a strange black void would appear on islands, rendering everything inside the sphere black. This has been fixed.
+* Various UI fixes.
+* Various optimisations and load balancing to improve framerates and client performance have been performed.
+<br>
+'''NOTABLE BALANCE CHANGES AND TWEAKS'''
+* Stormwalls and sandstorms are more difficult to navigate through again, as they constantly turn ships off course now.
+* The damage calculation formula from physics collisions has been revamped. The ultimate goal is to make ships less fragile, and to reduce the fear in your crewmates’ eyes when a loose part slides around your ship interior. Chain reactions should happen less often now, but this is a work in progress, with a comprehensive damage system rehaul to come in future patches.
+* The Badlands are much less habitable now. Very few players will want to – or be able to – stay there indefinitely, as there will no longer be any revival chambers or fuel(!) in the entire biome.
+* Resources’ stats have been rebalanced and some errors fixed. Farewell, golden combustion internals; your effectiveness was a spreadsheet error!
+* Individual stats on schematics now have a minimum possible value that depends on the schematic’s rarity.
+* Characters now need to be standing or rappelling (i.e., have their feet on a surface) to equip or unequip clothing and gear – including gliders and the new lights. In a future patch, there will be a larger rework of the glider to make it both more useful over short distances and less exploitable for long-distance travel.
+* Tweaks have been made to how ships turn. Large ships can now turn more easily when not flying at speed.
+* Grappling to a shell shot out of a cannon will snap your rope now.
+* The placeholder crow’s nest model has been remade.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/closed-beta-0-1-4-1-live/
+# https://www.youtube.com/watch?v=PQmgGh0rcjA (Video)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

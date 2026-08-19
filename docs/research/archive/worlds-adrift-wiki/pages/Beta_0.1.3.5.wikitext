@@ -1,0 +1,18 @@
+Release date: July 20th, 2017
+
+==Beta 0.1.3.5 Patch Notes==
+
+'''OPTIONAL UPDATE'''
+
+<br>
+'''NEW FEATURES'''
+* Added a "client-freeze-test" beta branch to Steam (under "Betas" tab) in order to give better game-freeze feedback to developers
+
+==References==
+# https://www.worldsadrift.com/forums/topic/the-war-against-freezes-enroll-today-to-win-it/page/6/#post-85707 (now unreachable!)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

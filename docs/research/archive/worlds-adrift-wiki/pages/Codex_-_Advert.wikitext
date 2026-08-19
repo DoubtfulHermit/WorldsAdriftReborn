@@ -1,0 +1,20 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content">
+<blockquote>
+Newly available is the Me-Niata Mk.84.
+</blockquote><blockquote>
+This high-performance engine is the very same being used by our skynavy. To recieve the upgrade, your local store should be able to order it in within a week.
+</blockquote><blockquote>
+The cost will be four brown stamps, or six of any other colour.
+</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

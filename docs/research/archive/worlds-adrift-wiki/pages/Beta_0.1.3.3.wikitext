@@ -1,0 +1,16 @@
+Release date: June 30th, 2017
+
+==Beta 0.1.3.3 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* We put out a hotfix during delayed maintenance today that fixes an issue where ship frames would incorrectly be able to take damage. Frames should now correctly only be salvageable when they have begun to deteriorate and sink into the ground.
+
+==References==
+# https://www.worldsadrift.com/forums/topic/0-1-3-3-hotfix-live/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

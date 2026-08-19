@@ -1,0 +1,48 @@
+{{NeedsUpdate|page}}
+{{SchematicBox
+| name = Glider
+| time = 5
+| picture = item_glider.png
+| extra = "A personal glider you can deploy by pressing Spacebar while in the air."
+|craftIn = tool
+| name1 = Frame
+| value1 = metal
+| amount1 = 100
+| name2 = Wings
+| value2 = cloth
+| amount2 = 20
+| name3 = Pack
+| value3 = leather
+| amount3 = 15
+}}
+
+[[File:Glider.png|thumb|A glider]]
+
+==Description==
+The '''Glider''' is a wearable utility item that enables the player to cover significant aerial distances, given enough initial altitude. It is comprised of two large bat-like wings which resemble those of Leonardo da Vinci's flying machines. It also has a medium sized tail of similar style. The contraption is mounted on to the player's back, with them hanging underneath during flight. When disengaged, the tail and wings fold back into a small unassuming backpack worn on the player's back. The [[schematics|schematic]] for the glider can be found in the [[Biome#Badlands (Tier 4)|Badlands]].<ref>https://www.worldsadrift.com/forums/topic/how-do-you-get-the-glider/#post-67612</ref> As of 0.2.0.1, you can find the glider item in the [[Biome#Expanse (Tier 2)|Expanse]] and higher tier areas.<ref>https://www.worldsadrift.com/blog/the-early-access-update-patch-notes-0-2-0-1-bye-closed-beta/</ref> You must have your feet on the ground in order to equip/unequip the glider from your character.<ref>https://www.worldsadrift.com/blog/closed-beta-0-1-4-1-live/</ref>
+
+==Usage==
+While the grappling hook can greatly extend a player's movement options, they are still constrained by requiring solid objects to attach to and swing from. The glider complements this by offering the ability to traverse comparatively long distances alone through the air. As the player glides forward, they gradually lose altitude, so this mechanism is no substitute for the powered flight of airships.
+
+The glider handles much like one would expect in a realistic environment: diving increases speed, while climbing reduces it. Extended climbing can cause you to stall. Though not implemented yet, there are plans to include pockets of warm, rising air currents to aid gliders in staying aloft longer.<ref>https://www.worldsadrift.com/forums/topic/have-to-wonder-about-gliders-oo-speculation-thread-because-i-didnt-see-one/#post-7469</ref>
+
+In addition to traversing distance, the glider can also be quickly deployed as an air-brake to slow a falling player's descent and avoid taking fall damage.
+
+The Glider will also degrade over time as seen by the cloth wings developing holes and will eventually break.
+
+See [[Keyboard Controls]] for the glider's flight controls.
+
+{{CraftingPage
+|name = Glider
+}}
+
+==Trivia==
+The glider was born out of a four-day YOLOG jam<ref>https://www.worldsadrift.com/blog/yolog-feature-jamming/</ref> in which Bossa employees experiment with side projects that have no guarantee of making it to any final game. Luckily, the merits of the glider in a world of floating islands allowed it to become a staple in player movement abilities.
+
+==References==
+<references />
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

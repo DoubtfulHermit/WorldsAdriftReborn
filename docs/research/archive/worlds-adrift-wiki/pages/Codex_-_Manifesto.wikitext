@@ -1,0 +1,17 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2">
+<div class="mw-collapsible-content"> 
+
+<blockquote>The Saborian Manifesto<br />We set out, and steer close to God.<br />The temptations of the stone are many, but we must remain true.<br />We do all that we can for Sabor, raising citizens to heaven, and rewarding the Pilipai who lift them there.<br />Together let us realise perfection.</blockquote>
+
+<blockquote>From the new Stalk shall preside the Committee, and their table shall be provided for by the Assembly house, whose concerns shall rise and fall like waves.<br />To look outward, we shall look within.<br />Freedom. Equality. We are God.</blockquote>
+
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

@@ -1,0 +1,27 @@
+{{SchematicBox
+|name = Stove
+|time = 20
+|picture = Stove.png
+|extra = "A stove for preparing food and drink on a ship."
+|craftIn = assembly
+|name1 = Casing
+|value1 = iron
+|amount1 = 120
+|name2 = Filament
+|value2 = metal
+|amount2 = 30
+|name3 = Fuel
+|value3 = fuel
+|amount3 = 10
+}}
+==Description==
+The '''Stove''' is a cooking utility, like the [[Camp Fire]], except the Stove can be placed on ships for all your on-ship cooking needs.
+{{CraftingPage
+|name = Stove
+}}
+{{clear}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Assembly)]]

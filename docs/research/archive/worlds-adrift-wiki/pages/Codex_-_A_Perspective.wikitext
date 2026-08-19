@@ -1,0 +1,11 @@
+{{SpoilerWarning|The following page contains spoilers for the lore in Worlds Adrift}}
+== Section 1 ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content"> 
+<blockquote>1st of Wewe, 2946</blockquote><blockquote>This is my last though before I move on from the Institution (being reassigned to a fishery!)... Oios of Redusa correctly asserts that there is a slight curvature. Of course, this amounts to nothing really, in a larger sense. Therefore, I can't agree with Panyana's views, and would reckon that if not entirely flat, Foundation is the shape of a curved scale, like those found on the little armoured ones with tails. Or perhaps like a kite that billows somewhat with air. As I have said before, the likelihood is that beyond the perimeter of cartography (as it stands) is an endless expanse of ocean, since this is what has been reported by those that have lived to tell the tale.</blockquote><blockquote>Before I bow out, I'd like to thank my students, and hope that the closure of Redusa is not as imminent as it seems.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+[[Category:Codex]] [[Category:Complete Codex Entries]]

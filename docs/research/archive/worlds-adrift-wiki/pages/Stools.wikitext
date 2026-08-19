@@ -1,0 +1,68 @@
+{{Incomplete}}
+==Description==
+'''Stools''' are one of two ship components that allow players to sit on them, along with [[Chairs]]. There are currently 4 (maybe 5) types of stools.
+
+=Stools=
+==Barrel Stool==
+{{SchematicBox
+|name = Barrel Stool
+|time = 5
+|extra = "This is a surprisingly comfortable stool, considering it looks like half a barrel"
+|craftIn = assembly
+|name1 = Body
+|value1 = wood
+|amount1 = 15
+|name2 = Hoops
+|value2 = metal
+|amount2 = 5
+|bar1name = Resilience
+|bar1value = 5
+}}
+A stool that looks like a barrel.
+{{CraftingPage
+|name = Barrel Stool
+}}
+{{clear}}
+==Classic Stool==
+
+{{clear}}
+==Metal Stool==
+{{SchematicBox
+|name = Metal Stool
+|time = 5
+|extra = "Sturdy, reliable, a good place to rest after a long day exploring Foundation."
+|craftIn = assembly
+|name1 = Body
+|value1 = metal
+|amount1 = 20
+|bar1name = Resilience
+|bar1value = 5
+}}
+A simple metal stool, that, is shaped like a stool.
+{{CraftingPage
+|name = Metal Stool
+}}
+{{clear}}
+
+==Simple Stool==
+{{SchematicBox
+|name = Simple Stool
+|time = 5
+|extra = "Very basic. Minimalistic. Low profile. Classy."
+|craftIn = assembly
+|name1 = Body
+|value1 = wood
+|amount1 = 20
+|bar1name = Resilience
+|bar1value = 5
+}}
+A simple wooden stool, shaped like a stool.
+{{CraftingPage
+|name = Simple Stool
+}}
+{{clear}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Furniture]]

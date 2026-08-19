@@ -1,0 +1,25 @@
+{{SchematicBox
+|name = Stairs
+|time = 10
+|picture = StairsMetal.png
+|extra = "A staircase to connect different decks of a ship."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 25
+|name1 = Staircase
+|value1 = woodmetal
+|amount1 = 80
+}}
+
+==Description==
+Stairs can be used to move between different levels of ships. Generally they are used for aesthetic purposes.
+
+{{CraftingPage
+|name = Stairs
+|picture = Stairs.jpg
+}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Structural]]

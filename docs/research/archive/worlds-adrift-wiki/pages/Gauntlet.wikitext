@@ -1,0 +1,22 @@
+{{stub}}
+The Gauntlet has four basic modes but also can be used for [[Crafting]].
+
+== Salvage Tool ==
+Default {{Key|1}}. 
+This is used to gain materials from objects. You can salvage any player made object to reclaim a portion of the materials used in crafting it. However, you can also salvage [[Metal|Metal nodes]], [[Fuel]] and [[Trees]] for their respective resources '' See [[Mining]] and [[Getting Started#Mining|Getting Started]] for more information ''
+
+== Repair Tool ==
+Default {{Key|2}}. 
+If an object has become damaged, it will be highlighted green when you mouse-over with this mode equipped. You can hold down {{Key|LMB}} to repair the object using the same material as the object's casing. You will need this material in your inventory.
+
+== Shipbuilding Tool ==
+Default {{Key|3}}. 
+When in the shipyard bubble, you can use this mode to move crafted components inside the bubble. Components which can be moved will be highlighted blue, you can then use {{Key|LMB}} to "pick it up", this will create a silhouette of the component which you can move around. To finalize the placement use {{Key|LMB}} again.
+If the silhouette is green it indicates the part can be placed there and is attached to the ship. If it is blue it means it can be placed there but is not attached to the ship. If it is red it indicates you can not place the part there.
+
+== Forge Scanner ==
+Default {{Key|4}}. 
+This mode allows you to gain [[knowledge]] and find out more about everything in the world, Scanning an island will tell you the who the creator is. Once you scan something it will give you a short description, or if it is a [[Ship Components|ship component]] it will show you the metals used to craft it and the final statistics of the part. 
+
+{{WA Navbox}}
+[[Category: Tools]]

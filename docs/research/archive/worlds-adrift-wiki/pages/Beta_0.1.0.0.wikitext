@@ -1,0 +1,75 @@
+Release date: May 24th, 2017
+
+==Beta 0.1.0.0 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Welcome to our Closed Beta! As part of the transition from Alpha to Beta, the flow for starting the game has been updated, including a login to a Worlds Adrift account and the creation of your first character.
+* As part of character creation, players can customise their character’s face, colouring, and starting clothing. Goodbye, blonde pixie cut clone army!
+* Founder’s rewards are now available in game.
+* Almost everything in the game is now scannable and provides Knowledge the first time it is scanned.
+* The inventory now has a Belt section, for items the player wants to keep through death. This means that equipped items are no longer automatically kept through death.
+* The Stash, for undroppable cosmetics like the Founder’s Headscarf, has been implemented.
+* New on-screen prompts and tutorials will display for the first few hours of gameplay. This is a work in progress.
+* Ship parts, except panels, can no longer be placed so they overlap and occupy the same space.
+* Docked shipframes, if bare, can be salvaged for part of their crafting cost. This is accessed from the shipyard.
+* Shipyards are more obviously salvageable now, and players will receive a message if a shipyard they have access to takes damage.
+* Players are now able to find schematics for new atlas skycore upgrades. Take care of your core room, travellers!
+* Procedural engines, cannons, and wings now have their art and their new names determined by their stats.
+* Lots more procedural engines, cannons, and wings are now available in the game!
+* Islands now have multiple revival chambers.
+* Different trees provide different types of wood now.
+* Shipcores and engines can now only lift you to a certain altitude.
+* Certain weather features in the world are too strong for any ship to bypass. These now appear at the edges of the current world map. If heeded, explorers should no longer lose their ships heading into the unknown.
+* Eggs is no longer fuel. Eggs is just eggs. Fuel is now fuel.
+* Objects sinking into the ground will now become mossy or covered in sand, depending on the biome.
+* Much more lore is now discoverable in the ruins. Collect them in your Codex and piece together the story of Foundation.
+* Different biomes will play different music now!
+* New visual effects! New icons! New grappling hook! New sound effects!
+<br>
+'''NOTABLE BUGFIXES'''
+* Additional optimizations have been implemented to reduce client freezing when approaching a new island. This an ongoing area of improvement.
+* Loose objects on and around ships, like newly-broken ship parts, now behave significantly better. This is another ongoing area of improvement.
+* Dying before passing fully through a weather barrier will no longer allow you to respawn in the new zone.
+* Creature corpses will now deteriorate and disappear after some time.
+* Saborian databanks on islands are now appearing where they were placed in the Island Creator.
+* Players should no longer ever enter an invincibility state where bullets pass through them.
+* Creatures should much more rarely get stuck in mid-air.
+* Ships would occasionally not log out fully, leaving only the frame and a handful of parts floating in the world. This has been fixed.
+* It is no longer possible to summon troll physics by pushing a ship forward while standing on it.
+* Pulling physical objects with the grappling hook should be much more responsive again.
+* Weather animation should no longer become permanently choppy.
+* Numerous bugs relating to designing shipframes on the shipyard have been fixed.
+* Numerous bugs with male animations and poses have been fixed.
+* Numerous UI bugs have been fixed.
+* The game should no longer crash when exiting.
+<br>
+'''NOTABLE BALANCE CHANGES'''
+* The world map has been updated – much more of it is Wilderness now.
+* The glider has been nerfed. (Sorry.) It is now working as originally intended, for gliding over short distances. It also drops upon death.
+* Ship and shipyard ownership mechanics have evolved: Having a personal reviver on a ship is now more formally recognized as ownership of the ship; without ownership, any interactive ship part on an undocked ship (helms, containers, reviver, etc.) require an extra delay to use.
+* On docked ships, interactive ship parts require access to the shipyard.
+* Timed explosives no longer stack in the inventory.
+* Sails have been buffed.
+* Cannon overheat calculations have been overhauled.
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* When flying from one island to another, characters standing on ships may be unstable, even occasionally getting thrown off. It may be best to quickly grapple to the ship if you experience these stutters.
+* Tools (e.g., pistols, scanner) held by other players are showing themselves at an incorrect position.
+* Climbing on very bent ship panels, or in spaces the character normally can’t enter, will do serious damage to the player: Avoid these for now.
+* Some on-screen prompts (refuelling, picking up atlas shards, etc.) are failing to display or are behaving incorrectly.
+* Flight instruments (fuel gauge, altimeter, etc.) currently cannot be attached on all surfaces that should allow attachment.
+* After reaching the max height of the world, ships will be dropped suddenly. This should be smoothed out in a future update.
+* Logging in onto a moving ship may result in the ship having moved out from under the character by the time the character loads in.
+* Docking a ship you don’t own to a shipyard you don’t own will result in the player being unable to release the helm: Restarting the client will place your character next to the helm.
+* The moustache is not appearing correctly on characters.
+* WiFi may incur problems: Best played on an ethernet connection for now.
+<br>
+== References ==
+# https://www.worldsadrift.com/forums/topic/worlds-adrift-closed-beta-is-live-0-1-0-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

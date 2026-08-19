@@ -1,0 +1,29 @@
+{{SchematicBox
+|name = Immobilator
+|time = 15
+|picture = Stasis pack.png
+|extra = "Temporarily suspend all movement. Momentum is restored afterwards."
+|craftIn = tool
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Gold Filament
+|value2 = gold
+|amount2 = 25
+|name3 = Atlas Shard
+|value3 = atlas
+|amount3 = 4
+|name4 = Bioelectrical
+|value4 = neural
+|amount4 = 2
+}}
+==Description==
+The '''Immobilator''' is a gear item that is equipped in the torso slot. When activated (default {{Key|space}}), it will freeze the player's motion for a time. When deactivated, after a time or by pressing {{Key|space}}, the player will begin moving with the same velocity as they had before. Like other gear items, it will break after being used for a while. The item and schematic are [[Marauder]] items, meaning they can only be found in Marauder chests.
+{{CraftingPage
+|name = Immobilator
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

@@ -1,0 +1,163 @@
+<big><center>Update 31: Legendary Warfare</center></big>
+Release data: June 11, 2019.<ref>[https://steamcommunity.com/app/322780/discussions/0/1642039363004360390/ Steam]</ref>
+ [[File:Update31 1.png|center|600px]]<br>
+
+==Update 31 Patch Notes==
+'''New Map!'''
+* Please address your thanks to Docfreeman and Vloshko for spending hundreds of hours reviewing islands and doing a fantastic job of designing the new map layout! Thanks also to Muttonch0ps and Atreties for help with testing.
+* Water! Just kidding...
+
+<br/>'''Legendary Engines'''
+* 20 legendary engines with fixed models and stats have been added.
+* Legendary engines require an 'Atlas Compressor' and and 'Atlas Injector' which can only be found in Kioki and Saborian biomes respectively. These items only drop in T3/T4.
+* Legendary engines have abnormally low weight for their stats due to the special components they use.
+
+<br/>'''Territory Control'''
+* Members of alliances can now place a Territory Control Tower (TCT) to lay claim to an island. This allows members of that alliance to:
+** Name the TCT. This will show up when people scan anything on the island. This action can only be performed once.
+** Select a 3h window during which the TCT will be vulnerable to attack each day. This action can only be performed once.
+** Use the built in radar to detect islands and ships within 2km. The radar gives an indication of the size of the ship and a list of what alliances have members registered to revivers on the ship.
+** Broadcast chat messages to all players within 2km.
+* All players can interact with TCTs to:
+** See the TCT name.
+** See the TCT vulnerability period.
+** View the global Territory Control leaderboard.
+* When placed, TCTs will be 'hyper vulnerable' for 30m. During this time they will take 5x damage from all damage sources except for salvaging. Salvaging also suffers from the same damage penalty as salvaging other players ship parts.
+* After the first 30m, TCTs will be invulnerable for 24h, regardless of vulnerability window.
+* When invulnerable, TCTs cannot be damaged or salvaged, but they can be repaired at 50x the regular rate.
+* TCTs will topple over at 10% health and stop working. They can however still be salvaged.
+* TCTs will send messages to the alliance chat whenever they change vulnerability state or their health goes below the next 10% threshold.
+* Placement Requirements:
+** TCTs must be placed where they have a clear view of the sky.
+** TCTs cannot be placed with 50m horizontally of a Shipyard i.e. you cannot place shipyards above or below them.
+** TCTs can only be placed in The Remnants (PvP only) or The Badlands.
+* Territory status updates are being sent to the Cardinal Guild servers so that they can build a realtime territory map. They are already posting status updates to a special Discord channel. Big thanks to Machine Maker, FearlessJake, JeremyKerman and everybody else who works on the Cardinal Guild website!
+
+<br/>'''Ship Blueprints'''
+* Docked ships can now be saved as blueprints from the Shipyard UI. These blueprints can be recrafted as long as for each schematic there is somebody registered to the shipyard that is able to craft it.
+* It is possible to disable parts so they aren't crafted.
+* It is possible to use higher quality materials in place of lower quality materials at a discount.
+* There is an autofill button that attempts to use materials from your inventory to fill as many slots as possible.
+
+<br/>'''Ship Part Changes'''
+<br/>'''Cannons'''
+* 'Power' stat has been renamed to 'Range' to more accurately reflect what it does.
+* 'Capacity' stat has been replaced with 'Fragmentation' which multiplies damage dealt to players by 0.1x at minimum stat (5) and 2.5x at maximum stat (200).
+* Temperature contribution for cannons is now split between 'Range' and 'Fragmentation' stats, however the base heat per shot has been increased and the contribution from stats decreased.
+* Cannonballs now damage parts within 2m of their impact point.
+* Added line of sight checks for explosions to prevent damage to ship parts. Players can still be damaged even if the explosion doesn't have line of sight.
+<br/>'''Swivel Guns'''
+* 'Power' stat has been renamed to 'Range' to more accurately reflect what it does and no longer affects spread.
+* 'Capacity' has been replaced with 'Choke'. This stat controls how wide the bullet spread is.
+* Temperature contribution for swivel guns is now split between 'Range' and 'Choke' stats, however the base heat per shot has been increased and the contribution from stats decreased.
+* Swivel Guns can now shoot cannon balls out of the sky!
+<br/>'''Engines'''
+* 'Spin Up' has been replaced with 'Boost'.
+* Fuel Tanks now have two interactable zones. The smaller one now allows you to consume Moonshine to give your engines a temporary power boost! This boost lasts 20s and has a 60s cooldown. The amount of additional thrust your engines gain is based on the value of the 'Boost' stat. At minimum stat, the additional thrust is equal to the amount of thrust an engine with a minimum 'Power' stat produces. At maximum stat, the additional thrust is double the amount of thrust an engine with a maximum 'Power' stat produces.
+* The additional thrust from Boost does not contribute to engine temperature!
+* Crafting 10x Moonshine now only requires 20 Plant Fibers and 10 Daccat Berries. The crafting time has been reduced to 60s.
+* 10 Daccat Berries now drop per tree segment and they now stack to 50.
+* 10 Plant Fibers now drop per tree segment.
+* Moonshine schematic is unlocked with the first engine schematic.
+* Spin up has been replaced with a more dynamic system:
+** When at 0 throttle or desired thrust opposite to current thrust, engine thrust will take drop to zero over one second.
+** When at positive throttle, thrust will increase to maximum over 30 seconds.
+** When at negative throttle, thrust will increase to maximum over 40 seconds.
+** When boosting, thrust change rates will be 15x faster at max boost stat, but not affected at minimum boost stat.
+** Using vertical helm controls will no longer cause engines to throttle down making vertical engines much more effective.
+* Added a throttle control deadzone where airbrake works but engines do not.
+* Fuel efficiency stat now also fades out engine exhaust particles
+
+<br/>'''Wings'''
+* 'Pivot Speed' has been replaced with 'Air Brake'. 'Pivot Speed' still effectively exists, but all wings now have maximum value for that stat.
+* When setting the throttle to the opposite direction that the ship is moving in, wings will now cause additional drag to slow the ship down. This force is proportional to the size of the 'Air Brake' stat and the speed of the ship and is applied at the location of the wing.
+* Relative velocity to the wind no longer impacts wing turning power. However, ships must now be moving to gain turning speed from wings. At 0 m/s wings will provide no turning power. At 10 m/s they will provide full turning power. Overall turning power has also been reduced by slightly. Note that Atlas Cores still allow you to turn while stationary.
+* Overall physics drag has been reduced quite significantly, meaning that you can now drift ships round corners!
+
+<br/>'''Balance Changes'''
+* Knowledge gain rates have been increased 2x, except for T1 otherwise people can craft ships in Haven!
+* Fuel farming rates have been increased 4x
+* Material gathering rates have been increased 2.6x
+* Lore pieces grant 5x increased knowledge
+* The amount of pigment required to craft paint has been reduced by around 80% as well as completely removing lead and metal requirements. Fuel is still required, but amount required has been reduced by 70%.
+* Atlas Pulse duration has been increased to 10s and cooldown increased to 60s.
+* The Drifter and Immobilator have had their active durations and cooldowns increased by 50%.
+* Reduced the HP of all island turrets by about 75% except for the Light Turret which has been reduced by 20%.
+* Lightning storms now occur 25% faster in Haven and 50% faster in The Wilderness.
+* Personal Revivers are now 3x heavier!
+* Metal nodes now have 100% chance of spawning an Atlas Shard.
+* The amount of chunks per metal node is now always 3. This is an increase of 1.333x on average. This is aimed at making client framerates smoother when approaching islands and reducing server load.
+* Understorms now happen twice as often
+* Loot chests now fill up faster
+* Metal rarity distribution changed so that there is much less chance of low tier metals in higher tiers and a corresponding increase in high tier metals. Quality is also no longer dependent on rarity.
+* Stats for metals and woods have been tweaked to make more of them viable:
+** Metal quality is more in line with the biome they spawn in
+** High tier metals are much more common in higher tiers and low tier metals are much less common in higher tiers.
+** Steel has had it's usability as a casing increased
+** Tins cooling has been brought in line with other casing materials
+** Eternium has been given a slight stat boost to make it worth it's rarity and weight
+** Epilar has been made slightly lighter
+** Aluminum has been buffed to perform better as a top tier light casing, but will give less stat bonuses for internals in some cases
+** Orthite has been made a T3 metal and had it's stats changed to make it a viable casing metal
+** Nickel has been made a T2 metal
+** Bronze has had its cooling factor increased to alleviate early game overheating issues for new players
+** Copper/Silver/Gold have had their weight reduced to make them more usable
+** Some woods have had their durability reduced
+* Buffed ciphers:
+** T1: +3 -3
+** T2: +5 -3 -2
+** T3: +7 -4 -3
+** T4: +8 -5 -3
+
+<br/>'''Miscellaneous Changes'''
+* Ship render distance has been increased to 1km.
+* Everybody will receive all previously released shop items in their stash for free. Unreleased shop items have been added to the loot tables.
+* When a ship logs in, now the physics servers check the location for collisions. If any are found it will try to rotate the ship and move it up and down to find a good position.
+* Swivel guns will now only damage players.
+* You can now hold the mouse down to fire cannons, swivel guns and pistols at maximum rate of fire. 
+* When trying to fire an overheat cannon/swivel a message will be sent showing how much it needs to cool before it can be fired again.
+* Removed the ragdoll button from the game due to exploits.
+* Ships with no registered revivers will now be destroyed if nobody interacts with them for 48h.
+* Founders Tomes have been added to the game. They drop in place of scrap items and will feature the names of everybody who bought a Founders pack.
+* Helm controls have been made more sensitive.
+* Death bags have drag again!
+* Increased fuel tank interaction radius to 5m and assembly station interaction radius to 30m.
+* Brought back grapple-boost 'skimming'!
+* Made player impact damage more forgiving.
+* Added a settings toggle to disable the onscreen overlay tutorial popups that would sometimes get stuck.
+* Removed panel bending on PVP server to improve client and server performance.
+* Allowed makeshift storages to be placed on walls, but not on entities or ungrappleable stuff.
+* Reduced the overall amount of clouds and changed Badlands so there are no volumetric clouds in the day, but still some at night
+* Islands now only have 1 spawn chamber by default and placement algorithm was improved. There are also some islands that intentionally have no spawn chambers to ensure that fresh t1 spawns are always on an island with plenty of resources.
+* Reduced knowledge costs of all food and stove. Increased glider knowledge cost to 2000
+* Scanner tool now shows the distance to the closest unscanned databank when scanning an island.
+* Loot table changes:
+** Lead no longer drops in chests or containers
+** Ancient leather now drops in scrap piles and loot containers
+** Pigments now have the same chance to drop in T3/T4 as T1/T2.
+** Campfire, torch and lifters no longer drops in Marauder chests and has lower chance in normal loot chests. No longer drops in T3/T4
+** Gliders no longer drop in T2
+** Guitars no longer drop in T3/T4
+** Glider, Ephemerus Drifter and Rhegus Greaves items can now drop in all culture biomes, but schematics now only drop in T4 culture specific biome. (Rhegus is both cultures)
+** Head torch spawns less in T3/T4
+** Bioelectrical Generator schematic no longer spawning in loot and no longer used in recipes.
+** Legendary engine schematics no longer drop in T1/T2 but have overall increased drop rate and can now drop in Marauder chests with increased drop rate compared to chests
+** Legendary components now have less chance to drop in T3, but can also now drop in Marauder chests with increased drop rate compared to chests
+** Ammo/bombs no longer drops in T3/T4 and in loot containers/chests
+
+<br/>'''Bug Fixes'''
+* Creatures are gone. Forever… The resources that were salvageable from them have been added to scrap piles.
+* Attempted fix for procedural ship part models with a highest stat requirement being randomised when they shouldn't be. This means you should now consistently get Apotheus engines when the max stat is resilience on an Exotic engine.
+* Fixed a bug where the item placement ghost would flicker valid/invalid allowing players to spam click to place the item anywhere.
+* Cannon balls will now explode at the position where they exploded on the server, not the client.
+* Fixed the speedo indicators being misaligned and it now measures absolute velocity.
+* Fixed black screen in storm walls
+* Got rid of glitchy stripey stuff in wind walls
+* Removed colliders from scanner note
+
+==References==
+# https://docs.google.com/document/d/1LjulJLsGakhQHqXAWypxi89aKyLZS3x-Be-QGk3GBu8/edit
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

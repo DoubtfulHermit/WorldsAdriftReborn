@@ -1,0 +1,23 @@
+{{stub}}
+{{SchematicBox
+| name = Pistol Bullets
+| time = 3
+| picture = Bullets.png
+| extra = "Metal bullets for a pistol."
+| craftIn = tool
+| name1 = Bullet
+| value1 = metal
+| amount1 = 10
+}}
+== Description ==
+Metal bullets used as ammunition for the [[Weapons#Primary Weapons|Pistol]]. Can be held in stacks of 20 in your inventory. Each bullet does 23 damage to players and [[Creatures|creatures]] regardless of the material used to craft them.
+
+{{CraftingPage
+| name = Pistol Bullets
+| picture = Pistol_Bullets.jpg
+}}
+
+
+{{WA Navbox}}
+
+[[Category:Weapons]]

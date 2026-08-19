@@ -1,0 +1,107 @@
+Release date: October 9th 2018
+
+[[File:NewFoundationLogo.png|center|600px]]<br>
+[[File:Haven.gif|center|400px]]
+
+==Update 27 Patch Notes==
+'''PVE SERVER'''
+* We’re trying something very exciting and somewhat scary for Worlds Adrift – introducing a PVE server! For those players who want a calmer, more exploration-based experience, we’re hoping this new server type will offer a different way to play the game. This is still very much an experiment, so please let us know how it goes. On the PVE server, most player-vs-player interactions are disabled in most of the world. In the Wilderness, Expanse, and Remnants, the following PVE rules are in effect:
+** Cannons, swivel guns, explosives, and pistols cause no damage to players or ship parts.
+** Players cannot salvage ship parts that are either attached to someone else’s ship, or inside someone else’s shipyard dome. This does not apply to unclaimed ships or shipyards.
+** Players cannot interact with any part of someone else’s ship, unless it’s docked to a shipyard they have access to. This does not apply to unclaimed ships or shipyards.
+** Death bags are only interactive by the player who dropped it for the first 30 minutes. Afterwards it becomes freely lootable.
+** Players cannot attach atlas lifters or explosives to someone else’s ship. This does not apply to unclaimed ships.
+** Ships log out 30 seconds after all owners log out, regardless of other players being on it or interacting with it.
+* In the Badlands, the standard PVP ruleset remains in effect.
+* The standard PVP server still has the standard PVP rules, completely unaffected by the PVE ruleset.
+* To accompany this, all servers and player progress have been wiped. To replace Capulca-US, Dinoue-US, Darat-US, Redusa-EU, and Ten-Rui-EU, there is now one consolidated PVP server, Driss-PvP, and one consolidated PVE server, Kubo-PvE.
+
+'''HAVEN'''
+* As part of revamping the flow for new players, we are introducing Haven, a tutorial zone all new characters start in.
+* Haven is a safe area of the world where new characters emerge from their home ship after it’s crashed on a remote island. Players will be taught, through a new tutorial system, how to grapple, salvage, craft inventory items, equip and use items, scan the environment for knowledge, learn through the Knowledge tree, and interact with the world. At the end of this sequence, players will be teleported to the Wilderness to start their journey.
+* In the future, more game mechanics will be tutorialized in Haven, and some (like shipbuilding), in Wilderness.
+
+'''NEW FEATURES AND CONTENT'''
+* The new servers Driss PvP and Kubo-PvE share a fresh new world map with many new islands! Community feedback on the layout of the map has been incorporated into the design.
+* Island Creator turrets are being implemented in multiplayer! Currently, light, heavy, and explosive turrets can now be found on old islands with turrets as well as new islands. Turrets can be disabled through damage but will self-repair after the understorm recharges their repair mechanism. Electric and snare turrets will come in a future update.
+* A load of new types of crafting resources and schematics have been added to the game!
+** Tons of new food schematics are now available. Campfire crafting has been reworked now, so it functions similarly to the assembly station. In addition, the stove is a new ship part that allows you to cook on your ship.
+** Some food now provides temporary buffs when eaten. Examples include increases to movement speed, jump height, and climbing speed, and reductions to impact damage. Eating food replaces any still-active buff from previous food.
+** Creatures now drop additional resources, including leather and chitin. Different variants from the different biomes drop different meat and other resources.
+** Trees now drop plant fibers, used to craft cloth, which…
+** Can be used to craft clothing! Currently, all Common and Uncommon clothing can be found as schematics in the world.
+** Cloth can be dyed with pigments, and clothing crafted with dyed cloth will be coloured correctly. This opens up a lot more possibilities for the stylish among you to coordinate your colours! Certain scrap items will now salvage for the necessary pigments.
+** Some scrap items will now salvage for cloth, leather, and glass. Various schematics have been updated to require cloth, leather, and glass.
+** Bandages can now be crafted from cloth. Using them requires an interaction timer, but once applied, they provide instant healing.
+* A set of furniture schematics can now be found in the game! Chairs and stools can be interacted with to sit on, and function like mounting a cannon or helm.
+* Traces of the Marauders, pirates that terrorized the skies after the collapse of the world, can now be found in the game – especially their treasure!
+** The Marauders hoarded treasure and buried it all in scattered locations across the skies. To be able to navigate back to their prized possessions, these ruthless bands fashioned atlas compasses, which players can now loot. Players lucky enough to find a Marauder atlas compass can follow its needle as it points to the Marauder chest – which could be leagues away!
+** Marauder chests contain exclusive, Marauder-specific loot not present in any other loot table, from clothing to furniture and everything in between, even…
+** Booze! Marauders left some of their precious refreshments behind, but… do you really want to drink what these guys cooked up?
+* The gear system has been expanded with three new items, and the rules have been updated.
+** Players can now find the Epheremus Drifter and, very rarely, the schematic to craft one! A torso gear slot item (like the glider), drifters activate atlas in short bursts. When midair, the player behaves similarly to an object with a lifter attached, drifting with gravity negated.
+** Players can also find the Immobilator and its associated schematic. This is also worn in the torso slot, and briefly freezes the player in mid-air. After a few seconds, the player resumes her previous trajectory and velocity.
+** Finally, the fabled Rhegus greaves are leg slot items that allow the player to walk on any angled surface. If you’ve always wanted to roleplay bats, fill your boots! Literally.
+** Gear items no longer drop on death! Instead, they now have durability and will wear out with use, eventually breaking.
+** In addition to durability, gliders now have a timer on how long it can be open at a time, and a cooldown before this refreshes. Coupled with having durability now, this allows the glider to be unnerfed to all its glory! Praise Gaben!
+* The first musical instrument has been introduced to the game – the guitar. This implementation does not do any clever network syncing, but we’re eager to get some feedback on how well it works.
+* Personal revivers now have a containment charge, displayed with a dial on their model and also on the respawn UI. When reviving characters from a distance, they expend this charge to contain the incredible amounts of raw energy the process takes and to dissipate it harmlessly. The farther the character was when she died, the more charge is expended. There is a minimum distance before any charge is depleted, and a maximum distance after which the charge cost does not increase. When the charge is fully depleted, choosing to revive will send a shockwave of uncontained energy across the whole ship, damaging all parts. It’d be best to never let your revivers run low on charge; docking your ship to a shipyard will recharge its revivers.
+* To reward searching for well-hidden or difficult-to-reach containers and chests, chests that haven’t been looted for a while will start to accumulate more loot. Loot budgets and timers have also been rebalanced as a result.
+* The /mute command has been added to the game. /mute CHARNAME will prevent any of CHARNAME’s messages from displaying on your client. /unmute CHARNAME will remove this character from your mute list, and /mutelist will display your current list of muted characters. This list is client-side at the moment, so playing on a different computer will have a separate list. It is also per-character, not per-account.
+* Salvaging messages and notifications for learning a schematic have been moved from the chat log to UI elements on the HUD. In the future, more system messages will be moved to the HUD
+
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Performed various optimisations and load balancing improvements. Loading in objects as you travel across the world should cause your framerate to drop less – this should be particularly noticeable when running around large islands. Nearby objects should now consistently load in before objects farther away now, and the player should gain control of the character only after anything she’s standing on is loaded, including ships. This also means it will no longer be possible to cheese puzzles or clip through objects by running through their space before they load in.
+* Crew beacon cooldown reduced to 30 minutes as an experiment. Please let us know if this encourages exploitative behaviour.
+* Schematics can now be salvaged for Knowledge!
+* Character damage calculations from physical impacts have been revamped. Now the character should always die when falling at terminal velocity but should take a lot less damage in other situations.
+* A Crafting tab, for gauntlet crafting, has been separated out from the Schematics tab.
+* Reviving onto a moving ship should no longer result in the ship moving out from under you by the time you gain control of your character.
+* While using objects with interaction timers, like cannons on someone else’s ship, if the character has moved too far away during the timer she will fail to complete the interaction.
+* The placeholder vocalisations for taking damage have now been replaced with new voice acting! Many thanks to our volunteer voice actors for grunting in our ears for so long.
+* If the object an atlas lifter is attached to is removed or destroyed, the lifter will become a loose physics object for a while, eventually disappearing if not picked up. This behaviour also applies to atlas compasses and timed explosives.
+* Adjusted loot tables.
+* Lootable containers and chests no longer disappear when looted. They signal being empty by staying open.
+* The tooltip when a schematic is moused over now shows a preview icon for the finished object, along with crafting information.
+* Performed fixes to UI scaling.
+* Terminal velocity when skydiving increased.
+* Overheat VFX will now show on engines, even though the mechanic itself is not switched on.
+* Fixed contorted animations when players mounted helms, cannons, swivel guns, and chairs.
+
+'''OTHER FIXES AND TWEAKS'''
+* Climbing (default button Q) should be more easily initiated now.
+* Other players’ characters now play audio on your client when they run and take damage.
+* Added new dynamic SFX for wind and sails while in flight.
+* Thuntomites and manta rays will now visibly show their damage state. In addition, after death, their bodies will gradually fade their colouring. Performed some tweaks to their taking-damage VFX as well.
+* Turbine engines were not correctly displaying the colour of their component metals in Update 26. This has been fixed.
+* Different types of Saborian and Kioki loot containers and chests now have distinct sounds when opening.
+* Cannon shells can now hit players.
+* Cannon shells now create less of a physical force upon explosion. Damage remains unchanged.
+* Fixed overheat VFX on cannons sometimes not showing.
+* Improved rain visuals. Also fixed rain not being visible sometimes.
+* Improved cloud colouring and eye adaptation settings.
+* Added swivel gun reloading animation and SFX, as well as overheat SFX.
+* Fixed some instances of crafting VFX being offset.
+* Various audio fixes.
+* The Social menu hotkey can be rebound in the Settings menu now.
+* Tweaks to various clothing models.
+* Lipstick on a pig tweaks to the male animation poses.
+* New icon for schematics. In a future update, different types and rarities will get distinct icons.
+* Minor tweaks to foliage colours and shaders, including improved transparency.
+* Fixed the “Your personal reviver is now functional” message when flying across certain invisible server boundaries.
+
+'''NOTABLE KNOWN ISSUES'''
+* Currently, even on the PvP server, ships will log out 3 minutes after their owners log out, regardless of being interacted with by other players.
+* This is a weird one, but bear with us here: Marauder compasses don’t work properly for about an hour or two after every maintenance. Don’t set them down during that time! You may lose it!
+* Ship rubberbanding is still being tweaked and worked on.
+* Client performance is still being worked on.
+* Attempting to use the crew beacon when in the Badlands will start the cooldown for it and act as though it was used.
+* Sometimes the barrier for the deactivated revival chamber in Haven will not deactivate when supposed to. Relogging will fix this issue.
+
+
+==References==
+# https://www.worldsadrift.com/forums/topic/new-foundations-update-27-patch-notes/
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

@@ -1,0 +1,20 @@
+Release Date: January 14th, 2019
+==Update 29.4 Patch Notes==
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Newly learned schematics will have the correct amount of unlocked cipher slots.
+* Fixed a bug where schematics could have more cipher slots than the player had unlocked.
+* Fixed a bug where players would be unable to listen to other players if the other players were quickly moving in and out of VoIP range.
+* Reduced ship rubberbanding
+** General ship motion is smoother now
+** The black spinning circle will appear less frequently
+** Ships won’t stop at server boundaries
+** Ships positions should be closer to where they actually are on the server
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/worlds-adrift-update-29-4-hotfix-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Open Beta Patch]]

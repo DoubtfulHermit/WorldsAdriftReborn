@@ -1,0 +1,119 @@
+{{stub}}
+
+==Info==
+Flags are a decorative [[Ship Components|component]], which allow you to show your support for a particular group. They can be crafted at an [[Assembly Station]] and are placed on deck areas of the ship. Flags will have a flapping animation with the wind.
+== Pirate Flag ==
+Traditional skull and crossbones decoration. 
+{{SchematicBox
+|name=Pirate Flag
+|time=5
+|picture = FlagPirate.png
+|extra = "Your loyalties are with yourself and no one else!"
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Flagpole
+|value1 = metal
+|amount1 = 60
+|name2 = Clamp
+|value2 = metal
+|amount2 = 20
+}}
+
+{{CraftingPage
+|name = Pirate Flag
+|picture = Pirate_Flag.jpg
+}}
+{{clear}}
+== Bossa Flag ==
+Flag with the logo of Bossa Studios, the developers of the game.
+{{SchematicBox
+|name=Bossa Flag
+|time=5
+|picture =FlagBossa.png
+|extra = "Show your allegiance to the mighty Bossa Studios."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Flagpole
+|value1 = metal
+|amount1 = 60
+|name2 = Clamp
+|value2 = metal
+|amount2 = 20
+}}
+{{CraftingPage
+|name = Bossa Flag
+|picture = Bossa_Flag.jpg
+}}
+{{clear}}
+
+== Improbable Flag ==
+Flag with the logo of Improbable, the company behind the SpatialOS server behind the game.
+{{SchematicBox
+|name=Improbable Flag
+|time=5
+|picture =FlagImprobable.png
+|extra = "Masters of the Grid. Fly your colours with pride and maybe Matej will nail the CSP."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Flagpole
+|value1 = metal
+|amount1 = 60
+|name2 = Clamp
+|value2 = metal
+|amount2 = 20
+}}
+{{CraftingPage
+|name = Improbable Flag
+|picture = improbable_flag.jpg
+}}
+{{clear}}
+
+== Flag of the New Empress ==
+An exclusive schematic given to [[Founder's Pack#Explorer|Explorer]] and [[Founder's Pack#Captain|Captain]] Tier [[Founder's Pack|Founders]].
+{{SchematicBox
+| name = Flag of the New Empress
+| time = 5
+| picture = FlagNewEmpress.png
+| extra = "Though Foundation is fallen, some believe that the lineage of the Empress of Ishgiru can be preserved under her flag."
+| craftIn = assembly
+| name1 = Flagpole
+| value1 = metal
+| amount1 = 60
+| name2 = Clamp
+| value2 = metal
+| amount2 = 20
+}}
+{{CraftingPage
+|name = Flag of the New Empress
+|picture = Flag_of_the_New_Empress.jpg
+}}
+{{clear}}
+
+== Flag of the 151st Contub of Essedari ==
+An exclusive schematic given to [[Founder's Pack#Explorer|Explorer]] and [[Founder's Pack#Captain|Captain]] Tier [[Founder's Pack|Founders]].
+{{SchematicBox
+| name = Flag of the 151st Contub of Essedari
+| time = 5
+| picture = FlagEssedari.png
+| extra = "When the sun appeared again after seven years, the flag of the Essedari was raised once more."
+| craftIn = assembly
+| name1 = Flagpole
+| value1 = metal
+| amount1 = 60
+| name2 = Clamp
+| value2 = metal
+| amount2 = 20
+}}
+{{CraftingPage
+|name = Flag of the 151st Contub of Essedari
+|picture = Flag_of_the_151st_Contub_of_Essedari.jpg
+}}
+{{clear}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Decoration]]

@@ -1,0 +1,24 @@
+{{SchematicBox
+|name = Guitar
+|time = 20
+|picture = Guitar.png
+|extra = "A wooden guitar."
+|craftIn = tool
+|name1 = Body
+|value1 = ash
+|amount1 = 150
+|name2 = Fingerboard
+|value2 = oak
+|amount2 = 25
+|name3 = Tuners
+|value3 = chitin
+|amount3 = 6
+|name4 = Strings
+|value4 = vessels
+|amount4 = 6
+}}
+==Description==
+The '''Guitar''' is the first in-game musical instrument in Worlds Adrift. Once held in the player's hand, right click to begin playing. After right-clicking, the keys Q-R and A-F make different sounds. It is possible to play entire songs (so long as the tune is in E major). 
+{{CraftingPage
+|Guitar
+}}

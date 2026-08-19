@@ -1,0 +1,29 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2">
+<div class="mw-collapsible-content"> 
+<blockquote>14th Kit 3021</blockquote>
+
+<blockquote>Case summary - The matter regarding the regrettable banishment of former Godhand Parielus in the city of Agbana</blockquote>
+
+<blockquote>The incident was so shameful that Parielus will not be celebrated among the pilae of the dead. He won't be received at the gates of Aetherium, or complete his ascent to god.</blockquote>
+
+<blockquote>The many vulnerable citizens whose residences he broke into shall be compensated with our good wishes and support, and we are certain their experiences will harden them, and better enable their ascent to god. That Parielus abused his position of authority characteristic of a worrying trend. The case will be put before the assembly</blockquote>
+</div>
+</div>
+<br>
+
+== Section 2 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2">
+<div class="mw-collapsible-content"> 
+<blockquote>29th Kit. Update.</blockquote>
+<blockquote>This case has been archived. The assembly has declined to discuss it. Premier Telemon believes that incidences of such cases will diminish once we have won the war, and things normalise again. They feel therefore, it is not a matter of precedence.</blockquote>
+<blockquote>The inquiry is now closed, no further Godhands will be questioned, and those involved have been allowed to return to policing. They have of course, been bound to secrecy on the matter.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

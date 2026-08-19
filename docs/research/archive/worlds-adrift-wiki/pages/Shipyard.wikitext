@@ -1,0 +1,62 @@
+__TOC__
+{{SchematicBox
+| name = Shipyard
+| time = 10
+| picture = Shipyard.png
+| extra = "The foundation of a construction yard for building skyships."
+| craftIn = tool
+| name1 = Casing
+| value1 = metal
+| amount1 = 100
+| name2 = Docking Mechanism
+| value2 = metal
+| amount2 = 30
+| name3 = Skyship Generator
+| value3 = metal
+| amount3 = 30
+}}
+
+== Usage ==
+=== Getting Started ===
+The Shipyard is the first available ship building tool in World's Adrift. At default it contains 5 base ship [[Schematics]]:
+[[File:Example of a Shipyard with Schematic.jpg|right|frameless|An example of the Shipyard]]
+* [[:File:Dinghy.jpg|Dinghy]], 
+* [[:File:Tug.jpg|Tug]], 
+* [[:File:Skiff.jpg|Skiff]],
+* [[:File:Spear.jpg|Spear]],
+* [[:File:Skipper.jpg|Skipper]].
+
+You can load any of these (by clicking on their name in the side bar) to either:
+* Rename the [[Schematics|Schematic]],
+* Edit the [[Schematics|Schematic]]'s frame,
+* Duplicate the [[Schematics|Schematic]] (not currently implemented).
+Once [[Schematics|schematic]] is loaded (and saved, if it has been edited) the Shipyard will project a green wire-frame view showing where it will be built. You can now place [[Metal]] to make the frame, and <!-- Projected feature in 6.0 -->[[Metal]] or [[Wood]] for the decks
+
+=== Crafting and Docking ===
+Upon building or docking a ship, the Shipyard will project a blue bubble, signifying the extent to which your [[Gauntlet|Gauntlet's]] Lift tool (Default [3]) will be able to manipulate ship parts.  You can also latch onto the bubble with your [[Grappling Hook]]. Once this bubble has been created, ship parts located inside the bubble can be attached to the ship with the [[Gauntlet|Gauntlet's]] Lift Tool.
+
+{{CraftingPage
+| name = Shipyard
+| picture = Shipyard page.jpg
+}}
+
+===== Docking Procedure =====
+To dock your ship maneuver close to the Shipyard and cut all propulsion, the Shipyard should drag the ship into the correct position and project the bubble around it. If this doesn't immediately happen:
+* Make sure you have ownership over the Shipyard in question
+* Try move closer to the shipyard
+
+=== Damage ===
+As of Alpha 6.0, shipyards can be damaged by [[Weather|understorms]]. They will receive damage every time lightning strikes the bottom of the island they are located on, and will eventually be destroyed if not repaired.<ref>https://www.worldsadrift.com/forums/topic/everythings-broken-tonight/#post-67783</ref>  To repair your shipyard, find the metal that the shipyard was built with and use your repair tool. They can be used even if they aren't fully repaired, however this may take a while. 
+
+== Tips and Tricks ==
+# Try to place your shipyard in an open space, So that your ship won't be caught on anything upon attempting to leave.
+# Once you are ready to leave, ascend vertically (Default {{Key|SPACEBAR}} or {{Key|LSHIFT}}) to break the shipyard dock before you start going forwards.
+# When editing a schematic be careful with decks: decks will only form if the angle between two sets of nodes is completely flat. Currently there is no mechanism for seeing when a deck has formed or not. However, you can monitor the deck material cost to see if you've added more decks or taken away less.
+
+== References ==
+<references />
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Shipbuilding]]

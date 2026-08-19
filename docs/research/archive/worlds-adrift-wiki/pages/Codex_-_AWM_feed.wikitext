@@ -1,0 +1,73 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section8">
+<div class="mw-collapsible-content">
+<blockquote>AWM (Advanced Warning Meteorological) observation feed from Semyon weather facility.</blockquote>
+<blockquote>Month: Wewe 3020</blockquote>
+<blockquote>Severe storms noted occurring far southeast of facility. Storms persist for several weeks. Ten-Rui station noting severe seismic sinkholes.</blockquote>
+</div>
+</div>
+<br>
+
+== Section 2 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section7>
+<div class="mw-collapsible-content">
+<blockquote>Month: Lopus 3023</blockquote>
+<blockquote>Severe storms noted occuring far southwest of facility. Storms persist for several weeks. Darat station noting severe seismic sinkholes.</blockquote>
+</div>
+</div>
+
+<br>
+
+== Section 3 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section3">
+<div class="mw-collapsible-content">
+<blockquote>Month: Qang 3027</blockquote>
+<blockquote>Severe storms noted northwest of the facility. Storms persist for several weeks. Kubo and Fasio stations noting severe seismic sinkholes.</blockquote>
+</div>
+</div>
+<br>
+
+== Section 4 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section4">
+<div class="mw-collapsible-content">
+<blockquote>Month: Qang 3032</blockquote>
+<blockquote>Very severe storms noted northwest of facility. Storms persist for three months. Kubo and Fasio stations noting severe seismic sinkholes.</blockquote>
+</div>
+</div>
+<br>
+
+== Section 5 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section5>
+<div class="mw-collapsible-content">
+<blockquote>Month: Kip 3034</blockquote>
+<blockquote>Very severe storms and diurnal blackouts noted northwest of facility. Storms show no signs of clearing. Kubo and Fasio stations noting chain sinkholes.</blockquote>
+</div>
+</div>
+
+<br>
+
+== Section 6 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section8>
+<div class="mw-collapsible-content">
+<blockquote>Month: \u00d6evel 3037</blockquote>
+<blockquote>Very severe storms and diurnal blackouts noted everywhere but far south of facility. Storms showing no signs of clearing. Kubo, Fasio, Huacanado, Tarrery, Conos, Efflua stations no longer reporting in.</blockquote>
+</div>
+</div>
+<br>
+
+== Section 7 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section7">
+<div class="mw-collapsible-content">
+<blockquote>Month: Skrambau 3039</blockquote>
+<blockquote>Signal Lost.</blockquote>
+</div>
+</div>
+
+<br>
+
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

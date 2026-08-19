@@ -1,0 +1,9 @@
+{{stub}}
+{{AddPicture}}
+[[File:Data Bank.png|thumb|There are 3 different styles of data banks|500px|link=]]
+'''Data banks''' are the most common way to accrue [[Knowledge|knowledge]] in the game. They are found in varying amounts on almost every island, but no more than 5 can be placed on each island. The community-made [[map]] shows the amount of data banks that are on each island. Each data bank will provide the character with an amount of knowledge depending on what [[biome]] they are in: 25 for Wilderness, 30 for Expanse, 35 for Remnants, and 40 for Badlands. Knowledge can only be acquired once from each data bank per character, like the other in-game assets and [[Lore|lore]].
+
+{{clear}}
+Sometimes, island creators are sneaky with their data bank placement or have placed 5 data banks at the end of a [[Puzzle|puzzle]], so make sure you look all over the islands for those databanks.
+[[File: DatabanksPuzzle.png]]
+[[File: DatabanksHidden.png]]

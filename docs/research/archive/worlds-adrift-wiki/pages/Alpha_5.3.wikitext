@@ -1,0 +1,23 @@
+Release date: January 26th, 2017
+
+==Alpha 5.3 Patch Notes==
+'''NOTE: 5.3 was primarily a stress-test/re-run of 5.2 with more players, so only a small amount of bugs were fixed.'''
+
+'''DISCLAIMER: The only official notes for 5.3 are from a small forum post by Bossa Herbliu. Herbliu later confirmed that these are the only notes. (See Source 2 for Confirmation)'''
+
+<br>
+'''BUG FIXES'''
+* Fix to help maintain creature populations
+* Fix for eggs never hatching
+* Fixed clouds so they don’t cover entire islands
+* The gauntlet salvage mode will no longer damage attached ship parts. This is a temporary change that will most likely be reverted in [[Alpha 0.0.6]] (Alpha 6.0) once we implement things like stacking respawn timer penalties, islands that don’t have revival chambers, etc.
+
+==References==
+# https://www.worldsadrift.com/forums/topic/a-peek-at-upcoming-changes-in-alpha-5-3-and-beyond/ (Patch Notes)
+# http://i.imgur.com/huXb2We.png (Confirming Forum-only Patch Notes & Confirming Release Date)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

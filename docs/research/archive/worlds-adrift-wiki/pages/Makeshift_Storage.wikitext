@@ -1,0 +1,27 @@
+{{NeedsUpdate|page}}
+
+{{SchematicBox
+|name=Makeshift Storage
+|time=7
+|picture = Makeshift storage.png
+|extra = "A chest for storing things on land or leaving them for fellow travellers."
+|craftIn = tool
+|name1 = Container
+|value1 = wood
+|amount1 = 80
+|name2 = Clamps
+|value2 = metal
+|amount2 = 20
+}}
+==Description==
+Makeshift Storage, not to be confused with the [[Ship Components|Ship component]] [[Storage|storage]] solutions, are a craftable item which can be placed on island terrain, but not on assets or ships. They can also be placed inside island assets making them a great way to stash some loot on an island. Makeshift Storage can be crafted from the [[Gauntlet]] crafting menu. If empty, they will be destroyed on island resets but otherwise will remain.
+
+{{CraftingPage
+|name = Makeshift Storage
+|picture = Makeshift_Storage.jpg
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

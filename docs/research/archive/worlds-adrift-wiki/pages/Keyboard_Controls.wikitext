@@ -1,0 +1,3 @@
+#REDIRECT [[Getting Started#Basic Controls]]
+
+[[Category: Guides]]

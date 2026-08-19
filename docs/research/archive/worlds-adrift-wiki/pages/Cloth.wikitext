@@ -1,0 +1,48 @@
+{{NeedsUpdate|page}}
+Cloth is a crafting ingredient that can be found in-game or crafted from [[Plant Fiber]]s.
+
+==Makeshift Cloth==
+{{SchematicBox
+|name = Makeshift Cloth
+|time = 5
+|picture = ClothMakeshift brown.png
+|extra = "Makeshift cloth made from plant fibers. A crafting component that can be used as a fabric in many schematics."
+|craftIn = tool
+|name1 = Plant Fibers
+|value1 = fiber
+|amount1 = 15
+|crafts = 5
+}}
+Used to craft [[Crafting Clothing|Clothing]], [[Helms]], [[Bandages]], and '''Dyed Cloth'''.
+{{CraftingPage
+|name = Makeshift Cloth
+}}
+{{clear}}
+==Dyed Cloth==
+{{SchematicBox
+|name = Dyed Cloth
+|time = 5
+|picture = ClothDyed.png
+|extra = "Cloth that has been dyed with pigment."
+|craftIn = tool
+|name1 = Pigment
+|value1 = pigment
+|amount1 = 10
+|name2 = Cloth
+|value2 = cloth
+|amount2 = 5
+|crafts = 5
+}}
+Can be used in any recipe that accepts cloth. Currently only applies the color if used in a [[Clothing Crafting|Clothing]] recipe.
+{{CraftingPage
+|name = Dyed Cloth
+}}
+{{clear}}
+==Ancient Cloth==
+Usable in all recipes requiring cloth. Obtained by salvaging scrap items. Comes in two colors, white and brown. These colors are not applied to clothing when they are used in clothing crafting.
+[[File:ClothSalvage.png|right|thumb|Ancient Cloth]]
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Crafting Components]]

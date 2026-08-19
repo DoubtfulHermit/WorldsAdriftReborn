@@ -1,0 +1,20 @@
+{{Ambox
+| image = [[File:Warning Triangle.png|50px]]
+| border = red
+| type = Spoiler Warning
+| info = <big>'''WARNING!'''</big>
+<big>The following sections contain spoilers for the lore and story of Worlds Adrift</big>
+}}
+
+== Section 1 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>An advertisement</blockquote><blockquote>There's nothing like a cup of Sabor Vittles. Home-grown, and ground the Saborian way.</blockquote><blockquote>Whether you've given a long day's charity, or been for a tiring swim, the vittles will bring you back to god.</blockquote><blockquote>Get Sabor Vittles from your local store. The ONLY vittles.</blockquote><blockquote>(This product is certified by the Economist. Accept no substitute, import, or counterfeit.)</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

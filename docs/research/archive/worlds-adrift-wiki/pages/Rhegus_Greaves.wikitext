@@ -1,0 +1,29 @@
+{{SchematicBox
+|name = Rhegus Greaves
+|time = 20
+|picture = Atlas boots.png
+|extra = "Experimental boots from famed inventor Rhegus Dawn. Harnesses atlas to allow walking on any surface."
+|craftIn = tool
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Biolelectrical
+|value2 = neural
+|amount2 = 2
+|name3 = Leather Insoles
+|value3 = leather
+|amount3 = 15
+|name4 = Atlas Shard
+|value4 = atlas
+|amount4 = 6
+}}
+==Description==
+The '''Rhegus Greaves''' is a gear item that is equipped in the legs slot. When activated (default {{Key|Y}}) the greaves allow the player to walk on walls, upside down, basically on any surface. They will stay activated until deactivated by pressing {{Key|Y}} or when they break after being used for a while. Currently, Atlas pulsing does '''not''' knock the player off of the ship making them a very useful boarding tool.
+{{CraftingPage
+|name = Rhegus Greaves
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

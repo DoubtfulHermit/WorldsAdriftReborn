@@ -1,0 +1,65 @@
+'''{{PAGENAME}}''' is one of the main [[Resources]] used for [[Crafting]] in [[Worlds Adrift]]. Each type of wood has a different weight and strength which will affect the physics and appearance of ships and components built with wood. Like [[Metal]], Wood can come in qualities varying from 1 to 10, with 1 providing minimal boosts to stats, while 10 provides the maximum. However, wood is less frequently used in higher tier parts, so quality 10 woods hold less value than quality 10 metals. 
+
+{| class="wikitable" style="color: black; background-color: #CCC;"
+|+ style="color:white;" | Material Weights & Descriptions
+!Icon
+!Name
+!Mass
+!Description
+!Ingame
+|- style="color: white; background-color: #222;"
+|[[File:Wood Cedar.png|frameless|100x100px]]
+|'''Cedar''' || 0.13 kg || Extremely light and soft, cannot withstand much damage.				
+|[[File:Deck cedar.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Wood Hemlock.png|frameless|100x100px]]
+|'''Hemlock''' || 0.15 kg || Very light but durable enough to be used in certain scenarios.				
+|[[File:Deck hemlock.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+||[[File:Wood Chestnut.png|frameless|100x100px]]
+|'''Chestnut''' || 0.17 kg || Lightweight but nevertheless versatile timber.				
+|[[File:Deck chestnut.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Wood Elm.png|frameless|100x100px]]
+|'''Elm''' || 0.18 kg || Medium weight with no outstanding strengths or vulnerabilities.				
+|[[File:Deck elm.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Wood Birch.png|frameless|100x100px]]
+|'''Birch''' || 0.20 kg || Soft but otherwise high performance for it's weight.				
+|[[File:Deck birch.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Wood Ash.png|frameless|100x100px]]
+|'''Ash''' || 0.22 kg || Extremely flexible all-rounder but heavy for timber.				
+|[[File:Deck ash.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Wood Oak.png|frameless|100x100px]]
+|'''Oak''' || 0.23 kg || Durable and versatile but heavy for wood.				
+|[[File:Deck oak.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Wood Palm.png|frameless|100x100px]]
+|'''Palm''' || 0.25 kg || The heaviest but also most useful wood.				
+|[[File:Deck palm.jpg|frameless|95x95px]]
+|}
+
+= History =
+Ironwood, Mahogany, Ebony, and Maple where last seen in [[Alpha 5.3]] and are no longer in the game as of [[Alpha 0.0.6|Alpha 6]], may they rest in peace.
+{| class="wikitable sortable" style="color: black; background-color: #CCC;"
+! style="color: black; background-color: #CCC;" | Icon
+! style="color: black; background-color: #CCC;" | Name
+|- style="color: white; background-color: #222;"
+|[[File:Wood Ironwood.png|frameless|100x100px]]
+|'''Ironwood'''
+|- style="color: white; background-color: #333;"
+|[[File:Wood Mahogany.png|frameless|100x100px]]
+|'''Mahogany'''
+|- style="color: white; background-color: #222;"
+|[[File:Wood Ebony.png|frameless|100x100px]]
+|'''Ebony'''
+|- style="color: white; background-color: #333;"
+|[[File:Wood_Maple.png|frameless|100x100px]]
+|'''Maple'''
+|}
+
+
+{{WA Navbox}}
+[[Category: Resources]]

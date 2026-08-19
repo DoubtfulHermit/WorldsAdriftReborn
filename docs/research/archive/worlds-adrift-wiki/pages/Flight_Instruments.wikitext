@@ -1,0 +1,132 @@
+{{stub}}
+{{NeedsUpdate|page}}
+=Description=
+These items can be crafted in an [[Assembly Station]] and can be placed on other components. A good example is putting them on [[Bar Pipes]] in front of your helm as a makeshift HUD. <br />
+
+=Gauges=
+==Altimeter==
+{{SchematicBox
+|name=Altimeter
+|picture=Altimeter.png 
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Needles & Dials
+|value2 = metal
+|amount2 = 20
+|extra = "Altimeter indicator."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|time = 10
+}}
+Display ship's altitude (in meters). Found in the [[Biome#Badlands|Badlands]], as of [[Beta 0.1.3.7]] the altitude cap is 2800m.
+
+{{CraftingPage
+|name = Altimeter
+|picture = Altimeter.jpg
+}}
+
+{{clear}}
+==Fuel Gauge==
+{{SchematicBox
+|name = Fuel Gauge
+|picture = FuelGauge.png
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Needles & Dials
+|value2 = metal
+|amount2 = 20
+|extra = "Fuel Gauge indicator."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|time = 10
+}}
+Displays how much fuel is currently in your [[Power Generator]]. Discovered in the  [[Biome#Expanse|Expanse]], [[Biome#Remnants|Remnants]] and [[Biome#Badlands|Badlands]]
+
+{{CraftingPage
+|name = Fuel Gauge
+|picture = Fuel Gauge.jpg
+}}
+
+{{clear}}
+==Heading Indicator==
+{{SchematicBox
+|name = Heading Indicator
+|picture = HeadingIndicator.png
+|name1 = Housing
+|value1 = metal
+|amount1 = 40
+|name2 = Gyro
+|value2 = metal
+|amount2 = 20
+|extra = "Heading indicator."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|time = 10
+}}
+Displays direction your ship is facing. Found in all [[Biome|biomes]].
+
+{{CraftingPage
+|name = Heading Indicator
+|picture = Heading Indicator.jpg
+}}
+
+{{clear}}
+
+==Artificial Horizon==
+{{SchematicBox
+|name = Artificial Horizon
+|picture = ArtificialHorizon.png
+|name1 = Housing
+|value1 = metal
+|amount1 = 40
+|name2 = Ball
+|value2 = metal
+|amount2 = 20
+|extra = "Artificial Horizon indicator."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|time = 10
+}}
+Displays your ship's orientation compared to the horizon. Discovered in the [[Biome#Remnants|Remnants]] and [[Biome#Badlands|Badlands]]
+
+{{CraftingPage
+|name = Artificial Horizon
+|picture = Artificial Horizon.jpg
+}}
+
+{{clear}}
+==Airspeed Indicator==
+{{SchematicBox
+|name = Airspeed Indicator
+|picture = AirspeedIndicator.png
+|extra = "Airspeed indicator."
+|craftIn = assembly
+|name1 = Housing
+|value1 = metal
+|amount1 = 40
+|name2 = Needle
+|value2 = metal
+|amount2 = 20
+|bar1name = Resilience
+|bar1value = 12
+|time = 10
+}}
+Indicates your ship's speed in knots (Nautical miles per hour). Discovered in the [[Biome#Badlands|Badlands]]
+
+{{CraftingPage
+|name = Airspeed Indicator
+|picture = Airspeed Indicator.jpg
+}}
+
+{{clear}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Flight Instruments]]

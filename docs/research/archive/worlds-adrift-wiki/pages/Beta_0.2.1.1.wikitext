@@ -1,0 +1,60 @@
+Release date: June 12th, 2018
+
+==Beta 0.2.1.1 Patch Notes==
+
+<br>
+'''CHARACTER IMPROVEMENTS'''
+* Characters can crouch, roll, and sneak now! Holding the Ctrl key will crouch your character if not moving; pressing it while moving will roll your character, and moving while crouched will sneak your character around.
+* The Easter egg dances have now been integrated into a proper emote system! Press C to open up an emote wheel and perform all kinds of animations. In the future, vocalizations will expand on this system.
+* Characters will automatically reach out to touch walls and objects they’re close to again.
+* The “Kraken” bug (a total animation freakout of the player body) has finally been tamed! It might still occur in extreme circumstances, but should be very rare now.
+* Previously, impacting the ground in a specific way could send your character body flying into the stratosphere. This has been fixed.
+* A buggy animation loop, where a falling character would alternate between falling and skydiving, has been fixed.
+* While climbing, aiming your grapple will now stop your movement.
+* It is now easier to start climbing. The speed threshold has been raised, so it’s no longer necessary to be nearly still to initiate climbing.
+* When reeled almost all the way in to the hook attachment point, the player will no longer turn inside out to resolve the animation. As a concession, the arm will now sometimes clip geometry.
+* Fixed various issues with the character trying to aim with torches and other objects.
+<br>
+'''CAMERA IMPROVEMENTS'''
+* The game camera has been improved when swinging, particularly at speed. Your character can go really fast, and we want the player to feel that speed!
+* Added a feature to toggle the shoulder the game camera looks over. By default this is MMB.
+* After being stationary in the world for a while, the game camera will slowly pan to a cinematic angle.
+* All camera modes have been standardised and tweaked. Say goodbye to uncomfortably close up swinging when equipping the scanner!
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* The cinematic introduction to the world has been properly integrated into the game now! Starting a new character will play a sequence that explains the background of the world, setting the stage for your adventures to come.
+* Some head pieces would float above players and turn them invisible upon relogging. This has been fixed.
+* A strange bug resulting in ship parts in the death clouds not getting deleted from the world has been fixed.
+* The shipyard information panel will now always display the correct information for all parts attached to the docked ship.
+* Timed explosives will no longer be invisible sometimes.
+* Inventory items can no longer overlap the belt space.
+* Occasionally players would not be able to save a ship frame design after editing it. This has been fixed.
+* Fixed the circular crafting timer being incorrect when opening a container.
+* The game no longer crashes upon exit.
+* Various client-side performance optimizations have been performed.
+* Various UI fixes.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* A bug that allowed a player to force nearby other players to go into the animation for swapping their hotbar item has been fixed.
+* Dragging inventory items to an invalid part of the UI no longer prompts the player to delete the item. Only dragging outside all UI will trigger the deletion prompt.
+* Stormwalls and sandstorms have received rendering improvements, displaying more detail and more movement, with better colours.
+* The flying debris inside stormwalls now appear again.
+* Stormwalls’ lightning flashes should now be visible from outside the wall again.
+* Adjusted colours on the Blight.
+* Fixed pixelated cloud cover over certain environment assets.
+* The first item loaded into the hotbar after launching the game will now function properly.
+* Foliage was disappearing at long distances instead of swapping to the lowest detail level. This has been fixed.
+* Atlas shards and power generators will now correctly display the control prompt to press E to interact.
+* A ship docked to a shipyard that gets eaten by the Blight will now undock automatically.
+* Added screen shake to firing a swivel gun.
+* Various new VFX, including wind trails over wings and while on helm, and VFX fixes.
+* Lots of SFX and music levels tweaks.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/the-emotional-update-patch-notes-0-2-1-1/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

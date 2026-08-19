@@ -1,0 +1,18 @@
+Release Date: December 19, 2018
+==Update 29.3 Patch Notes==
+<br>
+Too very important fixes!!!<br>
+'''NOTABLE BUG FIXES AND CHANGES'''
+<br>
+* Fixed Old dyed clothing display brown colour
+* Cost of paint has been lowered.
+* Fixed a duping exploit relying on latency has been fixed.
+* Base material stats on Iron, Lead, Bronze, Tin, Nickel, Alum, Eternium have been balanced.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/worlds-adrift-hotfix-29-3-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Open Beta Patch]]

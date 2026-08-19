@@ -1,0 +1,16 @@
+Release date: June 27th, 2018
+
+==Beta 0.2.2.3 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* [[Beta 0.2.2.1]] introduced a bug where atlas shards would not spawn inside metal scrap deposits. This has been fixed.
+
+==References==
+# https://www.worldsadrift.com/forums/topic/0-2-2-1-atlas-shards-missing-from-metal-deposits/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

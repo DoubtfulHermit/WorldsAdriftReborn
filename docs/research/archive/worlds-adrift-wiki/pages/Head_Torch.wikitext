@@ -1,0 +1,26 @@
+{{NeedsUpdate|page}}
+{{SchematicBox
+|name=Head Torch
+|time=3
+|picture=Head torch.png 
+|extra = "Head mounted light source that illuminates the area in front of you. Press T to turn on and off."
+|craftIn = tool
+|name1 = Torch
+|value1 = metal
+|amount1 = 60
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 80
+}}
+==Description==
+The '''Head Torch''' is a wearable utility item that is considerably brighter than the [[Hip Lantern]] but is a directional light, only lighting in the direction the character is facing. It is equipped on the Head [[Gear]] slot. After continued use, the Head Torch will eventually break, but will not drop on death. By default, pressing {{Key|T}} will toggle the light source.
+
+{{CraftingPage
+|name = Head Torch
+|picture = Head Torch.jpg
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

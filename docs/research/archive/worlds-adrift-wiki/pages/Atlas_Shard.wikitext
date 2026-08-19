@@ -1,0 +1,9 @@
+{{stub}}
+{{AddPicture|Picture of an atlas shard in an ore node}}
+[[File:Atlas Shard.png|frameless|right|Atlas Shard]]
+Atlas Stone (or Atlas Shards) occur when harvesting metal from nodes. The Atlas Stone can not be gathered by the [[Gauntlet|gauntlet tool]], but must be picked up with {{Key|E}}.
+The Atlas Stone drops off if the node is destroyed by harvesting and therefore can drop into the void.
+
+Atlas Stones are needed for crafting [[Atlas Core|Atlas Cores]], [[Atlas Core|Atlas Core Upgrades]], and [[Atlas Lifter|Atlas Lifters]]. They are also consumed by the [[Atlas Pulse]] function of the Atlas Core which consumes one shard per activation.
+
+[[Category:Resources]]

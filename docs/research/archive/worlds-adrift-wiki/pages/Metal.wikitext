@@ -1,0 +1,154 @@
+{{NeedsUpdate|page}}
+Metal is one of the main [[Resources]] used for [[Crafting]] and ship building. Each metal varies in density and strength, which will affect ship physics and appearance. Different metals will boost a components statistics. These include the strength (resilience), colour, conductivity, heat-dissipation and others depending on the type of part.<ref>https://www.worldsadrift.com/blog/modular-mechanics/</ref> 
+
+Metals can be found within metal scrap nodes (Situated on, or on the underside of [[Islands]]), within chests or in scrap piles scattered around some islands.
+
+Metal, like [[wood]], has a quality statistic. Quality can vary from 1 to 10, with 10 being the best and 1 the worst. Using higher quality materials will give a higher statistic boost to the part you are making, without any additional cost of weight.
+Generally speaking, higher tier biomes will spawn higher tier metals. Furthermore, testing shows that each island will only produce one quality variant of each metal.
+
+[[File:Metalnode1.jpg|thumb|Metal Node|link=]]
+[[File:Metalnode2.jpg|thumb|Metal Node|link=]]
+
+
+== Metal List and Uses ==
+
+=== Aluminium ===
+While being quite rare, Aluminium is currently the lightest metal in the game, and decently resilient. It can be useful for ship frames, paneling, casings, or internals of helms, fuel tanks, etc ... in order to keep weight down. In specific situations, Aluminium can be used for the internals of [[Atlas Core]]s to reduce weight while maintaining lift. Quality 10 Aluminium is one of the most sought-after materials in the game.
+
+=== Titanium ===
+Titanium is a high-end material useful for combustion or mechanical needs. It is the second lightest metal in the game which makes Titanium 10 heavily sought after. Unfortunately it is not very resilient which is a boon towards using it for casings.
+
+=== Tin ===
+Tin is an Uncommon metal which is found in relative abundance throughout Foundation. It is one of the most widely used casing materials because of its weight (3rd lightest), rarity (or rather lack of it), and its cooling ability for engines. Due to its thermal usefulness and weight almost all battleships are cased with Tin.
+
+===Iron ===
+Iron is an incredibly common metal found in every tier of the map. It is probably the best starting metal for new explorers to gather. While not being excellent in any specific use, its resilience, weight, and small boosts in schematic stats make it useful for all levels of gameplay.
+
+=== Bronze ===
+Like Iron, Bronze is abundant everywhere you fly. Also like Iron, Bronze is considered a starter metal, not good at one thing but OK at everything. Iron though, is better than Bronze in almost every regard.
+
+=== Nickel ===
+Nickel is an Uncommon material that is pretty much exclusively used as an alternative to titanium in engine internals. It provides similar boosts at a cost of being heavier. Even so, Nickel 10 is a good find while exploring.
+
+=== Orthite ===
+Orthite is a metal exclusive to Foundation, not found anywhere else. It is middling in all its bonuses but even iron outpaces it in several areas. There is usually a lighter or more powerful alternative. It is a naturally black metal so players may use it for ship coloring. Perhaps in the future...
+
+=== Epilar ===
+Epilar is a Rare metal which has a few specific use cases in Engines or Cannons/Swivel Guns. Those cases can be few and far between so most experience travelers may not store or even bother collecting it.
+
+=== Steel ===
+While once being a powerhouse of a material, specifically for casings due to its high resilience, Steel has fallen out of favor with most players due to its lack of thermal conductivity and weight. It is still quite resilient and has a decent boost of Overheat when used in engine internals, but there is usually a better metal for the job.
+
+=== Eternium ===
+Eternium is an Exotic metal that is rare everywhere. It has uses in engine internals as a major Overheat Limit booster and in certain Cannon parts. Eternium is rumored to be named for one of the first inhabitants of Foundation.
+
+=== Copper ===
+Copper, one of the 3 super conductive metals (the others being Silver and Gold), is excellent for sky core internals early game. Since its an Uncommon metal, it can be found in relative abundance everywhere. For everything else, Copper is absolutely garbage at. Tied for the worst with Silver and Gold.
+
+=== Lead ===
+Lead is one of the most abundant metal, but is pretty terrible for crafting anything that depends on metal type due to its low bonuses and incredibly heavy weight. Most inhabitants use it for crafting various metal parts on their person or for [[Shipyard]]s or [[Assembly Station]]s.
+
+=== Silver ===
+Silver is a Rare metal that is better than copper for sky core internals. It provides the second best boost to [[Cooling Factor]] but due to its incredibly high weight is not used too often. Other than that it provides terrible boosts to other stats.
+
+=== Tungsten ===
+Tungsten is the second heaviest metal in the game but provides the greatest stat bonuses for almost every part. It is also the most resilient discovered metal on Foundation. Players find though that its massive weight outweighs the high bonuses it requires and only use it for parts that have a low resource cost.
+
+=== Gold ===
+Gold is an Exotic metal that provides the most lift when used in sky core internals. Although in some cases if you are looking to obtain maximum efficiency, Aluminium with its lower boost but dramatically lower weight is better. Other than sky cores, Gold has little use except for its recognizable color.
+
+== Mass Table ==
+NOTE: All of the following data is a specific weight per unit for panels. Each component is believed to have a different weight per unit, but the order of weight remains the same.
+{| class="wikitable sortable" style="color: black; background-color: #CCC;"
+|+ style="color:white;" | Material Weights & Descriptions
+!Icon
+!Name
+!Mass
+!Description
+!Rarity
+!Ingame
+|- style="color: white; background-color: #222;"
+|[[File:Metal Aluminium.png|frameless|50x50px]]
+|'''Aluminium''' || 0.33 kg || Extremely light without compromising too much on strength || Exotic
+|[[File:Deck aluminium.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Titanium.png|frameless|56x56px]]
+|'''Titanium''' || 0.35 kg || Very light for such a hard metal but a bad conductor. || Rare
+|[[File:Deck titanium.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Tin.png|frameless|63x63px]]
+|'''Tin''' || 0.38 kg || Lightweight but weak, soft and susceptible to heat. || Uncommon
+|[[File:Deck tin.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Iron.png|frameless|50x50px]]
+|'''Iron''' || 0.39 kg || Reasonably tough and heat resistant given its modest weight. || Common
+|[[File:Deck iron.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Bronze.png|frameless|50x50px]]
+|'''Bronze''' || 0.42 kg || Capable of withstanding a lot of stress for its medium weight. || Common
+|[[File:Deck bronze.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Nickel.png|frameless|50x50px]]
+|'''Nickel''' || 0.43 kg || Versatile thanks to its medium weight and a few weaknesses. || Rare
+|[[File:Deck nickel.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Orthite.png |frameless|50x50px]]
+|'''Orthite''' || 0.43 kg || Moderately conductive, stress resistant, but weak to heat.  || Uncommon
+|[[File:Deck orthite.jpg |frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Epilar.png|frameless|51x51px]]
+|'''Epilar''' || 0.46 kg || Durable and resistant to stress but not really hard. || Rare
+|[[File:Deck epilar.jpg |frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Steel.png|frameless|50x50px]]
+|'''Steel''' || 0.50 kg || Very hard and high performance metal for its weight. || Uncommon
+|[[File:Deck steel.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Eternium.png |frameless|51x51px]]
+|'''Eternium''' || 0.50 kg || Hard, durable, heat resisantant but poor under stress. || Exotic
+|[[File:Deck eternium.jpg |frameless|94x94px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Copper.png|frameless|51x51px]]
+|'''Copper''' || 0.55 kg || A great conductor but otherwise unexceptional. || Uncommon
+|[[File:Deck copper.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Lead.png|frameless|50x50px]]
+|'''Lead''' || 0.56 kg || Durable and strong but too heavy for many uses. || Common
+|[[File:Deck lead.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Silver.png|frameless|51x51px]]
+|'''Silver''' || 0.66 kg || A jack of all trades but master of only conductivity || Rare
+|[[File:Deck silver.jpg|frameless|94x94px]]
+|- style="color: white; background-color: #333;"
+|[[File:Metal Tungsten.png|frameless|51x51px]]
+|'''Tungsten''' || 0.70 kg || Unparalleled resistance to the elements but very heavy. || Exotic
+|[[File:Deck tungsten.jpg|frameless|95x95px]]
+|- style="color: white; background-color: #222;"
+|[[File:Metal Gold.png|frameless|50x50px]]
+|'''Gold''' || 0.73 kg || Dense yet malleable with extremely high conductivity. || Exotic
+|[[File:Deck gold.jpg|frameless|95x95px]]
+|}
+
+== Metal Quality and Performance ==
+Each metal provides a different boosts to component's statistics when used in the respective crafting slot. Each metal also has a quality from 1 to 10, this provides another smaller boost to the respective statistic of the component. See [[wings]], [[engines]], [[cannons]] for the estimated specific boosts each metal provides. The repair metal of a component is always determined by the material put in the "Casing" slot.
+
+== History ==
+Magnesium, Palladium, and Platinum were last seen in [[Alpha 5.3]] and are no longer in the game as of [[Alpha 0.0.6|Alpha 6]].
+{| class="wikitable sortable" style="color: black; background-color: #CCC;"
+! style="color: black; background-color: #CCC;" | Icon
+! style="color: black; background-color: #CCC;" | Name
+! style="color: black; background-color: #CCC;" | Mass
+|- style="color: white; background-color: #222;"
+|[[File:Metal Magnesium.png|frameless|50x50px]]
+|'''Magnesium''' || 0.13 kg
+|- style="color: white; background-color: #333;"
+|[[File:Metal Palladium.png|frameless|50x50px]]
+|'''Palladium''' || 0.87 kg
+|- style="color: white; background-color: #222;"
+|[[File:Metal Platinum.png|frameless|56x56px]]
+|'''Platinum''' || 1.64 kg
+|}
+
+
+{{WA Navbox}}
+[[Category:Resources]]

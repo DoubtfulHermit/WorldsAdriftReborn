@@ -1,0 +1,51 @@
+{{stub}}
+
+==Description==
+The '''Bar Pipe''' and '''Bent Bar Pipe''' are structural items that can be placed on a ship. They are often used to attract lighting in a [[Weather#Storm walls|Stormwall]] or to display [[Instruments]].
+
+===Stormwall===
+Lots of players use bar pipes for ships going into [[Weather#Stormwall|Stormwalls]] because they are light and do not take up to much deck space. If you have, say, 20 bar pipes on your ship, it is less likely the lightning will strike a valuable part of your ship, say your helm or an engine.
+
+==Bar Pipe==
+
+{{SchematicBox
+|name = Bar Pipe
+|time = 3
+|picture = BarPipe.png
+|extra = "A bar made of piping."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 30
+|name1 = Pipe
+|value1 = metal
+|amount1 = 10
+}}
+{{CraftingPage
+|name = Bar Pipe
+|picture = Bar Pipe.jpg
+}}
+
+{{clear}}
+==Bent Bar Pipe==
+{{SchematicBox
+|name = Bent Bar Pipe
+|time = 3
+|picture = BarPipeBent.png
+|extra = "A bent bar made of piping."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 30
+|name1 = Pipe
+|value1 = metal
+|amount1 = 10
+}}
+{{CraftingPage
+|name = Bent Bar Pipe
+|picture = Bent_Bar_Pipe.jpg
+}}
+
+{{clear}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Structural]]

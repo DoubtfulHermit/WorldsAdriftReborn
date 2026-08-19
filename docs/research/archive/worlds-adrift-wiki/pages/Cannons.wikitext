@@ -1,0 +1,34 @@
+{{NeedsUpdate|page}}
+{{tocleft}}
+==Description==
+[[File:Ship cannon.png|right|200px|Swivel Gun]]
+Cannons are the best way to arm your ship for Ship vs Ship combat, or against mantas. However, they don't do effective and reliable damage to players, only ships. They fire cannon shells, the schematic for which is learnt when you research your first Tier 1 Cannon. Cannons can not be used when they aren't attached to the ship, although this may change in the future<ref>https://www.worldsadrift.com/blog/pvp-adjustments/</ref>. You can find cannons as procedural schematics in chests, or research them from the knowledge tree.<br>
+To load your cannon you should interact with the magazine on the side, which will bring up a chest UI which only accepts cannon shells.<br>
+To fire your cannon use {{Key|E}} to take control and {{Key|LMB}} to fire. You can use your mouse to aim.
+{{clear}}
+== Cannon Statistics ==
+
+=== <u> Weight </u> ===
+: The weight of the Cannon. This is a total of the weight of all the materials used to craft the cannon.
+
+=== <u> Resilience </u> ===
+: The hitpoints (HP or health) of the cannon, provided by the cannons's [[Casing|casing]]. <sub>(also see: [[Resilience]])</sub>
+
+=== <u> Capacity </u> ===
+: This mechanic has not been implemented yet. Expect this feature to be in a future early access version (0.2.X.X).
+
+=== <u> Power </u> ===
+: The range of the shot, higher power means the shot can go further.
+
+=== <u> Overheat Limit </u> ===
+: How quickly the cannon overheats and has to cool down before being used again. At the lowest overheat limit a cannon can still fire 15 shots before needing to cool down.
+
+=== <u> Rate of Fire </u> ===
+: How quickly the cannon can reload and fire.
+
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Weapons]]
+[[Category:Procedural Schematics]]

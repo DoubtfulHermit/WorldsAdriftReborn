@@ -1,0 +1,24 @@
+Worlds Adrift utilizes different servers (hosted on AWS) to handle its growing player load.
+__NOEDITSECTION__
+=Current Servers=
+[[File:PVP vs PVE.jpg|right|600px|link=]]
+Currently, there are 2 servers, Kubo and Driss, with different rules.<br>
+'''NOTE: Both servers are hosted in the US. Bossa Studios has said if there is significant slower connection speeds for EU players, they will consider adding an EU server.'''
+==US==
+===Hybrid===
+* Kubo
+===PvP===
+* Driss
+{{clear}}
+=Server History=
+==Early Access Phase #1==
+===US===
+* Capulca
+* Dinoue
+* Darat <!--Best server-->
+===EU===
+* Ten-Rui
+* Redusa
+
+[[Category: Worlds Adrift]]
+{{WA Navbox}}

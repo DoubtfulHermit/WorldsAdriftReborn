@@ -1,0 +1,57 @@
+==Description==
+Paint is used to decorate crafted objects. It comes in the form of '''Paint Cans''' and '''Paint Drums'''.
+==Paint Can==
+{{SchematicBox
+|name = Paint Can
+|time = 8
+|picture = PaintCan.png
+|extra = "Place in the customisation slot while crafting ship parts to paint them."
+|craftIn = tool
+|name1 = Pigment
+|value1 = pigment
+|amount1 = 8
+|name2 = Lead
+|value2 = lead
+|amount2 = 20
+|name3 = Fuel
+|value3 = fuel
+|amount3 = 10
+|name4 = Container
+|value4 = metal
+|amount4 = 15
+}}
+Paint cans are used for coloring every part that can be colorable except the [[Frame]] which requires a '''Paint Drum''' because of its larger size. Also, when crafting the ship itself, the deck can be colored as well. That also requires a drum.
+{{CraftingPage
+|name = Paint Can
+}}
+{{clear}}
+==Paint Drum==
+{{SchematicBox
+|name = Paint Drum
+|time = 45
+|picture = PaintDrum.png
+|extra = "A large drum of paint that can be used to coat entire ship frames or a large amount of parts at once."
+|craftIn = tool
+|name1 = Pigment
+|value1 = pigment
+|amount1 = 30
+|name2 = Lead
+|value2 = lead
+|amount2 = 250
+|name3 = Fuel
+|value3 = fuel
+|amount3 = 100
+|name4 = Container
+|value4 = metal
+|amount4 = 90
+}}
+Paint drums are used to color the frame and deck of a ship when initially crafting the frame and deck from a [[Shipyard]].
+{{CraftingPage
+|name = Paint Drum
+}}
+{{clear}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Crafting Components]]

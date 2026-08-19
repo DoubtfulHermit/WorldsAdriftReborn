@@ -1,0 +1,21 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>Dear Mai Gao,</blockquote>
+<blockquote>Following interview, and examination of your academic record, we hereby promote you to the position of Junior Trustee. Congratulations.</blockquote>
+<blockquote>I hope your husband won't mind relocating, but family is secondary when an opportunity such as this crops up, don't you agree? We do offer places for the children to play, if he needs somewhere to look after them on campus.</blockquote>
+<blockquote>I trust we will hear from you soon.</blockquote>
+<blockquote>
+Pe-Jing Fernard<br>
+Senior Registrar<br>
+Gall Liaison Trustees
+</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

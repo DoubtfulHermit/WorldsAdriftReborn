@@ -1,0 +1,22 @@
+{{Incomplete}}
+{{SchematicBox
+|name = Thuntomite Stew
+|time = 10
+|picture = Pot of Beetle Stew.png
+|extra = ""
+|craftIn = fire
+|name1 = Raw Thuntomite Meat
+|value1 = thuntomitemeat
+|amount1 = 3
+|name2 = Daccat Berries
+|value2 = berries
+|amount2 = 10
+}}
+
+==Description==
+Thuntomite stew is one of the best healing items in the game, but it comes and a great expense to make. A better alternative might be [[Steak#Manta Steak|Manta Steak]].
+
+{{CraftingPage
+|name = Thuntomite Stew
+|picture = Thuntomite Stew.jpg
+}}

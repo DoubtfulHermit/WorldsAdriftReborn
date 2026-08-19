@@ -1,0 +1,29 @@
+{{Ambox
+| image = [[File:Warning Triangle.png|50px]]
+| border = red
+| type = Spoiler Warning
+| info = <big>'''WARNING!'''</big>
+<big>The following sections contain spoilers for the lore and story of Worlds Adrift</big>
+}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>Whether you have a mummy or a daddy, were born to the south or north, this book is for you. A strange and comforting place lies in the soft heart of your pillow. So lay your weary head down, close your eyes, and listen to my words.</blockquote><blockquote>Imagine yourself floating, up and up like a skyship, until you are face-to-face with the big moon. Then big moon kises you on the cheeck (kiss your child now).</blockquote><blockquote>Then imagine a green garden with boughs of fruit red and gold. Then a kind Pilipus, who weaves peacefully there upon a chair. Then you know that many gifts are yours to have and command, since you are chosen, little one. You are god. You are god.</blockquote><blockquote>Then you float up once more, float up again like the greatest skyship, until you are face-to-face with the big moon. Biug moon kisses you up on the cheek (kiss your child again).</blockquote>
+</div>
+</div>
+
+<br/>
+
+== Section 2 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>Then imagine the Night Lands. A kingdom of eternal night, of mud forts and spires. Foul-smelling sewers, dark alleyways, and a mist that lingers. And from the mist a clicking noise grows louder and louder. The sound of many legs rushing towards you, the pincers of ant-men will soon be yours to command. You are god. You are god.</blockquote><blockquote>Then you float up once more, float up again like the greatest skyship, until you are face-to-face with the big moon. Then big moon kisses you on the cheek (kiss your child again).</blockquote><blockquote>Then imagine a stark place, of old blood and death. And from the grey soil beneath the ashen peaks, Alkabar rises, with his phantasmal legion behind him.  His skull is broken and distorted from the armoured heel that stove in his face. Yet it is you who stands guard before him, knowing that you are god, and they are merely mortal. Unwavering, you feel a surge of power fulminate within you., and then ecstasy, as a great bloom of sunlight tears out. It slices through Alkabar's blackened bones.</blockquote><blockquote>The moment he crumbles to dust, his army crumbles to dust.</blockquote><blockquote>Then you float up for the final time, a hero of Sabor. The bosom of Aetherium welcomes you, and you join the collected. You can see all across your kingdom, from Redusa to the Studded Desert and beyond. You see all your people, the corn harvest and all your animals. You hear every conversation, see every thought. You are god, you will all decide what's right. You are god, We are god.</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

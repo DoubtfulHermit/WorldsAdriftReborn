@@ -1,0 +1,65 @@
+Release date: December 12th, 2016
+
+==Alpha 5.0 Patch Notes==
+<br>
+'''NEW FEATURES'''
+* The multitool has been renamed the gauntlet, and now works differently: simply hold down the left mouse button and the gauntlet will fire repeatedly.
+* The hotbar now splits the four functions of the gauntlet and scanner into four separate slots.
+* Metal scrap deposits have been revamped completely, and should no longer suck.
+* The new shipyard makes its debut! Build your custom ship frame exactly how you want: tall and skinny or wide and flat, small and sleek or big and bulky, it’s all up to you.
+* Sails are now craftable and attachable to decks. A ship now only technically needs a core and a sail to fly, though you’ll definitely want to add a helm and a reviver. Pay attention to the direction of the wind!
+* Islands now contain lootable containers, where ancient schematics are now found.
+* Scraps of ancient writing can also be found, which players can collect and read in the new Codex tab. These also grant Knowledge when collected.
+* Islands now also have ancient Saborian databanks scattered around. Scan these for Knowlege, which you can use to specialize your character in the Knowledge tree tab of your character sheet.
+* The UI has seen another facelift, with tons of new icons, including distinct icons for different types of wood and metal.
+* Players can play as the male character now!
+* Characters are a lot more athletic now, and can rappel off walls and even do a bit of wall running if controlled well.
+* The grappling hook can retract quickly, pulling you in suddenly. You can trigger this move with Spacebar if your character is off the ground.
+* Players can now grapple to the shipyard dome.
+* The shipyard lock and ownership system has been simplified: The player who places it is the owner, but unused shipyards will become free to claim after a certain amount of time.
+* The player now starts the game knowing how to craft the wooden Scavenger’s Helm and Scavenger’s Atlas Core, and will have to learn the metal variants through gameplay.
+* The crossbow has been replaced by the pistol, which should be easier to aim with.
+* Lots and lots of new music and sound effects!
+<br>
+'''NOTABLE BUGFIXES'''
+* We’ve fixed most cases of the character exerting exceptional forces on physical objects: No more kicking eggs!
+* Fixed most ways of duping or losing inventory items, or overlapping them.
+* Hotbar should be a lot more accurate.
+* Characters no longer fall through islands or revival chambers while loading in.
+* Fixed most connection errors. If this still happens, restart the client and please let us know!
+* Placing explosives and lifters has been fixed.
+* Engines and helms can no longer be placed incorrectly.
+* Fortune no longer favors the bold when the bold try to glide through storms.
+* Fully destroyed objects now disappear from the world.
+* Occasionally ships could fall off a shipyard as soon as they finished crafting or even during crafting; this should no longer happen.
+* Game camera should no longer convulse and clip through objects, and should work better overall.
+* Reduced jittering of loose objects on ships.
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* When approaching islands, the client will briefly hang, often causing the character to get thrown off her ship.
+* Connection menu will sometimes lay over the in-game screen: Restart the client to fix.
+* Sometimes ships flip out when crossing some invisible world boundaries.
+* After using the crew beacon, your character can get stuck in mid-air, with a subtle loading circle overlay: If not fixed after 60 seconds, restart the client.
+* Ships rubberband when flying.
+* Sometimes interactions show considerable lag.
+* WiFi may incur problems: Best played on an ethernet connection for now.
+* Using explosives on metal scrap deposits will bug the deposit and prevent harvesting.
+* Trees sometimes duplicate when you chop them.
+* Logging in onto a moving ship may result in the ship having moved out from under the character by the time the character loads in.
+* The client will enter a ‘not responding’ state or crash occasionally: Restart the client to fix.
+* Ships are not reliably despawning upon the owners logging out.
+* Framerate sometimes drops severely when placing parts on ships.
+* Some islands, newly imported from the Island Creator, have missing environmental assets.
+* Fog/cloud cover is excessive.
+* When trying to repair full-health objects, “Item is damaged beyond repair” will incorrectly display.
+<br>
+==References==
+# https://www.worldsadrift.com/forums/topic/alpha-5-patch-notes-known-issues/
+# https://drive.google.com/file/d/0B2m-20IvaIDId1pfZlZlSFkwS0E/view
+# http://i.imgur.com/huXb2We.png (Confirming Release Date)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

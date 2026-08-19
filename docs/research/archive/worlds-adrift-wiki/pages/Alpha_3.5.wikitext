@@ -1,0 +1,17 @@
+Release date: April 7th, 2016
+
+==Alpha 3.5 Patch Notes==
+'''NOTE: 3.5 was a re-build/re-do of [[Alpha 3]] which fixed a major lag issue.'''
+
+<br>
+'''BUG FIXES'''
+* Fixed an issue known as the "lag monster", a major back-end bug which caused players to have large amounts of lag
+
+==References==
+# http://i.imgur.com/huXb2We.png (Change Confirmation & Release Date)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

@@ -1,0 +1,15 @@
+Release date: February 23rd, 2018
+
+==Beta 0.1.7.3 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* The invisible chest hotfix has now been pushed to the main branch so you no longer need to play on the 'hotfix' branch.
+
+==References==
+# https://i.imgur.com/YeyXxEW.png
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

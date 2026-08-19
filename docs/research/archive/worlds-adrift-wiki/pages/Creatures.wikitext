@@ -1,0 +1,50 @@
+{{NeedsUpdate|page}}
+[[File:CreatureConcept-1024x576.jpg|thumb|551x551px|Early concept art for different creatures.|alt=Early concept art for different creatures.]]
+There are currently 2 creatures present in Worlds Adrift: the Manta Rays and the Thuntomites. During early stages of the game, a third creature, the Jellyfish, was also present in the game of which has been recently discontinued from the small roster. Each creature is a persistent entity that exists as part of a simulated ecosystem until it dies, regardless of whether players are nearby. If they don’t feed they will starve, and if they don’t reproduce their numbers will dwindle. 
+
+== Manta Rays ==
+Mantas are a type of ray that migrate around the world by flying in small groups. Mantas often pose no threat to the player, but if a player attempts to approach a Manta, they become aggressive and proceed to attack the player. An aggressive manta makes a different sound and its spots will change color to red. Their combat patterns consist of diving head-first into the target, knocking players to the ground and dealing a lot of damage. If you aren't prepared, a single manta can take you down in three to five well placed swoops.
+
+Though it's best to avoid the mantas, harvesting their corpses will reward you with a piece of [[Steak#Manta_Steak|manta meat]] which regenerates more health than daccat berries. When defeated, a manta will become static, it's spots will drain to a pale gray, and the body will fall from the sky. As the mantas are commonly found flying in small groups, if you upset one of the mantas, you upset them all so be careful if you attempt to fight these beasts when in packs.
+
+Along with being "territorial" to those who wander too close, mantas don't like the sound of engines and using them near mantas will also cause them to become aggressive. They will proceed to damage components on your ship. A remedy to this is to use sails near groups of mantas, and it has also been known that swinging under your ship will stop them from going for the ship, and go for you instead.
+
+Since they are carnivores they are sometimes seen to hunt Thuntomites.
+
+Sometimes drops Squishy Conductive Vessel.[[File:Mantas.png|alt=A manta in the Wilderness (Image: Cailco)|right|frameless|A manta in the Wilderness (Image: Cailco)|319x319px]]
+
+== Thuntomites ==
+Colloquially called "Beetles", they usually fly around islands but do move between them occasionally. A Thuntomite's natural habitat is [[Trees]], and they will get aggressive and attack you if you are cutting trees down near them. Attacking a thuntomite will allow it, and others nearby, to start damaging you. An aggressive thuntomite has red eyes and emits a red glow, and will attempt to ram at you like a bull, meaning it is possible to dodge their attacks quite easily. Otherwise they are quite docile towards players. When salvaging dead Thuntomites, they will yield 1 Raw Thuntomite Steak.
+
+[[File:Baby Thuntomite.jpg|frameless]]
+
+== Jellyfish ==
+[[File:Jellyfish Icon.png|frameless|69x69px|Icon of a Jellyfish|right]]
+Jellyfish were previously in the game, but have since be removed due to them being rather intensive on the servers, and Bossa have said that they didn't see them to be worth the performance. They also hinted that they may return someday when the creatures are overhauled. Jellyfish were completely passive and wouldn't attack you at all. Sometimes they had a spiked shell. They gave off a small glow as well. Bossa have revealed that Jellyfish had a basic AI that lead them to try and shelter under islands during the day, then fly up around the island during the night.
+
+== Intelligence  ==
+
+=== Pathfinding ===
+If a creature sees something of interest then it could move directly towards it, using avoidance steering to weave through any objects partially blocking the path, such as trees, rocks, other creatures, etc. But if it can’t see what it’s looking for it has to employ a search strategy. This varies from randomly wandering around when it’s not particularly urgent, to strategically gaining height and scanning a larger area of the island if desperate. If all that fails then it will abandon the [[Islands|island]] and migrate to another. There is no guarantee that the creature will eventually find what it is looking for, so it may end up dying. 
+
+The creatures have the ability to return to things that they’ve seen in the past that they weren’t interested in at the time but are interested in now by leaving a “breadcrumb” trail. So just like Hansel and Gretel, the creatures can retrace their path through the rugged and forested terrain to get back to where they once were. This can be optimized as the creatures follow the trail back by skipping any breadcrumbs between the current one and the oldest one in view. And if the creature happens to see a different instance of what it is looking for whilst following the breadcrumb trail, it abandons the trail and heads right for it. Creatures give up on their target prey eventually if they’re not getting any closer to it.
+
+=== Behaviours & Drives ===
+The creatures have many behaviours, including the basics; feeding, fighting, resting, wandering, and mating. They also have fluctuating drives such as; hunger, anger, tiredness, curiosity and libido. Each creature is governed by their “behaviour picker” which determines the behaviour that should be active each moment. It does this<nowiki> </nowiki>by scoring each behaviour based on the multipliers it specifies for each drive.
+
+The creatures behave and respond in completely different ways by adjusting these multipliers. This is used to configure different species that are more aggressive, passive, exploratory, and so on.
+
+To fix the synchronicity issue, the libido of one of the genders is much faster than the other.
+
+== Future Developments ==
+Currently the only planned creature to be definitely added is the Sky Whale, And the Feathered Bird, which may be the "Acid firing seagull/eagle" that has been talked about in multiple Bossa QAs. Bossa has also said they are planning to rehaul the creature system and Jellyfish may return.
+
+== Media ==
+<gallery>
+File:Shrimp.png|
+File:Sky Whale-1024x576.jpg|
+</gallery>
+
+Thuntomite color variants.   Sky Whale early concept.
+{{WA Navbox}}
+[[Category: Environment]]

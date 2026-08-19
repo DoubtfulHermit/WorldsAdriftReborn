@@ -1,0 +1,15 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>A Verduban book cover. A sticky binding hands limp along the spine. Only the preface remains intact.</blockquote>
+<blockquote>Pyrites, the ice is a glass-like deception. Yours is the god of fire. You only need look below the surface, to the lake of blue fire. His hotness swirls up beneath us. In the end, only fire will escape the void.</blockquote>
+<blockquote>Nem Chi, Harbinger of Pyrites</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

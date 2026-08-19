@@ -1,0 +1,13 @@
+{{Incomplete}}
+'''Shipbuilding''' is the process of creating your very own custom [[Ships|ship]]! Ships are your main method of transportation between islands.
+== Basics ==
+[[File: Example of a Shipyard with Schematic.jpg|thumb|250px|right|Shipyard UI|link=]]
+This will cover the basics of shipbuilding.
+===First Ship===
+To craft your first ship you will need to research Shipbuilding in the [[Knowledge]] tree. This requires 50 knowledge. Then craft and place a [[Shipyard]] on an [[Islands|island]]. Press {{key|E}} (Default) to open the shipyard interface.
+== Advanced ==
+
+=== Ship Editor ===
+{{WA Navbox}}
+
+[[Category:Ships]] [[Category: Guides]]

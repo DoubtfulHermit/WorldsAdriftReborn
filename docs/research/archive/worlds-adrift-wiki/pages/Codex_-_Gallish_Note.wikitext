@@ -1,0 +1,18 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>Looking carefully over Alcibiana's off-misunderstood later works, it occurs to me that we should never fall foul of her message. Let others dig up Atlas if they wish, and that is their privilege, the the black isle must remain fortified by its minerals, else we shall sink into the warm sea, or worse. The knowledge we sit upon can never be lost.</blockquote>
+<blockquote>Of course, we must avail ourselves of atlas somehow, the people of Efflua and Semyon demand it. I have sent invitations to both Sabor, and to the Unity, asking them if they would be interested in sharing in the products of our researches, in exchange for appropriate compensation.</blockquote>
+<blockquote>What I mean to say is that the University is to us, as textiles are to the Mellifluans. It is a commodity, and any reward we receive for our time-consuming researches, we should feel entitled to. As long as our workings are shielded, those innovations can never be turned against us. Like stage magicians must we be, staunchly protective of our secrets, while wowing the crowd with scientific marvels.</blockquote>
+<blockquote>The Rebus was my idea, although it took many of us to bring it about. Any intruders at the University (and there have been many) have since found their ill-gotten pilferings to be redundant without a complete understanding of the encryption. What is more, the code is adaptive. We may change it at any time, to an outsider, unfamiliar with Gall linguistics, the images will be meaningless.</blockquote>
+<blockquote>The project to convert our researches into the new format, is complete. We'll leave it to the Liaison Trustees to decide what passes beyond the black isle.</blockquote>
+<blockquote>Diary of Archdean Disela La Pall 14th Wewe 2906.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

@@ -1,0 +1,24 @@
+{{SchematicBox
+|name = Scanner Tool
+|time = 10
+|picture = Item scan.png
+|extra = "A traveler's best friend; used to gain insight and knowledge from the world around you."
+|craftIn = tool
+|name1 = Casing
+|value1 = metal
+|amount1 = 100
+|name2 = Internals
+|value2 = metal
+|amount2 = 100
+}}
+==Description==
+Almost always crafted in [[Haven]], this tool is used to scan in-game objects to gain [[Knowledge]]. Once equipped, this item '''cannot''' be unequipped, making crafting more than one entirely useless.
+{{CraftingPage
+|name = Scanner Tool
+}}
+{{clear}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

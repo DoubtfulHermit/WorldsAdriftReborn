@@ -1,0 +1,40 @@
+Release Date: October 5th, 2018
+
+==PTS Update 27 Build 989 Patch Notes==
+
+'''FIXES AND CHANGES'''
+* Performed various optimisations and load balancing improvements. Loading in objects as you travel across the world should cause your framerate to drop less – this should be particularly noticeable when running around large islands. Nearby objects should now consistently load in before objects farther away now, and the player should gain control of the character only after anything she’s standing on is loaded, including ships. This also means it will no longer be possible to cheese puzzles or clip through objects by running through their space before they load in.
+* Speculative fix for the bug causing phantom copies of engines or offset positions of engines to appear.
+* The new “helm bug” has been mostly fixed. Players will still get kicked off the helm sometimes, but should no longer have trouble grabbing it again. The full fix is coming after Update 27.
+* Sometimes, when logging in on an object, the object would load after the player fell through the space occupied by it. This should no longer happen.
+* Speculative fix for the bug causing phantom copies of engines or offset positions of engines to appear.
+* Adjusted Haven and Wilderness tutorial text and formatting. Additional icons added.
+* Fixed various bugs with Haven tutorials.
+* Ragdoll has been fixed to trigger again.
+* Climbing is now easier to initiate.
+* Audio sting now plays for completing tutorial steps.
+* Cannon splash damage radius has now been restored to its previous (Update 26) value.
+* Lowered Marauder compass drop rate, especially in earlier biomes.
+* Adjusted loot tables in general.
+* Adjustments to the map.
+* Marauder lamps can now be interacted with properly again.
+* Adjustments to player impact damage.
+* Halved wind power, which functionally halves thrust from sails.
+* Saborian medium loot containers are back.
+* Tweaks to the icons of various Marauder icons.
+* Bandages textures and icon tweaks.
+* Fixed the “Your personal reviver is now functional” message when flying across certain invisible server boundaries.
+* On the PvE server, in PvE zones, ships now log out after 30 seconds instead of 3 minutes.
+* Fixed contorted animations when players mounted helms, cannons, swivel guns, and chairs.
+* Visual improvements and fixes to drifter and immobilator.
+* Drunk animations tweaked.
+* Marauder head schematics now cover facial hair.
+* The Reviver Interface knowledge node now costs 75, down from 100.
+* When a player mounted a cannon or swivel gun, the ship would often begin to drift, reminiscent of the old “Mildred” bug. This has been fixed.
+
+==References==
+# https://www.worldsadrift.com/forums/topic/pts-update-27-build-989-patch-notes/
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Public Test Server]]

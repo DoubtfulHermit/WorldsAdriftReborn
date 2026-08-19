@@ -1,0 +1,14 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content"> 
+<blockquote>Through a little copse, in a little hole, in the Great Marshas, live the Deep Marshas.</blockquote><blockquote>Their cauldron soups are velvety green like their faces. Their eyes are yellow, and their hair is slicked into dark rivers. They swing heavy with old bones.</blockquote><blockquote>We sometimes see them in Darnik. They bring us the soup and we give them frogs to make it with.</blockquote><blockquote>They say we Great Marshas are strange, which we take on the chin. But none are akin to the Deep Marshas.</blockquote><blockquote>They speak of the "marsh-below-the-marsh", and commune with algae in a language too strange to utter. They tell us the marsh is unhappy, that it becomes a mire. They tell us the marsh is angry, and that the storm will swirl up through us, like a Kraken unspurling all of its arms.</blockquote>
+
+</div>
+</div>
+
+<br/>
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

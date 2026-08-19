@@ -1,0 +1,85 @@
+Release date: December 15th, 2015
+
+==Alpha 2 Patch Notes==
+'''NOTE: There are currently 2 different sets of patch notes for Alpha 2.''' <br>
+<br>
+OFFICIAL NOTES 1:
+<br>
+'''CHANGELOG'''
+* A very basic implementation of creatures is now in the game! Beetles are docile and eat fruit off trees, while manta rays are more aggressive and eat beetles. Please note they do not have animations, and are probably broken in many ways. The ecosystem is definitely not balanced yet, so you may find (for example) an island where all the manta rays have eaten all the beetles. :(
+* Annoyingly small tree branches are also now consolidated into bigger branches.
+* New asset for ruptured ground, holds metal scrap for salvaging. Metal scrap will now be colored according to what type of metal it is (crafted items not yet)
+* New menu when you die offering you a choice of respawn location
+* Character can now step over little rocks and stairs, as well as run up slopes more easily
+* Fixed majority of impact damage bugs that would kill your character.
+* Re-added ambient occlusion
+* Grapple cursor now signals whether you are within grappling hook range. Rope can now be detached and reattached with a single, longer mouse click - detaches on click down, reattaches on release click. We're trying out something with the grappling hook - if you continue to reel in when at the minimum rope distance, and there's a ledge within range, your character will jump up and grab it. Will also jump up to the ledge with Shift in addition to Spacebar
+* Once a crafted object has been fully salvaged, it is removed from the game, and no longer leaves behind a husk
+* Esc menu now has an option to mute the music
+* Gliders are no longer invisible to other players. Even though it looked pretty sweet when someone was Supermanning!
+* Ships should no longer slowly ascend by themselves
+* Resources now correctly spawn on some islands where they erroneously did not
+* Projectiles, including crossbow bolts and cannonballs, have sobered up and no longer do embarassing things
+* The in-game feedback form (F2 menu) has now been fixed. We can see your feedback now!
+* Some additional placeholder sounds hooked into the game
+<br>
+'''KNOWN ISSUES'''
+* Occasionally islands will never load, and all resources and terrain features seem to be floating. Restarting the game client will resolve this issue.
+* The game will sometimes hang on the connecting screen. If the game is not loaded after a couple minutes, please restart the game and enter world again.
+* Occasionally player data (inventory, spawn location, etc.) is not saved after a crash. Please let us know the circumstances of this bug! We may ask for your logs.
+* Occasionally players get kicked, and are thrown back into the main menu. Please let us know the circumstances of this bug! We may ask for your logs.
+* Moving and equipping items in the inventory is buggy. Opening and reopening inventory should update it to the correct state.
+* Crossbow bolts still do not do damage properly
+* The multitool is sometimes unresponsive, not registering clicks/holds
+* Picking up ship instruments (fuel gauge, compass, etc.) breaks the ability to place them correctly again
+* Sometimes the grappling hook stops working. Pressing F8 twice will resolve this issue.
+* Sometimes your character will get stuck in a strange pose (e.g., fetus position). Pressing F8 twice will resolve this issue.
+* Multitool sometimes floats around you. Switch to a different hotbar item and back again and it should fix itself
+<br>
+<br>
+OFFICIAL NOTES 2: <br>
+* <s>CREATURES! A very basic version of creatures, so don’t get too excited, but still. THEY ARE HERE! Beetles are docile and eat fruit from the trees, whilst manta rays are more aggressive and eat beetles. They don’t yet have their animations and are probably broken in many ways, but have fun with what’s there, and report back.</s> 🙂 They all died. Sorry. NEXT TIME THOUGH!
+* We’re testing our queuing system, so we’ve intentionally put a limit on the max number of people in the world, so you might see a queue at peak times.
+* There’s a new menu when you die, that offers you a choice of respawn location.
+* Your character can now step over little rocks and stairs, as well as run up slopes more easily.
+* The cursor on your grappling hook now signals whether you are in grappling hook range. Handy to know.
+* Your grappling rope can now be detached and reattached with a single, longer mouse click. It detaches on click down, and reattaches on release click.
+* We’re trying out something with the grappling hook – if you continue to reel in when at the minimum rope distance, and there’s a ledge within range, your character will jump up and grab it. You’ll also jump up to the ledge with Shift in addition to Spacebar.
+* The Escape menu now has an option to mute the music, for those who don’t appreciate our ambient finery, and would rather listen to a bit o’ Bieber instead. 😉
+<br>
+* Crossbow bolts now do a lot of damage to other players – be aware of a bug where you can hit yourself!
+* Once a crafted object has been fully salvaged, it is removed from the game, and no longer leave behind a husk.
+* Gliders are no longer invisible to other players, even though it looked pretty sweet when someone was playing Superman.
+* Ships should no longer slowly ascend by themselves.
+* Small physics objects should behave better when dragged with the rope. They will still go flying when pushed though!
+* Resources now correctly spawn on some islands where they erroneously did not.
+* Projectiles, including crossbow bolts and cannonballs, have sobered up and no longer do embarrassing things.
+* The in-game feedback form (F2 menu) has now been fixed. We can see your feedback now! You can send us feedback in-game, or in this thread in the forums.
+* We’ve added some additional sounds to the game. These aren’t the final versions, they’re still placeholder (if you want to use the correct terminology), but we thought they would add to your experience.
+* The ancient respawner asset has received some slight tweaks, so it’s a little different from last time.
+* We re-added ambient occlusion. What’s that? It’s a graphical effect that puts little shadows around things.
+<br>
+* Sometimes islands don’t load properly. If you see floating trees and rocks, restart the game.
+* You can hit yourself when shooting your crossbow sometimes. Ouch!
+* Players have super high pain tolerance and will take zero damage from falling or from cannonballs.
+* The multitool is sometimes unresponsive, not registering clicks/holds.
+* The multitool sometimes floats around you. If this happens, switch to a different hotbar item and back again and it should fix itself.
+* Picking up ship instruments (fuel gauge, compass, etc.) breaks the ability to place them correctly again.
+* Docking the ship is sometimes sluggish.
+* The game will sometimes hang on the connecting screen. If the game is not loaded after a couple minutes, please restart the game and enter the world again.
+* Occasionally player data (inventory, spawn location, etc.) is not saved after a crash. Please let us know the circumstances of this bug! We may ask for your logs.
+* Occasionally players get kicked out of the server, and are thrown back into the main menu. Please let us know the circumstances of this bug! We may ask for your logs.
+* Sometimes the grappling hook stops working. Pressing F8 twice will resolve this issue.
+* Sometimes your character will get stuck in a strange pose (e.g., fetus position). Pressing F8 twice will resolve this issue.
+* Please change your Steam display name to only use ASCII characters! The game will hang on the connecting screen otherwise.
+* Do not use quotation marks in the F2 menu, or you will crash the game.
+<br>
+==References==
+# https://drive.google.com/file/d/0B2m-20IvaIDIR0gzQW9iR0o3Nkk/view (Official Notes 1)
+# https://www.worldsadrift.com/forums/topic/whats-changed-from-the-first-playtest/ (Official Notes 2)
+# http://i.imgur.com/huXb2We.png (Release Date)
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

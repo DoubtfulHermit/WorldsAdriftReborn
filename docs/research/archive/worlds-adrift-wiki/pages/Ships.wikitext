@@ -1,0 +1,33 @@
+{{For|the ship category of pages|:Category:Ships}}
+{{#ev:youtube|CL6HGQefFiU|350|right}} In [[Worlds Adrift]], '''Ships'''<ref> http://www.worldsadrift.com/blog/ships-physics/ </ref> should be able to crash, both into each other and into the environment (or any other physical object, for that matter), and react appropriately. If you crash badly enough, you could end up with an upside-down ship. The controls of the ship are also fully physics-driven. The ship floats in mid-air due to an anti-gravity core that you can install on the ship, which provides an upwards force, and it’s controlled around by applying forces on the engine propellers (sort of, more on that in a bit), and torque on the ship center of mass itself. The core also provides an automatic stabilization system that behaves similarly to the buoyancy force acting on a seafaring vessel, attempting to keep the ship upright. This buoyancy force is balanced so it’s powerful enough that the ship will be mostly steady normally, but will still rock and tilt if hit by external forces.
+
+== Logout ==
+Ships docked in a shipyard will '''NEVER''' log out. This is a danger in PVP Zones as other players can come along and loot your boxes. There are plans for the game in the future to allow players to log off with their ships ensuring they are safe the entire 3 minute period (PVP Zones).
+
+=== PVP Zones ===
+Ships take 3 minutes to logout. The timer starts when everyone who has a reviver registered on the ship has logged out. The timer does not pause, but if the timer reaches 0 and a player is interacting with the ship, it will not log out. As soon as there are no other players interacting with the ship and the timer has reached 0, the ship will disappear.
+
+=== PVE Zones ===
+Ships take 30 seconds to logout. Ships will logout regardless of other players interacting with the ship contrary to PVP Zones.
+
+==Ship Building==
+{{#ev:youtube|mtiHNnIDhio|350|right}}
+[[File:Ships.jpg|thumb|You can see the Basic Ship Frame with a few engines attached for a basic ship.]]
+You're going to want to create a [[Shipyard]], place it in a central location on flat land, then push the interact key next to the round central table on the deck to claim the shipyard. Push it again to pick one of the five pre-built ship designs or edit your own, and the frame will pop up after you save. The gravity field will allow you to be able to move and attach your crafted [[Schematics]] onto the ship you've chosen to build; to assemble those schematics in turn you'll need an [[Assembly Station]] somewhere close by your shipyard. Try to keep both on flat ground so your parts don't roll away; any parts not attached to a crafted ship frame will still have gravity acting on them! 
+
+First and foremost among parts likewise you'll need to add an [[Atlas Core|Atlas Sky Core]], which will create continued anti gravity for the ship to be able to float outside of the bubble of the shipyard. Depending on the weight of the Ship, you may also need to attach Atlas core upgrades. You'll probably want to hide the core under the deck and within the frame, because without the core your ship will sink, possibly getting lost forever: the Atlas core is the prime target for any engagements from enemies, so you'll want to keep it in mind and out of sight while building. 
+
+<Small> '''Tip''': Use the {{Key|RMB}} to highlight the crafted Ship Part to and then place the crafted [[Schematics]] on the ship with {{Key|LMB}}.</small>
+
+You'll need at very minimum a [[Sails|Sail]] or a few [[Engines]] to make some movement forward, since the Sky Core only provides vertical thrust, as well as a [[Power Generator]] to provide fuel for those engines. Next you'll want to place a [[Helm]] preferably on the top deck to be able to control the ship in flight (Press {{Key|RMB}} while in flight to be able to look around and steer a bit better). Build and place a [[Crew Respawner]] and connect to it, in case you happen to die or fall off the ship, to be able to respawn to it (however without your inventory). Beyond that it's basically up to you, or to the advanced design of the ship. If you need protection for the core, you'll want to build and place some [[Panels]], or put some [[Weapons#Cannons|Cannons]] to fire if you feel like you're going to be fighting. 
+
+Once you're ready take to the skies and begin your journey to the rest of the [[Islands]] and to find your adventure of discovery.
+
+=== Buildings ===
+There are no features planned for building on islands but a potential loophole consists of using the ship building system to create buildings on islands.
+
+==References==
+<references/>
+
+{{WA Navbox}}
+[[Category: Ships]]

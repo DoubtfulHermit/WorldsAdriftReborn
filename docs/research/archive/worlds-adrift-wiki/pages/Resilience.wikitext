@@ -1,0 +1,24 @@
+{{incomplete}}
+{{NeedsUpdate|page}}
+'''Resilience''' is a stat that is found on every ship part in the game. It can be looked at, as an items hitpoints (HP). Only the [[casing]] of any given item affects its '''resilience''' - all other parts don't matter at all in that regard so they can be built out of weaker materials.
+
+Since '''resilience''' acts as an items HP, it is a vital stat on any given part of your ship. If the [[casing]] of an item breaks, the item is broken and will fall off of your ship.
+
+==Materials==
+
+Good choices for the [[casing]] of any vital ship parts are:
+
+- [[Metal#Steel|Steel]] (offers the best '''resilience''' but moderately heavy)
+
+- [[Metal#Aluminum|Aluminum]] (best resil:weight ratio but rare)
+
+- [[Metal#Titanium|Titanium]] (slightly less resilient than aluminum, but more common)
+
+- [[Metal#Iron|Iron]] (very common and decently resilient)
+
+==Resilience==
+<div class="googlespreadsheet" data-spreadsheet-id="2PACX-1vRmePDFVdYQMHvzCIIxKmGMa3mSIsA46HZfZICb-SsrV8ArKvzyoeMf4m1cRuFKd7fAheXRTrnEZcAn" data-chart-oid="225442159" style="width: 600px; height: 371px;"></div>
+
+==Repairs==
+
+When repairing an item you only repair its [[casing]]. Thus you will only ever need to have the material you built the items [[casing]] out of in your inventory.

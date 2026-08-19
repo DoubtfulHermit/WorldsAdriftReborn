@@ -1,0 +1,14 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>Here is my mark. This piece is a genuine Sorvik, and while it don't compare to the Kraken pipe I built to get us Marshans posting to one another, you're paying for a lifetime's artisanship and knowledge. Make sure to clean and sluice your swamphorn regularly, and keep it buffed or polished using Sorvik's Swampwax.</blockquote>
+<blockquote>Sorvik & Sorvik Jr Co.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

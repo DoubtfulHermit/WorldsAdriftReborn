@@ -1,0 +1,86 @@
+Panels are the main way to protect the hull of your ship, from boarders, storms and cannonfire. They can be crafted at any [[Assembly Station]], and come in a variety of types:
+
+== Small Panels ==
+{{SchematicBox
+|name = Small Panel
+|time = 2
+|picture = PanelSmallMetal.png
+|extra = "A hull panel that can be attached to a ship frame."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 60
+|name1 = Panel
+|value1 = woodmetal
+|amount1 = 40
+}}
+The basic panel, covers a small square area. When crafted they come in a number of different forms: corrugated, flat. Which design is seemingly random.<br />
+{{CraftingPage
+|name = Small Panel
+|picture = Small_Panel.jpg
+}}
+{{clear}}
+
+== Medium Panels ==
+{{SchematicBox
+|name = Medium Panel
+|time = 2
+|picture = PanelMediumMetal.png
+|extra = "A medium-sized rectangular panel."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 60
+|name1 = Panel
+|value1 = woodmetal
+|amount1 = 60
+}}
+Cover a medium rectangular area.
+{{CraftingPage
+|name = Medium Panel
+|picture = Medium Panel.jpg
+}}
+{{clear}}
+
+== Large Panels ==
+{{SchematicBox
+|name = Large Panel
+|time = 3
+|picture = PanelLargeMetal.png
+|extra = "A larger panel that is more useful for bigger ship hulls."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 60
+|name1 = Panel
+|value1 = metal
+|amount1 = 80
+}}
+Cover a large rectangular area.
+{{CraftingPage
+|name = Large Panel
+|picture = Large Panel.jpg
+}}
+{{clear}}
+
+== Window ==
+{{SchematicBox
+|name = Window
+|time = 3
+|picture = PanelWindow.png
+|extra = "A window set into a small panel that can be attached to a ship's hull."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 60
+|name1 = Window
+|value1 = metal
+|amount1 = 40
+}}
+These cover the same area as a small panel, but have a small hole in the middle.
+{{CraftingPage
+|name = Window
+|picture = Window.jpg
+}}
+{{clear}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Structural]]

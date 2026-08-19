@@ -1,0 +1,58 @@
+Release date: May 16th, 2018
+
+==Beta 0.2.0.1 Patch Notes==
+
+<br>
+'''NEW FEATURES AND CONTENT'''
+* Worlds Adrift is now releasing to Steam Early Access! This means we have opened up additional servers for both US and EU regions, and will release more servers depending on player population. The UI for the character creation screen has been adjusted to make it easier to pick a server to play on.
+* Founders’ Packs are no longer available, and the exclusive items in them are no longer obtainable. Instead, Standard and Pioneer packs are now on sale, with an exciting cache of Pioneer items! All Founders receive all exclusive Pioneer items automatically.
+* All Founders’ characters will now start the game knowing the schematic for the Founder’s exclusive engine – the Capulca Mk. 2.
+* The world has been wiped, revealing a brand new layout with brand new islands! All characters are also wiped for the start of Early Access.
+* The new world is separated into cultural regions: the Saborian regions, filled with the somber and grandiose islands familiar to players already; and the Kioki regions, full of the garish and multicultural Kioki islands. Kioki islands have unique architecture, colored murals, distinct ancient containers, and more. Check out the Island Creator for more. Saborian and Kioki regions also have distinct loot tables, with different drop rates for shared items, and many culture-specific ones.
+* Many all-new clothing items from Sabor, Bandinia, Ishgiru, Karem, Pin, and more are now in-game!
+* Doubled the number of ancient written stories discoverable in the game – in particular, much more writing is now available from people living in the ancient Kioki Unity.
+* Much more ancient scrap loot specific to each region has been implemented.
+* All-new music for Saborian regions has been brought into the game!
+* We’re constantly looking to make it easier for all players to give feedback and participate in the development of the game. To serve the influx of new players in Early Access, a brand new feedback form is available now, accessible from the Esc menu, the death screen, and the logout timer popup.
+* A video sneak peek of the cinematic introduction players will see when starting a new character is now linked on the login screen. In a future patch this will be brought in-game.
+* An additional hairstyle that just missed the cutoff for 0.1.12 is now available.
+* Admin characters now have pink names in chat.
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* The Spinup stat on engines has been buffed, by virtue of being nerfed. Now low Spinup results in a very slow ramp up on engine throttle, rewarding higher Spinup engines. Ultimately our goal is for all stats to be desirable in some situations for some playstyles.
+* Swivel guns now do damage to mounted players – players mounted on helms, cannons, and other swivel guns.
+* A connection issue has been fixed.
+* A server connection bug that would precipitate unplanned server maintenance has been fixed.
+* The confirmation popup when deleting inventory items now works again.
+* A ship logging into a space currently occupied by something else will now be vertically displaced to not instantly create collisions.
+* Occasionally players running through barbed wire would get into a state of permanent slowness. This has been fixed.
+* Improved calculations and fixed various issues with the Blight.
+* A brief cooldown between submitting shipyard codes has been implemented, to prevent brute forcing and spamming of the server.
+* 0.1.12 introduced a bug where unlearning schematics would not remove them from the list, causing UI errors. This has been fixed.
+* Gliders are now Uncommon and can be looted in the Expanse. The glider schematic’s rarity and droprates have not changed.
+* Now, sailing straight into the wind will still provide a small amount of forward thrust.
+* A recent patch introduced a bug where WASD was hardcoded to the movement controls, causing double-strength input with default keybindings and conflicting inputs if the movement controls were rebinded. This has been fixed.
+* A crash caused by interactions with Unity’s cloth system has been found. Ahead of a proper fix in a future patch, cloth physics on all hairstyles has been disabled to reduce the frequency of the crash, and two hairstyles have been temporarily disabled. Some hairstyles may disappear and reappear based on camera distance this patch.
+* Finally found and fixed the elusive bug that would cause some ship parts, particularly sails, to get deleted when being moved around inside a shipyard dome.
+* Sometimes very small parts, like navigation instruments, could fall through the floor if being placed by the shipbuilding tool in certain ways. This should happen less often now.
+* The last of the bugs involving personal reviver behavior when within the understorm has been fixed.
+* The Cloud Quality graphics setting has been temporarily removed until a better implementation is completed. The TAA antialiasing setting has been removed as it creates a significant graphical issue with the atmospherics.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* More fixes to inventory bugs.
+* Dragging an unequippable item over a gear slot will no longer lock the UI.
+* The correct stat bars are now highlighted on cannons and swivel guns when their crafting components are moused over.
+* The image accompanying the first tutorial step – to scan for Knowledge – has been changed to more clearly show an ancient databank.
+* The cooldown for reviving at a random revival chamber is now at least as long as the timer for using a nearby revival chamber.
+* Manta rays have had their mouth tentacles adjusted.
+* Lots of VFX improvements: crafting, swivel gun muzzle flash, loot containers, cannon shell trails, and others!
+* Various audio tweaks.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/the-early-access-update-patch-notes-0-2-0-1-bye-closed-beta/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

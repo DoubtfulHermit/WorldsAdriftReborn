@@ -1,0 +1,28 @@
+Release date: December 11th, 2017
+
+==Beta 0.1.5.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* SpatialOS upgraded to version 10. This is a fairly large change under the hood, and should provide significant improvements in server performance. Upgrading to SpatialOS 10 sets the stage for future technical upgrades of game systems.
+* Unity game engine upgraded to version 5.6.
+* Heavy duty metrics and analytics implemented to gather data for fixing the client freezing that happens when flying between islands.
+* The EasyAntiCheat implementation has been updated to be both more robust and more user-friendly. The splash screen is halfway through a facelift from its very rough placeholder version in 0.1.4.x, and the EAC installer is now less intrusive.
+* There are now a lot more pieces of ancient writing that players can collect and read to relive the stories of Foundation before the Breathing-in. And, of course, each one is a unique source of Knowledge when read!
+<br>
+'''NOTABLE BUGFIXES'''
+* A temporary workaround for various log-out issues has been implemented: characters despawn instantly upon logging out, instead of waiting for a timer. Ship logout timers are not affected. Proper character and ship logout timers will be implemented in a future patch.
+* Player names in the Character menu tab and the Character select screen should now always display the correct name.
+* Fixed some visual bugs on some ship parts, including the lamp and sail.
+* Fixed some audio bugs.
+* Fixed various UI and chat box issues.
+* Fixed the ability to shoot a character behind your player in certain situations.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/0-1-5/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

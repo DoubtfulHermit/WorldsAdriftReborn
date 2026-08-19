@@ -1,0 +1,3 @@
+{{stub}}
+{{AddPicture|Picture of a pulse in action}}
+The Atlas Pulse, added in [[Beta 0.1.4.3|0.1.4.3]], and usable by activating the [[Atlas Core]] by interacting with {{Key|E}}, consumes one [[Atlas Shard]]. The Atlas Pulse detaches any players grappled to or climbing on the ship, and prevents grappling or climbing for a short period of time.

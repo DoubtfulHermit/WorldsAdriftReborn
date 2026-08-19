@@ -1,0 +1,56 @@
+{{Ambox
+| image = [[File:Warning Triangle.png|50px]]
+| border = red
+| type = Spoiler Warning
+| info = <big>'''WARNING!'''</big>
+<big>The following sections contain spoilers for the lore and story of Worlds Adrift</big>
+}}
+
+== Section 1 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>The History of Sabor until the 4th Millennium.  By Meulen Beek, of Redusa.</blockquote><blockquote>Chapter 5.  How We Became Gods.</blockquote><blockquote>By the 16th Century, Sabor had largely overcome internal divisions, and was beginning its path to enlightenment.  This was a society that cared for everyone, ensuring as a people, they fulfilled a potential that was obvious from the very beginning.  What once was a lowly collection of disparate cities that had allowed themselves to be bullied by Bandinia, was entering a new era, in which they would come to define the perfect society.  One only has to consider the sun-drenched earth in which the early Saborians found themselves to realize their existence was no coincidence.  Sabor was born divine.</blockquote><blockquote>But understanding came gradual.  It was some time in the 1500s that the Saborians finally began to bloom.  Shrines grew in number along the river Redu, and ritual flourished.  Many now viewed life only as a beginning.  Life was a test of resolve and prowess ahead of the Aetherium.  A commentator of the time is Lady Pyrrhanes;</blockquote><blockquote>Lady Pyrrhanes' Scroll, c. 1547</blockquote><blockquote>"And the stones were washed, time and again.  Death forsook those at the rising place, for death no longer held sway.  Each man and woman were bequeathed from the first god, whose lineage is pure.  Thusly, all can grow to be god by communing with the stones to reach Aetherium."</blockquote>
+</div>
+</div>
+
+<br/>
+
+== Section 2 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>Such a discovery must have weighed heavy on the minds of the citizens, as it still does even today. It is a hard life, when you must leave all behind in search of your ascent to god, as a writer, Lalo, remarks in 1788;</blockquote><blockquote>"I have been mistreated by many women, for my skinny looks. I have had no success in the Boros, and find myself at the Cloistrum, trying to match the other men. As for other aspects of ascent, they shall have to wait, for otherwise there will be no time in the day when I am able to write."</blockquote>
+</div>
+</div>
+
+<br/>
+
+== Section 3 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>Lalo's exact commitments as a writer are not known.  but by this time, a system of job division was already in place.  Stonemasons and carpenters would, for example, exchange places for large parts of their careers.  Generally exchanges only took place between similar "classes" of jobs.  While these may seem relatively minor allowances, it anticipates the mid-third century, some seven-hundred years later, in which the most famous such story emerges;</blockquote><blockquote>Alquin Hue, 8th of the Gallish month Srib, in the year 2507.</blockquote><blockquote>"At first the news was terrible, but it quickly became wonderful.  The people of Agbana had elected a mayor.  But this mayor had formerly been an athlete!  Not from a noble family, or a university education.  No, instead an athlete.  "Why not," they said.  Why not indeed!"</blockquote><blockquote>And so it continued.  Equality became the essence of Saborianism: "We are all gods, and must help each other reach Aetherium."</blockquote><blockquote>It was not until much later that the Rising Place was fully understood.  Yet the Gallish "discovery" of Atlas in the late 27th century presupposes that no other peoples knew of the stones until that moment, which is simply not the case.  There was no need for us to make crude examinations of the stone with which we already held a deep bond.</blockquote>
+</div>
+</div>
+
+<br/>
+
+== Section 4 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>By the 2750s, construction of the Stalk in Redusa, and other famous enlightening landmarks, like the Grey Bridge in Momoros, was well underway, with many Citizens having the honour of being contributors. Some help from the Pilipia was recompensed in food and good living. The best of them were even awarded citizenship.</blockquote><blockquote>Once the Stalk had been built, it created a focus for Saborian life and self-warship. Citizens flocked to see it from the other cities, though they would be asked to return home within the month.</blockquote><blockquote>What was probably most intriguing about the Stalk, was how well god manifested itself in the upper part of the disk. The wings of apotheon seemed impossibly precarious, with it's two freestanding towers of perfect white.</blockquote>
+</div>
+</div>
+
+<br/>
+
+== Section 5 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>Thus the Golden Age began in Sabor, and peace reigned, as it still does approaching the third millennium. Part of the reason for this security, is the view taken towards outsiders, as our incumbent Premiuer Einkornus recently stated;</blockquote><blockquote>"We may look at their (Other nations of Foundation) best ideas, and make them our own. But we shall never lose what it is to be Saborian."</blockquote><blockquote>In particular there have always been trouble with two peoples. The brutes to the south, known as the Bandini, and the interferences of the Verdubans. Regarding the Verdubans, a scholar commenting as long ago as 2300 said;</blockquote><blockquote>"If they were worth an invasion, it'd have happened by now, because they properly deserve it."</blockquote><blockquote>As for the Bandini, what more can be said that hasn't already. They have been a menace since the very first Saborians were forced to defend our rightful home, and have a selfish madness that seems inherent in their race, loving money and other such barbarities.</blockquote><blockquote><The rest of this book is lost></blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

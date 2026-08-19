@@ -1,0 +1,33 @@
+{{AddPicture}}
+The Grappling Hook is one of the main elements in the game. It is essential for fluid and efficient movement throughout the game. The grappling hook is estimated to have a maximum length of 50 metres.
+
+== Controls ==
+{| class="wikitable"
+! style="width:95px" | Default Key
+!Notes
+|-
+| align="center" | {{Key|RMB}}
+|Shoot/Release Grapple, hold and move to aim at any point on the screen
+|-
+| align="center" | {{Key|SHIFT}}
+| Reel in grapple
+|-
+| align="center" | {{Key|CTRL}}
+|Reel out grapple
+|-
+| align="center" | {{Key|W}} {{Key|A}} {{Key|S}} {{Key|D}}
+|Swing towards the direction you're pressing
+|-
+| align="center" | {{Key|SPACE}}
+|Fires the grapple boost which propels you towards your connection point, if you are standing you will need to press space twice as the boost only fires when you're off the ground. In addition, you can only fire the boost a short time after your grapple has reached its endpoint.
+|}
+
+== Tips & tricks ==
+* Worlds Adrift is a physics-based game, so pendulum physics apply: when reeling in, your swing speeds up; when reeling out, it slows down.
+* If you swing too fast into an object or island, you will take damage.
+* Bashing your head on landing or whilst swinging will cause a lot of damage.
+* By holding a key on releasing the grapple/boosting you can do acrobatic rolls and flips; however, this can be quite hard to accomplish. 
+* If done right it is possible to slow down another ship by grappling on and wrapping the rope around a tree.
+
+{{WA Navbox}}
+[[Category: Tools]]

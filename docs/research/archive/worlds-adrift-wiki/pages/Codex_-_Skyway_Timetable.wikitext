@@ -1,0 +1,29 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2">
+<div class="mw-collapsible-content"> 
+<blockquote>Timetable for the Agbana Skyway<br />(Summer 2916)</blockquote>
+
+<blockquote>Agbana - Redusa<br />Twice a day - At first light, and an hour before dusk.
+
+Agbana - Momoros<br /> Twice a day - At first light, and an hour before dusk
+
+Agbana - Conos - Darat*<br /> Once a day mornings and evenings. alternating days.
+
+Agbana - Kubo<br />On the first day of every month.
+
+Agbana - Muskdog<br />On the first day of every month
+
+Agbana - Oarnik<br />Twice a year, at each equinox.
+
+Agbana - Taxi service to locality.<br />On request, must be a week in advance, Republic of Sabor territory only.</blockquote>
+
+<blockquote>*Morning flights only.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

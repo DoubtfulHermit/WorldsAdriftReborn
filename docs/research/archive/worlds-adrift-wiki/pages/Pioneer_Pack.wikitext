@@ -1,0 +1,23 @@
+{{tocleft}}
+<div style="float: right; margin-left: 20px;">
+[[File:Pioneer Pack.png|frameless|right]]
+</div>
+
+==Description==
+The Pioneer pack became availible when the game released onto Early Access. It replaced the more expensive [[Founder's Pack]]. It is currently availible for USD 39.99 with an upgrade DLC for USD 14.99.
+[[File:Pioneer packs 2.jpg|frameless|right]]
+
+==Pioneer Pack==
+The Pioneer pack (USD 39.99) includes the following items:
+* 1x Game Key
+* Test Server Access
+* Twitch Streamer Pack
+* Art of Worlds Adrift (Digital)
+* Original Soundtrack (Digital)
+* [[Weapons#Drissian Pistol|Drissian Pistol]]
+* [[Lamps#Lightning Bug Lamp|Lightning Bug Lamp]]
+* [[Clothes#pioneer hat|Drissian Cowl]]
+* Island Creator Tool
+
+{{WA Navbox}}
+[[Category: DLC]]

@@ -1,0 +1,45 @@
+There are several different types of weather currently in the game that each pose their own hazards to your [[ships]].
+
+== Weather Walls ==
+There are several types of weather walls that surround each [[biome]]. They are very easy to spot as they are extremely tall and generally difficult, if not impossible to see through. 
+[[File:Worlds Adrift wind wall.png|right|frameless|298x298px]]
+
+=== Wind Walls ===
+These are generally the least threatening of the boundaries since they can only damage the [[sails]] on your ship<ref name=":0">https://www.worldsadrift.com/blog/stormy-skies/</ref>. All that is required to pass through the wind walls is an [[Engines|engine]] powerful enough to pull you through the strong winds ( you'll want three of them, two on the wing's and one in the center). The wind walls contain fairly strong winds gusting from all different directions (Like down) so it is advisable to add a couple good [[wings]]( and a Rudder) to your ship in order to maintain your course. You may also want some [[instruments]], since visibility drops once you enter the wall. Wind walls are easily identified from a distance by the cascading clouds that resemble a waterfall. They are also the only weather walls that you can see through.  Wind Walls in [[Biome#Wilderness (Tier 1)|Wilderness]] Biomes lead into the [[Biome#Expanse (Tier 2)|Expanse]] or to another Wilderness Biome.  Wind walls in the [[Biome#Remnants (Tier 3)|Remnants]] or [[Biome#Badlands (Tier 4)|Badlands]] always lead to another biome of the same tier.
+
+=== Storm Walls ===
+[[File:Storm wall.png|right|frameless|300x300px]]
+The storm walls are much more dangerous since they contain lightning which can hit your ship and damage parts<ref name=":0" />. Like the wind walls, they contain strong wind gusts from all directions which can even turn you completely around. If you are a very skilled pilot with a heavy ship, all that is needed to pass through are two engines, for redundancy in case one gets hit, and armor panels to protect your [[Atlas Core|Atlas core]] from lightning. [[Instruments]] are extremely helpful in keeping your ship on course since it is impossible to see through the thick clouds. The storm walls look like dark grey billowing thunderstorm clouds that are completely opaque.  Storm walls always lead into or out of a Tier 3 [[Biome#Remnants (Tier 3)|Remnants]] Biome.
+
+'''Tips'''
+
+You probably shouldn't tackle a storm wall until your ship is well prepared. Since the lightning can cause a lot of damage to your ship while in the wall you should have several backup systems. You should never try to make it through with only one engine, unless you have a crew member ready to repair it in case it takes a hit. You should also have a couple of wings since it will be difficult to keep your ship on a straight course through the wind gusts. Also, heavier is better. The more your ship weighs, the less the wind will be able to toss it around, just make sure your [[Atlas Core|Atlas core]] is good enough to handle the weight. It is advisable to use metal panels instead of wooden, since this will both increase the weight as well as increase the protection of vital systems such as the core. The more conductive [[Metal|metals]] are better for constructing plating to get through the wall since they take less damage from lightning (unconfirmed). If you have a crew with you, make sure you also have enough [[resources]] on board so that they can perform emergency repairs if necessary.
+
+A [https://www.youtube.com/watch?v=U_IpCQQNKzU video] by Strite shows that it is possible to fly over the storm walls to avoid the loss in visibility, however you will still encounter all of the other weather phenomena from within the wall.
+
+=== Sandwalls ===
+
+Sandwalls deal damage overtime to all your ship parts like the wings and engine, thus repairing the whole way through is necessary.  Strong winds will also knock you off course and this is by far the most difficult wall to pass. A heavy ship with at least 4 tier 3 engines or higher and decent wings are a must if you want to get through.  Sandwalls always lead into or out of a [[Biome#Badlands (Tier 4)|Badlands]] Biome.
+
+== Understorms ==
+[[File:Understorm.gif|thumb|Understorm Occurrence]]
+These storms occur with varying frequency all across the map beneath the [[islands]]. It appears that they are most common with islands at lower altitudes. They usually last for less than a minute but affect various things on the island in the process. When the bottom of an island is struck by lightning from the understorms any loose [[Ship Components|components]] such as armor panels or decking as well as entire wrecked ships will slowly begin to fall into the island. If the island is struck by lightning enough, the objects will eventually pass all the way through the island and will start to emerge from the bottom. In addition, lightning strikes to the bottom of an island will damage and eventually destroy any shipyards on the island<ref>https://www.worldsadrift.com/forums/topic/everythings-broken-tonight/#post-67783</ref>. 
+
+=== Lore ===
+Atlas stones by themselves do not levitate, however they will float upon passing an electrical current through them<ref>https://www.worldsadrift.com/forums/topic/theory-observations-on-atlas-lift/</ref>. This is the reason sparks can be seen through the window of the Atlas Core, allowing your ship to float. This is also the reason islands are able to float, since the lightning strikes from below provides an electrical charge to the atlas stones within the island.
+{{clear}}
+
+== Blight ==
+[[File: Ship in blight.jpg|thumb|A ship in a blight storm]]
+These storms occur when an island accumulates excessive amounts of debris; such as ship parts, wreckage and fallen resources<ref>https://www.worldsadrift.com/blog/0-1-7-1-patch-notes-the-blight-cometh/</ref>. The arrival of this storm is accompanied by changes in wind intensity (with respect to audio effects) as well as a large column of dust engulfing the island from above or below. While within the storm, player visibility will be drastically reduced, and any loose debris or objects will be gradually disintegrated by orange electrical discharges created by the storm.
+
+Currently, the storm will prefer to destroy abandoned or disconnected parts over those attached to player-owned ships<ref>https://www.worldsadrift.com/blog/tech-tuesday-blights-and-the-cheese/</ref>; but will inevitably target the latter if given enough time and opportunity. Ships that are docked are <b>NOT</b> immune to the storm. Attempting to harvest resources while within the storm will typically result in the resources being disintegrated as soon as they drop. As such, it is not advised to attempt to harvest resources until after the storm has passed.
+
+These storms usually dissipate after a couple of minutes, but may reoccur promptly if substantial amounts of debris remain.
+
+== References ==
+<references />
+
+{{WA Navbox}}
+
+[[Category: Environment]]

@@ -1,0 +1,16 @@
+Release date: August 21st, 2018
+
+==Beta 0.2.2.7 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* Last bit of the server optimization that we started on the 9th. Should safeguard against more situations where massive lag could arise.
+
+==References==
+# https://i.imgur.com/gpJyKf6.png
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

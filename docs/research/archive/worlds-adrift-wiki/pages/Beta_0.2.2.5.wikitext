@@ -1,0 +1,33 @@
+Release date: July 24th, 2018
+
+==Beta 0.2.2.5 Patch Notes==
+
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Sail booms collide with the rest of the ship now. If the boom is blocked from moving to the optimal angle, the ship will receive less power from the wind.
+* Fixed a bug where the second-to-last snapshot was sometimes being loaded after maintenance, rather than the last. Now the world should no longer appear to roll back a few minutes after maintenance. This fixes a duping exploit.
+* Respawning should no longer have the slight delay introduced in 0.2.2.1.
+* Fixed island chest opening SFX.
+* Metal scrap deposits that have already been harvested no longer play their explosion VFX upon loading in.
+* Atlas cores no longer play the atlas pulse VFX upon loading in.
+* Fixed a bug where players who have locked their own movement (by opening UI windows or the chat box) would be unaffected by the atlas pulse.
+* Players can no longer learn a new schematic in the middle of crafting, which fixes some UI bugs.
+* Fixed a bug that caused the edit ship frame UI to become stuck permanently.
+* Deleting a character from the character selection screen now requires you to type the word ‘DELETE’ to confirm.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* Players can no longer rebind the mouse buttons, which prevents people from being unable to access the Settings menu to fix their keybindings.
+* Fixed a temporary buffer file creation, which may mean a return to time-honored, artisanal cartography techniques.
+* Restored the Drissian pistol’s missing VFX.
+* Texture optimization.
+* Adjusted and removed certain VFX. It’s all a work in progress!
+* Text fixes.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/quickfix/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

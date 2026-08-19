@@ -1,0 +1,123 @@
+{{NeedsUpdate|page}}
+{{incomplete}}
+
+Use '''{{PAGENAME}}''' to create various items and [[Schematics]] in [[Worlds Adrift]].
+
+==Multi-Tool Crafting==
+[[File:Multi_Tool_Crafting.png|right|630x630px]]
+
+===List Of Multi-Tool Crafting===
+* [[Bullets|Pistol Bullets]] - ''"Metal bullets for a pistol."''
+* [[Weapons#Pistol|Pistol]] - ''"Fires bullets, loud and pretty nasty if you get one in the knee."''
+* [[Weapons#Drissian Pistol|Drissian Pistol]] - "The rebels of Driss would wrap their pistols in bandages to Protect them from sandstorms."
+* [[Cannon Shells]] - ''"Cannon ball for Ship Cannons. Consumed automatically when using a cannon on a ship."''
+* [[Weapons#Timed Explosive|Timed Explosive]] - ''"A big flammable explosive thing with a timer set for 10 seconds, ideal for extracting more metal from metallic core rocks."''
+* [[Swivel Gun Buckshot Shell]]
+* [[Assembly Station]] - ''"Use to construct ship parts and equipment."''
+* [[Shipyard]] - ''"The foundation of a construction yard for building skyships."''
+* [[Makeshift Storage]] - " A makeshift container for storing items on land or leaving them for fellow travellers."
+* [[Torch]] - ''"Torch for seeing things."''
+* [[Atlas Lifter]] - ''"A piece of Atlas stone that can be attached to object to reduce their weight."''
+* [[Glider]] - ''"A personal glider you can deploy by pressing {{Key|Spacebar}} while in the air."''
+* [[Hip Lantern]] - "''Small lantern, which can be attached to a belt strap to light the way. Press Y to turn on and off."''
+* [[Head Torch]] - ''"Head mounted light source that illuminates the area in front of you. press T to turn on and off"''
+* [[Camp Fire]] - ''"Camp fire! For seeing in the dark and scaring away any pesky wild life. Useful to signal where you are to your friends too."''
+* [[Camp Fire|Manta steak]] - "A succulent, medium rare steak, Can be eaten to replenish health, Requires nearby campfire."
+* [[Camp Fire|Thuntomite steak]] - "A juicy and fragrant thuntomite steak. Can be eaten to replenish health. Requires nearby campfire."
+* [[Camp Fire|Thuntomite stew]] - "A hearty Thuntomite stew. Can be eaten to replenish health. Requires nearby campfire."
+
+==== List of Old items  __NOEDITSECTION__ ====
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1"><div class="mw-collapsible-content"> 
+<blockquote>
+* Small Chest - ''"Chest for keeping things in."''
+* Flares - ''"Flares for the Flare Gun. Reveal your position to your friends... and also to your enemies. Signal for help but don't blame us when the pirates come along."''
+* Flare Gun - ''"Fires flares that can reveal your position for signalling for help."''
+</blockquote>
+</div>
+</div>
+
+<br/>
+
+==Assembly Station==
+[[File:Assembly Station Crafting.jpg|right|450x450px]]
+Gather [[Resources]], and begin [[Ships|Ship]] building, or [[Crafting]] Tools that you think you might need. Crafting the [[Atlas Core]] which will create the Ships building area, allowing for 3d printing from the [[Assembly Station]], which will open up the various [[Schematics]] to build.
+
+=== List Of Schematics ===
+
+==== Procedural Schematics ====
+* [[Engines]] - ''"Attach to Skyships for propulsion."''
+* [[Wings]] - ''"Increases pitch and roll capabilities while in flight."''
+* [[Cannons]] - ''"A deck cannon for ships."''
+* [[Swivel Gun]]
+
+==== Decoration ====
+* [[Flags#Flag of the New Empress|Flag of the New Empress]] - ''"Though Foundation is fallen, some believe that the lineage of the Empress of Ishgiru can be preserved under her flag."''
+* [[Flags#Flag of the 151st Contub of Essedari|Flat of the 151st Contub of Essedari]] - ''"When the sun appeared again after seven years, the flag of the Essedari was raised once more."''
+* [[Claw of Kusiman]] - ''"When Foundation fell, the claw became the symbol of hope for the refugees who huddled around the fires at Capulca."''
+* [[Figureheads#Clawspirit of Kusiman|Clawspirit of Kusiman]] - ''"With the Clawspirit of Kusiman leading your ship into the unknown, feel the power of nature, and accept that what will be, will be."''
+* [[Lamps#Lightning Bug Lamp|Lightning Bug Lamp]] - "Lightning bugs were so common in Driss that the locals would collect them in huge metal cages to light their ships and homes."
+* [[Figureheads#Figurehead of Alkabar|Figurehead of Alkabar]] - " Figureheads of Alkabar are said to hold his angry spirit within them. they were carved by the rebels of Driss to strike fear into the hearts of the Saborian overseers they rose up against."
+* [[Lamps#Lamp|Lamp]] - ''"A lamp for the ship."''
+* [[Flags#Bossa Flag|Bossa Flag]] - ''"Show your allegiance to the mighty Bossa Studios."''
+* [[Flags#Improbable Flag|Improbable Flag]] - ''"Masters of the Grid. Fly your colours with pride and maybe Matej will nail the CSP."''
+* [[Flags#Pirate Flag|Pirate Flag]] - ''"Your loyalties are with yourself and no one else!"''
+* [[Horn]] - ''"A loud horn."''
+
+==== Basics/Sky core ====
+* [[Sails#Kusiman's Sail|Kusiman's Sail]] -  "As their world crumbled, the tailors of Capulca crafted the ultimate symbol of hope - a sail to be stretched across the skyships of future survivors"
+* [[Helms#Helm of the Claw|Helm of the Claw]] - "Helm your vessel as the first peoples of the new world did. Take hope from the survivors at Capulca, and steer the old into the new."
+* [[Sails#Sail|Sail]]
+* [[Personal Reviver]] - "''Ancient technology that will revive you. Place it on a ship and interact with it to register with the device."''
+* [[Helms#Helm|Helm]] - ''"Helm component for attaching to ships: This is needed to pilot a ship."''
+* [[Power Generator]] - "
+* [[Atlas Core|Atlas Sky Core]] - ''"An anti-gravity core."''
+
+==== Structural ====
+* [[Deck]]
+* [[Panels#Small Panel|Small Panel]]
+* [[Panels#Medium Panel|Medium Panel]]
+* [[Panels#Large Panel|Large Panel]]
+* [[Panels#Window|Window]]
+* [[Stairs]]
+* [[Railings#Railing|Railing]]
+* [[Railings#Railing Corner|Railing Corner]]
+* [[Bar Pipes#Bar Pipe|Bar Pipe]] - ''"A bar made of piping."''
+* [[Bar Pipes#Bent Bar Pipe|Bent Bar Pipe]] - ''"A bar made of piping, bent."''
+* [[Crows Nest]] - ''"A mast for a ship."''
+
+==== Flight Instruments ====
+* [[Instruments#Artificial Horizon|Artificial Horizon]] - ''"Artificial Horizon indicator."''
+* [[Instruments#Fuel Gauge|Fuel Gauge]] - ''"Fuel Gauge indicator"''
+* [[Instruments#Altimeter|Altimeter]] - ''"Altimeter"''
+* [[Instruments#Airspeed Indicator|Airspeed Indicator]] - ''"Airspeed indicator"''
+* [[Instruments#Heading Indicator|Heading Indicator]] - ''"Heading indicator"''
+
+
+==== List of Old items  __NOEDITSECTION__ ====
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content"> 
+<blockquote>
+* Control Button - ''"A button to trigger wires."''
+* Control Lever - ''"A lever to trigger wires."''
+* Patched Metal Panel - ''"Metal Panel"''
+* Vented Metal Panel - ''"A metal panel with a ventilation grate."''
+* Metal Panel - ''"A plain metal panel"''
+* Medium Metal Panel - ''"A 2x size metal panel."''
+* Large Metal Panel - ''"A 4x size metal panel."''
+* Windowed Wood Panel - ''"A wood panel with a window"''
+* Light Wood Panel - ''"A light wood panel."''
+* Bolted Wood Panel - ''"A wood panel with bolts."''
+* Gaben Flag - ''"Are you part of the PC Master Race? Show your love for your glorious leader."''
+* Small Storage Crate - ''"Crate for storing of items on your ship."''
+* Small Fuel Tank ''- "A fuel tank."''
+* Mini Wing ''- "A cute tiny wing useful for aerodynamics and maybe mounting smaller engines."''
+* Fin ''- "A fin."''
+* Windowed Metal ''- "A metal panel with a window."''
+</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{WA Navbox}}
+[[Category: Ships]]

@@ -1,0 +1,13 @@
+{{ItemBox|name=Kahi Ceremony Gift|picture=xmas_present.png|extra=A traditional box from a Tarrery ceremony that took place every year in the darkest parts of Kif. The contents are part of a sacred ritual that supposedly warded off The Kahi.}}
+The '''Kahi Ceremony Gift''' was an item that was found across Foundation during the Christmas/New Year's season in 2018.
+
+===Items===
+When opened the box gave 1 of the 4 following items. These items were added to the player's [[Stash]] and steam inventory. They are Tradable but not Marketable on the the Steam Market.
+<gallery>
+LampChristmas_01.png|[[Lamps#Tarrery Lamp|Tarrery Lamp]]
+head_christmas_2018_male.png|[[Clothes#Natiq Mask|Natiq Mask]]
+torso_christmas_2018_male.png|[[Clothes#Kahi Ceremony Parka|Kahi Ceremony Parka]]
+legs_christmas_2018_male.png||[[Clothes#Kahi Ceremony Leggings|Kahi Ceremony Leggings]]
+</gallery>
+[[Category:Gameplay]]
+{{WA Navbox}}

@@ -1,0 +1,44 @@
+==Current Maps:  Worlds Adrift - New Foundations (Early Access)==
+Latest map introduced with [[Update 27]]. <br/>
+
+* Maps are currently the same for all servers. however resource rates may vary.
+* Mapping has been done by two ongoing community projects. Both have no official ties to Bossa Studios or subsidiaries.
+
+==Cardinal Guild==
+Valid for {{#dpl: category=Open Beta Patch|ordermethod=categoryadd|order=descending|count=1|format=,,[[%PAGE%]],}} | [https://map.cardinalguild.com Interactive Map] | [https://worldsadrift.gamepedia.com/media/6/6a/Global_Map_-_New_Foundations_(FullRes).png Full-Res Static Map Link]<br/>
+[[File:Early Access (Phase 2).png|600x600px]]<br/>
+{{clear}}
+
+==Worlds Adrift Community Map Project==
+Valid for [[Update 28]] | [https://gametools.site/ (WIP) Interactive Map] | [https://gametools.site/maps/update-28/static-beta-1.0.png Full-Res Static Map Link]
+<br/>
+[[File:Static-beta-1.0.png|600x650px]]<br>
+<br/><br/>
+
+=Map History=
+==Alpha==
+===Alpha 06===
+[[File:Alpha 06 (Phase 1).png|600px]]<br/>
+{{clear}}
+==Closed Beta==
+===Closed Beta Phase #1===
+====US East/EU West====
+[[File:Closed Beta (Phase 1 USE-EUW).png|600px]]<br/>
+Map for the US East and EU West servers.
+{{clear}}
+====US West/EU East====
+[[File:Closed Beta (Phase 1 USW-EUE).png|600px]]<br/>
+Map for the US West and EU East servers.
+{{clear}}
+===Closed Beta Phase #2===
+[[File:Closed Beta (Phase 2).png|600px]]<br/>
+Second map of closed beta.
+{{clear}}
+==Early Access==
+===Early Access Phase #1===
+[[File:Early Access (Phase 1).png|600px]]<br/>
+First map of early access.
+{{clear}}
+
+
+[[Category: Guides]]

@@ -1,0 +1,30 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>Captain Astor's Logbook</blockquote>
+<blockquote>I had no intention of writing anything here, but I won't die in silence.</blockquote>
+<blockquote>
+Father, I pity you. I hate you.<br>
+You told me I was weak, but I'm strong.<br>
+You said I was slow, but I'm quick.
+</blockquote>
+<blockquote>
+I wear the hawk thought you said I'd achieve nothing.<br>
+For once I agree with you.<br>
+I, and everyone else, have achieved nothing.
+</blockquote>
+<blockquote>
+Nothingness below us. Nothingness all around us.<br>
+Mother I dedicate myself to your memory,<br>
+and I cut the Saborian<br>
+mast and neck.
+</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

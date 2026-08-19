@@ -1,0 +1,40 @@
+Release date: June 29th, 2017
+
+==Beta 0.1.3.0 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* The Knowledge tree now has a repeatable node for raising your schematics known limit for ship parts. The cost of learning this node increases with use.
+<br>
+'''NOTABLE BUGFIXES'''
+* Creatures should stop getting themselves into a frozen mid-air state on and around islands. They will still sometimes do this in the large spaces between islands.
+* Sometimes, ship parts would also get stuck, frozen in mid-air. This should happen a lot less frequently.
+* Ding! Ding! Ding! Ding! The scanner sound will now properly fade based on distance from the listener.
+<br>
+'''NOTABLE BALANCE CHANGES AND TWEAKS'''
+* The pistol no longer damages ship parts, assembly stations, or shipyards.
+* Attached ship parts can now be salvaged again. Salvaging will work at full power if the part is  attached to your own ship or an abandoned ship. Otherwise the salvage rate is severely reduced.
+* Salvaging shipyards will continue to work at full power if you have access to the shipyard, but at a severely reduced rate if you do not.
+* Timed explosives have been nerfed severely, as a temporary measure before better strategies for defending against boarding parties are implemented in the game.
+* The timer when interacting with a part on a ship you don’t own has been increased from 5 to 10 seconds.
+* Ship frames, once they have started to deteriorate and sink into the ground, can now be salvaged directly with the gauntlet.
+* The heading indicator schematic is now Uncommon instead of Rare, and can be found in the Expanse.
+* The threshold force at which your grappling rope will snap has been doubled. Still, players should be careful when trying to grapple hook out of a high-speed fall!
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* When flying from one island to another, the game client may appear to freeze for a few seconds, resulting in characters sometimes getting thrown off the ship. It may be best to quickly grapple to the ship if you experience these stutters, or take control of a helm or cannon. This is an ongoing area of investigation.
+* Ships will, on rare occasions, teleport to the edge of the world and be destroyed by the impassable storms. Investigation continues into the cause.
+* Sometimes players’ registration to their shipyard enters a broken state, and they are unable to pick up parts with their Shipbuilding tool. Restarting the client will fix this. Registering with a different shipyard and re-registering with the original will also fix this.
+* Climbing on very bent ship panels, or in spaces the character normally can’t enter, will do serious damage or kill the character: Avoid these for now, as climbing is still unstable.
+* Logging in on a ship that has moved will result in logging in midair.
+* The visuals for sandstorms and stormwalls sometimes swap when viewed from the inside.
+* If you’ve raised your schematic limit to above 100, a UI bug will omit displaying the last digit; showing only “10” for 100-109 and “11” for 110 to 119, etc. This does not affect functionality.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/closed-beta-0-1-3-0-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

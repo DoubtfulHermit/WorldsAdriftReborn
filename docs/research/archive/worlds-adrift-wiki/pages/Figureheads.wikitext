@@ -1,0 +1,161 @@
+{{incomplete|Needs the two marauder plaques}}
+==Description==
+Figureheads are a [[:Category:Decoration|decorative]] [[Ship Components|ship component]]. They are craftable from a [[Assembly Station]]. Some of the figureheads available are exclusive to the [[Founder's Pack|Founder]] or Pioneer packs.
+
+=Figureheads=
+==Figurehead of the Godhand==
+{{SchematicBox
+|name=Figurehead of the Godhand
+|time=5
+|picture = FigureheadGodhand.png
+|extra = "A symbol of order and dominance. Figureheads of the godhand were a common sight over Bandinia."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = metal
+|amount1 = 60
+}}
+A saborian designed figurehead depicting a Godhand, the enforcer of Saborian law.
+
+{{CraftingPage
+|name = Figurehead of the Godhand
+}}
+
+{{clear}}
+
+== Figurehead of Telemon ==
+{{SchematicBox
+|name = Figurehead of Telemon
+|time = 5
+|picture = FigureheadTelemon.png
+|extra = "A symbol of strength and unity amongst the Saborians. Figureheads depicting the premier led many a warship to glory."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = metal
+|amount1 = 60
+}}
+A saborian designed figurehead, in the likeness of Telemon, the leader of the Saborians.
+
+{{CraftingPage
+|name = Figurehead of Telemon
+}}
+
+{{clear}}
+
+== Figurehead of the Hawk ==
+{{SchematicBox
+|name = Figurehead of the Hawk
+|time = 5
+|picture = FigureheadHawk.png
+|extra = "These figureheads once adorned the war vessel of Astor's legendary band of soldiers, the Karem hawks."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = metal
+|amount1 = 60
+}}
+A kiokian designed figurehead, in the likeness of a Hawk.
+
+{{CraftingPage
+|name = Figurehead of the Hawk
+}}
+
+{{clear}}
+== The Raptor ==
+{{SchematicBox
+|name = The Raptor
+|time = 5
+|picture = FigureheadRaptor.png
+|extra = "The raptor was seen as a symbol of freedom amongst the people of Ishgiru."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = metal
+|amount1 = 60
+}}
+A kiokian designed figurehead, in the likeness of a raptor.
+
+{{CraftingPage
+|name = The Raptor
+}}
+
+{{clear}}
+== Clawspirit of Kusiman ==
+{{SchematicBox
+|name = Clawspirit of Kusiman
+|time = 5
+|picture = FigureheadKusiman.png
+|extra = "With the Clawspirit of Kusiman leading your ship into the unknown, feel the power of nature, and accept that what will be, will be."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = metal
+|amount1 = 60
+}}
+An exclusive schematic to [[Founder's Pack#Explorer|Explorer]] and [[Founder's Pack#Captain|Captain]] [[Founder's Pack|Founder's Packs]].
+
+{{CraftingPage
+|name = Clawspirit of Kusiman
+}}
+
+{{clear}}
+== Figurehead of Alkabar ==
+{{SchematicBox
+|name = Figurehead of Alkabar
+|time = 5
+|picture = FigureheadAlkabar.png
+|extra = "Figureheads of Alkabar are said to hold his angry spirit within them. they were carved by the rebels of Driss to strike fear into the hearts of the Saborian overseers they rose up against."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = wood
+|amount1 = 70
+|name2 = Mount
+|value2 = metal
+|amount2 = 20
+}}
+An exclusive schematic to the [[Pioneer Pack]]
+
+{{CraftingPage
+|name = Figurehead of Alkabar
+|picture = Figurehead of Alkabar.jpg
+}}
+
+{{clear}}
+==Figurehead of the Snake==
+{{SchematicBox
+|name = Figurehead of the Snake
+|time = 5
+|picture = FigureHeadPekoe01.png
+|extra = "The Snake was both feared and respected by the tribes of West Koinos. They carved huge figureheads from jungle wood to scare away outsiders."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Figurehead
+|value1 = wood
+|amount1 = 90
+|name2 = Mount and Details
+|value2 = metal
+|amount2 = 20
+|name3 = Decoration
+|value3 = fiber
+|amount3 = 50
+}}
+Must be bought from the [https://store.steampowered.com/itemstore/322780 WA Steam Store].
+
+{{CraftingPage
+|name=Figurehead of the Snake
+}}
+
+{{clear}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Decoration]]

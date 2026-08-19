@@ -1,0 +1,68 @@
+0.0.6 Release date: April 6th, 2017<br>
+0.0.6.135 Release date: April 11th, 2017<br>
+0.0.6.137 Release date: April 13th, 2017
+
+Alpha 0.0.6 is also known as Alpha 6.0
+
+==Alpha 0.0.6 Patch Notes==
+'''NOTE: These notes are the same for Alpha 0.0.6.135 and 0.0.6.137 which were just re-runs of this test with some minor back-end changes.'''
+
+<br>
+'''NEW FEATURES'''
+* Biomes have been added to the game, with the first four implemented.
+* Biomes determine loot tables, resources, schematics, and rewards.
+* Biomes determine creature variants and behaviors.
+* Biomes determine surrounding weather barriers.
+* Sandstorms have been added to the game.
+* The start of the game and key schematics have been revised, along with the Knowledge tree.
+* A rehaul to the atlas sky core has been implemented: ships are now restricted to a single core, which is upgradeable through attaching specific addons.
+* A completely revamped lighting solution for island caves and interiors has been implemented.
+* Creatures’ corpses can now be salvaged for meat, which can be cooked and eaten to regenerate player health. Harvesting trees also gives berries, which also regenerate health.
+* Objects abandoned on islands will eventually sink into the ground and decay. You may come across an island with the buried wreckage of another player’s adventures.
+* Lightning striking from the death clouds below will hit islands and excite the atlas within, burying some objects forever and bringing others to the surface.
+* Ships and ship parts have a new aesthetic; both materials and damage should now show properly.
+* Players can now combine the same resource of different qualities. The new quality is a weighted average of the two previous stacks.
+* Metal scrap deposits have had their placeholder art replaced with final assets.
+* Sails have had their placeholder art updated; animation and audio added.
+* Ancient revival chambers have had their placeholder potat – err, art – replaced with final assets.
+* Saborian databanks have had their placeholder art replaced with final assets; animation added.
+* Characters have gained the ability to climb. Press Q when near a surface or object and your character will grab on; WASD will control your climb.
+* Player respawn rules have been updated: timers have been added, random respawn is now limited to two uses per day and keeps you within the current zone, and respawning to any revival chamber now immediately severs your connection to your existing personal reviver.
+<br>
+'''NOTABLE BUGFIXES'''
+* Upon logging in following a crash, players will no longer constantly get reset to the pre-crash position and state.
+* When approaching a new island, the client should now only rarely freeze for a notable amount of time. There will still be little hiccups that will be optimised away in a future update.
+* Players, when ragdolled, will no longer exert extreme forces with their limp body.
+* Cannon shells should no longer rubberband, causing havoc on their own ships. Their damage calculations have also had various bugs fixed.
+* Rendering objects on islands has been significantly optimized. Framerates should increase noticeably.
+* Ships rubberbanding while flying has been significantly reduced.
+* Building parts onto the hull of ships will no longer result in extreme framerate degradation.
+* Many situations where ships or ship parts silently stopped functioning (fuel tanks being a common example) have been fixed.
+* Sometimes the connection menu would lay over the in-game screen, making it impossible to play. This has been fixed.
+* In-game broadcasts have been fixed; messages, including those notifying players of an upcoming maintenance, should be visible again.
+* Trees should no longer duplicate when chopped.
+* Mysterious clumps of metal or eggs should no longer spawn at specific points in the open air.
+* Ships should no longer log out when docked to the shipyard – regardless of the status of players.
+* Islands with missing assets now have them showing appropriately. Murals now show their logograms correctly.
+* This is pretty small in the grand scheme of things, but large in the minds of shipbuilders everywhere: the Artificial Horizon placement has been fixed!
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* Occasionally, after the client has been running for a few hours, approaching a new island will cause a 5-10 second freeze, after which the player will be thrown off the ship. Restart the client to fix.
+* Logging in onto a moving ship may result in the ship having moved out from under the character by the time the character loads in.
+* Climbing on very bent ship panels will do serious damage to the player: Avoid these for now.
+* The client will enter a ‘not responding’ state or crash occasionally: Restart the client to fix.
+* When taking control of a helm or cannon, a player will sometimes be seen in an incorrect place.
+* WiFi may incur problems: Best played on an ethernet connection for now.
+<br>
+== References ==
+# https://www.worldsadrift.com/blog/worlds-adrift-6-0-live-full-patch-notes/ (0.0.6)
+# https://drive.google.com/file/d/0B2m-20IvaIDIblRiZWlzd09WM3c/view (0.0.6)
+# https://www.worldsadrift.com/forums/topic/alpha-6-update-build-0-0-6-135/ (0.0.6.135)
+# https://www.worldsadrift.com/forums/topic/alpha-6-update-build-0-0-6-137/ (0.0.6.137)
+# http://i.imgur.com/huXb2We.png (Confirming Release Date)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

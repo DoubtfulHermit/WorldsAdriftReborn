@@ -1,0 +1,38 @@
+Release date: February 20th, 2018
+
+==Beta 0.1.7.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* The Blight has been introduced to the skies. Experienced travellers know to stay far away, as the raw energy will devour objects, ship parts – even ships themselves – until it dissipates. Large gatherings of ships and large accumulations of debris invariably attract the Blight. Visit worldsadrift.com/blog for a more detailed explanation of this feature.
+* Clothing items now all have unique icons! No more needing to mouseover to figure out what’s what in your stylish wardrobe.
+* The character select screen has been updated with a new background island, music, and adjusted UI.
+* A graphics and gameplay settings menu has been implemented. We’re, like, a real game now. As a consequence, the default Unity resolution/settings launcher has been removed.
+* As part of the settings menu, custom keybindings have been implemented. Rejoice, everybody (but especially those with non-English keyboards)!
+* Ship engine VFX have been fleshed out. Now both the throttle and the damage state of an engine affect the smoke and trails it produces.
+* Lots of other VFX goodies: propellers spin into a blur, cannons and pistols have improved muzzle flashes, explosions have been upgraded, interactions with ship domes trigger VFX, and more.
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Ships would occasionally take massive damage upon logging in. This should no longer happen. There should no longer be any bugs where a ship takes massive unexplained damage. Please let us know if you find one, as fixing the fragility of ships has been a huge goal of ours since the early Alphas!
+* As a trial run for having all moveable ship parts collide with each other, cannons’ and swivel guns’ barrels can no longer clip through decks (or any other solid object). It’ll get a bit more polish and tweaking in the future, but now you’ll need to consider the position and location of your guns.
+* The cloud and atmospherics graphics have gotten a rehaul. Clouds now render farther out, animate less frantically, have the ability to form much more interesting shapes, look fluffier and less noisy, take on real-time shadows with backscattering, and are better separated from weather barriers.
+* Logging in on a ship that has moved should now properly place your character on the ship, instead of in freefall.
+* If your grappling hook snaps (due to too much force, or being atlas pulsed, etc.) there’s now a slight delay before being able to use it again. This should buff the atlas pulse and address some slightly exploity behavior.
+* 0.1.6 introduced a bug that prevented players from crafting a schematic they didn’t own even if it was loaded into an assembly station. This has now been fixed.
+* 0.1.6 introduced a bug that could corrupt a player’s inventory, requiring a reset. The bug will no longer corrupt the inventory, but will force a restart of the client. A proper fix will come in a future patch.
+* Fixed numerous other UI bugs introduced in 0.1.6’s complete UI rewrite. This is an ongoing effort.
+* 0.1.6 introduced a bug where the character’s right arm would not animate properly when the player aimed the grappling hook. This has been fixed.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* The loading screen has also gotten a facelift.
+* The moons’ sizes have been increased. It’s a make-believe world, dammit, let’s make the moons bigger!
+* Handheld atlas lifters now slowly drain over time and eventually break.
+* Attached ship parts on a ship being reclaimed by nature now deteriorate before the ship frame itself does.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/0-1-7-1-patch-notes-the-blight-cometh/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

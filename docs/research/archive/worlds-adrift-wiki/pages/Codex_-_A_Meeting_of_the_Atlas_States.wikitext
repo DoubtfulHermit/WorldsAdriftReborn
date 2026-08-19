@@ -1,0 +1,20 @@
+{{Ambox
+| image = [[File:Warning Triangle.png|50px]]
+| border = red
+| type = Spoiler Warning
+| info = <big>'''WARNING!'''</big>
+<big>The following sections contain spoilers for the lore and story of Worlds Adrift</big>
+}}
+
+== Section 1 __NOEDITSECTION__==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-myDivision">
+<div class="mw-collapsible-content"> 
+<blockquote>A small memento, bearing an inscription relating to the last meeting of the Atlas States. From c.2820.</blockquote><blockquote>Naturally, it was under Sabor's flag that accord was reached. Being the most gentle of the nations, our Premier proposed that with no cause for conflict, military experimentation using Atlas should henceforth be illegal across Foundation. We hereby commemorate this gesture, which has brought now a hundred years of prosperity and peace upon us. Long may it remain so. Equality. Freedom. We are god.</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

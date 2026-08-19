@@ -1,0 +1,38 @@
+Release date: April 17th, 2018
+
+==Beta 0.1.11.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* New male-centric hair and beard options have been added to character generation! We know the female character has been receiving the majority of customisation attention, so we’ve added some male-centric options.
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Previously, if a player’s reviver was destroyed while the player was logged out, the player would continue to get the option to respawn. This would result in an infinite loading screen. This bug has been fixed.
+* A registered reviver, when detached, no longer unregisters the character. It will instead become “inactive,” and will reactivate upon reattachment to a ship. Moving a registered reviver around the same ship should also no longer unregister the character. Now crewmates can move a logged off character’s reviver to a new ship, for example.
+* Revivers no longer automatically deregister their player if within the understorm. This does mean that if you choose to revive when your ship is down in the depths, you will immediately take a bunch of damage and die!
+* 0.1.10 introduced a bug where repairing high-resilience objects would stutter your framerate. This has been partially fixed. More fixes to stuttering will come in future patches.
+* 0.1.10 introduced a bug where pressing Esc would send a chat message instead of cancelling. This has been fixed.
+* Lots of shipyard permissions inconsistencies have been fixed. The most visible bug this fixes is not being able to grapple to your own shipyard dome. In addition, if your ship docks to a shipyard, or if you relog while your shipyard has a ship docked to it, you no longer need to first interact with the shipyard before using your shipbuilding tool.
+* Previously, when the character switched from the freefall to non-freefall states, there was a brief window where the character was invulnerable. This allowed people to divebomb onto islands and take no damage if they grappled to the ground at the last second. This has been fixed.
+* Fixed – for real this time – the ability to quickly regrapple after being atlas pulsed.
+* The grappling rope has a max length now, beyond which it will snap. This should prevent some bugs and exploits.
+* Swivel guns’ placement rules are now correct, and will no longer allow clipping.
+* A cannon being fired from hundreds of meters away will no longer shake your screen. Camera shake from cannon fire attenuates based on distance now.
+* Dragging items from a container directly to your hotbar will no longer lock your UI.
+* The Esc key once again closes the inventory menu! This is why they pay us the big bucks.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* Engine propellers would previously not animate if they were already “on” when the client loaded the engine in. This has been fixed. Reversing engines will also show animating propellers now.
+* Fixed some icon issues in the UI.
+* You can now chain-eat berries without having to swap to a different hotbar item and swap back. It’s all about the little things in life.
+* On the respawn menu, the random revival chamber option no longer shows “n uses remaining,” but rather the correct number.
+* The male character’s legs have been resculpted to be less slim on some clothing models. This will continue as we update all of the clothing pieces.
+* Ship panels would sometimes become excessively dark, as if they were not receiving any light. This has been fixed.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/the-stubble-trouble-update-0-1-11-1-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

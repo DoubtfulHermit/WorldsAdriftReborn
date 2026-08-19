@@ -1,0 +1,21 @@
+{{stub}}
+{{NeedsUpdate|page}}
+Islands are the main content of Worlds Adrift, each one is unique and most are created by the Worlds Adrift community through the free [[Island Creator]] tool available on Steam.
+
+== Resources ==
+Islands typically are covered in [[Trees]], [[Metal|Metal ore nodes]] and [[Fuel]], which can be salvaged. But Island Creators can also place scrap piles which yield a piece of scrap, with lore, which can be salvaged for some materials. 
+
+Resources on islands will reset every 1.5 to 2 hours, during what is known as an [[Weather#Understorms|"understorm"]]. These storms strike the island from below and replace all the [[Metal|metal ore nodes]] as well as the scrap piles. [[Trees]] will regrow at their own rate but logs that are on the ground will be removed when an understorm hits .
+
+=== Loot ===
+Island Creators can place [[Chest|Chests]] throughout the island. Usually there will be 1 to 3 Gold Chest and up to 5 Silver ones. These yield schematics, lore, materials and other objects like [[Torch|Torches]] and [[Chest|Chests]]. After being looted they will despawn. All chests will respawn during the understorm, though not always in the same place.
+
+== Knowledge ==
+Islands are also repositories of [[Knowledge]] with the [[Data banks|Ancient Databanks]] which can each be scanned once for knowledge (the amount varies for each biome) and each island has a maximum of 5. As well as this, players can scan the island assets for small amounts of knowledge, each asset can only be scanned once.
+
+== Creatures == 
+[[Creatures]] will usually migrate from island to island within the sector, apart from [[Creatures#Jellyfish|Jellyfish]] who don't really move at all. On islands creatures will lay their eggs, which eventually hatch into new [[Creatures]]
+
+
+{{WA Navbox}}
+[[Category: Environment]]

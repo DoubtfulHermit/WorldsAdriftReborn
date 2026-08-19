@@ -1,0 +1,31 @@
+Fuel is a resource used for engine propulsion and for [[crafting]]. It is obtained by salvaging fuel canisters which protrude all over [[islands]]. Each cannister takes 3 salvage shots to get all the fuel. The first gives 8 fuel and "pops" the cannister out of the cradle, the second gives 8 and the last gives 9. Totalling 25 fuel per cannister.
+
+== Occurrence ==
+Although fuel can be found all over islands, it is also an occasional drop from salvaging scrap items.
+It is also worth noting that in the [[Biome#Badlands (Tier 4)|Badlands]] islands will not spawn fuel.
+[[File:FuelPod.png|frameless|right|A fuel pod]]
+==Uses==
+Fuel can be used as a crafting material, in the following schematics:
+* [[Torch]]
+* [[Camp Fire|Campfire]]
+* [[Hip Lantern]]
+* [[Head Torch]]
+* [[Weapons|Timed Explosive]]
+* [[Lamps#Lamp|Lamp]]
+* [[Lamps#Saborian Lamp|Saborian Lamp]]
+* [[Lamps#Kioki Lamp|Kioki Lamp]]
+* [[Lamps#Lightning Bug Lamp|Lightning Bug Lamp]]
+However, the icon might appear as a bucket full of a blue liquid called "Incandescent" instead of the normal icon.
+
+Fuel is also used in refuelling [[Power Generator|the Power Generator]](s) on your ship, which can hold up to 100 fuel each. There is a [[Instruments#Fuel Gauge|Fuel Gauge]] Instrument which shows you how much fuel is left in your tank(s).
+
+==Notes==
+As with any object, the player can grapple onto a fuel canister in both its attached and detached state. Grappling a detached fuel canister will allow the player to prevent or slow the canister's movements; which can make it easier to harvest the remaining fuel. Note that the player can likewise be manipulated by the canister's movements, and may easily be dragged along with the fuel canister.
+
+Currently, the grapple will stay attached to the fuel canister even after it has been fully salvaged, serving as a stationary grapple point until the player retracts their grapple.
+<gallery>
+File:Fuel.png|
+</gallery>
+
+{{WA Navbox}}
+[[Category: Resources]]

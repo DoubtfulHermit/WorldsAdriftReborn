@@ -1,0 +1,19 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>(Property of the Gallish Liaison Committee for births and deaths)</blockquote>
+<blockquote>Full Name: Umeko Renang Junior</blockquote>
+<blockquote>Date of Birth: 5th of Lopus 2891</blockquote>
+<blockquote>Place of Birth: Efflua, South Gall</blockquote>
+<blockquote>Mother: Umeko Delora Appartina (Senate Sub-Committee at Panyana University)</blockquote>
+<blockquote>Father: Estembio Ku-No Tiroki (Guardsman at Panyana University)</blockquote>
+<blockquote>Note: The mother is happy for the father to be recorded on the certificate, and his employer to hold his position open while he completes his paternity duty, so that the mother can return immediatley to work.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

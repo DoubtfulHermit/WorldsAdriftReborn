@@ -1,0 +1,20 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>I am Alkabar, here is out stone.<br>
+We place it here in the hours before dawn, to mark out march beyond the desert we know, into the desert we don't.</blockquote>
+<blockquote>With me are the strongest, the worst of men. They know no other meaning than the fight. If it must be a fight, then it must.</blockquote>
+<blockquote>
+May the fight bring eternal glory if<br>
+we are gods,<br>
+and eternal shame if we are not.
+</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

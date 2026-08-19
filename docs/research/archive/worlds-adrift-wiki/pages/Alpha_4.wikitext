@@ -1,0 +1,48 @@
+4 Release date: August 18th, 2016<br>
+4.1 Release date: September 5th, 2016<br>
+4.2 Release date:  October 20th, 2016
+
+==Alpha 4 Patch Notes==
+'''NOTE: These notes are the same for Alpha Test 4.1 and 4.2 which were just re-runs of this test.'''
+
+<br>
+'''NEW FEATURES'''
+* You may recognise some of the islands in the world – these are almost all built by players in the Island Creator!
+* You can now build procedural ship engines, cannons, and wings. The schematics are found by detonating the (soon to be replaced) metal deposits.
+* Creatures now populate the world! Beetles are docile… until you start destroying their food source. Rays, on the other hand, are always jerks. It’s probably a good idea to be aware of nearby creatures when you’re chopping trees or building a ship.
+* The first two weather barriers are in the world. Have fun!
+* The first iteration of the crew system has been implemented. Now you can start the game with your friends! In your Character screen, there’s a link to the Crew screen, where you can send or accept invites. (There’s a bug where a player name including “E” will close the whole window – until we fix this, please reopen the window and continue typing the name.)
+* The Crew Beacon button allows you to teleport to the closest revival chamber to your Crew Leader. For now, this is limited to once per day. Preface anything you type with /crew to send it to crew chat, which is not limited by distance.
+* Lots more clothing options for your character.
+* Many UI improvements, including a right click menu on inventory items
+* The multitool has been revamped, and the metal gathering in particular is completely rehauled, but unfortunately this did not make it in time for this alpha test. We know you’ve been eagerly awaiting the new mechanic, so please bear with us for just a little bit longer!
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* Connection errors (red text in the bottom left while trying to connect) or hanging at connecting screen for more than two minutes: Restart the client
+* Sometimes ships flip out when crossing some invisible world boundaries
+* Sometimes the game camera goes nuts: Grapple to something, swing around and move around until the camera chills out
+* Multitool does not appear in your hand: Switch to a different hotbar slot then back
+* Player gets stuck in mid-air, with a subtle loading circle overlay: If not fixed after 60 seconds, restart the client
+* When trying to craft something, a torch gets crafted instead: Craft something else (not the desired item or torch), and then switch back to the desired item
+* Ship parts get stuck in building state: Restart client, build new crafting station
+* Ship frames fall while still being built (transparent and blue): They should right themselves; if not, build a new one
+* Multi-tool VFX do not always display
+* Ships rubberband when flying
+* Player exerts a lot of force on physical objects: We’re working on this, so for now, avoid kicking stuff
+* Sometimes interactions show considerable lag
+* All fuel gauges are currently broken :(
+* Ships currently do not despawn when their owners log out
+* WiFi may incur problems: Best played on an ethernet connection for now
+<br>
+==References==
+# https://www.worldsadrift.com/forums/topic/whats-changed-in-alpha-4/ (4.0)
+# https://drive.google.com/file/d/0B2m-20IvaIDIN1F4MENVLWxuZk0/view (4.0)
+# https://www.worldsadrift.com/forums/topic/whats-changed-in-alpha-4/#post-41270 (4.1)
+# https://www.worldsadrift.com/forums/topic/alpha-4-2-has-now-begun/ (4.2)
+# http://i.imgur.com/huXb2We.png (Release Dates & 4.1, 4.2 No Change Confirmation)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

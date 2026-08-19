@@ -1,0 +1,81 @@
+{{Incomplete}}
+Weapons are items your character can use to damage players, creatures, and ship components. These are the player based weapons, see [[Cannons]] or [[Swivel Guns]] for weapons that can be attached to ships.
+{{clear}}
+
+== Pistol ==
+{{SchematicBox
+|name = Pistol
+|time = 15
+|picture = Basicpistol.png
+|extra = "Fires bullets at high velocity capable of causing damage to players and creatures."
+|craftIn = tool
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Firing Mechanism
+|value2 = metal
+|amount2 = 30
+|name3 = Barrel
+|value3 = metal
+|amount3 = 40
+|name4 = Ammo Loader
+|value4 = metal
+|amount4 = 30
+}}
+As of [[Beta 0.2.2.5]], the Basic Pistol is the main weapon used in PvP combat. It uses [[Pistol Bullets|metal bullets]] as ammunition and does 23 damage with each shot. NOTE: Damage from bullets does not change, regardless of what material for them you use. (Same for Pistol itself)
+{{CraftingPage
+|name = Pistol
+|picture = Pistol.jpg
+}}
+{{clear}}
+
+== Drissian Pistol ==
+{{SchematicBox
+|name = Drissian Pistol
+|time = 5
+|picture = Pioneerpistol.png
+|extra = ""
+|craftIn = tool
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Firing Mechanism
+|value2 = metal
+|amount2 = 30
+|name3 = Barrel
+|value3 = metal
+|amount3 = 40
+|name4 = Ammo Loader
+|value4 = metal
+|amount4 = 30
+}}
+The Drissian Pistol, also known as the Pioneer Pistol, functions identically to the regular pistol. It is given to anyone who purchases either the "Standard" or "Pioneer" pack when the game hit early access on May 16th, 2018.
+{{CraftingPage
+|name = Drissian Pistol
+|picture = Drissian Pistol.jpg
+}}
+{{clear}}
+
+== Timed Explosive ==
+{{SchematicBox
+|name = Timed Explosive
+|time = 3
+|picture = Timed Explosive.png
+|extra = "A big flammable explosive thing with a timer set for 4 seconds, ideal for extracting more metal from metallic core rocks."
+|craftIn = tool
+|name1 = Container
+|value1 = metal
+|amount1 = 75
+|name2 = Explosive
+|value2 = fuel
+|amount2 = 75
+}}
+Timed explosives have a 2 second placement time and a 4 second fuse that starts immediately after it's placed<ref>https://www.worldsadrift.com/blog/gofigure/</ref>.
+{{CraftingPage
+|name = Timed Explosive
+|picture = Timed Explosive.jpg
+}}
+{{clear}}
+
+{{WA Navbox}}
+[[Category: Weapons]][[Category: Tools]]

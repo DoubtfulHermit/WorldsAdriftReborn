@@ -1,0 +1,25 @@
+{{Incomplete}}
+There are several biomes around the world found beyond the [[Weather#Weather Walls|Weather Walls]].  Each region requires different methods to be accessed and has unique region specific crafting recipes.  Islands tend to become more complex the higher the tier of the region
+
+== Wilderness (Tier 1) ==
+New players spawn in this sector after completing [[Haven]]. Contains basic [[schematics]] and loot.
+
+[[Data banks]] provide 25 [[knowledge]] here.
+
+== Expanse (Tier 2) ==
+Similar to the wilderness sector, however players must cross a [[Weather#Wind Walls|wind wall]] to reach it. Better schematics and [[Ship Components|ship components]] can be found here.  Crossing a [[Weather#Wind Walls|wind wall]] within the Expanse can lead to another Expanse region or to a Wilderness region. [[Glider|Gliders]] can also be found in this sector.
+
+[[Data banks]] provide 30 [[knowledge]] here.
+
+== Remnants (Tier 3) ==
+A higher level sector that requires a sturdy ship to reach since players must cross a [[Weather#Storm Walls|storm wall]] to reach it. The storm walls will batter a players [[Ships|ship]] with strong winds and lightning that can rip components off a ship. This sector contains high level schematics and unique ship components as well as higher quality [[resources]]. [[Creatures|Mantas]] are much more aggressive here than in the previous sectors. Crossing a [[Weather#Wind Walls|wind wall]] within the Remnants will only lead to another Remnants region. Crossing a [[Weather#Storm Walls|storm wall]] always leads into or out of Remnants regions.
+
+[[Data banks]] provide 35 [[knowledge]] here.
+
+== Badlands (Tier 4) ==
+This is the highest tier sector and presents the toughest challenges as well as the best rewards. [[Weather#Sandwalls|Sandwalls]] surround these sectors and will blow ships around with strong winds and hurl boulders that can destroy ship components. The best quality resources and schematics can be found in this sector, however Mantas are the most aggressive here. Crossing a [[Weather#Wind Walls|wind wall]] within the Badlands will only lead to another Badlands region
+
+[[Data banks]] provide 40 [[knowledge]] here.
+
+{{WA Navbox}}
+[[Category: Environment]]

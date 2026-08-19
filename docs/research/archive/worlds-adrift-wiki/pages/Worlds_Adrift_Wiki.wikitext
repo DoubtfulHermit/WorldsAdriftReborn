@@ -1,0 +1,31 @@
+<metadesc>The #1 community generated and Official Wiki for Worlds Adrift, a freeform exploration and adventure game from Bossa Studios! Check out the guides, Crafting information Ship building info and more!</metadesc>
+<!-- TO EDIT MAIN PAGE CONTENT, see "Templates used on this page" below and edit:
+     * {{SITENAME}}/Top section
+     * {{SITENAME}}/Flex section
+     * {{SITENAME}}/Bottom section
+
+     This is a basic responsive front page design that adapts to the available width of the browser by 
+     rearranging the sections themselves as well as content within each section. When narrow, the three sections
+     line up vertically in a single column. When wide enough, the middle (flex) section is pulled out to become a 
+     right column.
+
+     Much of the layout and appearance is determined through styles defined in these pages:
+     * MediaWiki:Hydradark.css (for the desktop view)
+     * MediaWiki:Mobile.css (for the mobile view)
+-->
+<div id="mf-home" class="fpcontent">
+
+<div id="fptopsection"><!-- BEGIN TOP SECTION -->
+{{:{{SITENAME}}/Top section}}
+</div><!--END TOP SECTION-->
+<div id="fpflexsection"><!-- BEGIN FLEX SECTION -->
+{{:{{SITENAME}}/Flex section}}
+</div><!--END FLEX OTHER SECTION-->
+<div id="fpbottomsection"><!-- BEGIN BOTTOM SECTION -->
+{{:{{SITENAME}}/Bottom section}}
+</div><!--END BOTTOM OTHER SECTION-->
+
+</div>
+<div class="nomobile" style="text-align: right; margin-right: 10px;"><small>Main page sections: [[{{SITENAME}}/Top section|Top]] &#183; [[{{SITENAME}}/Flex section|Flex]] &#183; [[{{SITENAME}}/Bottom section|Bottom]]. Changes for the main page can be proposed [[{{SITENAME}}/editcopy|here]]. </small></div>
+
+[[Category:Worlds Adrift Wiki| ]]

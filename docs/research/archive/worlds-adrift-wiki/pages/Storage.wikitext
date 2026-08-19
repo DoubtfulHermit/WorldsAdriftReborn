@@ -1,0 +1,146 @@
+Used to store items on you ship, these schematics can be crafted at an [[Assembly Station]]. Which one you chose should be based on the amount it can store, the physical size, and the resource cost (and therefore weight).
+
+== Barrel ==
+The most basic form of storage, has 40 inventory slots slots.
+{{SchematicBox
+|name=Barrel
+|time = 3
+|picture = Barrel.png
+|extra = "A Barrel for storing items on ships."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 60
+|name2 = Hoops
+|value2 = metal
+|amount2 = 20
+|bar1name = Resilience
+|bar1value = 25
+}}
+{{CraftingPage
+|name = Barrel
+|picture = Barrel.jpg
+}}
+{{clear}}
+
+== Trunk ==
+A relatively small trunk, has 42 slots. Schematic can be found in [[Biome|Wilderness]], [[Biome|Remnants]] and [[Biome|Expanse]].
+{{SchematicBox
+|name = Trunk
+|time = 3
+|picture = Trunk.png
+|extra = "A small trunk for storing items on ships."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 80
+|name2 = Hinges
+|value2 = metal
+|amount2 = 20
+|bar1name = Resilience
+|bar1value = 25
+}}
+{{CraftingPage
+|name = Trunk
+|picture = Trunk.jpg
+}}
+{{clear}}
+
+== Mounted Box ==
+A small box, can be attached to other components, has 32 slots. Schematic can be found in [[Biome|Expanse]] 
+{{SchematicBox
+|name=Mounted Box
+|time = 3
+|picture=MountedBox.png
+|extra = "A small box that can be mounted to store items on ships."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 40
+|name2 = Nails
+|value2 = metal
+|amount2 = 20
+|bar1name = Resilience
+|bar1value = 25
+}}
+{{CraftingPage
+|name = Mounted Box
+|picture = Mounted Box.jpg
+}}
+{{clear}}
+
+== Cupboard ==
+A taller storage container, has 72 slots. Schematic can be found in [[Biome|Expanse]] 
+
+{{SchematicBox
+|name=Cupboard
+|time = 3
+|picture = Cupboard.png
+|extra = "A cupboard for storing items on ships."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 100
+|name2 = Nails
+|value2 = metal
+|amount2 = 30
+|bar1name = Resilience
+|bar1value = 20
+}}
+{{CraftingPage
+|name = Cupboard
+|picture = Cupboard.jpg
+}}
+{{clear}}
+
+== Storage Container ==
+A more chest-like appearance, has 100 inventory slots. Schematic can be found in [[Biome|Remnants]]
+{{SchematicBox
+|name=Storage Container
+|time = 3
+|picture = StorageContainer.png
+|extra = "A large container for storing items on ships."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 120
+|name2 = Hinges
+|value2 = metal
+|amount2 = 40
+|bar1name = Resilience
+|bar1value = 37
+}}
+{{CraftingPage
+|name = Storage Container
+|picture = Storage Container.jpg
+}}
+{{clear}}
+
+== Shipping Container ==
+A massive container, has 324 slots. Schematic can be found in [[Biome|Remnants]] and [[Biome|Badlands]].
+Can be unlocked with a certain amount of damage (and without beeing destroyed).
+
+{{SchematicBox
+|name=Shipping Container
+|time = 3
+|picture = ShippingContainer.png
+|extra = "An enormous container for storing items on ships."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 250
+|name2 = Hinges
+|value2 = metal
+|amount2 = 50
+|bar1name = Resilience
+|bar1value = 50
+}}
+{{CraftingPage
+|name = Shipping Container
+|picture = Shipping Container.jpg
+}}
+{{clear}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Storage]]

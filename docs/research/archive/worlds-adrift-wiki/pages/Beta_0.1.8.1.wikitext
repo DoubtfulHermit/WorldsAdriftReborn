@@ -1,0 +1,24 @@
+Release date: March 6th, 2018
+
+==Beta 0.1.8.1 Patch Notes==
+
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Upgraded SpatialOS to 10.4.3, which addresses one of the remaining triggers for client freezes (the big “lag” that appears when approaching new islands). Please tell us to what extent this has improved things for you!
+* When the game was force closed while the character was dead, a player profile corruption could occur that would forever thereafter log in the character in a nearby revival chamber rather than where she logged out. This has been fixed.
+* There was a longstanding bug where the “nearby revival chamber” logic flow would fail if none were found in the current zone, resulting in picking a completely random revival chamber somewhere in the world. This triggered almost exclusively within the Badlands, but has been fixed now.
+* Players would sometimes be given the option to revive at a fully destroyed personal reviver, which would corrupt the player profile and cause an infinite loading/greyscreen bug. This should no longer happen, as fully destroyed personal revivers will now automatically unregister the character.
+* Fixed an exploit introduced in the 0.1.6 inventory refactor that allowed players to craft objects without consuming the materials.
+* Fixed a bug that prevented characters standing on ships moving in certain ways from registering pistol hits. They will now no longer appear to be invincible.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* Non-empty island lootables should always highlight when moused over now.
+* Collecting written lore of higher rarities now rewards more knowledge. Loot tables updated.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/0-1-8-1-patch-notes-defrosting/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

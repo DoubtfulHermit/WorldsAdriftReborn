@@ -1,0 +1,15 @@
+Release date: September 14th, 2017
+
+==Beta 0.1.4.9 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* An initial implementation of EasyAntiCheat (EAC) has been added. Installing this is now a prerequisite to playing Worlds Adrift.
+
+==References==
+# https://www.worldsadrift.com/forums/topic/0-1-4-9-update/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

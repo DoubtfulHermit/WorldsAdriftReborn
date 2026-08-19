@@ -1,0 +1,27 @@
+{{SchematicBox
+|name = Bioelectrical Generator
+|time = 10
+|picture = Bioelectrical Generator.png
+|extra = "Utilises the naturally occuring electricy in creatures to create a power source."
+|craftIn = tool
+|name1 = Neural Cluster
+|value1 = neural
+|amount1 = 2
+|name2 = Conductive Vessels
+|value2 = vessels
+|amount2 = 4
+|name3 = Generator
+|value3 = metal
+|amount3 = 25
+}}
+==Description==
+This a crafting component for the [[Epheremus Drifter]], [[Immobilator]], and [[Rhegus Greaves]]. It has no other purpose other than making those items.
+{{CraftingPage
+|name = Bioelectrical Generator
+}}
+{{clear}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Crafting Components]]

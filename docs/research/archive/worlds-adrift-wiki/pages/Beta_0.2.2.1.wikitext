@@ -1,0 +1,42 @@
+Release date: June 26th, 2018
+
+==Beta 0.2.2.1 Patch Notes==
+
+<br>
+'''NEW FEATURES AND CONTENT'''
+* New cosmetic ship parts have been added to the game: Players will now be able to find schematics to build Saborian lamps, Kioki lamps, two Saborian figureheads, and two Kioki figureheads!
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* A login exploit that could be used to dupe materials has been fixed. Players are no longer able to log in with the same account concurrently on different Steam instances.
+* Two separate fixes for infinite loading screens have been performed. This is a continuing effort.
+* In rare cases, players would respawn exactly where they died instead of at their reviver or a revival chamber. This has been fixed.
+* Logging in for the first time on your second or third character will no longer actually log you in on your main character.
+* Fixed a bug that would display ship parts in the wrong place, often floating some distance away from the ship.
+* Unequipping a glider or dying with one equipped will no longer give the player a semi-functional “ghost” glider.
+* Client optimizations for the Blight have been implemented.
+* A client optimization for trees has been implemented.
+* Additional client performance optimizations for large islands have been implemented.
+* Physics optimizations implemented.
+* Timed explosives have been buffed: the placement timer is now 2 seconds, and the fuse is now 4 seconds.
+* To prevent various exploits, shipyards can no longer be placed too close to another shipyard.
+* The shipyard access code is hidden in the UI by default, with a button to display it.
+* Kioki lootable ruins were previously all being teleported to an inaccessible place in the world. They’re now back to where they belong on their islands.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* The death bag has had its art updated.
+* Lots of new SFX has been added to the game, including: lootable chests and containers, a pass on engine sounds by rarity, atlas core upgrades being separated out, and more!
+* Lots of new VFX has been added or tweaked, including: respawning and teleporting, scanning databanks, gaining knowledge, and (of course) explosions!
+* The vignette screen effect has been removed temporarily. It will return in a future patch when paired with a customization option in the settings menu.
+* Z-fighting should be reduced on some metal panels.
+* Fixed instances of clouds becoming overly pixelated on some clients.
+* Various minor UI tweaks.
+* Minor text fixes.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/gofigure/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

@@ -1,0 +1,141 @@
+Release Date: April 12th, 2019
+
+==PTS Update 30 Patch Notes==
+===Initial Release===
+'''BLIGHT 2.0'''
+* Improvements to telegraphing:
+** Made the Blight screen overlay transparent when looking away from the centre of the storm to make it clearer which direction to travel in to get out.
+** If you can see particles you’re at risk of destruction (you’re near the destruction radius)
+** Destruction VFX will last longer. Now it will fade to black over 7.5s and ‘dissolve’ over 2.5s. Colliders should also be disabled halfway through the dissolving process.
+** New lightning VFX to make the Blight look more dangerous
+** Blight will now turn on if the server hits 75% time dilation for 30 seconds and disable when it gets to 85% time dilation for 30 seconds
+** Blight is now visible from 6km away
+** Initial Blight position is no longer based on weather cell positions but on a K-Means cluster analysis of the priorities and positions of all of the entities on the FSIM
+** Blight will now cancel if it hasn’t fully activated but the server has recovered
+** While active, Blight will now continually refine its position to move towards the highest priority entities in its radius. It has a maximum speed that varies based on time dilation. So the worse the FSIM is performing the more aggressively the Blight will chase ships!
+** Blight will fully retarget (analysing all entities) every 30s to avoid destroying a ship in its entirety when there is a more important one somewhere else
+** Blight will attempt to retarget if enough stuff has been destroyed.
+** The Blight will now smoothly fade out when it disappears. Also, it’s now more visibly windy in weather walls and inside the Blight!
+* Destruction priority is now based on the following:
+** More colliders = more expensive
+** Manually determined importance to the player
+** Entities attached to ships that have registered revivers will have double the player importance (so lower destruction priority)
+** Only entities that are ‘dynamic’ (meaning they have physics) should be considered
+** Metal scrap and atlas shards will now be cleaned up
+** Nothing should be destroyed unless it has been ‘logged in’ for at least 2 minutes
+** Entities in the Blight will be destroyed every 10s by default but this can be overridden per entity type.
+
+'''KNOWLEDGE REVAMP'''
+* Revamped knowledge tree to include various set schematics previously found on islands. These are categorised into branches that reflect what they are used for, such as exploring or shipbuilding.
+* Scanning an island or island object displays the number of databanks still to scan on the island.
+* Knowledge nodes will be automatically unlocked if you had previously found and learned the schematic.
+* Knowledge gained is now displayed in the same fashion as gaining resources.
+* Removed Knowledge from scanning every object on islands, except databanks..
+* Scan UI has been revamped and moved from the bottom left corner and is now much more clear.
+
+'''SHIP STORAGE REFRACTOR'''
+* Deleting offline ships from server memory Improving server response.
+* Saving ships to a per deployment cloud storage.
+* Refactor the way ship/reviver/player are linked using ShipReviverBookeeping unique authority
+* Added feedback giving Reviver lost reason when online. Customer Service will have access to that information and can use it during ticket handling.
+* Customer service can now restore your ship entirely based on ticket requests and log history.
+
+'''LOGOUT REVAMP'''
+* Ship logout flow now has a new design.
+** Logout has been updated to differentiate between Logout and Exit game especially when the player has a reviver attached to the ship.
+** The logout button will keep your character in-game until the ship logs out completely if you are the last player in-game with a reviver attached to the ship.
+** The Exit button will log your character out whilst your ship will stay in the world for some time. (30s in Pve, 3 minutes in PvP)
+** Any interaction with the ship during logout (except players logging out) will interrupt the logout sequence.
+** If a player logouts or exits while standing on a ship they are not attached to, they will respawn to the closest ancient respawner.
+
+'''NOTABLE CONTENT AND FEATURES'''
+* Marauder Guitar
+* Some secret shop items
+
+'''NOTABLE BUGFIXES AND CHANGES'''<br>
+<strong>Changes</strong>
+* Added shipyard placement feedback.
+* Give marauder compass item health state.
+* Added logic where a ship will ask whether it should approach or not to the shipyard instead of approaching regardless of the shipyard state. Shipyard can refuse which will display a message to the owners of the ship saying they cant approach.
+* Changed logic between ship and shipyard slightly, so you can only dock on your own or abandoned shipyards
+* Update the new Bossa NTP server.
+* Maintenance should kick player correctly
+* Added range feedback to Salvager and Repair tools
+* Added range feedback to Ship Building tool
+* Impact damage on the ship was removed
+* Patch Notes: increased sail HP, increased gear duration, lifter weight increased, rebalanced some food recipe costs, bandage healing increased.
+* Increased Rhegus greaves climbing speed
+* If a client crashed or player closes the application, materials are returned that are on player’s multi-tool crafting slots.
+* Simplified and reduced the length of various tutorial prompts
+* Tool reticles now have unique icons, and animate and look good no matter screen resolution or UI size.
+* Add a cooldown overlay on buff icon.
+* Added skip tutorial option at character creation time.
+* Added Rarity display to Stash
+* added select server text above server select
+* changed logo colour to white
+<strong>Fixes</strong>
+* Fixed the duping bug linked to Delete action in inventory.
+* Fixing one of the barrel variants being disabled…
+* Fixed the marauder doesn’t drop off when attached ship part is destroyed.
+* Bonus bug fix – Potentially fixing an exception that completely stops the UI from working…
+* Fixing an error popup that appears when unlocking nodes with connected bonus nodes
+* Stash UI bugs.
+* Fixing missing decks crazy race condition!
+* Randomizing death clouds destruction to avoid all parts being destroyed at once.
+* fix to respawn SFX being in 2d in certain situations
+* Fix to respawn sounds being 2D is some instances
+* clipping fix on the male fugitive torso
+* Fugitive store outfit added to project, male and female
+* Made default wind direction nicer for main menu prettiness
+* added hair to the store masks
+* Barrels should now always spawn properly!
+* Fix to Ship panels z-fighting
+* Fixed the bug where if a player learned new schematics that had no cipher slots unlocked even they have them unlocked in the knowledge tree
+* Fixed issue where if the user tries to enter the game on Offline Mode, it would remain on a black screen forever.
+* Fix the bug where schematics have more cipher slots then the unlocked slot number
+
+'''NOTABLE KNOWN ISSUES'''
+* Wings cannot be placed onto ship frames
+* If a player is blocked from crafting at a crafting station, they will be prevented from crafting at any crafting station they place subsequently. They must either complete crafting or clear obstruction preventing an item being crafted
+* Players will be thrown into the air after crafting a ship frame
+* The Capulca engine does not update to have the correct number of cipher slots
+* The schematic counter is inaccurate
+* A player will be unable to interact with their marauder compass for 10 minutes. This happens if it is placed on a ship and only for the 1st 10 minutes after logging in
+
+===Patch #1===
+* Refactored logout countdown
+* Fixed cannon ammo box not interactable
+* Attempted to fix the cursor centering issues and added a grappling mouse sensitivity option in the settings menu
+* Personal Reviver charge should be calculated at death time and not updated regardless of if the distance from you to the ship increases while you are dead
+* Changed how ship synchronizes its state with bookkeeping. Shouldnt change behaviour but could affect: ships logging out, ships logging in, ships that think they are docked when they are not or the other way around
+* Ships should now recover properly from a dead FSIM
+* Attempted fix for tutorial UI getting stuck on death screen
+* Improved player facing EAC message
+* Added logs around cipher to try and understand errors better when they happen
+* Fixed load balancing issues (which means how objects are loaded in the world, could fix island/objects loading errors)
+* Reviver being damaged/related messages are now red
+* Fixed issue where ships would spawn without fuel, also fixed fuel not being lost when removing the fuel tank from a ship, and therefore also not being transferrable to other ships
+* General reduced error spam
+* Improved maintenance script to make it easier to pick a valid snapshot
+* Fixes to blight timeout and blight creation (could cause creation/destruction loops of blight)
+* Reduced messaging from ships registering with bookkeeping so ships that are registered from snapshot do not try to register twice
+* Added logs to the login pipeline to make it easier to find out issues when they happen
+* Fixed ship ownership issues (related to anything PvE and PvP... interaction times, salvaging, etc)
+
+===Patch #2===
+* Added CS functionality (internal only)
+* Fixed the button on death screen from being active for few frames when menu just enabled.
+* Increased knowledge gains from salvaging schematics.
+* Procedural schematic loot drop rarity now better matches the biome you are in, so now the Badlands will have significantly higher chance of Exotic schematics.
+* Significantly increased drop rate of potion mats by around 4x in the Badlands, but also a bit in the Expanse and Remnants.
+* Minimum metal and wood quality in the Badlands is now 7!
+* Fixed the bug where clicking feedback button on logout screen doesn't stop ship from logging out.
+
+==References==
+# https://www.worldsadrift.com/patch-notes/pts-update-30-patch-notes/
+# https://discord.gg/worldsadrift
+
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Public Test Server]]

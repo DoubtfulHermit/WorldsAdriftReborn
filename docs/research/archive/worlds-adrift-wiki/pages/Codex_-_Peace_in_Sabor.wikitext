@@ -1,0 +1,21 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>A Poem. C. 2770</blockquote>
+<blockquote>Long may there be peace.</blockquote>
+<blockquote>I wonder what else there is.</blockquote>
+<blockquote>Not since the Bandini,</blockquote>
+<blockquote>deep in the past,</blockquote>
+<blockquote>have we gone wanting.</blockquote>
+<blockquote>We have it all.</blockquote>
+<blockquote>It makes me wonder if we need to defend it?</blockquote>
+<blockquote>Long may there be peace.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

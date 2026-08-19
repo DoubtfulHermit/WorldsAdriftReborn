@@ -1,0 +1,22 @@
+Worlds Adrift is currently in Beta. This page contains a complete list of every Worlds Adrift patch.<br>
+<br>
+Current game version: <dpl>
+category=Open Beta Patch
+ordermethod=categoryadd
+order=descending
+mode=inline
+count=1
+</dpl>
+Some basic information about most (but not all) Worlds Adrift version releases can be found on the [https://www.worldsadrift.com/forums/topic/faqs/ official Worlds Adrift FAQ page].<br>
+For a more in-depth look at the official version release history of Worlds Adrift, see below:
+
+== Version History ==
+{{Patches Navbox}}
+=== Notes === 
+* With [[Update 26]], the Open Beta (Early Access) versions changed from a major.minor.patch naming system to a build number system.
+* [[Alpha 0.0.6]] incorporates Alpha 0.0.6.135 and 0.0.6.137 which only added minor back-end changes, but are still noteworthy.
+* [[Alpha 4]] incorporates Alpha 4.1 and 4.2, which did not have any changes from Alpha 4.
+* [[Alpha 1]] is the first version of the game, so no patch notes are available.
+<br>
+{{WA Navbox}}
+[[Category:Patches]]

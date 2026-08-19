@@ -1,0 +1,46 @@
+Release date: February 25th, 2016
+
+==Alpha 3 Patch Notes==
+<br>
+'''NEW FEATURES'''
+* Salvaging with the multitool has changed - now you must hold down the mouse button to charge it before firing. Player moves slower during the charge, and any damage will short-circuit the multitool for a brief period. Repair still works the same.
+* The multitool has received some placeholder VFX and SFX.
+* The shipyard and assembly station (formerly crafting station) have gotten their art updated! Please note, deploying the shipyard is a bit dangerous, so we recommend you put it down and step back!
+* We've implemented a new feature to combat runby griefing when you're crafting your ship: You need to register with the shipyard itself before you can pick up ship parts with your shipbuilding tool. Shipyards without ships/frames are considered open. When a new ship frame is crafted, the crafter becomes the owner, and can give access to others by telling them the 4-digit code. Also, when a previously-built ship is docked to an open shipyard, the first person to interact with the shipyard after docking becomes the owner.
+* We've built a load of brand new islands to fill the world with, complete with new ruin art and some foliage.
+* Players who log out on land now log in at the same spot, rather than at their current spawner.
+* The glider has vapor trails now!
+* Highlighted objects have a new look. Shiny.
+* Your character has some new character animations now!
+* Additional audio assets implemented.
+* New placeholder advanced engine and advanced wing, each with more power than the basic versions.
+* Client supports access to multiple regions now. Thanks to everyone who reported bugs to us in the last alpha test – we’ve made a start on fixing them for you. Here’s the ones that are already fixed:
+<br>
+'''BUGFIXES'''
+* Crossbows, cannons, and other projectiles have been rehauled, and are now much more accurate. This also means you can't hit yourself anymore.
+* Players should no longer fall through islands or ships or objects when loading into the game.
+* Islands should no longer ever fail to load.
+* Fixed explosives - cracked rocks now get blown up by explosives again, giving you access to all the ancient metal scrap inside.
+* Fixed a bug where putting engines in reverse generated fuel. A certain coder has been appropriately shamed.
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* The inventory is crazy! By crazy we mean buggy. Opening and closing it a couple times should settle it down a bit for now.
+* The multitool sometimes floats around you. If this happens, switch to a different hotbar item and back again and it should fix itself.
+* There is a known performance issue with periodic latency spikes.
+* Picking up ship instruments (fuel gauge, compass, etc.) breaks the ability to place them correctly again.
+* Docking ships is sometimes sluggish.
+* The game will sometimes hang on the connecting screen. If the game is not loaded after a couple minutes, please restart the game and enter the world again.
+* Sometimes the grappling hook stops working. Pressing F8 twice will resolve this issue.
+* Sometimes your character will get stuck in a strange pose (e.g., fetus position). Pressing F8 twice will resolve this issue.
+* Occasionally after respawning, especially after forcing multiple random respawns through the Esc menu in succession, the game will hang, and your character will not load into the environment. Restarting the game is the only known way to fix this.
+<br>
+==References==
+# https://www.worldsadrift.com/forums/topic/alpha-playtest-3-information-new-featuresknown-issuesworkarounds/
+# https://drive.google.com/file/d/0B2m-20IvaIDIUW9KUjBwU0JUSDg/view
+# http://i.imgur.com/huXb2We.png (Confirming Release Date & 3.5 Being Different)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

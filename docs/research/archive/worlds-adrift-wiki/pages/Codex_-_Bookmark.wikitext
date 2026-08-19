@@ -1,0 +1,14 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>A piece of paper bookmarking an entomological tome, with the following scribbles on it.</blockquote>
+<blockquote>"Surprisingly, glow-worms in Wahsili are actually grub-like invertebrates, unlike the phosphorescent "worms" ground in southern verduba, Koinos and Karem, which are in fact beetles."</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

@@ -1,0 +1,18 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>This receipt certifies that that old Captain Gerundin passes to keep:</blockquote>
+<blockquote>2 Fine Pistols marked with dice.<br>
+The Sea Chest they discovered together.</blockquote>
+<blockquote>To Akaki Marco, the young boy who saw himself in, now grown up to be a fine young man.</blockquote>
+<blockquote>Thus Gerundin proves he's not a bad soul, though he had moments. Now he can die happy.</blockquote>
+<blockquote>Signed, Captain Gerundin.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

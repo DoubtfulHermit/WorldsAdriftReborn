@@ -1,0 +1,16 @@
+Release date: September 7th, 2017
+
+==Beta 0.1.4.7 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* Occasionally, loose panel or deck pieces colliding with a ship would cause the ship to disappear. This was introduced in [[Beta 0.1.4.5]], and has now been fixed.
+* Procedurally-generated ship parts, especially wings, should no longer appear in the wrong position when mirrored on the opposite side of the ship.
+
+==References==
+# https://www.worldsadrift.com/blog/0-1-4-7-hotfix-releasing-later-today-7th-sept/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

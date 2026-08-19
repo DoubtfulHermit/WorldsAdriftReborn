@@ -1,0 +1,47 @@
+{{stub}}
+==Description==
+Railings are ship structural components mainly used for aesthetic purposes.
+
+==Railing==
+{{SchematicBox
+|name = Railing
+|time = 3
+|picture = RailStraightMetal.png
+|extra = "A straight section of a ship's railing."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 25
+|name1 = Rails
+|value1 = woodmetal
+|amount1 = 20
+}}
+{{CraftingPage
+|name = Railing
+|picture = Railing.jpg
+}}
+
+{{clear}}
+==Railing Corner==
+
+{{SchematicBox
+|name = Railing Corner
+|time = 3
+|picture = RailCornerMetal.png
+|extra = "A corner section of a ship's railing."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 25
+|name1 = Rails
+|value1 = woodmetal
+|amount1 = 20
+}}
+{{CraftingPage
+|name = Railing Corner
+|picture = Railing_Corner.jpg
+}}
+
+{{clear}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Structural]]

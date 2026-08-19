@@ -1,0 +1,25 @@
+{{Incomplete}}
+{{stub}}
+[[Trees]] grow on almost every [[Islands|island]] in [[Worlds Adrift]]. Some islands are notably devoid of trees, typically desert islands in the Badlands.
+
+Trees can be salvaged for [[Wood]], trees will break wherever you shoot them, and players must take care when doing this or they can easily be crushed by falling logs.
+
+== Development ==
+The Worlds Adrift development team stated their plans for trees in a 2015 blog post: <ref>http://www.worldsadrift.com/blog/good-things-come-trees/ </ref>
+
+"Eventually we want our trees to sway and break (based on wind and collisions with ships and other objects), this includes being able to chop them down with your multi tool and harvest wood from the fallen branches/trunk.
+
+We also want a growth mechanic so trees grow over time and even possibly seed other trees.
+
+On top of all this our rope swinging and flying ship based mobility allows for a lot of interesting versatility in our environments and we want to explore this with our trees.
+
+The idea of a skilled player swinging through a forest while a huge ship chases them down crashing through branches is a pretty cool image I hope you’ll agree.
+
+While we might not hit all these targets, knowing what we’re aiming for early on certainly helps to focus the art side of things a bit better. Out of limitations comes creativity and all that jazz.
+
+Here are some of the concepts I did for the trees. The 3 at the bottom represent one of the first trees we’re gonna have in the game in various stages of growth."
+
+<references/> 
+
+{{WA Navbox}}
+[[Category: Environment]]

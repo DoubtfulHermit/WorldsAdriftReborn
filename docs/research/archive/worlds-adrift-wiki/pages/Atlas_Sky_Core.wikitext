@@ -1,0 +1,160 @@
+{{Incomplete}}
+{{NeedsUpdate|page}}
+[[File:Atlas_Core.png|200px|right|alt text]]
+The '''Atlas Core''' (also known as ''Atlas Sky Core, Ship Core, and Core'') is a vital [[Ship Components|component]] for airship design. This device allows a [[Ships|ship]] to effortlessly float in the air, counteracting the pull of gravity.
+
+==Description==
+A cylindrical object with a wide, rectangular base. Its diameter tapers off towards the top, ending in a domed hollow where an [[Atlas Stone]] can be seen through an open port. When active, arcs of electricity can be seen permeating the Atlas stone within, giving off a faint glow.
+
+==Usage==
+[[File:Atlas Sky Core.png|right|frameless|348x348px|Atlas Sky Core in the middle
+Sky Core Atlas Enhancer on the left
+
+Sky Core Generator on the right
+
+Sky Core Air Filter on top
+
+Sky Core Computer embedded within the generator on the right
+]]
+Atlas Sky Cores provide a lifting force to keep ships neutrally buoyant in the air. However, an Atlas Sky Core by itself by default can support 1000kg (more if proper materials were used). For larger or heavier ships, Atlas Core upgrades are needed which can be found as [[schematics]] or as whole components on wrecked ships. The core also imparts torque<ref>https://www.worldsadrift.com/forums/topic/engine-performance-and-damage/page/2/#post-3328</ref> on the ship, allowing it to turn in place without the need for [[engines]] or [[wings]]. This torque effect is not strong enough to overcome uneven engine placement.
+
+Currently, Atlas Sky Cores require no [[fuel]]. They appear to be "always on". As long as they are installed, they will continue to provide a lifting force for the ship. Cores can be placed either right-side-up on any deck, or upside-down hanging from a deck's ceiling. Presently, the placement of cores does not affect how the ship floats or keeps balanced. In the future, an exclusion radius may be implemented<ref>https://www.worldsadrift.com/forums/topic/30-minute-designer-walkthrough/#post-2782</ref> to prevent players from bunching up the core in one well protected area deep within the ship. The [[Atlas Pulse]] can be activated by interacting with the Core, detaching any grapplers or players climbing on your ship, which consumes one [[Atlas Shard]].
+
+==Crafting==
+Atlas cores and each of the upgrades can be crafted at an [[Assembly Station]].
+
+
+=== <u>Atlas Sky Core</u> ===
+''"An anti-gravity core that allows a ship to float. Can lift 1000kg of weight." <sub>- Ingame Tooltip</sub>''
+
+:'''Casing:''' 100 metal<br />
+:'''Generator:''' 40 metal<br />
+:'''Atlas Shards:''' 1
+
+
+=== <u>Sky Core Atlas Enhancer</u> ===
+''"A sky core upgrade that enhances the Atlas Shards to boost lift by at least 400kg." <sub>- Ingame Tooltip</sub>''
+
+Can be crafted after acquiring 4600 lifetime knowledge.
+
+:'''Casing:''' 40 metal<br />
+:'''Internals:''' 40 metal<br />
+:'''Atlas Shards:''' 3
+
+=== <u>Sky Core Generator</u> ===
+''"A sky core upgrade that strengthens its generator to increase life by a minimum of 400kg." <sub>- Ingame Tooltip</sub>''
+
+Can be crafted after acquiring 2100 lifetime knowledge.
+
+:'''Casing:''' 30 metal<br />
+:'''Internals:''' 30 metal<br />
+:'''Atlas Shards:''' 5
+
+=== <u>Sky Core Air Filter</u> ===
+''"A sky core upgrade that purifies incoming air to increase lift by at least 600kg." <sub>- Ingame Tooltip</sub>''
+
+Can be crafted after acquiring 9100 lifetime knowledge.
+
+Schematic can also be found in the [[Biome|Remnants]] sector.
+
+:'''Casing:''' 50 metal
+:'''Internals:''' 50 metal
+:'''Atlas Shards:''' 4
+
+=== <u>Sky Core Coolant System</u> ===
+''"A sky core upgrade, which prevents overheating, raising lift by a minimum of 600kg." <sub>- Ingame Tooltip</sub>''
+
+Can be crafted after acquiring 15100 lifetime knowledge.
+
+Schematic can be found in the [[Biome|Remnants]] sector.
+
+:'''Casing:''' 60 metal<br />
+:'''Internals:''' 50 metal<br />
+:'''Atlas Shards:''' 3
+
+=== <u>Sky Core Stabiliser</u> ===
+''"A sky core upgrade guarding against core instability to increase lift by at least 600kg." <sub>- Ingame Tooltip</sub>''
+
+Schematic can be found in the [[Biome#Remnants (Tier 3)|Remnants]] sector.
+
+:'''Casing:''' 40 metal<br />
+:'''Internals:''' 40 metal<br />
+:'''Atlas Shards:''' 6
+
+=== <u>Sky Core Computer</u> ===
+''"A sky core upgrade adding a computer system to manage core upgrades, raising lift by at least 800kg." <sub>- Ingame Tooltip</sub>''
+
+Schematic can be found in the [[Biome#Badlands (Tier 4)|Badlands]] sector.
+
+:'''Casing:''' 40 metal<br />
+:'''Internals:''' 50 metal<br />
+:'''Atlas Shards:''' 10
+
+=== <u>Sky Core Circuitry Network</u> ===
+''"A sky core upgrade adding supplementary systems that increase lift by at least 800 kg." <sub>- Ingame Tooltip</sub>''
+
+Schematic can be found in the [[Biome#Badlands (Tier 4)|Badlands]] sector.
+
+:'''Casing:''' 60 metal<br />
+:'''Internals:''' 50 metal<br />
+:'''Atlas Shards:''' 8
+
+=== <u>Sky Core Efficiency Module</u> ===
+''"A sky core upgrade that optimises the lift system, increasing lift by a minimum of 800kg." <sub>- Ingame Tooltip</sub>''
+
+Schematic can be found in the [[Biome#Badlands (Tier 4)|Badlands]] sector.
+
+:'''Casing:''' 70 metals<br />
+:'''Internals:''' 60 metals<br />
+:'''Atlas Shards:''' 6
+
+==Material Effects==
+{| class="wikitable sortable"
+|-
+! Material !! Kg increase/quality level !! Q1 !! Q2 !! Q3 !! Q4 !! Q5 !! Q6 !! Q7 !! Q8 !! Q9 !! Q10 !! Max Increase !! % based on Q10
+|-
+| Aluminum || 6 || 1066 || 1072 || 1078 || 1084 || 1090 || 1096 || 1102 || 1108 || 1114 || 1120 || 120 || 12.00%
+|-
+| Titanium || 1 || 1011 || 1012 || 1013 || 1014 || 1015 || 1016 || 1017 || 1018 || 1019 || 1020 || 20 || 2.00%
+|-
+| Tin || 4.5 || 1049.5 || 1054 || 1058.5 || 1063 || 1067.5 || 1072 || 1076.5 || 1081 || 1085.5 || 1090 || 90 || 9.00%
+|-
+| Iron || 3 || 1034 || 1037 || 1040 || 1043 || 1046 || 1049 || 1052 || 1055 || 1058 || 1061 || 61 || 6.10%
+|-
+| Steel || 1.5 || 1016.5 || 1018 || 1019.5 || 1021 || 1022.5 || 1024 || 1025.5 || 1027 || 1028.5 || 1030 || 30 || 3.00%
+|-
+| Bronze || 2.5 || 1027.5 || 1030 || 1032.5 || 1035 || 1037.5 || 1040 || 1042.5 || 1045 || 1047.5 || 1050 || 50 || 5.00%
+|-
+| Nickel || 4 || 1044 || 1048 || 1052 || 1056 || 1060 || 1064 || 1068 || 1072 || 1076 || 1080 || 80 || 8.00%
+|-
+| Copper || 7.5 || 1082.5 || 1090 || 1097.5 || 1105 || 1112.5 || 1120 || 1127.5|| 1135 || 1142.5|| 1150 || 150 || 15.00%
+|-
+| Silver || 8 || 1088 || 1096 || 1104 || 1112 || 1120 || 1128 || 1136 || 1144 || 1152 || 1160 || 160 || 16.00%
+|-
+| Lead || 2 || 1022 || 1024 || 1026 || 1028 || 1030 || 1032 || 1034 || 1036 || 1038 || 1040 || 40 || 4.00%
+|-
+| Gold || 8.5 || 1093.5 || 1102 || 1110.5 || 1119 || 1127.5 || 1136 || 1144.5 || 1153 || 1161.5 || 1170 || 170 || 17.00%
+|-
+| Tungsten || 3.5 || 1038.5 || 1042 || 1045.5 || 1049 || 1052.5 || 1056 || 1059.5 || 1063 || 1066.5 || 1070 || 70 || 7.00%
+|}
+
+Credit for this table goes to Demodraco#0118
+<br>
+===Interactive Graph===
+<div class="googlespreadsheet" data-spreadsheet-id="2PACX-1vTdH9ccpwXVmhOw7o0rVYERjzP2PPDr1cKHnDaQEh3tfUl-_1QeHyGR6jypG4hFduDr-ZP1RKCFRAuO" data-chart-oid="305506495" style="width: 600px; height: 371px;"></div>
+
+==Lore==
+Atlas Stones by themselves do not have levitating properties<ref>https://www.worldsadrift.com/forums/topic/atlas-stones-and-buoyancy/page/2/#post-2680</ref>. Instead, passing an electrical current through it generates the effect<ref>http://worthplaying.com/article/2015/10/8/previews/97425/</ref>. This is why the Atlas Core apparatus is required.
+
+==Trivia==
+Use conductive metals in all Atlas internal parts, where the word "conductive" or similar is used, to increase their strength. Use Copper, silver or gold for varying boosts. The tool tip is a bit vague though between  copper and silver, also consider the additional weight a metal will add.
+
+==References==
+<references></references>
+
+
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Sky Core]]

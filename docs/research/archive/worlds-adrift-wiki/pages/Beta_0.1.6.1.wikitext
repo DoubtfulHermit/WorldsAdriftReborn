@@ -1,0 +1,84 @@
+Release date: February 6th, 2018
+
+==Beta 0.1.6.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Swivel guns have been added to the game! These deck-mounted shotguns are effective against players and creatures, and come as a full category of procedurally generated schematics with procedurally generated art (like cannons).
+* A branch of the Knowledge tree has been opened up for swivel guns.
+* Accounts are now allowed multiple characters, up to a maximum of three. Players are able to make these characters all on one region, or split across different regions. Your first character is still considered the primary character, and must have the name you reserved upon registering for a Worlds Adrift account.
+* Logging out without exiting the game now works, taking you back to the character select menu.
+* Tooltips now appear on the UI for new players, helping to explain the basic features of the game. This is an ongoing effort and will continue to be tweaked and added to. Feedback on the new player experience is invaluable to us!
+* Containers attached to ships are now locked by default on owned ships. Only the ship’s owners (players with a reviver on the ship) can access them. This lock is disabled when the container has been damaged sufficiently. Containers on unowned ships are not locked.
+* The schematics for some atlas core upgrades are now automatically learned by your character at certain Knowledge milestones. Players will find a new section of the Knowledge tree devoted to Atlas core upgrades. Drop rates and locations for the other atlas core upgrades have been adjusted.
+* Lots of new VFX added! Crafting and engines in particular have gotten big facelifts.
+* Lots of new SFX added! Trees now correctly make a sound when they fall, for example.
+* Characters will now roll out of a fall when hitting surfaces at certain angles and speeds
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Cannon shells now correctly damage and knock back players. Previously only a direct hit would affect the player.
+* Previously, unattached ship parts took no damage from physics collisions, only taking physics damage when they became part of a ship. As we continue to overhaul the physics damage system, this has been fixed – be aware that loose ship parts are much more fragile now! Take care when moving them around.
+* Unattached or detached ship panels colliding with a ship only receive physics forces, and do not cause any to the ship. This should resolve most cases of loose panels freaking out when caught in certain positions and destroying the rest of a ship.
+* Also as part of the physics collision damage system overhaul, players in the ragdoll state now take damage again. The physics calculation takes into consideration the part of your body at the collision point. Fear not, oldschool Alpha testers: the damage calculations are much more consistent than the first implementation back in the day.
+* Using the crew beacon now unregisters you from your reviver, and also drops your whole inventory – including your belt! Be careful.
+* A complete reimplementation of the UI and inventory has been performed. Lots of bugs have thus been fixed (items sometimes not being placeable in certain squares, rotating while taking clothing items off, goofiness in the schematics screen, ship frame editing UI not going away after exiting, etc.), but there might be some new issues. Please let us know if you find any. The Knowledge tree tab will be due for the same treatment in a future patch.
+* As part of the inventory rehaul, an exploit that allowed players to put items onto the belt separator squares has been fixed.
+* Fixed an exploit that allowed rapid spamming of “E” to pick up multiple copies of the same atlas shard.
+* The hotbar and healthbar now show even when the character is mounted on an object (e.g., helm). No more guessing your health!
+* Crew members should now display their names when moused over. A future bugfix on the crew system will allow crew members to always display their names.
+* The tops of stormwalls and sandstorms now extend to an appropriate altitude. Players will no longer be able to fly above the visible part of these walls.
+* Procedurally generated cannons, engines, and wings have had their stats rebalanced. Notably, the minimum possible value for all stats has been returned to 5, regardless of rarity. In 0.1.4 and 0.1.5 the minimum values gradually increased with rarity, but the resulting lack of variety felt worse.
+* The rules for assigning art and names to procedural ship parts have been adjusted to allow certain rare combinations to happen more often.
+* Loot tables have been rebalanced.
+* Timers for objects sinking into the ground and deteriorating have been rebalanced.
+* The “chest” object players could craft and place on islands has had its art updated and its name changed to “makeshift storage.”
+* Extinguished campfires and empty makeshift storages should now be buried by lightning striking the island.
+* Switching to an item on your hotbar will always properly equip it now, even when swapping quickly between different items.
+* Salvaging and repairing have had their effective range reduced. No more chopping trees (or salvaging someone’s engines) from 30 yards away!
+* Placing ship parts has a max range now as well.
+* Some optimisation has begun to make ship frames less computationally expensive on the client.
+* Fixed a server performance issue when too many players manned cannons.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* Repairing a crafted object with a different quality from what was used to craft it will now update the quality of the resource in the object. Thus it is no longer possible to exploit the repair-salvage loop to infinitely convert low quality resources into higher quality resources.
+* Fixed an exploit that allowed players to apply rich text formatting to their chat messages.
+* Fixed an exploit where players could dupe items via the cannon ammo box. The consequence is that a gunner on the cannon will prevent a second player from opening the ammo box until the gunner releases the cannon. In the future the ability to use both parts of the cannon at the same time will be restored.
+* Fixed an issue where sometimes players couldn’t interact with their shipyards after relogging.
+* Fixed players not being able to remove certain ship parts if they were damaged.
+* Docking distance has been slightly increased.
+* Improved resolution scaling for some UI screens. This will require further work to be considered complete.
+* When editing ship frames, bloom and depth-of-field blur on the placeholder graphics have been disabled. Larger tweaks to the graphics will come in future updates.
+* The grappling hook now calculates its trajectory from the arm rather than the center of the screen. This means sometimes the hook will not always hit the target at the center of the screen, instead being “intercepted” by an object in the way. Be careful!
+* Smoothed out placement rules for timed explosives and atlas lifters.
+* Torches and atlas lifters should no longer sometimes appear at the player’s feet when equipped.
+* Numerous audio bugs have been fixed.
+* Ailerons now correctly have collision.
+* Fixed some bugs with cooking and eating.
+* Some particle effects were not correctly destroying themselves after expiring, causing performance issues. This should no longer occur.
+* Grabbing the helm no longer triggers the respawn/teleportation SFX.
+* Updated the golden Saborian giant head statue asset and changed its material to verdigris to better match the style of other Saborian art.
+* Saborian loot containers and chests have had their visuals updated.
+* The campfire and torch have had their art assets updated, and their lighting adjusted to be warmer and softer.
+* Fixed flags flipping their orientation when turned 180 degrees.
+* Fixed incorrect icons for thuntomite steak, fuel, and the two Founders’ flags, among others.
+* The glider and backpack models have been resized on male characters to appear more proportionate.
+* Minor visual tweaks to the crafting station, shipyard, helms, and other 3D assets.
+* Fixed an issue with ambient occlusion.
+* Updated moon textures.
+* Minor visual tweaks to the wind trails.
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* Bug – You cannot craft schematics you do not own – fixed for 0.1.7
+<br>
+'''ADDITIONAL INFORMATION'''
+* 2 Servers only – EU West & US East
+* Map being used is the old EU East & US West map
+<br>
+==References==
+# https://www.worldsadrift.com/blog/worlds-adrift-closed-beta-0-1-6-1-patch-notes/
+# https://www.worldsadrift.com/forums/topic/update-0-1-6-live/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

@@ -1,0 +1,21 @@
+{{AddPicture}}
+Resources are essential for [[crafting]], [[Ships|shipbuilding]], and exploration. They are readily available on islands or found in chests.
+
+==Metal==
+{{Main|Metal}}
+Metal is used in shipbuilding or crafting weapons/ammo for your ship or [[Weapons#Pistol|Pistol]]. 
+
+==Wood==
+{{Main|Wood}}
+Wood is obtained by chopping down very plentiful trees with your [[Gauntlet]]. Each tree has a different texture, making it much easier to determine what tree will give what wood. Wood is generally used to make ships lighter where metal is not needed or in the early game when players do not have access to schematics that accept metal as an ingredient.
+
+==Fuel==
+[[File:FuelPod.png|right|thumb|134x134px]]
+{{Main|Fuel}}
+Salvaged from fuel pods canisters about the landscape. Each island reset (cause by [[Weather#Understorms|Understorms]]), the locations of the fuel pods change, unlike trees which are placed in the island creator. 
+{{clear}}
+==Atlas Shard==
+{{Main|Atlas Shard}}
+Atlas Shards are required to make all the [[Sky Core]] components as well as [[Atlas Lifter|Atlas Lifters]]. They can be sometimes be found inside ore nodes as green crystals sticking out of the center core of the node. Unlike ore, Atlas Shards are not salvages with the Gauntlet, but can be picked up by interacting with it (default {{key|E}}).
+{{WA Navbox}}
+[[Category: Resources]]

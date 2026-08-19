@@ -1,0 +1,153 @@
+{{Incomplete}}
+==Info==
+Inside scrap piles on islands are items that can be salvaged for different materials. The quality of materials is random, but the max quality you can receive depends on the tier you are in.
+{| class="wikitable"
+|-
+! Tier !! Max Q 
+|-
+| 1 || 7
+|-
+| 2 || 8
+|-
+| 3 || 9
+|-
+| 4 || 10
+|}
+
+==Salvage Items==
+{| class="wikitable" style="width: 80%; text-align: center;"
+|-
+! style="width: 15%;" | Name
+! style="width: 15%;" | Picture
+! style="width: 30%;" | Lore
+! style="width: 10%;" | Found in
+! style="width: 15%;" | Reward 1
+! style="width: 15%;" | Reward 2
+|-
+|Aged Thermistor
+|[[File:Aged_Thermistor.jpg|center|56px]]
+|A burned-out Thermistor.
+|
+|140 Copper
+|-
+|Alignment Unit
+|[[File:Alignment_Unit.jpg|center|28px]]
+|Seems to be part of an old machining tool.
+|2, 3
+|65 Titanium
+|-
+|Ancient Battery
+|[[File:Ancient_Battery.jpg|center|56px]]
+|An old battery.
+|
+|150 Tin
+|-
+|Anklet
+|[[File:Anklet.jpg|center|56px]]
+|From the cottage industries of Mandala.
+|
+|
+|-
+|Antique Lamp
+|[[File:Antique_Lamp.jpg|center|56px]]
+|A table lamp, sheared in two.
+|
+|
+|-
+|Atlas Hod
+|[[File:Atlas_Hod.jpg|center|84px]]
+|An instrument of back-breaking labour.
+|2
+|60 Iron
+|-
+|Badge of the Elderly
+|[[File:Badge_of_the_Eldery.jpg|center|28px]]
+|A badge to mark out the selfish cowards living beyond the time of ascent.
+|
+|80 Titanium
+|-
+|Bandinian Currency
+|[[File:Bandinian_Currency.jpg|center|28px]]
+|Imperfect coinage, adorned with the faded outline of a popel shield.
+|
+|60 Copper
+|-
+|Bandinian Mining Handpick
+|[[File:Bandinian_Mining_Handpick.jpg|center|56px]]
+|A miserable tool marking a time of forced servitude.
+|1
+|100 Q6 Iron
+|150 Q6 Oak
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|-
+|
+|
+|
+|
+|
+|}

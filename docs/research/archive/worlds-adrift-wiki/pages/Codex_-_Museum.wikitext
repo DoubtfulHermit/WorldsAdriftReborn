@@ -1,0 +1,21 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2">
+<div class="mw-collapsible-content"> 
+<blockquote>Museum Guide<br /> You are free to wander around the whole ship, but don't touch! A lot of this stuff is thousands of years old.</blockquote>
+<blockquote>Also don't threaten me or steal anything, there's nothing of material value except for the wood you're standing on.</blockquote>
+<blockquote>I put this together as a gesture of peace. We're all 'ust trying to get by, we're a l in the same boat, just le each other be. nyway, enjoy the sights and smells of old Foundation!</blockquote>
+<blockquote>If you are facing the walkway, turn left to enter the "early years" gallery.</blockquote>
+<blockquote>Item #1<br />Sorry about the smell, but at least you know where the beakheads are - doesn't matter who you are you crap there. That's how it was on the first ships that sailed on water, when water was all around us.<br />Item #1 is an old capstan which must have been a naval capstan, for sea vessels. Not sure when it was made or where it's from.</blockquote>
+<blockquote>Item #2<br />To the left around the corner is a big stone. Not sure where it's from or when, but it looks old.</blockquote>
+<blockquote>Item #3<br />Around the back of the top deck is a big bird egg. It's definitely a bird egg not a painted beetle one, before you ask.</blockquote>
+<blockquote>Item #4<br />The highlight of the tour, item #4 a lovely old crossbow that says "CLOVIUS" on it. Don't know who that was, but it's a nice crossbow. That's why I'm holding it.</blockquote>
+<blockquote>Thanks for your visit, you can donate a gift in the box - who knows you might even get to see it on display next time round.</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

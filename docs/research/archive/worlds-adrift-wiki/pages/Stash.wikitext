@@ -1,0 +1,32 @@
+[[File:Stash.png|frameless|right|Game stash|300px|link=]]
+The stash is a part of your inventory exclusively for purchased cosmetics from the [https://store.steampowered.com/itemstore/322780/ cosmetic shop] and for items obtained from the [[Founder's Pack]] and [[Pioneer Pack]]. Items in the stash '''do not''' drop on death or when using the [[Crew Beacon]] to teleport to your [[Crew]] leader. <br>
+You can access the Stash using the second inventory tab labeled "'''Stash'''".
+
+Currently, the following [[Clothes|clothing]] items appear in the Stash:
+* [[Founder's Pack|Founder]]
+** [[Clothes#Antlers of Kif|Antlers of Kif]] (Head)
+** [[Clothes#Clawscarf of Capulca|Clawscarf of Capulca]] (Head)
+** [[Clothes#Barguan Skull Mask|Barguan Skull Mask]] (Head)
+** [[Clothes#Barguan Skeleton Paint|Barguan Skeleton Paint]] (Torso)
+** [[Clothes#Barguan Skeleton Skirt|Barguan Skeleton Skirt]] (Legs)
+* [[Pioneer Pack|Pioneer]]
+** [[Clothes#Drissian Cowl|Drissian Cowl]] (Head)
+* Steam Summer Sale 2018
+** [[Clothes#Vinicoti Holiday Beads|Vinicoti Holiday Beads]] (Torso)
+** [[Clothes#Vinicoti Holiday Wrap|Vinicoti Holiday Wrap]] (Legs)
+* [https://www.bossastudios.com/jobs Developer]
+** [[Clothes#Developer's Cap|Developer's Cap]]
+** [[Clothes#Developer's Jacket|Developer's Jacket]]
+* Christmas 2018
+** [[Clothes#Natiq Mask|Natiq Mask]]
+** [[Clothes#Kahi Ceremony Parka|Kahi Ceremony Parka]]
+** [[Clothes#Kahi Ceremony Leggings|Kahi Ceremony Leggings]]
+* Steam Store
+** [[Clothes#Mask of the Bargu|Mask of the Bargu]]
+** [[Clothes#Mask of the Intucki|Mask of the Intucki]]
+** [[Clothes#Mask of the Tamoe|Mask of the Tamoe]]
+** [[Clothes#Mask of the Yharma|Mask of the Yharma]]
+** [[Clothes#Tamoe War Belt|Tamoe War Belt]]
+** [[Clothes#Tamoe Skirt|Tamoe Skirt]]
+
+[[Category:Gameplay]]

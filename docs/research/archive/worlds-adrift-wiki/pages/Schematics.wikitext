@@ -1,0 +1,128 @@
+{{Incomplete}}
+Schematics are the representation of [[knowledge]] in [[Worlds Adrift]]. One schematic represents instruction on how to craft that particular item.
+Schematics have two main categories:
+* Procedural Rarity Schematics
+* Other Schematics
+As of Closed Beta 0.1.4 , all players have a schematic cap. Meaning players can only learn that many schematics at one time. Players can unlearn other schematics to free up a slot but this won't give any form of compensation. However, you can increase that cap by researching the Schematic Slot node in the [[Knowledge|Knowledge tree]] giving an extra slot on research, the [[Knowledge]] cost will increase each time you research it.
+
+==Getting Schematics==
+There are two main ways to gather schematics in [[Worlds Adrift]]:
+===1. [[Knowledge]] Tree===
+The knowledge tree allows you to spend knowledge points on learning new procedural schematic. You start at T1 and work your way to T4. With each tier requiring more knowledge to progress to the next one.
+
+===2. Scavenging===
+All types of Schematics spawn in [[Chest|loot chests]] but '''not in''' scrap piles (read more about this on the [[Metal|Metal page]]). There are usually about 5 of these chests on any given [[Islands|Island]]. However, this method is currently <!--In Alpha 5.3--> much more profitable and as such may be changed to switch player focus onto using the [[Knowledge]] Tree.
+
+==Using Schematics==
+Once you have a schematic you can use {{Key|RMB}} then select "Learn" when it'll be added into your [[Crafting]] menu, from which you can now craft it using the necessary tool.
+
+==Schematic Rarities==
+Procedural rarity schematics have different base statistics which are then have a minor changed by the [[Resources|resource]] used. Currently the only procedural schematics are [[Cannons]], [[Engines]] and [[Wings]].
+
+===Common Rarity (Tier 1)===
+These are the most basic and most common schematics with very low stats. Usually being all made out of wood.
+
+===<span style="color:#33FF33">Uncommon Rarity (Tier 2)</span>===
+An upgrade from common schematics, these schematics have better stats but are harder to find. They are identified by their green name tag.
+
+===<span style="color:#0066ff">Rare Rarity (Tier 3)</span>===
+These are the mid-tier schematics and have a blue name tag, mostly made of metal.
+
+===<span style="color:#ffff33">Exotic Rarity (Tier 4)</span>===
+These are very high tier schematics and have a yellow name tag. Usually completely made of metal.
+
+== Schematic List ==
+A Comprehensive list of the non-procedural schematics found throughout the world.
+=== Multitool Crafting ===
+'''Weapons'''
+* Basic Pistol (Free)
+* Metal Bullets (Free)
+* Drissian Pistol ([[Pioneer Pack|Pioneer]]) (Free)
+* Cannon Shells (Free)
+* Swivel Gun Buckshot Shell  (Free)
+* Timed Explosives <span style="color:#0066ff">(T3)</span> 
+
+'''Shipbuilding'''
+* Shipyard I (Free)
+* Assembly Station (Free)
+
+'''Utility'''
+* Chest (Free)
+* Torch (T1)
+* Hip Lantern <span style="color:#0066ff">(T3)</span>
+* Atlas Lifter <span style="color:#0066ff">(T3)</span>
+* Headlamp <span style="color:#0066ff">(T3)</span>
+* Glider <span style="color:#ffff33">(T4)</span>
+
+'''Cooking'''
+* Campfire (T1)
+* Thuntomite Stew [Craft by Campfire] (T1) 
+* Manta Steak [Craft by Campfire] (T1) 
+* Thuntomite Steak [Craft by Campfire] (T1) 
+
+=== Shipbuilding ===
+{{Main|Shipbuilding}}
+''There is a 35 schematic limit on how many you can learn at once, you can raise this by researching the special knowledge node. Schematics that don't count to the limit will be listed as "(Free)"''
+
+'''Decoration'''
+* Flag of the New Empress ([[Founder's Pack|Founders]]) (Free)
+* Flag of the 151st Contub of Essedari ([[Founder's Pack|Founders]]) (Free)
+* Claw of the Kusiman ([[Founder's Pack|Founders]]) (Free)
+* Clawspirit of Kusiman ([[Founder's Pack|Founders]]) (Free)
+* Lightning Bug Lamp ([[Pioneer Pack|Pioneer]]) (Free)
+* Figurehead of Alkabar ([[Pioneer Pack|Pioneer]]) (Free)
+* Bossa Flag (T1)
+* Improbable Flag <span style="color:#0066ff">(T3)</span>
+* Pirate Flag <span style="color:#0066ff">(T3)</span>
+* Lamp (T1)
+* Horn <span style="color:#ffff33">(T4)</span>
+
+'''Basics'''
+* Kusiman Sail ([[Founder's Pack|Founders]]) (Free)
+* Helm of the Claw ([[Founder's Pack|Founders]]) (Free)
+* Sail (Free)
+* Personal Reviver (Free)
+* Helm (Free)
+* Power Generator (Free)
+
+'''Structural'''
+* Deck (Free)
+* Small Panel (Free)
+* Window (T1)
+* Stairs (T1)
+* Large Panel (T1)
+* Medium Panel (T1)
+* Bar Pipe <span style="color:#33FF33">(T2)</span>
+* Bent Bar Pipe <span style="color:#33FF33">(T2)</span>
+* Railing (T1)
+* Railing corner (T1)
+* Crows Nest <span style="color:#0066ff">(T3)</span>
+
+'''Storage'''
+* Barrel (Free)
+* Trunk (T1)
+* Mounted Box (T1)
+* Cupboard <span style="color:#33FF33">(T2)</span>
+* Storage Container <span style="color:#0066ff">(T3)</span>
+* Shipping Container <span style="color:#ffff33">(T4)</span>
+
+'''Instruments'''
+* Heading Indicator <span style="color:#33FF33">(T2)</span>
+* Fuel Gauge <span style="color:#33FF33">(T2)</span>
+* Artificial Horizon <span style="color:#0066ff">(T3)</span>
+* Airspeed Indicator <span style="color:#0066ff">(T3)</span>
+* Altimeter <span style="color:#ffff33">(T4)</span>
+
+'''Sky Core'''
+* Atlas Sky Core (Free)
+* Atlas Sky Core Generator <span style="color:#33FF33">(T2) (Free)</span>
+* Atlas Sky Core Enhancer <span style="color:#33FF33">(T2) (Free)</span>
+* Atlas Sky Core Coolant System <span style="color:#0066ff">(T3) (Free)</span>
+* Atlas Sky Core Air Filter <span style="color:#0066ff">(T3) (Free)</span>
+* Atlas Sky Core Stabiliser <span style="color:#0066ff">(T3) (Free)</span>
+* Atlas Sky Core Computer  <span style="color:#ffff33">(T4) (Free)</span>
+* Atlas Sky Core Circuitry Network <span style="color:#ffff33">(T4) (Free)</span>
+* Atlas Sky Core Efficiency System <span style="color:#ffff33">(T4) (Free)</span>
+
+{{WA Navbox}}
+[[Category: Ships]]

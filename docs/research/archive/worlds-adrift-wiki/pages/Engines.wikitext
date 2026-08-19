@@ -1,0 +1,187 @@
+{{NeedsUpdate|page}}
+{{tocleft}}
+==Description==
+[[File:Ship engine.png|right|200px]]
+Engines are [[Ship Components|components]] that can be placed on a [[Ships|ship]] while it is docked at a [[shipyard]]. Engines provide thrust and require a [[Power Generator|power generator]] as well as [[fuel]] in order to function. Engines cannot be held in your inventory and must be picked up using your [[gauntlet]] when within the bubble of a shipyard that you have access to. They can be found as [[schematics]] located within chests or containers scattered around the [[islands]] or they can be learned by spending [[knowledge]] points in the knowledge tree.
+{{clear}}
+== Engine Statistics ==
+
+=== <u>Weight</u> ===
+:The weight of the engine. This is a total of the weight of all the materials used to craft the engine.
+
+=== <u>Resilience</u> ===
+:The hitpoints (HP or health) of the engine provided by the engine's [[Casing|casing]]. <sub>(also see: [[Resilience]])</sub>
+
+:''Notable materials: Tungsten, Eternium, Steel and Epilar''
+
+=== <u>Fuel Efficiency</u> ===
+:Rate of fuel consumption. The higher this value is, the less fuel is consumed during flight.
+
+:''Notable materials: Tungsten for mechanical internals or propeller''
+
+=== <u>Overheat Limit</u> ===
+:How long it takes before the engine overheats, works in unison with cooling factor and power and may result in an engine that never overheats.
+
+=== <u>Power</u> ===
+:An engine's power directly affects a ship's maximum velocity. The heavier a ship is, the more power is needed to reach the same velocity. The engine's power is subject to diminishing returns, meaning that doubling your power won't double your maximum velocity.
+
+:''Notable materials: Tungsten, Precious metals for propellers / combustion internals (for wooden props: Oak, Ash, Birch)''
+
+=== <u>Spin-up</u> ===
+:Spin-up affects the time it takes the engine to reach the set power level.
+
+== Engine Parts ==
+
+=== Propeller ===
+
+Each propeller type is determined by the Spin-Up stat of the engine.
+
+{| class="wikitable sortable"
+|-
+! Prop Letter !! Metal/Wood !! Minimum Spin-Up
+|-
+| A || Wood || 0
+|-
+| E || Wood || 10
+|-
+| O || Wood || 15
+|-
+| U || Wood || 20
+|-
+| B || Metal || 25
+|-
+| F || Metal || 31
+|-
+| H || Metal || 40
+|-
+| M || Metal || 48
+|-
+| N || Metal || 58
+|-
+| X<ref name="jet">If engine power is greater than 50, the propeller will always be an X or Z which are jet propellers</ref> || Metal || 0
+|-
+| Z<ref name = "jet"/> || Metal || 30
+|}Credit for this data goes to jamesm2w and Node
+
+=== Mount ===
+
+The engine mount is determined by the power of the engine. The material that the engine mount is made of is determined by the casing material. If the casing is made of wood, the mount will be made of wood. 
+
+{| class="wikitable sortable"
+|-
+! Engine Mount !! Wood/Metal !! Minimum Power
+|-
+| Rustbucket || Wood ||0
+|-
+| Crudbait || Wood ||9
+|-
+| Smokie || Wood ||15
+|-
+| Cranker || Wood ||20
+|-
+| Workhorse || Wood ||28
+|-
+| Steamer || Metal ||0
+|-
+| Populus || Metal ||10
+|-
+| Rival || Metal ||15
+|-
+| Pacesetter || Metal ||20
+|-
+| Cyclone || Metal ||25
+|-
+| Tornado || Metal ||30
+|-
+| Hurricane || Metal ||35
+|-
+| Elite || Metal ||40
+|-
+| Supreme || Metal ||45
+|-
+| Cloudchaser<ref name="jet1">Will only ever have an X or Z propeller because these are jets</ref> || Metal ||51
+|-
+| Starcaster<ref name="jet1"/> || Metal ||60
+|}Credit for this list goes to jamesm2w and Node
+
+=== Casing ===
+
+Each casing type determines if the repair material will be wood or metal and also determines the main stat of the engine, spin-up, fuel efficiency, resilience, overheat limit, or power.
+
+{| class="wikitable sortable" border="1"
+|-
+! Casing Name !! Tier !! Wood/Metal !! Main Stats
+|-
+| Piped || I || Wood || Spin-Up
+|-
+| Squareframe || I || Wood || Resilience
+|-
+| Scrapheap || I || Metal || FE/OH
+|-
+| Boxpile || I || Wood || Power
+|-
+| Spinshaft || II || Wood || Spin-Up
+|-
+| Trishell || II || Wood || Resilience
+|-
+ |Reliant || II || Wood || FE
+|-
+| Ventilated || II || Wood || OH
+|-
+| Spark || II || Wood || Power
+|-
+| Dervish || III || Metal || Spin-Up
+|-
+| Pinnacle || III || Metal || Resilience
+|-
+| Iceberg || III || Metal || FE/OH
+|-
+| Stallion || III || Metal || Power
+|-
+| Godfellow || IV || Metal || Spin-Up
+|-
+| Apotheus || IV || Metal || Resilience
+|-
+| Sunstream || IV || Metal || FE/OH
+|-
+| Ironforge || IV || Metal || Power
+|}
+Credit for this list goes to jamesm2w and Node<br>
+'''NOTES:'''
+<references />
+== Engine Schematics ==
+
+=== Common ===
+<gallery>
+File:Engine Boxpile Smokie.jpg|'''Boxpile Smokie E5'''<br> Resilience: 12 <br> Fuel Efficiency: 15 <br> Overheat Limit: 7 <br> Power: 19 <br> Spin Up: 17
+File:Engine Scrapheap Populus A5.jpg|'''Scrapheap Populus A5'''<br> Resilience: 14 <br> Fuel Efficiency: 13 <br> Overheat Limit: 18 <br> Power: 14 <br> Spin Up: 14
+File:Engine Scrapheap Pacesetter A2.jpg|'''Scrapheap Pacesetter A2'''<br> Resilience: 12 <br> Fuel Efficiency: 22 <br> Overheat Limit: 8 <br> Power: 21 <br> Spin Up: 8
+</gallery> 
+
+=== Uncommon ===
+<gallery>
+File:Engine Reliant Smokie O1.jpg|'''Reliant Smokie O1'''<br> Resilience: 15 <br> Fuel Efficiency: 30 <br> Overheat Limit: 16 <br> Power: 15 <br> Spin Up: 20
+File:Engine Ventilated Cranker O3.jpg|'''Ventilated Cranker O3'''<br> Resilience: 10 <br> Fuel Efficiency: 9 <br> Overheat Limit: 32 <br> Power: 22 <br> Spin Up: 24
+</gallery>
+
+=== Rare ===
+<gallery>
+File:Pinnacle Populous F3.png
+</gallery>
+
+=== Exotic ===
+<gallery>
+File:Ironforge Elite E9.jpg|'''Ironforge Elite E9'''<br> Resilience: 23 <br> Fuel Efficiency: 46  <br> Overheat Limit: 38 <br> Power: 50 <br> Spin Up: 19
+File:Ironforge Elite F6.jpg|'''Ironforge Elite F6'''<br> Resilience: 46 <br> Fuel Efficiency: 15  <br> Overheat Limit: 23 <br> Power: 47 <br> Spin Up: 45
+File:Sunstream Tornado B5.jpg|'''Sunstream Tornado B5'''<br> Resilience: 38 <br> Fuel Efficiency: 33  <br> Overheat Limit: 37 <br> Power: 34 <br> Spin Up: 34
+File:Sunstream Cloudchaser Z1.png| '''Sunstream Cloudchaser Z1''' <br> Resilience 15 <br> Fuel Efficiency 55 <br> Overheat Limit 16 <br> Power 52 <br> Spin up: 38
+File:Godfellow Cyclone N3.png| '''Godfellow Cyclone N3''' <br> Resilience 52 <br> Fuel Efficiency 26 <br> Overheat Limit 12 <br> Power 27 <br> Spin up: 59
+File:Sunstream Hurricane E3.png| '''Sunstream Hurricane E3''' <br> Resilience 43 <br> Fuel Efficiency 28 <br> Overheat Limit 56 <br> Power 37 <br> Spin up: 12
+File:Apotheus Cyclone H1.png| '''Apotheus Cyclone H1''' <br> Resilience 56 <br> Fuel Efficiency 12 <br> Overheat Limit 41 <br> Power 25 <br> Spin up: 43
+File:Engine Ironforge Cloudchaser X2.jpeg| '''Ironforge Cloudchaser X2''' <br> Resilience 23 <br> Fuel Efficiency 39 <br> Overheat Limit 37 <br> Power 53 <br> Spinup: 26
+
+</gallery>
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Procedural Schematics]]

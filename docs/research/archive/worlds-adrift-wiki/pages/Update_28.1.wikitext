@@ -1,0 +1,13 @@
+Release date: November 6th 2018
+<br>
+==Update 28.1 Hotfix Patch Notes==
+'''NOTABLE BUG FIXES AND CHANGES'''
+* A duping exploit relying on latency has been fixed.
+<br>
+==References==
+# https://www.worldsadrift.com/forums/topic/live-worlds-adrift-early-access-hotfix-28-1-patch-notes/
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

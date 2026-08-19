@@ -1,0 +1,29 @@
+{{SchematicBox
+| name = Deck
+| time = 5
+| picture = Deck.png
+| extra = "A deck that can be built onto a ship frame."
+| craftIn = assembly
+| bar1name = Resilience
+| bar1value = 75
+| name1 = Deck
+| value1 = woodmetal
+| amount1 = 40
+}}
+
+
+==Info==
+A deck piece is a [[:Category:Structural|structural]] [[Ship Components|ship component]] which is automatically generated along flat sections of a ship being built. You can also craft deck pieces to replace lost ones or to change their material from an [[Assembly Station]].
+
+{{CraftingPage
+|name = Deck
+|picture = Deck_crafting.jpg
+}}
+
+===Placement Restrictions===
+Decks can only be placed in areas between ship frame beams which are completely horizontal. No tilt allowed. In the ship editor the corresponding sections are filled with a purple colour.
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Structural]]

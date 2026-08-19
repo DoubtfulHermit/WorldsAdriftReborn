@@ -1,0 +1,41 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2>
+<div class="mw-collapsible-content">
+<blockquote>A tattered snippet from "The Trustee Times" titled "Interview of the month"<br>
+Transcript of an interview with Panyana's finest, Adabo Dinoue, by Cutler So-Jee.</blockquote>
+<blockquote>CSJ: What a pleasure to receive you into the bosom of the Trustees this evening.</blockquote>
+<blockquote>AD: Oh it's so exciting to be here, I mean it's marvellous that I get to say hello to all the Gallish people out there. Hello!</blockquote>
+<blockquote>CSJ: We've got a fair bit to get through. First question, your family name is "Dinoue", do you have some connection to Empress Dinoue the Great of Ishgiru?</blockquote>
+<blockquote>AD: Oh no. I mean you're right I'm from Ishgiru originally, I lived there before I came to Panyana. I think Dinoue transtaltes as "soil-dweller" so there is a lot of us! I-</blockquote>
+<blockquote>CSJ: -You skipped your primer at Gwendolier Institute though, am I right?</blockquote>
+<blockquote>AD: -Yes I was too late to go there first, which was a bit mad! Everyone else had gone to Gwendolier.</blockquote>
+<blockquote>CSJ: So you had a hard time fitting in?</blockquote>
+<blockquote>AD: Oh, I think I looked at things differently. I hardly spoke any Gallish, took me years to learn, but I got a lot out of halls, because the girls there were really friendly and I picked up a lot from them. Sister Kar-Al-Etta was especially great, I hope I didn't annoy her!</blockquote>
+</div>
+</div>
+<br>
+
+== Section 2 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section2>
+<div class="mw-collapsible-content">
+<blockquote>CSJ: So what are you working on at the moment?</blockquote>
+<blockquote>AD: Well, intake manifolds for larger capacity engines primarily. Though the project on actuator efficiency under thermostatic variables is more engaging for me at a personal level.</blockquote>
+<blockquote>CSJ: Oily hands?</blockquote>
+<blockquote>AD: ALL the time. If I've got oil on my nose, you know I've been picking it.</blockquote>
+<blockquote>CSJ: Yes well-</blockquote>
+<blockquote>AD: Or looking for wax if I've got oily ears!</blockquote>
+<blockquote>CSJ: Ok, wow we're running out of time. One more question, what do you put your incredible success with Adabo ship components down to?</blockquote>
+<blockquote>AD: Well everyone's just been really supportive, both from the University and the Trustees. We've sold a lot of our plans in the last few months, it's been amazing.</blockquote>
+<blockquote>CSJ: Are you going to stand for Archdean?</blockquote>
+<blockquote>AD: Oh no! My place is in the lab and the workshop, not sat in the senate room. It's scary in there!</blockquote>
+<blockquote>CSJ: Adabo, thanks for your time.</blockquote>
+</div>
+</div>
+<br>
+
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

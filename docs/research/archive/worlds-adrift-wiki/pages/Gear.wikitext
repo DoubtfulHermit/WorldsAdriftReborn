@@ -1,0 +1,27 @@
+{{stub}}
+
+Gear are equipable items that grant the player unique skills and advantages. This is different from [[Clothes| clothing]] which has no effect on gameplay. Equipped in the character tab, you are limited to three gear slots. As of now, the only gear available is the [[Glider]][[Hip Lantern|, Hip Lantern]], and [[Head Torch]].
+
+== List of Gear ==
+
+=== Glider ===
+{{Main|Glider}}
+The Glider can be found in tier 3 areas. However, you have to go to the badlands to get a schematic for one. It can be used as a way to more easily move horizontally in the air, and also unlocks the ability to "skydive" when equipped: the player can control the character's direction and speed a small amount when falling while the Glider is equipped. By default, the key to activate the Glider is Spacebar.
+
+=== Hip Lantern ===
+{{Main|Hip Lantern}}
+The Hip Lantern is a useful tool for exploring caves, as it allows the player to carry a hands-free light source. It provides a light aura in a small area around the player.
+
+=== Head Torch ===
+{{Main|Head Torch}}
+The Head Torch, similar to the Hip Lantern, is a directional light source shining a light cone in whichever direction the player's head is pointing.
+{{WA Navbox}}
+[[Category: Tools]]
+=== Epheremus Drifter ===
+Epheremus Drifters were used to briefly subvert the rules of motion to travel short distances under atlas power
+
+=== Rhegus Greaves ===
+Experimental boots from famed inventor Rhegus Dawn. Harnesses atlas to allow walking on any surface
+
+=== Immobilator ===
+Temporarily suspend all movement. Momentum is restored afterwards.

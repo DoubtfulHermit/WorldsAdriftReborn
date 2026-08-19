@@ -1,0 +1,21 @@
+Release date: November 19th, 2015
+
+==Alpha 1 Patch Notes==
+This is the first publicly-tested version of the game, and as such, there are no patch notes because nothing has changed.<br>
+Alpha 1 Recap Video: https://www.youtube.com/watch?v=spQI8Nb7AeE
+
+==Pre-Alpha==
+There are older Pre-Alpha "Game Jam" builds of the game which are classified/private. The information around these Pre-Alpha builds will likely never be known.<br>
+Oldest Video showing the first Pre-Alpha build of Worlds Adrift: https://www.youtube.com/watch?v=YPiM_AudELg<br>
+Pre-Alpha Progress Video #2: https://www.youtube.com/watch?v=Jy1MJ4deFx0<br>
+Pre-Alpha Progress Video #3: https://www.youtube.com/watch?v=qFU_cZaGmeQ
+
+==References==
+# http://i.imgur.com/huXb2We.png (Release Date)
+# http://i.imgur.com/m1g0R18.png (Pre-Alpha Information)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

@@ -1,0 +1,19 @@
+Release date: October 3rd, 2017
+
+==Beta 0.1.4.11 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* A major duping exploit has been tracked down and fixed.
+* Invisible environmental assets have returned to their correct locations on islands.
+* A memory leak has been fixed.
+* Numerous small optimisations have been performed to improve loading assets when travelling to new islands.
+* Island shaders have received an optimisation for Unity 5.5.
+
+==References==
+# https://www.worldsadrift.com/blog/update-0-1-4-11-live-major-duping-issue-resolved/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

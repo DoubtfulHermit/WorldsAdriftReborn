@@ -1,0 +1,39 @@
+{{tocleft}}
+<div style="float: right; margin-left: 20px;">
+[[File:Founder's Pack.png|frameless|right]]
+</div>
+==Description==
+The Founder's Pack was the version of the game availible for purchase during [[:Category:Closed Beta Patch|Closed Beta]]. There are three tiers of the pack, Wanderer (USD 34.99), Explorer (USD 54.99), and Captain (USD 64.99). Each pack contains the previous tiers items.
+{{clear|left}}
+=Packs=
+==Wanderer==
+The Wanderer pack (USD 34.99) adds the following items:
+* Full Game
+* Closed Beta Access
+* Test Server Access
+* 500 Atlas coins<ref>https://www.worldsadrift.com/blog/how-virtual-currency-is-changing-in-worlds-adrift/</ref>
+* Worlds Adrift Official Soundtrack
+* [[Capulca Mk.2|Capulca Mk.2 Engine]]
+<br>
+==Explorer==
+The Explorer pack (USD 54.99) adds the following items in addition to the items included in the Wanderer pack:
+* Founder's Profile Icon<ref name="Coming Soon">Coming Soon</ref>
+* [[Claw of Kusiman|Founder's Plaque]]
+* [[Flags#Flag of the New Empress|New Empress Flag]]
+* [[Flags#Flag of the 151st Contub of Essedari|Essedari Flag]]
+* [[Clothes#Clawscarf of Capulca|Founder's Headscarf]]
+* [[Figureheads#Clawspirit of Kusiman|Founder's Figurehead]]
+<br>
+
+==Captain==
+The Captain pack (USD 64.99) adds the following items in addition to the items included in the Wanderer and Explorer packs:
+* [[Sails#kusiman's sail|Founder's Sail]]
+* [[Helm#founder's helm|Founder's Helm]]
+* Your Name In Game <ref name="Coming Soon" />
+* Twitch Streamer Pack
+* Art of Worlds Adrift
+
+<br>
+
+{{WA Navbox}}
+[[Category: DLC]]

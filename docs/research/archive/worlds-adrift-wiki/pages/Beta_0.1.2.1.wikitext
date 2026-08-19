@@ -1,0 +1,25 @@
+Release date: June 22nd, 2017
+
+==Beta 0.1.2.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* We have added support for two new regions to the game: US-West and EU-East. The regions themselves will be released a few hours after the patch goes live. For a more in-depth explanation, please visit worldsadrift.com/blog.
+* On the character select/character creation screen, the server dropdown will now display the relative population levels of the servers, as well as if the server is up or in maintenance.
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* When flying from one island to another, characters standing on ships may be unstable, even occasionally getting thrown off. It may be best to quickly grapple to the ship if you experience these stutters.
+* Ships will, in rare occasions, teleport to the edge of the world and be destroyed by the impassable storms. Investigation continues into the cause.
+* Sometimes players’ registration to their shipyard enters a broken state, and they are unable to pick up parts with their Shipbuilding tool. Restarting the client will fix this. Registering with a different shipyard and re-registering with the original will also fix this.
+* Climbing on very bent ship panels, or in spaces the character normally can’t enter, will do serious damage or kill the character: Avoid these for now, as climbing is still unstable.
+* Logging in on a ship that has moved will result in logging in midair.
+* The visuals for sandstorms and stormwalls sometimes swapped when inside them.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/0-1-2-1-a-new-world/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

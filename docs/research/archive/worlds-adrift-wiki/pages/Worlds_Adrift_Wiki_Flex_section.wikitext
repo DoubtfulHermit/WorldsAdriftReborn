@@ -1,0 +1,39 @@
+<div class="fpbox" style="text-align: center;"><!-- BEGIN Videos box-->
+{{header|Game Trailer}}
+<div class="fpvideos">
+<div class="fpvideo">{{#ev:youtube|E1-ou3WfTBI|480|center}}</div>
+</div>
+</div><!--END Videos box-->
+
+<div class="fpbox" style="text-align: center;"><!-- BEGIN Images box-->
+{{header|Featured images}}
+{{Featured images}}
+</div><!--END Images box-->
+
+<div class="fpbox" style="text-align: center;"><!-- BEGIN Twitter box-->
+{{header|Worlds Adrift Tweets}}
+
+<div class="body" style="height: 422px;">
+<twitterfeed nobackground noheader noscrollbar nofooter theme=dark linkcolor=#bd8f3a width=480 height=420 bordercolor="[#FFF176]">WorldsAdrift</twitterfeed>
+</div>
+</div><!--END Twitter box-->
+
+<div class="fpbox" id="fplinks" style="text-align: left;"><!-- BEGIN Links box-->
+{{header|Handy Links}}
+{| style="width: 100%;"
+| width="50%" |
+* [http://www.bossastudios.com Publisher]
+* [http://www.worldsadrift.com/ Official page]
+* [http://store.steampowered.com/app/322780/Worlds_Adrift/ On Steam]
+* [[Project:About|About]]
+* [[{{Gamename}}|The Game]]
+| width="50%" |
+<div>'''Get Help & Join in'''</div>
+* [[:gphelp: |How To Wiki]] / [[Special:UserLogin/signup|Register]]
+* [[Getting Started]]
+* [[System Requirements]]
+* [[Important Dates]]
+|}
+
+</div><!--END Links box-->
+<noinclude>[[Category:Front page sections]]</noinclude>

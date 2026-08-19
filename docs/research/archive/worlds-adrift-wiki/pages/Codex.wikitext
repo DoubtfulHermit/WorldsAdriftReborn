@@ -1,0 +1,23 @@
+Codices (''codex,'' when singular) are pieces of ancient writing that can be found in loot chests and boxes. Each piece contains a piece of the Worlds Adrift lore. A piece of writing usually from the old world of Foundation, but some stories take place after the world fell apart. Currently, all the codex pieces are from either the [[Sabor|Saborian]] culture, or the [[Kioki Unity|Kioki]] culture though as more cultures are added to the game this will expand to encompass all of them.
+
+Collecting a codex piece in-game will give you 15 to 100 knowledge per piece, depending on rarity.
+
+'''The wiki is currently maintaining {{PAGESINCATEGORY:Codex|pages}} different stories.'''<br>
+'''The wiki has {{PAGESINCATEGORY:Complete Codex Entries|pages}} completed stories, a list of which is '''[[:Category:Complete Codex Entries|here]]'''.'''
+
+== Accessing your Codex ==
+When you pick up a Codex piece, you can choose to collect it (much like learning a [[Schematics|schematic]]) this adds it to your personal codex. 
+Collecting a codex piece in game will give you 15 to 100 knowledge per piece, depending on its rarity.
+Your list of codex pieces is accessible in the inventory, under the "Log Book" tab. There everything is organised under "Incomplete" and "Complete". Once you have collected all the pieces of one section it will be listed under "Complete". A diamond icon will appear by the section name if there is an unread piece in that section.
+
+== Complete Codex Collection ==
+The wiki is trying to collect all the codex pieces. If '''you''' want to assist in the collection of the complete works of Worlds Adrift, go [https://discord.gg/tRBNVUM here]. <br><br>
+A more complete collection of the lore can be found [https://panyanaresearch.com/data/lore here]. It is '''slowly''' being transferred here.
+
+Credit to collecting pieces goes to Machine Maker, jamesm2w, Node, Davemane42, Cruft, ARCrecall, [H] MeisterKeen, Shade, Reginald, [H] MedUnitZeroOne, al'Lan Mandragoran, OddNova
+{{NavbarCodex}}
+
+
+{{WA Navbox}}
+
+[[Category:Codex]] [[Category:Lore]]

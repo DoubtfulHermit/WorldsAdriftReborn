@@ -1,0 +1,23 @@
+Release date: December 21st, 2016
+
+==Alpha 5.1 Patch Notes==
+'''NOTE: 5.1 was primarily a stress-test/re-run of 5.0 with more players, so only a small amount of bugs were fixed.'''
+
+<br>
+'''NOTABLE BUGFIXES'''
+* Male rays and beetles are interested in mating again, no longer dooming both species to extinction.
+* Shipyards and crafting stations are now correctly only deployable on land. Carriers have not arrived yet!
+* All databanks should now be scannable.
+* Using the crew beacon will no longer leave the playing hanging in mid-air, unable to move
+
+==References==
+# https://docs.google.com/document/d/1_KHWKOdJqCnckHryns2Tc9LHqzB66w1G6VIRbQT9m5M/pub
+# https://drive.google.com/file/d/0B2m-20IvaIDIMklRd0VVZXk3Z1U/view
+# https://www.worldsadrift.com/forums/topic/details-on-the-next-alpha/ (Release Date)
+# http://i.imgur.com/huXb2We.png (Confirming Release Date)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

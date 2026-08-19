@@ -1,0 +1,42 @@
+{{stub}}
+{{AddPicture}}
+{{NeedsUpdate|page}}
+{{SchematicBox
+|name = Capulca Mk.2
+|time = 15
+|extra = "The great minds at Capulca knew they must build a hardy engine to ensure the continuing survival of humankind. When the last bastion Koinos began to separate, they built the Capulca Mk.2."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 10
+|bar2name = Power
+|bar2value = 15
+|bar3name = Spin Up
+|bar3value = 40
+|bar4name = Fuel Eff.
+|bar4value = 11
+|bar5name = OH Limit
+|bar5value = 5
+|name1 = Casing
+|value1 = metal
+|amount1 = 130
+|name2 = Mechanical Internals
+|value2 = metal
+|amount2 = 54
+|name3 = Combustion Internals
+|value3 = metal
+|amount3 = 64
+|name4 = Propeller
+|value4 = metal
+|amount4 = 90
+}}
+==Description==
+This is an engine exclusive to any tier of the [[Founder's Pack]]. It always has the same stats and the same costs.
+
+{{CraftingPage
+|name = Capulca Mk.2
+}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Engine]]

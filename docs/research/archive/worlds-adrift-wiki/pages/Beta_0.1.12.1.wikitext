@@ -1,0 +1,47 @@
+Release date: May 1st, 2018
+
+==Beta 0.1.12.1 Patch Notes==
+
+<br>
+'''NEW PLAYER EXPERIENCE IMPROVEMENTS'''
+* Ahead of a big redesign on the new player game flow, scanning for Knowledge and learning Shipbuilding are now explained to new players through a tutorial box. Longtime players will remember Alpha playtests had a simplified version of this.
+* The new player screentips have gotten improvements in their visual style and descriptions.
+* The increasing timer for repeatedly reviving at nearby revival chambers mostly affected new players, and therefore has been made less punishing. The maximum is now 1 minute, down from 2 minutes, and the timer will reset more quickly.
+* Characters are no longer able to interact with existing shipyards or assembly stations until they have learned how to craft them – until they have learned Shipbuilding. We found new players would often encounter an abandoned shipyard within their first few minutes in the game, be told by the game it needed repairing with a specific metal, and embark on a wild goose chase instead of learning Shipbuilding.
+* The pistol and bullets new players start with are now found in the belt.
+* Ancient revival chambers are now scannable for Knowledge.
+<br>
+'''UI IMPROVEMENTS'''
+* The hotbar has been updated and expanded. The Inventory menu has a button on the hotbar now. In a future update the Social button will also appear on the hotbar, which will house both the Crew and Alliance tabs.
+* The salvage, repair, shipbuilding, and scanner hotbar icons have been changed to be more symbolic.
+* The ship diagnostics screen, viewable on a shipyard currently docking your ship, has been redesigned. The numbers it shows can still be buggy sometimes.
+* The UI scaling option now works for resolutions where the vertical dimension is greater than 1200 pixels.
+* Improved layout, buttons, transparencies, and spacing, and performed other tweaks on many UI screens.
+<br>
+'''OTHER CHANGES AND BUGFIXES'''
+* Climbing 2.0 has, through hard work and self-reflection, become Climbing 2.1. This should fix some issues with climbing midair on nothing after the ship you climbed on flew away. This also fixes transitioning between climbing and piloting, and more.
+* The edge-of-world weather walls have had their visuals disabled. We’re testing this out to see if it makes the world look and feel less constricting, and to reduce visual confusion between the various types of walls. Please let us know your thoughts!
+* The framerate stutter when the chat pane received lots of messages quickly has been fixed.
+* Another bug that resulted in players leaving behind persistent clones has been fixed.
+* A bug that allowed crafting of ship frames with the wrong quantity of resources has been fixed.
+* The settings menu now allows you to select which monitor to play the game on.
+* Reimplemented screen effects when your character takes damage.
+* Blood VFX for shooting other players and creatures have been reimplemented.
+* The placement of atlas sky core upgrades no longer allows clipping.
+* The scrap chunks in metal scrap deposits are now colored according to their metal type.
+* Cannon shells have improved netcode.
+* Restored the damage understorm lightning does to shipyards to their correct, higher value.
+* Improved the filtering of your known schematics list by rarity and name.
+* The deterioration overlay texture would sometimes be applied very incorrectly to nondeteriorating ship parts; if they were moving in the world, it would look like black mold was “swimming” over them. This should happen much less frequently now.
+* When positioning the camera close to the ground, procedural grass very close to the camera will no longer render.
+* Salvaging has had its VFX color changed.
+* Lootable chests and containers now animate in when understorm lightning bring them out of the ground.
+* Various other VFX changes and tweaks (housekeeping).
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/getskoold/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

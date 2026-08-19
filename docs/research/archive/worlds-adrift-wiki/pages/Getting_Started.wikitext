@@ -1,0 +1,119 @@
+{{NeedsUpdate|page}}
+'''Welcome to [[Worlds Adrift]] from Bossa Studios''', the huge and expansive world set in a persistent, shared multiplayer environment. This will be your [[:Category:Guides|Guide]] to help you get started on the rigors of the world and to survive and thrive. 
+
+Please note that this guide is currently outdated and will be updated further at a later date. Most images no longer reflect those within the actual game.
+
+==Basic Controls==
+[[File:Controls.png|320px|right]]
+{| class="wikitable"
+|-
+! Action !! Default Key !! Notes
+|-
+| Move Forward / Ship Movement || align="center" | {{Key|W}} ||While Using a ship, increases throttle.
+|-
+| Move Backwards / Ship Movement || align="center" | {{Key|S}} ||While using a ship, decreases throttle.
+|-
+| Strafe Left / Ship Movement || align="center" | {{Key|A}} ||Turns a ship left
+|-
+| Strafe Right / Ship Movement || align="center" | {{Key|D}} ||Turns a ship right
+|-
+| Use Grappling Hook / Helm Freecam || align="center" | {{Key|RMB}} || Fires the [[Grappling Hook|Grappling hook]] at the center of the screen. This can be held down to aim the grapple around the screen instead. When controlling ship's Helm, holding down the right mouse button allows the player to look around.
+|-
+| Use Item || align="center" | {{Key|LMB}} || Use current Item in Hand
+|-
+| Reel in Rope / Grab Ledge || align="center" | {{Key|SHIFT}} || Once you've fired and attached to something you can start pulling yourself towards that object.
+|-
+|Extend Rope / Roll / Crouch || align="center" | {{Key|L CTRL}} || Multiple options for the L Ctrl Key including, Extending Rope while grappling, rolling when you're running and  crouching when you're standing still.
+
+|-
+| Jump / Ship Movement / Toggle Glider || align="center" | {{Key|SPACE}} || Multiple options for the Space Key including jumping, rising while piloting a [[Ships|ship]], grapple boosting and toggling a [[Glider]].
+|-
+| Interact || align="center" | {{Key|E}} || Usually the object will light up when you hover it, and you can hit E to interact.
+|-
+| Access Inventory || align="center" | {{Key|TAB}} || Brings up the inventory screen.
+|-
+| Select Hotbar Item || align="center" | {{Key|1}} - {{Key|8}}|| Switches through gauntlet functions or equipped tools.
+(1-4 - Gauntlet, 5-8 Tools)
+|-
+| Rotate Crafted Item || align="center" | {{Key|z}}|| If you're trying to place something on your ship and it's not the right spot hit z to rotate.
+|-
+| Sit / Stand || align="center" | {{Key|X}} ||
+|-
+| Ragdoll || align="center" | {{Key|G}} ||
+|-
+| First Person || align="center" | {{Key|V}} || Allows you to play in First Person, useful when placing ship components in small areas
+|-
+| Begin Climbing || align="center" | {{Key|Q}} || Will allow a free climb on a vertical surface when you are next to it
+|-
+| Emote Wheel || align="center" | {{Key|C}} || Pops a wheel that allows you to Emote such as Dancing and other emotes.
+|-
+! colspan="3" | Chat
+|-
+| Local Chat || align="center" | {{Key|ENTER}} ||With enter you can open the chat, which you type in messages for nearby players, while speaking in caps lock the range of the message is much greater.
+|}
+
+==Getting Started==
+{{#ev:youtube|5dH3MA20t30|450|right}}
+[[File:Aegis.png|250px|left]]
+First, you should spend a few moments getting acquainted with your [[Grappling Hook]], as you'll be stuck in the Revival Chamber until you figure it out. The Grappling Hook is easy to get used to, simply hold down right click to aim, and release to fire. Use {{Key|SHIFT}} to reel in the line, and {{Key|CTRL}} to extend it. Use the {{Key|W}}, {{Key|A}},
+{{Key|S}}, and {{Key|D}} keys to swing around while dangling from the rope. If you are suspended from the rope you can press the {{Key|SPACE}} to activate a boost that will pull you towards the end of the rope. Keep in mind that if you are standing up, even on a steep hill, the rocket boost will not work so you may need to jump before activating the boost. 
+
+The first thing you should do once you exit the chamber is to find some databanks. You can use the scanning tool on your [[gauntlet]] (default {{Key|4}} on your toolbar) to gain 25 [[knowledge]] from each databank. In later biomes, databanks will give more knowledge. Alternatively, you can also scan any object on the island for a much smaller amount of knowledge. Once you have enough knowledge points you can open the knowledge tree and unlock shipbuilding. This allows you to use the multi-tool [[crafting]] menu to craft an [[Assembly Station|assembly station]] and a [[shipyard]] which are essential for building [[Ship Components|ship components]] and your first [[Ships|ship]]. 
+
+Before you can begin building, you will need some [[resources]]. If you're lucky, there may be some intact assembly stations or shipyards on your island which you can use instead of crafting your own. If not, you will need to start out by gathering some [[metal]], found in rock nodes usually on the sides or underneath an island, which is used in a majority of [[schematics]]. [[Atlas Shard|Atlas shards]] can also be found in some of the metal nodes and are required for an [[Atlas Core]] which allows your ship to float. [[Wood]] is used in a few schematics and can be used to make lightweight decks for your ships. It is also essential for your first ship since [[sails]] will be your primary source of propulsion until you unlock [[engines]]. 
+
+==Mining==
+
+{{ambox
+| icon = Icon-template.png
+| type = '''Note:''' Some of the images in this section are outdated! Replacement pictures coming soon!
+| border = yellow
+| format = tiny
+}}
+
+There are various [[resources]] all over every island, mainly [[metal]], [[wood]], [[fuel]], and [[Atlas Shard|atlas shards]]. To harvest resources, select the salvage tool on your [[gauntlet]] (default {{Key|1}} on your toolbar), then click and hold while pointing at any resource to harvest it. You can also use this to salvage any [[Ship Components|ship components]] lying around on the ground. 
+
+[[Wood]] is the easiest resource to find and reach, but harvesting them can bring some unwanted attention if you aren't careful. Many islands are home to beetle-like creatures called [[Creatures|Thuntomites]]. They are normally docile, but they will attempt to ram you with their horn if you either attack them or threaten their food source - the [[trees]]. If you are unaware of this, a group of thuntomites could easily catch you off guard and turn deadly. Once you have checked an area for wandering thuntomites you can start harvesting the tree which will provide you with both logs and daccat berries which can be eaten to restore your health.  
+
+[[Metal]] can be more difficult to reach, since metal nodes often spawn beneath the island, requiring the use of your [[Grappling Hook|grappling hook]] to reach. You may want to practice using your grappling hook before going [[mining]], or you may find yourself plummeting into the depths below quite often. Also, you can craft a [[Makeshift Storage]] to place on the ground to save your items just in case you do take a fall. Once you're ready to go mining, you need to find a metal node, which can spawn in one of two variants, a tall skinny rock or large round boulder. Both variants can be easily identified by the small cracks on the surface, and when hit with the gauntlet salvage tool, the outer shell will break and fall apart in pieces. Once you break apart enough of the outer shell you will be able to find some pieces of scrap metal sticking out of the rock in the center. Using the salvage tool on the scraps will give you 50 metal for each piece harvested, just be careful not to hit the rock in the middle too much or it could break apart causing any resources left in that node to fall.  
+
+[[Atlas Shard|Atlas shards]] are also found in metal nodes beneath the outer shell like the metal scraps. Unlike metal scraps however, they cannot be harvested using the salvage tool, and instead must be collected by press e while the shard is highlighted. A tool tip will also appear in game when the atlas shard can be picked up. 
+
+In regards to [[Fuel]] you'll find it as small metal canisters, which will let you harvest them once, giving you 8 fuel before they drop from their hooks. If they are over land or a ship you can continue harvesting them after they fall for another 8 fuel with the next hit, and another 9 fuel for the third and final hit giving you a total of 25 fuel per canister. 
+
+<gallery>
+File:Harvesting Wood1.png|
+File:Harvesting Wood2.png|
+File:Harvesting Fuel.png|
+File:Harvesting Steel.png|
+File:Metal.png|
+File:Wood.png|
+File:WoodOrMetal.png|
+File:Fuel.png|
+File:Atlas Shard.png|
+</gallery>
+
+==Crafting==
+[[File:Multi-Tool Crafting Alpha 5.1.png|left|frameless]]
+[[File:Crafting Table.png|250px|right]]
+Once you've gathered enough [[Resources]], your best bet is to begin with [[Shipbuilding]]. Using Tab will open the Inventory menu, which automatically opens on crafting. From this menu, you can create some basic tools, such as a Pistol, Bullets, a Torch, and, once you've researched the Shipbuilding node in your knowledge tree, the [[Assembly Station]] and [[Shipyard]], two crafting stations required to build functioning Ships.
+[[File:Character Page.jpg|left|frameless]]
+<gallery>
+File:Glider.png|
+</gallery>
+
+==Ship Building==
+[[File:Ship- Vega.png|right|frameless]]
+This full section is currently inaccurate and will be updated at a later date.    
+
+You're going to want to create a [[Shipyard]], and place it down. You then should claim it by pressing E when prompted. You should then choose a type of ship. You are given 5 small ships to start with, the easiest one to get started with is the Dinghy. Once you've selected your ship, put in the necessary items to craft it. The Ship will automatically dock itself, projecting an Atlas bubble around the area. You should build an [[Assembly Station]] within the area of this bubble. 
+
+Firstly you'll need to add an [[Atlas Core]], which will create allows ships to float outside of shipyards. The core is one of the most important parts of your ship, so it's best to keep it central and protected, assuming you can carry the weight. The Atlas Core is usually a prime target for any engagements from enemies, so you'll want to keep it in mind and out of sight while building. 
+
+To get moving you will also need a [[Sails|Sail]], or [[Engines]] and a [[Power Generator]], since the Atlas Sky Core is just keeping the ship in the air. Next, you'll want to place a [[Helm]] preferably on the top deck to be able to control the ship in flight. Build and place a [[Personal Reviver]] and connect to it, in case you happen to die or fall off the ship, to be able to respawn to it (however without your inventory). Beyond that, it's basically up to you, or to the advanced design of the ship. If you need protection from the core, you'll want to build and place some Panels, or put some [[Weapons#Cannons|Cannons]] to fire if you feel like you're going to be fighting. 
+
+Once you're ready, take to the skies and begin your journey to the rest of the [[Islands]] and to find your adventure of discovery.
+
+
+{{WA Navbox}}
+[[Category:Guides]] [[Category: Gameplay]]

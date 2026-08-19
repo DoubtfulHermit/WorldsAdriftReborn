@@ -1,0 +1,17 @@
+Release date: August 18th, 2017
+
+==Beta 0.1.4.3 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* In [[Beta 0.1.4.1]] a bug was introduced that would cause some ships, upon touching the terrain even briefly, to suddenly be considered deteriorating and sunken. This has been fixed.
+* Atlas cores built before the release of [[Beta 0.1.4.1]] now will gain the atlas pulse functionality. Ships frames built before [[Beta 0.1.4.1]] now can be affected by an atlas pulse.
+* Resolved an issue where some players were unable to verify their Worlds Adrift accounts and were therefore unable to log into the game.
+
+==References==
+# https://www.worldsadrift.com/blog/0-1-4-3-hotfix-released/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

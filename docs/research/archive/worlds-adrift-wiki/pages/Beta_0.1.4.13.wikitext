@@ -1,0 +1,15 @@
+Release date: October 9th, 2017
+
+==Beta 0.1.4.13 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* We have been working hard to eliminate another method of duplicating inventory contents. We’re pleased to say that this has been released as a hotfix today.
+
+==References==
+# https://www.worldsadrift.com/forums/topic/hotfix-0-1-4-13-released/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

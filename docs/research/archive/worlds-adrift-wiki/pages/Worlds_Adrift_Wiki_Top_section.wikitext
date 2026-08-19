@@ -1,0 +1,62 @@
+<div class="fpbox plain" style="text-align:right;"><!-- BEGIN Welcome box-->
+{{header|Welcome to the Official ''Worlds Adrift'' Wiki}}<div class="heading mobileonly">Welcome to the {{Gamename}} Wiki</div>
+<div class="nomobile" style="float:left;">[[File:Icon_white.png|80px|link=]]</div><div class="mobileonly">[[File:Icon_white.png|80px|center]]</div>
+<div>The '''[http://www.worldsadrift.com/ Worlds Adrift]''' reference written and maintained by the players.</div>
+<div>Please feel free to contribute by creating new articles or expanding on existing ones.</div>
+<div><br />We are currently maintaining [[Special:Statistics|{{NUMBEROFPAGES}} pages ({{NUMBEROFARTICLES}} articles)]].</div>
+</div><!--END Welcome box-->
+
+<div class="fpbox" style="text-align: left"><!-- BEGIN About box-->
+{{header|About The Game|[[File:Char.png|200px|link=]]}}
+[[Worlds Adrift]] is a sandbox MMO where thousands of players explore a physical and persistent world with the freedom to set their own objectives. This creates an unpredictable environment, rich with the potential for emergent gameplay. Every encounter with [[Creatures]], players, or new islands brings with it new threats, experiences and conflicts.
+
+Build and Customize your ultimate [[Ships|Skyship]] - From an agile skiff to a multi-level battle frigate able to withstand sustained bombardment, explore the world to find and learn what you need to build your ultimate flying base. [[Crafting|Craft]] [[Engines]], [[Wings]], [[Cannons]], [[Ship Components|Sails]], [[Ship Components|Storage]], and other parts for your ship. Your design will have direct consequences on the ship’s performance and handling. Will yours survive a [[Weather|Storm]] wall?
+
+Freeform Coop and PvP - Wander the skies as a nomad or form crews to aid one another in exploration and ship building. Pool [[Resources]] to travel more safely and build greater skyships, or risk your life stowing away on an enemy ship. Join an alliance to explore, attack and defend the world as you see fit. As an open sandbox game, you must choose your allies carefully and be cautious when your crew encounters others who seek the same [[Ruins|Treasures]].
+
+Physics Based Universe - Everything that moves and everything you touch has its own particular weight and [[Rope Physics|Physics]]. With your trusty [[Grappling Hook]], learn to scale the tallest towers and swing deftly between flying skyships. Think carefully and strategically about the physics of your ship – because every part you build and every decision you make brings its own benefits and consequences.
+
+<div style="padding-right: 5em;"><center>Worlds Adrift is currently in Early Access on steam. For the latest updates follow [https://www.worldsadrift.com/blog/ the blog here].</center>
+</div>
+</div><!--END About box-->
+
+<div class="fpbox" id="fproles"><!-- BEGIN Quick links box-->
+{{header|Quick Links}}
+<div style="padding-left: 1em;">
+{| width="100%"
+| width="50%" |
+; Handy [[:Category:Guides|Guides]]
+* [[Getting Started]]
+* [[Map]]
+* [[System Requirements]]
+* [[Important Dates]]
+; Environment
+* [[Resources]]
+* [[Metal]]
+* [[Wood]]
+* [[Fuel]] 
+* [[Creatures]] 
+* [[Trees]] 
+* [[Islands]] 
+* [[Island Creator]]
+
+| width="50%" |
+; [[Ships|Ship building]] 
+* [[Crafting]]
+* [[Ship Components|Components]]
+* [[Engines]]
+* [[Wings]]
+* [[Cannons]]
+
+; Misc
+* [[Patches|Patch List]]
+* [[Codex|Lore]]
+* [[Ruins]]
+* [[Weapons]]
+* [[Gear]]
+* [[Rope Physics]]
+* [[:Category:Media|Screenshots]]
+|}
+</div>
+</div><!-- END Quick links box-->
+<noinclude>[[Category:Front page sections]]</noinclude>

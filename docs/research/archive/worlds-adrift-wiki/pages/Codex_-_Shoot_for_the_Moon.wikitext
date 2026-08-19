@@ -1,0 +1,31 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content">
+<blockquote>
+Objective "Little Moon".
+
+Skynaught report #57 - informal.
+</blockquote>
+<blockquote>
+Well we've landed back in Agbana, and we're safe. We had the heaviest clothing and the headiest confusion up there. It was hard to have to report it, but the closer we got to little moon, the further away it felt.
+</blockquote><blockquote>
+Even with the apparatus, we couldn't breathe, and our ears stoppered, and the little green ball didn't seem any nearer. Aetherium guide us, it was fearful.
+</blockquote><blockquote>
+They could try sending the skyhulks up, but then a remote signal can only travel so far.
+</blockquote><blockquote>
+Little moon remains an enigma, as it has always been. I wonder if some things are best left unexplained. It's not the answer, but the question, that gives us meaning.
+</blockquote><blockquote>
+Just suppose that glow is not Atlas, but Aetherium, waiting to absorb us. In a way I'm happier not to be sure.
+</blockquote><blockquote>
+We are god.
+</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

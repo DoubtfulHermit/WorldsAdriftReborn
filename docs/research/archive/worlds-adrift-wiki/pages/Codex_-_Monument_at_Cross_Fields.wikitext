@@ -1,0 +1,14 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1>
+<div class="mw-collapsible-content">
+<blockquote>An engraving in stone, one of several similar monuments:</blockquote>
+<blockquote>"In this, the year 2864, our monument marks Cross Fields, a place of exchange Pilipai. Here the glory of Sabor burns as bright as in any of the four cities. Long may bucolic freedom reign. Long may Pilipai live equal among one another. We are gods."</blockquote>
+</div>
+</div>
+<br>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

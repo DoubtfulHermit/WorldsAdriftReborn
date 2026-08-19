@@ -1,0 +1,72 @@
+{{Incomplete}}
+
+Sails are [[Ship Components|components]] that can be placed on a [[Ships|ship]] while it is docked at a [[shipyard]]. When unfurled, sails provide thrust, which can be increased further by travelling with a tailwind.
+
+==Basic Sail==
+{{SchematicBox
+|name = Basic Sail
+|picture = Sail.png
+|time = 20
+|extra = "Lets you sail the winds."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Mast
+|value1 = wood
+|amount1 = 100
+}}
+This is the basic sail that becomes availible once you research Shipbuilding in the [[Knowledge]] Tree.
+{{CraftingPage
+|name = Basic Sail
+|picture = Sail.jpg
+}}
+{{clear}}
+
+==Kusiman's Sail==
+{{anchor|kusiman's sail}}
+{{SchematicBox
+|name = Kusiman's Sail
+|picture = KusimanSail.png
+|caption = An exclusive Captain's Founder Pack Schematic.
+|time = 10
+|extra = "As their world crumbled, the tailors of Capulca crafted the ultimate symbol of hope - a sail to be stretched across the skyships of future survivors".
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Mast
+|value1 = wood
+|amount1 = 100
+}}
+This sail is embroidered with the symbol of Kusiman. It is exclusive to the [[Founder's Pack#Captain|Captain]] [[Founder's Pack]].
+{{CraftingPage
+|name = Kusiman's Sail}}
+{{clear}}
+
+== General Information ==
+[https://www.worldsadrift.com/forums/topic/explain-how-to-sail/#post-65179 How to Sail]
+
+=== Sails aren’t controlled by the helm ===
+The throttle on the helm is for engines, not for sails. Sails work passively on your ship once unfurled; the only factor you have to worry about when sailing is your heading.
+
+=== Sails need to be unfurled to work ===
+If your sail is folded up along the mast’s boom, they’re furled. To unfurl them, hold E with the mast highlighted until the progress bar finishes. If the sail is stretched across the mast, your sails are properly deployed.
+
+=== Damaged sails don’t work ===
+If your sails are unresponsive, they may be damaged. Pull out your repair tool and highlight the sail. If the outline turns green, it needs repairing. Fix it up with the same kind of wood you used to build it, and it’ll work again.
+
+=== Sails need a tailwind ===
+When sailing, the most important factor in where you can go is the direction of the wind. There are two easy ways to tell wind direction: The first and easiest method is to refer to the windsock on your helm. The second method is to observe the windtrails in the sky. If the wind is directly behind your ship, you will move at maximum speed. If the wind is directly in front of you, your movement will be negligible. Any other direction is a combination of these two. If you need to fly into the wind, try tacking into the wind, by zig-zagging left and right to travel upwind.
+
+=== Sails don’t stop working until they’re furled or damaged. ===
+While most people have a problem getting their sailing ship to go, another problem some people run into is getting their sailing ship to stop. Don’t forget that as long as your sails are out, they will catch the wind and pull your boat. If you don’t want to get stranded on an island or run into a cliff, remember to furl your sails before disembarking. Another good practice is to start furling your sails earlier than you think you might need to; the process takes a while, and even once furled, your ship will continue to drift for a while. Also, if you’re trying to pass through a Wall, double check your sails!
+
+== Tips and Tricks ==
+[[File:Points of sailing.jpg|right|frameless|320x320px]]
+*If you need to sail against the wind, try zig-zagging. This will help stop getting "caught in irons". You also move faster when at 90° to the wind than with the full wind.
+*The material of the sail has no effect on the speed boost it provides. Make your sails out of the lightest [[Wood|wood]] you have.{{clear}}
+
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Sails]]

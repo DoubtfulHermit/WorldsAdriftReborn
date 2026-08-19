@@ -1,0 +1,15 @@
+Release date: December 20th, 2017
+
+==Beta 0.1.5.3 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Characters will now find a winter hat at the bottom of their Stash! Closer inspection will reveal it as something the Tarrery people would wear this time of year keep them warm. Like other Founder’s Pack items, these will no longer be acquirable after the conclusion of Closed Beta.
+
+==References==
+# https://www.worldsadrift.com/blog/0-1-5-3-a-little-christmas-gift/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

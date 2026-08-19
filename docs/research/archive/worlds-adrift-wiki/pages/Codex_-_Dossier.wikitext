@@ -1,0 +1,23 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content">
+<blockquote>
+A Saborian dossier stamped "received" by various foreign insignia, at a council of Foundation. </blockquote>
+<blockquote>
+Centuries of poverty have left Bandinia's educational institutions devastated. We have been working closely with the schools in Bandinia to help foster a much-improved educational system that includes professional teachers and high-quality learning materials and methodologies essential to Bandini economic growth and stability. Bandinia has one of the youngest populations in Foundation, making development for school-aged children a high priority. Please see the happy classroom photographs included.</blockquote>
+<blockquote>
+Beyond education, we have worked closely with the Darat planning committee to ensure that new constructions in Darat are safe, and can withstand the ongoing tremors there. Please see the photographs included. </blockquote>
+<blockquote>
+Unfortunately we are unable to allow foreign access to Bandinia at this time due to internal strife. Fortunately our civil police, the Godhands, are helping to restore Bandinia back to being a safe and productive place to live, with a young workforce that can realise its potential.</blockquote>
+<blockquote>
+President Telemon (on behalf of the Saborian Stalk Assembly)</blockquote>
+</div>
+</div>
+
+<br/>
+
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

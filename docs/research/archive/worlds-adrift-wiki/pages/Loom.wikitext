@@ -1,0 +1,30 @@
+{{AddPicture}}
+{{SchematicBox
+|name = Loom
+|time = unknown
+|picture = loom.png
+|extra = "Apparatus used to automate the weaving and stitching of clothing."
+|craftIn = assembly
+|name1 = Body
+|value1 = wood
+|amount1 = 120
+|name2 = Mechanical Aparatus
+|value2 = metal
+|amount2 = 30
+|name3 = Strings
+|value3 = fiber
+|amount3 = 100
+|bar1name = Resilience
+|bar1value = 15
+}}
+==Description==
+The '''Loom''' is the crafting station for creating clothes. It must be placed on a ship [[Deck|deck]] to be used, unlike an [[Assembly Station]].
+{{CraftingPage
+|name = Loom
+}}
+{{clear}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Assembly)]]

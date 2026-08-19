@@ -1,0 +1,18 @@
+Imagine yourself as a nomad of the skies...
+
+You and your ragtag band wander from island to island on your cobbled-together airship, scouring for lost technology and scavenging for resources. You are constantly trying to improve your ship, keep it fueled, and keep it repaired. Sky predators, storms, and other travelling bands; all of which could be a threat to your ship, will dominate your thoughts. But in the back of your mind, you still ask yourself questions: How did your world become this way? What calamity, hundreds of years ago, could have shattered the world into a thousand pieces as you find it now? Deep down you know that the world was not always this way, and your questions are what drive you onward and upward, towards the endless skyline.
+
+[[Worlds Adrift]] is entering uncharted territory in the world of gaming. Entering early access in early May (2018), Bossa wants you to play this game and feed back your experiences, what you enjoyed and what you did not. So go forth and explore, so that we all can help craft one of the most beautiful games ever.
+
+For a complete list of Worlds Adrift updates, check the [[Patches]] page.
+
+==Game Features==
+* First, [[Worlds Adrift]] is set in a persistent, shared multiplayer environment. That means anyone who plays the game will be in the same enormous world. (Due to the increased importance of low latency in a game with physics, however, the current plan is to have separate servers for different geographic regions—we can’t overcome the speed of light, I’m afraid).
+
+* Secondly, the world will live and breathe. Worlds Adrift will not be an MMORPG as we know them. There are no quest hubs and no NPCs standing around forever, waiting to give you tasks. There are no low-level zones and high-level zones, because there will be no levels. There are no static, choreographed environments and events that replay for every new player.
+
+* Instead, there will be [[Creatures]] that eat and live and die, and [[Trees]] that grow, and [[Ruins]] that hold secrets, and [[Wreckage]] that rusts and rots, all inside a world that doesn't revolve around you, but that can be permanently affected by your actions. You are a part of the world, and it’s up to you to decide which part that is, and how it relates to all the other parts.
+
+* Lastly, the world will behave according to believable physics. [[Ships]] are constructed of pieces — each of which can be snapped off if there’s a strong enough impact. Much of the world will also behave like this: creatures, wreckage, loose objects on the ground. And of course there will be plenty of [[Rope Physics]] involved in player movement.
+
+[[Category: Worlds Adrift]]

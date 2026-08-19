@@ -1,0 +1,31 @@
+Release date: May 30th, 2018
+
+==Beta 0.2.0.5 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* A load of Saborian military uniforms are now lootable in game! They look pretty slick.
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Fixed the cloth physics bug that caused despawning cloth to sometimes crash other clients. Players would see a dialog box with the phrase “Pure virtual function call” on it, or would see “Runtime error.” This bug also necessitated 0.2.0.1’s disabling of all cloth physics on hairstyles, so accompanying the fix, the two disabled hairstyles have been reenabled.
+* Fixed a situation that could fail to login a ship upon its owner logging in.
+* Fixed an infinite loading bug when trying to log in. More work continues on this category of bugs.
+* Wood weight reduced across the board by 15%. Objects crafted from wood should also receive a higher HP bonus across the board. Finally, wood in the inventory now stacks to 2000.
+* Small, medium, and window panels now have the same resilience as large panels, and have had their weights adjusted.
+* Railing parts have had their resilience buffed as well.
+* Increased glider drop rate and reduced timed explosive drop rate.
+* Ship frames have had their beam costs halved. The resulting weight is unchanged.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* Some missing icons have been added.
+* Fixed Drissian Pistol to have the correct name.
+* Ship part schematics no longer have a “Basics” category – helms and sails and other parts now have their own categories.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/the-slick-update-patch-notes-0-2-0-5/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

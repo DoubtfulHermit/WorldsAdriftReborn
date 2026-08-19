@@ -1,0 +1,127 @@
+{{stub}}
+==Description==
+Lamps are [[:Category:Decoration|decorative]] [[Ship Components]]. Once placed they can be interacted with to provide a source of light. Lamps can be crafted from an [[Assembly Station]]. 
+
+== Lamp ==
+{{SchematicBox
+|name= Lamp
+|time=5
+|picture = Lamp.png
+|extra = "A lamp for the ship."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|name1 = Casing
+|value1 = metal
+|amount1 = 30
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 20
+}}
+A basic lamp. Press {{key|E}} while hovering over the lamp to toggle it on/off.
+
+{{CraftingPage
+|name = Lamp
+}}
+
+{{clear}}
+== Saborian Lamp ==
+{{SchematicBox
+|name= Saborian Lamp
+|time=5
+|picture = LampSaborian.png
+|extra = "A fairly standard Saborian ship lamp."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|name1 = Casing
+|value1 = metal
+|amount1 = 30
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 20
+}}
+A saborian design of lamp.
+
+{{CraftingPage
+|name = Saborian Lamp
+|picture = Saborian_Lamp.jpg
+}}
+
+{{clear}}
+== Kioki Lamp ==
+{{SchematicBox
+|name= Kioki Lamp
+|time=5
+|picture = LampKioki.png
+|extra = "A traditional Kioki lamp. It has influences from Pin, Ishgiru and Karem in its design."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|name1 = Casing
+|value1 = metal
+|amount1 = 30
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 20
+}}
+A Kioki design of Lamp
+
+{{CraftingPage
+|name = Kioki Lamp
+}}
+
+{{clear}}
+
+== Lightning Bug Lamp ==
+{{SchematicBox
+|name= Lightning Bug Lamp
+|time=5
+|picture = LampPioneer.png
+|extra = "Lightning bugs were so common in Driss that the locals would collect them in huge metal cages to light their ships and homes."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|name1 = Cage
+|value1 = metal
+|amount1 = 30
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 20
+}}
+An exclusive lamp design for the [[Pioneer Pack|Pioneer pack]]. Provides an ambient light.
+
+{{CraftingPage
+|name = Lightning Bug Lamp
+}}
+{{clear}}
+
+==Tarrery Lamp==
+{{SchematicBox
+|name=Tarrery Lamp
+|time=unknown
+|picture=LampChristmas 01.png
+|extra="A simple lamp for lighting your ship. This design hails from Tarrery."
+|craftIn=assembly
+|bar1name=Resilience
+|bar1value=10
+|name1=Glass
+|value1=glass
+|amount1=5
+|name2=Case
+|value2=metal
+|amount2=15
+|name3=Fuel
+|value3=fuel
+|amount3=25
+}}
+An exclusive lamp from [[Kahi Celebration]] gifts from Christmas 2018.
+{{CraftingPage
+|name=Tarrery Lamp
+}}
+
+{{clear}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Decoration]]

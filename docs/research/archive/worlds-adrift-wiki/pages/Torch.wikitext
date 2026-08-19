@@ -1,0 +1,29 @@
+{{NeedsUpdate|page}}
+
+{{SchematicBox
+|name=Torch
+|time=3
+|picture = Torch.png
+|extra = "Flaming torch, which can be held aloft to light dark areas."
+|craftIn = tool
+|bar1 = Resilience
+|name1 = Handle
+|value1 = wood
+|amount1 = 20
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 10
+}}
+
+==Info==
+The torch is an early game light source. It lights up a small area around the player but will turn off when the player equips another tool, such as the [[Gauntlet#Salvage Mode| salvage tool]].
+
+{{CraftingPage
+| name = Torch
+| picture = Torch.jpg
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

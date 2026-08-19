@@ -1,0 +1,22 @@
+{{NeedsUpdate|page}}
+
+From the Gallery below you can see the various [[Resources]] you can gather, Iron, Copper, Wood, & Fuel are some of the basics you can start off. Wood is pretty easy to find, since it's usually right in the open on most of the [[Islands]]. Grab your multi-tool Crafting (probably {{Key|1}} unless you've changed your key controls), switch it to Harvest Mode (The red coming out), and start going to town on the trees. Cut a few blocks, and then begin harvesting them by highlighting the fallen logs and {{Key|LMB}} clicking, and the bottom left you'll see them start accumulating in your Inventory. 
+
+You'll need to find some ore nodes for [[metal]], depending on the Island, usually underneath. Use your trusty grappling hook to swing under and find one of the ore nodes, and check between the crevices to find the darker or the yellowish metal Iron and Copper respectively. Like with the wood, you'll need to harvest it, with the {{Key|LMB}}. Get as close as you can with your Grappling Hook, to make the job easier with less swinging. Pressing the Q key when "stuck" to a surface (character will put their feet on the surface, including ceilings!) will allow you to grab onto a sheer cliff or even dangle, and move about more carefully(albeit slowly) than swinging with the grapple. This is especially useful for mining over nothingness, as you can more accurately hit pieces of salvage without swinging around, as well as maneuver your character more reliably around the resource, lowering the chance of losing pieces to falling and making it much easier to get close and pick out [[Atlas Shard]]<nowiki/>s from nodes of metal. 
+
+In regards to [[Fuel]] you'll find it as balls, which will let you harvest 4/5 before they drop from their hooks. If you're at a spot where they drop on land (or over a ship), you can continue to harvest them until they disappear. 
+
+<gallery>
+File:Harvesting Wood1.png|
+File:Harvesting Wood2.png|
+File:Harvesting Fuel.png|
+File:Harvesting Steel.png|
+File:Metal.png|
+File:Wood.png|
+File:Fuel.png|
+File:Atlas.png|
+</gallery>
+
+
+{{WA Navbox}}
+[[Category: Gameplay]]

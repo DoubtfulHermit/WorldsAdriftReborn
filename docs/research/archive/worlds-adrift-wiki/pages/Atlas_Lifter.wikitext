@@ -1,0 +1,33 @@
+{{SchematicBox
+|name=Atlas Lifter
+|time=10
+|picture=Atlas Lifter.png
+|extra="Anti-gravity device that can be attached to objects to reduce their weight. Unsuitable for use on parts attached to ships due to dangerous atlas field interactions."
+|craftIn = tool
+|name1=Housing
+|value1=metal
+|amount1=30
+|name2=Generator
+|value2=metal
+|amount2=20
+|name3=Atlas Shards
+|value3=atlas
+|amount3=2
+}}
+
+
+==Description==
+Atlas lifters are equippable tools a player can place on ship parts that are detached from a ship. Once attached, the object they are attached to starts to float. It can then be pushed/pulled with a grappling hook. They are mainly used to drag ship parts that are outside the bubble into the bubble where they can be manipulated with the [[Gauntlet#Lift Mode|ship building tool]].
+
+===Schematic===
+The schematic for Atlas Lifters can be found in [[Biome#Remnants (Tier 3)|Tier 3]] and up.
+
+{{CraftingPage
+|name = Atlas Lifter
+|picture = Atlas lifter page.jpg
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

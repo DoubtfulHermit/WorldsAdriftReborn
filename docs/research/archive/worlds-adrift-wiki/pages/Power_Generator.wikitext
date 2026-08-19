@@ -1,0 +1,33 @@
+{{SchematicBox
+|name = Power Generator
+|time = 15
+|picture = GeneratorMetal.png
+|extra = "Generators refine fuel to power engines. Interact with them once they are attached to a ship to place fuel inside."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 40
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 100
+|name2 = Piping
+|value2 = metal
+|amount2 = 60
+}}
+==Description==
+Generators are [[Ship Components|components]] that can be placed on a [[Ships|ship]] while it is docked at a [[shipyard]]. They cannot be held in your inventory and must be picked up using your gauntlet when within the bubble of a shipyard that you have access to. The generator is a [[schematics|schematic]] that you have to unlock using 250 [[knowledge]] points. You get it when unlocking the very first [[Engines|engine]] schematic.
+
+The Power Generator functions as a fuel tank and is required to power your ship's engines. It has a capacity of 100 units of fuel. If you place multiple generators on a ship then they act as one big tank. Meaning that if you were to build 3 generators on a ship then you would have a maximum fuel capacity of 300 units.
+
+For refueling you can use any of the generators you might have built on your ship since they are all linked  together.
+
+The amount of fuel left inside the generator can be seen via the [[Instruments#Fuel Gauge|fuel gauge]].
+
+
+{{CraftingPage
+|name = Power Generator
+|picture = Power Generator.jpg
+}}
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Engine]]

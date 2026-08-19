@@ -1,0 +1,59 @@
+Release date: September 6th 2018
+
+==Update 26 Patch Notes==
+'''NOTE: The naming convention changed here from Major.Minor.Patch to a numbered system counting all updates until that point'''<br>
+<br>
+'''ALLIANCES'''
+* The first implementation of Alliances has been added to the game! Large organizations of players, alliances will let players communicate and organize more easily, find other like-minded players to form crews with, and take on shared enemies together. Players will need to either successfully apply to an alliance, or receive a direct invite. Future features will include an emblem creator for alliance flags and sails, officer ranks with different permission levels, and more.
+* Crews have had their implementation completely scrapped, and now work off the alliance backend. Lots of bugs have been fixed as a result, but please let us know if there are new bugs!
+* Alliances have an alliance-wide chat, on a separate tab.
+* <strong>Alliance names and descriptions are publicly visible and subject to our [https://www.worldsadrift.com/forum-rules/ code of conduct]. If you choose an inappropriate name you will be banned!</strong>
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* A large reworking of ship netcode has been performed. Ships should rubberband much less now, though this is a work in progress! Please let us know your experiences, and whether ships behave weirdly in some situations.
+* Persistent Blights that go on for hours (or days!) should no longer happen.
+* Mantas attached to your ship creating physics freakouts should be a lot less severe.
+* There has been lots and lots of UI rework implemented, including mouseover and scanning tooltips displaying more information!
+* In some situations, especially when grappled to the helm, players would get kicked off the helm without regaining control of their character. This (known popularly as the “helm bug”) has been fixed.
+* A duping exploit has been fixed.
+* Buffed actual wind strengths in stormwalls and sandstorms, as they had become too easy with the reduced ship rubberbanding.
+* Sails now take damage in stormwalls again.
+* Clothing icons now show the correct color of the item.
+* Glider controls are no longer hardcoded to WASD.
+* Multiple players using gliders in close proximity would glide incorrectly; this has been fixed. Fixed other bugs with the glider seemingly not working.
+* Docking an unregistered ship to a shipyard will clear ownership of the shipyard now. This helps prevent newer players, who may not have registered to their newly built ship yet, from losing all access to it by docking to a shipyard.
+* Fixed characters being able to unlearn the Capulca Mk II Founders’ engine schematic.
+* Death bags should always be interactive now.
+* Motion blur, adaptive field-of-view, and screen shake can now be turned off in the Settings menu.
+* Fixed Vsync not working properly.
+* Typing shipyard code now appears as asterisks on screen.
+* Timed explosives and lifters can now again be placed on moving ships and other moving objects.
+* Fixed an exploit allowing players to send extremely long chat messages. Now messages are limited to 280 characters.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* Adjustments made to the login and splash screen UI.
+* An issue with the mouse cursor disappearing when the Delete confirmation popped up has been fixed.
+* Fixed stairs collider.
+* Fixed ceiling of Saborian revival chamber mesh.
+* Shipyard dome now fades in rather than expands out.
+* Optimisation performed on the bloom, blur, and other effects.
+* Overheat VFX now show for cannons and swivel guns.
+* Explosion VFX have received small tweaks – random rotation, debris particles, etc.
+* Lots of additional SFX implemented, including ship movement/turning, UI actions, understorms, etc.
+* Minor tweaks to cloud graphics transitions performed.
+* It can now rain outside of stormwalls.
+* Grappling hooks no longer make the reeling-out SFX when the rope is not actually lengthening.
+<br>
+'''KNOWN ISSUES AND WORKAROUNDS'''
+* All types of chat (local, crew, alliance) will sometimes fail to send for a period of time.
+* In areas and periods where the chat is broken, the crew beacon and certain alliance functions will also be broken.
+* Various other UI issues with alliances and crews.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/the-alliance-update-patch-notes-update-26/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

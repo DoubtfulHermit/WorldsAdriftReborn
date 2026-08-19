@@ -1,0 +1,62 @@
+{{stub}}
+{{incomplete}}
+{{NeedsUpdate|page}}
+==Info==
+The helm is how you control your ship, if damaged you will not be able to control your ship. All of the helms behave in the same way and there is no performance boost with using one over the other, apart from the weight of the component. You can have more than one helm on a ship, as a backup, but only one will be able to be controlled at once.
+=== Controls ===
+* Pitch/Roll: Mouse
+* Yaw: {{key|A}} and {{key|D}}
+* Throttle: {{key|W}} and {{key|S}}
+* Altitude: {{key|SPACE}}/{{key|SHIFT}} and {{key|CTRL}}
+==Helm==
+{{SchematicBox
+|time = 10
+|name = Helm
+|picture = HelmMetal.png
+|extra = "Helm component for attaching to ships: this is needed to pilot a ship."
+|craftIn = assembly
+|name1 = Casing
+|value1 = woodmetal
+|amount1 = 80
+|name2 = Flight Stick
+|value2 = metal
+|amount2 = 20
+|name3 = Mechanical Internals
+|value3 = metal
+|amount3 = 40
+|bar1 = 25 Resilience
+}}
+{{CraftingPage
+|name = Helm
+|picture = Helm.jpg
+}}
+{{clear}}
+
+==Helm of the Claw==
+{{anchor|founder's helm}}{{SchematicBox
+|time = 10
+|name = Helm of the Claw
+|picture = HelmFounder01.png
+|extra = "Helm your vessel as the first peoples of the new world did. Take hope from the survivors at Capulca, and steer the old into the new."
+|craftIn = assembly
+|name1 = Casing
+|value1 = metal
+|amount1 = 80
+|name2 = Flight Stick
+|value2 = metal
+|amount2 = 20
+|name3 = Mechanical Internals
+|value3 = metal
+|amount3 = 40
+|bar1 = 25 Resilience
+}}
+{{CraftingPage
+|name = Helm of the Claw
+|picture = Helm of the Claw.jpg}}
+{{clear}}
+
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Helms]]

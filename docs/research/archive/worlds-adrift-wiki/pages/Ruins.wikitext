@@ -1,0 +1,14 @@
+{{stub}}
+'''Ruins''' can be found on most [[islands]], as remnants of the old civilizations. They can be very varied, although they are all built from simplistic slabs or pillars, often with rusty metal supports. Some are adorned with designs in a blue metal. The ruins are clearly very old, all the rock is crumbling, the iron supports and copper decorations have rusted, turning red and blue.
+
+Some intact ruins can be found, typically they are well hidden, such as tombs or monuments within caves. These may also contain lights made from glowing Atlas Stones, which continue to glow to this day. Some of the most well-preserved ruins are engraved stones, each displaying a different set of markings, which may be useful to adventurers or historians.
+
+You can also collect [[Codex|codices]] to read about ancient civilization.
+
+== Development ==
+Unlike most games, which use procedural generation to create landscapes,<ref>https://www.worldsadrift.com/blog/procedural-generation/</ref> each island and their ruins are hand-made by a member of the community. Island creators also place the locations for loot, chests, and knowledge caches, so it is wise to explore any ruins you see as they typically hold some of these features.
+
+<references/> 
+
+{{WA Navbox}}
+[[Category: Lore]]

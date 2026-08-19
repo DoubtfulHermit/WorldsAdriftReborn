@@ -1,0 +1,17 @@
+Release Date: February 6th 2019
+==Update 29.5 Patch Notes==
+<br>
+'''NEW FEATURES AND CONTENT'''
+* OMG shopping! Steam shop is now available for purchasing exclusive clothing items and ship decor. So fetch. (This is just the beginning - [https://www.worldsadrift.com/blog/omg-open-shop/ read more about it here])
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Fixed one issue with the Blight so it should be occurring less
+* Fixed a bug where players were not able to collect knowledge from databanks.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/worlds-adrift-update-29-5-hotfix-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Open Beta Patch]]

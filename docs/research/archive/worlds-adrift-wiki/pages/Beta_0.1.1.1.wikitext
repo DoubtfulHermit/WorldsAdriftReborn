@@ -1,0 +1,51 @@
+Release date: June 20th, 2017
+
+==Beta 0.1.1.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Scanning an island will now show the Steam name of its creator!
+* A limit on schematics learned, and the ability to unlearn schematics, have been implemented. In future updates, your character will be able to raise her limit through gameplay.
+* The Settings menu has made its debut with its first setting: an option to invert the mouse. Our statistician estimates this will raise our Steam rating by four hundred percentage points.
+* The shipyard’s information panel now lists all parts attached to a docked ship, along with their weights.
+<br>
+'''NOTABLE BUGFIXES'''
+* The client has received more optimizations to reduce the freezing that happens when approaching new islands. In addition, the steady worsening of the freezes has been fixed. This is an ongoing area of improvement.
+* Additional optimizations put in place to increase general framerate.
+* Fixed some instances of characters being unable to log in due to broken character data. There may still be other instances where this happens – please let us know if you encounter one!
+* Docking a ship you don’t own to a shipyard you don’t own should no longer result in the player being unable to release the helm.
+* Impassable storms, as well as the max height of the world, should no longer throw your ship back (or down) as violently.
+* Flight instruments (fuel gauge, altimeter, etc.) are again placeable on all ship surfaces and ship part surfaces – including, yes, bar pipes.
+* Other players should no longer see your pistol or scanner floating in a seemingly random position.
+* Various bugs with tutorial messages and on-screen prompts have been fixed.
+* An exploit allowing multiple Atlas cores to be attached to the same ship has been fixed. If your ship currently has multiple Atlas cores attached, well, RIP in pieces 2017.
+* Duping materials via exploiting cannons’ ammo boxes has been fixed.
+* The “understorm” should no longer appear completely featureless from the inside.
+* Fixed some connection issues.
+* What was erroneously named US-West during 0.1.0 was actually US-East! This means you will now correctly find your existing US character on US-East.
+<br>
+'''NOTABLE BALANCE CHANGES AND TWEAKS'''
+* It is now no longer necessary to remove deck pieces before salvaging a ship frame via the shipyard; the decks will be salvaged – just as they’re crafted – along with the frame.
+* The difficulty of passing through stormwalls should feel a lot less random now.
+* Numerous text tweaks. For example, “Reclaim” on the shipyard menu has been renamed “Salvage frame” to reduce confusion; the names of different categories of schematics have been reworded as well; etc.
+* Impassable storms are now a bit more visually distinct.
+* The player health bar color has been changed to be more easily readable.
+* Choosing to respawn at a random reviver now always offers an explanatory warning and requires confirmation.
+<br>
+'''KNOWN ISSUES & WORKAROUNDS'''
+* When flying from one island to another, characters standing on ships may be unstable, even occasionally getting thrown off. It may be best to quickly grapple to the ship if you experience these stutters.
+* Ships will, in rare occasions, teleport to the edge of the world and be destroyed by the impassable storms. Investigation continues into the cause.
+* Sometimes players’ registration to their shipyard enters a broken state, and they are unable to pick up parts with their Shipbuilding tool. Restarting the client will fix this. Registering with a different shipyard and re-registering with the original will also fix this.
+* Climbing on very bent ship panels, or in spaces the character normally can’t enter, will do serious damage or kill the character: Avoid these for now, as climbing is still unstable.
+* Logging in on a ship that has moved will result in logging in midair.
+* The visuals for sandstorms and stormwalls sometimes swapped when inside them.
+* WiFi may incur problems: Best played on an Ethernet connection for now.
+<br>
+==References==
+# https://www.worldsadrift.com/blog/worlds-adrift-0-1-1-1-closed-beta-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Beta Patch]]

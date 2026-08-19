@@ -1,0 +1,12 @@
+{{SpoilerWarning|The following page contains spoilers for the lore of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content"> 
+<blockquote>Diploma of Apotheon</blockquote><blockquote>On behalf of The Committee, I hereby offer our sincerest congratulations!</blockquote><blockquote>Name: ....................................................</blockquote><blockquote>Citizen No. (as printed in the BoE)......................</blockquote><blockquote>You have successfully scaled the ............ Apotheon.</blockquote><blockquote>Do not rest on your godliness, seize every precious moment, and make a difference to the lives of others.</blockquote><blockquote>Freedom. Equality. We are God.</blockquote>
+</div>
+</div>
+
+<br>
+{{NavbarCodex}}
+[[Category:Codex]] [[Category:Complete Codex Entries]]

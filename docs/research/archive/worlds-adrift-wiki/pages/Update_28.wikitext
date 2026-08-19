@@ -1,0 +1,50 @@
+Release date: October 25, 2018
+[[File:Update28 1.png|center|800px]]
+==Update 28 Patch Notes==
+<br>
+Spooky seasonal items available in game for a limited time only… Find the schematics, and it’s yours for keeps! Available from Loot Ruins, Loot Containers and Loot Chests.
+<br>
+'''OPTIMISATIONS'''
+* Ships should no longer regularly teleport. They should also no longer experience regular rubberbanding. They will have much lower latency overall, so should feel more responsive and be closer to their position on the server. * * Upon transitioning to a different physics server, however, there will still be some discontinuity. This is being worked on.
+* Added a Very High option for Shadow Quality, and a new setting for Shadow Distance. Shadow Distance in particular should have a large effect on framerate as it has a large impact on the number of draw calls.
+* VFX optimisations. They should lower in quality at distance much better now.
+* Ship frames are more performant on the server and client now.
+* Metal scrap and wind trails optimisations.
+* SFX optimisations.
+* Optimisations to ship crafting effects.
+<br>
+'''FIXES AND CHANGES'''
+* The PVP combat-logout rules (in place on Driss-PVP and in the Badlands on Kubo-PVE) have been fixed. Non-owners can again prevent a ship from logging out by interacting with it or standing on it.
+* Logging out while on the torch tutorial no longer completely corrupts your character data. Other issues with the torch tutorial fixed. Whew.
+* Any update to the player inventory would re-equip all items worn by the player, which turned active gear off. This has now been fixed.
+* A full inventory now prevents the player from picking up an object, rather than allowing the action and then deleting the item due to lack of space. This has the biggest impact on Marauder compasses.
+* Marauder compasses, explosives (theoretically), and future ship-attachable objects will now log out with the ship.
+* Players can now drag items outside the inventory to delete again, and also click outside the chat to close.
+* Unlearning a schematic now properly updates your UI without needing to relog.
+* The “Unlearn” button no longer appears in the assembly station interface.
+* Island turrets should now fully repair after understorms, rather than be repaired to 1 HP.
+* Fixed rotation limit on Heavy Kioki turrets.
+* Updated damage values for turrets hitting ships.
+* Updated Marauder chest loot tables. Mostly affects clothing rarities.
+* Fixed Marauder schematics to allow for correct dyeing.
+* Fixed multiple situations where the crew beacon would fail.
+* Fixed a bug that allowed the player’s crew or alliance membership to not be updated correctly.
+* Fixed the possibility of crew and alliance notifications (e.g. invites, membership changes) being lost due to network effects.
+* Fixed the player not being damaged by her own bomb when mounted on a ship part in PvE.
+* Haven islands should no longer spawn fuel canisters.
+* Minor text and color changes to all tutorial steps in Haven.
+* Fixed issue where the shipyard wasn’t showing any schematics on very first play.
+* Fixed masks items’ icons.
+* Fixed certain clothing items being invisible.
+* Creating a new character no longer allows players to skip the server availability check.
+* The default ship schematics have been updated to be smaller and less frustrating.
+* Physical knockback on ships from cannonfire reduced.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/the-pumpkin-patch-update-28-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Open Beta Patch]]

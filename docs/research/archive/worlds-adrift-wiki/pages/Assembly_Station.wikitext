@@ -1,0 +1,36 @@
+{{AddPicture|Add a picture of the Assembly Station's UI}}
+{{SchematicBox
+| name = Assembly Station
+| time = 10
+| picture = Assembly Station.png
+| extra = "Use to construct ship parts and equipment.<br>Ancient technology too complex to understand. Can construct advanced objects with raw materials once a schematic is plugged in."
+| craftIn = tool
+| name1 = Casing
+| value1 = metal
+| amount1 = 50
+| name2 = Mechanical Internals
+| value2 = metal
+| amount2 = 20
+| name3 = Assembly Device
+| value3 = metal
+| amount3 = 30
+}}
+==Description==
+The Assembly Station is the staple of building your ship. When placed, you can interact to build any [[Ship Components|ship component]] you have learned. The part will then materialise above the assembly station and fall to the ground. You can manipulate the object with the [[Gauntlet#Shipbuilding Tool|Shipbuilding Tool]] (Default {{Key|3}}), and place it on your ship.
+
+== Crafting ==
+You can craft an Assembly Station, along with a [[Shipyard]], by first researching [[Shipbuilding]] in the [[Knowledge]] tree (250 knowledge).
+
+{{CraftingPage
+|name = Assembly Station
+|picture = Assembly station.jpg
+}}
+
+== Interaction ==
+Interacting with {{key|E}} brings up the [[Schematics|schematic]] list, and the loaded schematic. Once, loaded the schematic will stay in the assembler until another schematic is selected. This allows players to 
+
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Shipbuilding]]

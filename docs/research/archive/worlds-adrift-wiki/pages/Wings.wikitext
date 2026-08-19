@@ -1,0 +1,89 @@
+{{NeedsUpdate|page}}
+{{tocleft}}
+==Description==
+[[File:Ship wing.png|right|200px]]
+Wings are [[Ship Components|components]] that can be placed on a [[Ships|ship]] while it is docked at a [[Shipyard]]. They cannot be held in your inventory and must be picked up using your gauntlet when within the bubble of a shipyard that you have access to. They can be found as [[schematics]] located within chests or containers scattered around the [[islands]] or they can be learned by spending [[knowledge]] points.
+
+Unlike on a real aircraft, wings don't provide any lift in Worlds Adrift - this is exclusively done by the ship's [[Atlas Core|Atlas Core]]. They are only used to increase the ship's ability to turn. They are '''not''' necessary to turn [[Ships|ships]] though, since the [[Atlas Core|Atlas Core]] inherently has the ability to turn.  However, wings do increase the turning ability of ships.
+{{clear}}
+== Wing Placement ==
+
+Proper wing placement is crucial. Really important is to keep the wings placement symmetrical. Unsymmetrically placed wings can lead to unwanted pulling to one side.
+
+When placing a wing, you want to place it in a way so that the ailerons (the little flappy bits, that are the moving parts) are facing towards the back of the ship.
+
+There are three ways you can place your wings - horizontally, vertically or at an angle somewhere in between. Each of these three placement methods has different effects.
+
+=== <u>Regular wing (horizontally)</u> ===
+
+:With a horizontally placed wing you can roll the ship left and right or pitch up- or downwards.
+
+=== <u>Rudder (vertically)</u> ===
+
+:A rudder helps to yaw the ship faster (basically rotate left or right; pretty much like the [[Atlas Core]] does). Having at least one of these makes maneuvering a lot easier.
+
+=== <u>Hybrid (angled)</u> ===
+
+:If you don't want to build a dedicated rudder but still want the benefits of having a rudder, then you might want to angle your wings.
+
+:If a wing is placed at a perfect 45 degree angle, then it is 70% as effective a rudder as a vertical wing, and 70% as effective as a horizontal wing. This way, the wing does some of both, but not as well as the purely vertical/horizontal wings. 
+
+:As the placement angle changes though, so does the effectiveness-ratio. For example, the more horizontal the wing, the lower the effectiveness the wing has as a rudder.
+
+== Wing Statistics ==
+
+=== <u>Weight</u> ===
+
+:The weight of the wing in Kilograms. This is a total of the weight of all the materials used to craft the wing.
+
+=== <u>Resilience</u> ===
+
+:The hit points (HP or health) of the wing provided by the wing's [[Casing|casing]]. <sub>(also see: [[Resilience]])</sub>
+
+:''Notable materials: Aluminum, Titanium, Steel, Iron.''
+
+=== <u>Power</u> ===
+
+:'''Power''' in wings is a different thing than '''power''' in [[Engines|engines]]!<br />
+:In wings, '''power''' is referred to as the maximum angle, the wings are able to pivot your ship. (i.e. a power of 100 can turn your ship much quicker than a power of 1.)
+
+=== <u>Pivot Speed</u> ===
+
+:This refers to how fast the wing reacts to your steering inputs. With a low value, the wing will take a moment before starting to pivot your ship. (i.e. with a power of 1 when you turn your ship it will take a few seconds to start turning, with a power of 100 it starts turning instantly.)
+
+== Example Wing Schematics ==
+IMPORTANT NOTE: It has been pointed out that wing schematics are procedural, which means values can change. Thus the below schematics are now simply examples. 
+=== Common ===
+
+<gallery>
+File:Strapped Fin 10J.png|'''Strapped Fin 10J'''<br> Resilience: 15 <br> Power: 9/100 <br> Pivot Speed: 18/100
+File:Barndoor.png|'''Barndoor Board 20D'''<br> Resilience: 17 <br> Power: 11/100 <br> Pivot Speed: 15/100
+File:Hatchflap.png|'''Hatchflap Board 30D'''<br> Resilience: 14 <br> Power: 9/100 <br> Pivot Speed: 21/100
+</gallery>
+
+=== Uncommon ===
+<gallery>
+streamlined drifter 15h.png|'''Streamlined Drifter 15H'''<br> Resilience: 25 <br> Power: 26/100 <br> Pivot Speed: 7/100
+streamlined drifter 10l.png|'''Streamlined Drifter 10L'''<br> Resilience: 18 <br> Power: 29/100 <br> Pivot Speed: 11/100
+rotator fin 40e.png|'''Rotator Fin 40E''' <br> Resilience: 10 <br> Power: 19/100 <br> Pivot Speed: 28/100
+rotator fin 40 c.png|'''Rotator Fin 40C''' Resilience: 12 <br> Power: 19/100 <br> Pivot Speed: 26/100
+</gallery>
+=== Rare ===
+<gallery>
+dynamo traveller 500h.png|'''Dynamo Traveller 500H'''<br> Resilience: 23 <br> Power: 19/100 <br> Pivot Speed: 37/100
+condor traveller 350C.png|'''Condor Traveller 350C'''<br> Resilience: 43 <br> Power: 15/100 <br> Pivot Speed: 20/100
+dynamo traveller 500h.png|'''Comet Navigator 200G'''<br> Resilience: 17 <br> Power: 45/100 <br> Pivot Speed: 18/100
+</gallery>
+
+=== Exotic ===
+<gallery>
+Roc Aviator 299A.png| '''Roc Aviator 299A''' <br> Resilience: 62 <br> Power: 33 <br> Pivot Speed: 12
+Aether Navigator 225E.png| '''Aether Navigator 225E''' <br> Resilience: 38 <br> Power: 51 <br> Pivot Speed: 16
+</gallery>
+
+
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Procedural Schematics]]

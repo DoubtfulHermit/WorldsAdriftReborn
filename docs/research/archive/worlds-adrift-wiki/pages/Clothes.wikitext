@@ -1,0 +1,743 @@
+{{Incomplete}}
+{{For|Crafting clothes|Loom}}
+{{tocleft}}
+==Description==
+Clothes are cosmetic items that allows the player to customize their appearance. Currently, they do not grant any special effects besides the possible use for camouflage.
+{{clear}}
+== Stash Clothing ==
+These clothing item's are found in a player's [[Stash|stash]] tab, and are all exclusives.
+{{ClothingTable|title=Stash Head
+|items=
+{{ClothingItem|name=Antlers of Kif|ref=christmas2017|reflink=Must've owned a [[Founder's Pack]] during Christmas in 2017.
+|image=head_christmas_male.png
+|desc=During the coldest weeks of Kir, The Tarrery people would celebrate and wear brightly coloured oufits adorned with the spoils of their hunts.
+|found=Founders
+|rarity=N/A
+}}
+{{ClothingItem|name=Barguan Skull Mask|ref=halloween2017|reflink=Must've owned a [[Founder's Pack]] during Halloween in 2017.
+|image=head_skullmask_male.png
+|desc=A mask with a skull painted on to it. Part of a ceremonial costume that was once worn by the Bargu.
+|found=Founders
+|rarity=N/A
+}}
+{{ClothingItem|name=Clawscarf of Capulca|ref=founder|reflink=Must've bought the [[Founder's Pack#Explorer|Explorer]] or [[Founder's Pack#Captain|Captain]] [[Founder's Pack]].
+|image=head_hoodVariantA_male.png
+|desc=These headscarves were knitted by the survivors who gathered at Capulca, the last city of the old world, before it gradually crumbled away. They are marked with the claw symbol of the god Kusiman, giver of hope.
+|found=Founders
+|rarity=N/A
+}}
+{{ClothingItem|name=Developer's Cap|ref=dev|reflink=https://www.bossastudios.com/jobs/
+|image=head_devhat_male.png
+|desc=Smells like coffee and tears.
+|found=Unobtainable
+|rarity=N/A
+}}
+{{ClothingItem|name=Drissian Cowl|ref=pioneer|reflink=Pioneer Pack required
+|image=head_pioneer_male.png
+|desc=Worn by the rebels of Driss who valiantly fought back against their Saborian oppressors.
+|found=Pioneers
+|rarity=N/A
+}}
+{{ClothingItem|name=Horns of the Olk|ref=halloween2018|reflink=Must've gotten the schematic during Halloween 2018
+|image=head_goatmask_male.png
+|desc=The mask has a strange energy about it.
+|found=Schematic in-game (no longer available)
+|rarity=N/A
+}}
+{{ClothingItem|name=Mask of the Bargu|ref=steamstore|reflink=Bought in the [https://store.steampowered.com/itemstore/322780/ WA Steam Store]
+|image=head_bargu_mask_male.png
+|desc=These masks were said to be imbued with the spirits of great Barguan warriors.
+|found=Steam Store
+|rarity=N/A
+}}
+{{ClothingItem|name=Mask of the Intucki|ref=steamstore
+|image=head_intucki_mask_male.png
+|desc=The Intucki crafted these masks with love.
+|found=Steam Store
+|rarity=N/A
+}}
+{{ClothingItem|name=Mask of the Tamoe|ref=steamstore
+|image=head_tamoe_mask_male.png
+|desc=A mask of the Tamoe. You sense great anger in its form.
+|found=Steam Store
+|rarity=N/A
+}}
+{{ClothingItem|name=Mask of the Yharma|ref=steamstore
+|image=head_yharma_mask_male.png
+|desc=Traditionally made from driftwood, the Yharma both feared and respected the sea.
+|found=Steam Store
+|rarity=N/A
+}}
+{{ClothingItem|name=Natiq Mask|ref=christmas2018|reflink=Must've been found during Christmas 2018
+|image=head_christmas_2018_male.png
+|desc=The only thing that Tarrery children fear more than Natiq is The Kahi.
+|found=[[Kahi Ceremony Gift]]
+|rarity=N/A
+}}
+}}
+
+{{ClothingTable|title=Stash Torso
+|items=
+{{ClothingItem|name=Barguan Skeleton Paint|ref=halloween2017
+|image=torso_tribal_skeleton_male.png
+|image2=torso_tribal_skeleton_female.png
+|desc=A glowing skeletal design painted straight onto the skin.
+|found=Founder Pack
+|rarity=N/A
+}}
+{{ClothingItem|name=Developer's Jacket|ref=dev
+|image=torso_devjacket_male.png
+|image2=torso_devjacket_female.png
+|desc=A 4th wall breaking jacket.
+|found=Unobtainable
+|rarity=N/A
+}}
+{{ClothingItem|name=Kahi Ceremony Parka|ref=christmas2018
+|image=torso_christmas_2018_male.png
+|desc=During the long nights of Kif, a chosen member of Tarrery communities would wear this ceremonial garb to ward off The Kahi, a spirit said to kidnap children who are not grateful.
+|found=[[Kahi Ceremony Gift]]
+|rarity=N/A
+}}
+{{ClothingItem|name=Tamoe War Belt|ref=steamstore
+|image=torso_tribal_tamoe_male.png
+|image2=torso_tribal_tamoe_female.png
+|desc=This was once worn by the warriors of the Tamoe.
+|found=Steam Store
+|rarity=N/A
+}}
+{{ClothingItem|name=Vinicoti Holiday Beads|ref=summer2018|reflink=Must've bought or owned the game during the 2018 Steam Summer sale.
+|image=torso_summer_male.png
+|image2=torso_summer_female.png
+|desc=Popular Mellifluan beachwear for holidays on the coasts of the Vinicoti Islands.
+|found=Summer Sale
+|rarity=N/A
+}}
+}}
+
+{{ClothingTable|title=Stash Legs
+|items=
+{{ClothingItem|name=Barguan Skeleton Skirt|ref=halloween2017
+|image=Legs tribal skeleton male.png
+|image2=Legs tribal skeleton female.png
+|desc=A roughly made skirt and glowing body paint
+|found=Founders
+|rarity=N/A
+}}
+{{ClothingItem|name=Kahi Ceremony Leggings|ref=christmas2018
+|image=legs_christmas_2018_male.png
+|image2=legs_christmas_2018_female.png
+|desc=The coarse fur that lines these leggings are meant to imitate the fur of the Natiq, a creature so fearsome it was believed to be able to kill The Kahi itself.
+|found=[[Kahi Ceremony Gift]]
+|rarity=N/A
+}}
+{{ClothingItem|name=Tamoe Skirt|ref=steamstore
+|image=legs_tribal_tamoe_male.png
+|image2=legs_tribal_tamoe_female.png
+|desc=A roughly made skirt with angular leg paint.
+|found=Steam Store
+|rarity=N/A
+}}
+{{ClothingItem|name=Vinicoti Holiday Wrap|ref=summer2018
+|image=legs_summer_male.png
+|image2=legs_summer_female.png
+|desc=Popular Mellifluan beachwear for holidays on the coasts of the Vinicoti Islands.
+|found=Summer Sale
+|rarity=N/A
+}}
+}}
+
+== Starter/Universal Clothing ==
+These clothing items are found all over foundation, in any culture. Most are also part of the starter selection of clothes. (At the time of writing there are no Kioki Wilderness zones, so this may change in future)
+
+{{ClothingTable|title=Universal Head
+|items=
+{{ClothingItem|name=Neck Scarf
+|image=head_scarf male.png
+|desc=A simple cloth neck scarf.
+|found=Everwhere
+}}
+{{ClothingItem|name=Skyfarer's Bandana
+|image=head_bandana male.png
+|desc=A simple bandana. Often worn as a mark of courage.
+|found=Everywhere
+}}
+}}
+
+{{ClothingTable|title=Universal Torso
+|items=
+{{ClothingItem|name=Navigator's Tunic
+|image=torso_squireVariantA male.png
+|image2=torso_squireVariantA female.png
+|desc=A roughly woven tunic. It is designed to protect it's wearer against harsh winds.
+|found=Starter/Everwhere
+}}
+{{ClothingItem|name=Traveller's Poncho
+|image=torso_ponchoVariantB male.png
+|image2=torso_ponchoVariantB female.png
+|desc=A simple woven poncho.
+|found=Starter/Everywhere
+}}
+{{ClothingItem|name=Engineer's Apron
+|image=torso_engineer male.png
+|image2=torso_engineer female.png
+|desc=A roughly sewn leather apron. It provides some protection from machinery.
+|found=Starter/Everywhere
+}}
+{{ClothingItem|name=Explorer's Tunic
+|image=torso_wanderer_male.png
+|image2=torso_wanderer_female.png
+|desc=The simple garb of a well travelled explorer.
+|found=Starter/Everwhere
+}}
+}}
+
+{{ClothingTable|title=Universal Legs
+|items=
+{{ClothingItem|name=Adventurer's Boots
+|image=legs_boots male.png
+|image2=legs_boots female.png
+|desc=Made from sturdy leather, perfect for long journeys.
+|found=Starter/Everywhere
+}}
+{{ClothingItem|name=Skyfarer's Shorts
+|image=legs_shorts male.png
+|image2=legs_shorts female.png
+|desc=Simple shorts for mild conditions.
+|found=Starter/Everywhere
+}}
+{{ClothingItem|name=Wrapped Leggings
+|image=legs wrap male.png
+|image2=legs wrap female.png
+|desc=A longer trouser to keep out high winds. If offers some protection from the elements.
+|found=Starter/Everywhere
+}}
+{{ClothingItem|name=Strapped Boots
+|image=legs_belts male.png
+|image2=legs_belts female.png
+|desc=An old style of boots with added straps for pouches.
+|found=Everywhere
+}}
+}}
+
+== Bandini Clothing ==
+
+These clothes are only found in Saborian badlands/desert areas.<blockquote>A barren and desolate desert, the Kingdom of Bandinia was Sabor’s poor neighbour on the continent of Amum. The cities of Darat and Drissa were an assault on the senses. Their ancient labyrinthine alleys arriving at quaint markets to which tourists used to flock during the Golden Age. The King of Bandinia had a magnificent palace in the center, incongruous amid the squalor. The Bandinians were the creators of Foundation’s most popular sport, Lallara.</blockquote>
+
+{{ClothingTable|title=Bandini Head
+|items=
+{{ClothingItem|name=Bandinian Sandcowl
+|image=head_turban_male.png
+|desc=A sandcowl of some quality. The terrible sandstorms near Darat were always more bearable if wearing this.
+|found=Sabor Badlands
+}}
+{{ClothingItem|name=Bandit's Cowl
+|image=head_banditmask_male.png
+|desc=This cowl is like those worn in the city of Birikoi, Eastern Bandinia, where there were frequent sandstorms.
+|found=Sabor Badlands
+}}
+{{ClothingItem|name=Goner's Cowl
+|image=head_banditmaskpekoe_male.png
+|desc=Also known as dignity masks, these were worn by the sufferers of Atlas poisoning who worked the mines.
+|found=Sabor Badlands
+}}
+{{ClothingItem|name=Mask of Pale Fox
+|image=head_kitsunemask_male.png
+|desc=The mask of Pale Fox, liberator of the Bandini(Sabor).
+|found=Sabor Badlands
+}}
+{{ClothingItem|name=Lallara King Headgear
+|image=head_lallarahelm_male.png
+|desc=Made from padded and durable leather. Bears the mark of the "Lallara King" company. Essential for professional Lallara players.
+|found=Sabor Badlands
+}}
+}}
+
+{{ClothingTable|title=Bandini Torso
+|items=
+{{ClothingItem|name=Goner's Robe
+|image=torso_bandages_ninja_male.png
+|image2=torso_bandages_ninja_female.png
+|desc=Worn by sufferers of Atlas poisoning who worked in the mines.
+|found=Sabor Badlands
+}}
+{{ClothingItem|name=Tepes the Goner's Leathers
+|image=torso_bandages_scales_male.png
+|image2=torso_bandages_scales_female.png
+|desc=Worn by Tepes who sought refuge from his condition at the great hospital of Capulca.
+|found=Sabor Badlands
+}}
+}}
+
+{{ClothingTable|title=Bandini Legs
+|items=
+{{ClothingItem|name=Goner's Leg Wraps
+|image=legs_goner_male.png
+|image2=legs_goner_female.png
+|desc=Tightly bound strips of cloth with loose trousers.
+|found=Sabor Badlands
+}}
+}}
+
+== Kioki Unity Clothing ==
+{{Main|Kioki Unity}}
+These clothes can be found in Kioki sectors only.<blockquote>The nations of Ishgiru, Karem and Pin unified to become the “Kioki Unity”. Ishgiru was southernmost of the three, a prosperous and enterprising people, subjects of a line of Empresses who had ruled the vast city of Ten-Rui for millennia. North was Karem, its leafy foothills under the command of the Warlocks, an enigmatic band of spiritualists. For a long time Karem fought with the Pin to the north, until Ishgiru stepped in to unite them. The Pin lived in the Pintins, the steepest mountain range in Foundation. They led rustic lives, preferring festival and colour to politics.</blockquote>
+
+{{ClothingTable|title=Kioki Head
+|items=
+{{ClothingItem|name=Albodan Ranger's Helm
+|image=head_metal_male.png
+|desc=These helms were worn by the rangers of Albodan, a local militia group who were known for their forestry skills.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Artisan's Hat
+|image=head_artisan_male.png
+|desc=A simple craftman's hat. The design is from Ten-Rui
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Aviator's Cap
+|image=head_gogglecap_male.png
+|desc=The hat of a skilled aviator. It offers protection versus wind and rain.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Helm of the Hawk
+|image=head_hawkhelm_male.png
+|desc=Worn by Astor of Karem's legendary band of soldiers, the Karem Hawks.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Helm of the Owl Guard
+|image=head_owl_male.png
+|desc=A helm worn by the Empresses personal soldiers, the Owl Guard.
+|found=Kioki Unity Badlands
+}}
+{{ClothingItem|name=Horns of the Elders
+|image=head_horned_male.png
+|desc=Made from yak horns, these horns were once worn by the Pinnish tribal elders.
+|found=Kioki Unity Badlands
+}}
+{{ClothingItem|name=Merchant's Hat
+|image=head_merchant_male.png
+|desc=The hat of a wealthy Ishgiruan merchant.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Messenger's Cap
+|image=head_ishgiruan_pilot_male.png
+|desc=A simple leather cap. They were popular amongst the messenger guilds of Ten-Rui
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Navigator's Cap
+|image=head_navigator_male.png
+|desc=A sturdy leather cap of Karem design, it offers some protection from the elements.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Pipinturi Explorer's Cap
+|image=head_moebius_male.png
+|desc=These caps were worn by the fearless explorers of Pipinturi.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Tawny Flight Helmet
+|image=head_rogue_male.png
+|desc=hese helms were mass produced in the Ishgiruan city of Murgatary, and were popular amongst mercenary companies during the Stone Wars.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Lark's Pilot Cap
+|image=head_pilotcap_male.png
+|desc=A simple leather cap that was once worn by the pilots of Ishgiru
+|found=Kioki Unity
+}}
+}}
+
+{{ClothingTable|title=Kioki Torso
+|items=
+{{ClothingItem|name=Albodan Forest Leathers
+|image=torso_scales_male.png
+|image2=torso_scales_female.png
+|desc=The choice of a forest-dweller facing a hard winter in the hills around Albodan
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Eagle-Eye Worker's Apron
+|image=torso_engineerVariantA_male.png
+|image2=torso_engineerVariantA_female.png
+|desc=A roughly-sewn leather apron. It bears the maker's mark of Eagle-Eye.
+|found=Kioki Unity Badlands
+}}
+{{ClothingItem|name=Flight Jacket
+|image=torso_ishgiruan_pilot_male.png
+|image2=torso_ishgiruan_pilot_female.png
+|desc=A tough but worn flight jacket. The design is Ishgiruan.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Flight Jacket (Lark's)
+|image=torso_combo_male.png
+|image2=torso_combo_female.png
+|desc=A small, hardy jacket with a rakish collar.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Flight Jacket (Pipinturi)
+|image=torso_ishgiruan_pilot_variantA_male.png
+|image2=torso_ishgiruan_pilot_variantA_female.png
+|desc=A tough, well worn jacket from the ishgiruan town of Pipinturi
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Flight Jacket (Sunseeker's)
+|image=torso_ishgiruan_pilot_variantB_male.png
+|image2=torso_ishgiruan_pilot_variantB_female.png
+|desc=These jackets were worn by the Sunseekers of Ishgiru, a mercenary company known for their daredevil piloting skills.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Herder's Poncho
+|image=torso_ponchoB_male.png
+|image2=torso_ponchoB_female.png
+|desc=A thick fabric poncho, provides some warmth and protection from the elements.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Herder's Poncho (Huacanadoan)
+|image=torso_ponchoBVariantA_male.png
+|image2=torso_ponchoBVariantA_female.png
+|desc=A thick fabric poncho, provides some warmth and protection from the elements. The pattern originates from Huacanado, high in the Pintin mountains.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Hunter's Jacket
+|image=torso_neckguard_male.png
+|image2=torso_neckguard_female.png
+|desc=A snug-fitting trapper's jacket, for encounters with critters.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Selenian Navigator's Tunic
+|image=torso_squire_male.png
+|image2=torso_squire_female.png
+|desc=A finely stitched navigator's tunic, it features patterns reminiscent of those once found in the Ishgiruan town of Selene
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Skyfarer's Garb
+|image=torso_pirate_male.png
+|image2=torso_pirate_female.png
+|desc=A loose fitting waistcoat and neckerchief.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Digardian Skyfarer's Garb
+|image=torso_pirateVariantA_male.png
+|image2=torso_pirateVariantA_female.png
+|desc=A loose fitting waistcoat and neckerchief. The waistcoat is decorated in a traditional Digardian pattern.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Sparrow Garb
+|image=torso_roman_male.png
+|image2=torso_roman_female.png
+|desc=A simple waistcoat and wrap that was common amongst the Ishgiruan skyfarers.
+|found=Kioki Unity
+}}
+{{ClothingItem|name=Verduban Mantle of Elegance
+|image=torso_cape_male.png
+|image2=torso_cape_female.png
+|desc=A raiment of fine material, bears the hallmark of an Ishgiruan merchant house
+|found=Kioki Unity
+}}
+}}
+
+{{ClothingTable|title=Kioki Legs
+|items=
+{{ClothingItem|name=Lark's Pantalons
+|image=legs_baggy male.png
+|image2=legs_baggy female.png
+|desc=Crisp pantalons of unremarkable design. The boots make one'slegs appear almost bird-like.
+|found=Kioki Unity
+}}
+}}
+
+== Saborian Clothing ==
+{{Main|Sabor}}
+These clothes can be found in Saborian sectors only.<blockquote>The Saborians grew up alongside the Redusa river delta on the continent of Amum, a land that while hot, was as rich and fertile as any. Four once-disparate city-states unified there under the shared tenets of freedom and equality. They believed in creating a utopia, self-sufficient and untainted by the rest of Foundation – an inclusive society, without crime or poverty. They dreamed of an afterlife known as Aetherium in which they would one day take their place as gods. Saborians spent most of their lives at a bathhouse called the cloistrum, where they exercised and socialized.</blockquote>
+
+{{ClothingTable|title=Saborian Head
+|items=
+{{ClothingItem|name=Bounty Hunter's Hat
+|image=head_hunterwide_male.png
+|desc=The hat of a free spirit and an explorer. It offers protection versus wind and rain.
+|found=Sabor
+}}
+{{ClothingItem|name=Feather Cap
+|image=head_featherhat_male.png
+|desc=The hat of a free spirit and an explorer. It offers protection versus wind and rain.
+|found=unknown
+}}
+{{ClothingItem|name=Godhand Facemask
+|image=head_godhand_male.png
+|desc=A mask that strikes fear into our hearts.
+|found=Sabor
+}}
+{{ClothingItem|name=Mellifluan Hoodcap
+|image=head_hoodcap_male.png
+|desc=A leather hoodcap.
+|found=unknown
+}}
+{{ClothingItem|name=Pekoe Mask
+|image=head_circlemask_male.png
+|desc=mask of the Pekoe projecting innocence and playfulness.
+|found=unknown
+}}
+{{ClothingItem|name=Scout's Cap
+|image=head_tank_male.png
+|desc=A makeshift scout's cap of Mellifluan design.
+|found=unknown
+}}
+{{ClothingItem|name=Cap of the Aetherial Games
+|image=head_skullcap_male.png
+|desc=These caps were worn by competitors at Sabor's Aetherial games to protect them from injury.
+|found=Sabor
+}}
+{{ClothingItem|name=Penitent's Hood
+|image=head_scarfhood_male.png
+|desc=A hood built to protect the wearer from harsh winds and sandstorms.
+|found=Sabor
+}}
+{{ClothingItem|name=Godhand Slavers Facemask
+|image=head_godhand_hood_male.png
+|desc=A cold steel mask and cowl. The slavers were feared even amongst the ranks of the Godhand.
+|found=Sabor
+}}
+{{ClothingItem|name=Saborian Sergeant's Helm
+|image=head_saborianmask_chevron_male.png
+|desc=A standard issue sergeant's helmet.
+|found=Sabor
+}}
+{{ClothingItem|name=Saborian Lieutenant's Helm
+|image=head_saborianmask_diamond_male.png
+|desc=A high ranking lieutenat's helmet. It has been polished to a sheen.
+|found=Sabor
+}}
+{{ClothingItem|name=Saborian Trooper's Helm
+|image=head_saborianmask_eyes_male.png
+|desc=A standard issue trooper's helmet. It bears the mark of Redusa on the inside.
+|found=Sabor
+}}
+{{ClothingItem|name=Saborian Gunner's Helm
+|image=head_saborianmask_sharp_scarf_male.png
+|desc=A heavy, plated mask. These helmets were worn by the legendary Saborian gunners.
+|found=Sabor
+}}
+{{ClothingItem|name=Saborian Guard's Helm
+|image=head_saborianmask_hoodscarf_male.png
+|desc=A helmet of one of the elite units of the Saborian military. The guardsman were rightfully feared all over Foundation.
+|found=Sabor
+}}
+{{ClothingItem|name=Traveller's Scarf
+|image=head_hood_male.png
+|desc=A simple cloth scarf.
+|found=unknown
+}}
+{{ClothingItem|name=Wanderer's Scarf
+|image=head_wrap_male.png
+|desc=A simple fabric scarf. It is useful if unremarkable.
+|found=unknown
+}}
+}}
+
+{{ClothingTable|title=Saborian Torso
+|items=
+{{ClothingItem|name=Kuboan Explorer's Tunic
+|image=torso_wandererVariantA_male.png
+|image2=torso_wandererVariantA_female.png
+|desc=The simple garb of a well-traveled explorer. It bears a Mellifluan symbol.
+|found=unknown
+}}
+{{ClothingItem|name=Chadoan Traveller's Poncho
+|image=torso_ponchoVariantA_male.png
+|image2=torso_ponchoVariantA_female.png
+|desc=A simple woven poncho. The pattern comes from the Mellifluan town Chado.
+|found=unknown
+}}
+{{ClothingItem|name=Godhand Jacket
+|image=torso_saborianuniform_godhand_male.png
+|image2=torso_saborianuniform_godhand_female.png
+|desc=A hard wearing jacket. It bears the stripe and badge of the Godhand.
+|found=unknown
+}}
+{{ClothingItem|name=Godhand Wraps
+|image=torso_bandages_male.png
+|image2=torso_bandages_female.png
+|desc=Lined with resistant gauze, these swaddling wraps have an imperious quality.
+|found=unknown
+}}
+{{ClothingItem|name=Kuboan Traveller's Poncho
+|image=torso_poncho_male.png
+|image2=torso_poncho_female.png
+|desc=A simple woven poncho. The pattern comes from the once great Mellifluan city of Kubo.
+|found=unknown
+}}
+{{ClothingItem|name=Robes of the Penitents
+|image=torso_comboB_male.png
+|image2=torso_comboB_female.png
+|desc=The Yellow Blood Cult of the Penitents once donned these robes. They bathed in the Yellow Blood river to wash clean their guilty consciences.
+|found=unknown
+}}
+{{ClothingItem|name=Saborian Lieutenant's Jacket
+|image=torso_saborianuniform_3pip_male.png
+|image2=torso_saborianuniform_3pip_female.png
+|desc=A hard wearing jacket. The three pips mark this as belonging to a lieutenant.
+|found=unknown
+}}
+{{ClothingItem|name=Saborian Sergeant's Jacket
+|image=torso_saborianuniform_2pip_male.png
+|image2=torso_saborianuniform_2pip_female.png
+|desc=A standard issue mass-produced jacket. The two pips mark this as belonging to a sergeant in the Saborian military.
+|found=unknown
+}}
+{{ClothingItem|name=Saborian Trooper's Jacket
+|image=torso_saborianuniform_1pip_male.png
+|image2=torso_saborianuniform_1pip_female.png
+|desc=These jackets were mass produced in Redusa. The number that have survived are testament to the reach that Sabor once had.
+|found=unknown
+}}
+{{ClothingItem|name=Wanderer's Robe
+|image=torso_wrap_male.png
+|image2=torso_wrap_female.png
+|desc=A garmet made from stiched lengths of cloth.
+|found=unknown
+}}
+}}
+
+<div style="width: 100%; line-height: 1; margin: 5px 0 5px 0;"><h3>Saborian Legs</h3><span class="mw-customtoggle-saborianlegs textunderline toggle">[Toggle view]</span></div>
+{| class="wikitable" style="width: 70%; margin: 5px 0 0 0; border-top: 0px none"
+! style="width: 15%;" | Name
+! style="width: 35%;" | Image
+! style="width: 33%;" | Lore
+! style="width: 17%;" | Found In
+|}
+<div class="mw-collapsible mw-collapsed clothing" id="mw-customcollapsible-saborianlegs">
+{| class="wikitable mw-collapsible-content" style="width: 70%; margin: 0 0 0 0;"
+| style="width: 15%;" | Saborian Military Boots
+| style="width: 35%;" | [[File:legs_saborianuniform_male.png|150px|center]]
+| style="width: 33%;" | Made from thick leather, these boots were built to last.
+| style="width: 17%;" | Sabor
+|-
+|Godhand Boots
+|[[File:legs_saborianuniform_stripe_male.png|150px|center]]
+|Made from thick leather, these boots were built to last.
+|Sabor
+|-
+|Penitent's Greaves
+|[[File:legs_shinpads_male.png|150px|center]]
+|Tough wooden greaves wrapped in strips of cloth
+|Sabor
+|-
+|Striped Skyfarer's Shorts
+|[[File:legs_shortsVariantA_male.png|150px|center]]
+|Dashing striped shorts for mild conditions.
+|<small>UNKNOWN</small>
+|}</div>
+
+==Marauder Clothing==
+{{Main|Marauders}}
+All of these clothing items and their schematics can only be found in Marauder Chests.
+{{ClothingTable|title=Marauder Head
+|items=
+{{ClothingItem|name=Busted Marauder's Helmet
+|image=head_reaver raiderB male.png
+|desc=Held together with bandages, this helmet provides protection from the wind and sand, and little else.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Clot's Cowl
+|image=head_reaver bandage male.png
+|desc=Clot's cowl. Perfect for absorbing spilled alcohol and concealing hangovers.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Maggot's Mask
+|image=head_reaver porcupineVariantB male.png
+|desc=Cold to the touch. Uncomfortable.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Marauder's Helmet
+|image=head_reaver raider male.png
+|desc=Made from salvaged scraps of metal and leather. The craftsmanship is basic.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Marauder's Scarf
+|image=head_reaverscarf male.png
+|desc=A soot stained scrap of cloth.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Robber's Helmet
+|image=head_reaver male.png
+|desc=A worn helm, wrapped in bandages. It has a sinister feel to it.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Shark Gang Mask
+|image=head_reaver shark male.png
+|desc=Worn by the shark gang.
+|found=Marauder Chests
+|rarity=Rare
+}}
+{{ClothingItem|name=Spiked Mask
+|image=head_reaver porcupine male.png
+|desc=Worn by Maggot's gang. Hard to put on without hurting yourself.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Violet's Hood
+|image=head_reaverscarf_VariantB_male.png
+|desc=The scarf has an intoxicating floral odour. Very soft and comfortable.
+|found=Marauder Chests
+}}
+}}
+
+{{ClothingTable|title=Marauder Torso
+|items=
+{{ClothingItem|name=Fearless Marauder Combat Vest
+|image=Torso reaver paddedvariantC male.png
+|image2=Torso reaver paddedvariantC female.png
+|desc=Is the X on the chest a target? This vest reeks confidence, whatever that smells like.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Fine Marauder Combat Vest
+|image=Torso reaver paddedvariantB male.png
+|image2=Torso reaver paddedvariantB female.png
+|desc=The materials are hardy but the stitching is better than expected. A little more comfortable than other, similar vests.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Marauder Combat Vest
+|image=Torso reaver paddedvariantA male.png
+|image2=Torso reaver paddedvariantA female.png
+|desc=A roughly stiched leather vest, built for combat.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Marauder's Jacket
+|image=Torso reaver jacket male.png
+|image2=Torso reaver jacket female.png
+|desc=A slick leather jacket. Makes the wearer look aloof and cool.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Violet's Jacket
+|image=Torso reaver jacket VariantB male.png
+|image2=Torso reaver jacket VariantB female.png
+|desc=This jacket is hardy, stylish, flexible and smells strongly of perfume. Just like Violet herself.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Weathered Marauder Combat Vest
+|image=Torso reaver bandage male.png
+|image2=Torso reaver bandage female.png
+|desc=A roughly stiched leather vest built for combat. It has been badly repaired with bandages.
+|found=Marauder Chests
+}}
+}}
+
+{{ClothingTable|title=Marauder Legs
+|items=
+{{ClothingItem|name=Marauder's Combat Trousers
+|image=Legs reaver paddedVariantB male.png
+|image2=Legs reaver paddedVariantB female.png
+|desc=Rudimentary construction, good padding, great flexibility.
+|found=Marauder Chests
+}}
+{{ClothingItem|name=Marauder's Trousers
+|image=Legs reaver paddedVariantA male.png
+|image2=Legs reaver paddedVariantA female.png
+|desc=Rudimentary construction, good padding, great flexibility.
+|found=Marauder Chests
+}}
+}}
+
+==Extra info==
+<references />
+
+{{WA Navbox}}
+
+[[Category: Gameplay]]

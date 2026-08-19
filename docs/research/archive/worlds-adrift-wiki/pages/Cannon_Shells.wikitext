@@ -1,0 +1,26 @@
+{{stub}}
+{{SchematicBox
+|name = Cannon Shell
+|time = 3
+|picture = cannon_ball_Shell.png
+|extra = "Cannon shells for ship cannons. Can be placed inside the ammo boxes of cannons."
+|craftIn = tool
+|name1 = Shell
+|value1 = metal
+|amount1 = 20
+}}
+
+==Descrtiption==
+Used in [[Cannons|cannons]].
+====Trivia====
+Before grappling lines received a debuff where they would break when under immense stress, players used to be able to grapple to a cannon shell as it came out of the barrel and travel crazy distances.
+
+{{CraftingPage
+|name = Cannon Shell
+|picture = Cannon_Shell.jpg
+}}
+
+{{Inventory Navbox}}
+{{WA Navbox}}
+
+[[Category: Weapons]]

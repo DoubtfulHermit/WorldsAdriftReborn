@@ -1,0 +1,31 @@
+{{stub}}
+
+{{SchematicBox
+|name=Horn
+|picture=Horn.png 
+|caption=This one is made of bronze.
+| extra="A loud horn."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 12
+|name1 = Casing
+|value1 = metal
+|amount1 = 40
+|name2 = Horn
+|value2 = metal
+|amount2 = 20
+|time = 10
+}}
+
+==Description==
+Makes a loud and low horn noise.
+
+{{CraftingPage
+|name = Horn
+|picture = Horn.jpg
+}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Decoration]]

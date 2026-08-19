@@ -1,0 +1,21 @@
+The '''System Requirements''' for [[Worlds Adrift]].
+
+==Minimum Requirements==
+:OS: Windows 7/8/10 (64-bit versions)
+:Processor: Intel i5-2400, AMD FX-8320
+:Memory: 8 GB RAM
+:Graphics: GTX 460 SE, AMD R7 250
+:DirectX: Version 11
+:Network: Broadband Internet connection
+:Storage: 20 GB available space
+
+==Recommended Requirements==
+:OS: Windows 7/8/10 (64-bit versions)
+:Processor: Intel i7-2600K, AMD FX-8350
+:Memory: 16 GB RAM
+:Graphics: GTX 960, AMD R9 280
+:DirectX: Version 11
+:Network: Broadband Internet connection
+:Storage: 20 GB available space
+
+[[Category:Guides]]

@@ -1,0 +1,15 @@
+Release date: May 3rd, 2018
+
+==Beta 0.1.12.3 Patch Notes==
+
+<br>
+'''BUG FIXES'''
+* Fixed a bug where newly created characters could not interact with objects/menus
+
+==References==
+# https://www.worldsadrift.com/forums/topic/0-1-12-new-characters-cannot-interact/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

@@ -1,0 +1,13 @@
+{{SpoilerWarning|The following page contains spoilers for the lore and story of Worlds Adrift}}
+
+== Section 1 __NOEDITSECTION__ ==
+<div class="mw-collapsible mw-collapsed" id="mw-customcollapsible-section1">
+<div class="mw-collapsible-content"> 
+<blockquote>Reports of the collaps of the Bandinian Capital, Darat</blockquote><blockquote>Transcribed annoucement from the city of Momoros, c. 3025.</blockquote><blockquote>"Contrary to the lies spread by the usual Verduban groups, and the rats themselves, we have information direct from the black heart of their country, which still beats stolidly. The evil monarch of Bandinia, King Orthosa, writes to us thus - 'in spite of your meddling, no harm has yet befallen my citizens. I believe these stories come from patriots who wish to stir up ill-feeling toard Sabor'. We are grateful to King Orthosa, at least, for his honesty, and hop that while our relationship is strained, it is possible for us to keep the rats running the wheel without running them into the ground."</blockquote>
+</div>
+</div>
+
+<br/>
+{{NavbarCodex}}
+
+[[Category:Codex]] [[Category:Complete Codex Entries]]

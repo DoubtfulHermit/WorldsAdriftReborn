@@ -1,0 +1,18 @@
+{{#ev:youtube|XJ4Sxqj4h08|450|right}}
+Use the Island Creator tool to design your unique [[Islands|island]] for a chance to see it in the final version of [[Worlds Adrift]]. Once you’re happy with your creation, switch across to play mode and explore your island from a player’s perspective, all within the tool. Browse the Steam Workshop to discover [[islands]] that have already been submitted by the community, ready for you to test and rate. Design your [[Islands|Island]] and help create the Worlds Adrift universe! 
+
+<small> → Check out the Worlds Adrift Island Creator on [http://store.steampowered.com/app/271920 Steam here]. </small>
+
+From the initial concept of [[Worlds Adrift]], the plan was never to rely entirely on procedural generation for all of our content. The thought was that a genuinely mappable (albeit massive) world, partially created by real people, would be much more compelling to explore. The only way of which this could happen was to use procedural generation mainly, and follow up by running over as many islands as possible with a level designer's eye, changing the odd thing or placing the odd ruin in the appropriate place. 
+
+Coming across an [[Islands|island]] in the world such as the ring world concept by designer Luke would be a much more stand out moment and definitely not something that could be created with procedural content only.  As the developer was tasked with the procedural generation part of the islands, they started building a tool to generate and visualize the islands. The more developed this tool became, the more obvious it became that it could be a genuinely fun experience for players in itself. Terraforming lands, building stories through environmental design, and swinging around them became something worth talking about. So the decision was made to make it available to the public. 
+
+<small>→ On the right you can see a video tutorial that goes through the features of the tool and shows creating a simple island step by step.</small>
+
+An Island implemented sharing area was made available on the Workshop, and even with a relatively small pre-alpha group of testers the developers were really impressed by the quality of the fans' work. Not only does it push the inspiration further, but the ones that are most well liked will become a permanent feature in [[Worlds Adrift]]. 
+
+Looking ahead, there will be an update to the Island Creator when the new set of assets are finalized - don't worry, when you update the app on Steam, the new goodies will automatically be downloaded. Of course, there are many improvements and enhancements to be made. There are more ideas to expand the workshop so players can make individual prefabs by combining the assets already available in a specific layout and allowing those to be downloaded and placed by others as if they were single objects. Look out for this functionality in a future update!
+
+
+{{WA Navbox}}
+[[Category: Worlds Adrift]]

@@ -1,0 +1,12 @@
+{{stub}}
+Right now in [[Worlds Adrift]] the grappling hook doesn’t level up or gain upgrades. This could always change, but right now it takes quite a bit of practice to get competent with it, and even longer to genuinely get good at it. So in some sense you do increase your skill by using it, but that leveling up happens in your brain and hands, not your computer!
+
+The rope just like any other object within the game is also persistent in such a way that it can be wrapped about a tree.
+
+== Tips and tricks ==
+Just like a pendulum if a player needed to speed up during the swing the rope must be shortened and for slowing down the rope would need to be lengthened. Pressing the ragdoll key (Default {{Key|G}} right after boosting performs a "popcorn jump" that launches the player significantly farther.
+ 
+When a player grappled onto a cannon shell right after another person fired it, it launched the player very far forward depending on the power of the cannon. This was used to reach islands quicker to find a suitable landing spot, or long distance ship boarding for combat. However, this has been patched, and now when the player tries to grapple onto the cannon shell, the rope will simply break.
+
+{{WA Navbox}}
+[[Category: Gameplay]]

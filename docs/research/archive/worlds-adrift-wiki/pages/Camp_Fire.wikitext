@@ -1,0 +1,28 @@
+{{incomplete}}
+{{For|cooking on your ship|Stove}}
+{{SchematicBox
+|name = Camp Fire
+|time = 3
+|picture = Camp Fire.png
+|extra = "Allows you to cook recipe schematics and helps light up the darkest caves."
+|craftIn = tool
+|name1 = Wood
+|value1 = wood
+|amount1 = 30
+|name2 = Fuel
+|value2 = fuel
+|amount2 = 30
+}}
+
+==Description==
+'''Camp Fires''' (or [[Stove]]s) are required to cook all cooking recipes. Campfires can be placed on island terrain, but not most props.
+[[File:Campfirelit.jpg|thumb|A campfire]]
+{{CraftingPage
+|name = Camp Fire
+}}
+== Recipe Book ==
+<insert all recipes>
+
+
+{{Inventory Navbox}}
+[[Category: Cooking]]

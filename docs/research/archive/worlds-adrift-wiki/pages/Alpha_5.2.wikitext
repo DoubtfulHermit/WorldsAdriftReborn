@@ -1,0 +1,21 @@
+Release date: January 19th, 2017
+
+==Alpha 5.2 Patch Notes==
+'''NOTE: 5.2 was primarily a stress-test/re-run of 5.1 with more players, so only a small amount of bugs were fixed.'''
+
+<br>
+'''NOTABLE BUGFIXES'''
+* Ships will now correctly re-enter the world upon any of its crew logging in. No more losing your ships forever when logging out! Please let us know if there are any situations where this does not happen properly.
+* Some resources would spawn with a super high quality level. This has now been fixed.
+* Some situations resulting in creature depopulation have been fixed.
+
+==References==
+# https://docs.google.com/document/d/1_KHWKOdJqCnckHryns2Tc9LHqzB66w1G6VIRbQT9m5M/pub
+# https://drive.google.com/file/d/0B2m-20IvaIDIN0htYlNBWkJhblE/view
+# http://i.imgur.com/huXb2We.png (Confirming Release Date)
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Closed Alpha Patch]]

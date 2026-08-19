@@ -1,0 +1,25 @@
+<div class="fpbox" id="fpwiki" style="text-align: left;"><!-- BEGIN Wiki box-->
+{{header|The Worlds Adrift Wiki}}
+<div style="padding-top: 4px; padding-left: 1em;">
+
+<div class="nomobile">
+<div>To write a new article, just enter the article title in the box below or in the search box at the top of the page.</div>
+<inputbox>
+type=create
+break=no
+</inputbox>
+----
+<div style="text-align: left;">
+* '''Registering'''
+** Feel free to [[Special:UserLogin/signup|Register]] and join our user base by clicking '''[[Special:UserLogin|here]]'''.
+
+* '''Not sure where to start?'''
+** Find out more about the wiki on the '''[[:gphelp:|Official Help Wiki]]''' or by visiting the '''[[Project:Community portal|Community portal]]'''.
+
+* '''Adding content'''
+** If you are unsure of what to do or how to create a page, search for a few articles on the same topic and see what they look like. You can always view the source code in a wiki and learn from what others have done.
+** An edit doesn't have to be massive; if you feel you don't want to create whole articles, then just fixing spelling errors and broken links is enough.
+</div>
+</div></div>
+</div><!--END Wiki box-->
+<noinclude>[[Category:Front page sections]]</noinclude>

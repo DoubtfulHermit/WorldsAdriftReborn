@@ -1,0 +1,23 @@
+{{SchematicBox
+|name = Claw of Kusiman
+|time = 5
+|picture = PlaqueFounders01.png
+|extra = "When Foundation fell, the claw became the symbol of hope for the refugees who huddled around the fires at Capulca."
+|craftIn = assembly
+|bar1name = Resilience
+|bar1value = 15
+|name1 = Plaque
+|value1 = metal
+|amount1 = 50
+}}
+==Description==
+When Foundation fell, the final survivors at Capulca made this symbol represent hope. It is displayed on this plaque, the [[Helms#Helm of the Claw|Kusiman Helm]], and the [[Sail#Kusiman's Sail|Kusiman Sail]].<br><br>
+This plaque in exclusively available to all tiers of the [[Founder's Pack]]. 
+{{CraftingPage
+|name = Claw of Kusiman
+}}
+
+{{Assembly Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Decoration]]

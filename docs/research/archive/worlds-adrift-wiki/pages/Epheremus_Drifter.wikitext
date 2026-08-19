@@ -1,0 +1,31 @@
+{{SchematicBox
+|name = Epheremus Drifter
+|time = 15
+|picture = Inertia pack.png
+|extra = "Epheremus Drifters were used to briefly subvert the rules of motion to travel short distances under Atlas power."
+|craftIn = tool
+|name1 = Casing
+|value1 = metal
+|amount1 = 60
+|name2 = Mechanical Internals
+|value2 = metal
+|amount2 = 40
+|name3 = Atlas Shards
+|value3 = atlas
+|amount3 = 5
+|name4 = Bioelectrical
+|value4 = neural
+|amount4 = 1
+}}
+==Description==
+The '''Epheremus Drifter''' is a gear item that goes in the torso slot. This is the same slot that the [[Glider]] and [[Immobilator]] use so a player cannot have more than one of those gear items equipped. The drifter is an "inertia pack". When activated (default {{Key|space}}), character's velocity (speed and direction) at that moment is preserved. The character continues with that velocity for a short time, until the drifter charge runs out, or the pack is deactivated with {{Key|space}}. Once used, the drifter must remain unused for a '''very''' short time allowing it to charge up again. Like other gear items, it has a durability and will break after being used for a while.
+[[File:Epheremus Drifter.gif|500px]]
+{{CraftingPage
+|name = Epheremus Drifter
+}}
+{{clear}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

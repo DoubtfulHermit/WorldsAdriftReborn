@@ -1,0 +1,42 @@
+Release date: September 21, 2018
+
+==PTS Update 27 Build 898 Patch Notes==
+
+<br>
+'''PTS NOTES'''
+* The world has been wiped since the previous build, 844. Characters have NOT been wiped. However, as all ships are gone, if your character was standing on her ship, she will probably log in falling.
+<br>
+
+'''FIXES AND CHANGES'''
+* Databanks now give 10x their normal Knowledge in Expanse, Remnants, and Badlands (on the PTS server only).
+* Reviving onto a moving ship should no longer result in the ship moving out from under you by the time you gain control of your character.
+* Adjusted text and specific steps in the Haven tutorial sequence.
+* Fixed teleport at the end of Haven to always work.
+* Fix deactivated revival chamber barrier to always let you through if you’ve learned the appropriate Knowledge tree node.
+* Map changes.
+* Gauntlet VFX now show properly.
+* Cannon shells and timed explosives now create less of a physical force upon explosion. Damage remains unchanged.
+* Terminal velocity when skydiving increased.
+* Post-Haven control prompts now showing properly.
+* Clouds are no longer blindingly white.
+* Fixed the inventory error after opening inventory screen at least once.
+* Fixed the player not taking damage from spikes, barbed wire, and thorns.
+<br>
+
+'''NOTABLE KNOWN ISSUES'''
+* Ship rubberbanding is still being tweaked and worked on.
+* Client performance is still being worked on.
+* When a player mounts a cannon or swivel gun, the ship will often begin to drift. This is eerily reminiscent of a similar bug known colloquially as “Mildred,” but it’s much more reproducible this time around, and we’re tackling it now.
+* Loot containers are not appearing. Loot chests and loot ruins are unaffected.
+* Marauder compass is sometimes invisible when placed.
+* Attempting to use the crew beacon when in the Badlands will start the cooldown for it and act as though it was used.
+* Characters may sometimes not take damage when using a drifter or immobilator when hit with cannons and swivel guns.
+<br>
+
+==References==
+# https://www.worldsadrift.com/forums/topic/pts-update-27-build-898-patch-notes/
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Public Test Server]]

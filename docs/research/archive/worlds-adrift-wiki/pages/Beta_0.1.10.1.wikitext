@@ -1,0 +1,42 @@
+Release date: April 3rd, 2018
+
+==Beta 0.1.10.1 Patch Notes==
+
+<br>
+'''NEW FEATURES'''
+* Climbing has been completely overhauled to work better with Unity 5.6. It should never kill you now, and it should be easier to traverse highly detailed or complex combinations of objects. The monkey-bar style climbing has been removed in favor of a more spiderlike climb on overhangs, though the character will simply stop when faced with a horizontal ceiling.
+* Various chat UI improvements have been implemented: the chat channel will be remembered (you won’t need to tediously type /crew every message now – to switch back to regular chat type /say), the fonts have been improved and sharpened, and the colors have been tweaked.
+* A comprehensive rebuild of the atmospherics rendering pipeline has been performed, which primarily improves graphical performance. We’re now past the easy wins, and this is largely how the clouds should perform.
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Fixed a bug that allowed resources to be refunded upon crafting.
+* Fixed additional inventory bugs.
+* When any part of your docked ship takes damage, you will receive a message. This does not function when your ship is undocked.
+* Fixed a bug where the preview for placing a ship part would show up as invalid (red) too aggressively. Now if it’s a valid attachment position, the preview should always be green.
+* Audio and music sliders now function properly. Whoops.
+* Fixed ships not docking while their helms are set to descend.
+* For a brief patch or two the glider would not be affected by stormwalls. This is now fixed.
+<br>
+'''OTHER FIXES AND TWEAKS'''
+* The intended colors for Rare and Exotic rarities have been reversed for months. This has been fixed.
+* The UI now more appropriately uses rarity names (Common, Uncommon, Rare, Exotic) in various places.
+* Changing the torso gear slot’s keybinding now works. You don’t have to open the glider with Spacebar anymore!
+* Atlas sky core upgrades in the Knowledge tree have had their placeholder icons replaced. They will also no longer appear until the character has learned Shipbuilding.
+* The moons no longer render behind the stars.
+* Lots of atmospherics bugs have been fixed.
+* Atmospherics values have been adjusted by the art team: wind rifts should be more transparent, haze should ramp up better, and night lighting has been adjusted.
+* Performed an optimisation on harvesting – the client should no longer have that little stutter now.
+* Various VFX implemented.
+* Too many timed explosives were spawning in lootables. This has been fixed.
+<br>
+'''BUG WARNINGS'''
+* Pressing Esc while writing a chat message sends the message.
+* When repairing an object, there is a noticeable stutter.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/patchnotes-01101/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Closed Beta Patch]]

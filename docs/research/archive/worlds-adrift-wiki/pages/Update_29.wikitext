@@ -1,0 +1,85 @@
+Release Data: December 11, 2018
+[[File:Update29 1.jpg|center|800px]]
+==Update 29 Patch Notes==
+<br>
+'''EXCITING NEWS!'''
+<br>
+Before you sink your ship and create a new character, fantastic news – we are working on an option to reset all ALL KNOWLEDGE DATABANKS in the near future to ease in the new overheat and cipher mechanics!
+<br>
+'''NEW FEATURES AND CONTENT'''
+* Proximity voice chat is now in the game! The volume will attenuate based on the distance between the speaker’s and listener’s characters. The /mute command will now also mute someone’s voice chat. Typing “/mute USERNAME voice” will only mute their voice channel, leaving their text chat visible.
+* Painting ship parts is now possible! Oh em gee! Customize the colour of your ship part by putting paint in the new cosmetic component slots connected to the “standard” crafting components. Dyeing clothing has now been reworked to use the same system, which will cut out the middle step of crafting dyed cloth.
+* Ciphers have been implemented. These are devices players can slot into their schematics to raise certain stats at the cost of other stats. They are acquired by salvaging unwanted procedural engine, wing, cannon, and swivel gun schematics, and apply to the same type of ship part they were salvaged from. Players acquire the ability to slot more ciphers into their schematics by progressing down the Knowledge tree and unlocking the cipher nodes.
+* Engine Overheat has been implemented, and cannon and swivel gun overheat has been reworked to use similar formulas to engines. A new Cooling Factor statistic will show just under the weight in the crafting UI.
+* To coincide with the re-implementation of overheat, all metal stats have been rebalanced.
+* To fill in some niches currently underserved by the existing materials, three new metals have been added to the world: epilar, orthite, and eternium.
+* When crafting a procedural ship part, slotting in materials will preview the final stats if crafted with those materials. This looks similar to the UI when scanning a fully crafted ship part. This should make it easier for the vast majority of players to make the best choices when building their ships!
+* New cosmetics for the Christmas holiday season are lootable for a limited time! Some of these are Stash items.
+* Stash items are now linked to your Steam Inventory! In the future, most Stash items will be listable on the Steam Community Market, for players to buy and sell from each other.
+* When travelling to another zone, zone transition text will now appear on screen, announcing the biome and its PVE/PVP status.
+* Crafting clothing has also been moved from gauntlet crafting to the loom, a new ship part. This should function just like stove crafting. This does mean that crafting clothing requires a bit more of an investment.
+* All Rare clothing items can now be crafted from schematics found in the world.
+* Many new cooking recipes and ingredients have been added.
+* Additional Marauder lore pieces have been added.
+* You can now, finally, split stacks of inventory items without needing a workaround!
+* We’ve now implemented additional tutorial steps after Haven, when newly arrived in the Wilderness. Most of these center around shipbuilding and getting off your first island. Some tweaks to the Haven tutorials have been included.
+* Worlds Adrift is now integrated with Discord’s Rich Presence feature. By default, you’ll display your server, crew/solo status, and alliance name on Discord now.
+<br>
+'''PERFORMANCE OPTIMISATIONS'''
+* Occlusion culling is now working in the game. This feature skips the rendering of some objects that are behind other objects.
+* Rendering distant islands now involves an optimisation to render an impostor – a 2D texture – instead of the full 3D island every frame. This impostor is updated if the angle changes too much, or every 5 seconds, whichever comes first. In the future we may make this threshold customisable in the Settings menu.
+* The terrain shader has been optimised.
+* Added server optimisations for ships with many engines and/or wings.
+* Added server optimisations for creature habitat upkeep.
+* Load balancing when loading an island now takes into account scrap deposits, databanks, and trees.
+* Performed various bandwidth optimisations.
+* Optimised ship docking searches. Ships may take up to 3 seconds to start docking now.
+* Optimised how often object position data is sent, to reduce server load and lower bandwidth usage. Please let us know if this creates a noticeable drop in smoothness!
+* Fixed a bug that prevented stacks of physical objects resting on each other from reducing their server cost.
+<br>
+'''NOTABLE BUGFIXES AND CHANGES'''
+* Learning additional schematic slots in the Knowledge tree will add slots to your Cooking and Clothing categories.
+* Resilience will now show properly when scanning a crafted object.
+* Procedural ship part schematics will now properly take their Resilience into account when generating names and models.
+* Fixed an exploit that allowed players to craft any food item with the material requirements of another.
+* When moving ship parts around a docked ship, the placement preview itself will no longer physically push your character.
+* Players can no longer place timed explosives or atlas lifters on ungrappleable surfaces.
+* Inventory items now show their rarity with a background colour.
+* Schematics of different rarities have distinct icons now.
+* Sails and other tall objects can no longer be placed clipping through the ceiling deck.
+* Fixed the weirdly shaped decks, and included a prospective fix for the flickering decks.
+* Cannon shells’ splash damage radius against players has been reduced.
+* Cannon shells’ splash damage now has the correct falloff range again.
+* The Random Revival Chamber option in the respawn menu will never pick one on the closest island.
+* Fixed a bug where alliance leaders editing their own Officer Notes section would cause an infinite loop.
+* Fixed an issue where all alliance members could edit Officer Notes.
+* More improvements to the reliability of the crew beacon.
+* The crew beacon cooldown will no longer be triggered when attempting to beacon into the Badlands.
+* Character damage from physical impacts has been reworked again. We’ve built a new system to calculate damage. This first iteration of the new system may be a bit rough – please let us know your thoughts on its fairness and believability!
+* The Rhegus greaves now have updated art, which includes a visual indicator for their remaining durability.
+* Metal wings should no longer have wooden ailerons.
+* Metal engines should no longer have wooden propellers.
+* Objects with long names will no longer truncate on the scanning UI. They will now wrap onto a second line.
+* Mounting a ship part no longer spins the camera rapidly; the camera will now snap instantly, reducing motion sickness issues.
+* Cannons no longer hitch every few degrees when the ship is rotating.
+* Fixed certain invisible clothing items.
+* Chests will only open their UI after their opening animation completes playing.
+* Thuntomites no longer sometimes have one huge eyeball and one small eyeball.
+* VFX improvements to Marauder compasses and chests.
+* The Capulca Mk.2 engine now produces exhaust VFX again.
+* Improved rain visuals inside storms and in general.
+* The visual transitions between sandstorms and stormwalls have been improved.
+* Improved cloud colouring and tweaked brightness and eye adaptation settings.
+* SFX improvements to the personal reviver.
+* Fixes to some icons.
+* Minor improvement to responsiveness of creatures to changes in their environment.
+<br>
+'''Disclaimer:''' Although some of the features were directly requested by the CCC, their implementations were studio driven. The Council was largely consulted with on their experiences on many of the QoL issues.
+<br>
+==References==
+# https://www.worldsadrift.com/patch-notes/will-of-the-council-update-29-patch-notes/
+
+<br>
+{{Patches Navbox}}
+{{WA Navbox|mw-collapsed}}
+[[Category:Open Beta Patch]]

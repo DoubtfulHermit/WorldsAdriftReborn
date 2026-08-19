@@ -1,0 +1,29 @@
+{{NeedsUpdate|page}}
+{{SchematicBox
+|name = Hip Lamp
+|time = 5
+|picture = hip lantern.png
+|extra = "Small lantern, which can be attached to a belt strap to light the way. Press Y to turn on and off."
+|craftIn = tool
+|name1 = Lantern
+|value1 = metal
+|amount1 = 40
+|name2 = Incandescent
+|value2 = fuel
+|amount2 = 40
+}}
+
+==Description==
+The '''Hip Lamp''' is an equip-able item that provides a light aura around the player. It is a hands-free device, unlike the [[Torch]], which allows the player to interact with other tools while keeping the light source. The light can be toggled with {{key|Y}}. The lantern will break after being used for a unknown length of time. It will '''not''' drop on death.
+
+{{CraftingPage
+|name = Hip Lamp
+|picture = Hip Lantern.jpg
+}}
+
+
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:Utility (Inventory)]]

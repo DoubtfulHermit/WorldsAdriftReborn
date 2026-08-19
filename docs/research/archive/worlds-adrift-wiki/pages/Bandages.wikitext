@@ -1,0 +1,44 @@
+{{stub}}
+Bandages are healing items that can be crafted in your inventory as opposed to edible items that heal you. 
+==Makeshift Bandages==
+{{SchematicBox
+|name = Makeshift Bandages
+|time = 5
+|picture = MakeshiftBandages.png
+|extra = "Basic bandages made from cloth. Can quickly recover a small amount of health."
+|craftIn = tool
+|name1 = Cloth
+|value1 = cloth
+|amount1 = 10
+|crafts = 5
+}}
+These are the basic bandages. Heals 8 hit points.
+{{CraftingPage
+|name = Makeshift Bandages
+}}
+{{clear}}
+==Nervure Bandages==
+{{SchematicBox
+|name = Nervure Bandages
+|time = 5
+|picture = NervureBandages.png
+|extra = "Bandages made with the conductive vessels of creatures. Electrical properties increase the healing effects."
+|craftIn = tool
+|name1 = Cloth
+|value1 = cloth
+|amount1 = 20
+|name2 = Conductive Vessels
+|value2 = vessels
+|amount2 = 10
+|crafts = 10
+}}
+Higher quality bandages. Heals 16 hit points.
+{{CraftingPage
+|name = Nervure Bandages
+}}
+{{clear}}
+
+{{Inventory Navbox}}
+{{WA Navbox|mw-collapsed}}
+
+[[Category:First Aid]]
