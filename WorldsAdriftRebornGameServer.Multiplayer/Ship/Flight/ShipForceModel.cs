@@ -277,8 +277,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             // nine newtons on an 800 kg hull really did get that hull moving, just
             // very slowly. A settling term that can veto thrust is a different and
             // wrong model.
+            // "Undriven" is a tolerance rather than an exact zero on purpose: a
+            // thrust of 1e-12 is numerical dust, but tested exactly it would count
+            // as driven, suppress settling, and leave the hull creeping below the
+            // at-rest threshold forever - which on the wire is a control-point
+            // stream per hull that never goes quiet. Real forces here are either
+            // zero or thousands of times this.
             double decel = DragDecelerationMps2(speedMps);
-            bool undriven = thrustAccelMps2 == 0.0;
+            bool undriven = Math.Abs(thrustAccelMps2) < 1e-9;
             if (undriven && Math.Abs(speedMps) < SettleThresholdMps)
             {
                 decel += LowSpeedSettleAccelMps2;
