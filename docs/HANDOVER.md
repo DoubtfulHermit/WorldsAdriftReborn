@@ -126,6 +126,29 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **Game server:** `5a69250`, deployed and restarted at 2026-08-19 10:59 CEST.
+  First game-server deploy of the day; the login server had moved four times
+  without it, which was safe because none of those carried a migration and this
+  one does not either.
+  Carries the tree-fall visibility fix: the felled log was being built and shown
+  to NOBODY because `FallingLogService` gated it on the send ledger, while every
+  release-world tree is streamed by `ResourceInterestService`, which keeps its
+  own `Loaded` set and never writes that ledger. Also: a cut now pays only for
+  the section under the beam, so the trunk breaks up piece by piece instead of
+  paying out the whole tree at once.
+  Deployed with **0 players connected** (the maintainer logged out at 10:30), so
+  nobody was dropped by the restart.
+  Post-deploy check PASSED - all four persistence lines report ON (inventory,
+  knowledge, logout-position, crew), listening on UDP 7779, `NRestarts=0`,
+  `libCoreSdkDll.so` still in place beside the executable.
+  Soak gate before merge: **FLAT** (drift -0.03 ms, trend -0.04 ms against a
+  20 ms threshold; 21,606 sends, 100% delivered, 0 gaps, 0 disconnects).
+  Rollback: `/opt/wareborn/backups/pre-treefall-20260819T085855Z/game`.
+  **Unverified until the maintainer cuts a tree in-world:** that the log renders
+  and topples, that the beam registers on the fallen trunk, and that pieces
+  split off where struck. The line to watch is `[tree-fall] ... shown to N
+  peer(s)` - **N must be >= 1**. It was 0 on five of the last six live cuts.
+
 - **Client manifest `2026.08.19-2`** published 2026-08-19 09:55 CEST, build
   label "fixes PLAY hanging forever after the Steam removal". 54 payloads, no
   forbidden files. **This unbreaks the patcher**: both `2026.08.18-6` and
