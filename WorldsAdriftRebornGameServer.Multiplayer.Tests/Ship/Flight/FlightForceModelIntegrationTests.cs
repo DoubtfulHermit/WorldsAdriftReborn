@@ -38,16 +38,21 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
 
         private static FlightState FlyFrom(
             FlightState start, FlightControlInput input, int steps,
-            ShipPropulsion? propulsion, int unfurledSails = 0)
+            ShipPropulsion? propulsion, int unfurledSails = 0, FlightTuning? tuning = null)
         {
             FlightState state = start;
             for (int i = 0; i < steps; i++)
             {
                 state = FlightIntegrator.Step(
-                    state, input, 0.24, Tuning, unfurledSails, 1.0, propulsion);
+                    state, input, 0.24, tuning ?? Tuning, unfurledSails, 1.0, propulsion);
             }
             return state;
         }
+
+        private static FlightState FlyWith(
+            FlightTuning Tuning, FlightControlInput input, int steps,
+            ShipPropulsion? propulsion, int unfurledSails = 0) =>
+            FlyFrom(Origin, input, steps, propulsion, unfurledSails, Tuning);
 
         private static FlightControlInput FullAhead =>
             new FlightControlInput(throttle: 1f, vertical: 0f, axisYaw: 0f, axisPitch: 0f, axisRoll: 0f);
@@ -241,6 +246,54 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             // WITH, and must sit still rather than sail backwards at drift speed.
             FlightState state = Fly(FullAstern, 900, new ShipPropulsion(800.0, 0.0, 0));
             Assert.Equal(0.0, state.SpeedCmdMps, 6);
+        }
+
+        [Fact]
+        public void Turning_the_wind_knob_up_actually_reaches_the_bare_hull()
+        {
+            // The wiring guard. WindSpeedMps can be threaded all the way to
+            // FlightTuning, unit-tested there, and still never be consulted inside
+            // Step - which is the "threaded but ignored" shape this repo has
+            // shipped before. Only an integration assertion catches it.
+            var breezy = new FlightTuning(windSpeedMps: 9.0);
+            var ship = new ShipPropulsion(800.0, 0.0, 0);
+
+            FlightState calm = Fly(FullAhead, 900, ship);
+            FlightState blowing = FlyWith(Tuning: breezy, FullAhead, 900, ship);
+
+            Assert.True(blowing.SpeedCmdMps > 2.0 * calm.SpeedCmdMps,
+                "the wind knob did not reach the bare hull: calm=" + calm.SpeedCmdMps
+                + " blowing=" + blowing.SpeedCmdMps);
+        }
+
+        [Fact]
+        public void Turning_the_wind_knob_up_actually_reaches_the_sails()
+        {
+            // The same guard for the other consumer. Sails and the baseline read
+            // the SAME wind in retail, so a knob that moved only one of them would
+            // be a physical inconsistency as well as a wiring bug.
+            const double windSpeed = 9.0;
+            const double heading = 2.82;
+            const double massKg = 800.0;
+            var breezy = new FlightTuning(windSpeedMps: windSpeed);
+            var ship = new ShipPropulsion(massKg, 0.0, 3);
+
+            FlightState blowing = FlyFrom(
+                HeadingOf(heading), FullAhead, 900, ship, unfurledSails: 3, tuning: breezy);
+
+            // Asserted against the closed form rather than against a ratio, because
+            // a ratio is satisfied by a PARTIALLY wired wind - scaling one axis and
+            // not the other changes both the magnitude and the DIRECTION, and still
+            // makes the ship faster. Only the exact expectation catches that.
+            double scale = windSpeed / ShipForceModel.DefaultWindSpeedMps;
+            double sailN = ShipForceModel.SailForwardNewtons(
+                3, heading, breezy.SailPowerNewtons,
+                ShipForceModel.DefaultWindX * scale,
+                ShipForceModel.DefaultWindZ * scale);
+            double expected = ShipForceModel.BaselineDriveSpeedMps(massKg, windSpeed)
+                + ShipForceModel.TerminalSpeedMps(sailN, massKg);
+
+            Assert.Equal(expected, blowing.SpeedCmdMps, 2);
         }
 
         [Fact]

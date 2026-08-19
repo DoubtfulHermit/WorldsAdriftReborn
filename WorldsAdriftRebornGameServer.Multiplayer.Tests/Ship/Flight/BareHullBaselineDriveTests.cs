@@ -229,5 +229,64 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Flight
             Assert.True(sailed > bare, "tier 2: canvas beats a bare hull");
             Assert.True(engined > sailed, "tier 3: an engine beats one sail");
         }
+
+        // ------------------------------------------------------------------
+        // The wind knob - the only lever on the bare-hull tier.
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void The_wind_speed_knob_defaults_to_the_clients_own_fallback()
+        {
+            // The default must be retail's (1, 0, -2), or turning the force model
+            // on would silently be a balance change as well as a physics change.
+            Assert.Equal(ShipForceModel.DefaultWindSpeedMps,
+                new FlightTuning().WindSpeedMps, 9);
+            Assert.Equal(Math.Sqrt(5.0), ShipForceModel.DefaultWindSpeedMps, 9);
+        }
+
+        [Fact]
+        public void A_windier_world_carries_a_bare_hull_faster()
+        {
+            double calm = ShipForceModel.BaselineDriveSpeedMps(595.0, 2.236);
+            double blowing = ShipForceModel.BaselineDriveSpeedMps(595.0, 8.0);
+
+            Assert.True(blowing > calm);
+            // Linear in the wind, so the ratio is the wind's ratio exactly - which
+            // is what makes this a predictable knob to turn rather than a dial to
+            // fiddle with.
+            Assert.Equal(8.0 / 2.236, blowing / calm, 6);
+        }
+
+        [Fact]
+        public void A_dead_calm_world_leaves_a_bare_hull_where_it_is()
+        {
+            // 0 must be a legal setting and must mean what it says: an operator who
+            // wants the strict "a bare hull does not move" reading can have it
+            // without a rebuild, and it must not divide by zero getting there.
+            Assert.Equal(0.0, ShipForceModel.BaselineDriveSpeedMps(595.0, 0.0), 9);
+            Assert.Equal(0.0, ShipForceModel.BaselineDriveSpeedMps(595.0, -3.0), 9);
+        }
+
+        [Fact]
+        public void The_wind_knob_reads_the_environment_and_survives_rubbish()
+        {
+            Assert.Equal(9.5, FlightTuning.FromEnvironment(
+                n => n == "WAREBORN_FLIGHT_WIND_SPEED" ? "9.5" : null).WindSpeedMps, 9);
+
+            // Unset, garbage and out-of-range must all leave the ship flying - the
+            // same contract every other knob in this file has.
+            foreach (string? bad in new string?[] { null, "", "  ", "not-a-number", "-4" })
+            {
+                double w = FlightTuning.FromEnvironment(
+                    n => n == "WAREBORN_FLIGHT_WIND_SPEED" ? bad : null).WindSpeedMps;
+                Assert.True(w >= 0.0 && double.IsFinite(w), "bad input '" + bad + "' gave " + w);
+            }
+
+            // Retail's own ceiling: GlobalWeather returns a ZERO field above
+            // 100 m/s rather than a stronger one, so nothing above it is meaningful.
+            Assert.Equal(100.0, FlightTuning.FromEnvironment(
+                n => n == "WAREBORN_FLIGHT_WIND_SPEED" ? "1e9" : null).WindSpeedMps, 9);
+        }
+
     }
 }

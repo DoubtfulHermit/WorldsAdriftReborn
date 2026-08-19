@@ -211,7 +211,22 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// fidelity item and belongs with weather, alongside the settle term.
         /// </summary>
         public static double BaselineDriveSpeedMps(double massKg) =>
-            DefaultWindSpeedMps * WindMultiplier(massKg);
+            BaselineDriveSpeedMps(massKg, DefaultWindSpeedMps);
+
+        /// <summary>
+        /// The same, for a world whose wind is not the client's fallback strength.
+        /// See <c>FlightTuning.WindSpeedMps</c> for why that is a knob worth having:
+        /// 2.236 m/s is what retail returned where NO weather cell existed, i.e. it
+        /// is the becalmed case rather than a typical one.
+        /// </summary>
+        public static double BaselineDriveSpeedMps(double massKg, double windSpeedMps)
+        {
+            if (!double.IsFinite(windSpeedMps) || windSpeedMps <= 0.0)
+            {
+                return 0.0;
+            }
+            return windSpeedMps * WindMultiplier(massKg);
+        }
 
         // ------------------------------------------------------------------
         // WAREBORN TUNING - ours, not Bossa's. These are the per-ship DATA values

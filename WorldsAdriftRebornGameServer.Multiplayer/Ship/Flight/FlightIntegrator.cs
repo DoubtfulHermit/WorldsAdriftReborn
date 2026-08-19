@@ -219,8 +219,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 // this is the whole point. Retail's sail force came from the WIND
                 // and the sail's trim, so an unfurled sail pushes a ship that is
                 // standing still with its lever centred.
+                // The world's wind, in retail's own direction but at this world's
+                // configured strength. Sails and the bare-hull baseline below read
+                // the SAME wind, because in retail they are the same wind.
+                double windScale = ShipForceModel.DefaultWindSpeedMps > 0.0
+                    ? tuning.WindSpeedMps / ShipForceModel.DefaultWindSpeedMps
+                    : 0.0;
                 double sailNewtons = ShipForceModel.SailForwardNewtons(
-                    unfurledSails, yaw, tuning.SailPowerNewtons);
+                    unfurledSails, yaw, tuning.SailPowerNewtons,
+                    ShipForceModel.DefaultWindX * windScale,
+                    ShipForceModel.DefaultWindZ * windScale);
 
                 double thrustAccel = (engineNewtons + sailNewtons) / ship.MassKg;
 
@@ -243,7 +251,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 double windAlongHeading = 0.0;
                 if (throttle > 0.0)
                 {
-                    windAlongHeading = ShipForceModel.BaselineDriveSpeedMps(ship.MassKg) * throttle;
+                    windAlongHeading = ShipForceModel.BaselineDriveSpeedMps(
+                        ship.MassKg, tuning.WindSpeedMps) * throttle;
                 }
 
                 speedCmd = ShipForceModel.StepSpeed(

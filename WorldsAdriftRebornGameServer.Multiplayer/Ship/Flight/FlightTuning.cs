@@ -172,6 +172,33 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
         /// </summary>
         public double SailPowerNewtons { get; }
 
+        /// <summary>
+        /// WAREBORN_FLIGHT_WIND_SPEED - how windy this world is, m/s. The default
+        /// is 2.236, retail's own <c>(1, 0, -2)</c> fallback magnitude.
+        ///
+        /// WHY THIS DESERVES A KNOB rather than staying the constant it was. That
+        /// 2.236 is what <c>GlobalWeather</c> returns for a position with NO weather
+        /// cell covering it - it is retail's BECALMED case, not a typical retail
+        /// wind, and we serve no weather cells at all, so every position in our
+        /// world gets it. Standing in for an entire absent weather system with the
+        /// value that system used to mean "there is no weather here" is a defensible
+        /// starting point and an odd permanent choice.
+        ///
+        /// It is also the ONLY lever on the bare-hull tier.
+        /// WAREBORN_FLIGHT_ENGINE_THRUST moves engines and
+        /// WAREBORN_FLIGHT_SAIL_POWER moves canvas, but a hull with neither is
+        /// driven purely by the wind, so without this a live "the bare hull is too
+        /// slow" verdict would need a rebuild. It moves sails and the baseline
+        /// TOGETHER, which is correct rather than convenient: both are the same wind
+        /// in retail's equations, and a world where the air moves faster should
+        /// carry a bare hull faster AND fill a sail harder.
+        ///
+        /// Speed scales LINEARLY in this for the baseline and as its SQUARE ROOT for
+        /// sails, so doubling it doubles a bare hull's drift but only multiplies a
+        /// sailed ship's speed by about 1.4.
+        /// </summary>
+        public double WindSpeedMps { get; }
+
         public double MaxSpeedMps { get; }
         public double AccelMps2 { get; }
         public double YawRateRadPerSec { get; }
@@ -225,7 +252,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
             bool invertRoll = false,
             double sailBonusPerUnfurled = DefaultSailBonusPerUnfurled,
             double engineThrustNewtons = ShipForceModel.DefaultEngineThrustNewtons,
-            double sailPowerNewtons = ShipForceModel.DefaultSailPowerNewtonsPerWind)
+            double sailPowerNewtons = ShipForceModel.DefaultSailPowerNewtonsPerWind,
+            double windSpeedMps = -1.0)
         {
             MaxSpeedMps = Clamp(maxSpeedMps, 1.0, ShipMotionPolicy.MaxSpeedMetresPerSecond, DefaultMaxSpeedMps);
             AccelMps2 = Clamp(accelMps2, 0.5, 30.0, DefaultAccelMps2);
@@ -256,6 +284,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 engineThrustNewtons, 0.0, 100_000.0, ShipForceModel.DefaultEngineThrustNewtons);
             SailPowerNewtons = Clamp(
                 sailPowerNewtons, 0.0, 10_000.0, ShipForceModel.DefaultSailPowerNewtonsPerWind);
+            // A negative sentinel means "unset": the default is a computed property
+            // rather than a const, so it cannot be a parameter default.
+            WindSpeedMps = windSpeedMps < 0.0
+                ? ShipForceModel.DefaultWindSpeedMps
+                : Clamp(windSpeedMps, 0.0, 100.0, ShipForceModel.DefaultWindSpeedMps);
         }
 
         /// <summary>
@@ -300,7 +333,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Flight
                 Parse(getenv("WAREBORN_FLIGHT_ENGINE_THRUST"),
                     ShipForceModel.DefaultEngineThrustNewtons),
                 Parse(getenv("WAREBORN_FLIGHT_SAIL_POWER"),
-                    ShipForceModel.DefaultSailPowerNewtonsPerWind));
+                    ShipForceModel.DefaultSailPowerNewtonsPerWind),
+                // The 100 m/s ceiling is retail's own: GlobalWeather returns a zero
+                // field above it rather than a stronger one.
+                Parse(getenv("WAREBORN_FLIGHT_WIND_SPEED"),
+                    ShipForceModel.DefaultWindSpeedMps));
         }
 
         private static double Parse(string? env, double fallback)
