@@ -212,6 +212,24 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship.Fuel
         }
 
         [Fact]
+        public void WithdrawUndoesADepositWithoutInventingADebt()
+        {
+            ShipFuelLedger ledger = Registered();
+            ledger.SetThrottle(Hull, 1.0);
+            ledger.Burn(50.0, 1.0);            // 250 -> 200
+            Assert.Equal(25, ledger.Deposit(Hull, 25));
+
+            Assert.Equal(25, ledger.Withdraw(Hull, 25));
+            Assert.Equal(200.0, ledger.Read(Hull).Level, 6);
+
+            // Never below empty, and never on a hull with no tank.
+            Assert.Equal(200, ledger.Withdraw(Hull, 9999));
+            Assert.Equal(0.0, ledger.Read(Hull).Level);
+            Assert.Equal(0, ledger.Withdraw(Hull, 10));
+            Assert.Equal(0, ledger.Withdraw(4242L, 10));
+        }
+
+        [Fact]
         public void UnregisterMakesAHullUnmeteredAgain()
         {
             ShipFuelLedger ledger = Registered();

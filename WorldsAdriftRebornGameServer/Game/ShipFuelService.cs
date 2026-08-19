@@ -217,7 +217,7 @@ namespace WorldsAdriftRebornGameServer.Game
             {
                 // The inventory refused after the tank accepted: put it back rather
                 // than creating fuel out of nothing.
-                RollBack(hullEntityId, moved);
+                _ledger.Withdraw(hullEntityId, moved);
                 Console.WriteLine("[warning] fuel: inventory drawdown of " + moved
                     + " failed for entity " + playerEntityId + "; tank rolled back.");
                 return 0;
@@ -469,13 +469,6 @@ namespace WorldsAdriftRebornGameServer.Game
             return true;
         }
 
-        /// <summary>Undo a deposit the inventory then refused. Never below empty.</summary>
-        private void RollBack(long hullEntityId, int units)
-        {
-            FuelReading reading = _ledger.Read(hullEntityId);
-            double target = Math.Max(0.0, reading.Level - units);
-            _ledger.Forget(hullEntityId);
-            _ledger.RegisterAt(hullEntityId, reading.Capacity, target);
-        }
+
     }
 }

@@ -227,6 +227,28 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship.Fuel
         }
 
         /// <summary>
+        /// Takes fuel back OUT of a tank - the inverse of <see cref="Deposit"/>, for
+        /// undoing a deposit whose payment then failed. Clamped at empty, and 0 for
+        /// an unmetered hull, so it can never invent a debt.
+        /// </summary>
+        public int Withdraw(long hullEntityId, int units)
+        {
+            Tank? tank = Active(hullEntityId);
+            if (tank == null || units <= 0)
+            {
+                return 0;
+            }
+
+            int taken = (int)System.Math.Min(units, System.Math.Floor(tank.Level));
+            if (taken <= 0)
+            {
+                return 0;
+            }
+            tank.Level = Clamp(tank.Level - taken, 0.0, tank.Capacity);
+            return taken;
+        }
+
+        /// <summary>
         /// Burns <paramref name="seconds"/> of flight on every hull under power and
         /// returns the hulls that ran DRY on this tick - the transition, exactly
         /// once, so the caller cuts the throttle there and nowhere else. A hull
