@@ -478,13 +478,24 @@ icons**. **Zero server implementation** — we filter 1112 `TurretControlInput`
 out of the mirror and read a `turrets` boolean in `ReleaseWorldCatalog.cs`,
 and that is the entire extent of it.
 
-**The correction:** a keyword sweep would file these as ship weapons. The
-component classifier says otherwise — they carry
-`IslandTurretProjectileShootingVisualizer`, and their components are 1371–1374
-`IslandTurret*`. **They are island defences, not ship guns.** That materially
-changes the work: turrets are a *world/PvE* feature attached to islands, and
-the ship-mounted weapons are the separate `ModularCannon` / `ModularSwivelGun`
-pair (§2.3).
+**Two corrections, both of which change the work:**
+
+1. A keyword sweep would file these as ship weapons. The component classifier
+   says otherwise — they carry `IslandTurretProjectileShootingVisualizer`, and
+   their components are 1371–1374 `IslandTurret*`. **They are island defences,
+   not ship guns.** Turrets are a *world/PvE* feature attached to islands; the
+   ship-mounted weapons are the separate `ModularCannon` / `ModularSwivelGun`
+   pair (§2.3.G).
+2. **Seven turrets are not seven implementations.** Client-side they are
+   **two code archetypes** — `ProjectileIslandTurretFSIMState` (1374) and
+   `RopeIslandTurretFSIMState` (1373) — separated by a single bool,
+   `IslandTurretPreprocessor._isProjectileTurret`. The seven icons are art and
+   config variants driven by `IslandTurretConfig`. So the cost is *two*
+   behaviours plus a config table, not seven.
+
+`IslandSurveyCatalog.HasTurrets` records *whether a turret was surveyed at a
+location* and spawns nothing — island metadata for a feature that does not
+exist.
 
 ### 3.5 Loot props — 44 shipped, 2 used
 
@@ -1186,13 +1197,15 @@ thing renders on machinery we already have.
 | 13 | **The crow's nest** | 2 prefabs, 2 icons, **zero mentions in this repo** | none | inert structural part. High visibility per unit of work |
 | 14 | **Ship wiring** | `WiringKit` + `ControlButton` + `ControlLever` + 1213–1216 — **a complete subsystem never once named here** | 4 | genuinely new. Ranked here because it is *invisible until you know it existed*, which is this document's whole point |
 | 15 | **Ship identity — figureheads, flags, plaques** | 19 prefabs + 19 icons | none | inert props. In a game about seeing other crews' ships, this is how a ship says who owns it |
-| 16 | **Wood and metal variants of every ship part** | 23 metal/wood icon pairs; `HullMaterials` already picks a dominant wood and metal | none | an icon-selection rule. Closes ~20 icon-gap rows for one function |
-| 17 | **Island turrets** | 7 turret prefabs + 3 projectiles + 7 icons + 1371–1374. **Island defences, not ship guns** | ~5 | the PvE threat layer. Depends on the shooting stack (#5) |
-| 18 | **First aid** | `2x1_makeshiftbandages`, `2x1_nervurebandages`, `schematic_icon_firstaid` | 4337 `HealthRegenerationState` | in a game about falling, healing is core, not comfort |
-| 19 | **Storm walls and lightning** | 1204, 1222–1229, 1202/1203, 5129 + 44 typed weather-wall segments already extracted | ~8 | the world has no soft boundary. Also what bar pipes were *for* — *"attract lightning in a Stormwall"* |
-| 20 | **Bombs** | `Bomb`/`BombEquip` + 1014/1015/1350 + `item_bomb` + `2x2_timed_explosive` | 3 | the most thoroughly evidenced single missing *item* in the client |
+| 16 | **Clothing acquisition** | 199 icons, 164 rows, **0** obtainable; 3 named tailoring nodes + the `Loom` + `schematic_icon_clothing` (§4.8) | none for cosmetics | the client's crafting enum has a `Clothing` category we do not implement. Appearance is the only thing you *are* to a stranger |
+| 17 | **Wood and metal variants of every ship part** | 23 metal/wood icon pairs; `HullMaterials` already picks a dominant wood and metal | none | an icon-selection rule. Closes ~20 icon-gap rows for one function |
+| 18 | **Island turrets** | 7 turret prefabs + 3 projectiles + 7 icons + 1371–1374. **Island defences, not ship guns**, and only **two** code archetypes behind the seven | ~5 | the PvE threat layer. Two behaviours + a config table, not seven. Gated on the shooting stack (#5) |
+| 19 | **First aid** | `2x1_makeshiftbandages`, `2x1_nervurebandages`, `schematic_icon_firstaid` | 4337 `HealthRegenerationState` | in a game about falling, healing is core, not comfort |
+| 20 | **Storm walls and lightning** | 1204, 1222–1229, 1202/1203, 5129 + 44 typed weather-wall segments already extracted | ~8 | the world has no soft boundary. Also what bar pipes were *for* — *"attract lightning in a Stormwall"* |
 
-**Just outside:** the 39 unused loot props (already on
+**Just outside:** bombs (`Bomb`/`BombEquip` + 1014/1015/1350 + `item_bomb` +
+`2x2_timed_explosive` — the best-evidenced single missing *item* in the
+client); the utility packs (§4.6); the 39 unused loot props (already on
 `feat/loot-containers`); photography (5 components, pure expression);
 musical instruments (1023); the 5 missing wood and 3 missing metal types
 (§6.2–6.3); `AllianceRadio01` (moot until #1); the pet (`pets/3x3_basher`,
