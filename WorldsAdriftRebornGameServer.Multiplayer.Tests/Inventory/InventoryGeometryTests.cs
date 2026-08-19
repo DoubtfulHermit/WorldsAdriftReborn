@@ -64,8 +64,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Inventory
         {
             GridRect[] occupied = { new GridRect(1, 0, 0, 3, 4) };
 
-            Assert.False(InventoryGeometry.Fits(1, 1, 2, 2, 10, 18, occupied));
-            Assert.True(InventoryGeometry.Fits(3, 0, 2, 2, 10, 18, occupied));
+            Assert.False(InventoryGeometry.Fits(1, 1, 2, 2, 10, 18, occupied, InventoryGeometry.NoBlockedRow));
+            Assert.True(InventoryGeometry.Fits(3, 0, 2, 2, 10, 18, occupied, InventoryGeometry.NoBlockedRow));
         }
 
         [Fact]
@@ -73,7 +73,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Inventory
         {
             GridRect[] occupied = { new GridRect(1, 0, 0, 3, 4) };
 
-            Assert.Equal((3, 0), InventoryGeometry.FirstFree(2, 2, 10, 18, occupied));
+            Assert.Equal((3, 0), InventoryGeometry.FirstFree(2, 2, 10, 18, occupied, InventoryGeometry.NoBlockedRow));
         }
 
         [Fact]
@@ -81,14 +81,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Inventory
         {
             GridRect[] occupied = { new GridRect(1, 0, 0, 10, 18) };
 
-            Assert.Null(InventoryGeometry.FirstFree(1, 1, 10, 18, occupied));
+            Assert.Null(InventoryGeometry.FirstFree(1, 1, 10, 18, occupied, InventoryGeometry.NoBlockedRow));
         }
 
         [Fact]
         public void FirstFree_places_a_zero_area_item_nowhere()
         {
             Assert.Equal((InventoryGeometry.Unplaced, InventoryGeometry.Unplaced),
-                InventoryGeometry.FirstFree(0, 0, 10, 18, Array.Empty<GridRect>()));
+                InventoryGeometry.FirstFree(0, 0, 10, 18, Array.Empty<GridRect>(), InventoryGeometry.NoBlockedRow));
         }
     }
 }

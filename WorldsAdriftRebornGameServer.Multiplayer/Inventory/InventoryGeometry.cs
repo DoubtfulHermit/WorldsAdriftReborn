@@ -24,6 +24,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
         /// </summary>
         public const int Unplaced = -1;
 
+        /// <summary>
+        /// Passed as <c>blockedRow</c> by a grid that has no belt - a chest, a
+        /// ship trunk - and so has no row reserved by the client.
+        /// </summary>
+        public const int NoBlockedRow = -1;
+
+        /// <summary>
+        /// Whether a rectangle of height <paramref name="h"/> starting at row
+        /// <paramref name="y"/> touches the belt separator row.
+        ///
+        /// THIS IS THE ROW THE CLIENT REFUSES TO DROP ON, and it is the whole
+        /// reason this concept exists on the server at all.
+        /// <c>InventorySpaceChecker</c> fills row <c>beltRow</c> with
+        /// <c>IsBlocker</c> cells at construction and <c>IsItemBlocked</c> - the
+        /// ONLY placement predicate the client has - rejects any drag whose
+        /// rectangle covers one of them.
+        ///
+        /// The server must refuse the same row, and not merely to agree about
+        /// one strip of cells. <c>InventorySpaceChecker.AddItem</c> writes the
+        /// item's own slot data over every cell it covers, blockers included, so
+        /// ONE server-placed item straddling this row deletes the blockers under
+        /// it and that stretch of the divider stops blocking - for that session,
+        /// for those columns only. The player then finds a gap they can drop into
+        /// in the middle of the divider, and a neighbouring column that still
+        /// refuses. Both halves of that look like a rendering fault rather than a
+        /// coordinate one.
+        /// </summary>
+        public static bool CrossesBlockedRow(int y, int h, int blockedRow)
+        {
+            if (blockedRow < 0 || h <= 0)
+            {
+                // A zero-area item covers no cells, so it cannot land on the
+                // divider however its coordinates read.
+                return false;
+            }
+
+            return y <= blockedRow && blockedRow < y + h;
+        }
+
         /// <summary>Whether a w x h rectangle at (x,y) lies wholly inside a width x height grid.</summary>
         public static bool InBounds(int x, int y, int w, int h, int width, int height)
         {
@@ -52,13 +91,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
         }
 
         /// <summary>
-        /// Whether a w x h rectangle at (x,y) fits: inside the grid, and clear of
-        /// every rectangle in <paramref name="occupied"/>.
+        /// Whether a w x h rectangle at (x,y) fits: inside the grid, clear of the
+        /// belt separator row, and clear of every rectangle in
+        /// <paramref name="occupied"/>.
+        ///
+        /// <paramref name="blockedRow"/> has no default on purpose. Every caller
+        /// has a grid in its hand and must say which row that grid reserves;
+        /// a defaulted parameter is exactly how the belt got forgotten the first
+        /// time. Pass <see cref="NoBlockedRow"/> for a grid with no belt.
         /// </summary>
         public static bool Fits(
             int x, int y, int w, int h,
             int width, int height,
-            IReadOnlyList<GridRect> occupied)
+            IReadOnlyList<GridRect> occupied,
+            int blockedRow)
         {
             if (!InBounds(x, y, w, h, width, height))
             {
@@ -68,6 +114,11 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             if (w <= 0 || h <= 0)
             {
                 return true;
+            }
+
+            if (CrossesBlockedRow(y, h, blockedRow))
+            {
+                return false;
             }
 
             for (int i = 0; i < occupied.Count; i++)
@@ -94,7 +145,8 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
         public static (int X, int Y)? FirstFree(
             int w, int h,
             int width, int height,
-            IReadOnlyList<GridRect> occupied)
+            IReadOnlyList<GridRect> occupied,
+            int blockedRow)
         {
             if (w <= 0 || h <= 0)
             {
@@ -105,7 +157,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             {
                 for (int x = 0; x + w <= width; x++)
                 {
-                    if (Fits(x, y, w, h, width, height, occupied))
+                    if (Fits(x, y, w, h, width, height, occupied, blockedRow))
                     {
                         return (x, y);
                     }

@@ -25,11 +25,53 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
             Width = width;
             Height = height;
             HasBelt = hasBelt;
-            BeltRow = beltRow;
+
+            // The separator row is NOT a free parameter, however much the wire
+            // field looks like one. Retail's belt was the bottom three rows of
+            // the same grid, with the divider immediately above them - "the
+            // lower three (four if you count the spacer) grid rows were
+            // converted into the new belt area" - and the client turns beltRow
+            // into a full-width blocker row at exactly that INDEX, counted down
+            // from the top. Any other value blocks a row in the middle of the
+            // backpack and leaves the belt unmarked.
+            //
+            // A caller's belief is overridden rather than trusted because there
+            // is no visible tell when it is wrong: the client reads beltRow once
+            // at checkout and never complains, so a stale 3 restored from a
+            // database row would quietly outlive every fix. Corrected here, at
+            // the one constructor every path goes through - DefaultGrid,
+            // InventorySnapshot.Read, Copy, BindContainer - it cannot be
+            // bypassed. beltRow is still honoured for a beltless grid, where the
+            // client ignores it entirely.
+            BeltRow = hasBelt ? SeparatorRowFor(height) : beltRow;
         }
 
-        /// <summary>The stock player grid: 10 wide, 18 tall, belt on row 3.</summary>
-        public static InventoryModel DefaultGrid() => new InventoryModel(10, 18, true, 3);
+        /// <summary>
+        /// How many rows at the BOTTOM of the grid are the belt. Community
+        /// record and the client agree: the belt was carved out of the existing
+        /// inventory, three rows plus a one-row spacer above them, all in the
+        /// one container.
+        /// </summary>
+        public const int BeltRows = 3;
+
+        /// <summary>
+        /// The index of the divider row for a grid this tall - the row the
+        /// client blocks, one above the belt.
+        ///
+        /// Clamped into the grid because <c>beltRow &gt;= height</c> throws
+        /// inside <c>InventorySpaceChecker</c>'s constructor, which runs inside
+        /// <c>InventoryVisualiser.OnEnable</c>: a grid too short for a belt would
+        /// not merely misdraw, it would abort the checkout that draws it.
+        /// </summary>
+        public static int SeparatorRowFor(int height)
+        {
+            int row = height - BeltRows - 1;
+
+            return row < 0 ? 0 : (row >= height ? height - 1 : row);
+        }
+
+        /// <summary>The stock player grid: 10 wide, 18 tall, belt on the bottom three rows.</summary>
+        public static InventoryModel DefaultGrid() => new InventoryModel(10, 18, true, SeparatorRowFor(18));
 
         public int Width { get; }
 
@@ -38,6 +80,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Inventory
         public bool HasBelt { get; }
 
         public int BeltRow { get; }
+
+        /// <summary>
+        /// The row no item may occupy, or <see cref="InventoryGeometry.NoBlockedRow"/>
+        /// when this grid has no belt. Everything that places or moves an item
+        /// asks this rather than reading <see cref="BeltRow"/>, so a beltless
+        /// chest cannot accidentally inherit a divider.
+        /// </summary>
+        public int BlockedRow => HasBelt ? BeltRow : InventoryGeometry.NoBlockedRow;
 
         /// <summary>The items, in wire order.</summary>
         public IReadOnlyList<InventoryItem> Items => items;

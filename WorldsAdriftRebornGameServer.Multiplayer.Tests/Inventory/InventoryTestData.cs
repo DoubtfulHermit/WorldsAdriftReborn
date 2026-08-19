@@ -24,6 +24,10 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Inventory
             ["iron"] = new ItemFootprint(3, 2),
             ["birch"] = new ItemFootprint(2, 2),
             ["huge"] = new ItemFootprint(9, 17),
+            // Exactly the stock grid above its belt separator: 10 wide by 14
+            // tall fills rows 0-13 and leaves the divider and the belt free, so
+            // a test can force a placement to choose between them.
+            ["backpackFiller"] = new ItemFootprint(10, 14),
         };
 
         internal static bool Footprints(string itemTypeId, out ItemFootprint footprint)
@@ -59,7 +63,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Inventory
                 null);
         }
 
-        /// <summary>An empty stock grid: 10x18, belt on row 3.</summary>
+        /// <summary>An empty stock grid: 10x18, belt on the bottom three rows.</summary>
         internal static InventoryModel Grid() => InventoryModel.DefaultGrid();
 
         /// <summary>
