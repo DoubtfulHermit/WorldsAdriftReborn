@@ -159,8 +159,8 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
             if (WorldsAdriftRebornGameServer.Nodes.Register(entityId, node))
             {
                 HarvestReward.Register(
-                    node.MetalType,
-                    new Multiplayer.Gathering.YieldRule(node.MetalType, amountPerUnit: 1));
+                    Multiplayer.Gathering.NodeYield.SourceKeyFor(node),
+                    Multiplayer.Gathering.NodeYield.RuleFor(node));
 
                 WorldsAdriftRebornGameServer.MetalHarvest.Place(
                     entityId,

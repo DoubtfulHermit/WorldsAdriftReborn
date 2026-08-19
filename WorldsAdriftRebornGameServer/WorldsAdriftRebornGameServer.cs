@@ -903,7 +903,8 @@ namespace WorldsAdriftRebornGameServer
             string metalType = node?.MetalType ?? "metal";
 
             Console.WriteLine("[info] metal node " + nodeEntityId + " depleted by entity "
-                + harvesterEntityId + ": " + outcome.Units + " x " + metalType + ".");
+                + harvesterEntityId + ": " + outcome.Units + " x " + metalType
+                + (node == null ? "" : " q" + node.Quality) + ".");
 
             // ORDER as the tree's: award first (grant + the 8060 "Salvaged X xN"
             // toast, which fires only if the grant landed), then the visual. A metal
@@ -911,11 +912,28 @@ namespace WorldsAdriftRebornGameServer
             // nothing and toasts nothing - HarvestReward/InventoryService log it -
             // but the node still depletes and sinks, so it is never an un-minable
             // rock, just a silent one.
-            Game.Gathering.HarvestReward.Award(
-                harvesterEntityId,
-                metalType,
-                outcome.Units,
-                "metal node " + nodeEntityId);
+            //
+            // Two branches, because a node CAN be null here: the ledger says this
+            // entity is a harvestable node but its placement row could not be
+            // recovered from the key. That is already a degraded state and it pays a
+            // placeholder material; there is no node to take a quality from, so it
+            // falls back to the registered rule rather than inventing one.
+            if (node == null)
+            {
+                Game.Gathering.HarvestReward.Award(
+                    harvesterEntityId,
+                    metalType,
+                    outcome.Units,
+                    "metal node " + nodeEntityId);
+            }
+            else
+            {
+                Game.Gathering.HarvestReward.AwardFromNode(
+                    harvesterEntityId,
+                    node,
+                    outcome.Units,
+                    "metal node " + nodeEntityId);
+            }
 
             BroadcastNodeDepletion(nodeEntityId);
         }
@@ -998,10 +1016,16 @@ namespace WorldsAdriftRebornGameServer
             if (units > 0)
             {
                 Console.WriteLine("[info] deposit " + nodeEntityId + " freed a scrap piece on shot "
-                    + hits + ": " + units + " x " + node.MetalType + " to entity " + harvesterEntityId + ".");
-                Game.Gathering.HarvestReward.Award(
+                    + hits + ": " + units + " x " + node.MetalType + " q" + node.Quality
+                    + " to entity " + harvesterEntityId + ".");
+                // AwardFromNode, not Award: this deposit's OWN quality has to reach the
+                // item. The yield table is keyed by the metal name, so a name-only award
+                // pays whatever quality the last-registered node of that metal happened
+                // to carry - and before this it paid 0, which is off the bottom of
+                // retail's 1..10 scale and satisfies no quality-floored crafting slot.
+                Game.Gathering.HarvestReward.AwardFromNode(
                     harvesterEntityId,
-                    node.MetalType,
+                    node,
                     units,
                     "metal deposit " + nodeEntityId + " scrap piece");
             }

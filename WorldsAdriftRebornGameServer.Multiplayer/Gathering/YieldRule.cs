@@ -23,7 +23,20 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Gathering
     /// </summary>
     public sealed record YieldRule
     {
-        public YieldRule(string itemTypeId, int amountPerUnit, int quality = 0)
+        /// <summary>The bottom of retail's quality scale. See <see cref="Quality"/>.</summary>
+        public const int MinQuality = 1;
+
+        /// <summary>The top of retail's quality scale. See <see cref="Quality"/>.</summary>
+        public const int MaxQuality = 10;
+
+        /// <summary>
+        /// The quality a material carries when it is OUTSIDE the scale rather than
+        /// at the bottom of it. Fuel is the proved case: retail excludes it from
+        /// quality explicitly (acs/ScannableData.cs:325).
+        /// </summary>
+        public const int QualityExempt = 0;
+
+        public YieldRule(string itemTypeId, int amountPerUnit, int quality = QualityExempt)
         {
             if (string.IsNullOrEmpty(itemTypeId))
             {
@@ -37,6 +50,17 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Gathering
                 throw new ArgumentOutOfRangeException(nameof(amountPerUnit), amountPerUnit,
                     "a harvest that yields fewer than one item per unit is not a harvest");
             }
+            if (quality != QualityExempt && (quality < MinQuality || quality > MaxQuality))
+            {
+                // Out of range in EITHER direction is a thrown mistake rather than a
+                // clamp, because both directions were live defects. Retail's scale is
+                // 1..10 and it is a FLOOR in a crafting slot
+                // (ShipBlueprintBuild.Matches: quality < required.Quality is a refusal),
+                // so a negative or an 11 is a slot nothing can ever satisfy, and it
+                // fails as "the recipe is broken" rather than as "the number is wrong".
+                throw new ArgumentOutOfRangeException(nameof(quality), quality,
+                    "quality is retail's 1..10 scale, or " + QualityExempt + " for a quality-exempt material like fuel");
+            }
 
             ItemTypeId = itemTypeId;
             AmountPerUnit = amountPerUnit;
@@ -49,7 +73,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Gathering
         /// <summary>How many items each felled unit is worth. At least one.</summary>
         public int AmountPerUnit { get; }
 
-        /// <summary>The quality the granted item carries. 0 for plain materials.</summary>
+        /// <summary>
+        /// The quality the granted item carries by DEFAULT - retail's 1..10 scale,
+        /// or <see cref="QualityExempt"/>.
+        ///
+        /// "By default" is the important word, and it is why
+        /// <see cref="HarvestYield.Resolve"/> takes a per-hit override. Quality is a
+        /// property of the NODE, not of the material: two iron deposits on the same
+        /// island routinely carry different qualities, and this table is keyed by the
+        /// material NAME. So a rule's quality can only ever be the right answer for a
+        /// world where every node of a material is identical. Where a node is known,
+        /// its own quality must be handed to Resolve, or the last node registered
+        /// silently decides what every node of that metal pays out.
+        /// </summary>
         public int Quality { get; }
     }
 }

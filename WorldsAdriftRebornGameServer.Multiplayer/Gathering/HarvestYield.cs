@@ -83,8 +83,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Gathering
         /// also null, and the caller logs it - that is the named symptom for "the
         /// nodes agent spawned a material nobody taught the yield table about",
         /// which is otherwise an invisible no-op.
+        ///
+        /// <paramref name="quality"/> IS THE FIX FOR THE TABLE'S ONE STRUCTURAL
+        /// LIE. This table is keyed by the material NAME, but quality belongs to
+        /// the NODE: `island_resources.json` gives Shattered Mausoleum eleven
+        /// metals at seven different qualities, and the release catalogue stamps
+        /// 1930 deposits across qualities 1..10. Registering a per-node quality
+        /// into a name-keyed table means the last node registered decides what
+        /// every node of that metal pays, forever. So a caller that KNOWS which
+        /// node was hit passes its quality here and it wins; a caller that only
+        /// knows a material name (a tree, a fuel pod) passes null and the rule's
+        /// own default applies.
         /// </summary>
-        public YieldGrant? Resolve(string sourceKey, int units)
+        public YieldGrant? Resolve(string sourceKey, int units, int? quality = null)
         {
             if (units <= 0)
             {
@@ -98,7 +109,7 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Gathering
                 return null;
             }
 
-            return new YieldGrant(rule.ItemTypeId, rule.AmountPerUnit * units, rule.Quality);
+            return new YieldGrant(rule.ItemTypeId, rule.AmountPerUnit * units, quality ?? rule.Quality);
         }
     }
 }

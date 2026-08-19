@@ -109,9 +109,32 @@ namespace WorldsAdriftRebornGameServer.Game.Gathering
         /// panel, and it is not there - so the two are never allowed to disagree:
         /// the 8060 event reports the same amount the 1081 grant actually placed.
         /// </summary>
-        internal static void Award(long harvesterEntityId, string sourceKey, int units, string reason)
+        /// <summary>
+        /// Turns one hit on a KNOWN NODE into yield, at that node's own quality.
+        ///
+        /// THE ENTRY POINT EVERY NODE SOURCE MUST USE, and the reason it exists
+        /// rather than being an optional argument on <see cref="Award"/>: quality
+        /// is a property of the node, the yield table is keyed by the material
+        /// name, and for as long as the two were separate arguments every single
+        /// call site forgot the second one. Taking the node itself makes the
+        /// omission impossible to spell - there is no shorter call that compiles.
+        ///
+        /// <see cref="Award"/> remains for sources that genuinely have no node:
+        /// a tree (the species is the source, and wood carries no per-node
+        /// quality) and a fuel canister (fuel is quality-EXEMPT in retail,
+        /// acs/ScannableData.cs:325 excludes it explicitly - do not give it one).
+        /// </summary>
+        internal static void AwardFromNode(long harvesterEntityId, Multiplayer.MetalNode node,
+            int units, string reason)
         {
-            YieldGrant? resolved = Yields.Resolve(sourceKey, units);
+            Award(harvesterEntityId, NodeYield.SourceKeyFor(node), units, reason,
+                NodeYield.QualityOf(node));
+        }
+
+        internal static void Award(long harvesterEntityId, string sourceKey, int units, string reason,
+            int? quality = null)
+        {
+            YieldGrant? resolved = Yields.Resolve(sourceKey, units, quality);
 
             if (resolved == null)
             {
