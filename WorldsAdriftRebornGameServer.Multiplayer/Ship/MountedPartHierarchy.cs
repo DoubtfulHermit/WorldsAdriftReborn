@@ -60,13 +60,37 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Ship
     /// </list>
     ///
     /// TWO PREFAB-BAKED ASSUMPTIONS ARE INVISIBLE OFFLINE and only a live client settles
-    /// them, exactly as for Deck01: the BarPipe / BarPipeBent prefabs' authored
-    /// <c>TransformNature</c> must have <c>GameObjectCanBeParented = true</c> (so the part
-    /// carries a child-hierarchy behaviour at all) and <c>ShouldRemoveRigidbodyOnParented
-    /// = true</c> (so the rigidbody is destroyed on parent, letting a raycast climb to the
-    /// hull). Both are baked into the shipped prefab and are not in the decompiled C#.
-    /// They FAIL SAFE: if <c>GameObjectCanBeParented</c> is false the key is simply
+    /// them, exactly as for Deck01 - but they are NOT equally load-bearing here, and the
+    /// difference is worth having written down before anyone tests:
+    /// <list type="bullet">
+    /// <item><b><c>GameObjectCanBeParented</c> is the one that matters.</b> It gates
+    ///   whether the prefab carries a <c>TransformChildHierarchyBehaviour</c> at all
+    ///   (<c>TransformNature.ShouldAddParentedBehaviours</c>, :154-157). False means the
+    ///   key is ignored outright. It DEFAULTS TRUE in the class
+    ///   (<c>public bool GameObjectCanBeParented = true</c>, TransformNature.cs:98), so a
+    ///   prefab has to have deliberately turned it off, and Deck01 - the same
+    ///   <c>ShipPartPreprocessor</c> family - demonstrably has it on.</item>
+    /// <item><b><c>RemoveRigidbodyOnParented</c> is NOT load-bearing for this change</b>,
+    ///   though it was for the deck. It has no initializer (TransformNature.cs:82), so it
+    ///   defaults FALSE. If it is false the pipe keeps its own rigidbody when parented -
+    ///   which changes nothing about the five walks, because every one of them is a
+    ///   COMPONENT walk (<c>GetComponentInParents</c> /
+    ///   <c>GetComponentsInChildren</c>), not a rigidbody walk. The deck needed the
+    ///   rigidbody GONE for a different reason: a player's ground raycast returns
+    ///   <c>raycastHit.rigidbody</c> and had to reach the hull's <c>PathFollower</c>.
+    ///   Nobody stands on a bar pipe.</item>
+    /// </list>
+    /// Both FAIL SAFE: if <c>GameObjectCanBeParented</c> is false the key is simply
     /// ignored and the pipe behaves exactly as it does today.
+    ///
+    /// PARENTING WAKES NO DORMANT CLIENT CODE. <c>ShipPartPreprocessor</c> attaches two
+    /// parenting-aware behaviours to every ship part -
+    /// <c>ParentingMassAdderVisualizer</c> (adds a bolted part's mass to the parent
+    /// rigidbody) and <c>DetachFromParentWhenUnderHealthThresholdVisualizer</c>. Their
+    /// existence is itself corroboration that retail's mounted parts were real Unity
+    /// children. Neither can misbehave here: both are <c>[Require]</c>-gated on
+    /// components this server does not serve (<c>ParentingMassAdderState</c>,
+    /// <c>DetachFromParentWhenUnderHealthThresholdState</c>), so they never enable.
     /// </summary>
     public static class MountedPartHierarchy
     {
