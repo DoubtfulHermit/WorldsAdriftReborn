@@ -2429,7 +2429,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             new Improbable.Collections.List<DeprecatedPlayerData>();
                         foreach (string ownerUid in Multiplayer.Ship.OwnershipRegistrationPolicy.ShipOwnerUids(
                                      Game.Crafting.BuiltShips.IsBuiltHull(entityId),
-                                     Game.Crafting.BuiltShips.OwnerFor(entityId)))
+                                     Game.Crafting.BuiltShips.OwnerFor(entityId),
+                                     Multiplayer.LocalPlayerIdentity.PlayerId))
                         {
                             deprecatedOwners.Add(new DeprecatedPlayerData("", ownerUid, new EntityId(0)));
                         }
@@ -2489,6 +2490,13 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // regardless of which feature-flag path the live client takes. A
                         // BUILT owned hull registers a ReviverInfo carrying the owner's
                         // CHARACTER uid; a non-built or owner-less hull registers none.
+                        //
+                        // GATE C rides the same list with the OTHER identifier, which is
+                        // why ShipOwnerUids also takes LocalPlayerIdentity.PlayerId:
+                        // InteractAgentObserver.cs:358 feeds LocalPlayer.PlayerId into
+                        // IsShipOwner, and when that misses, E on a ship container prints
+                        // "It's locked." instead of opening it. See
+                        // OwnershipRegistrationPolicy for the whole chain.
                         // lastSyncTimestamp is absent. VERIFIED ctors (gencode):
                         //   ShipRegisteredCharactersState.Data(
                         //     Improbable.Collections.List<ReviverInfo> reviverInfosCache,
@@ -2501,7 +2509,8 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                             new Improbable.Collections.List<ReviverInfo>();
                         foreach (string ownerUid in Multiplayer.Ship.OwnershipRegistrationPolicy.ShipOwnerUids(
                                      Game.Crafting.BuiltShips.IsBuiltHull(entityId),
-                                     Game.Crafting.BuiltShips.OwnerFor(entityId)))
+                                     Game.Crafting.BuiltShips.OwnerFor(entityId),
+                                     Multiplayer.LocalPlayerIdentity.PlayerId))
                         {
                             reviverInfos.Add(new ReviverInfo(0L, new Option<EntityId>(), ownerUid, new Option<long>()));
                         }

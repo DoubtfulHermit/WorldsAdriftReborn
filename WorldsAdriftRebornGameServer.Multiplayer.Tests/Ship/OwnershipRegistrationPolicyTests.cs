@@ -43,18 +43,19 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [Fact]
         public void BuiltOwnedHull_SeedsOwnerCharacterUid()
         {
-            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(isBuiltHull: true, CharacterUid);
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: true, CharacterUid, LocalPlayerIdentity.PlayerId);
 
             // IsShipOwner matches SelectedCharacterUid (the character uid) against this list.
             Assert.Contains(CharacterUid, owners);
-            Assert.Single(owners);
         }
 
         [Fact]
         public void NonBuiltHull_SeedsEmpty_EvenWithAnOwnerUid()
         {
             // The static test ship is not a built hull: it must stay unowned regardless.
-            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(isBuiltHull: false, CharacterUid);
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: false, CharacterUid, LocalPlayerIdentity.PlayerId);
 
             Assert.Empty(owners);
         }
@@ -62,9 +63,67 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests.Ship
         [Fact]
         public void BuiltHullWithoutOwner_SeedsEmpty()
         {
-            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(isBuiltHull: true, "");
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: true, "", LocalPlayerIdentity.PlayerId);
 
             Assert.Empty(owners);
+        }
+
+        // ---- GATE C: "It's locked." on a ship container ----
+        //
+        // InteractAgentObserver.cs:358 feeds LocalPlayer.PlayerId - the GATE A
+        // identifier - into ShipVisualizer.IsShipOwner, which searches the GATE B
+        // list. Miss it and InteractAgentObserver.cs:391-394 prints "It's locked."
+        // and never sends the 1211, so the four ship containers can never open no
+        // matter how correctly they are seeded.
+
+        [Fact]
+        public void BuiltOwnedHull_AlsoRegistersLocalPlayerId_OrEveryShipContainerReadsLocked()
+        {
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: true, CharacterUid, LocalPlayerIdentity.PlayerId);
+
+            // The PRE-FIX bug: only the character uid was here, so the cross-axis
+            // compare against PlayerId always missed - for the OWNER too.
+            Assert.Contains(LocalPlayerIdentity.PlayerId, owners);
+            Assert.Equal(2, owners.Count);
+        }
+
+        [Fact]
+        public void BothGateIdentifiersSatisfyIsShipOwner_WhichIsAnExists()
+        {
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: true, CharacterUid, LocalPlayerIdentity.PlayerId);
+
+            // Gate B (HostileItemPlacingPredicate -> SelectedCharacterUid) and
+            // gate C (InteractAgentObserver -> LocalPlayer.PlayerId) must BOTH
+            // find a match, from the one list, on the one hull.
+            Assert.Contains(CharacterUid, owners);
+            Assert.Contains(LocalPlayerIdentity.PlayerId, owners);
+        }
+
+        [Fact]
+        public void AddingTheLocalPlayerIdCannotWeakenGateB()
+        {
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: true, CharacterUid, LocalPlayerIdentity.PlayerId);
+
+            // Gate B compares a REAL per-player character uid from BossaNet. The
+            // stub can never be one, so no non-owner gains ship access from it.
+            Assert.DoesNotContain("11111111-2222-3333-4444-555555555555", owners);
+            Assert.NotEqual(CharacterUid, LocalPlayerIdentity.PlayerId);
+        }
+
+        [Fact]
+        public void WhenPlayerIdBecomesTheCharacterUid_TheListDoesNotDuplicate()
+        {
+            // feat/per-player-identity makes 1086 field2 == the character uid. The
+            // second entry must then collapse rather than seeding the same uid twice.
+            var owners = OwnershipRegistrationPolicy.ShipOwnerUids(
+                isBuiltHull: true, CharacterUid, CharacterUid);
+
+            Assert.Single(owners);
+            Assert.Equal(CharacterUid, owners[0]);
         }
     }
 }
