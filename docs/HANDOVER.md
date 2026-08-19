@@ -126,6 +126,38 @@ older entry's "production still runs X" as current state will be wrong. The
 authority for live configuration is the box itself:
 `systemctl show wareborn-game -p Environment`.
 
+- **Login server:** `91fc33d`, deployed and restarted at 2026-08-19 09:37 CEST.
+  `/patchnotes` is now GENERATED from the commit log by
+  `tools/patchnotes/build-changelog.sh` rather than hand-written. Verified live:
+  510 commit rows, strip reads "510 commits", zero external references; `/map`,
+  `/account`, `/patch/manifest.json`, `/deploymentStatus` all unaffected.
+
+- **OUTAGE 2026-08-19, ~08:00-09:35 CEST: PLAY hung forever. Client-side.**
+  ROOT CAUSE: `f460087` ("the client no longer needs Steam to start") forced
+  `Bootstrap.UseSteam` false. That is correct in itself, but the Steam branch in
+  `LobbySystem.ConnectToGameServer` was the ONLY writer of
+  `SpatialOS.Configuration.SteamToken`, and
+  `ConnectionLifecycle.ShouldGetDeploymentList()` is
+  `LoginToken || SteamToken` (decompile
+  `acs/Improbable.Unity.Core/ConnectionLifecycle.cs:111`). We have never had a
+  LoginToken, so the Locator path was being chosen purely as a SIDE EFFECT of
+  Steam being on. Without it the SDK takes the receptionist path, and
+  `WorkerProtocol_ConnectAsync` is still a stub that builds a Connection with a
+  NULL host - it opens no socket and logs nothing. Hence: no packet ever left
+  the client, the game server logged no connection attempt, and the only symptom
+  was `!SpatialOS.IsConnected - not creating ECS!`.
+  FIX `a99926a`: force the Locator path
+  (`WorldsAdriftReborn/Patching/ContinueBootstrap/ConnectionLifecycle_Patch.cs`),
+  and LOG the chosen path once per session - that decision being invisible is
+  why this read as a server fault for an hour.
+  **Both published payloads `2026.08.18-6` and `2026.08.19-1` contain the
+  defect**, so any player who ran the patcher got the hang. The fix is merged to
+  main and installed locally but NOT yet published; publish `2026.08.19-2` once
+  a real launch confirms it.
+  Cleared with evidence, so do not re-investigate: the firewall (7779/udp
+  allowed), the network (UDP probes reached the VPS), Harmony patching (97/87),
+  the game server (never restarted, `NRestarts=0`), and the splash-text change.
+
 - **Client manifest `2026.08.19-1`** published 2026-08-19 09:05 CEST, build
   label "landing screen: splash + welcome copy + patch notes". 54 payloads,
   no `steam_api64.dll` / `winhttp.dll`. Supersedes `2026.08.18-6`.
