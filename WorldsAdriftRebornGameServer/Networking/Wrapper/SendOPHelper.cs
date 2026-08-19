@@ -179,9 +179,14 @@ namespace WorldsAdriftRebornGameServer.Networking.Wrapper
 
                 if (!Multiplayer.ComponentAbsencePolicy.BelongsInBatch(outcome) || len <= 0)
                 {
+                    // The outcome NAME is not the diagnosis - it was actively
+                    // misleading before NoSeedForEntity existed - so the clause
+                    // that says what to do about it rides the same line. One
+                    // line, because this is the line that gets counted.
                     Console.WriteLine("[error] failed to initialize component " + interests[i].ComponentId
                         + " of entity " + entityId + " (component " + (i + 1) + " of " + interestCount
-                        + "; " + serializedComponents.Count + " already serialized; outcome " + outcome + ").");
+                        + "; " + serializedComponents.Count + " already serialized; outcome " + outcome
+                        + ": " + Multiplayer.ComponentAbsencePolicy.ExplainOutcome(outcome) + ").");
                     if (Multiplayer.ComponentAbsencePolicy.DropsBatch(outcome, failOnComponentInitError))
                     {
                         // Not "one component missing" - EVERY component in this

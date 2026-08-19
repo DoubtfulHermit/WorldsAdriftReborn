@@ -149,6 +149,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                     ulong refId = 0;
                     object obj = null;
 
+                    // "THIS entity does not have that component" - decided by a
+                    // BRANCH rather than by the component-wide set in
+                    // ComponentAbsencePolicy.
+                    //
+                    // The set is entity-independent by design and must stay that
+                    // way: nothing we spawn is a weather cell, ever. But 1120
+                    // ShipPartState is present on a crafted loose part and absent
+                    // on a built ship's DECK, and there is no way to say that with
+                    // a set of ids. A branch that knows the entity can say it here
+                    // and get the same three guarantees the set gets - no bytes, no
+                    // [error], and NEVER a dropped batch. A component an entity does
+                    // not have is not a failure, and it does not become one just
+                    // because the knowledge lives in a branch instead of in a list.
+                    bool decidedAbsentForThisEntity = false;
+
                     // A component whose server-side state is LIVE must be
                     // re-served as it is now, not rebuilt from defaults.
                     //
@@ -2126,6 +2141,22 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                             obj = shipRootData;
                         }
+                        else if (Game.Crafting.BuiltShips.IsBuiltDeck(entityId)
+                            || Game.Crafting.BuiltShips.IsBuiltHull(entityId))
+                        {
+                            // Absent for the same reason 1120 is, and absent WITH it:
+                            // 8066's only reader on a deck is ShipPartVisualizer,
+                            // which 1120's absence already keeps disabled, so serving
+                            // "which ship this deck belongs to" here would be a
+                            // statement nothing reads - and serving all three is what
+                            // would arm the lift path. See the 1120 branch.
+                            Console.WriteLine(Multiplayer.ComponentAbsencePolicy.DescribeKnownAbsentForEntity(
+                                entityId, 8066,
+                                "a built ship's hull and decks are STRUCTURE, not parts of some other"
+                                + " ship; its only reader (ShipPartVisualizer) is deliberately left"
+                                + " disabled by the matching 1120 decision."));
+                            decidedAbsentForThisEntity = true;
+                        }
                         else
                         {
                             Console.WriteLine("[warn] 8066 requested for entity " + entityId
@@ -2222,6 +2253,48 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                                 + loosePart.PrefabName + "', attach '" + loosePart.AttachmentType
                                 + "', attached=false).");
                         }
+                        else if (Game.Crafting.BuiltShips.IsBuiltDeck(entityId)
+                            || Game.Crafting.BuiltShips.IsBuiltHull(entityId))
+                        {
+                            // A BUILT SHIP'S DECK IS STRUCTURE, NOT A PART, and this
+                            // is the one place in this file where the right answer is
+                            // to serve nothing on purpose.
+                            //
+                            // Deck01_unityclient carries ShipPartVisualizer, so
+                            // serving 1120 (with 8066 and 1013) would ENABLE it - and
+                            // in the shipped client the mere PRESENCE of an enabled
+                            // ShipPartVisualizer is literally the lift whitelist:
+                            // PlayerScannerTool.cs:508-511 discards any looked-at
+                            // object that does not have one, and takes any object
+                            // that does. A player standing in an active shipyard
+                            // could then pick their own ship's deck up off it.
+                            // `attached=true` is NOT a defence - nothing in the whole
+                            // pickup path reads it, and ShipPartVisualizer.CanPickUp,
+                            // which does, is dead code with no callers anywhere in
+                            // the client.
+                            //
+                            // And there is nothing on the other side of the trade.
+                            // The deck already renders through ShipDeckVisualizer,
+                            // which reads 1518 + 1099 and needs none of this; what
+                            // enabling ShipPartVisualizer would add is a forced
+                            // localScale write, an attach-clank on every pooled
+                            // re-checkout, and a fight with
+                            // TransformManageRigidbodyBehaviour over isKinematic.
+                            //
+                            // So this server's built decks and hulls DO NOT HAVE
+                            // ShipPartState. That is a statement about our entities,
+                            // exactly like "a player is not a weather cell", and it
+                            // is why it is said here - where the entity is known -
+                            // rather than in ComponentAbsencePolicy's component-wide
+                            // set, which would take the loose part's lift path down
+                            // with it.
+                            Console.WriteLine(Multiplayer.ComponentAbsencePolicy.DescribeKnownAbsentForEntity(
+                                entityId, 1120,
+                                "a built ship's hull and decks are STRUCTURE, not liftable parts -"
+                                + " serving it would enable ShipPartVisualizer, which is the client's"
+                                + " own lift whitelist (PlayerScannerTool.cs:508-511)."));
+                            decidedAbsentForThisEntity = true;
+                        }
                     }
                     else if (componentId == 1013)
                     {
@@ -2239,12 +2312,40 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // (false,0,0) after the dissolve so a later checkout gets the liftable
                         // part. SpawnStateFor returns the settled value for any part not
                         // currently materializing (and for boot-restored / mounted parts).
-                        if (Game.Crafting.LooseParts.Is(entityId))
-                        {
-                            var spawnState = Game.Crafting.LooseParts.SpawnStateFor(entityId);
-                            obj = new CraftableSpawningState.Data(
-                                spawnState.Spawning, spawnState.TimeLeft, spawnState.TotalTime);
-                        }
+                        //
+                        // EVERYTHING ELSE GETS THE SETTLED VALUE, and the missing
+                        // else is what made this a live defect for eleven days. The
+                        // client asks for 1013 on far more than loose parts: the
+                        // BUILT HULL asks (ShipFrame_unityclient carries
+                        // CraftableSpawningVisualizer - req_shipframe.tsv:32, and it
+                        // is the ONLY thing on the hull that wants any of
+                        // 1013/1120/8066), and so does every one of a built ship's
+                        // DECK sub-entities. Measured on the live server: 1013 was
+                        // the single most frequent component-init failure there is,
+                        // on entity after entity, every time somebody logged in near
+                        // a built ship.
+                        //
+                        // (false, 0, 0) is "finished spawning", which is the truth
+                        // for anything that is not mid-materialize, and it is inert
+                        // by construction rather than by luck:
+                        // CraftableSpawningVisualizer.OnSpawningUpdated(false) tests
+                        // `_overrider.IsActive != spawning` and ShaderOverrider.IsActive
+                        // starts false, so the entire body is skipped - no shader
+                        // override, no alpha clip, no coroutine, no sound. It cannot
+                        // make anything invisible: UpdateAlphaClip is reachable only
+                        // from Spawn/DoSpawn (spawning=true) and from HackDespawn,
+                        // whose only caller is ShipReclaimVisualizer, which needs
+                        // 1259 - declared known-absent, for this among other reasons.
+                        //
+                        // NOT (true, 0, 0), which looks equivalent and is not: Spawn(0,0)
+                        // skips its own Apply and its while-loop exits on frame zero, so
+                        // nothing renders differently, but `_loop.Playing = true` leaves
+                        // the crafting SFX looping forever.
+                        var spawnState = Game.Crafting.LooseParts.Is(entityId)
+                            ? Game.Crafting.LooseParts.SpawnStateFor(entityId)
+                            : Multiplayer.Ship.CraftableSpawnPolicy.Done;
+                        obj = new CraftableSpawningState.Data(
+                            spawnState.Spawning, spawnState.TimeLeft, spawnState.TotalTime);
                     }
                     else if (componentId == 1108)
                     {
@@ -3695,6 +3796,41 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // all-or-nothing caller its whole batch.
                         Console.WriteLine(Multiplayer.ComponentAbsencePolicy.DescribeUnhandled(entityId, componentId));
                         outcome = Multiplayer.ComponentSeedOutcome.UnhandledId;
+                    }
+
+                    // A branch DECIDED this entity does not have it. Same three
+                    // guarantees the component-wide set gets, and checked before
+                    // the gap check below so a decision can never be reported as
+                    // a gap.
+                    if (decidedAbsentForThisEntity)
+                    {
+                        return Multiplayer.ComponentSeedOutcome.KnownAbsent;
+                    }
+
+                    // Deliberately NOT another `else if` on the chain above: an
+                    // `else if` would only be reached when NO branch matched,
+                    // which is precisely the case this is not about.
+                    if (obj == null && outcome != Multiplayer.ComponentSeedOutcome.UnhandledId)
+                    {
+                        // A BRANCH RAN AND DECLINED. Almost every seed branch above
+                        // is gated on a ledger ("is this a loose part") or a
+                        // registry ("is a hull id bound yet"), and every one of
+                        // those gates has an implicit else that leaves obj null.
+                        //
+                        // Until this line existed that fell through to the return
+                        // at the bottom still carrying the INITIAL value of
+                        // `outcome`, NoClientVtable - so the server told its own
+                        // log that the shipped client had never heard of a
+                        // component the client had just asked for by id. Live, that
+                        // was every 1013 / 1120 / 8066 failure on a built hull or a
+                        // built deck: the one message that says "stop looking, no
+                        // branch can help", printed about ids that have branches.
+                        //
+                        // Still a gap and still fatal to an all-or-nothing batch -
+                        // the client asked and got nothing. Only the diagnosis
+                        // changes, and it is the diagnosis that decides whether
+                        // anyone looks.
+                        outcome = Multiplayer.ComponentSeedOutcome.NoSeedForEntity;
                     }
 
                     if (obj != null)

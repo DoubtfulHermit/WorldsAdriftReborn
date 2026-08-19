@@ -59,7 +59,16 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
                 // ShipControlsBehaviour.UpdateVertical reads them every frame while
                 // driving regardless of visualizer enablement, so absence NRE-flooded
                 // (12,077/session measured). They are SERVED now.
-                new uint[] { 1139, 1269, 1225, 1235, 1306 },
+                // 1259/1304/4323 joined on 2026-08-19, each with a client-side
+                // reason absence is SAFE and not merely quiet:
+                //   1259 ReclaimableState - serving it lets ShipReclaimVisualizer
+                //     dissolve the hull and disable every collider under the ship.
+                //     Absence is safer than any value we could send.
+                //   1304 PhysicsHingesState - the sail's hinge swivel; we run no
+                //     hinge physics, and the visualizer touches only transforms.
+                //   4323 ContactFixedDamageState - the jelly shock; the reader is
+                //     100% event-driven and nothing here ever raises the event.
+                new uint[] { 1139, 1269, 1225, 1235, 1306, 1259, 1304, 4323 },
                 ComponentAbsencePolicy.KnownAbsentComponentIds);
         }
 
@@ -96,6 +105,45 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
             Assert.Equal("ShipControlInput", ComponentAbsencePolicy.NameOf(1111));
             Assert.Equal("UidState", ComponentAbsencePolicy.NameOf(1294));
             Assert.Equal("ShipAtlasPulseState", ComponentAbsencePolicy.NameOf(1306));
+
+            Assert.Equal(1259u, ComponentAbsencePolicy.ReclaimableStateComponentId);
+            Assert.Equal(1304u, ComponentAbsencePolicy.PhysicsHingesStateComponentId);
+            Assert.Equal(4323u, ComponentAbsencePolicy.ContactFixedDamageStateComponentId);
+            Assert.Equal("ReclaimableState", ComponentAbsencePolicy.NameOf(1259));
+            Assert.Equal("PhysicsHingesState", ComponentAbsencePolicy.NameOf(1304));
+            Assert.Equal("ContactFixedDamageState", ComponentAbsencePolicy.NameOf(4323));
+
+            // Named without being in the SET, because their absence is decided
+            // per entity by a serializer branch. A [known-absent] line for a
+            // built deck must still say ShipPartState, not "1120".
+            Assert.Equal("ShipPartState", ComponentAbsencePolicy.NameOf(1120));
+            Assert.Equal("ShipRootState", ComponentAbsencePolicy.NameOf(8066));
+            Assert.False(ComponentAbsencePolicy.IsKnownAbsent(1120));
+            Assert.False(ComponentAbsencePolicy.IsKnownAbsent(8066));
+        }
+
+        [Fact]
+        public void A_per_entity_omission_reads_exactly_like_a_set_omission()
+        {
+            // The two mechanisms must be indistinguishable to a human and to a
+            // grep, or "how many components did we deliberately not send" becomes
+            // two different questions with two different answers.
+            string line = ComponentAbsencePolicy.DescribeKnownAbsentForEntity(
+                3653, 1120, "a built ship's decks are structure, not liftable parts.");
+
+            Assert.StartsWith("[known-absent]", line);
+            Assert.DoesNotContain("[error]", line);
+            Assert.DoesNotContain("[ToDo]", line);
+            Assert.DoesNotContain("failed", line);
+
+            Assert.Contains("entity 3653", line);
+            Assert.Contains("1120", line);
+            Assert.Contains("ShipPartState", line);
+
+            // And it must carry the branch's REASON. An omission with no stated
+            // reason is the silence this whole mechanism exists to end.
+            Assert.Contains("structure, not liftable parts", line);
+            Assert.Contains("a decision, not a fault", line);
         }
 
         [Fact]
@@ -187,13 +235,68 @@ namespace WorldsAdriftRebornGameServer.Multiplayer.Tests
         }
 
         [Fact]
+        public void A_branch_that_declined_for_this_entity_still_drops_the_batch()
+        {
+            // NoSeedForEntity is a GAP, not a decision: the client asked and got
+            // nothing. It differs from UnhandledId only in what it tells you to
+            // fix, never in what it costs, so it must not become a quiet third
+            // way for a component to go missing.
+            Assert.True(ComponentAbsencePolicy.DropsBatch(ComponentSeedOutcome.NoSeedForEntity, failOnComponentInitError: true));
+            Assert.False(ComponentAbsencePolicy.DropsBatch(ComponentSeedOutcome.NoSeedForEntity, failOnComponentInitError: false));
+        }
+
+        [Fact]
         public void Only_a_serialized_component_goes_on_the_wire()
         {
             Assert.True(ComponentAbsencePolicy.BelongsInBatch(ComponentSeedOutcome.Serialized));
             Assert.False(ComponentAbsencePolicy.BelongsInBatch(ComponentSeedOutcome.KnownAbsent));
             Assert.False(ComponentAbsencePolicy.BelongsInBatch(ComponentSeedOutcome.UnhandledId));
             Assert.False(ComponentAbsencePolicy.BelongsInBatch(ComponentSeedOutcome.NoClientVtable));
+            Assert.False(ComponentAbsencePolicy.BelongsInBatch(ComponentSeedOutcome.NoSeedForEntity));
             Assert.False(ComponentAbsencePolicy.BelongsInBatch(ComponentSeedOutcome.SerializeFailed));
+        }
+
+        // ------------------------------------------------------------------
+        // The diagnosis that rides the error line
+        // ------------------------------------------------------------------
+
+        [Fact]
+        public void A_declined_branch_is_never_reported_as_a_missing_client_vtable()
+        {
+            // THE BUG THIS SUITE EXISTS TO PREVENT COMING BACK. `outcome` starts
+            // as NoClientVtable, so any branch that ran and declined used to
+            // return it - and NoClientVtable's own explanation is "no branch here
+            // can ever satisfy it", which told a maintainer to stop looking at
+            // ids that have branches. The two explanations must not overlap.
+            string declined = ComponentAbsencePolicy.ExplainOutcome(ComponentSeedOutcome.NoSeedForEntity);
+            string noVtable = ComponentAbsencePolicy.ExplainOutcome(ComponentSeedOutcome.NoClientVtable);
+
+            Assert.NotEqual(declined, noVtable);
+            Assert.Contains("exists and ran", declined);
+            Assert.Contains("THIS entity", declined);
+            Assert.DoesNotContain("no vtable", declined);
+
+            // And it must point at the real repair, which is not "write a branch".
+            Assert.Contains("widen the branch", declined);
+        }
+
+        [Fact]
+        public void Every_failing_outcome_explains_itself()
+        {
+            // An outcome added later with no explanation would print the enum
+            // name and a bare "no bytes", which is the state this replaced.
+            foreach (ComponentSeedOutcome outcome in new[]
+            {
+                ComponentSeedOutcome.NoSeedForEntity,
+                ComponentSeedOutcome.UnhandledId,
+                ComponentSeedOutcome.NoClientVtable,
+                ComponentSeedOutcome.SerializeFailed,
+            })
+            {
+                string explanation = ComponentAbsencePolicy.ExplainOutcome(outcome);
+                Assert.NotEqual("no bytes", explanation);
+                Assert.True(explanation.Length > 30, outcome + " has no real explanation");
+            }
         }
 
         // ------------------------------------------------------------------
