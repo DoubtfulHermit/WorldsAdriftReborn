@@ -43,6 +43,21 @@
     addDetailItem(grid,'Owned entities',String(d.entityCount||0));addDetailItem(grid,'Island affinity',d.affinityDomainId||'none');
     addDetailItem(grid,'World position',Number(d.x).toFixed(1)+', '+Number(d.y).toFixed(1)+', '+Number(d.z).toFixed(1));
     addDetailItem(grid,'Warnings',String(d.warningCount||0));
+    // Shadow-model rows, joined on the SAME domain id the ownership host uses.
+    // Labelled "shadow" in every label so an observation is never mistaken for the
+    // authoritative ownership state it sits next to.
+    var shadow=shadowDomainFor(d.domainId);
+    if(shadow){
+      addDetailItem(grid,'Shadow members',String(shadow.memberCount||0));
+      addDetailItem(grid,'Shadow interactions',String(shadow.activeInteractionCount||0)+' active');
+      addDetailItem(grid,'Shadow pressure',shadowNumber(shadow.pressure)+' (uncalibrated)');
+      addDetailItem(grid,'Shadow note',shadow.descriptor||'none');
+      // Reserved inspector slots. Shown as "not modelled" rather than hidden: the
+      // point of naming them is that an operator can see what is NOT yet known.
+      addDetailItem(grid,'Fidelity',shadow.fidelity||'not modelled');
+      addDetailItem(grid,'Authority owner',shadow.authorityOwner||'not modelled');
+      addDetailItem(grid,'Migration generation',shadow.migrationGeneration==null?'not modelled':String(shadow.migrationGeneration));
+    }
     var ship=shipTelemetryFor(d.domainId);
     if(ship){
       addDetailItem(grid,'Authority generation',String(ship.authorityGeneration));
@@ -57,6 +72,57 @@
       ? 'Ship motion is emitted hull-first under one authority generation and replication sequence. Affinity is spatial context, not authority ownership.'
       : (d.kind==='island'?'Island ownership is resident on this host. Scheduling and remote migration are not enabled yet.':'Ownership-only static structure; excluded from live ship flight and checkout scheduling.'));
     renderDomainInventory();
+  }
+  // --- Interaction shadow model -------------------------------------------------
+  // Read-only rendering of an observation overlay. Deliberately holds NO rules of
+  // its own: every threshold, weight and label is decided server-side, so there is
+  // no browser mirror of a server rule here that could drift out of parity.
+  function shadowDomainFor(domainId){
+    var d=latestSimulation&&latestSimulation.domains;if(!d)return null;
+    for(var i=0;i<d.length;i++)if(d[i].domainId===domainId)return d[i];
+    return null;
+  }
+  function shadowState(){
+    // Four distinguishable answers, because the server reports four. Collapsing
+    // them would let "nobody looked" read as "no coupling in your world".
+    if(!latestSimulation||latestSimulation.present!==true)return {key:'absent',label:'not reported',cls:'warn'};
+    if(latestSimulation.enabled!==true)return {key:'off',label:'observer off',cls:'warn'};
+    if(latestSimulation.hasSnapshot!==true)return {key:'warming',label:'warming up',cls:'warn'};
+    return {key:'observing',label:'observing',cls:'ok'};
+  }
+  function shadowNumber(v){return (Math.round((Number(v)||0)*100)/100).toFixed(2);}
+  function renderSimulationShadow(){
+    var state=shadowState();
+    var pill=$('simulationState');pill.className='pill '+state.cls;pill.textContent=state.label;
+    var live=state.key==='observing';
+    text('simDomainTotal',live?String(latestSimulation.domainCount||0):'—');
+    text('simEntityTotal',live?String(latestSimulation.entityCount||0):'—');
+    text('simInteractionTotal',live?String(latestSimulation.interactionCount||0):'—');
+    text('simActiveTotal',live?String(latestSimulation.activeInteractionCount||0):'—');
+    text('simPressureTotal',live?shadowNumber(latestSimulation.totalCrossDomainPressure):'—');
+    text('simulationIdentity',
+      state.key==='absent'?'Not reported':
+      state.key==='off'?'WAREBORN_SIMULATION_MODEL off':
+      state.key==='warming'?'Enabled, no snapshot yet':'Enabled, observing');
+    text('simulationSummary',
+      state.key==='absent'?'This game server predates the shadow model, so nothing is claimed about coupling.':
+      state.key==='off'?'The shadow model is compiled in but switched off. Gameplay and network behaviour are identical either way.':
+      state.key==='warming'?'The observer is armed and has not completed its first pass.':
+      (latestSimulation.error?('Observer parked after a fault: '+latestSimulation.error):
+        ('Rebuilt '+(latestSimulation.refreshCount||0)+' times. Observation only — no authority, no migration.')));
+    text('simulationCadence',live?('refresh every '+shadowNumber(latestSimulation.refreshIntervalSeconds)+'s · uncalibrated pressure'):'observation only');
+    var body=$('simulationInteractions');clear(body);
+    var edges=(live&&latestSimulation.interactions)||[];
+    edges.forEach(function(e){
+      var tr=document.createElement('tr');
+      cell(tr,e.a+' ↔ '+e.b);
+      cell(tr,e.kind+' · '+e.strength);
+      cell(tr,e.activity,'muted');
+      cell(tr,shadowNumber(e.pressure),'num');
+      cell(tr,e.crossDomain?((e.domainA||'unassigned')+' → '+(e.domainB||'unassigned')):'same domain','muted');
+      body.appendChild(tr);
+    });
+    text('simulationResultCount',edges.length+' interaction'+(edges.length===1?'':'s')+(live?'':' · not reported'));
   }
   function renderTopology(){
     var canvas=$('topologyCanvas');clear(canvas);

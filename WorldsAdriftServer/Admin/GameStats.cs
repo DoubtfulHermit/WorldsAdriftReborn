@@ -197,6 +197,17 @@ namespace WorldsAdriftServer.Admin
         /// </summary>
         public GameSkyWhaleStat SkyWhale { get; private init; } = GameSkyWhaleStat.Absent();
 
+        /// <summary>
+        /// The interaction shadow model (schema v14+). Never null: an older game
+        /// server projects to an ABSENT section, which the inspector renders as
+        /// "this server has no shadow model" - distinct from a server that has one
+        /// with WAREBORN_SIMULATION_MODEL switched off, and distinct again from one
+        /// switched on that has not warmed up yet. All three would otherwise look
+        /// like a world with no coupling in it, which is the one thing this panel
+        /// must never assert without evidence.
+        /// </summary>
+        public GameSimulationStat Simulation { get; private init; } = GameSimulationStat.Absent();
+
         public static GameStatsSnapshot Parse(JObject o)
         {
             List<GamePlayerStat> players = new List<GamePlayerStat>();
@@ -254,6 +265,7 @@ namespace WorldsAdriftServer.Admin
                 ShipModel = GameShipModelStat.Parse(o["shipModel"] as JObject),
                 Interest = GameInterestStat.Parse(o["interest"] as JObject),
                 SkyWhale = GameSkyWhaleStat.Parse(o["skyWhale"] as JObject),
+                Simulation = GameSimulationStat.Parse(o["simulation"] as JObject),
             };
         }
 
@@ -1018,6 +1030,166 @@ namespace WorldsAdriftServer.Admin
         {
             if (string.IsNullOrEmpty(value)) return string.Empty;
             return value!.Length <= 96 ? value : value.Substring(0, 96);
+        }
+    }
+
+    /// <summary>
+    /// The login server's view of the interaction shadow model.
+    ///
+    /// Rebuilt field by field like every other section here: the admin page is
+    /// authenticated output and a field the writer never promised must not reach it
+    /// just because something wrote it. Two extra rules beyond the usual clamping:
+    /// the enum-ish strings are allowlisted rather than passed through, and every
+    /// pressure is clamped to a sane band - an uncalibrated diagnostic must not be
+    /// able to become an unbounded number in a table cell.
+    /// </summary>
+    internal sealed class GameSimulationStat
+    {
+        /// <summary>Mirrors the game side's own row caps, one step looser as slack.</summary>
+        private const int MaxDomains = 256;
+        private const int MaxInteractions = 128;
+
+        /// <summary>
+        /// Per-edge pressure is a product of three factors each at most 1, so a
+        /// single edge cannot legitimately exceed 1. Domain and world totals are
+        /// sums, so they get a generous but finite ceiling.
+        /// </summary>
+        private const double MaxEdgePressure = 1.0;
+        private const double MaxAggregatePressure = 100_000.0;
+
+        private static readonly string[] Kinds =
+            { "Containment", "Control", "Interest", "Proximity", "Environment" };
+        private static readonly string[] Strengths =
+            { "Weak", "Moderate", "Strong", "VeryStrong" };
+        private static readonly string[] Sensitivities =
+            { "Low", "Moderate", "High", "VeryHigh" };
+        private static readonly string[] Activities =
+            { "Idle", "Intermittent", "Active" };
+
+        public bool Present { get; private init; }
+        public JObject Json { get; private init; } = new JObject();
+
+        /// <summary>The projection for a game server whose schema has no simulation section.</summary>
+        public static GameSimulationStat Absent() => new GameSimulationStat
+        {
+            Present = false,
+            Json = Build(null),
+        };
+
+        public static GameSimulationStat Parse(JObject? s)
+        {
+            if (s == null) return Absent();
+            return new GameSimulationStat
+            {
+                Present = (bool?)s["present"] ?? false,
+                Json = Build(s),
+            };
+        }
+
+        private static JObject Build(JObject? s)
+        {
+            JArray domains = new JArray();
+            if (s?["domains"] is JArray domainArray)
+            {
+                foreach (JToken token in domainArray)
+                {
+                    if (domains.Count >= MaxDomains) break;
+                    if (token is not JObject d) continue;
+                    string id = Text((string?)d["domainId"]);
+                    if (id.Length == 0) continue;
+                    domains.Add(new JObject
+                    {
+                        ["domainId"] = id,
+                        ["kind"] = Text((string?)d["kind"], "unknown"),
+                        ["memberCount"] = Count((int?)d["memberCount"] ?? 0),
+                        ["activeInteractionCount"] = Count((int?)d["activeInteractionCount"] ?? 0),
+                        ["pressure"] = Pressure((double?)d["pressure"] ?? 0, MaxAggregatePressure),
+                        // The four inspector slots. Null stays null all the way to
+                        // the browser: "not known" must not become an empty string
+                        // that a cell renders as an answer.
+                        ["descriptor"] = NullableText(d["descriptor"]),
+                        ["fidelity"] = NullableText(d["fidelity"]),
+                        ["authorityOwner"] = NullableText(d["authorityOwner"]),
+                        ["migrationGeneration"] = d["migrationGeneration"]?.Type == JTokenType.Integer
+                            ? (long?)d["migrationGeneration"] : null,
+                    });
+                }
+            }
+
+            JArray interactions = new JArray();
+            if (s?["interactions"] is JArray edgeArray)
+            {
+                foreach (JToken token in edgeArray)
+                {
+                    if (interactions.Count >= MaxInteractions) break;
+                    if (token is not JObject e) continue;
+                    string a = Text((string?)e["a"]);
+                    string b = Text((string?)e["b"]);
+                    if (a.Length == 0 || b.Length == 0) continue;
+                    interactions.Add(new JObject
+                    {
+                        ["a"] = a,
+                        ["b"] = b,
+                        ["kind"] = OneOf((string?)e["kind"], Kinds),
+                        ["strength"] = OneOf((string?)e["strength"], Strengths),
+                        ["latencySensitivity"] = OneOf((string?)e["latencySensitivity"], Sensitivities),
+                        ["activity"] = OneOf((string?)e["activity"], Activities),
+                        ["pressure"] = Pressure((double?)e["pressure"] ?? 0, MaxEdgePressure),
+                        ["domainA"] = NullableText(e["domainA"]),
+                        ["domainB"] = NullableText(e["domainB"]),
+                        ["crossDomain"] = (bool?)e["crossDomain"] ?? false,
+                    });
+                }
+            }
+
+            return new JObject
+            {
+                ["present"] = s != null && ((bool?)s["present"] ?? false),
+                ["enabled"] = (bool?)s?["enabled"] ?? false,
+                ["hasSnapshot"] = (bool?)s?["hasSnapshot"] ?? false,
+                ["refreshCount"] = Count((int?)s?["refreshCount"] ?? 0),
+                ["refreshIntervalSeconds"] = Pressure((double?)s?["refreshIntervalSeconds"] ?? 0, 3600),
+                ["error"] = NullableText(s?["error"]),
+                ["domainCount"] = Count((int?)s?["domainCount"] ?? 0),
+                ["entityCount"] = Count((int?)s?["entityCount"] ?? 0),
+                ["interactionCount"] = Count((int?)s?["interactionCount"] ?? 0),
+                ["activeInteractionCount"] = Count((int?)s?["activeInteractionCount"] ?? 0),
+                ["totalCrossDomainPressure"] =
+                    Pressure((double?)s?["totalCrossDomainPressure"] ?? 0, MaxAggregatePressure),
+                ["domains"] = domains,
+                ["interactions"] = interactions,
+            };
+        }
+
+        private static double Pressure(double value, double ceiling)
+        {
+            if (double.IsNaN(value) || double.IsInfinity(value) || value < 0) return 0;
+            return value > ceiling ? ceiling : value;
+        }
+
+        private static int Count(int value) => value < 0 ? 0 : value;
+
+        private static string OneOf(string? value, string[] allowed)
+        {
+            if (value == null) return "unknown";
+            foreach (string candidate in allowed)
+            {
+                if (string.Equals(value, candidate, StringComparison.Ordinal)) return candidate;
+            }
+            return "unknown";
+        }
+
+        private static string Text(string? value, string fallback = "")
+        {
+            if (string.IsNullOrEmpty(value)) return fallback;
+            return value!.Length <= 96 ? value : value.Substring(0, 96);
+        }
+
+        private static JToken NullableText(JToken? token)
+        {
+            if (token == null || token.Type != JTokenType.String) return JValue.CreateNull();
+            string text = Text((string?)token);
+            return text.Length == 0 ? JValue.CreateNull() : new JValue(text);
         }
     }
 

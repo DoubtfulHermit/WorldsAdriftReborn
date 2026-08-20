@@ -65,6 +65,20 @@
     <aside class="domain-detail" aria-live="polite"><div class="detail-empty" id="domainDetailEmpty">Select a domain from the topology or inventory to inspect authority, affinity, replication and membership.</div><div class="detail-content" id="domainDetail"><div class="detail-head"><div class="detail-head-top"><div><h3 id="detailTitle">Domain</h3><div class="island-id" id="detailId"></div></div><span class="pill" id="detailStatus"></span></div></div><div class="detail-grid" id="detailGrid"></div><div class="detail-note" id="detailNote"></div></div></aside>
   </div>
   <p class="muted" id="noDomains" style="display:none;font-size:.78rem">No runtime topology is available. An older game server may still be writing schema-v2 ship telemetry.</p>
+  <div class="topology" id="shadowModel">
+    <div class="topology-bar"><strong>Interaction shadow model</strong><div class="fit"><span class="pill warn" id="simulationState">not reported</span></div></div>
+    <p class="lede" style="margin-top:.4rem;margin-bottom:.6rem">An <strong>observation overlay</strong>, not authority. Everything above this line is what the game loop actually owns; everything below is what a future scheduler <em>would</em> reason about. It moves nothing, and switching it off changes no gameplay. Pressure is an <strong>uncalibrated</strong> ordinal score &mdash; sort by it, never read it as a measurement.</p>
+    <div class="runtime-overview">
+      <div class="host-summary"><div class="host-kicker">Shadow observer</div><div class="host-name" id="simulationIdentity">Not reported</div><div class="host-meta" id="simulationSummary">Waiting for the shadow model&hellip;</div></div>
+      <div class="runtime-metric"><div class="n" id="simDomainTotal">&mdash;</div><div class="l">Shadow domains</div></div>
+      <div class="runtime-metric"><div class="n" id="simEntityTotal">&mdash;</div><div class="l">Tracked entities</div></div>
+      <div class="runtime-metric"><div class="n" id="simInteractionTotal">&mdash;</div><div class="l">Interactions</div></div>
+      <div class="runtime-metric"><div class="n" id="simActiveTotal">&mdash;</div><div class="l">Active edges</div></div>
+      <div class="runtime-metric"><div class="n" id="simPressureTotal">&mdash;</div><div class="l">Cross-domain pressure</div></div>
+    </div>
+    <div class="domain-table-wrap"><table class="domain-table"><thead><tr><th>Interaction</th><th>Kind</th><th>Activity</th><th class="num">Pressure</th><th>Crosses</th></tr></thead><tbody id="simulationInteractions"></tbody></table></div>
+    <div class="domain-footer"><span id="simulationResultCount">0 interactions</span><span id="simulationCadence">&mdash;</span></div>
+  </div>
 </div>
 
 <div class="section-head" id="streaming">Interest &amp; streaming</div>

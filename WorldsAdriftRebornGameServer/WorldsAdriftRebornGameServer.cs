@@ -2469,6 +2469,139 @@ namespace WorldsAdriftRebornGameServer
         }
 
         /// <summary>
+        /// The interaction shadow model: the observation layer that makes the
+        /// world's causal coupling visible.
+        ///
+        /// <para>
+        /// It OBSERVES AND NOTHING ELSE. It sends no packet, touches no interest
+        /// set, changes no spawn order and holds no authority; the ownership
+        /// registry (<see cref="DomainHost"/>) remains the only thing that decides
+        /// who owns what. Gated on WAREBORN_SIMULATION_MODEL, and with the flag off
+        /// the runtime never even calls the reader below - which is the whole of the
+        /// "disabling it produces identical behaviour" guarantee, and is asserted in
+        /// SimulationShadowRuntimeTests rather than promised here.
+        /// </para>
+        /// </summary>
+        internal static readonly Multiplayer.Simulation.Wareborn.SimulationShadowRuntime Simulation =
+            new Multiplayer.Simulation.Wareborn.SimulationShadowRuntime(
+                Multiplayer.Simulation.Wareborn.SimulationObserverPolicy.IsEnabled(
+                    Environment.GetEnvironmentVariable(
+                        Multiplayer.Simulation.Wareborn.SimulationObserverPolicy.EnabledEnvVar)),
+                ObserveWorldForShadowModel);
+
+        /// <summary>
+        /// Reads one pass of live world state into plain values for the shadow model.
+        ///
+        /// EVERY call in here is a read. No accessor used below mutates: AboardTracker
+        /// exposes ShipOf/AboardShip beside the mutating Observe/Forget and only the
+        /// first two appear here, and DomainHost is consulted through Domains rather
+        /// than Assign/Move. This method contains no rules - which edges exist and how
+        /// strong they are is decided by WarebornSimulationProjection over in the
+        /// Multiplayer assembly, where it has a test project.
+        /// </summary>
+        private static Multiplayer.Simulation.Wareborn.WarebornWorldObservation ObserveWorldForShadowModel()
+        {
+            Multiplayer.Islands.IslandRegistry islands = IslandTopology;
+
+            // Islands come from the ownership host, not the island catalogue: the
+            // shadow model must describe the domains that actually exist this boot,
+            // and the release catalogue lists hundreds that are not hosted.
+            List<Multiplayer.Simulation.Wareborn.ObservedIsland> observedIslands =
+                new List<Multiplayer.Simulation.Wareborn.ObservedIsland>();
+            foreach (Multiplayer.Domains.ILocalSimulationDomain domain in DomainHost.Domains)
+            {
+                if (domain is Multiplayer.Domains.IslandDomain islandDomain)
+                {
+                    observedIslands.Add(new Multiplayer.Simulation.Wareborn.ObservedIsland(
+                        islandDomain.IslandId.Value, domain.EntityIds));
+                }
+            }
+
+            List<Multiplayer.Simulation.Wareborn.ObservedShip> observedShips =
+                new List<Multiplayer.Simulation.Wareborn.ObservedShip>();
+            foreach (Multiplayer.Ship.Domains.ShipDomain ship in ShipDomains.All)
+            {
+                long hullEntityId = ship.HullEntityId;
+                // The same liveness test the stats snapshot already uses, so the two
+                // halves of the admin card cannot disagree about whether a hull moves.
+                bool moving = Flight.IsPiloted(hullEntityId)
+                    || !ship.Flight.State.IsAtRest
+                    || ship.Flight.Input.Throttle != 0f;
+
+                Multiplayer.FixedPointPosition at =
+                    Flight.TryGetFlownPose(hullEntityId, out Multiplayer.FixedPointPosition pose, out _)
+                        ? pose
+                        : WorldEntities.TransformSeedFor(hullEntityId);
+
+                Multiplayer.Islands.IslandId nearestId =
+                    Multiplayer.Islands.IslandResourceInterestPolicy.ClosestIsland(at, islands.All);
+                Multiplayer.Islands.IslandDefinition nearest = islands.ById(nearestId);
+                double distanceMetres = nearest == null
+                    ? double.NaN
+                    : MetresBetween(at, nearest.GlobalOrigin);
+
+                List<long> aboard = new List<long>();
+                foreach (ulong peerId in Aboard.AboardShip(hullEntityId))
+                {
+                    long? aboardEntityId = Players.EntityOf(peerId);
+                    if (aboardEntityId.HasValue) aboard.Add(aboardEntityId.Value);
+                }
+
+                observedShips.Add(new Multiplayer.Simulation.Wareborn.ObservedShip(
+                    hullEntityId,
+                    ship.EntityIds,
+                    aboard,
+                    Flight.PilotEntityOf(hullEntityId),
+                    moving,
+                    nearest == null ? null : nearestId.Value,
+                    distanceMetres));
+            }
+
+            List<Multiplayer.Simulation.Wareborn.ObservedPlayer> observedPlayers =
+                new List<Multiplayer.Simulation.Wareborn.ObservedPlayer>();
+            foreach ((ulong peerId, long entityId) in Players.All())
+            {
+                List<string> interested = new List<string>();
+                ENetPeerHandle? peerHandle = PeerIdentity.Instance.Resolve(new IntPtr((long)peerId));
+                if (peerHandle != null)
+                {
+                    // ResourceInterestService stays authoritative for checkout; this
+                    // reads its result and aggregates to the ISLAND, never one edge
+                    // per resource node.
+                    foreach (InterestPeerIslandStat holding in ResourceInterest.HoldingsFor(peerHandle))
+                    {
+                        if (holding.CheckedOut > 0) interested.Add(holding.IslandId);
+                    }
+                }
+                observedPlayers.Add(new Multiplayer.Simulation.Wareborn.ObservedPlayer(
+                    entityId, Aboard.ShipOf(peerId), interested));
+            }
+
+            return new Multiplayer.Simulation.Wareborn.WarebornWorldObservation(
+                observedIslands, observedShips, observedPlayers);
+        }
+
+        private static double MetresBetween(
+            Multiplayer.FixedPointPosition a, Multiplayer.FixedPointPosition b)
+        {
+            double dx = a.MetresX - b.MetresX;
+            double dy = a.MetresY - b.MetresY;
+            double dz = a.MetresZ - b.MetresZ;
+            return Math.Sqrt((dx * dx) + (dy * dy) + (dz * dz));
+        }
+
+        /// <summary>
+        /// Refreshes the shadow model on its own slow cadence and prints the
+        /// section-11 lines when it does. No-op when the flag is off. Never per tick:
+        /// the runtime self-throttles to SimulationObserverPolicy.RefreshInterval.
+        /// </summary>
+        private static void MaybeObserveSimulation()
+        {
+            if (!Simulation.Poll(ServerClock.Elapsed)) return;
+            foreach (string line in Simulation.LatestDiagnostics) Console.WriteLine(line);
+        }
+
+        /// <summary>
         /// Assembles the current snapshot: the accumulated counters, the relay's
         /// live mode/rate, and one row per player IN WORLD (from <see cref="Players"/>,
         /// so it lists spawned entities; a peer still on its loading screen is in
@@ -2699,7 +2832,19 @@ namespace WorldsAdriftRebornGameServer
                 // move the console with it.
                 shipModel: new ShipMapRuntimeStat(
                     Flight.Tuning.AccelMps2, Flight.Tuning.MaxSpeedMps),
-                interest: interest);
+                interest: interest,
+                // The shadow model, as of its own last refresh - NOT rebuilt here.
+                // The stats file is written every 3 s and the shadow model every 5 s
+                // on purpose: making the file drive the model would put an
+                // observation-only subsystem on the dashboard's clock and quietly
+                // triple how often it walks the world.
+                simulation: new SimulationRuntimeStat(
+                    Simulation.Enabled,
+                    Simulation.RefreshCount,
+                    Multiplayer.Simulation.Wareborn.SimulationObserverPolicy
+                        .RefreshInterval.TotalSeconds,
+                    Simulation.LastError,
+                    Simulation.LatestSnapshot));
         }
 
         /// <summary>
@@ -4957,6 +5102,14 @@ namespace WorldsAdriftRebornGameServer
                 // health appended when readable). Runs with the other timers so a
                 // peer that has gone silent still gets its line.
                 ReportPeerRates();
+
+                // Rebuild the interaction shadow model, at most every 5 s and only
+                // when WAREBORN_SIMULATION_MODEL is set. Placed BEFORE the stats
+                // write so the dashboard publishes the model built this turn rather
+                // than the previous one, and after every service above so it sees a
+                // settled turn. Observation only; it can neither fail into this loop
+                // nor change anything above it. See SimulationShadowRuntime.
+                MaybeObserveSimulation();
 
                 // Snapshot the live session to /tmp/wareborn-stats.json for the
                 // operator dashboard. Self-throttled to a few seconds and atomic;

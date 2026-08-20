@@ -1567,6 +1567,60 @@ type-5 WorldEndWall about 1.061 km west of active Haven; prior notes treating
 exact release wall placement as missing are superseded. Wall behavior remains
 unimplemented.
 
+### Interaction shadow model (local, off by default)
+
+The observation layer above domain ownership. `LocalDomainHost` already answers
+"who owns what"; nothing answered **"what is expensive to pull apart"**, and
+that is the question any future placement decision has to ask first. Behind
+`WAREBORN_SIMULATION_MODEL`, default **0**. Branch
+`feat/simulation-shadow-model`. Nothing is deployed.
+
+| variable | default | what it does |
+|---|---|---|
+| `WAREBORN_SIMULATION_MODEL` | `0` (off) | arms the observer. Only the exact string `1` enables it |
+
+**It only observes.** With the flag off, `SimulationShadowRuntime` never invokes
+the observation supplier at all — and that supplier is the only channel to live
+state, so a disabled observer cannot have read, and therefore cannot have
+perturbed, a ship, a player or an interest set. That is asserted structurally in
+`SimulationShadowRuntimeTests`, not promised in a comment. Even enabled it sends
+nothing, owns nothing and moves nothing; no hot path reads it.
+
+- **Core** — `Multiplayer/Simulation`: `SimulationEntityId`, `InteractionEdge`
+  (kind + ordinal strength + latency sensitivity + observed activity),
+  `InteractionPressure`, `SimulationWorldModel`, `WorldSnapshot`,
+  `SimulationDiagnostics`. Engine-agnostic; `SimulationCorePurityTests` enforces
+  that three ways. It reuses the existing `SimulationDomainId` deliberately —
+  two spellings of `ship:893` would make the two halves of the inspector
+  impossible to join.
+- **Adapter** — `Multiplayer/Simulation/Wareborn`: a plain observation record
+  and the projection that turns it into a world. The four first edges are
+  **containment** (aboard), **control** (helm), **interest** (resource checkout,
+  aggregated at the island DOMAIN, never per node) and **proximity** (ship near
+  island). `InteractionKind.Environment` is declared and never produced — that
+  is the wind wall's seam.
+- **Diagnostics** — `[sim]` lines on stdout every 5 s, never per tick.
+- **Inspector** — stats schema **v14** `simulation` section; the admin
+  Simulation card grows an "Interaction shadow model" block *below* the
+  authoritative ownership topology, labelled as an observation overlay.
+
+**⚠ `pressure` is UNCALIBRATED.** Nobody has measured a message rate, a physics
+contact rate or a migration cost. It is an ordinal ranking so a panel can sort
+by it. Do not gate behaviour on it; the moment something does, invented numbers
+become load-bearing and the first real measurement becomes a regression.
+
+**⚠ Members will read low until entities bind.** Island domains own nothing at
+boot — a soak on 2026-08-20 logged `[sim] domain island:haven kind=island
+members=1`, and that is faithful: `[domain-host] ... owned=0` with 127
+registrations still waiting for their `AddEntityOp`. The shadow model reports
+the ownership host, it does not guess ahead of it.
+
+**Deliberately absent**, because the vision doc's "do not freeze this API until
+real domain implementations expose what is actually required" beats the
+handover's PR-1 wish list: `SimulationContract`, `ConsistencyClass`,
+`FidelityClass`, free interaction-strength doubles, conserved-quantity string
+lists, a graph partitioner — and any `Tick` on a domain.
+
 ### Understorms (local, off by default) — S1 of the storm plan
 
 The island lightning event that refreshes resources, server-side and complete.
