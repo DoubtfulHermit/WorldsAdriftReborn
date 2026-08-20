@@ -249,6 +249,17 @@ So Lead D found **a large missing world feature**, not a fix for defect 2.
 
 **Cheapest alternative if (B) is rejected:** nothing in the sky is cheaper. The honest options are non-sky — lengthen/shape the existing 30 s rumble, or use the countdown the server already pushes every 8 s. Both server-only. **Do not invent a client string for either.**
 
+### ⚠ CONTINUED 2026-08-20 — the SHIP-FACING half is now in `docs/research/findings-storm-walls.md`
+
+This document is the *rendering* half. Its follow-up traces the *physics* half — what a wall does to a ship — and **corrects or answers four things left here**:
+
+1. **§1.6's 800 m is the VISUAL radius only.** The **physics** radius is a separate, hard-coded **400 m** (`WallData.EffectiveDist`), full strength inside 200 m. Forces start at 400 m; you see the wall from 800 m.
+2. **§2.6's subdivision question is ANSWERED, and the guess here was wrong.** `WallData.DistanceSqr` is distance-to-*one*-line-segment and `Add()` merges segments into their axial extent, so **N collinear segments produce a bit-identical field to one segment spanning the same extent**. Serve **one entity per wall** — 44 total. Note `length` is a **HALF-length**. (Caveat: serving all 11 Storm Rifts unconditionally pins `TotalStormWallLength` at ~53 km world-wide, inflating the ambient-bolt spawn rate — soak it.)
+3. **§2.3's "1204 alone = no gusts, no torque" is right, but under-stated: there is a SECOND, independent reason.** `WallTorquePhysicsVisualizer` and `WindPhysicsVisualizer` are added **only** in `ShipPreprocessor`'s `UnityWorker` branch (`:54-55`), so they are not on our hulls at all. Even a fully-populated `1229` would do nothing until ships Stage B lands. **Corollary: serving `1204` today cannot perturb the atlas arithmetic, structurally.**
+4. **The maintainer's "weight" memory is REAL** — `WindPhysicsVisualizer.ApplyDrag` scales wall wind by `1 - Clamp01(mass/4000)*0.75`, a 4:1 soft ramp saturating at 4000 kg (**not** a threshold), corroborated verbatim by the wiki. There is **no** weight or velocity threshold to cross a wall, and no barrier anywhere.
+
+Also established there: ship damage is **server-authoritative and entirely missing** — the client is a three-channel *sensor* (sails→`5129`, wings/engines→`1256`, hull→`1224`), each matching one wiki damage claim exactly; and the retail `1229` tuning values are **UNRECOVERABLE**, so any we serve is invented.
+
 ## 7. METHOD, so the negatives can be trusted
 
 - **Binary greps used `-a`**, over `UnityClient@Windows_Data/Managed/` **including `WASystems.dll` and `SpatialTranslator.dll`**. Control: `WeatherTextureGenerator`, `WallSegmentVisualizer`, `WeatherWalls`, `CmdBufClouds`, `GlobalWeatherTextures` each land in `Assembly-CSharp.dll` and nowhere else, as they must.
