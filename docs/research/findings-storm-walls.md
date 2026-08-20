@@ -9,7 +9,7 @@ Companion to `findings-storm-sky.md`, which established the *rendering* half and
 ## 0. THE ANSWER IN EIGHT LINES
 
 1. **The maintainer's weight memory is REAL, and I found the line.** `WindPhysicsVisualizer.ApplyDrag` scales all wall wind by `1 - Clamp01(mass/4000)*0.75`. A >=4000 kg ship is pushed **4x less** than a weightless one. The wiki says the same thing in prose. **But it is a soft 4:1 ramp, not a threshold** (§2.4).
-2. **There is no velocity threshold and no weight threshold to "pass" a wall.** No gate, no barrier, no pass/fail test exists anywhere in the wall code. Crossing is a continuous tug-of-war between engine thrust and wind drag (§2.5, §3).
+2. **There is no velocity threshold and no weight threshold to "pass" a wall.** No gate, no barrier, no pass/fail test exists anywhere in the wall code. Crossing is a continuous tug-of-war between engine thrust and wind drag (§2.5, §3). **Independently confirmed by Bossa's own dev blog, which calls it "soft" gating and says outright "we don't want a binary check that players either succeed or fail at" (§11).**
 3. **Three separate forces**, all `ForceMode.Force`: wall **wind drag** (mass-cancelling, but mass-attenuated by the 4000 kg ramp), **gusts** (impulse at a point → shoves *and* spins), and a **yaw torque** that turns your bow to run parallel with the wall (§2).
 4. **The physics radius is 400 m, not the 800 m visual radius.** `WallData.EffectiveDist = 400`, full strength inside 200 m. You see a wall from 800 m and only start being pushed at 400 m (§2.1).
 5. **Ship damage: the client is a SENSOR, not a damage model.** Three writers report *exposure* to the server — sails report wall wind (5129), wings/engines report sandstorm intensity (1256), the hull reports "inside a storm" (1224). Every damage decision lived in Bossa's server. We have none of it (§4).
@@ -402,10 +402,74 @@ Preserved so the next agent does not re-spend the day.
 - **The ambient-bolt spawn cost of whole-wall serving** (§6) is derived from the formula, not measured. It needs a soak.
 - **`ShipConfiguration` is remotely overridable** (`RemoteConfigurationUpdater`, key `"shipconfig"`). 2.5 / 0.007 is what the client ships with; whether retail's live server overrode it is unknowable from here.
 - **`WallInfoProvider`** is a dev-console debug provider (`DebugInfoController.cs:164`, command `"wall"`); not examined in detail, no gameplay role.
-- **`worldsadrift.com/blog/stormy-skies/`** — still not fetched. It is the wiki's ref `:0` and the primary source for **both** wall types' damage rules. It is the single highest-value remaining source for §4, and it is ten minutes of work.
+- ~~**`worldsadrift.com/blog/stormy-skies/`** — still not fetched.~~ **CLOSED 2026-08-20 — see §11.**
 
 ---
 
-## 11. WHAT WAS NOT DONE
+## 11. `stormy-skies` — RETRIEVED, and it confirms the central finding
+
+**Provenance: DEV BLOG (primary).** Supplied verbatim by the maintainer
+2026-08-20 from `worldsadrift.com/blog/stormy-skies/`, the wiki's ref `:0`.
+Not fetched over the network; the page is defunct. This is a **design-intent**
+source — Bossa stating what they wanted — not a specification of shipped
+behaviour. Where it and the shipped bytes disagree, the bytes win. They do not
+disagree.
+
+### It states the no-threshold finding as explicit design policy
+
+> *"one thing they'll all have in common is the **'soft' gating** they
+> represent. **We don't want a binary check that players either succeed or fail
+> at**; flying through a storm will require excellent piloting, good
+> preparation, and will **always take a toll**, no matter how experienced you
+> are as a player or how well you've built your ship."*
+
+§2.5 concluded from the code that there is no weight threshold, no velocity
+threshold and no pass/fail test — only a soft 4:1 mass ramp and a drag
+equilibrium. **The designers say the same thing in the same words.** The
+`1 − Clamp01(mass/4000) × 0.75` ramp is not an incomplete threshold; it is the
+intended soft gate. This is independent corroboration of a negative, which is
+the hardest kind to earn — and it means nobody should go looking for the
+"real" threshold later.
+
+### The two wall types are described distinctly, matching §3
+
+| | blog wording | agrees with |
+|---|---|---|
+| **Windrift** | *"waterfalls of air"*; *"may **not do much damage** to your ship, but if you try to head in **without strong enough engines or wings to fight through**, you will find yourself **pushed back** and… **crushed down into the death clouds below**"* | §3 — no yaw torque, gusts blow straight **down**, force-only, damage-light |
+| **Stormwall** | *"**batter your ship around like a toy**, **splinter the hull with lightning bolts** and **spit you back out far away** from where you wanted to go"* | §2.2 gusts (shove + spin), §4.1 hull sensor `1224`, §2.3 yaw torque |
+
+Three points worth pinning:
+
+1. **"Strong enough engines or wings to fight through"** is the maintainer's
+   remembered "velocity needed to pass" — and it resolves exactly as §2.5
+   predicted: a **thrust-versus-drag equilibrium**, not a gate. You do not clear
+   a bar; you either out-push the wind or you are pushed back. The mass ramp
+   decides how hard the wind pushes.
+2. **"Crushed down into the death clouds"** — the windrift's lethality is
+   **downward displacement**, not damage. §3 found gusts blow straight down.
+   The kill is the fall, which needs no damage model at all: it is position.
+3. **"Splinter the hull with lightning bolts"** names the hull-damage mechanism
+   the wiki only implied, and it lands on the `1224` hull sensor of §4.1.
+   Arbitration was still Bossa's server (§4.2) — this does not change the
+   sizing, but it does confirm what §4 would have to reproduce.
+
+### Also relevant to scope
+
+> *"Surrounding all these different areas will be **weather barriers**… there
+> will be **zones** with their own biomes and environments, and, made up of many
+> zones, **huge regions**."*
+
+Walls are **region boundaries**, which is consistent with the 44 imported
+segments being few, long and world-scale (§6), and with serving one entity per
+wall rather than many.
+
+**Caveat, stated plainly:** this is a pre-launch blog describing intent. Retail
+shipped years of patches afterwards. It corroborates §2.5, §3 and §4.1; it is
+**not** evidence for any tuning value, and it supplies no `1229` constants —
+§10's unrecoverable-tuning gap stands unchanged.
+
+---
+
+## 12. WHAT WAS NOT DONE
 
 No server code changed. No client mod built or installed. Nothing pushed, nothing deployed. Production not touched, not even read. `isLightningActive` not written anywhere. No test, no schema change. Only `docs/research/findings-storm-walls.md` added and a pointer appended to `docs/research/findings-storm-sky.md` §6.
