@@ -421,7 +421,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         // different shapes both calling themselves 11 is the precise mis-parse
         // this counter exists to prevent, so the geometry took the next free
         // number above what shipped rather than the next one above its own base.
-        public const int SchemaVersion = 13;
+        // v14: adds the `simulation` section - the interaction shadow model. It is
+        // OBSERVATION ONLY and is not part of any hot path: the section is written
+        // unconditionally with `present`, and with `enabled` false when
+        // WAREBORN_SIMULATION_MODEL is off, so a reader can tell "this server has no
+        // shadow model" from "the shadow model is switched off" from "on but not yet
+        // warm". Its `pressure` numbers are UNCALIBRATED by construction (see
+        // InteractionPressure) and must never be rendered as a measurement.
+        public const int SchemaVersion = 14;
 
         public long BootTimeUnixMs { get; }
         public long GeneratedAtUnixMs { get; }
@@ -493,6 +500,14 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
         /// </summary>
         public SkyWhaleRuntimeStat SkyWhale { get; }
 
+        /// <summary>
+        /// The interaction shadow model (schema v14+). Always a fully built value on
+        /// a server that has one: <see cref="SimulationRuntimeStat.Present"/> false
+        /// means the game server predates it, which a reader renders as "not
+        /// reported" rather than as an empty world.
+        /// </summary>
+        public SimulationRuntimeStat Simulation { get; }
+
         public IReadOnlyList<PlayerStat> Players { get; }
         public IReadOnlyList<ShipDomainStat> ShipDomains { get; }
         public IReadOnlyList<RuntimeDomainStat> RuntimeDomains { get; }
@@ -525,10 +540,12 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             FaunaRuntimeStat? fauna = null,
             ShipMapRuntimeStat shipModel = default,
             InterestRuntimeStat interest = default,
-            SkyWhaleRuntimeStat? skyWhale = null)
+            SkyWhaleRuntimeStat? skyWhale = null,
+            SimulationRuntimeStat simulation = default)
         {
             ShipModel = shipModel;
             Interest = interest;
+            Simulation = simulation;
             BootTimeUnixMs = bootTimeUnixMs;
             GeneratedAtUnixMs = generatedAtUnixMs;
             UptimeSeconds = uptimeSeconds;
@@ -644,9 +661,92 @@ namespace WorldsAdriftRebornGameServer.Multiplayer
             AppendInterest(b, Interest);
             b.Append(',');
             AppendSkyWhale(b, SkyWhale);
+            b.Append(',');
+            AppendSimulation(b, Simulation);
 
             b.Append('}');
             return b.ToString();
+        }
+
+        /// <summary>
+        /// The interaction shadow model. Written unconditionally with an explicit
+        /// <c>present</c> AND an explicit <c>enabled</c>, because three different
+        /// facts collapse to "no rows" otherwise: an older server, a server with the
+        /// flag off, and a server that is on but has not warmed up yet.
+        ///
+        /// Every pressure number in here is UNCALIBRATED. It exists to be sorted by,
+        /// never to be read as a measurement, and a reader that draws it must say so.
+        /// </summary>
+        private static void AppendSimulation(StringBuilder b, SimulationRuntimeStat s)
+        {
+            Key(b, "simulation");
+            b.Append('{');
+            Bool(b, "present", s.Present); b.Append(',');
+            Bool(b, "enabled", s.Enabled); b.Append(',');
+            Bool(b, "hasSnapshot", s.HasSnapshot); b.Append(',');
+            Num(b, "refreshCount", s.RefreshCount); b.Append(',');
+            Num(b, "refreshIntervalSeconds", s.RefreshIntervalSeconds); b.Append(',');
+            Key(b, "error");
+            if (s.Error == null) b.Append("null");
+            else AppendJsonString(b, s.Error);
+            b.Append(',');
+            Num(b, "domainCount", s.DomainCount); b.Append(',');
+            Num(b, "entityCount", s.EntityCount); b.Append(',');
+            Num(b, "interactionCount", s.InteractionCount); b.Append(',');
+            Num(b, "activeInteractionCount", s.ActiveInteractionCount); b.Append(',');
+            Num(b, "totalCrossDomainPressure", s.TotalCrossDomainPressure); b.Append(',');
+
+            Key(b, "domains"); b.Append('[');
+            for (int i = 0; i < s.Domains.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                SimulationDomainStat d = s.Domains[i];
+                b.Append('{');
+                Str(b, "domainId", d.DomainId); b.Append(',');
+                Str(b, "kind", d.Kind); b.Append(',');
+                Num(b, "memberCount", d.MemberCount); b.Append(',');
+                Num(b, "activeInteractionCount", d.ActiveInteractionCount); b.Append(',');
+                Num(b, "pressure", d.Pressure); b.Append(',');
+                AppendNullableString(b, "descriptor", d.Descriptor); b.Append(',');
+                // The three slots section 24 reserves. Null on purpose: no fidelity
+                // system, no authority transfer and no migration exist to report.
+                AppendNullableString(b, "fidelity", d.Fidelity); b.Append(',');
+                AppendNullableString(b, "authorityOwner", d.AuthorityOwner); b.Append(',');
+                Key(b, "migrationGeneration");
+                if (d.MigrationGeneration.HasValue)
+                    b.Append(d.MigrationGeneration.Value.ToString(CultureInfo.InvariantCulture));
+                else b.Append("null");
+                b.Append('}');
+            }
+            b.Append(']'); b.Append(',');
+
+            Key(b, "interactions"); b.Append('[');
+            for (int i = 0; i < s.Interactions.Count; i++)
+            {
+                if (i > 0) b.Append(',');
+                SimulationInteractionStat x = s.Interactions[i];
+                b.Append('{');
+                Str(b, "a", x.A); b.Append(',');
+                Str(b, "b", x.B); b.Append(',');
+                Str(b, "kind", x.Kind); b.Append(',');
+                Str(b, "strength", x.Strength); b.Append(',');
+                Str(b, "latencySensitivity", x.LatencySensitivity); b.Append(',');
+                Str(b, "activity", x.Activity); b.Append(',');
+                Num(b, "pressure", x.Pressure); b.Append(',');
+                AppendNullableString(b, "domainA", x.DomainA); b.Append(',');
+                AppendNullableString(b, "domainB", x.DomainB); b.Append(',');
+                Bool(b, "crossDomain", x.CrossDomain);
+                b.Append('}');
+            }
+            b.Append(']');
+            b.Append('}');
+        }
+
+        private static void AppendNullableString(StringBuilder b, string name, string? value)
+        {
+            Key(b, name);
+            if (value == null) b.Append("null");
+            else AppendJsonString(b, value);
         }
 
         /// <summary>
