@@ -4446,9 +4446,34 @@ That is the headline correction to PHASE 7.
 
 ### 14.10 THE PHASED PLAN
 
-#### S1 — The understorm, server-side, presentation + reset *(recommended next branch)*
+#### S1 — The understorm, server-side, presentation + reset — **BUILT, `feat/understorm-s1`, not deployed, not yet seen by a human**
 
 Server-only. No migration. No new component. No client mod. No patcher release.
+All six items below shipped, plus a seventh the plan did not anticipate. What
+the plan got wrong once the code was in front of it:
+
+- **The plan's item 3 undercounted the countdown pushes, and the reason is a
+  client bug.** "A low-rate countdown refresh" is not optional decoration — it
+  is the only thing that makes the warning exist, and each push must move the
+  value by **more than 7 s** or the client discards it. See §14.11.5. A
+  once-per-storm push would have shipped an invisible feature that passed every
+  test in the plan.
+- **The plan's per-island schedule (item 2) and its world-wide reset (item 4)
+  contradict each other in a multi-island world.** `ResetHarvestResources()` is
+  global, so firing it at *each* island's storm end resets the whole world once
+  per island per cadence — eleven of twelve of those while the island in
+  question is calm. S1 therefore keeps the jittered per-island **presentation**
+  and fires **one** reset per generation, at the *last* island's storm end.
+  S2 replaces that with a per-island reset and the contradiction goes away.
+- **A seam the plan missed entirely: the SEED.** Updates only reach peers that
+  already hold the component, so a player logging in mid-storm was served the
+  static seed — clear sky — and heard nothing until it ended. The 1254 seed is
+  now answered from the same schedule the pushes come from.
+- **§14.8.2 gained a third absence** (the drop behaviour is on 0 of 255
+  bundles); **§14.11.1 and §14.11.2 are closed**; **S3 gained an unrecorded
+  prerequisite** (the metal handshake is off in production). All recorded above.
+
+Everything else in the plan survived contact unchanged.
 
 1. **`IslandStormService`** ticked on the main loop beside `TickTreeHarvest()`
    (`WorldsAdriftRebornGameServer.cs:4667`), shaped like `TreeHarvest` — an
