@@ -623,11 +623,21 @@ namespace WorldsAdriftRebornGameServer.Game.Components
                         // (null-guarded), leaving the check to whatever
                         // ParentingMassAdderVisualizer.totalMass happens to be - so a
                         // generous seed is the belt-and-braces that keeps climb working.
-                        // No server mass model exists (1257 is known-absent), so the
-                        // honest seed is "lift is not the limiting factor": a large
+                        // The honest seed is "lift is not the limiting factor": a large
                         // totalLift, zero torque, reliable=true. VERIFIED ctor
                         // (gencode ShipLiftStateData: totalLift, totalTorque, reliable).
                         // Gated on IsBuiltHull so no other entity's 1258 is answered here.
+                        //
+                        // NOTE (2026-08-20): an older version of this comment claimed
+                        // "no server mass model exists (1257 is known-absent)". That is
+                        // STALE and was misleading in a load-bearing way. We DO serve
+                        // 1257 ParentingMassAdderState, fully per-material, ~2600 lines
+                        // below at the `componentId == 1257` branch, via ShipMassKgFor ->
+                        // HullMassCalculator.HullMassKg. Nor is AtlasMultiplier zero on
+                        // our client: EndOfTheWorld_Patch.cs pins it to 1f (a44aebb).
+                        // So climb works because TotalLift really is 1e6 against hull
+                        // masses of 500-1700 kg - not because either side is absent.
+                        // See docs/research/findings-material-mass.md section 4.
                         obj = new ShipLiftState.Data(new ShipLiftStateData(
                             1000000f, new Improbable.Math.Vector3f(0f, 0f, 0f), true));
 
