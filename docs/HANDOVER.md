@@ -1582,9 +1582,10 @@ compressed, so grep cannot see this). The whole feature is that this server
 stops pinning 1254's two integers and starts scheduling them:
 `estimatedMilliTillNextLightning` drives the client's own 30-second rumble and
 camera shake within 300 m, and `estimatedMilliTillLightningEnd > 0` **is** the
-client's storm switch. When the last island's storm ends, the world's trees,
-metal nodes and fuel canisters are restored through the same
-`ResetHarvestResources()` the authenticated operator command already used.
+client's storm switch. When **an island's** storm ends, **that island's** trees,
+metal nodes and fuel canisters are restored (S2). The world-wide
+`ResetHarvestResources()` survives only as the authenticated operator's
+`reset-resources all`.
 
 | variable | default | what it does |
 |---|---|---|
@@ -1614,15 +1615,47 @@ metal nodes and fuel canisters are restored through the same
 
 **Known divergence from retail, stated rather than hidden:** placement is
 RESTORED, not re-rolled (retail's client re-sampled the island surface each
-time — §14.6.3); and because the reset is world-wide, it fires once per
-generation at the *last* island's storm end rather than per island. §14.10's S2
-and S3 close both. With storms on and `WAREBORN_TREE_RESPAWN_SECONDS` unset,
+time — §14.6.3). §14.10's S3 closes that. The other S1 divergence — one
+world-wide reset per generation at the *last* island's storm end — is **closed
+by S2** (below). With storms on and `WAREBORN_TREE_RESPAWN_SECONDS` unset,
 per-tree regrowth stops and the forest returns with the lightning, which is
 retail's shape; setting that variable is the revert path. Felled logs are never
 regrown by a storm.
 
 Not yet seen by a human. See §14.10/§14.11 of `docs/plans/feature-roadmap.md`
 and the maintainer test script in the S1 branch's report.
+
+#### S2 — per-island reset (branch `feat/understorm-s2`, NOT deployed)
+
+S1 was deployed and watched on 2026-08-20, and the one player-facing defect it
+found was **timing**: the reset landed **212 s** after the first island's storm
+started, under a clear sky (10:59:57 → 11:03:29 CEST, MEASURED). The mechanism
+was right — it restored exactly the 3 trees and 1 node the maintainer had
+harvested — but a global reset can only honestly fire once per generation, at
+the *last* island's storm end.
+
+S2 scopes it. Each of `TreeHarvest`, `NodeRegistry`, `MetalHarvest` and
+`FuelCanisterRegistry` gained a `ResetAll(Func<long,bool> include)` overload;
+`ResourceInterestService` exposes the `_resourceIslands` map it already builds
+for per-island checkout; `ResetHarvestResourcesOn(IslandId)` joins the two; and
+`IslandStormService` keeps a per-island reset generation.
+
+Headless at production's exact configuration (tier1 = 47 islands, 900 s, 0.2,
+45 s): worst gap from an island's own storm START to its own reset is **45.05 s**
+— the storm's own length plus one 20 Hz loop turn — and 36 of the 47 resets land
+before the last island has even begun to storm.
+
+Two traps recorded because they are invisible from the outside:
+
+* the reset call must sit **outside** the 1254 push's early exits, or an island
+  whose `AddEntityOp` has not run silently restores nothing *and* replays every
+  generation it slept through when it finally does;
+* `_resourceIslands` is **empty when spatial interest is off**, so ownership
+  falls back to the same `ClosestIsland` the map is built from. Production reads
+  `WAREBORN_INTEREST_RADIUS_M=120` (PROVED, read live 2026-08-20), so the map is
+  populated there — the fallback is for the off configuration.
+
+No new component, no migration, no client change. Nothing deployed.
 
 ## 10. Known risks and unfinished work
 

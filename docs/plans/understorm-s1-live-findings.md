@@ -15,7 +15,7 @@ Two defects were found by watching it, and neither is a crash:
 
 | # | defect | root cause | status |
 |---|---|---|---|
-| 1 | Resources came back **~3.5 minutes late**, long after the local storm had passed | KNOWN — S1 fires ONE world-wide reset at the LAST island's storm end | root-caused, fix specified below |
+| 1 | Resources came back **~3.5 minutes late**, long after the local storm had passed | KNOWN — S1 fires ONE world-wide reset at the LAST island's storm end | **FIXED in S2**, `feat/understorm-s2`, NOT DEPLOYED — see §2 |
 | 2 | **The sky never went dark or cloudy.** The maintainer remembers retail going "super cloudy and dark, and THEN lightning" | NOT established. Two concrete leads, neither confirmed | needs RE |
 
 There is also one **unconfirmed observation** that must be checked before it is
@@ -101,6 +101,31 @@ and `IslandStormWire` (`:73`).
 
 **Acceptance:** stand on one island, cut a tree, and see it return **at the moment
 that island's bolts stop** — not minutes later.
+
+### ✅ DONE 2026-08-20, branch `feat/understorm-s2`, NOT DEPLOYED
+
+Built as specified. Both named seams were real and both used
+(`ResourceInterestService.IslandOf` / `ResourceIslands`, and
+`ResetHarvestResourcesOn(IslandId)`); the global reset survives only as the
+operator's `reset-resources all`. `WorldResetAt` / `DueWorldResetGeneration` are
+gone, replaced by `ResetAt` / `DueResetGeneration` over *that island's* offset.
+
+**Headless, at this exact production configuration** (tier1 = 47 islands, 900 s,
+0.2, 45 s): worst gap from an island's own storm START to its own reset is
+**45.05 s** — the storm's own length plus one 20 Hz turn — against the **212 s**
+measured live above. 36 of 47 resets land before the last island has even begun
+to storm.
+
+**The `WorldAdminResult.cs:54` note above is wrong** and should not be repeated
+into S3: line 54 is the clause that *rejects* a target on `reset-resources`, an
+island is not an entity id, and the storm-driven reset never writes that file
+(it is the operator-command bridge, and only `reset-resources all` parses). It
+was not needed and was not touched.
+
+**One mutation escaped on the first attempt**, exactly as §7.9 warns. The scope
+decision was inline in the untestable game-server assembly; replacing it with
+`Func<long,bool>? include = null;` restored the world-wide reset with all 4215
+tests green. It now lives in the pure `IslandResourceScope.Include`.
 
 ---
 

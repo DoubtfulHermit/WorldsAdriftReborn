@@ -4520,11 +4520,57 @@ the 1254 push; no-op the reset call; write `isLightningActive = true`; drop the
 `generation` bump; make the countdown never cross 30 s; let the reset fire at
 storm *start* instead of end; regrow a felled log.
 
-#### S2 — Per-island scope
+#### S2 — Per-island scope — **BUILT, `feat/understorm-s2`, not deployed**
 Storms are per island (**PROVED** — the visualiser samples *its own* surface).
-Needs a public accessor over `ResourceInterestService._resourceIslands` and a
-per-island variant of `ResetHarvestResources()`. `WorldAdminResult.cs:54`
-already has the targeted result slot.
+The plan's two named seams were both right and both used: a public accessor over
+`ResourceInterestService._resourceIslands` (`IslandOf` / `ResourceIslands`) and a
+per-island variant of `ResetHarvestResources()`
+(`ResetHarvestResourcesOn(IslandId)`). Each of the four ledgers gained a
+`ResetAll(Func<long,bool> include)` overload; the no-argument form still means the
+whole world and is still what the operator's `reset-resources all` runs.
+`IslandStormPolicy.WorldResetAt` / `DueWorldResetGeneration` became `ResetAt` /
+`DueResetGeneration` over *that island's* phase offset, and the "last island"
+special case is gone.
+
+**MEASURED, headless, at production's exact configuration** (tier1 = 47 islands,
+cadence 900 s, jitter 0.2, duration 45 s): the worst gap between an island's own
+storm START and its own reset is **45.05 s** — the storm's own length plus one
+20 Hz loop turn. S1 measured **212 s** on the same configuration. 36 of the 47
+resets now land *before the last island has even started storming*; under S1 that
+number was 0 by construction.
+
+Three things the plan got wrong or did not say:
+
+- **`WorldAdminResult.cs:54` is NOT a targeted result slot for this.** The
+  `TargetEntityId` property exists on the type, but line 54 is the validator
+  clause that *rejects* a target on `reset-resources`, and an island is not an
+  entity id. More to the point the storm-driven reset never touches that file at
+  all — it is the login-server↔game-server operator-command bridge, and
+  `AdminWorldCommandPolicy` only parses `reset-resources all`. Nothing in S2
+  needed it and nothing in S2 changed it. An island-targeted *operator* command
+  would be separate, small work.
+- **The reset must not sit behind the 1254 push's early exits.** Resources are
+  server-side state; an island whose `AddEntityOp` has not run still owes its
+  trees, and skipping the call would also leave that island's
+  `LastResetGeneration` unseeded, so its first real reset would replay every
+  generation it slept through.
+- **`_resourceIslands` is EMPTY when spatial interest is off**, because the
+  constructor returns before populating it. Production reads
+  `WAREBORN_INTEREST_RADIUS_M=120` (**PROVED**, read live 2026-08-20), so the map
+  is populated there — but a per-island reset that trusted it unconditionally
+  would silently restore nothing on an interest-off server, with every test
+  green. `IslandOwningResource` falls back to the same
+  `IslandResourceInterestPolicy.ClosestIsland` the map itself is built from.
+
+**One mutation escaped on the first attempt** (hard rule 9, which predicted
+exactly this). The scope decision was written inline in the game server, which
+has no test project, so it was covered only by source-reading assertions on
+`ResetAll(include)` at the call sites. Replacing the whole declaration with
+`Func<long,bool>? include = null;` reinstated the world-wide reset — the exact S1
+defect — left every one of those strings intact, and the suite passed 4215/0.
+The decision now lives in `Multiplayer.Islands.IslandResourceScope.Include`,
+where it is unit-tested, and one wiring test reads the single line that hands the
+island over.
 
 #### S3 — Re-rolled placement
 Re-request `SpawnResources` for `Metal` **and** `Egg` at storm end via the
