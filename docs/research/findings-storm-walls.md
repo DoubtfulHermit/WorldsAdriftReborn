@@ -506,6 +506,105 @@ shipped years of patches afterwards. It corroborates §2.5, §3 and §4.1; it is
 
 ---
 
+## 11a. `WorldEndWall` IS NOT THE MAP EDGE — it is the Haven starter separator
+
+**2026-08-20, branch `feat/wallvis`, found while siting an in-game test flight.**
+Every document so far, including this one's §0 and §3, calls type 5 "the map
+edge" or "the world-boundary curtain". **It is not**, and the release map says so
+in one line.
+
+`wamap-islands.json`'s `Haven` entry is not a position at all. It is, verbatim
+and in full:
+
+```json
+"Haven": { "xOfVerticalSeparator": 15943.6523 }
+```
+
+And the single `WorldEndWall` segment is:
+
+```json
+{ "x1": 15943.6523, "z1": 18000.0, "x2": 15943.6523, "z2": -18000.0, "Type": 5 }
+```
+
+**The same number.** Type 5 is a north-south line at `x = 15943.65` spanning the
+world's full 36 km depth: the divider between the **Haven starter pocket** — the
+2 km-wide eastern strip holding 12 of the 266 islands, up to `x = 17174` — and
+the main world to the west. The true map edge is `x = ±18000`
+(`WorldInfo.WorldEdgeLength = 36000`) and is guarded by something else entirely,
+`WorldEdgePushback`, which §9.11 already established is keyed on
+`WorldBoundsDataVisualizer` and **not** on `WeatherWalls`.
+
+Three consequences worth having written down:
+
+1. **It is consistent with the dev blog** (§11): walls are *region* boundaries,
+   and this is the boundary of the first region. It is not a special case.
+2. **It renders as a WIND wall, not a storm one.** `ComputePoint` puts the
+   `worldEnd` term in `wallColor.r` (shared with `windRift`) and `.b`, never in
+   `.g` — so it drives `WindWallValue` and the translucent curtain path, and
+   cannot trigger the opaque storm renderer, the debris or the bolts
+   (`findings-storm-sky.md` §1.2). Combined with §2.2's finding that its gusts
+   are a shipped `Vector3.zero` no-op, **type 5 is the cheapest wall in the game
+   and is pure scenery.**
+3. **It is 1.27 km due west of this server's player spawn**, and 36 km long. That
+   makes it the single easiest wall to put in front of a tester, and the first
+   thing anyone verifying this feature should look at.
+
+---
+
+## 11b. THE AMBIENT-BOLT COST — MEASURED, and §6's warning can be stood down
+
+**2026-08-20, branch `feat/wallvis`.** §6 and §10 both flagged the ambient-bolt
+spawn cost of whole-wall serving as *"derived from the formula, not measured"*
+and asked for a soak before accepting it. It has now been read off the shipped
+bytes instead, which is better than a soak because it bounds the worst case
+rather than sampling one.
+
+**All four constants RECOVERED** from the serialized `LightningVisualInstancesManager`
+on `level0`, by the §8 / `findings-storm-sky.md` §7 raw-offset method. *Positive
+control, same script, same run:* `WeatherTextureGenerator` came back
+`800, 800, 0.048, 1, 0.109, 0.009` — reproducing `findings-storm-sky.md` §1.1's
+independently recovered `StormRiftDist = 800` and its six dead sliders exactly,
+so the offset arithmetic is right.
+
+| field | decompiled default | **shipped** |
+|---|---|---|
+| `_trueLightningSlots` | 6 | **6** |
+| `_randomLightningSlots` | 2 | **2** |
+| `_fakeLightningPerSecondPerKilometer` | 1.0 | **1.0** |
+| `_fakeLightningPerFrameCap` | 10 | **10** |
+
+**This is the first time in three documents that the decompiled defaults have all
+turned out RIGHT.** Worth recording precisely because §2.4 and
+`findings-storm-sky.md` §1.1 both found them wrong — "check the serialized value"
+is the rule, not "the decompile lies".
+
+**What 53.4 km of storm wall therefore costs, per `LightUpClouds` (`:169-189`):**
+
+- **53.4 candidate points per second, world-wide** — `1.0 /s/km × 53.4 km`.
+- At 60 fps that is **0.89 loop iterations per frame**. `_fakeLightningPerFrameCap = 10`
+  **never binds**: it would take **>600 km** of registered storm wall to reach it,
+  and the whole release map has 53.4.
+- Each iteration is one `WeatherWalls.RandomPointOnStormWall` (pick a wall, one
+  lerp, one camera-distance compare) plus one `CameraManager.IsCameraVisiblePoint`
+  frustum test. **`TryAddEmissionAt` is reached only by points that pass the
+  frustum test**, and away from a wall almost none do.
+- Concurrent ambient bolts are hard-capped at `_randomLightningSlots = 2`
+  emitter slots, independently of the spawn rate.
+
+**Verdict: serve all 11 storm rifts.** The cost is ~1 frustum test per frame and
+at most 2 live emitters. §6's suggested mitigation — subdivide storm rifts and
+interest-gate them at ≥800 m — is **not needed**, and §6's own argument against
+interest-gating walls (our 120 m radius would check a wall out long after the
+player is inside it) stands unopposed. The lever exists anyway as
+`WAREBORN_WALL_TYPES` if a real client ever disagrees.
+
+**Still not measured, and cannot be from here:** the GPU cost of the *storm
+renderer swap* inside 367 m (`CmdBufClouds.enabled = false`), the debris
+emitters, and the bolt geometry itself. Those need a real client on a real GPU;
+relaybot is headless and cannot execute any of it.
+
+---
+
 ## 12. WHAT WAS NOT DONE
 
 No server code changed. No client mod built or installed. Nothing pushed, nothing deployed. Production not touched, not even read. `isLightningActive` not written anywhere. No test, no schema change. Only `docs/research/findings-storm-walls.md` added and a pointer appended to `docs/research/findings-storm-sky.md` §6.

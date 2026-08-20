@@ -199,8 +199,55 @@ namespace WorldsAdriftRebornGameServer.Game.Components
 
                     if(componentId == 8065)
                     {
-                        Blueprint.Data bData = new Blueprint.Data(new BlueprintData("Player"));
+                        // Every entity in this world was sent the literal "Player"
+                        // here, and every entity that is not a WEATHER WALL still is -
+                        // byte for byte, including an entity with no registration.
+                        // Only a wall gets "WallSegment", which is the blueprint the
+                        // WallSegment prefab wants. The decision is one function in
+                        // Multiplayer.Walls.WallPolicy rather than an expression
+                        // here, because this literal is read by EVERY entity and this
+                        // assembly has no test project to catch a widening that
+                        // caught the wrong ones.
+                        Blueprint.Data bData = new Blueprint.Data(
+                            new BlueprintData(WallSegmentWire.BlueprintNameFor(entityId)));
                         obj = bData;
+                    }
+                    else if(componentId == 1204)
+                    {
+                        // 1204 WallSegmentState - THE WHOLE WEATHER-WALL FEATURE.
+                        //
+                        // Four numbers, and from them the shipped client renders a
+                        // storm wall: opaque billowing cloud, rain, storm debris, an
+                        // audio mix, and ambient lightning bolts it spawns entirely
+                        // by itself. WallSegmentVisualizer has exactly ONE [Require]
+                        // and this is it.
+                        //
+                        // `length` IS A HALF-LENGTH - WallData does
+                        // P1 = position - forward*Length, P2 = position + forward*Length -
+                        // and `orientation` is the UNIT direction along the wall, from
+                        // which the visualiser sets transform.forward and nothing
+                        // else. The position comes from 190602, which is seeded FIRST
+                        // (WallPolicy.SeedComponents says why that order matters).
+                        //
+                        // A null seed - every non-wall entity, and every entity at all
+                        // when WAREBORN_WALLS is unset - leaves obj null, which the
+                        // shared tail below reports as NoSeedForEntity. That is the
+                        // pre-feature behaviour for an id with no branch, so "off" is
+                        // byte-identical.
+                        //
+                        // DO NOT ADD A 1229 BRANCH BESIDE THIS ONE. See
+                        // Game/WallSegmentWire.cs for the four reasons.
+                        Multiplayer.Walls.WallSegmentSeed? wall = WallSegmentWire.SeedFor(entityId);
+                        if (wall.HasValue)
+                        {
+                            Multiplayer.Walls.WallSegmentSeed seed = wall.Value;
+                            obj = new WallSegmentState.Data(new WallSegmentStateData(
+                                seed.WallTypeId,
+                                seed.WallId,
+                                new Improbable.Math.Vector3d(
+                                    seed.OrientationX, seed.OrientationY, seed.OrientationZ),
+                                seed.HalfLength));
+                        }
                     }
                     else if(componentId == 190602)
                     {

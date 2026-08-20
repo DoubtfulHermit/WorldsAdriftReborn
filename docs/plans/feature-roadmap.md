@@ -4150,6 +4150,33 @@ description.
 Walls are **out of scope for this task** but should be lifted out of PHASE 6 in
 a future edit: they are a separate, cheaper, independent phase.
 
+> **✅ BUILT 2026-08-20, branch `feat/wallvis` — phase (A), VISUALS ONLY.**
+> All 44 walls are served as `WallSegment` entities carrying `190602` (the wall's
+> midpoint) and `1204` (`wallType`, `wallId`, unit orientation, **HALF**-length),
+> behind `WAREBORN_WALLS` — default OFF, and off registers nothing at all, so it
+> is byte-identical on the wire.
+>
+> **One entity per wall, not thousands.** `WallData.Add` merges every segment
+> sharing a `wallId` into their axial extent, so N collinear segments produce a
+> bit-identical distance field to one spanning the same extent
+> (`findings-storm-walls.md` §6). Retail's subdivision was interest management
+> for a checkout radius we do not have.
+>
+> **The ambient-bolt cost is now RECOVERED rather than feared** —
+> `findings-storm-walls.md` §11b, read off the shipped `level0`: 53.4 km of storm
+> wall gives ~0.9 frustum tests per frame and a hard cap of 2 concurrent
+> emitters, and the per-frame cap would need >600 km to bind. `WAREBORN_WALL_TYPES=0,3,5`
+> remains as a lever, unneeded.
+>
+> **NOT built, deliberately: `1229`, any force, any damage.** The three wall force
+> paths live in `ShipPreprocessor`'s `UnityWorker` branch and are not on our hulls,
+> so this applies **zero newtons** and cannot perturb flight or the atlas
+> arithmetic. `1229`'s 50 retail values are unrecoverable and the client
+> `LogError`s per missing key; a wiring test goes red if it ever appears.
+>
+> Code: `Multiplayer/Walls/` (all decisions, unit-tested), `Game/WallSegmentWire.cs`,
+> and the `1204` + widened `8065` branches in `ComponentsSerializer`.
+
 ---
 
 #### 14.4.1 The rest of the lightning family — what each actually needs
